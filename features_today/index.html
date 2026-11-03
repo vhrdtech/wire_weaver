@@ -6076,6 +6076,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <ul>
 <li><strong><a href="../std_library/device_contract/">Device contract</a></strong>: What every device answers: firmware, board, ids, user label and last reset.</li>
 <li><strong><a href="../std_library/ww_board_info/#recording-a-rework">Recording a board rework</a></strong>: After a rework on the bench, any host records it by number on any device serving <code>ww_board_info</code>; a firmware refuses numbers it doesn't know and reports ones it finds in its record.</li>
+<li><strong><a href="../std_library/ww_board_info/#the-rework-guard">The rework guard</a></strong>: A firmware never runs a board with a rework it doesn't know: it boots guarded unless the user allowed that rework for this very image, and an image tells flashers which reworks it knows.</li>
 <li><strong><a href="../std_library/ww_error/">Common errors</a></strong>: <code>CommonError</code> (<code>Busy</code>, <code>Timeout</code>, <code>InvalidArgument</code>, ...) shared by all APIs.</li>
 <li><strong><a href="../std_library/ww_si/">Units and numbers</a></strong>: <code>ww_si</code> quantities like volts, hertz and seconds, <code>ww_numeric</code> values.</li>
 <li><strong><a href="../std_library/ww_si/#unit-algebra">Units checked by the compiler</a></strong>: One generic quantity type with the unit in the type: <code>Volt * Ampere</code> is a <code>Watt</code>, <code>Volt + Ampere</code> doesn't build, <code>3300 mV</code> prints itself.</li>

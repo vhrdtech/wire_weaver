@@ -3473,11 +3473,39 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#a-record-with-reworks-the-firmware-doesnt-know" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-rework-guard" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        A record with reworks the firmware doesn't know
+        The rework guard
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The rework guard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flashing-the-image-knows-its-reworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flashing: the image knows its reworks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#firmware-from-before-the-guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Firmware from before the guard
       </span>
     </span>
   </a>
@@ -5572,11 +5600,39 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#a-record-with-reworks-the-firmware-doesnt-know" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-rework-guard" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        A record with reworks the firmware doesn't know
+        The rework guard
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The rework guard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#flashing-the-image-knows-its-reworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flashing: the image knows its reworks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#firmware-from-before-the-guard" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Firmware from before the guard
       </span>
     </span>
   </a>
@@ -5824,8 +5880,10 @@ items</a>): the client answers <code>NotImplementedByDevice</code> without askin
 <code>ww report</code> print the list when it is served:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Reworks    rework 1: analog buffer supply (applied)
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>           rework 3: 1.8 V LDO (TLV70218) (not applied)
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>           rework 9 (unknown to this firmware): applied, the board runs on its safe features until a firmware that knows it
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>           rework 9 (unknown to this firmware): applied
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>Guard      GUARDED: unknown rework 9; flash a firmware that knows it, or ww board rework allow 9
 </span></code></pre></div>
+<p>The guard line comes from <code>GUARD</code> (<a href="#the-rework-guard">below</a>).</p>
 <h3 id="recording-a-rework">Recording a rework<a class="headerlink" href="#recording-a-rework" title="Permanent link">&para;</a></h3>
 <p>After a rework on the bench, the unit's record is changed through one optional method:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[optional]</span>
@@ -5871,29 +5929,159 @@ items</a>): the client answers <code>NotImplementedByDevice</code> without askin
 <p>The rule that matters is the first: a firmware never stores a number it can't name. A host shows the refusal with
 the numbers the firmware knows, from <code>REWORKS</code>: <code>unknown rework 7: this firmware knows 1-5, 8; update firmware
 first</code>.</p>
-<h3 id="a-record-with-reworks-the-firmware-doesnt-know">A record with reworks the firmware doesn't know<a class="headerlink" href="#a-record-with-reworks-the-firmware-doesnt-know" title="Permanent link">&para;</a></h3>
-<p>A record written by a newer firmware can hold a number the running one doesn't know (flashed back to an older
-build). The firmware then neither ignores the record nor that number: it can't know what the rework changed (a rework
-can remove a path the old firmware would drive). It serves the number with <code>title: None</code>, reports it where the device
-reports its record's state, and runs the board on its safe features until a firmware that knows the rework is
-flashed: what is safe on every unit of the revision, whatever its reworks.</p>
+<h2 id="the-rework-guard">The rework guard<a class="headerlink" href="#the-rework-guard" title="Permanent link">&para;</a></h2>
+<p>A record written by a newer firmware can hold a rework number the running one doesn't know (flashed back to an older
+build, or a rework recorded by a newer <code>ww board rework</code>). The firmware can't know what that rework changed: it can
+remove or reroute a path the firmware would drive. So the rule for every board is: <strong>a firmware never runs a board
+with a rework it doesn't know</strong> (STD-101). It boots guarded instead:</p>
+<ul>
+<li>It serves identity, <code>ww info</code>, updates and reading the record only. Everything else is refused with the reason
+  (SRV-50's gate).</li>
+<li>Every output stays in its safe state: no slot, bus or peripheral of the board is started.</li>
+<li>It reports it in <code>GUARD</code>, and on a status LED where the board has one.</li>
+</ul>
+<p>A guarded board is left by flashing a firmware that knows the rework, or by an <strong>allowance</strong>: the user agrees that one
+image may run the board with named reworks it doesn't know.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[optional]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">const</span><span class="w"> </span><span class="n">GUARD</span><span class="p">:</span><span class="w"> </span><span class="nc">GuardSummary</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// state, unknown numbers, the stored allowance</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="cp">#[optional]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">fn</span><span class="w"> </span><span class="nf">allow_unknown_reworks</span><span class="p">(</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">image</span><span class="p">:</span><span class="w"> </span><span class="nc">ImageId</span><span class="p">,</span><span class="w">                                    </span><span class="c1">// first 8 bytes of the image&#39;s GNU build id</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="n">reworks</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkId</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_REWORKS</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// the unknown ones it may run with</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="n">program</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ReworkChange</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="cp">#[optional]</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="k">fn</span><span class="w"> </span><span class="nf">clear_unknown_reworks_allowance</span><span class="p">(</span><span class="n">program</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ReworkChange</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>GuardState</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Normal</code></td>
+<td>The firmware knows every rework applied</td>
+</tr>
+<tr>
+<td><code>Guarded</code></td>
+<td>A rework applied is unknown, and no allowance for this image covers it</td>
+</tr>
+<tr>
+<td><code>Allowed</code></td>
+<td>Unknown reworks, but the allowance for this image covers every one: the board runs normally</td>
+</tr>
+</tbody>
+</table>
+<p><code>GUARD</code> is a const item, so a host reads it once per connection. After <code>allow_unknown_reworks</code> or
+<code>clear_unknown_reworks_allowance</code> a host trusts the <code>ReworkChange</code> they return (<code>Written</code>), never a second read of
+<code>GUARD</code> on the same connection. A new connection shows the stored allowance.</p>
+<p>The allowance is built so it can't get stuck:</p>
+<ul>
+<li>It is bound to one image by its <code>ImageId</code>, the first 8 bytes of the GNU build id. Any other image ignores it,
+  whichever tool flashed that image (probe-rs, picotool, a UF2 copy).</li>
+<li>It names the numbers it covers. A further unknown rework recorded later isn't covered.</li>
+<li>An image with the guard erases an allowance that isn't its own at boot. So it can't come back when the old image is
+  flashed again later.</li>
+<li><code>ww</code> flashers clear it before writing an image that needs none.</li>
+</ul>
+<p>One gap is left, on purpose: the very same image flashed again by another tool, with only firmware from before the
+guard in between, finds its allowance still valid. That is the image the user agreed to.</p>
+<p>The allowance is not a security boundary. Whoever can store it can also change the record.</p>
+<p><code>set_reworks</code> is refused while guarded (<code>ReworkError::Guarded { id }</code>): record reading only. <code>allow_unknown_reworks</code>
+and <code>clear_unknown_reworks_allowance</code> are served in every state.</p>
+<h3 id="flashing-the-image-knows-its-reworks">Flashing: the image knows its reworks<a class="headerlink" href="#flashing-the-image-knows-its-reworks" title="Permanent link">&para;</a></h3>
+<p>A flasher compares before it writes:</p>
+<ol>
+<li>It reads the board's name, revision and applied reworks from the running device (<code>BOARD</code>, <code>REWORKS</code>, <code>GUARD</code>).</li>
+<li>It reads the reworks the new image knows from the image itself: a small record every guarding image carries in
+flash (<code>ww_board_info::image</code>).</li>
+<li>If the image lacks an applied rework, the user sees the list and must agree. Only then is the allowance stored for
+the new image's <code>ImageId</code>, and the image written.</li>
+</ol>
+<p><code>ww dfu rp flash</code>, <code>ww dfu stm32 flash</code> and <code>ww dfu flash</code> do this (TOOL-29). When the device can't be read before
+writing (already in the boot ROM, or running firmware from before the guard that can't store an allowance), the new
+image guards itself. <code>ww board rework allow N</code> then stores the allowance for the running image, and the board runs
+normally from its next boot (TOOL-30).</p>
+<p>The record is built from the same <code>ReworkTable</code> consts the firmware uses:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">ww_board_info</span><span class="p">::</span><span class="n">image_reworks</span><span class="o">!</span><span class="p">(</span><span class="k">pub</span><span class="w"> </span><span class="k">static</span><span class="w"> </span><span class="n">IMAGE_REWORKS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="p">(</span><span class="s">&quot;B200&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;A&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">REWORKS_B200A</span><span class="p">),</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p">(</span><span class="s">&quot;B200&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;B&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">NO_REWORKS</span><span class="p">),</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">]);</span>
+</span></code></pre></div>
+<p><code>ImageTable::find(bytes)</code> finds it in an image's flash contents (ELF, UF2 or raw binary, once loaded).
+<code>image::check(table, name, revision, applied)</code> is the one comparison every flasher makes:</p>
+<table>
+<thead>
+<tr>
+<th><code>Check</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Ok</code></td>
+<td>The image knows every applied rework: flash, and clear a stored allowance</td>
+</tr>
+<tr>
+<td><code>Lacking(set)</code></td>
+<td>The image doesn't know these: ask the user, store the allowance for it, then flash</td>
+</tr>
+<tr>
+<td><code>OtherBoard</code></td>
+<td>The image lists other boards only: probably the wrong image</td>
+</tr>
+<tr>
+<td><code>NoRecord</code></td>
+<td>The image predates the guard: it doesn't guard and would run the board as built, ignoring the applied reworks</td>
+</tr>
+</tbody>
+</table>
+<p>The record's layout (magic <code>WWREWORK</code>, CRC-32, 48-byte entries) is in the <code>image</code> module's docs.
+<code>ww_firmware_info::find_build_id</code> finds the image's build id in the same bytes.</p>
+<h3 id="firmware-from-before-the-guard">Firmware from before the guard<a class="headerlink" href="#firmware-from-before-the-guard" title="Permanent link">&para;</a></h3>
+<p>Deployed firmware can't learn this. The rule holds from the first firmware of a board that has the guard. Firmware
+with STD-98 but without the guard serves <code>REWORKS</code> with the unknown numbers and can't store an allowance. Firmware
+from before STD-98 can't even report its reworks. A flash from either takes the post-flash path above.</p>
 <h3 id="in-firmware-ww_board_infotable">In firmware: <code>ww_board_info::table</code><a class="headerlink" href="#in-firmware-ww_board_infotable" title="Permanent link">&para;</a></h3>
 <p><code>table</code> answers both items from the firmware's own table, so every board answers the same way (<code>no_std</code>):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_board_info</span><span class="p">::{</span><span class="n">ReworkId</span><span class="p">,</span><span class="w"> </span><span class="n">table</span><span class="p">::{</span><span class="n">ReworkDef</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkSet</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkTable</span><span class="p">}};</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">const</span><span class="w"> </span><span class="n">REWORKS</span><span class="p">:</span><span class="w"> </span><span class="nc">ReworkTable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ReworkTable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="o">&amp;</span><span class="p">[</span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;analog buffer supply&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;SD full swap&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;SD short swap&quot;</span><span class="p">)],</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="o">&amp;</span><span class="p">[(</span><span class="n">ReworkId</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkId</span><span class="p">(</span><span class="mi">8</span><span class="p">))],</span><span class="w"> </span><span class="c1">// can&#39;t both be applied</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_board_info</span><span class="p">::{</span><span class="n">ReworkId</span><span class="p">,</span><span class="w"> </span><span class="n">table</span><span class="p">::{</span><span class="n">ReworkDef</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkSet</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkTable</span><span class="p">}};</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">const</span><span class="w"> </span><span class="n">REWORKS</span><span class="p">:</span><span class="w"> </span><span class="nc">ReworkTable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ReworkTable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="o">&amp;</span><span class="p">[</span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;analog buffer supply&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;SD full swap&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;SD short swap&quot;</span><span class="p">)],</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="o">&amp;</span><span class="p">[(</span><span class="n">ReworkId</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkId</span><span class="p">(</span><span class="mi">8</span><span class="p">))],</span><span class="w"> </span><span class="c1">// can&#39;t both be applied</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">);</span>
 </span></code></pre></div>
 <ul>
 <li><code>ReworkSet</code> is what the record stores, a bit per number (0-63).</li>
 <li><code>REWORKS.apply(stored, changes)</code> checks a request and returns the new set or the <code>ReworkError</code>.</li>
 <li><code>REWORKS.list(stored)</code> gives the <code>REWORKS</code> entries, unknown numbers last.</li>
-<li><code>REWORKS.unknown(stored)</code> is non-empty while the board must run on its safe features.</li>
+<li><code>REWORKS.unknown(stored)</code> is non-empty while the board must boot guarded.</li>
 <li><code>REWORKS.known_ids()</code> prints <code>1, 5, 8</code> for messages.</li>
 </ul>
-<p><code>tests/board_info</code> has a complete server.</p>
+<p>At boot, the guard decides once (<code>ww_board_info::guard</code>):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">own</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ImageId</span><span class="p">::</span><span class="n">from_build_id</span><span class="p">(</span><span class="n">ww_firmware_info</span><span class="p">::</span><span class="n">build_id</span><span class="p">());</span><span class="w"> </span><span class="c1">// None without the build-id note</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">known</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IMAGE_REWORKS</span><span class="p">.</span><span class="n">known</span><span class="p">(</span><span class="n">board_name</span><span class="p">,</span><span class="w"> </span><span class="n">revision</span><span class="p">);</span><span class="w">           </span><span class="c1">// read through the image&#39;s own record</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">decision</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">guard</span><span class="p">::</span><span class="n">decide</span><span class="p">(</span><span class="n">known</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">,</span><span class="w"> </span><span class="n">stored_allowance</span><span class="p">,</span><span class="w"> </span><span class="n">own</span><span class="p">);</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">if</span><span class="w"> </span><span class="n">decision</span><span class="p">.</span><span class="n">erase_allowance</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="c1">// erase the stored allowance: it is for another image</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">if</span><span class="w"> </span><span class="n">decision</span><span class="p">.</span><span class="n">guard</span><span class="p">.</span><span class="n">runs_board</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="c1">// start the board&#39;s functions</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="c1">// guarded: USB / the link, identity, info, DFU, reading the record; outputs safe</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">}</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="kd">let</span><span class="w"> </span><span class="n">report</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GuardReport</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">decision</span><span class="p">.</span><span class="n">guard</span><span class="p">,</span><span class="w"> </span><span class="n">allowance_left</span><span class="p">,</span><span class="w"> </span><span class="n">own</span><span class="p">);</span><span class="w"> </span><span class="c1">// serves GUARD: report.summary()</span>
+</span></code></pre></div>
+<p>The allowance is two <code>u64</code> next to the record (<code>StoredAllowance</code>): <code>ImageId</code> as a little-endian <code>u64</code> (0: none) and a
+<code>ReworkSet</code>. <code>guard::allowance_from_request</code> turns an <code>allow_unknown_reworks</code> call into one. A board that guards links
+the GNU build-id note (<code>ww_firmware_info</code> docs); without it no allowance can be its own, so the board stays guarded
+until a firmware that knows the rework is flashed.</p>
+<p><code>tests/board_info</code> has a complete server, guard included.</p>
 <p>Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.</p>
 <p><code>BoardSummary</code> has no <code>defmt::Format</code> (its <code>DateTime</code> has none).</p>

@@ -19,9 +19,11 @@ use crate::event_loop::command::{
 };
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::transport::LinkSetupPacing;
+use crate::global_paths::{AbsoluteRetry, GlobalPaths};
 use crate::tap::{LinkEvents, default_recorder, trace_events};
 use crate::tracing::TraceEvent;
 use crate::{Error, SeqTy};
+use std::sync::Arc;
 use ww_tap::{Layers, Recorder, RecorderLink};
 
 const PING_INTERVAL: Duration = Duration::from_millis(ww_link::PING_INTERVAL_MS);
@@ -65,6 +67,9 @@ pub(crate) enum TxOutput {
     /// Send the current frame now, even if not full. No-op when there is nothing pending.
     Flush,
     ToRx(ToRx),
+    /// Send a request with a `GlobalFull` path again with the trait's absolute path, from the device's introspection
+    /// data ([GlobalPaths::resend_absolute], SRV-53).
+    ResolveAbsolute(Arc<GlobalPaths>, Box<AbsoluteRetry>),
     /// Flush and send all preceding messages, close the transport and stop.
     /// [TxCore::into_residual] returns what a wrapper should hand back to the client.
     Exit(anyhow::Result<EventLoopExitReason>),
@@ -190,6 +195,9 @@ pub(crate) struct TxCore {
     /// `ww_global` id, major and minor version of traits the device answered `TraitNotFound` to with a compact
     /// path: their requests go out with a `GlobalFull` path on this connection (API-20)
     full_only: HashSet<(u32, u32, u32)>,
+    /// Where requests with a `GlobalFull` path go when the device answers `TraitNotFound` (SRV-53), from
+    /// [Command::GlobalPaths]; None: they are answered with it.
+    global_paths: Option<Arc<GlobalPaths>>,
 
     /// Messages sent while link setup is in progress, sent out once the link is up.
     /// RxCore reports the connection to the user before LinkReady reaches tx, so the first
@@ -270,6 +278,7 @@ impl TxCore {
             max_seq: crate::DEFAULT_MAX_SEQ,
             in_flight: HashSet::new(),
             full_only: HashSet::new(),
+            global_paths: None,
             held_until_up: VecDeque::new(),
             waiting_for_seq: VecDeque::new(),
             loopback: None,
@@ -571,6 +580,7 @@ impl TxCore {
                 self.disconnected_tx = disconnected_tx;
                 return Ok(Flow::Exit(EventLoopExitReason::DisconnectCommand));
             }
+            Command::GlobalPaths(paths) => self.global_paths = Some(paths),
             Command::SendMessage { bytes, done_tx } => {
                 self.on_send_message(now, bytes, done_tx.into(), None);
             }
@@ -685,7 +695,7 @@ impl TxCore {
         };
         let retry = match done_tx {
             Waiter::Forward(..) => None,
-            _ => self.global_compact(&mut bytes),
+            _ => self.global_retry(&mut bytes),
         };
         // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
         // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
@@ -747,19 +757,29 @@ impl TxCore {
         }
     }
 
+    /// What to do with a request with a global trait path when the device answers `TraitNotFound`, see [FullRetry].
+    ///
     /// A request with a `GlobalCompact` path (API-20) goes out with the trait's `GlobalFull` path instead when the
     /// device answered `TraitNotFound` to its id before on this connection; otherwise the full form is returned, for
-    /// rx to send again on `TraitNotFound`. None for other requests, and for ids the registry doesn't name a trait with.
-    fn global_compact(&self, bytes: &mut Vec<u8>) -> Option<Box<FullRetry>> {
+    /// rx to send again on `TraitNotFound`. A request with a `GlobalFull` path is kept as it is, for the connection's
+    /// [GlobalPaths] to send again with an absolute path (SRV-53). None for other requests, for ids the registry
+    /// doesn't name a trait with, and for `GlobalFull` paths on a connection without [GlobalPaths].
+    fn global_retry(&self, bytes: &mut Vec<u8>) -> Option<Box<FullRetry>> {
         use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned};
         use ww_client_server::{PathKind, PathKindOwned, Request};
         let req = Request::from_ww_bytes(bytes).ok()?;
-        let PathKind::GlobalCompact {
-            gid,
-            path_from_trait,
-        } = &req.path_kind
-        else {
-            return None;
+        let (gid, path_from_trait) = match &req.path_kind {
+            PathKind::GlobalCompact {
+                gid,
+                path_from_trait,
+            } => (gid, path_from_trait),
+            PathKind::GlobalFull { .. } if self.global_paths.is_some() => {
+                return Some(Box::new(FullRetry {
+                    compact: None,
+                    bytes: bytes.clone(),
+                }));
+            }
+            _ => return None,
         };
         let compact_id = gid.gid.id.0;
         let entry = ww_global::entry(compact_id)
@@ -784,7 +804,7 @@ impl TxCore {
             None
         } else {
             Some(Box::new(FullRetry {
-                compact,
+                compact: Some(compact),
                 bytes: full,
             }))
         }
@@ -900,9 +920,15 @@ impl TxCore {
                 timeout,
                 hook,
             } => {
-                self.full_only.insert(retry.compact);
+                self.full_only.extend(retry.compact);
                 self.on_send_message(now, retry.bytes, Waiter::Response(done_tx, timeout), hook);
             }
+            ToTx::ResolveAbsolute(retry) => match &self.global_paths {
+                Some(paths) => self
+                    .output
+                    .push_back(TxOutput::ResolveAbsolute(paths.clone(), retry)),
+                None => _ = retry.done_tx.send(Err(Error::RemoteError(retry.error))),
+            },
             ToTx::Freed(seq) => {
                 self.in_flight.remove(&seq);
                 if self.phase == Phase::Up {

@@ -48,7 +48,10 @@ mod tests {
         assert_ne!(trait_hash("ab", "c"), trait_hash("a", "bc"));
         assert_eq!(
             trait_hash("ww_dfu", "BootControl"),
-            fnv1a(fnv1a(fnv1a(OFFSET_BASIS, b"ww_dfu"), &[0xff]), b"BootControl")
+            fnv1a(
+                fnv1a(fnv1a(OFFSET_BASIS, b"ww_dfu"), &[0xff]),
+                b"BootControl"
+            )
         );
     }
 

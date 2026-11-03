@@ -21,6 +21,7 @@ pub(crate) mod event_loop;
 pub use wire_weaver_evolution as evolution;
 pub mod expr;
 pub mod follow;
+mod global_paths;
 pub mod holders;
 pub mod hub;
 pub mod local;

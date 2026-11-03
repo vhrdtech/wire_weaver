@@ -513,6 +513,10 @@ impl RxCore {
                 hook,
             }));
         }
+        for retry in self.dispatcher.take_absolute_retries() {
+            self.output
+                .push_back(RxOutput::ToTx(ToTx::ResolveAbsolute(Box::new(retry))));
+        }
         if self.phase == Phase::Up {
             for bytes in self.dispatcher.poll_streams(now) {
                 self.output.push_back(RxOutput::ToTx(ToTx::Send(bytes)));
@@ -548,6 +552,9 @@ impl RxCore {
         self.dispatcher.take_freed();
         for (_, done_tx, _, _) in self.dispatcher.take_retries() {
             _ = done_tx.send(Err(Error::Disconnected));
+        }
+        for retry in self.dispatcher.take_absolute_retries() {
+            _ = retry.done_tx.send(Err(Error::Disconnected));
         }
         if notify_tx {
             self.output

@@ -789,6 +789,10 @@ async fn try_connect(
 ) -> Result<DeviceApiInfo> {
     let (connected_tx, connected_rx) = oneshot::channel();
     cmd_tx
+        .send(Command::GlobalPaths(config.global_paths.clone()))
+        .await
+        .map_err(|_| crate::Error::EventLoopNotRunning)?;
+    cmd_tx
         .send(Command::Connect {
             handle,
             client_version: config.client_version.clone(),
@@ -814,6 +818,9 @@ fn try_connect_blocking(
     config: &ValidatedConfig,
 ) -> Result<DeviceApiInfo> {
     let (connected_tx, connected_rx) = oneshot::channel();
+    cmd_tx
+        .blocking_send(Command::GlobalPaths(config.global_paths.clone()))
+        .map_err(|_| crate::Error::EventLoopNotRunning)?;
     cmd_tx
         .blocking_send(Command::Connect {
             handle,
@@ -842,6 +849,7 @@ fn create_commander_inner(
     commander.set_local_timeout(config.default_timeout);
     commander.set_default_priority(config.default_priority);
     commander.traits_only = config.traits_only;
+    commander.global_paths = config.global_paths.clone();
     commander.set_stream_queue_bytes(config.stream_queue_bytes);
     commander.set_stream_compression(config.stream_compression);
     if let Some(introspect_client) = config.introspect_client {
@@ -863,18 +871,28 @@ async fn create_commander(
 ) -> Commander {
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
+    // the device has no introspection data: known for good, unlike a failed download (SRV-53)
+    let mut no_introspection = false;
     if commander.device_introspect().is_none() && !commander.traits_only {
         match commander.introspect().get_as_sent().await {
             Ok(Some((sent_api_bundle, sent_size))) => {
-                match IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size) {
+                match IntrospectBundle::from_sent(
+                    sent_api_bundle,
+                    device_api_hash.clone(),
+                    sent_size,
+                ) {
                     Ok(bundle) => commander.set_device_introspect(bundle),
                     Err(e) => warn!("Device introspection data is not usable: {e:#}"),
                 }
             }
-            Ok(None) => debug!("device has introspection disabled and its API is not in the cache"),
+            Ok(None) => {
+                debug!("device has introspection disabled and its API is not in the cache");
+                no_introspection = true;
+            }
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }
     }
+    attach_global_paths(&commander, device_api_hash, no_introspection);
     commander.resolve_api_match();
     commander
 }
@@ -887,20 +905,46 @@ fn create_commander_blocking(
 ) -> Commander {
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
+    // the device has no introspection data: known for good, unlike a failed download (SRV-53)
+    let mut no_introspection = false;
     if commander.device_introspect().is_none() && !commander.traits_only {
         match commander.introspect().get_as_sent_blocking() {
             Ok(Some((sent_api_bundle, sent_size))) => {
-                match IntrospectBundle::from_sent(sent_api_bundle, device_api_hash, sent_size) {
+                match IntrospectBundle::from_sent(
+                    sent_api_bundle,
+                    device_api_hash.clone(),
+                    sent_size,
+                ) {
                     Ok(bundle) => commander.set_device_introspect(bundle),
                     Err(e) => warn!("Device introspection data is not usable: {e:#}"),
                 }
             }
-            Ok(None) => debug!("device has introspection disabled and its API is not in the cache"),
+            Ok(None) => {
+                debug!("device has introspection disabled and its API is not in the cache");
+                no_introspection = true;
+            }
             Err(e) => warn!("Failed to get device introspection data: {e:#}"),
         }
     }
+    attach_global_paths(&commander, device_api_hash, no_introspection);
     commander.resolve_api_match();
     commander
+}
+
+/// Tell the connection's global trait paths (SRV-53) how to reach the device, and its API if the connection has it.
+fn attach_global_paths(
+    commander: &Commander,
+    api_hash: ww_version::ApiHashPairOwned,
+    no_introspection: bool,
+) {
+    let api = match commander.device_introspect() {
+        Some(bundle) => Some(Some(bundle)),
+        None if no_introspection => Some(None),
+        None => None,
+    };
+    commander
+        .global_paths
+        .attach(commander.transport().downgrade(), api_hash, api);
 }
 
 fn check_interfaces(config: &ValidatedConfig) -> Result<Vec<InterfaceKind>> {

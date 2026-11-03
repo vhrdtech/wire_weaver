@@ -94,6 +94,9 @@ pub(crate) struct ValidatedConfig {
     pub(crate) link_setup_timeout_ms: Option<std::num::NonZeroU32>,
     pub(crate) introspect_client: Option<IntrospectBundle>,
     pub(crate) traits_only: bool,
+    /// Global trait paths resolved from the device's introspection data (SRV-53): one per validated config, so a
+    /// reconnect (same API) keeps what was resolved.
+    pub(crate) global_paths: std::sync::Arc<crate::global_paths::GlobalPaths>,
     /// [ClientConfig::tap], None for [crate::tap::default_recorder]
     pub(crate) tap: Option<ww_tap::Recorder>,
     /// [ClientConfig::client_meta], resolved; None for [ClientConfig::no_client_meta]
@@ -335,6 +338,7 @@ impl ClientConfig {
             }),
             introspect_client,
             traits_only: s.traits_only,
+            global_paths: crate::global_paths::GlobalPaths::new(),
             tap: s.tap,
             client_meta: match &s.client_meta {
                 ClientMetaSetting::On(meta) => Some(Box::new(meta.resolve())),

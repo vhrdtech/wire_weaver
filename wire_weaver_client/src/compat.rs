@@ -259,7 +259,7 @@ pub(crate) fn has_since(device: (u32, u32, u32), since: (u32, u32, u32)) -> bool
 
 /// One side of a comparison: bundle, resource in it, and how to call that side in messages.
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::path::PathBuf;
     use wire_weaver::shrink_wrap::ElementSize;
@@ -271,7 +271,7 @@ mod tests {
     use ww_version::FullVersionOwned;
 
     /// Build an API bundle from source, as codegen would, by writing a throwaway API crate.
-    fn bundle(name: &str, version: &str, lib_rs: &str) -> ApiBundleOwned {
+    pub(crate) fn bundle(name: &str, version: &str, lib_rs: &str) -> ApiBundleOwned {
         let dir: PathBuf = std::env::temp_dir()
             .join("ww_client_compat_tests")
             .join(format!("{name}-{version}-{}", std::process::id()));

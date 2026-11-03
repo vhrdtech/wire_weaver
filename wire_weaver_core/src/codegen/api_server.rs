@@ -988,10 +988,9 @@ fn global_full_table(traits: &[GlobalTrait]) -> Result<TokenStream, String> {
     for (i, t) in traits.iter().enumerate() {
         let crate_id = t.crate_version.crate_id.as_str();
         let hash = ww_global::trait_hash(crate_id, &t.trait_name);
-        if let Some(other) = traits[..i]
-            .iter()
-            .find(|o| ww_global::trait_hash(o.crate_version.crate_id.as_str(), &o.trait_name) == hash)
-        {
+        if let Some(other) = traits[..i].iter().find(|o| {
+            ww_global::trait_hash(o.crate_version.crate_id.as_str(), &o.trait_name) == hash
+        }) {
             return Err(format!(
                 "global trait paths (SRV-53): {crate_id}::{} and {}::{} have the same hash {hash:#010x}, \
                  rename one of the traits or use global_paths = \"compact\"",
@@ -3275,7 +3274,10 @@ mod tests {
         .to_string();
         let hash = ww_global::trait_hash("my_api", "Trait2");
         assert!(table.contains(&format!("{hash}u32")), "{table}");
-        assert!(!table.contains("Trait2") && !table.contains("my_api"), "{table}");
+        assert!(
+            !table.contains("Trait2") && !table.contains("my_api"),
+            "{table}"
+        );
     }
 
     #[test]
@@ -3290,7 +3292,10 @@ mod tests {
             global_trait("my_api", "Trait1018190", &[1]),
         ])
         .unwrap_err();
-        assert!(e.contains("my_api::Trait1018190 and my_api::Trait268817"), "{e}");
+        assert!(
+            e.contains("my_api::Trait1018190 and my_api::Trait268817"),
+            "{e}"
+        );
         assert!(e.contains("0x9d738fa3"), "{e}");
     }
 

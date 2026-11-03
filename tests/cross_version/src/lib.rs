@@ -6,6 +6,9 @@
 //! The trait clients send `GlobalCompact` paths (the trait's `ww_global` id): served like `GlobalFull`, and a
 //! device built before the trait had an id (it answers `TraitNotFound` to every compact path) is asked again with
 //! `GlobalFull`, and only that way from then on.
+//!
+//! The same firmware built with introspection resolves no global path itself (SRV-53): it answers them with
+//! `TraitNotFound`, and the client finds the trait in its introspection data and asks again with the absolute path.
 
 #[cfg(test)]
 mod tests {
@@ -36,44 +39,50 @@ mod tests {
         }
 
         impl OldDevice {
-            fn led_on(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+            pub(super) fn led_on(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
                 self.calls.write().unwrap().led_on = true;
                 RpcResult::Ready(())
             }
 
-            fn led_off(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+            pub(super) fn led_off(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
                 Unimplemented.into()
             }
 
-            fn device_uptime_s(
+            pub(super) fn device_uptime_s(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<u32> {
                 RpcResult::Ready(42)
             }
 
-            fn device_boot_boot_state(
+            pub(super) fn device_boot_boot_state(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<BootState> {
                 RpcResult::Ready(BootState::Confirmed)
             }
 
-            fn device_boot_confirm(
+            pub(super) fn device_boot_confirm(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<Result<(), ww_dfu::Error>> {
                 RpcResult::Ready(Ok(()))
             }
 
-            fn device_boot_revert(
+            pub(super) fn device_boot_revert(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<Result<(), ww_dfu::Error>> {
                 RpcResult::Ready(Err(ww_dfu::Error::Unsupported))
             }
 
-            fn device_boot_reboot(
+            pub(super) fn device_boot_reboot(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 into: BootTarget,
@@ -105,15 +114,7 @@ mod tests {
                 use ww_client_server::{PathKind, PathKindOwned, Request};
                 let request = Request::from_ww_bytes(bytes)?;
                 let mut calls = self.calls.write().unwrap();
-                calls.paths.push(match &request.path_kind {
-                    PathKind::Absolute { .. } => "absolute".into(),
-                    PathKind::GlobalCompact { gid, .. } => format!("compact {}", gid.gid.id.0),
-                    PathKind::GlobalFull {
-                        gid, trait_name, ..
-                    } => {
-                        format!("full {}::{trait_name}", gid.crate_id)
-                    }
-                });
+                calls.paths.push(path_kind(&request));
                 if calls.pre_compact && matches!(request.path_kind, PathKind::GlobalCompact { .. })
                 {
                     drop(calls);
@@ -129,6 +130,72 @@ mod tests {
                     return self.process_request_bytes(&old, scratch, out, medium);
                 }
                 drop(calls);
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
+    /// How a request names its resource: `compact <id>`, `full <crate>::<trait>` or `absolute`.
+    fn path_kind(request: &ww_client_server::Request<'_>) -> String {
+        use ww_client_server::PathKind;
+        match &request.path_kind {
+            PathKind::Absolute { .. } => "absolute".into(),
+            PathKind::GlobalCompact { gid, .. } => format!("compact {}", gid.gid.id.0),
+            PathKind::GlobalFull {
+                gid, trait_name, ..
+            } => {
+                format!("full {}::{trait_name}", gid.crate_id)
+            }
+        }
+    }
+
+    /// The old firmware built with introspection: it resolves no global trait path itself (SRV-53).
+    mod introspecting_device {
+        use super::old_device::OldDevice;
+        use super::*;
+
+        /// [OldDevice]'s handlers, another dispatcher.
+        pub struct IntrospectingDevice(pub OldDevice);
+
+        impl std::ops::Deref for IntrospectingDevice {
+            type Target = OldDevice;
+            fn deref(&self) -> &OldDevice {
+                &self.0
+            }
+        }
+
+        impl std::ops::DerefMut for IntrospectingDevice {
+            fn deref_mut(&mut self) -> &mut OldDevice {
+                &mut self.0
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                cross_version_old_api :: CrossVersion for super::IntrospectingDevice,
+                server = true, no_alloc = true, use_async = false,
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+                introspect = "no_docs",
+            );
+        }
+
+        impl tests_common::TestProcessEvents for IntrospectingDevice {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                use ww_client_server::{Request, RequestKind};
+                let request = Request::from_ww_bytes(bytes)?;
+                // whether the client had the introspection data in its cache or asked for it doesn't matter here
+                if !matches!(request.kind, RequestKind::Introspect) {
+                    self.calls.write().unwrap().paths.push(path_kind(&request));
+                }
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -222,6 +289,22 @@ mod tests {
             // what the old firmware reports: the same API crate as the host's, an incompatible version
             FullVersion::new("cross_version_api", Version::new(0, 3, 0)),
             old_device::api_impl::api_hash(),
+        );
+        (calls, device)
+    }
+
+    /// [start_old_device], built with introspection.
+    fn start_introspecting_device(path: &str) -> (Arc<RwLock<Calls>>, tests_common::TestDevice) {
+        let _ = tracing_subscriber::fmt::try_init();
+        let calls = Arc::new(RwLock::new(Calls::default()));
+        let server = introspecting_device::IntrospectingDevice(old_device::OldDevice {
+            calls: calls.clone(),
+        });
+        let device = tests_common::start_device(
+            path,
+            server,
+            FullVersion::new("cross_version_api", Version::new(0, 3, 0)),
+            introspecting_device::api_impl::api_hash(),
         );
         (calls, device)
     }
@@ -382,6 +465,7 @@ mod tests {
                 )
                 .call()
         };
+        assert_eq!(call(boot).await.unwrap(), BootState::Confirmed);
         // an id the registry doesn't have, a crate's id (ww_log), BootControl of an incompatible ww_dfu version
         let unknown = CompactVersion::new(GlobalTypeId::new(4000), 0, 1, 0);
         let crate_id = CompactVersion::new(ww_global::WW_LOG, 0, 1, 0);
@@ -390,18 +474,19 @@ mod tests {
             let r = call(gid).await;
             assert!(is_trait_not_found(&r), "{gid:?}: {r:?}");
         }
-        assert_eq!(call(boot).await.unwrap(), BootState::Confirmed);
-        // the incompatible version is asked again with GlobalFull (it could be a device from before the id), the
-        // others have no trait to name; the compatible version still goes compact
+        // the compatible version goes compact; the incompatible one is asked again with GlobalFull (it could be a
+        // device from before the id), the others have no trait to name. After the GlobalFull TraitNotFound the
+        // client looks for the trait in the device's API (SRV-53, none here: an incompatible version), and from
+        // then on would resolve the connection's global paths itself if it had the API, so that comes last.
         let id = boot.gid.id.0;
         assert_eq!(
             paths(&calls),
             [
-                "compact 4000".to_string(),
+                format!("compact {id}"),
+                "compact 4000".into(),
                 "compact 0".into(),
                 format!("compact {id}"),
                 "full ww_dfu::BootControl".into(),
-                format!("compact {id}"),
             ]
         );
     }
@@ -442,6 +527,78 @@ mod tests {
         assert_eq!(
             paths(&calls)[3..],
             [format!("compact {id}"), "full ww_dfu::BootControl".into()]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn global_path_resolved_from_introspection_after_trait_not_found() {
+        let (calls, device) = start_introspecting_device("cross_version/srv53_traits_only");
+        let client = connect_traits_only(&device).await;
+        let id = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap().gid.id.0;
+        let boot = BootControl::new(
+            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+        );
+        assert_eq!(
+            boot.boot_state().call().await.unwrap(),
+            BootState::Confirmed
+        );
+        boot.reboot(BootTarget::Updater).call().await.unwrap();
+        assert_eq!(
+            calls.read().unwrap().rebooted_into,
+            Some(BootTarget::Updater)
+        );
+        // the device resolves no global path: TraitNotFound to the compact one, then to the full one, then the
+        // client asks with the absolute path from the introspection data, and the next call does that right away
+        assert_eq!(
+            paths(&calls),
+            [
+                format!("compact {id}"),
+                "full ww_dfu::BootControl".into(),
+                "absolute".into(),
+                "absolute".into(),
+            ]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn global_path_resolved_at_once_with_introspection_known() {
+        let (calls, device) = start_introspecting_device("cross_version/srv53_dynamic");
+        // a dynamic client gets the device's introspection data when it connects
+        let client = DynClient::from_config(
+            wire_weaver_client::ClientConfig::new()
+                .in_process_path(device.path())
+                .clock_sync(false),
+        )
+        .connect()
+        .await
+        .expect("connect");
+        let boot = BootControl::new(
+            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+        );
+        assert_eq!(
+            boot.boot_state().call().await.unwrap(),
+            BootState::Confirmed
+        );
+        assert_eq!(paths(&calls), ["absolute"]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn trait_missing_from_introspection_not_found() {
+        let (calls, device) = start_introspecting_device("cross_version/srv53_missing");
+        let client = connect_traits_only(&device).await;
+        let inventory = Inventory {
+            cmd: client.cmd().clone(),
+        };
+        let r = inventory.manifest_digest(ww_dfu::Slot::Active).call().await;
+        assert!(
+            matches!(&r, Err(CallError::Client(Error::RemoteError(e))) if matches!(e.kind, ErrorKindOwned::TraitNotFound)),
+            "{r:?}"
+        );
+        // asked once by id and once by name, the introspection data has no such trait either
+        let id = ww_global::trait_id("ww_dfu", "Inventory").unwrap().id.0;
+        assert_eq!(
+            paths(&calls),
+            [format!("compact {id}"), "full ww_dfu::Inventory".into()]
         );
     }
 }

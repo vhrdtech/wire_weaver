@@ -5,6 +5,7 @@ use crate::client::sink::SinkLink;
 use crate::event_loop::command::{ForwardSink, Forwarded, StreamOpenHook};
 use crate::event_loop::core::FullRetry;
 use crate::event_loop::event_queue::{EventReceiver, EventSender};
+use crate::global_paths::AbsoluteRetry;
 use crate::{Error, RawStreamEvent, SeqTy};
 use std::collections::HashMap;
 use std::sync::{Arc, Weak};
@@ -103,6 +104,9 @@ pub(crate) struct RxDispatcher {
     /// Requests the device answered `TraitNotFound` to with a compact path, to be sent again by tx with
     /// [Self::take_retries]
     retries: Vec<Retry>,
+    /// Requests the device answered `TraitNotFound` to with a `GlobalFull` path, to be sent again with an absolute
+    /// one, [Self::take_absolute_retries] (SRV-53)
+    absolute_retries: Vec<AbsoluteRetry>,
     /// Open counted and reliable streams, by path
     positioned: HashMap<Vec<UNib32>, Arc<Shared>>,
     /// Time base of the streams' receivers, and when they were polled last
@@ -278,6 +282,11 @@ impl RxDispatcher {
     /// Requests to send again with a `GlobalFull` path, since the last call.
     pub fn take_retries(&mut self) -> Vec<Retry> {
         std::mem::take(&mut self.retries)
+    }
+
+    /// Requests to send again with an absolute path, since the last call.
+    pub fn take_absolute_retries(&mut self) -> Vec<AbsoluteRetry> {
+        std::mem::take(&mut self.absolute_retries)
     }
 
     fn respond_later(
@@ -526,13 +535,26 @@ impl RxDispatcher {
                     && let Some(mut done_tx) = self.take_response(seq)
                     && let Some(done_tx) = done_tx.0.take()
                 {
-                    // a device built before the trait got its ww_global id: ask again by crate and trait name
-                    debug!(
-                        "TraitNotFound for compact {:?}, asking again with GlobalFull",
-                        retry.compact
-                    );
                     let hook = self.stream_opens.remove(&seq);
-                    self.retries.push((retry, done_tx, timeout, hook));
+                    if let Some(compact) = retry.compact {
+                        // a device built before the trait got its ww_global id: ask again by crate and trait name
+                        debug!(
+                            "TraitNotFound for compact {compact:?}, asking again with GlobalFull"
+                        );
+                        self.retries.push((retry, done_tx, timeout, hook));
+                    } else {
+                        // a device with introspection resolves no global path (SRV-53): ask with the absolute one
+                        debug!(
+                            "TraitNotFound for a GlobalFull path, resolving it from introspection"
+                        );
+                        self.absolute_retries.push(AbsoluteRetry {
+                            bytes: retry.bytes,
+                            done_tx,
+                            timeout,
+                            hook,
+                            error: e.make_owned(),
+                        });
+                    }
                 } else if let Some(mut done_tx) = self.take_response(seq) {
                     _ = done_tx.send(Err(self.remote_error(e.make_owned())));
                 } else {

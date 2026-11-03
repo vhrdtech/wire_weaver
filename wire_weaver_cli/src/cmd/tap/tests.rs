@@ -532,7 +532,9 @@ async fn observe_requests_replies_and_updates_are_decoded() {
 }
 
 /// TOOL-9: calls through a global trait id (`ww info` and friends) are named by the trait's crate and decoded from
-/// the snapshot the host carries, with and without the device API (a command that never introspects).
+/// the snapshot the host carries, without the device API (a command that never introspects). With the device API
+/// (here from the local cache codegen fills) the client sends the trait's absolute path instead (SRV-53), named by
+/// the device's API.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn global_trait_calls_are_named_and_decoded() {
     for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
@@ -543,24 +545,31 @@ async fn global_trait_calls_are_named_and_decoded() {
             assert_eq!(&*n, "tapped");
         })
         .await;
+        let resource = match traits_only {
+            true => "ww_user_info::UserInfo.name",
+            false => "user.name",
+        };
         assert!(
-            printed.contains("Request Read ww_user_info::UserInfo.name"),
+            printed.contains(&format!("Request Read {resource}")),
             "{printed}"
         );
         assert!(
-            printed.lines().any(|l| l
-                .contains("Event Value ww_user_info::UserInfo.name  \"tapped\"")
-                && l.contains("reply to #")),
+            printed.lines().any(
+                |l| l.contains(&format!("Event Value {resource}  \"tapped\""))
+                    && l.contains("reply to #")
+            ),
             "{printed}"
         );
         assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
-        // the call went out by the trait's ww_global id (API-20): 6 bytes, the crate name alone would take 12; the
-        // name shown comes from the registry
-        let with_bytes = replayed_view(&path, Layer::Api, true);
-        let mut lines = with_bytes.lines();
-        lines.find(|l| l.contains("Request Read ww_user_info::UserInfo.name"));
-        let request_len = lines.next().unwrap().split_whitespace().skip(1).count();
-        assert_eq!(request_len, 6, "{with_bytes}");
+        if traits_only {
+            // the call went out by the trait's ww_global id (API-20): 6 bytes, the crate name alone would take 12;
+            // the name shown comes from the registry
+            let with_bytes = replayed_view(&path, Layer::Api, true);
+            let mut lines = with_bytes.lines();
+            lines.find(|l| l.contains("Request Read ww_user_info::UserInfo.name"));
+            let request_len = lines.next().unwrap().split_whitespace().skip(1).count();
+            assert_eq!(request_len, 6, "{with_bytes}");
+        }
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }

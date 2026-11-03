@@ -317,6 +317,8 @@ mod with_hub {
                         undelivered.0.fail_undelivered();
                     }
                 }
+                // sent again through the command channel, after the handover
+                TxOutput::ResolveAbsolute(paths, retry) => paths.resend_absolute(*retry),
                 TxOutput::Connect(..) | TxOutput::Exit(_) => {
                     return Err("unexpected output of a paused link".into());
                 }

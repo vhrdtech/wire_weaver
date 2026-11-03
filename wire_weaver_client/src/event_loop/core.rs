@@ -79,6 +79,9 @@ pub(crate) enum ToTx {
         timeout: Duration,
         hook: Option<Box<StreamOpenHook>>,
     },
+    /// The device answered `TraitNotFound` to a request with a `GlobalFull` path: the connection's
+    /// [GlobalPaths](crate::global_paths::GlobalPaths) sends it again with the trait's absolute path (SRV-53).
+    ResolveAbsolute(Box<crate::global_paths::AbsoluteRetry>),
     /// `Loopback` message received, for a running loopback test. `intact` is [loopback::is_intact] of its data.
     Loopback { seq: u32, len: usize, intact: bool },
     /// Rx is exiting (remote Disconnect, peer timeout, read error, ...) and tx should too,
@@ -177,13 +180,17 @@ impl ToRx {
     }
 }
 
-/// A request that goes out with a `GlobalCompact` path, serialized again with the trait's `GlobalFull` path (seq
-/// placeholder in place): sent instead when the device answers `TraitNotFound`, which a device built before the
-/// trait got its `ww_global` id does (API-20).
+/// What happens to a request with a global trait path when the device answers `TraitNotFound`:
+/// - with a `GlobalCompact` path (`compact` is Some), it is sent again as `bytes`, serialized with the trait's
+///   `GlobalFull` path (seq placeholder in place): a device built before the trait got its `ww_global` id knows it
+///   only that way (API-20);
+/// - with a `GlobalFull` path (`compact` is None, `bytes` is the request itself), the connection's
+///   [GlobalPaths](crate::global_paths::GlobalPaths) finds the trait in the device's introspection data and sends it
+///   again with the absolute path: a device with introspection resolves no global path itself (SRV-53).
 #[derive(Debug)]
 pub(crate) struct FullRetry {
     /// `ww_global` id, major and minor version of the trait's crate
-    pub(crate) compact: (u32, u32, u32),
+    pub(crate) compact: Option<(u32, u32, u32)>,
     pub(crate) bytes: Vec<u8>,
 }
 
@@ -335,6 +342,7 @@ async fn tx_task<T: Transport>(
                         undelivered.0.fail_undelivered();
                     }
                 }
+                TxOutput::ResolveAbsolute(paths, retry) => paths.resend_absolute(*retry),
                 TxOutput::Exit(result) => {
                     exit = Some(result);
                     break;
@@ -656,6 +664,10 @@ mod tests {
                         TxOutput::Flush => self.flushes += 1,
                         TxOutput::ToRx(m) => self.rx.handle(now, RxInput::FromTx(m)),
                         TxOutput::Exit(r) => self.tx_exit = Some(r),
+                        // no GlobalPaths is given to these cores: never asked for
+                        TxOutput::ResolveAbsolute(..) => {
+                            unreachable!("no GlobalPaths in core tests")
+                        }
                     }
                 }
                 while let Some(o) = self.rx.poll_output() {

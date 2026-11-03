@@ -17,6 +17,7 @@ use crate::event_loop::event_queue::event_queue;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
+use crate::global_paths::GlobalPaths;
 use crate::{
     AckMode, DEFAULT_REQUEST_TIMEOUT, PositionedStream, PreparedRead, PreparedStreamOpen,
     PreparedWrite, Sink, StreamHandle,
@@ -63,6 +64,9 @@ pub struct Commander {
     /// Connected with [ClientConfig::traits_only](crate::ClientConfig::traits_only): device API unknown, absolute
     /// paths are refused.
     pub(crate) traits_only: bool,
+    /// Global trait paths resolved to absolute ones from the device's introspection data (SRV-53), shared with the
+    /// event loop and the Commander's clones.
+    pub(crate) global_paths: Arc<GlobalPaths>,
     /// Bytes of items queued per stream on the host
     stream_queue_bytes: usize,
     stream_compression: bool,
@@ -101,6 +105,31 @@ pub struct TransportCommander {
     pub(crate) observes: ObserveRegistry,
 }
 
+/// A [TransportCommander] that doesn't keep the event loop's command channel open: the connection's
+/// [GlobalPaths](crate::global_paths::GlobalPaths) holds one, and the event loop holds those (SRV-53).
+#[derive(Clone)]
+pub(crate) struct WeakTransport {
+    cmd_tx: mpsc::WeakSender<Command>,
+    default_timeout: Duration,
+    priority: Priority,
+    streams: StreamRegistry,
+    consts: ConstCache,
+    observes: ObserveRegistry,
+}
+
+impl WeakTransport {
+    pub(crate) fn upgrade(&self) -> Option<TransportCommander> {
+        Some(TransportCommander {
+            cmd_tx: self.cmd_tx.upgrade()?,
+            default_timeout: self.default_timeout,
+            priority: self.priority,
+            streams: self.streams.clone(),
+            consts: self.consts.clone(),
+            observes: self.observes.clone(),
+        })
+    }
+}
+
 /// A [Commander] that doesn't keep the connection or the Commander's clones alive, see [Commander::downgrade].
 #[derive(Clone)]
 pub(crate) struct WeakCommander {
@@ -115,6 +144,7 @@ pub(crate) struct WeakCommander {
     device_introspect: Option<IntrospectBundle>,
     api_match: ApiMatch,
     traits_only: bool,
+    global_paths: Arc<GlobalPaths>,
     stream_queue_bytes: usize,
     stream_compression: bool,
     streams: StreamRegistry,
@@ -140,6 +170,7 @@ impl WeakCommander {
             device_introspect: self.device_introspect.clone(),
             api_match: self.api_match.clone(),
             traits_only: self.traits_only,
+            global_paths: self.global_paths.clone(),
             stream_queue_bytes: self.stream_queue_bytes,
             stream_compression: self.stream_compression,
             streams: self.streams.clone(),
@@ -179,6 +210,7 @@ impl Commander {
             device_introspect: None,
             api_match: ApiMatch::NoClientApi,
             traits_only: false,
+            global_paths: GlobalPaths::new(),
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
             stream_compression: true,
             streams: StreamRegistry::default(),
@@ -261,9 +293,10 @@ impl Commander {
         // postpone error return to have a better syntax
         let path_kind = self.to_ww_client_server_path(path);
         let version_check = match &path_kind {
-            Ok(path_kind) => self.check_resource(path_kind),
-            Err(_) => Ok(()),
+            Ok((path_kind, false)) => self.check_resource(path_kind),
+            Ok((_, true)) | Err(_) => Ok(()),
         };
+        let path_kind = path_kind.map(|(path_kind, _)| path_kind);
         PreparedRead {
             transport_cmd_tx: self.transport(),
             version_check,
@@ -835,6 +868,7 @@ impl Commander {
             device_introspect: self.device_introspect.clone(),
             api_match: self.api_match.clone(),
             traits_only: self.traits_only,
+            global_paths: self.global_paths.clone(),
             stream_queue_bytes: self.stream_queue_bytes,
             stream_compression: self.stream_compression,
             streams: self.streams.clone(),
@@ -967,7 +1001,10 @@ impl Commander {
         &self.connected_device
     }
 
-    fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
+    /// The request path for `path`: a trait client's base path in place of a global one, or a global path the
+    /// device's introspection data resolves to an absolute one (SRV-53, then true), or the global path as it goes on
+    /// the wire.
+    fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<(PathKindOwned, bool), Error> {
         if matches!(path, PathKind::Absolute { .. }) && self.base_path.is_some() {
             return Err(Error::User(
                 "CommandSender configured as trait attachment, but used with absolute path".into(),
@@ -987,6 +1024,8 @@ impl Commander {
                         path.push(n?);
                     }
                     PathKindOwned::Absolute { path }
+                } else if let Some(path) = self.resolve_compact(&gid, &path_from_trait)? {
+                    return Ok((PathKindOwned::Absolute { path }, true));
                 } else {
                     PathKindOwned::GlobalCompact {
                         gid,
@@ -999,12 +1038,21 @@ impl Commander {
                 trait_name,
                 path_from_trait,
             } => {
+                let gid_owned = gid.make_owned();
                 if let Some(base) = &self.base_path {
                     let mut path = base.clone();
                     for n in path_from_trait.iter() {
                         path.push(n?);
                     }
                     PathKindOwned::Absolute { path }
+                } else if let Some(mut path) =
+                    self.global_paths
+                        .resolve(&gid_owned.crate_id, &gid_owned.version, trait_name)
+                {
+                    for n in path_from_trait.iter() {
+                        path.push(n?);
+                    }
+                    return Ok((PathKindOwned::Absolute { path }, true));
                 } else if let Some(id) = ww_global::trait_id(gid.crate_id, trait_name)
                     && gid.version.pre.is_none()
                 {
@@ -1017,7 +1065,7 @@ impl Commander {
                     }
                 } else {
                     PathKindOwned::GlobalFull {
-                        gid: gid.make_owned(),
+                        gid: gid_owned,
                         trait_name: trait_name.to_string(),
                         path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
                     }
@@ -1029,12 +1077,39 @@ impl Commander {
         {
             return Err(Error::AbsolutePathInTraitsOnly(format!("{path:?}")));
         }
-        Ok(path_kind)
+        Ok((path_kind, false))
+    }
+
+    /// Absolute path of a trait named by its `ww_global` id, from the device's introspection data (SRV-53).
+    fn resolve_compact(
+        &self,
+        gid: &CompactVersion,
+        path_from_trait: &wire_weaver::shrink_wrap::RefVec<'_, UNib32>,
+    ) -> Result<Option<Vec<UNib32>>, Error> {
+        let Some(entry) = ww_global::entry(gid.gid.id.0)
+            .filter(|e| e.kind == ww_global::EntryKind::Trait && e.retired.is_none())
+        else {
+            return Ok(None);
+        };
+        let (crate_id, Some(trait_name)) = entry.split() else {
+            return Ok(None);
+        };
+        let version = VersionOwned::new(gid.major.0, gid.minor.0, gid.patch.0);
+        let Some(mut path) = self.global_paths.resolve(crate_id, &version, trait_name) else {
+            return Ok(None);
+        };
+        for n in path_from_trait.iter() {
+            path.push(n?);
+        }
+        Ok(Some(path))
     }
 
     fn resolve_path(&self, path: PathKind<'_>) -> Result<PathKindOwned, Error> {
-        let path_kind = self.to_ww_client_server_path(path)?;
-        self.check_resource(&path_kind)?;
+        let (path_kind, from_global) = self.to_ww_client_server_path(path)?;
+        // a path resolved from a global one is in the device's tree, not the client's API (SRV-53)
+        if !from_global {
+            self.check_resource(&path_kind)?;
+        }
         Ok(path_kind)
     }
 
@@ -1126,6 +1201,17 @@ impl TransportCommander {
 
     pub(crate) fn default_timeout(&self) -> Duration {
         self.default_timeout
+    }
+
+    pub(crate) fn downgrade(&self) -> WeakTransport {
+        WeakTransport {
+            cmd_tx: self.cmd_tx.downgrade(),
+            default_timeout: self.default_timeout,
+            priority: self.priority,
+            streams: self.streams.clone(),
+            consts: self.consts.clone(),
+            observes: self.observes.clone(),
+        }
     }
 
     pub(crate) async fn send_command(&self, cmd: Command) -> Result<(), Error> {

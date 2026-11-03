@@ -53,6 +53,12 @@ pub enum Command {
         failed_tx: Option<oneshot::Sender<EventLoopResidual>>,
     },
 
+    /// Where requests with a `GlobalFull` path go when the device answers `TraitNotFound`: the connection's
+    /// resolver, which finds the trait in the device's introspection data and sends them again with its absolute
+    /// path (SRV-53). Sent before [Command::Connect], on every connect; without it such requests are answered with
+    /// `TraitNotFound`.
+    GlobalPaths(Arc<crate::global_paths::GlobalPaths>),
+
     /// Send ww_client_server Request to a remote device
     SendMessage {
         bytes: Vec<u8>,
@@ -187,6 +193,7 @@ impl Command {
             | Command::ForwardLoopback { .. }
             | Command::ForwardFlush
             | Command::Adopt { .. }
+            | Command::GlobalPaths(_)
             | Command::RegisterTracer { .. } => {}
         }
     }

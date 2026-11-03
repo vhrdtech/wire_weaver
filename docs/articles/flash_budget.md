@@ -105,7 +105,7 @@ Donguru (typec_dongle, `use_async`, release at `opt-level = "z"`) with its `mete
 
 ## SW-70: the bit helpers as hints
 
-Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70 change on top of it): the private helpers of the bit writer and reader are `#[inline]` instead of `#[inline(always)]` unless the firmware asks otherwise with `--cfg shrink_wrap_hot` ([Hot paths at opt-level z](../serdes/code_size.md#hot-paths-at-opt-level-z)). The floor at `fw-z`: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the `Series` codec in it 3796 → 3224 B; `fw-3` unchanged; every per-resource cell unchanged. With `shrink_wrap_hot="inline"` the same bytes as before, with `"optimize"` (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Donguru 157728 → 157640 B at `z` and 229344 → 228452 B at `3`.
+Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70 change on top of it): the private helpers of the bit writer and reader are `#[inline]` instead of `#[inline(always)]` unless the firmware asks otherwise (then with `--cfg shrink_wrap_hot`, since replaced by the `fast-io` and `optimize-speed` features, [Hot paths at opt-level z](../serdes/code_size.md#hot-paths-at-opt-level-z)). The floor at `fw-z`: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the `Series` codec in it 3796 → 3224 B; `fw-3` unchanged; every per-resource cell unchanged. With `shrink_wrap_hot="inline"` the same bytes as before, with `"optimize"` (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Donguru 157728 → 157640 B at `z` and 229344 → 228452 B at `3`.
 
 ## SW-74: reader and writer plumbing
 
@@ -127,7 +127,7 @@ What changed, as four steps on the same checkout paths (bytes of `text` + `data`
 | `latched()` stores `None` only on the error path | +236 | −1040 |
 | `read::<T>` of an `Unsized` value through one out-of-line `split_sized`, which writes the reader in place | −2340 | −3152 |
 | `write::<T>` of an `Unsized` value through `begin_unsized` / `end_unsized`: the builder comes back in registers, a size slot that doesn't fit is reported at the end | −912 | −1864 |
-| `BufReader::new` / `BufWriter::new` `#[inline(never)]` unless `shrink_wrap_hot="inline"` | −968 | −304 |
+| `BufReader::new` / `BufWriter::new` `#[inline(never)]` unless `fast-io` (then `shrink_wrap_hot="inline"`) | −968 | −304 |
 | after | 308276 (−3984) | 402416 (−6360) |
 
 The `latched()` change costs on the Cortex-M0+, where the store on the error path is not shared between call sites, and saves on the Cortex-M33; out of line `latched()` was larger on both (Donguru +848 B, rePort +960 B), the call costs more than its body. Donguru at `opt-level = 3`: 472916 → 454740 B of text (−18176), most of it the size-prefixed read no longer inlined per type. With `--cfg shrink_wrap_hot="inline"`: 310472 → 307764 B; in that mode the new helpers are `#[inline]` hints, not forced.
@@ -146,7 +146,7 @@ Instructions, Cortex-M3 under QEMU (`qemu_icount`):
 - `just dispatch-budget`: at `fw-z` every request within ±0.5 %; at `fw-3` within ±1.3 %, except a call with an argument and an output, 1625 → 1703 sync and 1799 → 1880 async (+4.8 %). The replies are the same bytes.
 - `just units-budget`: struct encode 214.8 → 212.9 and decode 203.1 → 202.5 per operation at `fw-z`, `Series` encode and decode within 0.2. At `fw-3` the `series_decode` frame grew from 248 to 280 B of stack.
 - The `Series`, store, batcher, shared clock and FOC observe benches: within ±0.6 % at `fw-z` and −0.8 to +2.2 % at `fw-3`.
-- `qemu-bit-io` at `fw-3`: the loops that make a reader or writer and use it in the same function lose it from registers, because its address now goes to `new`. 64 nibbles read 983 → 2189 instructions, written 1200 → 1918, 64 bools written 1259 → 1404. With `shrink_wrap_hot="inline"` they are 983, 1198 and 1258 again. At `fw-z` they are within ±0.6 %.
+- `qemu-bit-io` at `fw-3`: the loops that make a reader or writer and use it in the same function lose it from registers, because its address now goes to `new`. 64 nibbles read 983 → 2189 instructions, written 1200 → 1918, 64 bools written 1259 → 1404. With `fast-io` (then `shrink_wrap_hot="inline"`) they are 983, 1198 and 1258 again. At `fw-z` they are within ±0.6 %.
 
 `qemu-shared-clock-delta-packed` doesn't build at `fw-3`, before or after this change.
 

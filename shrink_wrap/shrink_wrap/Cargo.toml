@@ -10,7 +10,14 @@ readme = "../README.md"
 
 [features]
 default = ["std"]
-std = ["serde/std"]
+std = ["fast-io", "serde/std"]
+# The per-item read and write primitives forced inline and the reader and writer constructors inlined: faster, a few KB
+# larger in a firmware built for size. On with `std`; firmware opts in (docs/serdes/code_size.md)
+fast-io = []
+# The bit primitives and Series loops get `#[optimize(speed)]`, for a firmware built at opt-level z. Needs Rust 1.101
+# or a nightly compiler, ignored with a warning on an older stable one (build.rs). Independent of `fast-io`; with both,
+# the helpers are forced inline as well
+optimize-speed = []
 serde = ["dep:serde"]
 
 defmt = ["dep:defmt"]
@@ -30,5 +37,4 @@ serde_json.workspace = true
 
 [lints.rust]
 # `cargo fuzz` builds with `--cfg fuzzing`: entry points for fuzz/ to the crate-internal series column codecs
-# `--cfg shrink_wrap_hot="inline"` / `"optimize"`: the hot bit paths at opt-level z (docs/serdes/code_size.md)
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)', 'cfg(shrink_wrap_hot, values("inline", "optimize"))'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }

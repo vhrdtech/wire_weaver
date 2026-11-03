@@ -193,16 +193,16 @@ impl<'w, 'i> BitWriter<'w, 'i> {
     }
 
     /// Whether `count` more bits fit before the lengths at the back.
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+    #[cfg_attr(feature = "fast-io", inline(always))]
+    #[cfg_attr(not(feature = "fast-io"), inline)]
     fn fits(&self, count: u32) -> bool {
         count as usize <= self.room
     }
 
     /// `count` (0 to 32) bits that fit, no set bits of `bits` above them: into the register, and the register into
     /// the buffer once it has a word.
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+    #[cfg_attr(feature = "fast-io", inline(always))]
+    #[cfg_attr(not(feature = "fast-io"), inline)]
     fn push(&mut self, count: u32, bits: u32) {
         self.room -= count as usize;
         let mut at = self.wr.byte_idx;
@@ -232,7 +232,7 @@ impl<'w, 'i> BitWriter<'w, 'i> {
         self.wr
     }
 
-    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
+    #[cfg_attr(shrink_wrap_optimize, optimize(speed))]
     pub(crate) fn put_bit(&mut self, bit: bool) -> Result<(), Error> {
         if !self.fits(1) {
             return Err(Error::OutOfBoundsWriteBool);
@@ -243,7 +243,7 @@ impl<'w, 'i> BitWriter<'w, 'i> {
 
     /// `count` (0 to 64) low bits of `value`, most significant first.
     #[inline]
-    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
+    #[cfg_attr(shrink_wrap_optimize, optimize(speed))]
     pub(crate) fn put_bits(&mut self, count: u8, value: u64) -> Result<(), Error> {
         if count > 64 {
             return Err(Error::InvalidBitCount);
@@ -267,7 +267,7 @@ impl<'w, 'i> BitWriter<'w, 'i> {
     /// A packed block, see [BitSink::put_block](crate::series::BitSink::put_block): one room check for all of it
     /// (a block that doesn't fit writes nothing), then a push each, with the register in locals.
     #[inline]
-    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
+    #[cfg_attr(shrink_wrap_optimize, optimize(speed))]
     pub(crate) fn put_block(
         &mut self,
         width_bits: u8,
@@ -305,8 +305,8 @@ impl<'w, 'i> BitWriter<'w, 'i> {
 
 /// [BitWriter::push] on the register `acc` with `n` bits in it, the next word of `buf` at `at`: `count` (0 to 32)
 /// bits that fit, no set bits of `bits` above them.
-#[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-#[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+#[cfg_attr(feature = "fast-io", inline(always))]
+#[cfg_attr(not(feature = "fast-io"), inline)]
 fn push_bits(buf: &mut [u8], at: &mut usize, acc: &mut u32, n: &mut u32, count: u32, bits: u32) {
     let free = 32 - *n;
     if count < free {
@@ -326,8 +326,8 @@ fn push_bits(buf: &mut [u8], at: &mut usize, acc: &mut u32, n: &mut u32, count: 
 /// The four bytes of `buf` from `at` as a big endian word, `None` if they are not all there. One bounds check and
 /// byte loads that LLVM merges into a word load (an unaligned `ldr` and a `rev` on a Cortex-M3 and up), also at
 /// `opt-level = "z"`, where a `u32::from_be_bytes` of a sub-slice is a call into the slice indexing.
-#[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-#[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+#[cfg_attr(feature = "fast-io", inline(always))]
+#[cfg_attr(not(feature = "fast-io"), inline)]
 pub(crate) fn load_be32(buf: &[u8], at: usize) -> Option<u32> {
     if buf.len() < 4 || at > buf.len() - 4 {
         return None;
@@ -342,8 +342,8 @@ pub(crate) fn load_be32(buf: &[u8], at: usize) -> Option<u32> {
 
 /// `word` into the four bytes of `buf` from `at`, big endian, which must be there (else a panic, before anything
 /// is written), see [load_be32].
-#[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-#[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+#[cfg_attr(feature = "fast-io", inline(always))]
+#[cfg_attr(not(feature = "fast-io"), inline)]
 fn store_be32(buf: &mut [u8], at: usize, word: u32) {
     assert!(buf.len() >= 4 && at <= buf.len() - 4);
     let [a, b, c, d] = word.to_be_bytes();
@@ -354,8 +354,8 @@ fn store_be32(buf: &mut [u8], at: usize, word: u32) {
 }
 
 /// `count` (0 to 32) low bits set.
-#[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-#[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+#[cfg_attr(feature = "fast-io", inline(always))]
+#[cfg_attr(not(feature = "fast-io"), inline)]
 fn low_mask_or_zero(count: u8) -> u32 {
     if count == 0 {
         0
@@ -365,8 +365,8 @@ fn low_mask_or_zero(count: u8) -> u32 {
 }
 
 /// `count` (1 to 32) low bits set.
-#[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-#[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+#[cfg_attr(feature = "fast-io", inline(always))]
+#[cfg_attr(not(feature = "fast-io"), inline)]
 fn low_mask(count: u32) -> u32 {
     u32::MAX >> (32 - count)
 }
@@ -404,11 +404,11 @@ pub struct TailSizeSlot {
 impl<'i> BufWriter<'i> {
     /// Create a new BufWriter from the provided mutable slice.
     /// `buf` does not need to be initialized to zero.
-    // Out of line unless `shrink_wrap_hot="inline"` (SW-74): inlined it is about 20 bytes of stores at each of
+    // Out of line unless the `fast-io` feature is on (SW-74): inlined it is about 20 bytes of stores at each of
     // the dozens of places a firmware makes one (a copy per type of `dispatch::des`, `to_ww_bytes`, ..), a call
     // is about 8.
-    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
+    #[cfg_attr(feature = "fast-io", inline)]
+    #[cfg_attr(not(feature = "fast-io"), inline(never))]
     pub fn new(buf: &'i mut [u8]) -> Self {
         let len_bytes = buf.len();
         Self {
@@ -507,8 +507,8 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Mask of the bits of a byte that are written already, when `bit_idx` is the next one to write
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+    #[cfg_attr(feature = "fast-io", inline(always))]
+    #[cfg_attr(not(feature = "fast-io"), inline)]
     fn written_mask(bit_idx: u8) -> u8 {
         (0xFF00u32 >> (7 - bit_idx)) as u8
     }
@@ -575,8 +575,8 @@ impl<'i> BufWriter<'i> {
     }
 
     /// Bits written so far, from the start of the buffer.
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+    #[cfg_attr(feature = "fast-io", inline(always))]
+    #[cfg_attr(not(feature = "fast-io"), inline)]
     fn bit_pos(&self) -> usize {
         self.byte_idx * 8 + 7 - self.bit_idx as usize
     }
@@ -584,7 +584,7 @@ impl<'i> BufWriter<'i> {
     /// `bit_count` (1 to 32) low bits of `value`, most significant first; the room is checked by the caller. Bits
     /// of the open and the last byte that are not written keep their value.
     #[inline]
-    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
+    #[cfg_attr(shrink_wrap_optimize, optimize(speed))]
     fn put_low_bits(&mut self, bit_count: u8, value: u32) {
         if bit_count == 0 {
             return;
@@ -598,15 +598,15 @@ impl<'i> BufWriter<'i> {
     /// [put_low_bits](Self::put_low_bits) of 26 or more bits from the middle of a byte: two writes that each end in
     /// a word.
     #[inline(never)]
-    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
+    #[cfg_attr(shrink_wrap_optimize, optimize(speed))]
     fn put_low_bits_split(&mut self, bit_count: u8, value: u32) {
         self.put_in_word(bit_count - 16, value >> 16);
         self.put_in_word(16, value);
     }
 
     /// [put_low_bits](Self::put_low_bits) of bits that end in the word starting at the open byte.
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
+    #[cfg_attr(feature = "fast-io", inline(always))]
+    #[cfg_attr(not(feature = "fast-io"), inline)]
     fn put_in_word(&mut self, bit_count: u8, value: u32) {
         // the open byte's written bits and these, from the open byte's first bit: 1 to 32
         let end = 7 - self.bit_idx as u32 + bit_count as u32;
@@ -626,7 +626,7 @@ impl<'i> BufWriter<'i> {
     /// up to `end` (counted from the open byte's first bit, at most 32), byte by byte.
     #[inline(never)]
     #[cold]
-    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
+    #[cfg_attr(shrink_wrap_optimize, optimize(speed))]
     fn put_low_bits_bytewise(&mut self, end: u32, value: u32) {
         let first = 7 - self.bit_idx as u32;
         let bits = end - first;
@@ -1004,8 +1004,8 @@ impl<'i> BufWriter<'i> {
     /// the builder and reported by [end_unsized](Self::end_unsized) (or before it, by the value's own write that
     /// doesn't fit either). The builder is two words and comes back in registers, where the `Result` of `new` was
     /// copied out of memory at every type's copy of `write` (SW-74).
-    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
+    #[cfg_attr(feature = "fast-io", inline)]
+    #[cfg_attr(not(feature = "fast-io"), inline(never))]
     fn begin_unsized(&mut self) -> UnsizedBuilder {
         UnsizedBuilder::new(self).unwrap_or(UnsizedBuilder {
             size_slot_pos: RevPos(0),
@@ -1014,8 +1014,8 @@ impl<'i> BufWriter<'i> {
     }
 
     /// [UnsizedBuilder::finish] of a builder from [begin_unsized](Self::begin_unsized).
-    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
-    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
+    #[cfg_attr(feature = "fast-io", inline)]
+    #[cfg_attr(not(feature = "fast-io"), inline(never))]
     fn end_unsized(&mut self, builder: UnsizedBuilder) -> Result<(), Error> {
         if builder.unsized_start_idx == usize::MAX {
             // the only error of write_rev_len(0)

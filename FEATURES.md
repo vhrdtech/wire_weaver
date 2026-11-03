@@ -302,11 +302,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `#[inline(always)]` sorted by measurement: the one-line wrappers (integer reads and writes, `_latch` methods, trait
   defaults) stay forced, inlining them is free in size; so do the `Series` store and observe-cell paths (as hints a
   FOC row capture went 266 -> 1456 instructions). The private bit helpers of the writer and reader are `#[inline]`
-  hints; a firmware picks with `--cfg shrink_wrap_hot="inline"` (forced, as before) or `"optimize"` (nightly,
-  `#[optimize(speed)]` on the bit primitives and `Series` loops). Lists of plain numbers share one non-generic
+  hints; a firmware picks with shrink_wrap's `fast-io` feature (forced, as before; on with `std`) or
+  `optimize-speed` (Rust 1.101 or nightly, `#[optimize(speed)]` on the bit primitives and `Series` loops), first a `--cfg`. Lists of plain numbers share one non-generic
   length-and-bytes path. Measured (thumbv6m): TEST-30 floor −740 B at `fw-z`, ±0 at `fw-3`; Donguru −824 B at `z`,
-  −892 B at `3`; task-side series and bit-field encoding 5-22 % slower at `z` by default, ±0 with `"inline"`, 1-3 %
-  faster with `"optimize"` (+208 B). The planned 2.5-3.5 KB of "duplicate copies" were mostly call sequences:
+  −892 B at `3`; task-side series and bit-field encoding 5-22 % slower at `z` by default, ±0 with `fast-io`, 1-3 %
+  faster with `optimize-speed` (+208 B). The planned 2.5-3.5 KB of "duplicate copies" were mostly call sequences:
   `#[inline(never)]` on every derived serdes made Donguru 1.9 KB larger. See
   `docs/serdes/code_size.md#hot-paths-at-opt-level-z`.
 - ✅ **SW-74 Reader and writer plumbing out of the serdes copies** · `v0.5` — flash diet. The 31.7 KB of
@@ -315,11 +315,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `split()?` in `read::<T>` (45 copies, 1.1 KB), `BufReader::new` / `BufWriter::new` (65 + 41 copies, 2.2 KB) and the
   `Result<UnsizedBuilder>` in `write::<T>` (67 copies, 0.7 KB). Fixed in the shape of the code: `latched()` stores
   only an error it clears; one out-of-line `split_sized` writes the sub-reader in place; `begin_unsized` /
-  `end_unsized` keep the builder in registers; the constructors are `#[inline(never)]` unless `--cfg
-  shrink_wrap_hot="inline"` (SW-70's switch). An out-of-line `latched()` was larger on both cores and was left
-  inline. Measured: Donguru −3,984 B at `z`, −18,176 B at `3`, −2,708 B with `"inline"`; rePort −6,360 B; the
+  `end_unsized` keep the builder in registers; the constructors are `#[inline(never)]` unless the `fast-io`
+  feature (SW-70's switch, a `--cfg shrink_wrap_hot` before; `std` turns it on). An out-of-line `latched()`
+  was larger on both cores and was left inline. Measured: Donguru −3,984 B at `z`, −18,176 B at `3`, −2,708 B with `fast-io`; rePort −6,360 B; the
   TEST-30 floor −76 to −336 B; instructions at `z` within ±0.6 %, at `3` the bit-io micro loops on a local reader or
-  writer up to 2.2x (restored with `"inline"`), dispatch ±1.3 % except a call with an argument (+4.8 %). No wire
+  writer up to 2.2x (restored with `fast-io`), dispatch ±1.3 % except a call with an argument (+4.8 %). No wire
   change. `docs/articles/flash_budget.md#sw-74-reader-and-writer-plumbing`.
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
   round-tripped, random bytes into their readers); `shrink-wrap-ref-vec`

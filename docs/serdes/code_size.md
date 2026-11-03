@@ -656,27 +656,31 @@ A firmware built for size (`opt-level = "z"`) and one built for speed (`3`) want
 writer and reader that `Series` columns, `UN` fields and the length nibbles go through: inlined into the few
 functions that write and read bits, they are faster; out of line, smaller. `shrink_wrap` doesn't force either by
 default (SW-70). The small private helpers (`push_bits`, `put_in_word`, `take_in_word`, the big-endian word loads and
-stores, masks) are plain `#[inline]` hints, which `opt-level = 3` follows and `z` mostly doesn't. A firmware that
-wants something else says so with one `--cfg`, set by the firmware alone (in its `.cargo/config.toml` `rustflags`, or
-`CARGO_TARGET_<TRIPLE>_RUSTFLAGS`), never by a crate in between, so it is not a cargo feature:
+stores, masks) are plain `#[inline]` hints, which `opt-level = 3` follows and `z` mostly doesn't. Two cargo features
+of `shrink_wrap` change that:
 
-| `--cfg` | what it does | toolchain |
+| feature | what it does | toolchain |
 | --- | --- | --- |
-| none | the helpers are hints; `BufReader::new`, `BufWriter::new` and the paths of a size-prefixed value (`split_sized`, `begin_unsized`, `end_unsized`) are out of line (SW-74) | any |
-| `shrink_wrap_hot="inline"` | the helpers are `#[inline(always)]`, as before SW-70; the constructors and the size-prefixed paths are hints | any |
-| `shrink_wrap_hot="optimize"` | the bit primitives (`put_bits`, `put_block`, `put_low_bits`, `take_bits`, `read_un32`, ..) and the numeric `Series` loops are `#[optimize(speed)]`, the helpers stay hints | nightly |
+| none (firmware default) | the helpers are hints; `BufReader::new`, `BufWriter::new` and the paths of a size-prefixed value (`split_sized`, `begin_unsized`, `end_unsized`) are out of line (SW-74) | any |
+| `fast-io` (on with `std`) | the helpers are `#[inline(always)]`, as before SW-70; the constructors and the size-prefixed paths are hints | any |
+| `optimize-speed` | the bit primitives (`put_bits`, `put_block`, `put_low_bits`, `take_bits`, `read_un32`, ..) and the numeric `Series` loops are `#[optimize(speed)]`; the helpers stay hints, or forced with `fast-io` too | Rust 1.101 or nightly |
+
+`std` turns `fast-io` on, so hosts get the fast paths without asking. A firmware has no `std` and opts in by naming
+the feature on its own `shrink_wrap` dependency; cargo unifies features, so any crate in the build that turns one on
+turns it on for all of them, which only costs size, never correctness. `optimize-speed` on a stable compiler older than
+1.101 is ignored with a build warning, so `--all-features` still builds there.
 
 ```toml
-# .cargo/config.toml of a firmware built with opt-level = "z" that encodes series in a hot path
-[target.thumbv7em-none-eabihf]
-rustflags = ["--cfg", 'shrink_wrap_hot="inline"']
+# Cargo.toml of a firmware built with opt-level = "z" that encodes series in a hot path
+[dependencies]
+shrink_wrap = { version = "0.2", default-features = false, features = ["fast-io"] }
 ```
 
 The constructors are out of line by default because a firmware makes readers and writers in dozens of per-type
 copies (`dispatch::des::<T>`, `to_ww_bytes`, ..): inlined, each is about 20 bytes of stores, a call about 8 (SW-74,
 Donguru −968 B). The price is at `opt-level = 3`, in a function that makes a reader or writer and uses it in a tight
 loop: its address goes to `new`, so LLVM no longer keeps its fields in registers (64 nibbles read in 983 instructions
-before, 2189 after; `shrink_wrap_hot="inline"` gives 983 back). Readers and writers passed to a decoder or encoder
+before, 2189 after; `fast-io` gives 983 back). Readers and writers passed to a decoder or encoder
 by `&mut` are in memory either way. Numbers in [the flash budget](../articles/flash_budget.md#sw-74-reader-and-writer-plumbing).
 
 What stays forced in every mode: the one-line wrappers (`read_u16` and the other integer reads and writes, the

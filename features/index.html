@@ -7396,6 +7396,19 @@ observing), SRV-46 (peer identity).
   gaining a kind under its name is <code>kind of its own added</code>); levels and sentinels get their checks with STD-67 and
   STD-66 (rules written down); until then a marker kind the checker doesn't know is the same only when its definition
   is (<code>docs/evolution/units_by_meaning.md</code>; <code>wire_weaver_evolution</code> tests <code>tests::by_meaning</code>).</li>
+<li>✅ <strong>EVO-21 One cause, not many breaks</strong> · <code>v0.5</code> — several broken traits or types caused by the one dependency
+  that actually changed (e.g. <code>BoardInfo</code>, <code>Indication</code>, <code>Clock</code>, <code>Can</code>, <code>LastReset</code> and <code>Counters</code> all breaking
+  because <code>ww_board_info</code>'s <code>Rework</code> changed, STD-98) are grouped under it in the report, instead of reading as that
+  many unrelated breaks. New <code>compat::RootCause</code> (<code>what</code>, <code>crate_id</code>, <code>name</code>), set once, nearest the source, when a
+  check fails because a trait, type or marker from another crate has an incompatible version or a different
+  definition under the same one (an unpublished crate rebuilt without its own bump); <code>Finding::root</code>,
+  <code>Report::breaking_groups()</code> (roots reached by 2+ findings; everything else, including findings without one, comes
+  back in its original order). <code>ww api check</code> prints each group as <code>N broken because &lt;kind&gt; &lt;crate&gt;::&lt;name&gt;
+  changed:</code> before the items it reaches. Doesn't group a plain field or argument changed in the checked crate's own
+  code (each item is already named by itself), nor a same-crate redefinition the checker has no name for yet (a
+  unit or scale of the crate's own redefined under the same name, EVO-17): open for later
+  (<code>docs/evolution/checker_tool.md#several-broken-items-one-cause-evo-21</code>; <code>wire_weaver_evolution</code> tests
+  <code>tests::root_cause</code>, <code>tests/check.rs</code> <code>shared_dependency_type_is_named_once_for_every_item_it_reaches</code>).</li>
 <li>✅ <strong>TOOL-1 <code>ww</code> CLI</strong>: <code>list</code> with filters, <code>introspect</code> as a resource tree (<code>--raw-as-sent</code>, <code>--types</code>), dynamic shell
   completions (<code>docs/cli.md</code>).</li>
 <li>✅ <strong>TOOL-2 <code>ww api save</code> / <code>check</code> / <code>diff</code></strong> for API bundles and snapshots.</li>

@@ -23,3 +23,7 @@ ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 wire_weaver_core.workspace = true
+
+[[bench]]
+name = "bit_io"
+harness = false

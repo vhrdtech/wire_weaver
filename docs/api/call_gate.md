@@ -21,6 +21,8 @@ mod api_impl {
         board_api :: Board for super::Server,
         server = true, no_alloc = true, use_async = true,
         call_gate = true,
+        // the gate decides BoardInfo item by item, see below
+        call_gate_items = "ww_board_info::BoardInfo",
     );
 }
 ```
@@ -56,23 +58,39 @@ Without `call_gate` no code is generated for it.
 
 ## What the gate is asked
 
-`admit` runs before the request's arguments are decoded, for every request that reaches an item:
+The gate is coarse by default, so its flash cost follows the number of traits, not of items:
 
-| Request | `Target` | `Op` |
-|---|---|---|
-| a method call | the method | `Call` |
-| a property or `const` read, a property write | the property | `Read`, `Write` |
-| a stream or sink open, close and other sideband | the stream or sink | `StreamOpen`, `Stream` |
-| a write into a sink | the sink | `SinkWrite` |
-| the valid indices of a resource array | the array item | `Read` |
-| one index of a multi call, read or write | the item at that index, asked per index | `Call`, `Read`, `Write` |
-| an observe request | the observed trait level (`level` is true, `item()` is `None`) | `Observe` |
+- **A trait level, before a request goes into it.** A request for `board.set_reworks` first asks for the `board`
+  level: a `Target` whose `trait_id` is the trait attached there (`ww_board_info::BoardInfo`), `path` is `board`,
+  `level` is true and `item()` is `None`. A refusal ends the request there. Nested levels are asked on the way, one
+  by one (`io`, then `io.board`). Each index of a resource array of traits asks for its level.
+- **The items of the root level**, which belong to no attached trait.
+- **The items of the levels named in `call_gate_items`**, after their level ([Asking item by item](#asking-item-by-item)).
 
-A `Target` names the item by the trait it is defined in, `trait_id`, a crate and a trait name. A global trait is the
-same `TraitId` wherever it sits in an API: `ww_board_info::BoardInfo` under `board` or under `io.board` both match
-`BOARD_INFO`. `item()` is the item's name in that trait. `path` is the whole resource path from the root, trait items
-and the item joined by dots (`board.set_reworks`), without array indices: it tells apart two uses of a project's own
-trait.
+Every other item is not asked on its own: admitting its level admits all of it. The `Op` is what the request does,
+whether the gate is asked for the level or for the item:
+
+| Request | `Op` |
+|---|---|
+| a method call | `Call` |
+| a property or `const` read, the valid indices of a resource array | `Read` |
+| a property write | `Write` |
+| a stream or sink open | `StreamOpen` |
+| a stream's close and other sideband | `Stream` |
+| a write into a sink | `SinkWrite` |
+| one index of a multi call, read or write, asked per index | `Call`, `Read`, `Write` |
+| an observe request | `Observe` |
+
+An observe request asks for the levels on the way to the observed level, and the observed level itself; where that
+level's items are asked one by one, each observed property is asked too (`level` false). Observing the root asks for
+the root level, with an empty `path`.
+
+A `Target` names a level or an item by its trait, `trait_id`, a crate and a trait name: for a level the trait
+attached there, for an item the trait it is defined in. A global trait is the same `TraitId` wherever it sits in an
+API: `ww_board_info::BoardInfo` under `board` or under `io.board` both match `BOARD_INFO`. `item()` is the item's
+name in that trait, `None` for a level. `path` is the whole resource path from the root, trait items and the item
+joined by dots (`board`, `board.set_reworks`), without array indices: it tells apart two uses of a project's own
+trait. The valid indices of a resource array are an item of the level that holds the array.
 
 Introspection is never asked, so a client can always learn what the device is. Streams that are already open keep
 sending: the gate decides at the open. A firmware that enters its guarded state while streams run closes them
@@ -80,6 +98,19 @@ itself.
 
 `admit` takes `&self` and is asked on every request, so the state it reads is the state the device is in at that
 moment. A flag set from another task or an interrupt takes effect with the next request.
+
+## Asking item by item
+
+A trait the firmware admits in part, like `BoardInfo` above that may be read but not have its reworks set, is named
+in `call_gate_items`, by trait or by resource path, as in the `ww_codegen!` call above.
+
+A trait name covers every place the trait is attached; a path (`board`, `io.board`) covers that one. The gate is then
+asked for the level, and after it for each item: `admit` lets the level through (`target.level &&
+target.is_in(&BOARD_INFO)`) and decides by item (`target.is(&BOARD_INFO, "set_reworks")`). The `impl CallGate` above
+admits the `BoardInfo` level and all of its items but one; without `BoardInfo` in `call_gate_items` it would admit
+`set_reworks` with the level. A name that is no trait level of the API, or `call_gate_items` without `call_gate`,
+fails to compile with the list of levels. `ww api scaffold --call-gate --call-gate-items NAMES` prints both
+arguments.
 
 ## The refusal
 
@@ -104,11 +135,13 @@ refusal as `Unknown(17)` and still reports an error.
 
 Measured on a Cortex-M3 under QEMU (instructions, not cycles) with a server of five `ww_dfu` traits, 21 items, at
 `opt-level = "z"` with fat LTO, the profile firmware ships with (`examples_mcu/mcu_qemu/src/bin/call_gate.rs` has the
-table and how to run it):
+table, `opt-level = 3` and how to run it):
 
-- An admitted request takes 33-41 instructions more, 61 when the gate compares a trait. A `TraitId` compares by
+- An admitted request takes 32-37 instructions more, 60 when the gate compares a trait. A `TraitId` compares by
   pointer first: the linker merges the firmware's string literals with the generated ones, so no bytes are compared.
+  An item asked as well adds about 30.
 - A refusal replaces the handler with writing the error and its reason.
-- Flash: 772 B for the 21 items. Each item has a 16-byte `Target` and its path, and every item arm calls one shared
-  function.
+- Flash: 636 B with the five levels asked, mostly fixed (one shared function every check calls, the op helper, a
+  16-byte `Target` per level). Asking all 21 items one by one adds 276 B at `z` and 1420 B at `opt-level = 3`: a
+  `Target`, its path and the check per item. So name in `call_gate_items` only the traits the firmware splits.
 - Without `call_gate`: nothing.

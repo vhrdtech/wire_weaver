@@ -3,10 +3,12 @@
 //! info and update only).
 //!
 //! `ww_codegen!(.., server = true, call_gate = true)` makes the generated dispatcher ask the server struct, through
-//! [CallGate::admit], before it decodes a request for an item: a method call, a property read or write, a stream
-//! open or any other stream traffic, a sink write, and an observe request (asked for the trait level). A refusal is
-//! answered with `ww_client_server::ErrorKind::Refused(reason)`, the handler doesn't run. Introspection and the
-//! valid indices of nothing (the root) are never asked: a client can always learn what the device is.
+//! [CallGate::admit], before a request goes into a trait level (a [Target] with `level`), and before it decodes a
+//! request for an item of the root level or of a level named in `call_gate_items = "crate::Trait, path"`: a method
+//! call, a property read or write, a stream open or any other stream traffic, a sink write, and an observe request.
+//! The other items are admitted with their level, so the code grows with the traits, not the items. A refusal is
+//! answered with `ww_client_server::ErrorKind::Refused(reason)`, the handler doesn't run. Introspection is never
+//! asked: a client can always learn what the device is.
 //!
 //! Without `call_gate` no code is generated for it.
 //!
@@ -25,6 +27,7 @@
 //!         if !self.guarded || target.is_in(&FIRMWARE_INFO) {
 //!             return Ok(());
 //!         }
+//!         // `call_gate_items = "ww_board_info::BoardInfo"`: asked for the level, then for each item
 //!         if target.is_in(&BOARD_INFO) && target.item() != Some("set_reworks") {
 //!             return Ok(());
 //!         }
@@ -69,17 +72,17 @@ fn same_str(a: &str, b: &str) -> bool {
     a.len() == b.len() && (core::ptr::eq(a.as_ptr(), b.as_ptr()) || a == b)
 }
 
-/// The item a request reaches, as the generated dispatcher knows it. One `static` per item, made by the generated
-/// code.
+/// The trait level or the item a request reaches, as the generated dispatcher knows it. One `static` per level and
+/// per asked item, made by the generated code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Target {
-    /// The trait the item is defined in (for an observe request: the observed trait level)
+    /// The trait the item is defined in, or for a level the trait attached there
     pub trait_id: &'static TraitId,
     /// The resource path from the API root, trait items and the item joined by dots (`board.set_reworks`, `gpio.set`
-    /// for an item under a resource array, `board` for an observe request on that level, empty for the root
-    /// level): the fallback for items of a project's own traits used more than once
+    /// for an item under a resource array, `board` for that level, empty for the root level): the fallback for items
+    /// of a project's own traits used more than once
     pub path: &'static str,
-    /// The path ends at a trait level (an observe request), not at an item
+    /// The path ends at a trait level, asked before a request goes into it, not at an item
     pub level: bool,
 }
 
@@ -122,7 +125,7 @@ pub enum Op {
     Stream,
     /// A write into a sink
     SinkWrite,
-    /// An observe request, for a trait level
+    /// An observe request: for the levels on the way, and each observed property where items are asked
     Observe,
     /// A request kind added after this list
     Other,

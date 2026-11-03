@@ -150,6 +150,17 @@ Instructions, Cortex-M3 under QEMU (`qemu_icount`):
 
 `qemu-shared-clock-delta-packed` doesn't build at `fw-3`, before or after this change.
 
+### At opt-level s
+
+rePort ships at `opt-level = "s"`, so the same runs were repeated with the `fw-s` profile (`fw_budget --profiles fw-s`, Cortex-M3 under QEMU), before and after SW-74:
+
+- `just dispatch-budget`: sync requests +0.1 to +0.7 % (a call with an argument 2066 → 2077), `use_async` −1.2 to −1.8 % (2182 → 2155). The replies are the same bytes. With `fast-io` the sync requests are about 0.5 % below before.
+- `just units-budget`: struct encode 160.6 → 158.8 and decode 174.8 → 175.1 per operation, `Series` encode 94.3 → 94.5 and decode 368.1 → 368.3; flash 13274 → 13290 B.
+- The bit-io, store columns, `Series` encode, shared clock, FOC observe and batcher benches: −0.18 to +1.34 % (`Series` encode +1.2 to +1.3 %). The bit-io loops on a local reader or writer are not slowed at `s`, unlike at `fw-3`. With `fast-io`: −1.1 to +1.9 % against before.
+- rePort with `fast-io`: 410136 B of text against 402416 without (+7720 B), 408776 before SW-74.
+
+So a firmware at `s` loses no per-item speed to SW-74, and `fast-io` costs it 7.7 KB for at most 2 %: rePort keeps the default.
+
 ## SW-72: `MaxLen<_, N>`'s bound check through one helper
 
 `tests/flash_budget_api` had no `MaxLen` field before this item, so it got `MaxLenBounds8` / `MaxLenBounds16` (above) to measure against. Before and after, measured in the same worktree (absolute path length affects panic-location strings, so a cross-worktree comparison is noise; the mean of the four shared-type kinds above is identical in both runs, confirming the rest of the build is deterministic):

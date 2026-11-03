@@ -135,11 +135,11 @@ impl ServerState {
         match self.settings.persist_if_due(&mut self.store, now).await {
             Ok(Some(Persisted::Written(_))) => {
                 if let Err(e) = self.store.maintain().await {
-                    error!("settings erase ahead failed: {:?}", Debug2Format(&e));
+                    error!("settings erase ahead failed: {}", e);
                 }
             }
             Ok(_) => {}
-            Err(e) => error!("settings persist failed: {:?}", Debug2Format(&e)),
+            Err(e) => error!("settings persist failed: {}", e),
         }
     }
 }
@@ -195,7 +195,7 @@ async fn main(spawner: embassy_executor::Spawner) {
         .load(&mut store)
         .await
         .expect("flash read does not fail");
-    info!("settings loaded: {:?}", Debug2Format(&report));
+    info!("settings loaded: {}", report);
     let value = settings.get().clone();
 
     let mut led = led;

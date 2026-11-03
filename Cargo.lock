@@ -6583,6 +6583,7 @@ dependencies = [
  "atomic-waker",
  "cnt",
  "crc",
+ "defmt 1.1.1",
  "embedded-sdmmc-types",
  "embedded-storage-async",
  "portable-atomic",

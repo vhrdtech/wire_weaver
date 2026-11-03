@@ -620,14 +620,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client` `compressed_stream_decodes_and_heals`, `tests/io_uart` `rx_compressed`). To check on
   hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -> device).
-- 📋 **SW-69 No core::fmt Debug of shrink_wrap types on a device** · `v0.5` — flash diet: the variant names of
-  `shrink_wrap::Error` (`OutOfBoundsReadU8`, ..., about 450 B) and the `core::fmt` machinery behind them are in
-  Donguru's flash because something formats the error with `core::fmt::Debug` on the target. `shrink_wrap::Error`
-  keeps implementing `Debug` (`std::error::Error` needs it, `unwrap()` / `expect()` on `no_std` must still compile),
-  but by hand: the variant names only with `std` (or a feature `std` turns on), a numeric code without
-  (`shrink_wrap::Error(17)`); `defmt::Format` keeps the names. The on-target caller that Debug-formats it switches to
-  `defmt::Format`; other shrink_wrap types whose `Debug` lands in firmware flash get the same treatment. Est.
-  0.5-1 KB; measured with TEST-30, which checks that the variant names are not linked.
+- 🧪 **SW-69 No core::fmt Debug of shrink_wrap types on a device** · `v0.5` — flash diet: the variant names of
+  `shrink_wrap::Error` (`OutOfBoundsReadU8`, ..., about 450 B) and the `core::fmt` machinery behind them used to
+  land in flash because the type's `#[derive(Debug)]` always carried them. `shrink_wrap::Error` keeps implementing
+  `Debug` (`std::error::Error` needs it, `unwrap()` / `expect()` on `no_std` must still compile), but by hand now:
+  the variant names only with `std`, a numeric code without (`shrink_wrap::Error(17)`); `defmt::Format` (feature
+  `defmt`) still has the names, as `.defmt` symbols never loaded into flash. `Display` (which formats through
+  `Debug`) follows. Found two on-target callers that reached for `core::fmt::Debug` because there was no
+  `defmt::Format` alternative, fixed instead of worked around: the `examples_mcu/nucleo_{g0b1re,h743zi2}`
+  `settings.rs` bins no longer wrap `ww_settings::Error` / `LoadReport` in `defmt::Debug2Format` (both already
+  derive `defmt::Format`), and `ww_stream::store::RamRingError` now derives `defmt::Format` behind a new `defmt`
+  feature, so `examples_mcu/rp2`'s `usb_log.rs` logs its log-store error without `Debug2Format` either. Same wire
+  format; only the printed text of a `no_std` build without `defmt` changes. Not yet measured: TEST-30 checks that
+  the variant names are not linked; est. 0.5-1 KB.
 - 📋 **SW-70 Serdes out of line: one copy per type** · `v0.5` — flash diet: at `opt-level = "z"` the same impl is
   inlined at every call site: 4,892 B of Donguru's 19,740 B of serdes are extra copies (ser `&str` 15 copies, des
   `UNib32` 13, ser `UVlq64` 9, `RefVec<u8>` 3 + 5, `Quantity<Second>` 6). The derive emits `#[inline(never)]` on the

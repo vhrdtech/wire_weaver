@@ -27,6 +27,7 @@ pub struct RamRing<const N: usize> {
 
 /// Errors of a [RamRing] (and a [PersistentRamRing](super::PersistentRamRing)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RamRingError {
     /// [StreamStore::read] got a buffer smaller than the item.
     BufferTooSmall { item_len: usize },

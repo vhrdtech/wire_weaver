@@ -194,3 +194,6 @@
   one once it waited its `min`; frequent polls no longer inflate `missed`.
 - `observe`: `Plan::t()` is `Second { Micro, U32 }`, the device's microseconds as a wrapping `u32` as stream heads
   have them: the `PropertyUpdate` header is 10 bytes instead of 14 (4 without `t`).
+- New feature `defmt`: `RamRingError` implements `defmt::Format` (SW-69, flash diet), so the default reliable
+  stream store's error can be logged on target through it instead of `defmt::Debug2Format`, which formats through
+  `core::fmt::Debug` and pulls `shrink_wrap::Error`'s variant-name machinery into flash. No wire format change.

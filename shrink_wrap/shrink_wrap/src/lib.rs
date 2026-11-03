@@ -11,7 +11,7 @@ pub use array_vec::ArrayVec;
 pub mod buf_reader;
 
 pub use buf_reader::BufReader;
-use core::fmt::{Display, Formatter};
+use core::fmt::{Debug, Display, Formatter};
 pub mod buf_writer;
 pub use buf_writer::BufWriter;
 #[cfg(feature = "std")]
@@ -69,7 +69,7 @@ pub use wire_as::WireAs;
 
 pub use nib::Nibble;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[repr(u32)]
 pub enum Error {
@@ -123,6 +123,58 @@ pub enum Error {
     /// [BufReader::DEFAULT_MAX_DEPTH]): a recursive type read from data that is malformed, or made to overflow the
     /// stack.
     NestingTooDeep,
+}
+
+// Not `#[derive(Debug)]` (SW-69): the variant names it would print are ~450 B of flash on a target that never
+// calls `Display`/`std::error::Error` on this type, only `unwrap()`/`expect()` or a log line. `defmt::Format`
+// above keeps the names (its strings are `.defmt` symbols, never loaded into flash); with `std` off, `Debug` and
+// `Display` (which formats through it) print a numeric code instead.
+#[cfg(feature = "std")]
+impl Debug for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        use Error::*;
+        let name = match self {
+            OutOfBoundsWriteBool => "OutOfBoundsWriteBool",
+            OutOfBoundsReadBool => "OutOfBoundsReadBool",
+            OutOfBoundsWriteU4 => "OutOfBoundsWriteU4",
+            OutOfBoundsReadU4 => "OutOfBoundsReadU4",
+            OutOfBoundsWriteU8 => "OutOfBoundsWriteU8",
+            OutOfBoundsReadU8 => "OutOfBoundsReadU8",
+            OutOfBoundsWriteRawSlice => "OutOfBoundsWriteRawSlice",
+            OutOfBoundsReadRawSlice => "OutOfBoundsReadRawSlice",
+            OutOfBoundsWriteUN => "OutOfBoundsWriteUN",
+            OutOfBoundsReadUN => "OutOfBoundsReadUN",
+            OutOfBoundsSplit => "OutOfBoundsSplit",
+            OutOfBoundsRev => "OutOfBoundsRev",
+            OutOfBoundsRevCompact => "OutOfBoundsRevCompact",
+            InternalSliceToArrayCast => "InternalSliceToArrayCast",
+            MalformedUNib32 => "MalformedUNib32",
+            MalformedUVlq32 => "MalformedUVlq32",
+            MalformedUVlq64 => "MalformedUVlq64",
+            MalformedLeb => "MalformedLeb",
+            MalformedUtf8 => "MalformedUtf8",
+            LenTooLong => "LenTooLong",
+            EnumFutureVersionOrMalformedData => "EnumFutureVersionOrMalformedData",
+            InvalidBitCount => "InvalidBitCount",
+            SubtypeOutOfRange => "SubtypeOutOfRange",
+            MalformedSeries => "MalformedSeries",
+            LenFifoNotEmpty => "LenFifoNotEmpty",
+            EnumVariantDisabled => "EnumVariantDisabled",
+            MaxLenExceeded => "MaxLenExceeded",
+            MalformedOptionAnyVec => "MalformedOptionAnyVec",
+            OptionAnyVecWrongSlot => "OptionAnyVecWrongSlot",
+            OptionAnyVecUnknownSlot => "OptionAnyVecUnknownSlot",
+            NestingTooDeep => "NestingTooDeep",
+        };
+        f.write_str(name)
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl Debug for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "shrink_wrap::Error({})", *self as u32)
+    }
 }
 
 impl Display for Error {

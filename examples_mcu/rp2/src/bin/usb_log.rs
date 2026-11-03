@@ -155,7 +155,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     // a session from boot on: the store keeps the logs until a host resumes it
     let session = state.new_stream_session();
     if let Err(e) = state.log_frames_stream.start_session(session).await {
-        error!("log store: {}", Debug2Format(&e));
+        error!("log store: {}", e);
     }
 
     let driver = UsbDriver::new(p.USB, Irqs);
@@ -189,7 +189,7 @@ async fn main(spawner: embassy_executor::Spawner) {
             }
         }
         if let Err(e) = LOG.pump(&mut state.log_frames_stream).await {
-            warn!("log store: {}", Debug2Format(&e));
+            warn!("log store: {}", e);
         }
         if server.is_up() {
             let now_ms = Instant::now().as_millis();

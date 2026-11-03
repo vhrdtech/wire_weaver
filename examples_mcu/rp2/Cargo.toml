@@ -48,7 +48,7 @@ ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features
 defmt_log_api = { path = "../../examples/defmt_log_api", optional = true }
 ww_defmt_logger = { path = "../../ww_defmt_logger", features = ["rtt"], optional = true }
 ww_log = { path = "../../ww_stdlib/ww_log", default-features = false, features = ["defmt"], optional = true }
-ww_stream = { path = "../../ww_stream", optional = true }
+ww_stream = { path = "../../ww_stream", features = ["defmt"], optional = true }
 ww_firmware_info = { path = "../../ww_stdlib/ww_firmware_info", default-features = false, features = ["build-id"], optional = true }
 
 [features]

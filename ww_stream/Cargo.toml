@@ -14,6 +14,8 @@ std = ["alloc", "ww_client_server/std", "ww_si/std"]
 alloc = []
 # typed per-stream instance counters (cnt::Counters<StreamCnt>)
 cnt = ["dep:cnt"]
+# RamRingError implements defmt::Format, so it can be logged on target without core::fmt::Debug (SW-69)
+defmt = ["dep:defmt", "wire_weaver/defmt"]
 # store::LogStore: a power-cut safe log on a block device
 log-store = ["dep:crc"]
 # codec::ItemCodec for ww_lz4::Encoder: compressed counted streams (API-55)
@@ -29,6 +31,7 @@ nor-flash = ["log-store", "dep:embedded-storage-async"]
 atomic-waker.workspace = true
 cnt = { workspace = true, optional = true }
 crc = { workspace = true, optional = true }
+defmt = { workspace = true, optional = true }
 embedded-sdmmc-types = { version = "0.1", optional = true }
 embedded-storage-async = { workspace = true, optional = true }
 portable-atomic.workspace = true

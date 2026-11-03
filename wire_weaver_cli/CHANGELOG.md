@@ -50,6 +50,7 @@
 
 ### 🐛 Fixes
 
+- `ww dfu rp flash --follow` waits (at most 5 s) for the BOOTSEL device to leave the bus before judging, so it no longer reports "it refused to boot (blink code 1)" after a good flash.
 - `ww api tree` shows types as `ww introspect` does, generic instances made concrete: a `Fixed` there has its unit and bounds after it too (`[ms, 1..=5000]`, CLT-54).
 - `ww pins test --plan FILE --watch POINTS` tests the plan's points next to the watched ones; it tested only the watched points, the plan's were dropped (TOOL-15). `--watch` without a plan and without points still only reads.
 - `ww hub stop` closes its own connection after asking the hub to stop: the hub waited up to 500 ms for it before letting go of `hub.lock` (0.5 s down to 0.1 s). Every `ww hub` command is about ten times quicker with the client fixes (TOOL-17).

@@ -37,6 +37,7 @@
 
 ### 🐛 Fixes
 
+- `follow::Follow::left`: waits, bounded, until no device with the serial matches a predicate (the boot ROM stays on the bus for the reboot delay); returns whether it left.
 - Builds `RequestKindOwned::Observe` with the boxed body and reads `RequestKind::Observe`'s body with `RefBox::read` in the request envelope (SRV-54, `ww_client_server`'s breaking change); nothing changes for users.
 - A `Commander` dropped on the thread of a current-thread tokio runtime that runs its own event loop (`#[tokio::test]`, `new_current_thread`) no longer blocks that thread for 50 ms: the event loop can't get to the disconnect while the thread waits, so the wait never succeeded and stalled everything on the runtime. The disconnect is handed over and goes out once the thread is back in the runtime; `disconnect().asynch().await` waits until the device is released. On a multi-thread runtime, and on other threads, the drop still waits up to 50 ms so that a program exiting right after has said goodbye.
 - `#[since]` is checked against the device's API version in full (`major.minor.patch` in order): before 1.0 only the patch was compared and after 1.0 only the minor, so after a breaking bump (`0.5.2` -> `0.6.0`) items marked `#[since = "0.5.2"]` looked newer than the device and calls failed with `Error::OlderProtocol`. A breaking bump now starts a new line in which all older markers count as present; markers no longer need rewriting on a breaking bump (`docs/evolution/rules.md#since`).

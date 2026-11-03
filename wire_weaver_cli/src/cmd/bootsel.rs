@@ -307,6 +307,13 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
         let spinner = spinner(format!("waiting for {} to come back", follow.serial));
         // it may come back as WireWeaver, or, if it refuses to boot on an unknown rework (STD-101), blink the error
         // code for about 10 s and land back in BOOTSEL instead (TOOL-30)
+        // the boot ROM stays on the bus for the reboot delay: judge only after BOOTSEL went away (bounded, a board
+        // that was never seen leaving is judged by what is there)
+        follow
+            .left(&mut UsbBus, Duration::from_secs(5), |f| {
+                matches!(f, Found::RpBootsel(_))
+            })
+            .await?;
         let found = follow
             .back(&mut UsbBus, Duration::from_secs(12), "no device", |f| {
                 matches!(f, Found::WireWeaver(_) | Found::RpBootsel(_))

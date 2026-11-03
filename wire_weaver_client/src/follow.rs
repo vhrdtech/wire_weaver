@@ -186,6 +186,30 @@ impl Follow {
         }
     }
 
+    /// Wait until no device with the serial number is one that `still` accepts, for at most `timeout`. Returns
+    /// whether it left: `false` when the time was up, the caller then judges what is there anyway.
+    ///
+    /// After a reboot request the boot ROM stays on the bus for the reboot delay, so [Follow::back] right away would
+    /// find the old device and take it for the outcome of the reboot.
+    pub async fn left(
+        &self,
+        bus: &mut impl Bus,
+        timeout: Duration,
+        still: impl Fn(&Found) -> bool,
+    ) -> Result<bool, FollowError> {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let present = self.with_serial(bus.list().await.map_err(FollowError::Bus)?);
+            if !present.into_iter().any(|i| still(&Found::classify(i))) {
+                return Ok(true);
+            }
+            if Instant::now() >= deadline {
+                return Ok(false);
+            }
+            tokio::time::sleep(self.poll).await;
+        }
+    }
+
     /// Wait for a device with the serial number that `want` accepts.
     pub async fn back(
         &self,
@@ -415,5 +439,88 @@ pub async fn open_retrying<I>(
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::UsbLocation;
+
+    /// `serial` in BOOTSEL for the first `until` listings, nothing after.
+    struct Bootsel {
+        serial: &'static str,
+        until: usize,
+        listed: usize,
+    }
+
+    impl Bus for Bootsel {
+        async fn list(&mut self) -> anyhow::Result<Vec<DeviceInfo>> {
+            self.listed += 1;
+            if self.listed > self.until {
+                return Ok(vec![]);
+            }
+            Ok(vec![DeviceInfo {
+                location: "sim".into(),
+                manufacturer: String::new(),
+                product: "RP2350 Boot".into(),
+                serials: vec![self.serial.into()],
+                user_label: String::new(),
+                api: None,
+                usb: Some(UsbLocation {
+                    bus_id: "sim".into(),
+                    port_chain: vec![],
+                    vid: RPI_VID,
+                    pid: RP2350_BOOTSEL_PID,
+                }),
+            }])
+        }
+    }
+
+    fn is_bootsel(f: &Found) -> bool {
+        matches!(f, Found::RpBootsel(_))
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn left_waits_for_bootsel_to_go() {
+        let mut bus = Bootsel {
+            serial: "ABC",
+            until: 3,
+            listed: 0,
+        };
+        let left = Follow::new("abc")
+            .left(&mut bus, Duration::from_secs(5), is_bootsel)
+            .await
+            .unwrap();
+        assert!(left);
+        assert_eq!(bus.listed, 4, "listed until it was gone");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn left_is_bounded() {
+        let mut bus = Bootsel {
+            serial: "ABC",
+            until: usize::MAX,
+            listed: 0,
+        };
+        let left = Follow::new("ABC")
+            .left(&mut bus, Duration::from_secs(1), is_bootsel)
+            .await
+            .unwrap();
+        assert!(!left);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn left_ignores_other_serials() {
+        let mut bus = Bootsel {
+            serial: "OTHER",
+            until: usize::MAX,
+            listed: 0,
+        };
+        let left = Follow::new("ABC")
+            .left(&mut bus, Duration::from_secs(1), is_bootsel)
+            .await
+            .unwrap();
+        assert!(left);
     }
 }

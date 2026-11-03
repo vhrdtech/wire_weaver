@@ -444,6 +444,13 @@ pub fn attribute(elf: &Path, generated: Option<&Path>) -> Res<(Attribution, usiz
             .max()
             .unwrap_or(0);
     }
+    if a.by_crate.keys().all(|c| c == "?") && a.total > 0 {
+        return Err(format!(
+            "{} has no DWARF line info: build with `debug = 2` (it doesn't change the flash)",
+            elf.display()
+        )
+        .into());
+    }
     Ok((a, gen_.arms.len()))
 }
 

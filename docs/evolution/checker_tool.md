@@ -271,7 +271,9 @@ name. A change is breaking if:
 * a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   `ww_si 0.1` -> `0.2`), or one from the same crate version with a different definition.
 
-It also warns about additions without `#[since]`, or with a `#[since]` that is not the new version.
+It also warns about additions without `#[since]`, or with a `#[since]` older than the new version, and about any
+resource, field or variant whose `#[since]` is newer than the crate's own version (a host built with it would refuse
+that item on every device of this version, see [`#[since]`](rules.md#since)).
 
 ## New fields in padding bits
 

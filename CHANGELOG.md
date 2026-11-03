@@ -312,6 +312,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- `#[since]` items stay callable after a breaking bump of the API (`0.5.2` -> `0.6.0`): the host compares the device's version with the marker in full instead of only the patch (only the minor after 1.0), and the evolution checker warns about markers newer than the crate. See `wire_weaver_client/CHANGELOG.md`, `wire_weaver_evolution/CHANGELOG.md`.
 - `derive_shrink_wrap` reads `#[cfg_attr(pred, default = ..)]` (and its other field and variant attributes) on fields and variants instead of dropping them without a word, with a compile error where `pred` doesn't hold (API-60). See `shrink_wrap/CHANGELOG.md`.
 - `derive_shrink_wrap` keeps the attributes it doesn't read on fields and variants (`#[serde(..)]`, `#[cfg_attr(..)]`) on the generated type with the item's name, instead of dropping them with an "Unknown attribute" line. See `shrink_wrap/CHANGELOG.md`.
 - `no_alloc = false` servers compile and work (API-21), the first piece of the ww hub (SRV-13): servers generated

@@ -241,6 +241,7 @@ pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, Str
     };
     checker.compare_traits();
     checker.compare_types();
+    checker.since_not_newer();
 
     let change = if !checker.breaking.is_empty() {
         Change::Breaking
@@ -663,7 +664,8 @@ impl<'a> Checker<'a> {
         }
     }
 
-    /// Additions are expected to be marked with `#[since]` of the version they first appeared in.
+    /// Additions are expected to be marked with `#[since]` of the version they first appeared in. One newer than the
+    /// new version is reported by [Self::since_not_newer], for every item.
     fn check_since(&mut self, path: &str, since: Option<VersionTriplet>) {
         let (major, minor, patch) = self.new_version;
         let hint = format!("#[since = \"{major}.{minor}.{patch}\"]");
@@ -673,12 +675,56 @@ impl<'a> Checker<'a> {
                 .push(format!("{path} is added without {hint}")),
             Some(since) => {
                 let since = (since.major.0, since.minor.0, since.patch.0);
-                if since <= self.old_version || since > self.new_version {
+                if since <= self.old_version {
                     self.warnings.push(format!(
                         "{path} is added with #[since = \"{}.{}.{}\"], expected {hint}",
                         since.0, since.1, since.2
                     ));
                 }
+            }
+        }
+    }
+
+    /// A `#[since]` newer than the crate's own version, on any of its resources, fields or variants, added or not:
+    /// a host built with it refuses that item on every device of this version. Markers are never rewritten on a
+    /// breaking bump, an older one counts as present (`wire_weaver_client`'s `has_since`).
+    fn since_not_newer(&mut self) {
+        let mut marked: Vec<(String, Option<VersionTriplet>)> = vec![];
+        for (name, level) in own_traits(self.new) {
+            for item in &level.items {
+                marked.push((format!("{name}::{}", item.ident), item.since));
+            }
+        }
+        let with_fields = |marked: &mut Vec<_>, prefix: &str, f: &FieldsOwned| {
+            for (i, field) in fields(f).iter().enumerate() {
+                marked.push((
+                    format!("{prefix}: field {}", field_name(i, field)),
+                    field.since,
+                ));
+            }
+        };
+        for (name, ty) in own_types(self.new) {
+            match ty {
+                TypeOwned::Struct(s) => with_fields(&mut marked, name, &s.fields),
+                TypeOwned::Enum(e) => {
+                    for variant in &e.variants {
+                        let path = format!("{name}::{}", variant.ident);
+                        marked.push((path.clone(), variant.since));
+                        with_fields(&mut marked, &path, &variant.fields);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let new = self.new_version;
+        for (path, since) in marked {
+            if let Some(since) = since
+                && (since.major.0, since.minor.0, since.patch.0) > new
+            {
+                self.warnings.push(format!(
+                    "{path} has #[since = \"{}.{}.{}\"], newer than the crate's version {}.{}.{}",
+                    since.major.0, since.minor.0, since.patch.0, new.0, new.1, new.2
+                ));
             }
         }
     }
@@ -972,6 +1018,56 @@ mod tests {
         assert_eq!(
             report.warnings,
             ["Api::led_off is added without #[since = \"0.1.1\"]"]
+        );
+    }
+
+    /// A `#[since]` above the crate's own version is reported on every item, added or kept; one from an older
+    /// line is fine after a breaking bump (markers are never rewritten).
+    #[test]
+    fn since_newer_than_the_crate() {
+        let marked = |item: &str, field: &str, variant: &str| {
+            API.replace("fn led_on();", &format!("{item}\nfn led_on();"))
+                .replace(
+                    "pub y: u8,",
+                    &format!("pub y: u8,\n{field}\n#[default = 0]\npub z: u8,"),
+                )
+                .replace("B(u8),", &format!("B(u8),\n{variant}\nC,"))
+        };
+        let old = marked(
+            "#[since = \"0.5.1\"]",
+            "#[since = \"0.5.2\"]",
+            "#[since = \"0.5.2\"]",
+        );
+        // 0.5.2 -> 0.6.0: older markers stay as they are, no warnings
+        let report = compare(&load("0.5.2", &old), &load("0.6.0", &old)).unwrap();
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+
+        let new = marked(
+            "#[since = \"0.6.1\"]",
+            "#[since = \"0.7.0\"]",
+            "#[since = \"1.0.0\"]",
+        );
+        let report = compare(&load("0.5.2", &old), &load("0.6.0", &new)).unwrap();
+        let mut warnings = report.warnings.clone();
+        warnings.sort();
+        assert_eq!(
+            warnings,
+            [
+                "Api::led_on has #[since = \"0.6.1\"], newer than the crate's version 0.6.0",
+                "Coord: field `z` has #[since = \"0.7.0\"], newer than the crate's version 0.6.0",
+                "Mode::C has #[since = \"1.0.0\"], newer than the crate's version 0.6.0",
+            ]
+        );
+
+        // an addition marked newer than the new version: reported once
+        let added = API.replace(
+            "fn set(c: Coord);",
+            "fn set(c: Coord);\n#[since = \"0.1.2\"]\nfn led_off();",
+        );
+        let report = compare(&load("0.1.0", API), &load("0.1.1", &added)).unwrap();
+        assert_eq!(
+            report.warnings,
+            ["Api::led_off has #[since = \"0.1.2\"], newer than the crate's version 0.1.1"]
         );
     }
 

@@ -221,6 +221,14 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
         ready: Ready,
         backend: &mut B,
     ) -> Option<LinkEvent> {
+        PollOutOfLine(self.handle_inner(ready, backend)).await
+    }
+
+    async fn handle_inner<B: WireWeaverAsyncApiBackend<Medium = M>>(
+        &mut self,
+        ready: Ready,
+        backend: &mut B,
+    ) -> Option<LinkEvent> {
         let now = self.clock.now();
         match ready.0 {
             ReadyKind::TransportUp => {
@@ -410,6 +418,25 @@ impl<Tx: MessageTx, C: Clock> MessageSink for Sink<'_, '_, Tx, C> {
             })?;
         }
         Ok(())
+    }
+}
+
+/// A future polled by a function of its own: the caller's state machine (a firmware's server task, with
+/// everything else it selects on) doesn't take in [Server::handle]'s, the dispatcher's root with it. Inlined there,
+/// LLVM went on to inline what both call (`poll_properties`, the writers) and the task grew by 6 KB in Donguru
+/// (SRV-55).
+struct PollOutOfLine<F>(F);
+
+impl<F: Future> Future for PollOutOfLine<F> {
+    type Output = F::Output;
+
+    #[inline(never)]
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<F::Output> {
+        // SAFETY: the field is pinned whenever `self` is, and never moved out
+        unsafe { self.map_unchecked_mut(|s| &mut s.0) }.poll(cx)
     }
 }
 

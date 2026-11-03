@@ -32,6 +32,7 @@
 
 ### ⚡ Performance
 
+- `Server::handle` polls its state machine in a function of its own (SRV-55), so a firmware's server task doesn't take in the dispatcher's root and what it calls: Donguru's task was 6.2 KB larger with it inlined.
 - Async `Server` flushes replies at once when no other request is already waiting, instead of at the end of the accumulation window; back to back requests still share packets, events written from the main loop keep the window. `DeviceLink::flush_now()` (TR-12). On Donguru (STM32G0B1, USB FS): 64-byte loopback round trips 647/s -> 2000/s, 1 KB 247/s -> 330/s.
 
 ### 🚀 Features

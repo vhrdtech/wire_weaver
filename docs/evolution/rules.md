@@ -57,6 +57,23 @@ properties, streams, new fields with defaults, etc. Mark them with `#[since = "0
 report a clean error when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
 Everything else bumps the breaking position.
 
+### `#[since]`
+
+`#[since = "x.y.z"]` is the version of the crate that added a resource, field or variant. A host refuses to call a
+resource marked newer than the connected device's API version, with `Error::OlderProtocol`, before sending anything.
+Versions are compared in full, `major.minor.patch` in order: the device has the item when its version is at least
+the marker's.
+
+* Within one compatible line (`0.6.x` before 1.0, `1.x` after), that is the version that added the item: a `0.6.3`
+  device has an item marked `0.6.2` and not one marked `0.6.4`. After 1.0 a patch can add items too.
+* A breaking bump (`0.5.2` -> `0.6.0`, `1.4.0` -> `2.0.0`) starts a new line, in which every older marker counts as
+  present: an item marked `0.5.2` is callable on a `0.6.0` device. Keep the markers as they are on a breaking bump,
+  don't rewrite them to the new version. Whether an item survived the bump is not the marker's to say: an item the
+  new version removed is reported from the device's introspection data (`Error::NotImplementedByDevice`).
+
+A marker newer than the crate's own version is a mistake (the item would be refused on every device of this version);
+the [evolution checker](checker_tool.md) warns about it.
+
 The API crate's dependencies are part of this contract: upgrading a `ww_stdlib` crate or `shrink_wrap` to a
 wire-incompatible version, or [the API model](#api-model), is a breaking change of the user API too.
 

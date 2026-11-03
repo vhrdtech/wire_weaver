@@ -9,7 +9,7 @@ use crate::client::observe::{
 use crate::client::positioned::Shared;
 use crate::client::prepared_connection::Reconnect;
 use crate::client::sink::{Resumed, SinkLink};
-use crate::compat::{ApiCompat, ApiMatch, Verdict};
+use crate::compat::{ApiCompat, ApiMatch, Verdict, has_since};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
 use crate::event_loop::command::{Command, StreamOpenHook};
@@ -1072,14 +1072,12 @@ impl Commander {
         let Some(since) = since else { return Ok(()) };
         // assuming the protocol name matches, a device will refuse to connect if it is not, host as well checks it and won't try to connect
         let dev_user_api = &self.connected_device.user_api_version.version;
-        // #[since = ""] only makes sense within compatible protocols, if a user annotated a resource with a different major version, it must be a mistake
-        // this is checked in ww_trait macro
-        let is_compatible = if dev_user_api.major.0 == 0 {
-            dev_user_api.patch.0 >= since.2
-        } else {
-            dev_user_api.minor.0 >= since.1
-        };
-        if is_compatible {
+        let device = (
+            dev_user_api.major.0,
+            dev_user_api.minor.0,
+            dev_user_api.patch.0,
+        );
+        if has_since(device, since) {
             Ok(())
         } else {
             Err(Error::OlderProtocol(

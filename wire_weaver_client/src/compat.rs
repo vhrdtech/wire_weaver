@@ -247,6 +247,16 @@ fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned)> {
     collector.items
 }
 
+/// Whether a device whose API is at `device` has an item marked `#[since = "since"]`: when `device >= since`,
+/// comparing `major.minor.patch` in order. Within one compatible line (`0.6.x` before 1.0, `1.x` after) this is the
+/// version that added the item; a breaking bump (`0.5.2` -> `0.6.0`, `1.4.0` -> `2.0.0`) starts a new line in which
+/// every older marker counts as present, so markers never need rewriting. A device on an older line than the marker
+/// doesn't have the item. Whether the item survived the breaking bump is the device's introspection data's to say
+/// (`Verdict::Missing`), not the marker's.
+pub(crate) fn has_since(device: (u32, u32, u32), since: (u32, u32, u32)) -> bool {
+    device >= since
+}
+
 /// One side of a comparison: bundle, resource in it, and how to call that side in messages.
 #[cfg(test)]
 mod tests {
@@ -950,5 +960,88 @@ mod tests {
         cmd2.resolve_api_match();
         assert!(call(&cmd2, 0).is_ok());
         assert!(matches!(call(&cmd2, 1), Err(Error::OlderProtocol(..))));
+    }
+
+    #[test]
+    fn since_by_full_version() {
+        // before 1.0: the line is 0.minor, a minor bump is breaking
+        assert!(has_since((0, 5, 2), (0, 5, 2)));
+        assert!(has_since((0, 5, 3), (0, 5, 2)));
+        assert!(!has_since((0, 5, 1), (0, 5, 2)));
+        // a breaking bump starts a new line in which older markers count as present (was refused: 0 < 2)
+        assert!(has_since((0, 6, 0), (0, 5, 2)));
+        assert!(has_since((0, 6, 0), (0, 5, 1)));
+        assert!(has_since((0, 6, 1), (0, 1, 9)));
+        // the device is on an older line than the marker
+        assert!(!has_since((0, 5, 9), (0, 6, 0)));
+        assert!(!has_since((0, 5, 9), (0, 6, 1)));
+        // 0.0.x: every patch is its own line
+        assert!(has_since((0, 0, 3), (0, 0, 2)));
+        assert!(!has_since((0, 0, 1), (0, 0, 2)));
+        // after 1.0: the line is the major, a minor bump is compatible
+        assert!(has_since((1, 3, 0), (1, 3, 0)));
+        assert!(has_since((1, 3, 1), (1, 3, 0)));
+        assert!(has_since((1, 4, 0), (1, 3, 5)));
+        assert!(!has_since((1, 2, 9), (1, 3, 0)));
+        assert!(
+            !has_since((1, 3, 0), (1, 3, 1)),
+            "a patch can add items too"
+        );
+        // a major bump (was refused when the new minor was below the marker's: 0 < 3)
+        assert!(has_since((2, 0, 0), (1, 3, 0)));
+        assert!(has_since((1, 0, 0), (0, 9, 9)));
+        assert!(!has_since((1, 9, 9), (2, 0, 0)));
+    }
+
+    /// The device took a breaking bump after the client's `#[since]` markers were written (donguru_api 0.5.2 ->
+    /// 0.6.0): items from the older line are callable, items newer than the device are refused.
+    #[test]
+    fn commander_since_across_breaking_bump() {
+        use crate::config::IntrospectBundle;
+        use crate::{Commander, Error};
+        use ww_client_server::PathKind;
+        use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
+
+        let client = r#"
+            #[ww_api_root]
+            pub trait Api {
+                fn a();
+                #[since = "0.5.1"]
+                fn b();
+                #[since = "0.5.2"]
+                fn c();
+                #[since = "0.6.1"]
+                fn d();
+            }
+        "#;
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        let mut cmd = Commander::new(tx);
+        cmd.connected_device.user_api_version =
+            FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 6, 0));
+        cmd.connected_device.user_api_hash = ApiHashPairOwned {
+            no_docs: ApiHashOwned { hash: vec![2] },
+            with_docs: ApiHashOwned { hash: vec![] },
+        };
+        let client = IntrospectBundle::from_sent(
+            bundle("c", "0.6.1", client),
+            ApiHashPairOwned {
+                no_docs: ApiHashOwned { hash: vec![1] },
+                with_docs: ApiHashOwned { hash: vec![] },
+            },
+            0,
+        )
+        .unwrap();
+        cmd.set_client_introspect(client);
+        // device API unknown: only since is checked
+        cmd.resolve_api_match();
+
+        let call = |id: u32| -> Result<(), Error> {
+            cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
+                .postpone_err
+        };
+        assert!(call(0).is_ok());
+        assert!(call(1).is_ok(), "#[since = \"0.5.1\"] on a 0.6.0 device");
+        assert!(call(2).is_ok(), "#[since = \"0.5.2\"] on a 0.6.0 device");
+        assert!(matches!(call(3), Err(Error::OlderProtocol(..))));
     }
 }

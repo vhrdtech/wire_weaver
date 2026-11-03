@@ -6249,6 +6249,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 <ul>
 <li><strong><a href="../serdes/conformance/">Conformance matrix</a></strong>: One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested.</li>
+<li><strong><a href="../serdes/conformance/">Dispatcher golden replies</a></strong>: One corpus of golden request/reply bytes covering every resource kind the dispatcher serves, checked against a sync and an async server and guarded against a sealed case changing.</li>
 <li><strong><a href="../serdes/code_size/">Code size bench</a></strong>: Firmware images per case for RISC-V and Cortex-M, measured on every change.</li>
 <li><strong>Binary size tracking</strong>: Flash and RAM per feature in CI. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../articles/units_budget/">Units on a microcontroller</a></strong>: What typed units (<code>Fixed</code>) cost in instructions, flash and stack against plain integer fields, from a harness anyone can re-run.</li>

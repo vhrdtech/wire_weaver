@@ -8360,12 +8360,17 @@ observing), SRV-46 (peer identity).
   checks for the observe <code>Series</code> codec, <code>shrink_wrap::Error</code>'s <code>Debug</code> names and the trait path lookup by name.
   Baseline of 3 Nov 2026 at <code>fw-z</code>, sync: floor 26,286 B, 52-496 B per resource by kind (mean 245 B), 438 B for a
   call with its own types; the <code>Series</code> codec is in every server (3,796 B). See <code>docs/articles/flash_budget.md</code>.</li>
-<li>📋 <strong>TEST-31 Golden reply bytes of the dispatcher</strong> · <code>v0.5</code> — guards SRV-51 and SRV-52: a test API with every
-  resource kind (calls with and without arguments and outputs, deferred, unimplemented, property get/set with user
-  errors, <code>const</code>, streams, sinks, arrays, a global trait reached by <code>GlobalFull</code> and <code>GlobalCompact</code>, bad paths,
-  wrong request kinds, seq 0) and a corpus of requests whose replies are recorded as golden bytes, compared by a
-  test like the conformance corpus (<code>frozen</code> once in). The reply bytes are wire-defining, the code that builds them
-  is not: a rework of the dispatcher must leave the corpus green.</li>
+<li>✅ <strong>TEST-31 Golden reply bytes of the dispatcher</strong> — guards SRV-51, SRV-52 and SRV-53: <code>tests/dispatch_golden_api</code>
+  (one resource of every kind: calls with and without arguments and outputs, <code>Deferred</code>, <code>Unimplemented</code>, property
+  get/set with a user error, <code>const</code>, a stream, a plain sink, an array with an index chain, <code>ww_user_info::UserInfo</code>
+  reached by <code>GlobalFull</code> and <code>GlobalCompact</code>) and <code>tests/dispatch_golden</code>: 25 cases (26 requests, one case two
+  steps for the deferred reply) built in Rust (<code>src/requests.rs</code>), run against a sync and an <code>async</code> server
+  (<code>multi_req = true</code> too, for <code>MultiCall</code>/<code>MultiRead</code>) that must agree, and recorded as golden reply bytes in
+  <code>corpus.json</code>, frozen like the wire-format conformance corpus (<code>src/frozen.rs</code>, same rules as TEST-24, its own
+  <code>DISPATCH_GOLDEN_BASE</code>). <code>just dispatch-golden-update</code> fills a new case's bytes. Found on the way:
+  <code>ErrorKind::ReadPropertyWithSeqZero</code> is never actually raised by today's codegen (seq 0 silently suppresses the
+  reply for a <code>Read</code> too, same as any other request kind); a path element past a leaf method's own path is simply
+  unused, not <code>BadPath</code>. See <code>docs/serdes/conformance.md</code> for the pattern this follows.</li>
 <li>📋 <strong>TEST-32 Flash attribution by inlined frames</strong> · <code>v0.5</code> — the experiment's <code>attribute.py</code> and
   <code>serdes_types.py</code> (typec_dongle, branch <code>s/03nov2026-flash-blank-handlers</code>) as a Rust subcommand,
   <code>fw_budget --attribute ELF [--gen GENERATED.rs]</code>: every instruction symbolized with its inlined frames (gimli /

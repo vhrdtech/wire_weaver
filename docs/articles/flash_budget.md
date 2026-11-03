@@ -49,3 +49,17 @@ The `Series` codec is linked in every server (36 symbols, 3796 B at `z`), though
 The per-kind numbers move with the inliner's choices, most in the `use_async` builds, where the arms of a level live inside one state machine. Compare the same cell before and after a change, and the mean for the overall trend. Compare only builds from the same checkout path: panic locations carry each source file's path, so a worktree at a shorter path is smaller by tens of bytes per file (one change looked 250 B better than it was, built in `/tmp`).
 
 For scale: Donguru (typec_dongle, `use_async`, `fw-z` with `opt-level = "z"`, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.
+
+## SW-69: hand-written `Error` Debug
+
+Measured 3 Nov 2026, before (commit `f8f78726`, the harness alone) against after (with SW-69's hand-written `Debug`), bytes:
+
+| thumbv6m, floor, one method | z, sync | z, async | 3, sync | 3, async |
+|------------------------------|--------:|---------:|--------:|---------:|
+| before                       |   26378 |    27202 |   41210 |    41914 |
+| after                        |   26346 |    27166 |   41174 |    41878 |
+| change                       |     −32 |      −36 |     −36 |      −36 |
+
+The per-resource numbers (the "8 resources" row and every "one more X" row) don't move beyond ±1 B rounding, and the SW-69 check still reports "not linked" both before and after: none of this harness's servers formats `shrink_wrap::Error` with `Debug` or `Display`, so the ~450 B of variant names the feature item describes never reaches these builds either way. What moved is a small, constant-size remnant of the derived `Debug` impl that LTO didn't fully strip even though nothing called it. The bytes SW-69 actually saves show up only where a real on-target caller formats the error (or a type nesting it) through `core::fmt::Debug`: fixed in this repo at `ww_settings::Error` / `LoadReport` (`examples_mcu/nucleo_{g0b1re,h743zi2}` `settings.rs`, both already `defmt::Format`) and `ww_stream::store::RamRingError` (`examples_mcu/rp2` `usb_log.rs`, now behind `ww_stream`'s new `defmt` feature); Donguru's own `settings.rs` has the same shape of fix to make, on its own branch.
+
+These absolute floor numbers run a little higher than the "Baseline" table above (e.g. 26378 B against 26286 B at `fw-z, sync`), measured on the same machine on the same day: this shared build machine runs several sessions' cargo builds at once, so small, consistent cross-run differences in the compiler, dependency versions or build cache are possible. The before/after pair here was measured back to back in one sitting, so the diff between them is the number that matters.

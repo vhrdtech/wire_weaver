@@ -3,7 +3,7 @@
 //! resource of each kind costs, from the flash of the ELFs, plus checks for code and strings a firmware should not
 //! carry without asking for it.
 
-use crate::{Res, cargo, flash_size};
+use crate::{Filter, Res, cargo, flash_size};
 use object::{Object, ObjectSection, ObjectSymbol};
 use std::path::{Path, PathBuf};
 
@@ -56,12 +56,10 @@ const CHECKS: [Check; 3] = [
     },
 ];
 
-pub fn run(targets: &[String], qemu_dir: &Path) -> Res<()> {
+pub fn run(targets: &[String], filter: &Filter, qemu_dir: &Path) -> Res<()> {
     for target in targets {
-        for profile in PROFILES {
-            for async_ in [false, true] {
-                print_one(qemu_dir, target, profile, async_)?;
-            }
+        for (profile, async_) in filter.pairs(&PROFILES) {
+            print_one(qemu_dir, target, profile, async_)?;
         }
     }
     Ok(())

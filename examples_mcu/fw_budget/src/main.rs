@@ -7,6 +7,7 @@
 //! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
 //! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N]   # bytes by inlined frame, see attribute.rs
 //! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
+//!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds
 //! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
@@ -58,6 +59,9 @@ struct Args {
     attribute: Option<PathBuf>,
     generated: Option<PathBuf>,
     top: usize,
+    /// `--flash` / `--requests`: only these profiles and modes (`sync`, `use_async`); empty is all.
+    profiles: Vec<String>,
+    modes: Vec<String>,
 }
 
 fn parse_args() -> Res<Args> {
@@ -73,6 +77,8 @@ fn parse_args() -> Res<Args> {
         attribute: None,
         generated: None,
         top: 25,
+        profiles: Vec::new(),
+        modes: Vec::new(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -91,6 +97,13 @@ fn parse_args() -> Res<Args> {
             "--gen" => args.generated = Some(value("--gen")?.into()),
             "--top" => args.top = value("--top")?.parse()?,
             "--requests" => args.requests = true,
+            "--profiles" => {
+                args.profiles = value("--profiles")?
+                    .split(',')
+                    .map(str::to_string)
+                    .collect()
+            }
+            "--modes" => args.modes = value("--modes")?.split(',').map(str::to_string).collect(),
             "--targets" => {
                 args.targets = value("--targets")?.split(',').map(str::to_string).collect()
             }
@@ -98,6 +111,39 @@ fn parse_args() -> Res<Args> {
         }
     }
     Ok(args)
+}
+
+/// Which of the shipped profiles and server modes `--flash` and `--requests` build.
+pub struct Filter {
+    profiles: Vec<String>,
+    modes: Vec<String>,
+}
+
+impl Filter {
+    /// The `(profile, use_async)` pairs to build, of `profiles` and both modes.
+    pub fn pairs(&self, profiles: &[&'static str]) -> Vec<(&'static str, bool)> {
+        let mut pairs = Vec::new();
+        for &profile in profiles {
+            for (async_, mode) in [(false, "sync"), (true, "use_async")] {
+                let profile_ok =
+                    self.profiles.is_empty() || self.profiles.iter().any(|p| p == profile);
+                let mode_ok = self.modes.is_empty() || self.modes.iter().any(|m| m == mode);
+                if profile_ok && mode_ok {
+                    pairs.push((profile, async_));
+                }
+            }
+        }
+        pairs
+    }
+}
+
+impl Args {
+    fn filter(&self) -> Filter {
+        Filter {
+            profiles: self.profiles.clone(),
+            modes: self.modes.clone(),
+        }
+    }
 }
 
 fn main() -> ExitCode {
@@ -171,10 +217,10 @@ fn run(args: &Args) -> Res<()> {
         return run_elf(args, &qemu_dir);
     }
     if args.flash {
-        return flash::run(&args.targets, &qemu_dir);
+        return flash::run(&args.targets, &args.filter(), &qemu_dir);
     }
     if args.requests {
-        return requests::run(&root, &qemu_dir, args.qemu_host.as_deref());
+        return requests::run(&root, &args.filter(), &qemu_dir, args.qemu_host.as_deref());
     }
     eprintln!("building {QEMU_BIN} at profile {}", args.profile);
     let elf = qemu_dir

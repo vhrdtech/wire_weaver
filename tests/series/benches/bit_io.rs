@@ -41,7 +41,10 @@ fn main() {
         best_ns: [f64::MAX; Case::ALL.len()],
     };
     let reports = bit_io::run(&mut timer);
-    println!("{:<34} {:>10} {:>6} {:>10}", "case", "ns/op", "bytes", "hash");
+    println!(
+        "{:<34} {:>10} {:>6} {:>10}",
+        "case", "ns/op", "bytes", "hash"
+    );
     for (i, case) in Case::ALL.iter().enumerate() {
         println!(
             "{:<34} {:>10.2} {:>6} {:>10x}",

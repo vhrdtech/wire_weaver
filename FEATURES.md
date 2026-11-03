@@ -1143,12 +1143,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `z` from `memcpy` of the levels' `Result`, which SRV-52 removes. Donguru not measured again: its HEAD (b946730)
   doesn't build against master (exact_units and STD-101 drift); from TEST-30's per-resource savings, roughly 6-9 KB
   of its 43 resources at `z`, 5 KB at 3. See `docs/articles/flash_budget.md#dispatcher-arms-only-what-differs-srv-51`.
-- 📋 **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returns
-  `Result<WrAction, ww_client_server::Error<'a>>` and propagates it with `?` (3.6-4.0 KB of `Try::branch`,
-  `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Donguru). A dispatch context (writer, seq, the
-  writer's state before the reply, the event builder) is passed down instead, and an error is written where it
-  happens by one cold function that rewinds the writer: levels return a small `WrAction`. Same reply bytes
-  (TEST-31). Est. 2-3 KB.
+- ✅ **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returned
+  `Result<WrAction, ww_client_server::Error<'a>>` and propagated it with `?` (3.6-4.0 KB of `Try::branch`,
+  `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Donguru). A level gets a
+  `ww_client_server::dispatch::Dispatch` context (request, path, the writer's state where the reply starts,
+  `in_multi`) and returns a one or two byte `WrAction`; an error is written where it happens by the cold
+  `dispatch::err`, which rewinds the writer, and the root fills in the event kind at the reply's start, so no
+  builder goes up either. Multi request elements write their errors where the element starts. Same reply bytes
+  (TEST-31), same handlers. TEST-30: the 8-resource server 17686 → 17370 B at `fw-z` sync, 18758 → 18258 B async,
+  24054 → 23694 B and 25198 → 24598 B at `fw-3`; instructions per request at `z` 6-8 % below the baseline before
+  SRV-51 (error paths +0.5 %), within 3 % at `fw-3`; the `use_async` request future 512 → 528 B. See
+  `docs/articles/flash_budget.md#errors-written-in-place-srv-52`.
 - 📋 **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matches
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026):

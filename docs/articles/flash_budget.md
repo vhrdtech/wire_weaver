@@ -154,4 +154,33 @@ Instructions per request, `just dispatch-budget` (Cortex-M3 under QEMU), warm ru
 | error: bad path                 |  2712 |  3077 |  2858 |  3259 |  1679 |  1765 |  1835 |  2162 |
 | error: kind not taken           |  2490 |  2858 |  2636 |  3037 |  1512 |  1598 |  1653 |  1978 |
 
-The replies are the same bytes. Nearly all of the increase is `compiler_builtins`' `memcpy`, a byte loop at `opt-level = "z"`: 262 → 597 instructions for the call with an argument. It copies each level's 16-20 B `Result<WrAction, Error>`, now built by an out-of-line path and moved up through the levels. SRV-52 writes errors in place and returns a small `WrAction`, which removes those copies.
+The replies are the same bytes. Nearly all of the increase is `compiler_builtins`' `memcpy`, a byte loop at `opt-level = "z"`: 262 → 597 instructions for the call with an argument. It copies each level's 16-20 B `Result<WrAction, Error>`, now built by an out-of-line path and moved up through the levels. [SRV-52](#errors-written-in-place-srv-52) writes errors in place and returns a small `WrAction`, which removes those copies.
+
+## Errors written in place (SRV-52)
+
+Every level of the dispatcher returned `Result<WrAction, Error>` and passed it up with `?`, and the root wrote the error. That `Result` is 16-20 B, so each level copied it into its caller's, and LLVM spent `Try::branch`, `map_err` and the copies on every error site and every return. Now a level gets a small context, `ww_client_server::dispatch::Dispatch` (the request, the path, the writer's state where the reply starts, whether it is an element of a multi request), and returns a one or two byte `WrAction`. An error is written where it happens by one cold function, `dispatch::err`, that rewinds the writer to where the reply starts and writes the `Error` there; the level returns `WrAction::WrittenErr`. A level no longer carries the event kind builder up either: the root knows where the reply starts and fills in the kind's nibble there. In a multi request each element's errors are written where the element starts. Only when not even the error fits does the root return `WrAction::Failed`'s `shrink_wrap::Error`, as it did before. The reply bytes are the same (TEST-31).
+
+Measured 3 Nov 2026 against SRV-51 (commit `6059e1a8`) and the SRV-51 baseline above, in the same worktree, bytes:
+
+| thumbv6m                           | z, sync SRV-51 | SRV-52 | z, async SRV-51 | SRV-52 | 3, sync SRV-51 | SRV-52 | 3, async SRV-51 | SRV-52 |
+|------------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| floor, one method                  | 14502 | 14506 | 15730 | 15638 | 20434 | 20450 | 21758 | 21574 |
+| 8 resources, two of each kind      | 17686 | 17370 | 18758 | 18258 | 24054 | 23694 | 25198 | 24598 |
+| mean of the four shared-type kinds |    86 |    86 |    87 |    88 |    94 |   104 |    97 |    96 |
+
+Against the baseline before SRV-51, the 8-resource server is now 1068 B smaller at `z` sync and 840 B async, and the same size at `fw-3` (+24 B sync, −76 B async). The saving grows with the number of levels a request passes: these servers have two.
+
+Instructions per request, `just dispatch-budget` (Cortex-M3 under QEMU), warm run, before SRV-51 → after SRV-52:
+
+| request                         | z, sync before | after | z, async before | after | 3, sync before | after | 3, async before | after |
+|---------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| call, no arguments or output    |  2488 |  2284 |  2641 |  2428 |  1375 |  1375 |  1552 |  1559 |
+| call, an argument and an output |  2723 |  2742 |  2869 |  2891 |  1647 |  1624 |  1806 |  1807 |
+| property read                   |  2466 |  2268 |  2619 |  2412 |  1373 |  1388 |  1534 |  1554 |
+| property write                  |  2596 |  2399 |  2748 |  2543 |  1458 |  1475 |  1636 |  1659 |
+| stream open                     |  3541 |  3326 |  3695 |  3472 |  1979 |  1974 |  2143 |  2144 |
+| stream close                    |  2260 |  2252 |  2405 |  2398 |  1375 |  1374 |  1538 |  1544 |
+| error: bad path                 |  2712 |  2724 |  2858 |  2874 |  1679 |  1697 |  1835 |  1881 |
+| error: kind not taken           |  2490 |  2501 |  2636 |  2653 |  1512 |  1532 |  1653 |  1699 |
+
+At `z` the answers take 6-8 % fewer instructions than before SRV-51, the error paths 0.4-0.6 % more; at `fw-3` everything is within 3 %. The future of `process_request_bytes` in the `use_async` server is 528 B, 16 B more than before (512 B): the context the root keeps across its await.

@@ -73,24 +73,24 @@ pub(crate) fn introspect(
         ww_client_server::util::ser_stream_sideband_event(scratch, request.seq.0, &[], ww_client_server::StreamSideband::Close)
     });
     let send_close = quote! {
-        #send_close.map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+        __ww_try!(wr, d, #send_close, #es0, ResponseSerFailed);
     };
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
                 #bytes_consts
                 for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
-                    #send_chunk.map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
+                    __ww_try!(wr, d, #send_chunk, #es0, ResponseSerFailed);
                 }
                 #send_close
-                Ok(WrAction::Deferred)
+                WrAction::Deferred
             }
         }
     } else {
         quote! {
             RequestKind::Introspect => {
                 #send_close
-                Ok(WrAction::Deferred)
+                WrAction::Deferred
             }
         }
     };

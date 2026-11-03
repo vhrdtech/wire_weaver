@@ -39,6 +39,9 @@ pub fn run(root: &Path, filter: &Filter, qemu_dir: &Path, qemu_host: Option<&str
         println!(
             "\n{TARGET} (Cortex-M3 under QEMU), {profile}, {mode}: instructions per request, warm run (cold in brackets)"
         );
+        if let Some(bytes) = text.lines().find_map(|l| l.strip_prefix("future bytes=")) {
+            println!("  the future of process_request_bytes: {bytes} B");
+        }
         for c in &costs {
             let reply = text
                 .lines()

@@ -4,7 +4,7 @@
 //! request twice (`run=0` cold, `run=1` warm), in the order of the `bracket=..` lines; then the reply of each, its
 //! length and FNV hash, so a change to the dispatcher that changes a reply shows here too (TEST-31 is the proof).
 //! `examples_mcu/fw_budget --requests` (`just dispatch-budget`) builds and runs it at `fw-z` and `fw-3`, sync and
-//! `use_async` (feature `flash-async`).
+//! `use_async` (feature `flash-async`, which also prints the size of the request's future).
 #![no_main]
 #![no_std]
 
@@ -98,7 +98,12 @@ fn serve_reply<'a>(request: &[u8], scratch: &'a mut [u8]) -> Option<&'a [u8]> {
     let r = server.process_request_bytes(request, scratch, &mut out, ());
     #[cfg(feature = "flash-async")]
     let r = {
-        let mut fut = core::pin::pin!(server.process_request_bytes(request, scratch, &mut out, ()));
+        let fut = server.process_request_bytes(request, scratch, &mut out, ());
+        FUTURE_BYTES.store(
+            core::mem::size_of_val(&fut),
+            core::sync::atomic::Ordering::Relaxed,
+        );
+        let mut fut = core::pin::pin!(fut);
         let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
         match fut.as_mut().poll(&mut cx) {
             core::task::Poll::Ready(r) => r,
@@ -107,6 +112,10 @@ fn serve_reply<'a>(request: &[u8], scratch: &'a mut [u8]) -> Option<&'a [u8]> {
     };
     r.ok()
 }
+
+/// The size of `process_request_bytes`' future (`use_async`): the state machine of every level it may await in.
+#[cfg_attr(not(feature = "flash-async"), allow(dead_code))]
+static FUTURE_BYTES: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 
 fn fnv(bytes: &[u8]) -> u32 {
     bytes.iter().fold(0x811c_9dc5u32, |h, &b| {
@@ -154,6 +163,13 @@ fn main() -> ! {
         )
         .unwrap();
     }
+    #[cfg(feature = "flash-async")]
+    writeln!(
+        stdout,
+        "future bytes={}",
+        FUTURE_BYTES.load(core::sync::atomic::Ordering::Relaxed)
+    )
+    .unwrap();
     debug::exit(debug::EXIT_SUCCESS);
     loop {}
 }

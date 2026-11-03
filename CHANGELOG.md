@@ -283,6 +283,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Flash attribution by inlined frames (TEST-32): `fw_budget --attribute ELF [--gen GENERATED.rs]` (`just flash-attribute ELF`) splits a firmware's bytes by the crate of the innermost frame, by generated dispatcher function and by shrink_wrap serdes impl, for when a flash total moves and the reason isn't obvious. A development tool, no crate changes.
 - Smaller decoders for enums mixing unit variants and variants with fields (SW-71), the same bytes: `exact_units::Prefix` from 624 to 324 B on a Cortex-M0+ at `opt-level = "z"`. See `shrink_wrap/` CHANGELOG.
 - The generated dispatcher of a `no_alloc` server keeps only decode, call and a shared reply path per resource (SRV-51): 86 B instead of 238 B per resource on a Cortex-M0+ at `opt-level = "z"`, same reply bytes. `just dispatch-budget` counts instructions per request (TEST-30). See `wire_weaver_core/` and `ww_client_server/` CHANGELOGs.
+- The generated dispatcher writes errors where they happen instead of passing a `Result` up the levels (SRV-52): a further 316-600 B off the TEST-30 server, and 6-8 % fewer instructions per request at `opt-level = "z"` than before SRV-51. See `wire_weaver_core/` and `ww_client_server/` CHANGELOGs.
 
 ### Changed
 

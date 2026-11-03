@@ -41,6 +41,14 @@ impl EventKindBuilder {
         Ok(Self { discriminant })
     }
 
+    /// The builder of a kind whose nibble was written at `state` (by `dispatch::start`, SRV-52): the generated
+    /// dispatcher's levels don't carry the builder up to the root, which knows where its reply starts.
+    pub fn at(state: BufWriterState) -> Self {
+        Self {
+            discriminant: state,
+        }
+    }
+
     pub fn finish_with_kind(self, kind: EventKindDiscriminants, wr: &mut BufWriter<'_>) {
         let state = wr.save_state();
         wr.restore_state(self.discriminant);

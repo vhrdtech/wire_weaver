@@ -2595,6 +2595,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-missing-test-warning-tool-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A missing-test warning (TOOL-31)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#limitations" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5726,6 +5737,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-missing-test-warning-tool-31" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A missing-test warning (TOOL-31)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#limitations" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6089,6 +6111,21 @@ silences the note with <code>#[no_unit_hint]</code> right on it:</p>
 </span></code></pre></div>
 <p><code>ww api scaffold</code> shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
 handlers are written against <code>Fixed</code> from the start where the note applies.</p>
+<h2 id="a-missing-test-warning-tool-31">A missing-test warning (TOOL-31)<a class="headerlink" href="#a-missing-test-warning-tool-31" title="Permanent link">&para;</a></h2>
+<p><code>ww api check</code> and <code>ww api save</code> also warn, before anything else, when the crate directory has no
+<code>tests/evolution.rs</code> calling <code>wire_weaver_evolution::Check</code> (the <a href="#checking-at-every-commit">test above</a>):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>$ ww api check my_device_api
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  only by `ww api check` run by hand
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>no changes
+</span></code></pre></div>
+<p>A crate without the API crate's own test only gets checked when someone remembers to run <code>ww api check</code> by hand:
+<code>cargo test</code>, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,
+and it only looks at the file's text (it doesn't need the crate to build), so it also fires on a crate the checker
+can't otherwise parse. <code>wire_weaver_evolution::missing_test_warning(path)</code> is the library call behind it, for other
+tools that want the same check.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Snapshots of all published versions have to be kept in <code>api_snapshots/</code>, the checker can only see what is saved

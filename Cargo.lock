@@ -1533,6 +1533,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "dispatch_golden"
+version = "0.1.0"
+dependencies = [
+ "dispatch_golden_api",
+ "hex",
+ "serde",
+ "serde_json",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_user_info",
+]
+
+[[package]]
+name = "dispatch_golden_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_user_info",
+]
+
+[[package]]
 name = "dissimilar"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"

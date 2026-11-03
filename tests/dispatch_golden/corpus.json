@@ -1,0 +1,267 @@
+{
+  "_about": [
+    "TEST-31: golden reply bytes of the dispatcher, one case per resource kind or outcome.",
+    "Each case is a sequence of steps against a fresh server; a step is a request, its direct reply and any",
+    "events the handler queued while answering it (e.g. the deferred reply to an earlier step).",
+    "`request`/`reply`/an `events` entry are hex, or \"?\" until `just dispatch-golden-update` fills them in.",
+    "Requests are built in src/requests.rs, replies and events come from running both the sync and the async",
+    "server (src/server.rs, src/async_server.rs), which must agree. See docs/serdes/conformance.md for the",
+    "pattern this follows, and tests/dispatch.rs for the test and the frozen golden bytes guard (TEST-24-style,",
+    "src/frozen.rs)."
+  ],
+  "cases": [
+    {
+      "name": "call.no_args",
+      "steps": [
+        {
+          "request": "8080808001400001",
+          "reply": "0180"
+        }
+      ],
+      "note": "The smallest Call: no arguments, no return value."
+    },
+    {
+      "name": "call.with_args",
+      "steps": [
+        {
+          "request": "80808080014010052c0101",
+          "reply": "0180e5930400"
+        }
+      ],
+      "note": "Call with arguments and a return value."
+    },
+    {
+      "name": "call.absent",
+      "steps": [
+        {
+          "request": "8080808001402001",
+          "reply": "01020901"
+        }
+      ],
+      "note": "The request is fine, there is no handler: Unimplemented."
+    },
+    {
+      "name": "multi.deferred_then_answer",
+      "steps": [
+        {
+          "request": "8080808007403001",
+          "reply": ""
+        },
+        {
+          "request": "808080800840403701",
+          "reply": "0880",
+          "events": [
+            "078037"
+          ]
+        }
+      ],
+      "note": "deferred() answers nothing directly; answer_deferred() answers itself and queues the deferred reply as an event."
+    },
+    {
+      "name": "property.read",
+      "steps": [
+        {
+          "request": "8080808001405201",
+          "reply": "018000"
+        }
+      ]
+    },
+    {
+      "name": "property.write",
+      "steps": [
+        {
+          "request": "808080800140540701",
+          "reply": "0181"
+        }
+      ]
+    },
+    {
+      "name": "property.write_user_error",
+      "steps": [
+        {
+          "request": "80808080014064c801",
+          "reply": "01040c000103"
+        }
+      ],
+      "note": "Setting `guarded` above 100 fails with the user error GuardedError::TooBig."
+    },
+    {
+      "name": "const.read",
+      "steps": [
+        {
+          "request": "8080808001407201",
+          "reply": "0180e803"
+        }
+      ],
+      "note": "A Rust const, read with a plain Read like a property."
+    },
+    {
+      "name": "stream.open",
+      "steps": [
+        {
+          "request": "808080800140818001",
+          "reply": "018000000000"
+        }
+      ]
+    },
+    {
+      "name": "sink.write",
+      "steps": [
+        {
+          "request": "80808080014091402a01",
+          "reply": "0181"
+        }
+      ],
+      "note": "A plain (non-credit) sink takes a plain Write, answered like a property write."
+    },
+    {
+      "name": "array.call",
+      "steps": [
+        {
+          "request": "808080800140a1000003",
+          "reply": "018000"
+        }
+      ],
+      "note": "A Call through an index chain into channel[]."
+    },
+    {
+      "name": "array.property_write",
+      "steps": [
+        {
+          "request": "808080800140a111400503",
+          "reply": "0181"
+        }
+      ]
+    },
+    {
+      "name": "array.bad_index",
+      "steps": [
+        {
+          "request": "808080800140a1bc100003",
+          "reply": "010a500201"
+        }
+      ],
+      "note": "channel[99] is out of range: BadIndex."
+    },
+    {
+      "name": "global.full_read_name",
+      "steps": [
+        {
+          "request": "80808080014277775f757365725f696e666f010055736572496e666f12010949",
+          "reply": "018000"
+        }
+      ],
+      "note": "ww_user_info::UserInfo reached by GlobalFull."
+    },
+    {
+      "name": "global.compact_write_name",
+      "steps": [
+        {
+          "request": "808080800141c101014068690201",
+          "reply": "0181"
+        }
+      ],
+      "note": "ww_user_info::UserInfo (ww_global id 12) reached by GlobalCompact."
+    },
+    {
+      "name": "global.compact_read_const",
+      "steps": [
+        {
+          "request": "808080800141c1010021",
+          "reply": "01802000000100"
+        }
+      ],
+      "note": "UserInfo::CAPABILITIES, a const, read on a GlobalCompact path."
+    },
+    {
+      "name": "global.missing_trait",
+      "steps": [
+        {
+          "request": "80808080014264697370617463685f676f6c64656e5f61706901004368616e6e656c00173a",
+          "reply": "0108600e01"
+        }
+      ],
+      "note": "Channel sits under channel[], a resource array: it can't be reached by a global path (PathKind::GlobalFull's own doc), so this is TraitNotFound."
+    },
+    {
+      "name": "error.bad_path",
+      "steps": [
+        {
+          "request": "808080800140fcf10001",
+          "reply": "0108500101"
+        }
+      ],
+      "note": "An id past the root's items."
+    },
+    {
+      "name": "error.too_deep_path",
+      "steps": [
+        {
+          "request": "808080800140000002",
+          "reply": "0180"
+        }
+      ],
+      "note": "no_args is a leaf: a trailing id past it is unused, not an error, and the call still succeeds."
+    },
+    {
+      "name": "error.wrong_kind_call_on_property",
+      "steps": [
+        {
+          "request": "8080808001405001",
+          "reply": "01000001"
+        }
+      ],
+      "note": "Call on a property's path: OperationNotSupported."
+    },
+    {
+      "name": "error.wrong_kind_write_on_const",
+      "steps": [
+        {
+          "request": "80808080014074000001",
+          "reply": "01000001"
+        }
+      ],
+      "note": "Write on a const's path: OperationNotSupported."
+    },
+    {
+      "name": "error.seq_zero_read_property",
+      "steps": [
+        {
+          "request": "8080808000405201",
+          "reply": ""
+        }
+      ],
+      "note": "seq 0 suppresses the reply for a Read too, same as a Call: the direct reply is empty."
+    },
+    {
+      "name": "error.seq_zero_call_no_reply",
+      "steps": [
+        {
+          "request": "8080808000400001",
+          "reply": ""
+        }
+      ],
+      "note": "seq 0 on an ordinary Call means no answer is expected: the direct reply is empty."
+    },
+    {
+      "name": "multi.multi_call",
+      "steps": [
+        {
+          "request": "808080800140a11040128000000221",
+          "reply": "0180c00001"
+        }
+      ],
+      "note": "MultiCall of channel[].pulse over indices 0 and 1 (multi_req = true)."
+    },
+    {
+      "name": "multi.multi_read",
+      "steps": [
+        {
+          "request": "808080800140a13040128121",
+          "reply": "0180c00000"
+        }
+      ],
+      "note": "MultiRead of channel[].level over indices 0 and 1 (multi_req = true)."
+    }
+  ]
+}

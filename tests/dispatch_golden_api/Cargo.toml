@@ -1,0 +1,17 @@
+[package]
+name = "dispatch_golden_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test API of TEST-31 (golden reply bytes of the dispatcher): one resource of every kind, used by tests/dispatch_golden."
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_user_info/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_user_info.workspace = true

@@ -193,6 +193,7 @@ dfu_api = { version = "0.1.0", path = "./tests/dfu_api" }
 dfu_app_api = { version = "0.1.0", path = "./tests/dfu_app_api" }
 dfu_lean_app_api = { version = "0.1.0", path = "./tests/dfu_lean_app_api" }
 dfu_updater_api = { version = "0.1.0", path = "./tests/dfu_updater_api" }
+dispatch_golden_api = { version = "0.1.0", path = "./tests/dispatch_golden_api" }
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
 foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }

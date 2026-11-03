@@ -2546,12 +2546,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   checks for the observe `Series` codec, `shrink_wrap::Error`'s `Debug` names and the trait path lookup by name.
   Baseline of 3 Nov 2026 at `fw-z`, sync: floor 26,286 B, 52-496 B per resource by kind (mean 245 B), 438 B for a
   call with its own types; the `Series` codec is in every server (3,796 B). See `docs/articles/flash_budget.md`.
-- 📋 **TEST-31 Golden reply bytes of the dispatcher** · `v0.5` — guards SRV-51 and SRV-52: a test API with every
-  resource kind (calls with and without arguments and outputs, deferred, unimplemented, property get/set with user
-  errors, `const`, streams, sinks, arrays, a global trait reached by `GlobalFull` and `GlobalCompact`, bad paths,
-  wrong request kinds, seq 0) and a corpus of requests whose replies are recorded as golden bytes, compared by a
-  test like the conformance corpus (`frozen` once in). The reply bytes are wire-defining, the code that builds them
-  is not: a rework of the dispatcher must leave the corpus green.
+- ✅ **TEST-31 Golden reply bytes of the dispatcher** — guards SRV-51, SRV-52 and SRV-53: `tests/dispatch_golden_api`
+  (one resource of every kind: calls with and without arguments and outputs, `Deferred`, `Unimplemented`, property
+  get/set with a user error, `const`, a stream, a plain sink, an array with an index chain, `ww_user_info::UserInfo`
+  reached by `GlobalFull` and `GlobalCompact`) and `tests/dispatch_golden`: 25 cases (26 requests, one case two
+  steps for the deferred reply) built in Rust (`src/requests.rs`), run against a sync and an `async` server
+  (`multi_req = true` too, for `MultiCall`/`MultiRead`) that must agree, and recorded as golden reply bytes in
+  `corpus.json`, frozen like the wire-format conformance corpus (`src/frozen.rs`, same rules as TEST-24, its own
+  `DISPATCH_GOLDEN_BASE`). `just dispatch-golden-update` fills a new case's bytes. Found on the way:
+  `ErrorKind::ReadPropertyWithSeqZero` is never actually raised by today's codegen (seq 0 silently suppresses the
+  reply for a `Read` too, same as any other request kind); a path element past a leaf method's own path is simply
+  unused, not `BadPath`. See `docs/serdes/conformance.md` for the pattern this follows.
 - 📋 **TEST-32 Flash attribution by inlined frames** · `v0.5` — the experiment's `attribute.py` and
   `serdes_types.py` (typec_dongle, branch `s/03nov2026-flash-blank-handlers`) as a Rust subcommand,
   `fw_budget --attribute ELF [--gen GENERATED.rs]`: every instruction symbolized with its inlined frames (gimli /

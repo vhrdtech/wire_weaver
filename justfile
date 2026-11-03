@@ -41,6 +41,10 @@ conformance-update:
     CONFORMANCE=update cargo nextest run -p conformance corpus
     CONFORMANCE=update cargo nextest run -p conformance report
 
+# Fill in the golden bytes of new dispatch_golden cases ("request"/"reply"/an event "?") from the sync server (TEST-31)
+dispatch-golden-update:
+    DISPATCH_GOLDEN=update cargo nextest run -p dispatch_golden corpus
+
 # The conformance corpus through the Python module (wire_weaver_py), in its own venv (TEST-23)
 [working-directory('wire_weaver_py')]
 test-conformance-py:

@@ -454,6 +454,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
 - **[Conformance matrix](serdes/conformance.md)**: One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested.
+- **[Dispatcher golden replies](serdes/conformance.md)**: One corpus of golden request/reply bytes covering every resource kind the dispatcher serves, checked against a sync and an async server and guarded against a sealed case changing.
 - **[Code size bench](serdes/code_size.md)**: Firmware images per case for RISC-V and Cortex-M, measured on every change.
 - **Binary size tracking**: Flash and RAM per feature in CI. <span class="ww-status">in progress</span>
 - **[Units on a microcontroller](articles/units_budget.md)**: What typed units (`Fixed`) cost in instructions, flash and stack against plain integer fields, from a harness anyone can re-run.

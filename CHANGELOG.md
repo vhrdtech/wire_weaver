@@ -272,6 +272,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Large messages (CLT-55): the message limit comes from `ClientConfig::max_message_len`, both sides keep to the smaller of the host's and the device's, an over-limit call fails at once with `Error::MessageTooBig` naming both numbers, `no_alloc = false` servers reply past their scratch buffer, and each session keeps the host's API and app version. No wire change. See `docs/api/large_messages.md` and the `wire_weaver_client/`, `ww_device/`, `wire_weaver/` and `wire_weaver_core/` CHANGELOGs.
 - `CallContext` (SRV-48): who asked (peer, trace, deadline, connection, priority) in every server `Context` (`cx.call()`) and as the first argument of an API's local trait, whose errors and streams now live in `wire_weaver::call`, so an API crate's `local` feature needs no `wire_weaver_client`. See `wire_weaver/`, `wire_weaver_core/` and `wire_weaver_client/` CHANGELOGs.
 - Observe left out of firmware that doesn't observe (SRV-54): server code writes each event in place instead of serializing a whole `Event`, and `RequestKind::Observe`'s body is decoded only where a server observes. A one-method server on a Cortex-M0+ went from 26.3 KB to 14.5 KB of flash at `opt-level = "z"`; the wire is unchanged. Breaking for Rust code building `RequestKind::Observe` by hand (`cfg: RefBox::new(&cfg)`). See `ww_stdlib/ww_client_server/CHANGELOG.md`, `wire_weaver_core/CHANGELOG.md`, `docs/articles/flash_budget.md`.
+- Golden reply bytes of the dispatcher (TEST-31), guarding the flash-diet dispatcher rework (SRV-51, SRV-52,
+  SRV-53): `tests/dispatch_golden_api` and `tests/dispatch_golden`, a corpus of 25 request/reply cases covering
+  every resource kind, checked against both a sync and an async server and frozen like the wire-format conformance
+  corpus. See `tests/dispatch_golden/corpus.json` and `docs/serdes/conformance.md`.
 
 ### Changed
 

@@ -1,0 +1,22 @@
+[package]
+name = "dispatch_golden"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "TEST-31: golden reply bytes of the dispatcher, frozen like the wire-format conformance corpus."
+
+[dependencies]
+dispatch_golden_api = { workspace = true, features = ["std"] }
+hex.workspace = true
+serde = { workspace = true, features = ["std"] }
+serde_json.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_client_server = { workspace = true, features = ["std"] }
+ww_user_info = { workspace = true, features = ["std"] }

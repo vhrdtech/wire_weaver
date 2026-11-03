@@ -7546,11 +7546,26 @@ observing), SRV-46 (peer identity).
   a chip in RAM), <code>wire_weaver_cli</code> <code>cmd::rework_check::tests</code>. <code>ww dfu flash</code> (the <code>ww-chunky</code> plugin, a running
   app, no ROM at hand) compares with the app's <code>REWORKS</code> and refuses a lacking image: tpm P2401#3nov-0105d. Hardware
   check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).</li>
-<li>📋 <strong>TOOL-30 <code>ww info</code> and <code>ww board rework allow</code> in the ROM bootloader</strong> · <code>v0.5</code> — on a board in BOOTSEL / ROM
-  DFU, <code>ww info</code> reads the image in flash (build id, table) and the bench record through the ROM (<code>ww_report::
-  rework_check</code>, TOOL-29): board, revision, reworks applied, the ones the installed image knows, the allowance and the
-  verdict (<code>this image refuses to boot: unknown rework 9</code>). <code>ww board rework allow N...</code> stores the allowance for the
-  installed image there, <code>disallow</code> clears it (STD-101).</li>
+<li>🧪 <strong>TOOL-30 <code>ww info</code> and <code>ww board rework allow</code> in the ROM bootloader</strong> · <code>v0.5</code> — on a board in BOOTSEL / the
+  STM32 bootloader, <code>ww info</code> reads the installed image's table (build id, boards it lists) and the bench record
+  through the ROM (<code>ww_report::rework_check</code>, TOOL-29: <code>scan_installed_image</code>, <code>read_board</code>), and prints the verdict
+  a reboot would reach right now (<code>ww_board_info::guard::decide</code>, <code>board_guard</code>/<code>guard_line</code>/<code>rom_info_text</code>):
+  <code>Run</code>/<code>RunAllowed</code>/<code>Refuse</code> as <code>runs: every applied rework is known</code>, <code>runs: rework(s) 9 unknown to this image,
+  allowed for it</code>, or <code>refuses to boot: unknown rework(s) 9 (blink code 1); flash a firmware that knows it, or ww
+  board rework allow 9</code>. On a running board nothing changes: <code>REWORKS</code> is as before. <code>ww board rework allow N...</code>
+  stores the allowance for the installed image's <code>ImageId</code> there (refused without a build-id note or a bench
+  record); the numbers must cover every rework the verdict calls unknown, covering more is fine (<code>StoredAllowance</code>'s
+  own rule), fewer is refused naming what is left out. <code>disallow</code> clears it (STD-101); both take <code>--dry-run</code>. The
+  <code>RomFlash</code> adapters (<code>PicobootRom</code>, <code>DfuseRom</code>) moved out of <code>cmd::bootsel</code>/<code>cmd::stm32dfu</code> into one shared
+  <code>wire_weaver_cli::cmd::rom</code> (<code>find_rom</code> matches a boot ROM device against the device selection, <code>open_rp</code>/
+  <code>open_stm32</code>), used by <code>ww info</code>, <code>ww board rework allow|disallow</code> and the TOOL-29 flashers alike. <code>ww dfu rp
+  flash --follow</code> / <code>ww dfu stm32 flash --follow</code> tell an image that refused to boot (back in the ROM within about
+  12 s instead of as WireWeaver) from one that runs, and point at <code>ww info</code>. <code>docs/cli_reference.md#ww-info-in-the-
+  boot-rom</code>, <code>#ww-board-rework-allow-disallow</code>, <code>docs/std_library/ww_board_info.md#ww-info-and-ww-board-rework-
+  allow-disallow-in-the-boot-rom</code>. Tests: <code>ww_report</code> <code>rework_check::tests</code> (<code>rom_info_text_states</code>,
+  <code>scan_installed_image_without_a_table</code>), <code>wire_weaver_cli</code> <code>cmd::board::tests</code> (<code>covers_unknown_exactly_or_with_
+  extra</code>, arg parsing). Hardware check open: a board that boots guarded (an unknown applied rework), <code>allow</code> then a
+  reboot into <code>RunAllowed</code>, <code>disallow</code> then a reboot back to <code>Refuse</code> (usb_io_fw PLAT-18).</li>
 <li>📋 <strong>TOOL-23 Doc-comment / sentinel / bounds hints for <code>ww api check</code></strong> — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest <code>Bounds</code>/niche forms too, not only the name suffix. Needs STD-64, STD-66

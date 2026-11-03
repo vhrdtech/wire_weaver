@@ -3534,6 +3534,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ww-info-and-ww-board-rework-allowdisallow-in-the-boot-rom" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww info</code> and <code>ww board rework allow|disallow</code> in the boot ROM
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5672,6 +5683,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ww-info-and-ww-board-rework-allowdisallow-in-the-boot-rom" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww info</code> and <code>ww board rework allow|disallow</code> in the boot ROM
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6088,6 +6110,27 @@ its own, so the board refuses until a firmware that knows the rework is flashed.
 left it.</p>
 <p>Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.</p>
+<h3 id="ww-info-and-ww-board-rework-allowdisallow-in-the-boot-rom"><code>ww info</code> and <code>ww board rework allow|disallow</code> in the boot ROM<a class="headerlink" href="#ww-info-and-ww-board-rework-allowdisallow-in-the-boot-rom" title="Permanent link">&para;</a></h3>
+<p>A board that refuses to boot has no running firmware to ask, so <code>ww info</code> and <code>ww board rework allow</code>/<code>disallow</code>
+read and write the bench record and the allowance the same way the flashers do: through the ROM bootloader
+(PICOBOOT read on the RP2350, DfuSe upload on an STM32), not through <code>BoardInfo</code> (TOOL-30).</p>
+<ul>
+<li><code>ww info</code> on a board in BOOTSEL / the STM32 bootloader finds the installed image's own table (build id, the
+  boards it lists), reads the bench record through the same <code>Locator</code>, and prints the verdict a reboot would reach
+  right now: <code>guard::decide</code> run on what it read (<code>Guard::Run</code>/<code>RunAllowed</code>/<code>Refuse</code>, the same decision <code>boot_check</code>
+  makes). On a running board nothing changes: <code>REWORKS</code> is as before, an entry with <code>title: None</code> meaning the
+  allowance already covers it.</li>
+<li><code>ww board rework allow N...</code> stores the allowance for the installed image's <code>ImageId</code> (refused without a build-id
+  note); the numbers must cover every rework the verdict calls unknown (covering more is fine, the allowance's own
+  rule). <code>disallow</code> clears it. Both refuse when the installed image names no bench record: nothing to check.</li>
+<li>The guard runs once, at boot: <code>ww info</code> only shows the new verdict after the board reboots into the image.</li>
+</ul>
+<p><code>ww_report::rework_check</code> has this as a library (<code>scan_installed_image</code>, <code>read_board</code>, <code>board_guard</code>,
+<code>rom_info_text</code>, <code>set_allowance</code>), the same one <a href="../../cli_reference/#checking-the-boards-reworks">TOOL-29's flasher
+check</a> uses; <code>wire_weaver_cli::cmd::rom</code> holds the <code>RomFlash</code>
+adapters (<code>PicobootRom</code>, <code>DfuseRom</code>) every ROM command shares. <code>ww dfu rp flash --follow</code> / <code>ww dfu stm32 flash
+--follow</code> tell an image that refused to boot (back in the ROM within about 12 s instead of as WireWeaver) from one
+that runs, and point at <code>ww info</code>.</p>
 <p><code>BoardSummary</code> has no <code>defmt::Format</code> (its <code>DateTime</code> has none).</p>
 
 

@@ -2495,6 +2495,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#since" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[since]</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#doc-comments" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5746,6 +5757,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#since" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[since]</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#doc-comments" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6038,6 +6060,21 @@ they are not compatible (<code>ww_version::Version::is_protocol_compatible</code
 properties, streams, new fields with defaults, etc. Mark them with <code>#[since = "0.2.3"]</code>, so that a newer host can
 report a clean error when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).
 Everything else bumps the breaking position.</p>
+<h3 id="since"><code>#[since]</code><a class="headerlink" href="#since" title="Permanent link">&para;</a></h3>
+<p><code>#[since = "x.y.z"]</code> is the version of the crate that added a resource, field or variant. A host refuses to call a
+resource marked newer than the connected device's API version, with <code>Error::OlderProtocol</code>, before sending anything.
+Versions are compared in full, <code>major.minor.patch</code> in order: the device has the item when its version is at least
+the marker's.</p>
+<ul>
+<li>Within one compatible line (<code>0.6.x</code> before 1.0, <code>1.x</code> after), that is the version that added the item: a <code>0.6.3</code>
+  device has an item marked <code>0.6.2</code> and not one marked <code>0.6.4</code>. After 1.0 a patch can add items too.</li>
+<li>A breaking bump (<code>0.5.2</code> -&gt; <code>0.6.0</code>, <code>1.4.0</code> -&gt; <code>2.0.0</code>) starts a new line, in which every older marker counts as
+  present: an item marked <code>0.5.2</code> is callable on a <code>0.6.0</code> device. Keep the markers as they are on a breaking bump,
+  don't rewrite them to the new version. Whether an item survived the bump is not the marker's to say: an item the
+  new version removed is reported from the device's introspection data (<code>Error::NotImplementedByDevice</code>).</li>
+</ul>
+<p>A marker newer than the crate's own version is a mistake (the item would be refused on every device of this version);
+the <a href="../checker_tool/">evolution checker</a> warns about it.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
 wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
 <h3 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h3>

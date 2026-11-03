@@ -5982,7 +5982,9 @@ name. A change is breaking if:</p>
 <li>a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   <code>ww_si 0.1</code> -&gt; <code>0.2</code>), or one from the same crate version with a different definition.</li>
 </ul>
-<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> that is not the new version.</p>
+<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> older than the new version, and about any
+resource, field or variant whose <code>#[since]</code> is newer than the crate's own version (a host built with it would refuse
+that item on every device of this version, see <a href="../rules/#since"><code>#[since]</code></a>).</p>
 <h2 id="new-fields-in-padding-bits">New fields in padding bits<a class="headerlink" href="#new-fields-in-padding-bits" title="Permanent link">&para;</a></h2>
 <p>Padding inside a type, before a field aligned to a nibble or a byte, is always written as zero bits and skipped when
 reading. A new field of any type, <code>Unsized</code> or not, can take such bits, anywhere between the old fields, if:</p>

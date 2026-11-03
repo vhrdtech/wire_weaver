@@ -492,6 +492,7 @@ async fn a_prepared_adoption_goes_with_its_connection() {
         dev_max_message_len: 512,
         packet_accumulation_time_us: 500,
         token: 7,
+        image_facts: Default::default(),
     };
     let handover = HandoverOwned {
         client_version: wire_weaver_client::adopt::CLIENT_VERSION.into(),

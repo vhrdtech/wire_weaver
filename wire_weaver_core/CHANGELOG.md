@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- A generated server has `image_facts()` beside `api_hash()` (SRV-56), for `ww_device::LinkConfig::new`: with `observe_samples = false` it says `no_observe_samples`. Not part of the API hash.
 - `observe_samples = false` (SRV-56): a server that takes no samples of its `+batched` properties. No `ObserveBatches`, samplers, outboxes or scratch are generated, `ObserveState` and `poll_properties` are those of an API without `+batched`, and `Samples` mode is refused with `ModeNotSupported`. The API hash, introspection and `Batched::One` bytes don't change. `observe_batch`, `observe_outbox` or `observe_cells` next to it are compile errors. TEST-30 on a Cortex-M0+: 20,336 B less at `fw-z` sync on a level of four properties, 80 B over plain `+observe` properties, see `docs/articles/flash_budget.md#no-samples-no-encoder-srv-56`.
 
 ### 🐛 Fixes

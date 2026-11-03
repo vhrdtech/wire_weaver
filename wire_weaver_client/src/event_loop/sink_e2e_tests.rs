@@ -160,6 +160,7 @@ async fn run_device(
     let config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
         ApiHashPair::empty(),
+        Default::default(),
         CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
     );
     let mut server = ww_device::Server::new(

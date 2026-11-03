@@ -1197,9 +1197,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     go and count as missed, as a value that doesn't serialize does today. Not built, and the Series encoders stay as
     they are for now.
   - **Not measured.** Instructions per row of `observe_rows`.
-  - **Known limit.** Observers of one level merge into `Samples` if any asks for it, so a refused `Samples` also takes
-    the property from another observer of the level that asked for a period. A device with no producer behaved the
-    same before the switch, granting `Samples` and sending nothing; now the refusal says why.
+  - **Done: the image says so.** `ww_version::ImageFacts` is a field of `ww_link::DeviceInfo` outside the API hash, sent
+    on every connection, also with introspection off and through the hub. `no_observe_samples` is its first field; a
+    generated server has `image_facts()` for `LinkConfig::new`. Later choices of an image append fields (a host
+    knowing the codec of INT-16 before downloading, global lookup off of SRV-53). `wire_weaver_client` refuses
+    `Samples` before sending (`Error::Unsupported`), so the generated and dynamic clients, `ww observe` and Python
+    get it. No wire break. It costs every image 256 B of flash (Donguru with `meter-samples`, release at `z`, typec_dongle
+    7c97d27, wire_weaver 0543991: 291,508 -> 291,764 B text+data), in the server's link code that writes
+    `DeviceInfo`; 112 B of it is the size slot that lets the record grow. Off image on the same base: 287,316 ->
+    264,404 B, 65,396 -> 62,004 B RAM. Tests `no_samples_is_refused_before_sending`, `image_facts_across_versions`,
+    `image_facts_reach_a_client_through_the_hub`, corpus cases `device_info.*`.
+    [Choices of one firmware image](docs/evolution/rules.md#choices-of-one-firmware-image).
+  - **Known limit.** Without the facts (an older host or device) the refusal is the answer, and observers of one level
+    merge into `Samples` if any asks for it, so a refused `Samples` also takes the property from another observer of
+    the level that asked for a period. A device with no producer behaved the same before the switch, granting
+    `Samples` and sending nothing; now the refusal says why. With the facts the request never joins the merge.
 - ✅ **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matched
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026), as built:

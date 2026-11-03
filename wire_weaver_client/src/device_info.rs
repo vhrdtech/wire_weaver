@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use semver::Version;
-use ww_version::{ApiHashOwned, ApiHashPairOwned};
+use ww_version::{ApiHashOwned, ApiHashPairOwned, ImageFacts};
 use ww_version::{FullVersionOwned, VersionOwned};
 
 use crate::config::{ConfigPiece, ConfigPieceDiscriminants};
@@ -110,6 +110,8 @@ pub struct DeviceApiInfo {
     pub user_api_hash: ApiHashPairOwned,
     /// How long the device collects messages into one frame, and asks the host to.
     pub accumulation_time: std::time::Duration,
+    /// What this firmware image chose at build time and the API doesn't show (SRV-56).
+    pub image_facts: ImageFacts,
 }
 
 impl DeviceApiInfo {
@@ -133,6 +135,7 @@ impl DeviceApiInfo {
                 with_docs: ApiHashOwned { hash: vec![] },
             },
             accumulation_time: std::time::Duration::ZERO,
+            image_facts: ImageFacts::default(),
         }
     }
 }

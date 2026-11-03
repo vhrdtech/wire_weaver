@@ -53,6 +53,7 @@ let driver = Driver::new(p.USB, Irqs, p.PA12, p.PA11);
 let link_config = LinkConfig::new(
     blinky_api::BLINKY_API_FULL_GID,
     server_impl::api_hash(),
+    server_impl::image_facts(),
     ww_client_server::COMPACT_VERSION,
 );
 let (usb, server) = usb_init(

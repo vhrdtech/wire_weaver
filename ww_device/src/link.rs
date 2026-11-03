@@ -15,8 +15,8 @@
 use core::time::Duration;
 
 use ww_link::{
-    ApiHashPair, CompactVersion, DeviceInfo, DisconnectReason, FullVersion, Kind, Message,
-    PEER_TIMEOUT_MS, PING_INTERVAL_MS,
+    ApiHashPair, CompactVersion, DeviceInfo, DisconnectReason, FullVersion, ImageFacts, Kind,
+    Message, PEER_TIMEOUT_MS, PING_INTERVAL_MS,
 };
 
 use crate::fmt::{debug, error, info, warn};
@@ -32,6 +32,8 @@ pub struct LinkConfig<'a> {
     pub user_api_version: FullVersion<'a>,
     /// Hash of the user API, from generated `api_hash()`.
     pub api_hash: ApiHashPair<'a>,
+    /// What this firmware image chose at build time, from generated `image_facts()`.
+    pub image_facts: ImageFacts,
     /// Usually `ww_client_server::COMPACT_VERSION`.
     pub api_model_version: CompactVersion,
     /// Data messages are accumulated into one frame for this long before the frame is sent.
@@ -48,11 +50,13 @@ impl<'a> LinkConfig<'a> {
     pub fn new(
         user_api_version: FullVersion<'a>,
         api_hash: ApiHashPair<'a>,
+        image_facts: ImageFacts,
         api_model_version: CompactVersion,
     ) -> Self {
         LinkConfig {
             user_api_version,
             api_hash,
+            image_facts,
             api_model_version,
             accumulation_time: Duration::from_millis(1),
             ping_interval: Duration::from_millis(PING_INTERVAL_MS),
@@ -519,6 +523,7 @@ impl<'a> DeviceLink<'a> {
                     .try_into()
                     .unwrap_or(u16::MAX),
                 token: self.token,
+                image_facts: self.config.image_facts,
             })
         } else if self.pending.link_ready {
             self.pending.link_ready = false;

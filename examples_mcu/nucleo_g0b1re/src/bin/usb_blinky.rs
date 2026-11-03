@@ -107,6 +107,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     let link_config = LinkConfig::new(
         blinky_api::BLINKY_API_FULL_GID,
         server_impl::api_hash(),
+        server_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,
     );
     // API id without a label is a constant: pass server_impl::API_ID directly.

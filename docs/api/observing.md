@@ -430,12 +430,17 @@ server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf).await?;
   `ObserveGranted::refused` with `ModeNotSupported`, and the rest of the request applies. The request as a whole
   doesn't fail, since nothing is wrong with it. `OperationNotSupported` is for a level that can't be observed at all,
   and this level can.
-- **What a host does**: a host can't tell from introspection whether a device takes samples, it finds out from the
-  answer. `.subscribe()` succeeds and `Granted::refused` names the property, so check it after asking for samples,
-  otherwise the observer just never gets a sample. `ww observe --samples` fails with the refusal and Python has
-  `Observer.refused`.
-- **Observers of one level** merge into `Samples` if any of them asks for it, so on such a device one observer's
-  refused `Samples` also takes the property away from another observer of the level that asked for a period.
+- **What a host does**: the image says so when the host connects, in `ImageFacts::no_observe_samples` of the link's
+  `DeviceInfo` (`Commander::device_api_info().image_facts`). This is not part of the API hash or the introspection
+  data, which two images of one API share. A client asked for `Samples` on such an image stops before sending, in a
+  `subscribe` or a `configure`, with `Error::Unsupported` naming the switch. That covers generated clients, the dynamic
+  client, `ww observe --samples` and the Python `Observer`. Other observers of the level keep what they asked for.
+- **A host built before the facts** doesn't read them, and a device built before them says nothing. Then the refusal
+  above is the answer: `.subscribe()` succeeds and `Granted::refused` names the property, so check it after asking for
+  samples, otherwise the observer just never gets a sample. `ww observe --samples` fails with the refusal and Python
+  has `Observer.refused`. In this case observers of one level also merge into `Samples` if any of them asks for it,
+  so one observer's refused `Samples` takes the property away from another observer of the level that asked for a
+  period.
 - **Which arguments go with it**: `observe_batch`, `observe_outbox` and `observe_cells` size or place batches that
   no longer exist, and with `observe_samples = false` each is a compile error. On an API without `+batched` properties
   the switch changes nothing.

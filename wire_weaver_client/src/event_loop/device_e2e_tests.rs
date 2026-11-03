@@ -272,6 +272,7 @@ pub(crate) async fn serve(
     let config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
         ApiHashPair::empty(),
+        Default::default(),
         CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
     );
     let mut server = ww_device::Server::new(
@@ -843,6 +844,7 @@ async fn previous_session_leftovers_are_dropped() {
         dev_max_message_len: 64,
         packet_accumulation_time_us: 1000,
         token: old_token,
+        image_facts: Default::default(),
     });
     let big = [0x5Au8; 300];
     let mut to_host = old_session_packets(

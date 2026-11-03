@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::{ApiHashPair, FullVersion};
+use wire_weaver::ww_version::{ApiHashPair, FullVersion, ImageFacts};
 use wire_weaver::{
     BlockingEventOut, EventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend,
 };
@@ -292,6 +292,7 @@ pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + '
         SyncServer(server),
         version,
         api_hash,
+        ImageFacts::default(),
         (),
         Some(window),
     )
@@ -324,6 +325,47 @@ pub fn start_device_async<S: TestProcessEventsAsync<Medium = ()> + Send + 'stati
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
     start(path, AsyncServer(server), version, api_hash, ())
+}
+
+/// Same as [start_device], with a device saying `image_facts`.
+pub fn start_device_with_facts<S: TestProcessEvents<Medium = ()> + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    image_facts: ImageFacts,
+) -> TestDevice {
+    start_with(
+        path,
+        Media::Messages(MAX_MESSAGE_LEN),
+        SyncServer(server),
+        version,
+        api_hash,
+        image_facts,
+        (),
+        None,
+    )
+}
+
+/// Same as [start_device_async], `image_facts` being the server's generated `image_facts()`: the others say nothing,
+/// as a device built before the facts existed does.
+pub fn start_device_async_with_facts<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    image_facts: ImageFacts,
+) -> TestDevice {
+    start_with(
+        path,
+        Media::Messages(MAX_MESSAGE_LEN),
+        AsyncServer(server),
+        version,
+        api_hash,
+        image_facts,
+        (),
+        None,
+    )
 }
 
 /// Sync or async server
@@ -518,15 +560,26 @@ fn start_on<S: Process + Send + 'static>(
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
-    start_with(path, media, server, version, api_hash, medium, None)
+    start_with(
+        path,
+        media,
+        server,
+        version,
+        api_hash,
+        ImageFacts::default(),
+        medium,
+        None,
+    )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn start_with<S: Process + Send + 'static>(
     path: &str,
     media: Media,
     server: S,
     version: FullVersion<'static>,
     api_hash: ApiHashPair<'static>,
+    image_facts: ImageFacts,
     medium: S::Medium,
     accumulation_time: Option<std::time::Duration>,
 ) -> TestDevice {
@@ -547,8 +600,12 @@ fn start_with<S: Process + Send + 'static>(
         filter: filter.clone(),
         version,
     };
-    let mut config =
-        ww_device::LinkConfig::new(version, api_hash, ww_client_server::COMPACT_VERSION);
+    let mut config = ww_device::LinkConfig::new(
+        version,
+        api_hash,
+        image_facts,
+        ww_client_server::COMPACT_VERSION,
+    );
     if let Some(t) = accumulation_time {
         config.accumulation_time = t;
     }

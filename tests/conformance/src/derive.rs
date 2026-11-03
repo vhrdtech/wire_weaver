@@ -693,6 +693,8 @@ pub fn table() -> Vec<Typed> {
             },
         ),
         // ww_link's own message, not in the API model
+        case_debug("device_info.ordinary", || device_info(false)),
+        case_debug("device_info.no_observe_samples", || device_info(true)),
         case_debug("link_setup.without_meta", || link_setup(None)),
         case_debug("link_setup.with_meta", || {
             link_setup(Some(ww_link::ClientMetaOwned {
@@ -1035,6 +1037,25 @@ fn steer_point(steerer: Option<ww_timebase::SteererOwned>) -> ww_timebase::Steer
         rate_ppb: -9_900_990,
         error_us: 250,
         steerer,
+    }
+}
+
+fn device_info(no_observe_samples: bool) -> ww_link::DeviceInfoOwned {
+    ww_link::DeviceInfoOwned {
+        dev_link_version: ww_link::LINK_VERSION,
+        api_model_version: ww_link::LINK_VERSION,
+        user_api_version: wire_weaver::ww_version::FullVersionOwned::new(
+            "test".into(),
+            wire_weaver::ww_version::VersionOwned::new(0, 1, 0),
+        ),
+        hash: wire_weaver::ww_version::ApiHashPairOwned {
+            no_docs: wire_weaver::ww_version::ApiHashOwned { hash: vec![1, 2] },
+            with_docs: wire_weaver::ww_version::ApiHashOwned { hash: vec![] },
+        },
+        dev_max_message_len: 2048,
+        packet_accumulation_time_us: 1000,
+        token: 7,
+        image_facts: ww_link::ImageFacts { no_observe_samples },
     }
 }
 

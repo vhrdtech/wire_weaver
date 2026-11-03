@@ -625,8 +625,11 @@ impl Commander {
         cfg: U::Config,
         extract: crate::observe::Extract<U, T>,
     ) -> PreparedObserve<U, T> {
+        let entries = crate::observe::LevelConfig::to_entries(&cfg);
+        let image_facts = self.connected_device.image_facts;
         let resolved = self
             .check_observe_supported()
+            .and_then(|()| crate::client::observe::check_samples_taken(image_facts, &entries))
             .and_then(|()| self.resolve_path(path));
         let (postpone_err, path) = match resolved {
             Ok(PathKindOwned::Absolute { path }) => (Ok(()), path),
@@ -641,9 +644,10 @@ impl Commander {
         PreparedObserve {
             postpone_err,
             transport: self.transport(),
+            image_facts,
             path,
             cfg: ObserveConfig {
-                entries: crate::observe::LevelConfig::to_entries(&cfg),
+                entries,
                 budget: None,
             },
             queue_bytes: self.stream_queue_bytes,

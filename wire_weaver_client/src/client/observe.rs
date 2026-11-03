@@ -35,6 +35,7 @@ pub use ww_client_server::observe::{BatchedOwned, ObserveMode, ObserveRefusal, O
 use ww_client_server::observe::{ObserveEntry, ObserveGrantedOwned, ObserveRequestOwned};
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
 pub use ww_si::Second;
+use ww_version::ImageFacts;
 
 /// `ObserveMode::OnChange`: sent when the value changes, at most once every `min`.
 pub fn on_change(min: Duration) -> ObserveMode {
@@ -705,6 +706,25 @@ pub(crate) fn send_pending(
     Some((done_rx, generation))
 }
 
+/// `Samples` asked of an image that says it takes none (SRV-56) stops here: nothing is sent, and the level keeps what
+/// its other observers asked for. A device that doesn't say so answers for itself, entry by entry
+/// ([ObserveRefusal::ModeNotSupported]).
+pub(crate) fn check_samples_taken(
+    facts: ImageFacts,
+    entries: &BTreeMap<u32, ObserveMode>,
+) -> Result<(), Error> {
+    let asked = |mode: &ObserveMode| matches!(mode, ObserveMode::Samples { .. });
+    if facts.no_observe_samples && entries.values().any(asked) {
+        return Err(Error::Unsupported {
+            what: "observing samples",
+            reason: "this firmware image takes no samples (built with `observe_samples = false`), \
+                     observe the property with a period or on change instead"
+                .into(),
+        });
+    }
+    Ok(())
+}
+
 /// The level at `path`, a new one if it isn't observed yet.
 fn level_of<U: LevelUpdate>(
     levels: &mut HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
@@ -743,6 +763,7 @@ pub struct Observer<U: LevelUpdate, T = U> {
     id: u64,
     queue: Arc<Queue>,
     transport: TransportCommander,
+    image_facts: ImageFacts,
     extract: Extract<U, T>,
     /// Samples of an update not given out yet
     pending: VecDeque<ObserveEvent<T>>,
@@ -774,6 +795,7 @@ impl<U, T> Copy for Extract<U, T> {}
 pub struct PreparedObserve<U: LevelUpdate, T> {
     pub(crate) postpone_err: Result<(), Error>,
     pub(crate) transport: TransportCommander,
+    pub(crate) image_facts: ImageFacts,
     pub(crate) path: Vec<UNib32>,
     pub(crate) cfg: ObserveConfig,
     pub(crate) queue_bytes: usize,
@@ -821,6 +843,7 @@ impl<U: LevelUpdate, T> PreparedObserve<U, T> {
             id,
             queue,
             transport: self.transport.clone(),
+            image_facts: self.image_facts,
             extract: self.extract,
             pending: VecDeque::new(),
             missed: 0,
@@ -1005,9 +1028,11 @@ impl<U: LevelUpdate, T> Observer<U, T> {
         cfg: &U::Config,
         budget: Option<Option<u32>>,
     ) -> Result<Wait, Error> {
+        let entries = cfg.to_entries();
+        check_samples_taken(self.image_facts, &entries)?;
         let mut state = self.level.lock();
         if let Some((own, _)) = state.observers.get_mut(&self.id) {
-            own.entries = cfg.to_entries();
+            own.entries = entries;
             if let Some(budget) = budget {
                 own.budget = budget;
             }

@@ -157,6 +157,7 @@ impl DeviceLinkInfo {
                     },
                 },
             },
+            self.api.image_facts,
             self.model,
         );
         // the device's own: a client batches as it would talk to the device directly, and the hub sends each batch

@@ -14,7 +14,7 @@ use ww_framer::crc::{CrcAlgorithm, CrcChecksum};
 use ww_framer::framed::U2Head;
 use ww_framer::prefix::{FramePrefix, NopPrefix, SeqPrefix};
 use ww_framer::traits::{Checksum, Head, NopChecksum, NopTail, Tail};
-pub use ww_version::{ApiHashPair, CompactVersion, FullVersion};
+pub use ww_version::{ApiHashPair, CompactVersion, FullVersion, ImageFacts};
 #[cfg(feature = "std")]
 pub use ww_version::{ApiHashPairOwned, FullVersionOwned};
 
@@ -284,6 +284,10 @@ pub struct DeviceInfo<'i> {
     /// before the token existed.
     #[default = 0]
     pub token: u64,
+    /// What this firmware image chose at build time and the API doesn't show, outside [DeviceInfo::hash]. All zero
+    /// from a device built before it existed: the host asks as usual, and the device's answers still decide.
+    #[default = Default::default()]
+    pub image_facts: ImageFacts,
 }
 
 #[cfg(feature = "std")]
@@ -297,6 +301,7 @@ impl DeviceInfo<'_> {
             dev_max_message_len: self.dev_max_message_len,
             packet_accumulation_time_us: self.packet_accumulation_time_us,
             token: self.token,
+            image_facts: self.image_facts,
         }
     }
 }
@@ -547,6 +552,70 @@ mod tests {
         assert_eq!(std::format!("{msg:?}"), std::format!("{decoded:?}"));
     }
 
+    /// `DeviceInfo` as a device built before `image_facts` sends it (SRV-56), the fields it had then.
+    #[derive_shrink_wrap(derive(Debug))]
+    struct DeviceInfoBeforeFacts<'i> {
+        dev_link_version: CompactVersion,
+        api_model_version: CompactVersion,
+        user_api_version: FullVersion<'i>,
+        hash: ApiHashPair<'i>,
+        dev_max_message_len: u32,
+        packet_accumulation_time_us: u16,
+        token: u64,
+    }
+
+    /// Both ways across the appended field: an old device reads as making no special choice, an old host reads the
+    /// new message and steps over the facts.
+    #[test]
+    fn image_facts_across_versions() {
+        let version = FullVersion::new("test", ww_version::Version::new(0, 1, 0));
+        let link = CompactVersion::new(ww_global::WIRE_WEAVER_USB_LINK, 1, 2, 3);
+        let mut scratch = [0u8; 256];
+        let old = DeviceInfoBeforeFacts {
+            dev_link_version: link,
+            api_model_version: link,
+            user_api_version: version,
+            hash: ApiHashPair::empty(),
+            dev_max_message_len: 2048,
+            packet_accumulation_time_us: 1000,
+            token: 7,
+        };
+        let mut wr = BufWriter::new(&mut scratch);
+        old.ser_shrink_wrap(&mut wr).unwrap();
+        let bytes = wr.finish_and_take().unwrap();
+        let mut rd = BufReader::new(bytes);
+        let read = DeviceInfo::des_shrink_wrap(&mut rd).unwrap();
+        assert_eq!(read.token, 7);
+        assert_eq!(read.image_facts, ImageFacts::default());
+
+        let mut scratch = [0u8; 256];
+        let new = DeviceInfo {
+            dev_link_version: link,
+            api_model_version: link,
+            user_api_version: version,
+            hash: ApiHashPair::empty(),
+            dev_max_message_len: 2048,
+            packet_accumulation_time_us: 1000,
+            token: 7,
+            image_facts: ImageFacts {
+                no_observe_samples: true,
+            },
+        };
+        let mut wr = BufWriter::new(&mut scratch);
+        new.ser_shrink_wrap(&mut wr).unwrap();
+        let bytes = wr.finish_and_take().unwrap();
+        let mut rd = BufReader::new(bytes);
+        assert!(
+            DeviceInfo::des_shrink_wrap(&mut rd)
+                .unwrap()
+                .image_facts
+                .no_observe_samples
+        );
+        let mut rd = BufReader::new(bytes);
+        let read = DeviceInfoBeforeFacts::des_shrink_wrap(&mut rd).unwrap();
+        assert_eq!(read.token, 7);
+    }
+
     #[test]
     fn encode_decode() {
         round_trip(Message::Data {
@@ -565,6 +634,9 @@ mod tests {
             dev_max_message_len: 2048,
             packet_accumulation_time_us: 1000,
             token: u64::MAX,
+            image_facts: ImageFacts {
+                no_observe_samples: true,
+            },
         }));
         round_trip(Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),

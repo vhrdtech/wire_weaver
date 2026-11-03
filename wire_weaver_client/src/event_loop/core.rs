@@ -745,6 +745,7 @@ mod tests {
             dev_max_message_len: 512,
             packet_accumulation_time_us: 500,
             token,
+            image_facts: Default::default(),
         })
     }
 

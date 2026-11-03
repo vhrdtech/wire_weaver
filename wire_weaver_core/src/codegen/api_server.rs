@@ -286,6 +286,16 @@ pub fn gen_server(
         include_docs,
         cx.use_async,
     );
+    let no_observe_samples = !config.observe_samples;
+    let api_signature = quote! {
+        #api_signature
+        /// What this image chose at build time and the API doesn't show, for `LinkConfig::new`: not in the API hash.
+        pub const fn image_facts() -> wire_weaver::ww_version::ImageFacts {
+            wire_weaver::ww_version::ImageFacts {
+                no_observe_samples: #no_observe_samples,
+            }
+        }
+    };
     let process_request_inner = process_request_inner_recursive(
         "root".into(),
         &[],

@@ -935,6 +935,22 @@
       "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
     },
     {
+      "name": "device_info.ordinary",
+      "type": "DeviceInfo",
+      "value": {"user_api_version": "test 0.1.0", "dev_max_message_len": 2048, "packet_accumulation_time_us": 1000, "token": 7, "image_facts": {"no_observe_samples": false}},
+      "bytes": "88810508881050746573740100010200080000e8030700000000000000001024",
+      "gaps": {"dynamic": "ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "python": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "c": "ww_link's DeviceInfo is a link message, not a type of an API in the model"},
+      "note": "ww_link DeviceInfo (SRV-56) of an image that made no special choice"
+    },
+    {
+      "name": "device_info.no_observe_samples",
+      "type": "DeviceInfo",
+      "value": {"user_api_version": "test 0.1.0", "dev_max_message_len": 2048, "packet_accumulation_time_us": 1000, "token": 7, "image_facts": {"no_observe_samples": true}},
+      "bytes": "88810508881050746573740100010200080000e8030700000000000000801024",
+      "gaps": {"dynamic": "ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "python": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "c": "ww_link's DeviceInfo is a link message, not a type of an API in the model"},
+      "note": "ww_link DeviceInfo (SRV-56) of an image built with observe_samples = false"
+    },
+    {
       "name": "link_setup.without_meta",
       "type": "LinkSetup",
       "value": {"host_user_version": "test 0.1.0", "host_max_message_len": 4096, "token": 7, "client_meta": null},

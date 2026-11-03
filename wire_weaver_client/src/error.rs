@@ -184,11 +184,11 @@ impl From<wire_weaver::shrink_wrap::Error> for Error {
 impl Error {
     /// The device has no implementation of the called item: its handler returned `Unimplemented`
     /// (`RpcResult`, `GetResult`, `SetResult`), or the device's API doesn't have it ([Error::NotImplementedByDevice],
-    /// known locally from introspection). For items without an error type, items with one return
-    /// [CallError::Unimplemented] instead.
+    /// known locally from introspection), or it says it can't ([Error::Unsupported], known from the connection). For
+    /// items without an error type, items with one return [CallError::Unimplemented] instead.
     pub fn is_unimplemented(&self) -> bool {
         match self {
-            Error::NotImplementedByDevice { .. } => true,
+            Error::NotImplementedByDevice { .. } | Error::Unsupported { .. } => true,
             Error::RemoteError(e) => matches!(e.kind, ErrorKindOwned::Unimplemented),
             _ => false,
         }

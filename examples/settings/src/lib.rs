@@ -139,6 +139,7 @@ pub async fn serve(
     let config = ww_device::LinkConfig::new(
         settings_api::SETTINGS_DEMO_FULL_GID,
         api_impl::api_hash(),
+        api_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,
     );
     let mut server = ww_device::Server::new(

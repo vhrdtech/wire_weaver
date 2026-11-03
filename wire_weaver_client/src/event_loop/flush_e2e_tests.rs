@@ -102,6 +102,7 @@ async fn device(to_host: mpsc::Sender<Packet>, from_host: CountingSource) {
     let mut config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
         ApiHashPair::empty(),
+        Default::default(),
         CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
     );
     config.accumulation_time = WINDOW;

@@ -69,6 +69,24 @@ pub struct CompactVersion {
     pub patch: UNib32,
 }
 
+/// What this firmware image chose at build time and its API doesn't show (SRV-56). Two images of one API have the same
+/// API hash and introspection data, so a host learns these choices here, from `ww_link`'s `DeviceInfo`, on every
+/// connection. Not part of the API hash.
+///
+/// The zero value of each field is the ordinary case, and it is what a device built before a field existed reads as.
+/// New choices are appended as fields with `#[default]`; a bool lands in the padding bits of older data.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(PartialEq, Eq, Copy, Clone, Debug, Default)
+)]
+pub struct ImageFacts {
+    /// Built with `ww_codegen!(.., observe_samples = false)`: every `ObserveMode::Samples` on this image is refused,
+    /// the `+batched` properties are served as plain values.
+    pub no_observe_samples: bool,
+}
+
 /// Version as major.minor.patch triplet, useful when names are not required.
 #[derive_shrink_wrap(
     borrowed,

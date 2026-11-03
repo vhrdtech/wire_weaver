@@ -35,6 +35,7 @@ fn config() -> LinkConfig<'static> {
     LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
         ApiHashPair::empty(),
+        Default::default(),
         CompactVersion::new(ww_global_gid(), 0, 2, 0),
     )
 }

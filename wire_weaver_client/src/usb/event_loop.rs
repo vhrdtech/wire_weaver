@@ -571,6 +571,7 @@ mod tests {
                     dev_max_message_len: 1024,
                     packet_accumulation_time_us: 100,
                     token,
+                    image_facts: Default::default(),
                 })),
                 Message::LinkSetup(setup) => Some(Message::LinkReady { token: setup.token }),
                 Message::Disconnect(_) => return,

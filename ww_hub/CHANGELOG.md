@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- A client through the hub gets the device's `ImageFacts` in its `DeviceInfo` (SRV-56), as on a direct link.
+
 ### 🐛 Fixes
 
 - Reads and builds `Observe` requests with their body as a `RefBox` / `Box` (SRV-54, `ww_client_server`'s breaking change); merged observe requests are the same bytes as before.

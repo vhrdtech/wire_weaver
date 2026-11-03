@@ -42,6 +42,8 @@ mod tests {
         Cells,
         /// `observe_samples = false` (SRV-56): the same API, no samples taken
         NoSamples,
+        /// [Variant::NoSamples] on a device that doesn't say so in its image facts, as one built before them
+        NoSamplesSilent,
     }
     /// Where batches are rebuilt while they are encoded, one column at a time: the biggest column type
     const SB: usize = scratch_for(N);
@@ -466,7 +468,7 @@ mod tests {
                         cells_server::api_impl::api_hash(),
                     )
                 }
-                Variant::NoSamples => {
+                Variant::NoSamples | Variant::NoSamplesSilent => {
                     let server = no_samples_server::Server {
                         mode: 0,
                         current: 0,
@@ -475,11 +477,16 @@ mod tests {
                         polled: polled.clone(),
                         buf: vec![0; buf_len],
                     };
-                    tests_common::start_device_async(
+                    let facts = match variant {
+                        Variant::NoSamples => no_samples_server::api_impl::image_facts(),
+                        _ => Default::default(),
+                    };
+                    tests_common::start_device_async_with_facts(
                         &format!("{path}/no_samples"),
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
                         no_samples_server::api_impl::api_hash(),
+                        facts,
                     )
                 }
             };
@@ -1714,7 +1721,7 @@ mod tests {
                 None,
             )
             .await;
-            b.sample(4, 0, 100, 7).await;
+            // no sample before this: the first update goes out when it's due, and it would race one
             b.at(1_000).await;
             let first = b.drain().await.remove(0);
             got.push((first.path, first.sample_times, first.missed, first.data));
@@ -1723,15 +1730,74 @@ mod tests {
         assert_eq!(format!("{:?}", bundles[0]), format!("{:?}", bundles[1]));
     }
 
-    /// What a host sees (SRV-56): the generated client and the dynamic one subscribe, and `Granted::refused` says
-    /// that the device takes no samples; introspection still lists the property as `+batched`.
+    /// The image says it takes no samples (SRV-56): the generated client and the dynamic one stop before sending,
+    /// by name of the switch, in a subscribe and in a `configure`, and what other observers asked for stays. The API
+    /// identity says nothing of it: it is the same as on an image that takes samples.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_samples_is_refused_before_sending() {
+        use client::api_client::observe_batched_api_observe_batched::ObserveBatchedObserve;
+        use std::collections::BTreeMap;
+        use wire_weaver_client::observe::{periodic, samples};
+        use wire_weaver_client::{DynResource, Error};
+        let sampler = Bench::start(Variant::Sampler, "observe_batched/says_samples", 512).await;
+        let sampler_info = sampler.client.cmd.device_api_info().clone();
+        assert!(!sampler_info.image_facts.no_observe_samples);
+
+        let mut b = Bench::start(Variant::NoSamples, "observe_batched/says_none", 512).await;
+        let info = b.client.cmd.device_api_info().clone();
+        assert!(info.image_facts.no_observe_samples);
+        assert_eq!(
+            info.user_api_hash.no_docs,
+            sampler_info.user_api_hash.no_docs
+        );
+
+        let is_refused = |e: Error| {
+            assert!(matches!(e, Error::Unsupported { .. }), "{e:?}");
+            assert!(e.is_unimplemented(), "{e:?}");
+            assert!(e.to_string().contains("observe_samples = false"), "{e}");
+        };
+        let every = Duration::from_millis(1);
+        let periodic = ObserveBatchedObserve::default().current(periodic(every));
+        let other = b.client.observe(periodic).subscribe().await.unwrap();
+        let asked = ObserveBatchedObserve::default().samples(Duration::from_millis(5));
+        is_refused(b.client.observe(asked).subscribe().await.err().unwrap());
+        is_refused(other.configure(asked).await.err().unwrap());
+        let granted = other.granted().unwrap();
+        assert!(granted.refused.is_empty(), "{:?}", granted.refused);
+        assert_eq!(granted.modes.current, periodic.current);
+
+        let bundle = b
+            .client
+            .cmd
+            .device_introspect()
+            .expect("introspection enabled")
+            .api_bundle
+            .clone();
+        let root = DynResource::root(bundle);
+        let entries = BTreeMap::from([(CURRENT, samples(Duration::from_millis(5)))]);
+        is_refused(root.observe(&b.client.cmd, entries).await.err().unwrap());
+
+        // the other observer's property is still sent
+        b.sample(4, 0, 100, 7).await;
+        b.at(1_000).await;
+        assert!(!b.drain().await.is_empty());
+    }
+
+    /// The fallback (SRV-56): an image that doesn't say so, as one built before the facts existed. The generated client
+    /// and the dynamic one subscribe, and `Granted::refused` says that the device takes no samples; introspection
+    /// still lists the property as `+batched`.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn no_samples_host_reads_the_refusal() {
         use client::api_client::observe_batched_api_observe_batched::ObserveBatchedObserve;
         use std::collections::BTreeMap;
         use wire_weaver_client::DynResource;
         use wire_weaver_client::observe::samples;
-        let b = Bench::start(Variant::NoSamples, "observe_batched/host_refused", 512).await;
+        let b = Bench::start(
+            Variant::NoSamplesSilent,
+            "observe_batched/host_refused",
+            512,
+        )
+        .await;
         let cfg = ObserveBatchedObserve::default().samples(Duration::from_millis(5));
         let level = b.client.observe(cfg).subscribe().await.unwrap();
         let granted = level.granted().unwrap();

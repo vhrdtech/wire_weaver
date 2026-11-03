@@ -99,6 +99,7 @@ async fn main(_spawner: Spawner) {
     let link_config = LinkConfig::new(
         blinky_api::BLINKY_API_FULL_GID,
         server_impl::api_hash(),
+        server_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,
     );
     let mut server = rtt_server(

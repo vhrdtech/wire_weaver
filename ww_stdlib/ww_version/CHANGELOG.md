@@ -7,6 +7,7 @@
 
 ### 🚀 Features
 
+* `ImageFacts` (SRV-56): what a firmware image chose at build time and its API doesn't show, sent in `ww_link`'s `DeviceInfo` outside the API hash. First field `no_observe_samples`.
 * `CompactVersion::is_protocol_compatible()`, same rules as `Version::is_protocol_compatible()` plus the same
   global type id.
 * `ApiHash` and `ApiHashPair` (hash of the API with and without docs), `Display` for `ApiHashOwned` (hex).

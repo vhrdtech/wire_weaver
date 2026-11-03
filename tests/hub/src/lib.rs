@@ -244,6 +244,16 @@ mod tests {
 
     /// [start] with a device asking for an accumulation window of `window`, the test device's default when `None`.
     fn start_windowed(name: &str, linger: Duration, window: Option<Duration>) -> Bench {
+        start_as(name, linger, window, Default::default())
+    }
+
+    /// [start_windowed] with a device saying `image_facts`.
+    fn start_as(
+        name: &str,
+        linger: Duration,
+        window: Option<Duration>,
+        image_facts: wire_weaver::ww_version::ImageFacts,
+    ) -> Bench {
         let _ = tracing_subscriber::fmt::try_init();
         let seen = Arc::new(Mutex::new(Seen::default()));
         let path = format!("hub/{name}");
@@ -251,7 +261,7 @@ mod tests {
         let (gid, hash) = (hub_api::HUB_TEST_FULL_GID, server::api_impl::api_hash());
         let device = match window {
             Some(w) => tests_common::start_device_usb_with_window(&path, 64, server, gid, hash, w),
-            None => tests_common::start_device(&path, server, gid, hash),
+            None => tests_common::start_device_with_facts(&path, server, gid, hash, image_facts),
         };
         let counted = seen.clone();
         device.filter_requests(move |bytes| {
@@ -1087,6 +1097,18 @@ mod tests {
 
     /// A borrower that dies returns the device: the lend is a claim of its client instance.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn image_facts_reach_a_client_through_the_hub() {
+        let facts = wire_weaver::ww_version::ImageFacts {
+            no_observe_samples: true,
+        };
+        let bench = start_as("image-facts", Duration::from_secs(30), None, facts);
+        let client = bench.client().await;
+        assert_eq!(client.cmd.device_api_info().image_facts, facts);
+        drop(client);
+        bench.stop().await;
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn lend_returned_when_borrower_killed() {
         let bench = start("lend-killed", Duration::from_secs(30));
         let a = bench.client().await;

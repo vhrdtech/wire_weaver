@@ -303,6 +303,19 @@ server doesn't use them: adding, changing or removing one is compatible, `ww api
 introspection data (and so the API hash) changes. Removing a `#[claim]` does change what the hub lets a program do: a
 program that claims that resource is refused from then on, so say so in the changelog.
 
+### Choices of one firmware image
+
+Some choices belong to a firmware image and not to its API: `ww_codegen!(.., observe_samples = false)` is one. Two
+images of one API have the same API hash, snapshot and introspection data, and a host that has the data cached by its
+hash doesn't download it again, so these choices can't travel there. They are in `ww_version::ImageFacts`, a field of
+the link's `DeviceInfo` outside its hash. A device sends it on every connection, also with introspection off, and a
+generated server has it as `image_facts()`, the third argument of `LinkConfig::new`.
+
+* A new choice is a field appended to `ImageFacts` with `#[default]`, its zero value the ordinary case. It is
+  wire-compatible both ways: an old device reads as the ordinary case, an old host steps over the field.
+* A fact only saves a host from asking. What a device answers still decides, for a host that doesn't read the fact.
+* A choice that changes what a client may rely on is not a fact of the image: it belongs in the API.
+
 ### API model
 
 API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model

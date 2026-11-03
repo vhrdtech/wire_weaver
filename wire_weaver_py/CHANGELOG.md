@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-- `Observer.refused` (SRV-56): the properties a device did not apply as `{name: reason}`, e.g. `{"reading": "ModeNotSupported"}` from a firmware that takes no samples.
+- `Observer.refused` (SRV-56): the properties a device did not apply as `{name: reason}`, e.g. `{"reading": "ModeNotSupported"}` from a firmware that takes no samples and doesn't say so. On an image that says so (`ImageFacts`), asking for samples raises before anything is sent.
 
 ### ⚠️ Breaking
 

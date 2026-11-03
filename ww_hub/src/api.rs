@@ -28,6 +28,7 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
     let config = ww_device::LinkConfig::new(
         ww_hub_api::HUB_FULL_GID,
         server::api_impl::api_hash(),
+        server::api_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,
     );
     let mut server = ww_device::Server::new(

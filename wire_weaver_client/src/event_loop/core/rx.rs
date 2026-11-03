@@ -277,6 +277,7 @@ impl RxCore {
                     accumulation_time: Duration::from_micros(
                         device_info.packet_accumulation_time_us.into(),
                     ),
+                    image_facts: device_info.image_facts,
                 };
                 info!("adopted a live link to {:?}", info.user_api_version);
                 self.dispatcher.message_limit = Some(info.message_limit());
@@ -574,5 +575,6 @@ fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) 
         user_api_version: info.user_api_version.make_owned(),
         user_api_hash: info.hash.make_owned(),
         accumulation_time: Duration::from_micros(info.packet_accumulation_time_us.into()),
+        image_facts: info.image_facts,
     }
 }

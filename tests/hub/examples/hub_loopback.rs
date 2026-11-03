@@ -52,6 +52,7 @@ fn start_in_process_device(path: &str) {
                 let config = ww_device::LinkConfig::new(
                     FullVersion::new("loopback", Version::new(0, 1, 0)),
                     wire_weaver::ww_version::ApiHashPair::empty(),
+                    Default::default(),
                     ww_client_server::COMPACT_VERSION,
                 );
                 let mut server = ww_device::Server::new(

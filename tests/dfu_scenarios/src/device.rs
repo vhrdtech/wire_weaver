@@ -343,6 +343,7 @@ async fn serve<F: Firmware>(
     let config = LinkConfig::new(
         fw.version(),
         fw.api_hash(),
+        Default::default(),
         ww_client_server::COMPACT_VERSION,
     );
     let tx = TapTx {

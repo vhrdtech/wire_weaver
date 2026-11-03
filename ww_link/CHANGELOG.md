@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `DeviceInfo` has a new field `image_facts: ImageFacts` (SRV-56): code built with a struct literal adds it. The wire stays compatible both ways, it is appended with a default: an old device reads as making no special choice, an old host steps over it.
+
 ### 🐛 Fixes
 
 - `Kind::Data1` and `Kind::Data2` are documented as reserved for a later use, not free for applications (a device drops them).

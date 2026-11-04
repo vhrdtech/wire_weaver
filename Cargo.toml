@@ -95,8 +95,9 @@ tracing-subscriber = "0.3"
 widestring = "1"
 windows-sys = "0.61"
 
-# exact_units lives in its own repository; from git until it is on crates.io
-exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", rev = "15cd9f573b6b20070ee18fdc42d2dcaac73d5470", default-features = false }
+# exact_units lives in its own repository, taken by git: Cargo.lock pins the commit (`cargo update -p exact_units`
+# moves it); the commented-out [patch."https://github.com/romixlab/exact_units"] below builds against a local checkout
+exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
 
 # framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
 shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }
@@ -246,6 +247,10 @@ user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 # exact_units takes shrink_wrap from this repository by git: use the one here, so there is one shrink_wrap
 [patch."https://github.com/vhrdtech/wire_weaver"]
 shrink_wrap = { path = "./shrink_wrap/shrink_wrap" }
+
+# to develop exact_units side by side, a checkout next to this one:
+# [patch."https://github.com/romixlab/exact_units"]
+# exact_units = { path = "../exact_units" }
 
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }

@@ -1810,6 +1810,8 @@
       
         
       
+        
+      
     
     
     
@@ -1977,6 +1979,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/introspection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Introspection data
 
     
   </span>
@@ -6079,6 +6108,7 @@ layer checks on connect that both ends speak the same protocol.</p>
 <ul>
 <li><strong><a href="../std_library/ww_self/">Bit-sized numbers in the model</a></strong>: <code>U7</code>, <code>I12</code>, nibbles and the like, read and written by the dynamic client and Python.</li>
 <li><strong><a href="../std_library/units_in_the_model/">Units in the model</a></strong>: A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so <code>ww</code>, the dynamic client and Python convert and show them without a built-in table.</li>
+<li><strong><a href="../api/introspection/#compressed-introspection-data">Compressed introspection data</a></strong>: <code>introspect_compression = "lz4"</code> keeps a device's API description compressed in flash, the client decompresses it: 4.3 KB less on rePort.</li>
 <li><strong><a href="../std_library/ww_self/">Moved flag bits</a></strong>: Relocated <code>#[flag]</code> fields in the model and in dynamic values.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>

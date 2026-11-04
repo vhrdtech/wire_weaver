@@ -161,6 +161,14 @@ rePort ships at `opt-level = "s"`, so the same runs were repeated with the `fw-s
 
 So a firmware at `s` loses no per-item speed to SW-74, and `fast-io` costs it 7.7 KB for at most 2 %: rePort keeps the default.
 
+### `fast-io` on hosts
+
+The `--cfg` became the `fast-io` feature, which `std` turns on, so host builds changed and firmware builds did not. Measured 4 Nov 2026 on x86-64, the commit before the feature against the one after:
+
+- `ww` (`cargo build --profile deploy -p wire_weaver_cli`): 35958324 → 35989028 B of text (+30704 B, +0.09 %).
+- `tests/series/benches/bit_io.rs` (`cargo bench -p series --bench bit_io`), 14 alternating runs on a loaded PC, minimum (median): `read_nib` −15.3 % (−6.8 %), `write_bytes + finish` −9.6 % (−7.2 %), the event reply −4.2 % (−11.4 %), `write_nib` −5.5 % (−6.9 %), the other primitives and the request decode within ±3 %. `Series` encode with `DeltaPacked` is slower: 22.0 → 25.3 ns minimum, +15.0 % (+12.9 %); `Series` decode +3.4 % (−1.7 %).
+- Donguru and rePort: `fast-io` stays off (checked with a `compile_error!` behind `all(feature = "fast-io", target_os = "none")`). Their text moved by +96 B and −44 B. Builds of the same code with an unrelated change (a feature list, a build script) moved them by up to 200 B, because the crate hashes reorder symbols under LTO.
+
 ## SW-72: `MaxLen<_, N>`'s bound check through one helper
 
 `tests/flash_budget_api` had no `MaxLen` field before this item, so it got `MaxLenBounds8` / `MaxLenBounds16` (above) to measure against. Before and after, measured in the same worktree (absolute path length affects panic-location strings, so a cross-worktree comparison is noise; the mean of the four shared-type kinds above is identical in both runs, confirming the rest of the build is deterministic):

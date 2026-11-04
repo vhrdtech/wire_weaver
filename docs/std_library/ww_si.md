@@ -9,13 +9,13 @@ level: basic
 voltage", each device decides whether that is a `u16` of mV or an `f32` of V, and the host reads them all.
 
 ```rust
-use ww_si::{Ampere, Prefix, Volt, Watt};
+use ww_si::{Ampere, Overflow, Prefix, Rounding, Volt, Watt};
 
 let v = Volt::milli(3300u16);          // prefix Milli, value U16(3300)
 let w = Volt::from_f32(3.3);           // prefix Unit, value F32(3.3)
 assert_eq!(Volt::milli(1500u16), Volt::base(1.5f32)); // compares values, not representations
 assert_eq!(v.to_f64(), 3.3);           // in V
-assert_eq!(w.to_i32_in(Prefix::Milli), Some(3300));
+assert_eq!(w.to_in::<i32>(Prefix::Milli, Rounding::NearestAway, Overflow::Checked), Some(3300));
 assert_eq!(v.to_string(), "3300 mV");
 let p: Watt = v * Ampere::milli(500u16);              // the compiler checks the units
 ```
@@ -156,27 +156,34 @@ takes the value as is). It computes in `f32`, no `f64` code on a device.
 
 - `to_f64()` / `to_f32()`: the value in the unit itself (V, A, Hz, s, °, g);
 - `to_f64_in(prefix)`: in another prefix, `Volt::from_f32(3.3).to_f64_in(Prefix::Milli)` is about 3300.0;
-- `to_i32_in(prefix)` / `to_u32_in(prefix)`: as an integer, exact for integer storage (truncated toward zero when
-  going to a bigger prefix), rounded for floats; `None` when it doesn't fit. `Second::milli(5u16).to_u32_in(Prefix::Micro)`
-  is `Some(5000)`;
-- `to_u32_wrapping_in(prefix)`: the same modulo 2^32, what a wrapping 32-bit counter of that unit shows, to compare a
-  timestamp with a device clock;
-- `to_i128_in(prefix)`: like `to_i32_in` up to `i128`, only with a 64- or 128-bit number type enabled (`std` has
-  them);
+- `to_in::<T>(prefix, Rounding, Overflow)`: the value in units of `prefix` as the number type `T` (any primitive
+  integer, `f32` / `f64` with those features). The call names what happens to a value that isn't a whole number of
+  `prefix` (`Rounding`: `Truncate`, `Floor`, `Ceil`, `NearestEven`, `NearestAway`) and to one that doesn't fit `T`
+  (`Overflow`: `Checked` gives `None`, `Saturate` the nearest end, `Wrap` modulo 2^bits, what a wrapping 32-bit
+  counter of that unit shows, to compare a timestamp with a device clock). Exact for integer storage whatever the two
+  scales are (SI, binary, `Pow10`, `Pow2`, `FullScale`); a float is first scaled to the float nearest the exact
+  product, then rounded exactly. `Second::milli(5u16).to_in::<u32>(Prefix::Micro, Rounding::Truncate,
+  Overflow::Checked)` is `Some(5000)`, `Volt::milli(3999u16).to_in::<u32>(Prefix::Unit, Rounding::NearestEven,
+  Overflow::Checked)` is `Some(4)`;
 - `to_si_f64()`: in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005 (kg);
-- `with_prefix(prefix)`: the same value in another prefix and the same number type, if that is exact
-  (`Volt::milli(3000u16)` to `Unit` is 3 V; 3300 mV is `None`), for autoranging before sending;
+- `rescaled(prefix, Rounding, Overflow)`: the same value in another prefix and the same number type, rounded and
+  settled as `to_in` does, `None` also for a result outside the bounds `B`;
+- `rescaled_exact(prefix)`: the same, only if that is exact (`Volt::milli(3000u16)` to `Unit` is 3 V; 3300 mV is
+  `None`, and so is 3300 mV to µV, which doesn't fit a `U16`), for autoranging before sending;
 - `same_repr(&other)`: same prefix and the same number in the same type, a cheap "did it change since I sent it".
 
 `PartialEq` and `PartialOrd` compare values across prefixes and number types: `Volt::milli(1000u16) == Volt::base(1u8)`.
-Two integers are compared exactly, even 60 orders of magnitude apart; through `f64` when one is a float.
+Two integers are compared exactly, even 60 orders of magnitude apart, and so are an `f32` and an integer (the float's
+own value); two `f32`s at different prefixes compare by the scaled float, an `F64` (hosts) through `f64`.
 
-On a small MCU the integer conversions, comparisons and the exact arithmetic below take no wider arithmetic than the
-enabled number types need: with types up to 32 bits (`u32`, `i32`, ..) everything is `u32` code, nothing of 64 or
-128 bits is linked, and `ww_numeric::Integer` (sign and magnitude) does the work. The same prefix compares the stored
-numbers; across prefixes the value with the bigger prefix is scaled by powers of ten with an overflow check, and an
-overflow means it is the bigger one. On a Cortex-M0+ (Donguru, opt-level `z`) this took 6 KiB of flash off what
-widening to `i128` cost.
+On a small MCU the conversions, comparisons and bounds run on `exact_units`' integer kernel (`PrefixRatio`,
+`Prefix::rescale`, `Prefix::cmp_scaled`) at the width of the enabled number types (`ww_numeric::Integer`, sign and
+magnitude): with types up to 32 bits no `f32`, `f64` or 128-bit code is linked, and none for floats at all unless the
+API turns on `f32` (`f64` is for hosts). The same prefix takes a shortcut on the stored numbers. The no-float guard
+(`just no-float-guard`, part of `just test`) builds a firmware calling each of these operations for Cortex-M0 and
+M4F and fails on any such symbol. Against the `i128` / `f64` paths this replaced, Donguru (Cortex-M0+, opt-level
+`z`) is 14.6 KB smaller and rePort (Cortex-M33) 9.7 KB; a `FullScale` or binary-prefix conversion takes about a
+tenth of the instructions it did, one between two SI prefixes two to three times as many (`qemu-si-convert`).
 
 `Display` writes the number as stored with its prefix, `{:#}` in the unit itself; `Debug` adds the unit's name and
 the number type, `defmt::Format` is like `Display`:

@@ -2155,6 +2155,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   float types. `to_i32_in` / `to_u32_in` / `to_u32_wrapping_in`; `to_i128_in` only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, `opt-level = "z"`). `docs/std_library/ww_si.md#conversions-and-comparisons`,
   `ww_stdlib/ww_si/tests/narrow.rs` and `ww_stdlib/ww_numeric/tests/integer.rs` (run with 32-bit types only too).
+  STD-102 replaced these methods with `to_in` / `rescaled` / `rescaled_exact` on exact_units' kernel.
+- ✅ **STD-102 `ww_si` on exact_units' integer kernel** · `v0.5` — conversions, comparisons and bounds of `Quantity`
+  run on exact_units' NUM-13 kernel (`PrefixRatio`, `Prefix::rescale` / `cmp_scaled`) at the width of the enabled
+  number types, for every scale (SI, binary, `Pow10`, `Pow2`, `FullScale`); the `i128` / `f64` slow paths
+  (`ops.rs`) are gone. One conversion names its policy: `to_in::<T>(prefix, Rounding, Overflow)` replaces
+  `to_u32_in`, `to_i32_in`, `to_u32_wrapping_in` and `to_i128_in`; `rescaled(prefix, Rounding, Overflow)` and
+  `rescaled_exact(prefix)` replace `with_prefix`. No float code on a device without the `f32` feature (a float
+  target is a compile error there), `f64` on hosts only; no wire change (corpus unchanged, 8 new bounded-quantity
+  cases). Results are those of the old arithmetic (`ww_stdlib/ww_si/tests/oracle.rs`, proptests against it). QEMU
+  M3 (`qemu-si-convert`, `fw-z` / `fw-3` instructions, before → after): KiB→B 6145/6508 → 611/399, FullScale→mV
+  7346/7553 → 937/682, `to_fixed` 4340/4548 → 223/126, same prefix 99/44 → 70/34, mV→V 154/71 → 294/217, ms→µs
+  153/90 → 246/166 (exact_units' `ratio_to` and a `u64` divide; a `u32` fast path is being added there). Flash of
+  the bench 34.1 → 17.5 KB (`fw-z`). Donguru `.text` 305,256 → 290,664 B, rePort 402,548 → 392,812 B. TEST-33 is a
+  gate now. `docs/std_library/ww_si.md#conversions-and-comparisons`.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
   `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;
@@ -2697,8 +2711,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   inline `BufReader::new` or `latched()`).
 - ✅ **TEST-33 No-float firmware guard** · `v0.5` — `just flash-budget` (`examples_mcu/fw_budget --flash`,
   `examples_mcu/fw_budget/src/no_f64_guard.rs`) builds a fixture (`examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs`,
-  `qemu-no-f64-guard`) that calls every device-relevant `ww_si::Quantity` operation of today's API (`to_u32_in`,
-  `to_u32_wrapping_in`, `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`; STD-102 moves it onto `to_in`),
+  `qemu-no-f64-guard`) that calls every device-relevant `ww_si::Quantity` operation (`to_in`, `rescaled`,
+  `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`),
   on `thumbv6m-none-eabi` and `thumbv7em-none-eabihf`, at `fw-z` and `fw-3`, in two groups (D2: no floats on a device
   unless a type is a float or a feature turns them on). No floats (`u32`, `u32+u64`, `--no-default-features`): any f32
   or f64 helper fails, and on `thumbv7em-none-eabihf`, which has an FPU and so no helpers, any VFP `.f32`/`.f64`
@@ -2714,8 +2728,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     (8.1 KB), 20-22 VFP instructions.
   - Opted in: 16-17 f64 symbols (3.6-3.8 KB), 13 f32 helpers (2.0 KB) on thumbv6m, 2 128-bit symbols, 5-6 slow paths.
   - By crate (`fw-z`, `u32`, thumbv6m): compiler_builtins 4.2 KB, exact_units 5.0 KB, ww_si 5.0 KB.
-  Only reports for now; `--guard-strict` makes a forbidden symbol fail the run, and STD-102 turns that on in the gate
-  once `ww_si` sits on exact_units' integer kernel.
+  Since STD-102 (`ww_si` on exact_units' integer kernel) it is a gate: `just no-float-guard`, part of `just test`,
+  fails on any forbidden symbol (`--guard-strict` is the default). All 16 builds are clean: 0 f64, 0 128-bit and 0
+  slow-path symbols; the no-float group has 0 f32 helpers and 0 VFP instructions.
 - **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before

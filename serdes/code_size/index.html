@@ -7818,39 +7818,48 @@ difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</co
 writer and reader that <code>Series</code> columns, <code>UN</code> fields and the length nibbles go through: inlined into the few
 functions that write and read bits, they are faster; out of line, smaller. <code>shrink_wrap</code> doesn't force either by
 default (SW-70). The small private helpers (<code>push_bits</code>, <code>put_in_word</code>, <code>take_in_word</code>, the big-endian word loads and
-stores, masks) are plain <code>#[inline]</code> hints, which <code>opt-level = 3</code> follows and <code>z</code> mostly doesn't. A firmware that
-wants something else says so with one <code>--cfg</code>, set by the firmware alone (in its <code>.cargo/config.toml</code> <code>rustflags</code>, or
-<code>CARGO_TARGET_&lt;TRIPLE&gt;_RUSTFLAGS</code>), never by a crate in between, so it is not a cargo feature:</p>
+stores, masks) are plain <code>#[inline]</code> hints, which <code>opt-level = 3</code> follows and <code>z</code> mostly doesn't. Two cargo features
+of <code>shrink_wrap</code> change that:</p>
 <table>
 <thead>
 <tr>
-<th><code>--cfg</code></th>
+<th>feature</th>
 <th>what it does</th>
 <th>toolchain</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>none</td>
-<td>the helpers are hints</td>
+<td>none (firmware default)</td>
+<td>the helpers are hints; <code>BufReader::new</code>, <code>BufWriter::new</code> and the paths of a size-prefixed value (<code>split_sized</code>, <code>begin_unsized</code>, <code>end_unsized</code>) are out of line (SW-74)</td>
 <td>any</td>
 </tr>
 <tr>
-<td><code>shrink_wrap_hot="inline"</code></td>
-<td>the helpers are <code>#[inline(always)]</code>, as before SW-70</td>
+<td><code>fast-io</code> (on with <code>std</code>)</td>
+<td>the helpers are <code>#[inline(always)]</code>, as before SW-70; the constructors and the size-prefixed paths are hints</td>
 <td>any</td>
 </tr>
 <tr>
-<td><code>shrink_wrap_hot="optimize"</code></td>
-<td>the bit primitives (<code>put_bits</code>, <code>put_block</code>, <code>put_low_bits</code>, <code>take_bits</code>, <code>read_un32</code>, ..) and the numeric <code>Series</code> loops are <code>#[optimize(speed)]</code>, the helpers stay hints</td>
-<td>nightly</td>
+<td><code>optimize-speed</code></td>
+<td>the bit primitives (<code>put_bits</code>, <code>put_block</code>, <code>put_low_bits</code>, <code>take_bits</code>, <code>read_un32</code>, ..) and the numeric <code>Series</code> loops are <code>#[optimize(speed)]</code>; the helpers stay hints, or forced with <code>fast-io</code> too</td>
+<td>Rust 1.101 or nightly</td>
 </tr>
 </tbody>
 </table>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># .cargo/config.toml of a firmware built with opt-level = &quot;z&quot; that encodes series in a hot path</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">[target.thumbv7em-none-eabihf]</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">rustflags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;--cfg&quot;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;shrink_wrap_hot=&quot;inline&quot;&#39;</span><span class="p">]</span>
+<p><code>std</code> turns <code>fast-io</code> on, so hosts get the fast paths without asking. A firmware has no <code>std</code> and opts in by naming
+the feature on its own <code>shrink_wrap</code> dependency; cargo unifies features, so any crate in the build that turns one on
+turns it on for all of them, which only costs size, never correctness. <code>optimize-speed</code> on a stable compiler older than
+1.101 is ignored with a build warning, so <code>--all-features</code> still builds there.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Cargo.toml of a firmware built with opt-level = &quot;z&quot; that encodes series in a hot path</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">[dependencies]</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">shrink_wrap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;fast-io&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
+<p>The constructors are out of line by default because a firmware makes readers and writers in dozens of per-type
+copies (<code>dispatch::des::&lt;T&gt;</code>, <code>to_ww_bytes</code>, ..): inlined, each is about 20 bytes of stores, a call about 8 (SW-74,
+Donguru −968 B). The price is at <code>opt-level = 3</code>, in a function that makes a reader or writer and uses it in a tight
+loop: its address goes to <code>new</code>, so LLVM no longer keeps its fields in registers (64 nibbles read in 983 instructions
+before, 2189 after; <code>fast-io</code> gives 983 back). Readers and writers passed to a decoder or encoder
+by <code>&amp;mut</code> are in memory either way. Numbers in <a href="../../articles/flash_budget/#sw-74-reader-and-writer-plumbing">the flash budget</a>.</p>
 <p>What stays forced in every mode: the one-line wrappers (<code>read_u16</code> and the other integer reads and writes, the
 <code>_latch</code> methods, the trait defaults the derive calls), which cost nothing in size inlined and a call each when not,
 and the per-item paths of <code>Series</code> stores and observe cells, which run in interrupts: as hints at <code>z</code> a row capture

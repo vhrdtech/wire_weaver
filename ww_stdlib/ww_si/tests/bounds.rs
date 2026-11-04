@@ -142,16 +142,16 @@ fn limit_normalized() {
         <RangeDec<0, 33, -1> as QuantityBounds>::MAX,
         Some(Limit {
             value: Integer::new(false, 33),
-            exp: -1
+            prefix: Prefix::Deci
         })
     );
-    assert_eq!(Limit::new(1200, 0).exp, 0);
+    assert_eq!(Limit::new(1200, 0).prefix, Prefix::Unit);
     // trailing zeros move into the exponent only when the number doesn't fit the widest integer enabled
     #[allow(clippy::unnecessary_cast)] // Magnitude is u128 only with the u128 feature
     let max = ww_si::ww_numeric::Magnitude::MAX as u128;
     if max < i128::MAX as u128 / 100 {
         let l = Limit::new(-((max / 10 + 1) as i128 * 100), 2);
-        assert_eq!(l.exp, 4);
+        assert_eq!(l.prefix, Prefix::from_pow10(4).unwrap());
         assert_eq!(l.value, Integer::new(true, (max / 10 + 1) as _));
     }
 }

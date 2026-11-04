@@ -60,11 +60,12 @@ pub trait QuantityBounds: Copy + Default + 'static {
     }
 }
 
-/// An end of a [QuantityBounds] range: `value · 10^exp` in the unit itself, exact.
+/// An end of a [QuantityBounds] range: `value · prefix` in the unit itself, exact; `prefix` is `10^exp` of
+/// [Limit::new], resolved at compile time so a check on decode doesn't look it up.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Limit {
     pub value: Integer,
-    pub exp: i8,
+    pub prefix: Prefix,
 }
 
 impl Limit {
@@ -85,13 +86,13 @@ impl Limit {
             m /= 10;
             exp += 1;
         }
-        assert!(
-            -63 <= exp && exp <= 63,
-            "a Quantity bound's exponent beyond ±63"
-        );
+        let prefix = match Prefix::from_pow10(exp) {
+            Some(p) => p,
+            None => panic!("a Quantity bound's exponent beyond ±63"),
+        };
         Limit {
             value: Integer::new(negative, m as Magnitude),
-            exp,
+            prefix,
         }
     }
 }

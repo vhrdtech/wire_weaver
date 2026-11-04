@@ -508,15 +508,13 @@ fn compare_float(
     None
 }
 
-/// Compares `value` in units of `prefix` with a bound's `limit`, as [compare] does; `None` also for a limit whose
-/// exponent no prefix has (beyond ±63).
+/// Compares `value` in units of `prefix` with a bound's `limit`, as [compare] does.
 #[inline]
 pub(crate) fn cmp_limit(prefix: Prefix, value: &NumericValue, limit: &Limit) -> Option<Ordering> {
-    let limit_prefix = Prefix::from_pow10(limit.exp)?;
     if let Some(x) = value.to_integer() {
-        return cmp_integer(prefix, x, limit_prefix, limit.value);
+        return cmp_integer(prefix, x, limit.prefix, limit.value);
     }
-    cmp_limit_float(prefix, value, limit_prefix, limit.value)
+    cmp_limit_float(prefix, value, limit.prefix, limit.value)
 }
 
 #[allow(unused_variables)]

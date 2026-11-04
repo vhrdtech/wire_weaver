@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-* `exact_units` taken at 15cd9f5, its integer kernel (NUM-13), and by git without a `rev`: `Cargo.lock` pins the commit. Re-exports `Rounding`, `Overflow` and `PrefixRatio`; new `ToIn`, the number types `to_in` gives (STD-102).
+* `exact_units` taken at 1819d9f, its integer kernel (NUM-13) with the `u32` fast path for SI prefixes, and by git without a `rev`: `Cargo.lock` pins the commit. Re-exports `Rounding`, `Overflow` and `PrefixRatio`; new `ToIn`, the number types `to_in` gives (STD-102).
 * The no-float guard (TEST-33) is a gate: `just no-float-guard`, part of `just test`, fails when the fixture firmware calling every device operation (`to_in`, `rescaled`, `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`) links `f64`, 128-bit or slow-path code, or `f32` / VFP code without the `f32` feature, on Cortex-M0 and M4F at `fw-z` and `fw-3`. All 16 builds are clean (STD-102).
 * `exact_units` taken at 8584aad (STD-84): `units::{Minute, Hour, Day, Week}` and `origins::UnixEpoch` with
   `UnixSecs<T>` / `UnixMillis<T>` / `UnixMicros<T>` / `UnixNanos<T>` (`T` defaults to `u64`), a `Point<UnixEpoch,

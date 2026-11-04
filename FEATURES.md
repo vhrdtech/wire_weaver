@@ -2164,11 +2164,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `rescaled_exact(prefix)` replace `with_prefix`. No float code on a device without the `f32` feature (a float
   target is a compile error there), `f64` on hosts only; no wire change (corpus unchanged, 8 new bounded-quantity
   cases). Results are those of the old arithmetic (`ww_stdlib/ww_si/tests/oracle.rs`, proptests against it). QEMU
-  M3 (`qemu-si-convert`, `fw-z` / `fw-3` instructions, before → after): KiB→B 6145/6508 → 611/399, FullScale→mV
-  7346/7553 → 937/682, `to_fixed` 4340/4548 → 223/126, same prefix 99/44 → 70/34, mV→V 154/71 → 294/217, ms→µs
-  153/90 → 246/166 (exact_units' `ratio_to` and a `u64` divide; a `u32` fast path is being added there). Flash of
-  the bench 34.1 → 17.5 KB (`fw-z`). Donguru `.text` 305,256 → 290,664 B, rePort 402,548 → 392,812 B. TEST-33 is a
-  gate now. `docs/std_library/ww_si.md#conversions-and-comparisons`.
+  M3 (`qemu-si-convert`, `fw-z` / `fw-3` instructions, before → after, exact_units at 1819d9f): KiB→B 6145/6508 →
+  596/299, FullScale→mV 7346/7553 → 921/582, `to_fixed` 4340/4548 → 100/81, same prefix 99/44 → 70/34, mV→V 154/71
+  → 139/96, ms→µs 153/90 → 140/98, µs < ms 184/112 → 176/119, bounded decode 413/325 → 464/316, `steps` 342/71 →
+  293/100. Flash of the bench 34.1 → 18.1 KB (`fw-z`), 47.8 → 27.6 KB (`fw-3`). Donguru `.text` 305,256 → 290,664
+  B, rePort 402,548 → 392,812 B (measured at exact_units 15cd9f5). TEST-33 is a gate now. `docs/std_library/ww_si.md#conversions-and-comparisons`.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
   `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;

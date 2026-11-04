@@ -183,7 +183,7 @@ API turns on `f32` (`f64` is for hosts). The same prefix takes a shortcut on the
 (`just no-float-guard`, part of `just test`) builds a firmware calling each of these operations for Cortex-M0 and
 M4F and fails on any such symbol. Against the `i128` / `f64` paths this replaced, Donguru (Cortex-M0+, opt-level
 `z`) is 14.6 KB smaller and rePort (Cortex-M33) 9.7 KB; a `FullScale` or binary-prefix conversion takes about a
-tenth of the instructions it did, one between two SI prefixes two to three times as many (`qemu-si-convert`).
+tenth of the instructions it did, one between two SI prefixes about as many (`qemu-si-convert`).
 
 `Display` writes the number as stored with its prefix, `{:#}` in the unit itself; `Debug` adds the unit's name and
 the number type, `defmt::Format` is like `Display`:

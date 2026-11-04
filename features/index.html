@@ -7974,7 +7974,21 @@ observing), SRV-46 (peer identity).
   the widest enabled number type): with types up to 32 bits only <code>u32</code> code, no <code>i64</code> / <code>i128</code> and no <code>f64</code> without
   float types. <code>to_i32_in</code> / <code>to_u32_in</code> / <code>to_u32_wrapping_in</code>; <code>to_i128_in</code> only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, <code>opt-level = "z"</code>). <code>docs/std_library/ww_si.md#conversions-and-comparisons</code>,
-  <code>ww_stdlib/ww_si/tests/narrow.rs</code> and <code>ww_stdlib/ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).</li>
+  <code>ww_stdlib/ww_si/tests/narrow.rs</code> and <code>ww_stdlib/ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).
+  STD-102 replaced these methods with <code>to_in</code> / <code>rescaled</code> / <code>rescaled_exact</code> on exact_units' kernel.</li>
+<li>✅ <strong>STD-102 <code>ww_si</code> on exact_units' integer kernel</strong> · <code>v0.5</code> — conversions, comparisons and bounds of <code>Quantity</code>
+  run on exact_units' NUM-13 kernel (<code>PrefixRatio</code>, <code>Prefix::rescale</code> / <code>cmp_scaled</code>) at the width of the enabled
+  number types, for every scale (SI, binary, <code>Pow10</code>, <code>Pow2</code>, <code>FullScale</code>); the <code>i128</code> / <code>f64</code> slow paths
+  (<code>ops.rs</code>) are gone. One conversion names its policy: <code>to_in::&lt;T&gt;(prefix, Rounding, Overflow)</code> replaces
+  <code>to_u32_in</code>, <code>to_i32_in</code>, <code>to_u32_wrapping_in</code> and <code>to_i128_in</code>; <code>rescaled(prefix, Rounding, Overflow)</code> and
+  <code>rescaled_exact(prefix)</code> replace <code>with_prefix</code>. No float code on a device without the <code>f32</code> feature (a float
+  target is a compile error there), <code>f64</code> on hosts only; no wire change (corpus unchanged, 8 new bounded-quantity
+  cases). Results are those of the old arithmetic (<code>ww_stdlib/ww_si/tests/oracle.rs</code>, proptests against it). QEMU
+  M3 (<code>qemu-si-convert</code>, <code>fw-z</code> / <code>fw-3</code> instructions, before → after, exact_units at 1819d9f): KiB→B 6145/6508 →
+  596/299, FullScale→mV 7346/7553 → 921/582, <code>to_fixed</code> 4340/4548 → 100/81, same prefix 99/44 → 70/34, mV→V 154/71
+  → 139/96, ms→µs 153/90 → 140/98, µs &lt; ms 184/112 → 176/119, bounded decode 413/325 → 464/316, <code>steps</code> 342/71 →
+  293/100. Flash of the bench 34.1 → 18.1 KB (<code>fw-z</code>), 47.8 → 27.6 KB (<code>fw-3</code>). Donguru <code>.text</code> 305,256 → 290,664
+  B, rePort 402,548 → 392,812 B (measured at exact_units 15cd9f5). TEST-33 is a gate now. <code>docs/std_library/ww_si.md#conversions-and-comparisons</code>.</li>
 <li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
   <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
@@ -8518,8 +8532,8 @@ observing), SRV-46 (peer identity).
   inline <code>BufReader::new</code> or <code>latched()</code>).</li>
 <li>✅ <strong>TEST-33 No-float firmware guard</strong> · <code>v0.5</code> — <code>just flash-budget</code> (<code>examples_mcu/fw_budget --flash</code>,
   <code>examples_mcu/fw_budget/src/no_f64_guard.rs</code>) builds a fixture (<code>examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs</code>,
-  <code>qemu-no-f64-guard</code>) that calls every device-relevant <code>ww_si::Quantity</code> operation of today's API (<code>to_u32_in</code>,
-  <code>to_u32_wrapping_in</code>, <code>PartialOrd</code>, a bounded decode, <code>to_fixed</code>, <code>Timed</code>, <code>steps</code>; STD-102 moves it onto <code>to_in</code>),
+  <code>qemu-no-f64-guard</code>) that calls every device-relevant <code>ww_si::Quantity</code> operation (<code>to_in</code>, <code>rescaled</code>,
+  <code>PartialOrd</code>, a bounded decode, <code>to_fixed</code>, <code>Timed</code>, <code>steps</code>),
   on <code>thumbv6m-none-eabi</code> and <code>thumbv7em-none-eabihf</code>, at <code>fw-z</code> and <code>fw-3</code>, in two groups (D2: no floats on a device
   unless a type is a float or a feature turns them on). No floats (<code>u32</code>, <code>u32+u64</code>, <code>--no-default-features</code>): any f32
   or f64 helper fails, and on <code>thumbv7em-none-eabihf</code>, which has an FPU and so no helpers, any VFP <code>.f32</code>/<code>.f64</code>
@@ -8535,8 +8549,9 @@ observing), SRV-46 (peer identity).
     (8.1 KB), 20-22 VFP instructions.</li>
 <li>Opted in: 16-17 f64 symbols (3.6-3.8 KB), 13 f32 helpers (2.0 KB) on thumbv6m, 2 128-bit symbols, 5-6 slow paths.</li>
 <li>By crate (<code>fw-z</code>, <code>u32</code>, thumbv6m): compiler_builtins 4.2 KB, exact_units 5.0 KB, ww_si 5.0 KB.
-  Only reports for now; <code>--guard-strict</code> makes a forbidden symbol fail the run, and STD-102 turns that on in the gate
-  once <code>ww_si</code> sits on exact_units' integer kernel.</li>
+  Since STD-102 (<code>ww_si</code> on exact_units' integer kernel) it is a gate: <code>just no-float-guard</code>, part of <code>just test</code>,
+  fails on any forbidden symbol (<code>--guard-strict</code> is the default). All 16 builds are clean: 0 f64, 0 128-bit and 0
+  slow-path symbols; the no-float group has 0 f32 helpers and 0 VFP instructions.</li>
 <li><strong>SRV-50 Server call gate</strong> — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   <code>ww_codegen!(.., call_gate = true)</code>, a <code>CallGate::admit</code> question per trait level (and per item where named) before

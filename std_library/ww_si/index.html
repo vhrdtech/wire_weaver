@@ -6064,13 +6064,13 @@
 <p><code>ww_si</code> gives device APIs typed physical values: a quantity is an SI <a href="#prefixes">prefix</a> plus a <code>ww_numeric</code>
 <code>NumericValue</code> in whatever number type the device picks, with the unit in the type. The API says "this is a
 voltage", each device decides whether that is a <code>u16</code> of mV or an <code>f32</code> of V, and the host reads them all.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Watt</span><span class="p">};</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Overflow</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Watt</span><span class="p">};</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">);</span><span class="w">          </span><span class="c1">// prefix Milli, value U16(3300)</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">from_f32</span><span class="p">(</span><span class="mf">3.3</span><span class="p">);</span><span class="w">           </span><span class="c1">// prefix Unit, value F32(3.3)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">1500</span><span class="k">u16</span><span class="p">),</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mf">1.5</span><span class="k">f32</span><span class="p">));</span><span class="w"> </span><span class="c1">// compares values, not representations</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_f64</span><span class="p">(),</span><span class="w"> </span><span class="mf">3.3</span><span class="p">);</span><span class="w">           </span><span class="c1">// in V</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">w</span><span class="p">.</span><span class="n">to_i32_in</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">3300</span><span class="p">));</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">w</span><span class="p">.</span><span class="n">to_in</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestAway</span><span class="p">,</span><span class="w"> </span><span class="n">Overflow</span><span class="p">::</span><span class="n">Checked</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">3300</span><span class="p">));</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3300 mV&quot;</span><span class="p">);</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Watt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">500</span><span class="k">u16</span><span class="p">);</span><span class="w">              </span><span class="c1">// the compiler checks the units</span>
 </span></code></pre></div>
@@ -6293,26 +6293,33 @@ takes the value as is). It computes in <code>f32</code>, no <code>f64</code> cod
 <ul>
 <li><code>to_f64()</code> / <code>to_f32()</code>: the value in the unit itself (V, A, Hz, s, °, g);</li>
 <li><code>to_f64_in(prefix)</code>: in another prefix, <code>Volt::from_f32(3.3).to_f64_in(Prefix::Milli)</code> is about 3300.0;</li>
-<li><code>to_i32_in(prefix)</code> / <code>to_u32_in(prefix)</code>: as an integer, exact for integer storage (truncated toward zero when
-  going to a bigger prefix), rounded for floats; <code>None</code> when it doesn't fit. <code>Second::milli(5u16).to_u32_in(Prefix::Micro)</code>
-  is <code>Some(5000)</code>;</li>
-<li><code>to_u32_wrapping_in(prefix)</code>: the same modulo 2^32, what a wrapping 32-bit counter of that unit shows, to compare a
-  timestamp with a device clock;</li>
-<li><code>to_i128_in(prefix)</code>: like <code>to_i32_in</code> up to <code>i128</code>, only with a 64- or 128-bit number type enabled (<code>std</code> has
-  them);</li>
+<li><code>to_in::&lt;T&gt;(prefix, Rounding, Overflow)</code>: the value in units of <code>prefix</code> as the number type <code>T</code> (any primitive
+  integer, <code>f32</code> / <code>f64</code> with those features). The call names what happens to a value that isn't a whole number of
+  <code>prefix</code> (<code>Rounding</code>: <code>Truncate</code>, <code>Floor</code>, <code>Ceil</code>, <code>NearestEven</code>, <code>NearestAway</code>) and to one that doesn't fit <code>T</code>
+  (<code>Overflow</code>: <code>Checked</code> gives <code>None</code>, <code>Saturate</code> the nearest end, <code>Wrap</code> modulo 2^bits, what a wrapping 32-bit
+  counter of that unit shows, to compare a timestamp with a device clock). Exact for integer storage whatever the two
+  scales are (SI, binary, <code>Pow10</code>, <code>Pow2</code>, <code>FullScale</code>); a float is first scaled to the float nearest the exact
+  product, then rounded exactly. <code>Second::milli(5u16).to_in::&lt;u32&gt;(Prefix::Micro, Rounding::Truncate,
+  Overflow::Checked)</code> is <code>Some(5000)</code>, <code>Volt::milli(3999u16).to_in::&lt;u32&gt;(Prefix::Unit, Rounding::NearestEven,
+  Overflow::Checked)</code> is <code>Some(4)</code>;</li>
 <li><code>to_si_f64()</code>: in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005 (kg);</li>
-<li><code>with_prefix(prefix)</code>: the same value in another prefix and the same number type, if that is exact
-  (<code>Volt::milli(3000u16)</code> to <code>Unit</code> is 3 V; 3300 mV is <code>None</code>), for autoranging before sending;</li>
+<li><code>rescaled(prefix, Rounding, Overflow)</code>: the same value in another prefix and the same number type, rounded and
+  settled as <code>to_in</code> does, <code>None</code> also for a result outside the bounds <code>B</code>;</li>
+<li><code>rescaled_exact(prefix)</code>: the same, only if that is exact (<code>Volt::milli(3000u16)</code> to <code>Unit</code> is 3 V; 3300 mV is
+  <code>None</code>, and so is 3300 mV to µV, which doesn't fit a <code>U16</code>), for autoranging before sending;</li>
 <li><code>same_repr(&amp;other)</code>: same prefix and the same number in the same type, a cheap "did it change since I sent it".</li>
 </ul>
 <p><code>PartialEq</code> and <code>PartialOrd</code> compare values across prefixes and number types: <code>Volt::milli(1000u16) == Volt::base(1u8)</code>.
-Two integers are compared exactly, even 60 orders of magnitude apart; through <code>f64</code> when one is a float.</p>
-<p>On a small MCU the integer conversions, comparisons and the exact arithmetic below take no wider arithmetic than the
-enabled number types need: with types up to 32 bits (<code>u32</code>, <code>i32</code>, ..) everything is <code>u32</code> code, nothing of 64 or
-128 bits is linked, and <code>ww_numeric::Integer</code> (sign and magnitude) does the work. The same prefix compares the stored
-numbers; across prefixes the value with the bigger prefix is scaled by powers of ten with an overflow check, and an
-overflow means it is the bigger one. On a Cortex-M0+ (Donguru, opt-level <code>z</code>) this took 6 KiB of flash off what
-widening to <code>i128</code> cost.</p>
+Two integers are compared exactly, even 60 orders of magnitude apart, and so are an <code>f32</code> and an integer (the float's
+own value); two <code>f32</code>s at different prefixes compare by the scaled float, an <code>F64</code> (hosts) through <code>f64</code>.</p>
+<p>On a small MCU the conversions, comparisons and bounds run on <code>exact_units</code>' integer kernel (<code>PrefixRatio</code>,
+<code>Prefix::rescale</code>, <code>Prefix::cmp_scaled</code>) at the width of the enabled number types (<code>ww_numeric::Integer</code>, sign and
+magnitude): with types up to 32 bits no <code>f32</code>, <code>f64</code> or 128-bit code is linked, and none for floats at all unless the
+API turns on <code>f32</code> (<code>f64</code> is for hosts). The same prefix takes a shortcut on the stored numbers. The no-float guard
+(<code>just no-float-guard</code>, part of <code>just test</code>) builds a firmware calling each of these operations for Cortex-M0 and
+M4F and fails on any such symbol. Against the <code>i128</code> / <code>f64</code> paths this replaced, Donguru (Cortex-M0+, opt-level
+<code>z</code>) is 14.6 KB smaller and rePort (Cortex-M33) 9.7 KB; a <code>FullScale</code> or binary-prefix conversion takes about a
+tenth of the instructions it did, one between two SI prefixes about as many (<code>qemu-si-convert</code>).</p>
 <p><code>Display</code> writes the number as stored with its prefix, <code>{:#}</code> in the unit itself; <code>Debug</code> adds the unit's name and
 the number type, <code>defmt::Format</code> is like <code>Display</code>:</p>
 <table>

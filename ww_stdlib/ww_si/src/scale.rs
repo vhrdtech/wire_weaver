@@ -408,7 +408,7 @@ fn cmp_integer(a: Prefix, x: Integer, b: Prefix, y: Integer) -> Option<Ordering>
 #[cfg(feature = "f32")]
 fn cmp_f32_integer(a: Prefix, x: f32, b: Prefix, y: Integer) -> Option<Ordering> {
     let abs = f32::from_bits(x.to_bits() & 0x7FFF_FFFF);
-    if abs != abs {
+    if abs.is_nan() {
         return None;
     }
     let sx = if abs == 0.0 {

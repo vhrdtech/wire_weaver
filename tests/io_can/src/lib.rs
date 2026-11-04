@@ -314,7 +314,11 @@ mod tests {
     /// Picks segments for a bit rate and sample point: a prescaler of 1 or 2, segments within 0.5 % of the sample
     /// point. `None` when no such setting gives the rate exactly.
     fn segments_for(rate: Baud, sample_point: u16) -> Option<BitTiming> {
-        let rate = rate.to_i128_in(ww_si::Prefix::Unit)? as u32;
+        let rate = rate.to_in::<u32>(
+            ww_si::Prefix::Unit,
+            ww_si::Rounding::Truncate,
+            ww_si::Overflow::Checked,
+        )?;
         for prescaler in 1..=2u16 {
             let quanta = CLOCK_HZ / prescaler as u32 / rate;
             if quanta * prescaler as u32 * rate != CLOCK_HZ || !(8..=385).contains(&quanta) {

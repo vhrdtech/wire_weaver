@@ -25,6 +25,8 @@ test-all:
     just test-lz4-c
     # ww_ecc_flash's read modes on a simulated flash (mcu/ workspace)
     just test-ecc-flash
+    # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
+    just no-float-guard
 
 # ww_ecc_flash's zeros and strict reads on a simulated flash, with each family's word size
 [working-directory('mcu')]
@@ -290,6 +292,12 @@ units-elf *args:
 [working-directory('examples_mcu/fw_budget')]
 flash-budget *args:
     cargo run -q --release -- --flash {{ args }}
+
+# The no-float guard (TEST-33): a fixture firmware calling every device-relevant ww_si operation, built on Cortex-M0 and
+# M4F at `fw-z` and `fw-3` with each number-feature set firmware uses; fails on code its group forbids
+[working-directory('examples_mcu/fw_budget')]
+no-float-guard *args:
+    cargo run -q --release -- --guard {{ args }}
 
 # Flash by inlined frame of a firmware ELF with debug info (TEST-32): crates, dispatcher functions, serdes impls; `--gen FILE` counts resources
 [working-directory('examples_mcu/fw_budget')]

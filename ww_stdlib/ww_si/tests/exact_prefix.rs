@@ -6,7 +6,7 @@ use shrink_wrap::prelude::*;
 use ww_si::exact_units::Magnitude;
 use ww_si::units;
 use ww_si::ww_numeric::NumericValue;
-use ww_si::{Prefix, Quantity, Ratio, Second, Volt};
+use ww_si::{Overflow, Prefix, Quantity, Ratio, Rounding, Second, Volt};
 
 type Byte = Quantity<units::Byte>;
 
@@ -35,7 +35,7 @@ fn unknown_prefix_is_read_past_and_refused() {
     let bytes = (q, 7u8).to_ww_bytes(&mut buf).unwrap();
     assert_eq!(<(Volt, u8)>::from_ww_bytes(bytes).unwrap(), (q, 7));
     assert!(q.to_f64().is_nan());
-    assert_eq!(q.with_prefix(Prefix::Unit), None);
+    assert_eq!(q.rescaled_exact(Prefix::Unit), None);
     assert_eq!(q.checked_add(&Volt::new(Prefix::Unit, 1u8)), None);
     assert_eq!(std::format!("{q}"), "5·<scale 1000> V");
     assert_eq!(Prefix::Unknown(1000).magnitude(), None);
@@ -49,16 +49,26 @@ fn unknown_prefix_is_read_past_and_refused() {
 fn binary_prefix_converts_exactly() {
     let b = Byte::new(Prefix::Kibi, 3u16);
     assert_eq!(b.to_f64(), 3072.0);
-    assert_eq!(b.to_u32_in(Prefix::Unit), Some(3072));
-    // 3 KiB = 3.072 kB, truncated
-    assert_eq!(b.to_u32_in(Prefix::Kilo), Some(3));
     assert_eq!(
-        b.with_prefix(Prefix::Unit),
+        b.to_in::<u32>(Prefix::Unit, Rounding::Truncate, Overflow::Checked),
+        Some(3072)
+    );
+    // 3 KiB = 3.072 kB, truncated
+    assert_eq!(
+        b.to_in::<u32>(Prefix::Kilo, Rounding::Truncate, Overflow::Checked),
+        Some(3)
+    );
+    assert_eq!(
+        b.rescaled_exact(Prefix::Unit),
         Some(Byte::new(Prefix::Unit, 3072u16))
     );
-    assert_eq!(b.with_prefix(Prefix::Kilo), None);
+    assert_eq!(b.rescaled_exact(Prefix::Kilo), None);
     assert_eq!(
-        Byte::new(Prefix::Mebi, 1u8).to_u32_in(Prefix::Kibi),
+        Byte::new(Prefix::Mebi, 1u8).to_in::<u32>(
+            Prefix::Kibi,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
         Some(1024)
     );
     assert_eq!(b, Byte::new(Prefix::Unit, 3072u32));
@@ -75,15 +85,21 @@ fn exact_fraction_converts_exactly() {
     assert!((d.to_f64() - 32768.0 / 65535.0).abs() < 1e-15);
     // 65535 · 1/65535 is 1 exactly
     let full = Ratio::new(duty16(), 65535u16);
-    assert_eq!(full.to_u32_in(Prefix::Unit), Some(1));
+    assert_eq!(
+        full.to_in::<u32>(Prefix::Unit, Rounding::Truncate, Overflow::Checked),
+        Some(1)
+    );
     assert_eq!(full, Ratio::new(Prefix::Unit, 1u8));
     assert_eq!(
-        full.with_prefix(Prefix::Unit),
+        full.rescaled_exact(Prefix::Unit),
         Some(Ratio::new(Prefix::Unit, 1u16))
     );
     // 32768/65535 = 0.50000763 is 500 ‰, truncated, and not a whole number of them
-    assert_eq!(d.to_i32_in(Prefix::Milli), Some(500));
-    assert_eq!(d.with_prefix(Prefix::Milli), None);
+    assert_eq!(
+        d.to_in::<i32>(Prefix::Milli, Rounding::Truncate, Overflow::Checked),
+        Some(500)
+    );
+    assert_eq!(d.rescaled_exact(Prefix::Milli), None);
     assert!(d > Ratio::new(Prefix::Centi, 50u8));
     assert!(d < Ratio::new(Prefix::Centi, 51u8));
     assert_eq!(format!("{}", duty16()), "·1/65535");
@@ -95,9 +111,12 @@ fn exact_power_of_ten_takes_the_fast_values() {
     assert_eq!(p.pow10(), Some(-4));
     assert_eq!(p.si_pow10(), None);
     let v = Volt::new(p, 12345u16);
-    assert_eq!(v.to_u32_in(Prefix::Micro), Some(1_234_500));
+    assert_eq!(
+        v.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked),
+        Some(1_234_500)
+    );
     // 1 234 500 doesn't fit the U16
-    assert_eq!(v.with_prefix(Prefix::Micro), None);
+    assert_eq!(v.rescaled_exact(Prefix::Micro), None);
     assert_eq!(v, Volt::new(Prefix::Micro, 1_234_500u32));
 }
 

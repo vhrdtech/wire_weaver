@@ -1,7 +1,7 @@
 //! Every policy of the SPI slave engine, driven byte by byte as a firmware's interrupt handler would.
 
 use ww_bus_slave::{ConfigError, MapError, SpiSlave};
-use ww_si::{Prefix, Second};
+use ww_si::{Overflow, Prefix, Rounding, Second};
 use ww_spi::{BitOrder, SpiMode, SpiRegisters, SpiRwBit, SpiSlaveAnswers, SpiSlaveConfig};
 
 type Slave = SpiSlave<64, 32, 3, 8, 8, 16>;
@@ -19,7 +19,8 @@ struct Frame {
 }
 
 fn us(s: Second) -> u32 {
-    s.to_u32_in(Prefix::Micro).unwrap()
+    s.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked)
+        .unwrap()
 }
 
 fn frames(s: &mut Slave) -> Vec<Frame> {

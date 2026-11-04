@@ -1,9 +1,9 @@
-//! `Integer`: exact comparisons and powers of ten across number types, checked against `i128`. Runs with every number
-//! type (`just test`) and with the types up to 32 bits only (`--no-default-features --features u32,i32,f32`), where
-//! `Magnitude` is `u32` and every overflow decides in `u32`.
+//! `Integer`: exact comparisons and arithmetic across number types, checked against `i128`, and the way back into a
+//! number type (checked, saturating, wrapping). Runs with every number type (`just test`) and with the types up to 32
+//! bits only (`--no-default-features --features u32,i32,f32`), where `Magnitude` is `u32` and every overflow decides
+//! in `u32`. Scaling by powers of ten is exact_units' kernel's, tested in ww_si (`tests/kernel.rs`).
 #![cfg(all(feature = "u32", feature = "i32", feature = "f32"))]
 
-use core::cmp::Ordering;
 use ww_numeric::{Integer, NumericBaseType, NumericValue};
 
 /// Values around every edge the `u32` path has: 0, powers of ten, `u32::MAX / 10`, `i32` and `u32` limits.
@@ -37,8 +37,6 @@ const I32S: [i32; 10] = [
     i32::MAX,
 ];
 
-const EXPS: [i8; 9] = [-12, -9, -6, -3, 0, 1, 3, 9, 10];
-
 fn values() -> impl Iterator<Item = NumericValue> {
     U32S.iter()
         .map(|&x| NumericValue::U32(x))
@@ -50,51 +48,15 @@ fn reference(v: &NumericValue) -> i128 {
     v.to_i128().unwrap()
 }
 
-/// `x * 10^exp` in units of `10^-12`, exact for the values and powers above.
-fn at_pico(x: i128, exp: i8) -> i128 {
-    x * 10i128.pow((exp as i32 + 12) as u32)
-}
-
 #[test]
 fn compare_matches_i128() {
     for a in values() {
         for b in values() {
-            for &ae in &EXPS {
-                for &be in &EXPS {
-                    let expected = at_pico(reference(&a), ae).cmp(&at_pico(reference(&b), be));
-                    let got = a
-                        .to_integer()
-                        .unwrap()
-                        .cmp_pow10(ae, b.to_integer().unwrap(), be);
-                    assert_eq!(got, expected, "{a:?}e{ae} vs {b:?}e{be}");
-                }
-            }
+            let expected = reference(&a).cmp(&reference(&b));
+            let got = a.to_integer().unwrap().cmp(&b.to_integer().unwrap());
+            assert_eq!(got, expected, "{a:?} vs {b:?}");
         }
     }
-}
-
-#[test]
-fn compare_far_apart() {
-    let one = Integer::from(1u8);
-    let max = Integer::from(u32::MAX);
-    // 1e60 against u32::MAX: the overflow decides
-    assert_eq!(one.cmp_pow10(30, max, -30), Ordering::Greater);
-    assert_eq!(max.cmp_pow10(-30, one, 30), Ordering::Less);
-    assert_eq!((-one).cmp_pow10(30, -max, -30), Ordering::Less);
-    assert_eq!((-max).cmp_pow10(-30, -one, 30), Ordering::Greater);
-    // the extreme powers of an i8
-    assert_eq!(one.cmp_pow10(i8::MAX, max, i8::MIN), Ordering::Greater);
-    assert_eq!(
-        one.cmp_pow10(i8::MIN, Integer::ZERO, i8::MAX),
-        Ordering::Greater
-    );
-    // zero at any power
-    assert_eq!(
-        Integer::ZERO.cmp_pow10(30, Integer::ZERO, -30),
-        Ordering::Equal
-    );
-    assert_eq!(Integer::ZERO.cmp_pow10(30, -one, -30), Ordering::Greater);
-    assert_eq!(Integer::ZERO.cmp_pow10(-30, one, 30), Ordering::Less);
 }
 
 #[test]
@@ -109,41 +71,6 @@ fn signs_and_zero() {
 }
 
 #[test]
-fn scale() {
-    let x = Integer::from(3999u16);
-    assert_eq!(x.checked_scale_pow10(-3), Some(Integer::from(3u8)));
-    assert_eq!(x.exact_scale_pow10(-3), None);
-    assert_eq!(
-        Integer::from(3000u16).exact_scale_pow10(-3),
-        Some(Integer::from(3u8))
-    );
-    // truncated toward zero below zero too
-    assert_eq!(
-        Integer::from(-3999i32).checked_scale_pow10(-3),
-        Some(Integer::from(-3i8))
-    );
-    assert_eq!(
-        Integer::from(u32::MAX).checked_scale_pow10(-100),
-        Some(Integer::ZERO)
-    );
-    assert_eq!(Integer::from(u32::MAX).exact_scale_pow10(-100), None);
-    assert_eq!(Integer::ZERO.exact_scale_pow10(-100), Some(Integer::ZERO));
-    assert_eq!(Integer::ZERO.checked_scale_pow10(100), Some(Integer::ZERO));
-    assert_eq!(
-        Integer::from(1u8).checked_scale_pow10(9),
-        Some(Integer::from(1_000_000_000u32))
-    );
-    // 4_294_967_290 fits u32, 42_949_672_960 needs more than 32 bits
-    let x = Integer::from(429_496_729u32);
-    assert_eq!(
-        x.checked_scale_pow10(1),
-        Some(Integer::from(4_294_967_290u32))
-    );
-    let y = Integer::from(429_496_730u32).checked_scale_pow10(1);
-    assert_eq!(y.and_then(Integer::to_u32), None);
-}
-
-#[test]
 fn to_narrow() {
     assert_eq!(Integer::from(i32::MIN).to_i32(), Some(i32::MIN));
     assert_eq!(Integer::from(i32::MAX).to_i32(), Some(i32::MAX));
@@ -152,19 +79,48 @@ fn to_narrow() {
     assert_eq!((-Integer::from(2_147_483_649u32)).to_i32(), None);
     assert_eq!(Integer::from(u32::MAX).to_u32(), Some(u32::MAX));
     assert_eq!(Integer::from(-1i8).to_u32(), None);
-    assert_eq!(Integer::from(-1i8).to_u32_wrapping_pow10(0), u32::MAX);
+}
+
+#[test]
+fn saturating_and_wrapping_into_number_types() {
+    let big = Integer::from(u32::MAX);
+    let minus = |m: u32| -Integer::from(m);
+    let sat = |t: NumericBaseType, x: Integer| t.from_integer_saturating(x).unwrap();
+    let wrap = |t: NumericBaseType, x: Integer| t.from_integer_wrapping(x).unwrap();
+    assert_eq!(sat(NumericBaseType::U8, big), NumericValue::U8(255));
+    assert_eq!(sat(NumericBaseType::U8, minus(1)), NumericValue::U8(0));
     assert_eq!(
-        Integer::from(-1i8).to_u32_wrapping_pow10(3),
-        0u32.wrapping_sub(1000)
+        sat(NumericBaseType::U8, Integer::from(7u8)),
+        NumericValue::U8(7)
+    );
+    assert_eq!(sat(NumericBaseType::I32, big), NumericValue::I32(i32::MAX));
+    assert_eq!(
+        sat(NumericBaseType::I32, minus(u32::MAX)),
+        NumericValue::I32(i32::MIN)
     );
     assert_eq!(
-        Integer::from(u32::MAX).to_u32_wrapping_pow10(1),
-        u32::MAX.wrapping_mul(10)
+        sat(NumericBaseType::I32, minus(2_147_483_648)),
+        NumericValue::I32(i32::MIN)
     );
+    assert_eq!(sat(NumericBaseType::U32, minus(5)), NumericValue::U32(0));
+    // modulo 2^bits, two's complement below zero
     assert_eq!(
-        Integer::from(u32::MAX).to_u32_wrapping_pow10(-1),
-        u32::MAX / 10
+        wrap(NumericBaseType::U8, Integer::from(300u16)),
+        NumericValue::U8(44)
     );
+    assert_eq!(wrap(NumericBaseType::U8, minus(1)), NumericValue::U8(255));
+    assert_eq!(
+        wrap(NumericBaseType::U32, minus(1000)),
+        NumericValue::U32(0u32.wrapping_sub(1000))
+    );
+    assert_eq!(wrap(NumericBaseType::I32, big), NumericValue::I32(-1));
+    assert_eq!(
+        wrap(NumericBaseType::I32, minus(2_147_483_649)),
+        NumericValue::I32(i32::MAX)
+    );
+    // floats have no width to wrap at or range to clamp to here
+    assert_eq!(NumericBaseType::F32.from_integer_wrapping(big), None);
+    assert_eq!(NumericBaseType::F32.from_integer_saturating(big), None);
 }
 
 #[test]

@@ -4,7 +4,7 @@ use ww_bus_slave::{ConfigError, I2cSlave, MapError, QueueError, ReadByte};
 use ww_i2c::{
     I2cAddress, I2cRecordKind, I2cSlaveAnswers, I2cSlaveConfig, I2cSlaveEvent, I2cSlaveUnderrun,
 };
-use ww_si::{Prefix, Second};
+use ww_si::{Overflow, Prefix, Rounding, Second};
 
 type Slave = I2cSlave<64, 32, 3, 8, 8, 16>;
 
@@ -24,7 +24,8 @@ enum Ev {
 }
 
 fn us(s: Second) -> u32 {
-    s.to_u32_in(Prefix::Micro).unwrap()
+    s.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked)
+        .unwrap()
 }
 
 fn events(s: &mut Slave) -> Vec<Ev> {

@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- The no-float firmware guard (TEST-33) is a gate in `just test` (`just no-float-guard`): `ww_si`'s device operations link no `f64`, 128-bit or slow-path code, and no `f32` where a firmware didn't opt into floats. See `ww_si/` CHANGELOG.
 - `exact_units` taken at b114829 (STD-99, LVL-3): levels and their rates as quantities (`Neper`, `Decibel`, a loss
   base so a cable's dB/100 m never flips sign, damping, Beer-Lambert, dB/(cm·MHz) for ultrasound), reachable as
   `ww_si::..` through the existing `units` re-export; the crate walker learns the new `unit!` syntax
@@ -294,6 +295,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- `ww_si` conversions, comparisons and bounds on `exact_units`' integer kernel (STD-102): one `to_in::<T>(prefix, Rounding, Overflow)` and `rescaled` instead of five methods with a policy in each name, exact for every prefix, no float or 128-bit code on a device; `exact_units` by git without a `rev`, `Cargo.lock` pins 15cd9f5. See `ww_si/` and `ww_numeric/` CHANGELOGs.
 - `ww bootsel` and `ww stm32dfu` moved under `ww dfu` as `ww dfu rp` and `ww dfu stm32`; the old names are gone. See `wire_weaver_cli/CHANGELOG.md`.
 - `ww sync` on a terminal shows one live view from the start (who steers, the table, how far the devices converged) instead of log lines above a redrawn table, and stops on `q` too, says who steers the devices after it stops (the ww hub, or nobody: holdover), and shows the phase spread between devices without assuming LEDs. See `wire_weaver_cli/CHANGELOG.md`.
 - Denser `ww` help: a subcommand shows only the global flags it uses (device selection, link tap), and its `--help` sums them up in one line per group instead of spreading them over ~60 lines; `-h` and `ww --help` keep them in full. See `wire_weaver_cli/CHANGELOG.md`.

@@ -6,8 +6,8 @@ use crate::{Prefix, Quantity};
 use exact_units::Unit;
 use ww_numeric::Integer;
 
-// Everything in ww_numeric::Integer: no wider arithmetic than the enabled number types need (u32 with types up to 32
-// bits), so a firmware that adds timestamps links no 64- or 128-bit code.
+// Everything in ww_numeric::Integer and exact_units' kernel at its width: no wider arithmetic than the enabled number
+// types need (u32 with types up to 32 bits), so a firmware that adds timestamps links no 64- or 128-bit code.
 
 impl<U: Unit> Quantity<U> {
     /// `self + rhs` exactly, in the finer prefix of the two and in `self`'s number type: `Second::milli(5u32)` plus
@@ -72,7 +72,7 @@ impl<U: Unit> Quantity<U> {
 
     /// The value in units of `prefix`, if that is an integer (scaling down to a finer prefix always is, if it fits).
     fn exact_in(&self, prefix: Prefix) -> Option<Integer> {
-        crate::ops::exact_between(self.value.to_integer()?, self.prefix, prefix)
+        crate::scale::exact_between(self.value.to_integer()?, self.prefix, prefix)
     }
 
     fn checked_combine(
@@ -80,7 +80,7 @@ impl<U: Unit> Quantity<U> {
         rhs: &Self,
         op: fn(Integer, Integer) -> Option<Integer>,
     ) -> Option<Self> {
-        let prefix = crate::ops::finer(self.prefix, rhs.prefix);
+        let prefix = crate::scale::finer(self.prefix, rhs.prefix);
         let x = op(self.exact_in(prefix)?, rhs.exact_in(prefix)?)?;
         Some(Self::from_parts(prefix, self.value.ty().from_integer(x)?))
     }

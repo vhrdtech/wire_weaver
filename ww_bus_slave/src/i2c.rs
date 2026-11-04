@@ -8,7 +8,7 @@ use ww_i2c::{
     I2cRecordKind, I2cSlaveAnswers, I2cSlaveConfig, I2cSlaveEvent, I2cSlaveTransfer,
     I2cSlaveUnderrun, MAX_RECORD_LEN,
 };
-use ww_si::{Prefix, Second};
+use ww_si::{Overflow, Prefix, Rounding, Second};
 
 /// What to put on the bus for a byte the master reads, from [I2cSlave::read].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -239,12 +239,17 @@ impl<
                 }
                 let policy = match empty {
                     I2cSlaveUnderrun::Fill(fill) => Underrun::Fill(fill),
-                    I2cSlaveUnderrun::Stretch { max, fill } => match max.to_u32_in(Prefix::Micro) {
-                        Some(max) => Underrun::Stretch { max, fill },
-                        None => {
-                            return Err(ConfigError::InvalidArgument("stretch limit out of range"));
+                    I2cSlaveUnderrun::Stretch { max, fill } => {
+                        match max.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked)
+                        {
+                            Some(max) => Underrun::Stretch { max, fill },
+                            None => {
+                                return Err(ConfigError::InvalidArgument(
+                                    "stretch limit out of range",
+                                ));
+                            }
                         }
-                    },
+                    }
                     I2cSlaveUnderrun::Nack => Underrun::Nack,
                     I2cSlaveUnderrun::Unknown(_) => return Err(ConfigError::Unsupported),
                 };

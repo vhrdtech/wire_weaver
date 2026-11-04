@@ -1522,7 +1522,11 @@ impl GateCursor {
             return true;
         }
         // wrapping microseconds: the device clock and the grid wrap together
-        let Some(us) = t.to_u32_wrapping_in(ww_si::Prefix::Micro) else {
+        let Some(us) = t.to_in::<u32>(
+            ww_si::Prefix::Micro,
+            ww_si::Rounding::Truncate,
+            ww_si::Overflow::Wrap,
+        ) else {
             return true;
         };
         if let Some(next) = self.next {

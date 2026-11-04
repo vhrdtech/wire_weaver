@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+* `NumericBaseType::from_integer_saturating` and `from_integer_wrapping` (STD-102): an `Integer` into a number type clamped to its range, or modulo its width (two's complement below zero, `Nibble` modulo 16), from the magnitude's low bits; what `ww_si`'s `rescaled` settles a value with by its named `Overflow`.
 * `Integer` (STD-43): the exact value of any integer variant as sign and `Magnitude`, the narrowest unsigned type that
   holds every enabled number type (`u32` with types up to 32 bits, `u64` with `u64` / `i64` / `uvlq64`, `u128` with
   `u128` / `i128`). `NumericValue::to_integer`, `NumericBaseType::from_integer`, `NumericValue::wrapping_add(Integer)`;
@@ -19,6 +20,7 @@
 
 ### ⚠️ Breaking
 
+* `Integer::cmp_pow10`, `checked_scale_pow10`, `exact_scale_pow10` and `to_u32_wrapping_pow10` are removed (STD-102): scaling and comparing across powers of ten, and every other prefix, is `exact_units`' integer kernel's (`Prefix::rescale`, `Prefix::cmp_scaled`, `PrefixRatio`), which `ww_si` calls on the `Integer`'s magnitude. Write `Prefix::from_pow10(a)?.cmp_scaled(x, Prefix::from_pow10(b)?, y)` on magnitudes, or use `ww_si::Quantity::to_in` / `PartialOrd`. `Integer` keeps its arithmetic, `Ord`, `to_i32` / `to_u32` and the conversions to and from number types.
 Wire-incompatible with 0.1.1.
 
 * `NumericValue` variants are behind cargo features, one per number type (`nibble`, `u16`, `u32`, `unib32`, `u64`,

@@ -517,7 +517,14 @@ mod tests {
         client.uart().tx_pending().call().await.unwrap();
         let config = m.lock().unwrap().config.clone();
         let char_time_us = config.frame_bits().unwrap() as i128 * 1_000_000
-            / config.baud_rate.to_i128_in(ww_si::Prefix::Unit).unwrap();
+            / config
+                .baud_rate
+                .to_in::<i128>(
+                    ww_si::Prefix::Unit,
+                    ww_si::Rounding::Truncate,
+                    ww_si::Overflow::Checked,
+                )
+                .unwrap();
         assert_eq!(char_time_us, CHAR_TIME_US as i128 - 1); // 86.8 µs, rounded down
         for (pos, bytes, end_us) in [(0, &b"abcdef"[..], Some(5 * 85)), (6, b"gh", None)] {
             match rx.recv_event().await.unwrap() {
@@ -530,7 +537,14 @@ mod tests {
                 } => {
                     assert_eq!((p, units), (pos, bytes.len() as u64));
                     // first byte in the head, last byte in the chunk if measured
-                    let us = |t: ww_si::Second| t.to_i128_in(ww_si::Prefix::Micro).unwrap();
+                    let us = |t: ww_si::Second| {
+                        t.to_in::<i128>(
+                            ww_si::Prefix::Micro,
+                            ww_si::Rounding::Truncate,
+                            ww_si::Overflow::Checked,
+                        )
+                        .unwrap()
+                    };
                     let first = us(t.expect("every chunk is timestamped"));
                     assert_eq!(value.end.map(|end| us(end) - first), end_us);
                     // not measured: one character time (frame bits / baud) per byte after the first, as the

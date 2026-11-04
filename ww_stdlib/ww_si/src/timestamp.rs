@@ -1,7 +1,6 @@
 //! Host side of [Second] as a device timestamp: from wrapped values back to the full device time.
 
-use crate::ops::scale_i128_between;
-use crate::{Prefix, Second};
+use crate::{Overflow, Prefix, Rounding, Second};
 use ww_numeric::NumericValue;
 
 /// Turns timestamps a device sends in fixed-width storage (a `U32` of µs wraps every 71.6 minutes) back into the full
@@ -96,7 +95,13 @@ impl Unwrapper {
         let value = timestamp.value.to_i128().ok_or(UnwrapError::NotAnInteger)?;
         let full = match (timestamp.value.unsigned_bits(), self.reference) {
             (Some(bits), Some((reference, ref_prefix))) if bits < 64 => {
-                let reference = scale_i128_between(reference, ref_prefix, timestamp.prefix)
+                let reference = ref_prefix
+                    .rescale::<i128, i128>(
+                        reference,
+                        timestamp.prefix,
+                        Rounding::Truncate,
+                        Overflow::Checked,
+                    )
                     .ok_or(UnwrapError::Overflow)?;
                 closest(reference, value, 1i128 << bits)
             }

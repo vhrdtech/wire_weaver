@@ -70,9 +70,9 @@ fn bounded_and_back() {
 #[test]
 fn with_prefix_stays_in_bounds() {
     let r = Rail::try_new(Prefix::Milli, 3300u16).unwrap();
-    assert_eq!(r.with_prefix(Prefix::Unit), None); // 3.3 is not a u16
+    assert_eq!(r.rescaled_exact(Prefix::Unit), None); // 3.3 is not a u16
     let f = Rail::try_new(Prefix::Unit, 3.3f32).unwrap();
-    let mv = f.with_prefix(Prefix::Milli).unwrap();
+    let mv = f.rescaled_exact(Prefix::Milli).unwrap();
     assert!(mv.to_f64() <= 3.3 + 1e-6);
 }
 

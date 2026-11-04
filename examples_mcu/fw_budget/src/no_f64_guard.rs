@@ -1,6 +1,6 @@
 //! The no-float firmware guard (TEST-33, `~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md` section 3 and
 //! D2): builds `qemu-no-f64-guard` (`examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs`), a fixture that calls every
-//! device-relevant `ww_si::Quantity` operation of today's API, on the cores and number-feature combinations real
+//! device-relevant `ww_si::Quantity` operation, on the cores and number-feature combinations real
 //! firmware uses, and lists what each ELF links that its group forbids, with bytes.
 //!
 //! Two groups, by what the firmware opted into (D2: no floats on a device unless a type is a float or a feature
@@ -11,8 +11,8 @@
 //!
 //! Both fail on 128-bit helpers and on the named slow paths (`to_ratio`, `compare_slow`, ...), which catch math the
 //! compiler inlined where no helper symbol is left. A path inlined into its caller leaves neither; that stays
-//! unseen here. Reports only unless `--guard-strict`: the gate turns on once STD-102 moves `ww_si` onto
-//! exact_units' integer kernel.
+//! unseen here. A forbidden symbol fails the run (`just no-float-guard`, part of `just test` since STD-102 moved
+//! `ww_si` onto exact_units' integer kernel); `--guard-report` only reports.
 
 use crate::{Res, cargo, matching_symbols};
 use std::collections::BTreeMap;
@@ -256,7 +256,11 @@ fn bytes(syms: &[(String, u64)]) -> u64 {
 }
 
 fn print_row(target: &str, profile: &str, config: &Config, row: &Row, bad: usize) {
-    let group = if config.floats { "opted in" } else { "no floats" };
+    let group = if config.floats {
+        "opted in"
+    } else {
+        "no floats"
+    };
     let verdict = if bad == 0 { "ok" } else { "FAIL" };
     println!(
         "  {target:<22} {profile:<5} {:<12} {group:<9} {verdict:<4} f32 {:>2} ({:>5} B)  f64 {:>2} ({:>5} B)  128-bit {:>2} ({:>4} B)  slow paths {:>2} ({:>4} B)  VFP insns {}",
@@ -272,7 +276,11 @@ fn print_row(target: &str, profile: &str, config: &Config, row: &Row, bad: usize
         row.vfp
     );
     let mut per_crate: BTreeMap<&str, u64> = BTreeMap::new();
-    let f32_forbidden = if config.floats { &[][..] } else { &row.f32_syms[..] };
+    let f32_forbidden = if config.floats {
+        &[][..]
+    } else {
+        &row.f32_syms[..]
+    };
     for (name, size) in f32_forbidden
         .iter()
         .chain(&row.f64_syms)
@@ -282,7 +290,10 @@ fn print_row(target: &str, profile: &str, config: &Config, row: &Row, bad: usize
         *per_crate.entry(crate_of(name)).or_default() += size;
     }
     if !per_crate.is_empty() {
-        let list: Vec<String> = per_crate.iter().map(|(c, b)| format!("{c} {b} B")).collect();
+        let list: Vec<String> = per_crate
+            .iter()
+            .map(|(c, b)| format!("{c} {b} B"))
+            .collect();
         println!("      by crate: {}", list.join(", "));
     }
 }

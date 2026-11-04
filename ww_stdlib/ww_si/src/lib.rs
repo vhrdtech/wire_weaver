@@ -33,8 +33,9 @@ mod exact;
 pub use exact::Steps;
 mod fixed;
 pub use fixed::UnknownScale;
-mod ops;
 mod quantity;
+mod scale;
+pub use scale::ToIn;
 #[cfg(feature = "time")]
 mod timed;
 #[cfg(feature = "time")]
@@ -47,9 +48,10 @@ pub use timestamp::{UnwrapError, Unwrapper};
 pub use exact_units;
 pub use exact_units::{
     Bounds, Count, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED, MAX_UNIT_DEPTH,
-    Magnitude, Offset, Origin, OutOfBounds, Point, PointDiff, Prefix, Provenance, Range, RangeDec,
-    RangeU64, Repr, SIExpr, Scale, Storage, Unbounded, Unit, UnitDiv, UnitExpr, UnitMul,
-    UnsignedStorage, counted, origin, origins, prefix, scale, unit, units,
+    Magnitude, Offset, Origin, OutOfBounds, Overflow, Point, PointDiff, Prefix, PrefixRatio,
+    Provenance, Range, RangeDec, RangeU64, Repr, Rounding, SIExpr, Scale, Storage, Unbounded, Unit,
+    UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, origin, origins, prefix, scale, unit,
+    units,
 };
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};

@@ -1,16 +1,13 @@
 //! Constructors, conversions, comparisons and formatting, written once for every [Quantity].
 
-use crate::ops::{
-    compare, exact_between, scale_f32_between, scale_f64_between, to_i32_scaled, to_u32_scaled,
-    to_u32_wrapping_scaled,
-};
+use crate::scale::{ToIn, compare, scale_value};
 use crate::tree::{self, write_unit};
-use crate::{OutOfBounds, Prefix, Quantity, QuantityBounds};
+use crate::{OutOfBounds, Overflow, Prefix, Quantity, QuantityBounds, Rounding};
 use core::cmp::Ordering;
 use core::fmt;
 use core::marker::PhantomData;
 use exact_units::{Unit, UnitExpr};
-use ww_numeric::{NumericBaseType, NumericValue};
+use ww_numeric::{Integer, Magnitude, NumericBaseType, NumericValue};
 
 impl<U: Unit> Quantity<U> {
     /// A quantity of `value` in units of `prefix`, in `const` code (statics, tables).
@@ -86,7 +83,9 @@ impl<U: Unit> Quantity<U> {
     ///
     /// Panics if `storage` is not enabled as a number feature, or is one `NumericValue` can't hold (`F16`, `UB`, ..).
     pub fn quantize(x: f32, prefix: Prefix, storage: NumericBaseType) -> Self {
-        let x = scale_f32_between(x, Prefix::Unit, prefix);
+        let x = Prefix::Unit
+            .ratio_to(prefix)
+            .map_or(f32::NAN, |r| r.apply_f32(x));
         let value = storage
             .from_f32_saturating(x)
             .expect("quantize: number type not enabled or not supported");
@@ -143,45 +142,37 @@ impl<U: Unit, B: QuantityBounds> Quantity<U, B> {
         self.prefix.scale_f32(self.value.as_f32())
     }
 
-    /// The value in units of `prefix` as `f64` (`to_f64_in(Prefix::Milli)` of 3.3 V is 3300.0).
+    /// The value in units of `prefix` as `f64` (`to_f64_in(Prefix::Milli)` of 3.3 V is 3300.0): the `f64` nearest
+    /// the exact value, NaN for [Prefix::Unknown].
     pub fn to_f64_in(&self, prefix: Prefix) -> f64 {
-        scale_f64_between(self.value.to_f64(), self.prefix, prefix)
+        self.prefix
+            .ratio_to(prefix)
+            .map_or(f64::NAN, |r| r.apply_f64(self.value.to_f64()))
     }
 
-    /// The value in units of `prefix` as an `i32`: exact for integer storage (truncated toward zero when `prefix` is
-    /// bigger than the stored one), rounded for floats (`f32` arithmetic for an `F32`). `None` when it doesn't fit or is
-    /// `NaN`. `u32` arithmetic only with number types up to 32 bits: `Second::milli(5u16).to_i32_in(Prefix::Micro)` is
-    /// `Some(5000)`.
-    pub fn to_i32_in(&self, prefix: Prefix) -> Option<i32> {
-        to_i32_scaled(&self.value, self.prefix, prefix)
-    }
-
-    /// The value in units of `prefix` as a `u32`, like [to_i32_in](Self::to_i32_in): `None` below zero.
-    pub fn to_u32_in(&self, prefix: Prefix) -> Option<u32> {
-        to_u32_scaled(&self.value, self.prefix, prefix)
-    }
-
-    /// The value in units of `prefix` modulo `2^32` (two's complement below zero): what a wrapping 32-bit counter of
-    /// that unit shows, for comparing a timestamp with a device clock (`Second::micro(u64)` past `u32::MAX` wraps).
-    /// Truncated toward zero when `prefix` is bigger than the stored one. Floats are rounded and taken from `-2^31`
-    /// up to below `2^32` only, `None` beyond, for `NaN` and `UN` / `IN`.
-    pub fn to_u32_wrapping_in(&self, prefix: Prefix) -> Option<u32> {
-        to_u32_wrapping_scaled(&self.value, self.prefix, prefix)
-    }
-
-    /// The value in units of `prefix` as an integer: exact for integer storage (truncated toward zero when `prefix` is
-    /// bigger than the stored one), rounded for floats. `None` when it doesn't fit in `i128` or is `NaN`. Only with a
-    /// 64- or 128-bit number type enabled (`u64`, `i64`, `uvlq64`, `u128`, `i128`, or `std`): with types up to 32 bits,
-    /// [to_i32_in](Self::to_i32_in) and [to_u32_in](Self::to_u32_in) do it without 128-bit code.
-    #[cfg(any(
-        feature = "u64",
-        feature = "i64",
-        feature = "uvlq64",
-        feature = "u128",
-        feature = "i128"
-    ))]
-    pub fn to_i128_in(&self, prefix: Prefix) -> Option<i128> {
-        crate::ops::to_i128_scaled(&self.value, self.prefix, prefix)
+    /// The value in units of `prefix` as a `T` (a primitive integer, or `f32` / `f64` with those features): rounded by
+    /// `r` where it isn't a whole number of `prefix`, settled into `T` by `o`. Exact for integer storage whatever the
+    /// prefixes (SI, binary, `Pow10`, `Pow2`, `FullScale`): one rounding of the exact value, in integers at the width
+    /// of the enabled number types (`u32` with types up to 32 bits), no float and no 128-bit code. A float value is
+    /// scaled to the nearest float first, then rounded by `r`, in integers too. `None` for [Prefix::Unknown], NaN,
+    /// `UN` / `IN`, and where `o` is [Overflow::Checked] and the value doesn't fit `T`.
+    ///
+    /// ```
+    /// use ww_si::{Overflow, Prefix, Rounding, Second, Volt};
+    ///
+    /// // 3999 mV in volts: toward zero, to nearest
+    /// let v = Volt::milli(3999u16);
+    /// assert_eq!(v.to_in::<u32>(Prefix::Unit, Rounding::Truncate, Overflow::Checked), Some(3));
+    /// assert_eq!(v.to_in::<u32>(Prefix::Unit, Rounding::NearestEven, Overflow::Checked), Some(4));
+    /// // a timestamp against a wrapping 32-bit µs counter: 5000 s is past u32::MAX µs
+    /// let t = Second::base(5_000u32);
+    /// assert_eq!(t.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Wrap), Some(705_032_704));
+    /// assert_eq!(t.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked), None);
+    /// assert_eq!(t.to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Saturate), Some(u32::MAX));
+    /// ```
+    #[inline]
+    pub fn to_in<T: ToIn>(&self, prefix: Prefix, r: Rounding, o: Overflow) -> Option<T> {
+        T::of_value(&self.value, self.prefix, prefix, r, o)
     }
 
     /// The value in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005
@@ -190,22 +181,61 @@ impl<U: Unit, B: QuantityBounds> Quantity<U, B> {
         self.to_f64() * U::EXPR.factor() + U::EXPR.offset()
     }
 
-    /// The same value in units of `prefix` and in the same number type, if that is exact: `Volt::milli(3000u16)` to
-    /// `Prefix::Unit` is 3 V, 3300 mV is `None` (3.3 is not an integer), and so is 3300 mV to µV (3 300 000 doesn't fit
-    /// a `U16`). Floats are scaled. For autoranging a value before sending it.
-    pub fn with_prefix(&self, prefix: Prefix) -> Option<Self> {
-        let (from, to) = (self.prefix, prefix);
+    /// The same value in units of `prefix` and in the same number type: rounded by `r` where it isn't a whole number
+    /// of `prefix`, settled into the number type by `o` (wrapping at its width, saturating at its range), exactly as
+    /// [to_in](Self::to_in) does. Floats are scaled to the nearest float, `r` and `o` are for integers. `None` where
+    /// `to_in` is, and for a result outside `B`.
+    ///
+    /// ```
+    /// use ww_si::{Overflow, Prefix, Rounding, Volt};
+    ///
+    /// let r = Rounding::NearestEven;
+    /// assert_eq!(Volt::milli(3300u16).rescaled(Prefix::Unit, r, Overflow::Checked), Some(Volt::base(3u16)));
+    /// // 3 300 000 µV doesn't fit a U16
+    /// assert_eq!(Volt::milli(3300u16).rescaled(Prefix::Micro, r, Overflow::Checked), None);
+    /// assert_eq!(Volt::milli(3300u16).rescaled(Prefix::Micro, r, Overflow::Saturate), Some(Volt::micro(u16::MAX)));
+    /// ```
+    pub fn rescaled(&self, prefix: Prefix, r: Rounding, o: Overflow) -> Option<Self> {
         let value = match self.value {
             #[cfg(feature = "f32")]
-            NumericValue::F32(x) => NumericValue::F32(scale_f32_between(x, from, to)),
+            NumericValue::F32(x) => NumericValue::F32(self.prefix.ratio_to(prefix)?.apply_f32(x)),
             #[cfg(feature = "f64")]
-            NumericValue::F64(x) => NumericValue::F64(scale_f64_between(x, from, to)),
+            NumericValue::F64(x) => NumericValue::F64(self.prefix.ratio_to(prefix)?.apply_f64(x)),
             value => {
-                let x = exact_between(value.to_integer()?, from, to)?;
-                value.ty().from_integer(x)?
+                let ty = value.ty();
+                let s =
+                    scale_value::<Magnitude>(&value, self.prefix, prefix, r, o == Overflow::Wrap)?;
+                let x = Integer::new(s.neg, s.mag);
+                match (s.overflowed, o) {
+                    (false, _) => match ty.from_integer(x) {
+                        Some(v) => v,
+                        None if o == Overflow::Checked => return None,
+                        None if o == Overflow::Saturate => ty.from_integer_saturating(x)?,
+                        None => ty.from_integer_wrapping(x)?,
+                    },
+                    (true, Overflow::Checked) => return None,
+                    (true, Overflow::Saturate) => {
+                        ty.from_integer_saturating(Integer::new(s.neg, Magnitude::MAX))?
+                    }
+                    (true, Overflow::Wrap) => ty.from_integer_wrapping(x)?,
+                }
             }
         };
-        // a scaled float can round past a bound
+        B::contains(prefix, &value).then_some(Self::from_parts_unchecked(prefix, value))
+    }
+
+    /// The same value in units of `prefix` and in the same number type, if that is exact: `Volt::milli(3000u16)` to
+    /// `Prefix::Unit` is 3 V, 3300 mV is `None` (3.3 is not an integer), and so is 3300 mV to µV (3 300 000 doesn't fit
+    /// a `U16`). Floats are scaled to the nearest float. For autoranging a value before sending it.
+    pub fn rescaled_exact(&self, prefix: Prefix) -> Option<Self> {
+        let value = match self.value.to_integer() {
+            Some(x) => self.value.ty().from_integer(crate::scale::exact_between(
+                x,
+                self.prefix,
+                prefix,
+            )?)?,
+            None => return self.rescaled(prefix, Rounding::NearestEven, Overflow::Checked),
+        };
         B::contains(prefix, &value).then_some(Self::from_parts_unchecked(prefix, value))
     }
 
@@ -228,9 +258,9 @@ impl<U: Unit, B: QuantityBounds> PartialEq for Quantity<U, B> {
     }
 }
 
-/// Compares the values across prefixes and number types: exactly when both are integers (no overflow even 60 orders
-/// of magnitude apart, and no wider arithmetic than the enabled number types need: `u32` with types up to 32 bits),
-/// through `f64` when one is a float.
+/// Compares the values across prefixes and number types: exactly when both are integers, whatever the prefixes (no
+/// overflow even 60 orders of magnitude apart, and no wider arithmetic than the enabled number types need: `u32` with
+/// types up to 32 bits), and an `f32` against an integer; two `f32`s through the scaled float, an `f64` through `f64`.
 impl<U: Unit, B: QuantityBounds> PartialOrd for Quantity<U, B> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         compare(self.prefix, &self.value, other.prefix, &other.value)

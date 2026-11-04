@@ -6,7 +6,8 @@
 //! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
 //! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
 //! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N] [--sites PATTERN]   # bytes by inlined frame, see attribute.rs
-//! cargo run --release -- --flash --guard-strict      # the no-f64 guard (TEST-33) fails on a forbidden symbol
+//! cargo run --release -- --guard                     # the no-float guard (TEST-33) alone: fails on a forbidden symbol
+//! cargo run --release -- --flash [--guard-report]    # the flash budget, then the guard (`--guard-report`: never fails)
 //! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
 //!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds;
 //!     `--profiles fw-s` builds at opt-level "s" instead, which neither runs by default
@@ -57,8 +58,11 @@ struct Args {
     flash: bool,
     /// Instructions per request of a server (TEST-30, `requests.rs`) instead of the units budget.
     requests: bool,
-    /// `--flash`: the no-f64 guard (TEST-33) fails the run when a build links what its group forbids.
-    guard_strict: bool,
+    /// The no-float guard (TEST-33) alone, without the flash budget.
+    guard: bool,
+    /// `--flash` / `--guard`: the guard only reports, instead of failing the run when a build links what its group
+    /// forbids.
+    guard_report: bool,
     targets: Vec<String>,
     /// Attribute the bytes of this ELF to inlined frames (TEST-32) instead of running anything.
     attribute: Option<PathBuf>,
@@ -80,7 +84,8 @@ fn parse_args() -> Res<Args> {
         elf: false,
         flash: false,
         requests: false,
-        guard_strict: false,
+        guard: false,
+        guard_report: false,
         targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
         attribute: None,
         generated: None,
@@ -107,7 +112,8 @@ fn parse_args() -> Res<Args> {
             "--sites" => args.sites = Some(value("--sites")?),
             "--top" => args.top = value("--top")?.parse()?,
             "--requests" => args.requests = true,
-            "--guard-strict" => args.guard_strict = true,
+            "--guard" => args.guard = true,
+            "--guard-report" => args.guard_report = true,
             "--profiles" => {
                 args.profiles = value("--profiles")?
                     .split(',')
@@ -258,9 +264,12 @@ fn run(args: &Args) -> Res<()> {
     if args.elf {
         return run_elf(args, &qemu_dir);
     }
+    if args.guard {
+        return no_f64_guard::run(&qemu_dir, !args.guard_report);
+    }
     if args.flash {
         flash::run(&args.targets, &args.filter(), &qemu_dir)?;
-        return no_f64_guard::run(&qemu_dir, args.guard_strict);
+        return no_f64_guard::run(&qemu_dir, !args.guard_report);
     }
     if args.requests {
         return requests::run(&root, &args.filter(), &qemu_dir, args.qemu_host.as_deref());

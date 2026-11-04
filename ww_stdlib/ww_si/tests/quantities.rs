@@ -6,8 +6,8 @@ use ww_si::units::{self, Per, Times};
 use ww_si::ww_numeric::{NumericBaseType, NumericValue, UVlq32};
 use ww_si::{
     Acceleration, Ampere, AngularVelocity, Coulomb, DeciBel, Degree, DegreeCelsius, Dim, Gram,
-    Hertz, Joule, Meter, Newton, Prefix, Quantity, Radian, Ratio, Second, Speed, Timed, Torque,
-    UnitExpr, Volt, Watt,
+    Hertz, Joule, Meter, Newton, Overflow, Prefix, Quantity, Radian, Ratio, Rounding, Second,
+    Speed, Timed, Torque, UnitExpr, Volt, Watt,
 };
 
 #[test]
@@ -38,17 +38,27 @@ fn constructors() {
 fn conversions() {
     assert_eq!(Volt::milli(3300u16).to_f64(), 3.3);
     assert_eq!(Volt::from_f32(3.3).to_f64_in(Prefix::Milli).round(), 3300.0);
-    assert_eq!(Volt::from_f32(3.3).to_i128_in(Prefix::Milli), Some(3300));
     assert_eq!(
-        Volt::milli(3300u16).to_i128_in(Prefix::Micro),
+        Volt::from_f32(3.3).to_in::<i128>(Prefix::Milli, Rounding::NearestAway, Overflow::Checked),
+        Some(3300)
+    );
+    assert_eq!(
+        Volt::milli(3300u16).to_in::<i128>(Prefix::Micro, Rounding::NearestAway, Overflow::Checked),
         Some(3_300_000)
     );
     // truncated toward zero when the target prefix is bigger
-    assert_eq!(Volt::milli(3999u16).to_i128_in(Prefix::Unit), Some(3));
+    assert_eq!(
+        Volt::milli(3999u16).to_in::<i128>(Prefix::Unit, Rounding::Truncate, Overflow::Checked),
+        Some(3)
+    );
     assert_eq!(Hertz::mega(8u8).to_f32(), 8e6);
     assert_eq!(Second::micro(1_500_000u32).to_f64(), 1.5);
     assert_eq!(
-        Second::new(Prefix::Quetta, u64::MAX).to_i128_in(Prefix::Quecto),
+        Second::new(Prefix::Quetta, u64::MAX).to_in::<i128>(
+            Prefix::Quecto,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
         None
     );
     assert_eq!(DeciBel::new(-3i8).to_f64(), -3.0);
@@ -84,21 +94,21 @@ fn quantize() {
 fn with_prefix_and_same_repr() {
     let v = Volt::milli(3000u16);
     assert!(
-        v.with_prefix(Prefix::Unit)
+        v.rescaled_exact(Prefix::Unit)
             .unwrap()
             .same_repr(&Volt::base(3u16))
     );
     // not exact
-    assert!(Volt::milli(3300u16).with_prefix(Prefix::Unit).is_none());
+    assert!(Volt::milli(3300u16).rescaled_exact(Prefix::Unit).is_none());
     // doesn't fit the storage
-    assert!(Volt::milli(3300u16).with_prefix(Prefix::Micro).is_none());
+    assert!(Volt::milli(3300u16).rescaled_exact(Prefix::Micro).is_none());
     assert!(
         Volt::milli(3300u32)
-            .with_prefix(Prefix::Micro)
+            .rescaled_exact(Prefix::Micro)
             .unwrap()
             .same_repr(&Volt::micro(3_300_000u32))
     );
-    let f = Volt::from_f32(3.3).with_prefix(Prefix::Milli).unwrap();
+    let f = Volt::from_f32(3.3).rescaled_exact(Prefix::Milli).unwrap();
     assert_eq!(f.prefix, Prefix::Milli);
     assert!((f.to_f32() - 3.3).abs() < 1e-6);
 

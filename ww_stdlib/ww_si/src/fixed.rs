@@ -4,7 +4,7 @@
 use crate::{Prefix, Quantity};
 use core::fmt;
 use exact_units::{Bounds, DecimalPrefix, Fixed, FixedScale, Repr, Storage, Unit};
-use ww_numeric::NumericValue;
+use ww_numeric::{Magnitude, NumericValue};
 
 /// A [Fixed]'s scale that no run-time [Prefix] stands for: neither a named prefix nor `Pow10`, `Pow2` or `FullScale`
 /// (`Rational<33, 10>` over 4096, an ADC step; a binary angle, π·2⁻¹⁵ rad). Such a value goes into an
@@ -21,9 +21,35 @@ impl fmt::Display for UnknownScale {
 impl core::error::Error for UnknownScale {}
 
 impl<U: Unit> Quantity<U> {
-    /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`.
+    /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`; a
+    /// float storage takes the nearest float. Where `P` has a run-time prefix (a named one, `Pow10`, `Pow2`,
+    /// `FullScale`), on exact_units' integer kernel at the width of the enabled number types, no float code for an
+    /// integer storage; any other scale (`Rational<33, 10>` over 4096) through [Fixed::from_scaled] and a
+    /// [Magnitude](crate::Magnitude), a host's path.
     pub fn to_fixed<P: FixedScale, T: Storage, B: Bounds<T>>(&self) -> Option<Fixed<U, P, T, B>> {
-        Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude()?)
+        let Some(to) = P::RUNTIME else {
+            return Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude()?);
+        };
+        let ratio = self.prefix.ratio_to(to)?;
+        let v = match self.value.to_integer() {
+            Some(x) if !T::IS_FLOAT => {
+                let m = ratio.apply::<Magnitude, Magnitude>(x.magnitude())?;
+                // A no-op only when ww_numeric's `u128` makes `Magnitude` a u128.
+                #[allow(clippy::useless_conversion)]
+                let m = i128::try_from(m).ok()?;
+                T::from_int(if x.is_negative() { -m } else { m })?
+            }
+            Some(x) if T::BITS == 32 => {
+                let m = x.magnitude() as f32;
+                T::from_f32(ratio.apply_f32(if x.is_negative() { -m } else { m }))?
+            }
+            Some(x) => {
+                let m = x.magnitude() as f64;
+                T::from_float(ratio.apply_f64(if x.is_negative() { -m } else { m }))?
+            }
+            None => float_to::<T>(&self.value, &ratio)?,
+        };
+        Fixed::try_new(v).ok()
     }
 
     /// The same value as a [Fixed] has it, prefix and number as they are. Only for number types `NumericValue` has
@@ -47,6 +73,19 @@ impl<U: Unit> Quantity<U> {
             None => Prefix::from_magnitude(&P::SCALE).ok_or(UnknownScale)?,
         };
         Ok(Quantity::new(prefix, f.get()))
+    }
+}
+
+/// A float value scaled by `ratio` into `T`: the nearest float for a float storage, a whole number that fits for an
+/// integer one; `None` for `UN` / `IN`, NaN, and without float types.
+#[allow(unused_variables)]
+fn float_to<T: Storage>(value: &NumericValue, ratio: &exact_units::PrefixRatio) -> Option<T> {
+    match *value {
+        #[cfg(feature = "f32")]
+        NumericValue::F32(x) => T::from_f32(ratio.apply_f32(x)),
+        #[cfg(feature = "f64")]
+        NumericValue::F64(x) => T::from_float(ratio.apply_f64(x)),
+        _ => None,
     }
 }
 

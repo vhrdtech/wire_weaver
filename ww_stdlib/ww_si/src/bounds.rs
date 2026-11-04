@@ -2,7 +2,7 @@
 //! itself (coherent units, whatever prefix a value has), checked when a value is built with
 //! [try_new](crate::Quantity::try_new) and when it is read.
 
-use crate::ops::cmp_limit;
+use crate::scale::cmp_limit;
 use crate::{OutOfBounds, Prefix, Range, RangeDec, RangeU64, Unbounded};
 use core::cmp::Ordering;
 use ww_numeric::{Integer, Magnitude, NumericValue};
@@ -69,7 +69,8 @@ pub struct Limit {
 
 impl Limit {
     /// `x · 10^exp`, trailing zeros moved into `exp` while `x` doesn't fit the widest integer enabled: a compile
-    /// error where the bound is used when it still doesn't (enable `ww_numeric`'s `u64` or `i64`).
+    /// error where the bound is used when it still doesn't (enable `ww_numeric`'s `u64` or `i64`), or when `exp` is
+    /// beyond ±63, the powers of ten a [Prefix] has.
     pub const fn new(x: i128, exp: i8) -> Limit {
         let negative = x < 0;
         let mut m = x.unsigned_abs();
@@ -84,6 +85,10 @@ impl Limit {
             m /= 10;
             exp += 1;
         }
+        assert!(
+            -63 <= exp && exp <= 63,
+            "a Quantity bound's exponent beyond ±63"
+        );
         Limit {
             value: Integer::new(negative, m as Magnitude),
             exp,

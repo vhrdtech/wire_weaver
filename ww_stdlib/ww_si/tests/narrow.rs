@@ -12,7 +12,7 @@
 
 use core::cmp::Ordering;
 use ww_si::ww_numeric::NumericValue;
-use ww_si::{Prefix, Second, Volt};
+use ww_si::{Overflow, Prefix, Rounding, Second, Volt};
 
 #[test]
 fn same_prefix_and_variant() {
@@ -78,107 +78,210 @@ fn floats_still_compare() {
 
 #[test]
 fn to_i32_and_u32() {
-    assert_eq!(Second::milli(5u32).to_i32_in(Prefix::Micro), Some(5000));
-    assert_eq!(Second::milli(5u32).to_u32_in(Prefix::Micro), Some(5000));
+    assert_eq!(
+        Second::milli(5u32).to_in::<i32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked),
+        Some(5000)
+    );
+    assert_eq!(
+        Second::milli(5u32).to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Checked),
+        Some(5000)
+    );
     // truncated toward zero going to a bigger prefix
-    assert_eq!(Volt::milli(3999u32).to_u32_in(Prefix::Unit), Some(3));
-    assert_eq!(Volt::milli(-3999i32).to_i32_in(Prefix::Unit), Some(-3));
-    assert_eq!(Volt::milli(-1i32).to_u32_in(Prefix::Milli), None);
+    assert_eq!(
+        Volt::milli(3999u32).to_in::<u32>(Prefix::Unit, Rounding::Truncate, Overflow::Checked),
+        Some(3)
+    );
+    assert_eq!(
+        Volt::milli(-3999i32).to_in::<i32>(Prefix::Unit, Rounding::Truncate, Overflow::Checked),
+        Some(-3)
+    );
+    assert_eq!(
+        Volt::milli(-1i32).to_in::<u32>(Prefix::Milli, Rounding::Truncate, Overflow::Checked),
+        None
+    );
     // the edges
     assert_eq!(
-        Volt::milli(u32::MAX).to_u32_in(Prefix::Milli),
+        Volt::milli(u32::MAX).to_in::<u32>(Prefix::Milli, Rounding::Truncate, Overflow::Checked),
         Some(u32::MAX)
     );
-    assert_eq!(Volt::milli(u32::MAX).to_i32_in(Prefix::Milli), None);
     assert_eq!(
-        Volt::milli(i32::MIN).to_i32_in(Prefix::Milli),
+        Volt::milli(u32::MAX).to_in::<i32>(Prefix::Milli, Rounding::Truncate, Overflow::Checked),
+        None
+    );
+    assert_eq!(
+        Volt::milli(i32::MIN).to_in::<i32>(Prefix::Milli, Rounding::Truncate, Overflow::Checked),
         Some(i32::MIN)
     );
     assert_eq!(
-        Volt::base(429_496_729u32).to_u32_in(Prefix::Deci),
+        Volt::base(429_496_729u32).to_in::<u32>(
+            Prefix::Deci,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
         Some(4_294_967_290)
     );
-    assert_eq!(Volt::base(429_496_730u32).to_u32_in(Prefix::Deci), None);
     assert_eq!(
-        Volt::base(214_748_364i32).to_i32_in(Prefix::Deci),
+        Volt::base(429_496_730u32).to_in::<u32>(
+            Prefix::Deci,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
+        None
+    );
+    assert_eq!(
+        Volt::base(214_748_364i32).to_in::<i32>(
+            Prefix::Deci,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
         Some(2_147_483_640)
     );
-    assert_eq!(Volt::base(214_748_365i32).to_i32_in(Prefix::Deci), None);
     assert_eq!(
-        Volt::base(-214_748_364i32).to_i32_in(Prefix::Deci),
+        Volt::base(214_748_365i32).to_in::<i32>(
+            Prefix::Deci,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
+        None
+    );
+    assert_eq!(
+        Volt::base(-214_748_364i32).to_in::<i32>(
+            Prefix::Deci,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
         Some(-2_147_483_640)
     );
-    assert_eq!(Volt::base(1u8).to_u32_in(Prefix::Quecto), None);
     assert_eq!(
-        Volt::new(Prefix::Quecto, u32::MAX).to_u32_in(Prefix::Quetta),
+        Volt::base(1u8).to_in::<u32>(Prefix::Quecto, Rounding::Truncate, Overflow::Checked),
+        None
+    );
+    assert_eq!(
+        Volt::new(Prefix::Quecto, u32::MAX).to_in::<u32>(
+            Prefix::Quetta,
+            Rounding::Truncate,
+            Overflow::Checked
+        ),
         Some(0)
     );
     // floats, rounded
-    assert_eq!(Volt::from_f32(3.3).to_i32_in(Prefix::Milli), Some(3300));
-    assert_eq!(Volt::from_f32(-0.0026).to_i32_in(Prefix::Milli), Some(-3));
-    assert_eq!(Volt::from_f32(-0.4).to_u32_in(Prefix::Unit), Some(0));
-    assert_eq!(Volt::from_f32(-0.6).to_u32_in(Prefix::Unit), None);
     assert_eq!(
-        Volt::from_f32(-2_147_483_648.0).to_i32_in(Prefix::Unit),
+        Volt::from_f32(3.3).to_in::<i32>(Prefix::Milli, Rounding::NearestAway, Overflow::Checked),
+        Some(3300)
+    );
+    assert_eq!(
+        Volt::from_f32(-0.0026).to_in::<i32>(
+            Prefix::Milli,
+            Rounding::NearestAway,
+            Overflow::Checked
+        ),
+        Some(-3)
+    );
+    assert_eq!(
+        Volt::from_f32(-0.4).to_in::<u32>(Prefix::Unit, Rounding::NearestAway, Overflow::Checked),
+        Some(0)
+    );
+    assert_eq!(
+        Volt::from_f32(-0.6).to_in::<u32>(Prefix::Unit, Rounding::NearestAway, Overflow::Checked),
+        None
+    );
+    assert_eq!(
+        Volt::from_f32(-2_147_483_648.0).to_in::<i32>(
+            Prefix::Unit,
+            Rounding::NearestAway,
+            Overflow::Checked
+        ),
         Some(i32::MIN)
     );
     assert_eq!(
-        Volt::from_f32(2_147_483_648.0).to_i32_in(Prefix::Unit),
+        Volt::from_f32(2_147_483_648.0).to_in::<i32>(
+            Prefix::Unit,
+            Rounding::NearestAway,
+            Overflow::Checked
+        ),
         None
     );
     assert_eq!(
-        Volt::from_f32(4_294_967_040.0).to_u32_in(Prefix::Unit),
+        Volt::from_f32(4_294_967_040.0).to_in::<u32>(
+            Prefix::Unit,
+            Rounding::NearestAway,
+            Overflow::Checked
+        ),
         Some(4_294_967_040)
     );
     assert_eq!(
-        Volt::from_f32(4_294_967_296.0).to_u32_in(Prefix::Unit),
+        Volt::from_f32(4_294_967_296.0).to_in::<u32>(
+            Prefix::Unit,
+            Rounding::NearestAway,
+            Overflow::Checked
+        ),
         None
     );
-    assert_eq!(Volt::from_f32(f32::NAN).to_i32_in(Prefix::Unit), None);
+    assert_eq!(
+        Volt::from_f32(f32::NAN).to_in::<i32>(
+            Prefix::Unit,
+            Rounding::NearestAway,
+            Overflow::Checked
+        ),
+        None
+    );
 }
 
 #[test]
 fn to_u32_wrapping() {
     assert_eq!(
-        Second::micro(u32::MAX).to_u32_wrapping_in(Prefix::Micro),
+        Second::micro(u32::MAX).to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Wrap),
         Some(u32::MAX)
     );
     // 5_000 s in µs is past 2^32: wraps like the device's µs counter
     assert_eq!(
-        Second::base(5_000u32).to_u32_wrapping_in(Prefix::Micro),
+        Second::base(5_000u32).to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Wrap),
         Some(5_000_000_000u64 as u32)
     );
     assert_eq!(
-        Second::micro(-1i32).to_u32_wrapping_in(Prefix::Micro),
+        Second::micro(-1i32).to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Wrap),
         Some(u32::MAX)
     );
     assert_eq!(
-        Second::milli(-1i32).to_u32_wrapping_in(Prefix::Micro),
+        Second::milli(-1i32).to_in::<u32>(Prefix::Micro, Rounding::Truncate, Overflow::Wrap),
         Some(0u32.wrapping_sub(1000))
     );
     assert_eq!(
-        Second::micro(1_999u32).to_u32_wrapping_in(Prefix::Milli),
+        Second::micro(1_999u32).to_in::<u32>(Prefix::Milli, Rounding::Truncate, Overflow::Wrap),
         Some(1)
     );
     assert_eq!(
-        Second::from_f32(-1.0).to_u32_wrapping_in(Prefix::Unit),
+        Second::from_f32(-1.0).to_in::<u32>(Prefix::Unit, Rounding::NearestAway, Overflow::Wrap),
         Some(u32::MAX)
     );
+    // a float wraps like an integer of the same value (1e10 is a whole f32); the old to_u32_wrapping_in refused it
     assert_eq!(
-        Second::from_f32(1e10).to_u32_wrapping_in(Prefix::Unit),
+        Second::from_f32(1e10).to_in::<u32>(Prefix::Unit, Rounding::NearestAway, Overflow::Wrap),
+        Some(10_000_000_000u64 as u32)
+    );
+    assert_eq!(
+        Second::from_f32(1e10).to_in::<u32>(Prefix::Unit, Rounding::NearestAway, Overflow::Checked),
+        None
+    );
+    assert_eq!(
+        Second::from_f32(f32::NAN).to_in::<u32>(
+            Prefix::Unit,
+            Rounding::NearestAway,
+            Overflow::Wrap
+        ),
         None
     );
 }
 
 #[test]
 fn with_prefix_in_own_type() {
-    let v = Volt::milli(3000u32).with_prefix(Prefix::Unit).unwrap();
+    let v = Volt::milli(3000u32).rescaled_exact(Prefix::Unit).unwrap();
     assert_eq!(v.value, NumericValue::U32(3));
-    assert_eq!(Volt::milli(3300u32).with_prefix(Prefix::Unit), None);
-    let v = Volt::base(-3i32).with_prefix(Prefix::Milli).unwrap();
+    assert_eq!(Volt::milli(3300u32).rescaled_exact(Prefix::Unit), None);
+    let v = Volt::base(-3i32).rescaled_exact(Prefix::Milli).unwrap();
     assert_eq!(v.value, NumericValue::I32(-3000));
-    assert_eq!(Volt::base(5u32).with_prefix(Prefix::Nano), None);
-    assert_eq!(Volt::base(-3i32).with_prefix(Prefix::Nano), None);
+    assert_eq!(Volt::base(5u32).rescaled_exact(Prefix::Nano), None);
+    assert_eq!(Volt::base(-3i32).rescaled_exact(Prefix::Nano), None);
 }
 
 #[test]

@@ -65,7 +65,12 @@ mod tests {
     }
 
     fn hz(f: Hertz) -> u32 {
-        f.to_i128_in(ww_si::Prefix::Unit).unwrap() as u32
+        f.to_in::<u32>(
+            ww_si::Prefix::Unit,
+            ww_si::Rounding::Truncate,
+            ww_si::Overflow::Checked,
+        )
+        .unwrap()
     }
 
     impl Model {
@@ -83,7 +88,11 @@ mod tests {
                 return Some(t);
             };
             let clock = hz(self.clock.frequency);
-            let rate = rate.to_i128_in(ww_si::Prefix::Unit)? as u32;
+            let rate = rate.to_in::<u32>(
+                ww_si::Prefix::Unit,
+                ww_si::Rounding::Truncate,
+                ww_si::Overflow::Checked,
+            )?;
             (1..=4u16).find_map(|prescaler| {
                 let quanta = clock / prescaler as u32 / rate;
                 (quanta * prescaler as u32 * rate == clock && (8..=385).contains(&quanta)).then(

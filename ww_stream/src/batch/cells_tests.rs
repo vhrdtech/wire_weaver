@@ -69,7 +69,12 @@ fn time(k: u32) -> Second {
 }
 
 fn us(t: &Second) -> u32 {
-    t.to_i128_in(Prefix::Micro).unwrap() as u32
+    t.to_in::<u32>(
+        Prefix::Micro,
+        ww_si::Rounding::Truncate,
+        ww_si::Overflow::Checked,
+    )
+    .unwrap()
 }
 
 fn write<const R: usize>(w: &mut RowWriter<'_, Row, R>, k: u32) -> bool {

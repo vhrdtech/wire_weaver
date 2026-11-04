@@ -788,6 +788,23 @@ pub fn table() -> Vec<Typed> {
         ),
         case("stdlib.si.quantity.bounded", quantity_rail(3300)),
         case("stdlib.si.quantity.bounded.rejected", quantity_rail(3300)),
+        case("stdlib.si.quantity.bounded.micro", rail_at(ww_si::Prefix::Micro, 3_300_000u32)),
+        case("stdlib.si.quantity.bounded.micro.rejected", quantity_rail(3300)),
+        case(
+            "stdlib.si.quantity.bounded.pow2",
+            rail_at(ww_si::Prefix::from_pow2(-10).unwrap(), 3379u32),
+        ),
+        case("stdlib.si.quantity.bounded.pow2.rejected", quantity_rail(3300)),
+        case(
+            "stdlib.si.quantity.bounded.fullscale",
+            rail_at(
+                ww_si::Prefix::FullScale(ww_si::exact_units::FullScaleBits::new(12).unwrap()),
+                4095u32,
+            ),
+        ),
+        case("stdlib.si.quantity.bounded.fullscale.rejected", quantity_rail(3300)),
+        case("stdlib.si.quantity.bounded.f32", rail_at(ww_si::Prefix::Unit, 3.3f32)),
+        case("stdlib.si.quantity.bounded.f32.rejected", quantity_rail(3300)),
         case("stdlib.si.magnitude.one", ww_si::Magnitude::ONE),
         case("stdlib.si.magnitude.milli", ww_si::Magnitude::pow10(-3)),
         case("stdlib.si.magnitude.kibi", ww_si::Magnitude::pow2(10)),
@@ -927,6 +944,13 @@ type QuantityRail = ww_si::Quantity<ww_si::units::Volt, ww_si::RangeDec<0, 33, -
 
 fn quantity_rail(mv: u32) -> QuantityRail {
     QuantityRail::try_new(ww_si::Prefix::Milli, mv).unwrap()
+}
+
+fn rail_at(
+    prefix: ww_si::Prefix,
+    value: impl Into<ww_si::ww_numeric::NumericValue>,
+) -> QuantityRail {
+    QuantityRail::try_new(prefix, value).unwrap()
 }
 
 type PointCelsius = ww_si::Point<

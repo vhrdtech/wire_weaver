@@ -1182,6 +1182,74 @@
       "note": "3301 mV is above RangeDec<0, 33, -1> (3.3 V): refused on decode, whatever the prefix (STD-59)"
     },
     {
+      "name": "stdlib.si.quantity.bounded.micro",
+      "type": "quantity_rail",
+      "value": {"prefix": "Micro", "value": {"U32": 3300000}},
+      "bytes": "23a05a3200",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "3 300 000 µV is 3.3 V exactly, the upper bound of RangeDec<0, 33, -1> in another prefix: accepted (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.micro.rejected",
+      "type": "quantity_rail",
+      "value": null,
+      "bytes": "23a15a3200",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "3 300 001 µV is one µV above 3.3 V: refused on decode (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.pow2",
+      "type": "quantity_rail",
+      "value": {"prefix": {"Pow2": -10}, "value": {"U32": 3379}},
+      "bytes": "e3f630330d0000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "3379 · 2⁻¹⁰ V is 3.2998.. V, inside 3.3 V: a power of two against a decimal bound, compared exactly (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.pow2.rejected",
+      "type": "quantity_rail",
+      "value": null,
+      "bytes": "e3f630340d0000",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "3380 · 2⁻¹⁰ V is 3.3008.. V, above 3.3 V: refused on decode (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.fullscale",
+      "type": "quantity_rail",
+      "value": {"prefix": {"FullScale": 12}, "value": {"U32": 4095}},
+      "bytes": "f30c30ff0f0000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "4095 · 1/4095 V is 1 V exactly: a full-scale step against a decimal bound (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.fullscale.rejected",
+      "type": "quantity_rail",
+      "value": null,
+      "bytes": "f302300a000000",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "10 · 1/3 V is 3.33.. V, above 3.3 V: refused on decode (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.f32",
+      "type": "quantity_rail",
+      "value": {"prefix": "Unit", "value": {"F32": 3.299999952316284}},
+      "bytes": "0733335340",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "3.3 as an f32 is 3.2999999523.. V, inside 3.3 V: the float's own value is compared exactly (STD-102)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.f32.rejected",
+      "type": "quantity_rail",
+      "value": null,
+      "bytes": "0734335340",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "the next f32 above 3.3, 3.3000001907.. V, is above 3.3 V: refused on decode (STD-102)"
+    },
+    {
       "name": "stdlib.si.magnitude.one",
       "type": "magnitude",
       "value": {"pow10": 0, "rest": null},

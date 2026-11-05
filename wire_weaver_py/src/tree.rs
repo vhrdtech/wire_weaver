@@ -132,9 +132,19 @@ fn item_signature(res: &DynResource, item: &ApiItemOwned) -> String {
         ApiItemKindOwned::Method {
             args, return_ty, ..
         } => {
-            let args: Vec<_> = args
+            // a `#[flatten]` argument's fields are the arguments (EVO-22)
+            let fields = ArgumentOwned::as_fields(args, bundle).unwrap_or_default();
+            let args: Vec<_> = fields
                 .iter()
-                .map(|a| format!("{}: {}", a.ident, type_name(&a.ty, bundle)))
+                .map(|f| {
+                    let name = f.ident.as_deref().unwrap_or("_");
+                    let default = match &f.default {
+                        Some(ValueOwned::String(default)) => format!(" = {default}"),
+                        Some(_) => " = ..".to_string(),
+                        None => String::new(),
+                    };
+                    format!("{name}: {}{default}", type_name(&f.ty, bundle))
+                })
                 .collect();
             let ret = return_ty
                 .as_ref()
@@ -370,7 +380,8 @@ impl Method {
     }
 }
 
-/// Python arguments (positional or by keyword) as values for `defs`.
+/// Python arguments (positional or by keyword) as values for `defs`: a `#[flatten]` argument's fields take its place,
+/// trailing arguments with a default can be left out, nothing is sent for them (EVO-22).
 pub(crate) fn py_args(
     res: &DynResource,
     defs: &[ArgumentOwned],
@@ -379,19 +390,21 @@ pub(crate) fn py_args(
 ) -> PyResult<Vec<ValueOwned>> {
     let bundle = res.bundle();
     let name = res.path();
-    if args.len() > defs.len() {
+    let fields = ArgumentOwned::as_fields(defs, bundle)
+        .map_err(|e| PyTypeError::new_err(format!("{name}(): {e:#}")))?;
+    if args.len() > fields.len() {
         return Err(PyTypeError::new_err(format!(
             "{name}() takes {} arguments, got {}",
-            defs.len(),
+            fields.len(),
             args.len()
         )));
     }
     let mut slots: Vec<Option<Bound<'_, PyAny>>> = args.iter().map(Some).collect();
-    slots.resize(defs.len(), None);
+    slots.resize(fields.len(), None);
     if let Some(kwargs) = kwargs {
         for (k, v) in kwargs.iter() {
             let k = k.cast::<PyString>()?.to_str()?.to_string();
-            let Some(idx) = defs.iter().position(|d| d.ident == k) else {
+            let Some(idx) = fields.iter().position(|f| f.ident.as_deref() == Some(&k)) else {
                 return Err(PyTypeError::new_err(format!(
                     "{name}() got an unexpected keyword argument '{k}'"
                 )));
@@ -404,18 +417,27 @@ pub(crate) fn py_args(
             slots[idx] = Some(v);
         }
     }
-    defs.iter()
+    // left out from the end: the device reads their defaults
+    let given = slots.iter().rposition(Option::is_some).map_or(0, |i| i + 1);
+    fields
+        .iter()
         .zip(slots)
-        .map(|(def, slot)| {
+        .take(given)
+        .chain(fields[given..].iter().filter(|f| f.default.is_none()).map(|f| (f, None)))
+        .map(|(field, slot)| {
+            let arg = field.ident.as_deref().unwrap_or("_");
             let obj = slot.ok_or_else(|| {
+                let default = match field.default {
+                    Some(_) => " (it has a default, but an argument after it is given)",
+                    None => "",
+                };
                 PyTypeError::new_err(format!(
-                    "{name}() missing argument '{}: {}'",
-                    def.ident,
-                    type_name(&def.ty, bundle)
+                    "{name}() missing argument '{arg}: {}'{default}",
+                    type_name(&field.ty, bundle)
                 ))
             })?;
-            to_value(&obj, &def.ty, bundle)
-                .map_err(|e| prefix_err(obj.py(), e, &format!("{name}() argument '{}'", def.ident)))
+            to_value(&obj, &field.ty, bundle)
+                .map_err(|e| prefix_err(obj.py(), e, &format!("{name}() argument '{arg}'")))
         })
         .collect()
 }
@@ -503,12 +525,8 @@ impl Method {
         let Ok(DynResourceKind::Method { args: defs, .. }) = self.res.kind() else {
             unreachable!();
         };
-        let bytes = ValueOwned::ser_shrink_wrap_vec_dyn(
-            &values,
-            defs.iter().map(|d| &d.ty),
-            self.res.bundle(),
-        )
-        .map_err(|e| PyTypeError::new_err(format!("{e:#}")))?;
+        let bytes = ValueOwned::ser_args_dyn(&values, defs, self.res.bundle())
+            .map_err(|e| PyTypeError::new_err(format!("{e:#}")))?;
         Ok(PyBytes::new(py, &bytes))
     }
 

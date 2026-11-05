@@ -1,6 +1,6 @@
 // ww_dfu 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0ee334e600bc988264aa8f62d0a79032b762dd3013e59ce0d3c4be147c9e29ba
+// shrink_wrap sha256: 03bcea882c5fbf16c2c0fd6cf577128f3ff276ed5ca663aea53d6c890c31af98
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Firmware update API: a set of small traits that every node taking part in an update picks from.",
     "",
@@ -570,7 +570,7 @@
             "[BootState::Trial] and [BootState::Staged].",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "into", ty: OutOfLine(type_idx: 10)),
+            (ident: "into", ty: OutOfLine(type_idx: 10), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Unsupported", nested: None),
         ])), multiplicity: Flat, since: None, ident: "reboot", docs: [
@@ -595,7 +595,7 @@
         "changed by an interrupted update, a device the host has never seen).",
     ], crate_idx: 0, trait_name: "Inventory", items: [
         (id: 0, kind: Method(args: [
-            (ident: "slot", ty: OutOfLine(type_idx: 11)),
+            (ident: "slot", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Unsupported", nested: None),
         ])), multiplicity: Flat, since: None, ident: "layout", docs: [
@@ -604,7 +604,7 @@
             "[Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "slot", ty: OutOfLine(type_idx: 11)),
+            (ident: "slot", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Unsupported", nested: None),
         ])), multiplicity: Flat, since: None, ident: "manifest_digest", docs: [
@@ -617,9 +617,9 @@
             "[Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "slot", ty: OutOfLine(type_idx: 11)),
-            (ident: "first", ty: NumericAny(Base(U16))),
-            (ident: "count", ty: NumericAny(Base(U16))),
+            (ident: "slot", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+            (ident: "first", ty: NumericAny(Base(U16)), default: None, flatten: false),
+            (ident: "count", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 13))), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Unsupported", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -645,8 +645,8 @@
             "What this node accepts: piece size, how many calls may be in flight, targets, the plan area.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "target", ty: OutOfLine(type_idx: 15)),
-            (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "target", ty: OutOfLine(type_idx: 15), default: None, flatten: false),
+            (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "BadHeader", nested: None),
             (ident: "BadSignature", nested: None),
@@ -671,8 +671,8 @@
             "doesn\'t allow staging ([BootState::may_stage]).",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "index", ty: NumericAny(Base(U32))),
-            (ident: "block", ty: NumericAny(Base(U16))),
+            (ident: "index", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "block", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "NoSession", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -690,10 +690,10 @@
             "area; [Error::Flash]/[Error::Ecc]: the flash itself faulted.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "index", ty: NumericAny(Base(U32))),
-            (ident: "dst", ty: NumericAny(Base(U16))),
-            (ident: "src", ty: NumericAny(Base(U16))),
-            (ident: "hash", ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))),
+            (ident: "index", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "dst", ty: NumericAny(Base(U16)), default: None, flatten: false),
+            (ident: "src", ty: NumericAny(Base(U16)), default: None, flatten: false),
+            (ident: "hash", ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "NoSession", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -712,11 +712,11 @@
             "has overwritten. See `erase` for the other step errors.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "index", ty: NumericAny(Base(U32))),
-            (ident: "dst", ty: NumericAny(Base(U16))),
-            (ident: "hash", ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))),
-            (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "data", ty: MaxLen(max_len: Fixed(1024), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "index", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "dst", ty: NumericAny(Base(U16)), default: None, flatten: false),
+            (ident: "hash", ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), default: None, flatten: false),
+            (ident: "offset", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "data", ty: MaxLen(max_len: Fixed(1024), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "NoSession", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -789,10 +789,10 @@
         "→ the node acknowledges on `plan_ack` at the end → the host calls `Stage::finish`.",
     ], crate_idx: 0, trait_name: "StageBulk", items: [
         (id: 0, kind: Method(args: [
-            (ident: "target", ty: OutOfLine(type_idx: 15)),
-            (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8))))),
-            (ident: "total_len", ty: NumericAny(Base(U32))),
-            (ident: "ack_every", ty: NumericAny(Base(U32))),
+            (ident: "target", ty: OutOfLine(type_idx: 15), default: None, flatten: false),
+            (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), default: None, flatten: false),
+            (ident: "total_len", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "ack_every", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "BadHeader", nested: None),
             (ident: "BadSignature", nested: None),

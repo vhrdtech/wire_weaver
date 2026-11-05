@@ -430,6 +430,8 @@ mod tests {
                             args: vec![ArgumentOwned {
                                 ident: "arg".into(),
                                 ty: TypeOwned::Vec(Box::new(item_struct)),
+                                default: None,
+                                flatten: false,
                             }],
                             return_ty: Some(TypeOwned::Result {
                                 ok_ty: Box::new(TypeOwned::OutOfLine {

@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ba385f06f79d7f7dbdd42fc33b907a2d6a76d591dfd1525ca81b30df75036632
+// shrink_wrap sha256: bccdcbf30f1547385f2b657ebeb8fffe0c9c96195941252ccab10300dffe0f1f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -447,7 +447,7 @@
             "Channels, rates, memory, encodings and start conditions.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 9)),
+            (ident: "config", ty: OutOfLine(type_idx: 9), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 12))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -486,7 +486,7 @@
         "One DAC output.",
     ], crate_idx: 0, trait_name: "WaveformChannel", items: [
         (id: 0, kind: Method(args: [
-            (ident: "waveform", ty: OutOfLine(type_idx: 19)),
+            (ident: "waveform", ty: OutOfLine(type_idx: 19), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 20), err_ty: OutOfLine(type_idx: 21))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -504,7 +504,7 @@
             (ident: "level", ty: Instance(type_idx: 3, args: [
                 Type(OutOfLine(type_idx: 18)),
                 Type(OutOfLine(type_idx: 2)),
-            ])),
+            ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Instance(type_idx: 3, args: [
             Type(OutOfLine(type_idx: 18)),
             Type(OutOfLine(type_idx: 2)),
@@ -531,7 +531,7 @@
             "The channels, their ranges and formats.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "channels", ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "channels", ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 21))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

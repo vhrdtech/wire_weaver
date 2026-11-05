@@ -1,6 +1,6 @@
 // ww_block 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 066f32df628b6db69919573c43289b26f14162eada7ab620baf4eac16a730dfd
+// shrink_wrap sha256: 7482c2df43b023f138cb785760e7e28e4a64b762150f777e5fc90a76ff4ac803
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A block device over WireWeaver (STD-39): an SD card, eMMC or flash read, checked, written and erased in whole",
     "blocks by their address (LBA).",
@@ -203,8 +203,8 @@
             "without a card.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "lba", ty: NumericAny(Base(U64))),
-            (ident: "count", ty: NumericAny(Base(U16))),
+            (ident: "lba", ty: NumericAny(Base(U64)), default: None, flatten: false),
+            (ident: "count", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -220,8 +220,8 @@
             "`OutOfRange` past the last block, `Common(InvalidArgument)` for more than [Geometry::max_blocks].",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "lba", ty: NumericAny(Base(U64))),
-            (ident: "count", ty: NumericAny(Base(U32))),
+            (ident: "lba", ty: NumericAny(Base(U64)), default: None, flatten: false),
+            (ident: "count", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -234,7 +234,7 @@
             "without reading it back over a slow link. Takes as long as reading the blocks.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "lease_s", ty: NumericAny(Base(U16))),
+            (ident: "lease_s", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -253,7 +253,7 @@
             "firmware\'s choice), `ReadOnly` for a read-only medium.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "lease", ty: NumericAny(Base(U32))),
+            (ident: "lease", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "BadLease", nested: None),
         ])), multiplicity: Flat, since: None, ident: "release", docs: [
@@ -261,10 +261,10 @@
             "lapsed or is not the current one.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "lease", ty: NumericAny(Base(U32))),
-            (ident: "lba", ty: NumericAny(Base(U64))),
-            (ident: "data", ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8))))),
-            (ident: "crc", ty: NumericAny(Base(U32))),
+            (ident: "lease", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "lba", ty: NumericAny(Base(U64)), default: None, flatten: false),
+            (ident: "data", ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), default: None, flatten: false),
+            (ident: "crc", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -282,9 +282,9 @@
             "written).",
         ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
-            (ident: "lease", ty: NumericAny(Base(U32))),
-            (ident: "lba", ty: NumericAny(Base(U64))),
-            (ident: "count", ty: NumericAny(Base(U32))),
+            (ident: "lease", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "lba", ty: NumericAny(Base(U64)), default: None, flatten: false),
+            (ident: "count", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "NoMedium", nested: None),
             (ident: "OutOfRange", nested: None),
@@ -304,8 +304,8 @@
             "The outcome of each run of [BlockDevice::write_runs], in the order they came. A counted stream, unit: run.",
         ], optional: Some((group: Some("bulk"))), meta: None),
         (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 8), delivery: Counted, args: [
-            (ident: "lba", ty: NumericAny(Base(U64))),
-            (ident: "count", ty: NumericAny(Base(U64))),
+            (ident: "lba", ty: NumericAny(Base(U64)), default: None, flatten: false),
+            (ident: "count", ty: NumericAny(Base(U64)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",

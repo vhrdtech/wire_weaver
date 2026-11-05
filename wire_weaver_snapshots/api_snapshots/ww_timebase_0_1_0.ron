@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 62353b5913756ccaaa094430dae5883445dbe9441356026c2e1a7abebe2fd776
+// shrink_wrap sha256: 46158ba2f3eb2a3fd44658bdf1374981b48f90875a3c5e236d6d5c8bef55aa88
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -304,7 +304,7 @@
             "unsynced spans and the seams where the device switched sources.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 8)),
+            (ident: "config", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -328,7 +328,7 @@
             "last lock, when known.",
         ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 13)),
+            (ident: "t", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -338,7 +338,7 @@
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
         ], optional: None, meta: None),
         (id: 7, kind: Method(args: [
-            (ident: "point", ty: OutOfLine(type_idx: 14)),
+            (ident: "point", ty: OutOfLine(type_idx: 14), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 6)), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -365,7 +365,7 @@
             "host compares with its own clock to see how well the device follows (the residual offset).",
         ], optional: Some((group: Some("host_sync"))), meta: None),
         (id: 9, kind: Method(args: [
-            (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 6))))),
+            (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 6)))), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

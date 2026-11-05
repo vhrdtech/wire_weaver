@@ -1,6 +1,6 @@
 // ww_memory 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 77d17106b1296eaab17b9d7072e7c29ea43769dfcb43ac1d9d6d368e64696832
+// shrink_wrap sha256: 4dbd7736f8c7b40534e0e8317460945db85a1908b3e6fbc31d0d449285a01730
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Low-level access to memory or registers over WireWeaver: read and write words at addresses, and optionally watch",
     "addresses for changes.",
@@ -61,8 +61,8 @@
         "Memory or registers with 8-bit addresses and 8-bit words.",
     ], crate_idx: 0, trait_name: "Memory8", items: [
         (id: 0, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U8))),
-            (ident: "allow_side_effects", ty: Bool),
+            (ident: "addr", ty: NumericAny(Base(U8)), default: None, flatten: false),
+            (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U8)), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -73,8 +73,8 @@
             "(e.g. a status register cleared on read) isn\'t read and answers `Common(Refused)`.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U8))),
-            (ident: "value", ty: NumericAny(Base(U8))),
+            (ident: "addr", ty: NumericAny(Base(U8)), default: None, flatten: false),
+            (ident: "value", ty: NumericAny(Base(U8)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -84,9 +84,9 @@
             "Writes the word at `addr`; `Common(Refused)` for a read-only address.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U8))),
-            (ident: "len", ty: NumericAny(Base(U8))),
-            (ident: "allow_side_effects", ty: Bool),
+            (ident: "addr", ty: NumericAny(Base(U8)), default: None, flatten: false),
+            (ident: "len", ty: NumericAny(Base(U8)), default: None, flatten: false),
+            (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -97,8 +97,8 @@
             "device\'s state are skipped.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U8))),
-            (ident: "data", ty: Vec(NumericAny(Base(U8)))),
+            (ident: "addr", ty: NumericAny(Base(U8)), default: None, flatten: false),
+            (ident: "data", ty: Vec(NumericAny(Base(U8))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -108,7 +108,7 @@
             "Writes `data` to consecutive words starting at `addr`.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U8))),
+            (ident: "addr", ty: NumericAny(Base(U8)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "OutOfWatchSlots", nested: None),
@@ -138,8 +138,8 @@
         "Memory or registers with 32-bit addresses and 32-bit words.",
     ], crate_idx: 0, trait_name: "Memory32", items: [
         (id: 0, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U32))),
-            (ident: "allow_side_effects", ty: Bool),
+            (ident: "addr", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -150,8 +150,8 @@
             "(e.g. a status register cleared on read) isn\'t read and answers `Common(Refused)`.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U32))),
-            (ident: "value", ty: NumericAny(Base(U32))),
+            (ident: "addr", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "value", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -161,9 +161,9 @@
             "Writes the word at `addr`; `Common(Refused)` for a read-only address.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U32))),
-            (ident: "len", ty: NumericAny(Base(U32))),
-            (ident: "allow_side_effects", ty: Bool),
+            (ident: "addr", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "len", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "allow_side_effects", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Vec(NumericAny(Base(U32))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -174,8 +174,8 @@
             "device\'s state are skipped.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U32))),
-            (ident: "data", ty: Vec(NumericAny(Base(U32)))),
+            (ident: "addr", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "data", ty: Vec(NumericAny(Base(U32))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "Common", nested: Some([
@@ -185,7 +185,7 @@
             "Writes `data` to consecutive words starting at `addr`.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "addr", ty: NumericAny(Base(U32))),
+            (ident: "addr", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "WrongAddress", nested: None),
             (ident: "OutOfWatchSlots", nested: None),

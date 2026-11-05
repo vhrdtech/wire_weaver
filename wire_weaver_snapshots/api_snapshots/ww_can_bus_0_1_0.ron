@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ae095c03a438f9f39ceec34688c5a68ffa08098299990e6d23d4324b96d30ba5
+// shrink_wrap sha256: f3e31564900a2cc2e6d3447c08d6845bf0698ad8f651ad56257a8b48c7aef958
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -1133,7 +1133,7 @@
             "timestamps, transceiver and terminator.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 20)),
+            (ident: "config", ty: OutOfLine(type_idx: 20), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 20), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1173,7 +1173,7 @@
             "[TxOutcome::Rejected] where present.",
         ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
-            (ident: "mode", ty: OutOfLine(type_idx: 11)),
+            (ident: "mode", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1216,11 +1216,11 @@
             "Bus load the device measures over [BusLoad::window], sent to observers once per window.",
         ], optional: Some((group: None)), meta: None),
         (id: 13, kind: Method(args: [
-            (ident: "candidates", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 14)))),
+            (ident: "candidates", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 14))), default: None, flatten: false),
             (ident: "per_candidate", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 4)),
                 Type(OutOfLine(type_idx: 1)),
-            ])),
+            ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 20)), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -1234,7 +1234,7 @@
             "as it was). `InvalidArgument` for an empty list or a timing outside the limits.",
         ], optional: Some((group: None)), meta: None),
         (id: 14, kind: Method(args: [
-            (ident: "filters", ty: OutOfLine(type_idx: 44)),
+            (ident: "filters", ty: OutOfLine(type_idx: 44), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1249,7 +1249,7 @@
             "kind it can\'t do (a range, a mask) `Unsupported`, a FIFO or buffer index it doesn\'t have `InvalidArgument`.",
         ], optional: Some((group: Some("filters"))), meta: None),
         (id: 15, kind: Method(args: [
-            (ident: "layout", ty: OutOfLine(type_idx: 45)),
+            (ident: "layout", ty: OutOfLine(type_idx: 45), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 45), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1264,7 +1264,7 @@
             "group sharing the memory), `WrongState` while frames are queued.",
         ], optional: Some((group: None)), meta: None),
         (id: 16, kind: Method(args: [
-            (ident: "index", ty: NumericAny(Base(U16))),
+            (ident: "index", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 46)), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -1275,12 +1275,12 @@
             "streaming every frame. `InvalidArgument` for an index past [Capabilities::rx_buffers].",
         ], optional: Some((group: Some("rx_buffers"))), meta: None),
         (id: 17, kind: Method(args: [
-            (ident: "index", ty: NumericAny(Base(U16))),
-            (ident: "frame", ty: Option(some_ty: OutOfLine(type_idx: 30))),
+            (ident: "index", ty: NumericAny(Base(U16)), default: None, flatten: false),
+            (ident: "frame", ty: Option(some_ty: OutOfLine(type_idx: 30)), default: Some("None"), flatten: false),
             (ident: "period", ty: Option(some_ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 4)),
                 Type(OutOfLine(type_idx: 1)),
-            ]))),
+            ])), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1298,7 +1298,7 @@
             "without cyclic sending, `WrongState` in a mode that doesn\'t send, `BusOff` while bus-off.",
         ], optional: Some((group: Some("tx_buffers"))), meta: None),
         (id: 18, kind: Method(args: [
-            (ident: "mode", ty: OutOfLine(type_idx: 47)),
+            (ident: "mode", ty: OutOfLine(type_idx: 47), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 47), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1312,7 +1312,7 @@
             "Transceiver mode and the bus wiring faults it detects; sent to observers when a fault appears or clears.",
         ], optional: Some((group: Some("transceiver"))), meta: None),
         (id: 20, kind: Method(args: [
-            (ident: "termination", ty: OutOfLine(type_idx: 50)),
+            (ident: "termination", ty: OutOfLine(type_idx: 50), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 50), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1326,7 +1326,7 @@
             "The terminator in effect.",
         ], optional: Some((group: Some("terminator"))), meta: None),
         (id: 22, kind: Method(args: [
-            (ident: "tx", ty: OutOfLine(type_idx: 51)),
+            (ident: "tx", ty: OutOfLine(type_idx: 51), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 52), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -1368,7 +1368,7 @@
             "Enabled (with the clock in effect) or disabled; sent to observers on every change.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "clock", ty: OutOfLine(type_idx: 54)),
+            (ident: "clock", ty: OutOfLine(type_idx: 54), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 54), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1390,7 +1390,7 @@
         "ww_can_bus::CanTimeTriggered)`, element `i` being controller `i` (valid only where the hardware has TTCAN).",
     ], crate_idx: 0, trait_name: "CanTimeTriggered", items: [
         (id: 0, kind: Method(args: [
-            (ident: "config", ty: Option(some_ty: OutOfLine(type_idx: 59))),
+            (ident: "config", ty: Option(some_ty: OutOfLine(type_idx: 59)), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 59)), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1402,7 +1402,7 @@
             "set. The controller must be in [Mode::Config] or [Mode::Off] (`WrongState`).",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "triggers", ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 61)))),
+            (ident: "triggers", ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 61))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -1424,7 +1424,7 @@
         "controller `i`. Classic and FD frames of the same controller stay on `Can::rx` / `Can::tx`.",
     ], crate_idx: 0, trait_name: "CanXl", items: [
         (id: 0, kind: Method(args: [
-            (ident: "config", ty: Option(some_ty: OutOfLine(type_idx: 65))),
+            (ident: "config", ty: Option(some_ty: OutOfLine(type_idx: 65)), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 65)), err_ty: OutOfLine(type_idx: 22))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

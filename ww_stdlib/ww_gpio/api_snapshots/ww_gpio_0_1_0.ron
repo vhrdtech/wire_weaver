@@ -1,6 +1,6 @@
 // ww_gpio 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 48dea826a5f2cfe9f3ed39de39fffc3940920804b9e73dc870460341f8fea5af
+// shrink_wrap sha256: b478864196412559b0084e680470fed41e8205eb91fb158e11a5e2ee0dd15871
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "GPIO control and remote bridging API: banks of pins (`Bank`), each with individually addressable pins (`Pin`)",
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
@@ -238,7 +238,7 @@
         "Commonly used operations are defined first, to get more compact resource paths.",
     ], crate_idx: 0, trait_name: "Pin", items: [
         (id: 0, kind: Method(args: [
-            (ident: "level", ty: OutOfLine(type_idx: 0)),
+            (ident: "level", ty: OutOfLine(type_idx: 0), default: None, flatten: false),
         ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "set_output_level", docs: [
             "0. Set the output level.",
             "",
@@ -259,7 +259,7 @@
             "If this is the case, current output level must be returned.",
         ], optional: None, meta: None),
         (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Counted, args: [
-            (ident: "enabled", ty: OutOfLine(type_idx: 1)),
+            (ident: "enabled", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -271,8 +271,8 @@
             "`Unsupported` if a requested source (edge or custom) isn\'t available on this pin.",
         ], optional: None, meta: None),
         (id: 8, kind: Method(args: [
-            (ident: "mode", ty: OutOfLine(type_idx: 5)),
-            (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0))),
+            (ident: "mode", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
+            (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0)), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -324,7 +324,7 @@
             "Capabilities that each pin of the bank supports.",
         ], optional: None, meta: None),
         (id: 9, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13)),
+            (ident: "config", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

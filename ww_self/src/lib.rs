@@ -48,7 +48,7 @@ pub mod units;
 #[cfg(feature = "std")]
 mod value;
 #[cfg(feature = "std")]
-pub use value::{DEFAULT_MAX_VALUES, MAX_DECODE_DEPTH};
+pub use value::{DEFAULT_MAX_VALUES, MAX_DECODE_DEPTH, check_args_count};
 #[cfg(feature = "std")]
 mod visitor;
 #[cfg(feature = "std")]
@@ -440,6 +440,17 @@ pub enum FlowControl {
 pub struct Argument<'i> {
     pub ident: &'i str,
     pub ty: Type<'i>,
+    /// The argument's default (EVO-22), the Rust expression a device reads when a client leaves the argument out:
+    /// its `#[default = ..]`, or `None` / `Default::default()` given to a trailing `Option`, `Vec` or `String`
+    /// argument without one. Arguments with a default come after all the others, so a client of a version
+    /// without them sends fewer bytes, and the device reads the defaults, as for trailing struct fields.
+    #[default = None]
+    pub default: Option<&'i str>,
+    /// `#[flatten]` (EVO-22): the argument's struct is the arguments struct itself, its fields are the arguments on
+    /// the wire. Only on the only argument of a method or stream function; the struct is `Unsized`. `fn f(a: u8, b:
+    /// u16)` and `fn f(#[flatten] c: C)` with `struct C { a: u8, b: u16 }` write the same bytes.
+    #[default = false]
+    pub flatten: bool,
 }
 
 #[derive_shrink_wrap(

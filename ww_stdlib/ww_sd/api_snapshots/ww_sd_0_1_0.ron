@@ -1,6 +1,6 @@
 // ww_sd 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7ae34c0035bb9e7c78a1c1fb51c311fbb4f39e587196cbac09937e5b5b95142f
+// shrink_wrap sha256: 8d1bb70a37a45188c59fc4033b5d0c1ecc9a5bddacfc4beec6b63d2afff31925
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to an SD card over WireWeaver (STD-40): its state, its registers as the card sent them, the init",
     "sequence with what each step answered, and single raw commands with their response, status bits and timing.",
@@ -360,9 +360,9 @@
             "`NoCard`, `Common(WrongState)` before the card is initialised.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "lease", ty: NumericAny(Base(U32))),
-            (ident: "max_clock_khz", ty: NumericAny(Base(U32))),
-            (ident: "bus_width", ty: OutOfLine(type_idx: 1)),
+            (ident: "lease", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "max_clock_khz", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "bus_width", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -379,8 +379,8 @@
             "a bus width or clock the controller can\'t do.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "lease", ty: Option(some_ty: NumericAny(Base(U32)))),
-            (ident: "cmd", ty: OutOfLine(type_idx: 15)),
+            (ident: "lease", ty: Option(some_ty: NumericAny(Base(U32))), default: None, flatten: false),
+            (ident: "cmd", ty: OutOfLine(type_idx: 15), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",

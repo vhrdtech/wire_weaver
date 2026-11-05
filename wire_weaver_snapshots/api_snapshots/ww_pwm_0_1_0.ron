@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f28f9bf61adc3c1026e498b413bd185ce14424835515c06f16923e319222d7d5
+// shrink_wrap sha256: 5529bb317911f3b981424b0f829746fa31f7dbc4d91ba0d4411c183a9d60edf6
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -259,7 +259,7 @@
         "One PWM output, see [PwmCapabilities::channels] for its group and whether it also captures.",
     ], crate_idx: 0, trait_name: "PwmChannel", items: [
         (id: 0, kind: Method(args: [
-            (ident: "output", ty: OutOfLine(type_idx: 3)),
+            (ident: "output", ty: OutOfLine(type_idx: 3), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -275,7 +275,7 @@
             "at a different frequency.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "duty", ty: NumericAny(Base(U16))),
+            (ident: "duty", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U16)), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -286,7 +286,7 @@
             "`WrongState`: the channel is idle, `PwmChannel::set_output` first.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "idle_high", ty: Bool),
+            (ident: "idle_high", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
@@ -313,7 +313,7 @@
         "One capture input, measuring over successive `gate` windows: streamed, or polled.",
     ], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
         (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
+            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -328,7 +328,7 @@
             "[CaptureMode::Off].",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
+            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

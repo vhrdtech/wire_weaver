@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d8c4eac80130567cbc9dff270d73c55bc85b8c83e509b6bcb9bc9f0e8657c12b
+// shrink_wrap sha256: f4ddde6e1a72867dc294fe0dd87a70484d6b5718fa2a54286f2d60b3a536bd70
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -357,7 +357,7 @@
             "Supported baud rates, modes, IO levels and other features.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
+            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 14))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -374,8 +374,8 @@
             "voltage than `io_level`.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "pin", ty: OutOfLine(type_idx: 15)),
-            (ident: "is_high", ty: Bool),
+            (ident: "pin", ty: OutOfLine(type_idx: 15), default: None, flatten: false),
+            (ident: "is_high", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 14))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -391,7 +391,7 @@
             (ident: "duration", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 0)),
                 Type(OutOfLine(type_idx: 1)),
-            ])),
+            ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 14))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -407,7 +407,7 @@
             "Bytes queued for sending and not sent yet.",
         ], optional: None, meta: None),
         (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 18), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 16)),
+            (ident: "config", ty: OutOfLine(type_idx: 16), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 14))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9bbfcd9352a2885e60375d56fcd34c801f883ad3fd048792415fde8c95a0ce95
+// shrink_wrap sha256: 115466b2d9ac212f53b470c436447b85a8dfd21d254deaa6a4da4ba0a606e413
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -507,7 +507,7 @@
             "Channels, rates, memory, encodings and triggers.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 17)),
+            (ident: "config", ty: OutOfLine(type_idx: 17), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 19), err_ty: OutOfLine(type_idx: 21))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -536,7 +536,7 @@
             "Where the capture stands.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "range", ty: OutOfLine(type_idx: 24)),
+            (ident: "range", ty: OutOfLine(type_idx: 24), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 25), err_ty: OutOfLine(type_idx: 21))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -550,8 +550,8 @@
             "give raw words.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "channel", ty: NumericAny(Base(U8))),
-            (ident: "from", ty: NumericAny(Base(U32))),
+            (ident: "channel", ty: NumericAny(Base(U8)), default: None, flatten: false),
+            (ident: "from", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 27), err_ty: OutOfLine(type_idx: 21))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -577,7 +577,7 @@
         "the device dropped, and each chunk may carry the device time of its first sample in the event head.",
     ], crate_idx: 0, trait_name: "LogicStream", items: [
         (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 30), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 28)),
+            (ident: "config", ty: OutOfLine(type_idx: 28), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 29), err_ty: OutOfLine(type_idx: 21))), errors: Some([
             (ident: "NoSuchChannel", nested: None),
             (ident: "Common", nested: Some([

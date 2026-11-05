@@ -171,6 +171,106 @@ fn item_kind_name(kind: &ApiItemKindOwned) -> &'static str {
     }
 }
 
+/// `#[default = ..]` (the expression as written) and `#[flatten]` on a method or stream function argument (EVO-22).
+fn get_arg_attrs(attrs: &[syn::Attribute], arg: &str) -> Result<(Option<String>, bool)> {
+    let mut default = None;
+    let mut flatten = false;
+    for attr in attrs {
+        if attr.path().is_ident("default") {
+            let syn::Meta::NameValue(name_value) = &attr.meta else {
+                return Err(anyhow!("argument `{arg}`: expected #[default = value]"));
+            };
+            let value = &name_value.value;
+            default = Some(quote::quote!(#value).to_string());
+        } else if attr.path().is_ident("flatten") {
+            if !matches!(attr.meta, syn::Meta::Path(_)) {
+                return Err(anyhow!("argument `{arg}`: expected #[flatten], without arguments"));
+            }
+            flatten = true;
+        }
+    }
+    Ok((default, flatten))
+}
+
+/// Checks `#[flatten]` and the defaults of a method's or stream function's arguments (EVO-22), and gives trailing
+/// `Option`, `Vec` and `String` arguments their natural default (`None`, empty), as the args struct's fields.
+fn finish_args(args: &mut [ArgumentOwned], scratch: &Scratch) -> Result<()> {
+    if let Some(flat) = args.iter().find(|a| a.flatten) {
+        if args.len() != 1 {
+            return Err(anyhow!(
+                "#[flatten] argument `{}` must be the only argument: its struct's fields are the arguments",
+                flat.ident
+            ));
+        }
+        if flat.default.is_some() {
+            return Err(anyhow!(
+                "#[flatten] argument `{}` can't have a #[default]: give its struct's fields defaults instead",
+                flat.ident
+            ));
+        }
+        check_flatten_ty(&flat.ident, &flat.ty, scratch)?;
+        return Ok(());
+    }
+    // defaults only in the trailing run, as for struct fields: an argument without one ends it
+    let trailing_start = args
+        .iter()
+        .rposition(|a| a.default.is_none() && implicit_default(&a.ty).is_none())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    if let Some(early) = args[..trailing_start].iter().find(|a| a.default.is_some()) {
+        let after = &args[trailing_start - 1];
+        return Err(anyhow!(
+            "argument `{}` has a #[default], but `{}` after it has none: arguments with a default go after all the \
+             others",
+            early.ident,
+            after.ident
+        ));
+    }
+    for arg in &mut args[trailing_start..] {
+        if arg.default.is_none() {
+            arg.default = implicit_default(&arg.ty).map(String::from);
+        }
+    }
+    Ok(())
+}
+
+/// The default an argument of type `ty` has without `#[default]`: `None` for an `Option`, empty for a `Vec` or a
+/// `String` (also inside `MaxLen`).
+fn implicit_default(ty: &TypeOwned) -> Option<&'static str> {
+    match ty {
+        TypeOwned::Option { .. } => Some("None"),
+        TypeOwned::Vec(_) | TypeOwned::String => Some("Default::default()"),
+        TypeOwned::MaxLen { ty, .. } => implicit_default(ty).map(|_| "Default::default()"),
+        _ => None,
+    }
+}
+
+/// A `#[flatten]` argument's type is an `Unsized` struct: it is used as the args struct, which grows by trailing
+/// fields with defaults.
+fn check_flatten_ty(arg: &str, ty: &TypeOwned, scratch: &Scratch) -> Result<()> {
+    let resolved = match ty {
+        TypeOwned::OutOfLine { type_idx } => match scratch.root_bundle.types.get(type_idx.0 as usize) {
+            Some(ww_self::TypeLocationOwned::InLine { ty, .. }) => Some(ty),
+            // defined in a crate with a snapshot, its definition isn't here: the derive checks it
+            _ => None,
+        },
+        ty => Some(ty),
+    };
+    match resolved {
+        None => Ok(()),
+        Some(TypeOwned::Struct(s)) if matches!(s.size, shrink_wrap::ElementSize::Unsized) => Ok(()),
+        Some(TypeOwned::Struct(s)) => Err(anyhow!(
+            "#[flatten] argument `{arg}`: struct {} is {:?}, a flattened struct is the args struct and must be \
+             Unsized (the default), so that it can gain fields later",
+            s.ident,
+            s.size
+        )),
+        Some(_) => Err(anyhow!(
+            "#[flatten] argument `{arg}` is not a struct: only a struct's fields can be the arguments"
+        )),
+    }
+}
+
 fn convert_api_item_fn(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
@@ -199,11 +299,19 @@ fn convert_api_item_fn(
             scratch.unit_hints.push(hint);
         }
         let ty = convert_ty(&pat_type.ty, current_crate, scratch)?;
+        let (default, flatten) = get_arg_attrs(&pat_type.attrs, &arg_name)
+            .with_context(|| format!("fn {}", item_fn.sig.ident))
+            .context(current_crate.err_context())?;
         args.push(ArgumentOwned {
             ident: arg_name,
             ty,
+            default,
+            flatten,
         });
     }
+    finish_args(&mut args, scratch)
+        .with_context(|| format!("fn {}", item_fn.sig.ident))
+        .context(current_crate.err_context())?;
     let return_ty = match &item_fn.sig.output {
         ReturnType::Default => None,
         ReturnType::Type(_, ty) => Some(convert_ty(ty, current_crate, scratch)?),
@@ -1068,6 +1176,86 @@ mod tests {
         ] {
             let err = access_of(twice).unwrap_err();
             assert!(err.contains("expected +observe"), "{err}");
+        }
+    }
+
+    /// `#[default = ..]` and `#[flatten]` on arguments (EVO-22).
+    mod arg_attrs {
+        use crate::transform::ty::recursive_tests::load;
+        use ww_self::{ApiItemKindOwned, ArgumentOwned};
+
+        fn args(name: &str, methods: &str, types: &str) -> Vec<ArgumentOwned> {
+            let bundle = load(name, methods, types).unwrap();
+            match &bundle.root.items[0].kind {
+                ApiItemKindOwned::Method { args, .. } | ApiItemKindOwned::StreamFn { args, .. } => {
+                    args.clone()
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+
+        fn err(name: &str, methods: &str, types: &str) -> String {
+            format!("{:#}", load(name, methods, types).unwrap_err())
+        }
+
+        #[test]
+        fn defaults_written_and_natural() {
+            let args = args(
+                "arg_defaults",
+                "fn f(a: Option<u8>, b: u8, #[default = 7] c: u8, d: Option<u8>, e: Vec<u8>, s: String);",
+                "",
+            );
+            let defaults: Vec<_> = args.iter().map(|a| a.default.as_deref()).collect();
+            // `a` is before an argument without a default: none for it
+            assert_eq!(
+                defaults,
+                [None, None, Some("7"), Some("None"), Some("Default::default()"), Some("Default::default()")]
+            );
+            assert!(args.iter().all(|a| !a.flatten));
+        }
+
+        #[test]
+        fn default_before_an_argument_without_one() {
+            let e = err("arg_default_early", "fn f(#[default = 1] a: u8, b: u8);", "");
+            assert!(
+                e.contains("argument `a` has a #[default], but `b` after it has none"),
+                "{e}"
+            );
+        }
+
+        #[test]
+        fn flatten() {
+            let args = args(
+                "arg_flatten",
+                "fn f(#[flatten] cfg: Config);",
+                "pub struct Config { a: u8, b: u16 }",
+            );
+            assert!(args[0].flatten);
+            assert_eq!(args[0].default, None);
+        }
+
+        #[test]
+        fn flatten_errors() {
+            let e = err(
+                "arg_flatten_more",
+                "fn f(x: u8, #[flatten] cfg: Config);",
+                "pub struct Config { a: u8 }",
+            );
+            assert!(e.contains("#[flatten] argument `cfg` must be the only argument"), "{e}");
+            let e = err("arg_flatten_u8", "fn f(#[flatten] x: u8);", "");
+            assert!(e.contains("#[flatten] argument `x` is not a struct"), "{e}");
+            let e = err(
+                "arg_flatten_sized",
+                "fn f(#[flatten] cfg: Config);",
+                "#[derive_shrink_wrap(self_describing)]\npub struct Config { a: u8 }",
+            );
+            assert!(e.contains("struct Config is SelfDescribing"), "{e}");
+            let e = err(
+                "arg_flatten_default",
+                "fn f(#[flatten] #[default = Config { a: 0 }] cfg: Config);",
+                "pub struct Config { a: u8 }",
+            );
+            assert!(e.contains("can't have a #[default]"), "{e}");
         }
     }
 }

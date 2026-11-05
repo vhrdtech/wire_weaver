@@ -3140,10 +3140,21 @@ fn des_args_compact(
             return ww_err(wr, d, #es, ErrorKindDiscriminants::ArgsDesFailed);
         };
     };
+    (args_des, args_list(args))
+}
+
+/// The handler's arguments from the decoded args struct `args`: its fields, or the struct itself when it is a
+/// `#[flatten]` argument's (EVO-22).
+fn args_list(args: &[ArgumentOwned]) -> TokenStream {
+    if let [arg] = args
+        && arg.flatten
+    {
+        return quote! { args };
+    }
     let idents = args
         .iter()
         .map(|arg| Ident::new(&arg.ident, Span::call_site()));
-    (args_des, quote! { #(args.#idents),* })
+    quote! { #(args.#idents),* }
 }
 
 fn des_args(
@@ -3168,11 +3179,7 @@ fn des_args(
             // TODO: Log _e ?
             let args = __ww_try!(wr, d, #mod_ident::#args_struct_ident::#des(&mut rd), #es, ArgsDesFailed);
         };
-        let idents = args
-            .iter()
-            .map(|arg| Ident::new(&arg.ident, Span::call_site()));
-        let args_list = quote! { #(args.#idents),* };
-        (args_des, args_list)
+        (args_des, args_list(args))
     }
 }
 

@@ -1386,12 +1386,12 @@ fn get_default_attr(
 }
 
 #[cfg(test)]
-mod recursive_tests {
+pub(super) mod recursive_tests {
     use std::path::PathBuf;
     use ww_self::{ApiBundleOwned, TypeLocationOwned, TypeOwned};
 
     /// Loads trait `Api` from a throwaway crate with `lib_rs` (after the trait).
-    pub(super) fn load(name: &str, methods: &str, types: &str) -> anyhow::Result<ApiBundleOwned> {
+    pub(in crate::transform) fn load(name: &str, methods: &str, types: &str) -> anyhow::Result<ApiBundleOwned> {
         let dir: PathBuf = std::env::temp_dir()
             .join("ww_core_recursive_tests")
             .join(format!("{name}-{}", std::process::id()));

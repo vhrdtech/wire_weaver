@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0c1b7bf8b4b954cca442309d8cffe4664bc99dc4d48ccb3829e89d7e01d424df
+// shrink_wrap sha256: 01e7ea6d986fb115a75ef09de809398c30d100289fcd9c6414dd0bee58ac6de4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -397,7 +397,7 @@
         "The channels and single readings.",
     ], crate_idx: 0, trait_name: "Adc", items: [
         (id: 0, kind: Method(args: [
-            (ident: "channel", ty: NumericAny(Base(U8))),
+            (ident: "channel", ty: NumericAny(Base(U8)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -420,7 +420,7 @@
         "Only one stream runs at a time: opening `samples` again restarts it with the new configuration.",
     ], crate_idx: 0, trait_name: "AdcStream", items: [
         (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 16), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 14)),
+            (ident: "config", ty: OutOfLine(type_idx: 14), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "NoSuchChannel", nested: None),
             (ident: "Common", nested: Some([
@@ -447,7 +447,7 @@
             "Rates, depth, triggers and formats of captures.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 20)),
+            (ident: "config", ty: OutOfLine(type_idx: 20), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 21), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -467,8 +467,8 @@
             "Where the capture stands.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "len", ty: NumericAny(Base(U16))),
+            (ident: "offset", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "len", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(768), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",

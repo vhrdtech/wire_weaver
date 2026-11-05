@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: fec4558fa8affb889e13362d6d5994cf231f3785d7c2319208860996a8114f36
+// shrink_wrap sha256: 3cfe8eb48fe07338ec7bd2baae68d20969962b92dea583de42d7b4b61a33af79
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -171,8 +171,8 @@
             "Buffers, their size and use, the `cnt` format version and the build id: all fixed at link time.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "buffer", ty: OutOfLine(type_idx: 2)),
-            (ident: "offset", ty: NumericAny(Base(U16))),
+            (ident: "buffer", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
+            (ident: "offset", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(UVlq32)))), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -184,7 +184,7 @@
             "calls, or within one if an interrupt carries into its high word; the host reads such a counter again).",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "buffer", ty: OutOfLine(type_idx: 2)),
+            (ident: "buffer", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -196,7 +196,7 @@
             (ident: "period", ty: Instance(type_idx: 7, args: [
                 Type(OutOfLine(type_idx: 5)),
                 Type(OutOfLine(type_idx: 6)),
-            ])),
+            ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Instance(type_idx: 7, args: [
             Type(OutOfLine(type_idx: 5)),
             Type(OutOfLine(type_idx: 6)),

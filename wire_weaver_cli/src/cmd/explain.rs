@@ -14,7 +14,9 @@ use std::sync::Arc;
 use wire_weaver_client::envelope;
 use wire_weaver_client::expr::{self, Call};
 use wire_weaver_client::ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
-use wire_weaver_client::ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
+use wire_weaver_client::ww_self::{
+    ApiBundleOwned, ArgumentOwned, FieldOwned, TypeOwned, ValueOwned, check_args_count,
+};
 use wire_weaver_client::{DynClient, DynResource, DynResourceKind};
 
 #[derive(Args)]
@@ -188,16 +190,21 @@ fn load_bundle(args: &ExplainArgs, device: Option<&DynClient>) -> Result<ApiBund
 /// (a property read, with `--request`).
 enum Target {
     Value(TypeOwned),
-    Args(Vec<(String, TypeOwned)>),
+    /// The args struct's fields: a `#[flatten]` argument's struct fields in its place (EVO-22).
+    Args(Vec<FieldOwned>),
     None,
 }
 
 fn explain_target(bytes: &[u8], target: &Target, bundle: &ApiBundleOwned) -> Explained {
     match target {
         Target::Value(ty) => explain(bytes, ty, bundle),
-        Target::Args(defs) => {
-            explain_fields(bytes, defs.iter().map(|(n, t)| (n.as_str(), t)), bundle)
-        }
+        Target::Args(fields) => explain_fields(
+            bytes,
+            fields
+                .iter()
+                .map(|f| (f.ident.as_deref().unwrap_or("_"), &f.ty)),
+            bundle,
+        ),
         Target::None => explain_fields(bytes, std::iter::empty(), bundle),
     }
 }
@@ -225,11 +232,7 @@ fn resource_target(resource: &DynResource, path: &str, ret: bool) -> Result<(Str
         }
         DynResourceKind::Method { args: defs, .. } => (
             format!("{path} arguments"),
-            Target::Args(
-                defs.iter()
-                    .map(|a| (a.ident.clone(), a.ty.clone()))
-                    .collect(),
-            ),
+            Target::Args(ArgumentOwned::as_fields(defs, resource.bundle())?),
         ),
         DynResourceKind::Property { ty, .. } => {
             (format!("{path} value"), Target::Value(ty.clone()))
@@ -264,22 +267,19 @@ fn encode(
             let Target::Args(defs) = &target else {
                 bail!("'{path}' is not a method");
             };
-            if exprs.len() != defs.len() {
-                bail!(
-                    "'{path}' takes {} arguments, got {}",
-                    defs.len(),
-                    exprs.len()
-                );
-            }
+            // trailing arguments with a default can be left out (EVO-22)
+            check_args_count(exprs.len(), defs).with_context(|| format!("'{path}'"))?;
             let values = exprs
                 .iter()
                 .zip(defs)
-                .map(|(e, (name, ty))| {
-                    expr::value_from_expr(e, ty, bundle).with_context(|| format!("argument {name}"))
+                .map(|(e, f)| {
+                    expr::value_from_expr(e, &f.ty, bundle).with_context(|| {
+                        format!("argument {}", f.ident.as_deref().unwrap_or("_"))
+                    })
                 })
                 .collect::<Result<Vec<_>>>()?;
             let bytes =
-                ValueOwned::ser_shrink_wrap_vec_dyn(&values, defs.iter().map(|(_, t)| t), bundle)?;
+                ValueOwned::ser_shrink_wrap_vec_dyn(&values, defs.iter().map(|f| &f.ty), bundle)?;
             Ok((title, target, bytes, Some(resource)))
         }
         Call::Write { path, value } => {

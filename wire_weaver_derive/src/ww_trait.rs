@@ -89,10 +89,10 @@ fn doc_trait(
                     .unwrap_or_default();
                 let since = since_note(&item_fn.attrs);
                 let ident = &item_fn.sig.ident;
-                let inputs = &item_fn.sig.inputs;
+                let (inputs, args_note) = strip_arg_attrs(&item_fn.sig.inputs);
                 let output = &item_fn.sig.output;
                 let mut lifetimes = vec![];
-                for arg in inputs {
+                for arg in &inputs {
                     if let FnArg::Typed(pat_type) = arg {
                         collect_lifetimes(&pat_type.ty, &mut lifetimes);
                     }
@@ -102,12 +102,12 @@ fn doc_trait(
                 }
                 let lifetimes = generic_lifetimes(lifetimes);
                 let stream = stream_fn_note(&item_fn.attrs)?;
-                let notes = notes([stream, since, meta_note(&item_fn.attrs)]);
+                let notes = notes([stream, since, args_note, meta_note(&item_fn.attrs)]);
                 items.extend(quote! {
                     #(#docs)*
                     #(#[doc = #errors])*
                     #notes
-                    fn #ident #lifetimes (#inputs) #output;
+                    fn #ident #lifetimes (#(#inputs),*) #output;
                 });
             }
             TraitItem::Macro(item_macro) => {
@@ -348,6 +348,40 @@ fn find_ident(tokens: TokenStream, name: &str) -> Option<Span> {
 
 fn doc_attrs(attrs: &[Attribute]) -> Vec<&Attribute> {
     attrs.iter().filter(|a| a.path().is_ident("doc")).collect()
+}
+
+/// The arguments without `#[default = ..]` and `#[flatten]` (EVO-22), which rustc doesn't take on a parameter, and a
+/// note naming them.
+fn strip_arg_attrs(
+    inputs: &syn::punctuated::Punctuated<FnArg, syn::Token![,]>,
+) -> (Vec<FnArg>, Option<String>) {
+    let mut notes = vec![];
+    let inputs = inputs
+        .iter()
+        .cloned()
+        .map(|mut arg| {
+            if let FnArg::Typed(pat_type) = &mut arg {
+                let name = pat_type.pat.to_token_stream().to_string();
+                pat_type.attrs.retain(|attr| {
+                    if attr.path().is_ident("flatten") {
+                        notes.push(format!("`{name}`'s fields are the arguments on the wire (`#[flatten]`)."));
+                        false
+                    } else if attr.path().is_ident("default") {
+                        if let Meta::NameValue(name_value) = &attr.meta {
+                            let value = name_value.value.to_token_stream().to_string();
+                            notes.push(format!("`{name}` defaults to `{value}`."));
+                        }
+                        false
+                    } else {
+                        true
+                    }
+                });
+            }
+            arg
+        })
+        .collect();
+    let note = (!notes.is_empty()).then(|| notes.join(" "));
+    (inputs, note)
 }
 
 fn since_note(attrs: &[Attribute]) -> Option<String> {

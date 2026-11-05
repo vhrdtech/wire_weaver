@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c37de3ab87d468c316cd7817569ddd19dc27769d4f11efac0b282f883ccef402
+// shrink_wrap sha256: 1ad0a42aa9ca91dcbcacc1c26e82a9d90c9098f4ca8a67928383404692ac8561
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -430,7 +430,7 @@
         "not several calls to `Spi::transfer`: releasing CS between them would end the frame.",
     ], crate_idx: 0, trait_name: "Spi", items: [
         (id: 0, kind: Method(args: [
-            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -445,7 +445,7 @@
             "this device\'s [SpiCapabilities::max_len].",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 5)))),
+            (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 5))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -461,7 +461,7 @@
             "operation of a newer version.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -476,7 +476,7 @@
             "What this bus supports: frequency range, word sizes, master/slave, IO levels.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13)),
+            (ident: "config", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -492,7 +492,7 @@
             "e.g. the bus already sits at a higher voltage than `io_level`.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "active", ty: Bool),
+            (ident: "active", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -501,7 +501,7 @@
             "Asserts or releases CS, with [CsMode::Manual]; `WrongState` with another [CsMode].",
         ], optional: None, meta: None),
         (id: 6, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 14)),
+            (ident: "config", ty: OutOfLine(type_idx: 14), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
@@ -521,7 +521,7 @@
             "What slave mode supports: queue depth, register map, how fast.",
         ], optional: Some((group: Some("slave"))), meta: None),
         (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 21), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 20)),
+            (ident: "config", ty: OutOfLine(type_idx: 20), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
@@ -542,8 +542,8 @@
             "[SpiSlaveCapabilities::map_len].",
         ], optional: Some((group: Some("slave"))), meta: None),
         (id: 9, kind: Method(args: [
-            (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "offset", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "slave_map_write", docs: [
@@ -552,8 +552,8 @@
             "[SpiSlaveCapabilities::map_len].",
         ], optional: Some((group: Some("slave"))), meta: None),
         (id: 10, kind: Method(args: [
-            (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "len", ty: NumericAny(Base(U16))),
+            (ident: "offset", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "len", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "slave_map_read", docs: [

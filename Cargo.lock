@@ -162,6 +162,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "args_evolution"
+version = "0.1.0"
+dependencies = [
+ "args_evolution_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "args_evolution_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "array_of_streams"
 version = "0.1.0"
 dependencies = [

@@ -171,6 +171,7 @@ ww_version = { version = "0.2.0", path = "./ww_stdlib/ww_version", default-featu
 
 # examples and tests, not published
 all_gpio_api = { version = "0.1.0", path = "./examples/all_gpio_api" }
+args_evolution_api = { version = "0.1.0", path = "./tests/args_evolution_api" }
 array_of_streams_api = { version = "0.1.0", path = "./tests/array_of_streams_api" }
 blinky = { version = "0.1.0", path = "./examples/blinky" }
 blinky_api = { version = "0.1.0", path = "./examples/blinky_api" }

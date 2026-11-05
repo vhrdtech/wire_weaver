@@ -1017,15 +1017,20 @@ fn ser_args(
             .map(|arg| Ident::new(&arg.ident, Span::call_site()))
             .collect::<Vec<_>>();
 
+        // a `#[flatten]` argument is the args struct itself (EVO-22)
+        let args_value = match args {
+            [arg] if arg.flatten => quote! { #(#idents)* },
+            _ => quote! { #args_struct_ident { #(#idents),* } },
+        };
         let args_ser = if no_alloc {
             quote! {
                 let mut args_scratch = [0u8; 128]; // TODO: Vec based writer
-                let args = #args_struct_ident { #(#idents),* };
+                let args = #args_value;
                 let args_bytes = args.to_ww_bytes(&mut args_scratch).map(|b| b.to_vec()).map_err(|e| e.into());
             }
         } else {
             quote! {
-                let args = #args_struct_ident { #(#idents),* };
+                let args = #args_value;
                 let args_bytes = args.to_ww_bytes_owned().map_err(|e| e.into());
             }
         };

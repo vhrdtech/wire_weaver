@@ -36,12 +36,6 @@ pub fn args_structs(
             if args.is_empty() {
                 continue;
             }
-            let fields = args.iter().map(|f| {
-                let ident = Ident::new(&f.ident, Span::call_site());
-                let ty = ty_def(api_bundle, &f.ty, !no_alloc, TyPos::Def).unwrap();
-                quote! { #ident: #ty }
-            });
-
             let ident = args_struct_ident(&item.ident, no_alloc);
             let is_lifetime = args
                 .iter()
@@ -51,6 +45,28 @@ pub fn args_structs(
             // lifetime-free form (see `user_ty_def`), regardless of `is_lifetime`.
             let needs_lifetime = no_alloc && is_lifetime;
             let maybe_lifetime = maybe_quote(needs_lifetime, quote! { <'i> });
+            if let [arg] = args.as_slice()
+                && arg.flatten
+            {
+                // EVO-22: the argument's struct is the args struct itself, its fields are the arguments
+                let ty = ty_def(api_bundle, &arg.ty, !no_alloc, TyPos::Def).unwrap();
+                defs.append_all(quote! {
+                    pub(crate) type #ident #maybe_lifetime = #ty;
+                });
+                continue;
+            }
+            let fields = args.iter().map(|f| {
+                let ident = Ident::new(&f.ident, Span::call_site());
+                let ty = ty_def(api_bundle, &f.ty, !no_alloc, TyPos::Def).unwrap();
+                // a client of a version without the argument sends fewer bytes (EVO-22)
+                let default = f.default.as_ref().map(|default| {
+                    let default: syn::Expr = syn::parse_str(default).unwrap_or_else(|e| {
+                        panic!("argument `{}`: default `{default}`: {e}", f.ident)
+                    });
+                    quote! { #[default = #default] }
+                });
+                quote! { #default #ident: #ty }
+            });
             // When none of the args end up needing a lifetime (e.g. all-plain scalar args, or
             // alloc-based args that were converted to their owned form), the generated struct is
             // otherwise ambiguous to derive_shrink_wrap - disambiguate it towards whichever

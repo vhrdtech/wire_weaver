@@ -1,6 +1,6 @@
 // ww_recorder 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7ddca7eda4586c3c23c8ce7aade58369173225dcef4eba07ae6060b91911f9df
+// shrink_wrap sha256: e00aa234b75155e9009629918d429ca693527e3c44699cdf2e9d0e91816f567e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
@@ -581,7 +581,7 @@
             "speed rating is the result of the last card check, made by [Recorder::format].",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "action", ty: OutOfLine(type_idx: 17)),
+            (ident: "action", ty: OutOfLine(type_idx: 17), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -598,8 +598,8 @@
             "`Common(Busy)` while a format is running, `NoCard`.",
         ], optional: Some((group: Some("formatting"))), meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "token", ty: NumericAny(Base(U32))),
-            (ident: "rw_mb", ty: Option(some_ty: NumericAny(Base(U32)))),
+            (ident: "token", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "rw_mb", ty: Option(some_ty: NumericAny(Base(U32))), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -620,8 +620,8 @@
             "offer\'s limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).",
         ], optional: Some((group: Some("formatting"))), meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "trigger", ty: OutOfLine(type_idx: 19)),
-            (ident: "pre_trigger_s", ty: NumericAny(Base(U16))),
+            (ident: "trigger", ty: OutOfLine(type_idx: 19), default: None, flatten: false),
+            (ident: "pre_trigger_s", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -644,7 +644,7 @@
             "Stops the running recording and returns its id. `NoRecording` when none runs.",
         ], optional: Some((group: Some("recording"))), meta: None),
         (id: 7, kind: Method(args: [
-            (ident: "after", ty: NumericAny(Base(U32))),
+            (ident: "after", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 21))), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "NotLogging", nested: None),
         ])), multiplicity: Flat, since: None, ident: "recordings", docs: [
@@ -652,9 +652,9 @@
             "Recordings whose data the ring has already overwritten are not listed.",
         ], optional: Some((group: Some("recording"))), meta: None),
         (id: 8, kind: Method(args: [
-            (ident: "kind", ty: OutOfLine(type_idx: 22)),
-            (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String)),
-            (ident: "value", ty: Option(some_ty: NumericAny(Base(I64)))),
+            (ident: "kind", ty: OutOfLine(type_idx: 22), default: None, flatten: false),
+            (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String), default: Some("Default::default()"), flatten: false),
+            (ident: "value", ty: Option(some_ty: NumericAny(Base(I64))), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",

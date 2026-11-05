@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: dbbf19890bbd01e877dc4992b2457b1d795c6c93c5b06689a5f5776235aa8529
+// shrink_wrap sha256: a422ee4849518b3495f14e532ceb8534564d3e6b27969bf96fa35960cced7060
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -227,7 +227,7 @@
         "A 1-Wire master: reset the bus, find the devices on it, and run addressed transactions.",
     ], crate_idx: 0, trait_name: "OneWire", items: [
         (id: 0, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 4)),
+            (ident: "t", ty: OutOfLine(type_idx: 4), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -255,8 +255,8 @@
             "Reset pulse; true when a device answered with a presence pulse.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 7))),
-            (ident: "family", ty: Option(some_ty: NumericAny(Base(U8)))),
+            (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 7)), default: Some("None"), flatten: false),
+            (ident: "family", ty: Option(some_ty: NumericAny(Base(U8))), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -275,7 +275,7 @@
             "What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
+            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -292,7 +292,7 @@
             "function, `Busy` while a transaction or search runs.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "direction", ty: Bool),
+            (ident: "direction", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",

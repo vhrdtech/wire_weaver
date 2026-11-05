@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ba21b0ea0a146c5932efbf2129c3fa8863407d1a85a1c1712fdb8749d42a0d1f
+// shrink_wrap sha256: 709b12198be405ae8d7baa07859f562a5e87759fcce0a1b1750de876f0356301
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -112,7 +112,7 @@
             (ident: "duration", ty: Instance(type_idx: 4, args: [
                 Type(OutOfLine(type_idx: 2)),
                 Type(OutOfLine(type_idx: 3)),
-            ])),
+            ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 5))), errors: Some([
             (ident: "Unsupported", nested: None),
             (ident: "Busy", nested: None),

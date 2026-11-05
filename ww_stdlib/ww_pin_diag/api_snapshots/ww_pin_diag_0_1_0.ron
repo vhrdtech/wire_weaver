@@ -1,6 +1,6 @@
 // ww_pin_diag 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 33608b20e55e38a10723da7b7b1a62268b46cc4d88a27d49e410edc678ab3e17
+// shrink_wrap sha256: b207ba84ca7a7139450249a0b100694e2a090f359a2d7caf262f8e1aee66a54f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to a board\'s digital points for bring-up, verification and production tests (STD-47).",
     "",
@@ -150,8 +150,8 @@
             "Every point a test may touch; a point\'s index in this list is its id in the calls below.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "point", ty: NumericAny(Base(U16))),
-            (ident: "state", ty: OutOfLine(type_idx: 6)),
+            (ident: "point", ty: NumericAny(Base(U16)), default: None, flatten: false),
+            (ident: "state", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "NoSuchPoint", nested: None),
             (ident: "NotCapable", nested: None),
@@ -165,7 +165,7 @@
             "board\'s rules forbid it in the current state of the other points.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "point", ty: NumericAny(Base(U16))),
+            (ident: "point", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "NoSuchPoint", nested: None),
             (ident: "NotCapable", nested: None),

@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 947a1fabad48d0f963337d372564f1872d67eaf5f6c6409dd3464d0d3549a4ef
+// shrink_wrap sha256: dcadefb6c7206b72a27efe5b7cb3202901c5cfc9feba6c62a7448515423bc3f9
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -170,8 +170,8 @@
             "devices that don\'t keep the list.",
         ], optional: Some((group: None)), meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "changes", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 5)))),
-            (ident: "program", ty: Bool),
+            (ident: "changes", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 5))), default: None, flatten: false),
+            (ident: "program", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 8))), errors: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "set_reworks", docs: [
             "Record reworks done on this unit (or undone): every change or none. A number this firmware doesn\'t know is",
             "refused ([ReworkError::UnknownRework]), never stored. `program` false is a dry run: everything is checked, nothing",

@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1a3a8aad5a96d78d68118bd2298b9d912872491e0ebc59d342ebc12f1cb21e5a
+// shrink_wrap sha256: b700814be8e61d72ce59675fed134de579d83bb3683dd09bfc920b0fabfdc47c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -678,7 +678,7 @@
             "What this adapter supports: modes, frequencies, IO levels, buffer sizes, 10-bit addresses, pull-ups.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 8)),
+            (ident: "config", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -694,12 +694,12 @@
             "`InvalidArgument`; `Refused` when e.g. the bus already sits at a higher voltage than `io_level`.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "addr", ty: OutOfLine(type_idx: 11)),
-            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "addr", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
             (ident: "delay_after", ty: Option(some_ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 4)),
                 Type(OutOfLine(type_idx: 1)),
-            ]))),
+            ])), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -726,13 +726,13 @@
             "(waiting for another master to free the bus) `Timeout`.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "addr", ty: OutOfLine(type_idx: 11)),
-            (ident: "kind", ty: OutOfLine(type_idx: 13)),
-            (ident: "len", ty: NumericAny(Base(U16))),
+            (ident: "addr", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+            (ident: "kind", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
+            (ident: "len", ty: NumericAny(Base(U16)), default: None, flatten: false),
             (ident: "delay_after", ty: Option(some_ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 4)),
                 Type(OutOfLine(type_idx: 1)),
-            ]))),
+            ])), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -770,8 +770,8 @@
             "`0x78..=0x7F`) are skipped. An address that doesn\'t answer is no error; a stuck bus stops the scan.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "addr", ty: OutOfLine(type_idx: 11)),
-            (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 15)))),
+            (ident: "addr", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+            (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 15))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -805,7 +805,7 @@
             "pull-ups are missing or unpowered, or something shorts it.",
         ], optional: None, meta: None),
         (id: 7, kind: Method(args: [
-            (ident: "count", ty: NumericAny(Base(U8))),
+            (ident: "count", ty: NumericAny(Base(U8)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -822,7 +822,7 @@
             "transfer.",
         ], optional: None, meta: None),
         (id: 8, kind: Method(args: [
-            (ident: "enabled", ty: Bool),
+            (ident: "enabled", ty: Bool, default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -839,7 +839,7 @@
             "What slave mode supports: register map size, answer queue depth, clock stretching, address NACK.",
         ], optional: Some((group: Some("slave"))), meta: None),
         (id: 11, kind: StreamFn(ty: OutOfLine(type_idx: 24), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 21)),
+            (ident: "config", ty: OutOfLine(type_idx: 21), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
@@ -862,8 +862,8 @@
             "[I2cSlaveCapabilities::map_len].",
         ], optional: Some((group: Some("slave"))), meta: None),
         (id: 12, kind: Method(args: [
-            (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
+            (ident: "offset", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "slave_map_write", docs: [
@@ -872,8 +872,8 @@
             "never reads half of an update. `BufferTooBig` past [I2cSlaveCapabilities::map_len].",
         ], optional: Some((group: Some("slave"))), meta: None),
         (id: 13, kind: Method(args: [
-            (ident: "offset", ty: NumericAny(Base(U32))),
-            (ident: "len", ty: NumericAny(Base(U16))),
+            (ident: "offset", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "len", ty: NumericAny(Base(U16)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "slave_map_read", docs: [
@@ -909,7 +909,7 @@
             "How many watches, how fast, how long.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "watch", ty: OutOfLine(type_idx: 29)),
+            (ident: "watch", ty: OutOfLine(type_idx: 29), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -923,8 +923,8 @@
             "`BufferTooBig` for a read longer than this device watches, `WrongState` while not a master.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "slot", ty: NumericAny(Base(U32))),
-            (ident: "watch", ty: OutOfLine(type_idx: 29)),
+            (ident: "slot", ty: NumericAny(Base(U32)), default: None, flatten: false),
+            (ident: "watch", ty: OutOfLine(type_idx: 29), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -937,7 +937,7 @@
             "`I2cWatch::watch_add`.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "slot", ty: NumericAny(Base(U32))),
+            (ident: "slot", ty: NumericAny(Base(U32)), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "InvalidWatchSlot", nested: None),
         ])), multiplicity: Flat, since: None, ident: "watch_remove", docs: [
@@ -957,7 +957,7 @@
             (ident: "io_level", ty: Option(some_ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 0)),
                 Type(OutOfLine(type_idx: 1)),
-            ]))),
+            ])), default: Some("None"), flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",

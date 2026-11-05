@@ -368,16 +368,20 @@ impl DynResource {
 
     fn call_args(&self, args: &[ValueOwned]) -> Result<Vec<u8>, Error> {
         let (defs, _) = self.method()?;
-        if args.len() != defs.len() {
-            return Err(Error::Other(format!(
-                "'{}' takes {} arguments, got {}",
-                self.path,
-                defs.len(),
-                args.len()
-            )));
-        }
-        ValueOwned::ser_shrink_wrap_vec_dyn(args, defs.iter().map(|a| &a.ty), &self.bundle)
-            .map_err(|e| Error::Other(format!("'{}' arguments: {e:#}", self.path)))
+        self.ser_args(args, defs)
+    }
+
+    /// Arguments as the generated client sends them: a `#[flatten]` argument as its struct's fields, trailing ones
+    /// with a default can be left out (EVO-22).
+    fn ser_args(&self, args: &[ValueOwned], defs: &[ArgumentOwned]) -> Result<Vec<u8>, Error> {
+        ValueOwned::ser_args_dyn(args, defs, &self.bundle).map_err(|e| {
+            let e = format!("{e:#}");
+            if e.starts_with("takes ") {
+                Error::Other(format!("'{}' {e}", self.path))
+            } else {
+                Error::Other(format!("'{}' arguments: {e}", self.path))
+            }
+        })
     }
 
     fn decode_return(&self, bytes: &[u8]) -> Result<Option<ValueOwned>, Error> {
@@ -674,16 +678,7 @@ impl DynResource {
 
     fn stream_fn_args(&self, args: &[ValueOwned]) -> Result<Vec<u8>, Error> {
         let defs = self.stream_fn().map(|(a, _)| a).unwrap_or_default();
-        if args.len() != defs.len() {
-            return Err(Error::Other(format!(
-                "'{}' takes {} arguments, got {}",
-                self.path,
-                defs.len(),
-                args.len()
-            )));
-        }
-        ValueOwned::ser_shrink_wrap_vec_dyn(args, defs.iter().map(|a| &a.ty), &self.bundle)
-            .map_err(|e| Error::Other(format!("'{}' arguments: {e:#}", self.path)))
+        self.ser_args(args, defs)
     }
 
     fn dyn_positioned(
@@ -1058,15 +1053,14 @@ impl DynMultiArgs<'_> {
         count: usize,
     ) -> Result<Vec<Vec<u8>>, Error> {
         let ser_one = |args: &[ValueOwned]| -> Result<Vec<u8>, Error> {
-            if args.len() != defs.len() {
-                return Err(Error::Other(format!(
-                    "takes {} arguments, got {}",
-                    defs.len(),
-                    args.len()
-                )));
-            }
-            ValueOwned::ser_shrink_wrap_vec_dyn(args, defs.iter().map(|a| &a.ty), bundle)
-                .map_err(|e| Error::Other(format!("arguments: {e:#}")))
+            ValueOwned::ser_args_dyn(args, defs, bundle).map_err(|e| {
+                let e = format!("{e:#}");
+                if e.starts_with("takes ") {
+                    Error::Other(e)
+                } else {
+                    Error::Other(format!("arguments: {e}"))
+                }
+            })
         };
         match self {
             DynMultiArgs::Same(args) => Ok(vec![ser_one(args)?; count]),

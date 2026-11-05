@@ -9,7 +9,7 @@
 
 use crate::explain::{PartKind, Trace};
 use crate::{
-    ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned, ItemEnumOwned,
+    ApiBundleOwned, ArgumentOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned, ItemEnumOwned,
     ItemStructOwned, Repr, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
@@ -22,6 +22,26 @@ use shrink_wrap::{
 use std::borrow::Cow;
 use std::collections::HashMap;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
+
+/// `given` values are enough for the arguments `fields` (from [ArgumentOwned::as_fields]): those left out all have
+/// a default.
+pub fn check_args_count(given: usize, fields: &[FieldOwned]) -> Result<()> {
+    if given > fields.len() {
+        bail!("takes {} arguments, got {given}", fields.len());
+    }
+    if let Some(missing) = fields[given..].iter().find(|f| f.default.is_none()) {
+        let required = fields.iter().filter(|f| f.default.is_none()).count();
+        let name = missing.ident.as_deref().unwrap_or("?");
+        if required == fields.len() {
+            bail!("takes {} arguments, got {given}", fields.len());
+        }
+        bail!(
+            "takes {required} to {} arguments, got {given}: `{name}` has no default",
+            fields.len()
+        );
+    }
+    Ok(())
+}
 
 impl ValueOwned {
     /// Deserialize one top-level value of type `ty` (as `T::from_ww_bytes_owned` does).
@@ -76,6 +96,24 @@ impl ValueOwned {
             bail!("values and types must have the same length");
         }
         Ok(wr.finish_and_take()?)
+    }
+
+    /// Serialize the arguments of a method or stream function, `defs`, as a generated client does (EVO-22): the
+    /// fields of a `#[flatten]` argument's struct take its place (see [ArgumentOwned::as_fields]), and trailing
+    /// arguments with a default can be left out (fewer `values`): nothing is sent for them, the device reads
+    /// their defaults.
+    pub fn ser_args_dyn(
+        values: &[ValueOwned],
+        defs: &[ArgumentOwned],
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<Vec<u8>> {
+        let fields = ArgumentOwned::as_fields(defs, api_bundle)?;
+        check_args_count(values.len(), &fields)?;
+        Self::ser_shrink_wrap_vec_dyn(
+            values,
+            fields[..values.len()].iter().map(|f| &f.ty),
+            api_bundle,
+        )
     }
 
     /// Deserialize the fields of an evolvable struct, e.g., method arguments.

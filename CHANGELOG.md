@@ -329,6 +329,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Docs site: the mobile nav drawer's logo is the graphite-wire W on dark too, like the header (only the red wire
   showed)
 - nextest timeouts are hang detectors (`.config/nextest.toml`): SLOW after 15 s, killed after 30 s instead of 3 s, so a loaded PC (load well above the core count) can't fail the gate with a test that passes on a quiet one; the per-test 15 s overrides are gone, the default covers them. `AGENTS.md` "Test time limits" says how speed is looked at instead.
+- Docs: `std_library/exact_units.md`, `magnitude.md`, `points.md`, `rounding.md`, `indices.md`, `customary.md` and
+  `units_in_the_model.md` keep only the WireWeaver side of `exact_units` (the API model, `ww`, Python, the dynamic
+  client, the wire bytes) and link to the crate's own book, [exact.vhrd.tech](https://exact.vhrd.tech/), for the
+  library itself (scales, bounds, aliases, points, indices, rounding, customary units); nothing moved out without a
+  page there to land on. `FEATURES.md`, `AGENTS.md` and `features_today.md` (`just features-page`) point the same
+  way; `evolution/units_by_meaning.md`'s two deep links to the old pages now go to the book.
 
 ### Removed
 

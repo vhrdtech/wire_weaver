@@ -8,11 +8,11 @@ A unit or scale marker an API uses (`Volt`, `prefix::Milli`, a crate's own `Rpm`
 model a device sends: its symbol, dimension and exact factor. A client, `ww` and Python learn the units of any crate
 from that, without a table of their own, and compare two units by what they are, not by how they are written.
 
-## Declaring units and scales
-
-A crate declares its own markers with `unit!` and `scale!` (from `exact_units`, re-exported by `ww_si`). Each line is
-a zero-size struct and its `impl Unit` / `impl FixedScale`; WireWeaver's walker reads the same lines from source, so
-the compiler and the model agree:
+A crate declares its own markers with `unit!`, `scale!` and `origin!` (from `exact_units`, re-exported by `ww_si`);
+WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the macros'
+grammar — the dimension, the scale, `kind` and `conventional(..)` provenance — see the book's
+[Your own units](https://exact.vhrd.tech/units/declare/). A marker with a hand-written `impl Unit` still compiles,
+but the walker refuses an API that uses it: a client wouldn't know the unit.
 
 ```rust
 ww_si::unit! {
@@ -20,26 +20,11 @@ ww_si::unit! {
     pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
 }
 
-ww_si::scale! {
-    /// One step of a gyro, 70 mdps
-    pub struct Mdps70 = "", Exact(70 / 1000);
-}
-
 #[ww_api_root]
 trait Motor {
     property!(rw speed: Quantity<Rpm>);
-    property!(ro gyro: Fixed<Per<Degree, Second>, Mdps70, i16>);
 }
 ```
-
-The dimension is a list of exponents of `s`, `m`, `kg`, `a`, `k`, `mol`, `cd`, `rad`, `bit`, or `counted` for a
-counted base of its own (named by the crate and the marker). The factor is exact: `Exact(num / den)`, then optionally
-`pow10 e`, `pow2 e`, `pi e` (see [Exact magnitudes](magnitude.md)); left out, the unit is coherent. Only literal values
-work, since the walker reads them from source and doesn't evaluate constants. The full grammar is in the docs of
-`exact_units::unit!`.
-
-A marker with a hand-written `impl Unit` still compiles, but the walker refuses an API that uses it: a client
-wouldn't know the unit.
 
 ## What the model holds
 

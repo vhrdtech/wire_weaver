@@ -2,29 +2,20 @@
 level: basic
 ---
 
-# exact_units: numbers with a fixed unit
+# exact_units in an API
 
-`exact_units` puts the unit, the scale and the storage of a number into its type. `Fixed<U, P, T, B>` is a `T` in
-unit `U` and scale `P` (a prefix like µ, a binary prefix like Ki, a power of ten, a fraction), within the bounds `B`.
-On the wire and in memory it is exactly the `T`: `shared_us: u64` becomes `shared: Fixed<Second, Micro, u64>` (or
-`Micros<u64>`) with the same bytes, and introspection shows µs instead of a field name to trust.
+[`exact_units`](https://exact.vhrd.tech/) puts the unit, the scale and the storage of a number into its type,
+`Fixed<U, P, T, B>`: a `T` in unit `U` and scale `P`, within the bounds `B`. On the wire and in memory it is exactly
+the `T`: `shared_us: u64` becomes `shared: Fixed<Second, Micro, u64>` (or `Micros<u64>`) with the same bytes, and
+introspection shows µs instead of a field name to trust. `Micros::<u32>::new(1500)` is 4 bytes on the wire,
+`dc 05 00 00`, the bytes of the `u32` 1500.
 
-```rust
-use exact_units::{Fixed, Micros, prefix::Milli};
-
-let t: Micros<u32> = Fixed::new(1500);
-assert_eq!(t.to_string(), "1500 µs");
-assert_eq!(format!("{t:#}"), "0.0015 s");        // in the unit itself
-assert_eq!(t.to::<Milli, u16>(), None);          // 1500 µs isn't a whole number of ms
-assert_eq!((t * 2).to::<Milli, u16>(), Some(Fixed::new(3)));
-assert_eq!(core::time::Duration::from(t), core::time::Duration::from_micros(1500));
-```
-
-`Micros::<u32>::new(1500)` is 4 bytes on the wire, `dc 05 00 00`, the bytes of the `u32` 1500.
-
-The crate lives in its own repository, [romixlab/exact_units](https://github.com/romixlab/exact_units): it doesn't depend on WireWeaver, the wire
-format is its optional `shrink_wrap` feature. It is `no_std` and needs no allocator. [ww_si](ww_si.md) is built on it and re-exports everything, so
-`ww_si::Fixed` and `exact_units::Fixed` are the same type; an API that already uses `ww_si` writes `ww_si::..`.
+The crate lives in its own repository, [romixlab/exact_units](https://github.com/romixlab/exact_units), with its
+own book at [exact.vhrd.tech](https://exact.vhrd.tech/): it doesn't depend on WireWeaver, the wire format is its
+optional `shrink_wrap` feature. [ww_si](ww_si.md) is built on it and re-exports everything, so `ww_si::Fixed` and
+`exact_units::Fixed` are the same type; an API that already uses `ww_si` writes `ww_si::..`. For `Fixed` itself —
+scales, storage, bounds, arithmetic, conversions, rounding, aliases, serde — see the book's
+[first steps](https://exact.vhrd.tech/start/first_steps/) and [doing maths](https://exact.vhrd.tech/maths/arithmetic/).
 
 ## Fixed or Quantity
 
@@ -40,123 +31,21 @@ buffer size in bytes): no byte for the prefix, and a `u64` field doesn't turn on
 whole firmware. Take `Quantity` when each device should pick its own resolution (an ADC in mV on one board, in µV on
 another). `Quantity::to_fixed` and `Quantity::from_fixed` convert between them.
 
-## Scales
+## Aliases
 
-`P` is a marker type from `exact_units::prefix`:
-
-- the SI prefixes `Quecto` .. `Quetta`, and `One` for the unit itself;
-- the binary prefixes `Kibi`, `Mebi`, `Gibi`, `Tebi`;
-- `Pow10<E>`, a power of ten without a name: tenths of a millisecond are `Fixed<Second, Pow10<-4>, u32>`, shown as
-  `15·10⁻⁴ s`;
-- `Pow2<E>`, a power of two: the Q formats and binary angles;
-- `Rational<NUM, DEN>` (`u64`), a fraction: `Duty16` is `Fixed<Ratio, Rational<1, 65535>, u16>`, where 65535 is 100 %;
-- `FullScale<V, BITS>` and `FullScaleMax<V, BITS>`, one step of a converter whose `2^BITS` codes (or largest code)
-  span `V`.
-- `Product<A, B>` and `Quotient<A, B>`, the scale of a product or quotient of two `Fixed` values: mV times mA is a
-  `Product<Milli, Milli>`, a step of 1 µW.
-
-Every scale is a [`Magnitude`](magnitude.md), a canonical product of prime powers with powers of π, ln 2 and ln 10,
-so `Milli`, `Pow10<-3>` and `Rational<1, 1000>` are the same scale. A conversion with `to::<P2, T2>()` is exact or
-refused (`None`), never rounded through a float, and its factor is worked out at compile time: one that isn't a
-fraction of integers, or whose multiply doesn't fit, doesn't compile. 4 KiB as `Fixed<Byte, Kibi, u16>` is
-`Fixed<Byte, One, u32>` 4096. The π power makes angles exact too: a degree is π/180 rad and a turn 2π rad.
-
-## Storage
-
-`T` is `u8` .. `u64`, `i8` .. `i64`, `f32`, `f64`, or one of `shrink_wrap`'s variable-length integers `UNib32`,
-`UVlq32`, `UVlq64` and `Nibble` (trait `Storage`, `UnsignedStorage` for the unsigned ones).
-
-## Bounds
-
-`B` is `Unbounded` unless given, and then stays out of the way: `Fixed::new`, `+`, `-`, `*` and `/` by `T` exist for
-the three-parameter form. Bounded values are made with `try_new` or `bounded` and checked on every read from the
-wire, so a `set` of a bounded property out of range is refused before the handler runs:
-
-```rust
-use exact_units::{Fixed, Range, prefix::Milli, units::Second};
-
-type Timeout = Fixed<Second, Milli, u16, Range<1, 5000>>;
-assert!(Timeout::try_new(10).is_ok());
-assert!(Timeout::try_new(0).is_err());
-const LONG: Timeout = Timeout::bounded(5000);     // out of bounds here is a compile error
-```
-
-`Range<MIN, MAX>` is inclusive (`i64` bounds), `RangeU64` for big unsigned ones, `RangeDec<MIN, MAX, EXP>` decimal
-bounds for floats (`RangeDec<-5, 5, -1>` is -0.5 ..= 0.5); NaN is always out of bounds. A bound that doesn't fit the
-storage (`Range<-5, 300>` on a `u8`) doesn't build.
+`Secs`, `Millis`, `Micros`, `Nanos`, `Minutes`, `Hours`, `Days`, `Hz`, `Bytes`/`Kibibytes`/`Mebibytes`/`Gibibytes`,
+`Count<Of, T>`, `Percent`/`Permille`/`Ppb`, `Duty16`, the Q formats and the binary angles are all `Fixed` under
+another name. A moment in POSIX time is a `Point` of `origins::UnixEpoch`, aliased `UnixSecs`/`UnixMillis`/
+`UnixMicros`/`UnixNanos`. See the book's [aliases table](https://exact.vhrd.tech/start/first_steps/#aliases-for-the-common-ones).
 
 ## Arithmetic and conversions
 
-- `checked_add`, `checked_sub`, `checked_mul`, `checked_div` give `None` on overflow or out of bounds;
-  `saturating_*` and `wrapping_*` (a device clock that wraps) as for the integers. `Wrapping` and `Saturating` as
-  `B` make `+`, `-`, `*` and `/` do the same.
-- `to` converts only exactly; `to_rounded`, `to_saturating`, `to_wrapping` and `requantize` name a rounding and an
-  overflow policy, `into_rounded` and `From` are the infallible ones the bounds prove: see
-  [Rounding and overflow](rounding.md).
-- `PartialEq`, `Ord` and `Hash` compare the numbers; values of different scales are different types, convert them
-  with `to` first. `==` and `<` also compare two `Fixed` of one unit, scale and storage with different bounds (a
-  `Range`-bounded reading against an unbounded threshold); `Eq`, `Ord` and `Hash` stay within one type.
-- Products and quotients of two `Fixed` (STD-83): `a * b` is a `Fixed<Times<U1, U2>, Product<P1, P2>, T>`, `a / b`
-  a `Fixed<Per<U1, U2>, Quotient<P1, P2>, T>`, one multiply or division of `T` with the exact result scale as a type
-  (mV · mA is a `Product<Milli, Milli>`, a step of 1 µW), overflow by the operands' policy. `checked_times`,
-  `saturating_times`, `wrapping_times` and the `_per` twins take operands of any bounds; `times_into` / `per_into`
-  give the result in another scale and storage, rounded once (mV · mA into mW). `convert` reaches the named unit
-  (V · A to `Watt`).
-- `core::time::Duration` both ways for s, ds, cs, ms, µs and ns: `Micros::<u32>::try_from(Duration::from_millis(3))`
-  is 3000 µs, an error when it doesn't fit.
-- `Display` as `1500 µs`, `{:#}` in the unit itself (`0.0015 s`); `Debug` as `Second(1500 µs u32)` (with the bounds
-  when there are some: `Second(100 ms u16, 1..=5000)`); `defmt::Format` with the `defmt` feature. `{:#}` takes the
-  formatter's precision and width, rounding to the nearest (a tie to even): `{:#.3}` of a Q15 of 0.8 is `0.800`,
-  `{:#10.2}` of 1500 mV is `    1.50 V`.
-- Units of one dimension but another kind of quantity don't convert (STD-68): a voltage gain `Per<Volt, Volt>` is
-  not a current gain `Per<Ampere, Ampere>`, a power gain `Per<Watt, Watt>` or a `Ratio` (a duty cycle), and a
-  transimpedance `Per<Volt, Ampere>` is not an `Ohm` (resistance), nor `Per<Ampere, Volt>` a `Siemens`. A quotient
-  of one dimension keeps what cancelled, a gain times a voltage is a plain voltage; a scale still converts within a
-  kind (mV/V to V/V). Crossing is a named step that keeps the number: `as_ratio` / `as_gain::<Volt>()`,
-  `as_resistance` / `as_transimpedance`, `as_conductance` / `as_transconductance`. The rules are in the `kind`
-  module of `exact_units`.
-- A gain in dB by its kind (std): `Fixed::<Per<Volt, Volt>, One, f64>::new(10.0).to_db()` is 20 dB (20·lg for
-  V/V, A/A, Pa/Pa), a power gain W/W 10·lg; `from_db` the other way. A plain `Ratio` has no level form and doesn't
-  compile there: 0.5 duty is not −3 dB.
-- Cycles per second become hertz only through the named `to_hertz`: a cycle is a counted thing, not a dimensionless
-  1 (see [dimensions](ww_si.md#dimensions)).
-- A `Fixed` is an amount (5 K, 3 ms). A reading against a zero that isn't the unit's (25 °C, gauge pressure, a
-  register's `raw / 256 + 25 °C`, a heading that wraps) is a `Point` of an origin: see [points](points.md).
-
-## Aliases
-
-| Alias             | Type                                                   |
-|-------------------|---------------------------------------------------------|
-| `Secs<T>`         | `Fixed<Second, One, T>`                                |
-| `Millis<T>`       | `Fixed<Second, Milli, T>`                              |
-| `Micros<T>`       | `Fixed<Second, Micro, T>`                              |
-| `Nanos<T>`        | `Fixed<Second, Nano, T>`                               |
-| `Minutes<T>`      | `Fixed<Minute, One, T>`                                |
-| `Hours<T>`        | `Fixed<Hour, One, T>`                                  |
-| `Days<T>`         | `Fixed<Day, One, T>`                                   |
-| `Hz<T>`           | `Fixed<Hertz, One, T>`                                 |
-| `Bytes<T>`        | `Fixed<Byte, One, T>`                                  |
-| `Kibibytes<T>`    | `Fixed<Byte, Kibi, T>`                                 |
-| `Mebibytes<T>`    | `Fixed<Byte, Mebi, T>`                                 |
-| `Gibibytes<T>`    | `Fixed<Byte, Gibi, T>`                                 |
-| `Count<Of, T>`    | `Fixed<Of, One, T>`                                    |
-| `Percent<T>`      | `Fixed<Ratio, Centi, T>`                               |
-| `Permille<T>`     | `Fixed<Ratio, Milli, T>`                               |
-| `Ppb<T>`          | `Fixed<Ratio, Nano, T>`                                |
-| `Duty16`          | `Fixed<Ratio, Rational<1, 65535>, u16>`                |
-| `Q15<U>`          | `Fixed<U, Pow2<-15>, i16, Saturating>` (`U` = `Ratio`) |
-| `Q31<U>`          | `Fixed<U, Pow2<-31>, i32, Saturating>`                 |
-| `UQ16_16<U>`      | `Fixed<U, Pow2<-16>, u32, Saturating>`                 |
-| `Bam16`           | `Fixed<Turn, Pow2<-16>, u16, Wrapping>`                |
-| `Bam32`           | `Fixed<Turn, Pow2<-32>, u32, Wrapping>`                |
-
-The Q formats saturate and the binary angles wrap in arithmetic; they are made with `Fixed::of`, see
-[Rounding and overflow](rounding.md#the-policy-of-a-type).
-
-A moment in POSIX time (`time_t`, journald's `__REALTIME_TIMESTAMP`) since the Unix epoch is a `Point` of
-`origins::UnixEpoch` (see [points](points.md#origins)), aliased as `UnixSecs<T>`, `UnixMillis<T>`, `UnixMicros<T>`
-and `UnixNanos<T>` (`T` defaults to `u64`), each a `Point<UnixEpoch, Secs<T>>` / `Millis<T>` / `Micros<T>` /
-`Nanos<T>`.
+A unit's kind (STD-68) keeps a voltage gain from converting into a duty cycle or a resistance from a
+transimpedance, the compiler and the evolution checker alike: see the book's [Kinds of
+quantity](https://exact.vhrd.tech/maths/kinds/). The same kind picks a gain's dB formula, 20·lg or 10·lg: [Decibels](https://exact.vhrd.tech/levels/decibels/).
+Multiplying or dividing two `Fixed` values gives back the exact result unit and scale as a type, with checked,
+saturating and wrapping forms for what doesn't fit: [Products and
+requantization](https://exact.vhrd.tech/fixed_point/products/).
 
 ## In an API
 
@@ -234,68 +123,15 @@ numbers. The C consumer of the [conformance matrix](../serdes/conformance.md) re
 
 ## serde
 
-With the feature `serde` the numbers are `Serialize` / `Deserialize`, `no_std` and without alloc (STD-94). Each is
-written as the number it stores, as on the wire, since the unit, scale and bounds are in the type: a
-`Fixed<Second, Milli, u16>` of 1500 ms is `1500` in JSON and the `u16`'s bytes in postcard.
-
-| Type                                     | Written as                                                  |
-|------------------------------------------|-------------------------------------------------------------|
-| `Fixed` (Q15, `Bam16`, `PhaseBam16`, ..) | the stored number                                           |
-| `Point`, `Index`, `IndexFrom1`, `Seq`    | the stored number                                           |
-| `Complex`                                | `{ re, im }`, a tuple's bytes in postcard; `[re, im]` reads |
-| `Polar`                                  | `{ abs, arg }`                                              |
-| `Decibels`                               | `"-3.01"` in JSON, TOML, RON; `(num, decimals)` in postcard |
-
-`Complex` is a struct of named parts and not a pair: in a binary format the bytes are the same, and in a config the
-parts can't be swapped by mistake. Reading checks what construction checks and never builds a value that breaks it:
-a `Fixed` or an index outside its bounds, an `IndexFrom1` of 0, a level with more than 9 decimals. The error names
-the value and the bound, as `ww` does:
-
-```
-6000 ms is out of 1..=5000 ms (Second, u16)
-index 0 of a table counted from 1
-```
-
-For text a person writes, a field takes `#[serde(with = "exact_units::serde::with_unit")]` (`with_unit::option`
-for an `Option`): it is written as `{:#}` writes it, `"0.0015 s"`, and read as a number with the field's unit and
-any SI or binary prefix, the space optional: `"1.5 ms"`, `"1500 us"`, `"4 KiB"`, `"25 %"` for a ratio. The value
-goes into the field's scale and storage exactly, or it is an error that says why:
-
-```rust
-use exact_units::{Fixed, Millis, Range, prefix::Milli, units::{Second, Volt}};
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct Config {
-    period: Millis<u32>,                                   // 20
-    timeout: Fixed<Second, Milli, u16, Range<1, 5000>>,    // 250, 6000 is refused
-    #[serde(with = "exact_units::serde::with_unit")]
-    rail: Fixed<Volt, Milli, u16>,                         // "3.3 V", "3300 mV"
-}
-```
-
-```
-"5 kg" is not in V (with or without an SI prefix)
-"3.3005 V" is not a whole number of 1 mV steps; the nearest are 3.3 V and 3.301 V
-"70 V" doesn't fit u16 in 1 mV steps
-```
-
-Every value reads back from the text it was written as, also where `{:#}` writes a float (a `Duty16`'s steps of
-1/65535, a scale with π): that text reads as the value it came from, while a decimal between two steps is refused
-with the two. A float storage takes the nearest float. `Magnitude` and `Offset` are serde with `serde` and `std`,
-and the owned wire mirrors (`DimOwned`, `CountedOwned`, `ProvenanceOwned`, for RON snapshots of APIs) with `serde`,
-`std` and `shrink_wrap`.
+With the feature `serde` the numbers are `Serialize` / `Deserialize`, `no_std` and without alloc (STD-94): the same
+rule as the wire, each value as the number it stores, and a field marked `with_unit` as text in its unit (`"1.5
+ms"`). See the book's [serde: configs and other formats](https://exact.vhrd.tech/wire/shrink_wrap/#serde-configs-and-other-formats).
 
 ## Units
 
-The unit markers are in `exact_units::units`, grouped by cargo features a firmware turns on as it needs them
-(`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`, `photometric`, `radiation`, `dimensionless`,
-`information`, `counting`, `quantities` for all; `std` turns them all on). Each knows its dimension (`Dim`), symbol,
-name and scale; products and quotients the compiler checks (`Volt * Ampere` is `Watt`), `Per<A, B>`, `Times<A, B>`
-and `Sqrt<A>` build the others: a noise density is `Per<Volt, Sqrt<Hertz>>`, shown `V/√Hz`. Angle,
-information (bit) and counted things (`Sample`, `Packet`, an API's own markers) are dimensions of their own; the
-[ww_si page](ww_si.md#dimensions) explains why and what it changes against plain SI, and how a unit known only at run
-time travels as an `SIExpr`.
+The unit markers are grouped by cargo feature, each with its own dimension, symbol and exact scale; `Per`, `Times`
+and `Sqrt` build the rest. See the book's [Units and dimensions](https://exact.vhrd.tech/start/units/).
 
-The wire format is the feature `shrink_wrap`, on by default. Without it `exact_units` has no dependencies and its
-types are plain Rust (a `Dim`'s exponents are `i8`): code that only checks units at compile time builds without
-the wire format, and the bytes are the same whichever crate turns it on.
+The wire format is the feature `shrink_wrap`, on by default through `ww_si`. Without it `exact_units` has no
+dependencies and its types are plain Rust (a `Dim`'s exponents are `i8`): code that only checks units at compile
+time builds without the wire format, and the bytes are the same whichever crate turns it on.

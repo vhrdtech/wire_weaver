@@ -74,8 +74,10 @@ pub struct Status {
 A count: `item_count: u32` becomes `items: Fixed<Item, One, u32>`. An id: `scale_id: u8` becomes `scale: ScaleId`
 (`#[derive_shrink_wrap] pub struct ScaleId(u8);` defined once, reused everywhere that id crosses the wire).
 
-Docs: `docs/std_library/exact_units.md` (`Fixed`, scales, bounds, aliases, in clients), `ww_si.md` (`Quantity`,
-units, dimensions, timestamps), `points.md`, `indices.md`, `rounding.md`. `exact_units` lives in its own repository
+Docs: `exact_units` itself (`Fixed`, scales, bounds, aliases, points, indices, rounding, customary units) has its
+own book at [exact.vhrd.tech](https://exact.vhrd.tech/); `docs/std_library/exact_units.md`, `ww_si.md`, `points.md`,
+`indices.md`, `rounding.md`, `customary.md` and `units_in_the_model.md` cover only the WireWeaver side (the API
+model, `ww`, Python, the dynamic client, the wire bytes). `exact_units` lives in its own repository
 (romixlab/exact_units), taken by git and locked by commit in `Cargo.toml`; `ww_si` re-exports all of it, so an API
 writes `ww_si::..` and turns on the unit groups it needs as `ww_si` features (`time`, `electrical`, `counting`, ...).
 

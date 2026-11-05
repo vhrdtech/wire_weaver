@@ -101,7 +101,7 @@ Otherwise the reader would take every point for another position:
   `another zero (273.15 K vs 298.15 K)`; so is `Celsius` -> `AbsoluteZero`.
 * **Another reference**: breaking. `Point<Vacuum, Fixed<Pascal, ..>>` -> `Point<Gauge, ..>` is `another reference
   (the unit's zero vs exact_units::AmbientPressure)`: a gauge pressure is against a pressure only known at run time.
-* **Another period**: breaking. An [angle that wraps](../std_library/points.md#angles-that-wrap) every turn and a
+* **Another period**: breaking. An [angle that wraps](https://exact.vhrd.tech/points/wrapping/) every turn and a
   position that doesn't are different things. `Angle<Degree>` and `Angle<Radian>` are the same origin (zero, one turn),
   so only the `Fixed`'s own unit counts there.
 * **Another dimension** (`Point<Angle<Degree>, ..>` -> `Point<Celsius, ..>`): breaking.
@@ -114,7 +114,7 @@ another scale.
 
 A [bound](rules.md#bounds) (`Range`, `RangeU64`, `RangeDec`) is compared by value, and any change of it is breaking
 for the side that refuses. In the place of a bound, `Wrapping` and `Saturating`
-([rounding and overflow](../std_library/rounding.md#the-policy-of-a-type)) say what happens at the ends of the number:
+([the policy of a type](https://exact.vhrd.tech/maths/overflow/#the-policy-of-a-type)) say what happens at the ends of the number:
 
 * **`Saturating`**: the same values with the same meaning as `Unbounded`: compatible both ways.
 * **`Wrapping`**: a position modulo its storage (a binary angle, a free-running counter). On one side only (`Unbounded`

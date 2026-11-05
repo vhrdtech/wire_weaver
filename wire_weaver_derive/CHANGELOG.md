@@ -15,6 +15,7 @@
 
 ### 🚀 Features
 
+- `#[ww_trait]` / `#[ww_api_root]` accept `#[default = ..]` and `#[flatten]` on arguments (EVO-22), strip them from the rustdoc trait and note them in its documentation.
 - `ww_codegen!(.., observe_samples = false)` (SRV-56): a firmware that takes no samples of its `+batched` properties links no batcher, outbox or `Series` encoder, with the same API and wire, see `docs/api/observing.md#a-firmware-that-takes-no-samples`.
 - `ww_codegen!(.., introspect_compression = "lz4")` (INT-16): the device keeps its introspection data compressed, `"none"` or absent as before. `introspect = ..` is documented in the macro's argument list too.
 - `ww_codegen!(.., global_paths = "full" | "compact" | "none")` (SRV-53): which global trait paths a server resolves itself. Not given: `"full"` without introspection, `"none"` with it (the client resolves them from the introspection data).

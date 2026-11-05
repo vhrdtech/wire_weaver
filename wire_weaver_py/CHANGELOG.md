@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- Arguments that evolve (EVO-22): a method's `#[flatten]` struct is called with its fields as arguments (the same Python call before and after an argument list becomes a struct), trailing arguments with a default may be left out, the signature shows the defaults (`timeout: u16 = 100`). New `Method.decode_args(bytes)`, the arguments as a `dict`.
 - `Observer.refused` (SRV-56): the properties a device did not apply as `{name: reason}`, e.g. `{"reading": "ModeNotSupported"}` from a firmware that takes no samples and doesn't say so. On an image that says so (`ImageFacts`), asking for samples raises before anything is sent.
 
 ### ⚠️ Breaking

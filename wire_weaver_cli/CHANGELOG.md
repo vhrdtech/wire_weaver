@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww api check` labels a break of Rust code only `breaking (Rust only, the wire is compatible):` (EVO-22, `Rule::Signature`, an argument added or removed with the wire intact). `ww explain` shows the arguments of a method with a `#[flatten]` struct by its fields.
 - `ww api scaffold --no-observe-samples` (SRV-56): writes `observe_samples = false` in the `ww_codegen!` call and an `ObserveState` without batches.
 - `ww observe` says what a device refused (SRV-56). With `--samples` a refusal is an error naming the properties, where it used to wait for samples that never came; without, a `refused:` line per property. On an image that says it takes no samples (`ImageFacts`), `--samples` fails before asking.
 - `ww api scaffold --introspect MODE` and `--introspect-compression lz4` (INT-16) put `introspect = ..` and `introspect_compression = ..` into the printed `ww_codegen!` call. `ww introspect`, `ww explain` and the other commands read compressed introspection data through the client; the "bytes sent" size stays that of the uncompressed bundle.

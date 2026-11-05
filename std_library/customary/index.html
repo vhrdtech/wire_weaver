@@ -3859,7 +3859,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -3936,17 +3936,6 @@
       On this page
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-catalogue" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The catalogue
-      </span>
-    </span>
-  </a>
-  
-</li>
       
         <li class="md-nav__item">
   <a href="#the-mars-climate-orbiter-case" class="md-nav__link">
@@ -5589,17 +5578,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-catalogue" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The catalogue
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#the-mars-climate-orbiter-case" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5740,55 +5718,30 @@
   
 
 
-<h1 id="imperial-and-us-customary-units">Imperial and US customary units<a class="headerlink" href="#imperial-and-us-customary-units" title="Permanent link">&para;</a></h1>
-<p><code>exact_units</code> has a marker for every imperial, US customary and other non-SI unit still in use (feature <code>customary</code>,
-opt-in: not part of <code>quantities</code> or <code>std</code>, so an API without them pays nothing for them; <code>ww_si</code>'s <code>customary</code> turns it
-on): inches, pounds, gallons, psi, Btu, horsepower, slugs, knots, mils. Each one's scale
-is the exact rational of SI its legal definition gives, with the source cited in its docs, so a value in pound-force
-seconds converts to newton seconds exactly, or doesn't convert at all.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">,</span><span class="w"> </span><span class="n">Pico</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::{</span><span class="n">Newton</span><span class="p">,</span><span class="w"> </span><span class="n">PoundForce</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Times</span><span class="p">}};</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">LbfSeconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Times</span><span class="o">&lt;</span><span class="n">PoundForce</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">impulse</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">LbfSeconds</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">2000</span><span class="p">);</span><span class="w"> </span><span class="c1">// 2 lbf·s</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1">// 1 lbf·s is 4.4482216152605 N·s exactly</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">impulse</span><span class="p">.</span><span class="n">convert</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Times</span><span class="o">&lt;</span><span class="n">Newton</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">Pico</span><span class="p">,</span><span class="w"> </span><span class="kt">i64</span><span class="o">&gt;</span><span class="p">(),</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">8_896_443_230_521</span><span class="p">))</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">);</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1">// 8.896443230521 N·s is not a whole number of mN·s: refused, not rounded</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">impulse</span><span class="p">.</span><span class="n">convert</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Times</span><span class="o">&lt;</span><span class="n">Newton</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i64</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span>
-</span></code></pre></div>
-<p>On the wire a <code>Fixed</code> in a customary unit is its integer, like any other <code>Fixed</code>: the unit is in the API, not in the
-bytes. The markers are zero-size types, and <code>convert</code> costs what <code>Fixed::to</code> costs: its factor is worked out at
-compile time.</p>
-<h2 id="the-catalogue">The catalogue<a class="headerlink" href="#the-catalogue" title="Permanent link">&para;</a></h2>
-<p>The catalogue of markers lives with <code>exact_units</code> in <a href="https://github.com/romixlab/exact_units/blob/main/docs/customary.md">its own repository</a>: every unit with its definition and
-source, the names that are never a bare marker ("gallon", "ton", "ounce", "BTU", "horsepower": <code>GallonUs</code> and
-<code>GallonImperial</code>, <code>TonShort</code>, <code>TonLong</code> and <code>Tonne</code>, ...), mass vs force (<code>PoundAvdp</code> vs <code>PoundForce</code>, <code>Slug</code>),
-temperatures as <a href="../points/">points</a> (<code>Point&lt;Fahrenheit, ..&gt;</code>), and the units of mercury, water, Btu and calories that
-are measured rather than defined.</p>
-<p>A measured unit's scale is the value NIST SP 811 prints, exact by convention only: its <code>provenance</code> is
-<code>Provenance::Conventional</code>. An API model carries it too, as <code>ww_self::MarkerDef::ConventionalUnit</code> (a unit with its
-source, see <a href="../units_in_the_model/">units in the model</a>), while a defined unit stays a plain <code>MarkerDef::Unit</code> and
-pays nothing for it, so a client knows which scales are conventions. The same holds for an API crate's own <code>unit!</code>
-lines with <code>conventional(..)</code>.</p>
+<h1 id="imperial-and-us-customary-units-in-wireweaver">Imperial and US customary units in WireWeaver<a class="headerlink" href="#imperial-and-us-customary-units-in-wireweaver" title="Permanent link">&para;</a></h1>
+<p><a href="https://exact.vhrd.tech/"><code>exact_units</code></a> has a marker for every imperial, US customary and other non-SI unit
+still in use (feature <code>customary</code>, opt-in; <code>ww_si</code>'s <code>customary</code> turns it on): inches, pounds, gallons, psi, Btu,
+horsepower, slugs, knots, mils, each an exact rational of SI from its legal definition, with the source cited. For
+the full catalogue, the ambiguous names no marker uses bare (gallon, ton, ounce, ...), mass vs force, temperatures
+as points and the measured units (mercury, water, Btu, calories), see the book's
+<a href="https://exact.vhrd.tech/customary/">Imperial and US customary units</a>.</p>
 <h2 id="the-mars-climate-orbiter-case">The Mars Climate Orbiter case<a class="headerlink" href="#the-mars-climate-orbiter-case" title="Permanent link">&para;</a></h2>
 <p>In 1999 a ground program wrote thruster impulse in pound-force seconds where the navigation software expected newton
 seconds, and the orbiter was lost. With WireWeaver the unit is part of the API, so a client either converts exactly
 or refuses; it never reads the number as another unit's.</p>
 <ul>
-<li><strong>Typed (Rust):</strong> <code>Fixed::convert</code> as above; a <code>Quantity&lt;Times&lt;PoundForce, Second&gt;&gt;</code> is the same value with its
-  prefix sent along.</li>
+<li><strong>Typed (Rust):</strong> <code>Fixed::convert</code>, as in the book's <a href="https://exact.vhrd.tech/customary/#the-mars-climate-orbiter-case">Mars Climate Orbiter
+  case</a>; a <code>Quantity&lt;Times&lt;PoundForce, Second&gt;&gt;</code>
+  is the same value with its prefix sent along.</li>
 <li><strong>Dynamic client:</strong> <code>DynQuantity::convert(&amp;DynUnit::from_name("Times&lt;Newton, Second&gt;")?)</code> gives
   <code>8896443230521 p(N·s)</code> for 2 lbf·s (an integer gets the largest SI prefix that keeps it whole, a float stays a
   float); a unit of another dimension is an error ("dimension .. is not ..").</li>
 <li><strong>Python:</strong> <code>q.convert("Times&lt;Newton, Second&gt;")</code>, on a quantity read from the device:</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">impulse_q</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>       <span class="c1"># 2 lbf·s</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">si</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;Times&lt;Newton, Second&gt;&quot;</span><span class="p">)</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">si</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;8896443230521 p(N·s)&quot;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">q</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;Times&lt;PoundAvdp, Second&gt;&quot;</span><span class="p">)</span>  <span class="c1"># ValueError: dimension .. is not ..</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">api</span><span class="o">.</span><span class="n">impulse_q</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>       <span class="c1"># 2 lbf·s</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">si</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;Times&lt;Newton, Second&gt;&quot;</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">si</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;8896443230521 p(N·s)&quot;</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">q</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;Times&lt;PoundAvdp, Second&gt;&quot;</span><span class="p">)</span>  <span class="c1"># ValueError: dimension .. is not ..</span>
 </span></code></pre></div>
 <p><code>tests/customary</code> runs the case through a device: a <code>Fixed</code>, a <code>Quantity</code> and an <code>AnyQuantity</code> in lbf·s. The dynamic
 client reads the <code>Fixed</code> field with its unit (<code>2000 m(lbf·s)</code>, <code>{:#}</code> <code>2 lbf·s</code>), converts it to N·s exactly, and
@@ -5842,7 +5795,7 @@ refuses 4 N·s written into it (not a whole number of m(lbf·s)), as for the oth
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../exact_units/" class="md-footer__link md-footer__link--prev" aria-label="Previous: exact_units: numbers with a fixed unit">
+          <a href="../exact_units/" class="md-footer__link md-footer__link--prev" aria-label="Previous: exact_units in an API">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -5852,7 +5805,7 @@ refuses 4 N·s written into it (not a whole number of m(lbf·s)), as for the oth
                 Previous
               </span>
               <div class="md-ellipsis">
-                exact_units: numbers with a fixed unit
+                exact_units in an API
               </div>
             </div>
           </a>

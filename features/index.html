@@ -3841,7 +3841,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -8470,7 +8470,7 @@ observing), SRV-46 (peer identity).
   (the board was not behind the probe). Proved by ELF instead (<code>just units-elf</code>): the pairs compared instruction by
   instruction on thumbv6m, thumbv7em and thumbv8m.main at <code>fw-z</code> and <code>fw-3</code>: range check and <code>Series</code> encode
   identical everywhere, <code>Series</code> decode at <code>fw-3</code>; struct encode/decode differ by the derive's per-field write for a
-  <code>Fixed</code> (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at <code>z</code> and <code>3</code> (<code>docs/std_library/rounding.md</code>, "Cost on a device"). STD-72 adds nothing of its own to measure: its markers are zero-size types and <code>Fixed::convert</code> is <code>Fixed::to</code>'s compile-time factor, so the <code>to</code> measurements cover it. See <code>docs/articles/units_budget.md</code>.</li>
+  <code>Fixed</code> (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at <code>z</code> and <code>3</code> (the exact_units book's <a href="https://exact.vhrd.tech/fixed_point/cost/">Cost on Cortex-M</a>). STD-72 adds nothing of its own to measure: its markers are zero-size types and <code>Fixed::convert</code> is <code>Fixed::to</code>'s compile-time factor, so the <code>to</code> measurements cover it. See <code>docs/articles/units_budget.md</code>.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>

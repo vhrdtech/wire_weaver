@@ -3859,7 +3859,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -3965,54 +3965,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-form" class="md-nav__link">
+  <a href="#on-the-wire" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The form
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#markers" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Markers
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#conversions-at-compile-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Conversions at compile time
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-a-magnitude-is-not" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        What a magnitude is not
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#memory-and-wire" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Memory and wire
+        On the wire
       </span>
     </span>
   </a>
@@ -5622,54 +5578,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-form" class="md-nav__link">
+  <a href="#on-the-wire" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The form
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#markers" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Markers
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#conversions-at-compile-time" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Conversions at compile time
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-a-magnitude-is-not" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        What a magnitude is not
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#memory-and-wire" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Memory and wire
+        On the wire
       </span>
     </span>
   </a>
@@ -5806,179 +5718,18 @@
   
 
 
-<h1 id="exact-magnitudes">Exact magnitudes<a class="headerlink" href="#exact-magnitudes" title="Permanent link">&para;</a></h1>
-<p>Every scale in <code>exact_units</code> is a <code>Magnitude</code>: one canonical, exact factor. A prefix, a power of ten or two, a
-fraction, a full-scale step, a degree in radians and the legal definition of the pound all have the same form, so two
-scales compare equal however they are written, and a conversion between them is worked out exactly at compile time.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">FixedScale</span><span class="p">,</span><span class="w"> </span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">Pow10</span><span class="p">,</span><span class="w"> </span><span class="n">Rational</span><span class="p">}};</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Milli</span><span class="p">::</span><span class="n">SCALE</span><span class="p">,</span><span class="w"> </span><span class="n">Pow10</span><span class="p">::</span><span class="o">&lt;-</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">::</span><span class="n">SCALE</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Milli</span><span class="p">::</span><span class="n">SCALE</span><span class="p">,</span><span class="w"> </span><span class="n">Rational</span><span class="p">::</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1000</span><span class="o">&gt;</span><span class="p">::</span><span class="n">SCALE</span><span class="p">);</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1">// the pound, 0.45359237 kg = 7 · 11 · 97 · 6073 · 10⁻⁸</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">const</span><span class="w"> </span><span class="n">LB</span><span class="p">:</span><span class="w"> </span><span class="nc">Magnitude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Magnitude</span><span class="p">::</span><span class="n">ratio</span><span class="p">(</span><span class="mi">45359237</span><span class="p">,</span><span class="w"> </span><span class="mi">100_000_000</span><span class="p">);</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">LB</span><span class="p">.</span><span class="n">to_ratio</span><span class="p">(),</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="mi">45359237</span><span class="p">,</span><span class="w"> </span><span class="mi">100_000_000</span><span class="p">)));</span>
-</span></code></pre></div>
-<h2 id="the-form">The form<a class="headerlink" href="#the-form" title="Permanent link">&para;</a></h2>
-<p>A magnitude is a product of powers:</p>
-<p><code>10^a · 2^b · π^c · ln2^d · ln10^e · ∏ pᵢ^kᵢ</code></p>
-<p>over primes <code>pᵢ</code> other than 2 and 5, every exponent a whole or a half number. It is kept canonical: 2 and 5 appear only
-in <code>a</code> and <code>b</code> (<code>5 = 10 · 2⁻¹</code>), the other primes in ascending order with exponents that aren't 0, so equal magnitudes
-are equal field by field.</p>
-<table>
-<thead>
-<tr>
-<th>Spelled</th>
-<th>Magnitude</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Micro</code>, <code>Pow10&lt;-6&gt;</code></td>
-<td>10⁻⁶</td>
-</tr>
-<tr>
-<td><code>Kibi</code>, <code>Pow2&lt;10&gt;</code></td>
-<td>2¹⁰</td>
-</tr>
-<tr>
-<td><code>Rational&lt;1, 65535&gt;</code> (<code>Duty16</code>)</td>
-<td>10⁻¹ · 2 · 3⁻¹ · 17⁻¹ · 257⁻¹</td>
-</tr>
-<tr>
-<td>a degree in rad</td>
-<td>10⁻¹ · 2⁻¹ · 3⁻² · π</td>
-</tr>
-<tr>
-<td>a decibel in neper</td>
-<td>10⁻¹ · 2⁻¹ · ln10</td>
-</tr>
-<tr>
-<td>√2 (a noise density's root)</td>
-<td>2^½</td>
-</tr>
-</tbody>
-</table>
-<p>The form is closed under <code>mul</code>, <code>div</code>, <code>powi</code> and <code>sqrt</code>: products never round. Two things are refused, both a
-compile error in a <code>const</code> (<code>MagnitudeError</code> from the <code>checked_</code> forms at run time): more than <code>MAX_FACTORS</code> (12)
-primes other than 2 and 5, and an exponent outside ±63½. The 171 imperial and US customary units of STD-72 take at
-most 7 such primes (the slug: 3, 7, 11, 97, 127, 6073, 28019), any product or quotient of two of them at most 10, and
-their largest exponent is 21. Fractions of plain integers can't do this: psi² takes 87 bits, (lbf·s)³ 130.</p>
-<p>π, ln 2 and ln 10 are exact symbols beside the primes. ln 2 and ln 10 are there for the logarithmic units: a decibel
-is ln10/20 Np, a shannon ln 2 nat, a decade ln10/ln2 octaves. The square root of a magnitude halves its exponents
-(√(mHz) is 10^(-3/2) Hz^½); the root of a half power (a quarter power) is <code>MagnitudeError::NotSquare</code>.</p>
-<h2 id="markers">Markers<a class="headerlink" href="#markers" title="Permanent link">&para;</a></h2>
-<p><code>Rational&lt;NUM, DEN&gt;</code> takes <code>u64</code> parameters and is factored into primes at compile time (trial division up to 2¹⁶,
-then Miller-Rabin and Pollard's rho), so any fraction a datasheet writes works. A prime factor above <code>u32::MAX</code> doesn't
-compile; no unit definition has one. Besides the prefixes, <code>Pow10&lt;E&gt;</code> and <code>Rational</code>:</p>
-<ul>
-<li><code>Pow2&lt;E&gt;</code>: binary steps. The Q formats are aliases over it, with the unit defaulting to <code>Ratio</code>: <code>Q15&lt;U&gt;</code> is
-  <code>Fixed&lt;U, Pow2&lt;-15&gt;, i16, Saturating&gt;</code>, <code>Q31&lt;U&gt;</code> is <code>Fixed&lt;U, Pow2&lt;-31&gt;, i32, Saturating&gt;</code>, <code>UQ16_16&lt;U&gt;</code> is
-  <code>Fixed&lt;U, Pow2&lt;-16&gt;, u32, Saturating&gt;</code>: their arithmetic saturates.</li>
-<li><code>FullScale&lt;V, BITS&gt;</code>: <code>V / 2^BITS</code>, one step of a converter whose <code>2^BITS</code> codes span <code>V</code> (LSB = Vref / 2ᴺ). A
-  12-bit ADC at 3.3 V is <code>Fixed&lt;Volt, FullScale&lt;Rational&lt;33, 10&gt;, 12&gt;, u16&gt;</code>.</li>
-<li><code>FullScaleMax&lt;V, BITS&gt;</code>: <code>V / (2^BITS - 1)</code>, where the largest code is <code>V</code> (a PWM duty, a DAC reaching its
-  reference). <code>FullScaleMax&lt;One, 16&gt;</code> is <code>Duty16</code>'s 1/65535.</li>
-<li>Binary angles: <code>Bam16</code> is <code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16, Wrapping&gt;</code> (65536 steps a turn, arithmetic wraps at a
-  turn), <code>Bam32</code> the same over <code>u32</code>.</li>
-</ul>
-<h2 id="conversions-at-compile-time">Conversions at compile time<a class="headerlink" href="#conversions-at-compile-time" title="Permanent link">&para;</a></h2>
-<p><code>Fixed::to::&lt;P2, T2&gt;()</code> works out <code>P / P2</code> as a constant. Between integer storages the factor must be a fraction of
-integers, and the multiply must fit a 64-bit integer when both storages have up to 32 bits, else 128 bits. If it
-doesn't, the conversion doesn't compile; it is never rounded. At run time the conversion is the multiply and divide
-by those constants: nothing between equal scales, a division in the storage's own width when the factor is
-1/n, <code>None</code> when the result isn't whole or doesn't fit <code>T2</code>. Float storages scale by the factor, π included. A
-conversion that rounds names how: <a href="../rounding/">Rounding and overflow</a>.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Q15</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">FullScale</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="p">,</span><span class="w"> </span><span class="n">Rational</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="p">};</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">half</span><span class="p">:</span><span class="w"> </span><span class="nc">Q15</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">16384</span><span class="p">);</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">half</span><span class="p">.</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">14</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">get</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">8192</span><span class="p">));</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">type</span><span class="w"> </span><span class="nc">Adc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">FullScale</span><span class="o">&lt;</span><span class="n">Rational</span><span class="o">&lt;</span><span class="mi">33</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">12</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Adc</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">4096</span><span class="p">).</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">get</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">3300</span><span class="p">));</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Adc</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1241</span><span class="p">).</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span><span class="w"> </span><span class="c1">// 999.8 mV isn&#39;t whole</span>
-</span></code></pre></div>
-<p>On Cortex-M the conversions cost what the same conversion written by hand costs. Instructions per function
-(hand-written / <code>Fixed::to</code>, <code>=</code> where LLVM emits the same code for both), measured from the ELF on 28 Oct 2026:</p>
-<table>
-<thead>
-<tr>
-<th>Conversion</th>
-<th>M0 <code>z</code></th>
-<th>M0 <code>3</code></th>
-<th>M4F <code>z</code></th>
-<th>M4F <code>3</code></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>ms → µs, <code>u32</code> (× 1000, checked)</td>
-<td>16 / 15</td>
-<td>17 / 17</td>
-<td>10 / 13</td>
-<td>11 / 15</td>
-</tr>
-<tr>
-<td>µs → ms, <code>u32</code> (exact ÷ 1000)</td>
-<td>18 / 16</td>
-<td>=</td>
-<td>12 / 9</td>
-<td>=</td>
-</tr>
-<tr>
-<td><code>Milli</code> → <code>Pow10&lt;-3&gt;</code></td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-</tr>
-<tr>
-<td><code>Duty16</code> → <code>One</code>, <code>u8</code></td>
-<td>14 / 15</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-</tr>
-<tr>
-<td><code>Q15</code> → <code>Pow2&lt;-14&gt;</code>, <code>i16</code></td>
-<td>10 / 12</td>
-<td>=</td>
-<td>10 / 12</td>
-<td>=</td>
-</tr>
-<tr>
-<td>ms <code>u16</code> → µs <code>u32</code></td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-</tr>
-<tr>
-<td><code>Rational&lt;70, 1000&gt;</code> <code>i16</code> → m <code>i32</code></td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-</tr>
-</tbody>
-</table>
-<p>The ms → µs difference is a range check on the input (<code>x ≤ 4294967</code>) in place of a 64-bit <code>umull</code> and a check of its
-high word. The gate that keeps such pairs equal is TEST-29.</p>
-<p><code>Magnitude::apply_int</code> and <code>apply_f64</code> do the same for a scale only known at run time (a <code>Quantity</code>'s prefix):
-exact or <code>None</code> for integers.</p>
-<h2 id="what-a-magnitude-is-not">What a magnitude is not<a class="headerlink" href="#what-a-magnitude-is-not" title="Permanent link">&para;</a></h2>
-<ul>
-<li>An offset: °C against K, gauge against absolute pressure, register formulas like <code>raw/256 + 25</code> are <a href="../points/">points with an
-  origin</a>.</li>
-<li>A level: dBm, dB SPL and pH take a logarithm of the value, not a factor (STD-67). Only the factor between two
-  logarithmic units (dB in Np) is a magnitude.</li>
-<li>A non-linear scale: AWG, Beaufort, mpg against L/100 km are named conversion functions (STD-75).</li>
-<li>A factor known only at run time: a calibration or a currency rate is a value (<code>ww_si::Quantity</code>, or the
-  application's), not a unit.</li>
-</ul>
-<h2 id="memory-and-wire">Memory and wire<a class="headerlink" href="#memory-and-wire" title="Permanent link">&para;</a></h2>
+<h1 id="exact-magnitudes-on-the-wire">Exact magnitudes on the wire<a class="headerlink" href="#exact-magnitudes-on-the-wire" title="Permanent link">&para;</a></h1>
+<p>Every scale in <a href="https://exact.vhrd.tech/"><code>exact_units</code></a> is a <code>Magnitude</code>: one canonical, exact factor, a product of
+powers of 10, 2, π, ln 2 and ln 10 and other primes. Two scales compare equal however they are written, and a
+conversion between them is worked out exactly at compile time. For the form, what it is and isn't, and how a
+conversion is chosen at compile time, see the book's <a href="https://exact.vhrd.tech/nomicon/magnitude/">Exact magnitudes</a>
+and <a href="https://exact.vhrd.tech/nomicon/compile_time/">Conversions at compile time</a>.</p>
+<h2 id="on-the-wire">On the wire<a class="headerlink" href="#on-the-wire" title="Permanent link">&para;</a></h2>
 <p>A <code>Magnitude</code> is plain <code>const</code> data without lifetimes, 104 bytes, so a firmware can hold a <code>&amp;'static Magnitude</code>.
-<code>Fixed</code> only uses it at compile time: a <code>Fixed</code> field costs what the plain number costs, and a <code>Quantity</code>'s run-time
-<code>Prefix</code> computes its magnitude when asked (<code>Prefix::magnitude()</code>), never storing one.</p>
-<p>On the wire (<code>self_describing</code>: the bytes end by themselves, so a magnitude can be the field of an enum variant, <code>SIExpr</code>'s <code>Scale::Exact</code>) every exponent is twice the exponent as an <code>i8</code>, the primes <code>UNib32</code>: <code>pow10</code>, then
+<code>Fixed</code> only uses it at compile time: a <code>Fixed</code> field costs what the plain number costs. <code>ww_si::Quantity</code>'s
+run-time <code>Prefix</code> computes its magnitude when asked (<code>Prefix::magnitude()</code>), never storing one.</p>
+<p>On the wire (<code>self_describing</code>: the bytes end by themselves, so a magnitude can be the field of an enum variant,
+<code>SIExpr</code>'s <code>Scale::Exact</code>) every exponent is twice the exponent as an <code>i8</code>, the primes <code>UNib32</code>: <code>pow10</code>, then
 the rest behind one option bit, its π / ln2 / ln10 behind one more, one bit per empty prime slot. A decimal prefix is
 2 bytes (Milli <code>fa 00</code>), <code>Kibi</code> 5 (<code>00 80 14 00 00</code>), a degree 11, 1/65535 13, the pound 16. A magnitude that isn't
 canonical (a 2 among the primes, a prime that isn't one, an empty rest written out) is refused on decode. The cases

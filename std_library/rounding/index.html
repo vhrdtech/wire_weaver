@@ -3859,7 +3859,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -4046,65 +4046,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#rounding" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Rounding
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#overflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Overflow
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#proven-by-the-bounds" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Proven by the bounds
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-policy-of-a-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The policy of a type
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#at-run-time" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         At run time
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cost-on-a-device" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Cost on a device
       </span>
     </span>
   </a>
@@ -5633,65 +5578,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#rounding" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Rounding
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#overflow" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Overflow
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#proven-by-the-bounds" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Proven by the bounds
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-policy-of-a-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        The policy of a type
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#at-run-time" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         At run time
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cost-on-a-device" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Cost on a device
       </span>
     </span>
   </a>
@@ -5828,184 +5718,27 @@
   
 
 
-<h1 id="rounding-and-overflow">Rounding and overflow<a class="headerlink" href="#rounding-and-overflow" title="Permanent link">&para;</a></h1>
-<p><code>Fixed::to</code> converts only when the result is exact: a whole number of the target's steps that fits its storage,
-else <code>None</code>. Where losing a part of a step is the intent (a reading shown in coarser steps, a Q15 sample narrowed to
-Q7, a binary angle in fewer bits), the conversion names how it rounds and what it does when the result doesn't fit.
-<code>to()</code> stays the default: a lossy conversion is always written as one.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="p">};</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1250</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span><span class="w"> </span><span class="c1">// 12.5 dV isn&#39;t whole</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_rounded</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">12</span><span class="p">);</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_rounded</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestAway</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">13</span><span class="p">);</span>
-</span></code></pre></div>
-<h2 id="rounding">Rounding<a class="headerlink" href="#rounding" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th><code>Rounding</code></th>
-<th>2.5</th>
-<th>-2.5</th>
-<th>2.4</th>
-<th>What does it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Truncate</code></td>
-<td>2</td>
-<td>-2</td>
-<td>2</td>
-<td>integer division in Rust and C</td>
-</tr>
-<tr>
-<td><code>Floor</code></td>
-<td>2</td>
-<td>-3</td>
-<td>2</td>
-<td>an arithmetic shift right</td>
-</tr>
-<tr>
-<td><code>Ceil</code></td>
-<td>3</td>
-<td>-2</td>
-<td>3</td>
-<td></td>
-</tr>
-<tr>
-<td><code>NearestEven</code></td>
-<td>2</td>
-<td>-2</td>
-<td>2</td>
-<td>IEEE 754's default, Python's <code>round</code>, no bias</td>
-</tr>
-<tr>
-<td><code>NearestAway</code></td>
-<td>3</td>
-<td>-3</td>
-<td>2</td>
-<td>C's <code>round</code> and <code>lround</code></td>
-</tr>
-</tbody>
-</table>
-<p>Every mode is exact: the conversion works out the true quotient and rounds once, with no float in between for
-integer storages. The factor between the scales is a constant worked out at compile time, as for <code>to</code>. Unlike <code>to</code>,
-a factor that isn't a fraction of integers (π between degrees and radians, ln 2, ln 10, a half exponent) is allowed:
-it is multiplied as its 64-bit fixed point, within 2⁻⁶⁴ of the factor, so the result is the correctly rounded one
-except where the true value lies within <code>|x| · 2⁻⁶⁴</code> of a rounding step. With a float on either side the float
-result is rounded.</p>
-<h2 id="overflow">Overflow<a class="headerlink" href="#overflow" title="Permanent link">&para;</a></h2>
-<p>What a result that doesn't fit the target storage becomes:</p>
-<table>
-<thead>
-<tr>
-<th><code>Overflow</code></th>
-<th>200 dV into an <code>i8</code></th>
-<th>For</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Checked</code></td>
-<td><code>None</code></td>
-<td>the default, where neither of the others is the meaning</td>
-</tr>
-<tr>
-<td><code>Saturate</code></td>
-<td>127</td>
-<td>Q formats, levels, set points: the nearest end</td>
-</tr>
-<tr>
-<td><code>Wrap</code></td>
-<td>-56</td>
-<td>binary angles, free-running counters: modulo 2^bits</td>
-</tr>
-</tbody>
-</table>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Overflow</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="p">};</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">big</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">20000</span><span class="p">);</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">big</span><span class="p">.</span><span class="n">to_rounded</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i8</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">big</span><span class="p">.</span><span class="n">to_saturating</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i8</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">).</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">127</span><span class="p">);</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">big</span><span class="p">.</span><span class="n">to_wrapping</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i8</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">).</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="o">-</span><span class="mi">56</span><span class="p">);</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1">// both chosen at run time</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">big</span><span class="p">.</span><span class="n">requantize</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">i8</span><span class="o">&gt;</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">Floor</span><span class="p">,</span><span class="w"> </span><span class="n">Overflow</span><span class="p">::</span><span class="n">Saturate</span><span class="p">);</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">get</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">127</span><span class="p">));</span>
-</span></code></pre></div>
-<p><code>Wrap</code> is two's complement for a signed storage. From a float, NaN and infinities wrap to 0; an infinity saturates
-to its end and NaN to 0.</p>
-<h2 id="proven-by-the-bounds">Proven by the bounds<a class="headerlink" href="#proven-by-the-bounds" title="Permanent link">&para;</a></h2>
-<p>When the bounds of a value prove that every rounded result fits, the conversion can't fail and says so in its type:
-<code>into_rounded</code> returns the value, not an <code>Option</code>, and doesn't compile where the proof doesn't hold. Without bounds
-the whole range of the storage is what has to fit. A whole factor between integer storages (mV to µV) is a plain
-<code>From</code> under the same proof:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="n">Micro</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="p">};</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">Rail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3300</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Rail</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">1250</span><span class="p">);</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">dv</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Deci</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">into_rounded</span><span class="p">(</span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">);</span><span class="w"> </span><span class="c1">// 0 ..= 33 dV fits a u8</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">uv</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Micro</span><span class="p">,</span><span class="w"> </span><span class="kt">i32</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">into</span><span class="p">();</span><span class="w"> </span><span class="c1">// 3 300 000 µV fits an i32</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="fm">assert_eq!</span><span class="p">((</span><span class="n">dv</span><span class="p">.</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="n">uv</span><span class="p">.</span><span class="n">get</span><span class="p">()),</span><span class="w"> </span><span class="p">(</span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="mi">1_250_000</span><span class="p">));</span>
-</span></code></pre></div>
-<p>A <code>Fixed&lt;Volt, Milli, i16&gt;</code> without the range reaches 3276.7 V, more than a <code>u8</code> of 0.1 V steps holds: there,
-<code>into_rounded</code> is a compile error and <code>to_rounded</code> the way.</p>
-<h2 id="the-policy-of-a-type">The policy of a type<a class="headerlink" href="#the-policy-of-a-type" title="Permanent link">&para;</a></h2>
-<p>Arithmetic (<code>+</code>, <code>-</code>, <code>*</code> and <code>/</code> by the storage) has an overflow policy too, and that one is part of the type, in
-the bounds parameter <code>B</code>:</p>
-<table>
-<thead>
-<tr>
-<th><code>B</code></th>
-<th><code>+</code> past the end of the storage</th>
-<th>Aliases with it</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Unbounded</code></td>
-<td>the storage's own <code>+</code>, <code>checked_add</code> etc.</td>
-<td><code>Micros</code>, <code>Millis</code>, <code>Duty16</code>...</td>
-</tr>
-<tr>
-<td><code>Wrapping</code></td>
-<td>modulo 2^bits</td>
-<td><code>Bam16</code>, <code>Bam32</code></td>
-</tr>
-<tr>
-<td><code>Saturating</code></td>
-<td>the nearest end</td>
-<td><code>Q15</code>, <code>Q31</code>, <code>UQ16_16</code></td>
-</tr>
-</tbody>
-</table>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Bam16</span><span class="p">,</span><span class="w"> </span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Q15</span><span class="p">,</span><span class="w"> </span><span class="n">Wrapping</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::</span><span class="n">Pow2</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::{</span><span class="n">Turn</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">}};</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">// 3/4 turn + 1/2 turn is 1/4 turn</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="fm">assert_eq!</span><span class="p">((</span><span class="n">Bam16</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">49152</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Bam16</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">32768</span><span class="p">)).</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">16384</span><span class="p">);</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1">// Q15 stops at 1 - 2⁻¹⁵</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="fm">assert_eq!</span><span class="p">((</span><span class="n">Q15</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">30000</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Q15</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">10000</span><span class="p">)).</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">32767</span><span class="p">);</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1">// the same bytes, another policy: free</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">c</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Turn</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Wrapping</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Turn</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">16</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">65535</span><span class="p">).</span><span class="n">with_overflow</span><span class="p">();</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="fm">assert_eq!</span><span class="p">((</span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">2</span><span class="p">)).</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
-</span></code></pre></div>
-<p><code>Wrapping</code> and <code>Saturating</code> values are made with <code>Fixed::of</code> (a <code>const fn</code>), <code>new</code> stays <code>Unbounded</code>'s so that
-<code>Fixed::new(a) + Fixed::new(b)</code> keeps inferring its type. Only the policy is in the marker: the bytes are the
-storage's, so the same value goes on the wire whatever the policy.</p>
+<h1 id="rounding-and-overflow-at-run-time">Rounding and overflow at run time<a class="headerlink" href="#rounding-and-overflow-at-run-time" title="Permanent link">&para;</a></h1>
+<p><code>Fixed::to</code> converts only when the result is exact. Where losing part of a step is the intent, the conversion
+names how it rounds (<code>Rounding</code>: <code>Truncate</code>, <code>Floor</code>, <code>Ceil</code>, <code>NearestEven</code>, <code>NearestAway</code>) and what it does when
+the result doesn't fit (<code>Overflow</code>: <code>Checked</code>, <code>Saturate</code>, <code>Wrap</code>), or carries the overflow policy in its bounds
+type <code>B</code> (<code>Unbounded</code>, <code>Saturating</code>, <code>Wrapping</code>). See the book's
+<a href="https://exact.vhrd.tech/maths/rounding/">Rounding</a> and <a href="https://exact.vhrd.tech/maths/overflow/">Overflow</a>, and
+<a href="https://exact.vhrd.tech/fixed_point/cost/">Cost on Cortex-M</a> for the instruction counts.</p>
 <h2 id="at-run-time">At run time<a class="headerlink" href="#at-run-time" title="Permanent link">&para;</a></h2>
-<p>A dynamic client, <code>ww</code> or a test bench has the scales and storages from the API model, not as types.
-<code>requantize</code> (or a <code>Requantizer</code> for a series of values) is the same conversion with the factor a <code>Magnitude</code> value
-and the target a <code>StorageKind</code>, and gives the same number as the typed one, bit for bit:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">Overflow</span><span class="p">,</span><span class="w"> </span><span class="n">Repr</span><span class="p">,</span><span class="w"> </span><span class="n">Requantizer</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">,</span><span class="w"> </span><span class="n">StorageKind</span><span class="p">};</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1">// mV to dV in an i8: the factor is 10⁻²</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Requantizer</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">Magnitude</span><span class="p">::</span><span class="n">pow10</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">StorageKind</span><span class="p">::</span><span class="n">Int</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="n">signed</span><span class="p">:</span><span class="w"> </span><span class="nc">true</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">,</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="n">Overflow</span><span class="p">::</span><span class="n">Checked</span><span class="p">,</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">);</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">q</span><span class="p">.</span><span class="n">apply</span><span class="p">(</span><span class="n">Repr</span><span class="p">::</span><span class="n">Int</span><span class="p">(</span><span class="mi">1250</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Repr</span><span class="p">::</span><span class="n">Int</span><span class="p">(</span><span class="mi">12</span><span class="p">)));</span>
+<p>A dynamic client, <code>ww</code> or a test bench has the scales and storages from the API model, not as types. <code>requantize</code>
+(or a <code>Requantizer</code> for a series of values) is the same conversion with the factor a <code>Magnitude</code> value and the
+target a <code>StorageKind</code>, and gives the same number as the typed one, bit for bit:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">Overflow</span><span class="p">,</span><span class="w"> </span><span class="n">Repr</span><span class="p">,</span><span class="w"> </span><span class="n">Requantizer</span><span class="p">,</span><span class="w"> </span><span class="n">Rounding</span><span class="p">,</span><span class="w"> </span><span class="n">StorageKind</span><span class="p">};</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1">// mV to dV in an i8: the factor is 10⁻²</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Requantizer</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="o">&amp;</span><span class="n">Magnitude</span><span class="p">::</span><span class="n">pow10</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">),</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">StorageKind</span><span class="p">::</span><span class="n">Int</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="n">signed</span><span class="p">:</span><span class="w"> </span><span class="nc">true</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">Rounding</span><span class="p">::</span><span class="n">NearestEven</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">Overflow</span><span class="p">::</span><span class="n">Checked</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">);</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">q</span><span class="p">.</span><span class="n">apply</span><span class="p">(</span><span class="n">Repr</span><span class="p">::</span><span class="n">Int</span><span class="p">(</span><span class="mi">1250</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Repr</span><span class="p">::</span><span class="n">Int</span><span class="p">(</span><span class="mi">12</span><span class="p">)));</span>
 </span></code></pre></div>
 <p>The <a href="../../serdes/conformance/#a-requantize-case">conformance corpus</a> holds conversions over decimal, binary,
 rational and π scales in every mode and policy, run through the typed conversion, the run-time one, Python's
@@ -6019,88 +5752,6 @@ rational and π scales in every mode and policy, run through the typed conversio
   constants worked out on the host: an exact ratio <code>num / den</code> of up to 128 bits, or <code>m * 2^shift</code> for π and other
   factors that aren't fractions of integers. See <a href="../../c/#requantize">ShrinkWrap in C</a>.</li>
 </ul>
-<h2 id="cost-on-a-device">Cost on a device<a class="headerlink" href="#cost-on-a-device" title="Permanent link">&para;</a></h2>
-<p>A conversion is the constants worked out at compile time and, at run time, one multiply, one divide (or shift) and a
-compare for the rounding: a factor of 1/n divides in the storage's own width (a power of 2 is an arithmetic shift and
-a mask), a factor with π multiplies by a 64-bit constant and rounds from the bits shifted out. Nothing of the policy is
-decided at run time unless <code>requantize</code> with a run-time policy is used.</p>
-<p>On Cortex-M that costs what the same conversion written by hand costs. Instructions per function (hand-written /
-typed, <code>=</code> where LLVM emits the same code for both), from the ELF of a <code>no_std</code> staticlib (<code>lto = "fat"</code>), Rust
-1.98.1, measured on 28 Oct 2026:</p>
-<table>
-<thead>
-<tr>
-<th>Conversion</th>
-<th>M0 <code>z</code></th>
-<th>M0 <code>3</code></th>
-<th>M4F <code>z</code></th>
-<th>M4F <code>3</code></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>mV <code>i16</code> → dV <code>i16</code>, <code>NearestEven</code>, checked</td>
-<td>27 / 29</td>
-<td>30 / 34</td>
-<td>24 / 23</td>
-<td>27 / 23</td>
-</tr>
-<tr>
-<td>mV <code>i16</code> → dV <code>i8</code>, <code>Floor</code>, saturating</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-</tr>
-<tr>
-<td><code>Q15</code> → <code>Q7</code>, <code>NearestEven</code>, saturating</td>
-<td>21 / 19</td>
-<td>29 / 26</td>
-<td>15 / 15</td>
-<td>15 / 15</td>
-</tr>
-<tr>
-<td><code>Bam16</code> → <code>Bam8</code>, <code>NearestEven</code>, wrapping</td>
-<td>19 / 17</td>
-<td>25 / 23</td>
-<td>13 / 13</td>
-<td>15 / 13</td>
-</tr>
-<tr>
-<td><code>Bam16 + Bam16</code> (wraps), <code>Q15 + Q15</code> (saturates)</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-<td>=</td>
-</tr>
-<tr>
-<td>0 to 3300 mV <code>i16</code> → dV <code>u8</code>, <code>into_rounded</code></td>
-<td>23 / 27</td>
-<td>26 / 36</td>
-<td>17 / 17</td>
-<td>25 / 27</td>
-</tr>
-<tr>
-<td>0 to 3300 mV <code>i16</code> → µV <code>i32</code>, <code>From</code></td>
-<td>12 / 16</td>
-<td>12 / 12</td>
-<td>10 / 12</td>
-<td>10 / 10</td>
-</tr>
-<tr>
-<td>m° <code>i32</code> → µrad <code>i32</code> (π), <code>NearestEven</code>, checked</td>
-<td>94 / 94</td>
-<td>96 / 96</td>
-<td>50 / 46</td>
-<td>51 / 48</td>
-</tr>
-</tbody>
-</table>
-<p>Both sides of the bounded rows check the 0 to 3300 range first (<code>try_new</code> on the typed side). Where the typed side
-is longer the arithmetic is the same: LLVM hoists the divide above the range check and picks selects where the hand
-version branches. The π row's hand version is the same correctly rounded 64-bit fixed point; the usual hand-written
-32.32 approximation with a round half up is 13 instructions on M0 and 11 on M4F, and not correctly rounded. The
-gate that keeps such pairs equal is TEST-29.</p>
 
 
 

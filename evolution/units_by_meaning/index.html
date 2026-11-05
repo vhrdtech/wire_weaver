@@ -3988,7 +3988,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -5927,7 +5927,7 @@ Otherwise the reader would take every point for another position:</p>
   <code>another zero (273.15 K vs 298.15 K)</code>; so is <code>Celsius</code> -&gt; <code>AbsoluteZero</code>.</li>
 <li><strong>Another reference</strong>: breaking. <code>Point&lt;Vacuum, Fixed&lt;Pascal, ..&gt;&gt;</code> -&gt; <code>Point&lt;Gauge, ..&gt;</code> is <code>another reference
   (the unit's zero vs exact_units::AmbientPressure)</code>: a gauge pressure is against a pressure only known at run time.</li>
-<li><strong>Another period</strong>: breaking. An <a href="../../std_library/points/#angles-that-wrap">angle that wraps</a> every turn and a
+<li><strong>Another period</strong>: breaking. An <a href="https://exact.vhrd.tech/points/wrapping/">angle that wraps</a> every turn and a
   position that doesn't are different things. <code>Angle&lt;Degree&gt;</code> and <code>Angle&lt;Radian&gt;</code> are the same origin (zero, one turn),
   so only the <code>Fixed</code>'s own unit counts there.</li>
 <li><strong>Another dimension</strong> (<code>Point&lt;Angle&lt;Degree&gt;, ..&gt;</code> -&gt; <code>Point&lt;Celsius, ..&gt;</code>): breaking.</li>
@@ -5938,7 +5938,7 @@ another scale.</p>
 <h2 id="bounds-wrapping-and-saturating">Bounds, wrapping and saturating<a class="headerlink" href="#bounds-wrapping-and-saturating" title="Permanent link">&para;</a></h2>
 <p>A <a href="../rules/#bounds">bound</a> (<code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>) is compared by value, and any change of it is breaking
 for the side that refuses. In the place of a bound, <code>Wrapping</code> and <code>Saturating</code>
-(<a href="../../std_library/rounding/#the-policy-of-a-type">rounding and overflow</a>) say what happens at the ends of the number:</p>
+(<a href="https://exact.vhrd.tech/maths/overflow/#the-policy-of-a-type">the policy of a type</a>) say what happens at the ends of the number:</p>
 <ul>
 <li><strong><code>Saturating</code></strong>: the same values with the same meaning as <code>Unbounded</code>: compatible both ways.</li>
 <li><strong><code>Wrapping</code></strong>: a position modulo its storage (a binary angle, a free-running counter). On one side only (<code>Unbounded</code>

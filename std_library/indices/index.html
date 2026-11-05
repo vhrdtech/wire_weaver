@@ -3859,7 +3859,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -4071,39 +4071,6 @@
       On this page
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#index" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Index
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#indexfrom1" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        IndexFrom1
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#seq" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Seq
-      </span>
-    </span>
-  </a>
-  
-</li>
       
         <li class="md-nav__item">
   <a href="#on-the-wire-and-in-the-model" class="md-nav__link">
@@ -5611,39 +5578,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#index" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Index
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#indexfrom1" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        IndexFrom1
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#seq" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Seq
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#on-the-wire-and-in-the-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5784,132 +5718,10 @@
   
 
 
-<h1 id="indices-and-sequence-numbers">Indices and sequence numbers<a class="headerlink" href="#indices-and-sequence-numbers" title="Permanent link">&para;</a></h1>
-<p>A <a href="../exact_units/"><code>Fixed</code></a><code>&lt;Sample, One, u32&gt;</code> is an amount: 50 samples, 512 bytes. A position in a table is
-something else: sample number 100 of a capture, byte 0x40 of a register map, channel 3 of 4. A sequence number is a
-position on a circle: frame 250, then 251, ..., 255, 0, 1. <code>exact_units</code> (feature <code>counting</code>, re-exported by <code>ww_si</code>)
-has a type for each, with the same algebra as <a href="../points/">points</a>: the table's start is the origin, the amounts are
-<code>Fixed</code>s of the same thing in steps of one.</p>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>What</th>
-<th>Refused</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Index&lt;Of, T, B&gt;</code></td>
-<td>0-based position in a table of <code>Of</code></td>
-<td>outside <code>B</code></td>
-</tr>
-<tr>
-<td><code>IndexFrom1&lt;Of, T, B&gt;</code></td>
-<td>1-based position, as people and datasheets count</td>
-<td>0, outside <code>B</code></td>
-</tr>
-<tr>
-<td><code>Seq&lt;Of, T&gt;</code></td>
-<td>wrapping sequence number of <code>Of</code></td>
-<td>nothing, every <code>T</code> is one</td>
-</tr>
-</tbody>
-</table>
-<p><code>Of</code> names what is counted: a counted marker (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Line</code>, <code>Row</code>, <code>Record</code>, <code>Entry</code>,
-<code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, or an API's own from <code>unit!</code>), or any other unit (<code>Byte</code> for an
-offset). <code>T</code> is an unsigned
-storage (<code>u8</code> .. <code>u64</code>, <code>Nibble</code>, <code>UNib32</code>, <code>UVlq64</code>). <code>B</code> are <code>Fixed</code>'s bounds markers, <code>Unbounded</code> by default.</p>
-<h2 id="index">Index<a class="headerlink" href="#index" title="Permanent link">&para;</a></h2>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Index</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Sample</span><span class="p">};</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">start</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Index</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Sample</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">end</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">50</span><span class="p">);</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">end</span><span class="p">.</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">150</span><span class="p">);</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1">// two positions are apart by an amount of samples</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">50</span><span class="p">));</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">start</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">end</span><span class="p">);</span>
-</span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th>Expression</th>
-<th>Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>index + amount</td>
-<td>index</td>
-</tr>
-<tr>
-<td>index − amount</td>
-<td>index</td>
-</tr>
-<tr>
-<td>index − index</td>
-<td>amount (<code>Fixed&lt;Of, One, T&gt;</code>, a distance)</td>
-</tr>
-<tr>
-<td>index + index</td>
-<td>doesn't compile</td>
-</tr>
-<tr>
-<td>index · x</td>
-<td>doesn't compile</td>
-</tr>
-<tr>
-<td>index of <code>Sample</code> + amount of <code>Frame</code></td>
-<td>doesn't compile</td>
-</tr>
-<tr>
-<td>index &lt; index</td>
-<td>compares the numbers</td>
-</tr>
-</tbody>
-</table>
-<p>The operators behave like the storage's own (a panic on overflow in debug builds); <code>checked_add</code>, <code>checked_sub</code> and
-<code>checked_distance</code> return <code>None</code> instead. A table of 8 is <code>Range&lt;0, 7&gt;</code>, checked on construction (<code>try_new</code>) and on
-every read from the wire; a bounded index moves only with the checked forms:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Index</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Item</span><span class="p">};</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">Slot</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Index</span><span class="o">&lt;</span><span class="n">Item</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">7</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">last</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Slot</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">7</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Slot</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">8</span><span class="p">).</span><span class="n">is_err</span><span class="p">());</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">last</span><span class="p">.</span><span class="n">checked_add</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">last</span><span class="p">.</span><span class="n">checked_sub</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">7</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Slot</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">0</span><span class="p">).</span><span class="n">unwrap</span><span class="p">()));</span>
-</span></code></pre></div>
-<h2 id="indexfrom1">IndexFrom1<a class="headerlink" href="#indexfrom1" title="Permanent link">&para;</a></h2>
-<p>Channel 1 to 4, pin 1, motor 1 to 4: numbers as people count them, never 0. <code>B</code> bounds the number as shown
-(<code>Range&lt;1, 4&gt;</code> for four channels); <code>to_index</code> and <code>from_index</code> go to and from the 0-based position.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Index</span><span class="p">,</span><span class="w"> </span><span class="n">IndexFrom1</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Item</span><span class="p">};</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">Channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IndexFrom1</span><span class="o">&lt;</span><span class="n">Item</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Channel</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">3</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">ch</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3&quot;</span><span class="p">);</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">ch</span><span class="p">.</span><span class="n">to_index</span><span class="p">(),</span><span class="w"> </span><span class="n">Index</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">2</span><span class="p">));</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Channel</span><span class="p">::</span><span class="n">from_index</span><span class="p">(</span><span class="n">Index</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Item</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">0</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Channel</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">unwrap</span><span class="p">()));</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Channel</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">0</span><span class="p">).</span><span class="n">is_err</span><span class="p">());</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Channel</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">5</span><span class="p">).</span><span class="n">is_err</span><span class="p">());</span>
-</span></code></pre></div>
-<h2 id="seq">Seq<a class="headerlink" href="#seq" title="Permanent link">&para;</a></h2>
-<p>A request's, an envelope's or a frame's number: <code>Seq&lt;Frame, u16&gt;</code>, <code>Seq&lt;Packet, Nibble&gt;</code>. It moves on modulo 2^bits
-of <code>T</code> (<code>next</code>, <code>wrapping_add</code>, <code>wrapping_sub</code>, <code>+</code> and <code>−</code> of an amount) and compares in serial number order
-(RFC 1982): <code>a</code> is before <code>b</code> when <code>b</code> is ahead by more than 0 and less than half the range, so the order holds
-across the wrap.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Seq</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Frame</span><span class="p">};</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Seq</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Frame</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">250</span><span class="p">);</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">wrapping_add</span><span class="p">(</span><span class="mi">10</span><span class="p">);</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">is_before</span><span class="p">(</span><span class="n">b</span><span class="p">));</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">is_after</span><span class="p">(</span><span class="n">a</span><span class="p">));</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">distance</span><span class="p">(</span><span class="n">b</span><span class="p">),</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">10</span><span class="p">));</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">next</span><span class="p">().</span><span class="n">get</span><span class="p">(),</span><span class="w"> </span><span class="mi">251</span><span class="p">);</span>
-</span></code></pre></div>
-<p><code>distance</code> is the steps forward from one to the other, a <code>Fixed&lt;Of, One, T, Wrapping&gt;</code>. <code>serial_cmp</code> gives the order
-as an <code>Option&lt;Ordering&gt;</code>: two numbers exactly half the range apart have none. A <code>Seq</code> has no <code>&lt;</code> and no <code>Ord</code>
-(integer order is wrong across the wrap, and serial order isn't transitive), and two sequence numbers don't add.</p>
+<h1 id="indices-and-sequence-numbers-on-the-wire">Indices and sequence numbers on the wire<a class="headerlink" href="#indices-and-sequence-numbers-on-the-wire" title="Permanent link">&para;</a></h1>
+<p>A position in a table (<code>Index&lt;Of, T, B&gt;</code>, <code>IndexFrom1&lt;Of, T, B&gt;</code>) or a wrapping sequence number (<code>Seq&lt;Of, T&gt;</code>) has
+the same algebra as <a href="../points/">points</a>: the table's start is the origin, the amounts are <code>Fixed</code>s of the same
+thing in steps of one. See the book's <a href="https://exact.vhrd.tech/points/indices/">Indices and sequence numbers</a>.</p>
 <h2 id="on-the-wire-and-in-the-model">On the wire and in the model<a class="headerlink" href="#on-the-wire-and-in-the-model" title="Permanent link">&para;</a></h2>
 <p>All three are <code>transparent</code>: their bytes are the number's, the table is only in the type. An <code>Index&lt;Sample, u32&gt;</code> of
 1000 next to a <code>u8</code> of 7 is <code>e8 03 00 00 07</code>; two <code>Seq&lt;Frame, Nibble&gt;</code>, 15 and the one after it, are one byte, <code>f0</code>.

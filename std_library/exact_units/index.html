@@ -30,7 +30,7 @@
     
     
       
-        <title>exact_units: numbers with a fixed unit - WireWeaver</title>
+        <title>exact_units in an API - WireWeaver</title>
       
     
     
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              exact_units: numbers with a fixed unit
+              exact_units in an API
             
           </span>
         </div>
@@ -3868,7 +3868,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -3885,7 +3885,7 @@
   <span class="md-ellipsis">
     
   
-  exact_units: numbers with a fixed unit
+  exact_units in an API
 
     
   </span>
@@ -3922,32 +3922,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#scales" class="md-nav__link">
+  <a href="#aliases" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Scales
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#storage" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Storage
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#bounds" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Bounds
+        Aliases
       </span>
     </span>
   </a>
@@ -3959,17 +3937,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Arithmetic and conversions
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#aliases" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Aliases
       </span>
     </span>
   </a>
@@ -5688,32 +5655,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#scales" class="md-nav__link">
+  <a href="#aliases" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Scales
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#storage" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Storage
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#bounds" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Bounds
+        Aliases
       </span>
     </span>
   </a>
@@ -5725,17 +5670,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Arithmetic and conversions
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#aliases" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Aliases
       </span>
     </span>
   </a>
@@ -5916,24 +5850,18 @@
   
 
 
-<h1 id="exact_units-numbers-with-a-fixed-unit">exact_units: numbers with a fixed unit<a class="headerlink" href="#exact_units-numbers-with-a-fixed-unit" title="Permanent link">&para;</a></h1>
-<p><code>exact_units</code> puts the unit, the scale and the storage of a number into its type. <code>Fixed&lt;U, P, T, B&gt;</code> is a <code>T</code> in
-unit <code>U</code> and scale <code>P</code> (a prefix like µ, a binary prefix like Ki, a power of ten, a fraction), within the bounds <code>B</code>.
-On the wire and in memory it is exactly the <code>T</code>: <code>shared_us: u64</code> becomes <code>shared: Fixed&lt;Second, Micro, u64&gt;</code> (or
-<code>Micros&lt;u64&gt;</code>) with the same bytes, and introspection shows µs instead of a field name to trust.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Micros</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">};</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">Micros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1500</span><span class="p">);</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">t</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;1500 µs&quot;</span><span class="p">);</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{t:#}&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;0.0015 s&quot;</span><span class="p">);</span><span class="w">        </span><span class="c1">// in the unit itself</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">t</span><span class="p">.</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span><span class="w">          </span><span class="c1">// 1500 µs isn&#39;t a whole number of ms</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">((</span><span class="n">t</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="p">).</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">3</span><span class="p">)));</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">core</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_micros</span><span class="p">(</span><span class="mi">1500</span><span class="p">));</span>
-</span></code></pre></div>
-<p><code>Micros::&lt;u32&gt;::new(1500)</code> is 4 bytes on the wire, <code>dc 05 00 00</code>, the bytes of the <code>u32</code> 1500.</p>
-<p>The crate lives in its own repository, <a href="https://github.com/romixlab/exact_units">romixlab/exact_units</a>: it doesn't depend on WireWeaver, the wire
-format is its optional <code>shrink_wrap</code> feature. It is <code>no_std</code> and needs no allocator. <a href="../ww_si/">ww_si</a> is built on it and re-exports everything, so
-<code>ww_si::Fixed</code> and <code>exact_units::Fixed</code> are the same type; an API that already uses <code>ww_si</code> writes <code>ww_si::..</code>.</p>
+<h1 id="exact_units-in-an-api">exact_units in an API<a class="headerlink" href="#exact_units-in-an-api" title="Permanent link">&para;</a></h1>
+<p><a href="https://exact.vhrd.tech/"><code>exact_units</code></a> puts the unit, the scale and the storage of a number into its type,
+<code>Fixed&lt;U, P, T, B&gt;</code>: a <code>T</code> in unit <code>U</code> and scale <code>P</code>, within the bounds <code>B</code>. On the wire and in memory it is exactly
+the <code>T</code>: <code>shared_us: u64</code> becomes <code>shared: Fixed&lt;Second, Micro, u64&gt;</code> (or <code>Micros&lt;u64&gt;</code>) with the same bytes, and
+introspection shows µs instead of a field name to trust. <code>Micros::&lt;u32&gt;::new(1500)</code> is 4 bytes on the wire,
+<code>dc 05 00 00</code>, the bytes of the <code>u32</code> 1500.</p>
+<p>The crate lives in its own repository, <a href="https://github.com/romixlab/exact_units">romixlab/exact_units</a>, with its
+own book at <a href="https://exact.vhrd.tech/">exact.vhrd.tech</a>: it doesn't depend on WireWeaver, the wire format is its
+optional <code>shrink_wrap</code> feature. <a href="../ww_si/">ww_si</a> is built on it and re-exports everything, so <code>ww_si::Fixed</code> and
+<code>exact_units::Fixed</code> are the same type; an API that already uses <code>ww_si</code> writes <code>ww_si::..</code>. For <code>Fixed</code> itself —
+scales, storage, bounds, arithmetic, conversions, rounding, aliases, serde — see the book's
+<a href="https://exact.vhrd.tech/start/first_steps/">first steps</a> and <a href="https://exact.vhrd.tech/maths/arithmetic/">doing maths</a>.</p>
 <h2 id="fixed-or-quantity">Fixed or Quantity<a class="headerlink" href="#fixed-or-quantity" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -5975,210 +5903,43 @@ format is its optional <code>shrink_wrap</code> feature. It is <code>no_std</cod
 buffer size in bytes): no byte for the prefix, and a <code>u64</code> field doesn't turn on <code>ww_numeric</code>'s 64-bit types for the
 whole firmware. Take <code>Quantity</code> when each device should pick its own resolution (an ADC in mV on one board, in µV on
 another). <code>Quantity::to_fixed</code> and <code>Quantity::from_fixed</code> convert between them.</p>
-<h2 id="scales">Scales<a class="headerlink" href="#scales" title="Permanent link">&para;</a></h2>
-<p><code>P</code> is a marker type from <code>exact_units::prefix</code>:</p>
-<ul>
-<li>the SI prefixes <code>Quecto</code> .. <code>Quetta</code>, and <code>One</code> for the unit itself;</li>
-<li>the binary prefixes <code>Kibi</code>, <code>Mebi</code>, <code>Gibi</code>, <code>Tebi</code>;</li>
-<li><code>Pow10&lt;E&gt;</code>, a power of ten without a name: tenths of a millisecond are <code>Fixed&lt;Second, Pow10&lt;-4&gt;, u32&gt;</code>, shown as
-  <code>15·10⁻⁴ s</code>;</li>
-<li><code>Pow2&lt;E&gt;</code>, a power of two: the Q formats and binary angles;</li>
-<li><code>Rational&lt;NUM, DEN&gt;</code> (<code>u64</code>), a fraction: <code>Duty16</code> is <code>Fixed&lt;Ratio, Rational&lt;1, 65535&gt;, u16&gt;</code>, where 65535 is 100 %;</li>
-<li><code>FullScale&lt;V, BITS&gt;</code> and <code>FullScaleMax&lt;V, BITS&gt;</code>, one step of a converter whose <code>2^BITS</code> codes (or largest code)
-  span <code>V</code>.</li>
-<li><code>Product&lt;A, B&gt;</code> and <code>Quotient&lt;A, B&gt;</code>, the scale of a product or quotient of two <code>Fixed</code> values: mV times mA is a
-  <code>Product&lt;Milli, Milli&gt;</code>, a step of 1 µW.</li>
-</ul>
-<p>Every scale is a <a href="../magnitude/"><code>Magnitude</code></a>, a canonical product of prime powers with powers of π, ln 2 and ln 10,
-so <code>Milli</code>, <code>Pow10&lt;-3&gt;</code> and <code>Rational&lt;1, 1000&gt;</code> are the same scale. A conversion with <code>to::&lt;P2, T2&gt;()</code> is exact or
-refused (<code>None</code>), never rounded through a float, and its factor is worked out at compile time: one that isn't a
-fraction of integers, or whose multiply doesn't fit, doesn't compile. 4 KiB as <code>Fixed&lt;Byte, Kibi, u16&gt;</code> is
-<code>Fixed&lt;Byte, One, u32&gt;</code> 4096. The π power makes angles exact too: a degree is π/180 rad and a turn 2π rad.</p>
-<h2 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h2>
-<p><code>T</code> is <code>u8</code> .. <code>u64</code>, <code>i8</code> .. <code>i64</code>, <code>f32</code>, <code>f64</code>, or one of <code>shrink_wrap</code>'s variable-length integers <code>UNib32</code>,
-<code>UVlq32</code>, <code>UVlq64</code> and <code>Nibble</code> (trait <code>Storage</code>, <code>UnsignedStorage</code> for the unsigned ones).</p>
-<h2 id="bounds">Bounds<a class="headerlink" href="#bounds" title="Permanent link">&para;</a></h2>
-<p><code>B</code> is <code>Unbounded</code> unless given, and then stays out of the way: <code>Fixed::new</code>, <code>+</code>, <code>-</code>, <code>*</code> and <code>/</code> by <code>T</code> exist for
-the three-parameter form. Bounded values are made with <code>try_new</code> or <code>bounded</code> and checked on every read from the
-wire, so a <code>set</code> of a bounded property out of range is refused before the handler runs:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Second</span><span class="p">};</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">Timeout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Timeout</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">10</span><span class="p">).</span><span class="n">is_ok</span><span class="p">());</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Timeout</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="mi">0</span><span class="p">).</span><span class="n">is_err</span><span class="p">());</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">const</span><span class="w"> </span><span class="n">LONG</span><span class="p">:</span><span class="w"> </span><span class="nc">Timeout</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timeout</span><span class="p">::</span><span class="n">bounded</span><span class="p">(</span><span class="mi">5000</span><span class="p">);</span><span class="w">     </span><span class="c1">// out of bounds here is a compile error</span>
-</span></code></pre></div>
-<p><code>Range&lt;MIN, MAX&gt;</code> is inclusive (<code>i64</code> bounds), <code>RangeU64</code> for big unsigned ones, <code>RangeDec&lt;MIN, MAX, EXP&gt;</code> decimal
-bounds for floats (<code>RangeDec&lt;-5, 5, -1&gt;</code> is -0.5 ..= 0.5); NaN is always out of bounds. A bound that doesn't fit the
-storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.</p>
-<h2 id="arithmetic-and-conversions">Arithmetic and conversions<a class="headerlink" href="#arithmetic-and-conversions" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>checked_add</code>, <code>checked_sub</code>, <code>checked_mul</code>, <code>checked_div</code> give <code>None</code> on overflow or out of bounds;
-  <code>saturating_*</code> and <code>wrapping_*</code> (a device clock that wraps) as for the integers. <code>Wrapping</code> and <code>Saturating</code> as
-  <code>B</code> make <code>+</code>, <code>-</code>, <code>*</code> and <code>/</code> do the same.</li>
-<li><code>to</code> converts only exactly; <code>to_rounded</code>, <code>to_saturating</code>, <code>to_wrapping</code> and <code>requantize</code> name a rounding and an
-  overflow policy, <code>into_rounded</code> and <code>From</code> are the infallible ones the bounds prove: see
-  <a href="../rounding/">Rounding and overflow</a>.</li>
-<li><code>PartialEq</code>, <code>Ord</code> and <code>Hash</code> compare the numbers; values of different scales are different types, convert them
-  with <code>to</code> first. <code>==</code> and <code>&lt;</code> also compare two <code>Fixed</code> of one unit, scale and storage with different bounds (a
-  <code>Range</code>-bounded reading against an unbounded threshold); <code>Eq</code>, <code>Ord</code> and <code>Hash</code> stay within one type.</li>
-<li>Products and quotients of two <code>Fixed</code> (STD-83): <code>a * b</code> is a <code>Fixed&lt;Times&lt;U1, U2&gt;, Product&lt;P1, P2&gt;, T&gt;</code>, <code>a / b</code>
-  a <code>Fixed&lt;Per&lt;U1, U2&gt;, Quotient&lt;P1, P2&gt;, T&gt;</code>, one multiply or division of <code>T</code> with the exact result scale as a type
-  (mV · mA is a <code>Product&lt;Milli, Milli&gt;</code>, a step of 1 µW), overflow by the operands' policy. <code>checked_times</code>,
-  <code>saturating_times</code>, <code>wrapping_times</code> and the <code>_per</code> twins take operands of any bounds; <code>times_into</code> / <code>per_into</code>
-  give the result in another scale and storage, rounded once (mV · mA into mW). <code>convert</code> reaches the named unit
-  (V · A to <code>Watt</code>).</li>
-<li><code>core::time::Duration</code> both ways for s, ds, cs, ms, µs and ns: <code>Micros::&lt;u32&gt;::try_from(Duration::from_millis(3))</code>
-  is 3000 µs, an error when it doesn't fit.</li>
-<li><code>Display</code> as <code>1500 µs</code>, <code>{:#}</code> in the unit itself (<code>0.0015 s</code>); <code>Debug</code> as <code>Second(1500 µs u32)</code> (with the bounds
-  when there are some: <code>Second(100 ms u16, 1..=5000)</code>); <code>defmt::Format</code> with the <code>defmt</code> feature. <code>{:#}</code> takes the
-  formatter's precision and width, rounding to the nearest (a tie to even): <code>{:#.3}</code> of a Q15 of 0.8 is <code>0.800</code>,
-  <code>{:#10.2}</code> of 1500 mV is <code>1.50 V</code>.</li>
-<li>Units of one dimension but another kind of quantity don't convert (STD-68): a voltage gain <code>Per&lt;Volt, Volt&gt;</code> is
-  not a current gain <code>Per&lt;Ampere, Ampere&gt;</code>, a power gain <code>Per&lt;Watt, Watt&gt;</code> or a <code>Ratio</code> (a duty cycle), and a
-  transimpedance <code>Per&lt;Volt, Ampere&gt;</code> is not an <code>Ohm</code> (resistance), nor <code>Per&lt;Ampere, Volt&gt;</code> a <code>Siemens</code>. A quotient
-  of one dimension keeps what cancelled, a gain times a voltage is a plain voltage; a scale still converts within a
-  kind (mV/V to V/V). Crossing is a named step that keeps the number: <code>as_ratio</code> / <code>as_gain::&lt;Volt&gt;()</code>,
-  <code>as_resistance</code> / <code>as_transimpedance</code>, <code>as_conductance</code> / <code>as_transconductance</code>. The rules are in the <code>kind</code>
-  module of <code>exact_units</code>.</li>
-<li>A gain in dB by its kind (std): <code>Fixed::&lt;Per&lt;Volt, Volt&gt;, One, f64&gt;::new(10.0).to_db()</code> is 20 dB (20·lg for
-  V/V, A/A, Pa/Pa), a power gain W/W 10·lg; <code>from_db</code> the other way. A plain <code>Ratio</code> has no level form and doesn't
-  compile there: 0.5 duty is not −3 dB.</li>
-<li>Cycles per second become hertz only through the named <code>to_hertz</code>: a cycle is a counted thing, not a dimensionless
-  1 (see <a href="../ww_si/#dimensions">dimensions</a>).</li>
-<li>A <code>Fixed</code> is an amount (5 K, 3 ms). A reading against a zero that isn't the unit's (25 °C, gauge pressure, a
-  register's <code>raw / 256 + 25 °C</code>, a heading that wraps) is a <code>Point</code> of an origin: see <a href="../points/">points</a>.</li>
-</ul>
 <h2 id="aliases">Aliases<a class="headerlink" href="#aliases" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Alias</th>
-<th>Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Secs&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Second, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Millis&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Second, Milli, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Micros&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Second, Micro, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Nanos&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Second, Nano, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Minutes&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Minute, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Hours&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Hour, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Days&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Day, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Hz&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Hertz, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Bytes&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Byte, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Kibibytes&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Byte, Kibi, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Mebibytes&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Byte, Mebi, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Gibibytes&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Byte, Gibi, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Count&lt;Of, T&gt;</code></td>
-<td><code>Fixed&lt;Of, One, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Percent&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Ratio, Centi, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Permille&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Ratio, Milli, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Ppb&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Ratio, Nano, T&gt;</code></td>
-</tr>
-<tr>
-<td><code>Duty16</code></td>
-<td><code>Fixed&lt;Ratio, Rational&lt;1, 65535&gt;, u16&gt;</code></td>
-</tr>
-<tr>
-<td><code>Q15&lt;U&gt;</code></td>
-<td><code>Fixed&lt;U, Pow2&lt;-15&gt;, i16, Saturating&gt;</code> (<code>U</code> = <code>Ratio</code>)</td>
-</tr>
-<tr>
-<td><code>Q31&lt;U&gt;</code></td>
-<td><code>Fixed&lt;U, Pow2&lt;-31&gt;, i32, Saturating&gt;</code></td>
-</tr>
-<tr>
-<td><code>UQ16_16&lt;U&gt;</code></td>
-<td><code>Fixed&lt;U, Pow2&lt;-16&gt;, u32, Saturating&gt;</code></td>
-</tr>
-<tr>
-<td><code>Bam16</code></td>
-<td><code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16, Wrapping&gt;</code></td>
-</tr>
-<tr>
-<td><code>Bam32</code></td>
-<td><code>Fixed&lt;Turn, Pow2&lt;-32&gt;, u32, Wrapping&gt;</code></td>
-</tr>
-</tbody>
-</table>
-<p>The Q formats saturate and the binary angles wrap in arithmetic; they are made with <code>Fixed::of</code>, see
-<a href="../rounding/#the-policy-of-a-type">Rounding and overflow</a>.</p>
-<p>A moment in POSIX time (<code>time_t</code>, journald's <code>__REALTIME_TIMESTAMP</code>) since the Unix epoch is a <code>Point</code> of
-<code>origins::UnixEpoch</code> (see <a href="../points/#origins">points</a>), aliased as <code>UnixSecs&lt;T&gt;</code>, <code>UnixMillis&lt;T&gt;</code>, <code>UnixMicros&lt;T&gt;</code>
-and <code>UnixNanos&lt;T&gt;</code> (<code>T</code> defaults to <code>u64</code>), each a <code>Point&lt;UnixEpoch, Secs&lt;T&gt;&gt;</code> / <code>Millis&lt;T&gt;</code> / <code>Micros&lt;T&gt;</code> /
-<code>Nanos&lt;T&gt;</code>.</p>
+<p><code>Secs</code>, <code>Millis</code>, <code>Micros</code>, <code>Nanos</code>, <code>Minutes</code>, <code>Hours</code>, <code>Days</code>, <code>Hz</code>, <code>Bytes</code>/<code>Kibibytes</code>/<code>Mebibytes</code>/<code>Gibibytes</code>,
+<code>Count&lt;Of, T&gt;</code>, <code>Percent</code>/<code>Permille</code>/<code>Ppb</code>, <code>Duty16</code>, the Q formats and the binary angles are all <code>Fixed</code> under
+another name. A moment in POSIX time is a <code>Point</code> of <code>origins::UnixEpoch</code>, aliased <code>UnixSecs</code>/<code>UnixMillis</code>/
+<code>UnixMicros</code>/<code>UnixNanos</code>. See the book's <a href="https://exact.vhrd.tech/start/first_steps/#aliases-for-the-common-ones">aliases table</a>.</p>
+<h2 id="arithmetic-and-conversions">Arithmetic and conversions<a class="headerlink" href="#arithmetic-and-conversions" title="Permanent link">&para;</a></h2>
+<p>A unit's kind (STD-68) keeps a voltage gain from converting into a duty cycle or a resistance from a
+transimpedance, the compiler and the evolution checker alike: see the book's <a href="https://exact.vhrd.tech/maths/kinds/">Kinds of
+quantity</a>. The same kind picks a gain's dB formula, 20·lg or 10·lg: <a href="https://exact.vhrd.tech/levels/decibels/">Decibels</a>.
+Multiplying or dividing two <code>Fixed</code> values gives back the exact result unit and scale as a type, with checked,
+saturating and wrapping forms for what doesn't fit: <a href="https://exact.vhrd.tech/fixed_point/products/">Products and
+requantization</a>.</p>
 <h2 id="in-an-api">In an API<a class="headerlink" href="#in-an-api" title="Permanent link">&para;</a></h2>
 <p><code>Fixed</code> goes into properties, method arguments, <code>Timed</code> values and <code>Series</code> like any type. The bounds may be left out
 in Rust source; the walker fills in <code>Unbounded</code>, and the API model, snapshots, <code>ww</code>, Python and the scaffold always
 show all four arguments:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">Series</span><span class="p">;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Micros</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::{</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">}};</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="cp">#[ww_trait]</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">timeout</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">window</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">);</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sizes</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">ticks</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Micros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">Series</span><span class="p">;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Micros</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::{</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">}};</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">timeout</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">window</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">);</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sizes</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">One</span><span class="p">,</span><span class="w"> </span><span class="kt">u32</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">ticks</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Series</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Micros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>A <code>Series</code> of <code>Fixed</code> values has the same columns and bytes as a <code>Series</code> of the plain numbers.</p>
 <h2 id="in-ww-python-and-dynamic-clients">In <code>ww</code>, Python and dynamic clients<a class="headerlink" href="#in-ww-python-and-dynamic-clients" title="Permanent link">&para;</a></h2>
 <p>A client that only has a device's introspection data knows a <code>Fixed</code> for what it is: its unit, its scale, the number
 type it is stored in and its bounds. <code>ww introspect</code> (and <code>ww api tree</code> from source) shows what the numbers are in
 and the bounds after the type:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>├─ 5 rw property timeout: Fixed&lt;Second, Milli, u16, Unbounded&gt; [ms]
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├─ 7 rw property window: Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt; [ms, 1..=5000]
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├─ 15 rw property uptime: Fixed&lt;Second, Micro, u64, Unbounded&gt; [µs]
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├─ 16 rw property buffer: Fixed&lt;Byte, Kibi, u16, Unbounded&gt; [KiB]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>├─ 5 rw property timeout: Fixed&lt;Second, Milli, u16, Unbounded&gt; [ms]
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├─ 7 rw property window: Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt; [ms, 1..=5000]
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├─ 15 rw property uptime: Fixed&lt;Second, Micro, u64, Unbounded&gt; [µs]
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├─ 16 rw property buffer: Fixed&lt;Byte, Kibi, u16, Unbounded&gt; [KiB]
 </span></code></pre></div>
 <p><code>ww observe</code>, <code>ww stream</code>, <code>ww tap</code> and <code>ww explain</code> print a value as the typed <code>Fixed</code> prints itself, exactly:
 <code>1730000000000000 µs</code> from a <code>u64</code>, never through a float, <code>4 KiB</code> for a binary scale, the scale's own symbol for a
@@ -6186,9 +5947,9 @@ and the bounds after the type:</p>
 <code>expr::parse_value</code>) take a quantity in <code>q!(..)</code> and convert it exactly into the stored scale and number type:
 <code>q!(5 ms)</code> into the <code>uptime</code> above stores 5000, <code>q!(0.1 ms)</code> 100, <code>q!(1 MiB)</code> into <code>buffer</code> 1024, <code>q!(8192 B)</code> 8.
 What doesn't fit is refused before anything is sent, with the type named:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>1.5 ns can&#39;t be written into Fixed&lt;Second, Micro, u64, Unbounded&gt;: not a whole number of µs
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>70 s can&#39;t be written into Fixed&lt;Second, Milli, u16, Unbounded&gt;: 70000 is out of range for u16
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>6 s can&#39;t be written into Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt;: 6000 is out of 1..=5000
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>1.5 ns can&#39;t be written into Fixed&lt;Second, Micro, u64, Unbounded&gt;: not a whole number of µs
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>70 s can&#39;t be written into Fixed&lt;Second, Milli, u16, Unbounded&gt;: 70000 is out of range for u16
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>6 s can&#39;t be written into Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt;: 6000 is out of 1..=5000
 </span></code></pre></div>
 <p>A plain number is the stored number (<code>uptime = 5000</code> is 5000 µs), what a script wrote into the field when it was a
 plain <code>u64</code>, checked against the storage and the bounds the same way.
@@ -6196,13 +5957,13 @@ plain <code>u64</code>, checked against the storage and the bounds the same way.
 <code>#2 (Item, from 1)</code>, <code>seq 41 (Frame)</code>, and take their number, an <code>IndexFrom1</code> refusing 0.</p>
 <p>Python gets a <code>ww.Quantity</code>, as for a <a href="../ww_si/#in-ww-python-and-dynamic-clients"><code>Quantity</code></a>, with the stored
 number and type:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># 1730000000000000 µs</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">u</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">storage</span> <span class="c1"># 1730000000000000, &quot;Micro&quot;, &quot;u64&quot;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">u</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">fixed</span>    <span class="c1"># &quot;s&quot;, &quot;Second&quot;, True</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">u</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 1730000000.0</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">bounds</span>     <span class="c1"># (1, 5000)</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>  <span class="c1"># 5 ms, stored as 5000</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>       <span class="c1"># as stored: 5000 µs</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># 1730000000000000 µs</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">u</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">storage</span> <span class="c1"># 1730000000000000, &quot;Micro&quot;, &quot;u64&quot;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">u</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">fixed</span>    <span class="c1"># &quot;s&quot;, &quot;Second&quot;, True</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">u</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 1730000000.0</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">bounds</span>     <span class="c1"># (1, 5000)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>  <span class="c1"># 5 ms, stored as 5000</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>       <span class="c1"># as stored: 5000 µs</span>
 </span></code></pre></div>
 <p>A write takes a <code>ww.Quantity</code> of a unit of the same dimension, converted exactly, or the stored number; anything
 else is a <code>ValueError</code> with the same text as above.</p>
@@ -6211,81 +5972,15 @@ else is a <code>ValueError</code> with the same text as above.</p>
 writes into it exactly or returns the error above. <code>quantity::DynCount</code> does the same for indices and sequence
 numbers. The C consumer of the <a href="../../serdes/conformance/">conformance matrix</a> reads a <code>Fixed</code> as its <code>T</code>.</p>
 <h2 id="serde">serde<a class="headerlink" href="#serde" title="Permanent link">&para;</a></h2>
-<p>With the feature <code>serde</code> the numbers are <code>Serialize</code> / <code>Deserialize</code>, <code>no_std</code> and without alloc (STD-94). Each is
-written as the number it stores, as on the wire, since the unit, scale and bounds are in the type: a
-<code>Fixed&lt;Second, Milli, u16&gt;</code> of 1500 ms is <code>1500</code> in JSON and the <code>u16</code>'s bytes in postcard.</p>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Written as</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Fixed</code> (Q15, <code>Bam16</code>, <code>PhaseBam16</code>, ..)</td>
-<td>the stored number</td>
-</tr>
-<tr>
-<td><code>Point</code>, <code>Index</code>, <code>IndexFrom1</code>, <code>Seq</code></td>
-<td>the stored number</td>
-</tr>
-<tr>
-<td><code>Complex</code></td>
-<td><code>{ re, im }</code>, a tuple's bytes in postcard; <code>[re, im]</code> reads</td>
-</tr>
-<tr>
-<td><code>Polar</code></td>
-<td><code>{ abs, arg }</code></td>
-</tr>
-<tr>
-<td><code>Decibels</code></td>
-<td><code>"-3.01"</code> in JSON, TOML, RON; <code>(num, decimals)</code> in postcard</td>
-</tr>
-</tbody>
-</table>
-<p><code>Complex</code> is a struct of named parts and not a pair: in a binary format the bytes are the same, and in a config the
-parts can't be swapped by mistake. Reading checks what construction checks and never builds a value that breaks it:
-a <code>Fixed</code> or an index outside its bounds, an <code>IndexFrom1</code> of 0, a level with more than 9 decimals. The error names
-the value and the bound, as <code>ww</code> does:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>6000 ms is out of 1..=5000 ms (Second, u16)
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>index 0 of a table counted from 1
-</span></code></pre></div>
-<p>For text a person writes, a field takes <code>#[serde(with = "exact_units::serde::with_unit")]</code> (<code>with_unit::option</code>
-for an <code>Option</code>): it is written as <code>{:#}</code> writes it, <code>"0.0015 s"</code>, and read as a number with the field's unit and
-any SI or binary prefix, the space optional: <code>"1.5 ms"</code>, <code>"1500 us"</code>, <code>"4 KiB"</code>, <code>"25 %"</code> for a ratio. The value
-goes into the field's scale and storage exactly, or it is an error that says why:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Millis</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::{</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">}};</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="cp">#[derive(serde::Serialize, serde::Deserialize)]</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Config</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="n">period</span><span class="p">:</span><span class="w"> </span><span class="nc">Millis</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span><span class="w">                                   </span><span class="c1">// 20</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="n">timeout</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">    </span><span class="c1">// 250, 6000 is refused</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="cp">#[serde(with = </span><span class="s">&quot;exact_units::serde::with_unit&quot;</span><span class="cp">)]</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="n">rail</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">,</span><span class="w">                         </span><span class="c1">// &quot;3.3 V&quot;, &quot;3300 mV&quot;</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">}</span>
-</span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>&quot;5 kg&quot; is not in V (with or without an SI prefix)
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>&quot;3.3005 V&quot; is not a whole number of 1 mV steps; the nearest are 3.3 V and 3.301 V
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>&quot;70 V&quot; doesn&#39;t fit u16 in 1 mV steps
-</span></code></pre></div>
-<p>Every value reads back from the text it was written as, also where <code>{:#}</code> writes a float (a <code>Duty16</code>'s steps of
-1/65535, a scale with π): that text reads as the value it came from, while a decimal between two steps is refused
-with the two. A float storage takes the nearest float. <code>Magnitude</code> and <code>Offset</code> are serde with <code>serde</code> and <code>std</code>,
-and the owned wire mirrors (<code>DimOwned</code>, <code>CountedOwned</code>, <code>ProvenanceOwned</code>, for RON snapshots of APIs) with <code>serde</code>,
-<code>std</code> and <code>shrink_wrap</code>.</p>
+<p>With the feature <code>serde</code> the numbers are <code>Serialize</code> / <code>Deserialize</code>, <code>no_std</code> and without alloc (STD-94): the same
+rule as the wire, each value as the number it stores, and a field marked <code>with_unit</code> as text in its unit (<code>"1.5
+ms"</code>). See the book's <a href="https://exact.vhrd.tech/wire/shrink_wrap/#serde-configs-and-other-formats">serde: configs and other formats</a>.</p>
 <h2 id="units">Units<a class="headerlink" href="#units" title="Permanent link">&para;</a></h2>
-<p>The unit markers are in <code>exact_units::units</code>, grouped by cargo features a firmware turns on as it needs them
-(<code>time</code>, <code>electrical</code>, <code>mechanical</code>, <code>angle</code>, <code>thermal</code>, <code>chemical</code>, <code>photometric</code>, <code>radiation</code>, <code>dimensionless</code>,
-<code>information</code>, <code>counting</code>, <code>quantities</code> for all; <code>std</code> turns them all on). Each knows its dimension (<code>Dim</code>), symbol,
-name and scale; products and quotients the compiler checks (<code>Volt * Ampere</code> is <code>Watt</code>), <code>Per&lt;A, B&gt;</code>, <code>Times&lt;A, B&gt;</code>
-and <code>Sqrt&lt;A&gt;</code> build the others: a noise density is <code>Per&lt;Volt, Sqrt&lt;Hertz&gt;&gt;</code>, shown <code>V/√Hz</code>. Angle,
-information (bit) and counted things (<code>Sample</code>, <code>Packet</code>, an API's own markers) are dimensions of their own; the
-<a href="../ww_si/#dimensions">ww_si page</a> explains why and what it changes against plain SI, and how a unit known only at run
-time travels as an <code>SIExpr</code>.</p>
-<p>The wire format is the feature <code>shrink_wrap</code>, on by default. Without it <code>exact_units</code> has no dependencies and its
-types are plain Rust (a <code>Dim</code>'s exponents are <code>i8</code>): code that only checks units at compile time builds without
-the wire format, and the bytes are the same whichever crate turns it on.</p>
+<p>The unit markers are grouped by cargo feature, each with its own dimension, symbol and exact scale; <code>Per</code>, <code>Times</code>
+and <code>Sqrt</code> build the rest. See the book's <a href="https://exact.vhrd.tech/start/units/">Units and dimensions</a>.</p>
+<p>The wire format is the feature <code>shrink_wrap</code>, on by default through <code>ww_si</code>. Without it <code>exact_units</code> has no
+dependencies and its types are plain Rust (a <code>Dim</code>'s exponents are <code>i8</code>): code that only checks units at compile
+time builds without the wire format, and the bytes are the same whichever crate turns it on.</p>
 
 
 

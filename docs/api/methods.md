@@ -34,9 +34,71 @@ pub struct UserType<'i> {
 ```
 
 Any number of arguments are supported, of any [ShrinkWrap](../serdes/shrink_wrap.md) type. Arguments evolve like
-struct fields, e.g. an `Option<T>` argument can be appended later (see [evolution rules](../evolution/rules.md)). A method
-that can fail returns `Result<T, E>`, see [Errors](errors.md). A quantity has its unit in its type (`Fixed`, `Point`, from `ww_si`), never in
-the argument's name: see [Numbers are typed](overview.md#numbers-are-typed).
+struct fields, see [arguments that evolve](#arguments-that-evolve) below. A method that can fail returns
+`Result<T, E>`, see [Errors](errors.md). A quantity has its unit in its type (`Fixed`, `Point`, from `ww_si`), never
+in the argument's name: see [Numbers are typed](overview.md#numbers-are-typed).
+
+## Arguments that evolve
+
+On the wire, the arguments of a method or a stream function are the fields of one generated args struct, which is
+`Unsized`. So they evolve like the fields of any `Unsized` struct (EVO-22):
+
+* An argument added at the end with a default is wire-compatible both ways. A device of the older version skips
+  the bytes of an argument it doesn't know. A device of the newer version reads the default when an older client
+  leaves the argument out.
+* `Option<T>`, `Vec<T>` and `String` arguments (also `RefVec`, `&str` and inside `MaxLen`) at the end have their
+  natural default without an attribute: `None` and empty. Any other type needs `#[default = expr]` on the argument.
+* Arguments with a default come after all the others, as struct fields with `#[default]` do. An `Option` argument
+  followed by one without a default has no default.
+
+```rust
+#[ww_trait]
+trait Blinky {
+    // 0.1.0: fn led_on();
+    fn led_on(brightness: Option<Fixed<Ratio, Centi, u8, Range<0, 100>>>, #[default = 3] blinks: u8);
+}
+```
+
+The handler and the client call get the new parameters, so this is a break of the API crate's Rust API, not of
+the wire: `ww api check` reports it as `breaking (Rust only, the wire is compatible)`, see
+[the evolution rules](../evolution/rules.md#arguments).
+
+### Arguments as one struct: `#[flatten]`
+
+A list of arguments that grows can become one struct. `#[flatten]` on the only argument makes its struct the args
+struct itself, so its fields are the arguments on the wire:
+
+```rust
+#[derive_shrink_wrap]
+pub struct Config {
+    pub a: u8,
+    pub b: u16,
+    #[default = None]
+    pub c: Option<u8>, // added later, like an argument with a default
+}
+
+#[ww_trait]
+trait Device {
+    // before: fn configure(a: u8, b: u16);
+    fn configure(#[flatten] cfg: Config);
+}
+```
+
+`configure(a, b)` and `configure(#[flatten] cfg: Config)` write the same bytes, and the struct grows by its own
+rules from then on. The handler takes `cfg: Config`, the generated client `configure(cfg)`. The dynamic client,
+Python and `ww explain` see the struct's fields as the arguments, so `dev.configure(a=1, b=300)` works before and
+after the change.
+
+* `#[flatten]` goes on the only argument of a method or stream function. A flattened struct after other arguments
+  may come later.
+* The struct must be `Unsized` (the default), so it can gain fields: `sized`, `self_describing` and
+  `final_structure` structs are refused, and so is a type that isn't a struct.
+* A struct argument without `#[flatten]` stays a real argument, written inside the args struct with its own size.
+  Adding `#[flatten]` to an existing struct argument changes its bytes.
+* `#[default]` can't go on a `#[flatten]` argument: give the struct's fields defaults instead.
+
+`#[ww_trait]` removes both attributes before rustc sees the trait (rustc doesn't take them on a parameter) and
+notes them in the trait's rustdoc.
 
 ## Server side
 

@@ -1847,6 +1847,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   bundles (the client at connect time)
   (`docs/evolution/rules.md#transparent-wrappers-units-and-scales`, `#bounds`; `wire_weaver_evolution` tests
   `tests::transparent`, `tests::ww_si_fixed`).
+- ✅ **EVO-22 Arguments that evolve** · `v0.5` — the arguments of a method or stream function are the fields of
+  an `Unsized` args struct, and evolve as its fields do: a trailing argument with a default is wire-compatible
+  both ways (`Option`, `Vec`, `String` have `None` / empty without an attribute, any other type `#[default =
+  expr]` on the argument), and `#[flatten]` on the only argument makes its struct the args struct, the same bytes
+  as the arguments one by one. `ww_self::Argument` gains `default` (the Rust expression) and `flatten`; codegen
+  puts the defaults on the args struct, the dynamic client, Python and `ww explain` see a flattened struct's fields
+  as the arguments and may leave out trailing defaults. The checker compares argument lists like struct fields
+  and reports an added or promoted argument with the wire intact as `Rule::Signature`, a Rust-only break
+  (`docs/api/methods.md#arguments-that-evolve`, `docs/evolution/rules.md#arguments`; tests `tests/args_evolution`,
+  `wire_weaver_evolution` `tests::args`, conformance `args.*`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
@@ -2643,7 +2653,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout
-  - [ ] methods: return type evolving to a struct, adding arguments
+  - [ ] methods: return type evolving to a struct
+  - [x] methods: adding arguments (EVO-22, `tests/args_evolution`)
 - 🚧 **TEST-10 Binary size tracking** · `v0.5` — flash and RAM per feature for a set of examples, in CI. Consider
   compile-time construction so that only final bytes remain.
 - 📋 **TEST-11 Keep an eye on coverage** — around 70% on average as of 2026-10-01, the important crates are at

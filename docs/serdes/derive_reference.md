@@ -629,7 +629,7 @@ It is a promise the impl's tests check: a value past it doesn't fit a buffer siz
 
 | Attribute               | On                       | What it does                                                                                                     |
 |-------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------|
-| `#[default = expr]`     | struct fields            | added in a later version, read as `expr` from older data, also by a derived `serde::Deserialize` ([evolving types](derive.md#evolving-types)) |
+| `#[default = expr]`     | struct fields            | added in a later version, read as `expr` from older data, also by a derived `serde::Deserialize` ([evolving types](derive.md#evolving-types)); on method and stream function arguments too, see [methods](../api/methods.md#arguments-that-evolve) |
 | `#[flag]`               | a `bool` field           | moves the presence flag of the later `Option` / `Result` field of the same name here, to pack it with other small fields ([showcase](showcase.md#relocating-presence-flags-with-flag)) |
 | `#[slot = N]`           | fields of a `sparse` struct | places the field at slot `N` ([sparse](layouts.md#sparse-a-struct-of-optional-fields))                       |
 | `#[future_version]`     | the last enum variant    | holds discriminants from a newer version ([above](#no_future_version-future_version-name-enums-only))            |

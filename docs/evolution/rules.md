@@ -262,9 +262,30 @@ Data types used in API are a part of SemVer guarantee and are subject to the rul
 to break compatibility on any of the data types used directly or indirectly without also bumping the breaking position
 of the API version as well (minor before 1.0, major after, see [your API's version](#your-apis-version)).
 
-* Adding argument
 * `T` to struct of `T` in return position
 * `T` to `Vec<T>` in return position?
+
+### Arguments
+
+The arguments of a method or stream function are the fields of an `Unsized` args struct on the wire, so they follow
+the rules for [unsized types](#unsized-types) (EVO-22, [methods](../api/methods.md#arguments-that-evolve)):
+
+* **Adding an argument at the end with a default** is wire-compatible. A device of the older version skips it, a
+  device of the newer version reads the default when an older client leaves it out. `Option<T>`, `Vec<T>` and
+  `String` arguments at the end have their natural default (`None`, empty) without an attribute, any other type
+  needs `#[default = expr]`. Removing a trailing argument that has a default is wire-compatible the same way.
+* **Adding an argument without a default** (or before others) breaks the wire: a device of the newer version can't
+  read a call from an older client. The checker names it: `argument `brightness` is not sent by the old version and
+  has no #[default]`.
+* **Promoting arguments to a `#[flatten]` struct** (`fn f(a: u8, b: u16)` to `fn f(#[flatten] c: C)` with
+  `struct C { a: u8, b: u16 }`) keeps every byte. The struct then grows by its own rules: fields appended with
+  `#[default]`.
+* Changing an argument's type follows the rules for that type. Renaming an argument keeps the wire, but Python and
+  `ww` scripts that pass it by name change with it.
+
+Each of the compatible changes still gives the handler and the client call other parameters: a break of the API
+crate's Rust API. `ww api check` reports it with its own rule, `breaking (Rust only, the wire is compatible)`, and
+the breaking version position is bumped, as for a rename. Devices and hosts of both versions keep talking.
 
 Streams (API-30, API-31, [stream reliability](../api/stream_reliability.md)): the delivery kind of a stream is part
 of the API. Turning a plain `stream!` into a `#[counted]` or `#[reliable]` one (or back, or one into the other), or

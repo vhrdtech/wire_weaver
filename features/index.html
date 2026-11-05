@@ -7664,6 +7664,16 @@ observing), SRV-46 (peer identity).
   bundles (the client at connect time)
   (<code>docs/evolution/rules.md#transparent-wrappers-units-and-scales</code>, <code>#bounds</code>; <code>wire_weaver_evolution</code> tests
   <code>tests::transparent</code>, <code>tests::ww_si_fixed</code>).</li>
+<li>✅ <strong>EVO-22 Arguments that evolve</strong> · <code>v0.5</code> — the arguments of a method or stream function are the fields of
+  an <code>Unsized</code> args struct, and evolve as its fields do: a trailing argument with a default is wire-compatible
+  both ways (<code>Option</code>, <code>Vec</code>, <code>String</code> have <code>None</code> / empty without an attribute, any other type <code>#[default =
+  expr]</code> on the argument), and <code>#[flatten]</code> on the only argument makes its struct the args struct, the same bytes
+  as the arguments one by one. <code>ww_self::Argument</code> gains <code>default</code> (the Rust expression) and <code>flatten</code>; codegen
+  puts the defaults on the args struct, the dynamic client, Python and <code>ww explain</code> see a flattened struct's fields
+  as the arguments and may leave out trailing defaults. The checker compares argument lists like struct fields
+  and reports an added or promoted argument with the wire intact as <code>Rule::Signature</code>, a Rust-only break
+  (<code>docs/api/methods.md#arguments-that-evolve</code>, <code>docs/evolution/rules.md#arguments</code>; tests <code>tests/args_evolution</code>,
+  <code>wire_weaver_evolution</code> <code>tests::args</code>, conformance <code>args.*</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -8464,7 +8474,8 @@ observing), SRV-46 (peer identity).
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> methods: return type evolving to a struct, adding arguments</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> methods: return type evolving to a struct</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> methods: adding arguments (EVO-22, <code>tests/args_evolution</code>)</li>
 <li>🚧 <strong>TEST-10 Binary size tracking</strong> · <code>v0.5</code> — flash and RAM per feature for a set of examples, in CI. Consider
   compile-time construction so that only final bytes remain.</li>
 <li>📋 <strong>TEST-11 Keep an eye on coverage</strong> — around 70% on average as of 2026-10-01, the important crates are at

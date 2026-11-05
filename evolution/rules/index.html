@@ -2681,6 +2681,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Arguments
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#optional-items" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5983,6 +5994,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Arguments
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#optional-items" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6323,10 +6345,29 @@ only is breaking: a wrapping number is a position modulo its storage, the reader
 to break compatibility on any of the data types used directly or indirectly without also bumping the breaking position
 of the API version as well (minor before 1.0, major after, see <a href="#your-apis-version">your API's version</a>).</p>
 <ul>
-<li>Adding argument</li>
 <li><code>T</code> to struct of <code>T</code> in return position</li>
 <li><code>T</code> to <code>Vec&lt;T&gt;</code> in return position?</li>
 </ul>
+<h3 id="arguments">Arguments<a class="headerlink" href="#arguments" title="Permanent link">&para;</a></h3>
+<p>The arguments of a method or stream function are the fields of an <code>Unsized</code> args struct on the wire, so they follow
+the rules for <a href="#unsized-types">unsized types</a> (EVO-22, <a href="../../api/methods/#arguments-that-evolve">methods</a>):</p>
+<ul>
+<li><strong>Adding an argument at the end with a default</strong> is wire-compatible. A device of the older version skips it, a
+  device of the newer version reads the default when an older client leaves it out. <code>Option&lt;T&gt;</code>, <code>Vec&lt;T&gt;</code> and
+  <code>String</code> arguments at the end have their natural default (<code>None</code>, empty) without an attribute, any other type
+  needs <code>#[default = expr]</code>. Removing a trailing argument that has a default is wire-compatible the same way.</li>
+<li><strong>Adding an argument without a default</strong> (or before others) breaks the wire: a device of the newer version can't
+  read a call from an older client. The checker names it: <code>argument</code>brightness<code>is not sent by the old version and
+  has no #[default]</code>.</li>
+<li><strong>Promoting arguments to a <code>#[flatten]</code> struct</strong> (<code>fn f(a: u8, b: u16)</code> to <code>fn f(#[flatten] c: C)</code> with
+  <code>struct C { a: u8, b: u16 }</code>) keeps every byte. The struct then grows by its own rules: fields appended with
+  <code>#[default]</code>.</li>
+<li>Changing an argument's type follows the rules for that type. Renaming an argument keeps the wire, but Python and
+  <code>ww</code> scripts that pass it by name change with it.</li>
+</ul>
+<p>Each of the compatible changes still gives the handler and the client call other parameters: a break of the API
+crate's Rust API. <code>ww api check</code> reports it with its own rule, <code>breaking (Rust only, the wire is compatible)</code>, and
+the breaking version position is bumped, as for a rename. Devices and hosts of both versions keep talking.</p>
 <p>Streams (API-30, API-31, <a href="../../api/stream_reliability/">stream reliability</a>): the delivery kind of a stream is part
 of the API. Turning a plain <code>stream!</code> into a <code>#[counted]</code> or <code>#[reliable]</code> one (or back, or one into the other), or
 giving a stream arguments or a result (<code>#[stream(T)] fn name(args) -&gt; Result&lt;A, E&gt;</code>), changes its events and how it is

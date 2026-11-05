@@ -343,6 +343,25 @@ pub fn table() -> Vec<Typed> {
         case("struct.tuple.none", PairOwned(0, None)),
         case("struct.tuple.plain", Rgb(1, 2, 3)),
         case("struct.unit", Marker),
+        case("args.one", ArgsOneArgs { a: 5 }),
+        case("args.plain", ArgsPlainArgs { a: 1, b: 300 }),
+        case("args.flatten", ArgsPair { a: 1, b: 300 }),
+        case(
+            "args.defaults.given",
+            ArgsDefaultsArgs {
+                a: 5,
+                b: 9,
+                c: Some(1),
+            },
+        ),
+        case(
+            "args.defaults.left_out",
+            ArgsDefaultsArgs {
+                a: 5,
+                b: 7,
+                c: None,
+            },
+        ),
         case(
             "struct.sized",
             SizedPoint {

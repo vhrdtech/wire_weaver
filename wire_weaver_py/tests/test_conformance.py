@@ -70,10 +70,16 @@ def attempt(api, case):
         return None
     direction = case.get("direction", "both")
     data = golden(case)
+    if hasattr(node, "encode_args"):
+        # a method's arguments (EVO-22): the value is an object of arguments
+        encode = lambda value: node.encode_args(**value)  # noqa: E731
+        decode = node.decode_args
+    else:
+        encode, decode = node.encode, node.decode
     try:
         if direction in ("both", "reject_value"):
             try:
-                encoded = node.encode(expected(case))
+                encoded = encode(expected(case))
             except Exception as e:
                 if direction == "reject_value":
                     return True, ""
@@ -84,7 +90,7 @@ def attempt(api, case):
                 at = next((i for i, (x, y) in enumerate(zip(encoded, data)) if x != y), min(len(encoded), len(data)))
                 return False, f"encode: bytes differ at byte {at}: got {encoded.hex()}, golden {data.hex()}"
         try:
-            decoded = node.decode(data)
+            decoded = decode(data)
         except Exception as e:
             if direction == "reject":
                 return True, ""

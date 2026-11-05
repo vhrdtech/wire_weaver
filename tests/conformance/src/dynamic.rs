@@ -4,7 +4,7 @@
 use crate::corpus::Case;
 use std::path::Path;
 use std::sync::OnceLock;
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, TypeOwned, ValueOwned};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ArgumentOwned, TypeOwned, ValueOwned};
 
 pub fn bundle() -> &'static ApiBundleOwned {
     static BUNDLE: OnceLock<ApiBundleOwned> = OnceLock::new();
@@ -30,6 +30,43 @@ pub fn property_ty(name: &str) -> Option<&'static TypeOwned> {
         })
 }
 
+/// The arguments of method `name` of `Conformance` (EVO-22), `None` for a name that isn't a method.
+pub fn method_args(name: &str) -> Option<&'static [ArgumentOwned]> {
+    bundle()
+        .root
+        .items
+        .iter()
+        .find_map(|item| match &item.kind {
+            ApiItemKindOwned::Method { args, .. } if item.ident == name => Some(args.as_slice()),
+            _ => None,
+        })
+}
+
+/// The corpus value of an arguments case, an object of arguments (a `#[flatten]` struct's fields in its place), as
+/// their values in order.
+pub fn args_values(
+    j: &serde_json::Value,
+    defs: &[ArgumentOwned],
+) -> Result<Vec<ValueOwned>, String> {
+    let fields = ArgumentOwned::as_fields(defs, bundle()).map_err(|e| format!("{e:#}"))?;
+    let object = j
+        .as_object()
+        .ok_or_else(|| format!("{j} is not an object of arguments"))?;
+    if object.len() != fields.len() {
+        return Err(format!("{j}: every argument is given"));
+    }
+    fields
+        .iter()
+        .map(|f| {
+            let name = f.ident.as_deref().unwrap_or("_");
+            let j = object
+                .get(name)
+                .ok_or_else(|| format!("{j}: no argument {name}"))?;
+            crate::json::to_value(j, &f.ty, bundle()).map_err(|e| format!("corpus value: {e}"))
+        })
+        .collect()
+}
+
 pub struct Dynamic;
 
 impl Dynamic {
@@ -42,7 +79,12 @@ impl crate::Consumer for Dynamic {
     const NAME: &'static str = "dynamic";
 
     fn encode(&self, case: &Case) -> Option<Result<Vec<u8>, String>> {
-        let ty = property_ty(&case.ty)?;
+        let Some(ty) = property_ty(&case.ty) else {
+            let defs = method_args(&case.ty)?;
+            return Some(args_values(&case.value, defs).and_then(|values| {
+                ValueOwned::ser_args_dyn(&values, defs, bundle()).map_err(|e| format!("{e:#}"))
+            }));
+        };
         Some(Self::value(case, ty).and_then(|v| {
             v.ser_shrink_wrap_dyn(ty, bundle())
                 .map_err(|e| format!("{e:#}"))
@@ -50,7 +92,18 @@ impl crate::Consumer for Dynamic {
     }
 
     fn decode(&self, case: &Case) -> Option<crate::DecodeResult> {
-        let ty = property_ty(&case.ty)?;
+        let Some(ty) = property_ty(&case.ty) else {
+            let defs = method_args(&case.ty)?;
+            let got = match ValueOwned::des_args_dyn(&case.golden(), defs, bundle()) {
+                Ok(v) => v,
+                Err(e) => return Some(Err(format!("{e:#}"))),
+            };
+            return Some(Ok(match args_values(&case.value, defs) {
+                Ok(want) if want == got => Ok(()),
+                Ok(want) => Err(format!("decoded {got:?}, expected {want:?}")),
+                Err(e) => Err(e),
+            }));
+        };
         let got = match ValueOwned::des_shrink_wrap_dyn(&case.golden(), ty, bundle()) {
             Ok(v) => v,
             Err(e) => return Some(Err(format!("{e:#}"))),

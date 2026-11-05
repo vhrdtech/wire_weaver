@@ -5,8 +5,8 @@
 //! sizes), so each [Part] has both ranges. Parts are in the order they were read, a tree by [Part::depth]: a struct
 //! is followed by its fields, an enum by its discriminant and its variant's fields, a `Vec` by its length and items.
 
-use crate::value::{Budget, des_field, type_name};
-use crate::{ApiBundleOwned, Repr, TypeOwned, ValueOwned};
+use crate::value::{Budget, des_arg, des_field, type_name};
+use crate::{ApiBundleOwned, ArgumentOwned, Repr, TypeOwned, ValueOwned};
 use shrink_wrap::BufReader;
 use shrink_wrap::buf_reader::Cursors;
 use std::ops::Range;
@@ -83,6 +83,35 @@ pub fn explain_fields<'t>(
             .map(|(name, ty)| {
                 b.label(name);
                 des_field(rd, ty, api_bundle, b)
+            })
+            .collect()
+    })
+}
+
+/// The arguments of a method or stream function, `defs`, explained as a server reads them (EVO-22): a `#[flatten]`
+/// argument's struct fields in its place, a trailing argument an older client left out as its default (it has no
+/// bits), see [ValueOwned::des_args_dyn].
+pub fn explain_args(
+    bytes: &[u8],
+    defs: &[ArgumentOwned],
+    api_bundle: &ApiBundleOwned,
+) -> Explained {
+    let fields = match ArgumentOwned::as_fields(defs, api_bundle) {
+        Ok(fields) => fields,
+        Err(e) => {
+            return Explained {
+                parts: vec![],
+                result: Err(e),
+                len: bytes.len(),
+            };
+        }
+    };
+    run(bytes, |rd, b| {
+        fields
+            .iter()
+            .map(|field| {
+                b.label(field.ident.as_deref().unwrap_or("_"));
+                des_arg(rd, field, api_bundle, b)
             })
             .collect()
     })

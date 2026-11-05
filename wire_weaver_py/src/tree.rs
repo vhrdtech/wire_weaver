@@ -551,6 +551,27 @@ impl Method {
         Ok(to_py(py, &value, &ty, bundle)?.unbind())
     }
 
+    /// Deserialize arguments as a device reads them: a `dict` of argument name -> value, a `#[flatten]` argument's
+    /// fields in its place, a trailing argument an older client left out as its default (EVO-22).
+    fn decode_args<'py>(&self, py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyDict>> {
+        let Ok(DynResourceKind::Method { args: defs, .. }) = self.res.kind() else {
+            unreachable!();
+        };
+        let bundle = self.res.bundle();
+        let fields = ArgumentOwned::as_fields(defs, bundle)
+            .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
+        let values = ValueOwned::des_args_dyn(data, defs, bundle)
+            .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
+        let dict = PyDict::new(py);
+        for (field, value) in fields.iter().zip(&values) {
+            dict.set_item(
+                field.ident.as_deref().unwrap_or("_"),
+                to_py(py, value, &field.ty, bundle)?,
+            )?;
+        }
+        Ok(dict)
+    }
+
     /// Deserialize a `Series<T>` return value as sent by a device into numpy columns: a `dict` of field path ->
     /// array over all items (masked where an item doesn't have the field).
     fn decode_columns<'py>(&self, py: Python<'py>, data: &[u8]) -> PyResult<Bound<'py, PyDict>> {

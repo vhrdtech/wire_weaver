@@ -23,6 +23,47 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 
+/// One argument (a field of [ArgumentOwned::as_fields]), its default when it starts at the end of the data and the
+/// data runs out, see [ValueOwned::des_args_dyn].
+pub(crate) fn des_arg(
+    rd: &mut BufReader,
+    field: &FieldOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<ValueOwned> {
+    let at_end = rd.bytes_left() == 0;
+    let name = field.ident.as_deref().unwrap_or("_");
+    let value = match (des_field(rd, &field.ty, api_bundle, b), &field.default) {
+        // a flag read from the padding of the last byte is 0: missing as well
+        (Ok(ValueOwned::Option(None)), Some(default)) if at_end => {
+            arg_default(default, &field.ty, api_bundle)
+        }
+        (Err(_), Some(default)) if at_end => arg_default(default, &field.ty, api_bundle),
+        (value, _) => value,
+    };
+    value.map_err(|e| anyhow!("argument `{name}`: {e:#}"))
+}
+
+/// The value of an argument's default (EVO-22), a [ValueOwned::String] with its Rust expression; any other value
+/// is a struct field's default, which the model doesn't hold yet.
+fn arg_default(
+    default: &ValueOwned,
+    ty: &TypeOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Result<ValueOwned> {
+    let ValueOwned::String(expr) = default else {
+        bail!("left out, and its default is not in the API model");
+    };
+    match expr.as_str() {
+        "None" | "Default::default()" => ValueOwned::default(ty, api_bundle),
+        #[cfg(feature = "expr")]
+        expr => crate::expr::parse_value(expr, ty, api_bundle)
+            .map_err(|e| anyhow!("left out, its default `{expr}`: {e:#}")),
+        #[cfg(not(feature = "expr"))]
+        expr => bail!("left out, its default `{expr}` is read with ww_self's `expr` feature"),
+    }
+}
+
 /// `given` values are enough for the arguments `fields` (from [ArgumentOwned::as_fields]): those left out all have
 /// a default.
 pub fn check_args_count(given: usize, fields: &[FieldOwned]) -> Result<()> {
@@ -114,6 +155,25 @@ impl ValueOwned {
             fields[..values.len()].iter().map(|f| &f.ty),
             api_bundle,
         )
+    }
+
+    /// Deserialize the arguments of a method or stream function, `defs`, as a generated server does (EVO-22): the
+    /// fields of a `#[flatten]` argument's struct take its place (see [ArgumentOwned::as_fields]), and a trailing
+    /// argument with a default that starts at the end of the data and runs out of it (an older client left it out)
+    /// is its default, as the derive reads a field with `#[default]`. A default other than `None` or
+    /// `Default::default()` is read from its Rust expression, which needs the `expr` feature.
+    pub fn des_args_dyn(
+        bytes: &[u8],
+        defs: &[ArgumentOwned],
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<Vec<Self>> {
+        let fields = ArgumentOwned::as_fields(defs, api_bundle)?;
+        let mut rd = BufReader::new(bytes);
+        let mut b = Budget::for_bytes(bytes.len());
+        fields
+            .iter()
+            .map(|field| des_arg(&mut rd, field, api_bundle, &mut b))
+            .collect()
     }
 
     /// Deserialize the fields of an evolvable struct, e.g., method arguments.

@@ -1558,6 +1558,47 @@
       "bytes": "400072706df00000010000fe80008002000083fe00034a6a",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a unit marker struct: its definition after the transparent flag (INT-13)"
+    },
+    {
+      "name": "args.one",
+      "type": "args_one",
+      "value": {"a": 5},
+      "bytes": "05",
+      "gaps": {"c": "no generated C for method arguments yet: C from the ww_self model (API-26)"},
+      "note": "method arguments are the fields of an Unsized args struct (EVO-22)"
+    },
+    {
+      "name": "args.plain",
+      "type": "args_plain",
+      "value": {"a": 1, "b": 300},
+      "bytes": "012c01",
+      "gaps": {"c": "no generated C for method arguments yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "args.flatten",
+      "type": "args_flatten",
+      "value": {"a": 1, "b": 300},
+      "bytes": "012c01",
+      "bytes_from": "args.plain",
+      "gaps": {"c": "no generated C for method arguments yet: C from the ww_self model (API-26)"},
+      "note": "fn f(#[flatten] pair: ArgsPair) writes what fn f(a, b) does: the struct is the args struct (EVO-22)"
+    },
+    {
+      "name": "args.defaults.given",
+      "type": "args_defaults",
+      "value": {"a": 5, "b": 9, "c": 1},
+      "bytes": "05098001",
+      "gaps": {"c": "no generated C for method arguments yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "args.defaults.left_out",
+      "type": "args_defaults",
+      "value": {"a": 5, "b": 7, "c": null},
+      "bytes": "05",
+      "bytes_from": "args.one",
+      "direction": "decode",
+      "gaps": {"c": "no generated C for method arguments yet: C from the ww_self model (API-26)"},
+      "note": "an older client sends only a: b reads its #[default = 7], c its natural None (EVO-22)"
     }
   ],
   "requantize": [

@@ -149,6 +149,46 @@ trait Conformance {
     // the API model's own definitions of units and scales (INT-13), as a device sends them in its introspection data
     property!(rw marker_def: ww_self::MarkerDef<'i>);
     property!(rw item_struct_extra: ww_self::ItemStructExtra<'i>);
+    // method arguments (EVO-22), the fields of an Unsized args struct: a case's value is an object of arguments
+    fn args_one(a: u8);
+    fn args_plain(a: u8, b: u16);
+    // the struct's fields are the arguments: the same bytes as args_plain
+    fn args_flatten(#[flatten] pair: ArgsPair);
+    // trailing arguments with a default, read as it when an older client leaves them out
+    fn args_defaults(a: u8, #[default = 7] b: u8, c: Option<u8>);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// method arguments (EVO-22)
+
+/// The arguments of `args_flatten`, the same fields as `args_plain`'s.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct ArgsPair {
+    pub a: u8,
+    pub b: u16,
+}
+
+/// The args struct `ww_codegen!` generates for `args_one`, for the derive's side of its cases.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct ArgsOneArgs {
+    pub a: u8,
+}
+
+/// The args struct `ww_codegen!` generates for `args_plain`.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct ArgsPlainArgs {
+    pub a: u8,
+    pub b: u16,
+}
+
+/// The args struct `ww_codegen!` generates for `args_defaults`: the defaults on its fields.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct ArgsDefaultsArgs {
+    pub a: u8,
+    #[default = 7]
+    pub b: u8,
+    #[default = None]
+    pub c: Option<u8>,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

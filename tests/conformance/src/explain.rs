@@ -4,8 +4,8 @@
 //! padding (less than a byte at a time).
 
 use crate::corpus::{Case, Direction};
-use crate::dynamic::{bundle, property_ty};
-use ww_self::explain::{Explained, explain};
+use crate::dynamic::{args_values, bundle, method_args, property_ty};
+use ww_self::explain::{Explained, explain, explain_args};
 use ww_self::expr::{parse_value, to_expr};
 use ww_self::{TypeOwned, ValueOwned};
 
@@ -15,13 +15,35 @@ impl Explain {
     fn value(case: &Case, ty: &TypeOwned) -> Result<ValueOwned, String> {
         crate::json::to_value(&case.value, ty, bundle()).map_err(|e| format!("corpus value: {e}"))
     }
+
+    /// A method's arguments (EVO-22), each written as Rust and read back, as `ww explain 'method(..)'` does.
+    fn encode_args(case: &Case) -> Option<Result<Vec<u8>, String>> {
+        let defs = method_args(&case.ty)?;
+        Some((|| {
+            let fields =
+                ww_self::ArgumentOwned::as_fields(defs, bundle()).map_err(|e| format!("{e:#}"))?;
+            let values = args_values(&case.value, defs)?
+                .iter()
+                .zip(&fields)
+                .map(|(value, field)| {
+                    let text = to_expr(value, &field.ty, bundle())
+                        .map_err(|e| format!("as Rust: {e:#}"))?;
+                    parse_value(&text, &field.ty, bundle())
+                        .map_err(|e| format!("`{text}` read back: {e:#}"))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            ValueOwned::ser_args_dyn(&values, defs, bundle()).map_err(|e| format!("{e:#}"))
+        })())
+    }
 }
 
 impl crate::Consumer for Explain {
     const NAME: &'static str = "explain";
 
     fn encode(&self, case: &Case) -> Option<Result<Vec<u8>, String>> {
-        let ty = property_ty(&case.ty)?;
+        let Some(ty) = property_ty(&case.ty) else {
+            return Self::encode_args(case);
+        };
         Some((|| {
             let value = Self::value(case, ty)?;
             let text = to_expr(&value, ty, bundle()).map_err(|e| format!("as Rust: {e:#}"))?;
@@ -33,8 +55,25 @@ impl crate::Consumer for Explain {
     }
 
     fn decode(&self, case: &Case) -> Option<crate::DecodeResult> {
-        let ty = property_ty(&case.ty)?;
         let golden = case.golden();
+        let Some(ty) = property_ty(&case.ty) else {
+            let defs = method_args(&case.ty)?;
+            let explained = explain_args(&golden, defs, bundle());
+            if explained.result.is_ok()
+                && let Err(e) = bit_map(&explained)
+            {
+                return Some(Ok(Err(e)));
+            }
+            let got = match explained.result {
+                Ok(values) => values,
+                Err(e) => return Some(Err(format!("{e:#}"))),
+            };
+            return Some(Ok(match args_values(&case.value, defs) {
+                Ok(want) if want == got => Ok(()),
+                Ok(want) => Err(format!("decoded {got:?}, expected {want:?}")),
+                Err(e) => Err(e),
+            }));
+        };
         let explained = explain(&golden, ty, bundle());
         if explained.result.is_ok()
             && let Err(e) = bit_map(&explained)

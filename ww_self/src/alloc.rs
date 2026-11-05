@@ -979,14 +979,37 @@ impl ItemEnumOwned {
 }
 
 impl ArgumentOwned {
+    /// An argument with its default and `#[flatten]` (EVO-22).
+    pub fn new(ident: String, ty: TypeOwned, default: Option<String>, flatten: bool) -> Self {
+        ArgumentOwned {
+            ident,
+            ty,
+            default,
+            flatten,
+        }
+    }
+
+    /// The Rust expression a device reads when the argument is left out, see [Argument::default](crate::Argument).
+    pub fn default(&self) -> Option<&str> {
+        self.default.as_deref()
+    }
+
+    /// `#[flatten]`: the argument's struct is the args struct, see [Argument::flatten](crate::Argument).
+    pub fn is_flatten(&self) -> bool {
+        self.flatten
+    }
+
     /// The arguments of a method or stream function as they are on the wire (EVO-22): the fields of their args
     /// struct, an `Unsized` struct. A `#[flatten]` argument's struct is the args struct itself, so its fields are
     /// returned instead of it; `api_bundle` must hold the struct's definition (in-line or put back from a snapshot,
     /// see [crate::inline]). An argument's [default](crate::Argument::default) is a field's default
     /// (`Value::String` of the expression; a flattened struct's fields keep theirs).
-    pub fn as_fields(args: &[ArgumentOwned], api_bundle: &ApiBundleOwned) -> Result<Vec<FieldOwned>> {
+    pub fn as_fields(
+        args: &[ArgumentOwned],
+        api_bundle: &ApiBundleOwned,
+    ) -> Result<Vec<FieldOwned>> {
         if let [arg] = args
-            && arg.flatten
+            && arg.is_flatten()
         {
             let TypeOwned::Struct(item_struct) = arg.ty.get_in_line(api_bundle)? else {
                 bail!("#[flatten] argument `{}` is not a struct", arg.ident);
@@ -1000,7 +1023,7 @@ impl ArgumentOwned {
             .iter()
             .map(|arg| FieldOwned {
                 ident: Some(arg.ident.clone()),
-                default: arg.default.clone().map(crate::ValueOwned::String),
+                default: arg.default().map(|d| crate::ValueOwned::String(d.into())),
                 since: None,
                 ty: arg.ty.clone(),
                 docs: vec![],

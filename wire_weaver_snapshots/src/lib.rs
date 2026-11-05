@@ -151,7 +151,8 @@ mod tests {
     /// `Clock`'s changed since, with `Quantity<U, B>` (STD-59, a stated break of the unpublished ww_si and
     /// ww_timebase): `Second` is `Quantity<units::Second, Unbounded>` in the model; and with `Prefix`'s table-free
     /// scales and its `Unknown(u16)` catch-all (STD-59, DER-25); and again moving `exact_units` to its level-rates
-    /// main (STD-99), which changes `Quantity`'s skipped `Prefix` and `SIExpr` signatures the same way.
+    /// main (STD-99), which changes `Quantity`'s skipped `Prefix` and `SIExpr` signatures the same way; and with
+    /// `Argument::default` and `flatten` in the model (EVO-22), which every method argument writes.
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -185,7 +186,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0xae, 0xf0, 0x6b, 0x1d, 0x7d, 0x43, 0x9c, 0x09]);
+        assert_eq!(signature, [0x0a, 0x9d, 0x49, 0x84, 0xc2, 0x6e, 0xe4, 0x9d]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

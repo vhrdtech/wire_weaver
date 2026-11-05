@@ -598,6 +598,8 @@ pub(crate) mod tests {
                 fn get() -> u8;
                 fn two(a: u8, b: u8);
                 fn was_method();
+                fn one(a: u8);
+                fn one_more(a: u8);
             }
         "#;
         let device = r#"
@@ -607,21 +609,27 @@ pub(crate) mod tests {
                 fn get() -> u8;
                 fn two(a: u8);
                 property!(rw was_method: u8);
+                fn one(a: u8, b: u8);
+                fn one_more(a: u8, b: Option<u8>);
             }
         "#;
         let compat = compat(client, device);
         assert_incompatible(&compat, &[0], "argument `x`");
         assert_eq!(verdict(&compat, &[1]), Verdict::Compatible);
-        assert_incompatible(
-            &compat,
-            &[2],
-            "takes 2 argument(s) on the client, 1 on the device",
-        );
+        // the arguments are an Unsized struct (EVO-22): an older device skips a newer client's trailing ones
+        assert_eq!(verdict(&compat, &[2]), Verdict::Compatible);
         assert_incompatible(
             &compat,
             &[3],
             "a method on the client, a property on the device",
         );
+        // a newer device reads the default of an argument an older client leaves out, if it has one
+        assert_incompatible(
+            &compat,
+            &[4],
+            "argument `b` is not sent by the client and has no #[default]",
+        );
+        assert_eq!(verdict(&compat, &[5]), Verdict::Compatible);
     }
 
     #[test]

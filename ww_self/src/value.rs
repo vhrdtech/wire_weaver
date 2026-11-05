@@ -9,8 +9,8 @@
 
 use crate::explain::{PartKind, Trace};
 use crate::{
-    ApiBundleOwned, ArgumentOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned, ItemEnumOwned,
-    ItemStructOwned, Repr, TypeOwned, ValueOwned,
+    ApiBundleOwned, ArgumentOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned,
+    ItemEnumOwned, ItemStructOwned, Repr, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_reader::Cursors;

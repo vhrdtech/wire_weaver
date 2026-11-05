@@ -320,7 +320,10 @@ mod tests {
         let r = with_defaults.call(cmd, &[u8v(5), u8v(9)]).await.unwrap();
         assert_eq!(seen(r), expected(9, None));
         let r = with_defaults
-            .call(cmd, &[u8v(5), u8v(9), ValueOwned::Option(Some(Box::new(u8v(1))))])
+            .call(
+                cmd,
+                &[u8v(5), u8v(9), ValueOwned::Option(Some(Box::new(u8v(1))))],
+            )
             .await
             .unwrap();
         assert_eq!(seen(r), expected(9, Some(1)));

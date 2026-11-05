@@ -1019,7 +1019,7 @@ fn ser_args(
 
         // a `#[flatten]` argument is the args struct itself (EVO-22)
         let args_value = match args {
-            [arg] if arg.flatten => quote! { #(#idents)* },
+            [arg] if arg.is_flatten() => quote! { #(#idents)* },
             _ => quote! { #args_struct_ident { #(#idents),* } },
         };
         let args_ser = if no_alloc {

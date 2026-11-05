@@ -273,9 +273,8 @@ fn encode(
                 .iter()
                 .zip(defs)
                 .map(|(e, f)| {
-                    expr::value_from_expr(e, &f.ty, bundle).with_context(|| {
-                        format!("argument {}", f.ident.as_deref().unwrap_or("_"))
-                    })
+                    expr::value_from_expr(e, &f.ty, bundle)
+                        .with_context(|| format!("argument {}", f.ident.as_deref().unwrap_or("_")))
                 })
                 .collect::<Result<Vec<_>>>()?;
             let bytes =

@@ -16,14 +16,22 @@ trait ArgsEvolution {
 }
 
 /// The arguments of `configure` as a struct
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy)
+)]
 pub struct Config {
     pub a: u8,
     pub b: u16,
 }
 
 /// The arguments `with_defaults` got, `tag` by its length
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy)
+)]
 pub struct Seen {
     pub a: u8,
     pub b: u8,

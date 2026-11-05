@@ -364,7 +364,9 @@ fn strip_arg_attrs(
                 let name = pat_type.pat.to_token_stream().to_string();
                 pat_type.attrs.retain(|attr| {
                     if attr.path().is_ident("flatten") {
-                        notes.push(format!("`{name}`'s fields are the arguments on the wire (`#[flatten]`)."));
+                        notes.push(format!(
+                            "`{name}`'s fields are the arguments on the wire (`#[flatten]`)."
+                        ));
                         false
                     } else if attr.path().is_ident("default") {
                         if let Meta::NameValue(name_value) = &attr.meta {

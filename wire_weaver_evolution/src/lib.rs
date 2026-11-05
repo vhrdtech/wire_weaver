@@ -39,7 +39,9 @@ use ww_self::{
 };
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
-use crate::compat::{Bounds, TypeCheck, Unwrapped, compare_items, field_name, fields};
+use crate::compat::{
+    Bounds, TypeCheck, Unwrapped, compare_items, field_name, fields, signature_change,
+};
 use crate::recorded::{Recorded, Unrecorded};
 
 #[cfg(feature = "source")]
@@ -209,7 +211,11 @@ pub fn compare_recorded(
     }
     let old = Recorded::leave_out(old, &unrecorded)?;
     let new = Recorded::leave_out(new, &unrecorded)?;
-    let mut report = compare(&old, &new)?;
+    // a field signatures include is missing on one side: its signatures were made over other bytes
+    let signatures = unrecorded
+        .iter()
+        .all(|u| !ww_self::signature::includes(&u.owner, &u.field));
+    let mut report = compare_with(&old, &new, signatures)?;
     report.unrecorded = unrecorded.into_iter().collect();
     Ok(report)
 }
@@ -217,6 +223,15 @@ pub fn compare_recorded(
 /// Compare an old version of a crate with a new one. Both are crate bundles, as loaded by
 /// `wire_weaver_core::load_crate` and saved by `ww api save`.
 pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, String> {
+    compare_with(old, new, true)
+}
+
+/// [compare], checking definitions one side left out by their signatures when `signatures`.
+fn compare_with(
+    old: &ApiBundleOwned,
+    new: &ApiBundleOwned,
+    signatures: bool,
+) -> Result<Report, String> {
     let (Some(old_version), Some(new_version)) = (old.ext_crates.first(), new.ext_crates.first())
     else {
         return Err("not a crate snapshot, ext_crates[0] must be the crate itself".into());
@@ -241,6 +256,7 @@ pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, Str
         warnings: vec![],
         new_version: triplet(&new_version.version),
         old_version: triplet(&old_version.version),
+        signatures,
     };
     checker.compare_traits();
     checker.compare_types();
@@ -279,6 +295,8 @@ struct Checker<'a> {
     warnings: Vec<String>,
     old_version: (u32, u32, u32),
     new_version: (u32, u32, u32),
+    /// Definitions left out on one side are checked by their signatures, see [TypeCheck::compare_signatures].
+    signatures: bool,
 }
 
 impl<'a> Checker<'a> {
@@ -358,6 +376,7 @@ impl<'a> Checker<'a> {
             // breaks what the old version writes, a raised one is compatible
             let mut bounds = Bounds {
                 strict_writer: Some(self.old),
+                skip_signatures: !self.signatures,
                 ..Bounds::default()
             };
             let result = compare_items(
@@ -379,6 +398,9 @@ impl<'a> Checker<'a> {
                     None => Rule::Resource,
                 };
                 self.breaks_with_root(rule, format!("{path}: {e}"), bounds.root.clone());
+            } else if let Some(change) = signature_change(&old_item.kind, &new_item.kind) {
+                // EVO-22: the wire is fine, the Rust signatures are not
+                self.breaks(Rule::Signature, format!("{path}: {change}"));
             }
             self.bounds_raised(&path, bounds.narrower);
             self.unwrapped(&path, &bounds.unwrapped);
@@ -508,8 +530,11 @@ impl<'a> Checker<'a> {
                 continue;
             };
             // written by the old version and read by the new one, and the other way around
-            let mut old_to_new = TypeCheck::new(self.old, self.new, OLD, NEW).strict_bounds(true);
-            let mut new_to_old = TypeCheck::new(self.new, self.old, NEW, OLD);
+            let mut old_to_new = TypeCheck::new(self.old, self.new, OLD, NEW)
+                .strict_bounds(true)
+                .compare_signatures(self.signatures);
+            let mut new_to_old =
+                TypeCheck::new(self.new, self.old, NEW, OLD).compare_signatures(self.signatures);
             let result = old_to_new
                 .check(old_ty, new_ty)
                 .and_then(|_| new_to_old.check(new_ty, old_ty));
@@ -821,6 +846,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    mod args;
     mod by_meaning;
     mod root_cause;
     mod transparent;

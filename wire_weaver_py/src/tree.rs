@@ -423,7 +423,12 @@ pub(crate) fn py_args(
         .iter()
         .zip(slots)
         .take(given)
-        .chain(fields[given..].iter().filter(|f| f.default.is_none()).map(|f| (f, None)))
+        .chain(
+            fields[given..]
+                .iter()
+                .filter(|f| f.default.is_none())
+                .map(|f| (f, None)),
+        )
         .map(|(field, slot)| {
             let arg = field.ident.as_deref().unwrap_or("_");
             let obj = slot.ok_or_else(|| {

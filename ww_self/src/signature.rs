@@ -17,6 +17,22 @@ use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
 use std::collections::{HashMap, VecDeque};
 use ww_version::{FullVersionOwned, VersionTriplet};
 
+/// Fields of the model a [Canonical] bundle clears, so they don't count in signatures: host-derived ones, the
+/// registry id, and what a marker means (INT-13). `(owner, field)` with the owner's serde name (`ItemEnumOwned`).
+const LEFT_OUT: &[(&str, &str)] = &[
+    ("ApiLevelOwned", "compact_id"),
+    ("ItemStructOwned", "instance_of"),
+    ("ItemStructOwned", "extra"),
+    ("ItemEnumOwned", "instance_of"),
+    ("ItemEnumOwned", "future_version"),
+];
+
+/// Whether the field `field` of the model struct `owner` (its serde name, `ArgumentOwned`) counts in signatures:
+/// a snapshot saved before such a field existed has signatures made over other bytes.
+pub fn includes(owner: &str, field: &str) -> bool {
+    !LEFT_OUT.contains(&(owner, field))
+}
+
 /// Signature length in bytes (truncated SHA-256), same as the API hash.
 pub const SIGNATURE_LEN: usize = 8;
 

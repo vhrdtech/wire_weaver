@@ -33,6 +33,9 @@ pub enum Rule {
     Meaning,
     /// A bound (`ww_si::Range` and friends) is part of the contract: values outside the reader's bound are refused.
     Bound,
+    /// Arguments added at the end with a default, or promoted to a `#[flatten]` struct (EVO-22): the same bytes,
+    /// but handlers and client calls take other parameters.
+    Signature,
 }
 
 impl Rule {
@@ -65,6 +68,10 @@ impl Rule {
                 "a bound is part of the contract: narrowed, the new version refuses what the old one writes; \
                  widened, the old version refuses what the new one writes"
             }
+            Rule::Signature => {
+                "arguments added at the end with a default, or promoted to a #[flatten] struct, keep the wire, \
+                 but change the Rust signatures of handlers and client calls"
+            }
         }
     }
 
@@ -81,7 +88,17 @@ impl Rule {
             Rule::CatchAll => "docs/evolution/rules.md#unsized-types",
             Rule::Meaning => "docs/evolution/units_by_meaning.md",
             Rule::Bound => "docs/evolution/rules.md#bounds",
+            Rule::Signature => "docs/evolution/rules.md#arguments",
         }
+    }
+
+    /// The rule is about Rust code only: a change breaking it keeps every byte on the wire, devices and hosts of the
+    /// two versions still work together.
+    pub fn keeps_wire(&self) -> bool {
+        matches!(
+            self,
+            Rule::Renamed | Rule::FieldKind | Rule::Optional | Rule::CatchAll | Rule::Signature
+        )
     }
 }
 

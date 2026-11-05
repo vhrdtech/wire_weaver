@@ -86,7 +86,12 @@ pub(crate) fn print_report(report: &Report, old_path: &Path, new_label: &str) {
         }
     );
     for finding in &report.breaking {
-        println!("  {} {}", style("breaking:").red(), finding.message);
+        // a break of Rust code only, devices and hosts of both versions still talk (EVO-22)
+        let label = match finding.rule.keeps_wire() {
+            true => "breaking (Rust only, the wire is compatible):",
+            false => "breaking:",
+        };
+        println!("  {} {}", style(label).red(), finding.message);
         println!(
             "      {} {}",
             style("rule:").dim(),

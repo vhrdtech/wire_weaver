@@ -3147,7 +3147,7 @@ fn des_args_compact(
 /// `#[flatten]` argument's (EVO-22).
 fn args_list(args: &[ArgumentOwned]) -> TokenStream {
     if let [arg] = args
-        && arg.flatten
+        && arg.is_flatten()
     {
         return quote! { args };
     }

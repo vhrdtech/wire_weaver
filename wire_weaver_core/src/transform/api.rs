@@ -184,7 +184,9 @@ fn get_arg_attrs(attrs: &[syn::Attribute], arg: &str) -> Result<(Option<String>,
             default = Some(quote::quote!(#value).to_string());
         } else if attr.path().is_ident("flatten") {
             if !matches!(attr.meta, syn::Meta::Path(_)) {
-                return Err(anyhow!("argument `{arg}`: expected #[flatten], without arguments"));
+                return Err(anyhow!(
+                    "argument `{arg}`: expected #[flatten], without arguments"
+                ));
             }
             flatten = true;
         }
@@ -192,9 +194,17 @@ fn get_arg_attrs(attrs: &[syn::Attribute], arg: &str) -> Result<(Option<String>,
     Ok((default, flatten))
 }
 
+/// An argument as written, before [finish_args].
+struct RawArg {
+    ident: String,
+    ty: TypeOwned,
+    default: Option<String>,
+    flatten: bool,
+}
+
 /// Checks `#[flatten]` and the defaults of a method's or stream function's arguments (EVO-22), and gives trailing
 /// `Option`, `Vec` and `String` arguments their natural default (`None`, empty), as the args struct's fields.
-fn finish_args(args: &mut [ArgumentOwned], scratch: &Scratch) -> Result<()> {
+fn finish_args(args: &mut [RawArg], scratch: &Scratch) -> Result<()> {
     if let Some(flat) = args.iter().find(|a| a.flatten) {
         if args.len() != 1 {
             return Err(anyhow!(
@@ -249,11 +259,13 @@ fn implicit_default(ty: &TypeOwned) -> Option<&'static str> {
 /// fields with defaults.
 fn check_flatten_ty(arg: &str, ty: &TypeOwned, scratch: &Scratch) -> Result<()> {
     let resolved = match ty {
-        TypeOwned::OutOfLine { type_idx } => match scratch.root_bundle.types.get(type_idx.0 as usize) {
-            Some(ww_self::TypeLocationOwned::InLine { ty, .. }) => Some(ty),
-            // defined in a crate with a snapshot, its definition isn't here: the derive checks it
-            _ => None,
-        },
+        TypeOwned::OutOfLine { type_idx } => {
+            match scratch.root_bundle.types.get(type_idx.0 as usize) {
+                Some(ww_self::TypeLocationOwned::InLine { ty, .. }) => Some(ty),
+                // defined in a crate with a snapshot, its definition isn't here: the derive checks it
+                _ => None,
+            }
+        }
         ty => Some(ty),
     };
     match resolved {
@@ -302,7 +314,7 @@ fn convert_api_item_fn(
         let (default, flatten) = get_arg_attrs(&pat_type.attrs, &arg_name)
             .with_context(|| format!("fn {}", item_fn.sig.ident))
             .context(current_crate.err_context())?;
-        args.push(ArgumentOwned {
+        args.push(RawArg {
             ident: arg_name,
             ty,
             default,
@@ -312,6 +324,10 @@ fn convert_api_item_fn(
     finish_args(&mut args, scratch)
         .with_context(|| format!("fn {}", item_fn.sig.ident))
         .context(current_crate.err_context())?;
+    let args: Vec<ArgumentOwned> = args
+        .into_iter()
+        .map(|a| ArgumentOwned::new(a.ident, a.ty, a.default, a.flatten))
+        .collect();
     let return_ty = match &item_fn.sig.output {
         ReturnType::Default => None,
         ReturnType::Type(_, ty) => Some(convert_ty(ty, current_crate, scratch)?),
@@ -1205,18 +1221,29 @@ mod tests {
                 "fn f(a: Option<u8>, b: u8, #[default = 7] c: u8, d: Option<u8>, e: Vec<u8>, s: String);",
                 "",
             );
-            let defaults: Vec<_> = args.iter().map(|a| a.default.as_deref()).collect();
+            let defaults: Vec<_> = args.iter().map(|a| a.default()).collect();
             // `a` is before an argument without a default: none for it
             assert_eq!(
                 defaults,
-                [None, None, Some("7"), Some("None"), Some("Default::default()"), Some("Default::default()")]
+                [
+                    None,
+                    None,
+                    Some("7"),
+                    Some("None"),
+                    Some("Default::default()"),
+                    Some("Default::default()")
+                ]
             );
-            assert!(args.iter().all(|a| !a.flatten));
+            assert!(args.iter().all(|a| !a.is_flatten()));
         }
 
         #[test]
         fn default_before_an_argument_without_one() {
-            let e = err("arg_default_early", "fn f(#[default = 1] a: u8, b: u8);", "");
+            let e = err(
+                "arg_default_early",
+                "fn f(#[default = 1] a: u8, b: u8);",
+                "",
+            );
             assert!(
                 e.contains("argument `a` has a #[default], but `b` after it has none"),
                 "{e}"
@@ -1230,8 +1257,8 @@ mod tests {
                 "fn f(#[flatten] cfg: Config);",
                 "pub struct Config { a: u8, b: u16 }",
             );
-            assert!(args[0].flatten);
-            assert_eq!(args[0].default, None);
+            assert!(args[0].is_flatten());
+            assert_eq!(args[0].default(), None);
         }
 
         #[test]
@@ -1241,7 +1268,10 @@ mod tests {
                 "fn f(x: u8, #[flatten] cfg: Config);",
                 "pub struct Config { a: u8 }",
             );
-            assert!(e.contains("#[flatten] argument `cfg` must be the only argument"), "{e}");
+            assert!(
+                e.contains("#[flatten] argument `cfg` must be the only argument"),
+                "{e}"
+            );
             let e = err("arg_flatten_u8", "fn f(#[flatten] x: u8);", "");
             assert!(e.contains("#[flatten] argument `x` is not a struct"), "{e}");
             let e = err(

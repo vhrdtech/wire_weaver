@@ -49,6 +49,8 @@ pub struct Bounds<'a> {
     pub unwrapped: Vec<Unwrapped>,
     /// The deepest named cause found, see [TypeCheck::root].
     pub root: Option<RootCause>,
+    /// Signatures of skipped definitions are not compared, see [TypeCheck::compare_signatures].
+    pub skip_signatures: bool,
 }
 
 /// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
@@ -128,10 +130,12 @@ pub fn compare_items<'a>(
             .strict_writer
             .is_some_and(|strict| std::ptr::eq(strict, writer))
     };
-    let mut to_device =
-        TypeCheck::new(client, device, client_name, device_name).strict_bounds(strict(client));
-    let mut to_client =
-        TypeCheck::new(device, client, device_name, client_name).strict_bounds(strict(device));
+    let mut to_device = TypeCheck::new(client, device, client_name, device_name)
+        .strict_bounds(strict(client))
+        .compare_signatures(!bounds.skip_signatures);
+    let mut to_client = TypeCheck::new(device, client, device_name, client_name)
+        .strict_bounds(strict(device))
+        .compare_signatures(!bounds.skip_signatures);
     let result = compare_kinds(
         (client, client_item, client_name),
         (device, device_item, device_name),
@@ -302,7 +306,9 @@ fn compare_kinds<'a>(
                     Some(ApiLevelLocationOwned::InLine { .. })
                 )
             };
-            if skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0) {
+            if to_device.compare_signatures
+                && (skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0))
+            {
                 check_same_definition(
                     "trait",
                     (&identity, client_name),
@@ -357,25 +363,31 @@ fn kind_name(kind: &ApiItemKindOwned) -> &'static str {
     }
 }
 
-/// Arguments go to the device, the result comes back: of a method or a stream function.
+/// Arguments go to the device, the result comes back: of a method or a stream function. The arguments are the
+/// fields of an `Unsized` args struct (EVO-22, a `#[flatten]` argument's struct fields in its place), compared as
+/// fields are: the client's extra trailing arguments are skipped by the device, the device's extra ones need a
+/// default. Whether the Rust signatures changed is not a question of the wire, see [signature_change].
 fn check_signature<'a>(
     (args, return_ty): (&'a [ArgumentOwned], Option<&'a TypeOwned>),
     (device_args, device_return_ty): (&'a [ArgumentOwned], Option<&'a TypeOwned>),
     (client_name, device_name): (&str, &str),
     (to_device, to_client): (&mut TypeCheck<'a>, &mut TypeCheck<'a>),
 ) -> Result<(), String> {
-    if args.len() != device_args.len() {
-        return Err(format!(
-            "takes {} argument(s) on the {client_name}, {} on the {device_name}",
-            args.len(),
-            device_args.len()
-        ));
-    }
-    for (arg, device_arg) in args.iter().zip(device_args) {
-        let segment = format!("argument `{}`", arg.ident);
-        to_device
-            .within(&segment, |c| c.check(&arg.ty, &device_arg.ty))
-            .map_err(|e| format!("{segment}: {e}"))?;
+    if !args.is_empty() || !device_args.is_empty() {
+        let as_fields = |args: &[ArgumentOwned], bundle: &ApiBundleOwned, name: &str| {
+            ArgumentOwned::as_fields(args, bundle)
+                .map(FieldsOwned::Named)
+                .map_err(|e| format!("arguments on the {name}: {e:#}"))
+        };
+        let fields = as_fields(args, to_device.defs(0), client_name)?;
+        let device_fields = as_fields(device_args, to_device.defs(1), device_name)?;
+        to_device.noun = "argument";
+        to_device.check_fields(
+            &ElementSize::Unsized,
+            &fields,
+            &ElementSize::Unsized,
+            &device_fields,
+        )?;
     }
     match (return_ty, device_return_ty) {
         (None, None) => {}
@@ -390,6 +402,43 @@ fn check_signature<'a>(
         }
     }
     Ok(())
+}
+
+/// How the Rust signatures of a method or stream function differ between an `old` and a `new` version whose wire is
+/// compatible (EVO-22): arguments added or removed at the end (with defaults), or promoted to a `#[flatten]` struct
+/// or back. Handlers and client calls take other parameters, a break of the API crate's Rust API. `None` when they
+/// take the same ones, or when the items aren't both methods or stream functions.
+pub fn signature_change(old: &ApiItemKindOwned, new: &ApiItemKindOwned) -> Option<String> {
+    let args = |kind: &'_ ApiItemKindOwned| match kind {
+        ApiItemKindOwned::Method { args, .. } | ApiItemKindOwned::StreamFn { args, .. } => {
+            Some(args.clone())
+        }
+        _ => None,
+    };
+    let (old, new) = (args(old)?, args(new)?);
+    let flattened = |args: &[ArgumentOwned]| match args {
+        [arg] if arg.is_flatten() => Some(arg.ident.clone()),
+        _ => None,
+    };
+    let change = match (flattened(&old), flattened(&new)) {
+        (None, Some(new)) => format!(
+            "{} argument(s) on the old version became the #[flatten] struct `{new}`",
+            old.len()
+        ),
+        (Some(old), None) => format!(
+            "the #[flatten] struct `{old}` of the old version became {} argument(s)",
+            new.len()
+        ),
+        _ if old.len() != new.len() => format!(
+            "takes {} argument(s) on the old version, {} on the new version",
+            old.len(),
+            new.len()
+        ),
+        _ => return None,
+    };
+    Some(format!(
+        "{change}: the same bytes on the wire, but other parameters for handlers and client calls"
+    ))
 }
 
 /// Crate and name of a trait or type, and its version. A type's name has its module path (`units::Volt`, API-46), as
@@ -528,6 +577,11 @@ pub struct TypeCheck<'a> {
     /// The writer's and the reader's bundle with skipped definitions put back from the embedded snapshots, made the
     /// first time a marker is compared by its definition (EVO-17). Indices of the bundle stay valid in it.
     defs: [OnceCell<ApiBundleOwned>; 2],
+    /// What the next [Self::check_fields] calls its fields in messages: `argument` for the arguments of a method
+    /// (EVO-22), `field` otherwise (reset by it for nested types).
+    noun: &'static str,
+    /// Whether a definition one side left out is checked by its signature, see [Self::compare_signatures].
+    compare_signatures: bool,
 }
 
 /// Type with out-of-line references resolved.
@@ -559,7 +613,18 @@ impl<'a> TypeCheck<'a> {
             root: None,
             path: vec![],
             defs: Default::default(),
+            noun: "field",
+            compare_signatures: true,
         }
+    }
+
+    /// Whether a trait or type one side left out (by crate version and signature) is checked to have the same
+    /// signature on the other side. Off when the two sides' signatures come from different shapes of the API model:
+    /// a snapshot saved by an older wire_weaver, before a field of the model that signatures include (EVO-22's
+    /// argument defaults), computed them over other bytes.
+    pub fn compare_signatures(mut self, compare: bool) -> Self {
+        self.compare_signatures = compare;
+        self
     }
 
     /// Runs `f` with `segment` (a field, an argument) added to [Self::path].
@@ -663,6 +728,9 @@ impl<'a> TypeCheck<'a> {
                     TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
                     _ => None,
                 };
+                if !self.compare_signatures {
+                    return Ok(());
+                }
                 return check_same_definition(
                     "type",
                     (&w, self.writer_name),
@@ -795,14 +863,16 @@ impl<'a> TypeCheck<'a> {
             return Err("bad API bundle: no generic type definition".into());
         };
         check_same_origin("type", &w, &r).inspect_err(|_| self.note_root("type", &w))?;
-        check_same_definition(
-            "type",
-            (&w, self.writer_name),
-            (&r, self.reader_name),
-            type_signature(self.writer, wi),
-            type_signature(self.reader, ri),
-        )
-        .inspect_err(|_| self.note_root("type", &w))?;
+        if self.compare_signatures {
+            check_same_definition(
+                "type",
+                (&w, self.writer_name),
+                (&r, self.reader_name),
+                type_signature(self.writer, wi),
+                type_signature(self.reader, ri),
+            )
+            .inspect_err(|_| self.note_root("type", &w))?;
+        }
         if wa.len() != ra.len() {
             return Err(format!(
                 "{} with {} arguments vs {}",
@@ -1492,6 +1562,7 @@ impl<'a> TypeCheck<'a> {
             return Err(format!("{w_size:?} vs {r_size:?}"));
         }
         let (w, r) = (fields(w), fields(r));
+        let noun = std::mem::replace(&mut self.noun, "field");
         let is_unsized = matches!(r_size, ElementSize::Unsized);
         if w.len() != r.len() {
             let (fewer, more) = if w.len() < r.len() { (w, r) } else { (r, w) };
@@ -1499,26 +1570,26 @@ impl<'a> TypeCheck<'a> {
             let in_between =
                 layout::last_old_field(fewer, more).is_some_and(|last| last + 1 != fewer.len());
             if !is_unsized || in_between {
-                return self.check_padding_reuse(w, r, is_unsized);
+                return self.check_padding_reuse(w, r, is_unsized, noun);
             }
         }
         for (i, (w_field, r_field)) in w.iter().zip(r).enumerate() {
-            let segment = format!("field {}", field_name(i, r_field));
+            let segment = format!("{noun} {}", field_name(i, r_field));
             self.within(&segment, |c| c.check(&w_field.ty, &r_field.ty))
                 .map_err(|e| format!("{segment}: {e}"))?;
         }
         if is_unsized {
-            self.check_trailing(w.len(), r)?;
+            self.check_trailing(w.len(), r, noun)?;
         }
         Ok(())
     }
 
     /// Writer's extra trailing fields are skipped, reader's extra fields must have a default.
-    fn check_trailing(&self, written: usize, r: &[FieldOwned]) -> Result<(), String> {
+    fn check_trailing(&self, written: usize, r: &[FieldOwned], noun: &str) -> Result<(), String> {
         for (i, r_field) in r.iter().enumerate().skip(written) {
             if r_field.default.is_none() {
                 return Err(format!(
-                    "field {} is not sent by the {} and has no #[default]",
+                    "{noun} {} is not sent by the {} and has no #[default]",
                     field_name(i, r_field),
                     self.writer_name
                 ));
@@ -1534,6 +1605,7 @@ impl<'a> TypeCheck<'a> {
         w: &[FieldOwned],
         r: &[FieldOwned],
         is_unsized: bool,
+        noun: &str,
     ) -> Result<(), String> {
         let ((fewer_bundle, fewer), (more_bundle, more)) = if w.len() < r.len() {
             ((self.writer, w), (self.reader, r))
@@ -1552,7 +1624,7 @@ impl<'a> TypeCheck<'a> {
                     "only Unsized types can gain new fields at the end, other types only in unused padding bits"
                 };
                 format!(
-                    "{} fields on the {}, {} on the {}, {can_grow}: {e}",
+                    "{} {noun}s on the {}, {} on the {}, {can_grow}: {e}",
                     w.len(),
                     self.writer_name,
                     r.len(),
@@ -1560,7 +1632,7 @@ impl<'a> TypeCheck<'a> {
                 )
             })?;
         if is_unsized && r.len() > w.len() {
-            self.check_trailing(in_padding.len(), r)?;
+            self.check_trailing(in_padding.len(), r, noun)?;
         }
         // old fields are matched by name, new ones are in between
         for (i, w_field) in w.iter().enumerate() {
@@ -1569,7 +1641,7 @@ impl<'a> TypeCheck<'a> {
                 None => r.get(i),
             };
             if let Some(r_field) = r_field {
-                let segment = format!("field {}", field_name(i, r_field));
+                let segment = format!("{noun} {}", field_name(i, r_field));
                 self.within(&segment, |c| c.check(&w_field.ty, &r_field.ty))
                     .map_err(|e| format!("{segment}: {e}"))?;
             }

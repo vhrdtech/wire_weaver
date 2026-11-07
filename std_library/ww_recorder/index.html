@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.74">
+      <meta name="generator" content="zensical-0.1.0">
     
     
       
@@ -5901,7 +5901,7 @@
 <h1 id="ww_recorder">ww_recorder<a class="headerlink" href="#ww_recorder" title="Permanent link">&para;</a></h1>
 <p><code>ww_recorder</code> (STD-34) controls a <strong>recorder</strong>: a device that logs many tracks (streams of any type) to an SD card or
 flash on its own, with sessions, recordings and markers, and shows the log over USB or reads it back over
-WireWeaver. The first user is the logring engine (project P2628, repo <code>logring</code>), but nothing in the API is
+WireWeaver. The first user is the logring engine (repo <code>logring</code>), but nothing in the API is
 specific to it: any recorder with a card, tracks and a ring can serve it.</p>
 <p>The API carries <strong>control, not data</strong>. A <strong>track</strong> is one stream declared in some trait of the device's own API — a
 <code>stream!(..)</code> such as <code>can[1].rx</code> — identified by its numeric resource path (see <a href="#settings-and-tracks">Settings and

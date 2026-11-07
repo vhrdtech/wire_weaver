@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.74">
+      <meta name="generator" content="zensical-0.1.0">
     
     
       
@@ -7209,7 +7209,7 @@ another thread. What that costs depends on how deeply the CPU sleeps between mes
 own, in alternating rounds, and compares the medians:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>--release<span class="w"> </span>-p<span class="w"> </span>hub<span class="w"> </span>--example<span class="w"> </span>hub_loopback<span class="w"> </span>--<span class="w"> </span>usb:c0de:cafe:&lt;serial&gt;<span class="w"> </span><span class="o">[</span>seconds<span class="o">]</span><span class="w"> </span><span class="o">[</span>packet<span class="w"> </span>size<span class="p">|</span>max<span class="o">]</span><span class="w"> </span><span class="o">[</span>rounds<span class="o">]</span>
 </span></code></pre></div>
-<p>Medians of 7 rounds of 2 s per stage on an idle PC (omarchy-m1, Apple M1 under Asahi Linux, load 2-6), direct → hub:</p>
+<p>Medians of 7 rounds of 2 s per stage on an idle PC (one of our dev PCs, Apple M1 under Asahi Linux, load 2-6), direct → hub:</p>
 <table>
 <thead>
 <tr>
@@ -7377,11 +7377,11 @@ when it wasn't within 5 s.</p>
 <p>This is release and reopen: the holder closes the device, the hub opens it again (USB: open, claim the interface, link
 setup; RTT: attach the probe again, which can take a second or more), and the holder sets up its link through the hub.
 On Linux, a USB link is handed over live instead, see <a href="#live-link-handover-clt-44">below</a>.</p>
-<p>Measured on Linux (<code>tests/hub_reconnect</code>, <code>polite_handover.rs</code>, debug build, gpd-omarchy, 22 Oct 2026), with a
+<p>Measured on Linux (<code>tests/hub_reconnect</code>, <code>polite_handover.rs</code>, debug build, another of our dev PCs, 22 Oct 2026), with a
 simulated device that takes one host at a time on a local socket and the holder in another process with a counted
 stream open, 30 runs: the holder let go of the device within about 4.5 ms of the request; its gap, from the link going
 to the stream resumed through the hub, was 4.6 ms median (3.5 to 12 ms); the asker's whole <code>connect()</code>, starting the
-hub process included, took 34 ms median. On a real full-speed USB board (rePort, omarchy-m1)
+hub process included, took 34 ms median. On a real full-speed USB board (rePort, one of our dev PCs)
 the gap was 9.7 ms median (6 to 22 ms, 10 runs), with every call in flight or made in the gap failing; an RTT probe
 adds its attach, still to be measured. <a href="#live-link-handover-clt-44">Live link handover</a> has none of these failures.</p>
 <h2 id="live-link-handover-clt-44">Live link handover (CLT-44)<a class="headerlink" href="#live-link-handover-clt-44" title="Permanent link">&para;</a></h2>
@@ -7436,7 +7436,7 @@ link depends on the medium it ran on:</p>
 its own steps (pause, let go, take back, switch away, the device's claim), called on whatever is in the slot, and
 relinking puts another medium's halves in its place, from any medium to any other: the device's USB halves for the
 tunnel's here. The slot is an enum over the crate's media rather than a trait object: a message is one match, with
-no allocation, as before: calls over <code>usb_sim</code> with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, gpd-omarchy, 22 Oct 2026), and the handover took the same: 6.7 ms median with it and 6.9 ms before on <code>usb_sim</code> (12 runs each, alternating), 14.1 ms and 14.5 ms on the rePort below (<code>live_bench</code>, omarchy-m1, 20 runs each, alternating, no call failed, no <code>ConnectionEvent</code>).</p>
+no allocation, as before: calls over <code>usb_sim</code> with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, another of our dev PCs, 22 Oct 2026), and the handover took the same: 6.7 ms median with it and 6.9 ms before on <code>usb_sim</code> (12 runs each, alternating), 14.1 ms and 14.5 ms on the rePort below (<code>live_bench</code>, one of our dev PCs, 20 runs each, alternating, no call failed, no <code>ConnectionEvent</code>).</p>
 <h3 id="when-something-fails">When something fails<a class="headerlink" href="#when-something-fails" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -7473,7 +7473,7 @@ no allocation, as before: calls over <code>usb_sim</code> with 32 in flight ran 
 </tbody>
 </table>
 <h3 id="what-it-costs_1">What it costs<a class="headerlink" href="#what-it-costs_1" title="Permanent link">&para;</a></h3>
-<p>Measured on Linux (<code>tests/hub_reconnect</code>, <code>live_handover.rs</code>, debug build, omarchy-m1, 22 Oct 2026), with a
+<p>Measured on Linux (<code>tests/hub_reconnect</code>, <code>live_handover.rs</code>, debug build, one of our dev PCs, 22 Oct 2026), with a
 simulated USB device in the test process (<code>usb_sim</code>: one host holds the interface at a time, IN packets wait while
 nobody does) and the holder in another process, 20 calls of 1 ms each on the device in flight all the time and a
 counted stream open, 10 runs: the holder handed over in 8.5 ms median (5 to 15 ms) with 21 requests in flight; no
@@ -7689,7 +7689,7 @@ the hub holds it. <code>ww hub lend DEVICE -- CMD</code> asks the hub to let it 
 </ol>
 <p><code>hub::Lend::take(key, purpose)</code> is the same from a program; without a running hub it is <code>None</code> and the command just
 runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).</p>
-<p>On omarchy-m1 (22 Oct 2026), Donguru lent to a J-Link reset while <code>ww sync</code> watched it through the hub:</p>
+<p>On one of our dev PCs (22 Oct 2026), Donguru lent to a J-Link reset while <code>ww sync</code> watched it through the hub:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>ww<span class="w"> </span>hub<span class="w"> </span>lend<span class="w"> </span>204B319B5431<span class="w"> </span>--<span class="w"> </span>probe-rs<span class="w"> </span>reset<span class="w"> </span>--probe<span class="w"> </span><span class="m">1366</span>:0105<span class="w"> </span>--chip<span class="w"> </span>STM32G0B1RETx
 </span></code></pre></div>
 <p>The hub paused its steering and closed the device 7 ms after the ask, had it open again 3 ms after the return (the
@@ -7719,7 +7719,7 @@ steerer for the devices of its user; programs see its steering through the API i
 <li><strong>Pace.</strong> <code>HubConfig::sync_options</code> (<code>wire_weaver_client::clock_sync::Options</code>): readings and steer points ten times a second until
   the device says <code>Locked</code>, then five readings and one steer point a second.</li>
 </ul>
-<p>Measured on omarchy-m1 (22 Oct 2026, Donguru and B135 on USB full speed, <code>ww sync</code> as the view):</p>
+<p>Measured on one of our dev PCs (22 Oct 2026, Donguru and B135 on USB full speed, <code>ww sync</code> as the view):</p>
 <table>
 <thead>
 <tr>

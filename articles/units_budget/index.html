@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.74">
+      <meta name="generator" content="zensical-0.1.0">
     
     
       
@@ -5721,11 +5721,11 @@
 <li><strong>Stack</strong> is the frame of each function (<code>-Z emit-stack-sizes</code>).</li>
 <li><strong>Cycles</strong> are the DWT <code>CYCCNT</code> of an STM32H725 with caches on at 540 MHz, <code>cargo run</code> of <code>stm32h725ig-unit-budget-cycles</code> or <code>just units-budget --cycles</code>. Instructions are not cycles; the two are reported as what they are.</li>
 </ul>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>just<span class="w"> </span>units-budget<span class="w"> </span>--qemu-host<span class="w"> </span>gpd-omarchy<span class="w">              </span><span class="c1"># instructions, flash, stack at fw-z</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>just<span class="w"> </span>units-budget<span class="w"> </span>--qemu-host<span class="w"> </span>gpd-omarchy<span class="w"> </span>--profile<span class="w"> </span>fw-3
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>just<span class="w"> </span>units-budget<span class="w"> </span>--qemu-host<span class="w"> </span>gpd-omarchy<span class="w"> </span>--cycles<span class="w">     </span><span class="c1"># and the STM32H725, replaces the board&#39;s firmware</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>just<span class="w"> </span>units-budget<span class="w"> </span>--qemu-host<span class="w"> </span>&lt;other-pc&gt;<span class="w">              </span><span class="c1"># instructions, flash, stack at fw-z</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>just<span class="w"> </span>units-budget<span class="w"> </span>--qemu-host<span class="w"> </span>&lt;other-pc&gt;<span class="w"> </span>--profile<span class="w"> </span>fw-3
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>just<span class="w"> </span>units-budget<span class="w"> </span>--qemu-host<span class="w"> </span>&lt;other-pc&gt;<span class="w"> </span>--cycles<span class="w">     </span><span class="c1"># and the STM32H725, replaces the board&#39;s firmware</span>
 </span></code></pre></div>
-<p><code>--qemu-host</code> is for a PC without <code>qemu-system-arm</code> (omarchy-m1 has none): the ELF and <code>qemu_icount</code> are copied to <code>/tmp/ww-units-budget</code> on the host and run there. Later pieces add their cases to <code>Case</code> in <code>unit_budget.rs</code> as a <code>&lt;group&gt;: plain</code> / <code>&lt;group&gt;: Fixed</code> pair and the same command prints them.</p>
+<p><code>--qemu-host</code> is for a PC without <code>qemu-system-arm</code> (one of our dev PCs has none): the ELF and <code>qemu_icount</code> are copied to <code>/tmp/ww-units-budget</code> on the host and run there. Later pieces add their cases to <code>Case</code> in <code>unit_budget.rs</code> as a <code>&lt;group&gt;: plain</code> / <code>&lt;group&gt;: Fixed</code> pair and the same command prints them.</p>
 <h2 id="baseline-fixed-on-27-october-2026">Baseline: <code>Fixed</code> on 27 October 2026<a class="headerlink" href="#baseline-fixed-on-27-october-2026" title="Permanent link">&para;</a></h2>
 <p>Instructions per operation (a message, an item, a value), Cortex-M3 under QEMU, <code>Fixed</code> against plain:</p>
 <table>
@@ -5840,7 +5840,7 @@
 </tbody>
 </table>
 <p>(plain / <code>Fixed</code> instructions in the function body.) Where the pair is identical, <code>Fixed</code> is free on every core, no measurement needed. Where it differs the cause is not the integer: a plain <code>u32</code> field of a derived struct is written with the derive's built-in <code>write_le32_latch</code> (the error is latched and checked once per struct), while a <code>Fixed</code> field goes through <code>Fixed</code>'s own <code>ser_shrink_wrap</code> and <code>write_le32</code>, which checks per field. The bytes are the same (the hashes match), the work is a few instructions more or fewer per field: at <code>fw-z</code> the <code>Fixed</code> encode and decode are 2-6 instructions and 4-12 bytes larger, at <code>fw-3</code> the decode is 15 instructions and 42 bytes larger on M4F/M33. Making the derive treat a <code>transparent</code> <code>Fixed</code> like its plain field would close that, and this recipe will show it when it does.</p>
-<p>Cycles on the STM32H725 for the pairs that differ: <strong>pending</strong>, the board was not behind the probe when this was measured. Run <code>just units-budget --qemu-host gpd-omarchy --cycles</code> with the H725 attached to fill in this section.</p>
+<p>Cycles on the STM32H725 for the pairs that differ: <strong>pending</strong>, the board was not behind the probe when this was measured. Run <code>just units-budget --qemu-host &lt;other-pc&gt; --cycles</code> with the H725 attached to fill in this section.</p>
 <h2 id="limits-of-this-baseline">Limits of this baseline<a class="headerlink" href="#limits-of-this-baseline" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The ELF proof compares code, not the cost of a pointer's pointee or of memory: it says nothing about cache or wait states, which only matter where the code differs.</li>

@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.74">
+      <meta name="generator" content="zensical-0.1.0">
     
     
       
@@ -7465,7 +7465,7 @@ with a generated server, even one whose methods all return plain values; <code>f
 server, <code>Event</code> itself would have to lose its lengths: a <code>final_structure</code>/<code>sized</code> event, which is a wire change of
 <code>ww_client_server</code>.</p>
 <h2 id="nesting-depth">Nesting depth<a class="headerlink" href="#nesting-depth" title="Permanent link">&para;</a></h2>
-<p>The <a href="../wire_format/#nesting-depth">nesting depth limit</a> (P2401) is a check in <code>split()</code>, one copy, and at every
+<p>The <a href="../wire_format/#nesting-depth">nesting depth limit</a> is a check in <code>split()</code>, one copy, and at every
 <code>read::&lt;T&gt;()</code> of a <code>final_structure</code> type in place (<code>Vec</code>, <code>RefVec</code>, <code>Option</code>, a <code>final_structure</code> user type): a
 compare with zero, a store before and one after. The counter itself fits in the padding of <code>BufReader</code>, which keeps
 its size. Before and after, the cases that changed by more than 4 bytes:</p>

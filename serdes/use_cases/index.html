@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.74">
+      <meta name="generator" content="zensical-0.1.0">
     
     
       
@@ -5773,8 +5773,8 @@
 
 
 <h1 id="use-cases">Use cases<a class="headerlink" href="#use-cases" title="Permanent link">&para;</a></h1>
-<p>Where ShrinkWrap is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
-(<code>tpm_mesh_dash</code> and <code>tpm_mesh</code>, which watch and connect a handful of PCs). Nothing here is <code>no_std</code>: the point is
+<p>Where ShrinkWrap is used outside the RPC machinery, in two small private programs of our own tool chain
+(a mesh dashboard app and its backend watcher, which watch and connect a handful of PCs). Nothing here is <code>no_std</code>: the point is
 that a dense, evolvable format with bounded values is useful on a desktop as well, for files, streams and
 size-capped messages. Every size and byte sequence below is asserted by
 <a href="https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/tests/use_cases.rs"><code>shrink_wrap/shrink_wrap/tests/use_cases.rs</code></a>,
@@ -5782,7 +5782,7 @@ which holds the same types as the snippets (the shipped code names the same item
 <p>Read <a href="../shrink_wrap/">ShrinkWrap</a> and <a href="../derive/">derive</a> first, this page assumes <code>Unsized</code> types, the
 <a href="../wire_format/#the-fifo-of-lengths">FIFO of lengths</a> and <a href="../special_types/#tailsizen-the-size-of-the-rest-of-a-value"><code>TailSize&lt;N&gt;</code></a> are familiar.</p>
 <h2 id="ring-files-of-a-load-history">Ring files of a load history<a class="headerlink" href="#ring-files-of-a-load-history" title="Permanent link">&para;</a></h2>
-<p><code>tpm_mesh_dash</code> keeps the load history of a PC (CPU, memory, network, ... up to 64 series) in one file per
+<p>The mesh dashboard app keeps the load history of a PC (CPU, memory, network, ... up to 64 series) in one file per
 resolution: a 1 s tier for an hour, 1 min for a day, 15 min for 30 days, 1 h for a year. A tier is a header followed
 by a fixed number of record slots, indexed by time (<code>(ts / period) % slots</code>), so one <code>write_at</code> per sample, nothing
 grows, and there is no cursor to lose. This is the case <code>TailSize&lt;N&gt;</code> was made for: a value that lives at a fixed
@@ -5869,10 +5869,10 @@ matters more:</p>
 <li>a half-written or zeroed slot is an error (<code>MalformedUVlq32</code>, <code>OutOfBoundsSplit</code>), never garbage values;</li>
 <li>no hand-packed offsets anywhere: the file format is the three structs above.</li>
 </ul>
-<p>The shipped code is <code>src/history.rs</code> of <code>tpm_mesh_dash</code>; a header that does not match (magic, period, slots) means
+<p>The shipped code is the mesh dashboard app's <code>src/history.rs</code>; a header that does not match (magic, period, slots) means
 the file is recreated, as the data is telemetry and not worth a migration.</p>
 <h2 id="request-and-reply-frames-over-streams">Request and reply frames over streams<a class="headerlink" href="#request-and-reply-frames-over-streams" title="Permanent link">&para;</a></h2>
-<p><code>tpm_mesh</code> lets one PC ask another PC's daemon a question next to its gossip (NET-8): a QUIC stream per question
+<p>The mesh watcher lets one PC ask another PC's daemon a question next to its gossip (NET-8): a QUIC stream per question
 (iroh), one request frame in, one reply frame out. The payload of both is JSON the daemon never looks into, so
 ShrinkWrap only does the envelope:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[derive_shrink_wrap(owned, derive(Debug, PartialEq))]</span>
@@ -5914,7 +5914,7 @@ checked against a cap <em>before</em> a byte of the body is read or allocated: 1
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>07 97                                  reversed lengths of the two fields (7 and 15)
 </span></code></pre></div>
 <p>and <code>AskReplyOwned::Err("no")</code> is 5: <code>04 | 01 | 6E 6F | 02</code>, the length, the discriminant (<code>ww_repr = u8</code>), the text and
-its length. The rules a frame reader enforces, all tested in <code>tpm_mesh</code>: over the cap is refused (also on the way
+its length. The rules a frame reader enforces, all tested in the mesh watcher: over the cap is refused (also on the way
 out), a truncated frame is an error, bytes after the frame are an error, and a hostile length such as
 <code>85 80 80 80 00</code> is refused by the cap before anything is read. The <code>owned</code> types allocate, which is fine on a
 daemon.</p>
@@ -5924,7 +5924,7 @@ daemon.</p>
 with <code>use shrink_wrap::prelude::*;</code> if the program also imports another <code>BufReader</code> (tokio's here).</p>
 </div>
 <h2 id="small-messages-under-a-size-cap-gossip-payloads">Small messages under a size cap: gossip payloads<a class="headerlink" href="#small-messages-under-a-size-cap-gossip-payloads" title="Permanent link">&para;</a></h2>
-<p><code>tpm_mesh</code> announces each PC's state to the others over <code>iroh-gossip</code>, which caps a message at 4 KiB. The messages
+<p>The mesh watcher announces each PC's state to the others over <code>iroh-gossip</code>, which caps a message at 4 KiB. The messages
 were JSON, and 7 Oct 2026 was spent finding out what a more compact encoding gains, on 67 live events. Average bytes
 per message:</p>
 <table>
@@ -5980,11 +5980,11 @@ gains nothing on it. Two lessons:</p>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="n">cpu_percent</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w">   </span><span class="c1">// not an f32</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="n">mem_mib</span><span class="p">:</span><span class="w"> </span><span class="nc">UVlq32</span><span class="p">,</span><span class="w">   </span><span class="c1">// 512 MiB is 2 bytes, not a u64</span>
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">}</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1">// {&quot;name&quot;:&quot;omarchy-m1&quot;,&quot;busy&quot;:true,&quot;cpu_percent&quot;:42,&quot;mem_mib&quot;:512} is 64 bytes of JSON, and:</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;6F 6D 61 72 63 68 79 2D 6D 31  80  2A  84 00  29&quot;</span><span class="p">));</span><span class="w">  </span><span class="c1">// 15</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1">//                     &quot;omarchy-m1&quot;                    busy cpu mem    length of name</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1">// {&quot;name&quot;:&quot;my-laptop1&quot;,&quot;busy&quot;:true,&quot;cpu_percent&quot;:42,&quot;mem_mib&quot;:512} is 64 bytes of JSON, and:</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span><span class="w"> </span><span class="n">hex</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;6D 79 2D 6C 61 70 74 6F 70 31  80  2A  84 00  29&quot;</span><span class="p">));</span><span class="w">  </span><span class="c1">// 15</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="c1">//                     &quot;my-laptop1&quot;                    busy cpu mem    length of name</span>
 </span></code></pre></div>
-<p>The switch of the gossip payloads to ShrinkWrap is in progress in <code>tpm_mesh</code> as <code>gossip-sw</code>; this section
+<p>The switch of the gossip payloads to ShrinkWrap is in progress in a private mesh-status app as <code>gossip-sw</code>; this section
 describes its design and the measurements behind it, it has not shipped. The JSON/deflate numbers are measured
 on real events, the 323 B figure is the tight stats schema; the type above is only an example.</p>
 <h2 id="where-compression-wrappers-would-pay-time-series">Where compression wrappers would pay: time series<a class="headerlink" href="#where-compression-wrappers-would-pay-time-series" title="Permanent link">&para;</a></h2>

@@ -2,7 +2,7 @@
 //! Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card
 //! or flash on its own, with sessions, recordings and markers.
 //!
-//! The first user is the logring engine (P2628, repo `logring`), but nothing here is specific to it: any recorder
+//! The first user is the logring engine (repo `logring`), but nothing here is specific to it: any recorder
 //! that has a card, tracks and a ring can serve [Recorder]. A **track** is one stream declared in some trait of the
 //! device's own API (a `stream!(..)` such as `can[1].rx`), identified by its numeric resource path ([TrackInfo]).
 //! The recorder logs that stream's items, and a host reads them back through the same stream's own reliable

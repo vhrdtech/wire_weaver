@@ -314,7 +314,7 @@ pub(crate) mod tests {
         }
     }
 
-    /// Definitions a device leaves out, from another revision of a crate than the host's snapshot (P2401): the
+    /// Definitions a device leaves out, from another revision of a crate than the host's snapshot: the
     /// host finds the device's definition by signature in the definition cache and compares it by the evolution
     /// rules; without it, the error says what happened.
     mod other_revision {

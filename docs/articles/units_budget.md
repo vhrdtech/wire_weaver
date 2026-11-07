@@ -26,12 +26,12 @@ Four things are measured:
 - **Cycles** are the DWT `CYCCNT` of an STM32H725 with caches on at 540 MHz, `cargo run` of `stm32h725ig-unit-budget-cycles` or `just units-budget --cycles`. Instructions are not cycles; the two are reported as what they are.
 
 ```sh
-just units-budget --qemu-host gpd-omarchy              # instructions, flash, stack at fw-z
-just units-budget --qemu-host gpd-omarchy --profile fw-3
-just units-budget --qemu-host gpd-omarchy --cycles     # and the STM32H725, replaces the board's firmware
+just units-budget --qemu-host <other-pc>              # instructions, flash, stack at fw-z
+just units-budget --qemu-host <other-pc> --profile fw-3
+just units-budget --qemu-host <other-pc> --cycles     # and the STM32H725, replaces the board's firmware
 ```
 
-`--qemu-host` is for a PC without `qemu-system-arm` (omarchy-m1 has none): the ELF and `qemu_icount` are copied to `/tmp/ww-units-budget` on the host and run there. Later pieces add their cases to `Case` in `unit_budget.rs` as a `<group>: plain` / `<group>: Fixed` pair and the same command prints them.
+`--qemu-host` is for a PC without `qemu-system-arm` (one of our dev PCs has none): the ELF and `qemu_icount` are copied to `/tmp/ww-units-budget` on the host and run there. Later pieces add their cases to `Case` in `unit_budget.rs` as a `<group>: plain` / `<group>: Fixed` pair and the same command prints them.
 
 ## Baseline: `Fixed` on 27 October 2026
 
@@ -77,7 +77,7 @@ Result of 27 October 2026 (M4F and M33 give the same code and the same table):
 
 (plain / `Fixed` instructions in the function body.) Where the pair is identical, `Fixed` is free on every core, no measurement needed. Where it differs the cause is not the integer: a plain `u32` field of a derived struct is written with the derive's built-in `write_le32_latch` (the error is latched and checked once per struct), while a `Fixed` field goes through `Fixed`'s own `ser_shrink_wrap` and `write_le32`, which checks per field. The bytes are the same (the hashes match), the work is a few instructions more or fewer per field: at `fw-z` the `Fixed` encode and decode are 2-6 instructions and 4-12 bytes larger, at `fw-3` the decode is 15 instructions and 42 bytes larger on M4F/M33. Making the derive treat a `transparent` `Fixed` like its plain field would close that, and this recipe will show it when it does.
 
-Cycles on the STM32H725 for the pairs that differ: **pending**, the board was not behind the probe when this was measured. Run `just units-budget --qemu-host gpd-omarchy --cycles` with the H725 attached to fill in this section.
+Cycles on the STM32H725 for the pairs that differ: **pending**, the board was not behind the probe when this was measured. Run `just units-budget --qemu-host <other-pc> --cycles` with the H725 attached to fill in this section.
 
 ## Limits of this baseline
 

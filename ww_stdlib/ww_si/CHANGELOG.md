@@ -129,9 +129,9 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
 
 * `Unwrapper::default()` (no anchor: the first timestamp is taken as is, the earliest time it can be) and
   `Unwrapper::restart()`, for a host without a full reading of the device's clock; timestamps may change prefix and
-  storage from one to the next (P2401#17oct-2214b). `Unwrapper::last()` returns `Option<Second>` (`None` before the
+  storage from one to the next. `Unwrapper::last()` returns `Option<Second>` (`None` before the
   first timestamp without anchor).
-* Exact integer arithmetic on quantities of the same unit (P2401#17oct-2214), next to the float operators:
+* Exact integer arithmetic on quantities of the same unit, next to the float operators:
   `checked_add` / `checked_sub` (in the finer prefix of the two and `self`'s number type, `Second::milli(5u32)` plus
   `Second::micro(40u16)` is `Second::micro(5040u32)`), `checked_mul_int(n)`, `wrapping_add` / `wrapping_sub` (in
   `self`'s prefix and number type, wrapping like a device clock) and `steps(&dt)`, the iterator `t0`, `t0 + dt`, ..

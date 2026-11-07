@@ -1,4 +1,4 @@
-//! Golden bit strings of the reference encoder of the Series design (P2401 `design/series_proto/src/spec.rs`,
+//! Golden bit strings of the reference encoder of the Series design (`design/series_proto/src/spec.rs`,
 //! 16 Oct 2026): every predictor / coder combination it can encode, per value set. Fields: width, signed, values,
 //! items that restart the column, predictor, coder, the column's bits.
 

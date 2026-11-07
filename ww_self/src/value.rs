@@ -246,7 +246,7 @@ impl std::error::Error for RefersBack {}
 const VALUES_FIXED: usize = 1 << 16;
 const VALUES_PER_BYTE: usize = 64;
 /// Most memory the values of one decode take, whatever its size: 64 bytes of input can't become 4 KB of values
-/// times 64 K (a few such messages in flight would exhaust a small host, P2401#17oct-1125).
+/// times 64 K (a few such messages in flight would exhaust a small host).
 pub const DECODE_MAX_BYTES: usize = 64 << 20;
 /// Each value has its own copy of its field or variant name: names count as a value per this many bytes.
 const NAME_BYTES_PER_VALUE: usize = 32;

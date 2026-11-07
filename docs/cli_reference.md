@@ -35,7 +35,7 @@ printed to stderr.
 
 ```
 $ ww list --plain
-usb 003-1 c0de:cafe "Vhrd.Tech" "WireWeaver Generic" serial=09000F000251313438333634 api=all_gpio_api@0.1.0 hash=5ff989a95162d4d7
+usb 003-1 c0de:cafe "VHRD" "WireWeaver Generic" serial=09000F000251313438333634 api=all_gpio_api@0.1.0 hash=5ff989a95162d4d7
 ```
 
 ```

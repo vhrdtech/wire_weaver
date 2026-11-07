@@ -1,5 +1,5 @@
 //! Introspection data comes from the device: a malformed or malicious one must not take the host down. A type or
-//! value nested deeper than the reader allows is `Error::NestingTooDeep`, not a stack overflow (P2401).
+//! value nested deeper than the reader allows is `Error::NestingTooDeep`, not a stack overflow.
 
 use shrink_wrap::prelude::*;
 use ww_self::{TypeOwned, Value, ValueOwned};

@@ -1,4 +1,4 @@
-//! The no-float firmware guard (TEST-33, `~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md` section 3 and
+//! The no-float firmware guard (TEST-33, see our internal design notes, section 3 and
 //! D2): builds `qemu-no-f64-guard` (`examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs`), a fixture that calls every
 //! device-relevant `ww_si::Quantity` operation, on the cores and number-feature combinations real
 //! firmware uses, and lists what each ELF links that its group forbids, with bytes.

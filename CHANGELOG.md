@@ -119,39 +119,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - shrink_wrap / ww_self: a dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` / `ser_series_dyn`
   write a `Series` from its items with the bytes the typed writer gives for the same `CodecPolicy`, so a dynamic
   client and Python can send `Series` arguments and properties. See the `shrink_wrap` and `ww_self` changelogs.
-- wire_weaver_client / wire_weaver_cli / wire_weaver_py / ww_self: batched streams in the dynamic client and
-  Python (API-41, piece 6 of `prj/P2401-wireweaver/design/batched_streams.md`): `DynPositionedStream` and
-  `DynStream` decode a batched stream's events into items with their own device time, no generated code involved
-  (`ApiItemKind::StreamFn` gains `batch_item_ty`, the `Timed<T>` instance the device's wire item needs);
-  `recv_batch` / `recv_batch_blocking` give whole batches on both. `ww stream <path> [--batches]` prints a plain,
-  counted or reliable stream the same way `ww observe` prints property updates. Python's
-  `PositionedStream.recv_batch()` / `Stream.recv_batch()` give a whole batch as numpy columns
-  (`ww_self::SeriesColumn::from_items`, built from the items, not a re-read of the batch's bytes). See the
-  `wire_weaver_client`, `wire_weaver_cli`, `wire_weaver_py` and `ww_self` changelogs.
-- wire_weaver_client: one device-time rule (P2401#17oct-2214b): every time a device sends (stream heads, batch items,
-  observe updates) comes unwrapped into a `U64` in its prefix through `ww_si::Unwrapper` (now usable without an
-  anchor), whatever prefix and storage the device picks; heads of counted and reliable streams were not unwrapped
-  before. See the `wire_weaver_client` and `ww_si` changelogs.
-- ww_si: exact integer time arithmetic (P2401#17oct-2214): `checked_add`, `checked_sub`, `checked_mul_int`,
-  `wrapping_add`, `wrapping_sub` and `steps` on quantities of the same unit in integer storage; batched streams'
-  generated `<name>_push_many(to, t0, dt, values)` stamps a block with `t0 + i * dt` through them instead of taking
-  `(t, value)` pairs. See the `ww_si` and `wire_weaver_core` changelogs.
-- `examples_mcu/mcu_qemu` (Cortex-M3, `lm3s6965evb`) and a new `examples_mcu/mcu_qemu_m4f` (Cortex-M4F,
-  `mps2-an386`) gain a `Series<Timed<Ampere>>` encode benchmark (TEST-23, piece 4 of the batched-streams design):
-  the motor demo's real recorded `i_a` signal, at n = 8/32/64 under `CodecPolicy::SMALLEST`,
-  `fixed(delta,packed)` and `fixed(delta-of-delta,packed)`, one bin per codec set so `cargo size` /
-  `llvm-size` measures each set's own flash. Flash: ~98.0 KB (M3) / ~75.7 KB (M4F) `.text`, within 70 B across
-  codec sets (the trial-every-codec code for `SMALLEST` is a runtime branch, not a monomorphization axis, so it
-  stays linked in regardless of which policy a bin uses); against a `ww_si`-free baseline bin (`qemu-bounded`,
-  28.9 KB) linking `ww_si`'s `Series`/`NumericValue` codecs once costs about 69 KB. Instruction counts (semihosting
-  `SYS_ELAPSED` measures host wall-clock time, not instructions, regardless of `-icount`; counted instead from a
-  `qemu-system-arm -accel tcg,one-insn-per-tb=on -d exec,nochain` trace, bracketed by two marker functions): a
-  fixed codec is 3.3x-3.9x cheaper than `SMALLEST` in CPU (not the ~10x first guessed), `fixed(delta,packed)` and
-  `fixed(delta-of-delta,packed)` cost about the same. At the full FOC rate (21 properties x 25 kHz), even the
-  fixed codecs need about 1 billion instructions/second on Cortex-M3, well past any M3/M4/M4F/M7 budget — full-rate,
-  all-properties batched observe needs a property subset or a lower rate on real hardware, not just a cheaper
-  codec. D4 (no_std default): `fixed(delta,packed)`, pending confirmation from DWT cycle counts on an
-  STM32H725IG/M7 (follow-up on omarchy-m1). See `prj/P2401-wireweaver/design/batched_streams.md` for the numbers.
 - shrink_wrap: `RefVecBuilder<T>` (SW-61) writes a list in place, one element at a time, with the bytes of the same
   `RefVec::Slice`. **Breaking:** it replaces `RefVecU8Builder` (`RefVecBuilder::<u8>::write_bytes_with`); see
   `shrink_wrap/CHANGELOG.md`.
@@ -176,15 +143,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   assumptions, derive reference, special types, fixed and sparse layouts, showcase, use cases, C) and Nomicon pages
   (wire format internals, code size). The built-in types page is rewritten against the code. A "What works today"
   page is generated from `FEATURES.md` (`just features-page`), which is now the "Feature tracker", last in the nav.
-- `ww_recorder` (STD-34), an API to control a recorder (the SD card log store of P2628, repo `logring`, or any
-  logger): `Recorder` with status, card facts, two-step format, recordings, markers, settings (flush thresholds) and
-  counters, and a `Track[]` array with per-track enable, durability and counters. Docs page
-  `docs/std_library/ww_recorder.md`; the first server is the logring's.
-- `ww_block` (STD-39) and `ww_sd` (STD-40), the two generic card tiers of P2628. `ww_block::BlockDevice` reads,
-  CRCs, erases and writes an SD card, eMMC or flash by block, writes only under a lease that stops the card's own user
-  first, with an optional bulk credit sink and read stream. `ww_sd::SdCard` gives raw registers, an init report and
-  single raw commands with response, status bits and timing; commands that can lock or damage a card are refused
-  unless the firmware builds with `raw-sd-unrestricted`. Docs pages `docs/std_library/ww_block.md` and `ww_sd.md`.
 - Motor controller demo (EX-11), `motor_demo` and `motor_demo_api` (code in the
   [motor_sim](https://github.com/vhrdtech/motor_sim) repo since 18 Oct 2026): a VESC-like FOC controller driving a
   simulated motor ([motor_sim](https://github.com/vhrdtech/motor_sim)), its 52 variables observed in three rate
@@ -267,7 +225,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   with simulated drifting and jittery device clocks. `ww_indication`: devices with a shared clock align their
   animations to period boundaries of UTC, so they breathe in phase. `ww sync DEV...` keeps several devices steered
   and shows how well they follow.
-- `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed`, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does (tpm ops#22oct-2049).
 - The rework guard (STD-101, TOOL-29): a firmware never runs a board with a rework it doesn't know. First thing in `main`, before any init, it reads the bench record and refuses to boot unless an allowance bound to its own image's build id covers the reworks: it blinks a shared code and reboots into the ROM bootloader. `ww_board_info::guard` decides (`boot_check`), `ww_board_info::image` carries the reworks an image knows and where the board's record is (the locator), `ww_board_info::record` reads and writes the record through a boot ROM. `ww dfu rp flash` / `ww dfu stm32 flash` check there before writing and store or clear the allowance there. Replaces "runs on its safe features". See `ww_stdlib/ww_board_info/CHANGELOG.md`, `ww_settings/ww_settings/CHANGELOG.md`, `ww_report/CHANGELOG.md`, `wire_weaver_cli/CHANGELOG.md`, `ww_stdlib/ww_firmware_info/CHANGELOG.md`.
 - Flashing checks the board's reworks (TOOL-29): `ww dfu rp flash` and `ww dfu stm32 flash` reboot a running device into its boot ROM themselves, read its applied reworks there through the ROM, compare them with the ones the new image knows, ask before writing an image that lacks one (or take `--allow-unknown-reworks`), and store or clear the allowance there. The check is a library, `ww_report::rework_check`. See `wire_weaver_cli/CHANGELOG.md`, `ww_report/CHANGELOG.md`.
 - `ww info` and `ww board rework allow|disallow` work on a board stuck in its boot ROM (TOOL-30), reading and writing the bench record and the allowance straight through PICOBOOT / DfuSe: the verdict a reboot would reach right now, and a way to fix it, without needing the board to boot first. See `ww_report/CHANGELOG.md`, `wire_weaver_cli/CHANGELOG.md`.
@@ -293,6 +250,50 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Compressed introspection data as an option (INT-16): `ww_codegen!(.., introspect_compression = "lz4")` keeps a device's `WW_SELF_BYTES` as LZ4 blocks made at build time (no decoder on the device, no code cost), sent like a plain bundle; clients tell the formats apart by the first bytes (`WWz4` or `ww_self::MAGIC`), decompress on every path and refuse an unknown magic. API hashes and the cache stay those of the uncompressed bundle. rePort -4,312 B of flash, Donguru -920 B. See `ww_self/`, `wire_weaver_core/`, `wire_weaver_derive/`, `wire_weaver_client/` and `wire_weaver_cli/` CHANGELOGs, `docs/api/introspection.md`.
 - shrink_wrap's reader and writer plumbing in less flash (SW-74): `latched()` stores only an error it clears, a size-prefixed value is read through one out-of-line split and written without a `Result` copied per type, `BufReader::new` / `BufWriter::new` are out of line unless shrink_wrap's `fast-io` feature is on. Donguru −3,984 B at `opt-level = "z"` and −18,176 B at `3`, rePort −6,360 B; same bytes on the wire. See `shrink_wrap/CHANGELOG.md`.
 - shrink_wrap's bit writer and reader are no longer forced inline (SW-70): about 0.75 KB less flash in a firmware built with `opt-level = "z"`, task-side series encoding 5-22 % slower there; the `fast-io` feature (on with `std`) restores the old code, `optimize-speed` (Rust 1.101 or nightly) is faster than before. Lists of plain numbers share one encode and skip path. See `shrink_wrap/CHANGELOG.md`.
+- docs: internal references removed
+- wire_weaver_client / wire_weaver_cli / wire_weaver_py / ww_self: batched streams in the dynamic client and
+  Python (API-41, piece 6 of our internal design notes on batched streams): `DynPositionedStream` and
+  `DynStream` decode a batched stream's events into items with their own device time, no generated code involved
+  (`ApiItemKind::StreamFn` gains `batch_item_ty`, the `Timed<T>` instance the device's wire item needs);
+  `recv_batch` / `recv_batch_blocking` give whole batches on both. `ww stream <path> [--batches]` prints a plain,
+  counted or reliable stream the same way `ww observe` prints property updates. Python's
+  `PositionedStream.recv_batch()` / `Stream.recv_batch()` give a whole batch as numpy columns
+  (`ww_self::SeriesColumn::from_items`, built from the items, not a re-read of the batch's bytes). See the
+  `wire_weaver_client`, `wire_weaver_cli`, `wire_weaver_py` and `ww_self` changelogs.
+- wire_weaver_client: one device-time rule: every time a device sends (stream heads, batch items,
+  observe updates) comes unwrapped into a `U64` in its prefix through `ww_si::Unwrapper` (now usable without an
+  anchor), whatever prefix and storage the device picks; heads of counted and reliable streams were not unwrapped
+  before. See the `wire_weaver_client` and `ww_si` changelogs.
+- ww_si: exact integer time arithmetic: `checked_add`, `checked_sub`, `checked_mul_int`,
+  `wrapping_add`, `wrapping_sub` and `steps` on quantities of the same unit in integer storage; batched streams'
+  generated `<name>_push_many(to, t0, dt, values)` stamps a block with `t0 + i * dt` through them instead of taking
+  `(t, value)` pairs. See the `ww_si` and `wire_weaver_core` changelogs.
+- `examples_mcu/mcu_qemu` (Cortex-M3, `lm3s6965evb`) and a new `examples_mcu/mcu_qemu_m4f` (Cortex-M4F,
+  `mps2-an386`) gain a `Series<Timed<Ampere>>` encode benchmark (TEST-23, piece 4 of the batched-streams design):
+  the motor demo's real recorded `i_a` signal, at n = 8/32/64 under `CodecPolicy::SMALLEST`,
+  `fixed(delta,packed)` and `fixed(delta-of-delta,packed)`, one bin per codec set so `cargo size` /
+  `llvm-size` measures each set's own flash. Flash: ~98.0 KB (M3) / ~75.7 KB (M4F) `.text`, within 70 B across
+  codec sets (the trial-every-codec code for `SMALLEST` is a runtime branch, not a monomorphization axis, so it
+  stays linked in regardless of which policy a bin uses); against a `ww_si`-free baseline bin (`qemu-bounded`,
+  28.9 KB) linking `ww_si`'s `Series`/`NumericValue` codecs once costs about 69 KB. Instruction counts (semihosting
+  `SYS_ELAPSED` measures host wall-clock time, not instructions, regardless of `-icount`; counted instead from a
+  `qemu-system-arm -accel tcg,one-insn-per-tb=on -d exec,nochain` trace, bracketed by two marker functions): a
+  fixed codec is 3.3x-3.9x cheaper than `SMALLEST` in CPU (not the ~10x first guessed), `fixed(delta,packed)` and
+  `fixed(delta-of-delta,packed)` cost about the same. At the full FOC rate (21 properties x 25 kHz), even the
+  fixed codecs need about 1 billion instructions/second on Cortex-M3, well past any M3/M4/M4F/M7 budget — full-rate,
+  all-properties batched observe needs a property subset or a lower rate on real hardware, not just a cheaper
+  codec. D4 (no_std default): `fixed(delta,packed)`, pending confirmation from DWT cycle counts on an
+  STM32H725IG/M7 (follow-up on one of our dev PCs). See our internal design notes on batched streams for the numbers.
+- `ww_recorder` (STD-34), an API to control a recorder (the SD card log store of repo `logring`, or any
+  logger): `Recorder` with status, card facts, two-step format, recordings, markers, settings (flush thresholds) and
+  counters, and a `Track[]` array with per-track enable, durability and counters. Docs page
+  `docs/std_library/ww_recorder.md`; the first server is the logring's.
+- `ww_block` (STD-39) and `ww_sd` (STD-40), the two generic card tiers behind `logring`. `ww_block::BlockDevice` reads,
+  CRCs, erases and writes an SD card, eMMC or flash by block, writes only under a lease that stops the card's own user
+  first, with an optional bulk credit sink and read stream. `ww_sd::SdCard` gives raw registers, an init report and
+  single raw commands with response, status bits and timing; commands that can lock or damage a card are refused
+  unless the firmware builds with `raw-sd-unrestricted`. Docs pages `docs/std_library/ww_block.md` and `ww_sd.md`.
+- `just test --changed` runs only the workspace crates changed against main and their dependents (nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does.
 
 ### Changed
 

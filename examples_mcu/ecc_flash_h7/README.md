@@ -1,7 +1,7 @@
 # ecc_flash_h7
 
 Hardware check of `mcu/ww_ecc_flash` on an STM32H72x/H73x (SRV-19, chunky ECC-2): makes real uncorrectable ECC
-errors and reads them in both modes. Built for the STM32H725IG (B135, the omarchy-m1 board); another H7 needs its
+errors and reads them in both modes. Built for the STM32H725IG (B135, on one of our dev PCs); another H7 needs its
 chip feature, runner chip and the scratch sector in `src/main.rs` and `memory.x`.
 
 A flash word is 32 bytes with its own ECC bits, and programming only clears bits: a word programmed twice holds

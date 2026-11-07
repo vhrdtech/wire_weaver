@@ -526,7 +526,7 @@ server, `Event` itself would have to lose its lengths: a `final_structure`/`size
 
 ## Nesting depth
 
-The [nesting depth limit](wire_format.md#nesting-depth) (P2401) is a check in `split()`, one copy, and at every
+The [nesting depth limit](wire_format.md#nesting-depth) is a check in `split()`, one copy, and at every
 `read::<T>()` of a `final_structure` type in place (`Vec`, `RefVec`, `Option`, a `final_structure` user type): a
 compare with zero, a store before and one after. The counter itself fits in the padding of `BufReader`, which keeps
 its size. Before and after, the cases that changed by more than 4 bytes:

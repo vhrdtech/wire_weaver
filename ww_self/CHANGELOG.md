@@ -57,7 +57,7 @@
   definition), so a wide enum from a device costs the items, not fields x variants, and the restarts of a struct's
   fields are kept as it goes, not re-walked per field.
   Writing a `Series` from a dynamic value is not supported yet (an error).
-* The dynamic decoder bounds memory, not only values (P2401#17oct-1125): a decode takes at most 64 MiB
+* The dynamic decoder bounds memory, not only values: a decode takes at most 64 MiB
   (`DECODE_MAX_BYTES`), each value its `size_of`, strings and names their bytes; a larger value is an error. Before,
   64 KB of data could become 4 M values (about 400 MB).
 * Self-referential types (API-44): `generics::validate` (and `prepare`) accepts definitions that refer to themselves,
@@ -212,7 +212,7 @@
 
 ### 🐛 Fixes
 
-* `ApiBundleOwned::get_ty` is an error for a type entry that isn't a struct or an enum (P2401): an entry referring
+* `ApiBundleOwned::get_ty` is an error for a type entry that isn't a struct or an enum: an entry referring
   to itself (`types[i] = OutOfLine(i)`) sent `is_unsized`, value encoding and defaults into endless recursion on an
   untrusted bundle, before `prepare` checked it.
 * `TypeOwned::human_definition` is bounded in bytes too (16 MB, counting nested text), not only in types: 2000 uses of

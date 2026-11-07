@@ -160,7 +160,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `FixedLayout::write_c` prints the matching C reader (offset defines and `static inline` loads) from the same
   derive, `fixed_layout::write_c_header` a whole header: the first generated C of API-26. Code size on Cortex-M0
   for a header of eight integers: decode 484 → 276 bytes, encode 888 → 462 (`docs/serdes/code_size.md`). First user:
-  chunky_mcu_updater's plan format (P2625 PROTO-3); it serves the busgen idea of P2401 #9oct-1433 for types
+  chunky_mcu_updater's plan format (PROTO-3); it serves the busgen idea for types
   without dynamic fields. Open: arrays of nested types, a C writer, 16-bit `char` targets in the C reader.
 - ✅ **SW-45 Bit fields and a variable last field in the fixed-layout fast path**: `bool`, `U1`..`U32`,
   `I2`..`I32` and `Nibble` get compile-time bit offsets (most significant bit first, a `Nibble` on a 4-bit boundary,
@@ -185,7 +185,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   numbers or fixed-layout types of one length, read when iterated). No sw serdes and no owned version: one type,
   one format. Tests: exact bytes, round trips, every truncation, 200 000 random buffers, UTF-8, counts over u16
   (`shrink_wrap/tests/head_tail.rs`). busgen's request and reply enums (size bench `busgen_ht`): 4626 bytes on
-  Cortex-M0 and 6004 on RV32IC, against 4408 / 5762 hand-written and 6652 / 8210 derived (P2401 #9oct-1433).
+  Cortex-M0 and 6004 on RV32IC, against 4408 / 5762 hand-written and 6652 / 8210 derived.
   Open: `head_tail` types as ww API arguments (they have no sw serdes), lists of variable-length items, a C writer,
   `u8` counts for short lists (`MaxLen`).
 - ✅ **SW-52 `head_tail` views and variant writers**: `Type::view(buf)` gives a `TypeView<'_>` without making the
@@ -380,7 +380,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `#[cfg_attr(pred, wire(W))]`, `series` columns (`series::Wired<W, T>`, a W column). The API model records W (the
   walker reads it, also inside `cfg_attr`), so the dynamic client, Python and C need nothing new
   (`docs/serdes/derive_reference.md#wirew-field-attribute`; tests `shrink_wrap/tests/wire_as.rs`, conformance
-  `wire.*`). For `ww_si` exact units (`prj/P2401-wireweaver/design/ww_si_in.md`).
+  `wire.*`). For `ww_si` exact units (design notes in internal tracking).
 - 💡 **DER-21 `#[wire(W)]` beyond plain fields** — inside `Option`, arrays and lists (`Option<#[wire] u8>` has no
   syntax yet: a wrapper type or `#[wire(Option<U4>)]`), and in `fixed_layout` / `head_tail` types, which reject
   the attribute with a compile error naming DER-21 today.
@@ -925,8 +925,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   chunk is written in place, `compress(len, out)` writes the block, `reset()` starts the history over, `HISTORY`,
   `max_block_len(n)`. A chunk that doesn't shrink goes out as a literal-only block, and after 1 KiB of those the
   encoder only retries every 4 KiB (`with_backoff`). Feature `ram` puts the hot code (1.3 KiB) in `.data.ww_lz4`.
-  Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
-  P2534 (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
+  Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as a prior lz4s
+  bench elsewhere (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
   `just test-lz4-c` (C liblz4 decodes the blocks). Device and host user: API-55.
 - ✅ **SRV-54 observe-left-out Observe and the Series codec only where a firmware observes** · `v0.5` — flash diet,
   without a feature: device code needed `Event`'s serializer only for convenience, and that one covers every
@@ -1074,7 +1074,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E in `tests/hub` (`clock_sync`), `tests/io_timebase`.
   Paused (`SyncPhase::Paused`, readings go on, no steer points) while a program holds the whole device (SRV-32);
   programs holding a device directly steer on their own connection by default (CLT-46).
-  Checked on omarchy-m1 (22 Oct 2026, Donguru and B135 through the hub, `ww sync` as its view): `Locked` 1.4-2.6 s
+  Checked on one of our dev PCs (22 Oct 2026, Donguru and B135 through the hub, `ww sync` as its view): `Locked` 1.4-2.6 s
   after the hub opened them with no cached rate, 0.4 s with one, also after a hub restart and after 60 s closed in
   holdover; a loop of short `ww info` calls goes through the hub from its third call and the board stays steered
   without clients for the sync linger, then closes; residual against UTC B135 -5..-16 µs (±55 µs, RTT 120 µs),
@@ -1089,7 +1089,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   refuses tunnels with `Status::Lent` and others' claims naming it until released, then opens it again if the hub
   held it; `Lent` / `Returned` events; a crashed borrower or a ttl returns it. `ww hub lend DEVICE -- CMD` (Ctrl+C
   reaches the command, its exit code is ww's), `hub::Lend`. `docs/transport/hub.md`; tests `ww_hub` (`claims`),
-  `tests/hub` (`exclusive*`, `lend*`). Lending checked on omarchy-m1 (22 Oct 2026): `ww hub lend 204B319B5431 --
+  `tests/hub` (`exclusive*`, `lend*`). Lending checked on one of our dev PCs (22 Oct 2026): `ww hub lend 204B319B5431 --
   sh -c '...; probe-rs reset --probe <J-Link> ...'` on Donguru while `ww sync` watched it through the hub: the hub
   paused its steering and closed the device 7 ms after the ask, the command ran, the device was back open in the hub
   3 ms after the return (1.4 s for the whole lend), and `ww sync`'s connection came back and the board was `Locked`
@@ -1288,7 +1288,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`ww_report/tests/crash_frames.rs`, `just crash-fw-elf`).
 - 🐛 **CLT-30 Link setup gives up too early on slow RTT probes** — the client sends `GetDeviceInfo` 5 times 50 ms
   apart (`LINK_SETUP_RETRIES` / `LINK_SETUP_RETRY_INTERVAL` in `event_loop/core/tx.rs`), 250 ms for every transport.
-  Through a J-Link on omarchy-m1 (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was
+  Through a J-Link on one of our dev PCs (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was
   not received from device after several retries" while the device is fine; with 40 retries they mostly work. Needs
   a per-transport budget (RTT: seconds) or one taken from the connect timeout. Found 16 Oct 2026.
 - ✅ **CLT-28 Observing properties on the host** · `v0.5.x` — generated std clients have `observe(cfg)` per trait
@@ -1525,7 +1525,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Tested on Linux (`tests/hub_routing`: two programs starting a hub at once get one, stale socket, no executable;
   unit tests for the modes). Missing: the open counter counts USB only (RTT and `ipc_exclusive` local sockets go through the hub when it holds them,
   their holder hands them over (CLT-43) or in `Prefer` / `Required`; the rest connect directly); a routed USB connection through the
-  SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
+  SRV-29 tunnels is only tested on hardware (the routing picks USB devices only, which tests
   can't fake); a check on macOS and Windows (compiles for both).
 - 🧪 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
   observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed. Built
@@ -1549,7 +1549,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   pauses it while it holds the device directly, `ww sync` and the hub turn it off (they steer with their own sync).
   `docs/std_library/ww_timebase.md#steering-in-every-direct-connection`; tests `tests/io_timebase`
   (`a_direct_connection_steers_by_itself`, `own_steering_never_keeps_the_connection_open`), `tests/hub`
-  (`ThroughHub`). Hardware check open: a board (rePort, Donguru on omarchy-m1) steered by a direct `ww` command or
+  (`ThroughHub`). Hardware check open: a board (rePort, Donguru on one of our dev PCs) steered by a direct `ww` command or
   app, `ww sync` with a hub showing it followed, no second steerer with the hub.
 - 🧪 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
@@ -1564,7 +1564,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww hub take` ask a direct holder before opening when a hub runs or can start; a refusal fails with the holder's
   name and kind. Release and reopen on every OS. Tested on Linux between two processes on a simulated device
   (`tests/hub_reconnect` `polite_handover.rs`: a `Cli` holder hands over with a counted stream resumed, gap 4.6 ms
-  median; a `Gui` holder refuses and is named). Real USB (rePort, omarchy-m1, `WW_LIVE_HANDOVER=off`): link gap 9.7 ms
+  median; a `Gui` holder refuses and is named). Real USB (rePort, one of our dev PCs, `WW_LIVE_HANDOVER=off`): link gap 9.7 ms
   median, the calls in flight and in the gap failing (104-2068 per run of 20 calls in flight). Open: an RTT probe's
   gap; a check on macOS and Windows (compiles by inspection only).
 - 🧪 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (link, requests
@@ -1581,11 +1581,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Linux (nusb) and the simulated USB device (`usb_sim`). Tested between processes on `usb_sim`
   (`tests/hub_reconnect` `live_handover.rs`: handed over in 8.5 ms median with 21 requests in flight, nothing lost or
   doubled, the device's link up once; hub or holder killed in the commit, interface grabbed in the gap, a prepared
-  adoption whose connection went, answers waiting in the device). On a real board (rePort, omarchy-m1, `live_bench`):
+  adoption whose connection went, answers waiting in the device). On a real board (rePort, one of our dev PCs, `live_bench`):
   20/20 handovers in 16.7 ms median with 20-21 requests in flight, no failed call, no connection event, no link setup
   or control transfer from the hub (its trace); CLT-43 on the same board: 104-2068 failed calls per run.
   `WW_LIVE_HANDOVER=off` falls back to CLT-43. Open: a usbmon trace of one handover showing nothing at all on the bus
-  (root on omarchy-m1: `sudo modprobe usbmon`, `sudo cat /sys/kernel/debug/usb/usbmon/1u > /tmp/usbmon-1u.txt` while
+  (root on one of our dev PCs: `sudo modprobe usbmon`, `sudo cat /sys/kernel/debug/usb/usbmon/1u > /tmp/usbmon-1u.txt` while
   `live_bench` hands over the rePort on bus 1; no `Ci`/`Co` control transfers in the window).
 - ✅ **CLT-45 Lock file names one per device key** — `holders` used to map every character outside
   `[A-Za-z0-9._-]` to `_`, so two keys could share a lock file (`...:a:b` and `...:a_b`) and a USB device with a
@@ -1947,7 +1947,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     through the hub with the key `rtt:<probe serial>:<chip>`; completion of chip names and live probe serials; a busy
     probe names its holder (lock file, or `/proc` for probe-rs/OpenOCD). `docs/cli.md#through-a-debug-probe-rtt`.
     Tests: `wire_weaver_cli` `device::tests`, `tests/rtt.rs`; the RTT byte path itself in
-    `wire_weaver_client/src/event_loop/device_e2e_tests.rs`. Hardware (omarchy-m1, 23 Oct 2026, Nucleo G0B1RE with
+    `wire_weaver_client/src/event_loop/device_e2e_tests.rs`. Hardware (one of our dev PCs, 23 Oct 2026, Nucleo G0B1RE with
     nucleo_g0b1re_template 5bcbba0 through its ST-LINK V2-1): `ww info` in 0.4 s with `--elf`, 1.7 s with the RAM scan;
     `ww counters read` and `ww sync` reach the device and get `TraitNotFound` (the template serves neither yet);
     `held by ww, pid ..` and `held by probe-rs (pid ..)`; `ww hub take rtt:..` and two `ww info` at once through the
@@ -1965,7 +1965,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `warning:` when the crate directory has no `tests/evolution.rs` calling `wire_weaver_evolution::Check` (checked
   by reading the file and looking for that call, `wire_weaver_evolution::missing_test_warning`), so a wire break
   is caught by `cargo test` and a pre-commit hook, not only when someone remembers to run `ww api check` by hand
-  (P2401#3nov-0059b: `donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
+  (`donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning`.
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
@@ -1983,8 +1983,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (checked through the hub on Donguru and B135, 22 Oct 2026).
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
   when each device and then all are within `--within-us` (locked by their word, residual by the host's), the
-  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
-  tpm P2618#21oct-1707.
+  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (one of our dev PCs, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on one of our dev PCs.
 - 🧪 **TOOL-15 `ww pins test` / `ww pins list`** · `v0.5.x` — pin tests on any device serving `ww_pin_diag::PinDiag`
   (STD-47) at any path, found by introspection (`docs/cli_reference.md#ww-pins`): pulls, shorts to GND, to the
   supply and between points, only what each point's caps allow, refusals shown, `release_all` at the end also on
@@ -2006,7 +2005,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   connector. Devices with `ww_gpio` banks and no `PinDiag` are shown through the banks (modes and pulls put back on
   release). Library `ww_pin_probe::board`, `live`, `bank`; tests on `MockBoard` with the NUCLEO-G0B1RE preset
   (`wire_weaver_cli` `cmd::pins_tui`) and over banks end to end (`tests/io_gpio`). Hardware check open: the Nucleo
-  G0B1RE once its firmware serves `PinDiag`. Skill tree signal and skill: tpm P2618#23oct-1334.
+  G0B1RE once its firmware serves `PinDiag`.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`. A `Fixed` field's widget shows its unit and takes its slider limits from
@@ -2020,8 +2019,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   names the hub, direct ww programs (lock files) and, on Linux, other programs (`/proc`) per device, with or without
   a hub; `ww list` asks a running hub through the registry (with a `STATE` column, `--direct` to enumerate USB
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
-  TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
-  (P2618#21oct-2209).
+  TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one.
 - 🧪 **TOOL-29 Flashers check the board's reworks** · `v0.5` — `ww dfu rp flash` and `ww dfu stm32 flash` check
   with the chip in its ROM bootloader (user, 3 Nov 2026: a board with an unknown rework refuses to boot and sits
   there). Given the serial of a running device they reboot it there first (`BootControl::reboot(Updater)`, an A/B
@@ -2037,7 +2035,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ImageReworks`, `scan_installed`, `read_board`, `verdict`, `set_allowance`).
   `docs/cli_reference.md#checking-the-boards-reworks`. Tests: `ww_report` `rework_check::tests` (the whole check on
   a chip in RAM), `wire_weaver_cli` `cmd::rework_check::tests`. `ww dfu flash` (the `ww-chunky` plugin, a running
-  app, no ROM at hand) compares with the app's `REWORKS` and refuses a lacking image: tpm P2401#3nov-0105d. Hardware
+  app, no ROM at hand) compares with the app's `REWORKS` and refuses a lacking image. Hardware
   check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).
 - 🧪 **TOOL-30 `ww info` and `ww board rework allow` in the ROM bootloader** · `v0.5` — on a board in BOOTSEL / the
   STM32 bootloader, `ww info` reads the installed image's table (build id, boards it lists) and the bench record
@@ -2084,8 +2082,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   expression input.
 
 - The `exact_units` crate's own items (units, `Fixed`, `Magnitude`, levels, `Complex`/`Polar`/IQ, serde for
-  the numbers, literals, printing, niches) moved to its own `exact_units/FEATURES.md` (2 Nov 2026): `tpm work
-  claim STD` from an `exact_units` worktree couldn't see this file and handed out STD-92 twice. There they were
+  the numbers, literals, printing, niches) moved to its own `exact_units/FEATURES.md` (2 Nov 2026): claiming a
+  new id from an `exact_units` worktree couldn't see this file and handed out STD-92 twice. There they were
   regrouped into six areas, each numbered from 1 in build order with a `(was STD-xx)` note: `NUM` (number core),
   `UNIT` (units and markers), `PT` (points and origins), `LVL` (levels), `CPX` (complex quantities), `IO` (numbers
   and units at the edges); `exact_units/FEATURES.md`'s own `STD → area id mapping` table at its end gives every
@@ -2126,7 +2124,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   `tests/io_timebase`; `docs/std_library/ww_timebase.md#host-sync-std-49`. Device side: embedded_bedrock
   `bedrock_sync`. Steer points name their steerer and a device follows one at a time, with a per-device rate cache on
-  the PC (SRV-31). Checked on omarchy-m1 (21-22 Oct 2026): Donguru, rePort and B135 steered by `ww sync`,
+  the PC (SRV-31). Checked on one of our dev PCs (21-22 Oct 2026): Donguru, rePort and B135 steered by `ww sync`,
   `sync_status` `Locked` in 1.2-1.6 s, the residual measured with `shared_now` B135 -5..-16 µs (±55 µs), Donguru
   within ±1.2 ms (its 1.4-1.6 ms round trips).
 - ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
@@ -2306,7 +2304,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   deadline and past it, `Nack`, `repeat_last`, cleared answers and dropped events. Open: a check on real silicon, with
   the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
 - 🧪 **STD-52 `ww_i2c` master errors and limits** · `v0.5` — what a good I2C master knows reaches the host (found
-  by the rePort I2C driver, P2424 i2c-master-driver): `I2cError::Nack { op, at }` (which operation, and the address
+  by the rePort I2C driver): `I2cError::Nack { op, at }` (which operation, and the address
   or which data byte, counted as `I2cRecord::nack_at`), `ClockStretch` with `I2cMode::Master`'s `stretch_timeout`
   (set and answered by `i2c_configure`, range in the capabilities), `BusStuck { scl_low, sda_low }` (no silent recovery:
   `i2c_wiggle_clock` on request, at the bus speed up to 100 kHz), and the limits in `I2cCapabilities` (`speeds`,
@@ -2317,13 +2315,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/ww_i2c.md#transactions`, tests in `ww_i2c` (round trips) and `tests/io_i2c`. Open:
   the check on real silicon with the rePort driver (usb_io_fw IF-2, RP2350 DW_apb_i2c).
 - 🧪 **STD-76 `ww_i2c_hl` embedded-hal I2C over `ww_i2c`** · `v0.5` — a stock embedded-hal 1.0 I2C driver,
-    blocking or async, runs unchanged on the host against a remote `ww_i2c::I2c` (for P2534 fusb302-sink, a PD sink
+    blocking or async, runs unchanged on the host against a remote `ww_i2c::I2c` (for a FUSB302 PD sink
     driven from the PC): `I2cMaster` merges contiguous same-direction operations (a repeated start before every
     `ww_i2c` operation, STD-52), so one embedded-hal transaction is one call and one round trip; refuses, never
     splits, what the device's `I2cCapabilities` don't take; `Nack`/`Arbitration`/`Bus`/`Overrun` mapped to
     `ErrorKind`; request priority as a handle setting (`urgent()`, CLT-50). Docs `docs/std_library/ww_i2c_hl.md`,
     tests `tests/io_i2c` (`tmp1x2` async, `eeprom24x` blocking, unchanged). Open: the check on real silicon with
-    the FUSB302 over the rePort's I2C (P2534).
+    the FUSB302 over the rePort's I2C.
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing. Blocking, async and promise flavors; the blocking
     pins implement `embedded_hal::digital` (`OutputPin`, `StatefulOutputPin`, `InputPin`), the async ones
     `embedded_hal_async::digital::Wait` without a race (stream opened, then level read, then edge awaited) and keep
@@ -2337,7 +2335,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **STD-9 Stubs**, for later: `ww_spi` (`ww_board_info`, `ww_firmware_info`, `ww_user_info` and `ww_uid` moved to STD-24).
 - 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
-  plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec (P2625). End to
+  plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec. End to
   end test `tests/dfu`. Guide with the eight update scenarios (`2C-APP-STEP` Swap Shuttle .. `1L-UPD-BULK` Pit-stop
   Freight), each tested end to end over USB (simulated), WebSocket or UDP with reboots and power cuts, its exchange
   recorded as a golden transcript the docs include (`docs/std_library/ww_dfu.md`, `tests/dfu_scenarios`,
@@ -2376,7 +2374,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **STD-34 `ww_recorder`** · `v0.5.x` — control a recorder over WireWeaver: `Recorder` (status, card facts,
   two-step prepare/format with a token, recordings, markers, `sync`, settings with the flush thresholds, counters,
   optional `refresh_usb`) and `Track[]` (info, enable, durability, compression, counters). For the SD card log store
-  of P2628 (repo `logring`), usable by any recorder. API crate, snapshot and docs page
+  of repo `logring`, usable by any recorder. API crate, snapshot and docs page
   `docs/std_library/ww_recorder.md` done, the scaffold compiles; the first server is the logring's (rePort
   integration).
 - 🚧 **STD-39 `ww_block`** · `v0.5.x` — a block device over WireWeaver (SD card, eMMC, flash): `BlockDevice` with
@@ -2384,7 +2382,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (CRC-32, `ww_block::crc32`), `claim` / `release` of a write lease that stops the card's own user, `write` with a
   CRC and `erase` under it, and the optional `bulk` group: the `write_runs` credit sink acknowledged on the counted
   `written` stream, and the counted `read_runs` stream. Who may claim is the firmware's choice per link
-  (`Common(Refused)`). Tier T1 of P2628 (logring's PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
+  (`Common(Refused)`). Tier T1 of logring's design (its PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
   docs page `docs/std_library/ww_block.md` and the round trip `tests/block_sd` done, the scaffold compiles; the
   first server is the logring's. `crc32`/`crc32_update` are table-driven, table size (none, `crc-table-256`,
   `crc-table-slice16`) picked by cargo feature.
@@ -2392,7 +2390,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `detect` stream, raw `registers` (CID, CSD, OCR, RCA, SCR, SD Status), `reinit` with a per-step `InitReport`, and
   `command`: one raw command with an optional data phase, answering response bytes, `CardStatus` bits, the
   `Outcome` and timing. Commands are `Free`, need the `ww_block` lease, or are `Restricted` (CMD42, CMD27) unless
-  the firmware builds with `raw-sd-unrestricted` (`ww_sd::check_access`). Tier T0 of P2628. API crate, snapshot,
+  the firmware builds with `raw-sd-unrestricted` (`ww_sd::check_access`). Tier T0 of logring's design. API crate, snapshot,
   docs page `docs/std_library/ww_sd.md` and the round trip `tests/block_sd` done, the scaffold compiles; a device
   needs a raw-command hook in its SD driver (not checked yet for embassy-stm32's `Sdmmc`). The docs page says how a
   device in SPI mode fills the answers ("In SPI mode", from rePort's `sd_proto` engine); rePort's simulator serves
@@ -2620,7 +2618,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints `.text` +
   `.rodata`, or the largest symbols (`shrink_wrap/size_bench`, results in `docs/serdes/code_size.md`).
-- ✅ **TEST-26 Credit sink resume on hardware** · `v0.5` — Donguru's header UART tx credit sink (API-34) on omarchy-m1
+- ✅ **TEST-26 Credit sink resume on hardware** · `v0.5` — Donguru's header UART tx credit sink (API-34) on one of our dev PCs
   (USART5, 921 600 Bd, jumper IO7-IO8, `donguru-core/examples/uart_resume` in typec_dongle): 1 MB of numbered lines,
   every byte on the line exactly once and in order (0 mismatches) in a plain run (14.3 s, 70 kB/s), with 4 link drops
   (`disconnect().keep_streams()`, 200 ms down, `Commander::reconnect()` 10-22 ms incl. resume, first flush after it
@@ -2732,7 +2730,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   found by their own names (`to_ratio`, `compare_slow`, `cmp_limit_slow`, `rescale_slow`, `apply_truncating`,
   `apply_f64`, `round_f64`, `pow_half`, `sqrt_f64`, `int_sqrt`), which catch math that left no helper symbol; a path
   inlined into its caller, with no symbol, stays unseen. It prints symbols and bytes per build and bytes per crate.
-  Baseline of 3 Nov 2026 (red everywhere, `~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md` section 3):
+  Baseline of 3 Nov 2026 (red everywhere, our internal design notes on exact-units si, section 3):
   - No floats, `thumbv6m-none-eabi`, `u32`: 14-15 f64 symbols (3.5-3.6 KB), 0 f32, 2 128-bit symbols (584 B), 5-7
     slow-path symbols (9.7-10.0 KB); `u32+u64` one f64 symbol more.
   - No floats, `thumbv7em-none-eabihf`, `u32`: 14-15 f64 symbols (3.4-3.5 KB), 2 128-bit (520 B), 5-7 slow paths

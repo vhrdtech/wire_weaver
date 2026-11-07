@@ -1,5 +1,5 @@
 //! The ww hub (SRV-13): one process per user that holds WireWeaver devices and serves every program of the user over
-//! a local socket. Design: tpm P2401 `design/ww-hub.md`; docs: `docs/transport/hub.md`.
+//! a local socket. Design: `design/ww-hub.md`; docs: `docs/transport/hub.md`.
 //!
 //! This crate is the hub as a library, so any program can host it: `ww hub serve`, or an app that calls
 //! [main_if_hub] first in `main` so the client library can start the hub from the app's own executable (CLT-39,

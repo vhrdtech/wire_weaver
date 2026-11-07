@@ -143,7 +143,7 @@
 - Generated `poll_properties` sends a pending `missed` count in an update with no properties when nothing else is
   due (API-39): before, samples lost after the last batch of a burst were never reported.
 
-- Drop the unused `console` and `relative-path` dependencies (P2401, cargo-machete).
+- Drop the unused `console` and `relative-path` dependencies (cargo-machete).
 - `load`, `load_dep` and the codegen macros parse each module file of a walked crate once instead of on every path
   through it (`ww_si`'s `unit.rs` was parsed over a hundred times per API): loading an API with `ww_si` quantities
   takes ~50 ms instead of ~700 ms in debug, `ww_codegen!` and the snapshot checks get faster too.
@@ -183,7 +183,7 @@
   `<name>_push_many(to, t0, dt, values)` are O(1) per item and never encode (an interrupt may call them);
   `_push_many` stamps item `i` with `t0 + i * dt`, exact in `t0`'s prefix and number type and wrapping like the
   device clock (`ww_si::Quantity::steps`), and returns `None`, pushing nothing, when `dt` is not a whole number of
-  `t0`'s prefix (P2401#17oct-2214; it took `(t, value)` pairs before). The scaffold writes
+  `t0`'s prefix (it took `(t, value)` pairs before). The scaffold writes
   `Batched<.., 32>` states. Generated clients unpack batches into items. A batched item type that borrows is a
   compile error. A batched timed stream's model item gets `batch_item_ty` (the `Timed<T>` instance, for a dynamic
   decoder): resolved from `ww_si` directly (not from anything the trait's own source names), so the item type's own

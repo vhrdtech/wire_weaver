@@ -1,6 +1,6 @@
 #![no_main]
 
-//! Recursive types from random bytes, at a random nesting limit (P2401): every way a type can contain itself (an
+//! Recursive types from random bytes, at a random nesting limit: every way a type can contain itself (an
 //! `Unsized` value through a split reader, a `final_structure` one read in place, the slots of a `sparse` struct,
 //! a `RefBox` read later) is bounded by `BufReader::with_max_depth`. A decode never overflows the stack of a small
 //! thread, and a limit only decides where it stops: a value that decodes keeps decoding the same with a higher

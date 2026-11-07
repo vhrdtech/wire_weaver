@@ -6,7 +6,7 @@ level: advanced
 
 `ww_recorder` (STD-34) controls a **recorder**: a device that logs many tracks (streams of any type) to an SD card or
 flash on its own, with sessions, recordings and markers, and shows the log over USB or reads it back over
-WireWeaver. The first user is the logring engine (project P2628, repo `logring`), but nothing in the API is
+WireWeaver. The first user is the logring engine (repo `logring`), but nothing in the API is
 specific to it: any recorder with a card, tracks and a ring can serve it.
 
 The API carries **control, not data**. A **track** is one stream declared in some trait of the device's own API — a

@@ -98,10 +98,10 @@ checks both).
 
 ```sh
 just check            # cargo check: root workspace (+ ww_device/ww_si feature sets), mcu/, every examples_mcu/ board
-just test --changed   # nextest of the crates changed against main and their dependents; before tpm work ready
-just test             # everything (test-all: nextest, feature-set runs, Python conformance); the tpm land gate runs it
+just test --changed   # nextest of the crates changed against main and their dependents; before a session's work is ready
+just test             # everything (test-all: nextest, feature-set runs, Python conformance); the landing gate runs it
 just lint             # what CI checks besides tests: fmt, cargo sort -w -g, typos, clippy and rustdoc -D warnings, C
-just install          # build ww (--profile deploy) and install it (tpm install, or cargo install without tpm)
+just install          # build ww (--profile deploy) and install it (through our internal release tool when present, else cargo install)
 just build-docs       # build the docs site and check its links
 just save-snapshots   # API snapshots of ww_global, ww_tap, ww_stdlib/* and exact_units into wire_weaver_snapshots
 just conformance-update   # fill in golden bytes of new conformance cases
@@ -135,8 +135,8 @@ the consumers; a consumer that can't express a case gets a gap mark naming a `FE
 skip. New case: `"bytes": "?"` plus the Rust value in `tests/conformance/src/derive.rs`, then `just
 conformance-update`. Golden bytes don't change once in: `frozen_bytes` (TEST-24) fails when a case sealed at the merge
 base (or `CONFORMANCE_BASE`) changed or disappeared; the only escape is a new `"wire_change": "EVO-n / reason"` on
-the case with that `EVO-n` item and a breaking CHANGELOG entry. Until `~/git/tpm/area/ops/in-use.md` lists the format, such a change needs no other
-reason than a better design. `coverage` (TEST-25) fails when a wire-relevant
+the case with that `EVO-n` item and a breaking CHANGELOG entry. Until our internal device/host tracking lists the
+format as in use anywhere, such a change needs no other reason than a better design. `coverage` (TEST-25) fails when a wire-relevant
 `ww_self::Type` variant or derive directive has no case and no gap in `tests/conformance/src/coverage.rs`.
 
 ## Proper fixes, never a lost capability
@@ -162,7 +162,7 @@ writers or `ww_stdlib` types firmware uses is checked for stack, cycles and flas
   slower than `3` on the Series writers. Generic code is instantiated in the firmware crate, so a per-package
   `opt-level` doesn't help; small hot per-item functions get `#[inline(always)]`.
 - **Measure, don't guess.** Instruction counts with `examples_mcu/qemu_icount` (bounded `--max-insns`, `--timeout`,
-  trace from QEMU's stderr), cycles with DWT `CYCCNT` on real silicon (the STM32H725 on omarchy-m1), `just
+  trace from QEMU's stderr), cycles with DWT `CYCCNT` on real silicon (the STM32H725 on one of our dev PCs), `just
   units-budget` / `units-elf` for unit types. Instructions are not cycles: report both as what they are, with the
   clock. Benchmark bins exit QEMU on a HardFault.
 - **Flash.** A choice fixed at build time is a type or const parameter, so the linker drops what isn't used
@@ -253,8 +253,8 @@ break cascades, which framework code is wire-defining (`ww_framer`, `ww_link`, `
 which version position to bump. Types default to unsized and evolvable (fields appended with `#[default = ..]`);
 `final_structure`, `self_describing` and `sized` trade that for size and can't be undone. A type used in an API is
 part of its SemVer contract. Use `ww api check` / `ww api diff` rather than eyeballing. Tell the user when a change
-breaks the wire. Which devices and hosts that affects comes from `~/git/tpm/area/ops/in-use.md`; nothing listed means
-a break costs only its CHANGELOG entry and its `EVO-n` item.
+breaks the wire. Which devices and hosts that affects comes from our internal device/host tracking; nothing listed
+means a break costs only its CHANGELOG entry and its `EVO-n` item.
 
 `ElementSize::Sized { size_bits }` is the bits of the value's own fields, padding excluded (`struct { a: bool, b: u8 }`
 is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
@@ -279,8 +279,8 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   summary line per change under `[Unreleased]` pointing at the crate changelogs, a summary section per release; don't
   run `git cliff -o` over it. "What's new" is answered from these changelogs, with FEATURES.md for status.
 - Commits use Conventional Commits with a scope (`feat(usb): ...`): a short imperative summary, a blank line, a body
-  saying what and why, a bullet per crate or area. Work happens on a session branch (`tpm work new SLUG`), one commit
-  per finished step with its changelogs. `tpm land` puts it on main when the user agrees; publishes, OTA and prod
+  saying what and why, a bullet per crate or area. Work happens on a session branch, one commit
+  per finished step with its changelogs. It lands on main when the user agrees; publishes, OTA and prod
   wait for the user.
 - Session commits don't bump versions. At landing, a changed crate gets its **minor** bumped (pre-1.0 the breaking
   position), except purely additive `shrink_wrap`/`shrink_wrap_derive` changes and wire-compatible additions to API

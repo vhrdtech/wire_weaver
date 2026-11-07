@@ -10,13 +10,13 @@ Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 cargo install --git https://github.com/vhrdtech/wire_weaver ww
 ```
 
-From a local checkout of this repository, on a PC with `tpm`:
+From a local checkout of this repository:
 
 ```sh
 just install
 ```
 
-It builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. `just install` works anywhere: without `tpm` it runs `cargo install --locked --path wire_weaver_cli` instead.
+With our internal release tool on PATH, it builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. `just install` works anywhere: without that tool it runs `cargo install --locked --path wire_weaver_cli` instead.
 
 ### Shell completions
 

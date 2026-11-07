@@ -346,7 +346,7 @@ own, in alternating rounds, and compares the medians:
 cargo run --release -p hub --example hub_loopback -- usb:c0de:cafe:<serial> [seconds] [packet size|max] [rounds]
 ```
 
-Medians of 7 rounds of 2 s per stage on an idle PC (omarchy-m1, Apple M1 under Asahi Linux, load 2-6), direct → hub:
+Medians of 7 rounds of 2 s per stage on an idle PC (one of our dev PCs, Apple M1 under Asahi Linux, load 2-6), direct → hub:
 
 | Device                          | Size  | Round trips/s        | Host → device         | Device → host          |
 |---------------------------------|-------|----------------------|-----------------------|------------------------|
@@ -465,11 +465,11 @@ This is release and reopen: the holder closes the device, the hub opens it again
 setup; RTT: attach the probe again, which can take a second or more), and the holder sets up its link through the hub.
 On Linux, a USB link is handed over live instead, see [below](#live-link-handover-clt-44).
 
-Measured on Linux (`tests/hub_reconnect`, `polite_handover.rs`, debug build, gpd-omarchy, 22 Oct 2026), with a
+Measured on Linux (`tests/hub_reconnect`, `polite_handover.rs`, debug build, another of our dev PCs, 22 Oct 2026), with a
 simulated device that takes one host at a time on a local socket and the holder in another process with a counted
 stream open, 30 runs: the holder let go of the device within about 4.5 ms of the request; its gap, from the link going
 to the stream resumed through the hub, was 4.6 ms median (3.5 to 12 ms); the asker's whole `connect()`, starting the
-hub process included, took 34 ms median. On a real full-speed USB board (rePort, omarchy-m1)
+hub process included, took 34 ms median. On a real full-speed USB board (rePort, one of our dev PCs)
 the gap was 9.7 ms median (6 to 22 ms, 10 runs), with every call in flight or made in the gap failing; an RTT probe
 adds its attach, still to be measured. [Live link handover](#live-link-handover-clt-44) has none of these failures.
 
@@ -530,7 +530,7 @@ On the holder's side, the event loop has one transport slot, which holds the hal
 its own steps (pause, let go, take back, switch away, the device's claim), called on whatever is in the slot, and
 relinking puts another medium's halves in its place, from any medium to any other: the device's USB halves for the
 tunnel's here. The slot is an enum over the crate's media rather than a trait object: a message is one match, with
-no allocation, as before: calls over `usb_sim` with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, gpd-omarchy, 22 Oct 2026), and the handover took the same: 6.7 ms median with it and 6.9 ms before on `usb_sim` (12 runs each, alternating), 14.1 ms and 14.5 ms on the rePort below (`live_bench`, omarchy-m1, 20 runs each, alternating, no call failed, no `ConnectionEvent`).
+no allocation, as before: calls over `usb_sim` with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, another of our dev PCs, 22 Oct 2026), and the handover took the same: 6.7 ms median with it and 6.9 ms before on `usb_sim` (12 runs each, alternating), 14.1 ms and 14.5 ms on the rePort below (`live_bench`, one of our dev PCs, 20 runs each, alternating, no call failed, no `ConnectionEvent`).
 
 ### When something fails
 
@@ -545,7 +545,7 @@ no allocation, as before: calls over `usb_sim` with 32 in flight ran at 14.4k to
 
 ### What it costs
 
-Measured on Linux (`tests/hub_reconnect`, `live_handover.rs`, debug build, omarchy-m1, 22 Oct 2026), with a
+Measured on Linux (`tests/hub_reconnect`, `live_handover.rs`, debug build, one of our dev PCs, 22 Oct 2026), with a
 simulated USB device in the test process (`usb_sim`: one host holds the interface at a time, IN packets wait while
 nobody does) and the holder in another process, 20 calls of 1 ms each on the device in flight all the time and a
 counted stream open, 10 runs: the holder handed over in 8.5 ms median (5 to 15 ms) with 21 requests in flight; no
@@ -739,7 +739,7 @@ the hub holds it. `ww hub lend DEVICE -- CMD` asks the hub to let it go for one 
 `hub::Lend::take(key, purpose)` is the same from a program; without a running hub it is `None` and the command just
 runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).
 
-On omarchy-m1 (22 Oct 2026), Donguru lent to a J-Link reset while `ww sync` watched it through the hub:
+On one of our dev PCs (22 Oct 2026), Donguru lent to a J-Link reset while `ww sync` watched it through the hub:
 
 ```sh
 ww hub lend 204B319B5431 -- probe-rs reset --probe 1366:0105 --chip STM32G0B1RETx
@@ -773,7 +773,7 @@ steerer for the devices of its user; programs see its steering through the API i
 - **Pace.** `HubConfig::sync_options` (`wire_weaver_client::clock_sync::Options`): readings and steer points ten times a second until
   the device says `Locked`, then five readings and one steer point a second.
 
-Measured on omarchy-m1 (22 Oct 2026, Donguru and B135 on USB full speed, `ww sync` as the view):
+Measured on one of our dev PCs (22 Oct 2026, Donguru and B135 on USB full speed, `ww sync` as the view):
 
 | | Donguru | B135 |
 |---|---|---|

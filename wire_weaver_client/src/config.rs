@@ -194,7 +194,7 @@ pub(crate) enum ConfigPiece {
     /// Negate previous UDP related filters or exclude UDP from the interfaces to try.
     NoUdp,
 
-    /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
+    /// Connect to a device running in another process via a local socket (not built yet).
     /// Can be used for testing purposes or to create virtual devices.
     IpcPath { path: String },
     /// The ww hub's own API (SRV-13), on the hub socket at `path` (`None`: the user's runtime dir).
@@ -202,7 +202,7 @@ pub(crate) enum ConfigPiece {
     /// A device the ww hub holds (SRV-29), by its key, through the hub socket at `path` (`None`: the user's runtime
     /// dir).
     HubDevice { path: Option<String>, key: String },
-    /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
+    /// Connect to a device running in another process via a local socket (not built yet).
     /// Find which one using USB filters.
     /// Used to split multiplex multiple clients to one USB device for example.
     /// Server claims USB interface, clients connect to it via ipc or network.

@@ -2,11 +2,14 @@
 default:
     @just --list
 
-# The tests. `just test`: all of them (test-all), the run of the `tpm land` gate. `just test --changed`: only the
-# workspace crates changed against main and the crates that depend on them (tpm test changed), what a session runs
-# before tpm work ready.
+# The tests. `just test`: all of them (test-all), the gate run before merging. `just test --changed`: only the
+# workspace crates changed against main and the crates that depend on them, what to run before opening a PR
+# (uses our internal tooling when available, otherwise falls back to the full suite).
 test *flags:
-    if [ "{{flags}}" = "--changed" ]; then tpm test changed -- cargo nextest run --workspace; else {{just_executable()}} test-all {{flags}}; fi
+    if [ "{{flags}}" = "--changed" ]; then \
+        if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace; \
+        else echo "tpm not found; running the full test suite instead" >&2; {{just_executable()}} test-all; fi; \
+    else {{just_executable()}} test-all {{flags}}; fi
 
 # Test everything
 test-all:
@@ -221,7 +224,7 @@ upload-examples-mcu-usb-stm32h725ig:
 # Build ww and install it
 install:
     cargo build --profile deploy --locked -p wire_weaver_cli
-    # With tpm on PATH: tpm install (kept-releases stack, one copy on PATH); otherwise: cargo install
+    # With our internal release tool on PATH: install through it (kept-releases stack, one copy on PATH); otherwise: cargo install
     if command -v tpm >/dev/null; then tpm install target/deploy/ww; else cargo install --locked --path wire_weaver_cli; fi
 
 # Old name of install, kept for people and docs

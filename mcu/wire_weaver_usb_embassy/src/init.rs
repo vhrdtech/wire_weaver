@@ -145,7 +145,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
 /// [usb_init_with_endpoints] instead, which keeps this function's [UsbBuffers] convenience.
 ///
 /// It is recommended to adjust USB config in the config_mut closure, in particular:
-/// * Set manufacturer and product (default is "Vhrd.Tech" "WireWeaver Generic")
+/// * Set manufacturer and product (default is "VHRD" "WireWeaver Generic")
 /// * Set serial_number (default is None, use e.g., embassy_stm32::uid::uid_hex())
 /// * max_power (default is 100mA)
 /// * self_powered (default is false)
@@ -285,7 +285,7 @@ pub fn usb_init_with_endpoints_with_ids<
         )
     };
     let mut config = Config::new(ids.vid, ids.pid);
-    config.manufacturer = Some("Vhrd.Tech");
+    config.manufacturer = Some("VHRD");
     config.product = Some("WireWeaver Generic");
 
     // Required for windows compatibility.

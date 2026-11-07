@@ -4,7 +4,7 @@ use hex_literal::hex;
 use shrink_wrap::BufReader;
 use shrink_wrap::prelude::*;
 
-// ---- 1. ring files of a load history (tpm_mesh_dash `src/history.rs`)
+// ---- 1. ring files of a load history (the mesh dashboard app's `src/history.rs`)
 
 const MAX_SERIES: usize = 64;
 
@@ -101,7 +101,7 @@ fn history_header_and_records() {
     assert_eq!(back.values, rec.values);
 }
 
-// ---- 2. ask / serve frames (tpm_mesh `src/main.rs`, `ask_wire`)
+// ---- 2. ask / serve frames (the mesh watcher's `src/main.rs`, `ask_wire`)
 
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq))]
 pub struct AskRequestOwned {
@@ -188,7 +188,7 @@ struct SessionOwned {
 #[test]
 fn gossip_schema() {
     let s = SessionOwned {
-        name: "omarchy-m1".into(),
+        name: "my-laptop1".into(),
         busy: true,
         cpu_percent: 42,
         mem_mib: UVlq32(512),
@@ -196,10 +196,10 @@ fn gossip_schema() {
     let bytes = s.to_ww_bytes_owned().unwrap();
     assert_eq!(
         bytes,
-        hex!("6F 6D 61 72 63 68 79 2D 6D 31  80  2A  84 00  29")
+        hex!("6D 79 2D 6C 61 70 74 6F 70 31  80  2A  84 00  29")
     );
     assert_eq!(SessionOwned::from_ww_bytes_owned(&bytes).unwrap(), s);
-    let json = r#"{"name":"omarchy-m1","busy":true,"cpu_percent":42,"mem_mib":512}"#;
+    let json = r#"{"name":"my-laptop1","busy":true,"cpu_percent":42,"mem_mib":512}"#;
     assert_eq!(json.len(), 64);
     assert_eq!(bytes.len(), 15);
 }

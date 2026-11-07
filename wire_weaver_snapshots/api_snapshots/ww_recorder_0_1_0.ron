@@ -1,11 +1,11 @@
 // ww_recorder 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e00aa234b75155e9009629918d429ca693527e3c44699cdf2e9d0e91816f567e
+// shrink_wrap sha256: e9ec3273eda1039146acda875bfd38abc9b6ecae4d8b7972ffda345c1d990617
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
     "",
-    "The first user is the logring engine (P2628, repo `logring`), but nothing here is specific to it: any recorder",
+    "The first user is the logring engine (repo `logring`), but nothing here is specific to it: any recorder",
     "that has a card, tracks and a ring can serve [Recorder]. A **track** is one stream declared in some trait of the",
     "device\'s own API (a `stream!(..)` such as `can[1].rx`), identified by its numeric resource path ([TrackInfo]).",
     "The recorder logs that stream\'s items, and a host reads them back through the same stream\'s own reliable",

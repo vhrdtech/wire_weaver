@@ -41,4 +41,4 @@
 
 - `crash`: the panic site or fault place is the first frame that is not `core` / `alloc` / `std`: a HardFault in an inlined `core::ptr::read_volatile` names its caller, the full chain stays (CLT-59).
 - `crash` (CLT-59): the "<- panic site" marker no longer lands on a stale return address left among the machinery's words by the panic handler's own frames; the site is the first code past the last `core::panicking` / `unwrap_failed` entry, the caller of the panic machinery (`CrashFrames::panic_site`).
-- Drop the unused `serde_json` dependency (P2401, cargo-machete).
+- Drop the unused `serde_json` dependency (cargo-machete).

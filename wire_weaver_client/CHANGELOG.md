@@ -176,7 +176,7 @@
 - `follow::stm32_dfu_update()` (feature `stm32_dfu`) and `stm32_dfu_update_with()`: after a firmware rebooted into the STM32 system bootloader (ROM DFU), wait for it under the same serial number, erase, write and verify an image over DfuSe, jump to flash and wait for the firmware to come back (CLT-34). `Follow::back_in_stm32_dfu`, `Found::Stm32Dfu`, `follow::is_stm32_dfu`, `follow::stm32_serial`, `FollowError::Stm32Dfu`; the `ww_stm32_dfu` re-export with the feature.
 - Compressed counted streams (API-55): the host offers LZ4 when it opens or resumes a counted stream and decodes the events before they are queued (typed, dynamic and Python clients alike, with `ww_lz4::Decoder`); events after a link loss that can't be decoded until the device's next codec restart come out as one `Gap { cause: Link }` and count in `StreamStats::lost_codec`; `StreamStats::codec_bytes_in` / `codec_bytes_out` say what compression saved. `ClientConfig::stream_compression(false)`, `Commander::set_stream_compression` and `PreparedStreamOpen::compression(false)` turn the offer off.
 - `evolution::compare` (`ww api check`) reports a trait's `ww_global` id changed or gone as breaking, an id assigned as compatible; `evolution::diff` (`ww api diff`) lists it as a `ww_global id` change (API-20, EVO-5).
-- The tap decoder and `envelope::explain_request` name a `PathKind::GlobalCompact` path through the `ww_global` registry and decode the call from the trait's snapshot like a `GlobalFull` one (API-20, P2401#20oct-1439); `envelope::compact_trait_name` gives the crate version and trait name of a compact id, or why it names none (unknown id, a crate, retired).
+- The tap decoder and `envelope::explain_request` name a `PathKind::GlobalCompact` path through the `ww_global` registry and decode the call from the trait's snapshot like a `GlobalFull` one (API-20); `envelope::compact_trait_name` gives the crate version and trait name of a compact id, or why it names none (unknown id, a crate, retired).
 - Global trait calls go out with the trait's `ww_global` id (`PathKind::GlobalCompact`, API-20) whenever the registry has one (every `ww_stdlib` trait), also when asked for with `GlobalFull`: 2 bytes and up instead of the crate name. A device built before the trait had an id answers `TraitNotFound`; the event loop then sends the same request again with `GlobalFull`, and sends that trait version's later requests that way for the rest of the connection. The internal, always empty `gid_map` is gone.
 - The tap decoder and `envelope` (TOOL-9, TOOL-14): `explain_request` / `explain_event` take the device API as an `Option` and explain requests through `GlobalFull` paths from the snapshots (`envelope::global_trait`), `explain_reply` (an `Observe`'s answer is `ObserveGranted`, not a property), `PropertyUpdate` data read by the level's `+observe` properties (`DynResource::observe_schema`), `Envelope::types` (the types of the payload values, to show units) and `Envelope::resource`. `Decoder::add_bundle` and describe blocks take a device's bundle as it was sent, snapshot-known traits are put back.
 - `ClientConfig::max_message_len(bytes)` (CLT-55): the longest message this host takes, sent to the device in link setup instead of the fixed 16 KiB (`DEFAULT_MAX_MESSAGE_LEN`, now public), with every transport's receive buffers sized for it. The link's limit is the smaller of the host's and the device's, both ways: a longer request is refused before it is sent, a longer reply is refused by the device, and either fails with `Error::MessageTooBig`, whose message names the length, both limits and which side set the link's (`request of 20000 bytes is over the link's message limit of 1024 bytes, set by the device (device 1024 from its DeviceInfo, host 16384 from ClientConfig::max_message_len)`). `DeviceApiInfo::message_limit()` and `MessageLimit` (`agreed()`, `set_by()`) give the numbers. Before, an over-limit request failed with `Other("request exceeds device max message length")` and an over-limit reply was dropped by the device, so the call timed out.
@@ -194,14 +194,14 @@
 - `Command::Connect` has a `tap: Option<ww_tap::Recorder>` field (None: the default recorder); code building it by hand adds `tap: None`. `TraceEvent` / `Command::RegisterTracer` work as before, now an adapter over the tap's message and link event records, so events arrive batched (at most the recorder's flush time, 10 ms, later).
 * The compatibility check no longer knows `Delta` / `DeltaOfDelta` / `XorFloat` (removed from ww_self); a
   `Series<T>`'s codecs are picked per column when writing and are not part of its type, only `T` is compared.
-- One rule for every device time the client gives out (P2401#17oct-2214b): `StreamEvent::Item::t` of every
+- One rule for every device time the client gives out: `StreamEvent::Item::t` of every
   positioned stream (heads too, not only batch items), `BatchItem::t` and `Observed::t` / `Sample::t` come unwrapped
   whatever prefix and storage the device sends (`U32` µs, `U16` ms, ..; it may change them on the way): a `U64` in
   the same prefix that counts on across wraps, through `ww_si::Unwrapper` without an anchor. Heads of plain counted
   and reliable streams came as the device sent them before, and only `U32` µs was unwrapped elsewhere. Each stream
   handle (each half of a split) and each observe level counts on its own; the count starts over after a disconnect
   and at a new clock epoch in a head's `ext`. `U64` and float times stay as they are.
-- **Breaking:** the `rtt` feature's `probe-rs` dependency no longer enables `cmsisdap_v1` (P2401): CMSIS-DAP v1
+- **Breaking:** the `rtt` feature's `probe-rs` dependency no longer enables `cmsisdap_v1`: CMSIS-DAP v1
   (HID-based) debug probes are no longer supported over RTT, only v2 (bulk, no `hidapi`/libusb HID binding pulled
   in). CMSIS-DAP v2 and other probe-rs-supported probes (ST-Link, J-Link, ...) are unaffected.
 
@@ -266,7 +266,7 @@
 - A property observer keeps the `missed` of updates without its property (one that carries only the count, API-39)
   and gives it with its next value, instead of dropping it.
 
-- Drop the unused `cfg-if` and `rand` dependencies (P2401, cargo-machete).
+- Drop the unused `cfg-if` and `rand` dependencies (cargo-machete).
 - Positioned streams (API-47): an item the device sends again from inside it (a resend, or a resume from a cursor
   confirmed in the middle of a multi-unit item) is no longer dropped as a duplicate or reported as lost:
   `StreamEvent::Item` gives it with `pos` and `units` of the units new to the host, the value is the whole item.
@@ -285,7 +285,7 @@
 
 - The iceoryx2 USB packet tracer (`usb::tracing`, feature `usb-tracing`, built but not wired since 558256e1) and the
   `iceoryx2` / `iceoryx2-bb-container` dependencies; the link tap (`ww_tap`) takes its place. The unused `ipc`
-  feature is gone too, a local-socket transport brings its own (P2401#14oct-1413). Builds that turned on
+  feature is gone too, a local-socket transport brings its own. Builds that turned on
   `usb-tracing` or `ipc` drop the feature.
 
 ### ⚠️ Breaking
@@ -654,7 +654,7 @@
 - Dropping a `Commander` clone no longer disconnects the device for every other clone: only the last one to drop does. `ww info` and `ww report` ended with "Called a method that required event loop to be running" because the trait clients of `ww_report::Contract` disconnected on drop and `ww` then disconnected again.
 
 - A device whose skipped trait or type has another signature than the host's snapshot (built from another revision
-  of an unpublished crate, e.g. `ww_si::Volt` on the Donguru M0+ firmware, P2401) is no longer refused as "has a
+  of an unpublished crate, e.g. `ww_si::Volt` on the Donguru M0+ firmware) is no longer refused as "has a
   different definition on each side" (EVO-9): its definition is looked up by signature in the definition cache
   `~/.wire_weaver/definitions/`, put back with a warning and compared by the evolution rules. Only when it is not found
   does a resource using it fail, with both signatures, the likely cause and how to fix it.

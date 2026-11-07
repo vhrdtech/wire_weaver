@@ -4,8 +4,8 @@ level: advanced
 
 # Use cases
 
-Where ShrinkWrap is used outside the RPC machinery, in two small programs of the vhrd.tech tool chain
-(`tpm_mesh_dash` and `tpm_mesh`, which watch and connect a handful of PCs). Nothing here is `no_std`: the point is
+Where ShrinkWrap is used outside the RPC machinery, in two small private programs of our own tool chain
+(a mesh dashboard app and its backend watcher, which watch and connect a handful of PCs). Nothing here is `no_std`: the point is
 that a dense, evolvable format with bounded values is useful on a desktop as well, for files, streams and
 size-capped messages. Every size and byte sequence below is asserted by
 [`shrink_wrap/shrink_wrap/tests/use_cases.rs`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/tests/use_cases.rs),
@@ -16,7 +16,7 @@ Read [ShrinkWrap](shrink_wrap.md) and [derive](derive.md) first, this page assum
 
 ## Ring files of a load history
 
-`tpm_mesh_dash` keeps the load history of a PC (CPU, memory, network, ... up to 64 series) in one file per
+The mesh dashboard app keeps the load history of a PC (CPU, memory, network, ... up to 64 series) in one file per
 resolution: a 1 s tier for an hour, 1 min for a day, 15 min for 30 days, 1 h for a year. A tier is a header followed
 by a fixed number of record slots, indexed by time (`(ts / period) % slots`), so one `write_at` per sample, nothing
 grows, and there is no cursor to lose. This is the case `TailSize<N>` was made for: a value that lives at a fixed
@@ -95,12 +95,12 @@ matters more:
 - a half-written or zeroed slot is an error (`MalformedUVlq32`, `OutOfBoundsSplit`), never garbage values;
 - no hand-packed offsets anywhere: the file format is the three structs above.
 
-The shipped code is `src/history.rs` of `tpm_mesh_dash`; a header that does not match (magic, period, slots) means
+The shipped code is the mesh dashboard app's `src/history.rs`; a header that does not match (magic, period, slots) means
 the file is recreated, as the data is telemetry and not worth a migration.
 
 ## Request and reply frames over streams
 
-`tpm_mesh` lets one PC ask another PC's daemon a question next to its gossip (NET-8): a QUIC stream per question
+The mesh watcher lets one PC ask another PC's daemon a question next to its gossip (NET-8): a QUIC stream per question
 (iroh), one request frame in, one reply frame out. The payload of both is JSON the daemon never looks into, so
 ShrinkWrap only does the envelope:
 
@@ -151,7 +151,7 @@ The request `{service: "history", body: {"range":"24h"}}` is 25 bytes on the wir
 ```
 
 and `AskReplyOwned::Err("no")` is 5: `04 | 01 | 6E 6F | 02`, the length, the discriminant (`ww_repr = u8`), the text and
-its length. The rules a frame reader enforces, all tested in `tpm_mesh`: over the cap is refused (also on the way
+its length. The rules a frame reader enforces, all tested in the mesh watcher: over the cap is refused (also on the way
 out), a truncated frame is an error, bytes after the frame are an error, and a hostile length such as
 `85 80 80 80 00` is refused by the cap before anything is read. The `owned` types allocate, which is fine on a
 daemon.
@@ -162,7 +162,7 @@ daemon.
 
 ## Small messages under a size cap: gossip payloads
 
-`tpm_mesh` announces each PC's state to the others over `iroh-gossip`, which caps a message at 4 KiB. The messages
+The mesh watcher announces each PC's state to the others over `iroh-gossip`, which caps a message at 4 KiB. The messages
 were JSON, and 7 Oct 2026 was spent finding out what a more compact encoding gains, on 67 live events. Average bytes
 per message:
 
@@ -193,12 +193,12 @@ struct SessionOwned {
     cpu_percent: u8,   // not an f32
     mem_mib: UVlq32,   // 512 MiB is 2 bytes, not a u64
 }
-// {"name":"omarchy-m1","busy":true,"cpu_percent":42,"mem_mib":512} is 64 bytes of JSON, and:
-assert_eq!(bytes, hex!("6F 6D 61 72 63 68 79 2D 6D 31  80  2A  84 00  29"));  // 15
-//                     "omarchy-m1"                    busy cpu mem    length of name
+// {"name":"my-laptop1","busy":true,"cpu_percent":42,"mem_mib":512} is 64 bytes of JSON, and:
+assert_eq!(bytes, hex!("6D 79 2D 6C 61 70 74 6F 70 31  80  2A  84 00  29"));  // 15
+//                     "my-laptop1"                    busy cpu mem    length of name
 ```
 
-The switch of the gossip payloads to ShrinkWrap is in progress in `tpm_mesh` as `gossip-sw`; this section
+The switch of the gossip payloads to ShrinkWrap is in progress in a private mesh-status app as `gossip-sw`; this section
 describes its design and the measurements behind it, it has not shipped. The JSON/deflate numbers are measured
 on real events, the 323 B figure is the tight stats schema; the type above is only an example.
 

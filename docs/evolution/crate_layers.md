@@ -66,19 +66,33 @@ Therefore:
 ## Layer 2: ww_stdlib
 
 `ww_stdlib` crates are meant to be shared between unrelated projects, so their types end up inside many
-different APIs. Their versions travel on the wire (as `FullVersion` / `CompactVersion` with a
-[ww_global](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global) id) for trait-based requests
-and introspection, so the version is not just Cargo metadata, it's a compatibility statement, same as for user API
-crates (layer 4):
+different APIs. Like an API root, each one has a [wire version](rules.md#the-wire-version) of its own, apart from its
+crate version, declared in its `Cargo.toml`:
+
+```toml
+[package.metadata.wire_weaver]
+wire = "w1.2"
+```
+
+Codegen reads it with the crate, every bundle and snapshot carries it per crate (`ww_self::ApiBundle::ext_wire`),
+and `#[since]` in the crate names its revisions: `ww_board_info`'s `set_reworks` is `#[since = "w1.2"]` of
+`ww_board_info`, whatever the wire version of the API that implements `BoardInfo`. A host compares such a marker with
+the device's wire version of `ww_board_info`, from its introspection data. The same works for any crate without an API
+root whose traits or types cross the wire; an API root crate declares its wire version only in
+`#[ww_api_root(wire = ..)]`.
 
 * Wire-compatible change (following the [data type](rules.md#data-types) and [API](rules.md#api) rules) -> bump the
-  compatible position: patch before 1.0 (`0.1.0` -> `0.1.1`), minor after.
-* Wire-incompatible change -> bump the breaking position: minor before 1.0 (`0.1.0` -> `0.2.0`), major after. Every
-  crate and user API that exposes the changed type or trait over the wire is then wire-incompatible too, and has to
-  bump its own breaking position when it upgrades.
-* A Rust-only break (e.g. renaming a helper method, changing a `std` convenience impl) is still a Cargo breaking
-  change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
-  releases that are supposed to be wire-compatible additions; prefer deprecating and adding.
+  wire revision (`w1.2` -> `w1.3`) and mark what was added with it; the crate version takes the compatible position
+  (patch before 1.0, minor after) when the Rust API is compatible too.
+* Wire-incompatible change -> bump the wire line (`w2.0`) and the crate's breaking position. Every crate and user API
+  that exposes the changed type or trait over the wire is then wire-incompatible too, and has to bump its own wire
+  line when it upgrades. Prefer a new type or trait next to the old one.
+* A Rust-only break (e.g. renaming a helper method, changing a `std` convenience impl) bumps the crate's breaking
+  position, as Cargo needs, and leaves the wire version alone: the checker and the host compare a dependency's traits
+  and types by its wire line (when both sides declare one), so the APIs using the crate keep their wire line. Crates
+  that declare no wire version are still compared by crate version (protocol compatible versions). A device without
+  introspection data that resolves a global trait path itself still matches the crate version the request carries
+  (EVO-29).
 
 `exact_units` is the bottom of this layer: the unit markers, `Dim`, `Magnitude`, `SIExpr` and `Fixed`, which `ww_si`
 re-exports. A unit's identity on the wire includes its crate (a counted base is `exact_units` + its marker name), so

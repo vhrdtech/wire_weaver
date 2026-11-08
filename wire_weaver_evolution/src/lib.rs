@@ -294,7 +294,8 @@ struct Checker<'a> {
     breaking: Vec<Finding>,
     compatible: Vec<String>,
     warnings: Vec<String>,
-    /// Wire versions of the API roots (EVO-24), what `#[since]` names. `None` for a crate without an API root.
+    /// Wire versions of the compared crates (EVO-24, EVO-26), what `#[since]` names. `None` for a crate that declares
+    /// none.
     old_wire: Option<WireVersion>,
     new_wire: Option<WireVersion>,
     /// Definitions left out on one side are checked by their signatures, see [TypeCheck::compare_signatures].
@@ -712,8 +713,8 @@ impl<'a> Checker<'a> {
 
     /// Additions are expected to be marked with `#[since]` naming the wire revision they first appeared in (EVO-24):
     /// the new wire version, which must then be newer than the old one. One newer than the new wire version is
-    /// reported by [Self::since_not_newer], for every item. Without a wire version on the new side (a `#[ww_trait]`
-    /// crate, EVO-26), only a missing `#[since]` is reported.
+    /// reported by [Self::since_not_newer], for every item. Without a wire version on the new side (a crate that
+    /// declares none), only a missing `#[since]` is reported.
     fn check_since(&mut self, path: &str, since: Option<WireVersion>) {
         let expected = match (self.old_wire, self.new_wire) {
             (Some(old), Some(new)) if new <= old => Some((old.next_revision(), " and a wire bump")),

@@ -109,9 +109,10 @@ pub struct ApiBundle<'i> {
     /// [ApiItemKind::Trait] `omitted` for the other levels. `None` and an empty list both mean none.
     #[default = None]
     pub root_omitted: Option<RefVec<'i, UNib32>>,
-    /// Wire version of the API root, `#[ww_api_root(wire = "w2.3")]` (EVO-24): the revision every `#[since]` of the
-    /// API's own items names. `None` for a bundle of a `#[ww_trait]` crate (a snapshot of a `ww_stdlib` crate) and in
-    /// one made before wire versions existed.
+    /// Wire version of the bundle's own crate (crate 0): the API root's `#[ww_api_root(wire = "w2.3")]` (EVO-24), the
+    /// revision every `#[since]` of the API's own items names; in a snapshot of a crate without an API root, the
+    /// wire version its `Cargo.toml` declares (EVO-26). `None` when it declares none and in a bundle made before wire
+    /// versions existed.
     #[default = None]
     pub wire: Option<WireVersion>,
     /// Wire version of each crate in `ext_crates`, by the same index (EVO-26): the revision every `#[since]` of that

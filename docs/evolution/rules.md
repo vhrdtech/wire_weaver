@@ -87,6 +87,12 @@ marker's.
 The host knows the device's wire version from its introspection data (the bundle carries the root's wire version);
 without it, `#[since]` isn't checked until link setup carries the wire version (EVO-25).
 
+A marker names a revision of the crate that declares the item, not of the API root: a trait from a `ww_stdlib` crate
+(`ww_impl!(board: ww_board_info::BoardInfo)`) carries that crate's markers, compared with the device's wire version of
+that crate (`[package.metadata.wire_weaver] wire = ..` in its `Cargo.toml`, see
+[crate layers](crate_layers.md#layer-2-ww_stdlib)). They need the device's introspection data; link setup carries
+only the root's wire version.
+
 A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
 version); the [evolution checker](checker_tool.md) warns about it.
 

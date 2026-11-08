@@ -1891,6 +1891,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   compares `#[since]` with the device's wire version (from its introspection data until link setup carries it,
   EVO-25), the checker hints and checks markers against the root's wire version (`docs/evolution/rules.md#the-wire-version`;
   tests `ww_version` `wire::tests`, `wire_weaver_core` `wire_version_and_since`, `tests/cross_version`).
+- ✅ **EVO-26 Wire versions of shared crates** · `v0.5` — every crate whose traits or types cross the wire has a
+  wire version apart from its crate version: a crate without an API root declares it in `Cargo.toml`,
+  `[package.metadata.wire_weaver] wire = "w1.2"` (an API root crate only in `#[ww_api_root(wire = ..)]`), and bundles
+  and snapshots carry it per crate (`ww_self::ApiBundle::ext_wire`, `crate_wire`). Every `ww_stdlib` crate,
+  `ww_global` and `ww_tap` are at `w1.0`, `ww_board_info` at `w1.2`. `#[since]` names a revision of the crate that
+  declares the item: the client compares it with the device's wire version of that crate (`ww_board_info`'s
+  `set_reworks`, `w1.2`, was refused under API roots at `w1.0`), and `Error::OlderProtocol` names the crate. The
+  checker and the connect-time check compare a dependency's traits and types by its wire line when both sides declare
+  one, so a Rust-only break of a `ww_stdlib` crate no longer breaks the APIs using it; global trait paths resolved on
+  the host match the line too. Signatures hash a frozen canonical bundle, so appended `ApiBundle` fields never move
+  them. Open: a device resolving a global path itself still matches crate versions (EVO-29); `exact_units` declares
+  none yet (its own repository) (`docs/evolution/crate_layers.md#layer-2-ww_stdlib`; tests `wire_weaver_client`
+  `since_of_a_stdlib_crate`, `stdlib_trait_found_by_wire_line`, `wire_weaver_evolution` `tests::wire_lines`).
+- 💡 **EVO-29 Global paths by wire line on the device** — a device without introspection data resolves `GlobalFull`
+  and `GlobalCompact` paths itself (`ww_client_server::global_full_path`, the generated `GlobalTrait` table) by the
+  crate major and minor the request carries, so a host built with another crate major of a `ww_stdlib` crate on the
+  same wire line gets `TraitNotFound`. The request would carry the crate's wire line instead (or next to it): a wire
+  change of `PathKind` (`final_structure`), with an API model generation bump in the frozen hello.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

@@ -513,20 +513,29 @@ async fn observe_requests_replies_and_updates_are_decoded() {
     );
     let updates = lines("Event PropertyUpdate");
     assert!(updates.len() >= 3, "{printed}");
-    // typed values, not hex
+    // typed values, not hex: the load as a decimal number. The device counts it up from 1000 at every poll, once a
+    // millisecond of real time, so its value says how long the session took and is never compared with a fixed one.
+    let load = |line: &str| -> u16 {
+        let digits: String = line
+            .split("load: ")
+            .nth(1)
+            .unwrap_or_else(|| panic!("no load in {line}"))
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        digits
+            .parse()
+            .unwrap_or_else(|_| panic!("load not decimal in {line}"))
+    };
+    assert!(updates[0].contains("state: 3"), "{printed}");
+    assert!(load(updates[0]) > 1000, "{printed}");
     assert!(
-        updates[0].contains("load: 1") && updates[0].contains("state: 3"),
-        "{printed}"
-    );
-    assert!(
-        updates.iter().all(|l| !l.contains("0x01")),
+        updates.iter().all(|l| !l.contains("0x")),
         "no raw hex: {printed}"
     );
-    // the load changes at every poll, the state never: later updates carry the load alone
-    assert!(
-        updates[2].contains("load: 1") && !updates[2].contains("state"),
-        "{printed}"
-    );
+    // the load changes at every poll, the state never: later updates carry the load alone, counted up
+    assert!(!updates[2].contains("state"), "{printed}");
+    assert!(load(updates[2]) > load(updates[0]), "{printed}");
     assert_eq!(replayed(&path, Layer::Api), printed);
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

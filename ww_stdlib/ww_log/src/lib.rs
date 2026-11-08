@@ -9,7 +9,7 @@
 //! | `LogText`   | Text records with a level filter.                                     | Firmware without defmt (`log` crate, ESP-IDF) |
 //!
 //! ```rust,ignore
-//! #[ww_api_root]
+//! #[ww_api_root(wire = "w1.0")]
 //! trait MyDevice {
 //!     ww_impl!(log: ww_log::LogDefmt);
 //! }

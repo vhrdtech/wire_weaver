@@ -19,6 +19,21 @@ mod tests {
     use ww_client_server::ErrorKindOwned;
     use ww_dfu::{BootState, BootTarget};
 
+    /// `#[ww_api_root(wire = ..)]` (EVO-24): each version of the API has its wire version as a const next to its
+    /// full version, on different lines here since the tree changed shape.
+    #[test]
+    fn wire_versions_of_both_apis() {
+        use wire_weaver::ww_version::WireVersion;
+
+        let old = cross_version_old_api::CROSS_VERSION_WIRE_VERSION;
+        let new = cross_version_api::CROSS_VERSION_WIRE_VERSION;
+        assert_eq!(old, WireVersion::new(1, 0));
+        assert_eq!(new, WireVersion::new(2, 0));
+        assert!(!old.same_line(&new));
+        assert_eq!(new.to_string(), "w2.0");
+        assert_eq!(cross_version_api::CROSS_VERSION_FULL_GID.crate_id, "cross_version_api");
+    }
+
     /// What the old device was asked to do.
     #[derive(Default)]
     struct Calls {

@@ -6,7 +6,7 @@ use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Expr, Lit, Meta, Token, UseTree};
 use ww_self::{Batching, Delivery, FlowControl, OptionalOwned, Repr};
-use ww_version::VersionTriplet;
+use ww_version::WireVersion;
 
 pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
     let mut docs = vec![];
@@ -39,10 +39,12 @@ pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
     docs
 }
 
+/// `#[since = "w2.1"]`: the wire revision that added the item (EVO-24). A crate version (`"0.2.0"`), the form before
+/// wire versions, is refused with a hint.
 pub(crate) fn get_since_attr(
     attrs: &[Attribute],
     current_crate: &CrateContext,
-) -> Result<Option<VersionTriplet>> {
+) -> Result<Option<WireVersion>> {
     let Some(attr) = attrs.iter().find(|a| a.path().is_ident("since")) else {
         return Ok(None);
     };
@@ -50,15 +52,72 @@ pub(crate) fn get_since_attr(
         && let Expr::Lit(expr_lit) = &name_value.value
         && let Lit::Str(lit_str) = &expr_lit.lit
     {
-        let version = Version::parse(&lit_str.value()).context(current_crate.err_context())?;
-        Ok(Some(VersionTriplet::new(
-            version.major as u32,
-            version.minor as u32,
-            version.patch as u32,
-        )))
+        let value = lit_str.value();
+        let since = value.parse::<WireVersion>().map_err(|e| {
+            if Version::parse(&value).is_ok() {
+                anyhow!(
+                    "#[since = \"{value}\"] names a crate version: `#[since]` names the wire revision that added \
+                     the item, like `#[since = \"w1.2\"]`, on the line of the API root's `#[ww_api_root(wire = ..)]`"
+                )
+            } else {
+                anyhow!("#[since = \"{value}\"]: {e}")
+            }
+        });
+        Ok(Some(since.context(current_crate.err_context())?))
     } else {
-        Err(anyhow!("expected #[since = \"x.y.z\"]").context(current_crate.err_context()))
+        Err(anyhow!("expected #[since = \"w<line>.<revision>\"]").context(current_crate.err_context()))
     }
+}
+
+/// `wire = "w2.3"` of `#[ww_api_root(wire = "w2.3")]` (EVO-24), `None` when the trait has no `#[ww_api_root]` or
+/// it has no arguments. The `ww_api_root` macro requires it; inline sources of tests may leave it out.
+pub(crate) fn get_wire_attr(
+    attrs: &[Attribute],
+    current_crate: &CrateContext,
+) -> Result<Option<WireVersion>> {
+    let Some(attr) = attrs.iter().find(|a| a.path().is_ident("ww_api_root")) else {
+        return Ok(None);
+    };
+    if matches!(attr.meta, Meta::Path(_)) {
+        return Ok(None);
+    }
+    let tokens = attr.meta.require_list().map(|list| list.tokens.clone());
+    tokens
+        .and_then(parse_wire_arg)
+        .map(Some)
+        .map_err(|e| anyhow!("{e}"))
+        .context(current_crate.err_context())
+}
+
+/// The one argument of `#[ww_api_root(wire = "w2.3")]`, shared with the `ww_api_root` macro.
+pub fn parse_wire_arg(tokens: proc_macro2::TokenStream) -> syn::Result<WireVersion> {
+    if tokens.is_empty() {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "an API root declares its wire version: `#[ww_api_root(wire = \"w1.0\")]` for a new API (EVO-24)",
+        ));
+    }
+    let name_value: syn::MetaNameValue = syn::parse2(tokens)?;
+    if !name_value.path.is_ident("wire") {
+        return Err(syn::Error::new_spanned(
+            &name_value.path,
+            "#[ww_api_root] takes one argument, `wire = \"w<line>.<revision>\"`",
+        ));
+    }
+    let Expr::Lit(syn::ExprLit {
+        lit: Lit::Str(lit_str),
+        ..
+    }) = &name_value.value
+    else {
+        return Err(syn::Error::new_spanned(
+            &name_value.value,
+            "expected a string: `wire = \"w2.3\"`",
+        ));
+    };
+    lit_str
+        .value()
+        .parse::<WireVersion>()
+        .map_err(|e| syn::Error::new_spanned(lit_str, format!("wire = \"{}\": {e}", lit_str.value())))
 }
 
 /// Delivery kind of a `stream!` from `#[counted]` / `#[reliable]`, plain without either. Not allowed on `sink!`.

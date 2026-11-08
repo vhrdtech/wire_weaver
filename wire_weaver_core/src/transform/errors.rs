@@ -265,7 +265,7 @@ mod tests {
         .unwrap();
         let lib_rs = format!(
             r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {{
                 {methods}
             }}

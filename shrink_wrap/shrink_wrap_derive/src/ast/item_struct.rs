@@ -1,7 +1,6 @@
 use crate::ast::docs::Docs;
 use crate::ast::generics::Generics;
 use crate::ast::ty::Type;
-use crate::ast::util::Version;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::Expr;
@@ -87,7 +86,7 @@ pub(crate) struct Field {
     pub(crate) _id: u32,
     pub(crate) ident: Ident,
     pub(crate) ty: Type,
-    pub(crate) _since: Option<Version>,
+    pub(crate) _since: Option<String>,
     pub(crate) default: Option<Expr>,
     /// `#[series(opaque)]` (SW-60): in a `Series`, an opaque run of the value's own bytes instead of its columns.
     pub(crate) series_opaque: bool,

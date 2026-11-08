@@ -8,7 +8,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait CfgVariants {
     /// Last reading written, `Reading::Small(0)` at first
     fn read() -> Reading;

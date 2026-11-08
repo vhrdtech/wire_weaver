@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: dcadefb6c7206b72a27efe5b7cb3202901c5cfc9feba6c62a7448515423bc3f9
+// shrink_wrap sha256: 2e0908fda2e34ab23b68a4112b7cfb9ac1d3fdb4d55702c66ed9485915bf1103
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -37,7 +37,7 @@
         (docs: [
             "A provisional record a bench or developer wrote in editable storage (flash), standing in for the production",
             "record until it is written; not a production record.",
-        ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((major: 0, minor: 2, patch: 0))),
+        ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((line: 1, revision: 1))),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
         29,
@@ -162,7 +162,7 @@
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
             "Everything the device knows about its board, in one value.",
         ], optional: None, meta: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 4))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "REWORKS", docs: [
+        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 4))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((line: 1, revision: 2)), ident: "REWORKS", docs: [
             "Reworks and patches of this PCB revision (cuts, jumpers, swapped parts) and whether each is applied on this",
             "unit; for bring-up boards, where units of one revision differ. Every rework the firmware knows, in the order",
             "of the board\'s rework list, then the ones the unit\'s record has applied and the firmware doesn\'t know",
@@ -172,7 +172,7 @@
         (id: 2, kind: Method(args: [
             (ident: "changes", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 5))), default: None, flatten: false),
             (ident: "program", ty: Bool, default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 8))), errors: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "set_reworks", docs: [
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 8))), errors: None), multiplicity: Flat, since: Some((line: 1, revision: 2)), ident: "set_reworks", docs: [
             "Record reworks done on this unit (or undone): every change or none. A number this firmware doesn\'t know is",
             "refused ([ReworkError::UnknownRework]), never stored. `program` false is a dry run: everything is checked, nothing",
             "written. The board runs on the record from its next boot: [BoardInfo::REWORKS], read once per connection,",
@@ -183,4 +183,4 @@
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: None)

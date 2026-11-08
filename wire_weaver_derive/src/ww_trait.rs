@@ -10,22 +10,55 @@ use syn::{
 use wire_weaver_core::internal::ww_self::ApiBundleOwned;
 use wire_weaver_core::internal::ww_self::errors::error_list_docs;
 use wire_weaver_core::internal::{
-    ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs,
+    ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs, parse_wire_arg,
 };
 use wire_weaver_core::load;
 
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
-    ww_trait_inner(attr, item).unwrap_or_else(|e| e.to_compile_error())
-}
-
-fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
     if !attr.is_empty() {
-        return Err(Error::new_spanned(
+        return Error::new_spanned(
             attr,
             "a trait's global id is not written in code: add `crate::Trait` to ww_global/wire_weaver_gid.json, \
-             the codegen looks it up by name (API-20)",
-        ));
+             the codegen looks it up by name (API-20); a wire version belongs to `#[ww_api_root(wire = ..)]`",
+        )
+        .to_compile_error();
     }
+    ww_trait_inner(item).unwrap_or_else(|e| e.to_compile_error())
+}
+
+/// [ww_trait] with the API root's wire version, `#[ww_api_root(wire = "w2.3")]` (EVO-24).
+pub fn ww_api_root(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let wire = match parse_wire_arg(attr) {
+        Ok(wire) => wire,
+        Err(e) => return e.to_compile_error(),
+    };
+    let wire_const = match syn::parse2::<ItemTrait>(item.clone()) {
+        Ok(item_trait) => {
+            let ident = Ident::new(
+                format!("{}_WIRE_VERSION", item_trait.ident)
+                    .to_case(Case::Constant)
+                    .as_str(),
+                item_trait.ident.span(),
+            );
+            let doc = format!(
+                "Wire version of the [{}] API, `{wire}`: peers on line {} talk, `#[since]` names its revisions.",
+                item_trait.ident, wire.line.0
+            );
+            let (line, revision) = (wire.line.0, wire.revision.0);
+            quote! {
+                #[doc = #doc]
+                pub const #ident: ww_version::WireVersion = ww_version::WireVersion::new(#line, #revision);
+            }
+        }
+        Err(e) => return e.to_compile_error(),
+    };
+    match ww_trait_inner(item) {
+        Ok(tokens) => quote! { #tokens #wire_const },
+        Err(e) => e.to_compile_error(),
+    }
+}
+
+fn ww_trait_inner(item: TokenStream) -> Result<TokenStream, Error> {
     let item_trait: ItemTrait = syn::parse2(item)?;
     let trait_name = item_trait.ident.to_string();
     let crate_path = PathBuf::from(

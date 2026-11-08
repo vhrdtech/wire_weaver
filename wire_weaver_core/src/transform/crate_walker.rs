@@ -5,7 +5,7 @@ use super::cfg::{
 };
 use super::markers::expand_marker_macros;
 use super::meta::{MetaSite, get_meta};
-use super::util::{UseLeaf, collect_docs, use_tree_leaves, use_tree_path_to};
+use super::util::{UseLeaf, collect_docs, get_wire_attr, use_tree_leaves, use_tree_path_to};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
 use shrink_wrap::UNib32;
@@ -198,6 +198,7 @@ fn load_inner(
         Ok((entry, trait_name, items))
     })?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
+    let wire = get_wire_attr(&item_trait.attrs, &entry)?;
 
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
@@ -215,6 +216,7 @@ fn load_inner(
         traits: scratch.root_bundle.traits.clone(),
         ext_crates: scratch.root_bundle.ext_crates.clone(),
         root_omitted: None,
+        wire,
     })
 }
 
@@ -312,6 +314,7 @@ impl ApiBundleScratch {
             traits: vec![],
             ext_crates: self.ext_crates.clone(),
             root_omitted: None,
+            wire: None,
         }
     }
 

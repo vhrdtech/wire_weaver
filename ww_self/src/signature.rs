@@ -304,6 +304,7 @@ impl<'a, 'r> Canonical<'a, 'r> {
             traits: self.out_traits.into_iter().map(Option::unwrap).collect(),
             ext_crates: self.out_crates,
             root_omitted: None,
+            wire: None,
         };
         bundle
             .to_ww_bytes_owned()

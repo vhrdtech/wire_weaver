@@ -14,7 +14,7 @@
 //! tree cost it nothing.
 //!
 //! ```rust,ignore
-//! #[ww_api_root]
+//! #[ww_api_root(wire = "w1.0")]
 //! trait MyLogger {
 //!     ww_impl!(adc: ww_adc::Adc);
 //!     ww_impl!(adc_stream: ww_adc::AdcStream);

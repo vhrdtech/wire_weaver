@@ -279,6 +279,8 @@ impl RxCore {
                     api_model_version: compact_to_full(&device_info.api_model_version),
                     user_api_version: device_info.user_api_version.clone(),
                     user_api_hash: device_info.hash.clone(),
+                    // TODO(EVO-25): from link setup
+                    user_api_wire: None,
                     accumulation_time: Duration::from_micros(
                         device_info.packet_accumulation_time_us.into(),
                     ),
@@ -616,6 +618,8 @@ fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) 
         api_model_version: compact_to_full(&info.api_model_version),
         user_api_version: info.user_api_version.make_owned(),
         user_api_hash: info.hash.make_owned(),
+        // TODO(EVO-25): from link setup
+        user_api_wire: None,
         accumulation_time: Duration::from_micros(info.packet_accumulation_time_us.into()),
         image_facts: info.image_facts,
     }

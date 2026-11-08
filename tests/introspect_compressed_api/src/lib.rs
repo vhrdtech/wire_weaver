@@ -5,7 +5,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait IntrospectCompressed {
     /// Turns the output of a channel on when it was off and off when it was on, and returns whether it is on now.
     /// A channel that doesn't exist is left alone and reads as off.

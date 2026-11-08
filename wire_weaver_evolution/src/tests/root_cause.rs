@@ -36,7 +36,7 @@ fn dep_dir(version: &str, id_ty: &str) -> PathBuf {
 const API: &str = r#"
     use dep_api::Shared;
 
-    #[ww_api_root]
+    #[ww_api_root(wire = "w1.0")]
     pub trait Api {
         fn one(s: Shared);
         fn two(s: Shared);

@@ -9,7 +9,7 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,
     FieldOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, Repr, TypeOwned,
 };
-use ww_version::VersionTriplet;
+use ww_version::WireVersion;
 
 use super::{display, own_traits, own_types};
 use crate::compat::{field_name, fields};
@@ -63,6 +63,8 @@ pub fn diff(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Vec<Difference
         new,
         out: vec![],
     };
+    let root = format!("trait {}", new.root.trait_name);
+    differ.changed(&root, "wire version", since(old.wire), since(new.wire));
     differ.traits();
     differ.types();
     differ.dependencies();
@@ -105,7 +107,7 @@ impl Differ<'_> {
         }
     }
 
-    fn since(&mut self, path: &str, old: Option<VersionTriplet>, new: Option<VersionTriplet>) {
+    fn since(&mut self, path: &str, old: Option<WireVersion>, new: Option<WireVersion>) {
         self.changed(path, "#[since]", since(old), since(new));
     }
 
@@ -501,8 +503,8 @@ fn error_list(kind: &ApiItemKindOwned) -> String {
     )
 }
 
-fn since(since: Option<VersionTriplet>) -> String {
-    since.map_or_else(|| "none".into(), |v| format!("{v:?}"))
+fn since(since: Option<WireVersion>) -> String {
+    since.map_or_else(|| "none".into(), |v| v.to_string())
 }
 
 fn default(default: &Option<ww_self::ValueOwned>) -> String {

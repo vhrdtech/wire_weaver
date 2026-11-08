@@ -9,7 +9,7 @@
 //! | `LogicStream`   | Continuous capture streamed while the link keeps up.                        | Fast links, sparse signals |
 //!
 //! ```rust,ignore
-//! #[ww_api_root]
+//! #[ww_api_root(wire = "w1.0")]
 //! trait MyProbe {
 //!     ww_impl!(la: ww_logic_analyzer::LogicAnalyzer);
 //! }

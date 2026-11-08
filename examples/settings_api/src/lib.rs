@@ -5,7 +5,7 @@ use wire_weaver::prelude::*;
 /// Two user settings kept across a reboot by `ww_settings` (see `examples/settings` and
 /// `docs/api/settings.md`): written only once changed and left alone for a debounce window, not on
 /// every write.
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait SettingsDemo {
     /// Averaging window of a sensor reading, milliseconds.
     property!(rw meter_window_ms: u16);

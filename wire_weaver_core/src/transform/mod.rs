@@ -18,3 +18,4 @@ pub use crate_walker::{
 pub use errors::ErrorListError;
 pub use snapshot::{load_crate, load_crate_with_hints, skip_known};
 pub use unit_hint::UnitHint;
+pub use util::parse_wire_arg;

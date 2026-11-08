@@ -2,7 +2,6 @@ use crate::ast::docs::Docs;
 use crate::ast::generics::Generics;
 use crate::ast::item_struct::Field;
 use crate::ast::ty::Type;
-use crate::ast::util::Version;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 
@@ -68,7 +67,7 @@ pub(crate) struct Variant {
     pub(crate) ident: Ident,
     pub(crate) fields: Fields,
     pub(crate) discriminant: u32,
-    pub(crate) _since: Option<Version>,
+    pub(crate) _since: Option<String>,
     /// Predicates of the `#[cfg(..)]` attributes on the variant, passed through to everything generated for it.
     /// The discriminant does not depend on them: a variant keeps its number in every configuration.
     pub(crate) cfg: Vec<TokenStream>,

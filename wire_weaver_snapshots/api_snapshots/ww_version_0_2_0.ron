@@ -1,6 +1,6 @@
 // ww_version 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9049fe72c864d1197af1701f5effe5b773369c826a43199a4a58f4ba43f5fde3
+// shrink_wrap sha256: 65608f534c23361f4712469d5f64409cea09b02e31e23539766d34ef090d42b7
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: [], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Hash of the [ApiBundle] used to compare if client and server API\'s are identical.",
@@ -31,6 +31,20 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Wire version of an API root, written `w2.3` and said \"wire 2.3\": a line and a revision.",
+        "",
+        "- The line (`2`) counts wire breaks: peers on different lines don\'t talk.",
+        "- The revision (`3`) counts wire-compatible additions on a line (a new method, property or stream, a field or a",
+        "  trailing argument with a default): peers on one line always do, and `#[since = \"w2.3\"]` names the revision that",
+        "  added an item.",
+        "",
+        "The `w` is part of the notation everywhere (source attributes, CLI output, logs, docs), so a crate version can\'t",
+        "be taken for one: [WireVersion::from_str] refuses `2.3`, `w2.3.0` and `0.2.0`. Ordered by line, then revision.",
+    ], ident: "WireVersion", generics: [], fields: Named([
+        (ident: Some("line"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("revision"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "SemVer version as defined by <https://semver.org> in ShrinkWrap format.",
         "The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.",
         "[VersionOwned] is automatically generated from this definition as well and uses String instead.",
@@ -50,7 +64,7 @@
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "FullVersion", generics: [], fields: Named([
         (ident: Some("crate_id"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
-        (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "GlobalTypeId", signature: [
         150,
@@ -66,7 +80,7 @@
         "Compact version for traits-based requests that are made often or through limited bandwidth interfaces.",
         "Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).",
     ], ident: "CompactVersion", generics: [], fields: Named([
-        (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+        (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
@@ -94,4 +108,4 @@
 ], traits: [], ext_crates: [
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_global", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: None)

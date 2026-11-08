@@ -214,4 +214,4 @@
 ], ext_crates: [
     (crate_id: "ww_memory", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: None)

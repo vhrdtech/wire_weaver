@@ -9,7 +9,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait Hub {
     /// What hub runs: versions, process, socket. Frozen.
     fn info() -> HubInfo<'i>;

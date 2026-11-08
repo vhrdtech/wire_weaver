@@ -919,7 +919,7 @@ mod tests {
         let bundle = load_src(
             "meta",
             r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 #[claim(shared)]
                 #[shares(index = 0, pins = "PA11, PA12", peripherals = "FDCAN1")]
@@ -1039,6 +1039,78 @@ mod tests {
             let e = format!("{:?}", load_src("on_trait", &src).unwrap_err());
             assert!(e.contains(expected), "{src}: {e}");
         }
+    }
+
+    /// `#[ww_api_root(wire = "w2.3")]` and `#[since = "w2.1"]` (EVO-24): the root's wire version in the bundle, every
+    /// `#[since]` a wire revision; a crate version in either place is refused with a hint.
+    #[test]
+    fn wire_version_and_since() {
+        use ww_version::WireVersion;
+
+        let src = r#"
+            #[derive_shrink_wrap]
+            pub struct S { pub a: u8, #[since = "w2.2"] #[default = 0] pub b: u8 }
+            #[ww_api_root(wire = "w2.3")]
+            pub trait Api {
+                fn a(s: S);
+                #[since = "w2.1"]
+                fn b();
+            }
+        "#;
+        let bundle = load_src("wire", src).unwrap();
+        assert_eq!(bundle.wire, Some(WireVersion::new(2, 3)));
+        assert_eq!(bundle.root.items[0].since, None);
+        assert_eq!(bundle.root.items[1].since, Some(WireVersion::new(2, 1)));
+        let ww_self::TypeLocationOwned::InLine { ty: ww_self::TypeOwned::Struct(s), .. } =
+            &bundle.types[0]
+        else {
+            panic!("{:?}", bundle.types[0]);
+        };
+        let ww_self::FieldsOwned::Named(fields) = &s.fields else {
+            panic!("{:?}", s.fields);
+        };
+        assert_eq!(fields[1].since, Some(WireVersion::new(2, 2)));
+
+        let plain = load_src("wire_none", "#[ww_api_root] pub trait Api { fn a(); }").unwrap();
+        assert_eq!(plain.wire, None, "inline sources of tests may leave it out");
+
+        for (src, expected) in [
+            (
+                r#"#[ww_api_root(wire = "w1.0")] pub trait Api { #[since = "0.2.0"] fn a(); }"#,
+                "#[since = \"0.2.0\"] names a crate version",
+            ),
+            (
+                r#"#[ww_api_root(wire = "w1.0")] pub trait Api { #[since = "w0.2.0"] fn a(); }"#,
+                "three numbers are a crate version",
+            ),
+            (
+                r#"#[ww_api_root(wire = "1.0")] pub trait Api { fn a(); }"#,
+                "no `w` in front",
+            ),
+            (
+                r#"#[ww_api_root(wire = "w1.0.0")] pub trait Api { fn a(); }"#,
+                "three numbers are a crate version",
+            ),
+            (
+                r#"#[ww_api_root(version = "w1.0")] pub trait Api { fn a(); }"#,
+                "takes one argument, `wire = ",
+            ),
+        ] {
+            let e = format!("{:?}", load_src("wire_refused", src).unwrap_err());
+            assert!(e.contains(expected), "{src}: {e}");
+        }
+
+        // what the `ww_api_root` macro sees: a bare `#[ww_api_root]` is refused there
+        let e = crate::transform::parse_wire_arg(proc_macro2::TokenStream::new()).unwrap_err();
+        assert!(
+            e.to_string().contains("`#[ww_api_root(wire = \"w1.0\")]` for a new API"),
+            "{e}"
+        );
+        let tokens: proc_macro2::TokenStream = r#"wire = "w2.3""#.parse().unwrap();
+        assert_eq!(
+            crate::transform::parse_wire_arg(tokens).unwrap(),
+            WireVersion::new(2, 3)
+        );
     }
 
     #[test]

@@ -8,7 +8,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait CrossVersion {
     fn led_on();
     fn led_off();

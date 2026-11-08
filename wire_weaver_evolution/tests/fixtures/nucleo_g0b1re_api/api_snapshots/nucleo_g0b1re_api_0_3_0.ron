@@ -1,6 +1,6 @@
 // nucleo_g0b1re_api 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: cb8c540586b6801f17c5a95d2185cfae2f9646485fe5e18734100985864e781c
+// shrink_wrap sha256: f226bfe85af14c20e7f57d4b11991b6242048265c8581fe121f9c34101a840f0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "WireWeaver API of the nucleo_g0b1re firmware (`../nucleo_g0b1re_api`), served by `../firmware/src/ww.rs`.",
     "",
@@ -229,10 +229,10 @@
         (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_off", docs: [
             "Turn the LED off",
         ], optional: None, meta: None),
-        (id: 2, kind: Trait(trait_idx: 11, omitted: None), multiplicity: Flat, since: Some((major: 0, minor: 2, patch: 0)), ident: "device", docs: [
+        (id: 2, kind: Trait(trait_idx: 11, omitted: None), multiplicity: Flat, since: Some((line: 1, revision: 1)), ident: "device", docs: [
             "Device contract: firmware, last reset, board, ids, label, counters, log, variant, settings, boot, update node",
         ], optional: None, meta: None),
-        (id: 3, kind: Trait(trait_idx: 12, omitted: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "pins", docs: [
+        (id: 3, kind: Trait(trait_idx: 12, omitted: None), multiplicity: Flat, since: Some((line: 1, revision: 2)), ident: "pins", docs: [
             "Raw access to the pins the board leaves free (docs/board/nucleo_g0b1re-pins.md), for bring-up and pin tests",
             "(`ww pins tui`): one program at a time, every pin given back when it lets go or disconnects",
         ], optional: None, meta: None),

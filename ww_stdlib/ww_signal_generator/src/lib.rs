@@ -8,7 +8,7 @@
 //! | `WaveformGenerator` | `channel[]` of DAC outputs: sine, square, triangle, sawtooth, DC, tables. | Devices with a DAC |
 //!
 //! ```rust,ignore
-//! #[ww_api_root]
+//! #[ww_api_root(wire = "w1.0")]
 //! trait MyBench {
 //!     ww_impl!(la: ww_logic_analyzer::LogicAnalyzer);
 //!     ww_impl!(pattern: ww_signal_generator::PatternGenerator);

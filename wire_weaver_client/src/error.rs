@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use ww_client_server::ErrorKindOwned;
-use ww_version::FullVersionOwned;
+use ww_version::{FullVersionOwned, WireVersion};
 
 use crate::DeviceInfo;
 use exact_units::Bytes;
@@ -58,8 +58,14 @@ pub enum Error {
         hex(.bytes)
     )]
     UnknownPeerFormat { kind: u8, bytes: Vec<u8> },
-    #[error("Connected device has an older protocol version: {:?}, required for the operation: {:?}", .0, .1)]
-    OlderProtocol(Box<FullVersionOwned>, Box<FullVersionOwned>),
+    #[error("Connected device {device:?} is at wire {device_wire}, the operation needs {required} or newer")]
+    OlderProtocol {
+        device: Box<FullVersionOwned>,
+        /// Wire version of the device's API (EVO-24).
+        device_wire: WireVersion,
+        /// `#[since]` of the resource, the newest along its path.
+        required: WireVersion,
+    },
     #[error("'{resource}' is not implemented by the connected device, its API is {device:?}")]
     NotImplementedByDevice {
         /// Resource path, e.g. `gpio[].set_high`
@@ -282,7 +288,7 @@ impl Error {
             | Error::IncompatibleLinkVersion { .. }
             | Error::IncompatibleGeneration { .. }
             | Error::UnknownPeerFormat { .. }
-            | Error::OlderProtocol(..)
+            | Error::OlderProtocol { .. }
             | Error::IncompatibleResource { .. }
             | Error::User(_)
             | Error::Other(_)

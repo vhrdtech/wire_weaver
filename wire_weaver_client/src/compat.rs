@@ -17,7 +17,7 @@ use std::sync::Arc;
 use wire_weaver::shrink_wrap::UNib32;
 use ww_self::visit::Visit;
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned};
-use ww_version::VersionTriplet;
+use ww_version::WireVersion;
 
 use wire_weaver_evolution::compat::{Bounds, compare_items};
 
@@ -31,7 +31,7 @@ pub(crate) enum ApiMatch {
     /// API hash is different, every resource was compared with the device's introspection data.
     Checked(Arc<ApiCompat>),
     /// API hash is different, but device's API is unknown (introspection disabled and not in the cache).
-    /// Only `#[since]` annotations of the client's resources can be checked against the device's API version.
+    /// Only `#[since]` annotations of the client's resources can be checked against the device's wire version.
     DeviceApiUnknown(Arc<ApiCompat>),
 }
 
@@ -55,7 +55,7 @@ pub(crate) struct ApiCompat {
 struct Node {
     ident: String,
     is_array: bool,
-    since: Option<VersionTriplet>,
+    since: Option<WireVersion>,
     verdict: Verdict,
     children: HashMap<u32, Node>,
 }
@@ -68,7 +68,7 @@ pub(crate) struct Resolved<'a> {
     /// or the resource's own verdict.
     pub(crate) verdict: &'a Verdict,
     /// The newest `#[since]` along the path.
-    pub(crate) since: Option<(u32, u32, u32)>,
+    pub(crate) since: Option<WireVersion>,
 }
 
 impl ApiCompat {
@@ -144,8 +144,8 @@ impl ApiCompat {
                 // array index, absent when reading valid indices of the array itself
                 path.next();
             }
-            if let Some(s) = node.since {
-                since = since.max(Some((s.major.0, s.minor.0, s.patch.0)));
+            if node.since.is_some() {
+                since = since.max(node.since);
             }
             resolved = match resolved {
                 Some(verdict) if verdict != &Verdict::Compatible => Some(verdict),
@@ -247,13 +247,12 @@ fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned)> {
     collector.items
 }
 
-/// Whether a device whose API is at `device` has an item marked `#[since = "since"]`: when `device >= since`,
-/// comparing `major.minor.patch` in order. Within one compatible line (`0.6.x` before 1.0, `1.x` after) this is the
-/// version that added the item; a breaking bump (`0.5.2` -> `0.6.0`, `1.4.0` -> `2.0.0`) starts a new line in which
-/// every older marker counts as present, so markers never need rewriting. A device on an older line than the marker
-/// doesn't have the item. Whether the item survived the breaking bump is the device's introspection data's to say
-/// (`Verdict::Missing`), not the marker's.
-pub(crate) fn has_since(device: (u32, u32, u32), since: (u32, u32, u32)) -> bool {
+/// Whether a device whose API is at wire version `device` has an item marked `#[since = "since"]` (EVO-24): when
+/// `device >= since`, by line, then revision. On one line this is the revision that added the item; a new line
+/// (`w2.5` -> `w3.0`) counts every older marker as present, so markers never need rewriting. A device on an older
+/// line than the marker doesn't have the item. Whether the item survived the new line is the device's introspection
+/// data's to say (`Verdict::Missing`), not the marker's.
+pub(crate) fn has_since(device: WireVersion, since: WireVersion) -> bool {
     device >= since
 }
 
@@ -463,7 +462,7 @@ pub(crate) mod tests {
     }
 
     const BLINKY: &str = r#"
-        #[ww_api_root]
+        #[ww_api_root(wire = "w1.0")]
         pub trait Blinky {
             fn led_on();
             fn led_off();
@@ -566,11 +565,11 @@ pub(crate) mod tests {
     #[test]
     fn newer_client_older_device() {
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.1")]
             pub trait Blinky {
                 fn led_on();
                 fn led_off();
-                #[since = "0.1.1"]
+                #[since = "w1.1"]
                 fn led_toggle();
             }
         "#;
@@ -578,7 +577,7 @@ pub(crate) mod tests {
         let toggle = compat.resolve(&path(&[2])).unwrap();
         assert_eq!(toggle.name, "led_toggle");
         assert_eq!(toggle.verdict, &Verdict::Missing);
-        assert_eq!(toggle.since, Some((0, 1, 1)));
+        assert_eq!(toggle.since, Some(WireVersion::new(1, 1)));
         assert_eq!(compat.mismatches().len(), 1);
 
         // resources the client doesn't know about are irrelevant
@@ -592,7 +591,7 @@ pub(crate) mod tests {
     #[test]
     fn method_signatures() {
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn set(x: u8);
                 fn get() -> u8;
@@ -603,7 +602,7 @@ pub(crate) mod tests {
             }
         "#;
         let device = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn set(x: u16);
                 fn get() -> u8;
@@ -635,7 +634,7 @@ pub(crate) mod tests {
     #[test]
     fn evolved_struct() {
         let v1 = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn set(c: Coord);
                 fn get() -> Coord;
@@ -648,7 +647,7 @@ pub(crate) mod tests {
             }
         "#;
         let v2_default = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn set(c: Coord);
                 fn get() -> Coord;
@@ -702,7 +701,7 @@ pub(crate) mod tests {
     #[test]
     fn enum_variants() {
         let v1 = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn get() -> Mode;
                 fn set(m: Mode);
@@ -715,7 +714,7 @@ pub(crate) mod tests {
             }
         "#;
         let v2 = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn get() -> Mode;
                 fn set(m: Mode);
@@ -757,7 +756,7 @@ pub(crate) mod tests {
     #[test]
     fn properties_and_streams() {
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 property!(rw a: u8);
                 property!(ro b: u8);
@@ -766,7 +765,7 @@ pub(crate) mod tests {
             }
         "#;
         let device = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 property!(ro a: u8);
                 property!(rw b: u8);
@@ -784,7 +783,7 @@ pub(crate) mod tests {
     #[test]
     fn traits_and_arrays() {
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 ww_impl!(periph[]: Peripheral);
                 ww_impl!(sub: Subgroup);
@@ -855,7 +854,7 @@ pub(crate) mod tests {
     #[test]
     fn skipped_trait_changed_without_version_bump() {
         let source = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn m0();
                 ww_impl!(sub: Subgroup);
@@ -882,23 +881,27 @@ pub(crate) mod tests {
     #[test]
     fn client_only_tracks_since() {
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.2")]
             pub trait Api {
                 fn a();
-                #[since = "0.1.2"]
+                #[since = "w1.2"]
                 ww_impl!(sub: Subgroup);
             }
 
             #[ww_trait]
             trait Subgroup {
-                #[since = "0.1.1"]
+                #[since = "w1.1"]
                 fn m1();
             }
         "#;
         let compat = ApiCompat::client_only(&bundle("client", "0.1.2", client));
         let m1 = compat.resolve(&path(&[1, 0])).unwrap();
         assert_eq!(m1.verdict, &Verdict::Compatible);
-        assert_eq!(m1.since, Some((0, 1, 2)), "newest since along the path");
+        assert_eq!(
+            m1.since,
+            Some(WireVersion::new(1, 2)),
+            "newest since along the path"
+        );
     }
     #[test]
     fn commander_fails_locally() {
@@ -908,16 +911,16 @@ pub(crate) mod tests {
         use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
 
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.1")]
             pub trait Api {
                 fn a(x: u8);
-                #[since = "0.1.1"]
+                #[since = "w1.1"]
                 fn b();
                 fn c();
             }
         "#;
         let device = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w1.0")]
             pub trait Api {
                 fn a(x: u16);
             }
@@ -949,7 +952,11 @@ pub(crate) mod tests {
         assert!(
             matches!(call(&cmd, 0), Err(Error::IncompatibleResource { resource, .. }) if resource == "a")
         );
-        assert!(matches!(call(&cmd, 1), Err(Error::OlderProtocol(..))));
+        assert!(matches!(
+            call(&cmd, 1),
+            Err(Error::OlderProtocol { device_wire, required, .. })
+                if device_wire == WireVersion::new(1, 0) && required == WireVersion::new(1, 1)
+        ));
         assert!(
             matches!(call(&cmd, 2), Err(Error::NotImplementedByDevice { resource, .. }) if resource == "c")
         );
@@ -959,50 +966,41 @@ pub(crate) mod tests {
         cmd.resolve_api_match();
         assert!(call(&cmd, 2).is_ok());
 
-        // device API unknown: only since is checked
+        // device API unknown: only since is checked, against the wire version the device's introspection data gave
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd2 = Commander::new(tx);
         cmd2.connected_device = cmd.connected_device.clone();
+        assert_eq!(cmd2.connected_device.user_api_wire, Some(WireVersion::new(1, 0)));
         cmd2.connected_device.user_api_hash.no_docs.hash = vec![2];
         cmd2.set_client_introspect(introspect(bundle("c", "0.1.1", client), 1));
         cmd2.resolve_api_match();
         assert!(call(&cmd2, 0).is_ok());
-        assert!(matches!(call(&cmd2, 1), Err(Error::OlderProtocol(..))));
+        assert!(matches!(call(&cmd2, 1), Err(Error::OlderProtocol { .. })));
+
+        // device API and wire version unknown: nothing to compare with (until link setup carries it, EVO-25)
+        cmd2.connected_device.user_api_wire = None;
+        cmd2.resolve_api_match();
+        assert!(call(&cmd2, 1).is_ok());
     }
 
     #[test]
-    fn since_by_full_version() {
-        // before 1.0: the line is 0.minor, a minor bump is breaking
-        assert!(has_since((0, 5, 2), (0, 5, 2)));
-        assert!(has_since((0, 5, 3), (0, 5, 2)));
-        assert!(!has_since((0, 5, 1), (0, 5, 2)));
-        // a breaking bump starts a new line in which older markers count as present (was refused: 0 < 2)
-        assert!(has_since((0, 6, 0), (0, 5, 2)));
-        assert!(has_since((0, 6, 0), (0, 5, 1)));
-        assert!(has_since((0, 6, 1), (0, 1, 9)));
+    fn since_by_wire_version() {
+        let w = WireVersion::new;
+        // one line: the revision that added the item
+        assert!(has_since(w(2, 3), w(2, 3)));
+        assert!(has_since(w(2, 4), w(2, 3)));
+        assert!(!has_since(w(2, 2), w(2, 3)));
+        assert!(has_since(w(2, 10), w(2, 9)));
+        // a new line counts every older marker as present
+        assert!(has_since(w(3, 0), w(2, 3)));
+        assert!(has_since(w(3, 0), w(1, 9)));
         // the device is on an older line than the marker
-        assert!(!has_since((0, 5, 9), (0, 6, 0)));
-        assert!(!has_since((0, 5, 9), (0, 6, 1)));
-        // 0.0.x: every patch is its own line
-        assert!(has_since((0, 0, 3), (0, 0, 2)));
-        assert!(!has_since((0, 0, 1), (0, 0, 2)));
-        // after 1.0: the line is the major, a minor bump is compatible
-        assert!(has_since((1, 3, 0), (1, 3, 0)));
-        assert!(has_since((1, 3, 1), (1, 3, 0)));
-        assert!(has_since((1, 4, 0), (1, 3, 5)));
-        assert!(!has_since((1, 2, 9), (1, 3, 0)));
-        assert!(
-            !has_since((1, 3, 0), (1, 3, 1)),
-            "a patch can add items too"
-        );
-        // a major bump (was refused when the new minor was below the marker's: 0 < 3)
-        assert!(has_since((2, 0, 0), (1, 3, 0)));
-        assert!(has_since((1, 0, 0), (0, 9, 9)));
-        assert!(!has_since((1, 9, 9), (2, 0, 0)));
+        assert!(!has_since(w(2, 9), w(3, 0)));
+        assert!(!has_since(w(2, 9), w(3, 1)));
     }
 
-    /// The device took a breaking bump after the client's `#[since]` markers were written (donguru_api 0.5.2 ->
-    /// 0.6.0): items from the older line are callable, items newer than the device are refused.
+    /// The device's API moved to a new wire line after the client's `#[since]` markers were written (w1.2 -> w2.0):
+    /// items from the older line are callable, items newer than the device are refused.
     #[test]
     fn commander_since_across_breaking_bump() {
         use crate::config::IntrospectBundle;
@@ -1011,14 +1009,14 @@ pub(crate) mod tests {
         use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
 
         let client = r#"
-            #[ww_api_root]
+            #[ww_api_root(wire = "w2.1")]
             pub trait Api {
                 fn a();
-                #[since = "0.5.1"]
+                #[since = "w1.1"]
                 fn b();
-                #[since = "0.5.2"]
+                #[since = "w1.2"]
                 fn c();
-                #[since = "0.6.1"]
+                #[since = "w2.1"]
                 fn d();
             }
         "#;
@@ -1026,6 +1024,7 @@ pub(crate) mod tests {
         let mut cmd = Commander::new(tx);
         cmd.connected_device.user_api_version =
             FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 6, 0));
+        cmd.connected_device.user_api_wire = Some(WireVersion::new(2, 0));
         cmd.connected_device.user_api_hash = ApiHashPairOwned {
             no_docs: ApiHashOwned { hash: vec![2] },
             with_docs: ApiHashOwned { hash: vec![] },
@@ -1048,8 +1047,8 @@ pub(crate) mod tests {
                 .postpone_err
         };
         assert!(call(0).is_ok());
-        assert!(call(1).is_ok(), "#[since = \"0.5.1\"] on a 0.6.0 device");
-        assert!(call(2).is_ok(), "#[since = \"0.5.2\"] on a 0.6.0 device");
-        assert!(matches!(call(3), Err(Error::OlderProtocol(..))));
+        assert!(call(1).is_ok(), "#[since = \"w1.1\"] on a w2.0 device");
+        assert!(call(2).is_ok(), "#[since = \"w1.2\"] on a w2.0 device");
+        assert!(matches!(call(3), Err(Error::OlderProtocol { .. })));
     }
 }

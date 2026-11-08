@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use semver::Version;
 use ww_version::{ApiHashOwned, ApiHashPairOwned, ImageFacts};
-use ww_version::{FullVersionOwned, VersionOwned};
+use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use crate::config::{ConfigPiece, ConfigPieceDiscriminants};
 
@@ -108,6 +108,9 @@ pub struct DeviceApiInfo {
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
     pub user_api_hash: ApiHashPairOwned,
+    /// Wire version of the device's API (EVO-24), what the client's `#[since]` markers are compared with. From the
+    /// device's introspection data when the client has it; `None` otherwise, until link setup carries it (EVO-25).
+    pub user_api_wire: Option<WireVersion>,
     /// How long the device collects messages into one frame, and asks the host to.
     pub accumulation_time: std::time::Duration,
     /// What this firmware image chose at build time and the API doesn't show (SRV-56).
@@ -134,6 +137,7 @@ impl DeviceApiInfo {
                 no_docs: ApiHashOwned { hash: vec![] },
                 with_docs: ApiHashOwned { hash: vec![] },
             },
+            user_api_wire: None,
             accumulation_time: std::time::Duration::ZERO,
             image_facts: ImageFacts::default(),
         }

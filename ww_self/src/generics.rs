@@ -1345,6 +1345,7 @@ mod tests {
                 VersionOwned::new(0, 1, 0),
             )],
             root_omitted: None,
+            wire: None,
         }
     }
 

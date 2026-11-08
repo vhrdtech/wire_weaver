@@ -106,11 +106,14 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()
 }
 
-/// Define an API entry point (root level), otherwise the same as [ww_trait].
-/// Provided for convenience, to distinguish between traits and API root's.
+/// Define an API entry point (root level) with its wire version, otherwise the same as [ww_trait]:
+/// `#[ww_api_root(wire = "w2.3")]` (EVO-24), line 2, revision 3. Peers on one line talk, `#[since = "w2.1"]` names
+/// the revision that added an item; a new API starts at `w1.0`. The crate version is Cargo's alone.
+///
+/// Next to `*_FULL_GID`, the trait gets a `*_WIRE_VERSION: ww_version::WireVersion` const.
 #[proc_macro_attribute]
 pub fn ww_api_root(attr: TokenStream, item: TokenStream) -> TokenStream {
-    ww_trait::ww_trait(attr.into(), item.into()).into()
+    ww_trait::ww_api_root(attr.into(), item.into()).into()
 }
 
 /// Create FullVersion with the crate name and major.minor.patch numbers during compile time.

@@ -33,7 +33,7 @@ use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, Priority, RequestKindOwned, StreamSideband};
 use ww_stream::StreamCursor;
-use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
+use ww_version::{CompactVersion, VersionOwned, WireVersion};
 
 // TODO: in tests dispatcher command can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
 // TODO: CommandSender outstanding request limit?
@@ -953,8 +953,13 @@ impl Commander {
     /// * no client API (DynClient) - nothing to check,
     /// * same API hash - all resources are the same by definition,
     /// * different hash - every method, property, stream and trait is compared with the device's one,
-    /// * different hash and device API unknown - only `#[since]` is checked against the device's API version.
+    /// * different hash and device API unknown - only `#[since]` is checked against the device's wire version.
     pub(crate) fn resolve_api_match(&mut self) {
+        if let Some(device) = &self.device_introspect
+            && self.connected_device.user_api_wire.is_none()
+        {
+            self.connected_device.user_api_wire = device.api_bundle.wire;
+        }
         let Some(client) = &self.client_introspect else {
             self.api_match = ApiMatch::NoClientApi;
             return;
@@ -1154,25 +1159,21 @@ impl Commander {
         }
     }
 
-    fn check_version(&self, since: Option<(u32, u32, u32)>) -> Result<(), Error> {
+    /// `#[since]` of a resource against the device's wire version (EVO-24). Not checked while the device's wire
+    /// version is unknown: no introspection data, and link setup doesn't carry it yet (EVO-25).
+    fn check_version(&self, since: Option<WireVersion>) -> Result<(), Error> {
         let Some(since) = since else { return Ok(()) };
-        // assuming the protocol name matches, a device will refuse to connect if it is not, host as well checks it and won't try to connect
-        let dev_user_api = &self.connected_device.user_api_version.version;
-        let device = (
-            dev_user_api.major.0,
-            dev_user_api.minor.0,
-            dev_user_api.patch.0,
-        );
-        if has_since(device, since) {
+        let Some(device_wire) = self.connected_device.user_api_wire else {
+            return Ok(());
+        };
+        if has_since(device_wire, since) {
             Ok(())
         } else {
-            Err(Error::OlderProtocol(
-                Box::new(self.connected_device.user_api_version.clone()),
-                Box::new(FullVersionOwned::new(
-                    self.connected_device.user_api_version.crate_id.clone(),
-                    VersionOwned::new(since.0, since.1, since.2),
-                )),
-            ))
+            Err(Error::OlderProtocol {
+                device: Box::new(self.connected_device.user_api_version.clone()),
+                device_wire,
+                required: since,
+            })
         }
     }
 

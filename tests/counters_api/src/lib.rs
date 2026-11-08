@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait CountersTest {
     ww_impl!(counters: ww_counters::Counters);
 }

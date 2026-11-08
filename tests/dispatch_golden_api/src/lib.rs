@@ -6,7 +6,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait DispatchGoldenTest {
     /// `Call` with no arguments and no return value: the smallest case.
     fn no_args();

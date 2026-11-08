@@ -1,5 +1,4 @@
 use crate::ast::docs::Docs;
-use crate::ast::util::Version;
 use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
@@ -11,8 +10,9 @@ pub(crate) fn take_id_attr(attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
     None
 }
 
-/// Take `#[since = "X.Y"]` attribute and return the Version
-pub(crate) fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<Version>, String> {
+/// Take `#[since = "w1.2"]` attribute and return its text. What it names (a wire revision of the API, EVO-24) is
+/// for `wire_weaver_core` to check, the derive doesn't use it.
+pub(crate) fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<String>, String> {
     let attr_idx = attrs
         .iter()
         .enumerate()
@@ -22,24 +22,13 @@ pub(crate) fn take_since_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<
         return Ok(None);
     };
     let attr = attrs.remove(attr_idx);
-    let Meta::NameValue(name_value) = attr.meta else {
-        return Err("Expected default = lit".into());
-    };
-    if let Expr::Lit(expr_lit) = name_value.value
+    if let Meta::NameValue(name_value) = attr.meta
+        && let Expr::Lit(expr_lit) = name_value.value
         && let Lit::Str(lit_str) = expr_lit.lit
     {
-        let value = lit_str.value();
-        let mut components = value.split('.');
-        let major = components.next().unwrap().parse::<u32>().unwrap();
-        let minor = components.next().unwrap().parse::<u32>().unwrap();
-        let patch = components.next().unwrap().parse::<u32>().unwrap();
-        Ok(Some(Version {
-            major,
-            minor,
-            patch,
-        }))
+        Ok(Some(lit_str.value()))
     } else {
-        Err("Expected #[since = \"x.y.z\"]".into())
+        Err("Expected #[since = \"w<line>.<revision>\"]".into())
     }
 }
 

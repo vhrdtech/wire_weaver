@@ -38,7 +38,7 @@ pub trait BoardInfo {
     /// (`title: None`: the board runs because an allowance for this image covers them, STD-101). Left out by
     /// devices that don't keep the list.
     #[optional]
-    #[since = "0.3.0"]
+    #[since = "w1.2"]
     const REWORKS: MaxLen<RefVec<'i, Rework<'i>>, MAX_REWORKS>;
 
     /// Record reworks done on this unit (or undone): every change or none. A number this firmware doesn't know is
@@ -46,7 +46,7 @@ pub trait BoardInfo {
     /// written. The board runs on the record from its next boot: [BoardInfo::REWORKS], read once per connection,
     /// shows the board as it booted. A device that serves this serves [BoardInfo::REWORKS] too.
     #[optional]
-    #[since = "0.3.0"]
+    #[since = "w1.2"]
     fn set_reworks(
         changes: MaxLen<RefVec<'i, ReworkState>, MAX_REWORKS>,
         program: bool,
@@ -181,6 +181,6 @@ pub enum RevisionSource {
     Assumed,
     /// A provisional record a bench or developer wrote in editable storage (flash), standing in for the production
     /// record until it is written; not a production record.
-    #[since = "0.2.0"]
+    #[since = "w1.1"]
     Provisional,
 }

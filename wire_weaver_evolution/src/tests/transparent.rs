@@ -31,7 +31,7 @@ fn api(arg: &str, prop: &str, field: &str) -> String {
             pub value: T,
         }}
 
-        #[ww_api_root]
+        #[ww_api_root(wire = "w1.0")]
         pub trait Api {{
             fn set(shared: {arg});
             property!(ro uptime: {prop});

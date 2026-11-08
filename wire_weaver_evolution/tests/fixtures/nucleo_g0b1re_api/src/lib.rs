@@ -19,7 +19,7 @@
 use wire_weaver::prelude::*;
 
 /// nucleo_g0b1re device
-#[ww_api_root]
+#[ww_api_root(wire = "w1.3")]
 pub trait NucleoG0b1reApi {
     /// LD4 solid on (`leds` shows it until another mode)
     fn led_on();
@@ -27,21 +27,21 @@ pub trait NucleoG0b1reApi {
     fn led_off();
 
     /// Device contract: firmware, last reset, board, ids, label, counters, log, variant, settings, boot, update node
-    #[since = "0.2.0"]
+    #[since = "w1.1"]
     ww_impl!(device: Device);
 
     /// Raw access to the pins the board leaves free (docs/board/nucleo_g0b1re-pins.md), for bring-up and pin tests
     /// (`ww pins tui`): one program at a time, every pin given back when it lets go or disconnects
-    #[since = "0.3.0"]
+    #[since = "w1.2"]
     ww_impl!(pins: ww_pin_diag::PinDiag);
 
     /// LD4 as one indication: global mode, brightness, identify. It breathes by default, in phase with other boards
     /// once `clock` is steered.
-    #[since = "0.4.0"]
+    #[since = "w1.3"]
     ww_impl!(leds: ww_indication::Indication);
     /// Device clock: local time (U32 µs, wraps every 71.6 minutes), a host's steer points onto UTC (`host_sync`).
     /// No sync line.
-    #[since = "0.4.0"]
+    #[since = "w1.3"]
     ww_impl!(clock: ww_timebase::Clock);
 }
 

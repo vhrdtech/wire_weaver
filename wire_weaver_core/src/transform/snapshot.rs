@@ -2,9 +2,9 @@ use super::{
     api::convert_trait,
     crate_walker::{CrateContext, Scratch},
     ty::{convert_named_def, is_phantom_data},
-    util::{collect_docs, use_tree_globs, use_tree_names, use_tree_path_to},
+    util::{collect_docs, get_wire_attr, use_tree_globs, use_tree_names, use_tree_path_to},
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use shrink_wrap::UNib32;
 use std::path::Path;
 use std::rc::Rc;
@@ -30,6 +30,7 @@ use ww_version::FullVersionOwned;
 /// * `root` is named after the crate, contains crate-level docs, and one [ApiItemKindOwned::Trait] item per trait
 ///   in source order (empty for crates with data types only).
 /// * `ext_crates[0]` is the crate itself.
+/// * `wire` is the wire version of the crate's `#[ww_api_root(wire = ..)]` (EVO-24), `None` without one.
 /// * Traits and types defined in this crate are in-line, traits and types from other crates are skipped
 ///   (their definitions belong to those crates' snapshots), with a signature of the left out definition
 ///   (see [ww_self::signature]). Entries only needed by skipped definitions are dropped.
@@ -42,15 +43,25 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
     let mut scratch = Scratch::default();
     scratch.dedup_traits = true;
     // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
-    let (entry, items) = scratch.walk(|scratch| {
+    let (entry, items, wire) = scratch.walk(|scratch| {
         let entry = CrateContext::load_all_features(crate_path, scratch)?;
         let mut items = vec![];
         let mut globs = vec![];
+        let mut wire = None;
         for item in &entry.lib_rs_ast.items {
             match item {
                 Item::Trait(item_trait)
                     if has_attr(&item_trait.attrs, &["ww_trait", "ww_api_root"]) =>
                 {
+                    if let Some(root_wire) = get_wire_attr(&item_trait.attrs, &entry)? {
+                        if wire.is_some() {
+                            return Err(anyhow!(
+                                "more than one #[ww_api_root(wire = ..)] in the crate"
+                            ))
+                            .context(entry.err_context());
+                        }
+                        wire = Some(root_wire);
+                    }
                     let trait_idx = convert_trait(item_trait, &entry, scratch)?;
                     items.push(ApiItemOwned {
                         id: UNib32(items.len() as u32),
@@ -81,7 +92,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
                 }
             }
         }
-        Ok((entry, items))
+        Ok((entry, items, wire))
     })?;
 
     let unit_hints = scratch.unit_hints;
@@ -101,6 +112,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
         traits: scratch.traits,
         ext_crates: scratch.ext_crates,
         root_omitted: None,
+        wire,
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, true);
@@ -937,7 +949,7 @@ mod tests {
         write(
             "api/src/lib.rs",
             "
-            #[ww_api_root]
+            #[ww_api_root(wire = \"w1.0\")]
             pub trait Api {
                 fn a(v: units_lib::Volt, q: units_lib::Quantity<units_lib::units::Volt>);
                 fn b(q: units_lib::Quantity<units_lib::units::Per<units_lib::units::Volt, units_lib::units::Volt>>);

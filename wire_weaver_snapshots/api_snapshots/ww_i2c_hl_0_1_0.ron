@@ -47,4 +47,4 @@
     "with `Nack::op` counting the merged operations.",
 ], crate_idx: 0, trait_name: "ww_i2c_hl", items: [], compact_id: None, meta: None), types: [], traits: [], ext_crates: [
     (crate_id: "ww_i2c_hl", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: None)

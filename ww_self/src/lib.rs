@@ -56,7 +56,7 @@ pub use visitor::{visit, visit_mut};
 
 use shrink_wrap::prelude::*;
 pub use ww_numeric::{NumericAnyType, NumericBaseType};
-use ww_version::{CompactVersion, FullVersion, VersionTriplet};
+use ww_version::{CompactVersion, FullVersion, VersionTriplet, WireVersion};
 
 #[cfg(feature = "std")]
 use ww_numeric::NumericAnyTypeOwned;
@@ -109,6 +109,11 @@ pub struct ApiBundle<'i> {
     /// [ApiItemKind::Trait] `omitted` for the other levels. `None` and an empty list both mean none.
     #[default = None]
     pub root_omitted: Option<RefVec<'i, UNib32>>,
+    /// Wire version of the API root, `#[ww_api_root(wire = "w2.3")]` (EVO-24): the revision every `#[since]` of the
+    /// API's own items names. `None` for a bundle of a `#[ww_trait]` crate (a snapshot of a `ww_stdlib` crate) and in
+    /// one made before wire versions existed.
+    #[default = None]
+    pub wire: Option<WireVersion>,
     // Hash of ApiBundle with docs present (for a bundle with no docs) and vice versa.
     // pub toggle_doc_hash: ApiHash<'i>,
 }
@@ -190,7 +195,7 @@ pub struct ApiItem<'i> {
     pub id: UNib32,
     pub kind: ApiItemKind<'i>,
     pub multiplicity: Multiplicity,
-    pub since: Option<VersionTriplet>,
+    pub since: Option<WireVersion>,
     pub ident: &'i str,
     pub docs: RefVec<'i, &'i str>,
     /// `Some` for an item marked `#[optional]` or `#[optional(group)]` in its trait (API-16): a device may leave it
@@ -900,7 +905,7 @@ pub struct Field<'i> {
 
     pub ident: Option<&'i str>,
     pub default: Option<Value<'i>>,
-    pub since: Option<VersionTriplet>,
+    pub since: Option<WireVersion>,
     pub ty: Type<'i>,
     pub docs: RefVec<'i, &'i str>,
     /// The field's slot in its owning [ItemStruct], when it is [sparse](ItemStruct::sparse): its `#[slot = N]`, or
@@ -1009,7 +1014,7 @@ pub struct Variant<'i> {
     pub ident: &'i str,
     pub fields: Fields<'i>,
     pub discriminant: UNib32,
-    pub since: Option<VersionTriplet>,
+    pub since: Option<WireVersion>,
 }
 
 #[derive_shrink_wrap(

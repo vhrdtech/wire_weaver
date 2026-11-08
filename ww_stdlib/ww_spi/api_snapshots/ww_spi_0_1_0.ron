@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1ad0a42aa9ca91dcbcacc1c26e82a9d90c9098f4ca8a67928383404692ac8561
+// shrink_wrap sha256: 0fa3ecbd9a3bfcbc3b631569f742f63035fcb0f802aa0bedecda09f2a210acbc
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -11,7 +11,7 @@
     "device left `monitor` out through introspection, and what `Spi` supports through `Spi::capabilities`.",
     "",
     "```rust,ignore",
-    "#[ww_api_root]",
+    "#[ww_api_root(wire = \"w1.0\")]",
     "trait MyAdapter {",
     "    ww_impl!(spi: ww_spi::Spi);",
     "}",
@@ -580,4 +580,4 @@
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: None)

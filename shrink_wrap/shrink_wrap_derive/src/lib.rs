@@ -16,7 +16,8 @@ mod ww_repr;
 ///   generation is enabled (see the `owned` directive/attribute below).
 /// * Support for `#[flag]` field attributes to manually position where `Option` and `Result` flags are
 ///   placed in the binary form (for space savings and/or backwards compatibility).
-/// * TODO: Support for `#[since = "x.y.z"]` field attributes to generate correct evolution code.
+/// * `#[since = "w1.2"]` on fields and variants: the wire revision of the API that added them (EVO-24), kept
+///   for the API model, see `docs/evolution/rules.md`.
 ///
 /// # Attribute arguments
 ///

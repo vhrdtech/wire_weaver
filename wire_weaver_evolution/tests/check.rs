@@ -5,7 +5,7 @@ use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
 use wire_weaver_evolution::{Change, Check, Outcome, Rule, SaveStatus};
 
 const API: &str = r#"
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait Api {
     fn led_on();
     fn led_off();
@@ -127,22 +127,25 @@ fn breaking_change_is_caught_with_rule_and_bump() {
 
 #[test]
 fn compatible_change_with_its_bump_passes() {
-    let added = API.replace(
-        "    fn led_off();\n",
-        "    fn led_off();\n    #[since = \"{since}\"]\n    fn led_toggle();\n",
-    );
+    // the wire revision counts additions on its own, whatever the crate version (EVO-24)
+    let added = API
+        .replace(
+            "    fn led_off();\n",
+            "    fn led_off();\n    #[since = \"w1.1\"]\n    fn led_toggle();\n",
+        )
+        .replace("wire = \"w1.0\"", "wire = \"w1.1\"");
 
     // before 1.0 the compatible position is patch
     let c = TestCrate::new("compatible-0x");
     c.write("0.1.0", API).save();
-    let added_0x = added.replace("{since}", "0.1.1");
-    c.write("0.1.0", &added_0x);
+    let added_0x = &added;
+    c.write("0.1.0", added_0x);
     let err = check(c.path(), true).1.unwrap_err();
     assert!(
         err.contains("compatible position (patch before 1.0, minor after): 0.1.1 or later"),
         "{err}"
     );
-    c.write("0.1.1", &added_0x);
+    c.write("0.1.1", added_0x);
     let (outcome, ok) = check(c.path(), true);
     assert_eq!(ok.unwrap(), "version is bumped enough");
     let Outcome::Compared(comparison) = outcome else {
@@ -154,11 +157,11 @@ fn compatible_change_with_its_bump_passes() {
     // after 1.0 it is minor
     let c = TestCrate::new("compatible-1x");
     c.write("1.0.0", API).save();
-    let added_1x = added.replace("{since}", "1.1.0");
-    c.write("1.0.1", &added_1x);
+    let added_1x = &added;
+    c.write("1.0.1", added_1x);
     let err = check(c.path(), true).1.unwrap_err();
     assert!(err.contains("1.1.0 or later"), "{err}");
-    c.write("1.1.0", &added_1x);
+    c.write("1.1.0", added_1x);
     assert_eq!(check(c.path(), true).1.unwrap(), "version is bumped enough");
     Check::new(c.path()).strict(true).assert();
 
@@ -247,10 +250,12 @@ fn require_current_fails_when_source_changed_after_save() {
     c.write("0.1.1", API).save();
     assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
 
-    let added = API.replace(
-        "    fn led_off();\n",
-        "    fn led_off();\n    #[since = \"0.1.1\"]\n    fn led_toggle();\n",
-    );
+    let added = API
+        .replace(
+            "    fn led_off();\n",
+            "    fn led_off();\n    #[since = \"w1.1\"]\n    fn led_toggle();\n",
+        )
+        .replace("wire = \"w1.0\"", "wire = \"w1.1\"");
     c.write("0.1.1", &added);
     let (outcome, verdict) = check_current(c.path());
     let Outcome::Compared(comparison) = &outcome else {
@@ -324,10 +329,12 @@ fn save_writes_only_the_current_version_and_refuses_a_bump_too_small() {
 fn compatible_bump_with_current_snapshot_passes() {
     let c = TestCrate::new("current-compatible");
     c.write("1.0.0", API).save();
-    let added = API.replace(
-        "    fn led_off();\n",
-        "    fn led_off();\n    #[since = \"1.1.0\"]\n    fn led_toggle();\n",
-    );
+    let added = API
+        .replace(
+            "    fn led_off();\n",
+            "    fn led_off();\n    #[since = \"w1.1\"]\n    fn led_toggle();\n",
+        )
+        .replace("wire = \"w1.0\"", "wire = \"w1.1\"");
     c.write("1.1.0", &added).save();
     let (outcome, ok) = check_current(c.path());
     assert_eq!(ok.unwrap(), "version is bumped enough");
@@ -404,16 +411,16 @@ fn old_format_snapshot_passes_against_unchanged_source() {
         .run()
         .unwrap();
     assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
-    // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still
+    // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still, ApiBundle::wire (EVO-24) last
     assert_eq!(
         unrecorded(&outcome),
-        ["ItemEnum::future_version", "ItemStruct::extra"]
+        ["ApiBundle::wire", "ItemEnum::future_version", "ItemStruct::extra"]
     );
     has_all(
         &outcome.to_string(),
         &[
-            "not compared: ItemEnum::future_version, ItemStruct::extra, which a snapshot saved by an older \
-            wire_weaver",
+            "not compared: ApiBundle::wire, ItemEnum::future_version, ItemStruct::extra, which a snapshot saved by \
+            an older wire_weaver",
         ],
     );
 }
@@ -537,7 +544,7 @@ pub struct SteerPoint {
 #[test]
 fn unit_suffix_hint_on_arguments_and_properties() {
     let api = r#"
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait Api {
     fn configure(timeout_ms: u32, retries: u8);
     property!(ro rate_hz: u32);
@@ -593,7 +600,7 @@ fn shared_dependency_type_is_named_once_for_every_item_it_reaches() {
     let api = r#"
 use dep_api::Shared;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait Api {
     fn one(s: Shared);
     fn two(s: Shared);

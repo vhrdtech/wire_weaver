@@ -203,4 +203,4 @@
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: None)

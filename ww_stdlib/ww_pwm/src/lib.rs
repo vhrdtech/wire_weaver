@@ -8,7 +8,7 @@
 //! | `PwmCapture` | `channel[]` of inputs measuring frequency, duty, pulse width, edges. | Devices with timer capture |
 //!
 //! ```rust,ignore
-//! #[ww_api_root]
+//! #[ww_api_root(wire = "w1.0")]
 //! trait MyController {
 //!     ww_impl!(pwm: ww_pwm::Pwm);
 //!     ww_impl!(pwm_capture: ww_pwm::PwmCapture);

@@ -273,7 +273,7 @@ mod tests {
     use crate::compat::tests::bundle;
 
     const API: &str = r#"
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait Device {
     fn ping();
     ww_impl!(info: Info);

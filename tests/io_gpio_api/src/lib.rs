@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait IoGpioTest {
     ww_impl!(bank[]: ww_gpio::Bank);
 }

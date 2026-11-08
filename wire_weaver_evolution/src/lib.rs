@@ -37,7 +37,7 @@ use ww_self::{
     ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ClaimMode,
     ErrorVariantOwned, FieldsOwned, FutureVersionOwned, MetaOwned, TypeLocationOwned, TypeOwned,
 };
-use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
+use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use crate::compat::{
     Bounds, TypeCheck, Unwrapped, compare_items, field_name, fields, signature_change,
@@ -254,10 +254,11 @@ fn compare_with(
         breaking: vec![],
         compatible: vec![],
         warnings: vec![],
-        new_version: triplet(&new_version.version),
-        old_version: triplet(&old_version.version),
+        old_wire: old.wire,
+        new_wire: new.wire,
         signatures,
     };
+    checker.compare_wire();
     checker.compare_traits();
     checker.compare_types();
     checker.since_not_newer();
@@ -293,8 +294,9 @@ struct Checker<'a> {
     breaking: Vec<Finding>,
     compatible: Vec<String>,
     warnings: Vec<String>,
-    old_version: (u32, u32, u32),
-    new_version: (u32, u32, u32),
+    /// Wire versions of the API roots (EVO-24), what `#[since]` names. `None` for a crate without an API root.
+    old_wire: Option<WireVersion>,
+    new_wire: Option<WireVersion>,
     /// Definitions left out on one side are checked by their signatures, see [TypeCheck::compare_signatures].
     signatures: bool,
 }
@@ -692,32 +694,55 @@ impl<'a> Checker<'a> {
         }
     }
 
-    /// Additions are expected to be marked with `#[since]` of the version they first appeared in. One newer than the
-    /// new version is reported by [Self::since_not_newer], for every item.
-    fn check_since(&mut self, path: &str, since: Option<VersionTriplet>) {
-        let (major, minor, patch) = self.new_version;
-        let hint = format!("#[since = \"{major}.{minor}.{patch}\"]");
-        match since {
-            None => self
+    /// The API root's wire version (EVO-24), when either side has one. Which bump a change needs is EVO-27's.
+    fn compare_wire(&mut self) {
+        match (self.old_wire, self.new_wire) {
+            (Some(old), Some(new)) if old == new => {}
+            (Some(old), Some(new)) if new < old => self
                 .warnings
-                .push(format!("{path} is added without {hint}")),
-            Some(since) => {
-                let since = (since.major.0, since.minor.0, since.patch.0);
-                if since <= self.old_version {
-                    self.warnings.push(format!(
-                        "{path} is added with #[since = \"{}.{}.{}\"], expected {hint}",
-                        since.0, since.1, since.2
-                    ));
-                }
-            }
+                .push(format!("wire version {old} goes back to {new}")),
+            (Some(old), Some(new)) => self
+                .compatible
+                .push(format!("wire version {old} -> {new}")),
+            (None, Some(new)) => self.compatible.push(format!("wire version {new} declared")),
+            (Some(old), None) => self
+                .warnings
+                .push(format!("wire version {old} no longer declared")),
+            (None, None) => {}
         }
     }
 
-    /// A `#[since]` newer than the crate's own version, on any of its resources, fields or variants, added or not:
-    /// a host built with it refuses that item on every device of this version. Markers are never rewritten on a
-    /// breaking bump, an older one counts as present (`wire_weaver_client`'s `has_since`).
+    /// Additions are expected to be marked with `#[since]` naming the wire revision they first appeared in (EVO-24):
+    /// the new wire version, which must then be newer than the old one. One newer than the new wire version is
+    /// reported by [Self::since_not_newer], for every item. Without a wire version on the new side (a `#[ww_trait]`
+    /// crate, EVO-26), only a missing `#[since]` is reported.
+    fn check_since(&mut self, path: &str, since: Option<WireVersion>) {
+        let expected = match (self.old_wire, self.new_wire) {
+            (Some(old), Some(new)) if new <= old => Some((old.next_revision(), " and a wire bump")),
+            (_, Some(new)) => Some((new, "")),
+            (_, None) => None,
+        };
+        match (since, expected) {
+            (None, Some((expected, bump))) => self
+                .warnings
+                .push(format!("{path} is added without #[since = \"{expected}\"]{bump}")),
+            (None, None) => self.warnings.push(format!("{path} is added without #[since]")),
+            (Some(since), Some((expected, bump)))
+                if self.old_wire.is_some_and(|old| since <= old) =>
+            {
+                self.warnings.push(format!(
+                    "{path} is added with #[since = \"{since}\"], expected #[since = \"{expected}\"]{bump}"
+                ))
+            }
+            (Some(_), _) => {}
+        }
+    }
+
+    /// A `#[since]` newer than the API's wire version, on any of its resources, fields or variants, added or not: a
+    /// host built with it refuses that item on every device of this version. Markers are never rewritten on a new
+    /// wire line, an older one counts as present (`wire_weaver_client`'s `has_since`).
     fn since_not_newer(&mut self) {
-        let mut marked: Vec<(String, Option<VersionTriplet>)> = vec![];
+        let mut marked: Vec<(String, Option<WireVersion>)> = vec![];
         for (name, level) in own_traits(self.new) {
             for item in &level.items {
                 marked.push((format!("{name}::{}", item.ident), item.since));
@@ -744,14 +769,13 @@ impl<'a> Checker<'a> {
                 _ => {}
             }
         }
-        let new = self.new_version;
+        let Some(new) = self.new_wire else { return };
         for (path, since) in marked {
             if let Some(since) = since
-                && (since.major.0, since.minor.0, since.patch.0) > new
+                && since > new
             {
                 self.warnings.push(format!(
-                    "{path} has #[since = \"{}.{}.{}\"], newer than the crate's version {}.{}.{}",
-                    since.major.0, since.minor.0, since.patch.0, new.0, new.1, new.2
+                    "{path} has #[since = \"{since}\"], newer than the API's wire version {new}"
                 ));
             }
         }
@@ -902,6 +926,11 @@ mod tests {
         bundle
     }
 
+    /// `src` with its API root at wire version `wire` instead of `w1.0`.
+    fn wire(src: &str, wire: &str) -> String {
+        src.replace("wire = \"w1.0\"", &format!("wire = \"{wire}\""))
+    }
+
     fn report(old: &str, new: &str) -> Report {
         compare(&load("0.1.0", old), &load("0.1.0", new)).unwrap()
     }
@@ -956,7 +985,7 @@ mod tests {
     }
 
     const API: &str = r#"
-        #[ww_api_root]
+        #[ww_api_root(wire = "w1.0")]
         pub trait Api {
             /// Turn on
             fn led_on();
@@ -1031,29 +1060,49 @@ mod tests {
 
     #[test]
     fn new_resource_is_compatible() {
-        let new = API.replace(
-            "fn set(c: Coord);",
-            "fn set(c: Coord);\n#[since = \"0.1.1\"]\nfn led_off();",
+        let new = wire(
+            &API.replace(
+                "fn set(c: Coord);",
+                "fn set(c: Coord);\n#[since = \"w1.1\"]\nfn led_off();",
+            ),
+            "w1.1",
         );
         let report = compare(&load("0.1.0", API), &load("0.1.1", &new)).unwrap();
         assert_eq!(report.change, Change::Compatible, "{report:?}");
-        assert_eq!(report.compatible, ["Api::led_off added"]);
+        assert_eq!(
+            report.compatible,
+            ["wire version w1.0 -> w1.1", "Api::led_off added"]
+        );
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
         assert!(report.check_version().is_ok());
 
-        let new = new.replace("#[since = \"0.1.1\"]", "");
-        let report = compare(&load("0.1.0", API), &load("0.1.1", &new)).unwrap();
+        let unmarked = new.replace("#[since = \"w1.1\"]", "");
+        let report = compare(&load("0.1.0", API), &load("0.1.1", &unmarked)).unwrap();
         assert_eq!(report.change, Change::Compatible);
         assert_eq!(
             report.warnings,
-            ["Api::led_off is added without #[since = \"0.1.1\"]"]
+            ["Api::led_off is added without #[since = \"w1.1\"]"]
+        );
+
+        // the wire revision not bumped: the marker that is expected, and the bump
+        let not_bumped = unmarked.replace("wire = \"w1.1\"", "wire = \"w1.0\"");
+        let report = compare(&load("0.1.0", API), &load("0.1.1", &not_bumped)).unwrap();
+        assert_eq!(
+            report.warnings,
+            ["Api::led_off is added without #[since = \"w1.1\"] and a wire bump"]
+        );
+        let old_marker = new.replace("w1.1", "w1.0");
+        let report = compare(&load("0.1.0", API), &load("0.1.1", &old_marker)).unwrap();
+        assert_eq!(
+            report.warnings,
+            ["Api::led_off is added with #[since = \"w1.0\"], expected #[since = \"w1.1\"] and a wire bump"]
         );
     }
 
-    /// A `#[since]` above the crate's own version is reported on every item, added or kept; one from an older
-    /// line is fine after a breaking bump (markers are never rewritten).
+    /// A `#[since]` above the API's wire version is reported on every item, added or kept; one from an older line
+    /// is fine after the API moved to a new line (markers are never rewritten).
     #[test]
-    fn since_newer_than_the_crate() {
+    fn since_newer_than_the_wire_version() {
         let marked = |item: &str, field: &str, variant: &str| {
             API.replace("fn led_on();", &format!("{item}\nfn led_on();"))
                 .replace(
@@ -1062,19 +1111,26 @@ mod tests {
                 )
                 .replace("B(u8),", &format!("B(u8),\n{variant}\nC,"))
         };
-        let old = marked(
-            "#[since = \"0.5.1\"]",
-            "#[since = \"0.5.2\"]",
-            "#[since = \"0.5.2\"]",
+        let old = wire(
+            &marked(
+                "#[since = \"w1.1\"]",
+                "#[since = \"w1.2\"]",
+                "#[since = \"w1.2\"]",
+            ),
+            "w1.2",
         );
-        // 0.5.2 -> 0.6.0: older markers stay as they are, no warnings
-        let report = compare(&load("0.5.2", &old), &load("0.6.0", &old)).unwrap();
+        // w1.2 -> w2.0: older markers stay as they are, no warnings
+        let report =
+            compare(&load("0.5.2", &old), &load("0.6.0", &old.replace("wire = \"w1.2\"", "wire = \"w2.0\""))).unwrap();
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
 
-        let new = marked(
-            "#[since = \"0.6.1\"]",
-            "#[since = \"0.7.0\"]",
-            "#[since = \"1.0.0\"]",
+        let new = wire(
+            &marked(
+                "#[since = \"w2.1\"]",
+                "#[since = \"w2.2\"]",
+                "#[since = \"w3.0\"]",
+            ),
+            "w2.0",
         );
         let report = compare(&load("0.5.2", &old), &load("0.6.0", &new)).unwrap();
         let mut warnings = report.warnings.clone();
@@ -1082,21 +1138,24 @@ mod tests {
         assert_eq!(
             warnings,
             [
-                "Api::led_on has #[since = \"0.6.1\"], newer than the crate's version 0.6.0",
-                "Coord: field `z` has #[since = \"0.7.0\"], newer than the crate's version 0.6.0",
-                "Mode::C has #[since = \"1.0.0\"], newer than the crate's version 0.6.0",
+                "Api::led_on has #[since = \"w2.1\"], newer than the API's wire version w2.0",
+                "Coord: field `z` has #[since = \"w2.2\"], newer than the API's wire version w2.0",
+                "Mode::C has #[since = \"w3.0\"], newer than the API's wire version w2.0",
             ]
         );
 
-        // an addition marked newer than the new version: reported once
-        let added = API.replace(
-            "fn set(c: Coord);",
-            "fn set(c: Coord);\n#[since = \"0.1.2\"]\nfn led_off();",
+        // an addition marked newer than the new wire version: reported once
+        let added = wire(
+            &API.replace(
+                "fn set(c: Coord);",
+                "fn set(c: Coord);\n#[since = \"w1.2\"]\nfn led_off();",
+            ),
+            "w1.1",
         );
         let report = compare(&load("0.1.0", API), &load("0.1.1", &added)).unwrap();
         assert_eq!(
             report.warnings,
-            ["Api::led_off has #[since = \"0.1.2\"], newer than the crate's version 0.1.1"]
+            ["Api::led_off has #[since = \"w1.2\"], newer than the API's wire version w1.1"]
         );
     }
 
@@ -1105,7 +1164,7 @@ mod tests {
         let api = |data: &str, name: &str, field: &str| {
             format!(
                 r#"
-                #[ww_api_root]
+                #[ww_api_root(wire = "w1.0")]
                 pub trait Api {{
                     fn write(data: {data}) -> {name};
                     property!(rw label: MaxLen<&'i str, 4>);
@@ -1164,7 +1223,7 @@ mod tests {
         let api = |ty: &str| {
             format!(
                 r#"
-                #[ww_api_root]
+                #[ww_api_root(wire = "w1.0")]
                 pub trait Api {{
                     fn samples() -> {ty};
                 }}
@@ -1204,7 +1263,7 @@ mod tests {
     fn inserted_resource_moves_the_rest() {
         let new = API.replace(
             "fn led_on();",
-            "fn led_on();\n#[since = \"0.1.1\"]\nfn led_off();",
+            "fn led_on();\n#[since = \"w1.1\"]\nfn led_off();",
         );
         let report = self::report(API, &new);
         assert_eq!(
@@ -1224,9 +1283,12 @@ mod tests {
 
     #[test]
     fn struct_fields() {
-        let with_default = API.replace(
-            "pub y: u8,",
-            "pub y: u8,\n#[default = None]\n#[since = \"0.1.1\"]\npub z: Option<u8>,",
+        let with_default = wire(
+            &API.replace(
+                "pub y: u8,",
+                "pub y: u8,\n#[default = None]\n#[since = \"w1.1\"]\npub z: Option<u8>,",
+            ),
+            "w1.1",
         );
         let report = compare(&load("0.1.0", API), &load("0.1.1", &with_default)).unwrap();
         assert_eq!(report.change, Change::Compatible, "{report:?}");
@@ -1256,9 +1318,12 @@ mod tests {
             }
         "#;
         // 7 bits of padding after `f`, wherever S starts, as `a` is byte-aligned
-        let v2 = v1.replace(
-            "pub f: bool,",
-            "pub f: bool,\n#[since = \"0.1.1\"]\npub g: u3,",
+        let v2 = wire(
+            &v1.replace(
+                "pub f: bool,",
+                "pub f: bool,\n#[since = \"w1.1\"]\npub g: u3,",
+            ),
+            "w1.1",
         );
         let report = compare(&load("0.1.0", v1), &load("0.1.1", &v2)).unwrap();
         assert_eq!(report.change, Change::Compatible, "{report:?}");
@@ -1324,9 +1389,12 @@ mod tests {
             }
         "#;
         // Unsized types always start at a byte boundary, 7 bits of padding after `f`
-        let v2 = v1.replace(
-            "pub f: bool,",
-            "pub f: bool,\n#[since = \"0.1.1\"]\npub g: u7,",
+        let v2 = wire(
+            &v1.replace(
+                "pub f: bool,",
+                "pub f: bool,\n#[since = \"w1.1\"]\npub g: u7,",
+            ),
+            "w1.1",
         );
         let report = compare(&load("0.1.0", v1), &load("0.1.1", &v2)).unwrap();
         assert_eq!(report.change, Change::Compatible, "{report:?}");
@@ -1344,7 +1412,7 @@ mod tests {
         // in between and at the end at the same time
         let both = v2.replace(
             "pub s: String,",
-            "pub s: String,\n#[default = None]\n#[since = \"0.1.1\"]\npub z: Option<u8>,",
+            "pub s: String,\n#[default = None]\n#[since = \"w1.1\"]\npub z: Option<u8>,",
         );
         let report = compare(&load("0.1.0", v1), &load("0.1.1", &both)).unwrap();
         assert_eq!(report.change, Change::Compatible, "{report:?}");
@@ -1516,7 +1584,7 @@ mod tests {
             .replace("/// Turn on", "/// Turn the LED on\n/// and keep it on")
             .replace(
                 "fn set(c: Coord);",
-                "fn set(c: Coord) -> u8;\n#[since = \"0.1.1\"]\nfn led_off();",
+                "fn set(c: Coord) -> u8;\n#[since = \"w1.1\"]\nfn led_off();",
             )
             .replace("pub x: u8,", "/// Horizontal\npub x: u16,")
             .replace(
@@ -1576,7 +1644,7 @@ mod tests {
     fn error_list_api(items: &str) -> String {
         format!(
             r#"
-                #[ww_api_root]
+                #[ww_api_root(wire = "w1.0")]
                 pub trait Api {{
                     {items}
                 }}
@@ -1604,7 +1672,7 @@ mod tests {
         let api = |diag: &str, read: &str| {
             format!(
                 r#"
-                #[ww_api_root]
+                #[ww_api_root(wire = "w1.0")]
                 pub trait Api {{
                     {diag}
                     ww_impl!(diag: Diag);
@@ -1645,7 +1713,7 @@ mod tests {
         let api = |port: &str, trait_attr: &str| {
             format!(
                 r#"
-                #[ww_api_root]
+                #[ww_api_root(wire = "w1.0")]
                 pub trait Api {{
                     {port}
                     ww_impl!(port: Port);
@@ -1708,7 +1776,7 @@ mod tests {
         let api = |errors: &str| {
             format!(
                 r#"
-                #[ww_api_root]
+                #[ww_api_root(wire = "w1.0")]
                 pub trait Api {{
                     {errors}
                     fn read() -> Result<u8, ReadError>;

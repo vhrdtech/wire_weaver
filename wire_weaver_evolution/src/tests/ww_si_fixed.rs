@@ -19,7 +19,7 @@ fn api(arg: &str, prop: &str, field: &str) -> String {
         use ww_si::prefix;
         use ww_si::units::{{Second, Meter, Ratio}};
 
-        #[ww_api_root]
+        #[ww_api_root(wire = "w1.0")]
         pub trait Api {{
             fn set(shared: {arg});
             property!(ro uptime: {prop});

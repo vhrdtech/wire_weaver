@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait IoPwmTest {
     ww_impl!(pwm: ww_pwm::Pwm);
     ww_impl!(pwm_capture: ww_pwm::PwmCapture);

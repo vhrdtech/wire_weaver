@@ -1,10 +1,11 @@
-//! The new version 0.4.0 of the API in `tests/cross_version_old_api`: the tree changed shape (wire-incompatible), so a
-//! client generated from it can't connect to a device running 0.3.0, but its global trait calls still can.
+//! The new version 0.4.0 of the API in `tests/cross_version_old_api`: the tree changed shape (wire-incompatible, wire
+//! line `w2.0` after `w1.0`), so a client generated from it can't connect to a device running 0.3.0, but its global
+//! trait calls still can.
 #![no_std]
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w2.0")]
 pub trait CrossVersion {
     fn identify();
     ww_impl!(device: Device);

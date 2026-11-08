@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: fa4d0fbbb209e80b3e468e7e843f58200f0ae35171977fdb44fcb66c35a3b437
+// shrink_wrap sha256: f213a0d84d7e37350de6fc4d3ee857662f3380b49d0d2602eb6cb1ccd588974b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -170,7 +170,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Unitless"), names: (symbol: ""), dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A range of a unit, `q!(4.9 V ..= 5.1 V)`: its ends `Lo` and `Hi` are `q!` literals as types, `LO_OPEN` and",
-        "`HI_OPEN` whether each end is out (the upper one for `..`, the lower one for a negative prefix, `q!(-9.54... V)`), `FIT` what an end that is no stored value does (0: refused, 1: `Inside`, 2: `Outside`).",
+        "`HI_OPEN` whether each end is out (the upper one for `..`, the lower one for a negative prefix, `q!(-9.54... V)`), `FIT` what an end that is no stored value does (0: refused, 1: `Inside`, 2: `Outside`, 3: a prefix of digits, moved as `Inside`).",
         "See the [module](crate::literal::range).",
     ], ident: "LiteralRange", generics: [
         (ident: "Lo", kind: Type),
@@ -1121,6 +1121,50 @@
     ], ident: "Table", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Every finite float, neither ±∞ nor NaN: a float (`f32`, `f64`) that must stay a number. [Unbounded] keeps ±∞ (the",
+        "VSWR of a total reflection, an `f32` that overflows), `Finite` says the value can\'t be one. The ends are `T::MIN`",
+        "and `T::MAX`, the largest finite floats, so [contains](Bounds::contains) refuses ±∞ and NaN.",
+        "",
+        "A bounded type: no `new` and no `+`, `-`, `*` or `/`, [try_new](super::Fixed::try_new) and the `const fn`",
+        "[bounded](super::Fixed::bounded) make one, `checked_*` is `None` where the result is ±∞ or NaN, the wire, serde",
+        "and text refuse both. A float `Fixed<_, _, f32>` goes over with [to_bounds](super::Fixed::to_bounds), and back",
+        "with [unbounded](super::Fixed::unbounded). Only for floats: `Fixed<_, _, u16, Finite>` doesn\'t compile.",
+        "",
+        "```",
+        "use exact_units::{Finite, Fixed, OutOfBounds, prefix::One, units::Volt};",
+        "",
+        "type V = Fixed<Volt, One, f32, Finite>;",
+        "const LIMIT: V = V::bounded(3.3);",
+        "assert_eq!(V::try_new(f32::INFINITY), Err(OutOfBounds));",
+        "assert_eq!(V::try_new(f32::NAN), Err(OutOfBounds));",
+        "let big = V::bounded(f32::MAX);",
+        "assert_eq!(big.checked_add(big), None); // the sum is +∞",
+        "assert_eq!(LIMIT.checked_add(LIMIT).map(V::get), Some(6.6));",
+        "let inf = Fixed::<Volt, One, f32>::bounded(f32::INFINITY);",
+        "assert_eq!(inf.to_bounds::<Finite>(), Err(OutOfBounds));",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Finite, Fixed, prefix::One, units::Volt};",
+        "",
+        "type V = Fixed<Volt, One, f32, Finite>;",
+        "const INF: V = V::bounded(f32::INFINITY); // a compile error in const code",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Finite, Fixed, prefix::One, units::Volt};",
+        "",
+        "let v = Fixed::<Volt, One, f32, Finite>::bounded(1.0);",
+        "let _ = v + v; // a bounded type: checked_add",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Finite, Fixed, prefix::One, units::Volt};",
+        "",
+        "let _ = Fixed::<Volt, One, u16, Finite>::try_new(1); // only for floats",
+        "```",
+    ], ident: "Finite", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value in unit `U` and prefix `P`, stored as `T`, within the bounds `B`: on the wire exactly `T`, the unit,",
         "prefix and bounds are only in the type. `shared_us: u64` becomes `shared: Fixed<Second, Micro, u64>` (or",
@@ -1211,7 +1255,10 @@
     ], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Range))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`MIN · 10^EXP ..= MAX · 10^EXP` for a float storage: `-0.5 ..= 2.5` is `RangeDec<-5, 25, -1>`. Only floats can\'t be",
-        "const parameters, so the bounds are decimal.",
+        "const parameters, so the bounds are decimal. The check is exact: a float is within the bounds when its value is",
+        "within the decimals, so a bound that is no float ([Bounds::MIN] and [Bounds::MAX]) is the float just inside it",
+        "(`RangeDec<0, 1, -1>` keeps the `f64` nearest 0.1 out, as it is above 0.1). A bound past the float\'s range or",
+        "below its normal range (0 aside) doesn\'t compile.",
     ], ident: "RangeDec", generics: [
         (ident: "MIN", kind: Const(ty: NumericAny(Base(I64)))),
         (ident: "MAX", kind: Const(ty: NumericAny(Base(I64)))),
@@ -1597,10 +1644,10 @@
         (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 2.",
         ], slot: None, series_opaque: false),
-        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 207)), docs: [
+        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 208)), docs: [
             "π, ln 2 and ln 10, `None` when all their exponents are 0.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 208))), docs: [
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 209))), docs: [
             "Primes other than 2 and 5, ascending, used slots first.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1628,7 +1675,7 @@
         (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 10.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 209)), docs: [
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 210)), docs: [
             "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1666,7 +1713,7 @@
         (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [
             "Below the reference; never for zero.",
         ], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 210)), docs: [
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 211)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1811,7 +1858,7 @@
         (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
             "The square root of what the exponents describe, see above.",
         ], slot: None, series_opaque: false),
-        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 219))), docs: [
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 220))), docs: [
             "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1843,23 +1890,23 @@
         "The scale is a [Magnitude](crate::Magnitude), always: a unit has no offset (°C is the origin",
         "[Celsius](crate::origins::Celsius) of kelvins) and no float factor.",
     ], ident: "UnitDef", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 217), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 218), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 218), docs: [
+        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 219), docs: [
             "How it is written.",
         ], slot: None, series_opaque: false),
-        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 220), docs: [
+        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 221), docs: [
             "Its dimension.",
         ], slot: None, series_opaque: false),
         (ident: Some("quantity"), default: None, since: None, ty: Option(some_ty: String), docs: [
             "The kind of quantity of its own, by its ISO 80000 name (`\"resistance\"` for [Ohm](crate::units::Ohm)), `None`",
             "for a plain unit ([Kind::Named](crate::Kind)). A quantity reference once quantity specs exist (UNIT-8).",
         ], slot: None, series_opaque: false),
-        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 210), docs: [
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 211), docs: [
             "The exact factor to coherent SI: ° is π/180 rad, eV 1.602176634·10⁻¹⁹ J.",
         ], slot: None, series_opaque: false),
-        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 221), docs: [
+        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 222), docs: [
             "Whether the scale is the unit\'s definition or a value a source prints.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1887,35 +1934,35 @@
         (docs: [
             "A named unit, described in full: one no table at hand lists, or a tree that reads alone.",
         ], ident: "Def", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 222), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 223), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "A named unit a table lists, by its identity: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
         ], ident: "Ref", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 217), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 218), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 224)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 224)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 224)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 224)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 224)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 224)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

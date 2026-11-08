@@ -7538,6 +7538,13 @@ observing), SRV-46 (peer identity).
   <code>tests/dfu_scenarios</code> runs its WebSocket scenarios on it, and their transcripts no longer swap a host frame and a
   device frame on a loaded machine. <code>in_process::tests::host_and_device_talk_over_simulated_ws</code>,
   <code>ww_tap::Medium::InProcessWebSocket</code>.</li>
+<li>✅ <strong>TR-23 USB vendor descriptor constants, embassy-free</strong> · <code>v0.5</code> — moved from <code>wire_weaver_usb_embassy</code> into
+  <code>ww_link</code>, next to the other USB framing constants, so a USB stack without embassy (<code>bedrock_usb</code>,
+  embedded_bedrock P2401) writes the same bytes: <code>CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION</code> /
+  <code>_USER_CRATE</code> / <code>_USER_VERSION</code> (0x40-0x42), <code>USB_DEVICE_CLASS_GUID</code>
+  (<code>{4987DAA6-F852-4B79-A4C8-8C0E0648C845}</code>), and <code>const fn</code>s <code>usb_self_id_version_descriptor</code> /
+  <code>usb_version_descriptor</code> encoding their payloads (a 4-byte crate tag plus major.minor.patch, each saturated to
+  <code>u8::MAX</code>). <code>wire_weaver_usb_embassy</code> uses them, descriptor bytes unchanged.</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — server and client, using CANopen (<code>docs/transport/overview.md</code>).</li>

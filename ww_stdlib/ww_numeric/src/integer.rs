@@ -279,6 +279,8 @@ impl NumericValue {
             NumericValue::UVlq32(x) => x.0.into(),
             #[cfg(feature = "uvlq64")]
             NumericValue::UVlq64(x) => x.0.into(),
+            #[cfg(feature = "inib32")]
+            NumericValue::INib32(x) => x.0.into(),
             #[allow(unreachable_patterns)]
             _ => return None,
         })
@@ -338,6 +340,10 @@ impl NumericValue {
             NumericValue::UVlq32(x) => NumericValue::UVlq32(crate::UVlq32(wrap!(x.0, u32))),
             #[cfg(feature = "uvlq64")]
             NumericValue::UVlq64(x) => NumericValue::UVlq64(crate::UVlq64(wrap!(x.0, u64))),
+            #[cfg(feature = "inib32")]
+            NumericValue::INib32(x) => {
+                NumericValue::INib32(shrink_wrap::INib32(wrap_signed!(x.0, u32)))
+            }
             #[allow(unreachable_patterns)]
             _ => return None,
         })
@@ -411,6 +417,10 @@ impl NumericBaseType {
             NumericBaseType::UVlq32 => NumericValue::UVlq32(crate::UVlq32(to_unsigned!(x, u32)?)),
             #[cfg(feature = "uvlq64")]
             NumericBaseType::UVlq64 => NumericValue::UVlq64(crate::UVlq64(to_unsigned!(x, u64)?)),
+            #[cfg(feature = "inib32")]
+            NumericBaseType::INib32 => {
+                NumericValue::INib32(shrink_wrap::INib32(to_signed!(x, i32, u32)?))
+            }
             _ => return None,
         })
     }
@@ -453,6 +463,10 @@ impl NumericBaseType {
             NumericBaseType::UVlq32 => NumericValue::UVlq32(crate::UVlq32(saturate!(x, u32))),
             #[cfg(feature = "uvlq64")]
             NumericBaseType::UVlq64 => NumericValue::UVlq64(crate::UVlq64(saturate!(x, u64))),
+            #[cfg(feature = "inib32")]
+            NumericBaseType::INib32 => {
+                NumericValue::INib32(shrink_wrap::INib32(saturate!(x, i32, u32)))
+            }
             _ => return None,
         })
     }
@@ -493,6 +507,8 @@ impl NumericBaseType {
             NumericBaseType::UVlq32 => NumericValue::UVlq32(crate::UVlq32(wrap!(x, u32))),
             #[cfg(feature = "uvlq64")]
             NumericBaseType::UVlq64 => NumericValue::UVlq64(crate::UVlq64(wrap!(x, u64))),
+            #[cfg(feature = "inib32")]
+            NumericBaseType::INib32 => NumericValue::INib32(shrink_wrap::INib32(wrap!(x, i32))),
             _ => return None,
         })
     }

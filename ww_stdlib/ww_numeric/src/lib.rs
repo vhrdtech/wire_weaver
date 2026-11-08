@@ -7,7 +7,7 @@ mod store;
 
 pub use integer::{Integer, Magnitude};
 use shrink_wrap::prelude::*;
-pub use shrink_wrap::{UVlq32, UVlq64};
+pub use shrink_wrap::{INib32, UVlq32, UVlq64};
 pub use store::NumericValueStore;
 
 #[derive_shrink_wrap(
@@ -87,6 +87,10 @@ pub enum NumericBaseType {
     UVlq32,
     /// [UVlq64](shrink_wrap::UVlq64): variable length u64, 1 to 10 bytes, alignment of one-byte
     UVlq64,
+
+    /// [INib32](shrink_wrap::INib32): variable length i32, zigzag over `UNib32` (SW-24), alignment of
+    /// four-bits, 1 to 11 nibbles. Appended after the others: a tag-only addition (DER-25), never renumbered.
+    INib32,
 }
 
 // It would be nice to create a separate SubType and ShiftScale for each base type,
@@ -198,6 +202,10 @@ pub enum NumericValue {
     /// Variable length u64 ([UVlq64]): 1 to 10 bytes.
     #[cfg(feature = "uvlq64")]
     UVlq64(UVlq64),
+    /// Variable length i32 ([INib32]), zigzag over `UNib32` (SW-24): small negative and positive values both
+    /// one nibble.
+    #[cfg(feature = "inib32")]
+    INib32(INib32),
     // TODO: the rest
 }
 
@@ -240,6 +248,8 @@ impl NumericValue {
             NumericValue::UVlq32(_) => UVlq32,
             #[cfg(feature = "uvlq64")]
             NumericValue::UVlq64(_) => UVlq64,
+            #[cfg(feature = "inib32")]
+            NumericValue::INib32(_) => INib32,
         }
     }
 
@@ -280,6 +290,8 @@ impl NumericValue {
             NumericValue::UVlq32(x) => x.0 as f32,
             #[cfg(feature = "uvlq64")]
             NumericValue::UVlq64(x) => x.0 as f32,
+            #[cfg(feature = "inib32")]
+            NumericValue::INib32(x) => x.0 as f32,
         }
     }
 
@@ -330,6 +342,8 @@ impl NumericValue {
             NumericValue::UVlq32(x) => x.0 as i128,
             #[cfg(feature = "uvlq64")]
             NumericValue::UVlq64(x) => x.0 as i128,
+            #[cfg(feature = "inib32")]
+            NumericValue::INib32(x) => x.0 as i128,
             #[allow(unreachable_patterns)]
             _ => return None,
         };

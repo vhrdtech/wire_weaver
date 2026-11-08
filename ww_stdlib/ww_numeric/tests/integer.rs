@@ -37,11 +37,22 @@ const I32S: [i32; 10] = [
     i32::MAX,
 ];
 
+#[cfg(feature = "inib32")]
+fn inib32_values() -> impl Iterator<Item = NumericValue> {
+    I32S.iter()
+        .map(|&x| NumericValue::INib32(ww_numeric::INib32(x)))
+}
+#[cfg(not(feature = "inib32"))]
+fn inib32_values() -> impl Iterator<Item = NumericValue> {
+    core::iter::empty()
+}
+
 fn values() -> impl Iterator<Item = NumericValue> {
     U32S.iter()
         .map(|&x| NumericValue::U32(x))
         .chain(I32S.iter().map(|&x| NumericValue::I32(x)))
         .chain([NumericValue::U8(0), NumericValue::U8(255)])
+        .chain(inib32_values())
 }
 
 fn reference(v: &NumericValue) -> i128 {
@@ -121,6 +132,22 @@ fn saturating_and_wrapping_into_number_types() {
     // floats have no width to wrap at or range to clamp to here
     assert_eq!(NumericBaseType::F32.from_integer_wrapping(big), None);
     assert_eq!(NumericBaseType::F32.from_integer_saturating(big), None);
+    // INib32 is i32 on the inside: the same range, saturating and wrapping as I32
+    #[cfg(feature = "inib32")]
+    {
+        assert_eq!(
+            sat(NumericBaseType::INib32, big),
+            NumericValue::INib32(ww_numeric::INib32(i32::MAX))
+        );
+        assert_eq!(
+            sat(NumericBaseType::INib32, minus(u32::MAX)),
+            NumericValue::INib32(ww_numeric::INib32(i32::MIN))
+        );
+        assert_eq!(
+            wrap(NumericBaseType::INib32, big),
+            NumericValue::INib32(ww_numeric::INib32(-1))
+        );
+    }
 }
 
 #[test]
@@ -194,4 +221,9 @@ fn wrapping_add() {
         Some(NumericValue::I32(-6))
     );
     assert_eq!(NumericValue::F32(1.0).wrapping_add(one), None);
+    #[cfg(feature = "inib32")]
+    assert_eq!(
+        NumericValue::INib32(ww_numeric::INib32(i32::MAX)).wrapping_add(one),
+        Some(NumericValue::INib32(ww_numeric::INib32(i32::MIN)))
+    );
 }

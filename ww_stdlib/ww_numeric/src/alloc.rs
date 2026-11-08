@@ -58,6 +58,7 @@ impl NumericBaseType {
             }
             NumericBaseType::UVlq32 => "uvlq32",
             NumericBaseType::UVlq64 => "uvlq64",
+            NumericBaseType::INib32 => "inib32",
         };
         name.to_string()
     }

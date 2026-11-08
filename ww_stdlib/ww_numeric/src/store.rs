@@ -42,7 +42,8 @@ type Payload = u64;
         feature = "i32",
         feature = "f32",
         feature = "unib32",
-        feature = "uvlq32"
+        feature = "uvlq32",
+        feature = "inib32"
     )
 ))]
 type Payload = u32;
@@ -60,7 +61,8 @@ type Payload = u32;
         feature = "i32",
         feature = "f32",
         feature = "unib32",
-        feature = "uvlq32"
+        feature = "uvlq32",
+        feature = "inib32"
     )),
     any(feature = "u16", feature = "i16")
 ))]
@@ -79,6 +81,7 @@ type Payload = u16;
     feature = "f32",
     feature = "unib32",
     feature = "uvlq32",
+    feature = "inib32",
     feature = "u16",
     feature = "i16"
 )))]
@@ -117,6 +120,7 @@ mod variant {
     pub(super) const F64: u8 = 15;
     pub(super) const UVLQ32: u8 = 16;
     pub(super) const UVLQ64: u8 = 17;
+    pub(super) const INIB32: u8 = 18;
 }
 use variant::*;
 
@@ -186,6 +190,8 @@ fn parts(item: &NumericValue) -> (u8, Payload, u8) {
         NumericValue::UVlq32(x) => (UVLQ32, x.0 as Payload),
         #[cfg(feature = "uvlq64")]
         NumericValue::UVlq64(x) => (UVLQ64, x.0 as Payload),
+        #[cfg(feature = "inib32")]
+        NumericValue::INib32(x) => (INIB32, x.0 as u32 as Payload),
     };
     (variant, payload, w)
 }
@@ -304,6 +310,8 @@ impl SeriesStore for NumericValue {
             UVLQ32 => NumericValue::UVlq32(shrink_wrap::UVlq32(p as u32)),
             #[cfg(feature = "uvlq64")]
             UVLQ64 => NumericValue::UVlq64(shrink_wrap::UVlq64(p as u64)),
+            #[cfg(feature = "inib32")]
+            INIB32 => NumericValue::INib32(shrink_wrap::INib32(p as u32 as i32)),
             // `U8`, and what only `set` writes: every other byte is a variant compiled in
             _ => NumericValue::U8(p as u8),
         }
@@ -335,7 +343,7 @@ impl SeriesStore for NumericValue {
             U64 | UVLQ64 => write_numeric_column(sink, 64, false, p, policy),
             I8 => write_numeric_column(sink, 8, true, p, policy),
             I16 => write_numeric_column(sink, 16, true, p, policy),
-            I32 => write_numeric_column(sink, 32, true, p, policy),
+            I32 | INIB32 => write_numeric_column(sink, 32, true, p, policy),
             I64 => write_numeric_column(sink, 64, true, p, policy),
             F32 => write_float_column::<f32, _, _, _>(sink, p, policy),
             F64 => write_float_column::<f64, _, _, _>(sink, p, policy),

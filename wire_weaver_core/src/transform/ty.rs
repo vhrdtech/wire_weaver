@@ -139,6 +139,7 @@ fn convert_segment_in(
         "i64" => Ok(numeric_base(NumericBaseType::I64)),
         "i128" => Ok(numeric_base(NumericBaseType::I128)),
         "UNib32" | "unib32" => Ok(numeric_base(NumericBaseType::UNib32)),
+        "INib32" | "inib32" => Ok(numeric_base(NumericBaseType::INib32)),
         "UVlq32" | "uvlq32" => Ok(numeric_base(NumericBaseType::UVlq32)),
         "UVlq64" | "uvlq64" => Ok(numeric_base(NumericBaseType::UVlq64)),
         "UN" | "un" => Ok(numeric_base(NumericBaseType::UN)),
@@ -1093,6 +1094,7 @@ fn is_wire_integer(ty: &Type) -> bool {
             | "i64"
             | "Nibble"
             | "UNib32"
+            | "INib32"
             | "UVlq32"
             | "UVlq64"
     ) {

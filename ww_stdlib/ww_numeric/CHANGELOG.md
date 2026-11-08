@@ -2,6 +2,12 @@
 
 ### 🚀 Features
 
+* `NumericBaseType::INib32` / `NumericValue::INib32` (SW-24), behind the `inib32` cargo feature (in `all`):
+  [shrink_wrap::INib32], a signed variable length nibble varint, zigzag over `UNib32`. Appended after the other
+  variants (a tag-only addition, DER-25, never renumbered); `name()`, `ty()`, `as_f32()`, `to_i128()`,
+  `to_integer()`, `wrapping_add()`, `from_integer()`, `from_integer_saturating()`, `from_integer_wrapping()` and
+  the hand-written `NumericValueStore` / `NumericValueCells` treat it as a plain `i32` (its own nibble-zigzag
+  encoding is a wire-level detail of `shrink_wrap::INib32`, not re-applied at this layer).
 * `NumericBaseType::from_integer_saturating` and `from_integer_wrapping` (STD-102): an `Integer` into a number type clamped to its range, or modulo its width (two's complement below zero, `Nibble` modulo 16), from the magnitude's low bits; what `ww_si`'s `rescaled` settles a value with by its named `Overflow`.
 * `Integer` (STD-43): the exact value of any integer variant as sign and `Magnitude`, the narrowest unsigned type that
   holds every enabled number type (`u32` with types up to 32 bits, `u64` with `u64` / `i64` / `uvlq64`, `u128` with

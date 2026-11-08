@@ -37,6 +37,7 @@ all = [
     "f64",
     "uvlq32",
     "uvlq64",
+    "inib32",
 ]
 nibble = []
 u16 = []
@@ -55,6 +56,7 @@ i128 = []
 f64 = []
 uvlq32 = []
 uvlq64 = []
+inib32 = []
 
 [dependencies]
 defmt = { workspace = true, optional = true }

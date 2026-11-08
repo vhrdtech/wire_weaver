@@ -23,8 +23,8 @@ use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
 use ww_tap::Tap;
 
-type TxFramer = ww_link::FramingTxOwned<ww_link::UdpFraming>;
-type RxFramer = ww_link::FramingRxOwned<ww_link::UdpFraming>;
+type TxFramer = crate::framing::HelloTx<ww_link::UdpFraming>;
+type RxFramer = crate::framing::HelloRx<ww_link::UdpFraming>;
 
 /// Largest UDP payload, datagrams are received whole whatever their size
 const MAX_RX_DATAGRAM_LEN: usize = 65_535;

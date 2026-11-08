@@ -888,15 +888,105 @@ mod tests {
         }
     }
 
-    /// USB packets from the device through the host's USB framer, which reads the hello outside the framer (EVO-23).
-    fn feed_packets(
-        p: &mut Pair,
-        now: Instant,
-        rx: &mut crate::framing::UsbRx,
-        packets: &[Vec<u8>],
-    ) {
+    /// A frame based medium's host framers, which read and write the hello outside the framer (EVO-23).
+    trait TestRx {
+        fn stage(&mut self, frame: &[u8]);
+        fn reassemble(&mut self);
+        fn message(&self) -> Option<(u8, &[u8])>;
+    }
+
+    trait TestTx {
+        fn write(&mut self, kind: u8, message: &[u8]) -> bool;
+        fn flush_to_vec(&mut self) -> Option<Vec<u8>>;
+    }
+
+    impl TestRx for crate::framing::UsbRx {
+        fn stage(&mut self, frame: &[u8]) {
+            crate::framing::UsbRx::stage(self, frame).unwrap();
+        }
+        fn reassemble(&mut self) {
+            crate::framing::UsbRx::reassemble(self)
+        }
+        fn message(&self) -> Option<(u8, &[u8])> {
+            crate::framing::UsbRx::message(self)
+        }
+    }
+
+    impl TestTx for crate::framing::UsbTx {
+        fn write(&mut self, kind: u8, message: &[u8]) -> bool {
+            crate::framing::UsbTx::write(self, kind, message).unwrap()
+        }
+        fn flush_to_vec(&mut self) -> Option<Vec<u8>> {
+            crate::framing::UsbTx::flush_to_vec(self)
+        }
+    }
+
+    impl<F: ww_link::Framing> TestRx for crate::framing::HelloRx<F> {
+        fn stage(&mut self, frame: &[u8]) {
+            crate::framing::HelloRx::stage(self, frame).unwrap();
+        }
+        fn reassemble(&mut self) {
+            crate::framing::HelloRx::reassemble(self)
+        }
+        fn message(&self) -> Option<(u8, &[u8])> {
+            crate::framing::HelloRx::message(self)
+        }
+    }
+
+    impl<F: ww_link::Framing> TestTx for crate::framing::HelloTx<F> {
+        fn write(&mut self, kind: u8, message: &[u8]) -> bool {
+            crate::framing::HelloTx::write(self, kind, message).unwrap()
+        }
+        fn flush_to_vec(&mut self) -> Option<Vec<u8>> {
+            crate::framing::HelloTx::flush_to_vec(self)
+        }
+    }
+
+    /// The frame based media the hello tests run on.
+    #[derive(Copy, Clone, Debug)]
+    enum Medium {
+        Usb { seq_prefix: bool },
+        Udp,
+    }
+
+    const MEDIA: [Medium; 3] = [
+        Medium::Usb { seq_prefix: false },
+        Medium::Usb { seq_prefix: true },
+        Medium::Udp,
+    ];
+
+    impl Medium {
+        fn rx(self) -> Box<dyn TestRx> {
+            match self {
+                Medium::Usb { seq_prefix } => {
+                    Box::new(crate::framing::UsbRx::new(seq_prefix, 1024 + 64))
+                }
+                Medium::Udp => Box::new(crate::framing::HelloRx::<ww_link::UdpFraming>::new(
+                    1024 + 1500,
+                )),
+            }
+        }
+
+        /// A device's tx framer with small frames, so that a long message is split
+        fn tx(self) -> Box<dyn TestTx> {
+            match self {
+                Medium::Usb { seq_prefix } => Box::new(crate::framing::UsbTx::new(seq_prefix, 64)),
+                Medium::Udp => Box::new(crate::framing::HelloTx::<ww_link::UdpFraming>::new(64)),
+            }
+        }
+
+        fn hello_frame(self, hello: &ww_link::Hello) -> Vec<u8> {
+            match self {
+                Medium::Usb { .. } => ww_link::hello::usb::frame(hello).to_vec(),
+                Medium::Udp => ww_link::hello::udp::frame(hello).to_vec(),
+            }
+        }
+    }
+
+    /// Frames from the device through the host's framer, which reads the hello outside the framer (EVO-23).
+    fn feed_packets(p: &mut Pair, now: Instant, rx: &mut dyn TestRx, packets: &[Vec<u8>]) {
         for packet in packets {
-            rx.stage(packet).unwrap();
+            rx.stage(packet);
             loop {
                 rx.reassemble();
                 let Some((kind, message)) = rx.message() else {
@@ -915,13 +1005,13 @@ mod tests {
         }
     }
 
-    /// Messages of a device in USB packets, through a generation 1 framer.
-    fn device_packets(tx: &mut crate::framing::UsbTx, messages: &[Message<'_>]) -> Vec<Vec<u8>> {
+    /// Messages of a device in frames, through a generation 1 framer.
+    fn device_packets(tx: &mut dyn TestTx, messages: &[Message<'_>]) -> Vec<Vec<u8>> {
         let mut scratch = [0u8; 256];
         let mut out = vec![];
         for m in messages {
             let (kind, payload) = m.encode(&mut scratch).unwrap();
-            while !tx.write(kind, payload).unwrap() {
+            while !tx.write(kind, payload) {
                 out.extend(tx.flush_to_vec());
             }
             out.extend(tx.flush_to_vec());
@@ -933,36 +1023,35 @@ mod tests {
     /// its hello outside the framer and names the framer, not a timeout or an unknown format.
     #[test]
     fn device_with_a_framer_of_another_generation() {
-        let now = Instant::now();
-        let mut p = Pair::new();
-        let (connected_tx, mut connected_rx) = oneshot::channel();
-        p.cmd(now, connect_cmd(connected_tx));
-        p.tx.handle(now, TxInput::TransportUp);
-        p.settle(now);
-        p.take_sent();
-        let mut hello = host_hello(p.tx.token());
-        hello.role = ww_link::Role::Device;
-        hello.generations.framer = 2;
-        let mut rx = crate::framing::UsbRx::new(false, 1024 + 64);
-        let packets = [
-            ww_link::hello::usb::frame(&hello).to_vec(),
-            vec![0xF7, 0x01, 0x02, 0x03],
-        ];
-        feed_packets(&mut p, now, &mut rx, &packets);
-        assert!(p.take_sent().is_empty(), "no LinkSetup");
-        let e = format!("{:#}", connected_rx.try_recv().unwrap().result.unwrap_err());
-        assert!(
-            e.contains("framer generation 2") && e.contains("update the host"),
-            "{e}"
-        );
+        for medium in MEDIA {
+            let now = Instant::now();
+            let mut p = Pair::new();
+            let (connected_tx, mut connected_rx) = oneshot::channel();
+            p.cmd(now, connect_cmd(connected_tx));
+            p.tx.handle(now, TxInput::TransportUp);
+            p.settle(now);
+            p.take_sent();
+            let mut hello = host_hello(p.tx.token());
+            hello.role = ww_link::Role::Device;
+            hello.generations.framer = 2;
+            let mut rx = medium.rx();
+            let packets = [medium.hello_frame(&hello), vec![0xF7, 0x01, 0x02, 0x03]];
+            feed_packets(&mut p, now, &mut *rx, &packets);
+            assert!(p.take_sent().is_empty(), "no LinkSetup on {medium:?}");
+            let e = format!("{:#}", connected_rx.try_recv().unwrap().result.unwrap_err());
+            assert!(
+                e.contains("framer generation 2") && e.contains("update the host"),
+                "{medium:?}: {e}"
+            );
+        }
     }
 
     /// What an earlier session left in the device's IN buffer when a new host connects: the tail of a split message
-    /// and that session's hello. Both are dropped, the new session's hello and DeviceInfo connect, with and
-    /// without the frame counter.
+    /// and that session's hello. Both are dropped, the new session's hello and DeviceInfo connect: on USB with and
+    /// without the frame counter, and on UDP.
     #[test]
     fn stale_hello_and_split_tail_before_this_sessions_hello() {
-        for seq_prefix in [false, true] {
+        for medium in MEDIA {
             let now = Instant::now();
             let mut p = Pair::new();
             let (connected_tx, mut connected_rx) = oneshot::channel();
@@ -973,9 +1062,9 @@ mod tests {
             assert_eq!(kinds(&sent), [Kind::Nop, Kind::Hello]);
             let token = p.tx.token();
 
-            let mut dev = crate::framing::UsbTx::new(seq_prefix, 64);
+            let mut dev = medium.tx();
             let split = device_packets(
-                &mut dev,
+                &mut *dev,
                 &[Message::Data {
                     channel: 0,
                     bytes: &[0xAB; 150],
@@ -983,23 +1072,19 @@ mod tests {
             );
             assert!(split.len() >= 3);
             let mut packets = split[1..].to_vec(); // the old host read the first packet only
-            packets.extend(device_packets(&mut dev, &[device_hello(token ^ 1)]));
+            packets.extend(device_packets(&mut *dev, &[device_hello(token ^ 1)]));
             packets.extend(device_packets(
-                &mut dev,
+                &mut *dev,
                 &[Message::Nop, device_hello(token), device_info(token)],
             ));
-            let mut rx = crate::framing::UsbRx::new(seq_prefix, 1024 + 64);
-            feed_packets(&mut p, now, &mut rx, &packets);
-            assert_eq!(
-                kinds(&p.take_sent()),
-                [Kind::LinkSetup],
-                "seq prefix {seq_prefix}"
-            );
+            let mut rx = medium.rx();
+            feed_packets(&mut p, now, &mut *rx, &packets);
+            assert_eq!(kinds(&p.take_sent()), [Kind::LinkSetup], "{medium:?}");
             feed_packets(
                 &mut p,
                 now,
-                &mut rx,
-                &device_packets(&mut dev, &[Message::LinkReady { token }]),
+                &mut *rx,
+                &device_packets(&mut *dev, &[Message::LinkReady { token }]),
             );
             assert!(connected_rx.try_recv().unwrap().result.is_ok());
         }

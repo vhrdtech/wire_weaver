@@ -3,8 +3,8 @@
 //! several, exactly as over USB, so [FramedTx] / [FramedRx] do the framing on top of [UdpSink] / [UdpSource].
 //!
 //! UDP has no connections, so the device serves one host (peer) at a time and replies to it only:
-//! - a peer is adopted when it starts link setup, i.e., when the first message of its datagram is `Nop` or
-//!   `Hello` (the host sends both alone, before anything else);
+//! - a peer is adopted when it starts link setup, i.e., when its datagram is a `Nop` first or the frozen hello
+//!   (`ww_link::hello::udp`, outside the framer; the host sends both alone, before anything else);
 //! - datagrams from anyone else are dropped, unless they start link setup: then the current peer is replaced, as if a
 //!   USB device was opened by another host process. The medium goes down and up again, so the link and the framers
 //!   start over, and the datagram that started the takeover is not lost;
@@ -23,7 +23,7 @@ use core::future::Future;
 use wire_weaver::shrink_wrap::BufReader;
 use ww_framer::prefix::FramePrefix;
 use ww_framer::traits::{Checksum, Head, MessageKind};
-use ww_link::{Kind, UDP_MAX_DATAGRAM_LEN, UdpChecksum, UdpFraming, UdpHead, UdpPrefix};
+use ww_link::{Framing, Kind, UDP_MAX_DATAGRAM_LEN, UdpChecksum, UdpFraming, UdpHead, UdpPrefix};
 
 use crate::buffer::RxBuffer;
 use crate::fmt::{debug, warn};
@@ -113,9 +113,10 @@ impl<S: DatagramSocket> PacketSink for UdpSink<'_, S> {
     }
 }
 
-/// Longest datagram that can start link setup. The host sends `Nop` (1 byte prefix, 1 byte head, 4 byte CRC) and
-/// `Hello` (1 byte prefix, 3 byte head, 16 byte hello, 4 byte CRC) alone.
-const SETUP_DATAGRAM_MAX_LEN: usize = 24;
+/// Longest datagram that can start link setup. The host sends `Nop` (1 byte prefix, 1 byte head, 4 byte CRC) and the
+/// frozen hello (3 byte head, 16 byte hello, 4 byte CRC, `ww_link::hello::udp`) alone; a later host's longer hello
+/// fits too.
+const SETUP_DATAGRAM_MAX_LEN: usize = ww_link::hello::HELLO_FRAME_MAX;
 
 /// Datagram that starts link setup, kept across the medium going down and up again.
 #[derive(Copy, Clone)]
@@ -141,9 +142,12 @@ impl<A> SetupDatagram<A> {
     }
 }
 
-/// First message in `datagram` (after the frame prefix) is a whole `Nop` or `Hello` with a good CRC, so
-/// that a corrupted datagram can't take over.
+/// `datagram` is the frozen hello, read outside the framer as [FramedRx] reads it, or its first message (after the
+/// frame prefix) is a whole `Nop`; both with a good CRC, so that a corrupted datagram can't take over.
 fn starts_link_setup(datagram: &[u8]) -> bool {
+    if UdpFraming::find_hello(datagram).is_some() {
+        return true;
+    }
     let Some(after_prefix) = datagram.get(UdpPrefix::LEN..) else {
         return false;
     };
@@ -151,7 +155,7 @@ fn starts_link_setup(datagram: &[u8]) -> bool {
     let Ok((MessageKind::Full, kind, len)) = UdpHead::read(&mut rd) else {
         return false;
     };
-    if kind != Kind::Nop as u8 && kind != Kind::Hello as u8 {
+    if kind != Kind::Nop as u8 {
         return false;
     }
     let header = &datagram[..datagram.len() - rd.bytes_left()];
@@ -468,29 +472,34 @@ mod tests {
     }
 
     const NOP: (Kind, &[u8]) = (Kind::Nop, &[]);
-    /// A whole hello: magic, role, 4 generations, token
-    const GET_INFO: (Kind, &[u8]) = (
-        Kind::Hello,
-        &[b'W', b'W', b'H', 4, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    );
+    /// A whole hello payload: magic, role, 4 generations, token
+    const HELLO: &[u8] = &[b'W', b'W', b'H', 4, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+
+    /// The host's hello datagram, in its frozen frame outside the framer
+    fn hello() -> Vec<u8> {
+        ww_link::hello::udp::frame(&ww_link::Hello::from_bytes(HELLO).unwrap()).to_vec()
+    }
     const DATA: (Kind, &[u8]) = (Kind::Data0, &[1, 2, 3]);
 
     #[test]
     fn setup_datagrams_are_tiny() {
         assert!(datagram(&[NOP]).len() <= SETUP_DATAGRAM_MAX_LEN);
-        assert!(datagram(&[GET_INFO]).len() <= SETUP_DATAGRAM_MAX_LEN);
+        assert!(hello().len() <= SETUP_DATAGRAM_MAX_LEN);
         assert!(starts_link_setup(&datagram(&[NOP])));
-        assert!(starts_link_setup(&datagram(&[GET_INFO])));
+        assert!(starts_link_setup(&hello()));
+        // a hello through the framer is not how a host starts link setup
+        assert!(!starts_link_setup(&datagram(&[(Kind::Hello, HELLO)])));
         assert!(!starts_link_setup(&datagram(&[DATA])));
         assert!(!starts_link_setup(&datagram(&[(Kind::Ping, &[])])));
         assert!(!starts_link_setup(&[]));
         assert!(datagram(&[NOP, DATA, DATA, DATA, DATA]).len() > SETUP_DATAGRAM_MAX_LEN);
         // a flipped bit anywhere (prefix, head, token, CRC) fails the CRC: no takeover by a corrupted datagram
-        let good = datagram(&[GET_INFO]);
-        for bit in 0..good.len() * 8 {
-            let mut bad = good.clone();
-            bad[bit / 8] ^= 1 << (bit % 8);
-            assert!(!starts_link_setup(&bad), "bit {bit}");
+        for good in [datagram(&[NOP]), hello()] {
+            for bit in 0..good.len() * 8 {
+                let mut bad = good.clone();
+                bad[bit / 8] ^= 1 << (bit % 8);
+                assert!(!starts_link_setup(&bad), "bit {bit}");
+            }
         }
     }
 
@@ -509,7 +518,7 @@ mod tests {
         // stray data and a datagram too long to be a setup one are ignored while waiting
         push(&conn, 1, h1.datagram(&[DATA]));
         push(&conn, 1, h1.datagram(&[NOP, DATA, DATA, DATA, DATA]));
-        push(&conn, 2, h2.datagram(&[GET_INFO]));
+        push(&conn, 2, hello());
         push(&conn, 2, h2.datagram(&[DATA]));
         assert!(poll_once(rx.rx.wait_connected()).is_ready());
         rx.rx.reset();
@@ -517,7 +526,7 @@ mod tests {
         // Hello that started it is not lost
         assert_eq!(
             rx.messages().unwrap(),
-            [(4, GET_INFO.1.to_vec()), (0, std::vec![1, 2, 3])]
+            [(4, HELLO.to_vec()), (0, std::vec![1, 2, 3])]
         );
 
         // replies go to the peer only
@@ -552,18 +561,68 @@ mod tests {
 
         // link setup from someone else: medium goes down, the new host is adopted, its datagram replayed
         push(&conn, 2, h2.datagram(&[NOP]));
-        push(&conn, 2, h2.datagram(&[GET_INFO]));
+        push(&conn, 2, hello());
         assert_eq!(rx.messages(), Err(UdpError::PeerChanged));
         rx.connect();
         assert_eq!(conn.peer(), Some(2));
         assert_eq!(
             rx.messages().unwrap(),
-            [(3, std::vec![]), (4, GET_INFO.1.to_vec())]
+            [(3, std::vec![]), (4, HELLO.to_vec())]
         );
 
         // the previous host is not heard anymore
         push(&conn, 1, h1.datagram(&[DATA]));
         assert_eq!(rx.messages().unwrap(), []);
+    }
+
+    /// The hello goes outside the framer both ways (EVO-23): a host whose framer is of another generation (a made-up
+    /// generation 2 datagram after its hello) still has its hello read, and nothing else; the device's hello goes
+    /// out as the frozen datagram, without the frame counter. A hello after half a split message of an earlier session
+    /// starts over: the framer drops what it held.
+    #[test]
+    fn hello_outside_the_framer() {
+        let conn = UdpConnection::new(MockSocket::default());
+        let mut buf = RxBuffer::<UDP_MAX_DATAGRAM_LEN, 256>::new();
+        let mut rx = Rx {
+            rx: FramedRx::new(
+                UdpSource::new(&conn),
+                buf.assembly_buf(UDP_MAX_DATAGRAM_LEN),
+            ),
+        };
+        let mut gen2 = ww_link::Hello::from_bytes(HELLO).unwrap();
+        gen2.generations.framer = 2;
+        push(&conn, 1, ww_link::hello::udp::frame(&gen2).to_vec());
+        push(&conn, 1, std::vec![0xF7, 0x01, 0x02, 0x03, 0x04]);
+        rx.connect();
+        assert_eq!(conn.peer(), Some(1));
+        assert_eq!(rx.messages().unwrap(), [(4, gen2.to_bytes().to_vec())]);
+
+        // the device's hello: the frozen datagram alone, after what the framer held
+        let mut tx_buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+        let mut tx = FramedTx::new(UdpSink::new(&conn), &mut tx_buf);
+        let device = ww_link::Hello {
+            role: ww_link::Role::Device,
+            ..gen2
+        };
+        block_on(tx.write_message(Kind::Nop as u8, &[])).unwrap();
+        block_on(tx.write_hello(&device)).unwrap();
+        let out = conn.socket.output.borrow().clone();
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[1].1, ww_link::hello::udp::frame(&device));
+
+        // half a split message, then a hello of this build: only the hello and what follows it
+        let mut host = Host::default();
+        let mut split_buf = [0u8; 64];
+        let mut split = TxFramer::<UdpFraming>::new(&mut split_buf);
+        assert_eq!(split.write(Kind::Data0 as u8, &[7u8; 100]), Ok(false));
+        let len = split.flush();
+        push(&conn, 1, split.buf()[..len].to_vec());
+        push(&conn, 1, hello());
+        push(&conn, 1, host.datagram(&[DATA]));
+        assert_eq!(
+            rx.messages().unwrap(),
+            [(4, HELLO.to_vec()), (0, std::vec![1, 2, 3])]
+        );
     }
 
     #[test]

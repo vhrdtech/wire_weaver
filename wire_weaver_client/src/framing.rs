@@ -3,8 +3,8 @@
 use tracing::{debug, trace};
 use wire_weaver::prelude::*;
 use ww_framer::prefix::{FrameCtx, FrameReport, PrefixStats};
-use ww_link::hello::{HELLO_LEN, usb as usb_hello};
-use ww_link::{FramingRxOwned, FramingTxOwned, Hello, Kind, UsbFraming, UsbSeqFraming};
+use ww_link::hello::{HELLO_FRAME_MAX, HELLO_LEN, usb as usb_hello};
+use ww_link::{Framing, FramingRxOwned, FramingTxOwned, Hello, Kind, UsbFraming, UsbSeqFraming};
 
 /// What a frame's prefix check found, logged: debug for anything but the expected frame.
 pub(crate) fn log_report(report: FrameReport) {
@@ -412,5 +412,153 @@ mod tests {
         let mut bad = carry.clone();
         bad.rx_staged = vec![0; 65];
         assert!(bad.check(64, crate::DEFAULT_MAX_MESSAGE_LEN).is_err());
+    }
+}
+
+/// Tx framer of one [Framing] whose hello goes outside it in the medium's frozen frame ([Framing::hello_frame]), a
+/// frame of its own, as [UsbTx] does for USB: UDP ([ww_link::hello::udp]).
+pub(crate) struct HelloTx<F: Framing> {
+    framer: FramingTxOwned<F>,
+    /// A hello written, its frame is what the next flush gives
+    hello: Option<HelloFrame>,
+    /// The hello's frame was the last flush: [HelloTx::buf] is it
+    flushed_hello: Option<HelloFrame>,
+}
+
+/// A frozen hello frame and its length.
+#[derive(Copy, Clone)]
+struct HelloFrame([u8; HELLO_FRAME_MAX], usize);
+
+impl HelloFrame {
+    fn bytes(&self) -> &[u8] {
+        &self.0[..self.1]
+    }
+}
+
+#[allow(dead_code)] // not every method is used by every transport
+impl<F: Framing> HelloTx<F> {
+    pub fn new(frame_size: usize) -> Self {
+        HelloTx {
+            framer: FramingTxOwned::<F>::new(frame_size),
+            hello: None,
+            flushed_hello: None,
+        }
+    }
+
+    /// As the framer's `write`; a hello is held as its frozen frame and is the next flush alone (Ok(false) first
+    /// while the framer holds anything: flush, then write it again). A frame too short for it takes the hello
+    /// framed, as the device does.
+    pub fn write(&mut self, user_kind: u8, message: &[u8]) -> Result<bool, ()> {
+        self.flushed_hello = None;
+        if user_kind == Kind::Hello as u8
+            && let Ok(hello) = Hello::from_bytes(message)
+        {
+            let mut buf = [0u8; HELLO_FRAME_MAX];
+            if let Some(len) = F::hello_frame(&hello, &mut buf)
+                && len <= self.framer.frame_size()
+            {
+                if self.hello.is_some() || !self.framer.is_empty() {
+                    return Ok(false);
+                }
+                self.hello = Some(HelloFrame(buf, len));
+                return Ok(true);
+            }
+        }
+        if self.hello.is_some() {
+            return Ok(false);
+        }
+        self.framer.write(user_kind, message)
+    }
+
+    pub fn flush(&mut self) -> usize {
+        if let Some(frame) = self.hello.take() {
+            self.flushed_hello = Some(frame);
+            return frame.1;
+        }
+        self.flushed_hello = None;
+        self.framer.flush()
+    }
+
+    pub fn buf(&self) -> &[u8] {
+        match &self.flushed_hello {
+            Some(frame) => frame.bytes(),
+            None => self.framer.buf(),
+        }
+    }
+
+    pub fn flush_to_vec(&mut self) -> Option<Vec<u8>> {
+        self.flushed_hello = None;
+        if let Some(frame) = self.hello.take() {
+            return Some(frame.bytes().to_vec());
+        }
+        self.framer.flush_to_vec()
+    }
+
+    pub fn reset(&mut self) {
+        self.hello = None;
+        self.flushed_hello = None;
+        self.framer.reset()
+    }
+}
+
+/// Rx framer of one [Framing], see [HelloTx]: every frame is checked for the device's hello ([Framing::find_hello])
+/// before the framer sees it, as [UsbRx] does for USB.
+pub(crate) struct HelloRx<F: Framing> {
+    framer: FramingRxOwned<F>,
+    /// A hello found outside the framer, waiting to be [HelloRx::reassemble]d
+    hello: Option<[u8; HELLO_LEN]>,
+    /// [HelloRx::message] is that hello
+    hello_ready: bool,
+}
+
+#[allow(dead_code)] // not every method is used by every transport
+impl<F: Framing> HelloRx<F> {
+    pub fn new(assembly_size: usize) -> Self {
+        HelloRx {
+            framer: FramingRxOwned::<F>::new(assembly_size),
+            hello: None,
+            hello_ready: false,
+        }
+    }
+
+    /// As the framer's `stage`, but a frame holding a hello in its frozen frame never reaches the framer, whatever
+    /// generation the device's framer is: it is the next message, and the framer drops what it held (the device
+    /// started a new session). A near miss is staged as any other frame.
+    pub fn stage(&mut self, frame: &[u8]) -> Result<FrameReport, ()> {
+        if let Some(hello) = F::find_hello(frame) {
+            self.framer.reset();
+            self.hello = Some(hello.to_bytes());
+            self.hello_ready = false;
+            return Ok(FrameReport::Unchecked);
+        }
+        self.framer.stage(frame)
+    }
+
+    pub fn reassemble(&mut self) {
+        if self.hello_ready {
+            self.hello = None;
+            self.hello_ready = false;
+        } else if self.hello.is_some() {
+            self.hello_ready = true;
+            return;
+        }
+        self.framer.reassemble()
+    }
+
+    pub fn message(&self) -> Option<(u8, &[u8])> {
+        match (&self.hello, self.hello_ready) {
+            (Some(hello), true) => Some((Kind::Hello as u8, hello)),
+            _ => self.framer.message(),
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.hello = None;
+        self.hello_ready = false;
+        self.framer.reset()
+    }
+
+    pub fn prefix_stats(&mut self) -> PrefixStats {
+        self.framer.prefix_stats()
     }
 }

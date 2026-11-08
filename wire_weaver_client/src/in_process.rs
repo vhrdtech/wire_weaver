@@ -61,7 +61,7 @@ use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
-use ww_link::{FramingRxOwned, FramingTxOwned, UdpFraming, UsbFraming, UsbFramingProtocol};
+use ww_link::{UdpFraming, UsbFraming, UsbFramingProtocol};
 use ww_tap::Tap;
 
 type Message = (u8, Vec<u8>);
@@ -697,10 +697,10 @@ impl Transport for InProcessTransport {
             ),
             // datagrams from the device are taken whatever their size, as over a socket
             Medium::Udp(_) => (
-                Some(TxFramer::Udp(FramingTxOwned::<UdpFraming>::new(
+                Some(TxFramer::Udp(HelloTx::<UdpFraming>::new(
                     ww_link::UDP_MAX_DATAGRAM_LEN,
                 ))),
-                Some(RxFramer::Udp(FramingRxOwned::<UdpFraming>::new(
+                Some(RxFramer::Udp(HelloRx::<UdpFraming>::new(
                     max_message_len + MAX_RX_DATAGRAM_LEN,
                 ))),
             ),
@@ -724,7 +724,7 @@ impl Transport for InProcessTransport {
 /// Largest UDP payload, the longest datagram a simulated UDP host takes
 const MAX_RX_DATAGRAM_LEN: usize = 65_535;
 
-use crate::framing::{UsbRx as UsbRxFramer, UsbTx as UsbTxFramer};
+use crate::framing::{HelloRx, HelloTx, UsbRx as UsbRxFramer, UsbTx as UsbTxFramer};
 
 /// Host tx half of an in-process connection
 pub(crate) enum HostTx {
@@ -813,7 +813,7 @@ impl ToDevice {
 /// Host tx framer of a simulated medium
 enum TxFramer {
     Usb(UsbTxFramer),
-    Udp(FramingTxOwned<UdpFraming>),
+    Udp(HelloTx<UdpFraming>),
 }
 
 impl TxFramer {
@@ -835,7 +835,7 @@ impl TxFramer {
 /// Host rx framer of a simulated medium
 enum RxFramer {
     Usb(UsbRxFramer),
-    Udp(FramingRxOwned<UdpFraming>),
+    Udp(HelloRx<UdpFraming>),
 }
 
 impl RxFramer {

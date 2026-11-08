@@ -193,8 +193,41 @@ pub(crate) struct Reassembler {
     carry: Vec<u8>,
     /// (chunk no, start in `carry`, length, offset of that start in the chunk)
     carry_from: Vec<(u64, usize, usize, usize)>,
-    /// A USB framing: a frame holding the frozen hello (`ww_link::hello::usb`) is read outside the framer
-    usb_hello: bool,
+    /// A frame based medium with a frozen hello frame (EVO-23): a frame holding it is read outside the framer
+    hello: Option<HelloFrame>,
+}
+
+/// The frozen hello frame of a frame based medium, see [Reassembler::with_hello].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum HelloFrame {
+    /// `ww_link::hello::usb`: the head and the payload, never with a prefix
+    Usb,
+    /// `ww_link::hello::udp`: the head, the payload and a CRC-32, never with a prefix
+    Udp,
+}
+
+impl HelloFrame {
+    /// The frozen hello frame of a tap framer, if its medium has one.
+    pub fn of(framer: &ww_tap::Framer) -> Option<HelloFrame> {
+        if *framer == crate::tap::FRAMED_USB || *framer == crate::tap::FRAMED_USB_SEQ {
+            Some(HelloFrame::Usb)
+        } else if *framer == crate::tap::FRAMED_UDP {
+            Some(HelloFrame::Udp)
+        } else {
+            None
+        }
+    }
+
+    /// The hello's payload length and the length of what follows it (the CRC), when `frame` is the frozen hello.
+    fn find(self, frame: &[u8]) -> Option<(usize, usize)> {
+        let found = match self {
+            HelloFrame::Usb => ww_link::hello::usb::find(frame),
+            HelloFrame::Udp => ww_link::hello::udp::find(frame),
+        };
+        found?;
+        let len = ((frame[1] as usize & 0x03) << 8) | frame[2] as usize;
+        Some((len, if self == HelloFrame::Udp { 4 } else { 0 }))
+    }
 }
 
 impl Reassembler {
@@ -205,13 +238,14 @@ impl Reassembler {
             partial: None,
             carry: Vec::new(),
             carry_from: Vec::new(),
-            usb_hello: false,
+            hello: None,
         }
     }
 
-    /// Frames of a USB framing: the hello is a packet of its own outside the framer (EVO-23), read the same way here.
-    pub fn with_usb_hello(mut self, on: bool) -> Self {
-        self.usb_hello = on;
+    /// Frames of a medium with a frozen hello frame: the hello is a frame of its own outside the framer (EVO-23),
+    /// read the same way here.
+    pub fn with_hello(mut self, hello: Option<HelloFrame>) -> Self {
+        self.hello = hello;
         self
     }
 
@@ -220,10 +254,9 @@ impl Reassembler {
             return self.feed_stream(frame_no, frame);
         }
         let mut out = FrameOutcome::default();
-        if self.usb_hello && ww_link::hello::usb::find(frame).is_some() {
+        if let Some((len, trailer)) = self.hello.and_then(|h| h.find(frame)) {
             // the device or host started a new session: its framer drops what it held, so does this one
             self.drop_partial(&mut out);
-            let len = ((frame[1] as usize & 0x03) << 8) | frame[2] as usize;
             let payload = 3..3 + len;
             out.completed.push(Reassembled {
                 kind: ww_link::Kind::Hello as u8,
@@ -239,7 +272,7 @@ impl Reassembler {
                 user_kind: ww_link::Kind::Hello as u8,
                 len,
                 head: 0..3,
-                trailer: payload.end..payload.end,
+                trailer: payload.end..payload.end + trailer,
                 payload,
                 outcome: PieceOutcome::Message,
             });
@@ -519,6 +552,47 @@ mod tests {
         decodes_what_framing_writes::<ww_link::UsbFraming>(crate::tap::FRAMED_USB);
         decodes_what_framing_writes::<ww_link::UsbSeqFraming>(crate::tap::FRAMED_USB_SEQ);
         decodes_what_framing_writes::<ww_link::UdpFraming>(crate::tap::FRAMED_UDP);
+    }
+
+    /// The frozen hello frames (EVO-23) are read outside the framer, a half received message before one is dropped;
+    /// the hello datagram's CRC is its trailer.
+    #[test]
+    fn hello_frames_outside_the_framer() {
+        let hello = ww_link::Hello::new(ww_link::Role::Device, 1, 0x0102);
+        for (framer, frame, crc) in [
+            (
+                crate::tap::FRAMED_USB,
+                ww_link::hello::usb::frame(&hello).to_vec(),
+                0,
+            ),
+            (
+                crate::tap::FRAMED_USB_SEQ,
+                ww_link::hello::usb::frame(&hello).to_vec(),
+                0,
+            ),
+            (
+                crate::tap::FRAMED_UDP,
+                ww_link::hello::udp::frame(&hello).to_vec(),
+                4,
+            ),
+        ] {
+            let (w, _) = walker(&framer).unwrap().unwrap();
+            let mut r = Reassembler::new(w, false).with_hello(HelloFrame::of(&framer));
+            let mut tx = ww_link::FramingTxOwned::<ww_link::UdpFraming>::new(64);
+            if framer == crate::tap::FRAMED_UDP {
+                assert!(!tx.write(0, &[5; 100]).unwrap());
+                let first = tx.flush_to_vec().unwrap();
+                assert!(r.feed(0, &first).completed.is_empty());
+            }
+            let out = r.feed(1, &frame);
+            assert_eq!(out.completed.len(), 1, "{framer:?}");
+            assert_eq!(out.completed[0].kind, ww_link::Kind::Hello as u8);
+            assert_eq!(out.completed[0].bytes, hello.to_bytes());
+            assert_eq!(out.pieces[0].trailer.len(), crc);
+            if framer == crate::tap::FRAMED_UDP {
+                assert!(out.dropped_partial.is_some(), "the split message before it");
+            }
+        }
     }
 
     #[test]

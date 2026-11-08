@@ -426,7 +426,11 @@ mod tests {
         let mut flipped = UDP_GOLDEN;
         flipped[10] ^= 0x10;
         assert_eq!(udp::find(&flipped), None, "a corrupted datagram");
-        assert_eq!(udp::find(&UDP_GOLDEN[..UDP_GOLDEN.len() - 1]), None, "cut short");
+        assert_eq!(
+            udp::find(&UDP_GOLDEN[..UDP_GOLDEN.len() - 1]),
+            None,
+            "cut short"
+        );
         // with a frame prefix, as every other datagram has: not a hello
         let mut prefixed = std::vec![0x00];
         prefixed.extend_from_slice(&UDP_GOLDEN);
@@ -434,8 +438,8 @@ mod tests {
     }
 
     const UDP_GOLDEN: [u8; udp::FRAME_LEN] = [
-        0x30, 0x48, 0x10, b'W', b'W', b'H', 4, 1, 1, 1, 1, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02,
-        0x01, 0x96, 0x45, 0x5E, 0xA5,
+        0x30, 0x48, 0x10, b'W', b'W', b'H', 4, 1, 1, 1, 1, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03,
+        0x02, 0x01, 0x96, 0x45, 0x5E, 0xA5,
     ];
 
     /// A later, longer UDP hello is found too.
@@ -468,7 +472,10 @@ mod tests {
         // a near miss of a previous session before it
         let mut stream = std::vec![0x30, 0x48, 0x10, b'W', 0xFF];
         stream.extend_from_slice(&chunk[..len]);
-        assert_eq!(rtt::find(&stream, Role::Host), Some((HOST, 7..stream.len())));
+        assert_eq!(
+            rtt::find(&stream, Role::Host),
+            Some((HOST, 7..stream.len()))
+        );
     }
 
     #[test]

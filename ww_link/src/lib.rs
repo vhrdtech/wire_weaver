@@ -184,6 +184,16 @@ impl Framing for UdpFraming {
     type Checksum = UdpChecksum;
     type Tail = UdpTail;
     type Prefix = UdpPrefix;
+
+    /// Without the frame prefix, with a CRC-32: [hello::udp].
+    fn hello_frame(hello: &Hello, buf: &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize> {
+        buf[..hello::udp::FRAME_LEN].copy_from_slice(&hello::udp::frame(hello));
+        Some(hello::udp::FRAME_LEN)
+    }
+
+    fn find_hello(frame: &[u8]) -> Option<Hello> {
+        hello::udp::find(frame)
+    }
 }
 
 /// CRC-32/ISO-HDLC (zip, Ethernet) of [UdpChecksum], computed by `ww_block::crc32_update`: one implementation

@@ -24,7 +24,7 @@ use ww_self::ApiBundleOwned;
 use ww_tap::{Dir, FrameOwned, LinkEventOwned, MessageOwned, SessionOwned, ids, track_of};
 use ww_tape::{Block, BlockKind, Describe};
 
-use super::reassembly::{FrameOutcome, FramePart, Reassembled, Reassembler, walker};
+use super::reassembly::{FrameOutcome, FramePart, HelloFrame, Reassembled, Reassembler, walker};
 use super::stats::Stats;
 use crate::DynResource;
 use crate::envelope::{Envelope, event_variant, explain_reply, explain_request, request_variant};
@@ -362,11 +362,10 @@ impl Decoder {
             }
             match walker(&s.framer) {
                 Ok(Some((w, stream))) => {
-                    let usb = s.framer == crate::tap::FRAMED_USB
-                        || s.framer == crate::tap::FRAMED_USB_SEQ;
-                    l.tx.reassembler = Some(Reassembler::new(w, stream).with_usb_hello(usb));
+                    let hello = HelloFrame::of(&s.framer);
+                    l.tx.reassembler = Some(Reassembler::new(w, stream).with_hello(hello));
                     let (w, _) = walker(&s.framer).ok().flatten().expect("same framer");
-                    l.rx.reassembler = Some(Reassembler::new(w, stream).with_usb_hello(usb));
+                    l.rx.reassembler = Some(Reassembler::new(w, stream).with_hello(hello));
                 }
                 Ok(None) => {}
                 Err(e) => l.framer_error = Some(e),

@@ -1,21 +1,23 @@
-//! A host driver for every wire line of `thermo_api` (EVO-28): line 1 (`thermo_api` 1.2.0 at w1.2) and line 2
-//! (2.1.0 at w2.1, a wire break), one generated client each, behind one facade, [Thermo].
+//! A host driver for every wire line of `thermo_api` (EVO-28): line 1 (`thermo_api` 1.2.0 at w1.2), line 2 (2.1.0 at
+//! w2.1, a wire break) and line 3 (3.0.0 at w3.0, another break), one generated client each, behind one facade,
+//! [Thermo].
 //!
-//! - Both clients are of the same crate at two versions, as Cargo renamed dependencies (`thermo_api_w1`,
-//!   `thermo_api_w2`), one module each (`v1.rs`, `v2.rs`).
-//! - The connection speaks both lines ([ClientConfig::speaks]): link setup takes a device on either, and
+//! - The clients are of the same crate at three versions, as Cargo renamed dependencies (`thermo_api_w1`,
+//!   `thermo_api_w2`, `thermo_api_w3`), one module each (`v1.rs`, `v2.rs`, `v3.rs`).
+//! - The connection speaks every line ([ClientConfig::speaks]): link setup takes a device on any of them, and
 //!   [Thermo::from_cmd] picks the client of the line the device reported. One handshake, no reconnect.
 //! - [model] is the driver's own version-free types; each line converts to and from it.
-//! - `ww_indication` is a trait of `ww_stdlib` both lines implement: one trait client over global paths serves both,
+//! - `ww_indication` is a trait of `ww_stdlib` every line implements: one trait client over global paths serves all,
 //!   with no per-line code ([Thermo::indication]).
 //!
-//! Tests against simulated firmware of each line are in `tests/`.
+//! Tests against simulated firmware of each line (`thermo_devices`) are in `tests/`.
 
 mod backend;
 pub mod error;
 pub mod model;
 mod v1;
 mod v2;
+mod v3;
 
 pub use backend::{Commands, Updates};
 pub use error::{Error, Result};
@@ -34,6 +36,7 @@ impl WwClient for Thermo {
     /// Every line this driver has a client of, the newest first.
     fn default_config() -> ClientConfig {
         ClientConfig::default()
+            .speaks(v3::Client::client_line())
             .speaks(v2::Client::client_line())
             .speaks(v1::Client::client_line())
     }
@@ -43,6 +46,7 @@ impl WwClient for Thermo {
         let backend: Box<dyn Backend> = match wire.map(|w| w.line.0) {
             Some(1) => Box::new(v1::Client::from_cmd(cmd)),
             Some(2) => Box::new(v2::Client::from_cmd(cmd)),
+            Some(3) => Box::new(v3::Client::from_cmd(cmd)),
             // link setup refuses a device on any other line, see `default_config`
             _ => unreachable!("a thermo_api device at wire {wire:?} got through link setup"),
         };
@@ -123,17 +127,17 @@ impl Thermo {
         self.backend.calibrate(offset).await
     }
 
-    /// From w1.2 on line 1.
+    /// From w1.2 on line 1; whole seconds on lines 1 and 2, milliseconds on line 3.
     pub async fn uptime(&self) -> Result<Uptime> {
         self.backend.uptime().await
     }
 
-    /// From w2.1, line 2 only.
+    /// From w2.1, lines 2 and 3.
     pub async fn self_test(&self) -> Result<()> {
         self.backend.self_test().await
     }
 
-    /// The status LED: `ww_indication::Indication`, the same trait and types on both lines.
+    /// The status LED: `ww_indication::Indication`, the same trait and types on every line.
     pub fn indication(&self) -> Indication {
         Indication {
             cmd: self.cmd().clone(),

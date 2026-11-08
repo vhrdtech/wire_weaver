@@ -1,19 +1,20 @@
-//! Firmware of `thermo_api` 2.0.0 at w2.0, the first revision of line 2, simulated: `w2.rs` without `self_test`.
+//! Firmware of line 1, `thermo_api` 1.2.0 at w1.2, simulated.
 
-use super::Shared;
-use thermo_api_w2_0::{Command, Config, Mode, RateError, Sample};
+use crate::Shared;
+use thermo_api_w1::{Command, Mode, RateError, Sample};
 use wire_weaver::prelude::*;
-use ww_si::prefix::{Centi, Milli, One};
-use ww_si::units::{Kelvin, Ratio, Second};
+use wire_weaver::ww_version::WireVersion;
+use ww_si::prefix::{Centi, One};
+use ww_si::units::{Hertz, Kelvin, Ratio, Second};
 use ww_si::{Fixed, Range};
 
 pub struct Server {
     pub observe: api_impl::ObserveState,
     pub shared: Shared,
     mode: Mode,
-    gain: Fixed<Ratio, Centi, u16, Range<100, 1600>>,
-    /// Added to every sample, 0.001 K
-    offset: i32,
+    gain: Fixed<Ratio, One, u8, Range<1, 16>>,
+    /// Added to every sample, 0.01 K
+    offset: i16,
     seq: u16,
     enabled: [bool; 4],
     indication: ww_indication::Mode,
@@ -27,22 +28,21 @@ impl Server {
         Sample {
             seq: ww_si::Seq::new(seq),
             input: ww_si::IndexFrom1::try_new(channel + 1).unwrap(),
-            // 21.500 °C in 0.001 K
-            temp: ww_si::Point::from_raw(21500 + self.offset),
+            // 21.50 °C in 0.01 K
+            temp: ww_si::Point::from_raw(2150 + self.offset),
         }
     }
 
-    async fn configure(
+    async fn set_rate(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        config: Config,
+        rate: Fixed<Hertz, One, u16, Range<1, 1000>>,
     ) -> RpcResult<Result<(), RateError>> {
         // the simulation is busy at 999 Hz, to show the error
-        if config.rate.get() == 999 {
+        if rate.get() == 999 {
             return RpcResult::Ready(Err(RateError::Busy));
         }
-        self.shared.lock().unwrap().rate = config.rate.get();
-        self.mode = config.mode;
+        self.shared.lock().unwrap().rate = rate.get();
         RpcResult::Ready(Ok(()))
     }
 
@@ -66,7 +66,7 @@ impl Server {
     async fn set_gain(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        value: Fixed<Ratio, Centi, u16, Range<100, 1600>>,
+        value: Fixed<Ratio, One, u8, Range<1, 16>>,
     ) -> SetResult<()> {
         self.gain = value;
         // observers with `OnChange` get it at the next poll
@@ -77,7 +77,7 @@ impl Server {
     async fn get_gain(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-    ) -> GetResult<Fixed<Ratio, Centi, u16, Range<100, 1600>>, ()> {
+    ) -> GetResult<Fixed<Ratio, One, u8, Range<1, 16>>, ()> {
         GetResult::Value(self.gain)
     }
 
@@ -105,14 +105,15 @@ impl Server {
 
     async fn write_commands(&mut self, cx: &mut Context<'_, impl EventOut>, value: Command) {
         match value {
-            Command::Trigger => {
+            // line 1 triggers only in Mode::Triggered
+            Command::Trigger if self.mode == Mode::Triggered => {
                 let sample = self.sample(0);
                 api_impl::stream_data_ser()
                     .samples_send(&sample, cx)
                     .await
                     .unwrap();
             }
-            Command::Unknown(_) => {}
+            Command::Trigger | Command::Unknown(_) => {}
             Command::Mark { seq } => self.seq = seq.get(),
         }
     }
@@ -124,7 +125,7 @@ impl Server {
     async fn calibrate(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        offset: Fixed<Kelvin, Milli, i32>,
+        offset: Fixed<Kelvin, Centi, i16>,
     ) -> RpcResult<()> {
         self.offset = offset.get();
         RpcResult::Ready(())
@@ -186,13 +187,13 @@ impl Server {
 
 pub mod api_impl {
     wire_weaver::ww_codegen!(
-        thermo_api_w2_0 :: Thermo for super::Server,
+        thermo_api_w1 :: Thermo for super::Server,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
         omit = ["indication.brightness", "indication.identify", "indication.NAMES"],
-        debug_to_file = "../../target/thermo_w2_0_server.rs",
+        debug_to_file = "../../target/thermo_w1_server.rs",
     );
 }
 
@@ -218,13 +219,14 @@ impl tests_common::TestProcessEventsAsync for Server {
     }
 }
 
-pub fn start(path: &str) -> (Shared, tests_common::TestDevice) {
+/// The firmware saying `wire` in link setup: its own (`THERMO_WIRE_VERSION`), or another line to test refusals.
+pub fn start(path: &str, wire: WireVersion) -> (Shared, tests_common::TestDevice) {
     let shared = Shared::default();
     let server = Server {
         observe: api_impl::ObserveState::new(Default::default()),
         shared: shared.clone(),
         mode: Mode::Idle,
-        gain: Fixed::try_new(100).unwrap(),
+        gain: Fixed::try_new(1).unwrap(),
         offset: 0,
         seq: 0,
         enabled: [true; 4],
@@ -234,8 +236,8 @@ pub fn start(path: &str) -> (Shared, tests_common::TestDevice) {
     let device = tests_common::start_device_async(
         path,
         server,
-        thermo_api_w2_0::THERMO_FULL_GID,
-        thermo_api_w2_0::THERMO_WIRE_VERSION,
+        thermo_api_w1::THERMO_FULL_GID,
+        wire,
         api_impl::api_hash(),
     );
     (shared, device)

@@ -1,9 +1,8 @@
-//! Firmware of line 2, `thermo_api` 2.1.0 at w2.1, simulated.
+//! Firmware of `thermo_api` 2.0.0 at w2.0, the first revision of line 2, simulated: `w2.rs` without `self_test`.
 
-use super::Shared;
-use thermo_api_w2::{Command, Config, Mode, RateError, Sample, SelfTestError};
+use crate::Shared;
+use thermo_api_w2_0::{Command, Config, Mode, RateError, Sample};
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::WireVersion;
 use ww_si::prefix::{Centi, Milli, One};
 use ww_si::units::{Kelvin, Ratio, Second};
 use ww_si::{Fixed, Range};
@@ -138,18 +137,6 @@ impl Server {
         GetResult::Value(Fixed::new(42))
     }
 
-    /// The sensor reads open while channel 0 is disabled.
-    async fn self_test(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-    ) -> RpcResult<Result<(), SelfTestError>> {
-        RpcResult::Ready(if self.enabled[0] {
-            Ok(())
-        } else {
-            Err(SelfTestError::SensorOpen)
-        })
-    }
-
     async fn set_channel_enabled(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
@@ -199,13 +186,13 @@ impl Server {
 
 pub mod api_impl {
     wire_weaver::ww_codegen!(
-        thermo_api_w2 :: Thermo for super::Server,
+        thermo_api_w2_0 :: Thermo for super::Server,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
         omit = ["indication.brightness", "indication.identify", "indication.NAMES"],
-        debug_to_file = "../../target/thermo_w2_server.rs",
+        debug_to_file = "../../target/thermo_w2_0_server.rs",
     );
 }
 
@@ -231,8 +218,7 @@ impl tests_common::TestProcessEventsAsync for Server {
     }
 }
 
-/// The firmware saying `wire` in link setup: its own (`THERMO_WIRE_VERSION`), or another line to test refusals.
-pub fn start(path: &str, wire: WireVersion) -> (Shared, tests_common::TestDevice) {
+pub fn start(path: &str) -> (Shared, tests_common::TestDevice) {
     let shared = Shared::default();
     let server = Server {
         observe: api_impl::ObserveState::new(Default::default()),
@@ -248,8 +234,8 @@ pub fn start(path: &str, wire: WireVersion) -> (Shared, tests_common::TestDevice
     let device = tests_common::start_device_async(
         path,
         server,
-        thermo_api_w2::THERMO_FULL_GID,
-        wire,
+        thermo_api_w2_0::THERMO_FULL_GID,
+        thermo_api_w2_0::THERMO_WIRE_VERSION,
         api_impl::api_hash(),
     );
     (shared, device)

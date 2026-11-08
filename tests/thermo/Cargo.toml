@@ -10,6 +10,7 @@ repository.workspace = true
 [dependencies]
 thermo_api_w1.workspace = true
 thermo_api_w2.workspace = true
+thermo_api_w3.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
 wire_weaver.workspace = true
@@ -19,11 +20,8 @@ ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tests_common.workspace = true
-# firmware of the first revision of each line, which the driver has no client of
-thermo_api_w1_0.workspace = true
-thermo_api_w2_0.workspace = true
+# simulated firmware of every line, also of the first revision of each, which the driver has no client of
+thermo_devices.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver_core.workspace = true
 wire_weaver_evolution.workspace = true
-ww_client_server.workspace = true
-ww_stream = { workspace = true, features = ["std"] }

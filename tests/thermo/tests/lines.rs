@@ -1,8 +1,8 @@
-//! One host driver, devices of both lines (EVO-28): each simulated firmware connects through the same [Thermo], which
-//! picks the client of the device's line in one link setup; every operation behaves the same on both, or fails with
-//! an error naming what the device's line lacks.
+//! One host driver, devices of three lines (EVO-28): each simulated firmware (`thermo_devices`) connects through the
+//! same [Thermo], which picks the client of the device's line in one link setup; every operation behaves the same on
+//! each, or fails with an error naming what the device's line lacks.
 
-mod devices;
+use thermo_devices as devices;
 
 use thermo::model::{Command, Gain, Mode, Offset, Rate, SelfTestError};
 use thermo::{Error, Thermo};
@@ -28,7 +28,7 @@ fn requests(shared: &devices::Shared) -> u32 {
     shared.lock().unwrap().requests
 }
 
-/// Everything [Thermo] does, against a device of either line: `shared` is that device's state.
+/// Everything [Thermo] does, against a device of any line: `shared` is that device's state.
 async fn exercise(t: &Thermo, shared: &devices::Shared) {
     let line = t.wire().line.0;
 
@@ -42,7 +42,7 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
         Err(Error::Busy)
     ));
 
-    // the same temperature from both lines: 0.01 K steps in an i16 on line 1, 0.001 K in an i32 on line 2
+    // the same temperature from every line: 0.01 K steps in an i16 on line 1, 0.001 K in an i32 on lines 2 and 3
     let s = t.read_once().await.unwrap();
     assert_eq!(s.temp.raw(), 21_500, "21.5 °C in 0.001 K");
     assert_eq!(s.input.get(), 1);
@@ -55,7 +55,7 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
         (1, Err(Error::NotRepresentable { what: "gain", .. })) => {
             assert_eq!(requests(shared), before, "nothing sent")
         }
-        (2, Ok(())) => assert_eq!(t.gain().await.unwrap(), gain(150)),
+        (2 | 3, Ok(())) => assert_eq!(t.gain().await.unwrap(), gain(150)),
         (_, r) => panic!("line {line}: {r:?}"),
     }
 
@@ -65,7 +65,7 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
     t.set_gain(gain(300)).await.unwrap();
     while gains.recv().await.unwrap() != gain(300) {}
 
-    // a stream up and a sink down: line 1 triggers only in Mode::Triggered, which line 2 doesn't have
+    // a stream up and a sink down: line 1 triggers only in Mode::Triggered, which lines 2 and 3 don't have
     let mut samples = t.samples().await.unwrap();
     let mut commands = t.commands().await.unwrap();
     match line {
@@ -88,6 +88,12 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
     let s = samples.recv().await.unwrap();
     assert_eq!(s.seq.get(), 100);
     assert_eq!(s.temp.raw(), 21_500);
+    // line 3 sends a burst per trigger in one batch, the driver splits it into samples
+    if line == 3 {
+        for seq in 101..100 + devices::w3::BURST as u16 {
+            assert_eq!(samples.recv().await.unwrap().seq.get(), seq);
+        }
+    }
 
     // an array of sub-levels
     t.set_channel_enabled(2, false).await.unwrap();
@@ -95,19 +101,20 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
     assert!(t.channel_enabled(1).await.unwrap());
     assert_eq!(t.channel_last(3).await.unwrap().input.get(), 4);
 
-    // an argument in another resolution: 0.25 K goes to both, 0.001 K only to line 2
+    // an argument in another resolution: 0.25 K goes to every line, 0.001 K only to lines 2 and 3
     t.calibrate(Offset::new(250)).await.unwrap();
     assert_eq!(t.read_once().await.unwrap().temp.raw(), 21_750);
     let before = requests(shared);
     match (line, t.calibrate(Offset::new(1)).await) {
         (1, Err(Error::NotRepresentable { .. })) => assert_eq!(requests(shared), before),
-        (2, Ok(())) => assert_eq!(t.read_once().await.unwrap().temp.raw(), 21_501),
+        (2 | 3, Ok(())) => assert_eq!(t.read_once().await.unwrap().temp.raw(), 21_501),
         (_, r) => panic!("line {line}: {r:?}"),
     }
 
-    assert_eq!(t.uptime().await.unwrap().get(), 42);
+    // whole seconds on lines 1 and 2, milliseconds in a u64 on line 3 (in a sub-level there)
+    assert_eq!(t.uptime().await.unwrap().get(), 42_000);
 
-    // a method only line 2 has
+    // a method lines 2 and 3 have (in a sub-level on line 3)
     match (line, t.self_test().await) {
         (
             1,
@@ -115,7 +122,7 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
                 what: "self_test", ..
             }),
         ) => {}
-        (2, Ok(())) => {
+        (2 | 3, Ok(())) => {
             t.set_channel_enabled(0, false).await.unwrap();
             assert!(matches!(
                 t.self_test().await,
@@ -125,7 +132,7 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
         (_, r) => panic!("line {line}: {r:?}"),
     }
 
-    // a ww_stdlib trait, the same client and types for both lines
+    // a ww_stdlib trait, the same client and types for every line
     let indication = t.indication();
     indication
         .write_mode(ww_indication::Mode::OnlyEssential)
@@ -153,6 +160,15 @@ async fn line_2_device() {
     let (shared, device) = devices::w2::start("thermo/w2", thermo_api_w2::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
     assert_eq!(t.wire(), WireVersion::new(2, 1));
+    exercise(&t, &shared).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn line_3_device() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let (shared, device) = devices::w3::start("thermo/w3", thermo_api_w3::THERMO_WIRE_VERSION);
+    let t = connect(&device).await;
+    assert_eq!(t.wire(), WireVersion::new(3, 0));
     exercise(&t, &shared).await;
 }
 
@@ -197,42 +213,46 @@ async fn older_revisions() {
 /// A device on a line the driver has no client of is refused in link setup, the error naming every line the host
 /// speaks and who should update.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_third_line_is_refused() {
+async fn a_fourth_line_is_refused() {
     let _ = tracing_subscriber::fmt::try_init();
-    let (shared, device) = devices::w2::start("thermo/w3", WireVersion::new(3, 0));
+    let (shared, device) = devices::w3::start("thermo/w4", WireVersion::new(4, 0));
     let e = Thermo::config(|c| c.in_process_path(device.path()))
         .connect()
         .await
         .err()
-        .expect("no client of line 3");
+        .expect("no client of line 4");
     let Some(wire_weaver_client::Error::ConnectFailed { reason, .. }) =
         e.downcast_ref::<wire_weaver_client::Error>()
     else {
         panic!("{e:?}");
     };
     assert!(
-        reason.contains("is at wire w3.0")
-            && reason.contains("this host's clients at wires w2.1, w1.2")
-            && reason.contains("update the host to a client of line 3"),
+        reason.contains("is at wire w4.0")
+            && reason.contains("this host's clients at wires w3.0, w2.1, w1.2")
+            && reason.contains("update the host to a client of line 4"),
         "{reason}"
     );
     assert_eq!(requests(&shared), 0);
 }
 
-/// [Thermo::default_config] speaks both lines, and they are two lines: a host speaking one line twice, or another
+/// [Thermo::default_config] speaks three lines, and they are three lines: a host speaking one line twice, or another
 /// API, is refused when connecting (`wire_weaver_client`'s `host_of_two_lines_*` tests).
 #[test]
-fn the_driver_speaks_both_lines() {
+fn the_driver_speaks_three_lines() {
     const {
-        assert!(
-            thermo_api_w1::THERMO_WIRE_VERSION.line.0 != thermo_api_w2::THERMO_WIRE_VERSION.line.0
-        )
+        let (w1, w2, w3) = (
+            thermo_api_w1::THERMO_WIRE_VERSION.line.0,
+            thermo_api_w2::THERMO_WIRE_VERSION.line.0,
+            thermo_api_w3::THERMO_WIRE_VERSION.line.0,
+        );
+        assert!(w1 != w2 && w2 != w3 && w1 != w3)
     };
     let _ = Thermo::default_config();
 }
 
-/// `ww api check` agrees on the break: line 2 against line 1 needs a new line and a breaking crate bump, and the
-/// versions chosen have both. Each line's later revision needs a new revision and a minor bump.
+/// `ww api check` agrees on both breaks: line 2 against line 1 and line 3 against line 2 each need a new line and a
+/// breaking crate bump, and the versions chosen have both. Each line's later revision needs a new revision and a
+/// minor bump.
 #[test]
 fn checker_agrees_on_both_bumps() {
     use wire_weaver_evolution::{Change, WireBump, compare, snapshot_files::triplet};
@@ -290,6 +310,26 @@ fn checker_agrees_on_both_bumps() {
             breaking.iter().any(|m| m.contains(rust)),
             "{rust} not in {breaking:#?}"
         );
+    }
+
+    // line 2 -> line 3: the batched stream, the tree moved, uptime in another unit and type
+    let w3 = load("w3");
+    let report = compare(&w2, &w3).unwrap();
+    assert_eq!(report.change, Change::Breaking);
+    assert_eq!(report.wire_bump, WireBump::Line);
+    assert_eq!(report.minimal_wire(), Some(WireVersion::new(3, 0)));
+    assert_eq!(triplet(&report.minimal_version()), "3.0.0");
+    report.check_version().unwrap();
+    report.check_wire().unwrap();
+    // matched by position again: the batch is reported as `Sample` changed, the moves into `health` as a rename and
+    // a removal (EVO-33)
+    let reasons = report.wire_reasons.join("\n");
+    for broke in [
+        "type thermo_api::Sample changed",
+        "Thermo::uptime: a property on the old version, a trait on the new version",
+        "Thermo::self_test removed",
+    ] {
+        assert!(reasons.contains(broke), "{broke} not in:\n{reasons}");
     }
 
     for (old, new, wire, crate_version) in

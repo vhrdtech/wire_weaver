@@ -252,6 +252,8 @@ thermo_api_w1 = { package = "thermo_api", version = "1.2.0", path = "./tests/the
 thermo_api_w1_0 = { package = "thermo_api", version = "1.0.0", path = "./tests/thermo_api/w1_0" }
 thermo_api_w2 = { package = "thermo_api", version = "2.1.0", path = "./tests/thermo_api/w2" }
 thermo_api_w2_0 = { package = "thermo_api", version = "2.0.0", path = "./tests/thermo_api/w2_0" }
+thermo_api_w3 = { package = "thermo_api", version = "3.0.0", path = "./tests/thermo_api/w3" }
+thermo_devices = { version = "0.1.0", path = "./tests/thermo_devices" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 uid_api = { version = "0.1.0", path = "./tests/uid_api" }

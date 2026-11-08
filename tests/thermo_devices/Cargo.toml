@@ -1,0 +1,26 @@
+[package]
+name = "thermo_devices"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "thermo_pytest_devices"
+path = "src/bin/thermo_pytest_devices.rs"
+
+[dependencies]
+tests_common.workspace = true
+thermo_api_w1.workspace = true
+thermo_api_w1_0.workspace = true
+thermo_api_w2.workspace = true
+thermo_api_w2_0.workspace = true
+thermo_api_w3.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_hub.workspace = true
+ww_indication = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }
+ww_stream = { workspace = true, features = ["std"] }

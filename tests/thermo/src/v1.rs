@@ -67,6 +67,11 @@ fn gain(
         .expect("line-1 gain fits the model's"))
 }
 
+/// Whole seconds in a `u32` always fit milliseconds in a `u64`.
+fn uptime(s: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::One, u32>) -> Uptime {
+    s.to().expect("seconds in u32 fit milliseconds in u64")
+}
+
 fn command(c: model::Command) -> Result<api::Command> {
     Ok(match c {
         model::Command::Trigger => api::Command::Trigger,
@@ -193,10 +198,12 @@ impl Backend for Client {
 
     fn uptime(&self) -> Fut<'_, Uptime> {
         Box::pin(async move {
-            self.read_uptime()
+            let s = self
+                .read_uptime()
                 .read()
                 .await
-                .map_err(|e| Error::from(e).of("uptime"))
+                .map_err(|e| Error::from(e).of("uptime"))?;
+            Ok(uptime(s))
         })
     }
 

@@ -1,5 +1,5 @@
-//! What the application sees of a device, whatever its line: one implementation per line (`v1.rs`, `v2.rs`), chosen
-//! once at connect time. A trait object rather than an `enum { V1, V2 }`: a new line is a new module and one arm in
+//! What the application sees of a device, whatever its line: one implementation per line (`v1.rs` to `v3.rs`), chosen
+//! once at connect time. A trait object rather than an `enum { V1, V2, V3 }`: a new line is a new module and one arm in
 //! `Thermo::from_cmd`, no method of [crate::Thermo] grows an arm per line.
 
 use crate::error::Result;
@@ -92,6 +92,40 @@ where
         Box::pin(async move {
             let item = (self.f)(command)?;
             Ok(self.sink.send_owned(item).await?)
+        })
+    }
+}
+
+/// A line's stream of `A`, each item split into several `T` by `f` (line 3 sends batches of samples).
+pub(crate) struct SplitStreamOf<A, T> {
+    pub(crate) stream: wire_weaver_client::Stream<A>,
+    pub(crate) f: fn(A) -> Result<Vec<T>>,
+    pub(crate) pending: std::collections::VecDeque<T>,
+}
+
+impl<A, T> SplitStreamOf<A, T> {
+    pub(crate) fn new(stream: wire_weaver_client::Stream<A>, f: fn(A) -> Result<Vec<T>>) -> Self {
+        Self {
+            stream,
+            f,
+            pending: Default::default(),
+        }
+    }
+}
+
+impl<A, T> Updates<T> for SplitStreamOf<A, T>
+where
+    A: wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned + Send + 'static,
+    T: Send + 'static,
+{
+    fn recv(&mut self) -> Fut<'_, T> {
+        Box::pin(async move {
+            loop {
+                if let Some(item) = self.pending.pop_front() {
+                    return Ok(item);
+                }
+                self.pending = (self.f)(self.stream.recv().await?)?.into();
+            }
         })
     }
 }

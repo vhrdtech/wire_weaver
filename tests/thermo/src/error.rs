@@ -9,7 +9,7 @@ pub enum Error {
     Client(wire_weaver_client::Error),
     #[error(transparent)]
     Stream(#[from] StreamError),
-    /// `RateError::Busy` of either line.
+    /// `RateError::Busy` of any line.
     #[error("the device is busy with a triggered sample")]
     Busy,
     #[error("self test failed: {0:?}")]

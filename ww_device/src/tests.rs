@@ -15,8 +15,8 @@ use wire_weaver::shrink_wrap::{
 use wire_weaver::{BlockingEventOut, WireWeaverApiBackend};
 use ww_client_server::{ErrorKind, Event, EventKind};
 use ww_link::{
-    ApiHashPair, CompactVersion, DisconnectReason, FullVersion, Kind, LinkSetup, Message,
-    PEER_TIMEOUT_MS, PING_INTERVAL_MS, UsbFraming,
+    ApiHashPair, CompactVersion, DisconnectReason, FullVersion, Hello, Kind, LinkSetup, Message,
+    PEER_TIMEOUT_MS, PING_INTERVAL_MS, Role, UsbFraming,
 };
 use ww_version::Version;
 
@@ -48,7 +48,7 @@ fn ww_global_gid() -> ww_version::GlobalTypeId {
 const TOKEN: u64 = 0x5EED_0000_0000_0001;
 
 fn get_device_info() -> Message<'static> {
-    Message::GetDeviceInfo { token: TOKEN }
+    Message::Hello(Hello::new(Role::Host, ww_client_server::GENERATION, TOKEN))
 }
 
 /// Transmits in a form that is easy to compare: decoded kind, or None for Flush
@@ -121,6 +121,46 @@ fn connect(link: &mut DeviceLink<'_>, now: Instant) -> Vec<Tx> {
     sent
 }
 
+/// A host of another generation gets the device's hello alone, and its LinkSetup is refused: the hello names the
+/// layer, nothing it can't read follows.
+#[test]
+fn hello_of_other_generations() {
+    let now = Instant::from_millis(100);
+    let mut link = DeviceLink::new(config(), 512);
+    let mut scratch = [0u8; 256];
+    link.on_transport_up(now);
+    let mut hello = Hello::new(Role::Host, ww_client_server::GENERATION, TOKEN);
+    hello.generations.shrink_wrap += 1;
+    feed(&mut link, now, &Message::Hello(hello), &mut scratch);
+    let sent = drain(&mut link, now);
+    assert_eq!(
+        kinds(&sent),
+        [Some(Kind::Nop), None, Some(Kind::Hello), None]
+    );
+    let Tx::Msg(_, reply) = &sent[3] else {
+        panic!()
+    };
+    let reply = Hello::from_bytes(reply).unwrap();
+    assert_eq!((reply.role, reply.token), (Role::Device, TOKEN));
+    let m = reply.generations.mismatch(&hello.generations).unwrap();
+    assert_eq!(
+        (m.layer, m.ours, m.theirs),
+        (ww_link::hello::Layer::ShrinkWrap, 1, 2)
+    );
+
+    // a host that goes on anyway is refused
+    let host = FullVersion::new("test_api", Version::new(0, 3, 0));
+    feed(&mut link, now, &link_setup(host), &mut scratch);
+    assert_eq!(
+        kinds(&drain(&mut link, now)),
+        [Some(Kind::Disconnect), None]
+    );
+    assert!(!link.is_up());
+    // a hello of the same generations then connects as usual
+    connect(&mut link, now);
+    assert!(link.is_up());
+}
+
 #[test]
 fn link_setup_sequence() {
     let now = Instant::from_millis(100);
@@ -132,6 +172,8 @@ fn link_setup_sequence() {
         [
             Some(Kind::Nop),
             None,
+            Some(Kind::Hello),
+            None,
             Some(Kind::DeviceInfo),
             None,
             Some(Kind::LinkReady),
@@ -139,7 +181,18 @@ fn link_setup_sequence() {
         ],
         "Nop is flushed alone, control messages are flushed right away"
     );
-    let Tx::Msg(_, info) = &sent[3] else { panic!() };
+    let Tx::Msg(_, hello) = &sent[3] else {
+        panic!()
+    };
+    assert_eq!(
+        Hello::from_bytes(hello),
+        Ok(Hello::new(
+            Role::Device,
+            ww_client_server::GENERATION,
+            TOKEN
+        ))
+    );
+    let Tx::Msg(_, info) = &sent[5] else { panic!() };
     let Message::DeviceInfo(info) = Message::decode(Kind::DeviceInfo as u8, info).unwrap() else {
         panic!()
     };
@@ -148,7 +201,7 @@ fn link_setup_sequence() {
     assert_eq!(info.dev_link_version, ww_link::LINK_VERSION);
     assert_eq!(info.user_api_version.crate_id, "test_api");
     assert_eq!(info.token, TOKEN);
-    let Tx::Msg(_, ready) = &sent[5] else {
+    let Tx::Msg(_, ready) = &sent[7] else {
         panic!()
     };
     assert!(matches!(
@@ -167,7 +220,7 @@ fn new_session_before_reply() {
     let mut scratch = [0u8; 256];
     link.on_transport_up(now);
     feed(&mut link, now, &get_device_info(), &mut scratch);
-    // the framer starts a new session before anything of the reply, on every GetDeviceInfo
+    // the framer starts a new session before anything of the reply, on every hello
     let sent = drain(&mut link, now);
     assert_eq!(sent[0], Tx::NewSession);
     assert_eq!(sent.iter().filter(|t| **t == Tx::NewSession).count(), 1);
@@ -183,13 +236,8 @@ fn hosts_without_a_token_or_with_a_stale_one() {
     link.on_transport_up(now);
     let host = || FullVersion::new("test_api", Version::new(0, 3, 0));
 
-    // a host built before the token: refused with IncompatibleVersion, no DeviceInfo
-    feed(
-        &mut link,
-        now,
-        &Message::GetDeviceInfo { token: 0 },
-        &mut scratch,
-    );
+    // a host built before the hello (its token alone): refused with IncompatibleVersion, no DeviceInfo
+    link.handle_message(now, Kind::Hello as u8, &[0, 0, 0, 0, 0, 0, 0, 0]);
     let sent = drain(&mut link, now);
     assert_eq!(kinds(&sent), [Some(Kind::Disconnect), None]);
     let Tx::Msg(_, reason) = &sent[0] else {
@@ -212,7 +260,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
     );
     assert!(!link.is_up());
 
-    // a LinkSetup of an earlier session (its host restarted and sent a new GetDeviceInfo since) is ignored
+    // a LinkSetup of an earlier session (its host restarted and sent a new hello since) is ignored
     feed(&mut link, now, &get_device_info(), &mut scratch);
     drain(&mut link, now);
     let stale = Message::LinkSetup(LinkSetup {
@@ -284,7 +332,7 @@ fn incompatible_and_dynamic_hosts() {
     let mut link = DeviceLink::new(config(), 512);
     link.on_transport_up(now);
     let mut scratch = [0u8; 256];
-    // LinkSetup is only taken with the token of a GetDeviceInfo before it
+    // LinkSetup is only taken with the token of a hello before it
     feed(&mut link, now, &get_device_info(), &mut scratch);
     drain(&mut link, now);
 
@@ -356,7 +404,14 @@ fn stragglers_and_session_changes() {
     );
     assert_eq!(
         kinds(&drain(&mut link, now)),
-        [Some(Kind::Nop), None, Some(Kind::DeviceInfo), None]
+        [
+            Some(Kind::Nop),
+            None,
+            Some(Kind::Hello),
+            None,
+            Some(Kind::DeviceInfo),
+            None
+        ]
     );
 
     connect(&mut link, now);
@@ -618,6 +673,7 @@ fn blocking_server() {
         kinds,
         [
             Kind::Nop,
+            Kind::Hello,
             Kind::DeviceInfo,
             Kind::LinkReady,
             Kind::Data0,
@@ -629,7 +685,7 @@ fn blocking_server() {
             Kind::Disconnect
         ]
     );
-    let events: Vec<Event<'_>> = received[3..9]
+    let events: Vec<Event<'_>> = received[4..10]
         .iter()
         .map(|(_, bytes)| Event::from_ww_bytes(bytes).unwrap())
         .collect();

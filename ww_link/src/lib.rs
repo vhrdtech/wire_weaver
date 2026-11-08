@@ -20,6 +20,9 @@ pub use ww_version::{ApiHashPairOwned, FullVersionOwned};
 
 pub use wire_weaver::DisconnectReason;
 
+pub mod hello;
+pub use hello::{Generations, Hello, Role};
+
 /// Framer configuration of a frame based medium: both ends of a link must use the same one.
 pub trait Framing {
     type Head: Head<UserKind = u8>;
@@ -66,7 +69,7 @@ pub type FramingRxOwned<F> = ww_framer::FramedRxOwned<
 pub type UsbHead = U2Head;
 /// No checksum: USB checks every packet with its own CRC and retries, and bulk endpoints deliver in order without
 /// losing packets within a session (a full host just NAKs). Frames left over from a previous session are told
-/// apart by the link setup token, see [Message::GetDeviceInfo].
+/// apart by the link setup token, see [Message::Hello].
 pub type UsbChecksum = NopChecksum;
 /// Frame based media (USB, CAN, etc.) do not need a delimiter.
 pub type UsbTail = NopTail;
@@ -204,10 +207,12 @@ pub enum Kind {
     /// If USB data toggle bits are messed up after re-connection, this ensures no useful packets are lost.
     Nop = 3,
 
-    /// Sent from host to device to get device info, with the host's [setup token](Message::GetDeviceInfo).
-    /// Starts a new session on the device: its transmit framer drops whatever is left of the previous one.
-    GetDeviceInfo = 4,
-    /// Sent from device to host in response to GetDeviceInfo with [DeviceInfo] struct, echoing the token.
+    /// The frozen [Hello] that opens link setup, sent both ways: by the host with its [setup token](Message::Hello),
+    /// by the device in answer, echoing it. Starts a new session on the device: its transmit framer drops whatever
+    /// is left of the previous one.
+    Hello = 4,
+    /// Sent from device to host right after its [Kind::Hello] when every generation matches, with [DeviceInfo],
+    /// echoing the token.
     DeviceInfo = 5,
 
     /// Sent from host to device with its link, client server, and user versions ([LinkSetup]).
@@ -247,7 +252,7 @@ impl Kind {
             1 => Kind::Data1,
             2 => Kind::Data2,
             3 => Kind::Nop,
-            4 => Kind::GetDeviceInfo,
+            4 => Kind::Hello,
             5 => Kind::DeviceInfo,
             6 => Kind::LinkSetup,
             7 => Kind::LinkReady,
@@ -261,7 +266,7 @@ impl Kind {
     }
 }
 
-/// Sent from device to host in response to [Kind::GetDeviceInfo].
+/// Sent from device to host after its [Kind::Hello], when every generation matched the host's.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
@@ -280,8 +285,7 @@ pub struct DeviceInfo<'i> {
     pub dev_max_message_len: u32,
     /// Configures host side to use the same value
     pub packet_accumulation_time_us: u16,
-    /// The token of the [Kind::GetDeviceInfo] this answers, see [Message::GetDeviceInfo]. 0 from a device built
-    /// before the token existed.
+    /// The token of the host's [Kind::Hello] this answers, see [Message::Hello].
     #[default = 0]
     pub token: u64,
     /// What this firmware image chose at build time and the API doesn't show, outside [DeviceInfo::hash]. All zero
@@ -390,14 +394,11 @@ pub enum Message<'i> {
         bytes: &'i [u8],
     },
     Nop,
-    /// `token` is a random, non-zero number the host picks per connection (`u64`, little endian). The device
-    /// echoes it in [DeviceInfo::token] and [Message::LinkReady], and the host drops everything that arrives
-    /// before the reply carrying it: whatever was still on the way from a previous session (an answer already in
-    /// the device's IN buffer, a half-sent message) is never taken for the new one. 0 (no payload) from a host
-    /// built before the token existed.
-    GetDeviceInfo {
-        token: u64,
-    },
+    /// The frozen hello, see [hello]. Its `token` is a random, non-zero number the host picks per connection. The
+    /// device echoes it in its own hello, [DeviceInfo::token] and [Message::LinkReady], and the host drops everything
+    /// that arrives before the device's hello carrying it: whatever was still on the way from a previous session (an
+    /// answer already in the device's IN buffer, a half-sent message) is never taken for the new one.
+    Hello(Hello),
     DeviceInfo(DeviceInfo<'i>),
     LinkSetup(LinkSetup<'i>),
     /// `token` echoes [LinkSetup::token] (`u64`, little endian), 0 (no payload) from a device built before it existed.
@@ -436,7 +437,7 @@ impl<'i> Message<'i> {
                 _ => Kind::Data2,
             },
             Message::Nop => Kind::Nop,
-            Message::GetDeviceInfo { .. } => Kind::GetDeviceInfo,
+            Message::Hello(_) => Kind::Hello,
             Message::DeviceInfo(_) => Kind::DeviceInfo,
             Message::LinkSetup(_) => Kind::LinkSetup,
             Message::LinkReady { .. } => Kind::LinkReady,
@@ -459,9 +460,9 @@ impl<'i> Message<'i> {
                 bytes: payload,
             },
             Kind::Nop => Message::Nop,
-            Kind::GetDeviceInfo => Message::GetDeviceInfo {
-                token: read_token(&mut rd).map_err(malformed)?,
-            },
+            Kind::Hello => {
+                Message::Hello(Hello::from_bytes(payload).map_err(|_| Error::Malformed(kind))?)
+            }
             Kind::DeviceInfo => {
                 Message::DeviceInfo(DeviceInfo::des_shrink_wrap(&mut rd).map_err(malformed)?)
             }
@@ -501,9 +502,8 @@ impl<'i> Message<'i> {
             Message::Data { bytes, .. } => return Ok((kind, bytes)),
             Message::Stats(bytes) => return Ok((kind, bytes)),
             Message::Nop | Message::Ping | Message::GetStats => {}
-            Message::GetDeviceInfo { token } | Message::LinkReady { token } => {
-                wr.write_u64(*token).map_err(too_small)?
-            }
+            Message::Hello(hello) => wr.write_raw_slice(&hello.to_bytes()).map_err(too_small)?,
+            Message::LinkReady { token } => wr.write_u64(*token).map_err(too_small)?,
             Message::DeviceInfo(info) => info.ser_shrink_wrap(&mut wr).map_err(too_small)?,
             Message::LinkSetup(setup) => setup.ser_shrink_wrap(&mut wr).map_err(too_small)?,
             Message::Loopback { repeat, seq, data } => {
@@ -623,9 +623,11 @@ mod tests {
             bytes: &[1, 2, 3],
         });
         round_trip(Message::Nop);
-        round_trip(Message::GetDeviceInfo {
-            token: 0x0123_4567_89AB_CDEF,
-        });
+        round_trip(Message::Hello(Hello::new(
+            Role::Host,
+            1,
+            0x0123_4567_89AB_CDEF,
+        )));
         round_trip(Message::DeviceInfo(DeviceInfo {
             dev_link_version: CompactVersion::new(ww_global::WIRE_WEAVER_USB_LINK, 1, 2, 3),
             api_model_version: CompactVersion::new(ww_global::WW_CLIENT_SERVER, 0, 2, 0),
@@ -663,15 +665,15 @@ mod tests {
     #[test]
     fn token_bytes_and_peers_without_one() {
         let mut scratch = [0u8; 16];
-        let (kind, payload) = Message::GetDeviceInfo { token: 0x0102 }
+        let (kind, payload) = Message::Hello(Hello::new(Role::Host, 1, 0x0102))
             .encode(&mut scratch)
             .unwrap();
-        assert_eq!(kind, Kind::GetDeviceInfo as u8);
-        assert_eq!(payload, &[0x02, 0x01, 0, 0, 0, 0, 0, 0]);
-        // an older peer sends no payload
+        assert_eq!(kind, Kind::Hello as u8);
+        assert_eq!(&payload[8..], &[0x02, 0x01, 0, 0, 0, 0, 0, 0]);
+        // a host from before the hello sent the token alone: not a hello
         assert!(matches!(
-            Message::decode(Kind::GetDeviceInfo as u8, &[]),
-            Ok(Message::GetDeviceInfo { token: 0 })
+            Message::decode(Kind::Hello as u8, &[0x02, 0x01, 0, 0, 0, 0, 0, 0]),
+            Err(Error::Malformed(Kind::Hello))
         ));
         assert!(matches!(
             Message::decode(Kind::LinkReady as u8, &[]),

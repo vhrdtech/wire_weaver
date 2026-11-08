@@ -267,7 +267,7 @@ pub(crate) mod link_setup_timeout {
     pub const RTT: Duration = Duration::from_secs(10);
 }
 
-/// When `GetDeviceInfo` is re-sent during link setup, derived from the timeout (one setting to adjust): the first
+/// When the hello is re-sent during link setup, derived from the timeout (one setting to adjust): the first
 /// retry comes after 1/20 of it (10..500 ms), then the interval doubles up to 1/4 of the timeout, so a slow medium
 /// is not flooded with copies of the request, while a fast one still gets several chances.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

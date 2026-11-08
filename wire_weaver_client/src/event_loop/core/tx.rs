@@ -10,7 +10,7 @@ use ww_link::{DisconnectReason, LinkSetup, Message};
 use ww_version::{FullVersionOwned, VersionOwned};
 
 use super::loopback::{LOOPBACK_HEADER_LEN, LoopbackTest, Status, TestOut};
-use super::{FullRetry, ToRx, ToTx, is_due};
+use super::{FullRetry, ToRx, ToTx, host_hello, is_due};
 use crate::DEFAULT_MAX_MESSAGE_LEN;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{
@@ -83,8 +83,8 @@ enum Phase {
     Exited,
     /// [TxOutput::Connect] emitted, waiting for the transport
     Connecting,
-    /// Sending GetDeviceInfo until rx reports DeviceInfo
-    GetDeviceInfo,
+    /// Sending the hello until rx reports DeviceInfo
+    Hello,
     /// LinkSetup sent, waiting for rx to report LinkReady
     LinkSetup,
     /// Data can be exchanged
@@ -423,7 +423,7 @@ impl TxCore {
     /// them.
     pub fn poll_timeout(&self) -> Option<Instant> {
         match self.phase {
-            Phase::GetDeviceInfo => self.next_link_setup_retry_at,
+            Phase::Hello => self.next_link_setup_retry_at,
             Phase::Up => [
                 self.flush_due(),
                 self.next_ping_at,
@@ -666,7 +666,7 @@ impl TxCore {
     ) {
         if matches!(
             self.phase,
-            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup | Phase::Paused
+            Phase::Connecting | Phase::Hello | Phase::LinkSetup | Phase::Paused
         ) || self.loopback.is_some()
         {
             trace!("holding SendMessage until link is up and no loopback test runs");
@@ -825,7 +825,7 @@ impl TxCore {
         if let Some(a) = self.adopt.take() {
             return self.adopted(now, *a);
         }
-        self.phase = Phase::GetDeviceInfo;
+        self.phase = Phase::Hello;
         let pacing = LinkSetupPacing::new(self.link_setup_timeout);
         self.link_setup_deadline = Some(now + pacing.timeout);
         self.link_setup_interval = pacing.first_interval();
@@ -863,7 +863,7 @@ impl TxCore {
     fn on_from_rx(&mut self, now: Instant, msg: ToTx) -> anyhow::Result<Flow> {
         match msg {
             ToTx::DeviceInfo(info) => {
-                if self.phase != Phase::GetDeviceInfo {
+                if self.phase != Phase::Hello {
                     warn!("unexpected DeviceInfo in {:?}, ignoring", self.phase);
                     return Ok(Flow::Continue);
                 }
@@ -951,11 +951,11 @@ impl TxCore {
 
     fn on_timer(&mut self, now: Instant) -> anyhow::Result<Flow> {
         match self.phase {
-            Phase::GetDeviceInfo => {
+            Phase::Hello => {
                 if is_due(self.next_link_setup_retry_at, now) {
                     let deadline = self.link_setup_deadline.unwrap_or(now);
                     if now < deadline {
-                        warn!("resending GetDeviceInfo after no answer received from device");
+                        warn!("resending the hello after no answer received from device");
                         self.link_setup_interval = LinkSetupPacing::new(self.link_setup_timeout)
                             .next_interval(self.link_setup_interval);
                         // the last wait ends at the deadline, nothing is re-sent then
@@ -1031,7 +1031,7 @@ impl TxCore {
     ) {
         if matches!(
             self.phase,
-            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup | Phase::Paused
+            Phase::Connecting | Phase::Hello | Phase::LinkSetup | Phase::Paused
         ) && self.loopback_held.is_none()
         {
             trace!("holding the loopback test until the link is up");
@@ -1162,11 +1162,11 @@ impl TxCore {
 
     fn send_get_device_info(&mut self, now: Instant) -> anyhow::Result<()> {
         // Nop is flushed alone first: if USB data toggle bits are messed up after re-connection,
-        // the first packet might get lost and this ensures it's not GetDeviceInfo.
+        // the first packet might get lost and this ensures it's not the hello.
         self.send(&Message::Nop)?;
         self.flush(now);
         // the same token on every retry: a late answer to an earlier one is as good
-        self.send(&Message::GetDeviceInfo { token: self.token })?;
+        self.send(&Message::Hello(host_hello(self.token)))?;
         self.flush(now);
         Ok(())
     }
@@ -1175,10 +1175,7 @@ impl TxCore {
     fn send_disconnect(&mut self, now: Instant, reason: DisconnectReason) {
         // first: the other side may close the medium as soon as it reads the Disconnect, before rx hears Stop
         self.output.push_back(TxOutput::ToRx(ToRx::Disconnecting));
-        if matches!(
-            self.phase,
-            Phase::GetDeviceInfo | Phase::LinkSetup | Phase::Up
-        ) {
+        if matches!(self.phase, Phase::Hello | Phase::LinkSetup | Phase::Up) {
             _ = self.send(&Message::Disconnect(reason));
             self.flush(now);
         }

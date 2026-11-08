@@ -22,6 +22,11 @@ pub use owned::{FramedRxOwned, TxOwned};
 pub use pieces::{Piece, Pieces, pieces};
 pub use tx::Tx;
 
+/// Generation of the frame layout, sent in the link setup hello (`ww_link::Hello`): it counts only breaks of the
+/// bytes a framer writes, additions never change it. A peer of another generation can't read this one's frames, and
+/// the hello, frozen per medium, is what tells the two apart.
+pub const GENERATION: u8 = 1;
+
 /// Marks the configuration types (head, checksum, tail, prefix) a framer is generic over without holding any of
 /// them, so a framer is `Send` and `Sync` whatever they are.
 pub(crate) type ConfigMarker<T> = core::marker::PhantomData<fn() -> T>;

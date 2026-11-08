@@ -199,7 +199,20 @@ fn is_due(deadline: Option<Instant>, now: Instant) -> bool {
 }
 
 // TODO: lookup from ww_global
-/// A random, non-zero link setup token for one connection (`ww_link::Message::GetDeviceInfo`). `RandomState` keys
+/// This build's generations, sent in the host's hello and compared with the device's (EVO-23).
+pub(crate) const GENERATIONS: ww_link::Generations =
+    ww_link::Generations::this_build(ww_client_server::GENERATION);
+
+/// The hello the host opens link setup with.
+pub(crate) fn host_hello(token: u64) -> ww_link::Hello {
+    ww_link::Hello {
+        role: ww_link::Role::Host,
+        generations: GENERATIONS,
+        token,
+    }
+}
+
+/// A random, non-zero link setup token for one connection (`ww_link::Message::Hello`). `RandomState` keys
 /// are random per process and differ per call, the time and process id mix in more; it only has to differ from
 /// the token of an earlier session, it guards against stale messages, not against an attacker.
 pub(crate) fn new_setup_token() -> u64 {
@@ -736,6 +749,13 @@ mod tests {
         sent.iter().map(|s| s.kind).collect()
     }
 
+    fn device_hello(token: u64) -> Message<'static> {
+        Message::Hello(ww_link::Hello {
+            role: ww_link::Role::Device,
+            ..host_hello(token)
+        })
+    }
+
     fn device_info(token: u64) -> Message<'static> {
         Message::DeviceInfo(DeviceInfo {
             dev_link_version: ww_link::LINK_VERSION,
@@ -749,26 +769,27 @@ mod tests {
         })
     }
 
+    fn connect_cmd(connected_tx: oneshot::Sender<ConnectionInfo>) -> Command {
+        Command::Connect {
+            handle: Box::new(()),
+            max_seq: crate::DEFAULT_MAX_SEQ,
+            max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
+            link_setup_timeout_ms: None,
+            tap: None,
+            client_meta: None,
+            client_version: Box::new(FullVersionOwned::new(
+                "test".into(),
+                VersionOwned::new(0, 1, 0),
+            )),
+            keep_streams_on_loss: false,
+            connected_tx: Some(connected_tx),
+            failed_tx: None,
+        }
+    }
+
     fn connect(p: &mut Pair, now: Instant) -> oneshot::Receiver<ConnectionInfo> {
         let (connected_tx, connected_rx) = oneshot::channel();
-        p.cmd(
-            now,
-            Command::Connect {
-                handle: Box::new(()),
-                max_seq: crate::DEFAULT_MAX_SEQ,
-                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
-                link_setup_timeout_ms: None,
-                tap: None,
-                client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "test".into(),
-                    VersionOwned::new(0, 1, 0),
-                )),
-                keep_streams_on_loss: false,
-                connected_tx: Some(connected_tx),
-                failed_tx: None,
-            },
-        );
+        p.cmd(now, connect_cmd(connected_tx));
         assert_eq!(p.connects, 1);
         assert!(p.take_sent().is_empty());
         assert_eq!(p.tx.poll_timeout(), None);
@@ -776,10 +797,11 @@ mod tests {
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
         let sent = p.take_sent();
-        assert_eq!(kinds(&sent), [Kind::Nop, Kind::GetDeviceInfo]);
+        assert_eq!(kinds(&sent), [Kind::Nop, Kind::Hello]);
         assert_ne!(sent[0].frame, sent[1].frame, "Nop is flushed alone");
         assert_eq!(p.tx.poll_timeout(), Some(now + RETRY));
 
+        p.feed_from_device(now, &device_hello(p.tx.token()));
         p.feed_from_device(now, &device_info(p.tx.token()));
         let sent = p.take_sent();
         assert_eq!(kinds(&sent), [Kind::LinkSetup]);
@@ -809,31 +831,15 @@ mod tests {
         connected_rx
     }
 
-    /// A device built before the setup token answers without one: a clear error, not a setup timeout. A DeviceInfo
-    /// with another token is from a previous session and dropped, as is anything before this session's one.
+    /// Before the device's hello with this session's token, everything is from a previous session and dropped. A
+    /// device built before the hello echoes the first 8 bytes of ours as its token: a clear error, not a setup
+    /// timeout.
     #[test]
-    fn device_without_token_and_stale_device_info() {
+    fn device_before_hello_and_stale_setup_messages() {
         let now = Instant::now();
         let mut p = Pair::new();
         let (connected_tx, mut connected_rx) = oneshot::channel();
-        p.cmd(
-            now,
-            Command::Connect {
-                handle: Box::new(()),
-                max_seq: crate::DEFAULT_MAX_SEQ,
-                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
-                link_setup_timeout_ms: None,
-                tap: None,
-                client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "test".into(),
-                    VersionOwned::new(0, 1, 0),
-                )),
-                keep_streams_on_loss: false,
-                connected_tx: Some(connected_tx),
-                failed_tx: None,
-            },
-        );
+        p.cmd(now, connect_cmd(connected_tx));
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
         p.take_sent();
@@ -844,13 +850,64 @@ mod tests {
                 token: p.tx.token(),
             },
         );
-        p.feed_from_device(now, &device_info(p.tx.token() ^ 1));
+        p.feed_from_device(now, &device_info(p.tx.token()));
+        p.feed_from_device(now, &device_hello(p.tx.token() ^ 1));
         assert!(p.take_sent().is_empty());
         assert!(connected_rx.try_recv().is_err());
         // an older device
-        p.feed_from_device(now, &device_info(0));
+        let mut old = [0u8; 8];
+        old.copy_from_slice(&host_hello(p.tx.token()).to_bytes()[..8]);
+        p.feed_from_device(now, &device_info(u64::from_le_bytes(old)));
         let e = connected_rx.try_recv().unwrap().result.unwrap_err();
-        assert!(format!("{e:#}").contains("without setup token"), "{e:#}");
+        assert!(format!("{e:#}").contains("before the hello"), "{e:#}");
+    }
+
+    /// A device of another generation answers with its hello alone: the host names the layer and says to update
+    /// itself, and sends no LinkSetup.
+    #[test]
+    fn device_of_another_generation() {
+        for (device_gen, advice) in [(2, "update the host"), (0, "update the device firmware")] {
+            let now = Instant::now();
+            let mut p = Pair::new();
+            let (connected_tx, mut connected_rx) = oneshot::channel();
+            p.cmd(now, connect_cmd(connected_tx));
+            p.tx.handle(now, TxInput::TransportUp);
+            p.settle(now);
+            p.take_sent();
+            let mut hello = host_hello(p.tx.token());
+            hello.role = ww_link::Role::Device;
+            hello.generations.api_model = device_gen;
+            p.feed_from_device(now, &Message::Hello(hello));
+            assert!(p.take_sent().is_empty(), "no LinkSetup");
+            let e = connected_rx.try_recv().unwrap().result.unwrap_err();
+            let e = format!("{e:#}");
+            assert!(
+                e.contains(&format!("API model generation {device_gen}")) && e.contains(advice),
+                "{e}"
+            );
+        }
+    }
+
+    /// Setup messages a host can't read are reported with their bytes, not as a bare decode error or a timeout.
+    #[test]
+    fn unknown_peer_format() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let (connected_tx, mut connected_rx) = oneshot::channel();
+        p.cmd(now, connect_cmd(connected_tx));
+        p.tx.handle(now, TxInput::TransportUp);
+        p.settle(now);
+        p.take_sent();
+        p.rx.handle(
+            now,
+            RxInput::Message {
+                kind: Kind::Hello as u8,
+                message: &[0xde, 0xad],
+            },
+        );
+        p.settle(now);
+        let e = connected_rx.try_recv().unwrap().result.unwrap_err();
+        assert!(format!("{e:#}").contains("kind 4, bytes de ad"), "{e:#}");
     }
 
     /// Default priority requests wait for the window, however few they are; an urgent one (CLT-50) flushes at
@@ -1125,7 +1182,8 @@ mod tests {
         p.tx.relink(now);
         p.settle(now);
         assert_ne!(p.tx.token(), old_token);
-        assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::GetDeviceInfo]);
+        assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::Hello]);
+        p.feed_from_device(now, &device_hello(p.tx.token()));
         p.feed_from_device(now, &device_info(p.tx.token()));
         assert_eq!(kinds(&p.take_sent()), [Kind::LinkSetup]);
         p.feed_from_device(
@@ -1536,10 +1594,11 @@ mod tests {
         );
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
+        p.feed_from_device(now, &device_hello(p.tx.token()));
         p.feed_from_device(now, &device_info(p.tx.token()));
         assert_eq!(
             kinds(&p.take_sent()),
-            [Kind::Nop, Kind::GetDeviceInfo, Kind::LinkSetup]
+            [Kind::Nop, Kind::Hello, Kind::LinkSetup]
         );
     }
 
@@ -1662,6 +1721,7 @@ mod tests {
             assert!(p.tx_exit.is_none());
         }
         p.take_sent();
+        p.feed_from_device(now, &device_hello(p.tx.token()));
         p.feed_from_device(now, &device_info(p.tx.token()));
         assert_eq!(kinds(&p.take_sent()), [Kind::LinkSetup]);
         assert!(p.tx_exit.is_none());
@@ -1714,7 +1774,7 @@ mod tests {
             );
             now += Duration::from_millis(*wait);
             p.timers(now);
-            assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::GetDeviceInfo]);
+            assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::Hello]);
             assert!(p.tx_exit.is_none());
         }
         // last wait ends at the deadline without another request
@@ -1757,6 +1817,7 @@ mod tests {
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
         p.take_sent();
+        p.feed_from_device(now, &device_hello(p.tx.token()));
         p.feed_from_device(now, &device_info(p.tx.token())); // device is 0.1.3
         assert!(
             p.take_sent().is_empty(),
@@ -1904,11 +1965,13 @@ mod tests {
                 .unwrap();
 
             let mut scratch = [0u8; 256];
-            let (kind, payload) = device_info(1).encode(&mut scratch).unwrap();
-            msg_tx
-                .send((kind, payload.to_vec()))
-                .await
-                .expect("rx half was dropped");
+            for msg in [device_hello(1), device_info(1)] {
+                let (kind, payload) = msg.encode(&mut scratch).unwrap();
+                msg_tx
+                    .send((kind, payload.to_vec()))
+                    .await
+                    .expect("rx half was dropped");
+            }
             let to_tx = tokio::time::timeout(Duration::from_secs(1), to_tx_rx.recv())
                 .await
                 .expect("rx is not reading from the transport");

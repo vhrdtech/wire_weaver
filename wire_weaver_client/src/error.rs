@@ -40,6 +40,24 @@ pub enum Error {
     IncompatibleDeviceProtocol,
     #[error("The device speaks link {device}, this host link {host}: update the older side")]
     IncompatibleLinkVersion { device: String, host: String },
+    /// The device's hello (EVO-23) names another generation of a foundation layer: link setup stops there, neither
+    /// side can read the other's messages after it. The device in the field is stuck and the host is not, so the
+    /// advice is always about the host.
+    #[error("{}", describe_generation(.layer, *.device, *.host))]
+    IncompatibleGeneration {
+        /// `framer`, `link`, `shrink_wrap` or `API model`
+        layer: &'static str,
+        device: u8,
+        host: u8,
+    },
+    /// The device answered link setup with bytes this host can't read as a hello or `DeviceInfo`: firmware of a
+    /// WireWeaver this host doesn't know, or not WireWeaver at all.
+    #[error(
+        "The device answered link setup in a format this host doesn't know (link message kind {kind}, bytes {}): \
+         its firmware speaks another WireWeaver generation, or something else",
+        hex(.bytes)
+    )]
+    UnknownPeerFormat { kind: u8, bytes: Vec<u8> },
     #[error("Connected device has an older protocol version: {:?}, required for the operation: {:?}", .0, .1)]
     OlderProtocol(Box<FullVersionOwned>, Box<FullVersionOwned>),
     #[error("'{resource}' is not implemented by the connected device, its API is {device:?}")]
@@ -117,6 +135,27 @@ impl Error {
     pub fn is_lent(&self) -> bool {
         matches!(self, Error::HubRefused { status, .. } if *status == crate::connection_event::STATUS_LENT)
     }
+}
+
+fn describe_generation(layer: &str, device: u8, host: u8) -> String {
+    if device > host {
+        format!(
+            "The device speaks {layer} generation {device}, this host {layer} generation {host}: update the host"
+        )
+    } else {
+        format!(
+            "The device speaks {layer} generation {device}, this host only {layer} generation {host}: use a host \
+             that still speaks {device}, or update the device firmware"
+        )
+    }
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn describe_len(len: Option<usize>) -> String {
@@ -241,6 +280,8 @@ impl Error {
             | Error::ShrinkWrap(_)
             | Error::IncompatibleDeviceProtocol
             | Error::IncompatibleLinkVersion { .. }
+            | Error::IncompatibleGeneration { .. }
+            | Error::UnknownPeerFormat { .. }
             | Error::OlderProtocol(..)
             | Error::IncompatibleResource { .. }
             | Error::User(_)

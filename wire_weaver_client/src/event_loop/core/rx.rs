@@ -11,10 +11,10 @@ use std::time::{Duration, Instant};
 use anyhow::anyhow;
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, trace, warn};
-use ww_link::{DisconnectReason, Message};
+use ww_link::{DisconnectReason, Kind, Message, Role};
 use ww_version::FullVersionOwned;
 
-use super::{ToRx, ToTx, compact_to_full, is_due};
+use super::{GENERATIONS, ToRx, ToTx, compact_to_full, host_hello, is_due};
 use crate::Error;
 use crate::device_info::{ConnectionInfo, DeviceApiInfo};
 use crate::event_loop::command::EventLoopExitReason;
@@ -49,7 +49,7 @@ pub(crate) enum RxOutput {
 enum Phase {
     /// Not connected, ignore everything but [ToRx::TransportUp]
     Idle,
-    /// Expecting DeviceInfo / LinkReady
+    /// Expecting the device's hello, DeviceInfo, LinkReady
     LinkSetup,
     /// Data flows
     Up,
@@ -67,10 +67,12 @@ pub(crate) struct RxCore {
     /// [ToRx::TransportUp]`::host_max_message_len`
     host_max_message_len: usize,
     device_api_info: Option<DeviceApiInfo>,
-    /// This connection's setup token, see [ww_link::Message::GetDeviceInfo]
+    /// This connection's setup token, see [ww_link::Message::Hello]
     token: u64,
-    /// A DeviceInfo with [Self::token] arrived: everything before it was from a previous session
+    /// The device's hello with [Self::token] arrived: everything before it was from a previous session
     token_seen: bool,
+    /// This session's DeviceInfo arrived
+    info_seen: bool,
 
     last_rx_at: Option<Instant>,
     malformed_messages_left: u32,
@@ -111,6 +113,7 @@ impl RxCore {
             device_api_info: None,
             token: 0,
             token_seen: false,
+            info_seen: false,
             last_rx_at: None,
             malformed_messages_left: MAX_MALFORMED_MESSAGES,
             keep_streams_on_loss: false,
@@ -247,6 +250,7 @@ impl RxCore {
                 self.host_max_message_len = host_max_message_len;
                 self.token = token;
                 self.token_seen = false;
+                self.info_seen = false;
                 self.connected_tx = connected_tx;
                 self.last_rx_at = Some(now);
                 self.malformed_messages_left = MAX_MALFORMED_MESSAGES;
@@ -255,6 +259,7 @@ impl RxCore {
                 self.phase = Phase::LinkSetup;
                 self.token = token;
                 self.token_seen = false;
+                self.info_seen = false;
                 self.relinking = true;
                 // through the hub now: a loss is reconnected through it, streams resumed (CLT-40)
                 self.keep_streams_on_loss = true;
@@ -283,6 +288,7 @@ impl RxCore {
                 self.dispatcher.message_limit = Some(info.message_limit());
                 self.device_api_info = Some(info.clone());
                 self.token_seen = true;
+                self.info_seen = true;
                 self.phase = Phase::Up;
                 self.last_rx_at = Some(now.checked_sub(last_rx_ago).unwrap_or(now));
                 self.dispatcher.handle_msg(DispatcherMessage::Connected);
@@ -330,7 +336,26 @@ impl RxCore {
         }
         self.last_rx_at = Some(now);
         let r = match Message::decode(kind, payload) {
-            Ok(msg) if !self.token_seen && !matches!(msg, Message::DeviceInfo(_)) => {
+            Ok(Message::DeviceInfo(info))
+                if !self.token_seen && info.token == pre_hello_token(self.token) =>
+            {
+                // a device from before the hello read the first 8 bytes of ours as its token and echoed them
+                Err(anyhow!(Error::IncompatibleLinkVersion {
+                    device: format!(
+                        "{}.{}.{} (before the hello)",
+                        info.dev_link_version.major.0,
+                        info.dev_link_version.minor.0,
+                        info.dev_link_version.patch.0
+                    ),
+                    host: format!(
+                        "{}.{}.{}",
+                        ww_link::LINK_VERSION.major.0,
+                        ww_link::LINK_VERSION.minor.0,
+                        ww_link::LINK_VERSION.patch.0
+                    ),
+                }))
+            }
+            Ok(msg) if !self.token_seen && !matches!(msg, Message::Hello(_)) => {
                 // from a previous session: an answer still in the device's buffers, a half-sent message
                 debug!(
                     "dropping {:?} from before this session's DeviceInfo",
@@ -342,6 +367,17 @@ impl RxCore {
             Err(ww_link::Error::UnknownKind(kind)) => {
                 warn!("unknown link message kind {kind}, ignoring");
                 Ok(None)
+            }
+            Err(ww_link::Error::Malformed(kind @ (Kind::Hello | Kind::DeviceInfo)))
+                if self.phase == Phase::LinkSetup =>
+            {
+                // setup messages of this device's own session always decode: these are of another format
+                self.events
+                    .error(&format!("unknown peer format: {kind:?} {payload:02x?}"));
+                Err(anyhow!(Error::UnknownPeerFormat {
+                    kind: kind as u8,
+                    bytes: payload.to_vec(),
+                }))
             }
             Err(e) => {
                 self.events.error(&format!("{e:?}"));
@@ -394,29 +430,31 @@ impl RxCore {
                 return Ok(Some(EventLoopExitReason::DisconnectFromDevice(reason)));
             }
             Message::Ping | Message::Nop => {}
-            Message::DeviceInfo(info) => {
-                if self.phase != Phase::LinkSetup || self.token_seen {
-                    warn!("unexpected DeviceInfo in {:?}, ignoring", self.phase);
+            Message::Hello(hello) => {
+                if self.phase != Phase::LinkSetup || self.token_seen || hello.role != Role::Device {
+                    warn!("unexpected hello in {:?}, ignoring: {hello:?}", self.phase);
                     return Ok(None);
                 }
-                // an older link never answers with the token: that, not a timeout, is the error
-                if info.token == 0
-                    || !info
-                        .dev_link_version
-                        .is_protocol_compatible(&ww_link::LINK_VERSION)
-                {
-                    let v = |v: &ww_version::CompactVersion| {
-                        format!("{}.{}.{}", v.major.0, v.minor.0, v.patch.0)
-                    };
-                    let device = if info.token == 0 {
-                        format!("{} (without setup token)", v(&info.dev_link_version))
-                    } else {
-                        v(&info.dev_link_version)
-                    };
-                    return Err(anyhow!(Error::IncompatibleLinkVersion {
-                        device,
-                        host: v(&ww_link::LINK_VERSION),
+                if hello.token != self.token {
+                    debug!(
+                        "dropping the hello of a previous session (token {:#x})",
+                        hello.token
+                    );
+                    return Ok(None);
+                }
+                if let Some(m) = GENERATIONS.mismatch(&hello.generations) {
+                    return Err(anyhow!(Error::IncompatibleGeneration {
+                        layer: m.layer.name(),
+                        device: m.theirs,
+                        host: m.ours,
                     }));
+                }
+                self.token_seen = true;
+            }
+            Message::DeviceInfo(info) => {
+                if self.phase != Phase::LinkSetup || !self.token_seen || self.info_seen {
+                    warn!("unexpected DeviceInfo in {:?}, ignoring", self.phase);
+                    return Ok(None);
                 }
                 if info.token != self.token {
                     debug!(
@@ -425,7 +463,7 @@ impl RxCore {
                     );
                     return Ok(None);
                 }
-                self.token_seen = true;
+                self.info_seen = true;
                 let device_api_info = device_api_info(&info, self.host_max_message_len);
                 info!(
                     "connected device: {device_api_info:?}, acc_window = {}us",
@@ -489,10 +527,7 @@ impl RxCore {
                     }));
                 }
             }
-            Message::GetDeviceInfo { .. }
-            | Message::LinkSetup(_)
-            | Message::GetStats
-            | Message::Stats(_) => {
+            Message::LinkSetup(_) | Message::GetStats | Message::Stats(_) => {
                 warn!("ignoring device-only or unsupported message: {msg:?}");
             }
         }
@@ -548,6 +583,7 @@ impl RxCore {
         }
         self.phase = Phase::Idle;
         self.token_seen = false;
+        self.info_seen = false;
         self.last_rx_at = None;
         // freed seqs don't matter anymore, tx clears in-flight on exit
         self.dispatcher.take_freed();
@@ -566,6 +602,12 @@ impl RxCore {
 }
 
 /// What a device's `DeviceInfo` says, as the client keeps it.
+/// The token a device from before the hello reads from the host's hello: its first 8 bytes.
+fn pre_hello_token(token: u64) -> u64 {
+    let bytes = host_hello(token).to_bytes();
+    u64::from_le_bytes(bytes[..8].try_into().unwrap())
+}
+
 fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) -> DeviceApiInfo {
     DeviceApiInfo {
         link_version: compact_to_full(&info.dev_link_version),

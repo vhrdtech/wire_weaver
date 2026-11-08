@@ -388,7 +388,7 @@ mod tests {
             panic!("connected to nothing")
         };
         // Linux and macOS report ICMP port unreachable on a connected socket, so this does not wait for the
-        // GetDeviceInfo retries to run out
+        // hello retries to run out
         let e = format!("{e:#}");
         assert!(e.contains("UDP"), "{e}");
         #[cfg(unix)]

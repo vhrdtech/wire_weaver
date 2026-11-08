@@ -563,16 +563,25 @@ mod tests {
         let mut scratch = [0u8; 1024];
         while let Some((kind, payload)) = from_host.recv().await {
             let reply = match Message::decode(kind, &payload).unwrap() {
-                Message::GetDeviceInfo { token } => Some(Message::DeviceInfo(DeviceInfo {
-                    dev_link_version: ww_link::LINK_VERSION,
-                    api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
-                    user_api_version: FullVersion::new("test", Version::new(0, 1, 0)),
-                    hash: ApiHashPair::empty(),
-                    dev_max_message_len: 1024,
-                    packet_accumulation_time_us: 100,
-                    token,
-                    image_facts: Default::default(),
-                })),
+                Message::Hello(hello) => {
+                    let device = Message::Hello(ww_link::Hello {
+                        role: ww_link::Role::Device,
+                        ..hello
+                    });
+                    let (k, p) = device.encode(&mut scratch).unwrap();
+                    replies.push((k, p.to_vec()));
+                    let token = hello.token;
+                    Some(Message::DeviceInfo(DeviceInfo {
+                        dev_link_version: ww_link::LINK_VERSION,
+                        api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
+                        user_api_version: FullVersion::new("test", Version::new(0, 1, 0)),
+                        hash: ApiHashPair::empty(),
+                        dev_max_message_len: 1024,
+                        packet_accumulation_time_us: 100,
+                        token,
+                        image_facts: Default::default(),
+                    }))
+                }
                 Message::LinkSetup(setup) => Some(Message::LinkReady { token: setup.token }),
                 Message::Disconnect(_) => return,
                 Message::Data { bytes, .. } => {

@@ -15,12 +15,15 @@
 use core::time::Duration;
 
 use ww_link::{
-    ApiHashPair, CompactVersion, DeviceInfo, DisconnectReason, FullVersion, ImageFacts, Kind,
-    Message, PEER_TIMEOUT_MS, PING_INTERVAL_MS,
+    ApiHashPair, CompactVersion, DeviceInfo, DisconnectReason, FullVersion, Generations, Hello,
+    ImageFacts, Kind, Message, PEER_TIMEOUT_MS, PING_INTERVAL_MS, Role,
 };
 
 use crate::fmt::{debug, error, info, warn};
 use crate::time::Instant;
+
+/// This build's generations, sent in the device's [Hello].
+const GENERATIONS: Generations = Generations::this_build(ww_client_server::GENERATION);
 
 /// Deadlines this close to `now` are considered due, to avoid spinning on tiny sleeps.
 const TIMER_TOLERANCE: Duration = Duration::from_micros(10);
@@ -145,6 +148,7 @@ pub enum SendError {
 struct Pending {
     new_session: bool,
     nop: bool,
+    hello: bool,
     device_info: bool,
     link_ready: bool,
     disconnect: Option<DisconnectReason>,
@@ -156,6 +160,7 @@ impl Pending {
     fn is_empty(&self) -> bool {
         !(self.new_session
             || self.nop
+            || self.hello
             || self.device_info
             || self.link_ready
             || self.disconnect.is_some()
@@ -240,8 +245,11 @@ pub struct DeviceLink<'a> {
     max_message_len: u32,
     phase: Phase,
     remote_max_message_len: u32,
-    /// Setup token of the host's current session ([ww_link::Message::GetDeviceInfo]), 0 before one.
+    /// Setup token of the host's current session ([ww_link::Message::Hello]), 0 before one.
     token: u64,
+    /// The current session's hello had every generation of this device: only then is its [ww_link::LinkSetup]
+    /// taken.
+    generations_match: bool,
     /// [DeviceLink::peer_meta]
     peer_meta: Option<PeerMeta>,
     /// [DeviceLink::peer_version]
@@ -265,6 +273,7 @@ impl<'a> DeviceLink<'a> {
             phase: Phase::Down,
             remote_max_message_len: 0,
             token: 0,
+            generations_match: false,
             peer_meta: None,
             peer_version: None,
             pending: Pending::default(),
@@ -348,6 +357,13 @@ impl<'a> DeviceLink<'a> {
         self.last_rx_at = Some(now);
         let msg = match Message::decode(kind, payload) {
             Ok(msg) => msg,
+            Err(ww_link::Error::Malformed(Kind::Hello)) => {
+                // a host from before the hello (its setup token alone) still understands this refusal
+                warn!("host without a hello, refusing: incompatible link version");
+                self.go_idle(DownReason::NewSession);
+                self.pending.disconnect = Some(DisconnectReason::IncompatibleVersion);
+                return None;
+            }
             Err(e) => {
                 // unknown kind from a newer host or a leftover from a previous session
                 warn!("ignoring link message: {:?}", e);
@@ -369,33 +385,46 @@ impl<'a> DeviceLink<'a> {
                 warn!("ignoring data on unused channel {}", channel);
             }
             Message::Nop | Message::Ping => {}
-            Message::GetDeviceInfo { token } => {
+            Message::Hello(hello) if hello.role != Role::Host => {
+                warn!("ignoring a hello from another device");
+            }
+            Message::Hello(hello) => {
                 if self.phase == Phase::Up {
                     warn!("link setup while link is up, previous host session did not disconnect");
                     self.go_idle(DownReason::NewSession);
                 }
-                if token == 0 {
-                    // a host built before the setup token, it speaks an older link
-                    warn!("host without a setup token, refusing: incompatible link version");
-                    self.pending.disconnect = Some(DisconnectReason::IncompatibleVersion);
-                    return None;
-                }
-                debug!("GetDeviceInfo");
-                self.token = token;
+                debug!("Hello");
+                self.token = hello.token;
                 // the reply starts in a fresh frame, nothing of the previous session goes before it
                 self.pending.new_session = true;
                 // Nop is flushed alone first: if USB data toggle bits are messed up after
-                // re-connection, the first packet might get lost and this ensures it's not DeviceInfo.
+                // re-connection, the first packet might get lost and this ensures it's not the hello.
                 self.pending.nop = true;
-                self.pending.device_info = true;
+                // the device's hello always goes back: a host of other generations learns from it which layer
+                // differs, and gets nothing it can't read after it
+                self.pending.hello = true;
+                let mismatch = GENERATIONS.mismatch(&hello.generations);
+                self.generations_match = mismatch.is_none();
+                match mismatch {
+                    None => self.pending.device_info = true,
+                    Some(m) => warn!(
+                        "host speaks {} gen {}, this device gen {}: link setup stops at the hello",
+                        m.layer.name(),
+                        m.theirs,
+                        m.ours
+                    ),
+                }
             }
-            Message::LinkSetup(setup) if setup.token != self.token || setup.token == 0 => {
-                if setup.token == 0 {
-                    warn!("host without a setup token, refusing: incompatible link version");
+            Message::LinkSetup(setup)
+                if setup.token != self.token || setup.token == 0 || !self.generations_match =>
+            {
+                if setup.token == 0 || setup.token == self.token {
+                    // a host without a hello, or one whose generations differ and that goes on anyway
+                    warn!("host without a matching hello, refusing: incompatible link version");
                     self.go_idle(DownReason::NewSession);
                     self.pending.disconnect = Some(DisconnectReason::IncompatibleVersion);
                 } else {
-                    // from a previous host session, the current one sent its own GetDeviceInfo since
+                    // from a previous host session, the current one sent its own hello since
                     debug!("ignoring LinkSetup with a stale token");
                 }
             }
@@ -508,6 +537,13 @@ impl<'a> DeviceLink<'a> {
         } else if self.pending.flush {
             self.on_flushed(now);
             return Some(Transmit::Flush);
+        } else if self.pending.hello {
+            self.pending.hello = false;
+            Message::Hello(Hello {
+                role: Role::Device,
+                generations: GENERATIONS,
+                token: self.token,
+            })
         } else if self.pending.device_info {
             self.pending.device_info = false;
             Message::DeviceInfo(DeviceInfo {

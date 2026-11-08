@@ -33,6 +33,11 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
     FULL_VERSION.version.patch.0,
 );
 
+/// Generation of this API model (requests, events, their envelopes), sent in the link setup hello
+/// (`ww_link::Hello`). It counts only wire breaks, never additions; link setup decides on it, not on the crate
+/// version above.
+pub const GENERATION: u8 = 1;
+
 /// Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.
 ///
 /// Requests are serialized with seq set to 0 (taking 5 bytes), and then [Request::set_seq] fills in the actual one

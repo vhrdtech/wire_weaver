@@ -4,7 +4,7 @@
 //!
 //! UDP has no connections, so the device serves one host (peer) at a time and replies to it only:
 //! - a peer is adopted when it starts link setup, i.e., when the first message of its datagram is `Nop` or
-//!   `GetDeviceInfo` (the host sends both alone, before anything else);
+//!   `Hello` (the host sends both alone, before anything else);
 //! - datagrams from anyone else are dropped, unless they start link setup: then the current peer is replaced, as if a
 //!   USB device was opened by another host process. The medium goes down and up again, so the link and the framers
 //!   start over, and the datagram that started the takeover is not lost;
@@ -114,8 +114,8 @@ impl<S: DatagramSocket> PacketSink for UdpSink<'_, S> {
 }
 
 /// Longest datagram that can start link setup. The host sends `Nop` (1 byte prefix, 1 byte head, 4 byte CRC) and
-/// `GetDeviceInfo` (1 byte prefix, 2 byte head, 8 byte token, 4 byte CRC) alone.
-const SETUP_DATAGRAM_MAX_LEN: usize = 16;
+/// `Hello` (1 byte prefix, 3 byte head, 16 byte hello, 4 byte CRC) alone.
+const SETUP_DATAGRAM_MAX_LEN: usize = 24;
 
 /// Datagram that starts link setup, kept across the medium going down and up again.
 #[derive(Copy, Clone)]
@@ -141,7 +141,7 @@ impl<A> SetupDatagram<A> {
     }
 }
 
-/// First message in `datagram` (after the frame prefix) is a whole `Nop` or `GetDeviceInfo` with a good CRC, so
+/// First message in `datagram` (after the frame prefix) is a whole `Nop` or `Hello` with a good CRC, so
 /// that a corrupted datagram can't take over.
 fn starts_link_setup(datagram: &[u8]) -> bool {
     let Some(after_prefix) = datagram.get(UdpPrefix::LEN..) else {
@@ -151,7 +151,7 @@ fn starts_link_setup(datagram: &[u8]) -> bool {
     let Ok((MessageKind::Full, kind, len)) = UdpHead::read(&mut rd) else {
         return false;
     };
-    if kind != Kind::Nop as u8 && kind != Kind::GetDeviceInfo as u8 {
+    if kind != Kind::Nop as u8 && kind != Kind::Hello as u8 {
         return false;
     }
     let header = &datagram[..datagram.len() - rd.bytes_left()];
@@ -468,8 +468,11 @@ mod tests {
     }
 
     const NOP: (Kind, &[u8]) = (Kind::Nop, &[]);
-    /// With its 8 byte token
-    const GET_INFO: (Kind, &[u8]) = (Kind::GetDeviceInfo, &[1, 0, 0, 0, 0, 0, 0, 0]);
+    /// A whole hello: magic, role, 4 generations, token
+    const GET_INFO: (Kind, &[u8]) = (
+        Kind::Hello,
+        &[b'W', b'W', b'H', 4, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+    );
     const DATA: (Kind, &[u8]) = (Kind::Data0, &[1, 2, 3]);
 
     #[test]
@@ -511,7 +514,7 @@ mod tests {
         assert!(poll_once(rx.rx.wait_connected()).is_ready());
         rx.rx.reset();
         assert_eq!(conn.peer(), Some(2));
-        // GetDeviceInfo that started it is not lost
+        // Hello that started it is not lost
         assert_eq!(
             rx.messages().unwrap(),
             [(4, GET_INFO.1.to_vec()), (0, std::vec![1, 2, 3])]

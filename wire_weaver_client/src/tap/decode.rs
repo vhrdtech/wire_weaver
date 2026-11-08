@@ -759,7 +759,7 @@ pub fn kind_name(kind: u8) -> &'static str {
         Some(Data1) => "Data1",
         Some(Data2) => "Data2",
         Some(Nop) => "Nop",
-        Some(GetDeviceInfo) => "GetDeviceInfo",
+        Some(Hello) => "Hello",
         Some(DeviceInfo) => "DeviceInfo",
         Some(LinkSetup) => "LinkSetup",
         Some(LinkReady) => "LinkReady",

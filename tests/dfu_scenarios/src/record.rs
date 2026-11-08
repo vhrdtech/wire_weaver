@@ -3,7 +3,7 @@
 //! datagrams, WebSocket frames). [Recorder::transcript] renders both as the markdown the docs include, and
 //! [check_or_update] compares it with the golden file (or writes it with `DFU_TRANSCRIPTS=update`).
 //!
-//! Link setup (`Nop`, `GetDeviceInfo`, `LinkSetup`, `LinkReady`, the WebSocket upgrade) is the same on every
+//! Link setup (`Nop`, `Hello`, `LinkSetup`, `LinkReady`, the WebSocket upgrade) is the same on every
 //! connection and carries crate versions that change with every release, so it is summarized in one line and its
 //! bytes are left out; pings are left out too.
 
@@ -114,7 +114,7 @@ impl Recorder {
                         continue;
                     };
                     match kind {
-                        Kind::Nop | Kind::GetDeviceInfo if *dir == Dir::ToDevice => {
+                        Kind::Nop | Kind::Hello if *dir == Dir::ToDevice => {
                             if !setup {
                                 setup = true;
                                 decoder.reset_seq();
@@ -177,7 +177,7 @@ fn hidden_packets(recs: &[Rec]) -> Vec<usize> {
             Rec::Message { dir, kind, .. } => {
                 let kind = Kind::from_repr(*kind);
                 match (dir, kind) {
-                    (Dir::ToDevice, Some(Kind::Nop | Kind::GetDeviceInfo)) if !setup => {
+                    (Dir::ToDevice, Some(Kind::Nop | Kind::Hello)) if !setup => {
                         // the packet this came in was setup already
                         if let Some(p) = last_rx_packets.pop() {
                             hidden.push(p);

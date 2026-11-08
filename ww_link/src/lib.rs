@@ -14,7 +14,7 @@ use ww_framer::crc::{CrcAlgorithm, CrcChecksum};
 use ww_framer::framed::U2Head;
 use ww_framer::prefix::{FramePrefix, NopPrefix, SeqPrefix};
 use ww_framer::traits::{Checksum, Head, NopChecksum, NopTail, Tail};
-pub use ww_version::{ApiHashPair, CompactVersion, FullVersion, ImageFacts};
+pub use ww_version::{ApiHashPair, CompactVersion, FullVersion, ImageFacts, WireVersion};
 #[cfg(feature = "std")]
 pub use ww_version::{ApiHashPairOwned, FullVersionOwned};
 
@@ -324,7 +324,7 @@ pub struct DeviceInfo<'i> {
     pub dev_link_version: CompactVersion,
     /// E.g., ww_client_server version on the device side
     pub api_model_version: CompactVersion,
-    /// User API and data types version on the device side
+    /// User API crate version on the device side, for display: nothing decides on it, see [DeviceInfo::user_api_wire]
     pub user_api_version: FullVersion<'i>,
     /// First 8 bytes for SHA256 of ww_self bytes with and without doc comments
     pub hash: ApiHashPair<'i>,
@@ -339,6 +339,12 @@ pub struct DeviceInfo<'i> {
     /// from a device built before it existed: the host asks as usual, and the device's answers still decide.
     #[default = Default::default()]
     pub image_facts: ImageFacts,
+    /// Wire version of the device's API root (EVO-25), what the host decides on: the same line connects, another
+    /// line is refused, and `#[since]` items newer than its revision are refused before anything is sent.
+    /// [DeviceInfo::user_api_version] is the crate version, for display only. `None` from a device built before it
+    /// existed: a host with a generated client refuses it, a dynamic one goes on.
+    #[default = None]
+    pub user_api_wire: Option<WireVersion>,
 }
 
 #[cfg(feature = "std")]
@@ -353,6 +359,7 @@ impl DeviceInfo<'_> {
             packet_accumulation_time_us: self.packet_accumulation_time_us,
             token: self.token,
             image_facts: self.image_facts,
+            user_api_wire: self.user_api_wire,
         }
     }
 }
@@ -364,7 +371,7 @@ impl DeviceInfo<'_> {
     derive(Debug, Clone)
 )]
 pub struct LinkSetup<'i> {
-    /// User API and data types version on the host side
+    /// User API crate version on the host side, empty crate id for a dynamic host
     pub host_user_version: FullVersion<'i>,
     /// Maximum length message that host can process
     pub host_max_message_len: u32,
@@ -376,6 +383,13 @@ pub struct LinkSetup<'i> {
     /// chose not to say. The device may log it (`ww_device`'s `DeviceLink::peer_meta`), a hub shows it.
     #[default = None]
     pub client_meta: Option<ClientMeta<'i>>,
+    /// Wire version of the API root the host's client was generated from (EVO-25), what the device decides on: the
+    /// same line connects, another line is refused with [DisconnectReason::IncompatibleVersion].
+    /// [LinkSetup::host_user_version] is the crate version, for display only. `None` from a dynamic host (an empty
+    /// crate id, it works through introspection), which every device takes, and from a host with a generated client
+    /// built before it existed, which the device refuses.
+    #[default = None]
+    pub host_user_wire: Option<WireVersion>,
 }
 
 /// What kind of program a client is, for lists of who holds or uses a device.
@@ -647,6 +661,7 @@ mod tests {
             image_facts: ImageFacts {
                 no_observe_samples: true,
             },
+            user_api_wire: Some(WireVersion::new(2, 3)),
         };
         let mut wr = BufWriter::new(&mut scratch);
         new.ser_shrink_wrap(&mut wr).unwrap();
@@ -686,18 +701,21 @@ mod tests {
             image_facts: ImageFacts {
                 no_observe_samples: true,
             },
+            user_api_wire: Some(WireVersion::new(2, 3)),
         }));
         round_trip(Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
             host_max_message_len: 4096,
             token: 7,
             client_meta: None,
+            host_user_wire: Some(WireVersion::new(2, 3)),
         }));
         round_trip(Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
             host_max_message_len: 4096,
             token: 7,
             client_meta: Some(test_meta()),
+            host_user_wire: Some(WireVersion::new(2, 3)),
         }));
         round_trip(Message::LinkReady { token: 7 });
         round_trip(Message::Ping);
@@ -763,6 +781,7 @@ mod tests {
             host_max_message_len: 4096,
             token: 7,
             client_meta: Some(test_meta()),
+            host_user_wire: Some(WireVersion::new(2, 3)),
         };
         let mut buf = [0u8; 256];
         let with = setup.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -781,6 +800,79 @@ mod tests {
         };
         assert!(read.client_meta.is_none());
         assert_eq!(read.token, 7);
+    }
+
+    /// The wire versions are appended (EVO-25): a peer from before them reads as `None`, and reads the longer
+    /// messages by stepping over them.
+    #[test]
+    fn wire_versions_and_older_peers() {
+        #[derive_shrink_wrap(borrowed, derive(Debug))]
+        struct NoWireLinkSetup<'i> {
+            host_user_version: FullVersion<'i>,
+            host_max_message_len: u32,
+            #[default = 0]
+            token: u64,
+            #[default = None]
+            client_meta: Option<ClientMeta<'i>>,
+        }
+        let setup = LinkSetup {
+            host_user_version: FullVersion::new("test", ww_version::Version::new(0, 2, 0)),
+            host_max_message_len: 4096,
+            token: 7,
+            client_meta: None,
+            host_user_wire: Some(WireVersion::new(2, 3)),
+        };
+        let mut buf = [0u8; 64];
+        let with = setup.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let old = NoWireLinkSetup::from_ww_bytes(&with).expect("an older device must read it");
+        assert_eq!(old.token, 7);
+        let Ok(Message::LinkSetup(read)) = Message::decode(Kind::LinkSetup as u8, &with) else {
+            panic!("LinkSetup must decode");
+        };
+        assert_eq!(read.host_user_wire, Some(WireVersion::new(2, 3)));
+
+        let without = NoWireLinkSetup {
+            host_user_version: FullVersion::new("test", ww_version::Version::new(0, 2, 0)),
+            host_max_message_len: 4096,
+            token: 7,
+            client_meta: None,
+        };
+        let mut buf = [0u8; 64];
+        let bytes = without.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let Ok(Message::LinkSetup(read)) = Message::decode(Kind::LinkSetup as u8, &bytes) else {
+            panic!("a LinkSetup without a wire version must still decode");
+        };
+        assert_eq!((read.token, read.host_user_wire), (7, None));
+
+        let info = DeviceInfo {
+            dev_link_version: CompactVersion::new(ww_global::WIRE_WEAVER_USB_LINK, 1, 2, 3),
+            api_model_version: CompactVersion::new(ww_global::WW_CLIENT_SERVER, 0, 2, 0),
+            user_api_version: FullVersion::new("test", ww_version::Version::new(0, 2, 0)),
+            hash: ApiHashPair::empty(),
+            dev_max_message_len: 2048,
+            packet_accumulation_time_us: 1000,
+            token: 7,
+            image_facts: ImageFacts::default(),
+            user_api_wire: None,
+        };
+        let mut buf = [0u8; 128];
+        let bytes = info.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let Ok(Message::DeviceInfo(read)) = Message::decode(Kind::DeviceInfo as u8, &bytes) else {
+            panic!("DeviceInfo must decode");
+        };
+        assert_eq!(read.user_api_wire, None);
+        let mut buf = [0u8; 128];
+        let bytes = DeviceInfo {
+            user_api_wire: Some(WireVersion::new(3, 0)),
+            ..info
+        }
+        .to_ww_bytes(&mut buf)
+        .unwrap()
+        .to_vec();
+        let Ok(Message::DeviceInfo(read)) = Message::decode(Kind::DeviceInfo as u8, &bytes) else {
+            panic!("DeviceInfo must decode");
+        };
+        assert_eq!(read.user_api_wire, Some(WireVersion::new(3, 0)));
     }
 
     #[test]

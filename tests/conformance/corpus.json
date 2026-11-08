@@ -939,16 +939,28 @@
       "type": "DeviceInfo",
       "value": {"user_api_version": "test 0.1.0", "dev_max_message_len": 2048, "packet_accumulation_time_us": 1000, "token": 7, "image_facts": {"no_observe_samples": false}},
       "bytes": "88810508881050746573740100010200080000e8030700000000000000001024",
+      "direction": "decode",
+      "wire_change": "EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag",
       "gaps": {"dynamic": "ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "python": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "c": "ww_link's DeviceInfo is a link message, not a type of an API in the model"},
-      "note": "ww_link DeviceInfo (SRV-56) of an image that made no special choice"
+      "note": "ww_link DeviceInfo (SRV-56) of an image that made no special choice, from a device before EVO-25"
     },
     {
       "name": "device_info.no_observe_samples",
       "type": "DeviceInfo",
       "value": {"user_api_version": "test 0.1.0", "dev_max_message_len": 2048, "packet_accumulation_time_us": 1000, "token": 7, "image_facts": {"no_observe_samples": true}},
       "bytes": "88810508881050746573740100010200080000e8030700000000000000801024",
+      "direction": "decode",
+      "wire_change": "EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag",
       "gaps": {"dynamic": "ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "python": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "c": "ww_link's DeviceInfo is a link message, not a type of an API in the model"},
-      "note": "ww_link DeviceInfo (SRV-56) of an image built with observe_samples = false"
+      "note": "ww_link DeviceInfo (SRV-56) of an image built with observe_samples = false, from a device before EVO-25"
+    },
+    {
+      "name": "device_info.wire_version",
+      "type": "DeviceInfo",
+      "value": {"user_api_version": "test 0.1.0", "dev_max_message_len": 2048, "packet_accumulation_time_us": 1000, "token": 7, "image_facts": {"no_observe_samples": false}, "user_api_wire": "w2.3"},
+      "bytes": "88810508881050746573740100010200080000e80307000000000000000082301024",
+      "gaps": {"dynamic": "ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "python": "ww_link's DeviceInfo is a link message, not a type of an API in the model", "c": "ww_link's DeviceInfo is a link message, not a type of an API in the model"},
+      "note": "ww_link DeviceInfo (EVO-25) with the appended wire version of the device's API root, w2.3"
     },
     {
       "name": "link_setup.without_meta",
@@ -957,6 +969,14 @@
       "bytes": "74657374010000100000070000000000000004",
       "gaps": {"dynamic": "ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's LinkSetup is a link message, not a type of an API in the model", "python": "ww_link's LinkSetup is a link message, not a type of an API in the model", "c": "ww_link's LinkSetup is a link message, not a type of an API in the model"},
       "note": "ww_link LinkSetup (CLT-41) as an older host sends it, before client_meta existed: the field is absent from the bytes"
+    },
+    {
+      "name": "link_setup.wire_version",
+      "type": "LinkSetup",
+      "value": {"host_user_version": "test 0.1.0", "host_max_message_len": 4096, "token": 7, "client_meta": null, "host_user_wire": "w2.3"},
+      "bytes": "7465737401000010000007000000000000004234",
+      "gaps": {"dynamic": "ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's LinkSetup is a link message, not a type of an API in the model", "python": "ww_link's LinkSetup is a link message, not a type of an API in the model", "c": "ww_link's LinkSetup is a link message, not a type of an API in the model"},
+      "note": "ww_link LinkSetup (EVO-25) with the appended wire version of the host's generated client, w2.3, and no client_meta before it"
     },
     {
       "name": "link_setup.with_meta",

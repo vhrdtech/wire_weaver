@@ -712,9 +712,15 @@ pub fn table() -> Vec<Typed> {
             },
         ),
         // ww_link's own message, not in the API model
-        case_debug("device_info.ordinary", || device_info(false)),
-        case_debug("device_info.no_observe_samples", || device_info(true)),
-        case_debug("link_setup.without_meta", || link_setup(None)),
+        case_debug("device_info.ordinary", || device_info(false, None)),
+        case_debug("device_info.no_observe_samples", || device_info(true, None)),
+        case_debug("device_info.wire_version", || {
+            device_info(false, Some(ww_link::WireVersion::new(2, 3)))
+        }),
+        case_debug("link_setup.without_meta", || link_setup(None, None)),
+        case_debug("link_setup.wire_version", || {
+            link_setup(None, Some(ww_link::WireVersion::new(2, 3)))
+        }),
         case_debug("link_setup.with_meta", || {
             link_setup(Some(ww_link::ClientMetaOwned {
                 program: "ww".into(),
@@ -726,7 +732,7 @@ pub fn table() -> Vec<Typed> {
                 host: "pc1".into(),
                 purpose: Some("dfu".into()),
                 instance_id: 0x0102_0304_0506_0708,
-            }))
+            }), None)
         }),
         // ww_link's Disconnect payload, not in the API model
         case_borrowed_only(
@@ -1083,7 +1089,10 @@ fn steer_point(steerer: Option<ww_timebase::SteererOwned>) -> ww_timebase::Steer
     }
 }
 
-fn device_info(no_observe_samples: bool) -> ww_link::DeviceInfoOwned {
+fn device_info(
+    no_observe_samples: bool,
+    user_api_wire: Option<ww_link::WireVersion>,
+) -> ww_link::DeviceInfoOwned {
     ww_link::DeviceInfoOwned {
         dev_link_version: ww_link::LINK_VERSION,
         api_model_version: ww_link::LINK_VERSION,
@@ -1099,10 +1108,14 @@ fn device_info(no_observe_samples: bool) -> ww_link::DeviceInfoOwned {
         packet_accumulation_time_us: 1000,
         token: 7,
         image_facts: ww_link::ImageFacts { no_observe_samples },
+        user_api_wire,
     }
 }
 
-fn link_setup(client_meta: Option<ww_link::ClientMetaOwned>) -> ww_link::LinkSetupOwned {
+fn link_setup(
+    client_meta: Option<ww_link::ClientMetaOwned>,
+    host_user_wire: Option<ww_link::WireVersion>,
+) -> ww_link::LinkSetupOwned {
     ww_link::LinkSetupOwned {
         host_user_version: wire_weaver::ww_version::FullVersionOwned::new(
             "test".into(),
@@ -1111,6 +1124,7 @@ fn link_setup(client_meta: Option<ww_link::ClientMetaOwned>) -> ww_link::LinkSet
         host_max_message_len: 4096,
         token: 7,
         client_meta,
+        host_user_wire,
     }
 }
 

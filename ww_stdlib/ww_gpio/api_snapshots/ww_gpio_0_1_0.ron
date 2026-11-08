@@ -1,6 +1,6 @@
 // ww_gpio 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2111d1bf4edcaf906624a1a3eefe316e874161de25a028c48458d462ea1cfbeb
+// shrink_wrap sha256: cc97819a937bf247a3fbd3c4c04193197e4b0fbdc5a2a7763549c7c83b39d918
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "GPIO control and remote bridging API: banks of pins (`Bank`), each with individually addressable pins (`Pin`)",
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
@@ -156,14 +156,14 @@
         149,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
-        141,
-        245,
+        55,
+        18,
+        202,
+        102,
         156,
-        90,
-        45,
-        137,
-        12,
-        110,
+        182,
+        138,
+        5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
         96,

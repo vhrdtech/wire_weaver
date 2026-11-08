@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7ae6c755c2060b602e9b836bcf9e43bf3ffb641a0785eae7b618a9ae4c80dbc4
+// shrink_wrap sha256: 1237aecb4a83a157f32d6952b0a36a1090f76ba176909ef7ec44dedb14c7dfc9
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -69,14 +69,14 @@
         232,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
-        141,
-        245,
+        55,
+        18,
+        202,
+        102,
         156,
-        90,
-        45,
-        137,
-        12,
-        110,
+        182,
+        138,
+        5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         96,

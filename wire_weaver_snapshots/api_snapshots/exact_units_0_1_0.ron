@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b3df4bbb21ee0289af936279e5c57aa4bd0b14e05e80e3124ee02f64ce3377c3
+// shrink_wrap sha256: 61abb97c3f71a2b54e0162fafa7e7b9f5359305cfcdcb356f2f1e7adfd9bc7c1
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -169,23 +169,28 @@
         "literal",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A range of a unit, `q!(4.9 V ..= 5.1 V)`: its ends `Lo` and `Hi` are `q!` literals as types, `OPEN` whether the",
-        "upper end is out (`..`), `FIT` what an end that is no stored value does (0: refused, 1: `Inside`, 2: `Outside`).",
+        "A range of a unit, `q!(4.9 V ..= 5.1 V)`: its ends `Lo` and `Hi` are `q!` literals as types, `LO_OPEN` and",
+        "`HI_OPEN` whether each end is out (the upper one for `..`, the lower one for a negative prefix, `q!(-9.54... V)`), `FIT` what an end that is no stored value does (0: refused, 1: `Inside`, 2: `Outside`).",
         "See the [module](crate::literal::range).",
     ], ident: "LiteralRange", generics: [
         (ident: "Lo", kind: Type),
         (ident: "Hi", kind: Type),
-        (ident: "OPEN", kind: Const(ty: Bool)),
+        (ident: "LO_OPEN", kind: Const(ty: Bool)),
+        (ident: "HI_OPEN", kind: Const(ty: Bool)),
         (ident: "FIT", kind: Const(ty: NumericAny(Base(U8)))),
     ], fields: Unnamed([]), sparse: false, path: Some([
         "literal",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A tolerance alone, `q!(+- 50 mV)`, `q!(+- 1 %)`: its amount `A` a `q!` literal as a type, `FIT` as for",
-        "[LiteralRange]. What takes one is NUM-24\'s (a window or a compare around a target chosen at run time).",
+        "A tolerance alone, `q!(+- 50 mV)` or `q!(+- 1 %)`: its amount `A` a `q!` literal as a type, `FIT` as for",
+        "[LiteralRange], `REL` whether it is relative (`%`, `‰`, `ppm`, `ppb`, decided by the macro from the amount\'s own",
+        "unit). An absolute one (`REL` false) folds once to whole steps of a target chosen at run time (`window`),",
+        "needing no other feature; a relative one (`REL` true) to a run-time tolerance (`to_tolerance`, `window`),",
+        "usable wherever one is taken, needing `dimensionless`, as `Tolerance` itself does.",
     ], ident: "LiteralTolerance", generics: [
         (ident: "A", kind: Type),
         (ident: "FIT", kind: Const(ty: NumericAny(Base(U8)))),
+        (ident: "REL", kind: Const(ty: Bool)),
     ], fields: Unnamed([]), sparse: false, path: Some([
         "literal",
     ]), instance_of: None, extra: None)), crate_idx: 0),

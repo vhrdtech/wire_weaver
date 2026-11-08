@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8dc3e7b505dcd111196eba27aaa653ea0b1fdd6affaefe402d875f83569031d4
+// shrink_wrap sha256: 9f5a3c67b5d8218a14ae6489ceeef0e582a26987dd8046b373fb7fb7140abb2b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -91,14 +91,14 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
-        141,
-        245,
+        55,
+        18,
+        202,
+        102,
         156,
-        90,
-        45,
-        137,
-        12,
-        110,
+        182,
+        138,
+        5,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value of the unit `U`: a prefix and a number in whatever storage the device picks. The unit is only in the type,",

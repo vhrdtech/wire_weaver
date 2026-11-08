@@ -417,8 +417,12 @@ They are shared, so a tool that knows one of them works with every device that i
 - **Decimal literals as exact constants**: `fixed!(0.1)` is a constant in the type's own scale, worked out at compile time: exact where a stored value equals it, else the literal names its rounding (`fixed!(0.1, NearestEven)`). No hand-computed Q30 constants.
 - **Literals that name their unit**: `speed < q!(100 m/s)` and `fixed!(100 m/s)`: a number with its unit, checked against the value's dimension and kind, folded at compile time to one compare in the stored scale, never rounded; integer and float storages alike.
 - **Thresholds in dB**: `gain < q!(-3 dB)` compares a linear gain with a level, the 20·lg or 10·lg form taken from the gain's kind, still one compare at run time.
+- **Level ranges**: `gain.is_in(q!(-3 dB ..= 3 dB, Inside))` checks a linear gain against a range of levels, folded at compile time to compares of the stored gain.
 - **Point literals**: `temp > q!(80 degC)` against a temperature stored at any origin, folded into the point's own frame at compile time.
+- **Point ranges**: `p.is_in(q!(20 degC ..= 25 degC))` and `q!(25 degC +- 0.5)`: a range of temperatures or other points, folded into the point's own frame at compile time to two compares.
 - **Ranges and tolerances as literals**: `v.is_in(q!(4.9 V ..= 5.1 V))` and `q!(5 V +- 1 %)`: a range or a tolerance with its unit, folded at compile time to compares of the stored value.
+- **Tolerance literals**: `q!(+- 50 mV)` and `q!(+- 1 %)` wherever a tolerance around a run-time target is taken, or folded straight to a window.
+- **Known leading digits**: `q!(9.542425... dB)` is the range of values whose decimal starts with those digits, cut and never rounded.
 - **Windows around a run-time target**: `target.window(tol, Fit::Inside)` folds `target · (1 ± t)` to stored values once, in exact integers; `is_within` checks a value against a target and tolerance without floats.
 - **Floats that are never NaN**: A float quantity can't hold NaN unless its type says `MaybeNan`, so `temp > limit` can't silently stay false; the wire and text refuse NaN for it, and arithmetic costs nothing extra.
 - **[NaN-free floats in clients](std_library/exact_units.md)**: A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused.

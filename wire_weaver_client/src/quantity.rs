@@ -1251,7 +1251,11 @@ mod tests {
         let unresolved = DynUnit::from_si_expr(&compact, &());
         assert_eq!(unresolved.dim(), None);
         assert_eq!(
-            unresolved.to_si_expr().unwrap().to_ww_bytes_owned().unwrap(),
+            unresolved
+                .to_si_expr()
+                .unwrap()
+                .to_ww_bytes_owned()
+                .unwrap(),
             bytes
         );
     }

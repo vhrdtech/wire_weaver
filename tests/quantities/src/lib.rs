@@ -1112,7 +1112,10 @@ mod tests {
 
         // the client writes the fan's speed by reference: the device reads it as fan_api's Rpm, not the other one
         root_sensor
-            .write(client.cmd(), &fan_speed.to_value(&sensor_ty, bundle).unwrap())
+            .write(
+                client.cmd(),
+                &fan_speed.to_value(&sensor_ty, bundle).unwrap(),
+            )
             .await
             .unwrap();
         let bytes = values.lock().unwrap().sensor.clone();

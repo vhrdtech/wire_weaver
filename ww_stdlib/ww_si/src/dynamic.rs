@@ -158,7 +158,7 @@ impl<'i> AnyQuantity<'i> {
     /// named units read as `U` defines it.
     pub fn to_quantity<U: Unit>(&self) -> Option<Quantity<U>> {
         self.unit
-            .same(&U::SI_EXPR, U::EXPR)
+            .same(U::SI_EXPR, U::EXPR)
             .then(|| Quantity::from_parts(self.prefix, self.value))
     }
 

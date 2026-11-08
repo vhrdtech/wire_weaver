@@ -2,7 +2,7 @@
 //! from the API model: what a dynamic consumer is given to encode, and what it must decode.
 
 use serde_json::Value as J;
-use wire_weaver::shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
+use wire_weaver::shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType as B, NumericValue as N};
 use ww_self::{ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned};
 
@@ -201,6 +201,7 @@ fn numeric(j: &J, base: &B) -> Result<N, String> {
         B::I8 => N::I8(int!(i8)),
         B::I16 => N::I16(int!(i16)),
         B::I32 => N::I32(int!(i32)),
+        B::INib32 => N::INib32(INib32(int!(i32))),
         B::I64 => N::I64(int!(i64)),
         B::I128 => N::I128(v),
         // the value types the dynamic decoder gives bit-sized numbers

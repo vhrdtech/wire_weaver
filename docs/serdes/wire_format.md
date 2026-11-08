@@ -135,7 +135,7 @@ without `read`, takes no level for it: read nested values with `read` there too.
 
 ## Alignment
 
-`bool`, `U1`..`U64` and `I2`..`I64` are bit-aligned, `Nibble` and `UNib32` nibble-aligned, everything else
+`bool`, `U1`..`U64` and `I2`..`I64` are bit-aligned, `Nibble`, `UNib32` and `INib32` nibble-aligned, everything else
 byte-aligned. Byte arrays, strings and `Unsized` values are all byte-aligned, to keep the code and the computations
 small. Unused bits are set to zero and can be reclaimed when evolving a type:
 
@@ -359,7 +359,7 @@ already known to the reader from the tag runs above it):
 
 | Type | Group |
 |---|---|
-| integers (`u8`..`u64`, `i8`..`i64`, `U1`..`U64`, `I2`..`I64`, `Nibble`, `UNib32`, `UVlq32`, `UVlq64`) | a numeric column at the type's value width |
+| integers (`u8`..`u64`, `i8`..`i64`, `U1`..`U64`, `I2`..`I64`, `Nibble`, `UNib32`, `INib32`, `UVlq32`, `UVlq64`) | a numeric column at the type's value width |
 | `u128`, `i128` | a numeric column, predictor raw and coder plain only (other codes malformed) |
 | `f32`, `f64` | a float column |
 | `bool` | a two-valued run |

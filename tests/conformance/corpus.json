@@ -124,6 +124,34 @@
       "bytes": "ffffffffff30"
     },
     {
+      "name": "inib32.one_nibble",
+      "type": "inib32",
+      "value": -1,
+      "bytes": "10",
+      "gaps": {"c": "no Op::INib32 in the C runtime yet, only UNib32 (SW-75)"}
+    },
+    {
+      "name": "inib32.two_nibbles",
+      "type": "inib32",
+      "value": 4,
+      "bytes": "81",
+      "gaps": {"c": "no Op::INib32 in the C runtime yet, only UNib32 (SW-75)"}
+    },
+    {
+      "name": "inib32.min",
+      "type": "inib32",
+      "value": -2147483648,
+      "bytes": "ffffffffff30",
+      "gaps": {"c": "no Op::INib32 in the C runtime yet, only UNib32 (SW-75)"}
+    },
+    {
+      "name": "inib32.max",
+      "type": "inib32",
+      "value": 2147483647,
+      "bytes": "efffffffff30",
+      "gaps": {"c": "no Op::INib32 in the C runtime yet, only UNib32 (SW-75)"}
+    },
+    {
       "name": "uvlq32.two_bytes",
       "type": "uvlq32",
       "value": 128,
@@ -743,6 +771,14 @@
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {
+      "name": "transparent.inib32",
+      "type": "signed_index",
+      "value": 2147483647,
+      "bytes_from": "inib32.max",
+      "bytes": "efffffffff30",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
       "name": "transparent.fields.plain",
       "type": "plain_fields",
       "value": {"count": 300, "digit": 10, "index": 8, "volts": 1.5, "label": "hi", "end": 7},
@@ -787,6 +823,21 @@
       "value": [7, 8, 300],
       "bytes_from": "transparent.vec.unib32.plain",
       "bytes": "781cd403",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.vec.inib32.plain",
+      "type": "vec_inib32",
+      "value": [-4, 4, -150],
+      "bytes": "781bd403",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.vec.inib32",
+      "type": "vec_signed_index",
+      "value": [-4, 4, -150],
+      "bytes_from": "transparent.vec.inib32.plain",
+      "bytes": "781bd403",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {
@@ -880,6 +931,22 @@
       "direction": "reject_value",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "9 doesn't fit I4: an error on write, never a cut value"
+    },
+    {
+      "name": "wire.struct.signed",
+      "type": "wired_signed",
+      "value": {"count": -70000, "last": true},
+      "bytes": "fbb9a480",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "#[wire(INib32)] i64: the model shows the wire type, so every consumer reads it as INib32"
+    },
+    {
+      "name": "wire.struct.signed.out_of_range",
+      "type": "wired_signed",
+      "value": {"count": -2147483649, "last": false},
+      "direction": "reject_value",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "i32::MIN - 1 doesn't fit INib32: an error on write, never a cut value"
     },
     {
       "name": "wire.enum.tuple",

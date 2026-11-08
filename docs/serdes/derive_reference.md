@@ -561,8 +561,8 @@ pub struct Wired {
   `into_plain` when it is read), in three forms:
     - **An integer as a narrower or variable-length integer**: the field is a plain integer (`u8`..`u128`,
       `i8`..`i128`, `usize`, `isize`), `W` an integer of 64 bits or less (`u8`..`u64`, `i8`..`i64`, `Nibble`,
-      `U1`..`U64`, `I2`..`I64`, `UNib32`, `UVlq32`, `UVlq64`), both signed or both unsigned; anything else is a
-      compile error naming the field. shrink_wrap implements `WireAs` for these pairs.
+      `U1`..`U64`, `I2`..`I64`, `UNib32`, `UVlq32`, `UVlq64` or `INib32`), both signed or both unsigned; anything
+      else is a compile error naming the field. shrink_wrap implements `WireAs` for these pairs.
     - **A handle as the value it stands for** (DER-23): `W` is a user type without a lifetime that implements
       `WireAs<T>` for the field's type: a one-byte index in Rust that writes the full value it stands for (example
       below). `T` is cloned to be written (free for a `Copy` handle).

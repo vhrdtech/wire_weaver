@@ -231,6 +231,10 @@ pub fn table() -> Vec<Typed> {
         case("unib32.one_nibble", UNib32(7)),
         case("unib32.two_nibbles", UNib32(8)),
         case("unib32.max", UNib32(u32::MAX)),
+        case("inib32.one_nibble", INib32(-1)),
+        case("inib32.two_nibbles", INib32(4)),
+        case("inib32.min", INib32(i32::MIN)),
+        case("inib32.max", INib32(i32::MAX)),
         case("uvlq32.two_bytes", UVlq32(128)),
         case("uvlq64.max", UVlq64(u64::MAX)),
         case("bits.nibble", Nibble::new(0xA).unwrap()),
@@ -567,6 +571,20 @@ pub fn table() -> Vec<Typed> {
                 last: false,
             },
         ),
+        case(
+            "wire.struct.signed",
+            WiredSigned {
+                count: -70_000,
+                last: true,
+            },
+        ),
+        case(
+            "wire.struct.signed.out_of_range",
+            WiredSigned {
+                count: i32::MIN as i64 - 1,
+                last: false,
+            },
+        ),
         case("wire.enum.tuple", WiredOp::Step(-3)),
         case("wire.enum.named", WiredOp::Set { value: 70_000 }),
         case(
@@ -608,6 +626,7 @@ pub fn table() -> Vec<Typed> {
         // transparent (DER-18), each with the bytes of its plain twin
         case("transparent.u64", Count(u64::MAX)),
         case("transparent.unib32", Index(UNib32(u32::MAX))),
+        case("transparent.inib32", SignedIndex(INib32(i32::MAX))),
         case(
             "transparent.fields.plain",
             PlainFieldsOwned {
@@ -657,6 +676,18 @@ pub fn table() -> Vec<Typed> {
         case(
             "transparent.vec.unib32",
             vec![Index(UNib32(7)), Index(UNib32(8)), Index(UNib32(300))],
+        ),
+        case(
+            "transparent.vec.inib32.plain",
+            vec![INib32(-4), INib32(4), INib32(-150)],
+        ),
+        case(
+            "transparent.vec.inib32",
+            vec![
+                SignedIndex(INib32(-4)),
+                SignedIndex(INib32(4)),
+                SignedIndex(INib32(-150)),
+            ],
         ),
         case("transparent.vec.nibble.plain", vec![nib(1), nib(2), nib(3)]),
         case(

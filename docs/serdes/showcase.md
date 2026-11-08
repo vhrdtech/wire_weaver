@@ -116,6 +116,17 @@ assert_eq!(version.to_ww_bytes(&mut buf).unwrap(), hex!("01 20"));
 `UNib32` is also what a struct/enum's own reverse-length marker is built from when it's `Unsized` - see
 [the FIFO-of-lengths section](#the-fifo-of-lengths-why-strings-can-come-before-their-length) below.
 
+`INib32` is the signed twin: an `i32` zigzag-mapped onto a `UNib32` (0, -1, 1, -2, 2, ... -> 0, 1, 2, 3, 4, ...), so
+small negative values cost as little as small positive ones:
+
+```rust
+assert_eq!(INib32(0).to_ww_bytes(&mut buf).unwrap(), &[0x00]);   // 1 nibble
+assert_eq!(INib32(-1).to_ww_bytes(&mut buf).unwrap(), &[0x10]);  // 1 nibble
+assert_eq!(INib32(1).to_ww_bytes(&mut buf).unwrap(), &[0x20]);   // 1 nibble
+assert_eq!(INib32(-4).to_ww_bytes(&mut buf).unwrap(), &[0x70]);  // 1 nibble, max for that size
+assert_eq!(INib32(4).to_ww_bytes(&mut buf).unwrap(), &[0x81]);   // 2 nibbles: needs a continuation
+```
+
 For numbers that are usually large, `UVlq32` is the byte-based alternative: standard big endian
 [VLQ](https://en.wikipedia.org/wiki/Variable-length_quantity), 1 continuation bit + 7 value bits per byte, most
 significant group first, byte-aligned. It is also `self_describing` and takes 1 to 5 bytes instead of 1 to 11 nibbles:

@@ -29,6 +29,7 @@ trait Conformance {
     property!(rw f64: f64);
     property!(rw bool: bool);
     property!(rw unib32: UNib32);
+    property!(rw inib32: INib32);
     property!(rw uvlq32: UVlq32);
     property!(rw uvlq64: UVlq64);
     property!(rw nibble: Nibble);
@@ -96,6 +97,7 @@ trait Conformance {
     // plain integers written as another wire type (DER-19)
     property!(rw wired: Wired);
     property!(rw wired_op: WiredOp);
+    property!(rw wired_signed: WiredSigned);
     property!(rw series_wired: Series<'i, WiredSample>);
     // the derive's field attributes behind #[cfg_attr(pred, ..)] (API-60)
     property!(rw gated_v1: GatedV1);
@@ -103,12 +105,15 @@ trait Conformance {
     // transparent (DER-18), each next to its plain twin: the same bytes
     property!(rw count: Count);
     property!(rw index: Index);
+    property!(rw signed_index: SignedIndex);
     property!(rw wrapped_fields: WrappedFields<'i>);
     property!(rw plain_fields: PlainFields<'i>);
     property!(rw wrapped_sized: WrappedSized);
     property!(rw plain_sized: PlainSized);
     property!(rw vec_index: RefVec<'i, Index>);
     property!(rw vec_unib32: RefVec<'i, UNib32>);
+    property!(rw vec_signed_index: RefVec<'i, SignedIndex>);
+    property!(rw vec_inib32: RefVec<'i, INib32>);
     property!(rw vec_digit: RefVec<'i, Digit>);
     property!(rw vec_nibble: RefVec<'i, Nibble>);
     property!(rw option_count: Option<Count>);
@@ -552,6 +557,13 @@ pub struct WiredSample {
     pub value: i16,
 }
 
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct WiredSigned {
+    #[wire(INib32)]
+    pub count: i64,
+    pub last: bool,
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // #[cfg_attr(pred, wire(W))] and #[cfg_attr(pred, default = ..)] (API-60): read as if pred holds, the same bytes and
 // API model as the plain attributes; a type crate with shrink_wrap optional writes them this way
@@ -588,6 +600,10 @@ pub struct Count(pub u64);
 /// A wrapped `UNib32`: self-describing, nibble-aligned.
 #[derive_shrink_wrap(borrowed, owned, transparent, derive(Debug, PartialEq, Clone, Copy))]
 pub struct Index(pub UNib32);
+
+/// A wrapped `INib32`: self-describing, nibble-aligned, zigzag.
+#[derive_shrink_wrap(borrowed, owned, transparent, derive(Debug, PartialEq, Clone, Copy))]
+pub struct SignedIndex(pub INib32);
 
 /// A wrapped `Nibble`: 4 bits, packed with its neighbours.
 #[derive_shrink_wrap(

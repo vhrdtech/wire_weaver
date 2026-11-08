@@ -6463,7 +6463,9 @@ descriptors (see <a href="../transport/usb/">USB</a>), so it works even while an
 </span></code></pre></div>
 <ul>
 <li><code>LOCATION</code>: transport, bus and port chain, VID:PID. The <code>003-1</code> part is what <code>--usb-path</code> expects.</li>
-<li><code>API</code>: name and version of the API crate the firmware implements, <code>HASH</code>: its signature.</li>
+<li><code>API</code>: name and crate version of the API the firmware implements, from its USB string descriptor, <code>HASH</code>: its
+  signature. The wire version (<a href="../std_library/ww_version/"><code>w2.3</code></a>) isn't in that descriptor, so <code>ww list</code> can't
+  show it without connecting; <code>ww info</code> and <code>ww tap</code> do, once the link is set up.</li>
 <li><code>LABEL</code>: user label set by the firmware, if any.</li>
 </ul>
 <p>Only devices matching the <a href="../cli/#device-selection">device selection</a> are shown, so <code>ww list</code> is also the way to check
@@ -7463,14 +7465,18 @@ holds devices and serves every program, and the question "who has my device?" fo
 contract</a> traits (global trait paths, like <code>ww dfu</code>: whatever the device's API and
 version, no ELF needed).</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>$ ww info --serial 4B333720
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>API        usb_io_api@0.5.0
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
-</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
-</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
-</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>API        usb_io_api@0.5.0 (wire w2.3)
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>Hello      framer=1 link=1 shrink_wrap=1 api_model=1
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>Ids        chip e6613871235b1c2d (internal, primary)
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>Label      &quot;bench 2&quot; (kept over power cycles)
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
 </span></code></pre></div>
+<p><code>API</code>'s crate version is for display; <code>wire w2.3</code> (<a href="../std_library/ww_version/"><code>WireVersion</code></a>) is what link setup and <code>#[since]</code> decide on. <code>Hello</code> is the per-layer generations (<a href="../transport/ww_link/#the-frozen-hello">framer, link, shrink_wrap,
+API model</a>) this connection agreed on; a device without a wire version omits
+the <code>(wire ..)</code> part.</p>
 <table>
 <thead>
 <tr>

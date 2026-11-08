@@ -7830,6 +7830,17 @@ observing), SRV-46 (peer identity).
   (<code>set_rate</code> -&gt; <code>configure</code>); a field that changed scale and storage (<code>Sample::temp</code>, <code>Centi</code> <code>i16</code> -&gt; <code>Milli</code>
   <code>i32</code>) reports only the scale. <code>checker_agrees_on_both_bumps</code> takes about 1.4 s, each <code>load_crate</code> walking
   <code>ww_si</code> and <code>exact_units</code> again.</li>
+<li>✅ <strong>EVO-34 Wire versions and generations in docs, CLI and Python</strong> · <code>v0.5</code> — <code>ww info</code> and <code>ww report</code> show the
+  device's wire version next to its crate version (<code>API ... (wire w2.3)</code>) and the hello generations this
+  connection agreed on (<code>Hello framer=1 link=1 shrink_wrap=1 api_model=1</code>, EVO-23), through <code>ww_report::clients::Contract</code>
+  and <code>info::DeviceInfo</code>'s new <code>api_wire</code> / <code>generations</code> fields. <code>ww tap</code>'s session line shows the device's wire
+  version once link is set up (<code>wire_weaver_client::tap::session_wire_version</code>). <code>wire_weaver_client::DeviceApiInfo</code>
+  gained the <code>generations: ww_link::Generations</code> field (this build's, which matches the device's or link setup
+  would have refused); <code>ww_link::Generations</code> implements <code>Display</code>. Python's <code>dev.info</code> shows the wire version and
+  generations next to the crate versions. <code>ww list</code> still can't show the wire version pre-connection: it comes from
+  the USB string descriptor (<code>ApiId</code>), which doesn't carry one (a wire-format change of its own, not attempted
+  here); <code>docs/cli_reference.md</code> and <code>docs/std_library/device_contract.md</code> say so (tests <code>tests/device_report</code>
+  <code>info_of_any_device</code>, <code>ww_link</code> <code>hello::tests::generations_display</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

@@ -6492,6 +6492,9 @@ the <a href="#setup-token">setup token</a> decides whether it belongs to this se
 <li>The hello costs bytes only in link setup, once each way per connection: nothing is added to any message after
   <code>LinkReady</code>.</li>
 </ul>
+<p>Once a connection is up, the generations it agreed on are for display: <a href="../../cli_reference/#ww-info"><code>ww info</code></a> and
+the Python <code>dev.info</code> show them next to the wire version, and <code>ww tap</code>'s session line shows the wire version as the
+link is set up.</p>
 <h2 id="how-the-host-runs-it">How the host runs it<a class="headerlink" href="#how-the-host-runs-it" title="Permanent link">&para;</a></h2>
 <p><code>ww_link</code> itself is just messages. The host side (<code>wire_weaver_client</code>) drives them with two small
 <strong>sans-IO state machines</strong> — one per direction — that contain all the protocol logic but do no IO, own no

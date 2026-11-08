@@ -6065,17 +6065,20 @@ notes) is ignored and an ELF without a build id is listed as skipped. The versio
 (<code>FirmwareInfo::FIRMWARE</code>), which says which archive to fetch.</p>
 <h2 id="ww-info"><code>ww info</code><a class="headerlink" href="#ww-info" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$ ww info --serial 4B333720
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>API        usb_io_api@0.5.0
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Label      &quot;bench 2&quot;, notes &quot;DUT of the CAN test&quot; (kept over power cycles)
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>Last reset Panic, boot 3 since cleared, ran 2.5 s
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>            message: index out of bounds
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>API        usb_io_api@0.5.0 (wire w2.3)
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>Hello      framer=1 link=1 shrink_wrap=1 api_model=1
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>Ids        chip e6613871235b1c2d (internal, primary)
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>Label      &quot;bench 2&quot;, notes &quot;DUT of the CAN test&quot; (kept over power cycles)
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>Last reset Panic, boot 3 since cleared, ran 2.5 s
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>            message: index out of bounds
 </span></code></pre></div>
 <p>The same data as JSON with <code>--format json</code> (each part is <code>{"status": "value" | "not_implemented" | "error", ...}</code>).
-It needs no ELF and no user API.</p>
+It needs no ELF and no user API. <code>API</code>'s crate version is for display; <code>wire w2.3</code> is what <a href="../ww_version/">link setup and
+<code>#[since]</code></a> decide on. <code>Hello</code> is the per-layer generations this connection agreed on
+(<a href="../../transport/ww_link/#the-frozen-hello">the frozen hello</a>).</p>
 <h2 id="ww-report"><code>ww report</code><a class="headerlink" href="#ww-report" title="Permanent link">&para;</a></h2>
 <p><code>ww report</code> is <code>ww info</code> plus the counters, the stored log and the last reset's addresses named with the ELF, in one
 file a tester sends along with a bug report:</p>

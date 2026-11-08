@@ -186,8 +186,10 @@ mod tests {
         );
         // not a whole number of mN·s: refused, not rounded
         assert_eq!(BURN.convert::<Times<Newton, Second>, Milli, i64>(), None);
+        // 8.896443230521 is no f64: an exact conversion refuses it (NUM-30), a rounded one gives the nearest
+        assert_eq!(BURN.convert::<Times<Newton, Second>, One, f64>(), None);
         let f = BURN
-            .convert::<Times<Newton, Second>, One, f64>()
+            .convert_rounded::<Times<Newton, Second>, One, f64>(ww_si::Rounding::NearestEven)
             .unwrap()
             .get();
         assert!((f - 8.896443230521).abs() < 1e-12);

@@ -579,7 +579,7 @@ mod tests {
             /// Motor
             pub trait Motor {
                 /// Speed setpoint
-                #[since = "0.2.0"]
+                #[since = "w1.2"]
                 property!(rw+observe speed: u32, SpeedError);
                 reserved!(1..=3);
                 /// Encoder
@@ -597,7 +597,7 @@ mod tests {
             pub trait Motor {
                 #[doc = " Speed setpoint"]
                 #[doc = ""]
-                #[doc = "Read-write property, changes can be observed. Since `0.2.0`."]
+                #[doc = "Read-write property, changes can be observed. Since `w1.2`."]
                 fn speed() -> wire_weaver::api_doc::Property<u32, SpeedError>;
                 #[doc = " Encoder"]
                 #[doc = ""]

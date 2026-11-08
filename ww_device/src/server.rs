@@ -328,6 +328,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                     Ok(())
                 }
                 Transmit::Message { kind, bytes } => self.tx.write_message(kind, bytes).await,
+                Transmit::Hello(hello) => self.tx.write_hello(&hello).await,
                 Transmit::Flush => self.tx.flush().await,
             };
             if r.is_err() {

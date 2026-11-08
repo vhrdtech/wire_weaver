@@ -88,9 +88,10 @@ async fn frame_counter_counts_the_lost_packet() {
     let link = &stats.links[&0];
     assert_eq!(link.rx.prefix.lost, 1, "{:?}", link.rx.prefix);
     assert_eq!(link.rx.prefix.dropped(), 0);
-    assert_eq!(link.rx.prefix.checked, link.rx.frames);
+    // every frame but the device's hello, which is outside the framer and has no prefix (EVO-23)
+    assert_eq!(link.rx.prefix.checked, link.rx.frames - 1);
     assert_eq!((link.tx.prefix.lost, link.tx.prefix.dropped()), (0, 0));
-    assert_eq!(link.rx.prefix_bytes, link.rx.frames);
+    assert_eq!(link.rx.prefix_bytes, link.rx.frames - 1);
     assert!(stats.report().contains("frame prefix: 1 lost, 0 dropped"));
 }
 

@@ -233,10 +233,25 @@ A **generation** is one byte per foundation layer (`ww_framer::GENERATION`, `ww_
 additions never change it, they are negotiated in `DeviceInfo` and `LinkSetup` after the hello. A later layer gets
 its byte appended (`n` grows), and a reader takes the four it knows.
 
-The frame around the payload is frozen per medium too. On USB it is one packet: the head framer generation 1 writes
-for a whole `Hello` of 16 bytes (`30 48 10`, `ww_link::hello::usb::HEAD`), then the payload, 19 bytes in all;
-`hello::usb::find` reads it from a packet without the framer, whatever generation the sender's framer is. The other
-media follow in EVO-23's second part.
+The frame around the payload is frozen per medium too, and both sides write and read it **outside the framer**
+(`Framing::hello_frame`, `Framing::find_hello`): every received frame is checked for a hello before the framer sees
+it, so a peer whose framer is of another generation still reads the hello and names the framer as what differs.
+
+| Medium    | What is frozen                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------- |
+| USB       | The packet boundary: a hello is one packet of its own, never with a frame prefix (also with the frame counter of `UsbSeqFraming`): `30`, `48 \| (len >> 8)`, `len & 0xff`, then the payload; 19 bytes today (`ww_link::hello::usb`). |
+| UDP, RTT, WebSocket | Not yet (EVO-23's second part): the hello goes through the framer as a `Hello` message.        |
+
+On USB, `hello::usb::find` takes a packet for a hello only when all of these hold: `30` first, the length bits of the
+second byte, the length within the packet, the magic, a role byte and at least four generation bytes. Anything else
+is staged into the framer as before, so the tail of an old split message or a frame counter that happens to be `30`
+is never taken for a hello. The `30 48 10` head is what framer generation 1 writes for a whole 16 byte `Hello`, so a
+generation 1 framer would read the packet too, but nothing relies on that. Endpoints with packets shorter than the
+frozen frame (8 or 16 bytes) take the hello framed; WireWeaver's own USB class uses 64 bytes and more.
+
+A hello found outside the framer starts a new session on the side that receives it as well: the framer drops what it
+held (half a split message of the previous session). It then goes through the same rules as any setup message:
+the [setup token](#setup-token) decides whether it belongs to this session.
 
 What each side does with it:
 

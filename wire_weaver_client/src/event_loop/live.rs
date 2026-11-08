@@ -42,7 +42,7 @@ pub(crate) enum RxCtl {
     /// Give the rx half to the tx task (dropped if there is none)
     Lend(oneshot::Sender<MediumRx>),
     /// Take it back, maybe another medium's now
-    Return(MediumRx),
+    Return(Box<MediumRx>),
     /// Messages the medium completed while it was paused, in order
     Feed(Vec<(u8, Vec<u8>)>),
     /// The rx core's part of the link residual, after everything fed before
@@ -169,7 +169,7 @@ mod with_hub {
             core.resume(now());
             return Outcome::Release;
         };
-        let give_back = |rx: MediumRx| _ = rx_ctl.send(RxCtl::Return(rx));
+        let give_back = |rx: MediumRx| _ = rx_ctl.send(RxCtl::Return(Box::new(rx)));
         let paused = match medium::pause(tx, &mut rx).await {
             Ok(paused) => paused,
             Err(e) => {

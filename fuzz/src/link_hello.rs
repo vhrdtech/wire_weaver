@@ -13,8 +13,8 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(again, h);
     }
     for prefix_len in 0..2 {
-        if let Some(h) = hello::usb::find(data, prefix_len) {
-            assert_eq!(hello::usb::find(&hello::usb::frame(&h), 0), Some(h));
+        if let Some(h) = hello::usb::find(&data[prefix_len.min(data.len())..]) {
+            assert_eq!(hello::usb::find(&hello::usb::frame(&h)), Some(h));
         }
     }
     let _ = Message::decode(Kind::Hello as u8, data);

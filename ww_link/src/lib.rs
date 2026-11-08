@@ -29,6 +29,26 @@ pub trait Framing {
     type Checksum: Checksum;
     type Tail: Tail;
     type Prefix: FramePrefix;
+
+    /// The medium's frozen [hello] frame of `hello` in `buf`, its length; sent alone, never through the framer.
+    /// None: the medium has no frozen frame yet, and the hello goes through the framer as a [Kind::Hello] message.
+    fn hello_frame(hello: &Hello, buf: &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize> {
+        let _ = (hello, buf);
+        None
+    }
+
+    /// The hello in a received frame, read from the medium's frozen positions before the framer sees the frame:
+    /// found, the frame is the hello and nothing else. Every received frame is checked.
+    fn find_hello(frame: &[u8]) -> Option<Hello> {
+        let _ = frame;
+        None
+    }
+}
+
+/// [Framing::hello_frame] on USB: [hello::usb], no frame prefix.
+fn usb_hello_frame(hello: &Hello, buf: &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize> {
+    buf[..hello::usb::FRAME_LEN].copy_from_slice(&hello::usb::frame(hello));
+    Some(hello::usb::FRAME_LEN)
 }
 
 /// [ww_framer::Tx] of a [Framing].
@@ -84,6 +104,14 @@ impl Framing for UsbFraming {
     type Checksum = UsbChecksum;
     type Tail = UsbTail;
     type Prefix = UsbPrefix;
+
+    fn hello_frame(hello: &Hello, buf: &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize> {
+        usb_hello_frame(hello, buf)
+    }
+
+    fn find_hello(frame: &[u8]) -> Option<Hello> {
+        hello::usb::find(frame)
+    }
 }
 
 /// [UsbFraming] with a [SeqPrefix] frame counter, as a diagnostic: counts lost, duplicated or reordered packets
@@ -95,6 +123,15 @@ impl Framing for UsbSeqFraming {
     type Checksum = UsbChecksum;
     type Tail = UsbTail;
     type Prefix = SeqPrefix;
+
+    /// Without the frame counter: the hello is outside the framer.
+    fn hello_frame(hello: &Hello, buf: &mut [u8; hello::HELLO_FRAME_MAX]) -> Option<usize> {
+        usb_hello_frame(hello, buf)
+    }
+
+    fn find_hello(frame: &[u8]) -> Option<Hello> {
+        hello::usb::find(frame)
+    }
 }
 
 /// USB interface protocol (`bInterfaceProtocol`, class 0xFF, subclass 0) of a WireWeaver interface with

@@ -129,6 +129,12 @@ impl<'a, P: PacketSink, M: Copy> Server<'a, P, M> {
         packet: &[u8],
         backend: &mut B,
     ) -> Option<LinkEvent> {
+        use ww_link::Framing;
+        // every packet is checked for a hello before the framer sees it, see `FramedRx`
+        if let Some(hello) = P::Framing::find_hello(packet) {
+            self.rx.reset();
+            return self.on_message(now, ww_link::Kind::Hello as u8, &hello.to_bytes(), backend);
+        }
         if self.rx.stage(packet).is_err() {
             // only possible if the host sent a message larger than advertised
             warn!("rx assembly buffer overflow, dropping partial message");
@@ -350,6 +356,27 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
         }
     }
 
+    /// The hello in the medium's frozen frame, alone and outside the framer, see `MessageTx::write_hello`.
+    fn write_hello(&mut self, hello: &ww_link::Hello) -> Result<(), SendError> {
+        use ww_link::Framing;
+        let mut buf = [0u8; ww_link::hello::HELLO_FRAME_MAX];
+        // a medium without a frozen frame, or packets too short for it: framed, see `MessageTx::write_hello`
+        let len = match P::Framing::hello_frame(hello, &mut buf) {
+            Some(len) if len <= self.tx.buf().len() => len,
+            _ => {
+                self.write_message(ww_link::Kind::Hello as u8, &hello.to_bytes())?;
+                return self.send_frame().map(|_| ());
+            }
+        };
+        self.send_frame()?;
+        if self.sink.write_packet(&buf[..len]).is_err() {
+            warn!("write failed, transport down");
+            self.link.on_transport_down();
+            return Err(SendError::Transport);
+        }
+        Ok(())
+    }
+
     /// Returns false if there was nothing to send.
     fn send_frame(&mut self) -> Result<bool, SendError> {
         let len = self.tx.flush();
@@ -372,6 +399,7 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
                     Ok(())
                 }
                 Transmit::Message { kind, bytes } => self.write_message(kind, bytes),
+                Transmit::Hello(hello) => self.write_hello(&hello),
                 Transmit::Flush => self.send_frame().map(|_| ()),
             };
             if r.is_err() {

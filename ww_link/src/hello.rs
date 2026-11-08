@@ -23,8 +23,10 @@
 //! The hello costs bytes only in link setup: it is the payload of [Kind::Hello](crate::Kind::Hello), sent once each
 //! way per connection, and nothing is added to any message after `LinkReady`.
 //!
-//! Each medium freezes the frame around the payload too: on USB ([usb]) the frame head as framer generation 1
-//! writes it, so a later framer still reads and writes a hello the way generation 1 did.
+//! Each medium freezes the frame around the payload too, and both sides write and read it outside the framer
+//! ([Framing::hello_frame](crate::Framing::hello_frame), [Framing::find_hello](crate::Framing::find_hello)): on USB
+//! ([usb]) one packet, so a peer whose framer is of another generation still reads the hello and says which layer
+//! differs.
 
 /// The magic a hello starts with.
 pub const MAGIC: [u8; 2] = *b"WW";
@@ -217,15 +219,26 @@ impl Hello {
     }
 }
 
-/// The hello frame on USB, frozen: one packet holding the framer generation 1 head of a whole
-/// [Kind::Hello](crate::Kind::Hello) message of [HELLO_LEN] bytes, then the payload. [UsbFraming](crate::UsbFraming)
-/// and [UsbSeqFraming](crate::UsbSeqFraming) (one prefix byte before it) both write it.
+/// Largest hello frame of any medium: a buffer of this size holds [Framing::hello_frame](crate::Framing::hello_frame).
+pub const HELLO_FRAME_MAX: usize = 32;
+
+/// The hello frame on USB, frozen: one packet, never with a frame prefix (also with
+/// [UsbSeqFraming](crate::UsbSeqFraming)), written and read outside the framer by both sides. It is what framer
+/// generation 1 writes for a whole [Kind::Hello](crate::Kind::Hello) message, so a generation 1 framer could read it
+/// too, but nothing relies on that: a peer of any framer generation finds the hello at the packet's start.
+///
+/// | byte | value                                                                  |
+/// |------|------------------------------------------------------------------------|
+/// | 0    | `0x30`                                                                 |
+/// | 1    | `0x48 \| (len >> 8)`, `len` the payload length (16 today, up to 1023)  |
+/// | 2    | `len & 0xff`                                                           |
+/// | 3..  | the payload, see the [module](self) docs                               |
 pub mod usb {
     use super::*;
 
-    /// The frame head before the payload, as framer generation 1 writes it.
+    /// The frame head before a 16 byte payload, as framer generation 1 writes it.
     pub const HEAD: [u8; 3] = [0x30, 0x48, 0x10];
-    /// Length of the whole hello frame on USB without a prefix.
+    /// Length of the whole hello frame on USB.
     pub const FRAME_LEN: usize = HEAD.len() + HELLO_LEN;
 
     /// The frozen frame of `hello`.
@@ -236,15 +249,17 @@ pub mod usb {
         f
     }
 
-    /// The hello in a USB packet, read from the frozen positions without the framer: whatever generation the sender's
-    /// framer is, its hello is read here. `prefix_len` is the frame prefix's length (0, or 1 with
-    /// [UsbSeqFraming](crate::UsbSeqFraming)).
-    pub fn find(packet: &[u8], prefix_len: usize) -> Option<Hello> {
-        let rest = packet.get(prefix_len..)?;
-        if !rest.starts_with(&HEAD) {
+    /// The hello at the start of a USB packet, read without the framer: whatever generation the sender's framer is,
+    /// its hello is read here. A longer payload (a later hello with more generation bytes) is read as well.
+    pub fn find(packet: &[u8]) -> Option<Hello> {
+        let [0x30, b1, b2, ..] = *packet else {
+            return None;
+        };
+        if b1 & 0xfc != 0x48 {
             return None;
         }
-        Hello::from_bytes(&rest[HEAD.len()..]).ok()
+        let len = (((b1 & 0x03) as usize) << 8) | b2 as usize;
+        Hello::from_bytes(packet.get(3..3 + len)?).ok()
     }
 }
 
@@ -282,8 +297,14 @@ mod tests {
         tx.write(Kind::Hello as u8, &HOST.to_bytes()).unwrap();
         let len = tx.flush();
         assert_eq!(&packet[..len], &usb::frame(&HOST)[..]);
-        assert_eq!(usb::find(&packet[..len], 0), Some(HOST));
-        assert_eq!(usb::find(&packet[1..len], 0), None);
+        assert_eq!(usb::find(&packet[..len]), Some(HOST));
+        assert_eq!(usb::find(&packet[1..len]), None);
+        assert_eq!(usb::find(&packet[..len - 1]), None, "cut short");
+        // a later hello with a fifth generation byte: 17 bytes of payload, still found
+        let mut longer = std::vec![0x30, 0x48, 17, b'W', b'W', b'D', 5, 2, 1, 1, 1, 9];
+        longer.extend_from_slice(&7u64.to_le_bytes());
+        let found = usb::find(&longer).unwrap();
+        assert_eq!((found.generations.framer, found.token), (2, 7));
     }
 
     #[test]

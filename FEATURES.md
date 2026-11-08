@@ -1864,7 +1864,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Kind::Hello`, sent both ways; the device sends `DeviceInfo` only when every generation matches, the host fails
   with `Error::IncompatibleGeneration` naming the layer and who should update, and a setup message it can't read
   with `Error::UnknownPeerFormat` and its bytes. Not a byte is added after `LinkReady`. Done: the payload, the USB
-  frame (`hello::usb`), device and host on USB and in-process. Open: the frozen frame on UDP, RTT and WebSocket, and
+  frame (`hello::usb`: a packet of its own, no frame prefix, written and read outside the framer by device and host,
+  every packet checked first), device and host on USB and in-process. Open: the frozen frame on UDP, RTT and WebSocket, and
   the hub's preamble and windows by generation
   (`docs/transport/ww_link.md#the-frozen-hello`; tests `ww_link` `hello::tests`, `ww_device`
   `hello_of_other_generations`, `wire_weaver_client` `device_of_another_generation`, `unknown_peer_format`).

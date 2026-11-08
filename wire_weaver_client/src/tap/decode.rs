@@ -362,9 +362,11 @@ impl Decoder {
             }
             match walker(&s.framer) {
                 Ok(Some((w, stream))) => {
-                    l.tx.reassembler = Some(Reassembler::new(w, stream));
+                    let usb = s.framer == crate::tap::FRAMED_USB
+                        || s.framer == crate::tap::FRAMED_USB_SEQ;
+                    l.tx.reassembler = Some(Reassembler::new(w, stream).with_usb_hello(usb));
                     let (w, _) = walker(&s.framer).ok().flatten().expect("same framer");
-                    l.rx.reassembler = Some(Reassembler::new(w, stream));
+                    l.rx.reassembler = Some(Reassembler::new(w, stream).with_usb_hello(usb));
                 }
                 Ok(None) => {}
                 Err(e) => l.framer_error = Some(e),

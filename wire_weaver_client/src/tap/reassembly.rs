@@ -193,6 +193,8 @@ pub(crate) struct Reassembler {
     carry: Vec<u8>,
     /// (chunk no, start in `carry`, length, offset of that start in the chunk)
     carry_from: Vec<(u64, usize, usize, usize)>,
+    /// A USB framing: a frame holding the frozen hello (`ww_link::hello::usb`) is read outside the framer
+    usb_hello: bool,
 }
 
 impl Reassembler {
@@ -203,7 +205,14 @@ impl Reassembler {
             partial: None,
             carry: Vec::new(),
             carry_from: Vec::new(),
+            usb_hello: false,
         }
+    }
+
+    /// Frames of a USB framing: the hello is a packet of its own outside the framer (EVO-23), read the same way here.
+    pub fn with_usb_hello(mut self, on: bool) -> Self {
+        self.usb_hello = on;
+        self
     }
 
     pub fn feed(&mut self, frame_no: u64, frame: &[u8]) -> FrameOutcome {
@@ -211,6 +220,31 @@ impl Reassembler {
             return self.feed_stream(frame_no, frame);
         }
         let mut out = FrameOutcome::default();
+        if self.usb_hello && ww_link::hello::usb::find(frame).is_some() {
+            // the device or host started a new session: its framer drops what it held, so does this one
+            self.drop_partial(&mut out);
+            let len = ((frame[1] as usize & 0x03) << 8) | frame[2] as usize;
+            let payload = 3..3 + len;
+            out.completed.push(Reassembled {
+                kind: ww_link::Kind::Hello as u8,
+                bytes: frame[payload.clone()].to_vec(),
+                parts: vec![FramePart {
+                    frame_no,
+                    offset: 3,
+                    len: len as u32,
+                }],
+            });
+            out.pieces.push(PieceInfo {
+                kind: MessageKind::Full,
+                user_kind: ww_link::Kind::Hello as u8,
+                len,
+                head: 0..3,
+                trailer: payload.end..payload.end,
+                payload,
+                outcome: PieceOutcome::Message,
+            });
+            return out;
+        }
         if self.walker.prefix_len() > 0 {
             let report = self.walker.check_prefix(frame);
             out.prefix_report = Some(report);

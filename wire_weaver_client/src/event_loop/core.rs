@@ -581,7 +581,7 @@ fn on_ctl(
                 *msg_rx = Some(rx);
             }
         }
-        RxCtl::Return(rx) => *msg_rx = Some(rx),
+        RxCtl::Return(rx) => *msg_rx = Some(*rx),
         RxCtl::Feed(messages) => {
             let now = now();
             for (kind, message) in messages {
@@ -885,6 +885,123 @@ mod tests {
                 e.contains(&format!("API model generation {device_gen}")) && e.contains(advice),
                 "{e}"
             );
+        }
+    }
+
+    /// USB packets from the device through the host's USB framer, which reads the hello outside the framer (EVO-23).
+    fn feed_packets(
+        p: &mut Pair,
+        now: Instant,
+        rx: &mut crate::framing::UsbRx,
+        packets: &[Vec<u8>],
+    ) {
+        for packet in packets {
+            rx.stage(packet).unwrap();
+            loop {
+                rx.reassemble();
+                let Some((kind, message)) = rx.message() else {
+                    break;
+                };
+                let message = message.to_vec();
+                p.rx.handle(
+                    now,
+                    RxInput::Message {
+                        kind,
+                        message: &message,
+                    },
+                );
+                p.settle(now);
+            }
+        }
+    }
+
+    /// Messages of a device in USB packets, through a generation 1 framer.
+    fn device_packets(tx: &mut crate::framing::UsbTx, messages: &[Message<'_>]) -> Vec<Vec<u8>> {
+        let mut scratch = [0u8; 256];
+        let mut out = vec![];
+        for m in messages {
+            let (kind, payload) = m.encode(&mut scratch).unwrap();
+            while !tx.write(kind, payload).unwrap() {
+                out.extend(tx.flush_to_vec());
+            }
+            out.extend(tx.flush_to_vec());
+        }
+        out
+    }
+
+    /// A device whose framer is of another generation (a made-up generation 2 head after its hello): the host reads
+    /// its hello outside the framer and names the framer, not a timeout or an unknown format.
+    #[test]
+    fn device_with_a_framer_of_another_generation() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let (connected_tx, mut connected_rx) = oneshot::channel();
+        p.cmd(now, connect_cmd(connected_tx));
+        p.tx.handle(now, TxInput::TransportUp);
+        p.settle(now);
+        p.take_sent();
+        let mut hello = host_hello(p.tx.token());
+        hello.role = ww_link::Role::Device;
+        hello.generations.framer = 2;
+        let mut rx = crate::framing::UsbRx::new(false, 1024 + 64);
+        let packets = [
+            ww_link::hello::usb::frame(&hello).to_vec(),
+            vec![0xF7, 0x01, 0x02, 0x03],
+        ];
+        feed_packets(&mut p, now, &mut rx, &packets);
+        assert!(p.take_sent().is_empty(), "no LinkSetup");
+        let e = format!("{:#}", connected_rx.try_recv().unwrap().result.unwrap_err());
+        assert!(
+            e.contains("framer generation 2") && e.contains("update the host"),
+            "{e}"
+        );
+    }
+
+    /// What an earlier session left in the device's IN buffer when a new host connects: the tail of a split message
+    /// and that session's hello. Both are dropped, the new session's hello and DeviceInfo connect, with and
+    /// without the frame counter.
+    #[test]
+    fn stale_hello_and_split_tail_before_this_sessions_hello() {
+        for seq_prefix in [false, true] {
+            let now = Instant::now();
+            let mut p = Pair::new();
+            let (connected_tx, mut connected_rx) = oneshot::channel();
+            p.cmd(now, connect_cmd(connected_tx));
+            p.tx.handle(now, TxInput::TransportUp);
+            p.settle(now);
+            let sent = p.take_sent();
+            assert_eq!(kinds(&sent), [Kind::Nop, Kind::Hello]);
+            let token = p.tx.token();
+
+            let mut dev = crate::framing::UsbTx::new(seq_prefix, 64);
+            let split = device_packets(
+                &mut dev,
+                &[Message::Data {
+                    channel: 0,
+                    bytes: &[0xAB; 150],
+                }],
+            );
+            assert!(split.len() >= 3);
+            let mut packets = split[1..].to_vec(); // the old host read the first packet only
+            packets.extend(device_packets(&mut dev, &[device_hello(token ^ 1)]));
+            packets.extend(device_packets(
+                &mut dev,
+                &[Message::Nop, device_hello(token), device_info(token)],
+            ));
+            let mut rx = crate::framing::UsbRx::new(seq_prefix, 1024 + 64);
+            feed_packets(&mut p, now, &mut rx, &packets);
+            assert_eq!(
+                kinds(&p.take_sent()),
+                [Kind::LinkSetup],
+                "seq prefix {seq_prefix}"
+            );
+            feed_packets(
+                &mut p,
+                now,
+                &mut rx,
+                &device_packets(&mut dev, &[Message::LinkReady { token }]),
+            );
+            assert!(connected_rx.try_recv().unwrap().result.is_ok());
         }
     }
 

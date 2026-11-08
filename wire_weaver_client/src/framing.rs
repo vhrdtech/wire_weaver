@@ -3,7 +3,8 @@
 use tracing::{debug, trace};
 use wire_weaver::prelude::*;
 use ww_framer::prefix::{FrameCtx, FrameReport, PrefixStats};
-use ww_link::{FramingRxOwned, FramingTxOwned, UsbFraming, UsbSeqFraming};
+use ww_link::hello::{HELLO_LEN, usb as usb_hello};
+use ww_link::{FramingRxOwned, FramingTxOwned, Hello, Kind, UsbFraming, UsbSeqFraming};
 
 /// What a frame's prefix check found, logged: debug for anything but the expected frame.
 pub(crate) fn log_report(report: FrameReport) {
@@ -14,21 +15,44 @@ pub(crate) fn log_report(report: FrameReport) {
     }
 }
 
-/// USB tx framer, picked at connect time from the interface protocol (see [ww_link::USB_INTERFACE_PROTOCOL]).
-pub(crate) enum UsbTx {
+/// USB tx framer, picked at connect time from the interface protocol (see [ww_link::USB_INTERFACE_PROTOCOL]). The
+/// hello goes outside it, in its frozen frame ([ww_link::hello::usb]), a packet of its own.
+pub(crate) struct UsbTx {
+    framer: UsbTxFramer,
+    /// A hello written, its frame is what the next flush gives
+    hello: Option<[u8; usb_hello::FRAME_LEN]>,
+    /// The hello's frame was the last flush: [UsbTx::buf] is it
+    flushed_hello: Option<[u8; usb_hello::FRAME_LEN]>,
+}
+
+pub(crate) enum UsbTxFramer {
     Plain(FramingTxOwned<UsbFraming>),
     Seq(FramingTxOwned<UsbSeqFraming>),
 }
 
-/// USB rx framer, see [UsbTx].
-pub(crate) enum UsbRx {
+/// USB rx framer, see [UsbTx]. Every packet is checked for the device's hello before the framer sees it.
+pub(crate) struct UsbRx {
+    framer: UsbRxFramer,
+    /// A hello found outside the framer, waiting to be [UsbRx::reassemble]d
+    hello: Option<[u8; HELLO_LEN]>,
+    /// [UsbRx::message] is that hello
+    hello_ready: bool,
+}
+
+pub(crate) enum UsbRxFramer {
     Plain(FramingRxOwned<UsbFraming>),
     Seq(FramingRxOwned<UsbSeqFraming>),
 }
 
 macro_rules! each {
-    ($self:expr, $f:ident => $e:expr) => {
-        each!(Self: $self, $f => $e)
+    (UsbTx: $self:expr, $f:ident => $e:expr) => {
+        each!(UsbTxFramer: &mut $self.framer, $f => $e)
+    };
+    (UsbRx: mut $self:expr, $f:ident => $e:expr) => {
+        each!(UsbRxFramer: &mut $self.framer, $f => $e)
+    };
+    (UsbRx: $self:expr, $f:ident => $e:expr) => {
+        each!(UsbRxFramer: &$self.framer, $f => $e)
     };
     ($ty:ident: $self:expr, $f:ident => $e:expr) => {
         match $self {
@@ -41,44 +65,97 @@ macro_rules! each {
 #[allow(dead_code)] // not every method is used by every transport
 impl UsbTx {
     pub fn new(seq_prefix: bool, frame_size: usize) -> Self {
-        if seq_prefix {
-            UsbTx::Seq(FramingTxOwned::<UsbSeqFraming>::new(frame_size))
+        let framer = if seq_prefix {
+            UsbTxFramer::Seq(FramingTxOwned::<UsbSeqFraming>::new(frame_size))
         } else {
-            UsbTx::Plain(FramingTxOwned::<UsbFraming>::new(frame_size))
+            UsbTxFramer::Plain(FramingTxOwned::<UsbFraming>::new(frame_size))
+        };
+        UsbTx {
+            framer,
+            hello: None,
+            flushed_hello: None,
         }
     }
 
+    /// As the framer's `write`; a hello is held as its frozen frame and is the next flush alone (Ok(false) first
+    /// while the framer holds anything: flush, then write it again). Packets too short for the frozen frame take
+    /// the hello framed, as the device does.
     pub fn write(&mut self, user_kind: u8, message: &[u8]) -> Result<bool, ()> {
-        each!(self, f => f.write(user_kind, message))
+        self.flushed_hello = None;
+        if user_kind == Kind::Hello as u8
+            && let Ok(hello) = Hello::from_bytes(message)
+            && usb_hello::FRAME_LEN <= self.frame_size()
+        {
+            if self.hello.is_some() || !self.framer_is_empty() {
+                return Ok(false);
+            }
+            self.hello = Some(usb_hello::frame(&hello));
+            return Ok(true);
+        }
+        if self.hello.is_some() {
+            return Ok(false);
+        }
+        each!(UsbTx: self, f => f.write(user_kind, message))
+    }
+
+    fn framer_is_empty(&self) -> bool {
+        match &self.framer {
+            UsbTxFramer::Plain(f) => f.is_empty(),
+            UsbTxFramer::Seq(f) => f.is_empty(),
+        }
+    }
+
+    fn frame_size(&self) -> usize {
+        match &self.framer {
+            UsbTxFramer::Plain(f) => f.frame_size(),
+            UsbTxFramer::Seq(f) => f.frame_size(),
+        }
     }
 
     pub fn flush(&mut self) -> usize {
-        each!(self, f => f.flush())
+        if let Some(frame) = self.hello.take() {
+            self.flushed_hello = Some(frame);
+            return frame.len();
+        }
+        self.flushed_hello = None;
+        each!(UsbTx: self, f => f.flush())
     }
 
     pub fn buf(&self) -> &[u8] {
-        each!(self, f => f.buf())
+        if let Some(frame) = &self.flushed_hello {
+            return frame;
+        }
+        match &self.framer {
+            UsbTxFramer::Plain(f) => f.buf(),
+            UsbTxFramer::Seq(f) => f.buf(),
+        }
     }
 
     pub fn flush_to_vec(&mut self) -> Option<Vec<u8>> {
-        each!(self, f => f.flush_to_vec())
+        self.flushed_hello = None;
+        if let Some(frame) = self.hello.take() {
+            return Some(frame.to_vec());
+        }
+        each!(UsbTx: self, f => f.flush_to_vec())
     }
 
     pub fn reset(&mut self) {
-        each!(self, f => f.reset())
+        self.hello = None;
+        self.flushed_hello = None;
+        each!(UsbTx: self, f => f.reset())
     }
 
     /// The next frame's counter and epoch, for a framer that goes on from here (CLT-44); None without a prefix.
     pub fn frame_ctx(&mut self) -> Option<FrameCtx> {
-        match self {
-            UsbTx::Plain(_) => None,
-            UsbTx::Seq(f) => Some(f.frame_ctx()),
+        match &mut self.framer {
+            UsbTxFramer::Plain(_) => None,
+            UsbTxFramer::Seq(f) => Some(f.frame_ctx()),
         }
     }
 
     /// Goes on from another framer's [Self::frame_ctx].
     pub fn continue_at(&mut self, frame: FrameCtx) {
-        each!(self, f => f.continue_at(frame))
+        each!(UsbTx: self, f => f.continue_at(frame))
     }
 }
 
@@ -183,7 +260,7 @@ impl FramerCarryOwned {
             staged: &self.rx_staged,
             next_frame: self.rx_next_frame.map(FrameCtx::from),
         };
-        each!(UsbRx: rx, f => f.continue_from(&c))
+        each!(UsbRx: mut rx, f => f.continue_from(&c))
             .map_err(|_| "the adopted link's partial message doesn't fit".to_string())
     }
 }
@@ -191,23 +268,47 @@ impl FramerCarryOwned {
 #[allow(dead_code)] // not every method is used by every transport
 impl UsbRx {
     pub fn new(seq_prefix: bool, assembly_size: usize) -> Self {
-        if seq_prefix {
-            UsbRx::Seq(FramingRxOwned::<UsbSeqFraming>::new(assembly_size))
+        let framer = if seq_prefix {
+            UsbRxFramer::Seq(FramingRxOwned::<UsbSeqFraming>::new(assembly_size))
         } else {
-            UsbRx::Plain(FramingRxOwned::<UsbFraming>::new(assembly_size))
+            UsbRxFramer::Plain(FramingRxOwned::<UsbFraming>::new(assembly_size))
+        };
+        UsbRx {
+            framer,
+            hello: None,
+            hello_ready: false,
         }
     }
 
+    /// As the framer's `stage`, but a packet holding a hello in its frozen frame ([ww_link::hello::usb::find]) never
+    /// reaches the framer, whatever generation the device's framer is: it is the next message, and the framer
+    /// drops what it held (the device started a new session). A near miss is staged as any other packet.
     pub fn stage(&mut self, frame: &[u8]) -> Result<FrameReport, ()> {
-        each!(self, f => f.stage(frame))
+        if let Some(hello) = usb_hello::find(frame) {
+            each!(UsbRx: mut self, f => f.reset());
+            self.hello = Some(hello.to_bytes());
+            self.hello_ready = false;
+            return Ok(FrameReport::Unchecked);
+        }
+        each!(UsbRx: mut self, f => f.stage(frame))
     }
 
     pub fn reassemble(&mut self) {
-        each!(self, f => f.reassemble())
+        if self.hello_ready {
+            self.hello = None;
+            self.hello_ready = false;
+        } else if self.hello.is_some() {
+            self.hello_ready = true;
+            return;
+        }
+        each!(UsbRx: mut self, f => f.reassemble())
     }
 
     pub fn message(&self) -> Option<(u8, &[u8])> {
-        each!(self, f => f.message())
+        match (&self.hello, self.hello_ready) {
+            (Some(hello), true) => Some((Kind::Hello as u8, hello)),
+            _ => each!(UsbRx: self, f => f.message()),
+        }
     }
 
     /// For a live handover's pause (CLT-44): done with the message a read returned last (if any), then every message
@@ -225,11 +326,13 @@ impl UsbRx {
     }
 
     pub fn reset(&mut self) {
-        each!(self, f => f.reset())
+        self.hello = None;
+        self.hello_ready = false;
+        each!(UsbRx: mut self, f => f.reset())
     }
 
     pub fn prefix_stats(&mut self) -> PrefixStats {
-        each!(self, f => f.prefix_stats())
+        each!(UsbRx: mut self, f => f.prefix_stats())
     }
 }
 

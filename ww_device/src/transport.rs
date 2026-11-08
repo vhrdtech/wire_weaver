@@ -8,7 +8,8 @@ use core::future::Future;
 
 use ww_framer::prefix::PrefixStats;
 use ww_framer::traits::{Checksum, Head, Tail};
-use ww_link::{Framing, FramingRx, FramingTx, UsbFraming};
+use ww_link::hello::{HELLO_FRAME_MAX, HELLO_LEN};
+use ww_link::{Framing, FramingRx, FramingTx, Hello, Kind, UsbFraming};
 use ww_tap::{Dir, NoTap, Tap};
 
 use crate::fmt::warn;
@@ -40,6 +41,17 @@ pub trait MessageTx {
     /// a fresh frame. [reset](Self::reset) by default, for media without a framer.
     fn new_session(&mut self) {
         self.reset();
+    }
+
+    /// Send the device's hello ([Transmit::Hello](crate::link::Transmit::Hello)): in the medium's frozen frame,
+    /// alone, outside the framer ([Framing::hello_frame]). By default, for media without a frozen frame yet, as a
+    /// [Kind::Hello] message, flushed.
+    fn write_hello(&mut self, hello: &Hello) -> impl Future<Output = Result<(), Self::Error>> {
+        let payload = hello.to_bytes();
+        async move {
+            self.write_message(Kind::Hello as u8, &payload).await?;
+            self.flush().await
+        }
     }
 }
 
@@ -198,6 +210,32 @@ impl<P: PacketSink, T: Tap> MessageTx for FramedTx<'_, P, T> {
     fn new_session(&mut self) {
         self.framer.new_session();
     }
+
+    async fn write_hello(&mut self, hello: &Hello) -> Result<(), Self::Error> {
+        let mut buf = [0u8; HELLO_FRAME_MAX];
+        // a medium without a frozen frame, or packets too short for it (an 8 or 16 byte USB endpoint): framed
+        let len = match P::Framing::hello_frame(hello, &mut buf) {
+            Some(len) if len <= self.framer.buf().len() => len,
+            _ => {
+                self.write_message(Kind::Hello as u8, &hello.to_bytes())
+                    .await?;
+                return self.flush().await;
+            }
+        };
+        // whatever the framer holds goes first, the hello is a packet of its own
+        self.send_frame().await?;
+        if self.tap.wants_messages() {
+            self.tap
+                .message(Dir::Tx, Kind::Hello as u8, &hello.to_bytes());
+        }
+        if self.tap.wants_frames() {
+            self.tap.frame(Dir::Tx, &buf[..len]);
+        }
+        self.sink
+            .write_packet(&buf[..len])
+            .await
+            .map_err(FramedError::Transport)
+    }
 }
 
 /// [MessageRx] over a [PacketSource], reassembling messages with [ww_framer] in the source's
@@ -209,6 +247,8 @@ pub struct FramedRx<'a, P: PacketSource, T = NoTap> {
     max_message_len: usize,
     /// A message is ready and not consumed yet
     ready: bool,
+    /// The ready message is a hello found outside the framer ([Framing::find_hello]): its payload
+    hello: Option<[u8; HELLO_LEN]>,
     tap: T,
 }
 
@@ -232,6 +272,7 @@ impl<'a, P: PacketSource, T: Tap> FramedRx<'a, P, T> {
             source,
             max_message_len,
             ready: false,
+            hello: None,
             tap,
         }
     }
@@ -291,21 +332,34 @@ impl<P: PacketSource, T: Tap> MessageRx for FramedRx<'_, P, T> {
             if self.tap.wants_frames() {
                 self.tap.frame(Dir::Rx, &self.framer.staging_buf()[..len]);
             }
+            // every packet is checked for a hello before the framer sees it: a host whose framer is of another
+            // generation is still understood, and its hello starts a new session, so the framer drops what it held
+            if let Some(hello) = P::Framing::find_hello(&self.framer.staging_buf()[..len]) {
+                self.framer.reset();
+                let payload = hello.to_bytes();
+                if self.tap.wants_messages() {
+                    self.tap.message(Dir::Rx, Kind::Hello as u8, &payload);
+                }
+                self.hello = Some(payload);
+                self.ready = true;
+                return Ok(());
+            }
             // cannot fail, buf was taken from the free area
             _ = self.framer.commit_staged(len);
         }
     }
 
     fn message(&self) -> Option<(u8, &[u8])> {
-        if self.ready {
-            self.framer.message()
-        } else {
-            None
+        match (&self.hello, self.ready) {
+            (Some(hello), true) => Some((Kind::Hello as u8, hello)),
+            (None, true) => self.framer.message(),
+            _ => None,
         }
     }
 
     fn consume(&mut self) {
         self.ready = false;
+        self.hello = None;
     }
 
     async fn wait_connected(&mut self) {
@@ -315,6 +369,7 @@ impl<P: PacketSource, T: Tap> MessageRx for FramedRx<'_, P, T> {
     fn reset(&mut self) {
         self.framer.reset();
         self.ready = false;
+        self.hello = None;
     }
 
     fn max_message_len(&self) -> usize {

@@ -126,6 +126,9 @@ pub enum Transmit<'s> {
     NewSession,
     /// Write this message into the framer.
     Message { kind: u8, bytes: &'s [u8] },
+    /// Send the device's hello in the medium's frozen frame, alone and outside the framer
+    /// ([MessageTx::write_hello](crate::MessageTx::write_hello)).
+    Hello(Hello),
     /// Send the current frame now, even if not full. No-op when nothing is pending.
     Flush,
 }
@@ -539,11 +542,12 @@ impl<'a> DeviceLink<'a> {
             return Some(Transmit::Flush);
         } else if self.pending.hello {
             self.pending.hello = false;
-            Message::Hello(Hello {
+            // sent on its own, nothing to flush after it
+            return Some(Transmit::Hello(Hello {
                 role: Role::Device,
                 generations: GENERATIONS,
                 token: self.token,
-            })
+            }));
         } else if self.pending.device_info {
             self.pending.device_info = false;
             Message::DeviceInfo(DeviceInfo {

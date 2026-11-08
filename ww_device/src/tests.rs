@@ -68,6 +68,8 @@ fn drain(link: &mut DeviceLink<'_>, now: Instant) -> Vec<Tx> {
             Transmit::Message { kind, bytes } => {
                 Tx::Msg(Kind::from_repr(kind).unwrap(), bytes.to_vec())
             }
+            // in its frozen frame, alone: no Flush after it
+            Transmit::Hello(hello) => Tx::Msg(Kind::Hello, hello.to_bytes().to_vec()),
             Transmit::Flush => Tx::Flush,
         });
     }
@@ -133,10 +135,7 @@ fn hello_of_other_generations() {
     hello.generations.shrink_wrap += 1;
     feed(&mut link, now, &Message::Hello(hello), &mut scratch);
     let sent = drain(&mut link, now);
-    assert_eq!(
-        kinds(&sent),
-        [Some(Kind::Nop), None, Some(Kind::Hello), None]
-    );
+    assert_eq!(kinds(&sent), [Some(Kind::Nop), None, Some(Kind::Hello)]);
     let Tx::Msg(_, reply) = &sent[3] else {
         panic!()
     };
@@ -173,7 +172,6 @@ fn link_setup_sequence() {
             Some(Kind::Nop),
             None,
             Some(Kind::Hello),
-            None,
             Some(Kind::DeviceInfo),
             None,
             Some(Kind::LinkReady),
@@ -192,7 +190,7 @@ fn link_setup_sequence() {
             TOKEN
         ))
     );
-    let Tx::Msg(_, info) = &sent[5] else { panic!() };
+    let Tx::Msg(_, info) = &sent[4] else { panic!() };
     let Message::DeviceInfo(info) = Message::decode(Kind::DeviceInfo as u8, info).unwrap() else {
         panic!()
     };
@@ -201,7 +199,7 @@ fn link_setup_sequence() {
     assert_eq!(info.dev_link_version, ww_link::LINK_VERSION);
     assert_eq!(info.user_api_version.crate_id, "test_api");
     assert_eq!(info.token, TOKEN);
-    let Tx::Msg(_, ready) = &sent[7] else {
+    let Tx::Msg(_, ready) = &sent[6] else {
         panic!()
     };
     assert!(matches!(
@@ -408,7 +406,6 @@ fn stragglers_and_session_changes() {
             Some(Kind::Nop),
             None,
             Some(Kind::Hello),
-            None,
             Some(Kind::DeviceInfo),
             None
         ]
@@ -1227,4 +1224,87 @@ fn peer_meta_from_link_setup() {
     assert_eq!(meta.host.as_str(), "pc1");
     assert_eq!(meta.kind, Some(ww_link::ClientKind::Gui));
     assert_eq!((meta.pid, meta.instance_id), (99, 5));
+}
+
+/// The hello goes outside the framer both ways (EVO-23): a host whose framer is of another generation (here a
+/// made-up generation 2 head the device's framer can't read) still gets the device's hello in its frozen frame and
+/// nothing else, so it can name the framer as what differs. A hello of the same generations then starts a new
+/// session as before: what the framer held of the previous one (half a split message) is dropped.
+#[test]
+fn hello_outside_the_framer() {
+    const PACKET: usize = 64;
+    let mut tx_frame = [0u8; PACKET];
+    let mut rx = crate::RxBuffer::<PACKET, 256>::new();
+    let mut scratch = [0u8; 128];
+    let mut event_scratch = [0u8; 128];
+    let mut sent = Packets::default();
+    let mut backend = EchoBackend;
+    let now = Instant::from_millis(10);
+    let mut server = blocking::Server::new(
+        config(),
+        &mut sent,
+        &mut tx_frame,
+        rx.assembly_buf(PACKET),
+        &mut scratch,
+        &mut event_scratch,
+    )
+    .with_medium(7u8);
+    server.on_transport_up(now);
+
+    // a framer generation 2 host: its hello in the frozen frame, then a frame of its own making
+    let mut gen2 = Hello::new(Role::Host, ww_client_server::GENERATION, TOKEN);
+    gen2.generations.framer = 2;
+    server.on_packet(now, &ww_link::hello::usb::frame(&gen2), &mut backend);
+    server.on_packet(now, &[0xF7, 0x01, 0x02, 0x03, 0x04], &mut backend);
+    assert!(!server.is_up());
+
+    // half a split message of an earlier session, then a hello of this build: a new session
+    let long = [7u8; 100];
+    let mut host_tx = [0u8; PACKET];
+    let mut tx = TxFramer::<UsbFraming>::new(&mut host_tx);
+    assert_eq!(tx.write(Kind::Data0 as u8, &long), Ok(false));
+    let len = tx.flush();
+    server.on_packet(now, &host_tx[..len], &mut backend);
+    let hello = Hello::new(Role::Host, ww_client_server::GENERATION, TOKEN + 1);
+    server.on_packet(now, &ww_link::hello::usb::frame(&hello), &mut backend);
+    let mut host = Host {
+        tx_buf: [0; 16],
+        rx_buf: [0; 512],
+    };
+    let setup = Message::LinkSetup(LinkSetup {
+        host_user_version: FullVersion::new("test_api", Version::new(0, 3, 0)),
+        host_max_message_len: 1000,
+        token: TOKEN + 1,
+        client_meta: None,
+    });
+    let mut event = None;
+    for p in host.packets(&[setup]) {
+        event = server.on_packet(now, &p, &mut backend).or(event);
+    }
+    assert_eq!(event, Some(LinkEvent::Up));
+
+    // the device's packets: Nop, its hello alone in the frozen frame (no DeviceInfo for the generation 2 host);
+    // then Nop, hello, DeviceInfo, LinkReady for the second one
+    let device = |token| {
+        ww_link::hello::usb::frame(&Hello::new(
+            Role::Device,
+            ww_client_server::GENERATION,
+            token,
+        ))
+        .to_vec()
+    };
+    assert_eq!(sent.0[1], device(TOKEN));
+    assert_eq!(sent.0[3], device(TOKEN + 1));
+    let kinds: Vec<Kind> = host.messages(&sent.0).iter().map(|(k, _)| *k).collect();
+    assert_eq!(
+        kinds,
+        [
+            Kind::Nop,
+            Kind::Hello,
+            Kind::Nop,
+            Kind::Hello,
+            Kind::DeviceInfo,
+            Kind::LinkReady
+        ]
+    );
 }

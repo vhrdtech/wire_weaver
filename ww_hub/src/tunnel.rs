@@ -270,6 +270,8 @@ pub(crate) async fn serve(
             match t {
                 Transmit::NewSession => writer.clear(),
                 Transmit::Message { kind, bytes } => writer.push(kind, bytes),
+                // whole messages on the local socket, no framer: the hello is one of them
+                Transmit::Hello(hello) => writer.push(Kind::Hello as u8, &hello.to_bytes()),
                 Transmit::Flush => {}
             }
         }

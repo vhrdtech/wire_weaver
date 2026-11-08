@@ -317,7 +317,7 @@ pub mod udp {
 }
 
 /// The hello on RTT, frozen: the bytes of [usb::frame] in the byte stream, written and read outside the framer. RTT
-/// has no prefix, checksum or tail, and the stream may hold leftovers of a previous session, so [find] looks for the
+/// has no prefix, checksum or tail, and the stream may hold leftovers of a previous session, so [rtt::find] looks for the
 /// head, magic and role anywhere in what it is given.
 pub mod rtt {
     use super::*;

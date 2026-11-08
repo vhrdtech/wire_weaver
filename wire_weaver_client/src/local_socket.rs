@@ -879,7 +879,7 @@ mod tests {
             .await;
         let Err(e) = r else { panic!("refused") };
         assert!(
-            e.contains("versions are not served") && e.contains("hub 9.0.0"),
+            e.contains("versions or generations are not served") && e.contains("hub 9.0.0"),
             "{e}"
         );
         let _ = std::fs::remove_dir_all(path.parent().unwrap());

@@ -18,10 +18,10 @@ ww_indication = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+tests_common.workspace = true
 # firmware of the first revision of each line, which the driver has no client of
 thermo_api_w1_0.workspace = true
 thermo_api_w2_0.workspace = true
-tests_common.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver_core.workspace = true
 wire_weaver_evolution.workspace = true

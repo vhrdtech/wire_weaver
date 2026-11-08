@@ -219,11 +219,16 @@ async fn a_third_line_is_refused() {
     assert_eq!(requests(&shared), 0);
 }
 
-/// Both lines speak to one host through [Thermo::default_config]: speaking one line twice, or another API, is refused.
+/// [Thermo::default_config] speaks both lines, and they are two lines: a host speaking one line twice, or another
+/// API, is refused when connecting (`wire_weaver_client`'s `host_of_two_lines_*` tests).
 #[test]
 fn the_driver_speaks_both_lines() {
+    const {
+        assert!(
+            thermo_api_w1::THERMO_WIRE_VERSION.line.0 != thermo_api_w2::THERMO_WIRE_VERSION.line.0
+        )
+    };
     let _ = Thermo::default_config();
-    assert!(thermo_api_w1::THERMO_WIRE_VERSION.line.0 != thermo_api_w2::THERMO_WIRE_VERSION.line.0);
 }
 
 /// `ww api check` agrees on the break: line 2 against line 1 needs a new line and a breaking crate bump, and the

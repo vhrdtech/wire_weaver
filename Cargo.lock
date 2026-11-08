@@ -5112,6 +5112,64 @@ dependencies = [
 ]
 
 [[package]]
+name = "thermo"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "thermo_api 1.0.0",
+ "thermo_api 1.2.0",
+ "thermo_api 2.0.0",
+ "thermo_api 2.1.0",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "wire_weaver_evolution",
+ "ww_client_server",
+ "ww_indication",
+ "ww_si",
+ "ww_stream",
+]
+
+[[package]]
+name = "thermo_api"
+version = "1.0.0"
+dependencies = [
+ "wire_weaver",
+ "ww_indication",
+ "ww_si",
+]
+
+[[package]]
+name = "thermo_api"
+version = "1.2.0"
+dependencies = [
+ "wire_weaver",
+ "ww_indication",
+ "ww_si",
+]
+
+[[package]]
+name = "thermo_api"
+version = "2.0.0"
+dependencies = [
+ "wire_weaver",
+ "ww_indication",
+ "ww_si",
+]
+
+[[package]]
+name = "thermo_api"
+version = "2.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_indication",
+ "ww_si",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"

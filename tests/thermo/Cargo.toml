@@ -1,0 +1,29 @@
+[package]
+name = "thermo"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thermo_api_w1.workspace = true
+thermo_api_w2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
+wire_weaver.workspace = true
+wire_weaver_client.workspace = true
+ww_indication = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+# firmware of the first revision of each line, which the driver has no client of
+thermo_api_w1_0.workspace = true
+thermo_api_w2_0.workspace = true
+tests_common.workspace = true
+tracing-subscriber.workspace = true
+wire_weaver_core.workspace = true
+wire_weaver_evolution.workspace = true
+ww_client_server.workspace = true
+ww_stream = { workspace = true, features = ["std"] }

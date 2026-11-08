@@ -36,7 +36,7 @@ members = [
     "ww_tape",
 ]
 
-exclude = ["examples/compare_wire_formats", "examples_mcu", "fuzz", "wire_weaver_tool"]
+exclude = ["examples/compare_wire_formats", "examples_mcu", "fuzz", "tests/thermo_api", "wire_weaver_tool"]
 
 [workspace.package]
 version = "0.5.0"
@@ -240,6 +240,11 @@ streams_borrowed_error_api = { version = "0.1.0", path = "./tests/streams_borrow
 streams_reliable_api = { version = "0.1.0", path = "./tests/streams_reliable_api" }
 tap_api = { version = "0.1.0", path = "./tests/tap_api" }
 tests_common = { version = "0.1.0", path = "./tests/tests_common" }
+# one API crate at two wire lines and their first revisions, outside the workspace (EVO-28)
+thermo_api_w1 = { package = "thermo_api", version = "1.2.0", path = "./tests/thermo_api/w1" }
+thermo_api_w1_0 = { package = "thermo_api", version = "1.0.0", path = "./tests/thermo_api/w1_0" }
+thermo_api_w2 = { package = "thermo_api", version = "2.1.0", path = "./tests/thermo_api/w2" }
+thermo_api_w2_0 = { package = "thermo_api", version = "2.0.0", path = "./tests/thermo_api/w2_0" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 uid_api = { version = "0.1.0", path = "./tests/uid_api" }

@@ -1068,7 +1068,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         Span::call_site(),
     );
     // the API root's wire version, what link setup decides on (EVO-25): a full client needs one
-    let wire = match api_bundle.wire {
+    let wire = match api_bundle.root_wire_version() {
         Some(wire) => {
             let (line, revision) = (wire.line.0, wire.revision.0);
             quote! { wire_weaver::ww_version::WireVersion::new(#line, #revision) }

@@ -28,6 +28,12 @@ impl<'a> CodegenBundle<'a> {
         }
     }
 
+    /// Wire version of the API root, what link setup decides on (EVO-25). Codegen reads it only here, so where it is
+    /// declared (the root's attribute today, the crate's `Cargo.toml` later) is the bundle's business alone.
+    pub(crate) fn root_wire_version(&self) -> Option<ww_version::WireVersion> {
+        self.bundle.wire
+    }
+
     /// How generated code names the crate `crate_name`: through the crate that re-exports it, or by its own name.
     pub(crate) fn crate_path(&self, crate_name: &str) -> proc_macro2::TokenStream {
         let segments: Vec<proc_macro2::Ident> = match self.crate_paths.get(crate_name) {

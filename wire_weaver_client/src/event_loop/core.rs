@@ -2004,7 +2004,7 @@ mod tests {
     /// like EVO-22's trailing argument with a default) on the device's line connects, and says its wire version.
     #[test]
     fn crate_breaking_bump_on_the_same_line_connects() {
-        let (mut p, _connected_rx) = connect_at(VersionOwned::new(0, 2, 0), WireVersion::new(1, 4));
+        let (p, _connected_rx) = connect_at(VersionOwned::new(0, 2, 0), WireVersion::new(1, 4));
         assert!(!p.pair.rx_exited);
         let setup = p
             .sent

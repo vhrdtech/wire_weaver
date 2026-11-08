@@ -173,8 +173,8 @@ impl Display for UNib32 {
 /// counterpart of `UNib32`, not tied to any one field's meaning.
 ///
 /// On the wire it is exactly a [UNib32] of the zigzag-encoded value: [to_zigzag](INib32::to_zigzag) /
-/// [from_zigzag](INib32::from_zigzag) do the mapping, [UNib32::write_forward] / [UNib32::read_forward] do the
-/// nibbles, so a malformed read fails with [Error::MalformedUNib32], the same as a malformed `UNib32`.
+/// [from_zigzag](INib32::from_zigzag) do the mapping, `UNib32`'s own (private) forward nibble writer and reader
+/// do the nibbles, so a malformed read fails with [Error::MalformedUNib32], the same as a malformed `UNib32`.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

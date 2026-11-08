@@ -3,11 +3,15 @@
 
 use std::path::{Path, PathBuf};
 
-/// `exact_units` is a plain git dependency (`Cargo.toml`), no local path override: its source, and so its
-/// `FEATURES.md`, lives wherever Cargo put the checkout it pinned in `Cargo.lock`
-/// (`CARGO_HOME/git/checkouts/exact_units-*/<rev prefix>*/`), the same lookup the crate walker uses for the wire
-/// format (`wire_weaver_core::transform::cargo_source`), not a path relative to this repository.
+/// `exact_units` is a git dependency (`Cargo.toml`): its source, and so its `FEATURES.md`, lives wherever Cargo put
+/// the checkout it pinned in `Cargo.lock` (`CARGO_HOME/git/checkouts/exact_units-*/<rev prefix>*/`), the same lookup
+/// the crate walker uses for the wire format (`wire_weaver_core::transform::cargo_source`), not a path relative to
+/// this repository. While the root `Cargo.toml`'s `[patch]` builds against a local checkout, it is that checkout.
 fn exact_units_dir(root: &Path) -> PathBuf {
+    let manifest = std::fs::read_to_string(root.join("Cargo.toml")).unwrap();
+    if let Some(path) = exact_units_patch_path(&manifest) {
+        return root.join(path);
+    }
     let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap();
     let rev = exact_units_git_rev(&lock);
     let cargo_home = std::env::var_os("CARGO_HOME")
@@ -45,6 +49,24 @@ fn exact_units_dir(root: &Path) -> PathBuf {
         "no checkout of exact_units at {rev} in {}/exact_units-*/: run `cargo fetch` first",
         checkouts.display()
     );
+}
+
+/// The `path` of `exact_units` in the `Cargo.toml` section `[patch."https://github.com/romixlab/exact_units"]`, when
+/// that section is there (not commented out).
+fn exact_units_patch_path(manifest: &str) -> Option<&str> {
+    let mut in_patch = false;
+    for line in manifest.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_patch = line == "[patch.\"https://github.com/romixlab/exact_units\"]";
+            continue;
+        }
+        if in_patch && line.starts_with("exact_units") {
+            let (_, rest) = line.split_once("path = \"")?;
+            return rest.split_once('"').map(|(path, _)| path);
+        }
+    }
+    None
 }
 
 /// The git revision `Cargo.lock` pinned `exact_units` to, from its `[[package]]` entry's `source =
@@ -113,4 +135,13 @@ fn entries_link_to_pages_that_exist() {
         missing.is_empty(),
         "entries.md links to pages that aren't in docs/: {missing:?}"
     );
+}
+
+/// The `[patch]` that builds against a local exact_units checkout is read, a commented-out one is not.
+#[test]
+fn exact_units_patch() {
+    let patched = "[patch.\"https://github.com/romixlab/exact_units\"]\nexact_units = { path = \"../exact_units\" }\n\n[patch.crates-io]\n";
+    assert_eq!(exact_units_patch_path(patched), Some("../exact_units"));
+    let commented = "# [patch.\"https://github.com/romixlab/exact_units\"]\n# exact_units = { path = \"../exact_units\" }\n";
+    assert_eq!(exact_units_patch_path(commented), None);
 }

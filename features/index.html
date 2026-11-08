@@ -2497,6 +2497,8 @@
       
         
       
+        
+      
     
     
     
@@ -2583,6 +2585,33 @@
     
   
   Crate layers and version bumps
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
 
     
   </span>
@@ -7065,6 +7094,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>docs/articles/flash_budget.md#global-trait-paths-by-hash-srv-53</code>.</li>
 </ol>
 </li>
+<li>💡 <strong>SRV-57 A host write marks an observed property changed</strong> — an on-change observer of a <code>get_set</code> property
+  sees only values the firmware marks with <code>mark_changed_&lt;name&gt;</code>, so a handler that forgets it hides the host's own
+  write from every observer (the EVO-28 bench's observe test passed about 4 runs in 5 until its simulated firmware
+  called it). Generated dispatch could mark the property after a successful set, or <code>ww api scaffold</code> could put the
+  call into the setter stub.</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7446,7 +7480,19 @@ observing), SRV-46 (peer identity).
 - 📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
-  <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</p>
+  <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.
+- 💡 <strong>CLT-61 <code>#[since]</code> checked when the API hashes match</strong> — with <code>ApiMatch::Identical</code> the client skips every
+  resource check, <code>#[since]</code> included, so firmware built from a newer API crate that claims an older wire revision
+  gets calls to items it lacks. Checking <code>#[since]</code> against the device's wire version from link setup costs
+  nothing and needs no introspection data. Found by the EVO-28 bench, which needed one API crate per revision to
+  test <code>#[since]</code> refusals.
+- 💡 <strong>CLT-62 Fallible <code>WwClient::from_cmd</code></strong> — a facade of several wire lines (EVO-28) picks its client in
+  <code>from_cmd</code>, which can't fail, so a line it has no client of is <code>unreachable!</code>, sound only because link setup
+  refused that device first. A <code>try_from_cmd</code> returning an error would say so in the types.
+- 💡 <strong>CLT-63 Reconnect into another wire line</strong> — a facade of several lines (EVO-28) picks its client once, in
+  <code>from_cmd</code>. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
+  connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an
+  error naming both lines.</p>
 </li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
@@ -7763,6 +7809,27 @@ observing), SRV-46 (peer identity).
   (<code>tests/wire_line_old_api</code> keeps the attribute as the end-to-end case); <code>ww api scaffold</code> says where the wire
   version lives or how to declare it (<code>docs/evolution/rules.md#the-wire-version</code>; tests <code>wire_weaver_core</code>
   <code>wire_version_in_cargo_toml</code>, <code>wire_version_note</code>, <code>tests/wire_line</code>).</li>
+<li>🚧 <strong>EVO-28 A host for several wire lines</strong> · <code>v0.5</code> — one host driver bundles a generated client per wire line
+  of an API (two versions of the API crate as renamed dependencies) behind a facade and connects once to a device
+  on any of them: <code>ClientConfig::speaks(ClientLine)</code> lists every line (<code>client_line()</code> of each generated client),
+  link setup takes the device on whichever it is and sends that line's client version, and the facade picks its
+  client in <code>WwClient::from_cmd</code> by <code>DeviceApiInfo::user_api_wire</code>; a line it doesn't know is refused naming every
+  line the host speaks. Codegen names the API crate by its dependency key, and the checker reports a removed enum
+  variant. Done: two lines (<code>docs/evolution/multi_line_host.md</code>; bench <code>tests/thermo</code> with
+  <code>tests/thermo_api/{w1_0,w1,w2_0,w2}</code>, test <code>tests/thermo/tests/lines.rs</code>, <code>wire_weaver_client</code>
+  <code>host_of_two_lines_*</code>, <code>wire_weaver_core</code> <code>two_versions_of_one_crate_under_other_names</code>, <code>wire_weaver_evolution</code>
+  <code>removed_variant_breaks_rust_code</code>). Open: a third line, the dynamic client and Python on the same bench.</li>
+<li>💡 <strong>EVO-32 Conversions between unchanged types of two versions</strong> — a host bundling two versions of one API
+  crate (EVO-28) sees each of the crate's own types as a distinct Rust type per version, also when it didn't change
+  (<code>RateError</code>, <code>Command</code> in <code>tests/thermo</code>), so the driver writes a conversion per type per line. Codegen could
+  emit <code>From</code> between two versions' types whose signatures (EVO-2) are equal, or an API crate could take its
+  unchanged types from a shared crate of its own. Types of shared crates (<code>ww_si</code>) are one Rust type already.</li>
+<li>💡 <strong>EVO-33 Checker findings on a new line read cleanly</strong> — found by the EVO-28 bench's line break: the root's
+  own unchanged sub-trait (<code>Channel</code>) is reported as a wire break of its own, with the old crate version as the new
+  label (<code>thermo_api@1.2.0</code> for 2.1.0); a resource replaced in place reads as a rename with another argument
+  (<code>set_rate</code> -&gt; <code>configure</code>); a field that changed scale and storage (<code>Sample::temp</code>, <code>Centi</code> <code>i16</code> -&gt; <code>Milli</code>
+  <code>i32</code>) reports only the scale. <code>checker_agrees_on_both_bumps</code> takes about 1.4 s, each <code>load_crate</code> walking
+  <code>ww_si</code> and <code>exact_units</code> again.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -7873,6 +7940,9 @@ observing), SRV-46 (peer identity).
   is caught by <code>cargo test</code> and a pre-commit hook, not only when someone remembers to run <code>ww api check</code> by hand
   (<code>donguru_api</code> and <code>b135_api</code> had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. <code>docs/evolution/checker_tool.md#a-missing-test-warning</code>.</li>
+<li>💡 <strong>TOOL-32 <code>ww api scaffold --dep</code></strong> — the printed <code>ww_codegen!</code> call names the API by its package
+  (<code>thermo_api ::</code>), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
+  versions of it (EVO-28, <code>docs/evolution/multi_line_host.md</code>). A <code>--dep NAME</code> option writes that name instead.</li>
 <li>✅ <strong>TOOL-28 <code>ww board rework set</code> / <code>clear</code></strong> — records a rework done on the bench through
   <code>BoardInfo::set_reworks</code> (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). <code>ww board rework set 1,3,5</code> / <code>clear 1,3,5</code> mark reworks applied or undone, all or none; <code>--dry-run</code>

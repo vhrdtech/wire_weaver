@@ -2833,6 +2833,8 @@
       
         
       
+        
+      
     
     
     
@@ -2922,6 +2924,33 @@
     
   
   Crate layers and version bumps
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
 
     
   </span>
@@ -6365,6 +6394,9 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
   other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>
 <li>Struct fields and enum variants can be renamed (but their position must NOT change).</li>
+<li>Enum variants are never removed: Rust code naming one breaks, so the checker asks for a breaking crate bump. With a
+  catch-all the wire keeps (a reader of the new version takes an older writer's value of it as the catch-all), so
+  the wire version needs no bump of its own; without one it is a wire break too.</li>
 <li>A tuple struct (<code>struct Pair(u8, u16);</code>) follows the same rules by position: new fields with <code>#[default = ..]</code> only
   at the end. Naming the fields of a tuple struct, or the other way round, keeps every byte, but the API model then
   describes a different type (named instead of unnamed fields), which the checker reports as breaking. A unit

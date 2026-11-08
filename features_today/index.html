@@ -2669,6 +2669,8 @@
       
         
       
+        
+      
     
     
     
@@ -2755,6 +2757,33 @@
     
   
   Crate layers and version bumps
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/multi_line_host/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  A host for several wire lines
 
     
   </span>
@@ -6134,6 +6163,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../evolution/crate_layers/#layer-2-ww_stdlib">Wire versions of shared crates</a></strong>: A <code>ww_stdlib</code> crate declares its own wire version in <code>Cargo.toml</code>: its <code>#[since]</code> markers name its revisions, and a Rust-only break of the crate leaves the APIs using it on their wire line.</li>
 <li><strong><a href="../evolution/checker_tool/#two-bumps-the-wire-and-the-crate">Both bumps from one check</a></strong>: <code>ww api check</code> says which wire version and which crate version a change needs, and fails when either is not bumped enough.</li>
 <li><strong><a href="../evolution/rules/#the-wire-version">Wire version in Cargo.toml</a></strong>: Every crate declares its wire version one way, in its <code>Cargo.toml</code> next to its crate version; the attribute form is left for test crates that stand for several lines.</li>
+<li><strong><a href="../evolution/multi_line_host/">A host for several wire lines</a></strong>: One host driver carries a generated client per wire line of an API and talks to devices of any of them through one facade, picking the client of the device's line in a single link setup. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../evolution/rules/#unsized-types">Checker knows the catch-all</a></strong>: Appending a variant to an enum with the <code>Unknown</code> catch-all passes the evolution check as compatible.</li>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Evolution check at every commit</a></strong>: A test of your API crate fails when the API changed without the version bump it needs.</li>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Current version's snapshot required</a></strong>: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.</li>

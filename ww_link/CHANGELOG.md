@@ -29,6 +29,7 @@
 - Framer configuration for UDP: `UdpHead`, `UdpChecksum`, `UdpTail` (same as USB, one frame per datagram) and
   `UDP_MAX_DATAGRAM_LEN` (1452), the largest datagram a host sends.
 - First version: sans-IO, `no_std` link layer — message kinds and their payloads carried over `ww_framer` frames.
+- `Generations` implements `Display` (EVO-34): `framer=1 link=1 shrink_wrap=1 api_model=1`, for the hello generations a connection agreed on, shown by `ww info`, `ww tap` and the Python `dev.info`.
 
 ### 📚 Documentation
 

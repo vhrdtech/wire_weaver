@@ -130,7 +130,8 @@ notes) is ignored and an ELF without a build id is listed as skipped. The versio
 
 ```text
 $ ww info --serial 4B333720
-API        usb_io_api@0.5.0
+API        usb_io_api@0.5.0 (wire w2.3)
+Hello      framer=1 link=1 shrink_wrap=1 api_model=1
 Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
 Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
 Board      rePort rev B (strap 2), BOM std, serial RP-0042
@@ -141,7 +142,9 @@ Last reset Panic, boot 3 since cleared, ran 2.5 s
 ```
 
 The same data as JSON with `--format json` (each part is `{"status": "value" | "not_implemented" | "error", ...}`).
-It needs no ELF and no user API.
+It needs no ELF and no user API. `API`'s crate version is for display; `wire w2.3` is what [link setup and
+`#[since]`](ww_version.md) decide on. `Hello` is the per-layer generations this connection agreed on
+([the frozen hello](../transport/ww_link.md#the-frozen-hello)).
 
 ## `ww report`
 

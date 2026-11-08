@@ -112,6 +112,9 @@ pub struct DeviceApiInfo {
     /// compared with. From the device's `DeviceInfo` (EVO-25), else from its introspection data; `None` from a device
     /// that says neither (firmware from before wire versions, which only a dynamic client connects to).
     pub user_api_wire: Option<WireVersion>,
+    /// This build's hello generations (EVO-23), for display: matches the device's, or link setup (or the hub, for
+    /// an adopted link) would have refused the connection.
+    pub generations: ww_link::Generations,
     /// How long the device collects messages into one frame, and asks the host to.
     pub accumulation_time: std::time::Duration,
     /// What this firmware image chose at build time and the API doesn't show (SRV-56).
@@ -139,6 +142,7 @@ impl DeviceApiInfo {
                 with_docs: ApiHashOwned { hash: vec![] },
             },
             user_api_wire: None,
+            generations: crate::event_loop::core::GENERATIONS,
             accumulation_time: std::time::Duration::ZERO,
             image_facts: ImageFacts::default(),
         }

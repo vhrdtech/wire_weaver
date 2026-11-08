@@ -11,6 +11,10 @@
 
 ### 🚀 Features
 
+- `ww info` and `ww report` show the device's wire version next to its crate version, and the hello generations
+  this connection agreed on (EVO-34): `Contract::api_wire: Option<String>`, `Contract::generations: String`,
+  `info::DeviceInfo::api_wire` and `::generations` (`render_info`'s new `API ... (wire w2.3)` and `Hello ...`
+  lines). **Rust-source break:** an `info::DeviceInfo { .. }` literal adds the two fields.
 - `crash::Site::stale`: stack words past the entry point (`main`, `Reset`, a task's executor `poll`) are marked, and
   `CrashFrames::render` lists them after a "possibly stale" line (CLT-59).
 - `rework_check` gains `scan_installed_image` (the image in flash whether it has a table or not, for `ww info` on

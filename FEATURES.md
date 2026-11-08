@@ -1984,6 +1984,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`set_rate` -> `configure`); a field that changed scale and storage (`Sample::temp`, `Centi` `i16` -> `Milli`
   `i32`) reports only the scale. `checker_agrees_on_both_bumps` takes about 1.4 s, each `load_crate` walking
   `ww_si` and `exact_units` again.
+- ✅ **EVO-34 Wire versions and generations in docs, CLI and Python** · `v0.5` — `ww info` and `ww report` show the
+  device's wire version next to its crate version (`API ... (wire w2.3)`) and the hello generations this
+  connection agreed on (`Hello framer=1 link=1 shrink_wrap=1 api_model=1`, EVO-23), through `ww_report::clients::Contract`
+  and `info::DeviceInfo`'s new `api_wire` / `generations` fields. `ww tap`'s session line shows the device's wire
+  version once link is set up (`wire_weaver_client::tap::session_wire_version`). `wire_weaver_client::DeviceApiInfo`
+  gained the `generations: ww_link::Generations` field (this build's, which matches the device's or link setup
+  would have refused); `ww_link::Generations` implements `Display`. Python's `dev.info` shows the wire version and
+  generations next to the crate versions. `ww list` still can't show the wire version pre-connection: it comes from
+  the USB string descriptor (`ApiId`), which doesn't carry one (a wire-format change of its own, not attempted
+  here); `docs/cli_reference.md` and `docs/std_library/device_contract.md` say so (tests `tests/device_report`
+  `info_of_any_device`, `ww_link` `hello::tests::generations_display`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

@@ -140,6 +140,11 @@ pub struct LastReset {
 pub struct DeviceInfo {
     /// Crate name and version of the device's own API root, `None` when it isn't known (traits-only connection)
     pub api: Option<String>,
+    /// The device's wire version (EVO-24), apart from the crate version above: `None` from firmware that declares
+    /// neither it nor an introspection-only connection resolves.
+    pub api_wire: Option<String>,
+    /// Hello generations (EVO-23) this connection agreed on, `None` when `api` is (traits-only connection).
+    pub generations: Option<String>,
     pub firmware: Part<Firmware>,
     pub board: Part<Board>,
     pub ids: Part<Vec<UnitId>>,
@@ -151,6 +156,8 @@ pub struct DeviceInfo {
 pub async fn collect_info(contract: &Contract) -> DeviceInfo {
     DeviceInfo {
         api: Some(contract.api.clone()),
+        api_wire: contract.api_wire.clone(),
+        generations: Some(contract.generations.clone()),
         firmware: firmware(&contract.firmware).await,
         board: board(&contract.board).await,
         ids: ids(&contract.uid).await,

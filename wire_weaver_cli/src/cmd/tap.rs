@@ -26,7 +26,7 @@ use wire_weaver_client::DynClient;
 use wire_weaver_client::tap::{
     Check, Decoded, Decoder, DecoderConfig, Dir, FrameInfo, FrameOutcome, FrameReport, Layers,
     MessageInfo, PieceOutcome, Recorder, RecorderConfig, Subscription, What, decode::kind_name,
-    stats::ns,
+    session_wire_version, stats::ns,
 };
 use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
@@ -479,6 +479,9 @@ fn session_line(s: &SessionOwned) -> String {
     }
     if !s.device_info.is_empty() {
         text += ", link set up";
+        if let Some(wire) = session_wire_version(s) {
+            _ = write!(text, " (wire {wire})");
+        }
     }
     text
 }

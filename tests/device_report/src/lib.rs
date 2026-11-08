@@ -478,6 +478,14 @@ mod tests {
         assert_eq!(reworks[2].title, None);
         let text = ww_report::report::render_info(&info);
         assert!(
+            text.contains("API        device_report_api@0.1.0 (wire w1.0)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Hello      framer=") && text.contains("api_model="),
+            "{text}"
+        );
+        assert!(
             text.contains("Reworks    rework 1: 0R to 10k on R12 (applied)"),
             "{text}"
         );

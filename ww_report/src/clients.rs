@@ -83,6 +83,11 @@ trait_client!(
 pub struct Contract {
     /// Crate name and version of the device's own API root
     pub api: String,
+    /// The device's wire version (EVO-24), `None` from firmware that declares neither it nor an introspection-only
+    /// connection resolves: the crate version decides nothing, this does.
+    pub api_wire: Option<String>,
+    /// Hello generations (EVO-23) this connection agreed on: framer, link, shrink_wrap, API model.
+    pub generations: String,
     pub firmware: FirmwareInfoClient,
     pub last_reset: LastResetClient,
     pub board: BoardInfoClient,
@@ -106,8 +111,11 @@ impl Contract {
         if let Some(path) = path {
             defmt.at_path(path);
         }
+        let device_api_info = device.device_api_info();
         Self {
-            api: format!("{:?}", device.device_api_info().user_api_version),
+            api: format!("{:?}", device_api_info.user_api_version),
+            api_wire: device_api_info.user_api_wire.map(|w| w.to_string()),
+            generations: device_api_info.generations.to_string(),
             firmware: FirmwareInfoClient::new(device),
             last_reset: LastResetClient::new(device),
             board: BoardInfoClient::new(device),

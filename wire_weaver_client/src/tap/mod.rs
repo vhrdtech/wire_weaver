@@ -21,7 +21,10 @@ mod e2e_tests;
 mod reassembly;
 pub mod stats;
 
-pub use decode::{ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What};
+pub use decode::{
+    ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What,
+    session_wire_version,
+};
 pub use reassembly::{FrameOutcome, FramePart, PieceInfo, PieceOutcome, Reassembled};
 pub use stats::{DirStats, LinkStats, PathStats, PrefixCounts, Stats};
 pub use ww_framer::prefix::{FrameCtx, FrameReport};

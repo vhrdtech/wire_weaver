@@ -122,13 +122,23 @@ impl Device {
         }
     }
 
-    /// API, link and protocol versions reported by the device.
+    /// API, link and protocol versions reported by the device, its wire version (EVO-24) and the hello generations
+    /// this connection agreed on (EVO-23); crate versions are for display, the wire version is what link setup and
+    /// `#[since]` decide on.
     #[getter]
     fn info(&self) -> String {
         let info = self.conn.client.device_api_info();
+        let wire = info
+            .user_api_wire
+            .map(|w| w.to_string())
+            .unwrap_or_else(|| "none".to_string());
         format!(
-            "API: {:?}\nAPI model: {:?}\nLink: {:?}\nMax message size: {}",
-            info.user_api_version, info.api_model_version, info.link_version, info.max_message_size
+            "API: {:?}\nAPI wire version: {wire}\nAPI model: {:?}\nLink: {:?}\nHello generations: {}\nMax message size: {}",
+            info.user_api_version,
+            info.api_model_version,
+            info.link_version,
+            info.generations,
+            info.max_message_size
         )
     }
 

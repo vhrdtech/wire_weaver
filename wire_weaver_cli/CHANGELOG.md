@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+- `ww tap`'s session line shows the device's wire version once link is set up (EVO-34): `link set up (wire w2.3)`,
+  decoded from the session's `DeviceInfo` bytes (`wire_weaver_client::tap::session_wire_version`).
 - `ww api check` names both bumps a change needs (EVO-27): a `needs:` line under the header (`needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.2.0 or later (breaking position ...)`), and fails when the wire version is not bumped enough, goes back, is dropped, or is lower than a `#[since]`, saying what to declare and where. `ww api save` refuses the same without `--force`.
 - `ww api check` labels a break of Rust code only `breaking (Rust only, the wire is compatible):` (EVO-22, `Rule::Signature`, an argument added or removed with the wire intact). `ww explain` shows the arguments of a method with a `#[flatten]` struct by its fields.
 - `ww api scaffold --no-observe-samples` (SRV-56): writes `observe_samples = false` in the `ww_codegen!` call and an `ObserveState` without batches.

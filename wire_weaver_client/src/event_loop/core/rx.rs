@@ -279,6 +279,7 @@ impl RxCore {
                     user_api_version: device_info.user_api_version.clone(),
                     user_api_hash: device_info.hash.clone(),
                     user_api_wire: device_info.user_api_wire,
+                    generations: GENERATIONS,
                     accumulation_time: Duration::from_micros(
                         device_info.packet_accumulation_time_us.into(),
                     ),
@@ -632,6 +633,7 @@ fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) 
         user_api_version: info.user_api_version.make_owned(),
         user_api_hash: info.hash.make_owned(),
         user_api_wire: info.user_api_wire,
+        generations: GENERATIONS,
         accumulation_time: Duration::from_micros(info.packet_accumulation_time_us.into()),
         image_facts: info.image_facts,
     }

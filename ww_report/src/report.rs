@@ -201,7 +201,17 @@ fn part<T>(out: &mut String, part: &Part<T>, show: impl FnOnce(&mut String, &T))
 pub fn render_info(info: &DeviceInfo) -> String {
     let mut out = String::new();
     if let Some(api) = &info.api {
-        let _ = writeln!(out, "API        {api}");
+        match &info.api_wire {
+            Some(wire) => {
+                let _ = writeln!(out, "API        {api} (wire {wire})");
+            }
+            None => {
+                let _ = writeln!(out, "API        {api}");
+            }
+        }
+    }
+    if let Some(generations) = &info.generations {
+        let _ = writeln!(out, "Hello      {generations}");
     }
     if let Part::Value(f) = &info.firmware {
         let _ = write!(out, "Firmware   {} {}", f.name, f.version);

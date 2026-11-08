@@ -752,6 +752,17 @@ fn ids_str(chain: &[u32]) -> String {
     format!("[{}]", ids.join(", "))
 }
 
+/// The device's wire version (EVO-24) out of a [Session](ww_tap::Session)'s `device_info` bytes, once link is set
+/// up; `None` before, or from a device that declares no wire version.
+pub fn session_wire_version(session: &SessionOwned) -> Option<ww_version::WireVersion> {
+    if session.device_info.is_empty() {
+        return None;
+    }
+    DeviceInfoOwned::from_ww_bytes_owned(&session.device_info)
+        .ok()
+        .and_then(|d| d.user_api_wire)
+}
+
 /// `ww_link` kind name.
 pub fn kind_name(kind: u8) -> &'static str {
     use ww_link::Kind::*;

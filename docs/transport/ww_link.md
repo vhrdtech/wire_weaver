@@ -279,6 +279,10 @@ What each side does with it:
 - The hello costs bytes only in link setup, once each way per connection: nothing is added to any message after
   `LinkReady`.
 
+Once a connection is up, the generations it agreed on are for display: [`ww info`](../cli_reference.md#ww-info) and
+the Python `dev.info` show them next to the wire version, and `ww tap`'s session line shows the wire version as the
+link is set up.
+
 ## How the host runs it
 
 `ww_link` itself is just messages. The host side (`wire_weaver_client`) drives them with two small

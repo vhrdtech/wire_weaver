@@ -71,6 +71,18 @@ pub struct Generations {
     pub api_model: u8,
 }
 
+/// `framer=1 link=1 shrink_wrap=1 api_model=1`, for display: the hello generations a device and host (or the hub,
+/// per client) agreed on to get this far.
+impl core::fmt::Display for Generations {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "framer={} link={} shrink_wrap={} api_model={}",
+            self.framer, self.link, self.shrink_wrap, self.api_model
+        )
+    }
+}
+
 impl Generations {
     /// This build's framer, link and shrink_wrap generations with the API model's, which this crate doesn't depend
     /// on: pass `ww_client_server::GENERATION`.
@@ -532,6 +544,20 @@ mod tests {
     use crate::{FramingTx, Kind, RttChecksum, RttHead, RttTail, UsbFraming};
 
     const HOST: Hello = Hello::new(Role::Host, 1, 0x0102_0304_0506_0708);
+
+    #[test]
+    fn generations_display() {
+        let g = Generations {
+            framer: 1,
+            link: 1,
+            shrink_wrap: 1,
+            api_model: 2,
+        };
+        assert_eq!(
+            std::format!("{g}"),
+            "framer=1 link=1 shrink_wrap=1 api_model=2"
+        );
+    }
 
     /// The frozen bytes: these never change, whatever generation any layer goes to.
     #[test]

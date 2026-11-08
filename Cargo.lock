@@ -1259,7 +1259,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 3.0.3",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#1819d9f32275d003458e383383ff4808d7ea64b8"
+source = "git+https://github.com/romixlab/exact_units#b46439d18bef4be718de810289205cf7cbb5de5b"
 dependencies = [
  "defmt 1.1.1",
  "serde",

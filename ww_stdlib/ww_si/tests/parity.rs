@@ -40,7 +40,7 @@ fn any<
 >(
     a: T,
 ) {
-    let f = Fixed::<U, P, T>::new(a);
+    let f = Fixed::<U, P, T>::try_new(a).expect("a number");
     assert_eq!(
         Quantity::try_from_fixed(f),
         Err(UnknownScale),
@@ -64,7 +64,8 @@ fn pair<U: Unit, P: FixedScale, T: Storage + Into<NumericValue> + Debug>(
     b: T,
     integer: bool,
 ) {
-    let (fa, fb) = (Fixed::<U, P, T>::new(a), Fixed::<U, P, T>::new(b));
+    let fa = Fixed::<U, P, T>::try_new(a).expect("a number");
+    let fb = Fixed::<U, P, T>::try_new(b).expect("a number");
     let (qa, qb) = (quantity(fa), quantity(fb));
     assert_eq!(qa.to_fixed::<P, T, Unbounded>(), Some(fa), "{a:?} back");
     assert_eq!(fa.partial_cmp(&fb), qa.partial_cmp(&qb), "{a:?} cmp {b:?}");
@@ -95,7 +96,7 @@ fn convert<
 >(
     a: T,
 ) {
-    let f = Fixed::<U, P, T>::new(a);
+    let f = Fixed::<U, P, T>::try_new(a).expect("a number");
     assert_eq!(
         f.to::<P2, T2>(),
         quantity(f).to_fixed::<P2, T2, Unbounded>(),

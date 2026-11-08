@@ -186,7 +186,7 @@ mod tests {
         assert_eq!(crate::Second::base(1u8).to_fixed(), None::<Millis<u8>>);
         assert_eq!(
             crate::Second::from_f32(0.25).to_fixed(),
-            Some(Millis::<f32>::new(250.0))
+            Millis::<f32>::try_new(250.0).ok()
         );
         assert_eq!(
             Quantity::<Byte>::kilo(2048u32).to_fixed(),

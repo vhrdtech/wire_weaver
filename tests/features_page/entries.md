@@ -395,7 +395,14 @@ They are shared, so a tool that knows one of them works with every device that i
 - CPX-6 | Complex numbers in polar form | A `Complex` gives its magnitude and phase angle and back, exactly rounded with integers alone (CORDIC), and its level in dB from its squared magnitude. |
 - CPX-5 | IQ samples in Q15 and Q31 | `CQ15`/`CQ31` samples with saturating complex multiplies rounded once, exact multiply-accumulate, interleaved buffers and an NCO mixer, for SDR and lock-in firmware. |
 - CPX-4 | Apparent and reactive power | VA and var are kinds of their own beside the watt, so S = V·I* is a `Complex` in VA and never mistaken for real power. |
-- NUM-7 | Decimal literals as exact constants | `fixed!(0.1)` is the stored value nearest to 0.1 in the type's own scale, worked out at compile time: no hand-computed Q30 constants. |
+- NUM-7 | Decimal literals as exact constants | `fixed!(0.1)` is a constant in the type's own scale, worked out at compile time: exact where a stored value equals it, else the literal names its rounding (`fixed!(0.1, NearestEven)`). No hand-computed Q30 constants. |
+- NUM-15, NUM-16, NUM-17 | Literals that name their unit | `speed < q!(100 m/s)` and `fixed!(100 m/s)`: a number with its unit, checked against the value's dimension and kind, folded at compile time to one compare in the stored scale, never rounded; integer and float storages alike. |
+- NUM-18 | Thresholds in dB | `gain < q!(-3 dB)` compares a linear gain with a level, the 20·lg or 10·lg form taken from the gain's kind, still one compare at run time. |
+- PT-5 | Point literals | `temp > q!(80 degC)` against a temperature stored at any origin, folded into the point's own frame at compile time. |
+- NUM-22 | Ranges and tolerances as literals | `v.is_in(q!(4.9 V ..= 5.1 V))` and `q!(5 V +- 1 %)`: a range or a tolerance with its unit, folded at compile time to compares of the stored value. |
+- NUM-23 | Windows around a run-time target | `target.window(tol, Fit::Inside)` folds `target · (1 ± t)` to stored values once, in exact integers; `is_within` checks a value against a target and tolerance without floats. |
+- NUM-19 | Floats that are never NaN | A float quantity can't hold NaN unless its type says `MaybeNan`, so `temp > limit` can't silently stay false; the wire and text refuse NaN for it, and arithmetic costs nothing extra. |
+- NUM-14 | Readable unit errors | A refused conversion names both units and dimensions in the compile error, and the operation that would give the right one. |
 - NUM-8 | Niche codes next to `Bounds` | `Niched<V, N>` marks a sentinel value next to a `Fixed`'s bounds, so "no reading" needs no `Option` and costs no extra space. |
 - IO-1, IO-5 | Numbers with units in configs (serde) | A typed number is serde as the number it stores, its bounds checked on reading with the value and bound in the error, or as text with its unit, `"1.5 ms"`, read back exactly into the field's scale: for firmware too, `no_std` and without alloc. | std_library/exact_units.md#serde
 - STD-99 | Levels and their rates, Np and dB | A cable's attenuation in dB/100 m or dB/km, a resonator's damping in Np/s, is a quantity like any other, over the wire like any other; loss and gain are kept apart so a datasheet's positive number never flips sign by accident. |
@@ -472,3 +479,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - TEST-32 | A firmware size tool for the project's own development, not a feature of WireWeaver.
 - TEST-33 | A firmware guard for the project's own development (lists the float and 128-bit code a build links), not a feature of WireWeaver.
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.
+- UNIT-11 | How `q!`'s symbol table is made and checked: the user-visible side is NUM-15.

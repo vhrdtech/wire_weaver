@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: bae9e9cbcead6bce8330ba33574b50b478594f5983ebde5fe1924e7502138301
+// shrink_wrap sha256: 42cde61ff376c0b9261021dea7908f8fea9ef7fae891da54117a660392937f67
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -58,46 +58,134 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The |z|² of a complex value at a level in dB as a type: what `db!(norm_sqr -15)` names, a threshold for",
-        "[Complex::norm_sqr](crate::Complex::norm_sqr) ([Complex::norm_sqr_at](crate::Complex::norm_sqr_at)).",
+        "The |z|² of a complex value at a level in dB as a type, `L` its source and `M` its rounding: what",
+        "`db!(norm_sqr -15, Floor)` names, a threshold for [Complex::norm_sqr](crate::Complex::norm_sqr)",
+        "([Complex::norm_sqr_at](crate::Complex::norm_sqr_at)).",
     ], ident: "NormSqrLevel", generics: [
-        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
-        (ident: "DECIMALS", kind: Const(ty: NumericAny(Base(U8)))),
-    ], fields: Unit, sparse: false, path: Some([
+        (ident: "L", kind: Type),
+        (ident: "M", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
         "decibel",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A level in dB as a type, `NUM · 10^-DECIMALS` dB: what [db!](crate::db) names, so the storage of the [Fixed] can",
-        "come from the context.",
+        "A level in dB as a type, `L` its source and `M` its rounding: what [db!](crate::db) names, so the storage of the",
+        "[Fixed] can come from the context.",
     ], ident: "Level", generics: [
-        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
-        (ident: "DECIMALS", kind: Const(ty: NumericAny(Base(U8)))),
-    ], fields: Unit, sparse: false, path: Some([
+        (ident: "L", kind: Type),
+        (ident: "M", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
         "decibel",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A level in Np as a type, `NUM · 10^-DECIMALS` Np: what [np!](crate::np) names.",
+        "A level in Np as a type, `L` its source and `M` its rounding: what [np!](crate::np) names.",
     ], ident: "NeperLevel", generics: [
-        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
-        (ident: "DECIMALS", kind: Const(ty: NumericAny(Base(U8)))),
-    ], fields: Unit, sparse: false, path: Some([
+        (ident: "L", kind: Type),
+        (ident: "M", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
         "decibel",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A decimal literal as a type, `NUM · 10^EXP`: what [fixed!](crate::fixed) names, so the scale and storage of the",
-        "[Fixed] can come from the context. A pair of them is a [Complex]\'s.",
-    ], ident: "Literal", generics: [
-        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
-        (ident: "EXP", kind: Const(ty: NumericAny(Base(I16)))),
-    ], fields: Unit, sparse: false, path: Some([
+        "No rounding: the literal is a stored value, or a compile error names the two around it.",
+    ], ident: "Unrounded", generics: [], fields: Unit, sparse: false, path: Some([
+        "literal",
+        "mode",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A decimal literal in the unit of its context, `L` its source and `M` its rounding: what `fixed!(0.1)` and",
+        "`fixed!(0.1, NearestEven)` name. A pair of them is a [Complex]\'s.",
+    ], ident: "Lit", generics: [
+        (ident: "L", kind: Type),
+        (ident: "M", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
         "literal",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A decimal literal in the unit `S` as a type, `NUM · 10^EXP` of `S`: what `fixed!(17.7 in Decibel)` names.",
+        "A decimal literal in the unit `S`: what `fixed!(17.7 in Decibel)` and `fixed!(100 m/s)` name.",
+    ], ident: "LitIn", generics: [
+        (ident: "L", kind: Type),
+        (ident: "S", kind: Type),
+        (ident: "M", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A decimal literal in units `q!`\'s reader resolved, `Q` a [LiteralIn]: what `fixed!(100 m/s)` names. The reader",
+        "folds a prefix into the number (`359.9 km/h` is 3599 · 10² of m/h), so the number comes from `Q`, not the text.",
+    ], ident: "LitSymbols", generics: [
+        (ident: "L", kind: Type),
+        (ident: "Q", kind: Type),
+        (ident: "M", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A decimal literal in the unit `S` as a type, `NUM · 10^EXP` of `S`: what [q!](crate::q) names.",
     ], ident: "LiteralIn", generics: [
         (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
         (ident: "EXP", kind: Const(ty: NumericAny(Base(I16)))),
         (ident: "S", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A level of a gain as a type, `NUM · 10^EXP` of the level `L` ([Db] or [Np]): what `q!(-3 dB)` gives, compared",
+        "with a linear gain whose kind picks the form ([module](crate::literal::level)).",
+    ], ident: "LevelLiteral", generics: [
+        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
+        (ident: "EXP", kind: Const(ty: NumericAny(Base(I16)))),
+        (ident: "L", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The decibel of `q!(-3 dB)`: a gain of `10^(x/20)` for a ratio of root-power quantities, `10^(x/10)` for one of",
+        "powers.",
+    ], ident: "Db", generics: [], fields: Unit, sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The neper of `q!(-0.5 Np)`: a gain of `e^x` for a ratio of root-power quantities, `e^(2x)` for one of powers.",
+    ], ident: "Np", generics: [], fields: Unit, sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A decimal literal at an origin, `NUM · 10^EXP` of `S` from the origin `O`: what `q!(25 degC)` and",
+        "`q!(300 K @ AbsoluteZero)` give. `S` is a [Unit], or [Steps] for a number in `O`\'s own step.",
+    ], ident: "LiteralAt", generics: [
+        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
+        (ident: "EXP", kind: Const(ty: NumericAny(Base(I16)))),
+        (ident: "S", kind: Type),
+        (ident: "O", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The unit of a point literal written without one, `q!(25 degC)`, `q!(77 @ Fahrenheit)`: the origin\'s own step",
+        "([Origin::STEP]), 1 K for °C, 5/9 K for °F.",
+    ], ident: "Steps", generics: [], fields: Unit, sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "Unitless", generics: [], fields: Unit, sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A range of a unit, `q!(4.9 V ..= 5.1 V)`: its ends `Lo` and `Hi` are `q!` literals as types, `OPEN` whether the",
+        "upper end is out (`..`), `FIT` what an end that is no stored value does (0: refused, 1: `Inside`, 2: `Outside`).",
+        "See the [module](crate::literal::range).",
+    ], ident: "LiteralRange", generics: [
+        (ident: "Lo", kind: Type),
+        (ident: "Hi", kind: Type),
+        (ident: "OPEN", kind: Const(ty: Bool)),
+        (ident: "FIT", kind: Const(ty: NumericAny(Base(U8)))),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A tolerance alone, `q!(+- 50 mV)`, `q!(+- 1 %)`: its amount `A` a `q!` literal as a type, `FIT` as for",
+        "[LiteralRange]. What takes one is NUM-24\'s (a window or a compare around a target chosen at run time).",
+    ], ident: "LiteralTolerance", generics: [
+        (ident: "A", kind: Type),
+        (ident: "FIT", kind: Const(ty: NumericAny(Base(U8)))),
     ], fields: Unnamed([]), sparse: false, path: Some([
         "literal",
     ]), instance_of: None, extra: None)), crate_idx: 0),
@@ -1012,10 +1100,10 @@
         "# #[cfg(feature = \"angle\")] {",
         "use exact_units::{Bam16, Fixed, PhaseBam16, prefix::One, units::{Degree, Phase, Turn}};",
         "",
-        "let half = Fixed::<Phase<Turn>, One, f32>::new(0.5);",
-        "assert_eq!(half.convert::<Phase<Degree>, One, f32>(), Some(Fixed::new(180.0)));",
+        "let half = Fixed::<Phase<Turn>, One, f32>::bounded(0.5);",
+        "assert_eq!(half.convert::<Phase<Degree>, One, f32>(), Some(Fixed::<_, _, f32>::bounded(180.0)));",
         "// a rotor at 0.3 turn with 7 pole pairs is at 2.1 turns electrical, 0.1 turn of phase",
-        "let mechanical: Bam16 = exact_units::fixed!(0.3);",
+        "let mechanical: Bam16 = exact_units::fixed!(0.3, NearestEven);",
         "let phase: PhaseBam16 = mechanical.electrical(7);",
         "assert_eq!(phase.get(), 19661u16.wrapping_mul(7));",
         "# }",
@@ -1080,6 +1168,32 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "No bounds, and NaN allowed: a float (`f32`, `f64`) that may be NaN. It is what `+`, `-`, `*` and `/` of a float",
+        "give, the float\'s own IEEE 754 operation without a check, and a value that is NaN on purpose (\"no reading\").",
+        "",
+        "Every compare with NaN is false, so `if temp > limit { shutdown() }` would silently not trip. A `MaybeNan` has no",
+        "`<`, `>` or `==`: it compares through a method that names what NaN gives ([gt_or](super::Fixed::gt_or) and its",
+        "kin), or after [not_nan](super::Fixed::not_nan), which is `None` for NaN.",
+        "",
+        "```",
+        "use exact_units::{Fixed, prefix::One, units::Volt};",
+        "",
+        "let inf = Fixed::<Volt, One, f32>::bounded(f32::INFINITY);",
+        "let nan = inf - inf; // a MaybeNan",
+        "assert!(nan.get().is_nan());",
+        "assert_eq!(nan.not_nan(), None);",
+        "assert!(nan.gt_or(inf, true)); // NaN counts as past the limit here",
+        "assert_eq!((inf + inf).not_nan(), Some(inf));",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Fixed, prefix::One, units::Volt};",
+        "",
+        "let v = Fixed::<Volt, One, f32>::bounded(1.0);",
+        "let _ = v + v > v; // a MaybeNan has no `>`: gt_or, or not_nan first",
+        "```",
+    ], ident: "MaybeNan", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value outside its [Bounds], or one that doesn\'t fit the storage.",
     ], ident: "OutOfBounds", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -1111,6 +1225,10 @@
         "No bounds: the whole range of the storage. The default of [Fixed](super::Fixed)\'s `B`. Its overflow policy is",
         "checked: `+` is `T`\'s (a panic on overflow in debug builds), and `checked_*`, `saturating_*` and `wrapping_*` name",
         "the others.",
+        "",
+        "For a float storage the range is every number from −∞ to +∞, and NaN is none of them: a NaN is refused where a",
+        "value is made ([try_new](super::Fixed::try_new), the wire, serde, text, a conversion). Arithmetic can make NaN",
+        "(∞ − ∞, 0 · ∞, 0 / 0), so `+`, `-`, `*` and `/` of a float give a [MaybeNan]: the float\'s own operation, no check.",
     ], ident: "Unbounded", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Unbounded))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "No bounds, and `+`, `-`, `*` and `/` wrap modulo 2^bits of the storage (two\'s complement for a signed one): a",
@@ -1473,10 +1591,10 @@
         (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 2.",
         ], slot: None, series_opaque: false),
-        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 195)), docs: [
+        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 207)), docs: [
             "π, ln 2 and ln 10, `None` when all their exponents are 0.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 196))), docs: [
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 208))), docs: [
             "Primes other than 2 and 5, ascending, used slots first.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1504,7 +1622,7 @@
         (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 10.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 197)), docs: [
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 209)), docs: [
             "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1542,7 +1660,7 @@
         (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [
             "Below the reference; never for zero.",
         ], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 198)), docs: [
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 210)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1665,7 +1783,7 @@
         (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
             "The square root of what the exponents describe, see above.",
         ], slot: None, series_opaque: false),
-        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 205))), docs: [
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 217))), docs: [
             "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1696,7 +1814,7 @@
             "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s, eV",
             "1.602176634·10⁻¹⁹ J. Every reader computes the same value.",
         ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 198), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 210), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
@@ -1718,35 +1836,35 @@
             (ident: Some("symbol"), default: None, since: None, ty: String, docs: [
                 "As written after a number.",
             ], slot: None, series_opaque: false),
-            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 206), docs: [
+            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 218), docs: [
                 "The unit\'s dimension.",
             ], slot: None, series_opaque: false),
-            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 207), docs: [
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 219), docs: [
                 "How a value in the unit becomes coherent SI.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 220)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 220)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 220)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 220)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 220)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 220)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

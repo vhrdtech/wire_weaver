@@ -38,7 +38,8 @@ fn typed<U: Unit, P: FixedScale, T: Storage, P2: FixedScale, T2: Storage>(
         Repr::Float(f) => T::from_float(f),
     }
     .ok_or_else(|| format!("{x:?} isn't a {}", T::NAME))?;
-    Ok(Fixed::<U, P, T>::new(v)
+    Ok(Fixed::<U, P, T>::try_new(v)
+        .map_err(|_| format!("{x:?} isn't a number"))?
         .requantize::<P2, T2>(r, o)
         .map(|f| f.get().to_repr()))
 }

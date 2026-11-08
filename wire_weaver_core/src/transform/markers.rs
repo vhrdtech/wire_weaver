@@ -1220,6 +1220,15 @@ mod tests {
             panic!("TwoPi: no scale definition in the model");
         };
         assert_eq!(two_pi.magnitude, <origins::TwoPi as FixedScale>::SCALE);
+        // `q!`'s dimensionless unit (`q!(5 s^-1)` is `Per<Unitless, Second>`), in no catalogue and behind exact_units'
+        // feature `q`: its line is `unit! { pub struct Unitless = "", []; }`
+        let unitless = markers.remove("Unitless");
+        let Some(def) = unitless.as_ref().and_then(MarkerDefOwned::unit_def) else {
+            panic!("Unitless: no unit definition in the model");
+        };
+        assert_eq!(def.symbol, "", "Unitless");
+        assert_eq!(def.dim, DimOwned::from(exact_units::Dim::ONE), "Unitless");
+        assert_eq!(def.magnitude, Magnitude::ONE, "Unitless");
         macro_rules! origins {
             ($($name:ident)*) => {
                 [$((stringify!($name), <origins::$name as Origin>::DEF)),*]

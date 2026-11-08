@@ -550,10 +550,11 @@ mod tests {
             self.driven.as_ref().unwrap().polls.lock().unwrap().clone()
         }
 
-        /// Wait until the event-driven device polled at `t`.
+        /// Wait until the event-driven device polled at `t` and that poll is over: `polls` gets `t` before the poll
+        /// reads the properties, `polled` after it, so a value changed after this returns goes out with a later poll.
         async fn polled_at(&self, t: u64) {
             let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
-            while !self.polls().contains(&t) {
+            while !self.polls().contains(&t) || self.polled.load(Ordering::Relaxed) < t {
                 assert!(
                     tokio::time::Instant::now() < deadline,
                     "no poll at {t}: {:?}",

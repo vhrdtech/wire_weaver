@@ -354,7 +354,10 @@ impl ApiBundleScratch {
 
     /// [ApiBundleOwned::ext_wire] of the crates so far, crate 0's being `root_wire` (its `#[ww_api_root(wire = ..)]`
     /// or its manifest's); `None` when no crate declares one.
-    pub(crate) fn ext_wire(&self, root_wire: Option<WireVersion>) -> Option<Vec<Option<WireVersion>>> {
+    pub(crate) fn ext_wire(
+        &self,
+        root_wire: Option<WireVersion>,
+    ) -> Option<Vec<Option<WireVersion>>> {
         let mut ext_wire = self.ext_wire.clone();
         if let Some(first) = ext_wire.first_mut() {
             *first = root_wire;

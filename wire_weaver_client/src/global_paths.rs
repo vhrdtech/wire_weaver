@@ -369,7 +369,8 @@ pub trait Status {
                 ww_impl!(board: ww_board_info::BoardInfo);
             }
         "#;
-        let mut device = crate::compat::tests::bundle_with("global_paths_w", "0.1.0", src, &board_info);
+        let mut device =
+            crate::compat::tests::bundle_with("global_paths_w", "0.1.0", src, &board_info);
         let idx = device
             .ext_crates
             .iter()

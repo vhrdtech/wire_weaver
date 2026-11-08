@@ -261,7 +261,10 @@ impl ApiBundleOwned {
             return;
         }
         let ext_wire = self.ext_wire.get_or_insert_with(Vec::new);
-        let len = ext_wire.len().max(self.ext_crates.len()).max(crate_idx as usize + 1);
+        let len = ext_wire
+            .len()
+            .max(self.ext_crates.len())
+            .max(crate_idx as usize + 1);
         ext_wire.resize(len, None);
         ext_wire[crate_idx as usize] = wire;
     }

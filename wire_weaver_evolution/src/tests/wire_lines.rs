@@ -61,7 +61,12 @@ fn dependency_compared_by_its_wire_line() {
 
     let old = api_with_dep("0.1.0", Some("w1.0"));
     let new = api_with_dep("0.2.0", Some("w1.1"));
-    assert_eq!(new.crate_wire(1), Some(WireVersion::new(1, 1)), "{:?}", new.ext_crates);
+    assert_eq!(
+        new.crate_wire(1),
+        Some(WireVersion::new(1, 1)),
+        "{:?}",
+        new.ext_crates
+    );
     let report = compare(&old, &new).unwrap();
     assert!(report.breaking.is_empty(), "{report:#?}");
 

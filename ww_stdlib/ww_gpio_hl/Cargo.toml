@@ -7,6 +7,10 @@ license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 description = "High-level wrapper over ww_gpio to control IO on microcontrollers"
 
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [dependencies]
 embedded-hal.workspace = true
 embedded-hal-async.workspace = true
@@ -14,7 +18,3 @@ thiserror.workspace = true
 wire_weaver = { workspace = true }
 wire_weaver_client.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
-
-# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
-[package.metadata.wire_weaver]
-wire = "w1.0"

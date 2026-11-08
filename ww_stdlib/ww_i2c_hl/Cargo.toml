@@ -7,6 +7,10 @@ license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 description = "embedded-hal I2C (blocking and async) over a remote ww_i2c::I2c master"
 
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [dependencies]
 embedded-hal.workspace = true
 embedded-hal-async.workspace = true
@@ -15,7 +19,3 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_i2c = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
-
-# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
-[package.metadata.wire_weaver]
-wire = "w1.0"

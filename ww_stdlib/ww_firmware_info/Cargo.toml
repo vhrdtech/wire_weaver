@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [features]
 default = ["std"]
 # every architecture's fault record, the host has to read all of them
@@ -40,7 +44,3 @@ wire_weaver = { workspace = true, default-features = false }
 ww_date_time = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time"] }
 ww_version = { workspace = true, default-features = false }
-
-# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
-[package.metadata.wire_weaver]
-wire = "w1.0"

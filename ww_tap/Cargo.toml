@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [features]
 default = []
 std = ["wire_weaver/std", "dep:ww_tape", "ww_tape/std", "dep:tracing"]
@@ -15,7 +19,3 @@ std = ["wire_weaver/std", "dep:ww_tape", "ww_tape/std", "dep:tracing"]
 tracing = { version = "0.1", optional = true }
 wire_weaver.workspace = true
 ww_tape = { workspace = true, optional = true }
-
-# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
-[package.metadata.wire_weaver]
-wire = "w1.0"

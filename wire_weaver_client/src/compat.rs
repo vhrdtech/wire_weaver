@@ -105,20 +105,22 @@ impl ApiCompat {
                 .position(|c| c.crate_id == crate_id)
                 .and_then(|idx| device.crate_wire(idx as u32)),
         };
-        Self::build(client, device_wire, |path, item| match device_items.get(path) {
-            Some(_) if omitted.contains(path) => Verdict::Omitted,
-            Some((device_item, _)) => {
-                // a different max length is not checked here: a longer value is rejected when it is sent
-                match compare_items(
-                    (client, item, "client"),
-                    (device, device_item, "device"),
-                    &mut Bounds::default(),
-                ) {
-                    Ok(()) => Verdict::Compatible,
-                    Err(reason) => Verdict::Incompatible(reason),
+        Self::build(client, device_wire, |path, item| {
+            match device_items.get(path) {
+                Some(_) if omitted.contains(path) => Verdict::Omitted,
+                Some((device_item, _)) => {
+                    // a different max length is not checked here: a longer value is rejected when it is sent
+                    match compare_items(
+                        (client, item, "client"),
+                        (device, device_item, "device"),
+                        &mut Bounds::default(),
+                    ) {
+                        Ok(()) => Verdict::Compatible,
+                        Err(reason) => Verdict::Incompatible(reason),
+                    }
                 }
+                None => Verdict::Missing,
             }
-            None => Verdict::Missing,
         })
     }
 
@@ -986,7 +988,10 @@ pub(crate) mod tests {
         let since: Vec<_> = m1.since.iter().map(|m| (m.since, m.device_wire)).collect();
         assert_eq!(
             since,
-            [(WireVersion::new(1, 2), None), (WireVersion::new(1, 1), None)],
+            [
+                (WireVersion::new(1, 2), None),
+                (WireVersion::new(1, 1), None)
+            ],
             "every since along the path, the device's wire versions unknown"
         );
     }
@@ -1019,7 +1024,10 @@ pub(crate) mod tests {
                 .position(|c| c.crate_id == "ww_board_info")
                 .unwrap() as u32
         };
-        assert_eq!(client.crate_wire(board(&client)), Some(WireVersion::new(1, 2)));
+        assert_eq!(
+            client.crate_wire(board(&client)),
+            Some(WireVersion::new(1, 2))
+        );
         assert_eq!(client.wire, Some(WireVersion::new(1, 0)));
         let ApiItemKindOwned::Trait { .. } = &client.root.items[0].kind else {
             panic!()
@@ -1065,7 +1073,10 @@ pub(crate) mod tests {
         };
 
         let cmd = connect(device.clone());
-        assert_eq!(cmd.connected_device.user_api_wire, Some(WireVersion::new(1, 0)));
+        assert_eq!(
+            cmd.connected_device.user_api_wire,
+            Some(WireVersion::new(1, 0))
+        );
         assert!(call(&cmd).is_ok(), "{:?}", call(&cmd));
 
         let mut older = device;
@@ -1074,13 +1085,22 @@ pub(crate) mod tests {
         let cmd = connect(older);
         match call(&cmd) {
             Err(e @ Error::OlderProtocol { .. }) => {
-                let Error::OlderProtocol { crate_id, device_wire, required, .. } = &e else {
+                let Error::OlderProtocol {
+                    crate_id,
+                    device_wire,
+                    required,
+                    ..
+                } = &e
+                else {
                     unreachable!()
                 };
                 assert_eq!(crate_id, "ww_board_info");
                 assert_eq!(*device_wire, WireVersion::new(1, 1));
                 assert_eq!(*required, WireVersion::new(1, 2));
-                assert!(e.to_string().contains("has ww_board_info at wire w1.1"), "{e}");
+                assert!(
+                    e.to_string().contains("has ww_board_info at wire w1.1"),
+                    "{e}"
+                );
             }
             other => panic!("{other:?}"),
         }

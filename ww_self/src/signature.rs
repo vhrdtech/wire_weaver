@@ -7,17 +7,17 @@
 //! else was in it.
 
 use crate::visit_mut::{self, VisitMut};
-use crate::{ApiLevel, ApiLevelLocation, TypeLocation};
-use shrink_wrap::prelude::*;
-use ww_version::{FullVersion, WireVersion};
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
 };
+use crate::{ApiLevel, ApiLevelLocation, TypeLocation};
 use anyhow::{Result, anyhow};
 use sha2::Digest;
+use shrink_wrap::prelude::*;
 use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
 use std::collections::{HashMap, VecDeque};
+use ww_version::{FullVersion, WireVersion};
 use ww_version::{FullVersionOwned, VersionTriplet};
 
 /// The canonical bundle a signature hashes: [crate::ApiBundle] as it was when signatures were last allowed to move

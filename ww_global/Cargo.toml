@@ -8,6 +8,10 @@ license.workspace = true
 repository.workspace = true
 documentation = "https://vhrdtech.github.io/wire_weaver/api/addressing/"
 
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [features]
 std = ["shrink_wrap/std"]
 defmt = ["dep:defmt", "shrink_wrap/defmt"]
@@ -21,7 +25,3 @@ shrink_wrap.workspace = true
 [build-dependencies]
 convert_case.workspace = true
 serde_json.workspace = true
-
-# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
-[package.metadata.wire_weaver]
-wire = "w1.0"

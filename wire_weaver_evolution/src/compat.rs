@@ -741,7 +741,8 @@ impl<'a> TypeCheck<'a> {
                 else {
                     return Err("type definition is not available on one side".into());
                 };
-                check_same_origin("type", (&w, self.writer), (&r, self.reader)).inspect_err(|_| self.note_root("type", &w))?;
+                check_same_origin("type", (&w, self.writer), (&r, self.reader))
+                    .inspect_err(|_| self.note_root("type", &w))?;
                 let signature = |bundle, ty: &TypeOwned| match ty {
                     TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
                     _ => None,
@@ -880,7 +881,8 @@ impl<'a> TypeCheck<'a> {
         let (Some(w), Some(r)) = (identity(self.writer, wi), identity(self.reader, ri)) else {
             return Err("bad API bundle: no generic type definition".into());
         };
-        check_same_origin("type", (&w, self.writer), (&r, self.reader)).inspect_err(|_| self.note_root("type", &w))?;
+        check_same_origin("type", (&w, self.writer), (&r, self.reader))
+            .inspect_err(|_| self.note_root("type", &w))?;
         if self.compare_signatures {
             check_same_definition(
                 "type",

@@ -7,6 +7,10 @@ edition.workspace = true
 license.workspace = true
 repository = "https://github.com/vhrdtech/ww_stdlib"
 
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [features]
 default = ["std"]
 # every number type: a host does not know what a device will send
@@ -59,7 +63,3 @@ shrink_wrap.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-
-# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
-[package.metadata.wire_weaver]
-wire = "w1.0"

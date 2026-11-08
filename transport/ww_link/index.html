@@ -4729,6 +4729,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#the-frozen-hello" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The frozen hello
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5827,6 +5838,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#the-frozen-hello" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The frozen hello
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6133,7 +6155,7 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Message</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="n">Data</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">channel</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="na">i</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w">   </span><span class="c1">// channel 0..=2</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">Nop</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">GetDeviceInfo</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">token</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">Hello</span><span class="p">(</span><span class="n">Hello</span><span class="p">),</span><span class="w">                           </span><span class="c1">// the frozen hello, both ways</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">DeviceInfo</span><span class="p">(</span><span class="n">DeviceInfo</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">),</span><span class="w">             </span><span class="c1">// DeviceInfo::token echoes it</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="n">LinkSetup</span><span class="p">(</span><span class="n">LinkSetup</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">),</span><span class="w">               </span><span class="c1">// LinkSetup::token</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">LinkReady</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">token</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="w"> </span><span class="p">},</span>
@@ -6164,14 +6186,14 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 <td>Ignored by the receiver. Sent first after connecting so that a lost first packet (e.g., USB toggle mismatch) doesn't eat something important.</td>
 </tr>
 <tr>
-<td><code>GetDeviceInfo</code></td>
-<td>host → device</td>
-<td>Start of link setup, with the host's <a href="#setup-token">setup token</a> (<code>u64</code> LE). The device starts a new session in its transmit framer.</td>
+<td><code>Hello</code></td>
+<td>both</td>
+<td>The <a href="#the-frozen-hello">frozen hello</a>: generations and the <a href="#setup-token">setup token</a>. From the host it starts link setup and a new session in the device's transmit framer; the device answers with its own.</td>
 </tr>
 <tr>
 <td><code>DeviceInfo</code></td>
 <td>device → host</td>
-<td>Link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token.</td>
+<td>After the device's hello, when every generation matches: link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token.</td>
 </tr>
 <tr>
 <td><code>LinkSetup</code></td>
@@ -6241,7 +6263,7 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 </tr>
 <tr>
 <td><code>Malformed(Kind)</code></td>
-<td>payload didn't deserialize — a leftover from a previous session or version mismatch</td>
+<td>payload didn't deserialize — a leftover from a previous session or version mismatch; a malformed <code>Hello</code> or <code>DeviceInfo</code> during setup is a peer of an unknown format</td>
 </tr>
 <tr>
 <td><code>ScratchTooSmall</code></td>
@@ -6277,30 +6299,32 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a> host                                       device
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a> ────                                       ──────
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a> Nop                     ───────────►
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a> GetDeviceInfo { token } ───────────►       (new session in the transmit framer)
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>                         ◄───────────       DeviceInfo { versions, hash, max_len, acc_time, token }
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>   (check link and user API compatibility)
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a> LinkSetup { version, max_len, token } ──►
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>                         ◄───────────       LinkReady { token }
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a> ── link up ──────────────────────────────────────
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a> Hello { gens, token }   ───────────►       (new session in the transmit framer)
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>                         ◄───────────       Hello { gens, token }
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>   (compare generations: a mismatch ends setup here, named)
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>                         ◄───────────       DeviceInfo { versions, hash, max_len, acc_time, token }
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>   (check user API compatibility)
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a> LinkSetup { version, max_len, token } ──►
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>                         ◄───────────       LinkReady { token }
 </span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a> Data / Ping             ◄──────────►       Data / Ping
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a> ── link up ──────────────────────────────────────
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a> ── either side ──────────────────────────────────
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a> Disconnect(reason)      ───────────►
-</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>                         ◄─────────── OR: Disconnect(reason)
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a> Data / Ping             ◄──────────►       Data / Ping
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a> ── either side ──────────────────────────────────
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a> Disconnect(reason)      ───────────►
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>                         ◄─────────── OR: Disconnect(reason)
 </span></code></pre></div>
 <p>Rules the reference event loop follows (and a new transport should too):</p>
 <ul>
-<li><code>GetDeviceInfo</code> is retried every 50 ms, up to 5 times; then link setup is considered failed.</li>
+<li>The hello is retried every 50 ms, up to 5 times; then link setup is considered failed.</li>
 <li>The host refuses the connection if <code>DeviceInfo.user_api_version</code> is not protocol-compatible with the
   generated client API (see <a href="../../std_library/ww_version/">ww_version</a>). A device may likewise reply with
   <code>Disconnect(IncompatibleVersion)</code> after <code>LinkSetup</code>.</li>
 <li><code>Data</code> accumulates into the current frame for <code>packet_accumulation_time_us</code> (as requested by the device) before
   being flushed, never longer; an urgent request is flushed at once, see
   <a href="../ww_framer/#latency-and-priority">latency and priority</a>. Control messages are flushed immediately.</li>
-<li>The host drops every message until the <code>DeviceInfo</code> carrying its token, see <a href="#setup-token">Setup token</a>.</li>
+<li>The host drops every message until the device's hello carrying its token, see <a href="#setup-token">Setup token</a>.</li>
 <li><code>Data</code> received before <code>LinkReady</code> and <code>Disconnect</code> received while not connected are ignored — they are
   stragglers from a previous session.</li>
 <li>Nothing received for <code>PEER_TIMEOUT_MS</code> → the host disconnects with an error.</li>
@@ -6308,24 +6332,120 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 </ul>
 <h3 id="setup-token">Setup token<a class="headerlink" href="#setup-token" title="Permanent link">&para;</a></h3>
 <p>A new session can start while the previous one still has bytes on the way: an answer already in the device's USB IN
-buffer for a host that went away, the rest of a split message, a reply to a <code>GetDeviceInfo</code> the host already
-re-sent. Without anything to tell them apart, an old <code>DeviceInfo</code> would be taken for the new one. So the host puts a
-random, non-zero 64-bit <strong>token</strong> into <code>GetDeviceInfo</code> and <code>LinkSetup</code> (one per connection, the same on retries),
-the device echoes it in <code>DeviceInfo</code> and <code>LinkReady</code>, and:</p>
+buffer for a host that went away, the rest of a split message, a reply to a hello the host already re-sent.
+Without anything to tell them apart, an old <code>DeviceInfo</code> would be taken for the new one. So the host puts a random,
+non-zero 64-bit <strong>token</strong> into its hello and <code>LinkSetup</code> (one per connection, the same on retries), the device echoes
+it in its hello, <code>DeviceInfo</code> and <code>LinkReady</code>, and:</p>
 <ul>
-<li>the host drops everything that arrives before the <code>DeviceInfo</code> with its token, and a <code>LinkReady</code> with another
-  one; a wrong match needs a stale reply to carry the same 64-bit value (1 in 1.8·10¹⁹);</li>
-<li>the device takes <code>LinkSetup</code> only with the token of the last <code>GetDeviceInfo</code>;</li>
-<li>on <code>GetDeviceInfo</code> the device starts a new session in its transmit framer (<code>Transmit::NewSession</code>,
+<li>the host drops everything that arrives before the device's hello with its token, and a <code>DeviceInfo</code> or
+  <code>LinkReady</code> with another one; a wrong match needs a stale reply to carry the same 64-bit value (1 in 1.8·10¹⁹);</li>
+<li>the device takes <code>LinkSetup</code> only with the token of the last hello, and only when its generations matched;</li>
+<li>on a hello the device starts a new session in its transmit framer (<code>Transmit::NewSession</code>,
   <code>MessageTx::new_session</code>, <code>Tx::new_session</code> in <code>ww_framer</code>): a frame being filled and a half-sent message are
   dropped, the reply starts in a fresh frame, and with a <a href="../ww_framer/#frame-prefix">frame prefix</a> the epoch goes
   up, so that frames of the old session still on the way are dropped by the host's framer;</li>
 <li>there is no USB reset on connect (slow, re-enumerates, kicks other tools off the device).</li>
 </ul>
-<p>A peer built before the token sends none (the field reads as 0): a host answers such a <code>DeviceInfo</code> with
-<code>Error::IncompatibleLinkVersion</code> ("without setup token"), a device answers such a <code>GetDeviceInfo</code> or <code>LinkSetup</code>
-with <code>Disconnect(IncompatibleVersion)</code>, so a mismatch is a clear error, not a setup timeout. The host also checks
-<code>DeviceInfo::dev_link_version</code> against its own <code>LINK_VERSION</code>.</p>
+<p>A peer built before the hello is still told apart, so a mismatch is a clear error, not a setup timeout:</p>
+<ul>
+<li>a device answers a host's bare token (or a <code>LinkSetup</code> without a matching hello) with
+  <code>Disconnect(IncompatibleVersion)</code>;</li>
+<li>a device from before the hello reads the first 8 bytes of the host's hello as its token and echoes them in
+  <code>DeviceInfo</code>; the host recognises them and fails with <code>Error::IncompatibleLinkVersion</code> ("before the hello").</li>
+</ul>
+<h3 id="the-frozen-hello">The frozen hello<a class="headerlink" href="#the-frozen-hello" title="Permanent link">&para;</a></h3>
+<p>Everything else on a link is evolvable: shrink_wrap inside framer frames. A break in one of those layers would make
+the version exchange itself unreadable, an obscure decode error or a setup timeout. So link setup opens with a
+<strong>hello</strong> of plain bytes at fixed positions, read before anything evolvable (EVO-23,
+<code>ww_link::hello</code>). Its payload is the same on every medium and never changes:</p>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Size</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>2</td>
+<td>magic <code>WW</code> (<code>57 57</code>)</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1</td>
+<td>role: <code>H</code> (<code>48</code>) host, <code>D</code> (<code>44</code>) device</td>
+</tr>
+<tr>
+<td>3</td>
+<td>1</td>
+<td><code>n</code>, the number of generation bytes that follow (4)</td>
+</tr>
+<tr>
+<td>4</td>
+<td>n</td>
+<td>generations: framer, link, shrink_wrap, API model (<code>ww_client_server</code>)</td>
+</tr>
+<tr>
+<td>4 + n</td>
+<td>8</td>
+<td>setup token, <code>u64</code> little endian</td>
+</tr>
+<tr>
+<td>12 + n</td>
+<td>..</td>
+<td>nothing yet; a reader ignores what follows</td>
+</tr>
+</tbody>
+</table>
+<p>A <strong>generation</strong> is one byte per foundation layer (<code>ww_framer::GENERATION</code>, <code>ww_link::hello::GENERATION</code>,
+<code>shrink_wrap::GENERATION</code>, <code>ww_client_server::GENERATION</code>, all 1). It counts only breaks of that layer's bytes:
+additions never change it, they are negotiated in <code>DeviceInfo</code> and <code>LinkSetup</code> after the hello. A later layer gets
+its byte appended (<code>n</code> grows), and a reader takes the four it knows.</p>
+<p>The frame around the payload is frozen per medium too, and both sides write and read it <strong>outside the framer</strong>
+(<code>Framing::hello_frame</code>, <code>Framing::find_hello</code>): every received frame is checked for a hello before the framer sees
+it, so a peer whose framer is of another generation still reads the hello and names the framer as what differs.</p>
+<table>
+<thead>
+<tr>
+<th>Medium</th>
+<th>What is frozen</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>USB</td>
+<td>The packet boundary: a hello is one packet of its own, never with a frame prefix (also with the frame counter of <code>UsbSeqFraming</code>): <code>30</code>, <code>48 \| (len &gt;&gt; 8)</code>, <code>len &amp; 0xff</code>, then the payload; 19 bytes today (<code>ww_link::hello::usb</code>).</td>
+</tr>
+<tr>
+<td>UDP, RTT, WebSocket</td>
+<td>Not yet (EVO-23's second part): the hello goes through the framer as a <code>Hello</code> message.</td>
+</tr>
+</tbody>
+</table>
+<p>On USB, <code>hello::usb::find</code> takes a packet for a hello only when all of these hold: <code>30</code> first, the length bits of the
+second byte, the length within the packet, the magic, a role byte and at least four generation bytes. Anything else
+is staged into the framer as before, so the tail of an old split message or a frame counter that happens to be <code>30</code>
+is never taken for a hello. The <code>30 48 10</code> head is what framer generation 1 writes for a whole 16 byte <code>Hello</code>, so a
+generation 1 framer would read the packet too, but nothing relies on that. Endpoints with packets shorter than the
+frozen frame (8 or 16 bytes) take the hello framed; WireWeaver's own USB class uses 64 bytes and more.</p>
+<p>A hello found outside the framer starts a new session on the side that receives it as well: the framer drops what it
+held (half a split message of the previous session). It then goes through the same rules as any setup message:
+the <a href="#setup-token">setup token</a> decides whether it belongs to this session.</p>
+<p>What each side does with it:</p>
+<ul>
+<li>The device always answers with its own hello. <code>DeviceInfo</code> follows only when every generation matches; otherwise
+  setup stops there, and a <code>LinkSetup</code> that comes anyway is refused.</li>
+<li>The host compares the device's generations with its own and fails with <code>Error::IncompatibleGeneration</code>, naming the
+  layer: "The device speaks shrink_wrap generation 2, this host shrink_wrap generation 1: update the host". A device
+  in the field is stuck and a host is not, so the advice is always about the host (or, for an older device, a host
+  that still speaks its generation).</li>
+<li>During setup, a <code>Hello</code> or <code>DeviceInfo</code> the host can't decode is reported as <code>Error::UnknownPeerFormat</code> with its
+  bytes, never as a bare decode error.</li>
+<li>The hello costs bytes only in link setup, once each way per connection: nothing is added to any message after
+  <code>LinkReady</code>.</li>
+</ul>
 <h2 id="how-the-host-runs-it">How the host runs it<a class="headerlink" href="#how-the-host-runs-it" title="Permanent link">&para;</a></h2>
 <p><code>ww_link</code> itself is just messages. The host side (<code>wire_weaver_client</code>) drives them with two small
 <strong>sans-IO state machines</strong> — one per direction — that contain all the protocol logic but do no IO, own no
@@ -6337,7 +6457,7 @@ timers and hold no channels. A thin per-transport wrapper supplies those.</p>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>                              │  ▼
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a> responses, streams ◄──── RxCore ◄── (kind, payload) ◄── framer ◄── medium
 </span></code></pre></div>
-<p><strong>Tx</strong> handles every command, drives link setup (Nop → GetDeviceInfo with retries → LinkSetup), decides when
+<p><strong>Tx</strong> handles every command, drives link setup (Nop → hello with retries → LinkSetup), decides when
 to flush the accumulated frame, sends pings and allocates request IDs.
 <strong>Rx</strong> decodes messages, does the version check, routes responses and stream data to waiting callers, times out
 requests and detects a silent peer.</p>
@@ -6399,10 +6519,10 @@ next to the link:</p>
 </tr>
 </tbody>
 </table>
-<p><strong><code>DeviceLink</code></strong> answers <code>GetDeviceInfo</code> (a new framer session, then Nop flushed alone, then <code>DeviceInfo</code> with
-the host's token), checks the token and the host version on <code>LinkSetup</code> and
+<p><strong><code>DeviceLink</code></strong> answers a hello (a new framer session, then Nop flushed alone, then its own hello, then <code>DeviceInfo</code>
+with the host's token when the generations match), checks the token and the host version on <code>LinkSetup</code> and
 replies <code>LinkReady</code> or <code>Disconnect(IncompatibleVersion)</code>, runs the frame accumulation window and pings, and
-declares the host gone after the peer timeout. <code>GetDeviceInfo</code> while the link is up means the host application
+declares the host gone after the peer timeout. A hello while the link is up means the host application
 restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as
 a few flags (no queue, no allocations) and handed out by <code>poll_transmit()</code>; link state changes come out of
 <code>poll_event()</code> as <code>LinkEvent::Up</code> / <code>Down(reason)</code>.</p>

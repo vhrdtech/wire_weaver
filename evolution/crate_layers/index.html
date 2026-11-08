@@ -5910,11 +5910,12 @@ keeps working with a host or firmware built against <code>wire_weaver 0.6</code>
 <p>The exception is code that defines what goes on the wire:</p>
 <ul>
 <li><code>ww_framer</code> (frame layout, heads, checksums, frame prefixes) and <code>ww_link</code> (message kinds, <code>DeviceInfo</code>,
-  <code>LinkSetup</code>, each medium's <code>Framing</code>) - changing these breaks every device from every host. The host checks the
-  device's <code>DeviceInfo::dev_link_version</code> against its own <code>LINK_VERSION</code> and the setup token
-  (<a href="../../transport/ww_link/#setup-token">link setup</a>), and fails with <code>Error::IncompatibleLinkVersion</code> instead of a
-  setup timeout. Only add new message kinds that old peers ignore; never change existing ones. The last such break
-  was TR-15 (0.5): the setup token in <code>GetDeviceInfo</code> / <code>DeviceInfo</code> / <code>LinkSetup</code> / <code>LinkReady</code>, USB packets
+  <code>LinkSetup</code>, each medium's <code>Framing</code>) - changing these breaks every device from every host. Such a break bumps
+  the layer's generation in the <a href="../../transport/ww_link/#the-frozen-hello">frozen hello</a> (<code>ww_framer::GENERATION</code>,
+  <code>ww_link::hello::GENERATION</code>), so peers on both sides of it fail with <code>Error::IncompatibleGeneration</code>, naming the
+  layer, instead of a setup timeout. Only add new message kinds that old peers ignore; never change existing ones.
+  The hello itself (EVO-23, 0.5) was such a break: <code>GetDeviceInfo</code> became <code>Hello</code>. The one before it was TR-15
+  (0.5): the setup token in <code>GetDeviceInfo</code> / <code>DeviceInfo</code> / <code>LinkSetup</code> / <code>LinkReady</code>, USB packets
   without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every message. A device and a
   host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the token, which is refused as
   well, so every firmware and host is rebuilt together.</li>

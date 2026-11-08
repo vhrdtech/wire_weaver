@@ -5756,7 +5756,7 @@ one and the change is looked at. So the bytes here are the bytes the current cod
   method, arguments, result, sink writes (<code>⇐</code>) and stream items (<code>⇒</code>), credit and sideband events, with each
   message's size and first bytes. The wire view shows every unit of the medium: USB packets, UDP datagrams or
   WebSocket frames. Both are taken on the device side.</li>
-<li><strong>Left out:</strong> link setup (<code>Nop</code>, <code>GetDeviceInfo</code>, <code>LinkSetup</code>, <code>LinkReady</code>, the WebSocket upgrade), which is the
+<li><strong>Left out:</strong> link setup (<code>Nop</code>, <code>Hello</code>, <code>LinkSetup</code>, <code>LinkReady</code>, the WebSocket upgrade), which is the
   same on every connection and carries crate versions that change with every release, and pings. WebSocket frames from
   the host are masked with a random key; they are shown unmasked with the key zeroed.</li>
 <li><strong>The device</strong> is a simulation with real firmware logic on a simulated flash: two banks with NOR semantics (programming

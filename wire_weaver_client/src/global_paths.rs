@@ -10,8 +10,9 @@
 //!   loop hands it here: the introspection data is fetched once, and the request sent again with the absolute path
 //!   ([GlobalPaths::resend_absolute]). From then on the Commander resolves the connection's global paths itself.
 //!
-//! A trait matches when its crate is the requested one in a protocol compatible version
-//! (`FullVersion::is_protocol_compatible`) and its name is the requested one; the first match depth first, in item
+//! A trait matches when its crate is the requested one, on the same wire line when the device's introspection data and
+//! the crate's embedded snapshot both give its wire version (EVO-26), in a protocol compatible version
+//! (`FullVersion::is_protocol_compatible`) otherwise, and its name is the requested one; the first match depth first, in item
 //! order, as the device would find it. A trait under a resource array is reached at index 0, which a device's own
 //! lookup can't do. One [GlobalPaths] per connection, so per device API; reconnects keep the same API.
 
@@ -29,10 +30,11 @@ use wire_weaver::prelude::{DeserializeShrinkWrap, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use ww_client_server::{ErrorOwned, PathKind, PathKindOwned, Request};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
-use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
+use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion};
 
-/// Crate, trait name, major and minor version: what decides whether a trait matches.
-type TraitKey = (String, String, u32, u32);
+/// Crate, trait name and version: what decides whether a trait matches (the whole version, its snapshot gives the
+/// crate's wire version).
+type TraitKey = (String, String, u32, u32, u32);
 
 /// The global trait paths of one connection: the device's API once known, and the paths found in it.
 #[derive(Default)]
@@ -106,6 +108,7 @@ impl GlobalPaths {
             trait_name.to_string(),
             version.major.0,
             version.minor.0,
+            version.patch.0,
         );
         let mut resolved = self.resolved.lock().unwrap_or_else(|e| e.into_inner());
         resolved
@@ -220,22 +223,46 @@ pub(crate) fn find_trait(
     trait_name: &str,
 ) -> Option<Vec<UNib32>> {
     let omitted: Vec<u32> = api.root_omitted.iter().flatten().map(|id| id.0).collect();
-    find_in_level(api, &api.root, &omitted, wanted, trait_name, &mut vec![])
+    let wanted = Wanted {
+        version: wanted,
+        wire: wire_weaver_snapshots::get(wanted).and_then(|s| s.wire),
+    };
+    find_in_level(api, &api.root, &omitted, &wanted, trait_name, &mut vec![])
+}
+
+/// The crate a global path asks for, with its wire version when the host knows it (EVO-26): from the crate's
+/// embedded snapshot, so for `ww_stdlib` crates.
+struct Wanted<'a> {
+    version: &'a FullVersionOwned,
+    wire: Option<WireVersion>,
+}
+
+impl Wanted<'_> {
+    /// The device's crate `crate_idx` talks with the wanted one: the same crate on one wire line when both wire
+    /// versions are known, so a Rust-only break of the crate (a new crate major) doesn't hide the trait; protocol
+    /// compatible crate versions otherwise.
+    fn matches(&self, api: &ApiBundleOwned, crate_idx: u32) -> bool {
+        let Ok(version) = api.crate_version(crate_idx) else {
+            return false;
+        };
+        match (api.crate_wire(crate_idx), self.wire) {
+            (Some(device), Some(wanted)) => {
+                version.crate_id == self.version.crate_id && device.same_line(&wanted)
+            }
+            _ => version.is_protocol_compatible(self.version),
+        }
+    }
 }
 
 fn find_in_level(
     api: &ApiBundleOwned,
     level: &ApiLevelOwned,
     omitted: &[u32],
-    wanted: &FullVersionOwned,
+    wanted: &Wanted,
     trait_name: &str,
     path: &mut Vec<UNib32>,
 ) -> Option<Vec<UNib32>> {
-    if level.trait_name == trait_name
-        && api
-            .crate_version(level.crate_idx.0)
-            .is_ok_and(|v| v.is_protocol_compatible(wanted))
-    {
+    if level.trait_name == trait_name && wanted.matches(api, level.crate_idx.0) {
         return Some(path.clone());
     }
     for item in &level.items {
@@ -325,6 +352,44 @@ pub trait Status {
         assert_eq!(find(&api, (1, 2), "Info"), None);
         // another patch is compatible
         assert_eq!(find(&api, (0, 2), "Info"), Some(vec![1]));
+    }
+
+    /// A `ww_stdlib` trait is found by its crate's wire line (EVO-26): the host asks for `ww_board_info` 0.3.0
+    /// (its embedded snapshot: w1.2), the device has 0.4.0, a Rust-only break on the same line. Another line hides it.
+    #[test]
+    fn stdlib_trait_found_by_wire_line() {
+        let board_info = format!(
+            "ww_board_info = {{ path = {:?} }}",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../ww_stdlib/ww_board_info")
+        );
+        let src = r#"
+            #[ww_api_root(wire = "w1.0")]
+            pub trait Api {
+                fn ping();
+                ww_impl!(board: ww_board_info::BoardInfo);
+            }
+        "#;
+        let mut device = crate::compat::tests::bundle_with("global_paths_w", "0.1.0", src, &board_info);
+        let idx = device
+            .ext_crates
+            .iter()
+            .position(|c| c.crate_id == "ww_board_info")
+            .unwrap();
+        let wanted = device.ext_crates[idx].clone();
+        assert_eq!(
+            wire_weaver_snapshots::get(&wanted).and_then(|s| s.wire),
+            Some(WireVersion::new(1, 2))
+        );
+        device.ext_crates[idx].version = VersionOwned::new(0, 4, 0);
+        device.set_crate_wire(idx as u32, Some(WireVersion::new(1, 3)));
+        let found = find_trait(&device, &wanted, "BoardInfo");
+        assert_eq!(found, Some(vec![UNib32(1)]));
+
+        device.set_crate_wire(idx as u32, Some(WireVersion::new(2, 0)));
+        assert_eq!(find_trait(&device, &wanted, "BoardInfo"), None);
+        // without the device's wire version, the crate versions decide: 0.4.0 is not 0.3.0
+        device.set_crate_wire(idx as u32, None);
+        assert_eq!(find_trait(&device, &wanted, "BoardInfo"), None);
     }
 
     #[test]

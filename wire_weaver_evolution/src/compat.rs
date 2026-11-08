@@ -25,7 +25,7 @@ use ww_self::{
     OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, UnitDefOwned, ValueOwned,
     VariantOwned,
 };
-use ww_version::FullVersionOwned;
+use ww_version::{FullVersionOwned, WireVersion};
 
 use crate::Rule;
 use crate::layout;
@@ -297,7 +297,7 @@ fn compare_kinds<'a>(
                 // not enough information (e.g., compact version only), items are still compared one by one
                 return Ok(());
             };
-            check_same_origin("trait", &identity, &device_identity)
+            check_same_origin("trait", (&identity, client), (&device_identity, device))
                 .inspect_err(|_| to_device.note_root("trait", &identity))?;
             // when both are in-line, their items are compared one by one instead
             let skipped = |bundle: &ApiBundleOwned, idx: u32| {
@@ -458,20 +458,38 @@ fn trait_identity(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Identity<'_
     Some((bundle.crate_version(crate_idx.0).ok()?, Cow::Borrowed(name)))
 }
 
-fn check_same_origin(what: &str, a: &Identity, b: &Identity) -> Result<(), String> {
+/// The same trait or type of the same crate on both sides, from crates that talk: on one wire line when both declare
+/// a wire version (EVO-26), so a Rust-only break of the crate (a new crate major) is not a wire break; protocol
+/// compatible crate versions otherwise (a crate saved before wire versions, or one that declares none).
+fn check_same_origin(
+    what: &str,
+    (a, a_bundle): (&Identity, &ApiBundleOwned),
+    (b, b_bundle): (&Identity, &ApiBundleOwned),
+) -> Result<(), String> {
     if a.0.crate_id != b.0.crate_id || a.1 != b.1 {
         return Err(format!(
             "{what} {}::{} vs {}::{}",
             a.0.crate_id, a.1, b.0.crate_id, b.1
         ));
     }
-    if !a.0.is_protocol_compatible(b.0) {
-        return Err(format!(
+    match (crate_wire_of(a_bundle, a.0), crate_wire_of(b_bundle, b.0)) {
+        (Some(a_wire), Some(b_wire)) if !a_wire.same_line(&b_wire) => Err(format!(
+            "{what} {} from {} on different wire lines: {a_wire} ({:?}) vs {b_wire} ({:?})",
+            a.1, a.0.crate_id, a.0, b.0
+        )),
+        (Some(_), Some(_)) => Ok(()),
+        _ if !a.0.is_protocol_compatible(b.0) => Err(format!(
             "{what} {} from incompatible crate versions: {:?} vs {:?}",
             a.1, a.0, b.0
-        ));
+        )),
+        _ => Ok(()),
     }
-    Ok(())
+}
+
+/// Wire version `bundle` gives the crate `version` (EVO-26), `None` when it declares none.
+fn crate_wire_of(bundle: &ApiBundleOwned, version: &FullVersionOwned) -> Option<WireVersion> {
+    let idx = bundle.ext_crates.iter().position(|c| c == version)?;
+    bundle.crate_wire(idx as u32)
 }
 
 /// Catches a definition that is different on each side under the same crate version, when one side has left it out
@@ -723,7 +741,7 @@ impl<'a> TypeCheck<'a> {
                 else {
                     return Err("type definition is not available on one side".into());
                 };
-                check_same_origin("type", &w, &r).inspect_err(|_| self.note_root("type", &w))?;
+                check_same_origin("type", (&w, self.writer), (&r, self.reader)).inspect_err(|_| self.note_root("type", &w))?;
                 let signature = |bundle, ty: &TypeOwned| match ty {
                     TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
                     _ => None,
@@ -862,7 +880,7 @@ impl<'a> TypeCheck<'a> {
         let (Some(w), Some(r)) = (identity(self.writer, wi), identity(self.reader, ri)) else {
             return Err("bad API bundle: no generic type definition".into());
         };
-        check_same_origin("type", &w, &r).inspect_err(|_| self.note_root("type", &w))?;
+        check_same_origin("type", (&w, self.writer), (&r, self.reader)).inspect_err(|_| self.note_root("type", &w))?;
         if self.compare_signatures {
             check_same_definition(
                 "type",

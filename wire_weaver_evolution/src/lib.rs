@@ -872,6 +872,7 @@ mod tests {
     mod by_meaning;
     mod root_cause;
     mod transparent;
+    mod wire_lines;
     mod ww_si_fixed;
 
     /// Load a crate bundle from source, as `ww api save` would, by writing a throwaway crate.

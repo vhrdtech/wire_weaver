@@ -5741,8 +5741,8 @@ feature adds <code>EmbassyNetUdpSocket</code> on an <code>embassy-net</code> UDP
 </span></code></pre></div>
 <p>UDP has no connections, so the device serves one host (peer) at a time and replies to it only:</p>
 <ul>
-<li>a host is adopted when it starts link setup: the first message of its datagram is <code>Nop</code> or <code>Hello</code>, which
-  the host sends alone before anything else;</li>
+<li>a host is adopted when it starts link setup: its datagram is a <code>Nop</code> first or the
+  <a href="../ww_link/#the-frozen-hello">frozen hello</a>, which the host sends alone before anything else;</li>
 <li>datagrams from other hosts are dropped, unless they start link setup: then the new host replaces the current
   one, as if another process opened a USB device. The device reports <code>LinkEvent::Down(DownReason::Transport)</code>,
   starts over and handles the datagram that started the takeover, so the new host connects without waiting for a
@@ -5801,9 +5801,11 @@ device can run TCP.</p>
 then the messages with <code>UdpHead</code> (<code>U2Head</code>) heads and <code>UdpChecksum</code>, a CRC-32/ISO-HDLC (the CRC-32 of zip and
 Ethernet, computed by <code>ww_block</code>) after every message, covering the prefix, the head and the message, and <code>UdpTail</code>
 (none). Same as over USB, small messages accumulated by the event loop share a datagram and big ones are split across
-several. Byte examples are on <a href="../ww_framer_wire/#with-a-crc-32-on-every-message-udp">framer wire format</a>.</p>
+several. Byte examples are on <a href="../ww_framer_wire/#with-a-crc-32-on-every-message-udp">framer wire format</a>. The hello is
+the one datagram outside the framer: no frame prefix, its own CRC, and it is not counted
+(<a href="../ww_link/#the-frozen-hello">the frozen hello</a>).</p>
 <p>The device starts a new session of its framer on every hello (the epoch goes up), and the host drops
-everything before the <code>DeviceInfo</code> with its <a href="../ww_link/#setup-token">setup token</a>. A datagram only starts link setup
+everything before the device's hello with its <a href="../ww_link/#setup-token">setup token</a>. A datagram only starts link setup
 (and takes the device over from another host) when its CRC is good.</p>
 <p>The host sends datagrams of at most <code>ww_link::UDP_MAX_DATAGRAM_LEN</code> (1452 B: Ethernet MTU minus IPv6 and UDP headers,
 so that nothing is fragmented over IPv4 or IPv6), the device must be able to receive datagrams of this size. The

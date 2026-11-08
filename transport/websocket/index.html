@@ -5744,7 +5744,8 @@ through. The same holds for UDP, see <a href="../udp/#simulated-udp-in-tests">Si
 <p>Each <a href="../ww_link/">ww_link</a> message is one binary WebSocket message:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>| kind: u8 | payload ... |
 </span></code></pre></div>
-<p><code>kind</code> is <code>ww_link::Kind</code>, the payload is what the same message carries over other media. WebSocket has its own
+<p><code>kind</code> is <code>ww_link::Kind</code>, the payload is what the same message carries over other media. The hello is frozen in this form, kind
+<code>04</code> and its payload (<a href="../ww_link/#the-frozen-hello">the frozen hello</a>, <code>ww_link::hello::ws</code>). WebSocket has its own
 framing over a reliable stream, so <a href="../ww_framer/">ww_framer</a> is not used: messages are never split or packed
 together, and there is nothing to re-synchronize on. Small messages still share TCP segments: the host buffers them
 until the event loop flushes (after the accumulation time) and writes them out in one go. The host's socket has

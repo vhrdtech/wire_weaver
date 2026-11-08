@@ -7674,18 +7674,32 @@ observing), SRV-46 (peer identity).
   and reports an added or promoted argument with the wire intact as <code>Rule::Signature</code>, a Rust-only break
   (<code>docs/api/methods.md#arguments-that-evolve</code>, <code>docs/evolution/rules.md#arguments</code>; tests <code>tests/args_evolution</code>,
   <code>wire_weaver_evolution</code> <code>tests::args</code>, conformance <code>args.*</code>).</li>
-<li>🚧 <strong>EVO-23 Frozen hello in link setup</strong> · <code>v0.5</code> — link setup opens with a hello of plain bytes at fixed
+<li>✅ <strong>EVO-23 Frozen hello in link setup</strong> · <code>v0.5</code> — link setup opens with a hello of plain bytes at fixed
   positions, read before any evolvable layer: magic <code>WW</code>, role, one generation byte per foundation layer (framer,
   link, shrink_wrap, API model; <code>GENERATION</code> consts in <code>ww_framer</code>, <code>ww_link::hello</code>, <code>shrink_wrap</code>,
   <code>ww_client_server</code>) and the setup token. Generations count only breaks. <code>Kind::GetDeviceInfo</code> became
   <code>Kind::Hello</code>, sent both ways; the device sends <code>DeviceInfo</code> only when every generation matches, the host fails
   with <code>Error::IncompatibleGeneration</code> naming the layer and who should update, and a setup message it can't read
-  with <code>Error::UnknownPeerFormat</code> and its bytes. Not a byte is added after <code>LinkReady</code>. Done: the payload, the USB
-  frame (<code>hello::usb</code>: a packet of its own, no frame prefix, written and read outside the framer by device and host,
-  every packet checked first), device and host on USB and in-process. Open: the frozen frame on UDP, RTT and WebSocket, and
-  the hub's preamble and windows by generation
-  (<code>docs/transport/ww_link.md#the-frozen-hello</code>; tests <code>ww_link</code> <code>hello::tests</code>, <code>ww_device</code>
-  <code>hello_of_other_generations</code>, <code>wire_weaver_client</code> <code>device_of_another_generation</code>, <code>unknown_peer_format</code>).</li>
+  with <code>Error::UnknownPeerFormat</code> and its bytes. Not a byte is added after <code>LinkReady</code>. The frame around the hello is
+  frozen per medium and written and read outside the framer by device and host: USB (<code>hello::usb</code>, a packet of its
+  own, no frame prefix), UDP (<code>hello::udp</code>, a datagram of its own with a CRC-32, no frame counter), RTT
+  (<code>hello::rtt</code>, the same bytes found anywhere in the stream by <code>hello::rtt::Scanner</code>) and WebSocket (<code>hello::ws</code>,
+  the kind byte and the payload); <code>embassy-net</code> devices send the UDP and WebSocket frames, the tap reads USB and UDP
+  hellos the same way. The hub preamble carries the client's generations (<code>TAG_GENERATIONS</code>) and the hub serves by
+  them, per-layer windows in <code>ww_hub/src/window.rs</code>. The RTT scan on the device, measured
+  (<code>examples_mcu/mcu_qemu</code> <code>qemu-rtt-scan</code> under <code>qemu_icount</code>, Cortex-M3, 1780 bytes of 3, 20 and 150 byte
+  messages): +4.2 instructions per received byte at <code>opt-level = "z"</code> (the shipping profile) and +3.7 at 3, on top
+  of the framer's 10.2 and 8.3; about 68 (z) and 58 (3) more per read (8 against 64 byte reads); a run of <code>0x30</code>
+  (ASCII zeros) 21 (z) and 18 (3) per byte. Instructions, not cycles, no clock. <code>nucleo_g0b1re</code>'s
+  <code>nucleo-g0b1re-ww-rtt</code> (<code>rtt_target</code>, thumbv6m, release at <code>z</code>) against master 6e73b6c: flash +1824 B (<code>.text</code>
+  +1624, <code>.rodata</code> +200), RAM +72 B; stack 136 B on the usual path (<code>Scanner::scan</code> 24, <code>search</code> 88,
+  <code>Hello::from_bytes</code> 24), 248 B after a kept tail (<code>joined</code> 112); <code>Scanner</code> is 33 B. The instruction counts are
+  M3's; on M0 (the G0 ELF) each word read is a <code>__aeabi_uread4</code> call, not counted yet
+  (<code>docs/transport/ww_link.md#the-frozen-hello</code>, <code>docs/transport/hub.md#version-skew-and-handover-srv-30</code>; tests
+  <code>ww_link</code> <code>hello::tests</code>, <code>ww_device</code> <code>hello_of_other_generations</code>, <code>hello_outside_the_framer</code> (USB, UDP, stream),
+  <code>frozen_hello_both_ways</code> (WebSocket), <code>wire_weaver_client</code> <code>device_with_a_framer_of_another_generation</code>,
+  <code>stale_hello_and_split_tail_before_this_sessions_hello</code> (USB and UDP), <code>stream::tests::hello_outside_the_framer</code>,
+  <code>unknown_peer_format</code>, <code>ww_hub</code> <code>hub_serves_by_generation</code>).</li>
 <li>✅ <strong>EVO-24 Wire version of its own</strong> · <code>v0.5</code> — an API root declares its wire version apart from its crate
   version, <code>#[ww_api_root(wire = "w2.3")]</code> (line 2, revision 3), as <code>ww_version::WireVersion</code>; the <code>w</code> is part of the
   notation everywhere and a parser refuses <code>2.3</code>, <code>w2.3.0</code> and crate versions with an error that says why. The trait

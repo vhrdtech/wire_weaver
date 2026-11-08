@@ -5854,7 +5854,19 @@ split across chunks (<code>Tx::write_full</code>), and the receiver cuts message
 <code>ww_link</code>: <code>U2Head</code>, no checksum and no tail, since the ring buffers are in RAM and cannot corrupt bytes, and
 <code>NoBlockSkip</code> writes are atomic, so nothing is lost mid-message either.</p>
 <p>Without a delimiter there is nothing to re-synchronize on: a message larger than the receiver's buffer is skipped,
-but the bytes that follow are misinterpreted until the transport is reset. The device reports its
+but the bytes that follow are misinterpreted until the transport is reset. The one exception is the hello: both sides scan
+every read for the peer's <a href="../ww_link/#the-frozen-hello">frozen hello</a> before the framer sees it, so a new session
+starts cleanly from it, and a peer whose framer is of another generation still has its hello read.</p>
+<p>The stream has no checksum, so a message payload that itself holds a whole hello frame of the peer's role (head, magic,
+role, generation count, token: 19 bytes in a fixed pattern) is taken for a hello. What that costs on the device: the
+message it was assembling is dropped, and the false hello starts a new host session, so a link that was up goes down
+(<code>LinkEvent::Down(NewSession)</code>) and the device answers with its own hello. The host drops that hello (its token is
+not this session's), its requests then time out, and it sets the link up again. Only data that carries WireWeaver
+hello frames does this.</p>
+<p>The scan costs about 4 instructions per received byte on a Cortex-M3, against the framer's 8 to 10 for the same
+bytes, about 60 per read, and up to 21 per byte for a run of <code>0x30</code> bytes (ASCII zeros), the head's first byte; a
+firmware with RTT grows by 1.8 KB of flash and 72 B of RAM. The numbers and how they were measured are in
+<code>FEATURES.md</code> under EVO-23. The device reports its
 <code>MAX_MESSAGE_LEN</code> during link setup, a host must never send more than that.</p>
 <p>Many small messages are still packed into one chunk, accumulated for the window the device asks for in
 <code>DeviceInfo</code> (1 ms by default); control messages are flushed right away.</p>

@@ -6419,17 +6419,32 @@ it, so a peer whose framer is of another generation still reads the hello and na
 <td>The packet boundary: a hello is one packet of its own, never with a frame prefix (also with the frame counter of <code>UsbSeqFraming</code>): <code>30</code>, <code>48 \| (len &gt;&gt; 8)</code>, <code>len &amp; 0xff</code>, then the payload; 19 bytes today (<code>ww_link::hello::usb</code>).</td>
 </tr>
 <tr>
-<td>UDP, RTT, WebSocket</td>
-<td>Not yet (EVO-23's second part): the hello goes through the framer as a <code>Hello</code> message.</td>
+<td>UDP</td>
+<td>The datagram boundary: a hello is one datagram of its own, without the frame counter every other datagram starts with: the same three head bytes, the payload, then a CRC-32/ISO-HDLC of head and payload, little endian; 23 bytes today (<code>ww_link::hello::udp</code>). A corrupted datagram fails the CRC and is not a hello.</td>
+</tr>
+<tr>
+<td>RTT</td>
+<td>The bytes of the USB frame in the stream, wherever they are: every read is scanned for the peer's hello (<code>ww_link::hello::rtt::Scanner</code>), also one split across two reads, and what follows a hello is read anew (<code>ww_link::hello::rtt</code>).</td>
+</tr>
+<tr>
+<td>WebSocket</td>
+<td>One binary WebSocket message, kind byte <code>04</code> and the payload, the form every link message has there: WebSocket frames the stream, there is no framer to go around (<code>ww_link::hello::ws</code>).</td>
 </tr>
 </tbody>
 </table>
+<p>Devices on <code>embassy-net</code> send the UDP and WebSocket frames, as their media are.</p>
 <p>On USB, <code>hello::usb::find</code> takes a packet for a hello only when all of these hold: <code>30</code> first, the length bits of the
 second byte, the length within the packet, the magic, a role byte and at least four generation bytes. Anything else
 is staged into the framer as before, so the tail of an old split message or a frame counter that happens to be <code>30</code>
 is never taken for a hello. The <code>30 48 10</code> head is what framer generation 1 writes for a whole 16 byte <code>Hello</code>, so a
 generation 1 framer would read the packet too, but nothing relies on that. Endpoints with packets shorter than the
-frozen frame (8 or 16 bytes) take the hello framed; WireWeaver's own USB class uses 64 bytes and more.</p>
+frozen frame (8 or 16 bytes) take the hello framed; WireWeaver's own USB class uses 64 bytes and more. On UDP the CRC
+adds to the same checks, and a datagram that starts with a frame counter is never a hello.</p>
+<p>On RTT a hello can't be told by where it starts, as the stream has no packets: the scanner looks for the head, the
+magic, the peer's role, the generation count and a whole token anywhere in what was read. Bytes before a hello of
+another generation may be cut into junk messages by this side's framer, which link setup ignores. The stream has no
+checksum, so a message payload that itself carries a whole hello frame of the peer's role would be taken for one; only
+a payload made of WireWeaver hello frames does that.</p>
 <p>A hello found outside the framer starts a new session on the side that receives it as well: the framer drops what it
 held (half a split message of the previous session). It then goes through the same rules as any setup message:
 the <a href="#setup-token">setup token</a> decides whether it belongs to this session.</p>

@@ -2,7 +2,8 @@
  * Requantize in C99 (CLT-54), see sw_requantize.h: a port of exact_units::Requantizer::apply
  * (src/fixed/rounding.rs in https://github.com/romixlab/exact_units), the same number bit for bit. Integers go
  * through sign and magnitude in 128 bits (two 64-bit halves, products by 32-bit halves), so nothing depends on
- * __int128 or implementation-defined casts of negative numbers.
+ * __int128 or implementation-defined casts of negative numbers; a float on either side is worked exactly from its
+ * bits in 256 (exact_float.rs, NUM-30), never by a float multiply.
  */
 #include "sw_requantize.h"
 
@@ -112,7 +113,24 @@ static sw_u128 mul64_128(uint64_t a, sw_u128 n, uint64_t *w2) {
     return r;
 }
 
-/* n / d and n % d, for d != 0 and d < 2^127 */
+/* r doubled plus bit, against d: the next remainder of a binary long division, r < d; true where d is taken off
+ * (2r >= d is asked as r >= d - r, so nothing overflows for a d of 128 bits) */
+static bool long_div_step(sw_u128 *r, sw_u128 d, uint64_t bit) {
+    sw_u128 other = u128_sub(d, *r);
+    if (u128_cmp(*r, other) >= 0) {
+        *r = u128_add_small(u128_sub(*r, other), bit);
+        return true;
+    }
+    /* 2r < d: doubling doesn't overflow */
+    *r = u128_add_small(u128_shl(*r, 1), bit);
+    if (u128_cmp(*r, d) == 0) {
+        *r = u128_of(0, 0);
+        return true;
+    }
+    return false;
+}
+
+/* n / d and n % d, for d != 0 */
 static sw_u128 u128_divmod(sw_u128 n, sw_u128 d, sw_u128 *rem) {
     sw_u128 q = u128_of(0, 0), r = u128_of(0, 0);
     int i;
@@ -122,10 +140,7 @@ static sw_u128 u128_divmod(sw_u128 n, sw_u128 d, sw_u128 *rem) {
     }
     for (i = 127; i >= 0; i--) {
         uint64_t bit = i >= 64 ? (n.hi >> (i - 64)) & 1u : (n.lo >> i) & 1u;
-        r = u128_shl(r, 1);
-        r.lo |= bit;
-        if (u128_cmp(r, d) >= 0) {
-            r = u128_sub(r, d);
+        if (long_div_step(&r, d, bit)) {
             if (i >= 64) {
                 q.hi |= UINT64_C(1) << (i - 64);
             } else {
@@ -324,116 +339,352 @@ static bool settle_int(sw_storage to, sw_scaled s, sw_overflow o, sw_num *out) {
 }
 
 #ifndef SW_NO_F64
-/* x rounded to a whole number by r; NaN and infinities as they are (round_f64 of rounding.rs) */
-static double round_f64(double x, sw_rounding r) {
-    const double whole = 4503599627370496.0; /* 2^52, from where on every double is whole */
-    double t, frac, away, a;
+/* A conversion with a float on either side, worked exactly (exact_float.rs of exact_units, NUM-30): x * num / den *
+ * 2^shift for an integer or a finite float x as its top 128 bits and a sticky bit for the rest, rounded once into a
+ * float or an integer. A float is a binary fraction, so the product is a fraction of integers like any other: no
+ * float multiply in between. */
+
+/* 256 bits, w[0] the least significant 64 */
+typedef struct {
+    uint64_t w[4];
+} sw_u256;
+
+/* the full product a * b (mul_wide) */
+static sw_u256 mul_wide(sw_u128 a, sw_u128 b) {
+    sw_u128 p00 = mul64(a.lo, b.lo), p01 = mul64(a.lo, b.hi), p10 = mul64(a.hi, b.lo), p11 = mul64(a.hi, b.hi);
+    sw_u256 r;
+    uint64_t t, c;
+    r.w[0] = p00.lo;
+    /* w1 = p00.hi + p01.lo + p10.lo, its carries (at most 2) into w2 */
+    t = p00.hi + p01.lo;
+    c = t < p00.hi ? 1u : 0u;
+    r.w[1] = t + p10.lo;
+    c += r.w[1] < t ? 1u : 0u;
+    /* w2 = p01.hi + p10.hi + p11.lo + c, its carries into w3 */
+    t = p01.hi + p10.hi;
+    r.w[3] = p11.hi + (t < p01.hi ? 1u : 0u);
+    r.w[2] = t + p11.lo;
+    r.w[3] += r.w[2] < t ? 1u : 0u;
+    t = r.w[2];
+    r.w[2] = t + c;
+    r.w[3] += r.w[2] < t ? 1u : 0u;
+    return r;
+}
+
+static bool u256_is_zero(const sw_u256 *n) { return (n->w[0] | n->w[1] | n->w[2] | n->w[3]) == 0; }
+
+/* the number of bits of n, 0 for 0 */
+static unsigned u256_bits(const sw_u256 *n) {
+    int i;
+    for (i = 3; i >= 0; i--) {
+        if (n->w[i] != 0) {
+            return 64u * (unsigned)i + 64u - clz64(n->w[i]);
+        }
+    }
+    return 0;
+}
+
+/* n * 2^s for s < 256, the result below 2^256 */
+static sw_u256 u256_shl(const sw_u256 *n, unsigned s) {
+    sw_u256 r;
+    unsigned k = s / 64, b = s % 64;
+    int i;
+    for (i = 3; i >= 0; i--) {
+        int j = i - (int)k;
+        uint64_t v = j >= 0 ? n->w[j] << b : 0;
+        if (b != 0 && j >= 1) {
+            v |= n->w[j - 1] >> (64 - b);
+        }
+        r.w[i] = v;
+    }
+    return r;
+}
+
+/* n / 2^s rounded down for s < 256, and whether a bit shifted out was set */
+static sw_u256 u256_shr(const sw_u256 *n, unsigned s, bool *out) {
+    sw_u256 r;
+    unsigned k = s / 64, b = s % 64;
+    int i;
+    *out = false;
+    for (i = 0; i < (int)k; i++) {
+        *out = *out || n->w[i] != 0;
+    }
+    if (b != 0 && (n->w[k] & ((UINT64_C(1) << b) - 1)) != 0) {
+        *out = true;
+    }
+    for (i = 0; i < 4; i++) {
+        unsigned j = (unsigned)i + k;
+        uint64_t v = j < 4 ? n->w[j] >> b : 0;
+        if (b != 0 && j + 1 < 4) {
+            v |= n->w[j + 1] << (64 - b);
+        }
+        r.w[i] = v;
+    }
+    return r;
+}
+
+/* n / d rounded down and whether the remainder is not 0, d != 0: binary long division */
+static sw_u256 u256_div(const sw_u256 *n, sw_u128 d, bool *rem) {
+    sw_u256 q;
+    sw_u128 r = u128_of(0, 0);
+    unsigned i = u256_bits(n);
+    memset(&q, 0, sizeof q);
+    if (d.hi == 0 && d.lo == 1) {
+        *rem = false;
+        return *n;
+    }
+    while (i > 0) {
+        uint64_t bit;
+        i--;
+        bit = (n->w[i / 64] >> (i % 64)) & 1u;
+        if (long_div_step(&r, d, bit)) {
+            q.w[i / 64] |= UINT64_C(1) << (i % 64);
+        }
+    }
+    *rem = !u128_is_zero(r);
+    return q;
+}
+
+/* |v| = m * 2^e + rest with 0 <= rest < 2^e, sticky whether rest != 0; m has its top bit set, or is 0 for v = 0
+ * (neg then the sign of a float zero) */
+typedef struct {
     bool neg;
-    if (!(x < whole && x > -whole)) {
-        return x;
+    sw_u128 m;
+    int32_t e;
+    bool sticky;
+} sw_quotient;
+
+/* +-a * 2^exp * num / den * 2^shift (Quotient::of) */
+static sw_quotient quotient_of(bool neg, sw_u128 a, int32_t exp, sw_u128 num, sw_u128 den, int32_t shift) {
+    sw_quotient q;
+    sw_u256 n = mul_wide(a, num), qn;
+    bool out = false, rem;
+    int32_t s;
+    q.neg = neg;
+    q.m = u128_of(0, 0);
+    q.e = 0;
+    q.sticky = false;
+    if (u256_is_zero(&n) || u128_is_zero(den)) {
+        return q;
     }
-    t = (double)(int64_t)x;
-    frac = x - t;
-    if (frac == 0.0) {
-        return t;
+    /* n * 2^s / den is in [2^127, 2^129): bits(n) + s = 128 + bits(den) <= 256 */
+    s = 128 + (int32_t)(128u - u128_clz(den)) - (int32_t)u256_bits(&n);
+    n = s >= 0 ? u256_shl(&n, (unsigned)s) : u256_shr(&n, (unsigned)-s, &out);
+    qn = u256_div(&n, den, &rem);
+    q.m = u128_of(qn.w[1], qn.w[0]);
+    q.e = exp + shift - s;
+    q.sticky = out || rem;
+    if ((qn.w[2] | qn.w[3]) != 0) {
+        q.sticky = q.sticky || (q.m.lo & 1u) != 0;
+        q.m = u128_of((q.m.hi >> 1) | (UINT64_C(1) << 63), (q.m.lo >> 1) | (q.m.hi << 63));
+        q.e += 1;
     }
-    neg = x < 0.0;
-    away = neg ? t - 1.0 : t + 1.0;
-    switch (r) {
-    case SW_ROUND_TRUNCATE:
-        return t;
-    case SW_ROUND_FLOOR:
-        return neg ? away : t;
-    case SW_ROUND_CEIL:
-        return neg ? t : away;
-    case SW_ROUND_NEAREST_EVEN:
-    case SW_ROUND_NEAREST_AWAY:
-    default:
-        a = neg ? -frac : frac;
-        if (a > 0.5) {
-            return away;
-        }
-        if (a < 0.5) {
-            return t;
-        }
-        return r == SW_ROUND_NEAREST_AWAY || (int64_t)t % 2 != 0 ? away : t;
-    }
+    return q;
 }
 
-/* the low 64 bits of a whole double, NaN and infinities as 0 (wrap_f64 of rounding.rs: from 2^127 on a whole
- * double is a multiple of 2^75) */
-static uint64_t wrap_f64(double y) {
-    uint64_t bits, mant, mag;
-    int exp, sh;
-    memcpy(&bits, &y, sizeof bits);
-    exp = (int)((bits >> 52) & 0x7ffu);
-    if (exp == 0x7ff || exp == 0) {
-        /* NaN, infinities, zeros (a whole double isn't subnormal) */
-        return 0;
-    }
-    mant = (bits & ((UINT64_C(1) << 52) - 1)) | (UINT64_C(1) << 52);
-    sh = exp - 1075;
-    if (sh >= 64 || sh <= -64) {
-        mag = 0;
-    } else if (sh >= 0) {
-        mag = mant << sh;
+/* x * factor for an integer or a finite float x (Quotient::of_repr); false for NaN and infinities */
+static bool quotient_of_num(sw_num x, const sw_factor *f, sw_quotient *q) {
+    sw_u128 num, den;
+    int32_t shift;
+    bool neg;
+    sw_u128 a;
+    int32_t exp = 0;
+    if (f->ratio) {
+        num = u128_of(f->num_hi, f->num_lo);
+        den = u128_of(f->den_hi, f->den_lo);
+        shift = 0;
     } else {
-        mag = mant >> -sh;
+        num = u128_of(0, f->m);
+        den = u128_of(0, 1);
+        shift = f->shift;
     }
-    return (bits >> 63) != 0 ? 0u - mag : mag;
-}
-
-/* a whole double y into the integer storage `to` by o */
-static bool settle_f64(sw_storage to, double y, sw_overflow o, sw_num *out) {
-    bool signed_ = to.kind == SW_NUM_INT;
-    /* the range as doubles: [min, end), exact powers of 2 */
-    double end = signed_ ? (double)(UINT64_C(1) << (to.bits - 1))
-                         : (to.bits >= 64 ? 18446744073709551616.0 : (double)(UINT64_C(1) << to.bits));
-    double min = signed_ ? -end : 0.0;
-    out->kind = to.kind;
-    switch (o) {
-    case SW_OVERFLOW_CHECKED:
-        if (!(y >= min && y < end)) {
+    if (x.kind == SW_NUM_INT) {
+        neg = x.v.i < 0;
+        a = u128_of(0, neg ? 0u - (uint64_t)x.v.i : (uint64_t)x.v.i);
+    } else if (x.kind == SW_NUM_UINT) {
+        neg = false;
+        a = u128_of(0, x.v.u);
+    } else {
+        uint64_t b, frac;
+        int32_t field;
+        memcpy(&b, &x.v.f, sizeof b);
+        field = (int32_t)((b >> 52) & 0x7ffu);
+        if (field == 0x7ff) {
             return false;
         }
-        if (signed_) {
-            out->v.i = (int64_t)y;
+        frac = b & ((UINT64_C(1) << 52) - 1);
+        neg = (b >> 63) != 0;
+        if (field == 0) {
+            a = u128_of(0, frac);
+            exp = -1074;
         } else {
-            out->v.u = (uint64_t)y;
+            a = u128_of(0, frac | (UINT64_C(1) << 52));
+            exp = field - 1075;
         }
-        return true;
-    case SW_OVERFLOW_SATURATE: {
-        /* against max as a double, which may round up (2^64 - 1 is 2^64) like Rust's `as f64` */
-        sw_num max;
-        double max_d;
-        put_max(to, &max);
-        max_d = signed_ ? (double)max.v.i : (double)max.v.u;
-        if (y != y) {
-            if (signed_) {
-                out->v.i = 0;
-            } else {
-                out->v.u = 0;
-            }
-        } else if (y >= max_d) {
-            *out = max;
-        } else if (y <= min) {
-            put_min(to, out);
-        } else if (signed_) {
-            out->v.i = (int64_t)y;
-        } else {
-            out->v.u = (uint64_t)y;
-        }
-        return true;
     }
-    case SW_OVERFLOW_WRAP:
-    default:
-        put_wrapped(to, wrap_f64(y), out);
-        return true;
-    }
+    *q = quotient_of(neg, a, exp, num, den, shift);
+    return true;
 }
 
-/* x * factor in doubles (Magnitude::apply_f64) */
-static double apply_f64(const sw_factor *f, double x) { return x * f->f_num / f->f_den; }
+/* m cut at bit `shift` (at least 1): the bits kept, where the rest lies against half of 2^shift (-1, 0, 1; the
+ * sticky bit breaking a tie upward), and whether anything is cut off (Quotient::cut) */
+static sw_u128 quotient_cut(const sw_quotient *q, int32_t shift, int *ord, bool *inexact) {
+    sw_u128 rest, half;
+    int c;
+    *inexact = true;
+    if (shift > 128) {
+        *ord = -1;
+        return u128_of(0, 0);
+    }
+    if (shift == 128) {
+        bool tie = q->m.hi == (UINT64_C(1) << 63) && q->m.lo == 0 && !q->sticky;
+        *ord = tie ? 0 : 1;
+        return u128_of(0, 0);
+    }
+    rest = u128_low_bits(q->m, (unsigned)shift);
+    half = u128_shl(u128_of(0, 1), (unsigned)shift - 1);
+    c = u128_cmp(rest, half);
+    *ord = c == 0 && q->sticky ? 1 : c;
+    *inexact = !u128_is_zero(rest) || q->sticky;
+    return u128_shr(q->m, (unsigned)shift);
+}
+
+/* the value of q cut at bit `shift`, rounded by r */
+static sw_u128 quotient_round(const sw_quotient *q, int32_t shift, sw_rounding r) {
+    int ord;
+    bool inexact;
+    sw_u128 kept = quotient_cut(q, shift, &ord, &inexact);
+    if (round_up(r, q->neg, inexact, ord > 0, ord == 0, (kept.lo & 1u) != 0)) {
+        kept = u128_add_small(kept, 1);
+    }
+    return kept;
+}
+
+/* The bits of the float with `bits` of mantissa (the hidden one included) and normal exponents
+ * 1 - max_exp ..= max_exp that r rounds q to, the sign in bit `sign`; false past the largest finite float
+ * (Quotient::to_float). Subnormals included. */
+static bool quotient_to_float(const sw_quotient *q, unsigned bits, int32_t max_exp, unsigned sign, sw_rounding r,
+                              uint64_t *out) {
+    uint64_t sign_bit = q->neg ? UINT64_C(1) << sign : 0;
+    int32_t lead, lsb;
+    uint64_t kept, field, v;
+    if (u128_is_zero(q->m)) {
+        *out = sign_bit;
+        return true;
+    }
+    lead = q->e + 127;
+    if (lead > max_exp) {
+        return false;
+    }
+    if (lead < 1 - max_exp) {
+        lead = 1 - max_exp;
+    }
+    lsb = lead - (int32_t)(bits - 1);
+    /* at least 2^127 cut by at least 128 - bits: below 2^bits, plus 1 */
+    kept = quotient_round(q, lsb - q->e, r).lo;
+    field = (uint64_t)(lead + max_exp - 1);
+    v = (field << (bits - 1)) + kept;
+    if ((v >> (bits - 1)) > (uint64_t)(2 * max_exp)) {
+        return false;
+    }
+    *out = sign_bit | v;
+    return true;
+}
+
+/* the integer r rounds q to as sign and magnitude in `s`, fits false past 2^128 (Quotient::to_int; past an i128,
+ * settle_int takes it as its range) */
+static sw_scaled quotient_to_int(const sw_quotient *q, sw_rounding r) {
+    sw_scaled s;
+    s.neg = q->neg;
+    s.low = u128_of(0, 0);
+    s.fits = true;
+    if (u128_is_zero(q->m)) {
+        s.neg = false;
+        return s;
+    }
+    /* m >= 2^127: from e = 0 on the value is past i128 */
+    if (q->e >= 0) {
+        s.fits = false;
+        return s;
+    }
+    s.low = quotient_round(q, -q->e, r);
+    return s;
+}
+
+/* a whole double y into the integer storage `to` by o: NaN and infinities, which have no quotient */
+static bool settle_f64(sw_storage to, double y, sw_overflow o, sw_num *out) {
+    bool pos;
+    out->kind = to.kind;
+    if (o == SW_OVERFLOW_CHECKED) {
+        return false;
+    }
+    pos = y > 0.0;
+    if (o == SW_OVERFLOW_SATURATE && y == y) {
+        if (pos) {
+            put_max(to, out);
+        } else {
+            put_min(to, out);
+        }
+        return true;
+    }
+    /* saturated NaN, and wrapped NaN and infinities, are 0 */
+    put_wrapped(to, 0, out);
+    return true;
+}
+
+static double f64_of_bits(uint64_t b) {
+    double y;
+    memcpy(&y, &b, sizeof y);
+    return y;
+}
+
+static double f64_of_f32_bits(uint64_t b) {
+    uint32_t b32 = (uint32_t)b;
+    float y;
+    memcpy(&y, &b32, sizeof y);
+    return (double)y;
+}
+
+/* x * factor with a float on either side (Requantizer::apply through exact_float::convert) */
+static bool requantize_float(const sw_requantizer *q, sw_num x, sw_num *out) {
+    sw_quotient qt;
+    bool single = q->to.kind == SW_NUM_F32;
+    if (q->to.kind == SW_NUM_F32 || q->to.kind == SW_NUM_F64) {
+        uint64_t bits;
+        out->kind = q->to.kind;
+        if (!quotient_of_num(x, &q->factor, &qt)) {
+            /* NaN and infinities stay as they are (the factor is positive) */
+            out->v.f = single ? (double)(float)x.v.f : x.v.f;
+            return true;
+        }
+        if (single ? quotient_to_float(&qt, 24, 127, 31, q->rounding, &bits)
+                   : quotient_to_float(&qt, 53, 1023, 63, q->rounding, &bits)) {
+            out->v.f = single ? f64_of_f32_bits(bits) : f64_of_bits(bits);
+            return true;
+        }
+        /* past the largest finite float: saturating is it, wrapping an infinity (a float has no modulo) */
+        switch (q->overflow) {
+        case SW_OVERFLOW_CHECKED:
+            return false;
+        case SW_OVERFLOW_SATURATE:
+            bits = single ? UINT64_C(0x7f7fffff) : UINT64_C(0x7fefffffffffffff);
+            break;
+        case SW_OVERFLOW_WRAP:
+        default:
+            bits = single ? UINT64_C(0x7f800000) : UINT64_C(0x7ff0000000000000);
+            break;
+        }
+        out->v.f = single ? f64_of_f32_bits(bits) : f64_of_bits(bits);
+        if (qt.neg) {
+            out->v.f = -out->v.f;
+        }
+        return true;
+    }
+    if (!quotient_of_num(x, &q->factor, &qt)) {
+        return settle_f64(q->to, x.v.f, q->overflow, out);
+    }
+    return settle_int(q->to, quotient_to_int(&qt, q->rounding), q->overflow, out);
+}
 #endif
 
 bool sw_requantize(const sw_requantizer *q, sw_num x, sw_num *out) {
@@ -441,16 +692,8 @@ bool sw_requantize(const sw_requantizer *q, sw_num x, sw_num *out) {
     uint64_t mag;
     sw_scaled s;
 #ifndef SW_NO_F64
-    if (q->to.kind == SW_NUM_F64 || q->to.kind == SW_NUM_F32) {
-        double xd = x.kind == SW_NUM_INT ? (double)x.v.i : x.kind == SW_NUM_UINT ? (double)x.v.u : x.v.f;
-        double y = apply_f64(&q->factor, xd);
-        out->kind = q->to.kind;
-        /* an f32 rounded once, from the double; out of range is an infinity (IEEE 754, C99 Annex F) */
-        out->v.f = q->to.kind == SW_NUM_F32 ? (double)(float)y : y;
-        return true;
-    }
-    if (x.kind == SW_NUM_F64 || x.kind == SW_NUM_F32) {
-        return settle_f64(q->to, round_f64(apply_f64(&q->factor, x.v.f), q->rounding), q->overflow, out);
+    if (q->to.kind == SW_NUM_F64 || q->to.kind == SW_NUM_F32 || x.kind == SW_NUM_F64 || x.kind == SW_NUM_F32) {
+        return requantize_float(q, x, out);
     }
 #endif
     if (x.kind == SW_NUM_INT) {

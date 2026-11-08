@@ -106,8 +106,8 @@ reader and writer, and nothing from libc beyond `<stdint.h>`, `<stdbool.h>` and 
 
 The factor (the source scale over the target scale) is worked out on the host, as typed Rust does at compile time,
 and given as constants: an exact ratio `num / den` (two 64-bit halves each) or, for a factor that isn't a fraction
-of integers (π, a half exponent), the fixed point `m * 2^shift` of `Magnitude::fixed_point()`; `f_num / f_den` is
-what a float is multiplied with. `shrink_wrap_c::requantize::CFactor::of(&magnitude)` computes them and
+of integers (π, a half exponent), the fixed point `m * 2^shift` of `Magnitude::fixed_point()`.
+`shrink_wrap_c::requantize::CFactor::of(&magnitude)` computes them and
 `c_initializer()` writes them as C. Millivolts in an `int16_t` to decivolts in an `int8_t`, rounded to the nearest
 with ties to even:
 
@@ -115,7 +115,7 @@ with ties to even:
 #include "sw_requantize.h"
 
 static const sw_requantizer mv_to_dv = {
-    {.ratio = true, .num_hi = 0, .num_lo = 1, .den_hi = 0, .den_lo = 100, .f_num = 1.0, .f_den = 100.0},
+    {.ratio = true, .num_hi = 0, .num_lo = 1, .den_hi = 0, .den_lo = 100},
     {SW_NUM_INT, 8},
     SW_ROUND_NEAREST_EVEN,
     SW_OVERFLOW_CHECKED,
@@ -129,8 +129,10 @@ if (sw_requantize(&mv_to_dv, x, &dv)) {
 
 Integers are converted exactly in 128 bits (sign and magnitude in two 64-bit halves, no `__int128`), whatever the
 storages: rounding is `SW_ROUND_TRUNCATE`, `_FLOOR`, `_CEIL`, `_NEAREST_EVEN` or `_NEAREST_AWAY`, overflow
-`SW_OVERFLOW_CHECKED` (`false`, no value), `_SATURATE` or `_WRAP`. A float storage (`SW_NUM_F32`, `SW_NUM_F64`)
-multiplies in doubles; with `SW_NO_F64` only integers are there. The conversion decides the policy at run time, so
+`SW_OVERFLOW_CHECKED` (`false`, no value), `_SATURATE` or `_WRAP`. With a float on either side (`SW_NUM_F32`,
+`SW_NUM_F64`) the product is worked exactly from the float's bits and rounded once by the same policy, never by a
+float multiply: 2147483647 into an f32 is 2147483520 truncated and 2147483648 to the nearest; past the largest
+finite float, saturating gives that float and wrapping an infinity. With `SW_NO_F64` only integers are there. The conversion decides the policy at run time, so
 for a hot path on a small MCU the typed Rust conversion (constants and policy fixed at compile time) is cheaper.
 
 ## Tests

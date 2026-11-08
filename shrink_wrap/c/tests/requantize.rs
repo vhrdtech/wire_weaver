@@ -121,6 +121,8 @@ fn edge_values() {
         Magnitude::pow10(3),
         Magnitude::pow10(38),
         Magnitude::pow10(-38),
+        // a den past 2^127
+        Magnitude::pow10(-39),
         Magnitude::pow2(-63),
         Magnitude::pow2(63),
         Magnitude::pow2(-60).mul(Magnitude::pow10(-38)),
@@ -140,6 +142,10 @@ fn edge_values() {
         u64::MAX as i128,
         i64::MIN as i128,
         i64::MIN as i128 + 1,
+        // more than an f32's 24 bits: i32::MAX truncates to 2147483520 (NUM-30)
+        i32::MAX as i128,
+        -28408063,
+        (1 << 53) + 1,
     ]);
     let floats = [
         0.0,
@@ -157,6 +163,19 @@ fn edge_values() {
         9.2e18,
         -9.3e18,
         1.8e19,
+        // subnormals and the ends of f32 and f64 (NUM-30: rounded once, from the bits)
+        f64::MIN_POSITIVE,
+        5e-324,
+        -5e-324,
+        f32::MIN_POSITIVE as f64,
+        1e-45,
+        -7e-46,
+        f32::MAX as f64,
+        3.4028235677973366e38,
+        -3.4028236e38,
+        f64::MAX,
+        16777217.0,
+        -16777219.0,
     ];
     let rs = [
         Rounding::Truncate,

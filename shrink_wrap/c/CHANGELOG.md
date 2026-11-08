@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- `sw_requantize()` with a float on either side gives exact_units' number again since its NUM-30: the product is worked exactly from the float's bits and the factor (a 128 × 128-bit product, a 256-bit long division, no `__int128`) and rounded once by the named rounding into an `f32`, `f64` or integer, instead of `x * f_num / f_den` in doubles and a cast. 2147483647 into an `f32` truncated is 2147483520, not 2147483648; past the largest finite float, saturating gives it and wrapping an infinity; subnormals round once. `sw_factor` loses `f_num` and `f_den` (unreleased, so nothing to migrate), and its `den` may now take all 128 bits (the host no longer clamps it to `i128::MAX`). `shrink_wrap_c::requantize::hex_f64` is gone with them. New corpus cases `requantize.int_to_f32.i32_max.*` and `requantize.int_to_float.milli_inexact.*` pin it in every consumer.
+
 ### 🚀 Features
 
 - `sw_requantize.h` / `sw_requantize.c` (CLT-54, STD-63): `sw_requantize()` converts a stored number to another scale and storage with a named rounding (`SW_ROUND_TRUNCATE`, `_FLOOR`, `_CEIL`, `_NEAREST_EVEN`, `_NEAREST_AWAY`) and overflow policy (`SW_OVERFLOW_CHECKED`, `_SATURATE`, `_WRAP`), the same number as Rust's `exact_units::Requantizer` and the typed `Fixed::requantize`, bit for bit. The factor comes as constants worked out on the host (`sw_factor`: an exact ratio of up to 128 bits, or the fixed point `m * 2^shift` for π and other factors that aren't fractions of integers); integers are exact in 128 bits without `__int128`, float storages under `#ifndef SW_NO_F64`. The `shrink_wrap_c` crate gets `requantize::CFactor::of` (the constants of a `Magnitude`) and `c_initializer`, and cross-checks C against Rust (`tests/requantize.rs`); the conformance corpus's requantize cases run in C.

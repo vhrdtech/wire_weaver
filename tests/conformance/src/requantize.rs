@@ -65,6 +65,7 @@ pub const CONVERSIONS: &[Conversion] = conversions! {
     "BAM16 -> BAM8": Turn, Pow2<-16>, u16 => Pow2<-8>, u8;
     "f32 -> i16": Volt, One, f32 => One, i16;
     "mV i32 -> V f64": Volt, Milli, i32 => One, f64;
+    "i32 -> f32": Volt, One, i32 => One, f32;
     "m° i32 -> urad i32": Radian, MilliDegree, i32 => Micro, i32;
     "m° i64 -> urad i64": Radian, MilliDegree, i64 => Micro, i64;
 };

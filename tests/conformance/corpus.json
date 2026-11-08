@@ -2271,6 +2271,48 @@
       "result": 1.25
     },
     {
+      "name": "requantize.int_to_float.milli_inexact.truncate",
+      "conversion": "mV i32 -> V f64",
+      "factor": {"pow10": -6, "rest": null},
+      "to": "f64",
+      "value": 1,
+      "rounding": "truncate",
+      "overflow": "checked",
+      "result": 0.0009999999999999998,
+      "note": "0.001 is no f64: rounded once from the exact value, toward zero the f64 below (NUM-30)"
+    },
+    {
+      "name": "requantize.int_to_float.milli_inexact.nearest_even",
+      "conversion": "mV i32 -> V f64",
+      "factor": {"pow10": -6, "rest": null},
+      "to": "f64",
+      "value": 1,
+      "rounding": "nearest_even",
+      "overflow": "checked",
+      "result": 0.001
+    },
+    {
+      "name": "requantize.int_to_f32.i32_max.truncate",
+      "conversion": "i32 -> f32",
+      "factor": {"pow10": 0, "rest": null},
+      "to": "f32",
+      "value": 2147483647,
+      "rounding": "truncate",
+      "overflow": "checked",
+      "result": 2147483520.0,
+      "note": "more than an f32's 24 bits: toward zero, not through a double cast (NUM-30)"
+    },
+    {
+      "name": "requantize.int_to_f32.i32_max.nearest_even",
+      "conversion": "i32 -> f32",
+      "factor": {"pow10": 0, "rest": null},
+      "to": "f32",
+      "value": 2147483647,
+      "rounding": "nearest_even",
+      "overflow": "checked",
+      "result": 2147483648.0
+    },
+    {
       "name": "requantize.degree_to_radian.45000.truncate",
       "conversion": "m° i32 -> urad i32",
       "factor": {"pow10": 4, "rest": {"pow2": -2, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -4}, null, null, null, null, null, null, null, null, null, null, null]}},

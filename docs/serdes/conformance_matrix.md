@@ -302,6 +302,10 @@ A stored number converted to another scale and storage with a named rounding and
 | `requantize.float_to_int.huge.saturate` | f32 -> i16 | 10000000000.0 | truncate | saturate | 32767 | ✅ | ✅ | ✅ | ✅ |
 | `requantize.float_to_int.huge.wrap` | f32 -> i16 | -10000000000.0 | truncate | wrap | 7168 | ✅ | ✅ | ✅ | ✅ |
 | `requantize.int_to_float.milli` | mV i32 -> V f64 | 1250 | nearest_even | checked | 1.25 | ✅ | ✅ | ✅ | ✅ |
+| `requantize.int_to_float.milli_inexact.truncate` | mV i32 -> V f64 | 1 | truncate | checked | 0.0009999999999999998 | ✅ | ✅ | ✅ | ✅ |
+| `requantize.int_to_float.milli_inexact.nearest_even` | mV i32 -> V f64 | 1 | nearest_even | checked | 0.001 | ✅ | ✅ | ✅ | ✅ |
+| `requantize.int_to_f32.i32_max.truncate` | i32 -> f32 | 2147483647 | truncate | checked | 2147483520.0 | ✅ | ✅ | ✅ | ✅ |
+| `requantize.int_to_f32.i32_max.nearest_even` | i32 -> f32 | 2147483647 | nearest_even | checked | 2147483648.0 | ✅ | ✅ | ✅ | ✅ |
 | `requantize.degree_to_radian.45000.truncate` | m° i32 -> urad i32 | 45000 | truncate | checked | 785398 | ✅ | ✅ | ✅ | ✅ |
 | `requantize.degree_to_radian.45000.floor` | m° i32 -> urad i32 | 45000 | floor | checked | 785398 | ✅ | ✅ | ✅ | ✅ |
 | `requantize.degree_to_radian.45000.ceil` | m° i32 -> urad i32 | 45000 | ceil | checked | 785399 | ✅ | ✅ | ✅ | ✅ |

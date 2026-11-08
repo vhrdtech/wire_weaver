@@ -73,9 +73,8 @@ typedef struct {
 
 /**
  * The factor of a conversion, from Magnitude on the host (Requantizer::new): with `ratio`, num / den
- * (Magnitude::to_ratio(), num as two 64-bit halves, den as well and at most 2^127 - 1: a bigger den rounds the
- * same); without, m * 2^shift (Magnitude::fixed_point()). `f_num / f_den` is what a float is multiplied with
- * (Magnitude::apply_f64()): num and den as doubles when both are at most 2^53, else Magnitude::to_f64() and 1.
+ * (Magnitude::to_ratio(), num and den as two 64-bit halves each); without, m * 2^shift
+ * (Magnitude::fixed_point()).
  */
 typedef struct {
     bool ratio;
@@ -83,9 +82,6 @@ typedef struct {
     uint64_t den_hi, den_lo;
     uint64_t m;
     int32_t shift;
-#ifndef SW_NO_F64
-    double f_num, f_den;
-#endif
 } sw_factor;
 
 /** A conversion: the factor, the target storage and the policies. */
@@ -99,8 +95,10 @@ typedef struct {
 /**
  * `x * factor` in the storage `q->to`, rounded and settled as `q` says, into `out` (of kind `q->to.kind`). False
  * for no value: a checked overflow, or a ratio whose `x * num` doesn't fit 128 bits (where the typed conversion
- * doesn't compile). A float `x` into an integer storage is rounded by the same policy; a float result is
- * `x * f_num / f_den`, rounded to f32 for an f32 storage.
+ * doesn't compile). With a float on either side the product is worked exactly from the float's bits and rounded once
+ * by the same policy: into an f32 or f64 (subnormals included; past the largest finite float, saturating is that
+ * float and wrapping an infinity), or into an integer storage. NaN and infinities stay as they are in a float
+ * storage; into an integer one they are no value when checked, saturate to an end (NaN to 0), and wrap to 0.
  */
 bool sw_requantize(const sw_requantizer *q, sw_num x, sw_num *out);
 

@@ -22,8 +22,6 @@ pub struct CFactor {
     pub den_lo: u64,
     pub m: u64,
     pub shift: i32,
-    pub f_num: f64,
-    pub f_den: f64,
 }
 
 /// `sw_storage`
@@ -71,9 +69,8 @@ pub fn c_struct_sizes() -> [(usize, usize); 3] {
 }
 
 impl CFactor {
-    /// The constants of `factor`, as `exact_units::Requantizer::new` works them out: `to_ratio()` with `den`
-    /// clamped to `i128::MAX` (it rounds the same), else `fixed_point()`; the float factor as
-    /// `Magnitude::apply_f64` uses it.
+    /// The constants of `factor`, as `exact_units::Requantizer::new` works them out: `to_ratio()`, else
+    /// `fixed_point()`.
     pub fn of(factor: &Magnitude) -> CFactor {
         let mut f = CFactor {
             ratio: false,
@@ -83,18 +80,12 @@ impl CFactor {
             den_lo: 0,
             m: 0,
             shift: 0,
-            f_num: factor.to_f64(),
-            f_den: 1.0,
         };
         match factor.to_ratio() {
             Some((num, den)) => {
-                let den = den.min(i128::MAX as u128);
                 f.ratio = true;
                 (f.num_hi, f.num_lo) = ((num >> 64) as u64, num as u64);
                 (f.den_hi, f.den_lo) = ((den >> 64) as u64, den as u64);
-                if num <= 1 << 53 && den <= 1 << 53 {
-                    (f.f_num, f.f_den) = (num as f64, den as f64);
-                }
             }
             None => (f.m, f.shift) = factor.fixed_point(),
         }
@@ -105,8 +96,7 @@ impl CFactor {
     /// floats).
     pub fn c_initializer(&self) -> String {
         format!(
-            "{{.ratio = {}, .num_hi = {}, .num_lo = {}, .den_hi = {}, .den_lo = {}, .m = {}, .shift = {}, \
-             .f_num = {}, .f_den = {}}}",
+            "{{.ratio = {}, .num_hi = {}, .num_lo = {}, .den_hi = {}, .den_lo = {}, .m = {}, .shift = {}}}",
             self.ratio,
             hex_u64(self.num_hi),
             hex_u64(self.num_lo),
@@ -114,30 +104,12 @@ impl CFactor {
             hex_u64(self.den_lo),
             hex_u64(self.m),
             self.shift,
-            hex_f64(self.f_num),
-            hex_f64(self.f_den),
         )
     }
 }
 
 fn hex_u64(x: u64) -> String {
     format!("UINT64_C({x:#x})")
-}
-
-/// A finite, positive double as a C99 hex float literal, exact.
-pub fn hex_f64(x: f64) -> String {
-    assert!(
-        x.is_finite() && x > 0.0,
-        "a factor is finite and positive: {x}"
-    );
-    let bits = x.to_bits();
-    let exp = ((bits >> 52) & 0x7ff) as i32;
-    let mant = bits & ((1 << 52) - 1);
-    if exp == 0 {
-        format!("0x0.{mant:013x}p-1022")
-    } else {
-        format!("0x1.{mant:013x}p{}", exp - 1023)
-    }
 }
 
 /// The C `sw_rounding` value of a rounding.

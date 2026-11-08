@@ -119,7 +119,19 @@ split across chunks (`Tx::write_full`), and the receiver cuts messages out of th
 Without a delimiter there is nothing to re-synchronize on: a message larger than the receiver's buffer is skipped,
 but the bytes that follow are misinterpreted until the transport is reset. The one exception is the hello: both sides scan
 every read for the peer's [frozen hello](ww_link.md#the-frozen-hello) before the framer sees it, so a new session
-starts cleanly from it, and a peer whose framer is of another generation still has its hello read. The device reports its
+starts cleanly from it, and a peer whose framer is of another generation still has its hello read.
+
+The stream has no checksum, so a message payload that itself holds a whole hello frame of the peer's role (head, magic,
+role, generation count, token: 19 bytes in a fixed pattern) is taken for a hello. What that costs on the device: the
+message it was assembling is dropped, and the false hello starts a new host session, so a link that was up goes down
+(`LinkEvent::Down(NewSession)`) and the device answers with its own hello. The host drops that hello (its token is
+not this session's), its requests then time out, and it sets the link up again. Only data that carries WireWeaver
+hello frames does this.
+
+The scan costs about 4 instructions per received byte on a Cortex-M3, against the framer's 8 to 10 for the same
+bytes, about 60 per read, and up to 21 per byte for a run of `0x30` bytes (ASCII zeros), the head's first byte; a
+firmware with RTT grows by 1.8 KB of flash and 72 B of RAM. The numbers and how they were measured are in
+`FEATURES.md` under EVO-23. The device reports its
 `MAX_MESSAGE_LEN` during link setup, a host must never send more than that.
 
 Many small messages are still packed into one chunk, accumulated for the window the device asks for in

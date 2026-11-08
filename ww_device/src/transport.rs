@@ -431,11 +431,22 @@ impl<'a, S: StreamSink, H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamTx<'
 
     /// Returns false if there was nothing to send.
     async fn send_chunk(&mut self) -> Result<bool, FramedError<S::Error>> {
-        let len = self.framer.flush();
-        if len == 0 {
-            return Ok(false);
-        }
-        let chunk = &self.framer.buf()[..len];
+        self.send(None).await
+    }
+
+    /// What the framer holds, or `bytes` outside it: the one place the sink is written, so that its future is
+    /// instantiated once.
+    async fn send(&mut self, bytes: Option<&[u8]>) -> Result<bool, FramedError<S::Error>> {
+        let chunk = match bytes {
+            Some(bytes) => bytes,
+            None => {
+                let len = self.framer.flush();
+                if len == 0 {
+                    return Ok(false);
+                }
+                &self.framer.buf()[..len]
+            }
+        };
         self.sink
             .write_all(chunk)
             .await
@@ -479,10 +490,9 @@ impl<S: StreamSink, H: Head<UserKind = u8>, C: Checksum, T: Tail> MessageTx
     /// In the stream's frozen frame ([ww_link::hello::rtt]), after what the framer holds, outside it.
     async fn write_hello(&mut self, hello: &Hello) -> Result<(), Self::Error> {
         self.send_chunk().await?;
-        self.sink
-            .write_all(&ww_link::hello::rtt::frame(hello))
+        self.send(Some(&ww_link::hello::rtt::frame(hello)))
             .await
-            .map_err(FramedError::Transport)
+            .map(|_| ())
     }
 }
 

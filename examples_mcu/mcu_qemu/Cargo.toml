@@ -349,3 +349,10 @@ path = "src/bin/si_convert.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-rtt-scan"
+path = "src/bin/rtt_scan.rs"
+test = false
+doctest = false
+bench = false

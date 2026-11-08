@@ -333,33 +333,101 @@ pub mod rtt {
     /// The first whole hello of `role` in `stream`, with the offsets where it starts and ends. A hello cut short at
     /// the end of `stream` is not found: read more and look again.
     pub fn find(stream: &[u8], role: Role) -> Option<(Hello, core::ops::Range<usize>)> {
-        (0..stream.len()).find_map(|at| {
-            let rest = &stream[at..];
-            let len = read_frame_head(rest)?;
-            let hello = Hello::from_bytes(rest.get(3..3 + len)?).ok()?;
-            (hello.role == role).then_some((hello, at..at + 3 + len))
-        })
+        let role = role.byte();
+        let mut from = 0;
+        while let Some(at) = next_head(stream, from) {
+            if let Some((hello, len)) = whole_at(stream, at, role) {
+                return Some((hello, at..at + len));
+            }
+            from = at + 1;
+        }
+        None
+    }
+
+    /// The next position from `from` on where a hello frame may start: a `0x30` followed by a byte with the head's
+    /// second byte's bits (`0x48 | len >> 8`), or by the end of `b`. Four positions at a time: a quick test skips a
+    /// word without a `0x30`; in a word with one, the word xor `30 30 30 30`, or-ed with the word of the four bytes
+    /// after each masked and xor `48 48 48 48`, has a zero byte exactly where both match, and the exact zero byte test
+    /// finds the first. A run of `0x30` (ASCII zeros) costs a few instructions a byte more, never a loop per byte.
+    #[inline]
+    fn next_head(b: &[u8], from: usize) -> Option<usize> {
+        const SEVEN: u32 = 0x7f7f_7f7f;
+        let rest = b.get(from..)?;
+        let (words, remainder) = rest.as_chunks::<4>();
+        let mut at = from;
+        for w in words {
+            let raw = u32::from_le_bytes(*w);
+            let first = raw ^ 0x3030_3030;
+            // no `0x30` at all, the usual word: one quick test (it may see one that isn't there, never miss one)
+            if first.wrapping_sub(0x0101_0101) & !first & 0x8080_8080 == 0 {
+                at += 4;
+                continue;
+            }
+            // after the last byte, the end of `b`: a head may start there
+            let after = b.get(at + 4).copied().unwrap_or(0x48);
+            let second = (((raw >> 8) | (after as u32) << 24) & 0xfcfc_fcfc) ^ 0x4848_4848;
+            let v = first | second;
+            let zero = !(((v & SEVEN).wrapping_add(SEVEN)) | v) & !SEVEN;
+            if zero != 0 {
+                return Some(at + (zero.trailing_zeros() / 8) as usize);
+            }
+            at += 4;
+        }
+        let second_ok = |at: usize| b.get(at + 1).is_none_or(|&x| x & 0xfc == 0x48);
+        for (k, &byte) in remainder.iter().enumerate() {
+            if byte == 0x30 && second_ok(at + k) {
+                return Some(at + k);
+            }
+        }
+        None
+    }
+
+    /// The bytes of `b` from `at` (found by [next_head]) are, as far as they go, the start of a hello frame of `role`:
+    /// the magic, the role and the generation count.
+    #[inline(always)]
+    fn could_start(b: &[u8], at: usize, role: u8) -> bool {
+        let is = |i: usize, x: u8| b.get(at + i).is_none_or(|&y| y == x);
+        is(3, MAGIC[0])
+            && is(4, MAGIC[1])
+            && is(5, role)
+            && b.get(at + 6).is_none_or(|&n| n >= GENERATION_COUNT)
+    }
+
+    /// The hello of `role` whose frame starts at `at` in `b`, with the frame's length.
+    #[inline(always)]
+    fn whole_at(b: &[u8], at: usize, role: u8) -> Option<(Hello, usize)> {
+        if b.len() < at + 3 + HELLO_LEN || !could_start(b, at, role) {
+            return None;
+        }
+        let rest = &b[at..];
+        let len = read_frame_head(rest)?;
+        let hello = Hello::from_bytes(rest.get(3..3 + len)?).ok()?;
+        Some((hello, 3 + len))
     }
 
     /// Finds the peer's hello in a stream read in chunks, before the framer sees them: a hello split across two
-    /// reads is found too, as the last bytes of every chunk are kept for the next one. A hello of up to
-    /// [HELLO_FRAME_MAX] bytes is found across reads.
+    /// reads is found too. Every byte of a read is compared with the head's first byte only (a word at a time), a hit
+    /// then with the next bytes of a hello; of a read's end only bytes that may still start one are kept for the next
+    /// read, usually none. A hello of up to [HELLO_FRAME_MAX] bytes is found across reads.
+    ///
+    /// What it costs on a Cortex-M3 is measured by `examples_mcu/mcu_qemu` `qemu-rtt-scan`, see EVO-23 in
+    /// FEATURES.md.
     ///
     /// The stream has no checksum, so bytes inside a message that happen to be a whole hello frame of the peer's
     /// role (head, magic, role, generation count and token) are taken for one: only a payload that carries a
     /// WireWeaver hello frame itself does that.
     pub struct Scanner {
-        role: Role,
-        /// The last bytes scanned, a hello may start in them
+        role: u8,
+        /// The end of the last bytes scanned from where a hello may still start, `0x30` first
         tail: [u8; HELLO_FRAME_MAX - 1],
-        tail_len: usize,
+        tail_len: u8,
     }
 
     impl Scanner {
         /// Looks for hellos of `role`: [Role::Host] on a device, [Role::Device] on a host.
         pub const fn new(role: Role) -> Self {
             Scanner {
-                role,
+                role: role.byte(),
                 tail: [0; HELLO_FRAME_MAX - 1],
                 tail_len: 0,
             }
@@ -373,43 +441,58 @@ pub mod rtt {
         /// The first hello in the bytes kept and `bytes`, and how many of `bytes` it ends after: the caller drops
         /// what came before it (the framer too) and scans what follows with the next call. None: no hello, `bytes`
         /// go to the framer.
+        ///
+        /// Never inlined: on a device it runs once per read, and one copy of it is all the flash it takes.
+        #[inline(never)]
         pub fn scan(&mut self, bytes: &[u8]) -> Option<(Hello, usize)> {
-            // a hello starting in the kept bytes, ending in these
-            let mut joined = [0u8; 2 * HELLO_FRAME_MAX];
-            let head = bytes.len().min(HELLO_FRAME_MAX);
-            joined[..self.tail_len].copy_from_slice(&self.tail[..self.tail_len]);
-            joined[self.tail_len..self.tail_len + head].copy_from_slice(&bytes[..head]);
-            let found = match find(&joined[..self.tail_len + head], self.role) {
-                Some((hello, at)) if at.start < self.tail_len => {
-                    Some((hello, at.end - self.tail_len))
-                }
-                _ => find(bytes, self.role).map(|(hello, at)| (hello, at.end)),
-            };
-            match found {
-                Some((hello, end)) => {
-                    self.tail_len = 0;
-                    Some((hello, end))
-                }
-                None => {
-                    self.keep(bytes);
-                    None
-                }
+            let tail_len = self.tail_len as usize;
+            if tail_len == 0 {
+                return self.search(bytes, 0);
             }
+            self.joined(bytes, tail_len)
         }
 
-        fn keep(&mut self, bytes: &[u8]) {
+        /// The first hello in `b` starting at `skip` or later, and where it ends counted from `skip`; none: from
+        /// the first position near the end that may still start one, `b` is kept.
+        fn search(&mut self, b: &[u8], skip: usize) -> Option<(Hello, usize)> {
             let cap = self.tail.len();
-            if bytes.len() >= cap {
-                self.tail.copy_from_slice(&bytes[bytes.len() - cap..]);
-                self.tail_len = cap;
-            } else {
-                let keep = (self.tail_len + bytes.len()).min(cap);
-                let from_tail = keep - bytes.len();
-                self.tail
-                    .copy_within(self.tail_len - from_tail..self.tail_len, 0);
-                self.tail[from_tail..keep].copy_from_slice(bytes);
-                self.tail_len = keep;
+            let mut keep_at = None;
+            let mut from = 0;
+            while let Some(at) = next_head(b, from) {
+                if let Some((hello, len)) = whole_at(b, at, self.role) {
+                    self.tail_len = 0;
+                    return Some((hello, at + len - skip));
+                }
+                if keep_at.is_none() && b.len() - at <= cap && could_start(b, at, self.role) {
+                    keep_at = Some(at);
+                }
+                from = at + 1;
             }
+            self.tail_len = 0;
+            if let Some(at) = keep_at {
+                self.tail[..b.len() - at].copy_from_slice(&b[at..]);
+                self.tail_len = (b.len() - at) as u8;
+            }
+            None
+        }
+
+        /// The kept bytes looked like the start of a hello, rare: they are searched joined with the start of
+        /// `bytes`, then `bytes` alone unless all of them were in the join.
+        #[cold]
+        #[inline(never)]
+        fn joined(&mut self, bytes: &[u8], tail_len: usize) -> Option<(Hello, usize)> {
+            let mut joined = [0u8; 2 * HELLO_FRAME_MAX];
+            let head = bytes.len().min(HELLO_FRAME_MAX);
+            joined[..tail_len].copy_from_slice(&self.tail[..tail_len]);
+            joined[tail_len..tail_len + head].copy_from_slice(&bytes[..head]);
+            if let Some(found) = self.search(&joined[..tail_len + head], tail_len) {
+                return Some(found);
+            }
+            if head == bytes.len() {
+                // what to keep was taken from the join, which holds all of `bytes`
+                return None;
+            }
+            self.search(bytes, 0)
         }
     }
 }
@@ -583,6 +666,8 @@ mod tests {
         }
         assert_eq!(found, Some((device, end)));
         assert_eq!(rtt::Scanner::new(Role::Host).scan(&stream), None);
+        // what a device keeps for it, in its `StreamRx`
+        assert_eq!(core::mem::size_of::<rtt::Scanner>(), 33);
     }
 
     #[test]

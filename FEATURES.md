@@ -1869,7 +1869,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`hello::rtt`, the same bytes found anywhere in the stream by `hello::rtt::Scanner`) and WebSocket (`hello::ws`,
   the kind byte and the payload); `embassy-net` devices send the UDP and WebSocket frames, the tap reads USB and UDP
   hellos the same way. The hub preamble carries the client's generations (`TAG_GENERATIONS`) and the hub serves by
-  them, per-layer windows in `ww_hub/src/window.rs`
+  them, per-layer windows in `ww_hub/src/window.rs`. The RTT scan on the device, measured
+  (`examples_mcu/mcu_qemu` `qemu-rtt-scan` under `qemu_icount`, Cortex-M3, 1780 bytes of 3, 20 and 150 byte
+  messages): +4.2 instructions per received byte at `opt-level = "z"` (the shipping profile) and +3.7 at 3, on top
+  of the framer's 10.2 and 8.3; about 68 (z) and 58 (3) more per read (8 against 64 byte reads); a run of `0x30`
+  (ASCII zeros) 21 (z) and 18 (3) per byte. Instructions, not cycles, no clock. `nucleo_g0b1re`'s
+  `nucleo-g0b1re-ww-rtt` (`rtt_target`, thumbv6m, release at `z`) against master 6e73b6c: flash +1824 B (`.text`
+  +1624, `.rodata` +200), RAM +72 B; stack 136 B on the usual path (`Scanner::scan` 24, `search` 88,
+  `Hello::from_bytes` 24), 248 B after a kept tail (`joined` 112); `Scanner` is 33 B. The instruction counts are
+  M3's; on M0 (the G0 ELF) each word read is a `__aeabi_uread4` call, not counted yet
   (`docs/transport/ww_link.md#the-frozen-hello`, `docs/transport/hub.md#version-skew-and-handover-srv-30`; tests
   `ww_link` `hello::tests`, `ww_device` `hello_of_other_generations`, `hello_outside_the_framer` (USB, UDP, stream),
   `frozen_hello_both_ways` (WebSocket), `wire_weaver_client` `device_with_a_framer_of_another_generation`,

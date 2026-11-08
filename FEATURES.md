@@ -1692,6 +1692,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `tests/dfu_scenarios` runs its WebSocket scenarios on it, and their transcripts no longer swap a host frame and a
   device frame on a loaded machine. `in_process::tests::host_and_device_talk_over_simulated_ws`,
   `ww_tap::Medium::InProcessWebSocket`.
+- ✅ **TR-23 USB vendor descriptor constants, embassy-free** · `v0.5` — moved from `wire_weaver_usb_embassy` into
+  `ww_link`, next to the other USB framing constants, so a USB stack without embassy (`bedrock_usb`,
+  embedded_bedrock P2401) writes the same bytes: `CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION` /
+  `_USER_CRATE` / `_USER_VERSION` (0x40-0x42), `USB_DEVICE_CLASS_GUID`
+  (`{4987DAA6-F852-4B79-A4C8-8C0E0648C845}`), and `const fn`s `usb_self_id_version_descriptor` /
+  `usb_version_descriptor` encoding their payloads (a 4-byte crate tag plus major.minor.patch, each saturated to
+  `u8::MAX`). `wire_weaver_usb_embassy` uses them, descriptor bytes unchanged.
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **TR-6 CAN** · `v0.5.x` — server and client, using CANopen (`docs/transport/overview.md`).

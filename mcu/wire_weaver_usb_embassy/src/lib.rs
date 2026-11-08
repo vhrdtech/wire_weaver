@@ -25,7 +25,12 @@ use embassy_usb::types::{InterfaceNumber, StringIndex};
 use embassy_usb::{Builder, Handler, InterfaceAltBuilder, msos};
 use wire_weaver::full_version;
 use wire_weaver::prelude::FullVersion;
-use ww_device::ww_link::{self, UsbFramingProtocol};
+use ww_device::ww_link::{
+    self, CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION,
+    CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE,
+    CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION, USB_DEVICE_CLASS_GUID, UsbFramingProtocol,
+    usb_self_id_version_descriptor, usb_version_descriptor,
+};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
@@ -45,14 +50,15 @@ pub type UsbFraming = ww_link::UsbSeqFraming;
 /// Number of endpoints this crate allocates, can be used to calculate required buffer lengths
 pub const ENDPOINTS_USED: usize = 2;
 
-#[allow(clippy::identity_op)]
-const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION: u8 = 0x40 + 0;
-const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE: u8 = 0x40 + 1;
-const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION: u8 = 0x40 + 2;
-
 use wire_weaver::ww_version;
 const SELF_VERSION: FullVersion = full_version!();
-const USB_DEVICE_CLASS_GUID: &str = "{4987DAA6-F852-4B79-A4C8-8C0E0648C845}";
+/// `wwue` names this crate on the wire, see [ww_link::usb_self_id_version_descriptor].
+const SELF_VERSION_BYTES: [u8; 7] = usb_self_id_version_descriptor(
+    *b"wwue",
+    SELF_VERSION.version.major.0,
+    SELF_VERSION.version.minor.0,
+    SELF_VERSION.version.patch.0,
+);
 const DEVICE_INTERFACE_GUIDS: &[&str] = &[USB_DEVICE_CLASS_GUID];
 
 /// Serves the API id interface string, must outlive [WireWeaverClass].
@@ -184,28 +190,19 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
         let (read_ep, write_ep) = endpoints(&mut alt);
         defmt::debug_assert!(read_ep.info().max_packet_size == write_ep.info().max_packet_size);
 
-        let self_version = [
-            b'w',
-            b'w',
-            b'u',
-            b'e',
-            u8::try_from(SELF_VERSION.version.major.0).unwrap_or(255),
-            u8::try_from(SELF_VERSION.version.minor.0).unwrap_or(255),
-            u8::try_from(SELF_VERSION.version.patch.0).unwrap_or(255),
-        ];
         alt.descriptor(
             CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION,
-            &self_version,
+            &SELF_VERSION_BYTES,
         );
         alt.descriptor(
             CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE,
             user_protocol.crate_id.as_bytes(),
         );
-        let user_version = [
-            u8::try_from(user_protocol.version.major.0).unwrap_or(255),
-            u8::try_from(user_protocol.version.minor.0).unwrap_or(255),
-            u8::try_from(user_protocol.version.patch.0).unwrap_or(255),
-        ];
+        let user_version = usb_version_descriptor(
+            user_protocol.version.major.0,
+            user_protocol.version.minor.0,
+            user_protocol.version.patch.0,
+        );
         alt.descriptor(
             CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION,
             &user_version,

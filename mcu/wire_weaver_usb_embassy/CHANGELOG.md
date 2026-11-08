@@ -1,5 +1,12 @@
 ## 0.2.0 - unreleased
 
+### 🚀 Features
+
+- Vendor descriptor constants (`CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION` / `_USER_CRATE` /
+  `_USER_VERSION`, `USB_DEVICE_CLASS_GUID`) and the self-id-and-version byte encoding moved to `ww_link` (TR-23), so
+  an embassy-free USB stack (`bedrock_usb`) can write the same bytes; this crate's own descriptor output is
+  unchanged.
+
 ### ⚠️ Breaking
 
 - USB packets carry no CRC-16 on split messages anymore (`ww_link::UsbFraming`, TR-15): a wire change, devices and hosts must both be built with it. `seq-prefix` feature: a frame counter at the start of every packet (`ww_link::UsbSeqFraming`) as a diagnostic, told to the host by the interface protocol (`USB_PROTOCOL_WIRE_WEAVER` is 0x38 then, 0x37 without); `UsbFraming` is the framing in use.

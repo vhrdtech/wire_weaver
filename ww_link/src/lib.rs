@@ -155,6 +155,47 @@ impl UsbFramingProtocol for UsbSeqFraming {
     const INTERFACE_PROTOCOL: u8 = USB_INTERFACE_PROTOCOL_SEQ;
 }
 
+// USB vendor-specific descriptors every WireWeaver USB stack writes identically (`wire_weaver_usb_embassy`,
+// `bedrock_usb`), so a parity test between them has one definition to check against (TR-23).
+
+/// `bDescriptorType` of the vendor-specific descriptor carrying the USB stack crate's own name and version
+/// (its wire bytes: [usb_self_id_version_descriptor]).
+#[allow(clippy::identity_op)]
+pub const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION: u8 = 0x40 + 0;
+/// `bDescriptorType` of the vendor-specific descriptor carrying the user API's crate name (`FullVersion::crate_id`,
+/// as bytes, no fixed length).
+pub const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE: u8 = 0x40 + 1;
+/// `bDescriptorType` of the vendor-specific descriptor carrying the user API's version (its wire bytes:
+/// [usb_version_descriptor]).
+pub const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION: u8 = 0x40 + 2;
+
+/// MS OS 2.0 `DeviceInterfaceGUIDs` every WireWeaver USB function advertises at the device and function level, so
+/// Windows binds WinUSB to it without a driver install.
+pub const USB_DEVICE_CLASS_GUID: &str = "{4987DAA6-F852-4B79-A4C8-8C0E0648C845}";
+
+/// Encodes the [CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION] payload: a 4-byte ASCII tag naming the USB
+/// stack crate that built the descriptors (`wire_weaver_usb_embassy` uses `*b"wwue"`), then its own
+/// major.minor.patch, each saturated to `u8::MAX`. Lets a host tell which stack and version produced a device's
+/// descriptors without opening its firmware.
+pub const fn usb_self_id_version_descriptor(
+    tag: [u8; 4],
+    major: u32,
+    minor: u32,
+    patch: u32,
+) -> [u8; 7] {
+    let [major, minor, patch] = usb_version_descriptor(major, minor, patch);
+    [tag[0], tag[1], tag[2], tag[3], major, minor, patch]
+}
+
+/// Encodes a [CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION] payload: major.minor.patch, each saturated to
+/// `u8::MAX`.
+pub const fn usb_version_descriptor(major: u32, minor: u32, patch: u32) -> [u8; 3] {
+    const fn saturate(v: u32) -> u8 {
+        if v > u8::MAX as u32 { u8::MAX } else { v as u8 }
+    }
+    [saturate(major), saturate(minor), saturate(patch)]
+}
+
 // Framer configuration for RTT (SEGGER Real-Time Transfer over a debug probe)
 /// RTT is a byte stream, so only `Full` messages are used (see `Tx::write_full` in [ww_framer]).
 pub type RttHead = U2Head;
@@ -891,5 +932,19 @@ mod tests {
         for (h, m) in [(&b""[..], &b""[..]), (&[0x15, 0x02], &[1, 2, 3, 4, 5][..])] {
             assert_eq!(LinkCrc32::checksum(h, m), Crc32IsoHdlc::checksum(h, m));
         }
+    }
+
+    #[test]
+    fn usb_self_id_version_descriptor_encodes_tag_and_version() {
+        assert_eq!(
+            usb_self_id_version_descriptor(*b"wwue", 0, 2, 0),
+            [b'w', b'w', b'u', b'e', 0, 2, 0]
+        );
+    }
+
+    #[test]
+    fn usb_version_descriptor_saturates_at_u8_max() {
+        assert_eq!(usb_version_descriptor(1, 2, 3), [1, 2, 3]);
+        assert_eq!(usb_version_descriptor(300, 0, 1000), [255, 0, 255]);
     }
 }

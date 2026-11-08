@@ -5661,12 +5661,16 @@
 from another crate is identified by that crate's name and version. <code>ww_version::FullVersion</code> carries both; codegen
 puts the API root's into a <code>&lt;ROOT_TRAIT&gt;_FULL_GID</code> constant (<code>BLINKY_API_FULL_GID</code>), which the device reports when a
 host connects.</p>
-<p>On connection, a generated client checks the device's API crate name and version against its own and refuses an
-incompatible device with <code>Error::IncompatibleDeviceProtocol</code>. Compatible means SemVer-compatible: the same major
-version from 1.0 on, the same major and minor before it (<code>Version::is_protocol_compatible</code>). Within that range the
+<p>The crate version is for Cargo; devices and hosts decide on the API root's
+<a href="../../evolution/rules/#the-wire-version">wire version</a>, <code>#[ww_api_root(wire = "w2.3")]</code>, which codegen puts into a
+<code>&lt;ROOT_TRAIT&gt;_WIRE_VERSION</code> constant next to the full id. On connection, a generated client checks the device's API
+crate name and wire line against its own and refuses another API or line with <code>Error::IncompatibleDeviceProtocol</code>;
+the device does the same with the host's. A crate breaking bump on the same wire line connects. Within a line the
 <a href="../../evolution/rules/">evolution rules</a> keep old and new talking: added methods, appended fields, new enum
 variants. The dynamic client, the <code>ww</code> CLI and Python take the device's API from its introspection data, so they
 don't check.</p>
+<p>A device passes both to <code>ww_device::LinkConfig::new(BLINKY_API_FULL_GID, BLINKY_API_WIRE_VERSION, ..)</code>; a generated
+client sets its own with <code>ClientConfig::client_version(version, wire)</code>.</p>
 <p>Reusable traits are found by their crate's name and version too, whatever the device's own API is, see
 <a href="../addressing/#global-trait-addressing-fullversion">global trait addressing</a>. The types are on the
 <a href="../../std_library/ww_version/">ww_version</a> page.</p>

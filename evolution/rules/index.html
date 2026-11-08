@@ -6178,21 +6178,35 @@ connect, the host gets a clean error when it calls <code>led_toggle</code> on th
 brightness it doesn't send. The rest of this page lists which changes are compatible like these. When in doubt,
 run the <a href="../checker_tool/">evolution checker</a>, it compares your crate with its last release.</p>
 <h2 id="your-apis-version">Your API's version<a class="headerlink" href="#your-apis-version" title="Permanent link">&para;</a></h2>
-<p>Name and version of the user API crate are sent during link setup, and both device and host refuse to connect if
-they are not compatible (<code>ww_version::Version::is_protocol_compatible</code>):</p>
+<p>An API has two versions, for two jobs:</p>
 <ul>
-<li>Before 1.0: major and minor must match, so <code>0.2.0</code> and <code>0.2.7</code> connect, <code>0.2.0</code> and <code>0.3.0</code> don't.</li>
-<li>After 1.0: major must match.</li>
+<li>The <strong>crate version</strong> is Cargo's: SemVer for the Rust code built against the API crate. A Rust-only break (a
+  trailing argument with a default, a <code>#[flatten]</code> promotion, see <a href="#arguments">Arguments</a>) bumps its breaking
+  position, a wire-compatible addition its compatible one (patch before 1.0, minor after).</li>
+<li>The <strong>wire version</strong> (below) is what devices and hosts decide on: link setup connects a device and a host of the
+  same API on the same wire line, whatever their crate versions, and refuses another line.</li>
 </ul>
-<p>So the compatible position (patch before 1.0, minor after) is for wire-compatible additions: new methods,
-properties, streams, new fields with defaults, etc. Everything else bumps the breaking position.</p>
+<p>Name and version of the user API crate are still sent during link setup, for display (<code>DeviceApiInfo</code>, logs,
+<code>PeerVersion</code> on the device), and the crate name tells APIs apart: a host whose client was generated from another
+API crate is refused. Nothing decides on the crate version's numbers.</p>
 <h3 id="the-wire-version">The wire version<a class="headerlink" href="#the-wire-version" title="Permanent link">&para;</a></h3>
 <p>Apart from the crate version, the API root declares its wire version, <code>#[ww_api_root(wire = "w2.3")]</code>, said "wire
 2.3": line 2, revision 3. A wire-compatible addition bumps the revision (<code>w2.3</code> -&gt; <code>w2.4</code>), a wire break the line
 (<code>w3.0</code>). A new API starts at <code>w1.0</code>. The <code>w</code> is part of the notation everywhere, so a crate version can't be taken
 for one: <code>2.3</code>, <code>w2.3.0</code> and <code>0.2.0</code> are refused. The trait gets a <code>*_WIRE_VERSION: ww_version::WireVersion</code> const
-next to its <code>*_FULL_GID</code>. Link setup still decides on the crate version above; deciding on the wire line instead is
-EVO-25.</p>
+next to its <code>*_FULL_GID</code>.</p>
+<p>Link setup decides on the line (EVO-25): <code>DeviceInfo</code> carries the device's wire version, <code>LinkSetup</code> the host's.</p>
+<ul>
+<li>The same line connects, whatever the revisions: a <code>w2.4</code> host talks to a <code>w2.3</code> device and the other way round.
+  Items newer than the device's revision are refused by the host, see <a href="#since"><code>#[since]</code></a>.</li>
+<li>Another line is refused on both sides: the host with <code>Error::IncompatibleDeviceProtocol</code>, which names both lines
+  and who should update, the device with <code>Disconnect(IncompatibleVersion)</code>.</li>
+<li>A host without generated code (the dynamic client, <code>ww</code>, Python) works from the device's introspection data and
+  connects to any line.</li>
+<li>A device or host that doesn't say its wire version (built before it existed) is refused by a generated peer.</li>
+</ul>
+<p>A full client needs the wire version of its root: <code>ww_codegen!</code> stops with an error naming the fix when the root
+trait is a plain <code>#[ww_trait]</code>.</p>
 <p>Mark additions with <code>#[since = "w2.4"]</code>, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).</p>
 <h3 id="since"><code>#[since]</code><a class="headerlink" href="#since" title="Permanent link">&para;</a></h3>
@@ -6209,8 +6223,8 @@ marker's.</p>
   the marker's to say: an item the new line removed is reported from the device's introspection data
   (<code>Error::NotImplementedByDevice</code>).</li>
 </ul>
-<p>The host knows the device's wire version from its introspection data (the bundle carries the root's wire version);
-without it, <code>#[since]</code> isn't checked until link setup carries the wire version (EVO-25).</p>
+<p>The host knows the device's wire version from link setup (<code>DeviceInfo</code>, EVO-25), and from its introspection data
+when the device says nothing there; only a device from before wire versions leaves <code>#[since]</code> unchecked.</p>
 <p>A marker names a revision of the crate that declares the item, not of the API root: a trait from a <code>ww_stdlib</code> crate
 (<code>ww_impl!(board: ww_board_info::BoardInfo)</code>) carries that crate's markers, compared with the device's wire version of
 that crate (<code>[package.metadata.wire_weaver] wire = ..</code> in its <code>Cargo.toml</code>, see
@@ -6406,7 +6420,8 @@ the rules for <a href="#unsized-types">unsized types</a> (EVO-22, <a href="../..
 </ul>
 <p>Each of the compatible changes still gives the handler and the client call other parameters: a break of the API
 crate's Rust API. <code>ww api check</code> reports it with its own rule, <code>breaking (Rust only, the wire is compatible)</code>, and
-the breaking version position is bumped, as for a rename. Devices and hosts of both versions keep talking.</p>
+the breaking version position is bumped, as for a rename. The wire version gets a new revision at most, so devices
+and hosts of both versions keep talking: link setup decides on the wire line, not on the crate version.</p>
 <p>Streams (API-30, API-31, <a href="../../api/stream_reliability/">stream reliability</a>): the delivery kind of a stream is part
 of the API. Turning a plain <code>stream!</code> into a <code>#[counted]</code> or <code>#[reliable]</code> one (or back, or one into the other), or
 giving a stream arguments or a result (<code>#[stream(T)] fn name(args) -&gt; Result&lt;A, E&gt;</code>), changes its events and how it is

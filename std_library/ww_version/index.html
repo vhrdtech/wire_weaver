@@ -5831,6 +5831,9 @@ and depends only on <code>shrink_wrap</code> and <code>ww_global</code> (for <co
 project's own crates follow). <code>pre</code> is not compared by this rule - it answers "can these talk to each other",
 not "are these the exact same build". <code>FullVersion::is_protocol_compatible</code> additionally requires the same
 <code>crate_id</code>, and <code>CompactVersion::is_protocol_compatible</code> the same <code>gid</code>.</p>
+<p>These are crate-version rules: global trait paths use them to find a reusable trait of a compatible crate version.
+Link setup doesn't: it decides on the user API's <code>WireVersion</code> (<code>WireVersion::same_line</code>, EVO-25), so a crate
+breaking bump that keeps the wire connects.</p>
 <h2 id="reading-the-current-crates-version">Reading the current crate's version<a class="headerlink" href="#reading-the-current-crates-version" title="Permanent link">&para;</a></h2>
 <p><code>Version</code>, <code>FullVersion</code> and <code>CompactVersion</code> all have a <code>const fn new(..)</code> (plus <code>Version::full</code> for <code>pre</code>/<code>build</code>
 and <code>CompactVersion</code>/<code>VersionTriplet</code> likewise), but code using WireWeaver's codegen rarely builds one directly.

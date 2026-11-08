@@ -6193,12 +6193,12 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 <tr>
 <td><code>DeviceInfo</code></td>
 <td>device → host</td>
-<td>After the device's hello, when every generation matches: link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token.</td>
+<td>After the device's hello, when every generation matches: link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token, the user API's wire version.</td>
 </tr>
 <tr>
 <td><code>LinkSetup</code></td>
 <td>host → device</td>
-<td>Host user API version, max message length the host accepts, the token.</td>
+<td>Host user API version, max message length the host accepts, the token, client meta, the wire version of the host's client.</td>
 </tr>
 <tr>
 <td><code>LinkReady</code></td>
@@ -6318,9 +6318,11 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
 <p>Rules the reference event loop follows (and a new transport should too):</p>
 <ul>
 <li>The hello is retried every 50 ms, up to 5 times; then link setup is considered failed.</li>
-<li>The host refuses the connection if <code>DeviceInfo.user_api_version</code> is not protocol-compatible with the
-  generated client API (see <a href="../../std_library/ww_version/">ww_version</a>). A device may likewise reply with
-  <code>Disconnect(IncompatibleVersion)</code> after <code>LinkSetup</code>.</li>
+<li>Both sides decide on the user API's <a href="../../evolution/rules/#the-wire-version">wire line</a> (EVO-25), never on its
+  crate version. The host refuses the connection when <code>DeviceInfo.user_api_wire</code> is on another line than its
+  generated client, or <code>user_api_version</code> names another API crate. The device likewise replies
+  <code>Disconnect(IncompatibleVersion)</code> to a <code>LinkSetup</code> whose <code>host_user_wire</code> is on another line or missing; a dynamic
+  host (an empty crate id, no wire version) is always taken.</li>
 <li><code>Data</code> accumulates into the current frame for <code>packet_accumulation_time_us</code> (as requested by the device) before
   being flushed, never longer; an urgent request is flushed at once, see
   <a href="../ww_framer/#latency-and-priority">latency and priority</a>. Control messages are flushed immediately.</li>
@@ -6535,7 +6537,7 @@ next to the link:</p>
 </tbody>
 </table>
 <p><strong><code>DeviceLink</code></strong> answers a hello (a new framer session, then Nop flushed alone, then its own hello, then <code>DeviceInfo</code>
-with the host's token when the generations match), checks the token and the host version on <code>LinkSetup</code> and
+with the host's token when the generations match), checks the token and the host's API and wire line on <code>LinkSetup</code> and
 replies <code>LinkReady</code> or <code>Disconnect(IncompatibleVersion)</code>, runs the frame accumulation window and pings, and
 declares the host gone after the peer timeout. A hello while the link is up means the host application
 restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as

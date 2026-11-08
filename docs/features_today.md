@@ -403,6 +403,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - **[Rounding by name](std_library/rounding.md)**: A conversion that loses part of a step says how it rounds and what happens past the end of the storage (saturate, wrap or no value), and gives the same number on the device, in Rust and in a dynamic client; Q formats saturate and binary angles wrap by their type.
 - **[Exact conversions between run-time scales](std_library/rounding.md)**: Any integer at one run-time prefix (SI, KiB, a power of two, 1/65535) converts to and compares with one at another exactly, with the rounding and overflow you name, in integer code a Cortex-M0+ runs without floats.
+- **[Exact float conversions](std_library/rounding.md)**: A conversion into or out of an `f32` or `f64` gives the exact value or none, never one rounded twice through an `f64` or infinity for a finite value; the rounding forms round once, as you name.
 - **[Exact fractions](std_library/exact_units.md)**: `Exact<U>` holds a value no fixed scale can, such as a PLL output of 80/3 MHz, as an exact fraction with its unit; arithmetic and comparisons never round, and refuse a result that doesn't fit.
 - **[Relative error and tolerance](std_library/exact_units.md)**: `rel_error` gives how far an achieved value is from its target as an exact signed ratio in %, ppm or ppb, and `within` checks it against a `Tolerance`; `Ppm<T>` sits next to `Ppb<T>`.
 - **[Exact scales](std_library/magnitude.md)**: Every scale, from µ and Ki to 1/65535, a 12-bit ADC step, Q15 or a degree in radians, is one exact factor: equal however written, and a conversion between two is worked out at compile time and never rounds.
@@ -427,10 +428,14 @@ They are shared, so a tool that knows one of them works with every device that i
 - **Ranges and tolerances as literals**: `v.is_in(q!(4.9 V ..= 5.1 V))` and `q!(5 V +- 1 %)`: a range or a tolerance with its unit, folded at compile time to compares of the stored value.
 - **Tolerance literals**: `q!(+- 50 mV)` and `q!(+- 1 %)` wherever a tolerance around a run-time target is taken, or folded straight to a window.
 - **Known leading digits**: `q!(9.542425... dB)` is the range of values whose decimal starts with those digits, cut and never rounded.
+- **Constants checked against a literal**: `assert_in!(X, q!(9.542425... dB))` checks a constant at compile time and names its true digits when it is out.
 - **Windows around a run-time target**: `target.window(tol, Fit::Inside)` folds `target · (1 ± t)` to stored values once, in exact integers; `is_within` checks a value against a target and tolerance without floats.
 - **Floats that are never NaN**: A float quantity can't hold NaN unless its type says `MaybeNan`, so `temp > limit` can't silently stay false; the wire and text refuse NaN for it, and arithmetic costs nothing extra.
+- **Floats that are always finite**: A `Finite` bound keeps a float quantity a number: ±∞ and NaN are refused on construction, on the wire and in text, and arithmetic that would leave the finite range gives no value.
+- **Sorting and hashing floats**: A float quantity that can't be NaN is a total order with −0 equal to +0: it sorts, keys a map and has a maximum.
 - **[NaN-free floats in clients](std_library/exact_units.md)**: A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused.
 - **[Unit identity in the model](std_library/units_in_the_model.md#identity)**: A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused.
+- **[A unit is defined once, by its crate](std_library/units_in_the_model.md#identity)**: A unit made with `unit!` carries its crate and name, so two crates' `Rpm` are two units that print the same, and its definition is plain data a client can read.
 - **[Run-time units by reference](std_library/ww_si.md#units-known-only-at-run-time)**: An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them.
 - **Readable unit errors**: A refused conversion names both units and dimensions in the compile error, and the operation that would give the right one.
 - **Niche codes next to `Bounds`**: `Niched<V, N>` marks a sentinel value next to a `Fixed`'s bounds, so "no reading" needs no `Option` and costs no extra space.

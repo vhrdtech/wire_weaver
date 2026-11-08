@@ -37,7 +37,7 @@ pub trait Device {
     ww_impl!(log: ww_log::LogDefmt);
 }
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MyDevice {
     ww_impl!(device: Device);
     // ... what the device does

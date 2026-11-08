@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8ec60aee353bfef13dacc2c97b79ef7a74798fa9f584cbab9097c11a490cf7ae
+// shrink_wrap sha256: 67f440bb294fc49fc412621ed075a5557541513f0585500e2d3383a57e972b8d
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -13,7 +13,7 @@
     "| `LogicStream`   | Continuous capture streamed while the link keeps up.                        | Fast links, sparse signals |",
     "",
     "```rust,ignore",
-    "#[ww_api_root(wire = \"w1.0\")]",
+    "#[ww_api_root]",
     "trait MyProbe {",
     "    ww_impl!(la: ww_logic_analyzer::LogicAnalyzer);",
     "}",

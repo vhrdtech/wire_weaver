@@ -27,7 +27,7 @@ The trait belongs where both sides can name it: in the API crate. The crate asks
 `for <struct>`, behind a feature, since the trait uses `std` types (owned strings and vectors, boxed streams):
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait CounterApi {
     /// Adds `by` times `step` to the total, returns the new total and sends it on `totals`
     fn add(by: u32) -> u32;

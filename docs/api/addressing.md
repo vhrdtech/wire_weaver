@@ -9,7 +9,7 @@ root, each a `UNib32` (4 bits for `0..=7`). `[0, 1, 2]` takes 2 bytes, its lengt
 write these indices: they are assigned in declaration order, and generated code uses the names.
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait ApiRoot {
     fn turn_on();               // [0]
     fn turn_off();              // [1]

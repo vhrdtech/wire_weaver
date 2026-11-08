@@ -8,7 +8,7 @@
 //! | `OneWire` | Reset, ROM search (paged or bit-level), addressed transactions, bus configuration. | Every 1-Wire master |
 //!
 //! ```rust,ignore
-//! #[ww_api_root(wire = "w1.0")]
+//! #[ww_api_root]
 //! trait MyAdapter {
 //!     ww_impl!(onewire: ww_onewire::OneWire);
 //! }

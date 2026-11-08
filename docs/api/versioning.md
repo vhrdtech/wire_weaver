@@ -10,7 +10,8 @@ puts the API root's into a `<ROOT_TRAIT>_FULL_GID` constant (`BLINKY_API_FULL_GI
 host connects.
 
 The crate version is for Cargo; devices and hosts decide on the API root's
-[wire version](../evolution/rules.md#the-wire-version), `#[ww_api_root(wire = "w2.3")]`, which codegen puts into a
+[wire version](../evolution/rules.md#the-wire-version), `[package.metadata.wire_weaver] wire = "w2.3"` in the API
+crate's `Cargo.toml`, which codegen puts into a
 `<ROOT_TRAIT>_WIRE_VERSION` constant next to the full id. On connection, a generated client checks the device's API
 crate name and wire line against its own and refuses another API or line with `Error::IncompatibleDeviceProtocol`;
 the device does the same with the host's. A crate breaking bump on the same wire line connects. Within a line the

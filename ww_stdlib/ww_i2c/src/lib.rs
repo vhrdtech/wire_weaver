@@ -14,7 +14,7 @@
 //! `I2c::i2c_capabilities`.
 //!
 //! ```rust,ignore
-//! #[ww_api_root(wire = "w1.0")]
+//! #[ww_api_root]
 //! trait MyAdapter {
 //!     ww_impl!(i2c: ww_i2c::I2c);
 //!     ww_impl!(i2c_monitor: ww_i2c::I2cMonitor);

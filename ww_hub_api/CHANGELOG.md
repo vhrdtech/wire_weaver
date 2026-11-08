@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The API's wire version `w1.0` is declared in `Cargo.toml` (`[package.metadata.wire_weaver]`, EVO-31) instead of `#[ww_api_root(wire = ..)]`; the same wire version, no wire change. Needs a `wire_weaver_derive` with EVO-31.
+
 ### 🚀 Features
 
 - `DeviceState::Lent { claim }` (SRV-32): a device lent out with `Claims::lend`, with the claim naming who borrowed it and what for; it was listed as free (or not at all) while lent. Wire-compatible addition: an older client reads it as an unknown state.

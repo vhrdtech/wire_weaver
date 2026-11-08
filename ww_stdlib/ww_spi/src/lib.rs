@@ -7,7 +7,7 @@
 //! device left `monitor` out through introspection, and what `Spi` supports through `Spi::capabilities`.
 //!
 //! ```rust,ignore
-//! #[ww_api_root(wire = "w1.0")]
+//! #[ww_api_root]
 //! trait MyAdapter {
 //!     ww_impl!(spi: ww_spi::Spi);
 //! }

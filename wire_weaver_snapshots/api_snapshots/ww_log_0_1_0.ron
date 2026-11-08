@@ -1,6 +1,6 @@
 // ww_log 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b3b004fc2ad054a040437748984866037f8d137de41a93252e43e2efd48225cb
+// shrink_wrap sha256: 3962323dc8254b17ef601967f8c6ccf170bb106e78d9de9315bb08215124c8ac
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
     "records for firmware without defmt.",
@@ -13,7 +13,7 @@
     "| `LogText`   | Text records with a level filter.                                     | Firmware without defmt (`log` crate, ESP-IDF) |",
     "",
     "```rust,ignore",
-    "#[ww_api_root(wire = \"w1.0\")]",
+    "#[ww_api_root]",
     "trait MyDevice {",
     "    ww_impl!(log: ww_log::LogDefmt);",
     "}",

@@ -16,7 +16,7 @@ ww_firmware_info = { version = "0.1", default-features = false }
 ```
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MyBoard {
     ww_impl!(firmware: ww_firmware_info::FirmwareInfo);
     ww_impl!(gpio: ww_gpio::Bank);

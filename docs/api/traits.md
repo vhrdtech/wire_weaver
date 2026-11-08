@@ -10,7 +10,7 @@ from the same file, to group related items, or from another crate, to reuse an A
 GPIO bank or a firmware updater from the [standard library](../std_library/overview.md).
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait MyDevice {
     ww_impl!(motor: MotorControl);   // a trait from this crate
     ww_impl!(gpio[]: ww_gpio::Bank); // an array of a trait from another crate
@@ -67,7 +67,7 @@ introspection data that it is left out instead of getting `Unimplemented` from e
 [Optional items](optional_items.md#optional-traits).
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Board {
     #[optional]
     ww_impl!(diag: ww_pin_diag::PinDiag);
@@ -85,7 +85,7 @@ path; the crate providing it (`ww_gpio` here) is a normal Cargo dependency of th
 `examples/all_gpio_api`:
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait AllGpioApi {
     ww_impl!(port[]: ww_gpio::Bank);
     // and device specific items next to the common ones

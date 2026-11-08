@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4f6acc22e857a8abef1576db00b20307251911ac7fbe003b8f6f6f73c400373f
+// shrink_wrap sha256: 7afb1e6da12c9fd2a45dc45d08f4027e3e2454caf4316da825a243a8c6e7f4f2
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -12,7 +12,7 @@
     "| `WaveformGenerator` | `channel[]` of DAC outputs: sine, square, triangle, sawtooth, DC, tables. | Devices with a DAC |",
     "",
     "```rust,ignore",
-    "#[ww_api_root(wire = \"w1.0\")]",
+    "#[ww_api_root]",
     "trait MyBench {",
     "    ww_impl!(la: ww_logic_analyzer::LogicAnalyzer);",
     "    ww_impl!(pattern: ww_signal_generator::PatternGenerator);",

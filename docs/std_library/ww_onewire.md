@@ -100,7 +100,7 @@ variants are available by enabling the crate's `std` feature (on by default).
 A device with one 1-Wire bus implements `OneWire` once, flat, on its API root:
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MyAdapter {
     ww_impl!(onewire: ww_onewire::OneWire);
 }

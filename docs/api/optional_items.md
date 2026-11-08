@@ -73,7 +73,7 @@ nested traits, its consts. It is for a block a firmware has only with one of its
 served only in a debug build:
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Board {
     fn ping() -> u8;
     /// Pin diagnostics, the firmware's `pin-diag` feature.

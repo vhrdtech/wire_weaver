@@ -176,7 +176,7 @@ available by enabling the crate's `std` / `defmt` features.
 ## Composing into a device API
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MyProbe {
     ww_impl!(la: ww_logic_analyzer::LogicAnalyzer);
 }

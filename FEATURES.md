@@ -1893,7 +1893,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   tests `ww_version` `wire::tests`, `wire_weaver_core` `wire_version_and_since`, `tests/cross_version`).
 - ✅ **EVO-26 Wire versions of shared crates** · `v0.5` — every crate whose traits or types cross the wire has a
   wire version apart from its crate version: a crate without an API root declares it in `Cargo.toml`,
-  `[package.metadata.wire_weaver] wire = "w1.2"` (an API root crate only in `#[ww_api_root(wire = ..)]`), and bundles
+  `[package.metadata.wire_weaver] wire = "w1.2"` (API root crates too since EVO-31), and bundles
   and snapshots carry it per crate (`ww_self::ApiBundle::ext_wire`, `crate_wire`). Every `ww_stdlib` crate,
   `ww_global` and `ww_tap` are at `w1.0`, `ww_board_info` at `w1.2`, `ww_si` at `w2.0` (its 0.2.0 moved the units to
   `exact_units`, a wire break from 0.1.0 at `w1.0`, found by EVO-27's check of every snapshot pair). `#[since]` names a revision of the crate that
@@ -1933,11 +1933,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Disconnect(IncompatibleVersion)` on the device). A crate breaking bump that keeps the wire (EVO-22) connects. The
   host checks `#[since]` against the wire version from link setup, also without introspection data; dynamic hosts
   and the hub keep working (a tunnel fronts the device with its wire version). A full client needs its root's wire
-  version (a compile error says to mark it `#[ww_api_root(wire = ..)]`); the crate version is for display and
+  version (a compile error says to mark it `#[ww_api_root]` with a wire version, in `Cargo.toml` since EVO-31); the crate version is for display and
   `Version::is_protocol_compatible` for crate versions only (`docs/evolution/rules.md#the-wire-version`; tests
   `tests/wire_line`, `ww_device` `incompatible_and_dynamic_hosts`, `wire_weaver_client`
   `crate_breaking_bump_on_the_same_line_connects`, `incompatible_host_is_refused`, conformance `device_info.wire_version`,
   `link_setup.wire_version`).
+- ✅ **EVO-31 Wire version in Cargo.toml** · `v0.5` — every crate declares its wire version one way, in its
+  `Cargo.toml`, `[package.metadata.wire_weaver] wire = "w2.3"`: API root crates too, with a bare `#[ww_api_root]`.
+  `#[ww_api_root(wire = ..)]` stays as the entry point for tests (several roots of one crate on different lines, the
+  EVO-28 bench): refused in a crate that can be published (`publish = false` marks test crates) and when the
+  crate's `Cargo.toml` declares a different one. Every API root in the repository moved to `Cargo.toml`
+  (`tests/wire_line_old_api` keeps the attribute as the end-to-end case); `ww api scaffold` says where the wire
+  version lives or how to declare it (`docs/evolution/rules.md#the-wire-version`; tests `wire_weaver_core`
+  `wire_version_in_cargo_toml`, `wire_version_note`, `tests/wire_line`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

@@ -118,7 +118,7 @@ and XL parts next to it as arrays indexed like the controllers (valid only at in
 
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Analyzer {
     ww_impl!(can: ww_can_bus::CanGroup);                 // can.interface[i]
     ww_impl!(can_tt[]: ww_can_bus::CanTimeTriggered);    // can_tt[i] is controller i

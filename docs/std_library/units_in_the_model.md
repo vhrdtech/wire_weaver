@@ -20,7 +20,7 @@ ww_si::unit! {
     pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
 }
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Motor {
     property!(rw speed: Quantity<Rpm>);
 }

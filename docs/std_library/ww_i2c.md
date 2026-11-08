@@ -30,7 +30,7 @@ masters can't sniff. A host finds out what is there through introspection, and w
 [`I2c::i2c_capabilities`](#i2c).
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait MyAdapter {
     ww_impl!(i2c: ww_i2c::I2c);
     ww_impl!(i2c_watch: ww_i2c::I2cWatch);
@@ -352,7 +352,7 @@ match dev.i2c().i2c_write(addr, data.clone(), None).call().await {
 A device exposes the traits it implements on its API root, see `tests/io_i2c_api`:
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait IoI2cTest {
     ww_impl!(i2c: ww_i2c::I2c);
     ww_impl!(i2c_watch: ww_i2c::I2cWatch);

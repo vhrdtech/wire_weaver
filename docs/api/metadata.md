@@ -17,7 +17,7 @@ pub trait Uart {
     // ...
 }
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Board {
     /// Both CAN controllers: cooperating tools may claim them together.
     #[claim(shared)]

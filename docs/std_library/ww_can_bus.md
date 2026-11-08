@@ -28,7 +28,7 @@ A simple bridge puts its controllers straight into its API and implements the si
 (`capabilities`, `configure`, `config`, `status`, `rx` and `tx`):
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Bridge {
     ww_impl!(can[]: ww_can_bus::Can);
 }

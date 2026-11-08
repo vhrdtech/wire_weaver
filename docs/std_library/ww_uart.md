@@ -169,7 +169,7 @@ variants are available by enabling the crate's `std` feature; the plain configur
 A device exposes a UART by implementing `Uart` on its API root:
 
 ```rust
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MyDeviceApi {
     ww_impl!(uart: ww_uart::Uart);
 }

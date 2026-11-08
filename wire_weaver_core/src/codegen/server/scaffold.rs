@@ -258,6 +258,19 @@ pub fn gen_server_scaffold(
          // Every handler is a stub returning Unimplemented, replace them with real implementations.\n\
          use wire_weaver::prelude::*;\n"
     )?;
+    // where the API's wire version lives (EVO-31): the API crate's Cargo.toml, which the scaffold doesn't write
+    match api_bundle.wire {
+        Some(wire) => writeln!(
+            out,
+            "// Wire version of the API: `{wire}`, `[package.metadata.wire_weaver] wire` in {crate_name}'s Cargo.toml.\n"
+        )?,
+        None => writeln!(
+            out,
+            "// {crate_name} declares no wire version, and link setup decides on it: add to its Cargo.toml\n\
+             // [package.metadata.wire_weaver]\n\
+             // wire = \"w1.0\"\n"
+        )?,
+    }
     out.push_str(&statics);
     writeln!(out, "pub struct {server} {{\n{}}}\n", s.fields)?;
     writeln!(out, "impl {server} {{\n{}}}\n", s.handlers)?;
@@ -928,6 +941,26 @@ mod tests {
         );
         let plain = gen_server_scaffold(&bundle, &config(&[])).unwrap();
         assert!(!plain.contains("introspect"), "{plain}");
+    }
+
+    /// The scaffold says where the API's wire version lives (EVO-31), or how to declare it when there is none.
+    #[test]
+    fn wire_version_note() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/properties_api");
+        let mut bundle = crate::load(&crate_path, Some("Properties".into()), false).unwrap();
+        let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(
+            code.contains(
+                "// Wire version of the API: `w1.0`, `[package.metadata.wire_weaver] wire` in"
+            ),
+            "{code}"
+        );
+        bundle.wire = None;
+        let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(
+            code.contains("// [package.metadata.wire_weaver]\n// wire = \"w1.0\"\n"),
+            "{code}"
+        );
     }
 
     /// `handler_model` (SRV-21): each item's handlers are `async fn` or `fn` as the model says, the rest follow

@@ -22,8 +22,14 @@ For changing WireWeaver itself or a `ww_stdlib` crate, see [crate layers and ver
 A device runs `blinky_api 0.1.0`, wire version `w1.0`. The next version adds a method and a field, and keeps
 everything else:
 
+```toml
+# Cargo.toml of blinky_api
+[package.metadata.wire_weaver]
+wire = "w1.1"
+```
+
 ```rust
-#[ww_api_root(wire = "w1.1")]
+#[ww_api_root]
 pub trait BlinkyApi {
     fn led_on();
     fn led_off();
@@ -62,11 +68,27 @@ API crate is refused. Nothing decides on the crate version's numbers.
 
 ### The wire version
 
-Apart from the crate version, the API root declares its wire version, `#[ww_api_root(wire = "w2.3")]`, said "wire
-2.3": line 2, revision 3. A wire-compatible addition bumps the revision (`w2.3` -> `w2.4`), a wire break the line
+Apart from the crate version, the API crate declares its wire version in its `Cargo.toml`, said "wire 2.3": line 2,
+revision 3.
+
+```toml
+[package]
+name = "blinky_api"
+version = "0.4.1"
+
+[package.metadata.wire_weaver]
+wire = "w2.3"
+```
+
+ A wire-compatible addition bumps the revision (`w2.3` -> `w2.4`), a wire break the line
 (`w3.0`). A new API starts at `w1.0`. The `w` is part of the notation everywhere, so a crate version can't be taken
-for one: `2.3`, `w2.3.0` and `0.2.0` are refused. The trait gets a `*_WIRE_VERSION: ww_version::WireVersion` const
-next to its `*_FULL_GID`.
+for one: `2.3`, `w2.3.0` and `0.2.0` are refused. The `#[ww_api_root]` trait gets a
+`*_WIRE_VERSION: ww_version::WireVersion` const next to its `*_FULL_GID`. Every crate whose traits or types cross the
+wire declares its wire version the same way, `ww_stdlib` crates too ([crate layers](crate_layers.md)).
+
+A test crate (`publish = false`) may give the wire version in the attribute instead, `#[ww_api_root(wire = "w2.3")]`:
+several roots in one crate standing for different lines, as in a test of two lines talking (EVO-31). The attribute
+is refused in a crate that can be published, and when the crate's `Cargo.toml` declares a different one.
 
 Link setup decides on the line (EVO-25): `DeviceInfo` carries the device's wire version, `LinkSetup` the host's.
 

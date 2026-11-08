@@ -26,7 +26,18 @@ The name of the API crate (from `Cargo.toml`) identifies the API worldwide (it g
 the generated `<ROOT_TRAIT>_FULL_GID` constant), so publish it to crates.io for an open-source project, or pick a
 name unique enough for internal use.
 
-Its version is checked on every connection: a host and a device with compatible versions talk, others are told
-apart before the first call, and your code can read the device's version to show a proper message when it meets an
-older or newer firmware. Normal [SemVer rules](https://semver.org) apply, what counts as a breaking change is in the
-[evolution rules](../evolution/rules.md). More in [Versioning](versioning.md).
+Its `Cargo.toml` holds two versions. The crate version is Cargo's: normal [SemVer rules](https://semver.org) for
+the Rust API. The [wire version](../evolution/rules.md#the-wire-version) is what a host and a device decide on when
+they connect: the same line talks, another line is told apart before the first call.
+
+```toml
+[package]
+name = "my_device_api"
+version = "0.1.0"
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+```
+
+What counts as a breaking change for each is in the [evolution rules](../evolution/rules.md); `ww api check` says
+which bumps a change needs. More in [Versioning](versioning.md).

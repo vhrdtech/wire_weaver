@@ -78,8 +78,7 @@ Codegen reads it with the crate, every bundle and snapshot carries it per crate 
 and `#[since]` in the crate names its revisions: `ww_board_info`'s `set_reworks` is `#[since = "w1.2"]` of
 `ww_board_info`, whatever the wire version of the API that implements `BoardInfo`. A host compares such a marker with
 the device's wire version of `ww_board_info`, from its introspection data. The same works for any crate without an API
-root whose traits or types cross the wire; an API root crate declares its wire version only in
-`#[ww_api_root(wire = ..)]`.
+root whose traits or types cross the wire, and API root crates declare theirs the same way (EVO-31).
 
 * Wire-compatible change (following the [data type](rules.md#data-types) and [API](rules.md#api) rules) -> bump the
   wire revision (`w1.2` -> `w1.3`) and mark what was added with it; the crate version takes the compatible position

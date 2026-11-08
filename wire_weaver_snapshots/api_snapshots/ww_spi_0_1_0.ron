@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0fa3ecbd9a3bfcbc3b631569f742f63035fcb0f802aa0bedecda09f2a210acbc
+// shrink_wrap sha256: 58b7c8c595d6a596c86087f3f0da0ff63f58564c40ff9b831714a1916d84c437
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -580,4 +580,9 @@
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: None)
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+    Some((line: 1, revision: 0)),
+    None,
+    Some((line: 1, revision: 0)),
+]))

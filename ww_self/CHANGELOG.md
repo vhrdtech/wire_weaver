@@ -137,6 +137,7 @@
   fields. `slot` is the field's `#[slot = N]`, or the previous field's slot + 1 (0 for the first), mirroring
   `shrink_wrap_derive`. Struct literals of `ItemStructOwned`/`FieldOwned` need the new fields, every signature
   changes once (saved snapshots re-saved with `just save-snapshots`).
+* `ApiBundle::ext_wire: Option<RefVec<Option<WireVersion>>>` (`#[default = None]`, EVO-26), appended: the wire version of each crate in `ext_crates`, by the same index, what `#[since]` in that crate names. `ApiBundleOwned::crate_wire(idx)` reads it (crate 0 falls back to `wire`), `set_crate_wire` writes it; `inline` carries it along with the crates it copies. `wire` is now the wire version of crate 0 in any bundle (a crate snapshot of a `#[ww_trait]` crate too). An older reader skips the field; bundle bytes and snapshot hashes change (snapshots saved again). Definition signatures don't: `signature` now hashes a frozen copy of the bundle as it was before (`CanonicalBundle`, up to `wire`), so a field appended to `ApiBundle` never moves a signature again. Struct literals of `ApiBundleOwned` add `ext_wire`.
 
 ### 🚀 Features
 

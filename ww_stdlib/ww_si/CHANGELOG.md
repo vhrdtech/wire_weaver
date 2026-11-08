@@ -19,6 +19,7 @@
   re-export; `logarithmic` now also turns on `exact_units/levels` (feature comment updated), next to the existing
   `DeciBel`/`DeciBelmW`. No new `ww_si` type: a level never takes a runtime `Prefix` (`Quantity`'s own), so it's
   written `Fixed<units::Decibel, ..>` as any other compile-time-scaled quantity, not a `Quantity` alias.
+* Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.
 
 ### ⚠️ Breaking
 

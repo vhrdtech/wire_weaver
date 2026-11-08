@@ -1,14 +1,14 @@
 // ww_board_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b8459f697adad27f2f4e51df1006be87c515c5ccf5d3298df2fc951cb8a6c2ff
+// shrink_wrap sha256: 999838651c524385b72a9fa66d74277fa6e53d58e9176cb11b2f6ad9b34f6c07
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
     "One const item, [BoardInfo::BOARD], answers everything a host or a support case asks about the board: its name,",
     "revision and **how the firmware knows that revision**, variant, BOM variant, serial number and build date.",
 ], crate_idx: 0, trait_name: "ww_board_info", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a board\'s revision comes from.",
         "",
@@ -27,7 +27,7 @@
         (docs: [
             "Neither: the firmware assumes the revision it was built for.",
         ], ident: "Assumed", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
         29,
         39,
@@ -62,7 +62,7 @@
         (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Build date, if available.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The PCB and its assembly.",
@@ -71,9 +71,12 @@
     ], crate_idx: 0, trait_name: "BoardInfo", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
             "Everything the device knows about its board, in one value.",
-        ], optional: None),
-    ], compact_id: Some(10)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(10), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_board_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+    Some((line: 1, revision: 0)),
+]))

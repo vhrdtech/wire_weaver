@@ -1,6 +1,6 @@
 // ww_si 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9e05f62878f0545314573e65c3e092087c49e7d264c60a49ced07d1bb37d8b32
+// shrink_wrap sha256: d9788a2f239f926aa1fdfaed232bf1e2a702a45698eb86e530ec728ff3f3a9ea
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks",
     "(`Volt { prefix: Milli, value: U16(3300) }`), so the API says what a value means and each device chooses its own",
@@ -11,7 +11,7 @@
     "`f32`, .., `all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.",
     "",
     "A value with the time it was taken is a [Timed] (feature `time`).",
-], crate_idx: 0, trait_name: "ww_si", items: []), types: [
+], crate_idx: 0, trait_name: "ww_si", items: [], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "Prefix", generics: [], variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -38,7 +38,7 @@
         (docs: [], ident: "Yocto", fields: Unit, discriminant: 22, since: None),
         (docs: [], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
         (docs: [], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
         191,
         150,
@@ -66,7 +66,7 @@
     ], ident: "Second", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value with the time it was taken: a sample of a property, an item of a stream (`Timed<Ampere>`,",
         "`Timed<IvSample>`).",
@@ -84,10 +84,10 @@
             "When `value` was taken, device time.",
         ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: Param(0), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "INib8P3", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [], ident: "SIExp", generics: [], fields: Named([
         (ident: Some("second"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
         (ident: Some("meter"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
@@ -99,7 +99,7 @@
         (ident: Some("kelvin"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
         (ident: Some("mole"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
         (ident: Some("candela"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: UnsizedFinalStructure, repr: UNib32, crate_idx: 0, docs: [], ident: "BaseUnit", generics: [], variants: [
         (docs: [], ident: "Unitless", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Second", fields: Unit, discriminant: 1, since: None),
@@ -136,14 +136,14 @@
             (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
             (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 30, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Length quantity in meters with prefix (m, mm, μm, km, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "Meter", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Mass quantity in grams with prefix (g, mg, μg, kg, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -152,35 +152,35 @@
     ], ident: "KiloGram", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Electric current quantity in Amperes with prefix (A, mA, μA, kA, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "Ampere", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Thermodynamic temperature quantity in Kelvin with prefix (K, mK, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "Kelvin", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Amount of substance quantity in mole with prefix (mol, mmol, μmol, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "Mole", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Luminous intensity quantity in candela with prefix (cd, mcd, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "Candela", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Frequency quantity in Hertz with prefix (Hz, mHz, kHz, MHz, GHz, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -189,7 +189,7 @@
     ], ident: "Hertz", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Angle quantity in radians with prefix (rad, mrad, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -198,7 +198,7 @@
     ], ident: "Radian", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Angle quantity in degree of arc with prefix (deg, mdeg, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -207,7 +207,7 @@
     ], ident: "Degree", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Solid angle quantity in steradian with prefix (sr, msr, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -216,7 +216,7 @@
     ], ident: "Steradian", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Force or weight quantity in Newtons with prefix (N, mN, kN, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -225,7 +225,7 @@
     ], ident: "Newton", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Pressure or stress quantity in Pascals with prefix (Pa, mPa, kPa, MPa, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -234,7 +234,7 @@
     ], ident: "Pascal", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Energy, work or heat quantity in Joules with prefix (J, mJ, kJ, MJ, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -243,7 +243,7 @@
     ], ident: "Joule", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Torque or moment of force quantity in newton-meters with prefix (N·m, mN·m, kN·m, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -253,7 +253,7 @@
     ], ident: "Torque", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Power or radiant flux quantity in Watts with prefix (W, mW, kW, MW, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -262,7 +262,7 @@
     ], ident: "Watt", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Electric charge quantity in Coulombs with prefix (C, mC, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -271,7 +271,7 @@
     ], ident: "Coulomb", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Voltage, electric potential or electromotive force quantity in Volts with prefix (V, mV, kV, MV, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -280,7 +280,7 @@
     ], ident: "Volt", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Capacitance quantity in Farads with prefix (F, pF, nF, uF, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -289,7 +289,7 @@
     ], ident: "Farad", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Electrical resistance, reactance or impedance quantity in Ohms with prefix (Ω, kΩ, MΩ, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -298,7 +298,7 @@
     ], ident: "Ohm", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Electrical admittance, conductance, susceptance quantity in Siemens with prefix (S, mS, kS, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -307,7 +307,7 @@
     ], ident: "Siemens", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Magnetic flux quantity in Webers with prefix (Wb, mWb, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -316,7 +316,7 @@
     ], ident: "Weber", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Magnetic flux density quantity in Tesla with prefix (T, mT, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -325,7 +325,7 @@
     ], ident: "Tesla", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Inductance or permeance quantity in Henry with prefix (H, uH, mH, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -334,7 +334,7 @@
     ], ident: "Henry", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Temperature relative to -273.15K quantity in °C",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -343,7 +343,7 @@
     ], ident: "DegreeCelsius", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Luminous flux quantity in candela (cd)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -352,7 +352,7 @@
     ], ident: "Lumen", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Illuminance quantity in lux (lx)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -361,7 +361,7 @@
     ], ident: "Lux", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Radioactivity quantity in Becquerel (Bq)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -370,7 +370,7 @@
     ], ident: "Becquerel", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Absorbed does quantity in Gray (Gy)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -379,7 +379,7 @@
     ], ident: "Gray", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Equivalent dose quantity in Sievert (Sv)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -388,7 +388,7 @@
     ], ident: "Sievert", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Catalytic activity quantity in katal (kat)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -397,19 +397,19 @@
     ], ident: "Katal", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Logarithmic ratio quantity",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "DeciBel", generics: [], fields: Named([
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Logarithmic ratio quantity relative to mW",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
     ], ident: "DeciBelmW", generics: [], fields: Named([
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Dimensionless ratio with prefix (1, %, ‰, ppm as `Centi`, `Milli`, `Micro`): a duty cycle, a probability, a",
         "scale factor, an efficiency. Backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -420,7 +420,7 @@
     ], ident: "Ratio", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Volume quantity in liters with prefix (l, ml, μl, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -429,7 +429,7 @@
     ], ident: "Litre", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Energy quantity in electron-volts with prefix (eV, kEv, MEv, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -438,7 +438,7 @@
     ], ident: "ElectronVolt", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Speed quantity in meters per second with prefix (m/s, mm/s, km/s, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -447,7 +447,7 @@
     ], ident: "Speed", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Acceleration quantity in meters per second squared with prefix (m/s^2, mm/s^2, km/s^2, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -456,7 +456,7 @@
     ], ident: "Acceleration", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Jerk or jolt quantity in meters per second cubed with prefix (m/s^3, mm/s^3, km/s^3, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -465,7 +465,7 @@
     ], ident: "Jerk", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Snap or jounce quantity in meters per second to the fourth with prefix (m/s^4, mm/s^4, km/s^4, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -474,7 +474,7 @@
     ], ident: "Snap", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Yank quantity in kilogram meters per second cubed with prefix (kg * m/s^3, kg * mm/s^3, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -483,7 +483,7 @@
     ], ident: "Yank", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Angular velocity quantity in radians per second with prefix (rad/s, krad/s, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -492,7 +492,7 @@
     ], ident: "AngularVelocity", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Angular acceleration quantity in radians per second squared with prefix (rad/s^2, krad/s^2, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -501,7 +501,7 @@
     ], ident: "AngularAcceleration", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Frequency drift quantity in Hertz per second with prefix (Hz/s, kHz/s, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -510,7 +510,7 @@
     ], ident: "HertzPerSecond", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Symbol rate in baud with prefix (Bd, kBd, MBd), backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64,",
         "etc.: the baud rate of a UART, the bit rate of a decoder. One baud is one symbol per second; for a UART a symbol",
@@ -521,7 +521,7 @@
     ], ident: "Baud", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Volumetric flow quantity in cubic meters per second with prefix (m^3/s, mm^3/s, km^3/s, etc.)",
         "backed by [NumericValue] which can be u8-u128, i8-i128, f32, f64, etc.",
@@ -530,8 +530,11 @@
     ], ident: "VolumetricFlow", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_si", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None)
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+    Some((line: 1, revision: 0)),
+]))

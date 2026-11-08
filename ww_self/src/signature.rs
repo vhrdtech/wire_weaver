@@ -7,6 +7,9 @@
 //! else was in it.
 
 use crate::visit_mut::{self, VisitMut};
+use crate::{ApiLevel, ApiLevelLocation, TypeLocation};
+use shrink_wrap::prelude::*;
+use ww_version::{FullVersion, WireVersion};
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
@@ -16,6 +19,25 @@ use sha2::Digest;
 use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
 use std::collections::{HashMap, VecDeque};
 use ww_version::{FullVersionOwned, VersionTriplet};
+
+/// The canonical bundle a signature hashes: [crate::ApiBundle] as it was when signatures were last allowed to move
+/// (up to `wire`, EVO-24), frozen. A field appended to `ApiBundle` later (`ext_wire`, EVO-26) is the bundle format's,
+/// not the definition's, and must not move every signature: only the definitions here are hashed, and every
+/// field after them is always at its default. The bytes are exactly those of an `ApiBundle` of that time.
+#[derive_shrink_wrap(owned(feature = "std"))]
+#[allow(dead_code)]
+struct CanonicalBundle<'i> {
+    magic: u32,
+    ww_self_version: VersionTriplet,
+    root: ApiLevel<'i>,
+    types: RefVec<'i, TypeLocation<'i>>,
+    traits: RefVec<'i, ApiLevelLocation<'i>>,
+    ext_crates: RefVec<'i, FullVersion<'i>>,
+    #[default = None]
+    root_omitted: Option<RefVec<'i, UNib32>>,
+    #[default = None]
+    wire: Option<WireVersion>,
+}
 
 /// Fields of the model a [Canonical] bundle clears, so they don't count in signatures: host-derived ones, the
 /// registry id, and what a marker means (INT-13). `(owner, field)` with the owner's serde name (`ItemEnumOwned`).
@@ -287,7 +309,7 @@ impl<'a, 'r> Canonical<'a, 'r> {
                 return Err(e);
             }
         }
-        let bundle = ApiBundleOwned {
+        let bundle = CanonicalBundleOwned {
             magic: crate::MAGIC,
             // A signature identifies a definition, not the format: a device and a host built with different
             // ww_self versions must compute the same one, or the host can't put the definition back.

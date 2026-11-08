@@ -15,3 +15,7 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_i2c = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
+
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"

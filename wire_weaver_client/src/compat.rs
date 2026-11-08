@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use wire_weaver::shrink_wrap::UNib32;
 use ww_self::visit::Visit;
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned};
 use ww_version::WireVersion;
 
 use wire_weaver_evolution::compat::{Bounds, compare_items};
@@ -55,7 +55,7 @@ pub(crate) struct ApiCompat {
 struct Node {
     ident: String,
     is_array: bool,
-    since: Option<WireVersion>,
+    since: Option<Since>,
     verdict: Verdict,
     children: HashMap<u32, Node>,
 }
@@ -67,18 +67,47 @@ pub(crate) struct Resolved<'a> {
     /// First not compatible verdict along the path (a resource inside an incompatible trait is incompatible too),
     /// or the resource's own verdict.
     pub(crate) verdict: &'a Verdict,
-    /// The newest `#[since]` along the path.
-    pub(crate) since: Option<WireVersion>,
+    /// Every `#[since]` along the path, outermost first, each with the crate that declares it (EVO-26).
+    pub(crate) since: Vec<Since>,
+}
+
+/// A `#[since]` marker of a resource and what it is compared with (EVO-26): a marker names a revision of the wire
+/// version of the crate that declares the resource (a `ww_stdlib` trait's markers name that crate's revisions, not
+/// the API root's).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Since {
+    pub(crate) since: WireVersion,
+    /// The crate that declares the resource, e.g. `ww_board_info`.
+    pub(crate) crate_id: String,
+    /// The crate is the client's API root crate: without the device's API, its markers are compared with the
+    /// device's root wire version (link setup's, EVO-25).
+    pub(crate) root: bool,
+    /// The device's wire version of the crate, from its introspection data; `None` while that is unknown or the
+    /// device's crate declares none.
+    pub(crate) device_wire: Option<WireVersion>,
 }
 
 impl ApiCompat {
     /// Compare every resource of the client's API with the device's resource at the same path.
     pub(crate) fn new(client: &ApiBundleOwned, device: &ApiBundleOwned) -> Self {
-        let device_items: HashMap<Vec<u32>, &ApiItemOwned> = collect(device).into_iter().collect();
+        let device_items: HashMap<Vec<u32>, (&ApiItemOwned, u32)> = collect(device)
+            .into_iter()
+            .map(|(path, item, crate_idx)| (path, (item, crate_idx)))
+            .collect();
         let omitted = omitted(device);
-        Self::build(client, |path, item| match device_items.get(path) {
+        // the device's wire version of the crate declaring a resource: of the crate the device's resource at the
+        // same path comes from, or for one the device doesn't have, of the device's crate by that name
+        let device_wire = |path: &[u32], crate_id: &str| match device_items.get(path) {
+            Some((_, crate_idx)) => device.crate_wire(*crate_idx),
+            None => device
+                .ext_crates
+                .iter()
+                .position(|c| c.crate_id == crate_id)
+                .and_then(|idx| device.crate_wire(idx as u32)),
+        };
+        Self::build(client, device_wire, |path, item| match device_items.get(path) {
             Some(_) if omitted.contains(path) => Verdict::Omitted,
-            Some(device_item) => {
+            Some((device_item, _)) => {
                 // a different max length is not checked here: a longer value is rejected when it is sent
                 match compare_items(
                     (client, item, "client"),
@@ -95,20 +124,37 @@ impl ApiCompat {
 
     /// Client resource tree only, when the device's API is unknown, to look up `#[since]` of the client's resources.
     pub(crate) fn client_only(client: &ApiBundleOwned) -> Self {
-        Self::build(client, |_, _| Verdict::Compatible)
+        Self::build(client, |_, _| None, |_, _| Verdict::Compatible)
     }
 
     fn build(
         client: &ApiBundleOwned,
+        device_wire: impl Fn(&[u32], &str) -> Option<WireVersion>,
         mut verdict: impl FnMut(&[u32], &ApiItemOwned) -> Verdict,
     ) -> Self {
         let mut root: HashMap<u32, Node> = HashMap::new();
+        let root_crate = client
+            .crate_version(client.root.crate_idx.0)
+            .map(|v| v.crate_id.as_str())
+            .unwrap_or_default();
         // parents are collected before their children
-        for (path, item) in collect(client) {
+        for (path, item, crate_idx) in collect(client) {
+            let since = item.since.map(|since| {
+                let crate_id = client
+                    .crate_version(crate_idx)
+                    .map(|v| v.crate_id.clone())
+                    .unwrap_or_default();
+                Since {
+                    since,
+                    root: crate_id == root_crate,
+                    device_wire: device_wire(&path, &crate_id),
+                    crate_id,
+                }
+            });
             let node = Node {
                 ident: item.ident.clone(),
                 is_array: item.is_array(),
-                since: item.since,
+                since,
                 verdict: verdict(&path, item),
                 children: HashMap::new(),
             };
@@ -130,7 +176,7 @@ impl ApiCompat {
     pub(crate) fn resolve(&self, path: &[UNib32]) -> Option<Resolved<'_>> {
         let mut level = &self.root;
         let mut name = String::new();
-        let mut since = None;
+        let mut since = vec![];
         let mut path = path.iter();
         let mut resolved = None;
         while let Some(id) = path.next() {
@@ -144,9 +190,7 @@ impl ApiCompat {
                 // array index, absent when reading valid indices of the array itself
                 path.next();
             }
-            if node.since.is_some() {
-                since = since.max(node.since);
-            }
+            since.extend(node.since.clone());
             resolved = match resolved {
                 Some(verdict) if verdict != &Verdict::Compatible => Some(verdict),
                 _ => Some(&node.verdict),
@@ -187,18 +231,27 @@ impl ApiCompat {
     }
 }
 
-/// Walks an API bundle from the root, descending into traits, and collects every item with its id path.
+/// Walks an API bundle from the root, descending into traits, and collects every item with its id path and the
+/// crate of the trait (or root) that declares it.
 struct ItemCollector<'ast> {
     bundle: &'ast ApiBundleOwned,
     path: Vec<u32>,
     trait_stack: Vec<u32>,
-    items: Vec<(Vec<u32>, &'ast ApiItemOwned)>,
+    crate_stack: Vec<u32>,
+    items: Vec<(Vec<u32>, &'ast ApiItemOwned, u32)>,
 }
 
 impl<'ast> Visit<'ast> for ItemCollector<'ast> {
+    fn visit_api_level(&mut self, node: &'ast ApiLevelOwned) {
+        self.crate_stack.push(node.crate_idx.0);
+        ww_self::visit::visit_api_level(self, node);
+        self.crate_stack.pop();
+    }
+
     fn visit_api_item(&mut self, node: &'ast ApiItemOwned) {
         self.path.push(node.id.0);
-        self.items.push((self.path.clone(), node));
+        let crate_idx = self.crate_stack.last().copied().unwrap_or_default();
+        self.items.push((self.path.clone(), node, crate_idx));
         // traits are referred to by index, follow them to get the resource tree as the device sees it
         if let ApiItemKindOwned::Trait { trait_idx, .. } = &node.kind
             && !self.trait_stack.contains(&trait_idx.0)
@@ -220,7 +273,7 @@ fn omitted(device: &ApiBundleOwned) -> HashSet<Vec<u32>> {
         .flatten()
         .map(|id| vec![id.0])
         .collect();
-    for (path, item) in collect(device) {
+    for (path, item, _) in collect(device) {
         if let ApiItemKindOwned::Trait {
             omitted: Some(omitted),
             ..
@@ -236,11 +289,12 @@ fn omitted(device: &ApiBundleOwned) -> HashSet<Vec<u32>> {
     paths
 }
 
-fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned)> {
+fn collect(bundle: &ApiBundleOwned) -> Vec<(Vec<u32>, &ApiItemOwned, u32)> {
     let mut collector = ItemCollector {
         bundle,
         path: vec![],
         trait_stack: vec![],
+        crate_stack: vec![],
         items: vec![],
     };
     collector.visit_api_level(&bundle.root);
@@ -268,6 +322,36 @@ pub(crate) mod tests {
         ApiLevelLocationOwned, FieldsOwned, ItemStructOwned, TypeLocationOwned, TypeOwned,
     };
     use ww_version::FullVersionOwned;
+
+    /// [bundle] of an API crate with `dependencies`, lines of its `[dependencies]` section; written under the
+    /// workspace, so the walker finds its Cargo.lock and `[patch]`es for dependencies of those dependencies.
+    pub(crate) fn bundle_with(
+        name: &str,
+        version: &str,
+        lib_rs: &str,
+        dependencies: &str,
+    ) -> ApiBundleOwned {
+        let dir: PathBuf = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/ww_client_compat_tests")
+            .join(format!(
+                "{name}-{version}-{}-{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            format!(
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n{dependencies}\n"
+            ),
+        )
+        .unwrap();
+        let lib_rs = format!("use wire_weaver::prelude::*;\n\n{lib_rs}");
+        std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
+        let bundle = wire_weaver_core::load(&dir, None, true).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        bundle
+    }
 
     /// Build an API bundle from source, as codegen would, by writing a throwaway API crate.
     pub(crate) fn bundle(name: &str, version: &str, lib_rs: &str) -> ApiBundleOwned {
@@ -577,7 +661,9 @@ pub(crate) mod tests {
         let toggle = compat.resolve(&path(&[2])).unwrap();
         assert_eq!(toggle.name, "led_toggle");
         assert_eq!(toggle.verdict, &Verdict::Missing);
-        assert_eq!(toggle.since, Some(WireVersion::new(1, 1)));
+        let since: Vec<_> = toggle.since.iter().map(|m| (m.since, m.root)).collect();
+        assert_eq!(since, [(WireVersion::new(1, 1), true)]);
+        assert_eq!(toggle.since[0].device_wire, Some(WireVersion::new(1, 0)));
         assert_eq!(compat.mismatches().len(), 1);
 
         // resources the client doesn't know about are irrelevant
@@ -897,11 +983,107 @@ pub(crate) mod tests {
         let compat = ApiCompat::client_only(&bundle("client", "0.1.2", client));
         let m1 = compat.resolve(&path(&[1, 0])).unwrap();
         assert_eq!(m1.verdict, &Verdict::Compatible);
+        let since: Vec<_> = m1.since.iter().map(|m| (m.since, m.device_wire)).collect();
         assert_eq!(
-            m1.since,
-            Some(WireVersion::new(1, 2)),
-            "newest since along the path"
+            since,
+            [(WireVersion::new(1, 2), None), (WireVersion::new(1, 1), None)],
+            "every since along the path, the device's wire versions unknown"
         );
+    }
+
+    /// A `ww_stdlib` trait's `#[since]` names a revision of its own crate's wire version, not the API root's (EVO-26):
+    /// `ww_board_info` (w1.2) marks `set_reworks` `w1.2` under an API root at `w1.0`. The device's `ww_board_info` at
+    /// w1.2 has it, one at w1.1 doesn't, and the error names the crate.
+    #[test]
+    fn since_of_a_stdlib_crate() {
+        use crate::config::IntrospectBundle;
+        use crate::{Commander, Error};
+        use ww_client_server::PathKind;
+        use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
+
+        let board_info = format!(
+            "ww_board_info = {{ path = {:?} }}",
+            concat!(env!("CARGO_MANIFEST_DIR"), "/../ww_stdlib/ww_board_info")
+        );
+        let src = r#"
+            #[ww_api_root(wire = "w1.0")]
+            pub trait Api {
+                ww_impl!(board: ww_board_info::BoardInfo);
+            }
+        "#;
+        let client = bundle_with("client", "0.1.1", src, &board_info);
+        let device = bundle_with("device", "0.1.0", src, &board_info);
+        let board = |b: &ApiBundleOwned| {
+            b.ext_crates
+                .iter()
+                .position(|c| c.crate_id == "ww_board_info")
+                .unwrap() as u32
+        };
+        assert_eq!(client.crate_wire(board(&client)), Some(WireVersion::new(1, 2)));
+        assert_eq!(client.wire, Some(WireVersion::new(1, 0)));
+        let ApiItemKindOwned::Trait { .. } = &client.root.items[0].kind else {
+            panic!()
+        };
+        let level = client.root.items[0].get_as_level(&client).unwrap();
+        let set_reworks = level
+            .items
+            .iter()
+            .find(|i| i.ident == "set_reworks")
+            .unwrap()
+            .id
+            .0;
+
+        let introspect = |bundle, hash| {
+            IntrospectBundle::from_sent(
+                bundle,
+                ApiHashPairOwned {
+                    no_docs: ApiHashOwned { hash: vec![hash] },
+                    with_docs: ApiHashOwned { hash: vec![] },
+                },
+                0,
+            )
+            .unwrap()
+        };
+        let connect = |device: ApiBundleOwned| {
+            let (tx, _rx) = tokio::sync::mpsc::channel(1);
+            let mut cmd = Commander::new(tx);
+            cmd.connected_device.user_api_version =
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
+            cmd.connected_device.user_api_hash = introspect(device.clone(), 2).api_hash;
+            cmd.set_client_introspect(introspect(client.clone(), 1));
+            cmd.set_device_introspect(introspect(device, 2));
+            cmd.resolve_api_match();
+            cmd
+        };
+        let call = |cmd: &Commander| {
+            cmd.prepare_call::<(), Error>(
+                PathKind::absolute(&[UNib32(0), UNib32(set_reworks)]),
+                Ok(vec![]),
+                "",
+            )
+            .postpone_err
+        };
+
+        let cmd = connect(device.clone());
+        assert_eq!(cmd.connected_device.user_api_wire, Some(WireVersion::new(1, 0)));
+        assert!(call(&cmd).is_ok(), "{:?}", call(&cmd));
+
+        let mut older = device;
+        let idx = board(&older);
+        older.set_crate_wire(idx, Some(WireVersion::new(1, 1)));
+        let cmd = connect(older);
+        match call(&cmd) {
+            Err(e @ Error::OlderProtocol { .. }) => {
+                let Error::OlderProtocol { crate_id, device_wire, required, .. } = &e else {
+                    unreachable!()
+                };
+                assert_eq!(crate_id, "ww_board_info");
+                assert_eq!(*device_wire, WireVersion::new(1, 1));
+                assert_eq!(*required, WireVersion::new(1, 2));
+                assert!(e.to_string().contains("has ww_board_info at wire w1.1"), "{e}");
+            }
+            other => panic!("{other:?}"),
+        }
     }
     #[test]
     fn commander_fails_locally() {

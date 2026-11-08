@@ -37,3 +37,4 @@
   Freight), says which combinations make no sense and why, helps pick one, and describes each with its flash layout,
   flow, power-cut behaviour and the exchange recorded from its end-to-end test (`tests/dfu_scenarios`). The crate docs
   link to it first; the stored-plan mode resumes from an apply journal.
+- Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.

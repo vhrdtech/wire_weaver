@@ -23,3 +23,4 @@
   one-set capture is the simultaneous read). Full rustdoc on every trait and type; docs page
   `docs/std_library/ww_adc.md`; end-to-end test pair `tests/io_adc` / `tests/io_adc_api` with a mock server
   exercising every trait (busy/error paths, stream open/receive/close, polled capture trigger progression).
+- Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.

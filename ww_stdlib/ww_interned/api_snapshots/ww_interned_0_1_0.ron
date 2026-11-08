@@ -1,6 +1,6 @@
 // ww_interned 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 28d48a78f3d0f530184bdbcea1101e86373a9ea1fbd145e23c1506e51cf7decb
+// shrink_wrap sha256: fe391d4825b42214f2ec41b145105ffb6470679dcc14e30168764f6b431f66da
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Strings a device sends as a small number instead of text (STD-48).",
     "",
@@ -28,4 +28,6 @@
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: None)
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+]))

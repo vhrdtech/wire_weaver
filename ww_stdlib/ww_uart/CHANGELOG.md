@@ -4,6 +4,7 @@
 
 - `Uart` is `#[claim(exclusive)]` (SRV-34): a client can claim a port through the hub. Wire compatible, only the introspection data changes.
 - `UartConfig` and `MonitorConfig` derive `PartialEq`, so a device can keep a default config in a `ww_settings` group (STD-32), whose fields are compared with their default.
+- Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.
 
 ### ⚠️ Breaking
 

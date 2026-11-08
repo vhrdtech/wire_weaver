@@ -395,6 +395,7 @@ pub fn bundle_of(types: Vec<TypeOwned>, items: Vec<crate::ApiItemOwned>) -> ApiB
         )],
         root_omitted: None,
         wire: None,
+        ext_wire: None,
     };
     crate::generics::prepare(&mut bundle).expect("a valid bundle");
     bundle

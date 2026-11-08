@@ -1346,6 +1346,7 @@ mod tests {
             )],
             root_omitted: None,
             wire: None,
+            ext_wire: None,
         }
     }
 

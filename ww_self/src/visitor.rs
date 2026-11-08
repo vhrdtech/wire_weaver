@@ -484,6 +484,7 @@ mod tests {
             ext_crates: vec![],
             root_omitted: None,
             wire: None,
+            ext_wire: None,
         }
     }
 

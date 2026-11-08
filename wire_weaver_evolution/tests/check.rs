@@ -411,10 +411,12 @@ fn old_format_snapshot_passes_against_unchanged_source() {
         .run()
         .unwrap();
     assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
-    // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still, ApiBundle::wire (EVO-24) last
+    // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still, ApiBundle::wire (EVO-24) and
+    // ApiBundle::ext_wire (EVO-26) last
     assert_eq!(
         unrecorded(&outcome),
         [
+            "ApiBundle::ext_wire",
             "ApiBundle::wire",
             "ItemEnum::future_version",
             "ItemStruct::extra"
@@ -423,8 +425,8 @@ fn old_format_snapshot_passes_against_unchanged_source() {
     has_all(
         &outcome.to_string(),
         &[
-            "not compared: ApiBundle::wire, ItemEnum::future_version, ItemStruct::extra, which a snapshot saved by \
-            an older wire_weaver",
+            "not compared: ApiBundle::ext_wire, ApiBundle::wire, ItemEnum::future_version, ItemStruct::extra, which a \
+            snapshot saved by an older wire_weaver",
         ],
     );
 }

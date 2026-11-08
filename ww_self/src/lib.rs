@@ -114,6 +114,13 @@ pub struct ApiBundle<'i> {
     /// one made before wire versions existed.
     #[default = None]
     pub wire: Option<WireVersion>,
+    /// Wire version of each crate in `ext_crates`, by the same index (EVO-26): the revision every `#[since]` of that
+    /// crate's own traits, fields and variants names. A `#[ww_trait]` crate declares it in its `Cargo.toml`
+    /// (`[package.metadata.wire_weaver] wire = "w1.2"`), the API root crate with `#[ww_api_root(wire = ..)]` (also
+    /// in `wire` above). `None` inside: that crate declares none. `None`, or shorter than `ext_crates`: the crates
+    /// past its end declare none (a bundle made before EVO-26).
+    #[default = None]
+    pub ext_wire: Option<RefVec<'i, Option<WireVersion>>>,
     // Hash of ApiBundle with docs present (for a bundle with no docs) and vice versa.
     // pub toggle_doc_hash: ApiHash<'i>,
 }

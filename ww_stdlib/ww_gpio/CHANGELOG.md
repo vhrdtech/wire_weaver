@@ -27,6 +27,7 @@
   functions and properties can carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the
   client's warning about an unlisted error see them.
 - `Pin::capabilities` returns `PinCapabilities`: modes, pulls, speeds, events, the pin's name.
+- Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.
 
 ### 🐛 Fixes
 

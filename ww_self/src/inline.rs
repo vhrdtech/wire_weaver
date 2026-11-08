@@ -443,8 +443,11 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
         if let Some(found) = self.dst.ext_crates.iter().position(|v| v == version) {
             return Ok(found as u32);
         }
+        let wire = self.src.crate_wire(idx);
         self.dst.ext_crates.push(version.clone());
-        Ok(self.dst.ext_crates.len() as u32 - 1)
+        let new = self.dst.ext_crates.len() as u32 - 1;
+        self.dst.set_crate_wire(new, wire);
+        Ok(new)
     }
 
     fn type_idx(&mut self, idx: u32) -> Result<u32> {
@@ -553,8 +556,17 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
         if let Some(found) = self.dst.ext_crates.iter().position(|v| v == version) {
             return found as u32;
         }
+        // the crate's wire version (EVO-26) comes along from the bundle it is copied from
+        let wire = self
+            .src
+            .ext_crates
+            .iter()
+            .position(|v| v == version)
+            .and_then(|idx| self.src.crate_wire(idx as u32));
         self.dst.ext_crates.push(version.clone());
-        self.dst.ext_crates.len() as u32 - 1
+        let new = self.dst.ext_crates.len() as u32 - 1;
+        self.dst.set_crate_wire(new, wire);
+        new
     }
 
     fn remap(&mut self, idx: &mut UNib32, f: fn(&mut Self, u32) -> Result<u32>) {

@@ -41,6 +41,7 @@
   the arm. A local socket connection (`ipc_path`, `hub_api`, `hub_device`) opens its tunnel before the event loop
   starts, so a refusal fails `connect()` as this error.
 - `DeviceApiInfo` has a new field `host_max_message_size` (CLT-55): the longest message this host takes, as sent in link setup; code building one with a struct literal adds it. `Error` has a new variant `MessageTooBig { what, len, limit }` (`what` is a `wire_weaver::call::MessageKind`, `Request` or `Reply`): exhaustive matches need the arm.
+- `Error::OlderProtocol` gets `crate_id`, the crate whose wire revision the device lacks (EVO-26); its message names it (`has ww_board_info at wire w1.1`). Patterns with all fields add it.
 
 ### 🐛 Fixes
 
@@ -64,6 +65,7 @@
 - `connect_blocking()` reaches a local socket (`ClientConfig::ipc_path` / `hub_api` / `hub_device`, TOOL-18): its interface loop had no `InterfaceKind::Ipc` branch, so every blocking connect through a local socket or the ww hub failed with "no devices found" even with one answering; `wire_weaver_py`'s `connect(hub_device=...)` and `hub()` are the first callers.
 - A `LoopbackTest` sent while link setup still runs waits for the link instead of failing with "not connected".
 - `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.
+- `#[since]` of a resource is compared with the device's wire version of the crate that declares it (EVO-26), not always with the API root's: `ww_board_info`'s `set_reworks` (`w1.2` of `ww_board_info`) was refused on every device whose API root is at `w1.0`. Markers of the API's own crate still fall back to the root wire version when the device's API is unknown; a `ww_stdlib` crate's markers are checked only with the device's introspection data.
 
 ### 🚀 Features
 

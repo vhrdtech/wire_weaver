@@ -1,6 +1,6 @@
 // ww_log 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 20ce832f7b45ecec2b6a63485a52feb4bdb27779d9cd1f78b432e081eb02ddf0
+// shrink_wrap sha256: b3b004fc2ad054a040437748984866037f8d137de41a93252e43e2efd48225cb
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
     "records for firmware without defmt.",
@@ -173,4 +173,7 @@
 ], ext_crates: [
     (crate_id: "ww_log", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: None)
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+    Some((line: 1, revision: 0)),
+]))

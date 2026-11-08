@@ -21,3 +21,7 @@ defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_error = { workspace = true, default-features = false }
 ww_si = { workspace = true, features = ["time"] }
+
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"

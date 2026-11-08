@@ -9,7 +9,7 @@ use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;
 use std::collections::HashSet;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
-use ww_version::FullVersionOwned;
+use ww_version::{FullVersionOwned, WireVersion};
 
 impl ApiLevelOwned {
     pub fn crate_name<'i>(&self, bundle: &'i ApiBundleOwned) -> Result<&'i str> {
@@ -238,6 +238,32 @@ impl ApiBundleOwned {
             return Err(anyhow!("Bad ApiBundle: no crate with index: {}", crate_idx));
         };
         Ok(version)
+    }
+
+    /// Wire version of the crate `crate_idx` (EVO-26): what `#[since]` on its own traits, fields and variants is
+    /// compared with. Crate 0 of a bundle with no [ApiBundleOwned::ext_wire] entry for it falls back to
+    /// [ApiBundleOwned::wire], the API root's.
+    pub fn crate_wire(&self, crate_idx: u32) -> Option<WireVersion> {
+        let declared = self
+            .ext_wire
+            .as_ref()
+            .and_then(|w| w.get(crate_idx as usize).copied().flatten());
+        match declared {
+            None if crate_idx == 0 => self.wire,
+            declared => declared,
+        }
+    }
+
+    /// Set [Self::crate_wire] of `crate_idx`, padding [ApiBundleOwned::ext_wire] to [ApiBundleOwned::ext_crates]'s
+    /// length. Setting `None` where nothing is declared leaves `ext_wire` as it is.
+    pub fn set_crate_wire(&mut self, crate_idx: u32, wire: Option<WireVersion>) {
+        if wire.is_none() && self.ext_wire.is_none() {
+            return;
+        }
+        let ext_wire = self.ext_wire.get_or_insert_with(Vec::new);
+        let len = ext_wire.len().max(self.ext_crates.len()).max(crate_idx as usize + 1);
+        ext_wire.resize(len, None);
+        ext_wire[crate_idx as usize] = wire;
     }
 
     /// Get an API item at the provided path.

@@ -9,7 +9,7 @@ use crate::client::observe::{
 use crate::client::positioned::Shared;
 use crate::client::prepared_connection::Reconnect;
 use crate::client::sink::{Resumed, SinkLink};
-use crate::compat::{ApiCompat, ApiMatch, Verdict, has_since};
+use crate::compat::{ApiCompat, ApiMatch, Since, Verdict, has_since};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
 use crate::event_loop::command::{Command, StreamOpenHook};
@@ -33,7 +33,7 @@ use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, Priority, RequestKindOwned, StreamSideband};
 use ww_stream::StreamCursor;
-use ww_version::{CompactVersion, VersionOwned, WireVersion};
+use ww_version::{CompactVersion, VersionOwned};
 
 // TODO: in tests dispatcher command can arrive later than event with an answer (fixed with delay?), even though cmd are sent first, happens on real hw?
 // TODO: CommandSender outstanding request limit?
@@ -1137,10 +1137,10 @@ impl Commander {
         };
         let device = || Box::new(self.connected_device.user_api_version.clone());
         match resource.verdict {
-            Verdict::Compatible => self.check_version(resource.since),
+            Verdict::Compatible => self.check_version(&resource.since),
             Verdict::Missing => {
                 // prefer a more specific error if the resource was added later than device's version
-                self.check_version(resource.since)?;
+                self.check_version(&resource.since)?;
                 Err(Error::NotImplementedByDevice {
                     resource: resource.name,
                     device: device(),
@@ -1159,22 +1159,30 @@ impl Commander {
         }
     }
 
-    /// `#[since]` of a resource against the device's wire version (EVO-24). Not checked while the device's wire
-    /// version is unknown: no introspection data, and link setup doesn't carry it yet (EVO-25).
-    fn check_version(&self, since: Option<WireVersion>) -> Result<(), Error> {
-        let Some(since) = since else { return Ok(()) };
-        let Some(device_wire) = self.connected_device.user_api_wire else {
-            return Ok(());
-        };
-        if has_since(device_wire, since) {
-            Ok(())
-        } else {
-            Err(Error::OlderProtocol {
-                device: Box::new(self.connected_device.user_api_version.clone()),
-                device_wire,
-                required: since,
-            })
+    /// Every `#[since]` along a resource's path against the device's wire version of the crate that declares it
+    /// (EVO-24, EVO-26): a `ww_stdlib` trait's markers against the device's version of that crate, the API's own
+    /// against the device's root wire version. A marker whose crate's wire version on the device is unknown (no
+    /// introspection data for a `ww_stdlib` crate, or no wire version declared) isn't checked.
+    fn check_version(&self, markers: &[Since]) -> Result<(), Error> {
+        for marker in markers {
+            let device_wire = match marker.device_wire {
+                Some(wire) => wire,
+                None if marker.root => match self.connected_device.user_api_wire {
+                    Some(wire) => wire,
+                    None => continue,
+                },
+                None => continue,
+            };
+            if !has_since(device_wire, marker.since) {
+                return Err(Error::OlderProtocol {
+                    device: Box::new(self.connected_device.user_api_version.clone()),
+                    crate_id: marker.crate_id.clone(),
+                    device_wire,
+                    required: marker.since,
+                });
+            }
         }
+        Ok(())
     }
 
     pub fn disconnect(&self) -> PreparedDisconnect {

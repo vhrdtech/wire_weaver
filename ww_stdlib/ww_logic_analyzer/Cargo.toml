@@ -24,3 +24,7 @@ wire_weaver = { workspace = true, default-features = false }
 ww_gpio = { workspace = true, default-features = false }
 ww_i2c = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false }
+
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"

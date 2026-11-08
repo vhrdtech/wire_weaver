@@ -7,4 +7,5 @@
 ### 🚀 Features
 
 - `DateTime::from_ymd_hms_utc_opt` and `NaiveDate::from_ymd_opt` are `const fn`, for dates in `const` items.
+- Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.
 

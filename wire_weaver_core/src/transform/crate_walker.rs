@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
-use ww_version::{FullVersionOwned, VersionOwned};
+use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 /// Crates re-exported by `wire_weaver`, usable without depending on them directly.
 pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "ww_version"];
@@ -198,7 +198,7 @@ fn load_inner(
         Ok((entry, trait_name, items))
     })?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
-    let wire = get_wire_attr(&item_trait.attrs, &entry)?;
+    let wire = root_wire(get_wire_attr(&item_trait.attrs, &entry)?, &entry)?;
 
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
@@ -217,7 +217,24 @@ fn load_inner(
         ext_crates: scratch.root_bundle.ext_crates.clone(),
         root_omitted: None,
         wire,
+        ext_wire: scratch.root_bundle.ext_wire(wire),
     })
+}
+
+/// Wire version of a crate with an API root: its `#[ww_api_root(wire = ..)]`. Declaring it in `Cargo.toml` too is
+/// refused, one crate has one wire version and the root's is where readers look for it.
+pub(crate) fn root_wire(
+    attr: Option<WireVersion>,
+    crate_cx: &CrateContext,
+) -> Result<Option<WireVersion>> {
+    match (attr, crate_cx.wire) {
+        (Some(attr), Some(manifest)) => Err(anyhow!(
+            "the wire version is declared twice, `#[ww_api_root(wire = \"{attr}\")]` and \
+             `[package.metadata.wire_weaver] wire = \"{manifest}\"`: an API root crate keeps only the attribute"
+        ))
+        .context(crate_cx.err_context()),
+        (attr, manifest) => Ok(attr.or(manifest)),
+    }
 }
 
 /// Main scratch space and cache used to build ApiBundleOwned
@@ -293,6 +310,8 @@ pub(crate) struct ApiBundleScratch {
     pub(crate) types: Vec<TypeLocationOwned>,
     pub(crate) traits: Vec<ApiLevelLocationOwned>,
     pub(crate) ext_crates: Vec<FullVersionOwned>,
+    /// Wire version each crate of `ext_crates` declares, by the same index (EVO-26).
+    pub(crate) ext_wire: Vec<Option<WireVersion>>,
 }
 
 impl ApiBundleScratch {
@@ -315,6 +334,7 @@ impl ApiBundleScratch {
             ext_crates: self.ext_crates.clone(),
             root_omitted: None,
             wire: None,
+            ext_wire: None,
         }
     }
 
@@ -328,7 +348,18 @@ impl ApiBundleScratch {
         }
         let idx = self.ext_crates.len() as u32;
         self.ext_crates.push(current_crate.version.clone());
+        self.ext_wire.push(current_crate.wire);
         idx.into()
+    }
+
+    /// [ApiBundleOwned::ext_wire] of the crates so far, crate 0's being `root_wire` (its `#[ww_api_root(wire = ..)]`
+    /// or its manifest's); `None` when no crate declares one.
+    pub(crate) fn ext_wire(&self, root_wire: Option<WireVersion>) -> Option<Vec<Option<WireVersion>>> {
+        let mut ext_wire = self.ext_wire.clone();
+        if let Some(first) = ext_wire.first_mut() {
+            *first = root_wire;
+        }
+        ext_wire.iter().any(Option::is_some).then_some(ext_wire)
     }
 
     pub(crate) fn find_type(&self, ty: &TypeOwned) -> Option<UNib32> {
@@ -364,6 +395,8 @@ impl ApiBundleScratch {
 pub(crate) struct CrateContext {
     manifest: Rc<ManifestContext>,
     version: FullVersionOwned,
+    /// Wire version the crate declares in its `Cargo.toml`, `[package.metadata.wire_weaver] wire = "w1.2"` (EVO-26).
+    pub(crate) wire: Option<WireVersion>,
     /// Features the crate is built with, `#[cfg_attr(..)]` in `lib_rs_ast` are expanded with them (API-60).
     features: Rc<Features>,
     /// `src/lib.rs`, or a module of the crate when resolving paths through it. Shared: a context is cloned for
@@ -424,6 +457,7 @@ impl CrateContext {
             scratch.sources.entry_dir = Some(manifest.crate_path.clone());
         }
         let version = manifest.full_version(scratch)?;
+        let wire = manifest.wire()?;
         let features = match scratch.crates.get(&version) {
             Some(crate_cx) if features.is_subset(&crate_cx.features) => {
                 let crate_cx = crate_cx.clone();
@@ -453,6 +487,7 @@ impl CrateContext {
             mod_dir: manifest.crate_path.join("src"),
             manifest,
             version,
+            wire,
             features: Rc::new(features),
             lib_rs_ast: Rc::new(lib_rs),
             mod_path: vec![],
@@ -628,6 +663,7 @@ impl CrateContext {
         Ok(Some(Self {
             manifest: self.manifest.clone(),
             version: self.version.clone(),
+            wire: self.wire,
             features: self.features.clone(),
             lib_rs_ast: Rc::new(ast),
             mod_dir,
@@ -972,6 +1008,32 @@ impl ManifestContext {
         };
         let known = (package.name.clone(), version);
         Ok(self.package_version.get_or_init(|| known).clone())
+    }
+
+    /// The wire version in `[package.metadata.wire_weaver] wire = "w1.2"` (EVO-26), `None` without one. A crate
+    /// version or a bare `1.2` is refused, as in `#[ww_api_root(wire = ..)]`.
+    fn wire(&self) -> Result<Option<WireVersion>> {
+        let Some(wire) = self
+            .manifest
+            .package
+            .as_ref()
+            .and_then(|p| p.metadata.as_ref())
+            .and_then(|m| m.get("wire_weaver"))
+            .and_then(|m| m.get("wire"))
+        else {
+            return Ok(None);
+        };
+        let wire = wire
+            .as_str()
+            .ok_or_else(|| anyhow!("expected a string: `wire = \"w1.0\"`"))
+            .and_then(|s| s.parse::<WireVersion>().map_err(|e| anyhow!("`{s}`: {e}")))
+            .with_context(|| {
+                format!(
+                    "[package.metadata.wire_weaver] wire in {}/Cargo.toml",
+                    self.crate_path.display()
+                )
+            })?;
+        Ok(Some(wire))
     }
 
     /// Features of this crate when nobody asks for any: its default ones.

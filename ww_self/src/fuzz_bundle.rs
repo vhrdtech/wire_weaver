@@ -163,6 +163,7 @@ impl Gen<'_> {
             )],
             root_omitted: None,
             wire: None,
+            ext_wire: None,
         }
     }
 

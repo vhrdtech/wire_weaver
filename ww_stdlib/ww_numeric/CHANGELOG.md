@@ -17,6 +17,7 @@
 * `NumericValueCells`, the `shrink_wrap::series::SeriesCells` of `NumericValue` (API-50, observe cells): the
   variant byte and the payload word of `NumericValueStore` as atomics, copied out column by column; `put` is
   `#[inline(always)]` (a known variant folds to two stores).
+* Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.
 
 ### ⚠️ Breaking
 

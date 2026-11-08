@@ -1,6 +1,6 @@
 use super::{
     api::convert_trait,
-    crate_walker::{CrateContext, Scratch},
+    crate_walker::{CrateContext, Scratch, root_wire},
     ty::{convert_named_def, is_phantom_data},
     util::{collect_docs, get_wire_attr, use_tree_globs, use_tree_names, use_tree_path_to},
 };
@@ -30,7 +30,9 @@ use ww_version::FullVersionOwned;
 /// * `root` is named after the crate, contains crate-level docs, and one [ApiItemKindOwned::Trait] item per trait
 ///   in source order (empty for crates with data types only).
 /// * `ext_crates[0]` is the crate itself.
-/// * `wire` is the wire version of the crate's `#[ww_api_root(wire = ..)]` (EVO-24), `None` without one.
+/// * `wire` is the crate's wire version: its `#[ww_api_root(wire = ..)]` (EVO-24), or for a crate without an API
+///   root the `[package.metadata.wire_weaver] wire = ..` of its `Cargo.toml` (EVO-26); `None` without either.
+///   `ext_wire` has it for every crate in `ext_crates` that declares one.
 /// * Traits and types defined in this crate are in-line, traits and types from other crates are skipped
 ///   (their definitions belong to those crates' snapshots), with a signature of the left out definition
 ///   (see [ww_self::signature]). Entries only needed by skipped definitions are dropped.
@@ -92,11 +94,13 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
                 }
             }
         }
+        let wire = root_wire(wire, &entry)?;
         Ok((entry, items, wire))
     })?;
 
     let unit_hints = scratch.unit_hints;
     let scratch = scratch.root_bundle;
+    let ext_wire = scratch.ext_wire(wire);
     let mut bundle = ApiBundleOwned {
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
@@ -113,6 +117,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
         ext_crates: scratch.ext_crates,
         root_omitted: None,
         wire,
+        ext_wire,
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, true);
@@ -481,6 +486,10 @@ fn drop_unused(bundle: &mut ApiBundleOwned, keep_own_types: bool) {
     retain_used(&mut bundle.types, &used_types);
     retain_used(&mut bundle.traits, &used_traits);
     retain_used(&mut bundle.ext_crates, &used_crates);
+    if let Some(ext_wire) = &mut bundle.ext_wire {
+        ext_wire.resize(used_crates.len(), None);
+        retain_used(ext_wire, &used_crates);
+    }
     remap.visit_api_bundle(bundle);
 }
 

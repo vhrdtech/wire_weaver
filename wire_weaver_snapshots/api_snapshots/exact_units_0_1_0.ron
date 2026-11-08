@@ -3940,4 +3940,4 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Scale((symbol: "", magnitude: (pow10: 0, pow2: 2, pi: 2)))))))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: None)
+], root_omitted: None, wire: None, ext_wire: None)

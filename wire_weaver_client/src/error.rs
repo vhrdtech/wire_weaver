@@ -59,13 +59,16 @@ pub enum Error {
     )]
     UnknownPeerFormat { kind: u8, bytes: Vec<u8> },
     #[error(
-        "Connected device {device:?} is at wire {device_wire}, the operation needs {required} or newer"
+        "Connected device {device:?} has {crate_id} at wire {device_wire}, the operation needs {required} or newer"
     )]
     OlderProtocol {
         device: Box<FullVersionOwned>,
-        /// Wire version of the device's API (EVO-24).
+        /// The crate whose wire revision is too old on the device: the API's own, or a `ww_stdlib` crate whose trait
+        /// declares the resource (EVO-26).
+        crate_id: String,
+        /// The device's wire version of that crate (EVO-24).
         device_wire: WireVersion,
-        /// `#[since]` of the resource, the newest along its path.
+        /// The `#[since]` along the resource's path the device doesn't have.
         required: WireVersion,
     },
     #[error("'{resource}' is not implemented by the connected device, its API is {device:?}")]

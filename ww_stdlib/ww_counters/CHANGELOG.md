@@ -22,3 +22,4 @@
 - Feature `host`: `host::WwSource`, a device's counters as a `cnt_core::Source` over a `CountersDevice` (the two
   calls on a generated client), with `check` against the ELF (format version, used words), so `cnt_core` decodes
   them and `cnt_view` shows them (`ww counters`).
+- Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.

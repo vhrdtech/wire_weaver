@@ -24,3 +24,7 @@ ww_global.workspace = true
 
 [dev-dependencies]
 hex-literal.workspace = true
+
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"

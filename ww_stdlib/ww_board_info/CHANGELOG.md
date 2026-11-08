@@ -43,6 +43,7 @@
   unknown applied numbers last), `unknown`, `known_ids` / `IdRanges` (`1-5, 7, 8`).
 - `RevisionSource::Provisional` (STD-24), appended after `Assumed`: a provisional record a bench or developer wrote
   in flash, standing in for the production record. Wire-compatible: older readers get the `future_version` variant.
+- Wire version `w1.2` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.2"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed. Its markers name these revisions: `RevisionSource::Provisional` `w1.1`, `BoardInfo::REWORKS` and `set_reworks` `w1.2`; a host compares them with the device's `ww_board_info` wire version, no longer with the API root's.
 
 ### ⚠️ Breaking
 

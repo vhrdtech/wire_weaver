@@ -324,7 +324,7 @@ fn dtype(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<&'static str> {
         B::U64 | B::UVlq64 => "uint64",
         B::I8 => "int8",
         B::I16 => "int16",
-        B::I32 => "int32",
+        B::I32 | B::INib32 => "int32",
         B::I64 => "int64",
         B::F32 => "float32",
         B::F64 => "float64",

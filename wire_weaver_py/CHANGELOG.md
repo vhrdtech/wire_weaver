@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `INib32` (SW-24): converts to and from a plain Python `int`, like `i32`; its numpy column dtype is `int32`.
 - `dev.info` shows the device's wire version and the hello generations this connection agreed on, next to the
   crate versions (EVO-34): `API wire version: w2.3` (or `none`) and `Hello generations: framer=1 link=1
   shrink_wrap=1 api_model=1`.

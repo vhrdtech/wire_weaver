@@ -3,7 +3,7 @@
 //! | WireWeaver                        | Python                                                              |
 //! |-----------------------------------|---------------------------------------------------------------------|
 //! | `bool`                            | `bool`                                                              |
-//! | integers, `UNib32`, `u4`, `nib`   | `int` (range is checked)                                            |
+//! | integers, `UNib32`, `INib32`, `u4`, `nib` | `int` (range is checked)                                    |
 //! | `f32`, `f64`                      | `float` (`int` accepted)                                            |
 //! | `String`, `&str`                  | `str`                                                               |
 //! | `Vec<u8>`, `[u8; N]`              | `bytes` (`bytearray` or a list of ints accepted)                    |
@@ -29,7 +29,7 @@ use pyo3::prelude::*;
 use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyInt, PyList, PyRange, PyString, PyTuple,
 };
-use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
+use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
 use wire_weaver_client::quantity::{
     DynQuantity, Prefix, fixed_of, is_any_quantity, stored_number, unit_of,
 };
@@ -512,6 +512,7 @@ fn to_numeric(obj: &Bound<'_, PyAny>, base: &NumericBaseType) -> PyResult<Numeri
         B::I8 => V::I8(int!(i8)),
         B::I16 => V::I16(int!(i16)),
         B::I32 => V::I32(int!(i32)),
+        B::INib32 => V::INib32(INib32(int!(i32))),
         B::I64 => V::I64(int!(i64)),
         B::I128 => V::I128(v),
         B::UB(bits) => {
@@ -703,7 +704,7 @@ pub(crate) fn numeric_to_py<'py>(py: Python<'py>, n: &NumericValue) -> PyResult<
         V::U128(v) => v.into_pyobject(py)?.into_any(),
         V::I8(v) => v.into_pyobject(py)?.into_any(),
         V::I16(v) => v.into_pyobject(py)?.into_any(),
-        V::I32(v) => v.into_pyobject(py)?.into_any(),
+        V::I32(v) | V::INib32(INib32(v)) => v.into_pyobject(py)?.into_any(),
         V::I64(v) => v.into_pyobject(py)?.into_any(),
         V::I128(v) => v.into_pyobject(py)?.into_any(),
         V::F32(v) => (*v as f64).into_pyobject(py)?.into_any(),

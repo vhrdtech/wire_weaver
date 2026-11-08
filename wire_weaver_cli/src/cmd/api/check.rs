@@ -85,6 +85,8 @@ pub(crate) fn print_report(report: &Report, old_path: &Path, new_label: &str) {
             _ => style(report.change).yellow(),
         }
     );
+    // both bumps the changes need, the wire version's and the crate's (EVO-27)
+    println!("  {} {}", style("needs:").bold(), report.required());
     for finding in &report.breaking {
         // a break of Rust code only, devices and hosts of both versions still talk (EVO-22)
         let label = match finding.rule.keeps_wire() {

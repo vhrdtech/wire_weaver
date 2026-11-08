@@ -242,6 +242,14 @@ impl Check {
                         triplet(&report.minimal_version())
                     ));
                 }
+                if let Err(e) = report.check_wire()
+                    && !force
+                {
+                    return Err(format!(
+                        "{e}.\nNot saved: {} and save again.",
+                        wire_hint(&report, Some(&self.path))
+                    ));
+                }
                 Some((previous.path, report))
             }
             None => None,
@@ -421,6 +429,24 @@ impl Outcome {
 impl Comparison {
     fn verdict(&self) -> Result<String, String> {
         let report = &self.report;
+        let wire = report.check_wire().err().map(|e| {
+            format!(
+                "{e}.\n{} (docs/evolution/rules.md#the-wire-version).",
+                capitalized(&wire_hint(report, self.crate_path.as_deref()))
+            )
+        });
+        let version = self.version_verdict();
+        match (version, wire) {
+            (Ok(ok), None) => Ok(ok),
+            (Ok(_), Some(wire)) => Err(wire),
+            (Err(version), None) => Err(version),
+            (Err(version), Some(wire)) => Err(format!("{version}\n{wire}")),
+        }
+    }
+
+    /// [Self::verdict] of the crate version alone.
+    fn version_verdict(&self) -> Result<String, String> {
+        let report = &self.report;
         if let Err(e) = report.check_version() {
             let same_version = report.old.version == report.new.version;
             let mut msg = format!("{e}.");
@@ -479,6 +505,44 @@ impl Comparison {
                 self.new_label
             )
         }
+    }
+}
+
+/// What to change for [Report::check_wire]: the wire version to declare, and where it is declared.
+fn wire_hint(report: &Report, crate_path: Option<&Path>) -> String {
+    let at = wire_declared_at(crate_path);
+    match (report.minimal_wire(), report.new_wire) {
+        (Some(min), Some(new)) if new < min => {
+            format!("bump the wire version in {at} to {min} or later")
+        }
+        (Some(min), None) => format!("declare the wire version in {at}, {min} or later"),
+        _ => format!("fix the #[since] markers or bump the wire version in {at}"),
+    }
+}
+
+/// Where the crate at `crate_path` declares its wire version: `[package.metadata.wire_weaver] wire` in its
+/// `Cargo.toml` when that has it (a crate without an API root, EVO-26), else the API root's attribute. The only place
+/// the checker decides this, so moving every crate's wire version into `Cargo.toml` changes this function alone.
+fn wire_declared_at(crate_path: Option<&Path>) -> String {
+    let cargo_toml = crate_path.map(|p| p.join("Cargo.toml"));
+    let in_manifest = cargo_toml.as_ref().is_some_and(|path| {
+        fs::read_to_string(path).is_ok_and(|text| text.contains("[package.metadata.wire_weaver]"))
+    });
+    match (in_manifest, cargo_toml) {
+        (true, Some(path)) => format!("`[package.metadata.wire_weaver] wire` of {}", path.display()),
+        (false, Some(_)) => "`#[ww_api_root(wire = ..)]`".to_string(),
+        // a snapshot file: either
+        (_, None) => "`#[ww_api_root(wire = ..)]` (or `[package.metadata.wire_weaver] wire` in `Cargo.toml` of a \
+                      crate without an API root)"
+            .to_string(),
+    }
+}
+
+fn capitalized(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
     }
 }
 
@@ -587,6 +651,7 @@ impl fmt::Display for Comparison {
             self.new_label,
             report.change
         )?;
+        write!(f, "\n  needs: {}", report.required())?;
         let (groups, rest) = report.breaking_groups();
         for (root, findings) in &groups {
             write!(f, "\n  {} broken because {root} changed:", findings.len())?;

@@ -11,6 +11,15 @@
 //!
 //! Resources are matched by id inside each trait, traits and types by name.
 //!
+//! The wire version (`#[ww_api_root(wire = "w2.3")]`, or `[package.metadata.wire_weaver] wire` in `Cargo.toml`) is
+//! checked apart from the crate version, see [WireBump] (EVO-27):
+//!
+//! * A new line (`w2.3` -> `w3.0`): a change that breaks the wire, as above, but not one that only breaks Rust code
+//!   (a rename, an argument added at the end with a default).
+//! * A new revision (`w2.3` -> `w2.4`): a wire-compatible addition, e.g. a new method, a field or a trailing argument
+//!   with a default, a dependency crate at a newer revision of its line.
+//! * Nothing else needs a wire bump. A line bumped by hand for a change of meaning is always accepted.
+//!
 //! [diff] lists every difference instead, doc comments included, without classifying them.
 //!
 //! With the default `source` feature, [Check] parses an API crate from source and compares it with the snapshots in
@@ -43,6 +52,7 @@ use crate::compat::{
     Bounds, TypeCheck, Unwrapped, compare_items, field_name, fields, signature_change,
 };
 use crate::recorded::{Recorded, Unrecorded};
+pub use compat::SignatureChange;
 
 #[cfg(feature = "source")]
 mod check;
@@ -86,6 +96,49 @@ pub enum Bump {
     Compatible,
     /// Minor before 1.0, major after.
     Breaking,
+}
+
+/// Wire version position that has to be bumped (EVO-27), from the least to the most severe.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WireBump {
+    /// Nothing on the wire changed: doc comments, renames, a `#[flatten]` promotion, error lists.
+    None,
+    /// A new revision on the line (`w2.3` -> `w2.4`): wire-compatible additions.
+    Revision,
+    /// A new line (`w2.3` -> `w3.0`): a wire break, peers of the two versions no longer talk.
+    Line,
+}
+
+impl WireBump {
+    /// The smallest wire version after `old` with this bump.
+    pub fn apply(&self, old: WireVersion) -> WireVersion {
+        match self {
+            WireBump::None => old,
+            WireBump::Revision => old.next_revision(),
+            WireBump::Line => old.next_line(),
+        }
+    }
+
+    /// Bump between two wire versions, [WireBump::None] when `new` is not newer.
+    pub fn between(old: WireVersion, new: WireVersion) -> WireBump {
+        if new.line.0 > old.line.0 {
+            WireBump::Line
+        } else if new > old {
+            WireBump::Revision
+        } else {
+            WireBump::None
+        }
+    }
+}
+
+impl fmt::Display for WireBump {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            WireBump::None => "no wire bump",
+            WireBump::Revision => "a new wire revision",
+            WireBump::Line => "a new wire line",
+        })
+    }
 }
 
 impl Change {
@@ -134,6 +187,17 @@ pub struct Report {
     /// Fields of the model that one of the snapshot files compared doesn't have (saved by an older wire_weaver), left
     /// out on both sides, see [compare_recorded].
     pub unrecorded: Vec<Unrecorded>,
+    /// Wire versions of the crate on each side (EVO-24, EVO-26), `None` where it declares none.
+    pub old_wire: Option<WireVersion>,
+    pub new_wire: Option<WireVersion>,
+    /// Wire position the changes need bumped (EVO-27), whether or not the crate declares a wire version.
+    pub wire_bump: WireBump,
+    /// Why [Self::wire_bump] is needed: the wire breaks (several caused by one dependency named once, EVO-21) for
+    /// a new line, the wire-compatible additions for a new revision.
+    pub wire_reasons: Vec<String>,
+    /// Items, fields and variants with a `#[since]` newer than the new wire version: a host built with it refuses
+    /// them on every device of this version, which [Self::check_wire] fails on.
+    pub since_too_new: Vec<String>,
 }
 
 impl Report {
@@ -166,6 +230,77 @@ impl Report {
             required,
             display(&self.minimal_version())
         ))
+    }
+
+    /// Smallest wire version the new one has to be for the changes found, `None` when the old side declares none.
+    pub fn minimal_wire(&self) -> Option<WireVersion> {
+        self.old_wire.map(|old| self.wire_bump.apply(old))
+    }
+
+    /// Checks that the new wire version is bumped enough for the changes found (EVO-27) and that no `#[since]` is
+    /// newer than it. A crate declaring no wire version on the old side has nothing to compare with, and passes; one
+    /// that stops declaring it fails. Any bump beyond what is needed is accepted, e.g. a new line by hand for a
+    /// change of meaning.
+    pub fn check_wire(&self) -> Result<(), String> {
+        let crate_id = &self.new.crate_id;
+        let mut errors = vec![];
+        match (self.old_wire, self.new_wire) {
+            (None, _) => {}
+            (Some(old), None) => errors.push(format!(
+                "{crate_id} declared wire version {old}, the new version declares none"
+            )),
+            (Some(old), Some(new)) if new < old => {
+                errors.push(format!("{crate_id} wire version {new} is older than {old}"))
+            }
+            (Some(old), Some(new)) if WireBump::between(old, new) < self.wire_bump => {
+                errors.push(format!(
+                    "{crate_id} wire {old} -> {new} has {}, which needs {}: {} or later",
+                    self.wire_reasons_short(),
+                    self.wire_bump,
+                    self.wire_bump.apply(old)
+                ))
+            }
+            _ => {}
+        }
+        for item in &self.since_too_new {
+            errors.push(item.clone());
+        }
+        match errors.is_empty() {
+            true => Ok(()),
+            false => Err(errors.join(".\n")),
+        }
+    }
+
+    /// [Self::wire_reasons], the first three and how many more.
+    fn wire_reasons_short(&self) -> String {
+        let mut short = self.wire_reasons[..self.wire_reasons.len().min(3)].join("; ");
+        if self.wire_reasons.len() > 3 {
+            short.push_str(&format!(" and {} more", self.wire_reasons.len() - 3));
+        }
+        short
+    }
+
+    /// The bumps needed, both in one line: `wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.1.1 or
+    /// later (compatible position ...)`.
+    pub fn required(&self) -> String {
+        let wire = match (self.old_wire, self.minimal_wire()) {
+            (Some(old), Some(_)) if self.wire_bump == WireBump::None => {
+                format!("wire {old} (no wire bump)")
+            }
+            (Some(old), Some(min)) => format!("wire {old} -> {min} or later ({})", self.wire_bump),
+            _ if self.wire_bump == WireBump::None => "no wire version declared".to_string(),
+            _ => format!("no wire version declared ({} if it were)", self.wire_bump),
+        };
+        let required = self.change.required_bump();
+        let crate_ = match required {
+            Bump::None => format!("crate {} (no bump)", display(&self.old.version)),
+            _ => format!(
+                "crate {} -> {} or later ({required})",
+                display(&self.old.version),
+                display(&self.minimal_version())
+            ),
+        };
+        format!("{wire}, {crate_}")
     }
 
     /// [Self::breaking] grouped by [Finding::root], in the order each root was first found: several items broken by
@@ -256,12 +391,15 @@ fn compare_with(
         warnings: vec![],
         old_wire: old.wire,
         new_wire: new.wire,
+        wire_additions: vec![],
+        wire_lines: vec![],
         signatures,
     };
     checker.compare_wire();
     checker.compare_traits();
     checker.compare_types();
-    checker.since_not_newer();
+    checker.compare_dependency_wires();
+    let since_too_new = checker.since_not_newer();
 
     let change = if !checker.breaking.is_empty() {
         Change::Breaking
@@ -277,6 +415,11 @@ fn compare_with(
     } else {
         Change::None
     };
+    let (wire_bump, wire_reasons) = wire_bump(
+        &checker.breaking,
+        checker.wire_lines,
+        checker.wire_additions,
+    );
     Ok(Report {
         old: old_version.clone(),
         new: new_version.clone(),
@@ -285,7 +428,69 @@ fn compare_with(
         compatible: checker.compatible,
         warnings: checker.warnings,
         unrecorded: vec![],
+        old_wire: old.wire,
+        new_wire: new.wire,
+        wire_bump,
+        wire_reasons,
+        since_too_new,
     })
+}
+
+/// [Report::wire_bump] and [Report::wire_reasons]: a new line for any finding that breaks the wire (its rule doesn't
+/// [keep it](Rule::keeps_wire)) or a dependency on another line, several findings with one root named once, and
+/// under the dependency's new line when the root is in that crate (EVO-21); else a new revision for any
+/// wire-compatible addition.
+fn wire_bump(
+    breaking: &[Finding],
+    lines: Vec<DependencyLine>,
+    additions: Vec<String>,
+) -> (WireBump, Vec<String>) {
+    let mut roots: Vec<(&RootCause, usize)> = vec![];
+    let mut plain = vec![];
+    for finding in breaking.iter().filter(|f| !f.rule.keeps_wire()) {
+        match &finding.root {
+            Some(root) => match roots.iter_mut().find(|(r, _)| *r == root) {
+                Some((_, n)) => *n += 1,
+                None => roots.push((root, 1)),
+            },
+            None => plain.push(format!("a wire break ({})", finding.message)),
+        }
+    }
+    let breaks = |n: usize| match n {
+        1 => "a wire break".to_string(),
+        n => format!("{n} wire breaks"),
+    };
+    let mut reasons = vec![];
+    for line in &lines {
+        let caused: Vec<String> = roots
+            .iter()
+            .filter(|(root, _)| root.crate_id == line.crate_id)
+            .map(|(root, n)| format!("{} because {root} changed", breaks(*n)))
+            .collect();
+        reasons.push(match caused.is_empty() {
+            true => line.message.clone(),
+            false => format!("{} ({})", line.message, caused.join(", ")),
+        });
+    }
+    for (root, n) in &roots {
+        if !lines.iter().any(|line| line.crate_id == root.crate_id) {
+            reasons.push(format!("{} because {root} changed", breaks(*n)));
+        }
+    }
+    reasons.append(&mut plain);
+    if !reasons.is_empty() {
+        return (WireBump::Line, reasons);
+    }
+    match additions.is_empty() {
+        true => (WireBump::None, vec![]),
+        false => (WireBump::Revision, additions),
+    }
+}
+
+/// A dependency crate on another wire line than before (EVO-27).
+struct DependencyLine {
+    crate_id: String,
+    message: String,
 }
 
 struct Checker<'a> {
@@ -298,11 +503,21 @@ struct Checker<'a> {
     /// none.
     old_wire: Option<WireVersion>,
     new_wire: Option<WireVersion>,
+    /// Wire-compatible additions found, each a new wire revision (EVO-27), also listed in `compatible`.
+    wire_additions: Vec<String>,
+    /// Dependency crates on another wire line than before, each a new wire line (EVO-27).
+    wire_lines: Vec<DependencyLine>,
     /// Definitions left out on one side are checked by their signatures, see [TypeCheck::compare_signatures].
     signatures: bool,
 }
 
 impl<'a> Checker<'a> {
+    /// A compatible change that the wire carries: a new wire revision (EVO-27).
+    fn adds(&mut self, message: String) {
+        self.wire_additions.push(message.clone());
+        self.compatible.push(message);
+    }
+
     fn breaks(&mut self, rule: Rule, message: String) {
         self.breaking.push(Finding::new(rule, message));
     }
@@ -324,7 +539,7 @@ impl<'a> Checker<'a> {
         }
         for name in new_traits.keys() {
             if !old_traits.contains_key(name) {
-                self.compatible.push(format!("trait {name} added"));
+                self.adds(format!("trait {name} added"));
             }
         }
     }
@@ -341,9 +556,9 @@ impl<'a> Checker<'a> {
                 "trait {name}: ww_global id {} gone (ids are never removed, a removed trait is marked `retired`)",
                 old_id.0
             )),
-            (None, Some(new_id)) => self
-                .compatible
-                .push(format!("trait {name}: ww_global id {} assigned", new_id.0)),
+            (None, Some(new_id)) => {
+                self.adds(format!("trait {name}: ww_global id {} assigned", new_id.0))
+            }
             _ => {}
         }
         self.compare_meta(
@@ -403,7 +618,11 @@ impl<'a> Checker<'a> {
                 self.breaks_with_root(rule, format!("{path}: {e}"), bounds.root.clone());
             } else if let Some(change) = signature_change(&old_item.kind, &new_item.kind) {
                 // EVO-22: the wire is fine, the Rust signatures are not
-                self.breaks(Rule::Signature, format!("{path}: {change}"));
+                self.breaks(Rule::Signature, format!("{path}: {}", change.message));
+                if change.arguments_changed {
+                    self.wire_additions
+                        .push(format!("{path}: arguments added or removed at the end"));
+                }
             }
             self.bounds_raised(&path, bounds.narrower);
             self.unwrapped(&path, &bounds.unwrapped);
@@ -418,7 +637,7 @@ impl<'a> Checker<'a> {
             };
             if old.items.iter().all(is_new) {
                 let path = format!("{name}::{}", new_item.ident);
-                self.compatible.push(format!("{path} added"));
+                self.adds(format!("{path} added"));
                 self.check_since(&path, new_item.since);
             }
         }
@@ -557,7 +776,7 @@ impl<'a> Checker<'a> {
         }
         for name in new_types.keys() {
             if !old_types.contains_key(name) {
-                self.compatible.push(format!("type {name} added"));
+                self.adds(format!("type {name} added"));
             }
         }
     }
@@ -566,8 +785,7 @@ impl<'a> Checker<'a> {
     /// read, but values the new version writes beyond the old bound are rejected by the old version.
     fn bounds_raised(&mut self, path: &str, narrower: Vec<String>) {
         for msg in narrower {
-            self.compatible
-                .push(format!("{path}: max length raised ({msg})"));
+            self.adds(format!("{path}: max length raised ({msg})"));
         }
     }
 
@@ -632,7 +850,10 @@ impl<'a> Checker<'a> {
                                 &new_variant.fields,
                             );
                         }
-                        None => self.check_since(&path, new_variant.since),
+                        None => {
+                            self.adds(format!("{path} added"));
+                            self.check_since(&path, new_variant.since)
+                        }
                     }
                 }
             }
@@ -666,10 +887,9 @@ impl<'a> Checker<'a> {
                 if !old.iter().any(|f| f.ident == new_field.ident) {
                     let path = format!("{name}: field {}", field_name(i, new_field));
                     if i < last_old {
-                        self.compatible
-                            .push(format!("{path} added into unused padding bits"));
+                        self.adds(format!("{path} added into unused padding bits"));
                     } else {
-                        self.compatible.push(format!("{path} added"));
+                        self.adds(format!("{path} added"));
                     }
                     self.check_since(&path, new_field.since);
                 }
@@ -690,24 +910,59 @@ impl<'a> Checker<'a> {
         }
         for (i, new_field) in new.iter().enumerate().skip(old.len()) {
             let path = format!("{name}: field {}", field_name(i, new_field));
-            self.compatible.push(format!("{path} added"));
+            self.adds(format!("{path} added"));
             self.check_since(&path, new_field.since);
         }
     }
 
-    /// The API root's wire version (EVO-24), when either side has one. Which bump a change needs is EVO-27's.
+    /// The crate's wire version (EVO-24, EVO-26), when either side has one, listed. Whether it is bumped enough, or
+    /// goes back, is [Report::check_wire]'s.
     fn compare_wire(&mut self) {
         match (self.old_wire, self.new_wire) {
-            (Some(old), Some(new)) if old == new => {}
-            (Some(old), Some(new)) if new < old => self
-                .warnings
-                .push(format!("wire version {old} goes back to {new}")),
-            (Some(old), Some(new)) => self.compatible.push(format!("wire version {old} -> {new}")),
+            (Some(old), Some(new)) if old != new => {
+                self.compatible.push(format!("wire version {old} -> {new}"))
+            }
             (None, Some(new)) => self.compatible.push(format!("wire version {new} declared")),
-            (Some(old), None) => self
-                .warnings
-                .push(format!("wire version {old} no longer declared")),
-            (None, None) => {}
+            _ => {}
+        }
+    }
+
+    /// Dependency crates (by crate id) whose wire version moved (EVO-26, EVO-27): to another line, a new wire line of
+    /// this crate too, even where no trait or type compared found the break; to a newer revision of the same line, a
+    /// new revision, as what this crate's devices carry grew. A dependency that declares none on either side is
+    /// compared by its crate version, in the traits and types using it.
+    fn compare_dependency_wires(&mut self) {
+        for (new_idx, new_crate) in self.new.ext_crates.iter().enumerate().skip(1) {
+            let Some(old_idx) = self
+                .old
+                .ext_crates
+                .iter()
+                .skip(1)
+                .position(|c| c.crate_id == new_crate.crate_id)
+            else {
+                continue;
+            };
+            let (Some(old), Some(new)) = (
+                self.old.crate_wire(old_idx as u32 + 1),
+                self.new.crate_wire(new_idx as u32),
+            ) else {
+                continue;
+            };
+            let crate_id = &new_crate.crate_id;
+            let line = |message: String| DependencyLine {
+                crate_id: crate_id.clone(),
+                message,
+            };
+            match WireBump::between(old, new) {
+                WireBump::Line => self.wire_lines.push(line(format!(
+                    "{crate_id} on a new wire line, {old} -> {new}"
+                ))),
+                WireBump::Revision => self.adds(format!("{crate_id} wire {old} -> {new}")),
+                WireBump::None if !old.same_line(&new) => self.wire_lines.push(line(format!(
+                    "{crate_id} on an older wire line, {old} -> {new}"
+                ))),
+                WireBump::None => {}
+            }
         }
     }
 
@@ -738,9 +993,10 @@ impl<'a> Checker<'a> {
     }
 
     /// A `#[since]` newer than the API's wire version, on any of its resources, fields or variants, added or not: a
-    /// host built with it refuses that item on every device of this version. Markers are never rewritten on a new
-    /// wire line, an older one counts as present (`wire_weaver_client`'s `has_since`).
-    fn since_not_newer(&mut self) {
+    /// host built with it refuses that item on every device of this version, so [Report::check_wire] fails on each
+    /// one returned. Markers are never rewritten on a new wire line, an older one counts as present
+    /// (`wire_weaver_client`'s `has_since`).
+    fn since_not_newer(&mut self) -> Vec<String> {
         let mut marked: Vec<(String, Option<WireVersion>)> = vec![];
         for (name, level) in own_traits(self.new) {
             for item in &level.items {
@@ -768,16 +1024,18 @@ impl<'a> Checker<'a> {
                 _ => {}
             }
         }
-        let Some(new) = self.new_wire else { return };
-        for (path, since) in marked {
-            if let Some(since) = since
-                && since > new
-            {
-                self.warnings.push(format!(
+        let Some(new) = self.new_wire else {
+            return vec![];
+        };
+        marked
+            .into_iter()
+            .filter_map(|(path, since)| {
+                let since = since.filter(|since| *since > new)?;
+                Some(format!(
                     "{path} has #[since = \"{since}\"], newer than the API's wire version {new}"
-                ));
-            }
-        }
+                ))
+            })
+            .collect()
     }
 }
 
@@ -870,6 +1128,7 @@ mod tests {
     use std::path::PathBuf;
 
     mod args;
+    mod both_bumps;
     mod by_meaning;
     mod root_cause;
     mod transparent;
@@ -1128,6 +1387,12 @@ mod tests {
         )
         .unwrap();
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(
+            report.since_too_new.is_empty(),
+            "{:?}",
+            report.since_too_new
+        );
+        report.check_wire().unwrap();
 
         let new = wire(
             &marked(
@@ -1138,16 +1403,19 @@ mod tests {
             "w2.0",
         );
         let report = compare(&load("0.5.2", &old), &load("0.6.0", &new)).unwrap();
-        let mut warnings = report.warnings.clone();
-        warnings.sort();
+        let mut too_new = report.since_too_new.clone();
+        too_new.sort();
         assert_eq!(
-            warnings,
+            too_new,
             [
                 "Api::led_on has #[since = \"w2.1\"], newer than the API's wire version w2.0",
                 "Coord: field `z` has #[since = \"w2.2\"], newer than the API's wire version w2.0",
                 "Mode::C has #[since = \"w3.0\"], newer than the API's wire version w2.0",
             ]
         );
+        // EVO-27: each one fails the check
+        let e = report.check_wire().unwrap_err();
+        assert!(e.contains("Mode::C has #[since = \"w3.0\"]"), "{e}");
 
         // an addition marked newer than the new wire version: reported once
         let added = wire(
@@ -1159,9 +1427,11 @@ mod tests {
         );
         let report = compare(&load("0.1.0", API), &load("0.1.1", &added)).unwrap();
         assert_eq!(
-            report.warnings,
+            report.since_too_new,
             ["Api::led_off has #[since = \"w1.2\"], newer than the API's wire version w1.1"]
         );
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.check_wire().is_err());
     }
 
     #[test]

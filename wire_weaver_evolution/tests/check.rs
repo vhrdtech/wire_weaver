@@ -121,7 +121,20 @@ fn breaking_change_is_caught_with_rule_and_bump() {
     assert!(err.contains("0.2.0 or later"), "{err}");
     assert!(!err.contains("has a snapshot"), "{err}");
 
+    // a wire break needs a new wire line too (EVO-27)
     c.write("0.2.0", &removed);
+    let err = check(c.path(), true).1.unwrap_err();
+    for expected in [
+        "test_api wire w1.0 -> w1.0 has a wire break (Api::led_off removed), which needs a new wire line: w2.0 or later",
+        "Bump the wire version in `#[ww_api_root(wire = ..)]` to w2.0 or later",
+    ] {
+        assert!(err.contains(expected), "'{expected}' not in:\n{err}");
+    }
+    assert!(!err.contains("0.2.0 or later"), "{err}");
+    c.write(
+        "0.2.0",
+        &removed.replace("wire = \"w1.0\"", "wire = \"w2.0\""),
+    );
     assert_eq!(check(c.path(), true).1.unwrap(), "version is bumped enough");
 }
 
@@ -666,4 +679,89 @@ fn strip_field(text: &str, field: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// EVO-27: one check derives both bumps; each one not bumped enough is named with what to change, both at once when
+/// both are missing, and the report says what is needed in `w2.3` form.
+#[test]
+fn both_bumps_named_in_the_verdict() {
+    let c = TestCrate::new("both-bumps");
+    c.write("0.1.0", API).save();
+    // a trailing argument with a default: a new wire revision and a crate breaking bump
+    let added = API.replace("fn led_on();", "fn led_on(brightness: Option<u8>);");
+
+    c.write("0.1.1", &added);
+    let (outcome, verdict) = check(c.path(), true);
+    let err = verdict.unwrap_err();
+    for expected in [
+        "breaking position (minor before 1.0, major after): 0.2.0 or later",
+        "test_api wire w1.0 -> w1.0 has Api::led_on: arguments added or removed at the end, which needs a new wire \
+         revision: w1.1 or later",
+        "Bump the wire version in `#[ww_api_root(wire = ..)]` to w1.1 or later",
+        "docs/evolution/rules.md#the-wire-version",
+    ] {
+        assert!(err.contains(expected), "'{expected}' not in:\n{err}");
+    }
+    let report = outcome.to_string();
+    let needs = "needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.2.0 or later (breaking \
+                 position (minor before 1.0, major after))";
+    assert!(report.contains(needs), "'{needs}' not in:\n{report}");
+
+    // the crate bumped: only the wire is named
+    c.write("0.2.0", &added);
+    let err = check(c.path(), true).1.unwrap_err();
+    assert!(!err.contains("0.2.0 or later"), "{err}");
+    assert!(err.contains("w1.1 or later"), "{err}");
+
+    // both bumped
+    c.write(
+        "0.2.0",
+        &added.replace("wire = \"w1.0\"", "wire = \"w1.1\""),
+    );
+    assert_eq!(check(c.path(), true).1.unwrap(), "version is bumped enough");
+
+    // saving refuses a wire version not bumped enough, like a crate version
+    c.write("0.2.0", &added);
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    assert!(
+        err.contains(
+            "Not saved: bump the wire version in `#[ww_api_root(wire = ..)]` to w1.1 or later"
+        ),
+        "{err}"
+    );
+}
+
+/// EVO-27: a crate without an API root declares its wire version in `Cargo.toml` (EVO-26), and the hint says so.
+#[test]
+fn wire_version_of_a_crate_without_root_is_bumped_in_cargo_toml() {
+    let shared = r#"
+#[ww_trait]
+pub trait Shared {
+    fn get() -> u8;
+}
+"#;
+    let c = TestCrate::new("manifest-wire");
+    let write = |version: &str, wire: &str, lib_rs: &str| {
+        c.write(version, lib_rs);
+        let manifest = c.path().join("Cargo.toml");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        let text = text.replace(
+            "\n[dependencies]",
+            &format!("\n[package.metadata.wire_weaver]\nwire = \"{wire}\"\n\n[dependencies]"),
+        );
+        std::fs::write(manifest, text).unwrap();
+    };
+    write("0.1.0", "w1.0", shared);
+    c.save();
+    let added = shared.replace("fn get() -> u8;", "fn get() -> u8;\n    fn set(v: u8);");
+    write("0.1.1", "w1.0", &added);
+    let err = check(c.path(), true).1.unwrap_err();
+    for expected in [
+        "test_api wire w1.0 -> w1.0 has Shared::set added, which needs a new wire revision: w1.1 or later",
+        "Bump the wire version in `[package.metadata.wire_weaver] wire` of",
+    ] {
+        assert!(err.contains(expected), "'{expected}' not in:\n{err}");
+    }
+    write("0.1.1", "w1.1", &added);
+    assert_eq!(check(c.path(), true).1.unwrap(), "version is bumped enough");
 }

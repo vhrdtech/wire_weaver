@@ -408,7 +408,7 @@ fn check_signature<'a>(
 /// compatible (EVO-22): arguments added or removed at the end (with defaults), or promoted to a `#[flatten]` struct
 /// or back. Handlers and client calls take other parameters, a break of the API crate's Rust API. `None` when they
 /// take the same ones, or when the items aren't both methods or stream functions.
-pub fn signature_change(old: &ApiItemKindOwned, new: &ApiItemKindOwned) -> Option<String> {
+pub fn signature_change(old: &ApiItemKindOwned, new: &ApiItemKindOwned) -> Option<SignatureChange> {
     let args = |kind: &'_ ApiItemKindOwned| match kind {
         ApiItemKindOwned::Method { args, .. } | ApiItemKindOwned::StreamFn { args, .. } => {
             Some(args.clone())
@@ -420,25 +420,48 @@ pub fn signature_change(old: &ApiItemKindOwned, new: &ApiItemKindOwned) -> Optio
         [arg] if arg.is_flatten() => Some(arg.ident.clone()),
         _ => None,
     };
-    let change = match (flattened(&old), flattened(&new)) {
-        (None, Some(new)) => format!(
-            "{} argument(s) on the old version became the #[flatten] struct `{new}`",
-            old.len()
+    let (change, arguments_changed) = match (flattened(&old), flattened(&new)) {
+        (None, Some(new)) => (
+            format!(
+                "{} argument(s) on the old version became the #[flatten] struct `{new}`",
+                old.len()
+            ),
+            false,
         ),
-        (Some(old), None) => format!(
-            "the #[flatten] struct `{old}` of the old version became {} argument(s)",
-            new.len()
+        (Some(old), None) => (
+            format!(
+                "the #[flatten] struct `{old}` of the old version became {} argument(s)",
+                new.len()
+            ),
+            false,
         ),
-        _ if old.len() != new.len() => format!(
-            "takes {} argument(s) on the old version, {} on the new version",
-            old.len(),
-            new.len()
+        _ if old.len() != new.len() => (
+            format!(
+                "takes {} argument(s) on the old version, {} on the new version",
+                old.len(),
+                new.len()
+            ),
+            true,
         ),
         _ => return None,
     };
-    Some(format!(
-        "{change}: the same bytes on the wire, but other parameters for handlers and client calls"
-    ))
+    Some(SignatureChange {
+        message: format!(
+            "{change}: the same bytes on the wire, but other parameters for handlers and client calls"
+        ),
+        arguments_changed,
+    })
+}
+
+/// What [signature_change] found.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SignatureChange {
+    /// What changed, e.g. `takes 1 argument(s) on the old version, 2 on the new version: ...`.
+    pub message: String,
+    /// Arguments were added or removed at the end: wire-compatible, but what the new version writes and understands
+    /// differs, a new wire revision (EVO-27). `false` for a promotion to a `#[flatten]` struct or back, the same
+    /// bytes.
+    pub arguments_changed: bool,
 }
 
 /// Crate and name of a trait or type, and its version. A type's name has its module path (`units::Volt`, API-46), as

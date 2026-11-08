@@ -5,11 +5,13 @@ use shrink_wrap::prelude::*;
 pub use ww_global::GlobalTypeId;
 
 mod api_hash;
+mod wire;
 
 #[cfg(feature = "semver")]
 pub use semver;
 
 pub use api_hash::{ApiHash, ApiHashPair};
+pub use wire::{WireVersion, WireVersionError};
 #[cfg(feature = "std")]
 pub use api_hash::{ApiHashOwned, ApiHashPairOwned};
 

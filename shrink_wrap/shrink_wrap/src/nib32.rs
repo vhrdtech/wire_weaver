@@ -232,7 +232,7 @@ impl crate::SerializeShrinkWrapOwned for INib32 {
     const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
 
     fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
-        wr.write_unib32(self.to_zigzag().0)
+        wr.write_inib32(self.0)
     }
 }
 
@@ -483,6 +483,16 @@ mod test {
         let buf = [0xff, 0xff, 0xff, 0xff, 0xff, 0xf0];
         let mut rd = BufReader::new(&buf);
         assert_eq!(INib32::read_forward(&mut rd), Err(Error::MalformedUNib32));
+    }
+
+    #[test]
+    fn buf_reader_writer_convenience_methods() {
+        let mut buf = [0u8; 8];
+        let mut wr = BufWriter::new(&mut buf);
+        wr.write_inib32(-123).unwrap();
+        let buf = wr.finish().unwrap();
+        let mut rd = BufReader::new(buf);
+        assert_eq!(rd.read_inib32(), Ok(-123));
     }
 
     #[test]

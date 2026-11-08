@@ -298,9 +298,11 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   `PUSHES_LEN`), a `#[wire(INib32)]` wire type for a plain `i8`..`i64`/`isize` field (DER-19), and a `Series`
   leaf and `Wired<INib32, T>` column, the same as `UNib32`'s own plain `i32` column (the column's own signed
   codec already makes small values short). A malformed read fails with `Error::MalformedUNib32`: on the wire it
-  is exactly a `UNib32` of the zigzag value. Tests `tests/wire_as.rs`, `tests/max_size.rs`,
-  `tests/pushes_len.rs`, round-trip proptests in `shrink_wrap::nib32`. Docs `docs/serdes/wire_format.md`,
-  `docs/serdes/derive_reference.md`.
+  is exactly a `UNib32` of the zigzag value. `BufReader::read_inib32` / `BufWriter::write_inib32` /
+  `BufWriterOwned::write_inib32` next to the `UNib32` ones, for code that reads or writes the wire type
+  directly instead of going through the `SerializeShrinkWrap`/`DeserializeShrinkWrap` traits. Tests
+  `tests/wire_as.rs`, `tests/max_size.rs`, `tests/pushes_len.rs`, round-trip proptests in
+  `shrink_wrap::nib32`. Docs `docs/serdes/wire_format.md`, `docs/serdes/derive_reference.md`.
 
 ### ⚠️ Breaking
 

@@ -1,4 +1,4 @@
-use crate::nib32::UNib32;
+use crate::nib32::{UNib32, zigzag32};
 use crate::vlq32::{UVlq32, UVlq32Backfill};
 use crate::vlq64::UVlq64;
 use crate::{ElementSize, Error, Nibble, SerializeShrinkWrapOwned};
@@ -265,6 +265,12 @@ impl BufWriterOwned {
             nibbles_left -= 1;
         }
         Ok(())
+    }
+
+    /// Write i32 in INib32 forward encoding (zigzag over UNib32). It will take from 1 nibble to 11 nibbles in
+    /// the buffer, depending on the number. Alignment of 4 bits is used.
+    pub fn write_inib32(&mut self, val: i32) -> Result<(), Error> {
+        self.write_unib32(zigzag32(val))
     }
 
     /// Write u32 in UVlq32 encoding (big endian VLQ). It will take from 1 byte to 5 bytes in the buffer,

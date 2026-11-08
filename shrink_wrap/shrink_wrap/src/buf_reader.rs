@@ -1,5 +1,5 @@
 use crate::Error::OutOfBoundsRev;
-use crate::nib32::UNib32;
+use crate::nib32::{INib32, UNib32};
 use crate::vlq32::UVlq32;
 use crate::vlq64::UVlq64;
 use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
@@ -396,6 +396,14 @@ impl<'i> BufReader<'i> {
     /// Align to nibble and read a number encoded with UNib32 forward encoding, from the front of the buffer.
     pub fn read_unib32(&mut self) -> Result<u32, Error> {
         let value = UNib32::read_forward(self)?.0;
+
+        Ok(value)
+    }
+
+    /// Align to nibble and read a number encoded with INib32 forward encoding (zigzag over UNib32), from the
+    /// front of the buffer.
+    pub fn read_inib32(&mut self) -> Result<i32, Error> {
+        let value = INib32::read_forward(self)?.0;
 
         Ok(value)
     }

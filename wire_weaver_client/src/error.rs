@@ -38,7 +38,7 @@ pub enum Error {
     ShrinkWrap(wire_weaver::shrink_wrap::Error),
     /// The device's user API is another one than this host's generated client, or on another wire line (EVO-25):
     /// link setup decides on the line, never on the crate version.
-    #[error("{}", describe_wire_line(.device, .device_wire.as_ref(), .host, .host_wire))]
+    #[error("{}", describe_wire_line(.device, .device_wire.as_ref(), .host, .host_wire, .host_other_wires))]
     IncompatibleDeviceProtocol {
         /// The device's user API crate and version, from its `DeviceInfo`.
         device: Box<FullVersionOwned>,
@@ -48,6 +48,9 @@ pub enum Error {
         host: Box<FullVersionOwned>,
         /// Wire version this host's client was generated from.
         host_wire: WireVersion,
+        /// Other wire lines this host speaks ([ClientConfig::speaks](crate::ClientConfig::speaks), EVO-28), empty for
+        /// a host with one client.
+        host_other_wires: Vec<WireVersion>,
     },
     #[error("The device speaks link {device}, this host link {host}: update the older side")]
     IncompatibleLinkVersion { device: String, host: String },
@@ -164,6 +167,7 @@ fn describe_wire_line(
     device_wire: Option<&WireVersion>,
     host: &FullVersionOwned,
     host_wire: &WireVersion,
+    host_other_wires: &[WireVersion],
 ) -> String {
     let (d, h) = (&device.crate_id, &host.crate_id);
     if d != h {
@@ -172,20 +176,37 @@ fn describe_wire_line(
              dynamic one"
         );
     }
+    let host_at = if host_other_wires.is_empty() {
+        format!("this host's client at wire {host_wire}")
+    } else {
+        let all: Vec<String> = core::iter::once(host_wire)
+            .chain(host_other_wires)
+            .map(|w| w.to_string())
+            .collect();
+        format!("this host's clients at wires {}", all.join(", "))
+    };
+    let lines = || {
+        core::iter::once(host_wire)
+            .chain(host_other_wires)
+            .map(|w| w.line.0)
+    };
     match device_wire {
         None => format!(
-            "The device's {d} {:?} doesn't say its wire version (firmware from before wire versions), this host's \
-             client is at wire {host_wire}: update the device firmware, or connect with a dynamic client",
+            "The device's {d} {:?} doesn't say its wire version (firmware from before wire versions), {host_at}: \
+             update the device firmware, or connect with a dynamic client",
             device.version
         ),
-        Some(dw) if dw.line.0 > host_wire.line.0 => format!(
-            "The device's {d} is at wire {dw}, this host's client at wire {host_wire}: another wire line, update the \
-             host to a client of line {}",
+        Some(dw) if lines().all(|l| dw.line.0 > l) => format!(
+            "The device's {d} is at wire {dw}, {host_at}: another wire line, update the host to a client of line {}",
+            dw.line.0
+        ),
+        Some(dw) if lines().all(|l| dw.line.0 < l) => format!(
+            "The device's {d} is at wire {dw}, {host_at}: another wire line, use a host that still has a client of \
+             line {}, or update the device firmware",
             dw.line.0
         ),
         Some(dw) => format!(
-            "The device's {d} is at wire {dw}, this host's client at wire {host_wire}: another wire line, use a host \
-             that still has a client of line {}, or update the device firmware",
+            "The device's {d} is at wire {dw}, {host_at}: another wire line, use a host with a client of line {}",
             dw.line.0
         ),
     }

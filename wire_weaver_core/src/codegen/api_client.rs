@@ -1099,6 +1099,17 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
                 .client_version(#crate_name::#full_gid.make_owned(), #wire)
         }
 
+        /// The wire line this client speaks, for a host bundling clients of several lines of this API
+        /// (`ClientConfig::speaks`, EVO-28).
+        pub fn client_line() -> wire_weaver_client::ClientLine {
+            wire_weaver_client::ClientLine {
+                version: #crate_name::#full_gid.make_owned(),
+                wire: #wire,
+                ww_self_bytes: Self::introspect_bytes(),
+                api_hash: Self::api_hash().make_owned(),
+            }
+        }
+
         fn introspect_bytes() -> &'static [u8] {
             const WW_SELF_BYTES: #introspect_bytes;
             &WW_SELF_BYTES

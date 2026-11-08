@@ -41,6 +41,8 @@ pub struct ClientConfig {
     default_timeout: Option<Duration>,
     default_priority: Option<wire_weaver::Priority>,
     client_version: Option<Box<ClientApi>>,
+    /// [ClientConfig::speaks] after the first line
+    other_lines: Vec<ClientLine>,
     max_seq: Option<SeqTy>,
     max_message_len: Option<usize>,
     traits_only: bool,
@@ -74,6 +76,9 @@ pub struct ClientApi {
     pub version: FullVersionOwned,
     /// Wire version of the API root, `None` for a dynamic client.
     pub wire: Option<WireVersion>,
+    /// Other wire lines of the same API crate this host speaks too, each with the crate version its client was
+    /// generated from ([ClientConfig::speaks], EVO-28). Link setup accepts a device on any of them.
+    pub other_lines: Vec<(VersionOwned, WireVersion)>,
 }
 
 impl ClientApi {
@@ -82,6 +87,7 @@ impl ClientApi {
         ClientApi {
             version,
             wire: Some(wire),
+            other_lines: Vec::new(),
         }
     }
 
@@ -90,7 +96,46 @@ impl ClientApi {
         ClientApi {
             version: FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)),
             wire: None,
+            other_lines: Vec::new(),
         }
+    }
+
+    /// Every wire line this host speaks, the first one first.
+    pub fn wires(&self) -> impl Iterator<Item = WireVersion> + '_ {
+        self.wire
+            .into_iter()
+            .chain(self.other_lines.iter().map(|(_, w)| *w))
+    }
+
+    /// The client of the line a device of `crate_id` at `device_wire` talks on, as sent in its link setup: this one,
+    /// or one of [ClientApi::other_lines]. `None`: the device runs another API, or is on a line this host doesn't
+    /// speak. A dynamic client talks to every device.
+    pub fn for_device(
+        &self,
+        crate_id: &str,
+        device_wire: Option<WireVersion>,
+    ) -> Option<ClientApi> {
+        if self.is_dynamic() || self.wire.is_none() {
+            return Some(ClientApi {
+                other_lines: Vec::new(),
+                ..self.clone()
+            });
+        }
+        if self.version.crate_id != crate_id {
+            return None;
+        }
+        let device_wire = device_wire?;
+        let lines = core::iter::once((&self.version.version, self.wire?))
+            .chain(self.other_lines.iter().map(|(v, w)| (v, *w)));
+        lines
+            .into_iter()
+            .find(|(_, w)| w.same_line(&device_wire))
+            .map(|(version, wire)| {
+                ClientApi::generated(
+                    FullVersionOwned::new(self.version.crate_id.clone(), version.clone()),
+                    wire,
+                )
+            })
     }
 
     /// No generated client: link setup checks nothing.
@@ -126,6 +171,8 @@ pub(crate) struct ValidatedConfig {
     /// Milliseconds, saturating, see [ClientConfig::link_setup_timeout]
     pub(crate) link_setup_timeout_ms: Option<std::num::NonZeroU32>,
     pub(crate) introspect_client: Option<IntrospectBundle>,
+    /// [ClientConfig::speaks]: the introspection data of the lines after the first one
+    pub(crate) other_introspect: Vec<(WireVersion, IntrospectBundle)>,
     pub(crate) traits_only: bool,
     /// Global trait paths resolved from the device's introspection data (SRV-53): one per validated config, so a
     /// reconnect (same API) keeps what was resolved.
@@ -154,6 +201,20 @@ pub(crate) struct ValidatedConfig {
     pub(crate) ipc_exclusive: bool,
 }
 
+/// One wire line of a user API a generated client speaks: what it sends in link setup, and its own introspection data
+/// (EVO-28). Every generated client has `Client::client_line()`; a host with clients of several lines of one API
+/// passes each to [ClientConfig::speaks] and picks its client by the line the device is on.
+#[derive(Clone, Debug)]
+pub struct ClientLine {
+    /// Crate name and version the client was generated from.
+    pub version: FullVersionOwned,
+    /// Wire version of its API root.
+    pub wire: WireVersion,
+    /// Its introspection data, as `introspect_client` takes it.
+    pub ww_self_bytes: &'static [u8],
+    pub api_hash: ApiHashPairOwned,
+}
+
 #[derive(Clone, Debug)]
 pub struct IntrospectBundle {
     /// Full API, with traits and types left out of the introspection data (known from snapshots) put back.
@@ -167,6 +228,13 @@ pub struct IntrospectBundle {
 }
 
 impl IntrospectBundle {
+    /// A generated client's own introspection data: as a device sends it, with known traits and types left out.
+    fn from_client(ww_self_bytes: &[u8], api_hash: ApiHashPairOwned) -> Result<Self> {
+        let ww_self_bytes = ww_self::compressed::bundle_bytes(ww_self_bytes)?;
+        let sent_api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
+        IntrospectBundle::from_sent(sent_api_bundle, api_hash, ww_self_bytes.len())
+    }
+
     /// Put back traits and types that `sent_api_bundle` left out, because they are known from snapshots, and
     /// instantiate generic types; fails for malformed introspection data.
     pub(crate) fn from_sent(
@@ -316,19 +384,11 @@ impl ClientConfig {
     pub(crate) fn validate(self) -> Result<ValidatedConfig> {
         let s = self;
         // s.canonicalize();
-        let introspect_client = if s.traits_only {
-            None
-        } else if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
-            // same as a device sends, with known traits and types left out
-            let ww_self_bytes = ww_self::compressed::bundle_bytes(&ww_self_bytes)?;
-            let sent_api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
-            Some(IntrospectBundle::from_sent(
-                sent_api_bundle,
-                api_hash,
-                ww_self_bytes.len(),
-            )?)
-        } else {
-            None
+        let introspect_client = match s.introspect_client {
+            Some((ww_self_bytes, api_hash)) if !s.traits_only => {
+                Some(IntrospectBundle::from_client(&ww_self_bytes, api_hash)?)
+            }
+            _ => None,
         };
         let max_seq = s.max_seq.unwrap_or(crate::DEFAULT_MAX_SEQ);
         if max_seq == 0 {
@@ -350,10 +410,35 @@ impl ClientConfig {
         }
         // connecting as dynamic client (introspect device) if no client version specified
         let dynamic = Box::new(ClientApi::dynamic());
-        let client_version = match s.client_version {
+        let mut client_version = match s.client_version {
             Some(version) if !s.traits_only => version,
             _ => dynamic,
         };
+        let mut other_introspect = Vec::new();
+        if !client_version.is_dynamic() {
+            for line in s.other_lines {
+                let crate_id = &client_version.version.crate_id;
+                if &line.version.crate_id != crate_id {
+                    bail!(
+                        "a host speaks wire lines of one API: {} next to {crate_id}",
+                        line.version.crate_id
+                    );
+                }
+                if client_version.wires().any(|w| w.same_line(&line.wire)) {
+                    bail!(
+                        "two clients of {crate_id} on wire line {}: one per line",
+                        line.wire.line.0
+                    );
+                }
+                client_version
+                    .other_lines
+                    .push((line.version.version, line.wire));
+                other_introspect.push((
+                    line.wire,
+                    IntrospectBundle::from_client(line.ww_self_bytes, line.api_hash)?,
+                ));
+            }
+        }
         Ok(ValidatedConfig {
             pieces: s.pieces,
             priority: vec![],
@@ -371,6 +456,7 @@ impl ClientConfig {
                 std::num::NonZeroU32::new(u32::try_from(t.as_millis()).unwrap_or(u32::MAX))
             }),
             introspect_client,
+            other_introspect,
             traits_only: s.traits_only,
             global_paths: crate::global_paths::GlobalPaths::new(),
             tap: s.tap,
@@ -778,6 +864,24 @@ impl ClientConfig {
     pub fn tap(self, recorder: ww_tap::Recorder) -> Self {
         let mut c = self;
         c.tap = Some(recorder);
+        c
+    }
+
+    /// A wire line of a user API this host speaks (EVO-28), from a generated client's `Client::client_line()`. The
+    /// first call sets the client's version and introspection data, as [ClientConfig::client_version] and
+    /// [ClientConfig::introspect_client] do; every later one adds another line of the same API crate. Link setup then
+    /// accepts a device on any of these lines and sends it the version of that line's client, so a host bundling
+    /// clients of several lines connects once and picks its client by
+    /// [DeviceApiInfo::user_api_wire](crate::DeviceApiInfo::user_api_wire) (in [WwClient::from_cmd](crate::WwClient::from_cmd)).
+    /// Lines of another API, or two clients of one line, are refused when connecting.
+    pub fn speaks(self, line: ClientLine) -> Self {
+        let mut c = self;
+        if c.client_version.is_none() {
+            c.client_version = Some(Box::new(ClientApi::generated(line.version, line.wire)));
+            c.introspect_client = Some((line.ww_self_bytes.to_vec(), line.api_hash));
+        } else {
+            c.other_lines.push(line);
+        }
         c
     }
 

@@ -97,7 +97,12 @@ pub fn load_dep_with_paths(
         .insert(current_crate_path, current_crate_manifest.clone());
     let trait_name = trait_name.map(|t| t.as_ref().to_string());
     let bundle = load_inner(dep_manifest, dep_features, trait_name, &mut scratch)?;
-    let paths = CratePaths::find(&current_crate_manifest, dep_name.as_ref(), &bundle, &scratch);
+    let paths = CratePaths::find(
+        &current_crate_manifest,
+        dep_name.as_ref(),
+        &bundle,
+        &scratch,
+    );
     Ok((bundle, paths))
 }
 
@@ -196,7 +201,12 @@ impl CratePaths {
 
 /// Package name of the dependency `key` of `current`: `package = ".."` of its entry, or of the workspace's entry
 /// for `key.workspace = true`, else `key` itself.
-fn dep_package(current: &ManifestContext, key: &str, dep: &Dependency, scratch: &Scratch) -> String {
+fn dep_package(
+    current: &ManifestContext,
+    key: &str,
+    dep: &Dependency,
+    scratch: &Scratch,
+) -> String {
     if let Some(package) = dep.package() {
         return package.to_string();
     }

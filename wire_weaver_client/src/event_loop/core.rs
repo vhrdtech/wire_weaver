@@ -2019,6 +2019,57 @@ mod tests {
         assert_eq!(setup.host_user_version.version.minor.0, 2);
     }
 
+    /// A host with clients of two lines (EVO-28), `test` 0.5.0 at w2.4 and 0.2.0 at w1.3, connects to the w1.0
+    /// device and sends it the version of its line-1 client.
+    #[test]
+    fn host_of_two_lines_connects_on_the_devices_line() {
+        let mut client = crate::ClientApi::generated(
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 5, 0)),
+            WireVersion::new(2, 4),
+        );
+        client
+            .other_lines
+            .push((VersionOwned::new(0, 2, 0), WireVersion::new(1, 3)));
+        let (p, _connected_rx) = connect_as(client);
+        assert!(!p.pair.rx_exited);
+        let setup = p
+            .sent
+            .iter()
+            .find(|s| s.kind == Kind::LinkSetup)
+            .expect("LinkSetup to a device on one of the host's lines");
+        let Ok(Message::LinkSetup(setup)) = Message::decode(Kind::LinkSetup as u8, &setup.payload)
+        else {
+            panic!()
+        };
+        assert_eq!(setup.host_user_wire, Some(WireVersion::new(1, 3)));
+        assert_eq!(setup.host_user_version.version.minor.0, 2);
+    }
+
+    /// A host of lines 2 and 3 refuses the w1.0 device before LinkSetup, naming all its lines.
+    #[test]
+    fn host_of_two_lines_refuses_a_third() {
+        let mut client = crate::ClientApi::generated(
+            FullVersionOwned::new("test".into(), VersionOwned::new(0, 5, 0)),
+            WireVersion::new(3, 0),
+        );
+        client
+            .other_lines
+            .push((VersionOwned::new(0, 4, 0), WireVersion::new(2, 1)));
+        let (p, mut connected_rx) = connect_as(client);
+        assert!(
+            p.sent.is_empty(),
+            "no LinkSetup to a device on another line"
+        );
+        let e = connected_rx.try_recv().unwrap().result.unwrap_err();
+        let e = format!("{e:#}");
+        assert!(
+            e.contains("at wire w1.0")
+                && e.contains("at wires w3.0, w2.1")
+                && e.contains("still has a client of line 1"),
+            "{e}"
+        );
+    }
+
     struct Connected {
         pair: Pair,
         /// What tx sent after the device's DeviceInfo
@@ -2030,6 +2081,14 @@ mod tests {
         version: VersionOwned,
         wire: WireVersion,
     ) -> (Connected, oneshot::Receiver<ConnectionInfo>) {
+        connect_as(crate::ClientApi::generated(
+            FullVersionOwned::new("test".into(), version),
+            wire,
+        ))
+    }
+
+    /// [connect_at] with a client speaking `client`.
+    fn connect_as(client: crate::ClientApi) -> (Connected, oneshot::Receiver<ConnectionInfo>) {
         let now = Instant::now();
         let mut p = Pair::new();
         let (connected_tx, connected_rx) = oneshot::channel();
@@ -2042,10 +2101,7 @@ mod tests {
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(crate::ClientApi::generated(
-                    FullVersionOwned::new("test".into(), version),
-                    wire,
-                )),
+                client_version: Box::new(client),
                 keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,

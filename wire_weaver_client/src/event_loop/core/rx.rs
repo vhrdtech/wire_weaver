@@ -470,20 +470,24 @@ impl RxCore {
                     info.packet_accumulation_time_us
                 );
                 // a dynamic client (no generated code) works with any API through the device's introspection data;
-                // a generated one needs the same API on the same wire line (EVO-25), whatever the crate versions
+                // a generated one needs the same API on the same wire line (EVO-25), whatever the crate versions; a host
+                // with clients of several lines takes a device on any of them (EVO-28)
                 if let Some(client) = self.client_version.as_ref()
                     && !client.is_dynamic()
                     && let Some(host_wire) = client.wire
-                    && (client.version.crate_id != device_api_info.user_api_version.crate_id
-                        || !device_api_info
-                            .user_api_wire
-                            .is_some_and(|w| w.same_line(&host_wire)))
+                    && client
+                        .for_device(
+                            &device_api_info.user_api_version.crate_id,
+                            device_api_info.user_api_wire,
+                        )
+                        .is_none()
                 {
                     return Err(anyhow!(Error::IncompatibleDeviceProtocol {
                         device: Box::new(device_api_info.user_api_version.clone()),
                         device_wire: device_api_info.user_api_wire,
                         host: Box::new(client.version.clone()),
                         host_wire,
+                        host_other_wires: client.other_lines.iter().map(|(_, w)| *w).collect(),
                     }));
                 }
                 self.dispatcher.message_limit = Some(device_api_info.message_limit());

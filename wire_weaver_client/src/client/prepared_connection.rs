@@ -852,7 +852,18 @@ fn create_commander_inner(
     commander.global_paths = config.global_paths.clone();
     commander.set_stream_queue_bytes(config.stream_queue_bytes);
     commander.set_stream_compression(config.stream_compression);
-    if let Some(introspect_client) = config.introspect_client {
+    // a host speaking several lines (EVO-28) has the introspection data of the device's line
+    let other_line = device_api_info.user_api_wire.and_then(|device_wire| {
+        config
+            .other_introspect
+            .into_iter()
+            .find(|(wire, _)| wire.same_line(&device_wire))
+    });
+    let introspect_client = match other_line {
+        Some((_, bundle)) => Some(bundle),
+        None => config.introspect_client,
+    };
+    if let Some(introspect_client) = introspect_client {
         if introspect_client.api_hash.no_docs == device_api_info.user_api_hash.no_docs {
             // connected device API is exactly the same as client, no need to download or look for cached one
             commander.set_device_introspect(introspect_client.clone());

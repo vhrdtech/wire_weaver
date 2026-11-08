@@ -876,9 +876,15 @@ impl TxCore {
                 self.device_max_message_len = info.dev_max_message_len as usize;
                 self.phase = Phase::LinkSetup;
                 self.next_link_setup_retry_at = None;
+                // a host speaking several lines sends the version of the device's line (EVO-28): RX has refused a
+                // device on none of them before this
                 let client_version = self
                     .client_version
-                    .clone()
+                    .as_ref()
+                    .and_then(|c| {
+                        c.for_device(&info.user_api_version.crate_id, info.user_api_wire)
+                            .or_else(|| Some(c.clone()))
+                    })
                     .unwrap_or_else(crate::ClientApi::dynamic);
                 // the meta is for people to read: it never takes the link down because a device can't receive it
                 let meta = self.meta_to_send(&client_version);

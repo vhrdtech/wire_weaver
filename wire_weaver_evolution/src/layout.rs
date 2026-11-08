@@ -390,7 +390,7 @@ fn numeric(n: &NumericAnyTypeOwned) -> Kind {
         NumericBaseType::U128 | NumericBaseType::I128 => (8, 128),
         NumericBaseType::UB(bits) => (1, bits.0 as u32),
         NumericBaseType::IB(bits) => (1, bits.0 as u32),
-        NumericBaseType::UNib32 => {
+        NumericBaseType::UNib32 | NumericBaseType::INib32 => {
             return Kind::Variable {
                 align: 4,
                 granularity: 4,

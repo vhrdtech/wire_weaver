@@ -123,7 +123,7 @@ A device picks whichever traits it supports and puts each one into its API tree 
 generic tooling can find it by global trait path:
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait MyBridge {
     ww_impl!(gpio: ww_gpio::Bank);
     ww_impl!(uart: ww_uart::Uart);

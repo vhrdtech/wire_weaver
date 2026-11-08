@@ -418,8 +418,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   SRV-18 (`docs/serdes/layouts.md`, `docs/evolution/rules.md`; test `shrink_wrap/tests/sparse.rs`, fuzz
   `shrink-wrap-option-any-vec`). `ww_self` carries the flag (`ItemStruct::sparse`, `Field::slot`, TOOL-11), so a
   dynamic decoder (`ValueOwned`, the `ww` CLI, `wire_weaver_py`) reads a sparse struct correctly.
-- 📋 **DER-5 `#[since = "x.y.z"]` on fields** — generate correct evolution code from it (`TODO` in
-  `shrink_wrap_derive/src/lib.rs`).
+- 📋 **DER-5 `#[since = "w1.2"]` on fields** — generate correct evolution code from it (the derive keeps the text,
+  `wire_weaver_core` reads it as a wire revision, EVO-24).
 - 📋 **DER-6 Check that `TailBytes` ends the outer type too** — a struct ending in `TailBytes` used as a non-last field
   of an outer `sized` / `final_structure` type ("last in the first `Unsized` type on the way up") is not visible to
   the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.
@@ -1869,6 +1869,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the hub's preamble and windows by generation
   (`docs/transport/ww_link.md#the-frozen-hello`; tests `ww_link` `hello::tests`, `ww_device`
   `hello_of_other_generations`, `wire_weaver_client` `device_of_another_generation`, `unknown_peer_format`).
+- ✅ **EVO-24 Wire version of its own** · `v0.5` — an API root declares its wire version apart from its crate
+  version, `#[ww_api_root(wire = "w2.3")]` (line 2, revision 3), as `ww_version::WireVersion`; the `w` is part of the
+  notation everywhere and a parser refuses `2.3`, `w2.3.0` and crate versions with an error that says why. The trait
+  gets a `*_WIRE_VERSION` const, `ww_self::ApiBundle::wire` carries it (crate snapshots too), and `#[since = "w2.1"]`
+  on items, fields and variants names a wire revision; the crate-version form is refused with a hint. The client
+  compares `#[since]` with the device's wire version (from its introspection data until link setup carries it,
+  EVO-25), the checker hints and checks markers against the root's wire version (`docs/evolution/rules.md#the-wire-version`;
+  tests `ww_version` `wire::tests`, `wire_weaver_core` `wire_version_and_since`, `tests/cross_version`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

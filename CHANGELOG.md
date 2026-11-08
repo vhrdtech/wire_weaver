@@ -295,6 +295,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   single raw commands with response, status bits and timing; commands that can lock or damage a card are refused
   unless the firmware builds with `raw-sd-unrestricted`. Docs pages `docs/std_library/ww_block.md` and `ww_sd.md`.
 - `just test --changed` runs only the workspace crates changed against main and their dependents (nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does.
+- Wire versions apart from crate versions (EVO-24): an API root declares `#[ww_api_root(wire = "w2.3")]` (line 2, revision 3, always written with the `w`), the trait gets a `*_WIRE_VERSION` const and the bundle carries it, and `#[since = "w2.1"]` names the wire revision that added an item; a crate version in either place is refused with a hint. Every API root needs `wire = ..` now; link setup still decides on crate versions until EVO-25. See `ww_version/`, `ww_self/`, `wire_weaver_core/`, `wire_weaver_derive/`, `wire_weaver_client/`, `wire_weaver_evolution/`, `shrink_wrap/` and `wire_weaver_snapshots/` CHANGELOGs.
 
 ### Changed
 

@@ -271,9 +271,10 @@ name. A change is breaking if:
 * a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   `ww_si 0.1` -> `0.2`), or one from the same crate version with a different definition.
 
-It also warns about additions without `#[since]`, or with a `#[since]` older than the new version, and about any
-resource, field or variant whose `#[since]` is newer than the crate's own version (a host built with it would refuse
-that item on every device of this version, see [`#[since]`](rules.md#since)).
+It also warns about additions without `#[since]`, or with a `#[since]` older than the new wire version (and about a
+wire revision that wasn't bumped for them), and about any resource, field or variant whose `#[since]` is newer than
+the API's own wire version (a host built with it would refuse that item on every device of this version, see
+[`#[since]`](rules.md#since)). A change of the root's wire version is listed too.
 
 ## New fields in padding bits
 
@@ -293,8 +294,8 @@ always starts at a byte boundary, so its padding is always in the same place:
 pub struct U {
     pub f: bool,
     // 7 bits of padding before `b`
-    #[since = "0.1.1"]
-    pub g: u7, // added in 0.1.1, reads as 0 from old data
+    #[since = "w1.1"]
+    pub g: u7, // added in w1.1, reads as 0 from old data
     pub b: u8,
     pub s: String,
 }
@@ -313,8 +314,8 @@ pub struct S {
     pub a: u8,
     pub f: bool,
     // 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned
-    #[since = "0.1.1"]
-    pub g: u3, // added in 0.1.1, reads as 0 from old data
+    #[since = "w1.1"]
+    pub g: u3, // added in w1.1, reads as 0 from old data
     pub b: u8,
 }
 ```

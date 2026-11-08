@@ -183,7 +183,7 @@ A `const` item of a trait is a value that doesn't change while the firmware runs
 board record, chip ids, limits of an implementation.
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 trait Device {
     /// Known at compile time.
     const LIMITS: Limits<'i>;

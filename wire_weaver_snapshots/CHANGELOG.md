@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* Snapshots saved again for `ApiBundle::wire` and `#[since]` as a wire revision (EVO-24); the older `ww_board_info` snapshots were rewritten for the new marker form and re-hashed.
 - Snapshots saved again with the `ww_self::Argument` fields `default` and `flatten` (EVO-22): the signatures of traits with methods or stream functions changed with the format, so a host with these snapshots finds the stdlib traits of a device built before only through the definition cache.
 - Snapshots of the current versions of `ww_global`, `ww_tap` and the `ww_stdlib` crates saved again with each enum's catch-all (EVO-10, `ww_self::ItemEnum::future_version`); signatures are unchanged. Older versions' snapshots stay without it and count as enums without a catch-all.
 - The crate embeds the snapshots as shrink_wrap bytes, encoded from the RON files by the build script, and never parses RON: `all()` decodes all 36 in 1.1 ms in a release build (was 8.1 ms parsing RON), 80 ms in debug (was 633 ms); the embedded bytes are 291 KB (RON text: 756 KB). The build fails when a RON file's header lacks the `// shrink_wrap sha256: <hex>` line `ww api save` writes now, or when the file encodes to other bytes than the hash says (edited by hand, or RON does not round trip): run `just save-snapshots`. `files()` renders the text on first call from the decoded bundles with the new `render_ron()` (what `ww api save` writes), so it equals the saved files except fields added to ww_self since a file was saved (`meta: None`).

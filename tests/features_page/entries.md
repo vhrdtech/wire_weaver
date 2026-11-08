@@ -288,6 +288,7 @@ round, and tell you before a release when a change would break that.
 - EVO-21 | One cause, not many breaks | Several broken traits or types caused by the one dependency that changed are reported together, naming it once. | evolution/checker_tool.md#several-broken-items-one-cause-evo-21
 - EVO-22 | Arguments that evolve | Add trailing arguments with a default, or turn arguments into one `#[flatten]` struct, without breaking the wire. | api/methods.md#arguments-that-evolve
 - EVO-23 | Frozen hello | Link setup opens with a few fixed bytes that name each layer's generation, so a host and a device that can't talk say which side to update instead of timing out. | transport/ww_link.md#the-frozen-hello
+- EVO-24 | Wire version of its own | `#[ww_api_root(wire = "w2.3")]` says which devices and hosts talk, apart from the crate version, and `#[since = "w2.1"]` names the revision that added an item. | evolution/rules.md#the-wire-version
 - EVO-10 | Checker knows the catch-all | Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible. | evolution/rules.md#unsized-types
 - EVO-11 | Evolution check at every commit | A test of your API crate fails when the API changed without the version bump it needs. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit

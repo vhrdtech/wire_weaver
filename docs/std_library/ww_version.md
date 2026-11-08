@@ -28,6 +28,11 @@ ww_version = "0.2"
   bandwidth-limited link.
 * `VersionTriplet` - plain `major` / `minor` / `patch: UNib32`, no crate name; `final_structure`. For comparing
   versions where a name isn't needed.
+* `WireVersion` - `line` / `revision: UNib32`; `final_structure`. An API's [wire version](../evolution/rules.md#the-wire-version),
+  written `w2.3` (line 2, revision 3), apart from its crate version: `Display` and `FromStr` in that form only, so
+  `2.3`, `w2.3.0` and a crate version like `0.2.0` are refused with a `WireVersionError` that says why. Ordered by
+  line, then revision; `same_line`, `next_revision`, `next_line`. `#[ww_api_root(wire = "w2.3")]` emits a
+  `<TRAIT>_WIRE_VERSION` constant, and `#[since]` names one.
 * `ApiHashPair<'i>` - `no_docs` / `with_docs: ApiHash<'i>`; `final_structure`. Two hashes of a device's
   [`ApiBundle`](ww_self.md), with and without doc strings, so a client can detect *any* change to the API (not just
   ones that bumped the version) while still being able to drop doc strings to save flash and fall back to a cached

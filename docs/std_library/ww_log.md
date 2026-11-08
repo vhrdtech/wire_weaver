@@ -15,7 +15,7 @@ ww_log = "0.1"
 ```
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait MyDevice {
     ww_impl!(log: ww_log::LogDefmt);
 }

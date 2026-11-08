@@ -151,7 +151,7 @@ A device exposes whichever traits it supports directly on its API root (or neste
 `tests/io_adc_api`:
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait IoAdcTest {
     ww_impl!(adc: ww_adc::Adc);
     ww_impl!(adc_stream: ww_adc::AdcStream);

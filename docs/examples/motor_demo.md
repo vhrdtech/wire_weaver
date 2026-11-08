@@ -43,7 +43,7 @@ The VESC firmware (vedderb/bldc) computes its variables in three tiers, and so d
 | `sim` | | 4 + 2 methods | `time_scale`, `load`, `motor`, `profile`; `inject(fault)`, `reset()` |
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait MotorDemo {
     ww_impl!(foc: Foc);
     ww_impl!(control: Control);

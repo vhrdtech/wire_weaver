@@ -19,27 +19,29 @@ For changing WireWeaver itself or a `ww_stdlib` crate, see [crate layers and ver
 
 ## In short
 
-A device runs `blinky_api 0.1.0`. The next version adds a method and a field, and keeps everything else:
+A device runs `blinky_api 0.1.0`, wire version `w1.0`. The next version adds a method and a field, and keeps
+everything else:
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.1")]
 pub trait BlinkyApi {
     fn led_on();
     fn led_off();
-    #[since = "0.1.1"]
+    #[since = "w1.1"]
     fn led_toggle();
 }
 
 #[derive_shrink_wrap]
 struct Status {
     on: bool,
-    #[since = "0.1.1"]
+    #[since = "w1.1"]
     #[default = None]
     brightness: Option<u8>, // old data reads as None
 }
 ```
 
-Both are wire-compatible additions, so the crate goes from `0.1.0` to `0.1.1`: an old device and a new host still
+Both are wire-compatible additions, so the wire version goes from `w1.0` to `w1.1` and the crate from `0.1.0` to
+`0.1.1`: an old device and a new host still
 connect, the host gets a clean error when it calls `led_toggle` on the old device, and reads `None` for the
 brightness it doesn't send. The rest of this page lists which changes are compatible like these. When in doubt,
 run the [evolution checker](checker_tool.md), it compares your crate with its last release.
@@ -53,26 +55,40 @@ they are not compatible (`ww_version::Version::is_protocol_compatible`):
 * After 1.0: major must match.
 
 So the compatible position (patch before 1.0, minor after) is for wire-compatible additions: new methods,
-properties, streams, new fields with defaults, etc. Mark them with `#[since = "0.2.3"]`, so that a newer host can
-report a clean error when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
-Everything else bumps the breaking position.
+properties, streams, new fields with defaults, etc. Everything else bumps the breaking position.
+
+### The wire version
+
+Apart from the crate version, the API root declares its wire version, `#[ww_api_root(wire = "w2.3")]`, said "wire
+2.3": line 2, revision 3. A wire-compatible addition bumps the revision (`w2.3` -> `w2.4`), a wire break the line
+(`w3.0`). A new API starts at `w1.0`. The `w` is part of the notation everywhere, so a crate version can't be taken
+for one: `2.3`, `w2.3.0` and `0.2.0` are refused. The trait gets a `*_WIRE_VERSION: ww_version::WireVersion` const
+next to its `*_FULL_GID`. Link setup still decides on the crate version above; deciding on the wire line instead is
+EVO-25.
+
+Mark additions with `#[since = "w2.4"]`, the revision that adds them, so that a newer host can report a clean error
+when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
 
 ### `#[since]`
 
-`#[since = "x.y.z"]` is the version of the crate that added a resource, field or variant. A host refuses to call a
-resource marked newer than the connected device's API version, with `Error::OlderProtocol`, before sending anything.
-Versions are compared in full, `major.minor.patch` in order: the device has the item when its version is at least
-the marker's.
+`#[since = "w2.4"]` is the wire revision that added a resource, field or variant. A crate version there
+(`#[since = "0.2.0"]`, the form before wire versions) is refused with a hint. A host refuses to call a resource
+marked newer than the connected device's wire version, with `Error::OlderProtocol`, before sending anything. Wire
+versions are compared by line, then revision: the device has the item when its wire version is at least the
+marker's.
 
-* Within one compatible line (`0.6.x` before 1.0, `1.x` after), that is the version that added the item: a `0.6.3`
-  device has an item marked `0.6.2` and not one marked `0.6.4`. After 1.0 a patch can add items too.
-* A breaking bump (`0.5.2` -> `0.6.0`, `1.4.0` -> `2.0.0`) starts a new line, in which every older marker counts as
-  present: an item marked `0.5.2` is callable on a `0.6.0` device. Keep the markers as they are on a breaking bump,
-  don't rewrite them to the new version. Whether an item survived the bump is not the marker's to say: an item the
-  new version removed is reported from the device's introspection data (`Error::NotImplementedByDevice`).
+* On one line, that is the revision that added the item: a `w2.5` device has an item marked `w2.4` and not one
+  marked `w2.6`.
+* A new line (`w2.5` -> `w3.0`) counts every older marker as present: an item marked `w2.4` is callable on a `w3.0`
+  device. Keep the markers as they are on a new line, don't rewrite them. Whether an item survived the break is not
+  the marker's to say: an item the new line removed is reported from the device's introspection data
+  (`Error::NotImplementedByDevice`).
 
-A marker newer than the crate's own version is a mistake (the item would be refused on every device of this version);
-the [evolution checker](checker_tool.md) warns about it.
+The host knows the device's wire version from its introspection data (the bundle carries the root's wire version);
+without it, `#[since]` isn't checked until link setup carries the wire version (EVO-25).
+
+A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
+version); the [evolution checker](checker_tool.md) warns about it.
 
 The API crate's dependencies are part of this contract: upgrading a `ww_stdlib` crate or `shrink_wrap` to a
 wire-incompatible version, or [the API model](#api-model), is a breaking change of the user API too.

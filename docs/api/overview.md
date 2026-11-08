@@ -11,7 +11,7 @@ no allocation) and the host's client (a typed function per item, async, blocking
 crossing the wire is any [ShrinkWrap](../serdes/shrink_wrap.md) type.
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait BlinkyApi {
     fn led_on();
     fn led_off();
@@ -40,15 +40,16 @@ start a new project, copy the [wire_weaver_template](https://github.com/vhrdtech
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait BlinkyApi {
     fn led_on();
     fn led_off();
 }
 ```
 
-`#[ww_api_root]` marks the top-level trait of a device (`#[ww_trait]` the others). It generates nothing by itself:
-`ww_codegen!` reads the trait from its source file.
+`#[ww_api_root(wire = "w1.0")]` marks the top-level trait of a device (`#[ww_trait]` the others) and declares its
+[wire version](../evolution/rules.md#the-wire-version). It generates nothing but a few consts by itself: `ww_codegen!`
+reads the trait from its source file.
 
 **2. The device** (from `examples_mcu/rp2/src/bin/usb_blinky.rs`) implements one handler per method:
 
@@ -117,7 +118,7 @@ host code at all, `ww introspect` and [Python](../python.md) talk to the device 
 use ww_si::{Fixed, Point, Range, origins::Celsius, prefix::{Centi, Milli}};
 use ww_si::units::{Ampere, Kelvin, Meter, Per, Ratio, Second};
 
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 trait MyDevice {
     /// Methods: any number of arguments, any return type, Result for errors.
     fn set_brightness(value: Fixed<Ratio, Centi, u8, Range<0, 100>>);

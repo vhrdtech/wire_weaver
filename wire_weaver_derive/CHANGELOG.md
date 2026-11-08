@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* `#[ww_api_root]` requires the API's wire version, `#[ww_api_root(wire = "w1.0")]` (EVO-24); a bare one is refused with that hint, a crate version or `w2.3.0` with why. Existing roots add `wire = "w1.0"`, and `#[since]` markers become wire revisions (`#[since = "w1.1"]`). The trait gets a `<TRAIT>_WIRE_VERSION: ww_version::WireVersion` const next to `<TRAIT>_FULL_GID`. `#[ww_trait]` still takes no arguments.
 - `#[ww_trait(N)]` / `#[ww_api_root(N)]` with a global id are a compile error (API-20): ids are not written in code, they live in `ww_global/wire_weaver_gid.json` keyed `crate::Trait`. `<TRAIT>_COMPACT_GID` is looked up there by crate and trait name, so every `ww_stdlib` trait has one now. `compact_version!(Trait)` takes the trait name (`compact_version!()` the crate) instead of an id expression.
 - `#[ww_trait]` / `#[ww_api_root]` emit a Rust trait of the same name and visibility that describes the API for
   rustdoc (DOC-6), instead of private `SrcMarker*` aliases. It is checked by the compiler in the API crate, so

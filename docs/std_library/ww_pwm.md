@@ -117,7 +117,7 @@ A device exposes PWM outputs and, if it can measure, capture inputs as separate 
 `tests/io_pwm_api` crate:
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait IoPwmTest {
     ww_impl!(pwm: ww_pwm::Pwm);
     ww_impl!(pwm_capture: ww_pwm::PwmCapture);

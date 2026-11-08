@@ -143,7 +143,7 @@ A device exposes one or more banks by implementing `Bank` as an array on its API
 crate:
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait AllGpioApi {
     ww_impl!(port[]: ww_gpio::Bank);
 }

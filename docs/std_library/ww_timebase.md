@@ -277,7 +277,7 @@ shows the measured residual.
 A device exposes its clock once at the root (or nested, if grouped with other traits):
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait DeviceApi {
     ww_impl!(clock: ww_timebase::Clock);
     // ... other traits

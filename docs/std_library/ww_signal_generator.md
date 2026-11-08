@@ -140,7 +140,7 @@ available by enabling the crate's `std` / `defmt` features.
 ## Composing into a device API
 
 ```rust
-#[ww_api_root]
+#[ww_api_root(wire = "w1.0")]
 pub trait MyBench {
     ww_impl!(la: ww_logic_analyzer::LogicAnalyzer);
     ww_impl!(pattern: ww_signal_generator::PatternGenerator);

@@ -2537,6 +2537,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#which-bump-a-change-needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which bump a change needs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#since" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5861,6 +5872,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#which-bump-a-change-needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which bump a change needs
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#since" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6209,6 +6231,60 @@ next to its <code>*_FULL_GID</code>.</p>
 trait is a plain <code>#[ww_trait]</code>.</p>
 <p>Mark additions with <code>#[since = "w2.4"]</code>, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).</p>
+<h3 id="which-bump-a-change-needs">Which bump a change needs<a class="headerlink" href="#which-bump-a-change-needs" title="Permanent link">&para;</a></h3>
+<p>The wire version and the crate version are bumped apart, each for what it describes: the wire version for what
+devices and hosts of the two versions can still say to each other, the crate version for Rust code (Cargo SemVer).
+The <a href="../checker_tool/#two-bumps-the-wire-and-the-crate">evolution checker</a> derives both from one comparison and fails
+when either is not bumped enough:</p>
+<table>
+<thead>
+<tr>
+<th>Change</th>
+<th>Wire version</th>
+<th>Crate version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>doc comments only</td>
+<td>none</td>
+<td>compatible</td>
+</tr>
+<tr>
+<td>a new method, property, stream, trait, type, field or variant</td>
+<td><code>w2.3</code> -&gt; <code>w2.4</code></td>
+<td>compatible</td>
+</tr>
+<tr>
+<td>a trailing argument with a default</td>
+<td><code>w2.3</code> -&gt; <code>w2.4</code></td>
+<td>breaking</td>
+</tr>
+<tr>
+<td>a rename, a <code>#[flatten]</code> promotion, a catch-all changed</td>
+<td>none</td>
+<td>breaking</td>
+</tr>
+<tr>
+<td>a wire break (removed, moved, a type changed, a bound narrowed)</td>
+<td><code>w2.3</code> -&gt; <code>w3.0</code></td>
+<td>breaking</td>
+</tr>
+<tr>
+<td>a dependency at a newer revision of its wire line</td>
+<td><code>w2.3</code> -&gt; <code>w2.4</code></td>
+<td>as its changes</td>
+</tr>
+<tr>
+<td>a dependency on a new wire line</td>
+<td><code>w2.3</code> -&gt; <code>w3.0</code></td>
+<td>breaking</td>
+</tr>
+</tbody>
+</table>
+<p>"Compatible" is the crate's patch before 1.0 and minor after, "breaking" minor before 1.0 and major after. A bigger
+bump than needed is always accepted, so a new line by hand for a change of meaning the checker can't see stays
+allowed. A wire version may not go back, and a crate that declared one keeps declaring it.</p>
 <h3 id="since"><code>#[since]</code><a class="headerlink" href="#since" title="Permanent link">&para;</a></h3>
 <p><code>#[since = "w2.4"]</code> is the wire revision that added a resource, field or variant. A crate version there
 (<code>#[since = "0.2.0"]</code>, the form before wire versions) is refused with a hint. A host refuses to call a resource
@@ -6231,7 +6307,7 @@ that crate (<code>[package.metadata.wire_weaver] wire = ..</code> in its <code>C
 <a href="../crate_layers/#layer-2-ww_stdlib">crate layers</a>). They need the device's introspection data; link setup carries
 only the root's wire version.</p>
 <p>A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
-version); the <a href="../checker_tool/">evolution checker</a> warns about it.</p>
+version); the <a href="../checker_tool/">evolution checker</a> fails on it.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
 wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
 <h3 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h3>

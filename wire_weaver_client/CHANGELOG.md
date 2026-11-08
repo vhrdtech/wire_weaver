@@ -52,6 +52,7 @@
 
 ### 🐛 Fixes
 
+- `quantity::parse_quantity(text, None)` refuses a number without a unit symbol (`"5"`): it used to read it as whichever `ww_si` unit came first, every unit matching the empty symbol (EVO-28). With the unit given, a number alone is still in the unit itself.
 - `follow::Follow::left`: waits, bounded, until no device with the serial matches a predicate (the boot ROM stays on the bus for the reboot delay); returns whether it left.
 - Builds `RequestKindOwned::Observe` with the boxed body and reads `RequestKind::Observe`'s body with `RefBox::read` in the request envelope (SRV-54, `ww_client_server`'s breaking change); nothing changes for users.
 - A `Commander` dropped on the thread of a current-thread tokio runtime that runs its own event loop (`#[tokio::test]`, `new_current_thread`) no longer blocks that thread for 50 ms: the event loop can't get to the disconnect while the thread waits, so the wait never succeeded and stalled everything on the runtime. The disconnect is handed over and goes out once the thread is back in the runtime; `disconnect().asynch().await` waits until the device is released. On a multi-thread runtime, and on other threads, the drop still waits up to 50 ms so that a program exiting right after has said goodbye.

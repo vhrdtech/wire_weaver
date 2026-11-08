@@ -734,6 +734,12 @@ pub fn parse_quantity_in(
             })?;
             (prefix, unit.clone())
         }
+        // every unit has the empty symbol in front of it: no symbol would pick one at random
+        None if symbol.is_empty() => {
+            return Err(format!(
+                "`{text}`: a number alone has no unit, write its symbol (`{text} V`)"
+            ));
+        }
         None => ww_si::units::ALL
             .iter()
             .filter_map(|expr| match expr {
@@ -1242,6 +1248,18 @@ mod tests {
         assert_eq!(any("3_000_000_000 m").1, NumericValue::I64(3_000_000_000));
         assert!(parse_quantity("20 furlongs", None).is_err());
         assert!(parse_quantity("V", None).is_err());
+        // a number alone is in no unit: refused, not read as the first unit that matches the empty symbol
+        assert!(
+            parse_quantity("5", None)
+                .unwrap_err()
+                .contains("a number alone has no unit")
+        );
+        // with the unit given, it is in the unit itself
+        let ratio = DynUnit::from_name("Ratio").unwrap();
+        assert_eq!(
+            parse_quantity("1.5", Some(&ratio)).unwrap().value,
+            NumericValue::F32(1.5)
+        );
     }
     use ww_si::{Quantity, Unit};
 

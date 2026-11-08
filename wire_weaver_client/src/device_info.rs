@@ -108,8 +108,9 @@ pub struct DeviceApiInfo {
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
     pub user_api_hash: ApiHashPairOwned,
-    /// Wire version of the device's API (EVO-24), what the client's `#[since]` markers are compared with. From the
-    /// device's introspection data when the client has it; `None` otherwise, until link setup carries it (EVO-25).
+    /// Wire version of the device's API (EVO-24), what link setup decides on and the client's `#[since]` markers are
+    /// compared with. From the device's `DeviceInfo` (EVO-25), else from its introspection data; `None` from a device
+    /// that says neither (firmware from before wire versions, which only a dynamic client connects to).
     pub user_api_wire: Option<WireVersion>,
     /// How long the device collects messages into one frame, and asks the host to.
     pub accumulation_time: std::time::Duration,

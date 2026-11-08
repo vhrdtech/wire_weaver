@@ -1182,7 +1182,7 @@ pub(crate) mod tests {
         assert!(call(&cmd2, 0).is_ok());
         assert!(matches!(call(&cmd2, 1), Err(Error::OlderProtocol { .. })));
 
-        // device API and wire version unknown: nothing to compare with (until link setup carries it, EVO-25)
+        // device API and wire version unknown (a device from before wire versions): nothing to compare with
         cmd2.connected_device.user_api_wire = None;
         cmd2.resolve_api_match();
         assert!(call(&cmd2, 1).is_ok());

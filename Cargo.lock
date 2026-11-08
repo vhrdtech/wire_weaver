@@ -5973,6 +5973,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_line"
+version = "0.1.0"
+dependencies = [
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_line_api",
+ "wire_line_old_api",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+]
+
+[[package]]
+name = "wire_line_api"
+version = "0.4.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
+name = "wire_line_old_api"
+version = "0.3.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "wire_weaver"
 version = "0.5.0"
 dependencies = [

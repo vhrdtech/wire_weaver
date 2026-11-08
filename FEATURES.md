@@ -1251,6 +1251,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   variant), so the device hashes nothing and requests shrink; that is a wire change (`PathKind` is
   `final_structure`) and needs its own EVO item when mesh comes. See
   `docs/articles/flash_budget.md#global-trait-paths-by-hash-srv-53`.
+- 💡 **SRV-57 A host write marks an observed property changed** — an on-change observer of a `get_set` property
+  sees only values the firmware marks with `mark_changed_<name>`, so a handler that forgets it hides the host's own
+  write from every observer (the EVO-28 bench's observe test passed about 4 runs in 5 until its simulated firmware
+  called it). Generated dispatch could mark the property after a successful set, or `ww api scaffold` could put the
+  call into the setter stub.
 
 ## Client / host side (`CLT`)
 
@@ -1631,6 +1636,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
   `TODO(CLT-52)` in `event_loop/core/tx.rs`.
+- 💡 **CLT-61 `#[since]` checked when the API hashes match** — with `ApiMatch::Identical` the client skips every
+  resource check, `#[since]` included, so firmware built from a newer API crate that claims an older wire revision
+  gets calls to items it lacks. Checking `#[since]` against the device's wire version from link setup costs
+  nothing and needs no introspection data. Found by the EVO-28 bench, which needed one API crate per revision to
+  test `#[since]` refusals.
+- 💡 **CLT-62 Fallible `WwClient::from_cmd`** — a facade of several wire lines (EVO-28) picks its client in
+  `from_cmd`, which can't fail, so a line it has no client of is `unreachable!`, sound only because link setup
+  refused that device first. A `try_from_cmd` returning an error would say so in the types.
+- 💡 **CLT-63 Reconnect into another wire line** — a facade of several lines (EVO-28) picks its client once, in
+  `from_cmd`. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
+  connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an
+  error naming both lines.
 
 ## Transports and protocols (`TR`)
 
@@ -1956,6 +1973,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `tests/thermo_api/{w1_0,w1,w2_0,w2}`, test `tests/thermo/tests/lines.rs`, `wire_weaver_client`
   `host_of_two_lines_*`, `wire_weaver_core` `two_versions_of_one_crate_under_other_names`, `wire_weaver_evolution`
   `removed_variant_breaks_rust_code`). Open: a third line, the dynamic client and Python on the same bench.
+- 💡 **EVO-32 Conversions between unchanged types of two versions** — a host bundling two versions of one API
+  crate (EVO-28) sees each of the crate's own types as a distinct Rust type per version, also when it didn't change
+  (`RateError`, `Command` in `tests/thermo`), so the driver writes a conversion per type per line. Codegen could
+  emit `From` between two versions' types whose signatures (EVO-2) are equal, or an API crate could take its
+  unchanged types from a shared crate of its own. Types of shared crates (`ww_si`) are one Rust type already.
+- 💡 **EVO-33 Checker findings on a new line read cleanly** — found by the EVO-28 bench's line break: the root's
+  own unchanged sub-trait (`Channel`) is reported as a wire break of its own, with the old crate version as the new
+  label (`thermo_api@1.2.0` for 2.1.0); a resource replaced in place reads as a rename with another argument
+  (`set_rate` -> `configure`); a field that changed scale and storage (`Sample::temp`, `Centi` `i16` -> `Milli`
+  `i32`) reports only the scale. `checker_agrees_on_both_bumps` takes about 1.4 s, each `load_crate` walking
+  `ww_si` and `exact_units` again.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
@@ -2066,6 +2094,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   is caught by `cargo test` and a pre-commit hook, not only when someone remembers to run `ww api check` by hand
   (`donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning`.
+- 💡 **TOOL-32 `ww api scaffold --dep`** — the printed `ww_codegen!` call names the API by its package
+  (`thermo_api ::`), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
+  versions of it (EVO-28, `docs/evolution/multi_line_host.md`). A `--dep NAME` option writes that name instead.
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`

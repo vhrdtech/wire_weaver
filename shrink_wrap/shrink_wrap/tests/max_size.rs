@@ -33,6 +33,7 @@ struct Plain {
     f: UNib32,
     g: f64,
     h: I7,
+    i: INib32,
 }
 
 fn plain() -> Plain {
@@ -45,6 +46,7 @@ fn plain() -> Plain {
         f: UNib32(u32::MAX),
         g: 1.0,
         h: I7::new(-1).unwrap(),
+        i: INib32(i32::MIN),
     }
 }
 
@@ -118,6 +120,7 @@ fn plain_types() {
     tight(&0xFFu8, 0);
     tight(&u128::MAX, 0);
     tight(&UNib32(u32::MAX), 0);
+    tight(&INib32(i32::MIN), 0);
     tight(&UVlq64(u64::MAX), 0);
     tight(&[true; 9], 0);
     tight(&(true, 0u8, true), 0);

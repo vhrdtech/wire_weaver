@@ -1366,7 +1366,8 @@ mod wire_tests {
     fn integer_pairs_compile() {
         assert_eq!(
             error_of(
-                quote! { struct S { #[wire(I4)] a: i8, #[wire(UNib32)] b: u64, #[wire(shrink_wrap::U3)] c: usize } }
+                quote! { struct S { #[wire(I4)] a: i8, #[wire(UNib32)] b: u64, #[wire(shrink_wrap::U3)] c: usize,
+                #[wire(INib32)] d: i64 } }
             ),
             None
         );

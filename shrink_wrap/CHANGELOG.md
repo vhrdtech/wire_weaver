@@ -292,6 +292,15 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   (`{0}`, `{1}`, ...). A variant or struct with neither a doc comment nor `#[display("..")]` is a compile error.
   The `#[future_version]` variant (SW-47) always has one. Unused code is dropped by the linker on a device that
   never calls it. See `docs/serdes/derive.md`.
+- `INib32` (SW-24): a signed variable length nibble varint, zigzag over `UNib32` (`0`, `-1`, `1`, `-2`, `2`, ..
+  map to `0`, `1`, `2`, `3`, `4`, ..), so small negative and positive values both take one nibble. General
+  purpose, the signed counterpart of `UNib32`: a field type on its own (borrowed and owned, `MAX_SIZE`,
+  `PUSHES_LEN`), a `#[wire(INib32)]` wire type for a plain `i8`..`i64`/`isize` field (DER-19), and a `Series`
+  leaf and `Wired<INib32, T>` column, the same as `UNib32`'s own plain `i32` column (the column's own signed
+  codec already makes small values short). A malformed read fails with `Error::MalformedUNib32`: on the wire it
+  is exactly a `UNib32` of the zigzag value. Tests `tests/wire_as.rs`, `tests/max_size.rs`,
+  `tests/pushes_len.rs`, round-trip proptests in `shrink_wrap::nib32`. Docs `docs/serdes/wire_format.md`,
+  `docs/serdes/derive_reference.md`.
 
 ### ⚠️ Breaking
 

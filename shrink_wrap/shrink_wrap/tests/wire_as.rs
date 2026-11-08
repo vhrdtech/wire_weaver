@@ -23,6 +23,8 @@ struct Packed {
     small: u32,
     #[wire(i16)]
     temp: i64,
+    #[wire(INib32)]
+    angle: i64,
     plain: u8,
 }
 
@@ -34,6 +36,7 @@ struct PackedTwin {
     addr: U12,
     small: u8,
     temp: i16,
+    angle: INib32,
     plain: u8,
 }
 
@@ -45,6 +48,7 @@ fn packed(offset: i8, count: u64) -> Packed {
         addr: 0xABC,
         small: 200,
         temp: -300,
+        angle: -179,
         plain: 7,
     }
 }
@@ -57,6 +61,7 @@ fn twin(p: &Packed) -> PackedTwin {
         addr: U12::new(p.addr).unwrap(),
         small: p.small as u8,
         temp: p.temp as i16,
+        angle: INib32(p.angle as i32),
         plain: p.plain,
     }
 }
@@ -100,6 +105,10 @@ fn out_of_range_write_is_an_error() {
         },
         Packed {
             temp: i16::MIN as i64 - 1,
+            ..packed(0, 0)
+        },
+        Packed {
+            angle: i32::MAX as i64 + 1,
             ..packed(0, 0)
         },
     ] {
@@ -282,6 +291,15 @@ pair!(
     Some(32768)
 );
 pair!(i8_as_i32, i8, i32, i8::MIN, i8::MAX, None, None);
+pair!(
+    i64_as_inib32,
+    i64,
+    INib32,
+    i32::MIN as i64,
+    i32::MAX as i64,
+    Some(i32::MIN as i64 - 1),
+    Some(i32::MAX as i64 + 1)
+);
 
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]
 struct V1 {

@@ -47,6 +47,7 @@ impl Type {
             Type::U8 => quote! { u8 },
             Type::U16 => quote! { u16 },
             Type::UNib32 => cp.item(quote! { UNib32 }),
+            Type::INib32 => cp.item(quote! { INib32 }),
             Type::UVlq32 => cp.item(quote! { UVlq32 }),
             Type::UVlq64 => cp.item(quote! { UVlq64 }),
             Type::U32 | Type::ULeb32 => quote! { u32 },
@@ -200,7 +201,7 @@ impl Type {
             Type::Nibble => "write_nib",
             Type::U8 => "write_u8",
             Type::U16 => "write_u16",
-            Type::UNib32 | Type::UVlq32 | Type::UVlq64 => {
+            Type::UNib32 | Type::INib32 | Type::UVlq32 | Type::UVlq64 => {
                 let field_path = field_path.by_ref();
                 tokens.append_all(quote! { wr.write(#field_path) #handle_eob; });
                 return;
@@ -398,7 +399,7 @@ impl Type {
             Type::U32 => "read_u32",
             Type::U64 => "read_u64",
             Type::U128 => "read_u128",
-            Type::UNib32 | Type::UVlq32 | Type::UVlq64 => {
+            Type::UNib32 | Type::INib32 | Type::UVlq32 | Type::UVlq64 => {
                 tokens.append_all(quote! { let #variable_name = rd.#read() #handle_err; });
                 return;
             }

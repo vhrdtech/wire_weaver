@@ -29,7 +29,7 @@ pub mod buf_writer_owned;
 #[cfg(feature = "std")]
 pub use buf_writer_owned::BufWriterOwned;
 pub mod nib32;
-pub use crate::nib32::UNib32;
+pub use crate::nib32::{INib32, UNib32};
 pub mod vlq32;
 pub use crate::vlq32::{UVlq32, UVlq32Backfill};
 pub mod vlq64;
@@ -228,7 +228,7 @@ pub mod prelude {
     pub use crate::max_len::MaxLen;
     pub use crate::max_size::MaxSize;
     pub use crate::nib::Nibble;
-    pub use crate::nib32::UNib32;
+    pub use crate::nib32::{INib32, UNib32};
     #[cfg(feature = "std")]
     pub use crate::option_any_vec::OptionAnyVecBuilderOwned;
     pub use crate::option_any_vec::{OptionAnyVec, OptionAnyVecBuilder};

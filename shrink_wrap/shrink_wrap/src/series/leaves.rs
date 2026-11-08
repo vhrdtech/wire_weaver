@@ -14,7 +14,7 @@ use super::group::{
 };
 use super::{BitSink, SeriesPolicy, XorBits, bound, sign_extend};
 use crate::un::{IN, U3, U4, U5, U6, UN};
-use crate::{BufReader, Error, Nibble, RefVec, UNib32, UVlq32, UVlq64};
+use crate::{BufReader, Error, INib32, Nibble, RefVec, UNib32, UVlq32, UVlq64};
 
 /// Skims a numeric column over `ctx`'s items: `None` for no items (no column is written).
 fn skim_numeric<'i, C: SeriesCtx>(
@@ -156,6 +156,11 @@ numeric_leaf!(Nibble, u32, 4, false, |v| v.value() as u64, |b| {
 numeric_leaf!(UNib32, u32, 32, false, |v| v.0 as u64, |b| UNib32(b as u32));
 numeric_leaf!(UVlq32, u32, 32, false, |v| v.0 as u64, |b| UVlq32(b as u32));
 numeric_leaf!(UVlq64, u64, 64, false, |v| v.0, |b| UVlq64(b));
+// a Series column of its plain i32 value: the column's own signed codec (delta, zigzag) already makes small
+// values short, so the leaf is the same as a plain i32's, not the type's own nibble zigzag encoding
+numeric_leaf!(INib32, u32, 32, true, |v| v.0 as u32 as u64, |b| INib32(
+    sign_extend(b, 32) as i32
+));
 
 macro_rules! un_leaves {
     ($signed:literal, $word:ty, $prefix:ident: $($bits:literal),*) => {

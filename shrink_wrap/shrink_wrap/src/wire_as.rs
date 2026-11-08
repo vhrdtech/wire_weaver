@@ -4,8 +4,8 @@
 //! [WireAs] is what the derive calls: a value is range-checked when it is written ([Error::SubtypeOutOfRange], never
 //! cut) and when it is read (a wider or variable-length wire type can hold more than the field). Wire types are
 //! implemented for every plain integer of the same signedness: unsigned ones (`u8`..`u64`, [Nibble], `U1`..`U64`,
-//! [UNib32], [UVlq32], [UVlq64]) for `u8`..`u128` and `usize`, signed ones (`i8`..`i64`, `I2`..`I64`) for `i8`..`i128`
-//! and `isize`.
+//! [UNib32], [UVlq32], [UVlq64]) for `u8`..`u128` and `usize`, signed ones (`i8`..`i64`, `I2`..`I64`, [INib32]) for
+//! `i8`..`i128` and `isize`.
 //!
 //! A user type can be the wire type too (DER-23): `#[wire(Scale)] scale: ScaleId` keeps a one-byte handle in
 //! Rust and writes the full value it stands for. Such a `W` implements [WireAs] for the field's type; in a
@@ -13,7 +13,9 @@
 //! When the plain values reach only part of `W` (a handle of known scales, each a small `Magnitude`), the impl says so
 //! with [WireAs::PLAIN_MAX_SIZE], and buffers and series bounds are sized by that instead of `W::MAX_SIZE`.
 
-use crate::{ElementSize, Error, MaxSize, Nibble, SerializeShrinkWrap, UNib32, UVlq32, UVlq64};
+use crate::{
+    ElementSize, Error, INib32, MaxSize, Nibble, SerializeShrinkWrap, UNib32, UVlq32, UVlq64,
+};
 
 /// A wire type that a plain Rust value `T` is written as, with `#[wire(Self)]` on a field of type `T` (DER-19).
 pub trait WireAs<T>: Sized {
@@ -131,6 +133,7 @@ wire_as!(PlainSigned, to_i64, from_i64:
     i16 = i16, |v| Some(v), |w| w;
     i32 = i32, |v| Some(v), |w| w;
     i64 = i64, |v| Some(v), |w| w;
+    INib32 = i32, |v| Some(INib32(v)), |w| w.0;
 );
 
 macro_rules! un_wire_as {
@@ -223,6 +226,16 @@ mod tests {
             <i8 as WireAs<i128>>::from_plain(i128::MIN),
             Err(Error::SubtypeOutOfRange)
         );
+        assert_eq!(
+            <INib32 as WireAs<i64>>::from_plain(i32::MIN as i64)
+                .unwrap()
+                .0,
+            i32::MIN
+        );
+        assert_eq!(
+            <INib32 as WireAs<i64>>::from_plain(i32::MIN as i64 - 1),
+            Err(Error::SubtypeOutOfRange)
+        );
     }
 
     #[test]
@@ -238,6 +251,11 @@ mod tests {
         );
         assert_eq!(
             <i32 as WireAs<i8>>::into_plain(-129),
+            Err(Error::SubtypeOutOfRange)
+        );
+        assert_eq!(<INib32 as WireAs<i8>>::into_plain(INib32(-128)), Ok(-128i8));
+        assert_eq!(
+            <INib32 as WireAs<i8>>::into_plain(INib32(-129)),
             Err(Error::SubtypeOutOfRange)
         );
         assert_eq!(

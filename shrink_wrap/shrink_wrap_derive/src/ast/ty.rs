@@ -54,6 +54,9 @@ pub(crate) enum Type {
     ILeb64,
     ILeb128,
 
+    /// Zigzag over `UNib32` (SW-24): the signed counterpart, small negative and positive values both one nibble.
+    INib32,
+
     F32,
     F64,
 
@@ -304,6 +307,7 @@ impl Type {
             }
             // written with `wr.write()`: what the type's impl says
             Type::UNib32
+            | Type::INib32
             | Type::UVlq32
             | Type::UVlq64
             | Type::Array(_, _)
@@ -373,6 +377,7 @@ impl Type {
             Type::ILeb32 => return Some(ObjectSize::SelfDescribing),
             Type::ILeb64 => return Some(ObjectSize::SelfDescribing),
             Type::ILeb128 => return Some(ObjectSize::SelfDescribing),
+            Type::INib32 => return Some(ObjectSize::SelfDescribing),
             Type::F32 => 32,
             Type::F64 => 64,
             Type::String => return Some(ObjectSize::Unsized),

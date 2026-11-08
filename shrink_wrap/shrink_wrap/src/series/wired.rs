@@ -9,8 +9,8 @@ use super::leaves::NumericLeaf;
 use super::{BitSink, SeriesCells, SeriesPolicy, SeriesStore};
 use crate::wire_as::{PlainSigned, PlainUnsigned};
 use crate::{
-    BufReader, DeserializeShrinkWrap, Error, Nibble, SerializeShrinkWrap, UNib32, UVlq32, UVlq64,
-    WireAs,
+    BufReader, DeserializeShrinkWrap, Error, INib32, Nibble, SerializeShrinkWrap, UNib32, UVlq32,
+    UVlq64, WireAs,
 };
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
@@ -161,7 +161,7 @@ macro_rules! wired {
 }
 
 wired!(PlainUnsigned: u8, u16, u32, u64, Nibble, UNib32, UVlq32, UVlq64);
-wired!(PlainSigned: i8, i16, i32, i64);
+wired!(PlainSigned: i8, i16, i32, i64, INib32);
 
 macro_rules! wired_un {
     ($plain:ident, $prefix:ident: $($bits:literal),*) => {

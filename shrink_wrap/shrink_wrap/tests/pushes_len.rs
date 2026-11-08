@@ -184,6 +184,7 @@ fn library_types_const() {
     assert!(!pushes_len::<bool>());
     assert!(!pushes_len::<()>());
     assert!(!pushes_len::<UNib32>());
+    assert!(!pushes_len::<INib32>());
     assert!(!pushes_len::<UVlq32>());
     assert!(!pushes_len::<UVlq64>());
     assert!(!pushes_len::<Nibble>());
@@ -269,6 +270,7 @@ fn same_bytes_without_fifo() {
     check(&Some(0xAA_u8), &hex!("80 AA"));
     check(&[1u8, 2, 3], &hex!("01 02 03"));
     check(&UNib32(5), &hex!("50"));
+    check(&INib32(-3), &hex!("50")); // zigzag(-3) = 5, same byte as UNib32(5)
     check(&(), &[]);
 }
 

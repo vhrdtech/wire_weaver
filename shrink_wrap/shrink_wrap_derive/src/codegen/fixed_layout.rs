@@ -211,6 +211,7 @@ pub(crate) fn classify(ty: &Type) -> Result<Kind, String> {
             "128-bit numbers are not supported by the fast path (no 128-bit loads on small CPUs). Use two u64".into()
         }
         Type::UNib32
+        | Type::INib32
         | Type::UVlq32
         | Type::UVlq64
         | Type::ULeb32

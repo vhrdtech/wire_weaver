@@ -168,12 +168,120 @@ impl Display for UNib32 {
     }
 }
 
+/// Variable length encoded i32, zigzag over [UNib32]: `0`, `-1`, `1`, `-2`, `2`, .. map to `0`, `1`, `2`, `3`, `4`,
+/// .., so small negative and positive values both take one nibble (SW-24). General purpose: the signed
+/// counterpart of `UNib32`, not tied to any one field's meaning.
+///
+/// On the wire it is exactly a [UNib32] of the zigzag-encoded value: [to_zigzag](INib32::to_zigzag) /
+/// [from_zigzag](INib32::from_zigzag) do the mapping, [UNib32::write_forward] / [UNib32::read_forward] do the
+/// nibbles, so a malformed read fails with [Error::MalformedUNib32], the same as a malformed `UNib32`.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+pub struct INib32(pub i32);
+
+/// Protobuf-style zigzag: the sign in the lowest bit, the magnitude above it, so a small negative or positive
+/// number both end up a small unsigned one.
+pub(crate) const fn zigzag32(v: i32) -> u32 {
+    ((v << 1) ^ (v >> 31)) as u32
+}
+
+pub(crate) const fn unzigzag32(z: u32) -> i32 {
+    ((z >> 1) as i32) ^ -((z & 1) as i32)
+}
+
+impl INib32 {
+    /// The zigzag-encoded value, as the [UNib32] written on the wire.
+    pub const fn to_zigzag(self) -> UNib32 {
+        UNib32(zigzag32(self.0))
+    }
+
+    /// The value a [UNib32] of `z` zigzag-decodes to.
+    pub const fn from_zigzag(z: UNib32) -> Self {
+        INib32(unzigzag32(z.0))
+    }
+
+    pub const fn len_nibbles(&self) -> usize {
+        self.to_zigzag().len_nibbles()
+    }
+
+    pub(crate) fn write_forward(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        self.to_zigzag().write_forward(wr)
+    }
+
+    pub(crate) fn read_forward(rd: &mut BufReader) -> Result<Self, Error> {
+        UNib32::read_forward(rd).map(Self::from_zigzag)
+    }
+}
+
+impl SerializeShrinkWrap for INib32 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+    const PUSHES_LEN: bool = false;
+    const MAX_SIZE: Option<crate::max_size::MaxSize> = Some(crate::max_size::MaxSize::nibbles(
+        UNib32(u32::MAX).len_nibbles(),
+    ));
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        self.write_forward(wr)
+    }
+}
+
+#[cfg(feature = "std")]
+impl crate::SerializeShrinkWrapOwned for INib32 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
+        wr.write_unib32(self.to_zigzag().0)
+    }
+}
+
+impl<'i> DeserializeShrinkWrap<'i> for INib32 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
+        INib32::read_forward(rd)
+    }
+}
+
+impl DeserializeShrinkWrapOwned for INib32 {
+    const ELEMENT_SIZE: ElementSize = ElementSize::SelfDescribing;
+
+    fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+        INib32::read_forward(rd)
+    }
+}
+
+impl From<INib32> for i32 {
+    fn from(value: INib32) -> Self {
+        value.0
+    }
+}
+
+impl From<i32> for INib32 {
+    fn from(num: i32) -> Self {
+        INib32(num)
+    }
+}
+
+impl Debug for INib32 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for INib32 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::nib32::UNib32;
+    use crate::nib32::{INib32, UNib32, unzigzag32, zigzag32};
     use crate::{
         BufReader, BufWriter, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, Error,
-        SerializeShrinkWrap,
+        SerializeShrinkWrap, SerializeShrinkWrapOwned,
     };
 
     #[test]
@@ -327,5 +435,86 @@ mod test {
         assert_eq!(num, UNib32(123));
         let num = UNib32::from_ww_bytes_owned(bytes).unwrap();
         assert_eq!(num, UNib32(123));
+    }
+
+    #[test]
+    fn zigzag_sanity_check() {
+        // small values on both sides of zero map to small unsigned ones, one nibble each
+        assert_eq!(zigzag32(0), 0);
+        assert_eq!(zigzag32(-1), 1);
+        assert_eq!(zigzag32(1), 2);
+        assert_eq!(zigzag32(-2), 3);
+        assert_eq!(zigzag32(2), 4);
+        assert_eq!(zigzag32(i32::MAX), u32::MAX - 1);
+        assert_eq!(zigzag32(i32::MIN), u32::MAX);
+        for v in [0, -1, 1, -2, 2, i32::MIN, i32::MAX, -12345, 12345] {
+            assert_eq!(unzigzag32(zigzag32(v)), v);
+        }
+    }
+
+    #[inline]
+    fn test_inib32_forward(num: i32, nib_count: usize) {
+        const SIZE: usize = 8;
+        let mut buf = [0u8; SIZE];
+        let mut wr = BufWriter::new(&mut buf);
+        INib32(num).write_forward(&mut wr).unwrap();
+        assert_eq!(SIZE * 2 - wr.nibbles_left(), nib_count);
+        let buf = wr.finish().unwrap();
+        let mut rd = BufReader::new(buf);
+        assert_eq!(INib32::read_forward(&mut rd), Ok(INib32(num)));
+    }
+
+    #[test]
+    fn inib32_sanity_check() {
+        test_inib32_forward(0, 1);
+        test_inib32_forward(-1, 1);
+        test_inib32_forward(1, 1);
+        test_inib32_forward(-2, 1);
+        test_inib32_forward(2, 1);
+        test_inib32_forward(-4, 1); // zigzag(-4) = 7, still one nibble
+        test_inib32_forward(4, 2); // zigzag(4) = 8, needs a second nibble
+        test_inib32_forward(i32::MIN, UNib32(u32::MAX).len_nibbles());
+        test_inib32_forward(i32::MAX, UNib32(u32::MAX - 1).len_nibbles());
+    }
+
+    #[test]
+    fn inib32_malformed_is_malformed_unib32() {
+        // on the wire INib32 is exactly a UNib32 of the zigzag value: a malformed read reports the same error
+        let buf = [0xff, 0xff, 0xff, 0xff, 0xff, 0xf0];
+        let mut rd = BufReader::new(&buf);
+        assert_eq!(INib32::read_forward(&mut rd), Err(Error::MalformedUNib32));
+    }
+
+    #[test]
+    fn inib32_traits() {
+        let mut buf = [0; 64];
+        let bytes = INib32(-123).to_ww_bytes(&mut buf).unwrap();
+        let num = INib32::from_ww_bytes(bytes).unwrap();
+        assert_eq!(num, INib32(-123));
+        let num = INib32::from_ww_bytes_owned(bytes).unwrap();
+        assert_eq!(num, INib32(-123));
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn zigzag32_round_trip(num in proptest::prelude::any::<i32>()) {
+            proptest::prop_assert_eq!(unzigzag32(zigzag32(num)), num);
+        }
+
+        #[test]
+        fn inib32_round_trip(num in proptest::prelude::any::<i32>()) {
+            let mut buf = [0u8; 8];
+            let mut wr = BufWriter::new(&mut buf);
+            INib32(num).write_forward(&mut wr).unwrap();
+            let buf = wr.finish().unwrap();
+            let mut rd = BufReader::new(buf);
+            proptest::prop_assert_eq!(INib32::read_forward(&mut rd), Ok(INib32(num)));
+        }
+
+        #[test]
+        fn inib32_owned_round_trip(num in proptest::prelude::any::<i32>()) {
+            let bytes = INib32(num).to_ww_bytes_owned().unwrap();
+            proptest::prop_assert_eq!(INib32::from_ww_bytes_owned(&bytes), Ok(INib32(num)));
+        }
     }
 }

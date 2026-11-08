@@ -84,6 +84,27 @@ trait is a plain `#[ww_trait]`.
 Mark additions with `#[since = "w2.4"]`, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
 
+### Which bump a change needs
+
+The wire version and the crate version are bumped apart, each for what it describes: the wire version for what
+devices and hosts of the two versions can still say to each other, the crate version for Rust code (Cargo SemVer).
+The [evolution checker](checker_tool.md#two-bumps-the-wire-and-the-crate) derives both from one comparison and fails
+when either is not bumped enough:
+
+| Change                                                          | Wire version        | Crate version     |
+|-----------------------------------------------------------------|---------------------|-------------------|
+| doc comments only                                               | none                | compatible        |
+| a new method, property, stream, trait, type, field or variant   | `w2.3` -> `w2.4`    | compatible        |
+| a trailing argument with a default                              | `w2.3` -> `w2.4`    | breaking          |
+| a rename, a `#[flatten]` promotion, a catch-all changed         | none                | breaking          |
+| a wire break (removed, moved, a type changed, a bound narrowed) | `w2.3` -> `w3.0`    | breaking          |
+| a dependency at a newer revision of its wire line               | `w2.3` -> `w2.4`    | as its changes    |
+| a dependency on a new wire line                                 | `w2.3` -> `w3.0`    | breaking          |
+
+"Compatible" is the crate's patch before 1.0 and minor after, "breaking" minor before 1.0 and major after. A bigger
+bump than needed is always accepted, so a new line by hand for a change of meaning the checker can't see stays
+allowed. A wire version may not go back, and a crate that declared one keeps declaring it.
+
 ### `#[since]`
 
 `#[since = "w2.4"]` is the wire revision that added a resource, field or variant. A crate version there
@@ -109,7 +130,7 @@ that crate (`[package.metadata.wire_weaver] wire = ..` in its `Cargo.toml`, see
 only the root's wire version.
 
 A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
-version); the [evolution checker](checker_tool.md) warns about it.
+version); the [evolution checker](checker_tool.md) fails on it.
 
 The API crate's dependencies are part of this contract: upgrading a `ww_stdlib` crate or `shrink_wrap` to a
 wire-incompatible version, or [the API model](#api-model), is a breaking change of the user API too.

@@ -1904,6 +1904,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   them. Open: a device resolving a global path itself still matches crate versions (EVO-29); `exact_units` declares
   none yet (its own repository) (`docs/evolution/crate_layers.md#layer-2-ww_stdlib`; tests `wire_weaver_client`
   `since_of_a_stdlib_crate`, `stdlib_trait_found_by_wire_line`, `wire_weaver_evolution` `tests::wire_lines`).
+- ✅ **EVO-27 The checker derives both bumps** · `v0.5` — `ww api check` derives from one snapshot comparison the
+  wire bump a change needs next to the crate bump (`wire_weaver_evolution::WireBump`: none, a new revision, a new
+  line) and checks the declared wire version against it (`Report::check_wire`): a wire break (a rule that doesn't
+  keep the wire) or a dependency on a new wire line needs a new line, a wire-compatible addition (an item, trait,
+  type, field, variant, trailing argument, raised max length, a dependency at a newer revision) a new revision, a
+  Rust-only break none. A new method is `w2.3 -> w2.4` and a crate patch, a trailing argument with a default
+  `w2.3 -> w2.4` and a crate breaking bump, a wire break `w3.0` and a crate breaking bump; a bigger bump, such as a
+  line by hand for a change of meaning, passes. A wire version going back or dropped fails, and so does a `#[since]`
+  newer than the crate's wire version (was a warning). The report prints both on a `needs:` line, a failed check
+  names what to change for each and where the wire version is declared (the root's attribute or `Cargo.toml`), and
+  `ww api save` refuses the same. A `ww_stdlib` crate on a new wire line is one reason with the breaks it causes
+  named under it (EVO-21) (`docs/evolution/checker_tool.md#two-bumps-the-wire-and-the-crate`,
+  `docs/evolution/rules.md#which-bump-a-change-needs`; `wire_weaver_evolution` tests `tests::both_bumps`,
+  `tests::wire_lines`, `check::both_bumps_named_in_the_verdict`).
 - 💡 **EVO-29 Global paths by wire line on the device** — a device without introspection data resolves `GlobalFull`
   and `GlobalCompact` paths itself (`ww_client_server::global_full_path`, the generated `GlobalTrait` table) by the
   crate major and minor the request carries, so a host built with another crate major of a `ww_stdlib` crate on the

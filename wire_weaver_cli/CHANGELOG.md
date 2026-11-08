@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww api check` names both bumps a change needs (EVO-27): a `needs:` line under the header (`needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.2.0 or later (breaking position ...)`), and fails when the wire version is not bumped enough, goes back, is dropped, or is lower than a `#[since]`, saying what to declare and where. `ww api save` refuses the same without `--force`.
 - `ww api check` labels a break of Rust code only `breaking (Rust only, the wire is compatible):` (EVO-22, `Rule::Signature`, an argument added or removed with the wire intact). `ww explain` shows the arguments of a method with a `#[flatten]` struct by its fields.
 - `ww api scaffold --no-observe-samples` (SRV-56): writes `observe_samples = false` in the `ww_codegen!` call and an `ObserveState` without batches.
 - `ww observe` says what a device refused (SRV-56). With `--samples` a refusal is an error naming the properties, where it used to wait for samples that never came; without, a `refused:` line per property. On an image that says it takes no samples (`ImageFacts`), `--samples` fails before asking.

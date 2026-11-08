@@ -5,12 +5,14 @@ level: basic
 # Evolution checker
 
 `ww api check <path>` compares the traits and types of a crate with the latest [snapshot](../cli_reference.md#ww-api) saved in
-`<path>/api_snapshots/`, and fails if the crate version is not bumped enough for what changed, following the
-[evolution rules](rules.md). The crate is parsed from source, same as for `ww api save`, so nothing has to be built.
+`<path>/api_snapshots/`, and fails if the crate version or the [wire version](rules.md#the-wire-version) is not
+bumped enough for what changed, following the [evolution rules](rules.md). The crate is parsed from source, same as for `ww api save`, so nothing has to be built.
 
 ```
 $ ww api check ww_stdlib/ww_uart
 ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.1 (source): compatible changes
+  needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.1.1 or later (compatible position (patch before 1.0, minor after))
+  compatible: wire version w1.0 -> w1.1
   compatible: Uart::flush added
 version is bumped enough
 ```
@@ -44,12 +46,53 @@ version to put into `Cargo.toml`:
 ```
 $ ww api check examples/blinky_api
 blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -> 0.1.0 (source): breaking changes
+  needs: no wire version declared (a new wire line if it were), crate 0.1.0 -> 0.2.0 or later (breaking position (minor before 1.0, major after))
   breaking: BlinkyApi::led_off removed
       rule: traits, resources and types are never removed, clients and code using them break (docs/evolution/rules.md#api)
 Error: blinky_api 0.1.0 -> 0.1.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
 blinky_api 0.1.0 has a snapshot (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron), so it is released and never changes: a change needs a new version.
 Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
 ```
+
+`blinky_api`'s snapshot of 0.1.0 was saved before wire versions existed, so only the crate version is checked
+against it; the next section shows both.
+
+## Two bumps: the wire and the crate
+
+The wire version (`#[ww_api_root(wire = "w1.0")]`, or `[package.metadata.wire_weaver] wire` in `Cargo.toml` for a
+crate without an API root) and the crate version are bumped apart: the wire version for what devices and hosts of
+the two versions can still say to each other, the crate version for Rust code. One comparison gives both, on the
+`needs:` line, and the check fails when either is not bumped enough, naming what to change for each. A trailing
+argument with a default is a wire-compatible addition, a new wire revision, but a breaking change of the Rust
+signatures, a breaking crate bump:
+
+```
+$ ww api check my_device_api
+my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1.1 (source): breaking changes
+  needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.2.0 or later (breaking position (minor before 1.0, major after))
+  breaking (Rust only, the wire is compatible): MyDevice::led_on: takes 0 argument(s) on the old version, 1 on the new version: the same bytes on the wire, but other parameters for handlers and client calls
+      rule: arguments added at the end with a default, or promoted to a #[flatten] struct, keep the wire, but change the Rust signatures of handlers and client calls (docs/evolution/rules.md#arguments)
+Error: my_device_api 0.1.0 -> 0.1.1 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
+Bump `version` in my_device_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save my_device_api` and commit api_snapshots/.
+my_device_api wire w1.0 -> w1.0 has MyDevice::led_on: arguments added or removed at the end, which needs a new wire revision: w1.1 or later.
+Bump the wire version in `#[ww_api_root(wire = ..)]` to w1.1 or later (docs/evolution/rules.md#the-wire-version).
+```
+
+Which change needs which bump is in [the rules](rules.md#which-bump-a-change-needs). In short:
+
+* A new wire line (`w1.0` -> `w2.0`): anything that breaks the wire, also through a dependency. A `ww_stdlib` crate
+  on a new line of its own is one cause, with the breaks it brings named under it: `shared_api on a new wire line,
+  w1.0 -> w2.0 (2 wire breaks because type shared_api::Shared changed)`.
+* A new wire revision (`w1.0` -> `w1.1`): a wire-compatible addition (a method, property, stream, trait, type, field,
+  variant or trailing argument), a raised max length, or a dependency at a newer revision of its line.
+* No wire bump: doc comments, and changes that only break Rust code (a rename, a `#[flatten]` promotion, a changed
+  catch-all).
+
+A bigger bump than needed is always accepted, so a line bumped by hand for a change of meaning the checker can't see
+passes. A wire version going back, or no longer declared, fails, and so does a `#[since]` newer than the crate's wire
+version. `ww api save` refuses to save in each of these cases, as for a crate version not bumped enough. A crate that
+declares no wire version on the old side has nothing to compare with: the `needs:` line still says what it would
+need. From code, `Report::wire_bump`, `Report::minimal_wire()` and `Report::check_wire()` give the same.
 
 ## Several broken items, one cause (EVO-21)
 
@@ -272,9 +315,10 @@ name. A change is breaking if:
   `ww_si 0.1` -> `0.2`), or one from the same crate version with a different definition.
 
 It also warns about additions without `#[since]`, or with a `#[since]` older than the new wire version (and about a
-wire revision that wasn't bumped for them), and about any resource, field or variant whose `#[since]` is newer than
-the API's own wire version (a host built with it would refuse that item on every device of this version, see
-[`#[since]`](rules.md#since)). A change of the root's wire version is listed too.
+wire revision that wasn't bumped for them), and fails on any resource, field or variant whose `#[since]` is newer
+than the API's own wire version (a host built with it would refuse that item on every device of this version, see
+[`#[since]`](rules.md#since)). A change of the root's wire version is listed too; whether it is bumped enough is
+[checked on its own](#two-bumps-the-wire-and-the-crate).
 
 ## New fields in padding bits
 

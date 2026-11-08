@@ -10,11 +10,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 213 of 213 | 0 |
-| dynamic | 188 of 213 | 25 |
-| explain | 188 of 213 | 25 |
-| python | 188 of 213 | 25 |
-| c | 34 of 213 | 179 |
+| derive | 217 of 217 | 0 |
+| dynamic | 194 of 217 | 23 |
+| explain | 194 of 217 | 23 |
+| python | 194 of 217 | 23 |
+| c | 34 of 217 | 183 |
 
 | Case | Type | Direction | derive | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|
@@ -148,11 +148,9 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `cfg_attr.v2` | `gated_v2` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `cfg_attr.new_reads_old` | `gated_v2` | decode | ✅ | gap INT-10 | gap INT-10 | gap INT-10 | gap API-26 |
 | `head_tail.struct` | `HtRecord` | both | ✅ | gap SW-46 | gap SW-46 | gap SW-46 | reader only (API-26) |
-| `device_info.ordinary` | `DeviceInfo` | decode | ✅ | gap - | gap - | gap - | gap - |
-| `device_info.no_observe_samples` | `DeviceInfo` | decode | ✅ | gap - | gap - | gap - | gap - |
-| `device_info.wire_version` | `DeviceInfo` | both | ✅ | gap - | gap - | gap - | gap - |
+| `device_info.ordinary` | `DeviceInfo` | both | ✅ | gap - | gap - | gap - | gap - |
+| `device_info.no_observe_samples` | `DeviceInfo` | both | ✅ | gap - | gap - | gap - | gap - |
 | `link_setup.without_meta` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
-| `link_setup.wire_version` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
 | `link_setup.with_meta` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
 | `disconnect_reason.hub_handover` | `DisconnectReason` | both | ✅ | gap - | gap - | gap - | gap - |
 | `disconnect_reason.from_newer` | `DisconnectReason` | both | ✅ | gap - | gap - | gap - | gap - |
@@ -171,6 +169,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `stdlib.si.fixed.duty16` | `duty16` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.si.fixed.bounded` | `fixed_bounded` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.si.fixed.bounded.rejected` | `fixed_bounded` | reject | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.f32` | `fixed_f32` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.f32.inf` | `fixed_f32` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.f32.nan.rejected` | `fixed_f32` | reject | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.maybe_nan.nan` | `fixed_maybe_nan` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.maybe_nan.number` | `fixed_maybe_nan` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.si.fixed.customary` | `fixed_customary` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.si.quantity.milli` | `quantity_volt` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.si.quantity.kibi` | `quantity_byte` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
@@ -224,6 +227,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `model.marker_def.quotient` | `marker_def` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `model.marker_def.origin` | `marker_def` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `model.marker_def.angle` | `marker_def` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `model.marker_def.maybe_nan` | `marker_def` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `model.item_struct_extra.transparent` | `item_struct_extra` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `model.item_struct_extra.marker` | `item_struct_extra` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `args.one` | `args_one` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
@@ -314,12 +318,12 @@ A stored number converted to another scale and storage with a named rounding and
 ## Gaps
 
 - **c**: no generated C for method arguments yet: C from the ww_self model (API-26). 5 cases: `args.one`, `args.plain`, `args.flatten`, `args.defaults.given`, `args.defaults.left_out`.
-- **c**: no generated C for this type yet: C from the ww_self model (API-26). 156 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `transparent.u64`, `transparent.unib32`, `transparent.fields.plain`, `transparent.fields`, `transparent.sized.plain`, `transparent.sized`, `transparent.vec.unib32.plain`, `transparent.vec.unib32`, `transparent.vec.nibble.plain`, `transparent.vec.nibble`, `transparent.option.plain`, `transparent.option`, `transparent.array.plain`, `transparent.array`, `transparent.series.plain`, `transparent.series`, `transparent.series.struct.plain`, `transparent.series.struct`, `wire.struct`, `wire.struct.out_of_range`, `wire.enum.tuple`, `wire.enum.named`, `wire.series`, `cfg_attr.v1`, `cfg_attr.v2`, `cfg_attr.new_reads_old`, `tail_bytes`, `stdlib.timebase.steer_point`, `stdlib.timebase.steer_point.steerer`, `stdlib.timebase.sync_status`, `stdlib.timebase.sync_status.steerers`, `stdlib.si.dim.volt`, `stdlib.si.dim.rad_bit`, `stdlib.si.dim.counted`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root`, `stdlib.si.dim.root.rejected`, `stdlib.si.fixed.pow10`, `stdlib.si.fixed.duty16`, `stdlib.si.fixed.bounded`, `stdlib.si.fixed.bounded.rejected`, `stdlib.si.fixed.customary`, `stdlib.si.quantity.milli`, `stdlib.si.quantity.kibi`, `stdlib.si.quantity.pow10`, `stdlib.si.quantity.pow2`, `stdlib.si.quantity.fullscale`, `stdlib.si.quantity.unknown_scale`, `stdlib.si.quantity.bounded`, `stdlib.si.quantity.bounded.rejected`, `stdlib.si.quantity.bounded.micro`, `stdlib.si.quantity.bounded.micro.rejected`, `stdlib.si.quantity.bounded.pow2`, `stdlib.si.quantity.bounded.pow2.rejected`, `stdlib.si.quantity.bounded.fullscale`, `stdlib.si.quantity.bounded.fullscale.rejected`, `stdlib.si.quantity.bounded.f32`, `stdlib.si.quantity.bounded.f32.rejected`, `stdlib.si.magnitude.one`, `stdlib.si.magnitude.milli`, `stdlib.si.magnitude.kibi`, `stdlib.si.magnitude.duty16`, `stdlib.si.magnitude.degree`, `stdlib.si.magnitude.sqrt2`, `stdlib.si.magnitude.decibel_in_neper`, `stdlib.si.magnitude.pound`, `stdlib.si.magnitude.rejected`, `stdlib.si.point.celsius`, `stdlib.si.point.bounded`, `stdlib.si.point.bounded.rejected`, `stdlib.si.index.in_struct`, `stdlib.si.index_from_1`, `stdlib.si.index_from_1.zero.rejected`, `stdlib.si.index_from_1.bounded.rejected`, `stdlib.si.seq.nibble_wrap`, `stdlib.si.offset.zero`, `stdlib.si.offset.celsius`, `stdlib.si.offset.minus_forty`, `stdlib.si.offset.fahrenheit`, `stdlib.si.offset.rejected`, `stdlib.si.si_expr.volt`, `stdlib.si.si_expr.pound_force`, `stdlib.si.si_expr.sqrt`, `stdlib.si.si_expr.decibel_loss_per_hundred_metres`, `stdlib.si.si_expr.rejected`, `model.marker_def.unit`, `model.marker_def.unit_conventional`, `model.marker_def.unit_kind`, `model.marker_def.scale`, `model.marker_def.per`, `model.marker_def.product`, `model.marker_def.quotient`, `model.marker_def.origin`, `model.marker_def.angle`, `model.item_struct_extra.transparent`, `model.item_struct_extra.marker`.
+- **c**: no generated C for this type yet: C from the ww_self model (API-26). 162 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `transparent.u64`, `transparent.unib32`, `transparent.fields.plain`, `transparent.fields`, `transparent.sized.plain`, `transparent.sized`, `transparent.vec.unib32.plain`, `transparent.vec.unib32`, `transparent.vec.nibble.plain`, `transparent.vec.nibble`, `transparent.option.plain`, `transparent.option`, `transparent.array.plain`, `transparent.array`, `transparent.series.plain`, `transparent.series`, `transparent.series.struct.plain`, `transparent.series.struct`, `wire.struct`, `wire.struct.out_of_range`, `wire.enum.tuple`, `wire.enum.named`, `wire.series`, `cfg_attr.v1`, `cfg_attr.v2`, `cfg_attr.new_reads_old`, `tail_bytes`, `stdlib.timebase.steer_point`, `stdlib.timebase.steer_point.steerer`, `stdlib.timebase.sync_status`, `stdlib.timebase.sync_status.steerers`, `stdlib.si.dim.volt`, `stdlib.si.dim.rad_bit`, `stdlib.si.dim.counted`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root`, `stdlib.si.dim.root.rejected`, `stdlib.si.fixed.pow10`, `stdlib.si.fixed.duty16`, `stdlib.si.fixed.bounded`, `stdlib.si.fixed.bounded.rejected`, `stdlib.si.fixed.f32`, `stdlib.si.fixed.f32.inf`, `stdlib.si.fixed.f32.nan.rejected`, `stdlib.si.fixed.maybe_nan.nan`, `stdlib.si.fixed.maybe_nan.number`, `stdlib.si.fixed.customary`, `stdlib.si.quantity.milli`, `stdlib.si.quantity.kibi`, `stdlib.si.quantity.pow10`, `stdlib.si.quantity.pow2`, `stdlib.si.quantity.fullscale`, `stdlib.si.quantity.unknown_scale`, `stdlib.si.quantity.bounded`, `stdlib.si.quantity.bounded.rejected`, `stdlib.si.quantity.bounded.micro`, `stdlib.si.quantity.bounded.micro.rejected`, `stdlib.si.quantity.bounded.pow2`, `stdlib.si.quantity.bounded.pow2.rejected`, `stdlib.si.quantity.bounded.fullscale`, `stdlib.si.quantity.bounded.fullscale.rejected`, `stdlib.si.quantity.bounded.f32`, `stdlib.si.quantity.bounded.f32.rejected`, `stdlib.si.magnitude.one`, `stdlib.si.magnitude.milli`, `stdlib.si.magnitude.kibi`, `stdlib.si.magnitude.duty16`, `stdlib.si.magnitude.degree`, `stdlib.si.magnitude.sqrt2`, `stdlib.si.magnitude.decibel_in_neper`, `stdlib.si.magnitude.pound`, `stdlib.si.magnitude.rejected`, `stdlib.si.point.celsius`, `stdlib.si.point.bounded`, `stdlib.si.point.bounded.rejected`, `stdlib.si.index.in_struct`, `stdlib.si.index_from_1`, `stdlib.si.index_from_1.zero.rejected`, `stdlib.si.index_from_1.bounded.rejected`, `stdlib.si.seq.nibble_wrap`, `stdlib.si.offset.zero`, `stdlib.si.offset.celsius`, `stdlib.si.offset.minus_forty`, `stdlib.si.offset.fahrenheit`, `stdlib.si.offset.rejected`, `stdlib.si.si_expr.volt`, `stdlib.si.si_expr.pound_force`, `stdlib.si.si_expr.sqrt`, `stdlib.si.si_expr.decibel_loss_per_hundred_metres`, `stdlib.si.si_expr.rejected`, `model.marker_def.unit`, `model.marker_def.unit_conventional`, `model.marker_def.unit_kind`, `model.marker_def.scale`, `model.marker_def.per`, `model.marker_def.product`, `model.marker_def.quotient`, `model.marker_def.origin`, `model.marker_def.angle`, `model.marker_def.maybe_nan`, `model.item_struct_extra.transparent`, `model.item_struct_extra.marker`.
 - **c**: reader only: the generated C has no writer yet (API-26). 8 cases: `fixed.numbers`, `fixed.bits`, `fixed.nested`, `fixed.option.none`, `fixed.option.some`, `fixed.enum.unit`, `fixed.enum.fields`, `head_tail.struct`.
 - **c**: the C runtime has no 128-bit numbers (SW-66). 2 cases: `int.u128.max`, `int.i128.min`.
-- **c**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **c**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 2 cases: `device_info.ordinary`, `device_info.no_observe_samples`.
 - **c**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
-- **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **dynamic**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **dynamic**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **dynamic**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 5 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root.rejected`, `stdlib.si.magnitude.rejected`, `stdlib.si.offset.rejected`.
@@ -328,9 +332,9 @@ A stored number converted to another scale and storage with a named rounding and
 - **dynamic**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **dynamic**: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: `option.option.some_none`.
 - **dynamic**: the API model has no #[default] values, an old field reads as its type's default (INT-10). 2 cases: `evolution.new_reads_old`, `cfg_attr.new_reads_old`.
-- **dynamic**: ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **dynamic**: ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `device_info.ordinary`, `device_info.no_observe_samples`.
 - **dynamic**: ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
-- **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **explain**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **explain**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **explain**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 5 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root.rejected`, `stdlib.si.magnitude.rejected`, `stdlib.si.offset.rejected`.
@@ -339,9 +343,9 @@ A stored number converted to another scale and storage with a named rounding and
 - **explain**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **explain**: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: `option.option.some_none`.
 - **explain**: the API model has no #[default] values, an old field reads as its type's default (INT-10). 2 cases: `evolution.new_reads_old`, `cfg_attr.new_reads_old`.
-- **explain**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **explain**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 2 cases: `device_info.ordinary`, `device_info.no_observe_samples`.
 - **explain**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
-- **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
+- **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **python**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **python**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **python**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 5 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root.rejected`, `stdlib.si.magnitude.rejected`, `stdlib.si.offset.rejected`.
@@ -350,13 +354,6 @@ A stored number converted to another scale and storage with a named rounding and
 - **python**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **python**: null is None and Some(None) alike in the Python value form (TOOL-13). 1 case: `option.option.some_none`.
 - **python**: the API model has no #[default] values (INT-10). 2 cases: `evolution.new_reads_old`, `cfg_attr.new_reads_old`.
-- **python**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
+- **python**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 2 cases: `device_info.ordinary`, `device_info.no_observe_samples`.
 - **python**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
-- **python**: ww_link's LinkSetup is a link message, not a type of an API in the model. 3 cases: `link_setup.without_meta`, `link_setup.wire_version`, `link_setup.with_meta`.
-
-## Wire changes
-
-Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each with its EVO item and a `**Breaking:**` CHANGELOG entry:
-
-- `device_info.ordinary`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
-- `device_info.no_observe_samples`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
+- **python**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.

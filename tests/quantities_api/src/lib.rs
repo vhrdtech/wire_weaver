@@ -15,8 +15,8 @@ use ww_si::units::{
     Torque, Watt,
 };
 use ww_si::{
-    Ampere, AnyQuantity, Fixed, Index, IndexFrom1, Micros, Offset, Point, Quantity, Range,
-    RangeDec, Seq, Timed, Unbounded, Volt,
+    Ampere, AnyQuantity, Fixed, Index, IndexFrom1, MaybeNan, Micros, Offset, Point, Quantity,
+    Range, RangeDec, Seq, Timed, Unbounded, Volt,
 };
 
 #[ww_api_root]
@@ -38,6 +38,10 @@ trait Quantities {
     /// The same type with `B` written out
     property!(rw timeout_full: Fixed<Second, Milli, u16, Unbounded>);
     property!(rw window: Fixed<Second, Milli, u16, Range<1, 5000>>);
+    /// A reading in mV as a float: never NaN, ±∞ allowed (NUM-19)
+    property!(rw sense: Fixed<units::Volt, Milli, f32>);
+    /// The same reading where NaN is a value: "no reading" (NUM-19)
+    property!(rw raw_sense: Fixed<units::Volt, Milli, f32, MaybeNan>);
     /// Sizes with device time, `B` left out inside `Timed` and a `Series`
     fn sizes() -> Series<'i, Timed<Fixed<Byte, One, u32>>>;
     /// Through an alias, `B` left out

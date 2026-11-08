@@ -803,6 +803,9 @@ pub enum MarkerDef<'i> {
     /// `exact_units::units::Phase<A>`: the unit `A` (a plane angle, rad¹) under the kind `phase angle`, so it
     /// doesn't convert to `A` itself. A reader from before it gets `Unknown`.
     Phase,
+    /// `exact_units::MaybeNan` (NUM-19): a float `Fixed` without bounds that may hold NaN. Every other bounds marker,
+    /// [Self::Unbounded] included, refuses NaN on decode and encode. A reader from before it gets `Unknown`.
+    MaybeNan,
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].

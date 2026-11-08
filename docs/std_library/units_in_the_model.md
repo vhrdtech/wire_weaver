@@ -37,7 +37,8 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Per`, `Times`, `Sqrt`                                         | `exact_units`' unit combinators, their arguments are the instance's |
 | `Pow10`, `Pow2`, `Rational`, `FullScale`, `FullScaleMax`       | `exact_units`' generic scales, their const arguments say the value |
 | `Product`, `Quotient`                                          | the scale of `Fixed * Fixed` and `Fixed / Fixed`, its scale arguments are the instance's |
-| `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`                                            |
+| `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`; each refuses NaN                          |
+| `MaybeNan`                                                     | a float `Fixed` that may hold NaN, the one bound that takes it     |
 | `Origin(OriginDef { unit, symbol, reference, offset, .. })`    | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
 | `ConventionalUnit(ConventionalUnitDef { unit, source, year })` | a unit that is a value a standard prints: `inHg` at 32 °F ([customary](customary.md)) |

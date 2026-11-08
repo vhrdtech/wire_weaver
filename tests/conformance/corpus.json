@@ -3,6 +3,7 @@
     "Wire-format conformance corpus (TEST-23): every case goes through every consumer (Rust derive, ww_self dynamic, Python, C), see docs/serdes/conformance.md.",
     "type: a property of conformance_api's Conformance trait (or a Rust type outside the API model); value: in the wire_weaver_py form; bytes: the golden bytes in hex.",
     "direction: both (default), decode (bytes decode to value, value encodes otherwise), reject (bytes don't decode), reject_value (value doesn't encode).",
+    "A float JSON can't hold is written as the string \"NaN\", \"inf\" or \"-inf\" where the type is a float (NUM-19).",
     "gaps: consumer -> why it can't run the case yet, with the FEATURES.md id that fixes it. A missing or stale mark fails the tests.",
     "wire_change: \"EVO-n / reason\", the escape the frozen golden bytes guard (TEST-24) accepts for a deliberate change to bytes, direction or bytes_from, with a matching EVO item and CHANGELOG entry.",
     "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then just conformance-update and review the bytes.",
@@ -1128,6 +1129,47 @@
       "note": "0 ms is below Range<1, 5000>: refused on decode (STD-55)"
     },
     {
+      "name": "stdlib.si.fixed.f32",
+      "type": "fixed_f32",
+      "value": {"value": 1.5},
+      "bytes": "0000c03f",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Fixed<Volt, Milli, f32>: its f32 on the wire"
+    },
+    {
+      "name": "stdlib.si.fixed.f32.inf",
+      "type": "fixed_f32",
+      "value": {"value": "inf"},
+      "bytes": "0000807f",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "+∞ is a value of a NaN-free float (NUM-19, STD-105), as for the VSWR of a total reflection"
+    },
+    {
+      "name": "stdlib.si.fixed.f32.nan.rejected",
+      "type": "fixed_f32",
+      "value": null,
+      "bytes": "0000c07f",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a quiet NaN: every bound but MaybeNan refuses it on decode, Unbounded included (NUM-19, STD-105)"
+    },
+    {
+      "name": "stdlib.si.fixed.maybe_nan.nan",
+      "type": "fixed_maybe_nan",
+      "value": {"value": "NaN"},
+      "bytes": "0000c07f",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Fixed<Volt, Milli, f32, MaybeNan> holds NaN (NUM-19, STD-105)"
+    },
+    {
+      "name": "stdlib.si.fixed.maybe_nan.number",
+      "type": "fixed_maybe_nan",
+      "value": {"value": -2.5},
+      "bytes": "000020c0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "MaybeNan is the same f32 on the wire"
+    },
+    {
       "name": "stdlib.si.fixed.customary",
       "type": "fixed_customary",
       "value": {"value": -2000},
@@ -1562,6 +1604,14 @@
       "bytes": "f1",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "exact_units' generic Angle<U>: the variant alone, the unit and its turn come from U (INT-13)"
+    },
+    {
+      "name": "model.marker_def.maybe_nan",
+      "type": "marker_def",
+      "value": "MaybeNan",
+      "bytes": "f2",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' MaybeNan bound (NUM-19, STD-105): the variant alone; a reader from before it gets Unknown"
     },
     {
       "name": "model.item_struct_extra.transparent",

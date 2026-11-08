@@ -537,11 +537,30 @@ fn int_lit(expr: &Expr) -> Option<i128> {
 }
 
 /// A float literal (or an integer one), possibly negative.
+/// A float literal, an integer one, or a float without a literal as `number` writes it (`f32::NAN`, `f64::INFINITY`,
+/// `-f32::INFINITY`), `None` for anything else.
+pub fn float_value(expr: &Expr) -> Option<f64> {
+    float_lit(expr)
+}
+
 fn float_lit(expr: &Expr) -> Option<f64> {
     match unwrap(expr) {
         Expr::Lit(syn::ExprLit {
             lit: Lit::Float(f), ..
         }) => f.base10_parse().ok(),
+        // what `number` writes for a float without a literal: `f32::NAN`, `f64::INFINITY`, ..
+        Expr::Path(p) if p.qself.is_none() && p.path.segments.len() == 2 => {
+            let ty = p.path.segments[0].ident.to_string();
+            if ty != "f32" && ty != "f64" {
+                return None;
+            }
+            match p.path.segments[1].ident.to_string().as_str() {
+                "NAN" => Some(f64::NAN),
+                "INFINITY" => Some(f64::INFINITY),
+                "NEG_INFINITY" => Some(f64::NEG_INFINITY),
+                _ => None,
+            }
+        }
         Expr::Unary(u) if matches!(u.op, UnOp::Neg(_)) => float_lit(&u.expr).map(|f| -f),
         e => int_lit(e).map(|i| i as f64),
     }
@@ -759,7 +778,20 @@ fn number(n: &NumericValue) -> Result<String> {
     if n.is_float() {
         let f = n.to_f64();
         if !f.is_finite() {
-            bail!("{f} has no literal");
+            // no literal: the constant of the float type, which `float_lit` reads back (NUM-19)
+            let ty = if matches!(n, NumericValue::F32(_)) {
+                "f32"
+            } else {
+                "f64"
+            };
+            let name = if f.is_nan() {
+                "NAN"
+            } else if f > 0.0 {
+                "INFINITY"
+            } else {
+                "NEG_INFINITY"
+            };
+            return Ok(format!("{ty}::{name}"));
         }
         let text = match n {
             NumericValue::F32(v) => format!("{v:?}"),
@@ -778,4 +810,28 @@ fn number(n: &NumericValue) -> Result<String> {
 /// `Timed` of a generic definition made concrete, `Timed<u16>`: the name a Rust literal writes.
 fn plain_name(ident: &str) -> &str {
     ident.split('<').next().unwrap_or(ident)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A float without a literal (NaN, ±∞) is written as its type's constant and read back (NUM-19).
+    #[test]
+    fn non_finite_floats_round_trip() {
+        for n in [
+            NumericValue::F32(f32::NAN),
+            NumericValue::F32(f32::INFINITY),
+            NumericValue::F32(f32::NEG_INFINITY),
+            NumericValue::F64(f64::NAN),
+            NumericValue::F64(f64::NEG_INFINITY),
+        ] {
+            let text = number(&n).unwrap();
+            let read = float_lit(&syn::parse_str(&text).unwrap()).unwrap();
+            assert_eq!(format!("{read:?}"), format!("{:?}", n.to_f64()), "{text}");
+        }
+        assert_eq!(number(&NumericValue::F32(f32::NAN)).unwrap(), "f32::NAN");
+        assert_eq!(float_lit(&syn::parse_str("u8::MAX").unwrap()), None);
+        assert_eq!(float_lit(&syn::parse_str("f32::EPSILON").unwrap()), None);
+    }
 }

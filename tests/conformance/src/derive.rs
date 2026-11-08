@@ -779,6 +779,12 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.fixed.duty16", ww_si::Duty16::new(0xBEEF)),
         case("stdlib.si.fixed.bounded", fixed_bounded(5000)),
         case("stdlib.si.fixed.bounded.rejected", fixed_bounded(1)),
+        case("stdlib.si.fixed.f32", fixed_f32(1.5)),
+        case("stdlib.si.fixed.f32.inf", fixed_f32(f32::INFINITY)),
+        case("stdlib.si.fixed.f32.nan.rejected", fixed_f32(0.0)),
+        // MaybeNan has no `==` (NUM-19): compared by its Debug text, NaN as "NaN"
+        case_debug("stdlib.si.fixed.maybe_nan.nan", || FixedMaybeNan::of(f32::NAN)),
+        case_debug("stdlib.si.fixed.maybe_nan.number", || FixedMaybeNan::of(-2.5)),
         case(
             "stdlib.si.fixed.customary",
             ww_si::Fixed::<
@@ -913,6 +919,7 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.quotient", ww_self::MarkerDefOwned::Quotient),
         case("model.marker_def.origin", celsius()),
         case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
+        case("model.marker_def.maybe_nan", ww_self::MarkerDefOwned::MaybeNan),
         case(
             "model.item_struct_extra.transparent",
             ww_self::ItemStructExtraOwned {
@@ -964,6 +971,14 @@ type FixedBounded =
 fn fixed_bounded(ms: u16) -> FixedBounded {
     FixedBounded::try_new(ms).unwrap()
 }
+
+type FixedF32 = ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32>;
+
+fn fixed_f32(mv: f32) -> FixedF32 {
+    FixedF32::try_new(mv).unwrap()
+}
+
+type FixedMaybeNan = ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::MaybeNan>;
 
 type QuantityRail = ww_si::Quantity<ww_si::units::Volt, ww_si::RangeDec<0, 33, -1>>;
 

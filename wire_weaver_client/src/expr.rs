@@ -29,10 +29,18 @@ const QUANTITIES: Hook = &quantity;
 /// still works the usual way).
 fn quantity(expr: &Expr, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<Result<ValueOwned>> {
     // an exact_units wrapper: a plain number is what it stores
-    if let Expr::Lit(_) | Expr::Unary(_) = expr
-        && let Some(value) = stored_number(&quote_text(expr), ty, bundle)
-    {
-        return Some(value.map_err(|e| anyhow!(e)));
+    if let Expr::Lit(_) | Expr::Unary(_) | Expr::Path(_) = expr {
+        // a float without a literal (`f32::NAN`, `-f64::INFINITY`) as the text `NaN`, `-inf` that a float parses
+        let text = match ww_self::expr::float_value(expr) {
+            Some(f) if !f.is_finite() => Some(f.to_string()),
+            _ if matches!(expr, Expr::Path(_)) => None,
+            _ => Some(quote_text(expr)),
+        };
+        if let Some(text) = text
+            && let Some(value) = stored_number(&text, ty, bundle)
+        {
+            return Some(value.map_err(|e| anyhow!(e)));
+        }
     }
     let fixed = fixed_of(ty, bundle);
     let unit = unit_of(ty, bundle).or_else(|| fixed.as_ref().map(|f| f.unit.clone()));

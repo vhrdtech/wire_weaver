@@ -161,7 +161,13 @@ pub fn int(j: &J) -> Option<i128> {
 
 fn numeric(j: &J, base: &B) -> Result<N, String> {
     if matches!(base, B::F32 | B::F64) {
-        let v = j.as_f64().ok_or_else(|| format!("{j} is not a float"))?;
+        // JSON has no NaN or infinity: the corpus writes them as strings (NUM-19)
+        let v = match j {
+            J::String(s) if s == "NaN" => f64::NAN,
+            J::String(s) if s == "inf" => f64::INFINITY,
+            J::String(s) if s == "-inf" => f64::NEG_INFINITY,
+            j => j.as_f64().ok_or_else(|| format!("{j} is not a float"))?,
+        };
         return Ok(if matches!(base, B::F32) {
             N::F32(v as f32)
         } else {

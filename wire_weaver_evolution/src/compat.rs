@@ -16,6 +16,7 @@ use std::fmt;
 
 use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance};
 use shrink_wrap::ElementSize;
+use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::signature;
 use ww_self::units::{self, CanonicalUnit, UnitKind};
 use ww_self::{
@@ -1410,6 +1411,12 @@ impl<'a> TypeCheck<'a> {
             return Ok(());
         }
         self.rule = Some(Rule::Bound);
+        if *w == Bound::MaybeNan {
+            return Err(format!(
+                "bound MaybeNan on the {}, {r} on the {}: a NaN the {} writes is refused by the {}",
+                self.writer_name, self.reader_name, self.writer_name, self.reader_name
+            ));
+        }
         Err(format!(
             "bound {w} on the {}, {r} on the {}: values the {} writes outside {r} are refused by the {}",
             self.writer_name, self.reader_name, self.writer_name, self.reader_name
@@ -1467,6 +1474,14 @@ impl<'a> TypeCheck<'a> {
                 {
                     if let Err(e) = self.check_bound_marker(&Bound::Unbounded, bound) {
                         return Some(Err(format!("{}: {e}", r_wrapper.name)));
+                    }
+                }
+                // a plain float may be NaN, which every bound but MaybeNan refuses (NUM-19)
+                if is_float(w) {
+                    for bound in &r_wrapper.bounds {
+                        if let Err(e) = self.check_bound_marker(&Bound::MaybeNan, bound) {
+                            return Some(Err(format!("{}: {e}", r_wrapper.name)));
+                        }
                     }
                 }
                 if is_quantity(writer, w) && r_wrapper.is_fixed() {
@@ -1974,6 +1989,9 @@ enum Bound {
     /// `Wrapping`: no bounds, but the number is a position modulo 2^bits of its storage (binary angles, free-running
     /// counters, STD-63): differences and order mean something else than for a plain number.
     Wrapping,
+    /// `MaybeNan`: a float without bounds that may be NaN (NUM-19). Every other bound refuses NaN, so it holds
+    /// one value more than [Self::Unbounded].
+    MaybeNan,
     /// Inclusive.
     Range {
         min: Dec,
@@ -2019,6 +2037,8 @@ impl Bound {
     /// Whether every value within `other` is within `self`.
     fn contains(&self, other: &Bound) -> bool {
         match (self, other) {
+            (Bound::MaybeNan, _) => true,
+            (_, Bound::MaybeNan) => false,
             (Bound::Unbounded | Bound::Saturating | Bound::Wrapping, _) => true,
             (Bound::Range { .. }, Bound::Unbounded | Bound::Saturating | Bound::Wrapping) => false,
             (
@@ -2038,6 +2058,7 @@ impl fmt::Display for Bound {
             Bound::Unbounded => f.write_str("Unbounded"),
             Bound::Saturating => f.write_str("Saturating"),
             Bound::Wrapping => f.write_str("Wrapping"),
+            Bound::MaybeNan => f.write_str("MaybeNan"),
             Bound::Range { min, max } => write!(f, "{min}..={max}"),
         }
     }
@@ -2067,6 +2088,7 @@ fn bound(bundle: &ApiBundleOwned, ty: &TypeOwned) -> Option<Bound> {
         ("Unbounded", []) => Some(Bound::Unbounded),
         ("Saturating", []) => Some(Bound::Saturating),
         ("Wrapping", []) => Some(Bound::Wrapping),
+        ("MaybeNan", []) => Some(Bound::MaybeNan),
         ("Range" | "RangeU64", [min, max]) => Some(Bound::Range {
             min: Dec(num(min)?, 0),
             max: Dec(num(max)?, 0),
@@ -2137,6 +2159,16 @@ pub fn field_name(idx: usize, field: &FieldOwned) -> String {
         Some(ident) => format!("`{ident}`"),
         None => format!("{idx}"),
     }
+}
+
+/// A plain `f32` or `f64`.
+fn is_float(ty: &TypeOwned) -> bool {
+    matches!(
+        ty,
+        TypeOwned::NumericAny(NumericAnyTypeOwned::Base(
+            NumericBaseType::F32 | NumericBaseType::F64
+        ))
+    )
 }
 
 fn describe(ty: &TypeOwned) -> String {

@@ -32,6 +32,8 @@ mod tests {
     /// `B` left out, as in the API's `timeout`
     type Timeout = Fixed<units::Second, Milli, u16>;
     type Window = Fixed<units::Second, Milli, u16, Range<1, 5000>>;
+    type Sense = Fixed<units::Volt, Milli, f32>;
+    type RawSense = Fixed<units::Volt, Milli, f32, ww_si::MaybeNan>;
     type Size = Fixed<units::Byte, One, u32>;
     type Adc = Fixed<units::Volt, FullScale<Rational<33, 10>, 12>, u16>;
     type Gyro = Fixed<DegreePerSecond, Mdps70, i16>;
@@ -58,6 +60,8 @@ mod tests {
         sensor: Vec<u8>,
         timeout: Timeout,
         window: Window,
+        sense: Sense,
+        raw_sense: RawSense,
         uptime: Uptime,
         buffer: Buffer,
         /// The last `delay` the `wait` method got.
@@ -94,6 +98,8 @@ mod tests {
             sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
             timeout: Fixed::new(250),
             window: Window::bounded(100),
+            sense: Sense::bounded(1.5),
+            raw_sense: RawSense::of(f32::NAN),
             uptime: Uptime::new(1_730_000_000_000_000),
             buffer: Buffer::new(4),
             delay: None,
@@ -330,6 +336,38 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Window, ()> {
                 GetResult::Value(self.values.lock().unwrap().window)
+            }
+
+            fn set_sense(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Sense,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().sense = value;
+                SetResult::Set
+            }
+
+            fn get_sense(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Sense, ()> {
+                GetResult::Value(self.values.lock().unwrap().sense)
+            }
+
+            fn set_raw_sense(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: RawSense,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().raw_sense = value;
+                SetResult::Set
+            }
+
+            fn get_raw_sense(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<RawSense, ()> {
+                GetResult::Value(self.values.lock().unwrap().raw_sense)
             }
 
             fn sizes(
@@ -1278,6 +1316,36 @@ mod tests {
         );
         let err = write("window", "0").await.unwrap_err().to_string();
         assert!(err.contains("0 is out of"), "{err}");
+        // a float Fixed is never NaN unless its bound is MaybeNan (NUM-19); ±∞ is a value
+        assert_eq!(
+            write("sense", "q!(2.5 V)").await.unwrap().to_string(),
+            "2500 mV"
+        );
+        assert_eq!(values.lock().unwrap().sense.get(), 2500.0);
+        for text in ["f32::NAN", "f64::NAN"] {
+            let err = write("sense", text).await.unwrap_err().to_string();
+            assert!(
+                err.contains("only a MaybeNan float holds NaN"),
+                "{text}: {err}"
+            );
+        }
+        // not a number at all: refused, never a panic
+        for text in ["NaN", "q!(NaN mV)"] {
+            assert!(write("sense", text).await.is_err(), "{text}");
+        }
+        assert_eq!(
+            values.lock().unwrap().sense.get(),
+            2500.0,
+            "nothing was sent"
+        );
+        write("sense", "f32::INFINITY").await.unwrap();
+        assert_eq!(values.lock().unwrap().sense.get(), f32::INFINITY);
+        write("sense", "-f32::INFINITY").await.unwrap();
+        assert_eq!(values.lock().unwrap().sense.get(), f32::NEG_INFINITY);
+        write("raw_sense", "f32::NAN").await.unwrap();
+        assert!(values.lock().unwrap().raw_sense.get().is_nan());
+        write("raw_sense", "q!(1.25 V)").await.unwrap();
+        assert_eq!(values.lock().unwrap().raw_sense.get(), 1250.0);
         // binary prefixes, and a unit of the same dimension that converts exactly
         assert_eq!(
             write("buffer", "q!(1 MiB)").await.unwrap().to_string(),

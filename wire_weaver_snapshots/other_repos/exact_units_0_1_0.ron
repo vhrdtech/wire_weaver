@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 42cde61ff376c0b9261021dea7908f8fea9ef7fae891da54117a660392937f67
+// shrink_wrap sha256: b3df4bbb21ee0289af936279e5c57aa4bd0b14e05e80e3124ee02f64ce3377c3
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -1192,7 +1192,7 @@
         "let v = Fixed::<Volt, One, f32>::bounded(1.0);",
         "let _ = v + v > v; // a MaybeNan has no `>`: gt_or, or not_nan first",
         "```",
-    ], ident: "MaybeNan", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    ], ident: "MaybeNan", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(MaybeNan))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value outside its [Bounds], or one that doesn\'t fit the storage.",
     ], ident: "OutOfBounds", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),

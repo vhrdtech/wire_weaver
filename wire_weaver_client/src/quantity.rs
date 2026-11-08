@@ -546,6 +546,9 @@ impl DynQuantity {
             ww_self::expr::int_value(stored, &fixed.storage.base)
                 .map_err(|e| refuse(e.to_string()))?
         };
+        if !fixed.storage.bounds.contains(&number) && number.to_f64().is_nan() {
+            return Err(refuse("only a MaybeNan float holds NaN".into()));
+        }
         if !fixed.storage.bounds.contains(&number) {
             return Err(refuse(format!(
                 "{} is out of {}",

@@ -97,6 +97,15 @@ What doesn't fit is refused before anything is sent, with the type named:
 
 A plain number is the stored number (`uptime = 5000` is 5000 µs), what a script wrote into the field when it was a
 plain `u64`, checked against the storage and the bounds the same way.
+
+A float `Fixed` is never NaN unless its bound is `MaybeNan`, as in `exact_units` itself: every other bound,
+`Unbounded` included, refuses NaN when a client writes it and when it comes off the wire. ±∞ is a value. A float
+without a literal is written as its type's constant, `f32::NAN`, `f32::INFINITY` or `-f64::INFINITY`, which
+`ww explain` also prints:
+
+```
+NaN is no value of Fixed<Volt, Milli, f32, Unbounded>: only a MaybeNan float holds NaN
+```
 [Indices and sequence numbers](indices.md) are shown with what they count, `#1000 (Sample)`,
 `#2 (Item, from 1)`, `seq 41 (Frame)`, and take their number, an `IndexFrom1` refusing 0.
 
@@ -114,7 +123,8 @@ dev.uptime.write(5000)       # as stored: 5000 µs
 ```
 
 A write takes a `ww.Quantity` of a unit of the same dimension, converted exactly, or the stored number; anything
-else is a `ValueError` with the same text as above.
+else is a `ValueError` with the same text as above. `float("nan")` into a NaN-free float `Fixed` is refused the
+same way, and bytes holding NaN raise `ww.WireWeaverError` on decode.
 
 In Rust, `wire_weaver_client::quantity::fixed_of(&ty, &bundle)` reads the type as a `FixedType` (unit, scale as a
 `DynPrefix`, `Storage { base, bounds }`), `DynQuantity::from_value` reads a value of it, and `DynQuantity::to_value`

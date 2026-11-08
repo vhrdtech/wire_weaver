@@ -112,7 +112,8 @@ impl crate::Consumer for Dynamic {
             return Some(Ok(Err(format!("decoded {got:?}"))));
         }
         Some(Ok(match Self::value(case, ty) {
-            Ok(want) if want == got => Ok(()),
+            // NaN equals nothing, also itself: a value holding one compares by its Debug text (NUM-19)
+            Ok(want) if want == got || format!("{want:?}") == format!("{got:?}") => Ok(()),
             Ok(want) => Err(format!("decoded {got:?}, expected {want:?}")),
             Err(e) => Err(e),
         }))

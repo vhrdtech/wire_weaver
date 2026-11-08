@@ -19,12 +19,28 @@ def api():
     return ww.load_api(str(ROOT / "tests" / "conformance_api"), "Conformance")
 
 
+# floats JSON can't hold, as the corpus writes them (NUM-19)
+FLOATS = {"NaN": float("nan"), "inf": float("inf"), "-inf": float("-inf")}
+
+
+def floats(value):
+    """`value` with the strings "NaN", "inf" and "-inf" as the floats they stand for."""
+    if isinstance(value, str):
+        return FLOATS.get(value, value)
+    if isinstance(value, list):
+        return [floats(v) for v in value]
+    if isinstance(value, dict):
+        return {k: floats(v) for k, v in value.items()}
+    return value
+
+
 def expected(case):
-    """The corpus value as Python gives it: integers beyond 64 bits are strings in the corpus."""
+    """The corpus value as Python gives it: integers beyond 64 bits are strings in the corpus, and so are the floats
+    JSON can't hold."""
     value = case.get("value")
     if case["type"] in ("u128", "i128") and isinstance(value, str):
         return int(value)
-    return value
+    return floats(value)
 
 
 def plain(value):
@@ -55,6 +71,8 @@ def same(a, b):
         return len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
     if isinstance(a, dict):
         return a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
+    if isinstance(a, float) and a != a:
+        return b != b  # NaN equals nothing, also itself
     return a == b
 
 

@@ -594,7 +594,8 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
 }
 
 /// `exact_units`' own generic markers, whose meaning is fixed by their name and generic arguments.
-const BUILT_IN: [(&str, MarkerDefOwned); 18] = [
+// TODO(STD-104): exact_units' `Finite` (NUM-20), a bound refusing ±∞ and NaN, once it exists there
+static BUILT_IN: [(&str, MarkerDefOwned); 19] = [
     ("Per", MarkerDefOwned::Per),
     ("Times", MarkerDefOwned::Times),
     ("Sqrt", MarkerDefOwned::Sqrt),
@@ -613,6 +614,7 @@ const BUILT_IN: [(&str, MarkerDefOwned); 18] = [
     ("Product", MarkerDefOwned::Product),
     ("Quotient", MarkerDefOwned::Quotient),
     ("Phase", MarkerDefOwned::Phase),
+    ("MaybeNan", MarkerDefOwned::MaybeNan),
 ];
 
 /// The crate whose markers [BUILT_IN] names.
@@ -1271,7 +1273,7 @@ mod tests {
                 "{name}"
             );
         }
-        for (name, def) in BUILT_IN {
+        for (name, def) in BUILT_IN.iter().cloned() {
             assert_eq!(markers.remove(name), Some(def), "{name}");
         }
         // a marker added to exact_units is checked here too

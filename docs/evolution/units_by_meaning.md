@@ -124,6 +124,13 @@ for the side that refuses. In the place of a bound, `Wrapping` and `Saturating`
   `Fixed` of it.
 * **`Range<..>` -> `Saturating`**: a bound widened, breaking as such.
 
+A float `Fixed` with any bound but `MaybeNan` refuses NaN, `Unbounded` included (exact_units NUM-19), so `MaybeNan`
+holds one value more:
+
+* **`Unbounded` -> `MaybeNan`** or back: breaking for the side that refuses NaN.
+* **A plain `f32` -> `Fixed<.., f32>`**: breaking, a plain float may be NaN; to `Fixed<.., f32, MaybeNan>` it is
+  compatible.
+
 ## Markers compared by name
 
 A marker without a definition in the model (a unit struct of your own that is no `unit!`, `scale!` or `origin!`, or

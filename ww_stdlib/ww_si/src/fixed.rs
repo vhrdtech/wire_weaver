@@ -188,6 +188,11 @@ mod tests {
             crate::Second::from_f32(0.25).to_fixed(),
             Millis::<f32>::try_new(250.0).ok()
         );
+        // a NaN quantity has no NaN-free float Fixed (NUM-19): no value, never a panic
+        assert_eq!(
+            crate::Second::from_f32(f32::NAN).to_fixed(),
+            None::<Millis<f32>>
+        );
         assert_eq!(
             Quantity::<Byte>::kilo(2048u32).to_fixed(),
             Some(Fixed::<Byte, Kibi, u16>::new(2000))

@@ -5,6 +5,7 @@ generated server.
 """
 
 import math
+import struct
 from pathlib import Path
 
 import pytest
@@ -421,6 +422,17 @@ def test_fixed_and_counts():
         api.timeout.encode(70000)
     w = api.window.decode(api.window.encode(100))
     assert (str(w), w.bounds) == ("100 ms", (1, 5000))
+    # a float Fixed is never NaN unless its bound is MaybeNan (NUM-19), on encode and decode; ±∞ is a value
+    nan = struct.pack("<f", float("nan"))
+    with pytest.raises(ValueError, match="only a MaybeNan float holds NaN"):
+        api.sense.encode(float("nan"))
+    with pytest.raises(ww.WireWeaverError, match="only a MaybeNan float holds NaN"):
+        api.sense.decode(nan)
+    assert api.sense.decode(api.sense.encode(float("inf"))).value == float("inf")
+    assert api.sense.decode(api.sense.encode(2.5)).value == 2.5
+    raw = api.raw_sense.decode(api.raw_sense.encode(float("nan")))
+    assert math.isnan(raw.value)
+    assert math.isnan(api.raw_sense.decode(nan).value)
     # a binary prefix
     b = api.buffer.decode(api.buffer.encode(4))
     assert (str(b), b.prefix, b.exponent, f"{b}") == ("4 KiB", "Kibi", None, "4 KiB")

@@ -69,7 +69,7 @@ impl crate::Consumer for Explain {
                 Err(e) => return Some(Err(format!("{e:#}"))),
             };
             return Some(Ok(match args_values(&case.value, defs) {
-                Ok(want) if want == got => Ok(()),
+                Ok(want) if want == got || format!("{want:?}") == format!("{got:?}") => Ok(()),
                 Ok(want) => Err(format!("decoded {got:?}, expected {want:?}")),
                 Err(e) => Err(e),
             }));
@@ -89,7 +89,8 @@ impl crate::Consumer for Explain {
             return Some(Ok(Err(format!("decoded {got:?}"))));
         }
         Some(Ok(match Self::value(case, ty) {
-            Ok(want) if want == got => Ok(()),
+            // NaN equals nothing, also itself: compared by its Debug text (NUM-19)
+            Ok(want) if want == got || format!("{want:?}") == format!("{got:?}") => Ok(()),
             Ok(want) => Err(format!("decoded {got:?}, expected {want:?}")),
             Err(e) => Err(e),
         }))

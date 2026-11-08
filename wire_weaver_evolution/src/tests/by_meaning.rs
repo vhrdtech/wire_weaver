@@ -46,7 +46,7 @@ fn api_with(ty: &str, markers: &str) -> String {
     format!(
         r#"
         use ww_si::{{Fixed, Offset, Point}};
-        use ww_si::exact_units::{{Saturating, Wrapping}};
+        use ww_si::exact_units::{{MaybeNan, Saturating, Wrapping}};
         use ww_si::origins::{{Angle, Celsius}};
         use ww_si::prefix::{{Centi, Milli, One, Pow10}};
         use ww_si::units::{{Coulomb, Degree, Joule, Kelvin, Meter, Newton, Pascal, Per, PoundForce, Radian, Second, Times, Volt}};
@@ -425,4 +425,24 @@ fn bound_to_saturating_is_widened() {
     let fixed = |b: &str| format!("Fixed<Radian, Pow10<-4>, u16, {b}>");
     let report_ = report(&fixed("ww_si::Range<0, 100>"), &fixed("Saturating"));
     assert_eq!(report_.change, Change::Breaking, "{report_:#?}");
+}
+
+/// `MaybeNan` (NUM-19): every other bound refuses NaN, `Unbounded` included, so a float that may be NaN on one side
+/// only is a bound narrowed for the side that refuses; a plain float may be NaN too.
+#[test]
+fn maybe_nan_is_one_value_more() {
+    let fixed = |b: &str| format!("Fixed<Volt, Milli, f32, {b}>");
+    for (old, new) in [
+        (fixed("ww_si::Unbounded"), fixed("MaybeNan")),
+        (fixed("MaybeNan"), fixed("ww_si::Unbounded")),
+        ("f32".to_string(), fixed("ww_si::Unbounded")),
+    ] {
+        let r = report(&old, &new);
+        assert_eq!(r.change, Change::Breaking, "{old} -> {new}: {r:#?}");
+        assert!(format!("{r:#?}").contains("NaN"), "{old} -> {new}: {r:#?}");
+    }
+    let r = report("f32", &fixed("MaybeNan"));
+    assert_eq!(r.change, Change::Compatible, "{r:#?}");
+    let r = report(&fixed("MaybeNan"), &fixed("MaybeNan"));
+    assert_eq!(r.change, Change::None, "{r:#?}");
 }

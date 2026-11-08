@@ -127,6 +127,9 @@ trait Conformance {
     property!(rw fixed_pow10: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>);
     property!(rw duty16: ww_si::Duty16);
     property!(rw fixed_bounded: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>);
+    // a float Fixed is never NaN unless its bound is MaybeNan (NUM-19, STD-105); ±∞ is a value
+    property!(rw fixed_f32: ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32>);
+    property!(rw fixed_maybe_nan: ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::MaybeNan>);
     // an imperial unit (STD-72): the same i32, lbf·s only in the type
     property!(rw fixed_customary: ww_si::Fixed<ww_si::units::Times<ww_si::units::PoundForce, ww_si::units::Second>, ww_si::prefix::Milli, i32>);
     property!(rw magnitude: ww_si::Magnitude);

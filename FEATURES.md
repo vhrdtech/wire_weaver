@@ -340,6 +340,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   class. Not wired into `ww_repr`/enum discriminants (a field type, not a discriminant type) — a genuinely new ask.
   Conformance cases (`docs/serdes/conformance.md`) pass the Rust derive, the dynamic client, Python and `explain`;
   the C runtime has no `Op::INib32` of its own yet, only `UNib32` (gap-marked, SW-75).
+  `NumericBaseType`/`NumericValue::INib32` is breaking (neither enum has a catch-all for an unknown variant):
+  `ww_numeric` 0.3.0, wire line w2.0, `#[since = "w2.0"]`; dependents re-saved, none bump their own version.
 - 💡 **SW-75 `INib32` in the C runtime** — `shrink_wrap/c`'s `Op` enum, FFI decls and `shrink_wrap.{h,c}` have no
   signed-nibble-varint codec (only `UNib32`'s). A new `Op::INib32`, its zigzag+nibble encode/decode in C, and
   golden/cross tests against the Rust type (SW-43's style) — closes the C gap of SW-24's conformance cases

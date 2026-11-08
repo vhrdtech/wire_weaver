@@ -234,6 +234,7 @@ pub(crate) mod tests {
             packet_accumulation_time_us: 500,
             token: 7,
             image_facts: Default::default(),
+            user_api_wire: Some(ww_version::WireVersion::new(1, 0)),
         };
         LinkResidualOwned {
             token: 7,

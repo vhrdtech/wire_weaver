@@ -342,6 +342,7 @@ async fn serve<F: Firmware>(
     let mut event_scratch = vec![0u8; MAX_MESSAGE];
     let config = LinkConfig::new(
         fw.version(),
+        fw.wire(),
         fw.api_hash(),
         Default::default(),
         ww_client_server::COMPACT_VERSION,

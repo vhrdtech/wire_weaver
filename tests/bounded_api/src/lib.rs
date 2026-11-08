@@ -6,7 +6,7 @@ use wire_weaver::prelude::*;
 /// Largest piece `write` takes, the bound is read from this const.
 pub const MAX_PIECE: usize = 8;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait Bounded {
     /// Stores a piece, returns its length
     fn write(offset: u32, last: bool, data: MaxLen<RefVec<'i, u8>, MAX_PIECE>) -> u8;

@@ -1058,7 +1058,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         true,
         crate::codegen::api_server::IntrospectCompression::None,
     );
-    // API crate name and version, same constant the device reports, checked for compatibility during link setup
+    // API crate name and version, same constant the device reports, and the wire version link setup decides on
     let root = &api_bundle.root;
     let crate_name = Ident::new(root.crate_name(api_bundle).unwrap(), Span::call_site());
     let full_gid = Ident::new(
@@ -1067,6 +1067,21 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
             .as_str(),
         Span::call_site(),
     );
+    // the API root's wire version, what link setup decides on (EVO-25): a full client needs one
+    let wire = match api_bundle.wire {
+        Some(wire) => {
+            let (line, revision) = (wire.line.0, wire.revision.0);
+            quote! { wire_weaver::ww_version::WireVersion::new(#line, #revision) }
+        }
+        None => {
+            let msg = format!(
+                "a client of `{}` needs the wire version of its API root, link setup decides on it (EVO-25): mark \
+                 the trait `#[ww_api_root(wire = \"w1.0\")]` instead of `#[ww_trait]`",
+                root.trait_name
+            );
+            quote! { compile_error!(#msg) }
+        }
+    };
     quote! {
         pub fn new() -> wire_weaver_client::PreparedConnection<Self> {
             wire_weaver_client::PreparedConnection::new(Self::generated_config())
@@ -1080,7 +1095,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         fn generated_config() -> wire_weaver_client::ClientConfig {
             <Self as wire_weaver_client::WwClient>::default_config()
                 .introspect_client(Self::introspect_bytes(), Self::api_hash().make_owned())
-                .client_version(#crate_name::#full_gid.make_owned())
+                .client_version(#crate_name::#full_gid.make_owned(), #wire)
         }
 
         fn introspect_bytes() -> &'static [u8] {

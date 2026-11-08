@@ -209,6 +209,7 @@ mod tests {
                 scratch: [UVlq32(0); ww_counters::MAX_WORDS],
             },
             counters_api::COUNTERS_TEST_FULL_GID,
+            counters_api::COUNTERS_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         (device, buffers)

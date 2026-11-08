@@ -16,7 +16,7 @@ use wire_weaver::{BlockingEventOut, WireWeaverApiBackend};
 use ww_client_server::{ErrorKind, Event, EventKind};
 use ww_link::{
     ApiHashPair, CompactVersion, DisconnectReason, FullVersion, Hello, Kind, LinkSetup, Message,
-    PEER_TIMEOUT_MS, PING_INTERVAL_MS, Role, UsbFraming,
+    PEER_TIMEOUT_MS, PING_INTERVAL_MS, Role, UsbFraming, WireVersion,
 };
 use ww_version::Version;
 
@@ -31,9 +31,13 @@ const PING: Duration = Duration::from_millis(PING_INTERVAL_MS);
 const PEER_TIMEOUT: Duration = Duration::from_millis(PEER_TIMEOUT_MS);
 const ACC: Duration = Duration::from_millis(1);
 
+/// The device's wire version in these tests.
+const WIRE: WireVersion = WireVersion::new(2, 3);
+
 fn config() -> LinkConfig<'static> {
     LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
+        WIRE,
         ApiHashPair::empty(),
         Default::default(),
         CompactVersion::new(ww_global_gid(), 0, 2, 0),
@@ -101,12 +105,19 @@ fn feed<'m>(
     link.handle_message(now, kind, &scratch[..len])
 }
 
+/// A host on the device's wire line, or a dynamic one for an empty crate id.
 fn link_setup(host_version: FullVersion<'_>) -> Message<'_> {
+    let wire = (!host_version.crate_id.is_empty()).then_some(WIRE);
+    link_setup_on(host_version, wire)
+}
+
+fn link_setup_on(host_version: FullVersion<'_>, wire: Option<WireVersion>) -> Message<'_> {
     Message::LinkSetup(LinkSetup {
         host_user_version: host_version,
         host_max_message_len: 1000,
         token: TOKEN,
         client_meta: None,
+        host_user_wire: wire,
     })
 }
 
@@ -250,6 +261,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
         host_max_message_len: 1000,
         token: 0,
         client_meta: None,
+        host_user_wire: Some(WIRE),
     });
     feed(&mut link, now, &old_setup, &mut scratch);
     assert_eq!(
@@ -266,6 +278,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
         host_max_message_len: 1000,
         token: TOKEN + 1,
         client_meta: None,
+        host_user_wire: Some(WIRE),
     });
     feed(&mut link, now, &stale, &mut scratch);
     assert!(drain(&mut link, now).is_empty());
@@ -324,40 +337,167 @@ fn data_accumulation_ping_and_peer_timeout() {
     assert_eq!(link.check_send(1), Err(SendError::NotConnected));
 }
 
+/// Link setup decides on the wire line (EVO-25): a host of this API on the same line connects whatever its crate
+/// version and wire revision, a host on another line, of another API or without a wire version is refused, and a
+/// dynamic host always connects.
 #[test]
 fn incompatible_and_dynamic_hosts() {
     let now = Instant::from_millis(1);
     let mut link = DeviceLink::new(config(), 512);
     link.on_transport_up(now);
     let mut scratch = [0u8; 256];
-    // LinkSetup is only taken with the token of a hello before it
-    feed(&mut link, now, &get_device_info(), &mut scratch);
-    drain(&mut link, now);
-
-    let other_minor = FullVersion::new("test_api", Version::new(0, 4, 0));
-    assert!(feed(&mut link, now, &link_setup(other_minor), &mut scratch).is_none());
-    let sent = drain(&mut link, now);
-    assert_eq!(kinds(&sent), [Some(Kind::Disconnect), None]);
-    let Tx::Msg(_, reason) = &sent[0] else {
-        panic!()
+    let refused = |link: &mut DeviceLink<'_>| {
+        let sent = drain(link, now);
+        assert_eq!(kinds(&sent), [Some(Kind::Disconnect), None]);
+        let Tx::Msg(_, reason) = &sent[0] else {
+            panic!()
+        };
+        assert!(matches!(
+            Message::decode(Kind::Disconnect as u8, reason).unwrap(),
+            Message::Disconnect(DisconnectReason::IncompatibleVersion)
+        ));
+        assert_eq!(link.poll_event(), None);
+        assert!(!link.is_up());
     };
-    assert!(matches!(
-        Message::decode(Kind::Disconnect as u8, reason).unwrap(),
-        Message::Disconnect(DisconnectReason::IncompatibleVersion)
-    ));
-    assert_eq!(link.poll_event(), None);
-    assert!(!link.is_up());
+    let connected = |link: &mut DeviceLink<'_>| {
+        assert!(link.is_up());
+        assert_eq!(kinds(&drain(link, now)), [Some(Kind::LinkReady), None]);
+        assert_eq!(link.poll_event(), Some(LinkEvent::Up));
+        link.disconnect(DisconnectReason::RequestByUser);
+        drain(link, now);
+        link.poll_event();
+    };
+    let hello = |link: &mut DeviceLink<'_>, scratch: &mut [u8]| {
+        feed(link, now, &get_device_info(), scratch);
+        drain(link, now);
+    };
+    // LinkSetup is only taken with the token of a hello before it
+    hello(&mut link, &mut scratch);
 
+    // another wire line: refused, whatever the crate version says
+    let same_crate = FullVersion::new("test_api", Version::new(0, 3, 1));
+    let next_line = Some(WireVersion::new(3, 0));
+    assert!(
+        feed(
+            &mut link,
+            now,
+            &link_setup_on(same_crate, next_line),
+            &mut scratch
+        )
+        .is_none()
+    );
+    refused(&mut link);
+    hello(&mut link, &mut scratch);
+    let older_line = Some(WireVersion::new(1, 7));
+    feed(
+        &mut link,
+        now,
+        &link_setup_on(same_crate, older_line),
+        &mut scratch,
+    );
+    refused(&mut link);
+
+    // a host with a generated client but no wire version: built before EVO-25
+    hello(&mut link, &mut scratch);
+    feed(
+        &mut link,
+        now,
+        &link_setup_on(same_crate, None),
+        &mut scratch,
+    );
+    refused(&mut link);
+
+    // another API on the same line
+    hello(&mut link, &mut scratch);
     let other_crate = FullVersion::new("other_api", Version::new(0, 3, 0));
     feed(&mut link, now, &link_setup(other_crate), &mut scratch);
-    assert!(!link.is_up());
-    drain(&mut link, now);
+    refused(&mut link);
+
+    // a crate breaking bump on the same wire line (EVO-22: a trailing argument with a default) connects, and so
+    // does a newer or older revision: the host checks #[since] itself
+    for (crate_version, wire) in [
+        (Version::new(0, 4, 0), WireVersion::new(2, 4)),
+        (Version::new(1, 0, 0), WireVersion::new(2, 0)),
+        (Version::new(0, 3, 0), WireVersion::new(2, 3)),
+    ] {
+        hello(&mut link, &mut scratch);
+        let host = FullVersion::new("test_api", crate_version);
+        feed(
+            &mut link,
+            now,
+            &link_setup_on(host, Some(wire)),
+            &mut scratch,
+        );
+        assert_eq!(link.peer_version().map(|p| p.wire), Some(Some(wire)));
+        connected(&mut link);
+    }
 
     // host without generated client code, working through introspection
+    hello(&mut link, &mut scratch);
     let dynamic = FullVersion::new("", Version::new(0, 1, 0));
     feed(&mut link, now, &link_setup(dynamic), &mut scratch);
     assert!(link.is_up());
     assert_eq!(kinds(&drain(&mut link, now)), [Some(Kind::LinkReady), None]);
+}
+
+/// A config without a wire version (a hub fronting a device that didn't say one): a host with a generated client
+/// is refused, a dynamic host connects.
+#[test]
+fn no_wire_version_of_its_own() {
+    let now = Instant::from_millis(1);
+    let mut config = config();
+    config.user_api_wire = None;
+    let mut link = DeviceLink::new(config, 512);
+    link.on_transport_up(now);
+    let mut scratch = [0u8; 256];
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    drain(&mut link, now);
+    let host = FullVersion::new("test_api", Version::new(0, 3, 1));
+    feed(&mut link, now, &link_setup(host), &mut scratch);
+    assert_eq!(
+        kinds(&drain(&mut link, now)),
+        [Some(Kind::Disconnect), None]
+    );
+    assert!(!link.is_up());
+
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    drain(&mut link, now);
+    let dynamic = FullVersion::new("", Version::new(0, 1, 0));
+    feed(&mut link, now, &link_setup(dynamic), &mut scratch);
+    assert!(link.is_up());
+}
+
+/// The device says its wire version in DeviceInfo, the host's is kept with its crate version.
+#[test]
+fn wire_versions_in_link_setup() {
+    let now = Instant::from_millis(1);
+    let mut link = DeviceLink::new(config(), 512);
+    link.on_transport_up(now);
+    let mut scratch = [0u8; 256];
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    let sent = drain(&mut link, now);
+    let info = sent
+        .iter()
+        .find_map(|t| match t {
+            Tx::Msg(Kind::DeviceInfo, bytes) => Some(bytes.clone()),
+            _ => None,
+        })
+        .expect("DeviceInfo after a matching hello");
+    let Ok(Message::DeviceInfo(info)) = Message::decode(Kind::DeviceInfo as u8, &info) else {
+        panic!()
+    };
+    assert_eq!(info.user_api_wire, Some(WIRE));
+
+    let host = FullVersion::new("test_api", Version::new(0, 4, 0));
+    feed(
+        &mut link,
+        now,
+        &link_setup_on(host, Some(WireVersion::new(2, 5))),
+        &mut scratch,
+    );
+    assert!(link.is_up());
+    let peer = link.peer_version().unwrap();
+    assert_eq!((peer.minor, peer.wire), (4, Some(WireVersion::new(2, 5))));
 }
 
 #[test]
@@ -1271,6 +1411,7 @@ fn peer_meta_from_link_setup() {
         host_user_version: FullVersion::new("test_api", Version::new(0, 3, 0)),
         host_max_message_len: 1000,
         token: TOKEN,
+        host_user_wire: Some(WIRE),
         client_meta: Some(ww_link::ClientMeta {
             program: long_name,
             app_version: "1.2.3",
@@ -1346,6 +1487,7 @@ fn hello_outside_the_framer() {
         host_max_message_len: 1000,
         token: TOKEN + 1,
         client_meta: None,
+        host_user_wire: Some(WIRE),
     });
     let mut event = None;
     for p in host.packets(&[setup]) {

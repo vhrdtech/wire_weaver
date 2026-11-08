@@ -1,7 +1,7 @@
 //! API for multi requests (`MultiCall`, `MultiRead`, `MultiWrite`) and the malformed ones a server must survive.
 use wire_weaver::prelude::*;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait MultiReq {
     property!(rw a: u8);
     property!(rw b: u16);

@@ -225,6 +225,7 @@ mod tests {
             path,
             server::Server::new(),
             streams_batched_api::STREAMS_BATCHED_FULL_GID,
+            streams_batched_api::STREAMS_BATCHED_WIRE_VERSION,
             server::api_impl::api_hash(),
         )
     }

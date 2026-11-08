@@ -376,6 +376,7 @@ mod tests {
             path,
             server,
             properties_api::PROPERTIES_FULL_GID,
+            properties_api::PROPERTIES_WIRE_VERSION,
             alloc_multi_req_server::api_impl::api_hash(),
         );
         (device, data)
@@ -399,6 +400,7 @@ mod tests {
             path,
             server,
             properties_api::PROPERTIES_FULL_GID,
+            properties_api::PROPERTIES_WIRE_VERSION,
             alloc_single_req_server::api_impl::api_hash(),
         );
         (device, data)

@@ -357,6 +357,7 @@ mod tests {
             path,
             server,
             streams_api::STREAMS_FULL_GID,
+            streams_api::STREAMS_WIRE_VERSION,
             alloc_server::api_impl::api_hash(),
         );
         (device, data)

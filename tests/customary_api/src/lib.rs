@@ -11,7 +11,7 @@ use ww_si::{AnyQuantity, Fixed, Quantity};
 /// Impulse in pound-force seconds, in steps of a thousandth.
 pub type LbfSeconds = Fixed<Times<PoundForce, Second>, Milli, i32>;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait SmallForces {
     /// Impulse of the last angular momentum desaturation, as the ground software's table has it
     property!(rw impulse: LbfSeconds);

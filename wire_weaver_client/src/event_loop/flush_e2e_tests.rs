@@ -101,6 +101,7 @@ async fn device(to_host: mpsc::Sender<Packet>, from_host: CountingSource) {
     let mut event_scratch = [0u8; 512];
     let mut config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
+        crate::event_loop::device_e2e_tests::WIRE,
         ApiHashPair::empty(),
         Default::default(),
         CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),

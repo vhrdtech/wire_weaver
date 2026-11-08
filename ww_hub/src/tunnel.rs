@@ -4,6 +4,7 @@
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use futures_lite::future::poll_once;
 use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
@@ -13,7 +14,7 @@ use wire_weaver::ww_version::{ApiHash, ApiHashPair, CompactVersion, GlobalTypeId
 use wire_weaver_client::DeviceApiInfo;
 use wire_weaver_client::in_process::TokioClock;
 use ww_device::link::{Received, Transmit};
-use ww_device::ww_link::{DisconnectReason, Kind};
+use ww_device::ww_link::{DisconnectReason, Kind, PEER_TIMEOUT_MS, PING_INTERVAL_MS};
 use ww_device::{Clock, DeviceLink, LinkConfig, LinkEvent};
 use ww_local_socket::{MessageReader, MessageWriter, Peer};
 
@@ -143,9 +144,12 @@ impl DeviceLinkInfo {
 
     fn link_config(&self) -> LinkConfig<'_> {
         let hash = &self.api.user_api_hash;
-        let mut config = LinkConfig::new(
-            self.api.user_api_version.as_ref(),
-            ApiHashPair {
+        LinkConfig {
+            user_api_version: self.api.user_api_version.as_ref(),
+            // the device's own, `None` from one that didn't say it: a client with a generated client is refused as it
+            // would be talking to the device directly (EVO-25)
+            user_api_wire: self.api.user_api_wire,
+            api_hash: ApiHashPair {
                 no_docs: ApiHash {
                     hash: wire_weaver::shrink_wrap::RefVec::Slice {
                         slice: &hash.no_docs.hash,
@@ -157,13 +161,14 @@ impl DeviceLinkInfo {
                     },
                 },
             },
-            self.api.image_facts,
-            self.model,
-        );
-        // the device's own: a client batches as it would talk to the device directly, and the hub sends each batch
-        // on as the client flushed it
-        config.accumulation_time = self.api.accumulation_time;
-        config
+            image_facts: self.api.image_facts,
+            api_model_version: self.model,
+            // the device's own: a client batches as it would talk to the device directly, and the hub sends each batch
+            // on as the client flushed it
+            accumulation_time: self.api.accumulation_time,
+            ping_interval: Duration::from_millis(PING_INTERVAL_MS),
+            peer_timeout: Duration::from_millis(PEER_TIMEOUT_MS),
+        }
     }
 
     /// What a client may send: what the device takes, less room for a longer seq.

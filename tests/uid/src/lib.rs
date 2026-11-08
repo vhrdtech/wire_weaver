@@ -113,6 +113,7 @@ mod tests {
             path,
             server::Server { ids },
             uid_api::UID_TEST_FULL_GID,
+            uid_api::UID_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         )
     }

@@ -159,6 +159,7 @@ async fn run_device(
     let mut event_scratch = [0u8; 512];
     let config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
+        crate::event_loop::device_e2e_tests::WIRE,
         ApiHashPair::empty(),
         Default::default(),
         CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
@@ -215,9 +216,9 @@ async fn start_event_loop(
             link_setup_timeout_ms: None,
             tap: None,
             client_meta: None,
-            client_version: Box::new(FullVersionOwned::new(
-                "test_api".into(),
-                VersionOwned::new(0, 3, 0),
+            client_version: Box::new(crate::ClientApi::generated(
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 3, 0)),
+                crate::event_loop::device_e2e_tests::WIRE,
             )),
             keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),

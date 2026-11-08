@@ -378,6 +378,7 @@ mod tests {
             path,
             server,
             io_uart_api::IO_UART_TEST_FULL_GID,
+            io_uart_api::IO_UART_TEST_WIRE_VERSION,
             sync_server::api_impl::api_hash(),
         );
         (device, m)

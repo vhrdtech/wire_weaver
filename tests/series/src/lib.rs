@@ -274,6 +274,7 @@ mod tests {
             path,
             server,
             series_api::SEQUENCES_FULL_GID,
+            series_api::SEQUENCES_WIRE_VERSION,
             api_impl::api_hash(),
         );
         (device, data)

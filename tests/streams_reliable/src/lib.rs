@@ -207,6 +207,7 @@ mod tests {
             path,
             server::Server::new(),
             streams_reliable_api::STREAMS_RELIABLE_FULL_GID,
+            streams_reliable_api::STREAMS_RELIABLE_WIRE_VERSION,
             server::api_impl::api_hash(),
         )
     }

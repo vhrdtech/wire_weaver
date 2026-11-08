@@ -1,7 +1,7 @@
 use wire_weaver::prelude::*;
 
 /// API used by the dynamic client tests, covers every kind of type the dynamic serializer supports.
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait Dynamic {
     fn no_args();
     fn add(a: u32, b: i16) -> i64;

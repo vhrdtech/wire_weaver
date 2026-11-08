@@ -4,7 +4,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait Recursive {
     /// Value of the expression, `None` when it is nested too deep or has a variant from a newer version
     fn eval(expr: Expr<'i>) -> Option<i32>;

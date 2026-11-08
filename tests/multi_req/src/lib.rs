@@ -242,6 +242,7 @@ mod tests {
             path,
             server,
             multi_req_api::MULTI_REQ_FULL_GID,
+            multi_req_api::MULTI_REQ_WIRE_VERSION,
             blocking_server::api_impl::api_hash(),
         );
         (device, shared)
@@ -257,6 +258,7 @@ mod tests {
             path,
             server,
             multi_req_api::MULTI_REQ_FULL_GID,
+            multi_req_api::MULTI_REQ_WIRE_VERSION,
             async_server::api_impl::api_hash(),
         );
         (device, shared)

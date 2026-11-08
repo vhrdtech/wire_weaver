@@ -5,7 +5,7 @@ use semver::VersionReq;
 use strum_macros::EnumDiscriminants;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
-use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
+use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion};
 
 use crate::client_meta::ClientMetaSetting;
 use crate::hub::{HubMode, OpenCounter};
@@ -40,7 +40,7 @@ pub struct ClientConfig {
     introspect_client: Option<(Vec<u8>, ApiHashPairOwned)>,
     default_timeout: Option<Duration>,
     default_priority: Option<wire_weaver::Priority>,
-    client_version: Option<Box<FullVersionOwned>>,
+    client_version: Option<Box<ClientApi>>,
     max_seq: Option<SeqTy>,
     max_message_len: Option<usize>,
     traits_only: bool,
@@ -66,6 +66,39 @@ pub struct ClientConfig {
     ipc_exclusive: bool,
 }
 
+/// The user API a host's client speaks, sent in link setup ([ClientConfig::client_version]): the crate the client was
+/// generated from, for display and to tell APIs apart, and the wire version both sides decide on (EVO-25).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClientApi {
+    /// Crate name and version, an empty crate id for a dynamic client.
+    pub version: FullVersionOwned,
+    /// Wire version of the API root, `None` for a dynamic client.
+    pub wire: Option<WireVersion>,
+}
+
+impl ClientApi {
+    /// A generated client of `version`'s crate at wire `wire`.
+    pub fn generated(version: FullVersionOwned, wire: WireVersion) -> Self {
+        ClientApi {
+            version,
+            wire: Some(wire),
+        }
+    }
+
+    /// A client without generated code, working with any API through the device's introspection data.
+    pub fn dynamic() -> Self {
+        ClientApi {
+            version: FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)),
+            wire: None,
+        }
+    }
+
+    /// No generated client: link setup checks nothing.
+    pub fn is_dynamic(&self) -> bool {
+        self.version.crate_id.is_empty()
+    }
+}
+
 /// [ClientConfig::allow_handover] when not set: programs that hold a device for a short while hand it over.
 fn handover_by_default(kind: crate::ClientKind) -> bool {
     matches!(
@@ -83,7 +116,7 @@ pub(crate) struct ValidatedConfig {
     pub(crate) default_timeout: Duration,
     /// [ClientConfig::default_priority]
     pub(crate) default_priority: wire_weaver::Priority,
-    pub(crate) client_version: Box<FullVersionOwned>,
+    pub(crate) client_version: Box<ClientApi>,
     pub(crate) max_seq: SeqTy,
     /// [ClientConfig::max_message_len]
     pub(crate) max_message_len: usize,
@@ -316,7 +349,7 @@ impl ClientConfig {
             bail!("Wrong cmd queue size of {cmd_queue_size}");
         }
         // connecting as dynamic client (introspect device) if no client version specified
-        let dynamic = Box::new(FullVersionOwned::new("".into(), VersionOwned::new(0, 1, 0)));
+        let dynamic = Box::new(ClientApi::dynamic());
         let client_version = match s.client_version {
             Some(version) if !s.traits_only => version,
             _ => dynamic,
@@ -770,13 +803,16 @@ impl ClientConfig {
         c
     }
 
-    /// API crate name and version this client was generated from, sent to the device during link setup.
-    /// A device implementing an incompatible version refuses the connection.
+    /// API crate name and version this client was generated from and the wire version of its API root (EVO-25), sent
+    /// to the device during link setup. Both sides decide on the wire: a device of the same API on the same wire line
+    /// connects whatever its crate version, another API or line is refused ([Error::IncompatibleDeviceProtocol]).
     /// Generated clients set it automatically, if not set, the client is treated as dynamic
     /// (working with the API via introspection) and no version check is performed.
-    pub fn client_version(self, version: FullVersionOwned) -> Self {
+    ///
+    /// [Error::IncompatibleDeviceProtocol]: crate::Error::IncompatibleDeviceProtocol
+    pub fn client_version(self, version: FullVersionOwned, wire: WireVersion) -> Self {
         let mut c = self;
-        c.client_version = Some(Box::new(version));
+        c.client_version = Some(Box::new(ClientApi::generated(version, wire)));
         c
     }
 

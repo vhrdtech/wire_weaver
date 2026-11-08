@@ -219,6 +219,7 @@ mod tests {
             path,
             server,
             board_info_api::BOARD_INFO_TEST_FULL_GID,
+            board_info_api::BOARD_INFO_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         )
     }
@@ -421,6 +422,7 @@ mod tests {
             "board_info/plain",
             plain_server::Server,
             board_info_api::BOARD_INFO_TEST_FULL_GID,
+            board_info_api::BOARD_INFO_TEST_WIRE_VERSION,
             plain_server::api_impl::api_hash(),
         );
         let client = connect(&device).await;

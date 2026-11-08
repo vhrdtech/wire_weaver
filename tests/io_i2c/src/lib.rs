@@ -862,6 +862,7 @@ mod tests {
             path,
             server,
             io_i2c_api::IO_I_2_C_TEST_FULL_GID,
+            io_i2c_api::IO_I_2_C_TEST_WIRE_VERSION,
             mock_server::api_impl::api_hash(),
         );
         (device, model)
@@ -1792,6 +1793,7 @@ mod tests {
             path,
             server,
             io_i2c_api::IO_I_2_C_SLAVE_TEST_FULL_GID,
+            io_i2c_api::IO_I_2_C_SLAVE_TEST_WIRE_VERSION,
             slave_mock::api_impl::api_hash(),
         )
     }

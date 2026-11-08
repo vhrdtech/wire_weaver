@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::{ApiHashPair, FullVersion, ImageFacts};
+use wire_weaver::ww_version::{ApiHashPair, FullVersion, ImageFacts, WireVersion};
 use wire_weaver::{
     BlockingEventOut, EventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend,
 };
@@ -254,14 +254,15 @@ impl TestDevice {
 }
 
 /// Start a device thread serving `server` under `path` (unique per test).
-/// `version` is the API crate's `<TRAIT>_FULL_GID`, `api_hash` is the server's generated `api_hash()`.
+/// `version` is the API crate's `<TRAIT>_FULL_GID`, `wire` its `<TRAIT>_WIRE_VERSION`, `api_hash` is the server's generated `api_hash()`.
 pub fn start_device<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     path: &str,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
-    start_device_on(path, server, version, api_hash, ())
+    start_device_on(path, server, version, wire, api_hash, ())
 }
 
 /// Same as [start_device], for servers generated with `medium = ".."`: `medium` is passed to every handler.
@@ -269,10 +270,11 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
     path: &str,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
-    start(path, SyncServer(server), version, api_hash, medium)
+    start(path, SyncServer(server), version, wire, api_hash, medium)
 }
 
 /// Same as [start_device_usb], with the device asking for an accumulation window of `window` instead of the default
@@ -283,6 +285,7 @@ pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + '
     packet_size: usize,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     window: std::time::Duration,
 ) -> TestDevice {
@@ -291,6 +294,7 @@ pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + '
         Media::Usb(packet_size),
         SyncServer(server),
         version,
+        wire,
         api_hash,
         ImageFacts::default(),
         (),
@@ -305,6 +309,7 @@ pub fn start_device_async_with_limit<S: TestProcessEventsAsync<Medium = ()> + Se
     max_message_len: usize,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
     start_on(
@@ -312,6 +317,7 @@ pub fn start_device_async_with_limit<S: TestProcessEventsAsync<Medium = ()> + Se
         Media::Messages(max_message_len),
         AsyncServer(server),
         version,
+        wire,
         api_hash,
         (),
     )
@@ -322,9 +328,10 @@ pub fn start_device_async<S: TestProcessEventsAsync<Medium = ()> + Send + 'stati
     path: &str,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
-    start(path, AsyncServer(server), version, api_hash, ())
+    start(path, AsyncServer(server), version, wire, api_hash, ())
 }
 
 /// Same as [start_device], with a device saying `image_facts`.
@@ -332,6 +339,7 @@ pub fn start_device_with_facts<S: TestProcessEvents<Medium = ()> + Send + 'stati
     path: &str,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     image_facts: ImageFacts,
 ) -> TestDevice {
@@ -340,6 +348,7 @@ pub fn start_device_with_facts<S: TestProcessEvents<Medium = ()> + Send + 'stati
         Media::Messages(MAX_MESSAGE_LEN),
         SyncServer(server),
         version,
+        wire,
         api_hash,
         image_facts,
         (),
@@ -353,6 +362,7 @@ pub fn start_device_async_with_facts<S: TestProcessEventsAsync<Medium = ()> + Se
     path: &str,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     image_facts: ImageFacts,
 ) -> TestDevice {
@@ -361,6 +371,7 @@ pub fn start_device_async_with_facts<S: TestProcessEventsAsync<Medium = ()> + Se
         Media::Messages(MAX_MESSAGE_LEN),
         AsyncServer(server),
         version,
+        wire,
         api_hash,
         image_facts,
         (),
@@ -446,6 +457,7 @@ pub fn start_device_usb<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     packet_size: usize,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
     start_on(
@@ -453,6 +465,7 @@ pub fn start_device_usb<S: TestProcessEvents<Medium = ()> + Send + 'static>(
         Media::Usb(packet_size),
         SyncServer(server),
         version,
+        wire,
         api_hash,
         (),
     )
@@ -464,6 +477,7 @@ pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 's
     packet_size: usize,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
     start_on(
@@ -471,6 +485,7 @@ pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 's
         Media::Usb(packet_size),
         AsyncServer(server),
         version,
+        wire,
         api_hash,
         (),
     )
@@ -501,6 +516,7 @@ pub fn start_device_async_usb_sim<S: TestProcessEventsAsync<Medium = ()> + Send 
     packet: usize,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
     start_on(
@@ -508,6 +524,7 @@ pub fn start_device_async_usb_sim<S: TestProcessEventsAsync<Medium = ()> + Send 
         Media::UsbSim(socket.to_path_buf(), packet),
         AsyncServer(server),
         version,
+        wire,
         api_hash,
         (),
     )
@@ -520,6 +537,7 @@ pub fn start_device_async_ipc<S: TestProcessEventsAsync<Medium = ()> + Send + 's
     socket: &std::path::Path,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
 ) -> TestDevice {
     start_on(
@@ -527,6 +545,7 @@ pub fn start_device_async_ipc<S: TestProcessEventsAsync<Medium = ()> + Send + 's
         Media::LocalSocket(socket.to_path_buf()),
         AsyncServer(server),
         version,
+        wire,
         api_hash,
         (),
     )
@@ -539,6 +558,7 @@ fn start<S: Process + Send + 'static>(
     path: &str,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
@@ -547,6 +567,7 @@ fn start<S: Process + Send + 'static>(
         Media::Messages(MAX_MESSAGE_LEN),
         server,
         version,
+        wire,
         api_hash,
         medium,
     )
@@ -557,6 +578,7 @@ fn start_on<S: Process + Send + 'static>(
     media: Media,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
@@ -565,6 +587,7 @@ fn start_on<S: Process + Send + 'static>(
         media,
         server,
         version,
+        wire,
         api_hash,
         ImageFacts::default(),
         medium,
@@ -578,6 +601,7 @@ fn start_with<S: Process + Send + 'static>(
     media: Media,
     server: S,
     version: FullVersion<'static>,
+    wire: WireVersion,
     api_hash: ApiHashPair<'static>,
     image_facts: ImageFacts,
     medium: S::Medium,
@@ -602,6 +626,7 @@ fn start_with<S: Process + Send + 'static>(
     };
     let mut config = ww_device::LinkConfig::new(
         version,
+        wire,
         api_hash,
         image_facts,
         ww_client_server::COMPACT_VERSION,

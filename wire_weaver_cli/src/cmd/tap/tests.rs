@@ -161,6 +161,7 @@ fn demo_device(path: &str, speed: u16) -> tests_common::TestDevice {
         64,
         server::Server::new(speed),
         tap_api::TAP_DEMO_FULL_GID,
+        tap_api::TAP_DEMO_WIRE_VERSION,
         server::api_impl::api_hash(),
     )
 }

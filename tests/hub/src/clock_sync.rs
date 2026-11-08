@@ -283,6 +283,7 @@ fn start(name: &str, linger: Duration, sync_linger: Option<Duration>) -> Bench {
             steerer: None,
         },
         hub_api::HUB_TEST_FULL_GID,
+        hub_api::HUB_TEST_WIRE_VERSION,
         server::api_impl::api_hash(),
     );
     let dir = std::env::temp_dir().join(format!("ww-hub-sync-{}-{name}", std::process::id()));

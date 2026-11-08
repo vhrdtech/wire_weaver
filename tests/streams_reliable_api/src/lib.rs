@@ -2,7 +2,7 @@
 //! `#[counted] stream!`, and methods that make the device produce.
 use wire_weaver::prelude::*;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait StreamsReliable {
     /// Bytes received on a line, as a counted stream; unit: byte
     #[counted]

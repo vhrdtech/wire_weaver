@@ -310,6 +310,7 @@ pub async fn run_app(
     let rx = ww_device::FramedRx::new(source, &mut rx_buf);
     let config = LinkConfig::new(
         dfu_lean_app_api::DFU_LEAN_APP_FULL_GID,
+        dfu_lean_app_api::DFU_LEAN_APP_WIRE_VERSION,
         api_impl::api_hash(),
         api_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,

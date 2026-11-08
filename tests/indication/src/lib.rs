@@ -218,6 +218,7 @@ mod tests {
                 storage: storage.clone(),
             },
             indication_api::INDICATION_TEST_FULL_GID,
+            indication_api::INDICATION_TEST_WIRE_VERSION,
             full_server::api_impl::api_hash(),
         );
         (device, storage)
@@ -229,6 +230,7 @@ mod tests {
             path,
             lite_server::Server { mode: Mode::Normal },
             indication_api::INDICATION_TEST_FULL_GID,
+            indication_api::INDICATION_TEST_WIRE_VERSION,
             lite_server::api_impl::api_hash(),
         )
     }

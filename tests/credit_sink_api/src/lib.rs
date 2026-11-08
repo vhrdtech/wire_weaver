@@ -1,7 +1,7 @@
 use wire_weaver::prelude::*;
 
 /// Sinks with credit-based flow control (API-28), see `docs/api/streams.md`.
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait CreditSinks {
     /// Bulk bytes, e.g., an update plan
     #[credit]

@@ -181,6 +181,7 @@ mod tests {
             path,
             server,
             recursive_api::RECURSIVE_FULL_GID,
+            recursive_api::RECURSIVE_WIRE_VERSION,
             api_impl::api_hash(),
         );
         (device, data)

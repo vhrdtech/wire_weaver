@@ -132,9 +132,9 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
             link_setup_timeout_ms: None,
             tap: Some(recorder.clone()),
             client_meta: None,
-            client_version: Box::new(FullVersionOwned::new(
-                "test_api".into(),
-                VersionOwned::new(0, 3, 0),
+            client_version: Box::new(crate::ClientApi::generated(
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 3, 0)),
+                crate::event_loop::device_e2e_tests::WIRE,
             )),
             keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),

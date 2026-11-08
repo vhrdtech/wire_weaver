@@ -51,6 +51,7 @@ fn start_in_process_device(path: &str) {
                 let mut event_scratch = vec![0u8; 1024];
                 let config = ww_device::LinkConfig::new(
                     FullVersion::new("loopback", Version::new(0, 1, 0)),
+                    ww_version::WireVersion::new(1, 0),
                     wire_weaver::ww_version::ApiHashPair::empty(),
                     Default::default(),
                     ww_client_server::COMPACT_VERSION,

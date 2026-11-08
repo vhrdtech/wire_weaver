@@ -258,10 +258,18 @@ mod tests {
         let seen = Arc::new(Mutex::new(Seen::default()));
         let path = format!("hub/{name}");
         let server = server::Server { seen: seen.clone() };
-        let (gid, hash) = (hub_api::HUB_TEST_FULL_GID, server::api_impl::api_hash());
+        let (gid, wire, hash) = (
+            hub_api::HUB_TEST_FULL_GID,
+            hub_api::HUB_TEST_WIRE_VERSION,
+            server::api_impl::api_hash(),
+        );
         let device = match window {
-            Some(w) => tests_common::start_device_usb_with_window(&path, 64, server, gid, hash, w),
-            None => tests_common::start_device_with_facts(&path, server, gid, hash, image_facts),
+            Some(w) => {
+                tests_common::start_device_usb_with_window(&path, 64, server, gid, wire, hash, w)
+            }
+            None => {
+                tests_common::start_device_with_facts(&path, server, gid, wire, hash, image_facts)
+            }
         };
         let counted = seen.clone();
         device.filter_requests(move |bytes| {

@@ -138,6 +138,7 @@ pub async fn serve(
     let mut event_scratch = [0u8; MAX_MESSAGE_LEN];
     let config = ww_device::LinkConfig::new(
         settings_api::SETTINGS_DEMO_FULL_GID,
+        settings_api::SETTINGS_DEMO_WIRE_VERSION,
         api_impl::api_hash(),
         api_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,

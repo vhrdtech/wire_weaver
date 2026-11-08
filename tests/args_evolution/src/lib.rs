@@ -234,6 +234,7 @@ mod tests {
             path,
             server,
             args_evolution_api::ARGS_EVOLUTION_FULL_GID,
+            args_evolution_api::ARGS_EVOLUTION_WIRE_VERSION,
             alloc_server::api_impl::api_hash(),
         )
     }

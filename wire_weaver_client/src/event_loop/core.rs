@@ -125,8 +125,8 @@ pub(crate) enum ToRx {
     },
     /// Transport is up, rx should start expecting link setup messages.
     TransportUp {
-        /// Used for the compatibility check against DeviceInfo, empty crate_id = skip
-        client_version: Box<ww_version::FullVersionOwned>,
+        /// Used for the compatibility check against DeviceInfo, a dynamic client skips it
+        client_version: Box<crate::ClientApi>,
         /// [Command::Connect]`::max_message_len`, for [DeviceApiInfo::host_max_message_size](crate::DeviceApiInfo)
         host_max_message_len: usize,
         /// This connection's setup token: rx drops everything until a DeviceInfo carrying it
@@ -619,7 +619,7 @@ mod tests {
     use ww_link::{DeviceInfo, DisconnectReason, Kind, Message};
     use ww_version::{
         ApiHashPair, CompactVersion, FullVersion, FullVersionOwned, GlobalTypeId, Version,
-        VersionOwned,
+        VersionOwned, WireVersion,
     };
 
     const RETRY: Duration = Duration::from_millis(50);
@@ -766,6 +766,7 @@ mod tests {
             packet_accumulation_time_us: 500,
             token,
             image_facts: Default::default(),
+            user_api_wire: Some(WireVersion::new(1, 0)),
         })
     }
 
@@ -777,9 +778,9 @@ mod tests {
             link_setup_timeout_ms: None,
             tap: None,
             client_meta: None,
-            client_version: Box::new(FullVersionOwned::new(
-                "test".into(),
-                VersionOwned::new(0, 1, 0),
+            client_version: Box::new(crate::ClientApi::generated(
+                FullVersionOwned::new("test".into(), VersionOwned::new(0, 1, 0)),
+                ww_version::WireVersion::new(1, 0),
             )),
             keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),
@@ -1457,10 +1458,7 @@ mod tests {
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    String::new(),
-                    VersionOwned::new(0, 0, 0),
-                )),
+                client_version: Box::new(crate::ClientApi::dynamic()),
                 keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,
@@ -1785,10 +1783,7 @@ mod tests {
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "".into(),
-                    VersionOwned::new(0, 0, 0),
-                )),
+                client_version: Box::new(crate::ClientApi::dynamic()),
                 keep_streams_on_loss: false,
                 connected_tx: None,
                 failed_tx: None,
@@ -1945,10 +1940,7 @@ mod tests {
                 link_setup_timeout_ms,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "".into(),
-                    VersionOwned::new(0, 0, 0),
-                )),
+                client_version: Box::new(crate::ClientApi::dynamic()),
                 keep_streams_on_loss: false,
                 connected_tx,
                 failed_tx: None,
@@ -1995,9 +1987,52 @@ mod tests {
 
     #[test]
     fn incompatible_version_fails_connection() {
+        // the device (0.1.3 at w1.0) is on another wire line than the client: refused before LinkSetup, naming both
+        let (p, mut connected_rx) = connect_at(VersionOwned::new(0, 1, 3), WireVersion::new(2, 0));
+        assert!(p.sent.is_empty(), "no LinkSetup to an incompatible device");
+        assert!(p.pair.rx_exited);
+        assert!(matches!(p.pair.tx_exit, Some(Err(_))));
+        let e = connected_rx.try_recv().unwrap().result.unwrap_err();
+        let e = format!("{e:#}");
+        assert!(
+            e.contains("at wire w1.0") && e.contains("at wire w2.0"),
+            "{e}"
+        );
+    }
+
+    /// Link setup decides on the wire line (EVO-25): a client after a crate breaking bump (0.2.0, a Rust-only break
+    /// like EVO-22's trailing argument with a default) on the device's line connects, and says its wire version.
+    #[test]
+    fn crate_breaking_bump_on_the_same_line_connects() {
+        let (mut p, _connected_rx) = connect_at(VersionOwned::new(0, 2, 0), WireVersion::new(1, 4));
+        assert!(!p.pair.rx_exited);
+        let setup = p
+            .sent
+            .iter()
+            .find(|s| s.kind == Kind::LinkSetup)
+            .expect("LinkSetup to a device on the same line");
+        let Ok(Message::LinkSetup(setup)) = Message::decode(Kind::LinkSetup as u8, &setup.payload)
+        else {
+            panic!()
+        };
+        assert_eq!(setup.host_user_wire, Some(WireVersion::new(1, 4)));
+        assert_eq!(setup.host_user_version.version.minor.0, 2);
+    }
+
+    struct Connected {
+        pair: Pair,
+        /// What tx sent after the device's DeviceInfo
+        sent: Vec<Sent>,
+    }
+
+    /// A client of `test` `version` at `wire` through link setup up to the device's DeviceInfo (`test` 0.1.3 at w1.0).
+    fn connect_at(
+        version: VersionOwned,
+        wire: WireVersion,
+    ) -> (Connected, oneshot::Receiver<ConnectionInfo>) {
         let now = Instant::now();
         let mut p = Pair::new();
-        let (connected_tx, mut connected_rx) = oneshot::channel();
+        let (connected_tx, connected_rx) = oneshot::channel();
         p.cmd(
             now,
             Command::Connect {
@@ -2007,9 +2042,9 @@ mod tests {
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "test".into(),
-                    VersionOwned::new(0, 2, 0),
+                client_version: Box::new(crate::ClientApi::generated(
+                    FullVersionOwned::new("test".into(), version),
+                    wire,
                 )),
                 keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
@@ -2020,14 +2055,9 @@ mod tests {
         p.settle(now);
         p.take_sent();
         p.feed_from_device(now, &device_hello(p.tx.token()));
-        p.feed_from_device(now, &device_info(p.tx.token())); // device is 0.1.3
-        assert!(
-            p.take_sent().is_empty(),
-            "no LinkSetup to an incompatible device"
-        );
-        assert!(p.rx_exited);
-        assert!(matches!(p.tx_exit, Some(Err(_))));
-        assert!(connected_rx.try_recv().unwrap().result.is_err());
+        p.feed_from_device(now, &device_info(p.tx.token()));
+        let sent = p.take_sent();
+        (Connected { pair: p, sent }, connected_rx)
     }
 
     /// Loopback test runs on tx, echoes reach it through rx, other requests wait until it is over.
@@ -2154,10 +2184,7 @@ mod tests {
             );
             to_rx_tx
                 .send(ToRx::TransportUp {
-                    client_version: Box::new(FullVersionOwned::new(
-                        "".into(),
-                        VersionOwned::new(0, 0, 0),
-                    )),
+                    client_version: Box::new(crate::ClientApi::dynamic()),
                     host_max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN,
                     token: 1,
                     connected_tx: None,

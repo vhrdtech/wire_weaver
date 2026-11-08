@@ -5,7 +5,9 @@
 
 #[cfg(test)]
 mod tests {
-    use introspect_compressed_api::{ChannelId, INTROSPECT_COMPRESSED_FULL_GID};
+    use introspect_compressed_api::{
+        ChannelId, INTROSPECT_COMPRESSED_FULL_GID, INTROSPECT_COMPRESSED_WIRE_VERSION,
+    };
     use std::path::PathBuf;
     use std::time::Duration;
     use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned};
@@ -336,6 +338,7 @@ mod tests {
             "introspect_compressed/sync",
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
+            INTROSPECT_COMPRESSED_WIRE_VERSION,
             lz4::api_impl::api_hash(),
         );
         let host = connect_to(&device).await;
@@ -356,6 +359,7 @@ mod tests {
             "introspect_compressed/plain",
             plain::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
+            INTROSPECT_COMPRESSED_WIRE_VERSION,
             plain::api_impl::api_hash(),
         );
         let host = connect_to(&device).await;
@@ -371,6 +375,7 @@ mod tests {
             "introspect_compressed/async",
             lz4_async::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
+            INTROSPECT_COMPRESSED_WIRE_VERSION,
             lz4_async::api_impl::api_hash(),
         );
         let host = connect_to(&device).await;
@@ -386,6 +391,7 @@ mod tests {
             "introspect_compressed/dynamic",
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
+            INTROSPECT_COMPRESSED_WIRE_VERSION,
             lz4::api_impl::api_hash(),
         );
         let client = wire_weaver_client::DynClient::from_config(
@@ -406,6 +412,7 @@ mod tests {
             "introspect_compressed/promise",
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
+            INTROSPECT_COMPRESSED_WIRE_VERSION,
             lz4::api_impl::api_hash(),
         );
         let host = connect_to(&device).await;
@@ -446,6 +453,7 @@ mod tests {
             path,
             lz4::Server::default(),
             INTROSPECT_COMPRESSED_FULL_GID,
+            INTROSPECT_COMPRESSED_WIRE_VERSION,
             lz4::api_impl::api_hash(),
         );
         let dir = runtime_dir("hub");

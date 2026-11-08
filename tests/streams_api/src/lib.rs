@@ -1,6 +1,6 @@
 use wire_weaver::prelude::*;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait Streams {
     stream!(plain_stream: u8);
     sink!(plain_sink: u8);

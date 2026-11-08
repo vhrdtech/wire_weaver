@@ -106,6 +106,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     let buffers = USB_BUFFERS.init(UsbBuffers::default());
     let link_config = LinkConfig::new(
         blinky_api::BLINKY_API_FULL_GID,
+        blinky_api::BLINKY_API_WIRE_VERSION,
         server_impl::api_hash(),
         server_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,

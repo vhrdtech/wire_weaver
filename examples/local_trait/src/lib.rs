@@ -296,6 +296,7 @@ mod tests {
             path,
             server,
             local_trait_api::COUNTER_API_FULL_GID,
+            local_trait_api::COUNTER_API_WIRE_VERSION,
             server::api_impl::api_hash(),
         )
     }

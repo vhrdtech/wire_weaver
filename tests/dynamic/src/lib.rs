@@ -1058,6 +1058,7 @@ mod tests {
             "dynamic/unlisted_error",
             server::DynServer::default(),
             dynamic_api::DYNAMIC_FULL_GID,
+            dynamic_api::DYNAMIC_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
@@ -1077,6 +1078,7 @@ mod tests {
             "dynamic",
             server::DynServer::default(),
             dynamic_api::DYNAMIC_FULL_GID,
+            dynamic_api::DYNAMIC_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
@@ -1200,6 +1202,7 @@ mod tests {
             "dynamic/multi_requests",
             server::DynServer::default(),
             dynamic_api::DYNAMIC_FULL_GID,
+            dynamic_api::DYNAMIC_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))

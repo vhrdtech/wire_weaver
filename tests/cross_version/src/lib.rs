@@ -304,8 +304,9 @@ mod tests {
         let device = tests_common::start_device(
             path,
             server,
-            // what the old firmware reports: the same API crate as the host's, an incompatible version
+            // what the old firmware reports: the same API crate as the host's, an older version on another wire line
             FullVersion::new("cross_version_api", Version::new(0, 3, 0)),
+            cross_version_old_api::CROSS_VERSION_WIRE_VERSION,
             old_device::api_impl::api_hash(),
         );
         (calls, device)
@@ -322,6 +323,7 @@ mod tests {
             path,
             server,
             FullVersion::new("cross_version_api", Version::new(0, 3, 0)),
+            cross_version_old_api::CROSS_VERSION_WIRE_VERSION,
             introspecting_device::api_impl::api_hash(),
         );
         (calls, device)
@@ -343,9 +345,11 @@ mod tests {
             .await;
         let e = r
             .err()
-            .expect("an incompatible API version must not connect");
+            .expect("a client of another wire line must not connect");
         assert!(
-            matches!(e.downcast_ref::<Error>(), Some(Error::ConnectFailed { reason, .. }) if reason.contains("incompatible protocol")),
+            // another wire line (EVO-25), named both ways
+            matches!(e.downcast_ref::<Error>(), Some(Error::ConnectFailed { reason, .. })
+                if reason.contains("at wire w1.0") && reason.contains("at wire w2.0")),
             "{e:?}"
         );
     }

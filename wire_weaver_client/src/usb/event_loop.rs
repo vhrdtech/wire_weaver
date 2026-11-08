@@ -580,6 +580,7 @@ mod tests {
                         packet_accumulation_time_us: 100,
                         token,
                         image_facts: Default::default(),
+                        user_api_wire: Some(ww_version::WireVersion::new(1, 0)),
                     }))
                 }
                 Message::LinkSetup(setup) => Some(Message::LinkReady { token: setup.token }),
@@ -696,9 +697,9 @@ mod tests {
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "test".into(),
-                    VersionOwned::new(0, 1, 0),
+                client_version: Box::new(crate::ClientApi::generated(
+                    FullVersionOwned::new("test".into(), VersionOwned::new(0, 1, 0)),
+                    ww_version::WireVersion::new(1, 0),
                 )),
                 keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
@@ -752,10 +753,7 @@ mod tests {
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
-                client_version: Box::new(FullVersionOwned::new(
-                    "".into(),
-                    VersionOwned::new(0, 0, 0),
-                )),
+                client_version: Box::new(crate::ClientApi::dynamic()),
                 keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,

@@ -271,6 +271,7 @@ pub(crate) async fn serve(
     let mut event_scratch = [0u8; 512];
     let config = LinkConfig::new(
         FullVersion::new("test_api", Version::new(0, 3, 1)),
+        WIRE,
         ApiHashPair::empty(),
         Default::default(),
         CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
@@ -298,13 +299,17 @@ pub(crate) async fn serve(
     }
 }
 
+/// The device's wire version in these tests, and the clients' unless a test says otherwise.
+pub(crate) const WIRE: ww_version::WireVersion = ww_version::WireVersion::new(2, 3);
+
 pub(crate) async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32)) -> ConnectionInfo {
-    connect_with_meta(cmd_tx, version, None).await
+    connect_with_meta(cmd_tx, version, WIRE, None).await
 }
 
 async fn connect_with_meta(
     cmd_tx: &mpsc::Sender<Command>,
     version: (u32, u32),
+    wire: ww_version::WireVersion,
     client_meta: Option<Box<ww_link::ClientMetaOwned>>,
 ) -> ConnectionInfo {
     let (connected_tx, connected_rx) = oneshot::channel();
@@ -316,9 +321,12 @@ async fn connect_with_meta(
             link_setup_timeout_ms: None,
             tap: None,
             client_meta,
-            client_version: Box::new(FullVersionOwned::new(
-                "test_api".into(),
-                VersionOwned::new(version.0, version.1, 0),
+            client_version: Box::new(crate::ClientApi::generated(
+                FullVersionOwned::new(
+                    "test_api".into(),
+                    VersionOwned::new(version.0, version.1, 0),
+                ),
+                wire,
             )),
             keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),
@@ -546,7 +554,7 @@ async fn client_meta_reaches_the_device() {
         .kind(crate::ClientKind::Test)
         .pid(4242);
     let sent = Box::new(meta.resolve());
-    connect_with_meta(&cmd_tx, (0, 3), Some(sent.clone()))
+    connect_with_meta(&cmd_tx, (0, 3), WIRE, Some(sent.clone()))
         .await
         .result
         .unwrap();
@@ -845,6 +853,7 @@ async fn previous_session_leftovers_are_dropped() {
         packet_accumulation_time_us: 1000,
         token: old_token,
         image_facts: Default::default(),
+        user_api_wire: Some(ww_version::WireVersion::new(9, 0)),
     });
     let big = [0x5Au8; 300];
     let mut to_host = old_session_packets(
@@ -874,6 +883,7 @@ async fn previous_session_leftovers_are_dropped() {
             host_max_message_len: 4096,
             client_meta: None,
             token: old_token,
+            host_user_wire: Some(WIRE),
         })],
         usize::MAX,
     ));
@@ -906,10 +916,31 @@ async fn previous_session_leftovers_are_dropped() {
 
 #[tokio::test]
 async fn incompatible_host_is_refused() {
+    // device is on w2.3, hosts on another line are refused on DeviceInfo already, naming both lines (EVO-25)
+    for wire in [
+        ww_version::WireVersion::new(3, 0),
+        ww_version::WireVersion::new(1, 9),
+    ] {
+        let (cmd_tx, _events_rx, dev, _host) = start();
+        let info = connect_with_meta(&cmd_tx, (0, 3), wire, None).await;
+        let e = format!("{:#}", info.result.unwrap_err());
+        assert!(
+            e.contains("at wire w2.3") && e.contains(&format!("at wire {wire}")),
+            "{e}"
+        );
+        dev.abort();
+    }
+}
+
+/// A host after a crate breaking bump (0.4.0, e.g. a trailing argument with a default, EVO-22) and a newer
+/// revision of the device's line (w2.4) connects (EVO-25), and learns the device's wire version from link setup.
+#[tokio::test]
+async fn crate_breaking_bump_on_the_same_line_connects() {
     let (cmd_tx, _events_rx, dev, _host) = start();
-    // device is 0.3.x, host 0.4.x: host refuses on DeviceInfo already
-    let info = connect(&cmd_tx, (0, 4)).await;
-    assert!(info.result.is_err());
+    let info = connect_with_meta(&cmd_tx, (0, 4), ww_version::WireVersion::new(2, 4), None).await;
+    let info = info.result.unwrap();
+    assert_eq!(info.user_api_wire, Some(WIRE));
+    assert_eq!(info.user_api_version.version.minor.0, 3);
     dev.abort();
 }
 

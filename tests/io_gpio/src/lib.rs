@@ -464,6 +464,7 @@ mod tests {
             path,
             srv,
             io_gpio_api::IO_GPIO_TEST_FULL_GID,
+            io_gpio_api::IO_GPIO_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         (device, banks)

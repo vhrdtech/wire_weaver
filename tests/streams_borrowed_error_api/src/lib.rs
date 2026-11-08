@@ -3,7 +3,7 @@
 use wire_weaver::prelude::*;
 
 /// Plain and counted stream functions, for both the sync and the async server
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait BorrowedError {
     /// Refused with `OpenError::Busy` while the device's owner name isn't empty
     #[stream(u8)]
@@ -14,7 +14,7 @@ trait BorrowedError {
 }
 
 /// Adds a reliable stream function, async server only
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait BorrowedErrorReliable {
     #[stream(u8)]
     fn plain(fail: bool) -> Result<(), OpenError<'i>>;

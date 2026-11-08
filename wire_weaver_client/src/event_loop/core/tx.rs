@@ -162,7 +162,7 @@ pub(crate) struct TxCore {
     exited_tx: Option<tokio::sync::oneshot::Sender<EventLoopResidual>>,
     /// From a disconnect command, notified by the wrapper once the transport is closed, see [Self::take_disconnected_tx]
     disconnected_tx: Option<tokio::sync::oneshot::Sender<()>>,
-    client_version: Option<FullVersionOwned>,
+    client_version: Option<crate::ClientApi>,
     /// [Command::Connect::client_meta]
     client_meta: Option<Box<ww_link::ClientMetaOwned>>,
     /// Link setup token of the current connection, see [super::new_setup_token]
@@ -235,16 +235,17 @@ pub(crate) struct TxPart {
 }
 
 fn link_setup<'a>(
-    client_version: ww_version::FullVersion<'a>,
+    client: &'a crate::ClientApi,
     host_max_message_len: usize,
     token: u64,
     meta: Option<&'a ww_link::ClientMetaOwned>,
 ) -> Message<'a> {
     Message::LinkSetup(LinkSetup {
-        host_user_version: client_version,
+        host_user_version: client.version.as_ref(),
         host_max_message_len: host_max_message_len.try_into().unwrap_or(u32::MAX),
         token,
         client_meta: meta.map(crate::client_meta::as_wire),
+        host_user_wire: client.wire,
     })
 }
 
@@ -878,11 +879,11 @@ impl TxCore {
                 let client_version = self
                     .client_version
                     .clone()
-                    .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)));
+                    .unwrap_or_else(crate::ClientApi::dynamic);
                 // the meta is for people to read: it never takes the link down because a device can't receive it
                 let meta = self.meta_to_send(&client_version);
                 let msg = link_setup(
-                    client_version.as_ref(),
+                    &client_version,
                     self.host_max_message_len,
                     self.token,
                     meta.as_ref(),
@@ -1106,13 +1107,13 @@ impl TxCore {
     /// [Command::Connect::client_meta] as far as the device can receive it: whole, shortened, or not at all.
     fn meta_to_send(
         &mut self,
-        client_version: &FullVersionOwned,
+        client_version: &crate::ClientApi,
     ) -> Option<ww_link::ClientMetaOwned> {
         let full = self.client_meta.as_deref()?;
         let max = self.device_max_message_len;
         for meta in [full.clone(), crate::client_meta::shortened(full)] {
             let msg = link_setup(
-                client_version.as_ref(),
+                client_version,
                 self.host_max_message_len,
                 self.token,
                 Some(&meta),

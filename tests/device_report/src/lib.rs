@@ -422,6 +422,7 @@ mod tests {
             path,
             server,
             device_report_api::REPORT_TEST_FULL_GID,
+            device_report_api::REPORT_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         (device, pc, name)

@@ -414,6 +414,7 @@ mod tests {
                 path,
                 server,
                 observe_api::OBSERVE_FULL_GID,
+                observe_api::OBSERVE_WIRE_VERSION,
                 server::api_impl::api_hash(),
             );
             let client = Client::config(|c| c.in_process_path(device.path()))

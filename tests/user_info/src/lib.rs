@@ -178,6 +178,7 @@ mod tests {
                 notes_copy: String::new(),
             },
             user_info_api::USER_INFO_TEST_FULL_GID,
+            user_info_api::USER_INFO_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         (device, storage)

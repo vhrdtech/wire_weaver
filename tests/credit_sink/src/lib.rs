@@ -430,6 +430,7 @@ mod tests {
             path,
             server,
             credit_sink_api::CREDIT_SINKS_FULL_GID,
+            credit_sink_api::CREDIT_SINKS_WIRE_VERSION,
             sync_server::api_impl::api_hash(),
         );
         (device, m)
@@ -1125,6 +1126,7 @@ mod tests {
             "credit/async_server",
             server,
             credit_sink_api::CREDIT_SINKS_FULL_GID,
+            credit_sink_api::CREDIT_SINKS_WIRE_VERSION,
             async_server::api_impl::api_hash(),
         );
         let client = connect(&device).await;

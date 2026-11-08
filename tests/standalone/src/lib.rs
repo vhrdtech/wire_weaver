@@ -111,6 +111,7 @@ mod tests {
                 limit: Milli::new(500),
             },
             standalone_api::STANDALONE_FULL_GID,
+            standalone_api::STANDALONE_WIRE_VERSION,
             device::api_impl::api_hash(),
         );
         let host = Host::config(|c| c.in_process_path(device.path()))

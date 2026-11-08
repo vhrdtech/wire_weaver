@@ -36,8 +36,19 @@ pub enum Error {
     LinkSetupTimeout,
     #[error("shrink_wrap::Error {:?}", .0)]
     ShrinkWrap(wire_weaver::shrink_wrap::Error),
-    #[error("Tried connecting to a device with incompatible protocol")]
-    IncompatibleDeviceProtocol,
+    /// The device's user API is another one than this host's generated client, or on another wire line (EVO-25):
+    /// link setup decides on the line, never on the crate version.
+    #[error("{}", describe_wire_line(.device, .device_wire.as_ref(), .host, .host_wire))]
+    IncompatibleDeviceProtocol {
+        /// The device's user API crate and version, from its `DeviceInfo`.
+        device: Box<FullVersionOwned>,
+        /// Wire version of the device's API root, `None` from a device built before it existed.
+        device_wire: Option<WireVersion>,
+        /// The API crate and version this host's client was generated from.
+        host: Box<FullVersionOwned>,
+        /// Wire version this host's client was generated from.
+        host_wire: WireVersion,
+    },
     #[error("The device speaks link {device}, this host link {host}: update the older side")]
     IncompatibleLinkVersion { device: String, host: String },
     /// The device's hello (EVO-23) names another generation of a foundation layer: link setup stops there, neither
@@ -145,6 +156,38 @@ impl Error {
     /// A ww hub that lent the device to another program (SRV-32): it comes back, wait and try again.
     pub fn is_lent(&self) -> bool {
         matches!(self, Error::HubRefused { status, .. } if *status == crate::connection_event::STATUS_LENT)
+    }
+}
+
+fn describe_wire_line(
+    device: &FullVersionOwned,
+    device_wire: Option<&WireVersion>,
+    host: &FullVersionOwned,
+    host_wire: &WireVersion,
+) -> String {
+    let (d, h) = (&device.crate_id, &host.crate_id);
+    if d != h {
+        return format!(
+            "The device runs the API {d}, this host's client is generated from {h}: connect with a client of {d}, or a \
+             dynamic one"
+        );
+    }
+    match device_wire {
+        None => format!(
+            "The device's {d} {:?} doesn't say its wire version (firmware from before wire versions), this host's \
+             client is at wire {host_wire}: update the device firmware, or connect with a dynamic client",
+            device.version
+        ),
+        Some(dw) if dw.line.0 > host_wire.line.0 => format!(
+            "The device's {d} is at wire {dw}, this host's client at wire {host_wire}: another wire line, update the \
+             host to a client of line {}",
+            dw.line.0
+        ),
+        Some(dw) => format!(
+            "The device's {d} is at wire {dw}, this host's client at wire {host_wire}: another wire line, use a host \
+             that still has a client of line {}, or update the device firmware",
+            dw.line.0
+        ),
     }
 }
 
@@ -289,7 +332,7 @@ impl Error {
             | Error::HubRefused { .. } => CallErrorKind::Unavailable,
             Error::NoTransportSelected
             | Error::ShrinkWrap(_)
-            | Error::IncompatibleDeviceProtocol
+            | Error::IncompatibleDeviceProtocol { .. }
             | Error::IncompatibleLinkVersion { .. }
             | Error::IncompatibleGeneration { .. }
             | Error::UnknownPeerFormat { .. }

@@ -371,6 +371,7 @@ mod tests {
             name,
             server,
             io_onewire_api::IO_ONE_WIRE_TEST_FULL_GID,
+            io_onewire_api::IO_ONE_WIRE_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         let client = client::OneWireClient::config(|c| c.in_process_path(device.path()))

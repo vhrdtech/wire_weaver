@@ -220,6 +220,7 @@ mod tests {
             path,
             server,
             recorder_groups_api::RECORDER_GROUPS_TEST_FULL_GID,
+            recorder_groups_api::RECORDER_GROUPS_TEST_WIRE_VERSION,
             api_impl::api_hash(),
         );
         (device, data)

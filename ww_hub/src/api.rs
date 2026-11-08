@@ -27,6 +27,7 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
     let mut event_scratch = vec![0u8; MAX_MESSAGE_LEN];
     let config = ww_device::LinkConfig::new(
         ww_hub_api::HUB_FULL_GID,
+        ww_hub_api::HUB_WIRE_VERSION,
         server::api_impl::api_hash(),
         server::api_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,

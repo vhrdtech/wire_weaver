@@ -2,7 +2,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait CommonErrors {
     /// Reads the sensor; `fail` picks the error: 0 none, 1 `InUse { by: "USART2" }`, 2 `Fault`, 3 `Nack`.
     fn read(fail: u8) -> Result<u16, SensorError<'i>>;

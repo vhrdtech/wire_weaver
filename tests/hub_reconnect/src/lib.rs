@@ -131,6 +131,7 @@ pub fn start_device(path: &str) -> (TestDevice, Arc<Mutex<Seen>>) {
         path,
         new_server(&seen),
         hub_reconnect_api::HUB_RECONNECT_FULL_GID,
+        hub_reconnect_api::HUB_RECONNECT_WIRE_VERSION,
         server::api_impl::api_hash(),
     );
     (device, seen)
@@ -144,6 +145,7 @@ pub fn start_device_ipc(socket: &std::path::Path) -> (TestDevice, Arc<Mutex<Seen
         socket,
         new_server(&seen),
         hub_reconnect_api::HUB_RECONNECT_FULL_GID,
+        hub_reconnect_api::HUB_RECONNECT_WIRE_VERSION,
         server::api_impl::api_hash(),
     );
     (device, seen)
@@ -158,6 +160,7 @@ pub fn start_device_usb_sim(socket: &std::path::Path) -> (TestDevice, Arc<Mutex<
         64,
         new_server(&seen),
         hub_reconnect_api::HUB_RECONNECT_FULL_GID,
+        hub_reconnect_api::HUB_RECONNECT_WIRE_VERSION,
         server::api_impl::api_hash(),
     );
     (device, seen)

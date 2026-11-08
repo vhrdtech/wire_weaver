@@ -184,6 +184,7 @@ mod tests {
                 uptime: 0,
             },
             consts_api::CONSTS_TEST_FULL_GID,
+            consts_api::CONSTS_TEST_WIRE_VERSION,
             server::api_impl::api_hash(),
         );
         let reads = Arc::new(AtomicU32::new(0));
@@ -276,6 +277,7 @@ mod tests {
             "consts/async",
             async_server::Server,
             consts_api::CONSTS_TEST_FULL_GID,
+            consts_api::CONSTS_TEST_WIRE_VERSION,
             async_server::api_impl::api_hash(),
         );
         let client = connect(&device).await;

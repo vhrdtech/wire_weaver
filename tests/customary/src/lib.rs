@@ -149,6 +149,7 @@ mod tests {
             path,
             server,
             customary_api::SMALL_FORCES_FULL_GID,
+            customary_api::SMALL_FORCES_WIRE_VERSION,
             server::api_impl::api_hash(),
         )
     }

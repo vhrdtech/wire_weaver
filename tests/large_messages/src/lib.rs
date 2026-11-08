@@ -5,7 +5,9 @@
 use client::Client;
 use exact_units::Bytes;
 use futures_lite::StreamExt;
-use large_messages_api::{ARCHIVE_FULL_GID, Cursor, PageOwned, ReadingId, ReadingOwned, RowCount};
+use large_messages_api::{
+    ARCHIVE_FULL_GID, ARCHIVE_WIRE_VERSION, Cursor, PageOwned, ReadingId, ReadingOwned, RowCount,
+};
 use local::Results;
 use tests_common::{
     MAX_MESSAGE_LEN, TestDevice, TestProcessEventsAsync, start_device_async_with_limit,
@@ -184,6 +186,7 @@ fn start(name: &str, device_limit: usize) -> TestDevice {
         device_limit,
         Server::default(),
         ARCHIVE_FULL_GID,
+        ARCHIVE_WIRE_VERSION,
         api_impl::api_hash(),
     )
 }

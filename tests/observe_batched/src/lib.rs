@@ -439,6 +439,7 @@ mod tests {
                         path,
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
+                        observe_batched_api::OBSERVE_BATCHED_WIRE_VERSION,
                         server::api_impl::api_hash(),
                     )
                 }
@@ -465,6 +466,7 @@ mod tests {
                         &format!("{path}/cells"),
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
+                        observe_batched_api::OBSERVE_BATCHED_WIRE_VERSION,
                         cells_server::api_impl::api_hash(),
                     )
                 }
@@ -485,6 +487,7 @@ mod tests {
                         &format!("{path}/no_samples"),
                         server,
                         observe_batched_api::OBSERVE_BATCHED_FULL_GID,
+                        observe_batched_api::OBSERVE_BATCHED_WIRE_VERSION,
                         no_samples_server::api_impl::api_hash(),
                         facts,
                     )

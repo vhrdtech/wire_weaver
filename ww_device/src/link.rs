@@ -16,7 +16,7 @@ use core::time::Duration;
 
 use ww_link::{
     ApiHashPair, CompactVersion, DeviceInfo, DisconnectReason, FullVersion, Generations, Hello,
-    ImageFacts, Kind, Message, PEER_TIMEOUT_MS, PING_INTERVAL_MS, Role,
+    ImageFacts, Kind, Message, PEER_TIMEOUT_MS, PING_INTERVAL_MS, Role, WireVersion,
 };
 
 use crate::fmt::{debug, error, info, warn};
@@ -31,8 +31,13 @@ const TIMER_TOLERANCE: Duration = Duration::from_micros(10);
 /// Everything that is reported to the host in [DeviceInfo] and link timings.
 #[derive(Clone)]
 pub struct LinkConfig<'a> {
-    /// User API crate name and version, the host checks it for compatibility.
+    /// User API crate name and version, reported to the host for display: nothing decides on it.
     pub user_api_version: FullVersion<'a>,
+    /// Wire version of the user API root (EVO-25), the API crate's `*_WIRE_VERSION`: a host on the same line
+    /// connects, a host on another line is refused, and the host checks `#[since]` against its revision. `None`
+    /// only where the version isn't known, like a hub fronting a device built before it existed: a host with a
+    /// generated client is refused, a dynamic one connects.
+    pub user_api_wire: Option<WireVersion>,
     /// Hash of the user API, from generated `api_hash()`.
     pub api_hash: ApiHashPair<'a>,
     /// What this firmware image chose at build time, from generated `image_facts()`.
@@ -52,12 +57,14 @@ impl<'a> LinkConfig<'a> {
     /// Config with default timings: 1ms accumulation window, ping and peer timeout from [ww_link].
     pub fn new(
         user_api_version: FullVersion<'a>,
+        user_api_wire: WireVersion,
         api_hash: ApiHashPair<'a>,
         image_facts: ImageFacts,
         api_model_version: CompactVersion,
     ) -> Self {
         LinkConfig {
             user_api_version,
+            user_api_wire: Some(user_api_wire),
             api_hash,
             image_facts,
             api_model_version,
@@ -206,7 +213,8 @@ impl PeerMeta {
 
 /// The host's user API version from [ww_link::LinkSetup::host_user_version] (CLT-55), kept per session so that
 /// version skew between a device and its hosts can be seen: the crate (cut to [PeerVersion::CRATE_ID_LEN] bytes,
-/// empty for a dynamic host that works through introspection) and its SemVer numbers, without a pre-release tag.
+/// empty for a dynamic host that works through introspection) and its SemVer numbers, without a pre-release tag, and
+/// the wire version its client was generated from ([ww_link::LinkSetup::host_user_wire], EVO-25).
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct PeerVersion {
@@ -214,18 +222,21 @@ pub struct PeerVersion {
     pub major: u32,
     pub minor: u32,
     pub patch: u32,
+    /// `None` from a dynamic host.
+    pub wire: Option<WireVersion>,
 }
 
 impl PeerVersion {
     /// Longest crate id kept; a longer one is cut at a character boundary.
     pub const CRATE_ID_LEN: usize = 32;
 
-    fn from_wire(version: &ww_link::FullVersion<'_>) -> Self {
+    fn from_wire(version: &ww_link::FullVersion<'_>, wire: Option<WireVersion>) -> Self {
         PeerVersion {
             crate_id: cut(version.crate_id),
             major: version.version.major.0,
             minor: version.version.minor.0,
             patch: version.version.patch.0,
+            wire,
         }
     }
 }
@@ -432,18 +443,27 @@ impl<'a> DeviceLink<'a> {
                 }
             }
             Message::LinkSetup(setup) => {
-                // a host without generated client code works with the API dynamically, via introspection
+                // a host without generated client code works with the API dynamically, via introspection; any other
+                // host must be of this API and on this device's wire line (EVO-25), whatever its crate version
                 let dynamic_host = setup.host_user_version.crate_id.is_empty();
+                let ours = self.config.user_api_wire;
                 let compatible = dynamic_host
-                    || self
-                        .config
-                        .user_api_version
-                        .is_protocol_compatible(&setup.host_user_version);
+                    || (setup.host_user_version.crate_id == self.config.user_api_version.crate_id
+                        && setup
+                            .host_user_wire
+                            .zip(ours)
+                            .is_some_and(|(theirs, ours)| theirs.same_line(&ours)));
                 if compatible {
-                    info!("host connected: {:?}", setup.host_user_version);
+                    info!(
+                        "host connected: {:?} {:?}",
+                        setup.host_user_version, setup.host_user_wire
+                    );
                     self.remote_max_message_len = setup.host_max_message_len;
                     self.peer_meta = setup.client_meta.as_ref().map(PeerMeta::from_wire);
-                    self.peer_version = Some(PeerVersion::from_wire(&setup.host_user_version));
+                    self.peer_version = Some(PeerVersion::from_wire(
+                        &setup.host_user_version,
+                        setup.host_user_wire,
+                    ));
                     self.pending.link_ready = true;
                     if self.phase != Phase::Up {
                         self.phase = Phase::Up;
@@ -451,10 +471,16 @@ impl<'a> DeviceLink<'a> {
                         self.next_ping_at = Some(now + self.config.ping_interval);
                     }
                 } else {
-                    warn!(
-                        "host with incompatible version tried to connect: {:?}",
-                        setup.host_user_version
-                    );
+                    match setup.host_user_wire {
+                        Some(theirs) => warn!(
+                            "host of {:?} on {:?} tried to connect, this device is on {:?}",
+                            setup.host_user_version, theirs, ours
+                        ),
+                        None => warn!(
+                            "host without a wire version tried to connect, this device is on {:?}: {:?}",
+                            ours, setup.host_user_version
+                        ),
+                    }
                     self.go_idle(DownReason::NewSession);
                     self.pending.disconnect = Some(DisconnectReason::IncompatibleVersion);
                 }
@@ -564,6 +590,7 @@ impl<'a> DeviceLink<'a> {
                     .unwrap_or(u16::MAX),
                 token: self.token,
                 image_facts: self.config.image_facts,
+                user_api_wire: self.config.user_api_wire,
             })
         } else if self.pending.link_ready {
             self.pending.link_ready = false;

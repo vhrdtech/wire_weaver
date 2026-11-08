@@ -162,6 +162,7 @@ async fn main(spawner: embassy_executor::Spawner) {
     let buffers = USB_BUFFERS.init(UsbBuffers::default());
     let link_config = LinkConfig::new(
         defmt_log_api::DEFMT_LOG_DEMO_FULL_GID,
+        defmt_log_api::DEFMT_LOG_DEMO_WIRE_VERSION,
         server_impl::api_hash(),
         server_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,

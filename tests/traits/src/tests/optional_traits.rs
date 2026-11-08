@@ -232,6 +232,7 @@ async fn optional_traits_served_when_present() {
         "traits/optional_traits_full",
         full_server::FullServer,
         traits_api::TRAITS_FULL_GID,
+        traits_api::TRAITS_WIRE_VERSION,
         full_server::api_impl::api_hash(),
     );
     let client = BoardClient::config(|c| c.in_process_path(device.path()))
@@ -255,6 +256,7 @@ async fn omitted_traits_fail_locally() {
         "traits/optional_traits_lean",
         lean_server::LeanServer,
         traits_api::TRAITS_FULL_GID,
+        traits_api::TRAITS_WIRE_VERSION,
         lean_server::api_impl::api_hash(),
     );
     let client = BoardClient::config(|c| c.in_process_path(device.path()))
@@ -277,6 +279,7 @@ async fn omit_if_on_traits_follows_cfg() {
         "traits/optional_traits_cfg",
         cfg_server::CfgServer,
         traits_api::TRAITS_FULL_GID,
+        traits_api::TRAITS_WIRE_VERSION,
         cfg_server::api_impl::api_hash(),
     );
     let client = BoardClient::config(|c| c.in_process_path(device.path()))
@@ -341,6 +344,7 @@ async fn dynamic_client_fails_omitted_traits_locally() {
         "traits/optional_traits_dynamic",
         lean_server::LeanServer,
         traits_api::TRAITS_FULL_GID,
+        traits_api::TRAITS_WIRE_VERSION,
         lean_server::api_impl::api_hash(),
     );
     let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))

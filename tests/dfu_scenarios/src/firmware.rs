@@ -2,7 +2,7 @@
 //! every update trait, the lean app (`UpdateNode` and `BootControl`) and the updater.
 
 use wire_weaver::prelude::*;
-use wire_weaver::ww_version::{ApiHashPair, FullVersion};
+use wire_weaver::ww_version::{ApiHashPair, FullVersion, WireVersion};
 use ww_client_server::StreamSideband;
 use ww_dfu::{
     BootState, BootTarget, ChunkState, Error, NodeInfo, PlanSegment, Progress, Session, Slot,
@@ -245,6 +245,8 @@ pub fn plan_credit() -> SinkCredit {
 pub trait Firmware {
     fn node(&mut self) -> &mut Node;
     fn version(&self) -> FullVersion<'static>;
+    /// The API root's wire version (EVO-25).
+    fn wire(&self) -> WireVersion;
     fn api_hash(&self) -> ApiHashPair<'static>;
     fn process<'a>(
         &mut self,
@@ -255,13 +257,16 @@ pub trait Firmware {
 }
 
 macro_rules! firmware {
-    ($m:ident, $server:ident, $api:ident, $gid:ident) => {
+    ($m:ident, $server:ident, $api:ident, $gid:ident, $wire:ident) => {
         impl Firmware for $m::$server {
             fn node(&mut self) -> &mut Node {
                 &mut self.node
             }
             fn version(&self) -> FullVersion<'static> {
                 $api::$gid
+            }
+            fn wire(&self) -> WireVersion {
+                $api::$wire
             }
             fn api_hash(&self) -> ApiHashPair<'static> {
                 $m::api_impl::api_hash()
@@ -345,16 +350,24 @@ pub mod updater {
     }
 }
 
-firmware!(app, AppServer, dfu_app_api, DFU_APP_FULL_GID);
+firmware!(
+    app,
+    AppServer,
+    dfu_app_api,
+    DFU_APP_FULL_GID,
+    DFU_APP_WIRE_VERSION
+);
 firmware!(
     lean_app,
     LeanAppServer,
     dfu_lean_app_api,
-    DFU_LEAN_APP_FULL_GID
+    DFU_LEAN_APP_FULL_GID,
+    DFU_LEAN_APP_WIRE_VERSION
 );
 firmware!(
     updater,
     UpdaterServer,
     dfu_updater_api,
-    DFU_UPDATER_FULL_GID
+    DFU_UPDATER_FULL_GID,
+    DFU_UPDATER_WIRE_VERSION
 );

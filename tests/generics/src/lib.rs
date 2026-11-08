@@ -250,6 +250,7 @@ mod tests {
             path,
             server,
             generics_api::GENERICS_FULL_GID,
+            generics_api::GENERICS_WIRE_VERSION,
             api_impl::api_hash(),
         );
         (device, data)

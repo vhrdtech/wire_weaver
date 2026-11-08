@@ -2,7 +2,7 @@
 //! arguments (`#[flatten]`).
 use wire_weaver::prelude::*;
 
-#[ww_trait]
+#[ww_api_root(wire = "w1.0")]
 trait ArgsEvolution {
     /// `a + b`, the arguments one by one
     fn configure(a: u8, b: u16) -> u32;

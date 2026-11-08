@@ -98,6 +98,7 @@ mod tests {
             },
             // what the firmware reports: the same API crate as the host's, the same version
             cfg_variants_api::CFG_VARIANTS_FULL_GID,
+            cfg_variants_api::CFG_VARIANTS_WIRE_VERSION,
             narrow_device::api_impl::api_hash(),
         );
         let host = Host::config(|c| c.in_process_path(device.path()))

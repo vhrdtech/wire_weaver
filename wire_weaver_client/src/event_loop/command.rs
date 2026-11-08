@@ -5,7 +5,6 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::DisconnectReason;
 use ww_client_server::PathKindOwned;
-use ww_version::FullVersionOwned;
 
 use crate::client::observe::ObserveRouteHook;
 use crate::client::positioned::Shared;
@@ -28,7 +27,8 @@ pub enum Command {
     Connect {
         /// Interface specific handle or device to connect to (e.g., nusb::DeviceInfo for USB)
         handle: Box<dyn Any + Send>,
-        client_version: Box<FullVersionOwned>,
+        /// The user API this client speaks, see [ClientConfig::client_version](crate::ClientConfig::client_version).
+        client_version: Box<crate::ClientApi>,
         /// Largest request seq number to use, see [ClientConfig::max_seq](crate::ClientConfig::max_seq).
         max_seq: SeqTy,
         /// The longest message this host takes, [ClientConfig::max_message_len](crate::ClientConfig::max_message_len):

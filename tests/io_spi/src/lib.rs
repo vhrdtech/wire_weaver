@@ -309,6 +309,7 @@ mod tests {
             path,
             server,
             io_spi_api::IO_SPI_TEST_FULL_GID,
+            io_spi_api::IO_SPI_TEST_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
         (device, data)
@@ -887,6 +888,7 @@ mod tests {
             path,
             server,
             io_spi_api::IO_SPI_SLAVE_TEST_FULL_GID,
+            io_spi_api::IO_SPI_SLAVE_TEST_WIRE_VERSION,
             slave_mock::api_impl::api_hash(),
         )
     }

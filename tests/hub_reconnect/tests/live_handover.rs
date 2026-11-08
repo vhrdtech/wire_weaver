@@ -493,6 +493,7 @@ async fn a_prepared_adoption_goes_with_its_connection() {
         packet_accumulation_time_us: 500,
         token: 7,
         image_facts: Default::default(),
+        user_api_wire: Some(wire_weaver::ww_version::WireVersion::new(1, 0)),
     };
     let handover = HandoverOwned {
         client_version: wire_weaver_client::adopt::CLIENT_VERSION.into(),

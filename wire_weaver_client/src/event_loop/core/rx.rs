@@ -12,7 +12,6 @@ use anyhow::anyhow;
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, trace, warn};
 use ww_link::{DisconnectReason, Kind, Message, Role};
-use ww_version::FullVersionOwned;
 
 use super::{GENERATIONS, ToRx, ToTx, compact_to_full, host_hello, is_due};
 use crate::Error;
@@ -63,7 +62,7 @@ pub(crate) struct RxCore {
     events: LinkEvents,
 
     connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
-    client_version: Option<FullVersionOwned>,
+    client_version: Option<crate::ClientApi>,
     /// [ToRx::TransportUp]`::host_max_message_len`
     host_max_message_len: usize,
     device_api_info: Option<DeviceApiInfo>,
@@ -279,8 +278,7 @@ impl RxCore {
                     api_model_version: compact_to_full(&device_info.api_model_version),
                     user_api_version: device_info.user_api_version.clone(),
                     user_api_hash: device_info.hash.clone(),
-                    // TODO(EVO-25): from link setup
-                    user_api_wire: None,
+                    user_api_wire: device_info.user_api_wire,
                     accumulation_time: Duration::from_micros(
                         device_info.packet_accumulation_time_us.into(),
                     ),
@@ -471,11 +469,22 @@ impl RxCore {
                     "connected device: {device_api_info:?}, acc_window = {}us",
                     info.packet_accumulation_time_us
                 );
-                if let Some(client_version) = self.client_version.as_ref()
-                    && !client_version.crate_id.is_empty() // dyn connection without code generated API, using introspect data from a device only
-                    && !client_version.is_protocol_compatible(&device_api_info.user_api_version)
+                // a dynamic client (no generated code) works with any API through the device's introspection data;
+                // a generated one needs the same API on the same wire line (EVO-25), whatever the crate versions
+                if let Some(client) = self.client_version.as_ref()
+                    && !client.is_dynamic()
+                    && let Some(host_wire) = client.wire
+                    && (client.version.crate_id != device_api_info.user_api_version.crate_id
+                        || !device_api_info
+                            .user_api_wire
+                            .is_some_and(|w| w.same_line(&host_wire)))
                 {
-                    return Err(anyhow!(Error::IncompatibleDeviceProtocol));
+                    return Err(anyhow!(Error::IncompatibleDeviceProtocol {
+                        device: Box::new(device_api_info.user_api_version.clone()),
+                        device_wire: device_api_info.user_api_wire,
+                        host: Box::new(client.version.clone()),
+                        host_wire,
+                    }));
                 }
                 self.dispatcher.message_limit = Some(device_api_info.message_limit());
                 self.device_api_info = Some(device_api_info);
@@ -618,8 +627,7 @@ fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) 
         api_model_version: compact_to_full(&info.api_model_version),
         user_api_version: info.user_api_version.make_owned(),
         user_api_hash: info.hash.make_owned(),
-        // TODO(EVO-25): from link setup
-        user_api_wire: None,
+        user_api_wire: info.user_api_wire,
         accumulation_time: Duration::from_micros(info.packet_accumulation_time_us.into()),
         image_facts: info.image_facts,
     }

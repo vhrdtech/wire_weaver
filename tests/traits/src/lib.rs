@@ -277,6 +277,7 @@ mod tests {
             "traits",
             server,
             traits_api::TRAITS_FULL_GID,
+            traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
         let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
@@ -348,6 +349,7 @@ mod tests {
             "traits/omitted",
             server,
             traits_api::TRAITS_FULL_GID,
+            traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
         let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
@@ -387,6 +389,7 @@ mod tests {
             "traits/omit_if",
             cfg_server::CfgServer,
             traits_api::TRAITS_FULL_GID,
+            traits_api::TRAITS_WIRE_VERSION,
             cfg_server::api_impl::api_hash(),
         );
         let client = std_client::StdClient::config(|c| c.in_process_path(device.path()))
@@ -533,6 +536,7 @@ mod tests {
             "traits/dynamic",
             no_std_sync_server::NoStdSyncServer { data },
             traits_api::TRAITS_FULL_GID,
+            traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
         let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
@@ -572,6 +576,7 @@ mod tests {
             "traits/meta",
             no_std_sync_server::NoStdSyncServer { data },
             traits_api::TRAITS_FULL_GID,
+            traits_api::TRAITS_WIRE_VERSION,
             no_std_sync_server::api_impl::api_hash(),
         );
         let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))

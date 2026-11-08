@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait DfuUpdater {
     ww_impl!(node: ww_dfu::UpdateNode);
     ww_impl!(boot: ww_dfu::BootControl);

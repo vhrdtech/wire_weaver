@@ -3,14 +3,14 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait IoSpiTest {
     ww_impl!(spi: ww_spi::Spi);
 }
 
 /// Test API root for `ww_spi`'s slave mode, used by `tests/io_spi`: a device built on `ww_bus_slave::SpiSlave`,
 /// driven by [SpiBusOp] instead of a real bus, with a fake clock advanced by [SpiBusOp::Advance].
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait IoSpiSlaveTest {
     ww_impl!(spi: ww_spi::Spi);
 

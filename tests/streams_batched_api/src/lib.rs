@@ -4,7 +4,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait StreamsBatched {
     /// Plain batched stream: batches while a host has it open, nothing counted
     #[batched]
@@ -65,7 +65,7 @@ pub enum SampleError {
 }
 
 /// The batched streams in an optional trait (API-54): a server leaving it out has no polled streams to send for.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait BatchedBoard {
     fn ping() -> u8;
     #[optional]

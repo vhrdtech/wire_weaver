@@ -1,7 +1,7 @@
 use wire_weaver::prelude::*;
 
 /// A device several clients share through the ww hub (SRV-29), with resources one of them can claim (SRV-34).
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait HubTest {
     fn add(a: u32, b: u32) -> u32;
     stream!(ticks: u32);
@@ -43,7 +43,7 @@ pub enum BusError<'i> {
 }
 
 /// A device whose clock the hub steers (SRV-31): `ww_timebase::Clock` with `host_sync`.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait ClockedTest {
     fn add(a: u32, b: u32) -> u32;
     ww_impl!(clock: ww_timebase::Clock);

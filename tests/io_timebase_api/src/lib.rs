@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait IoTimebaseTest {
     ww_impl!(clock: ww_timebase::Clock);
 }

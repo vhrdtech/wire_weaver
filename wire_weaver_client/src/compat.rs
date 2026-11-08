@@ -344,7 +344,7 @@ pub(crate) mod tests {
         std::fs::write(
             dir.join("Cargo.toml"),
             format!(
-                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n{dependencies}\n"
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\n{dependencies}\n"
             ),
         )
         .unwrap();
@@ -364,7 +364,7 @@ pub(crate) mod tests {
         std::fs::write(
             dir.join("Cargo.toml"),
             format!(
-                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n"
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\n"
             ),
         )
         .unwrap();

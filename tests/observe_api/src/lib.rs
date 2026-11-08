@@ -3,7 +3,7 @@
 //! array, which can't be observed yet.
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Observe {
     /// get_set, sampled through the getter
     property!(ro+observe temp: f32);

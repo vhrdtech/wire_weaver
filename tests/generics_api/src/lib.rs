@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 use wire_weaver::prelude::*;
 use ww_si::{Ampere, Timed};
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Generics {
     /// The two values swapped
     fn swap(pair: Pair<u8, u16>) -> Pair<u16, u8>;

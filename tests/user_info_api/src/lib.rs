@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait UserInfoTest {
     ww_impl!(user: ww_user_info::UserInfo);
 }

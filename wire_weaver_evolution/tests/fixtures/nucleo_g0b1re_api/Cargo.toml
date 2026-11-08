@@ -1,6 +1,10 @@
 # nucleo_g0b1re_template's API crate at 0.4.0 (its release 0.1.8), with its snapshots saved by the wire_weaver of
 # 94a6b3a, before ItemEnum::future_version (EVO-10): an old-format snapshot for tests/check.rs (EVO-13). The git
 # dependencies are paths into this repository; the crate is read from source, never built.
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.3"
 [package]
 name = "nucleo_g0b1re_api"
 version = "0.4.0"

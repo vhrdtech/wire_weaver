@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait IoCanGroupTest {
     ww_impl!(can: ww_can_bus::CanGroup);
     ww_impl!(can_tt[]: ww_can_bus::CanTimeTriggered);

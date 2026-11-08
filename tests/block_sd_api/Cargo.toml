@@ -7,6 +7,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
 [features]
 default = ["std"]
 std = ["wire_weaver/std", "ww_block/std", "ww_sd/std"]

@@ -38,7 +38,7 @@ pub struct Code(pub u16);
 pub struct Reading(pub u32);
 
 /// What any server costs: one method.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Floor {
     fn ping();
 }
@@ -57,13 +57,13 @@ pub trait Base {
 }
 
 /// [Base] alone, the reference of the `More*` roots.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait BaseOnly {
     ww_impl!(base: Base);
 }
 
 /// [Base] and 8 calls without arguments or output.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Calls8 {
     ww_impl!(base: Base);
     fn x0();
@@ -77,7 +77,7 @@ pub trait Calls8 {
 }
 
 /// [Base] and 16 calls without arguments or output.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Calls16 {
     ww_impl!(base: Base);
     fn x0();
@@ -99,7 +99,7 @@ pub trait Calls16 {
 }
 
 /// [Base] and 8 calls with an argument and an output.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait CallsArgs8 {
     ww_impl!(base: Base);
     fn x0(code: Code) -> Reading;
@@ -113,7 +113,7 @@ pub trait CallsArgs8 {
 }
 
 /// [Base] and 16 calls with an argument and an output.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait CallsArgs16 {
     ww_impl!(base: Base);
     fn x0(code: Code) -> Reading;
@@ -135,7 +135,7 @@ pub trait CallsArgs16 {
 }
 
 /// [Base] and 8 read-write properties.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Props8 {
     ww_impl!(base: Base);
     property!(rw x0: Code);
@@ -149,7 +149,7 @@ pub trait Props8 {
 }
 
 /// [Base] and 16 read-write properties.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Props16 {
     ww_impl!(base: Base);
     property!(rw x0: Code);
@@ -171,7 +171,7 @@ pub trait Props16 {
 }
 
 /// [Base] and 8 streams.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Streams8 {
     ww_impl!(base: Base);
     stream!(x0: Reading);
@@ -185,7 +185,7 @@ pub trait Streams8 {
 }
 
 /// [Base] and 16 streams.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Streams16 {
     ww_impl!(base: Base);
     stream!(x0: Reading);
@@ -207,7 +207,7 @@ pub trait Streams16 {
 }
 
 /// [Base] and 8 calls with arguments and outputs of their own types.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Typed8 {
     ww_impl!(base: Base);
     fn x0(arg: In0) -> Out0;
@@ -221,7 +221,7 @@ pub trait Typed8 {
 }
 
 /// [Base] and 16 calls with arguments and outputs of their own types.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Typed16 {
     ww_impl!(base: Base);
     fn x0(arg: In0) -> Out0;
@@ -244,7 +244,7 @@ pub trait Typed16 {
 
 /// [Base] and 8 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72): every bound is
 /// monomorphised on its own, as `&str` at N = 16, 32, 64, 128 is in Donguru.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MaxLenBounds8 {
     ww_impl!(base: Base);
     property!(rw x0: MaxLen<&'i str, 4>);
@@ -258,7 +258,7 @@ pub trait MaxLenBounds8 {
 }
 
 /// [Base] and 16 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72).
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait MaxLenBounds16 {
     ww_impl!(base: Base);
     property!(rw x0: MaxLen<&'i str, 4>);
@@ -505,7 +505,7 @@ pub struct Out15 {
 
 /// [Base] and 8 traits of one method each, reachable by a global trait path (SRV-53): served with introspection
 /// off, so the device looks a `GlobalFull` path up itself.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Globals8 {
     ww_impl!(base: Base);
     ww_impl!(g0: GlobalTrait0);
@@ -519,7 +519,7 @@ pub trait Globals8 {
 }
 
 /// [Base] and 16 traits of one method each, reachable by a global trait path (SRV-53).
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Globals16 {
     ww_impl!(base: Base);
     ww_impl!(g0: GlobalTrait0);
@@ -637,7 +637,7 @@ pub trait GlobalTrait15 {
 }
 
 /// [Base] and 4 plain observed properties.
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Observed4 {
     ww_impl!(base: Base);
     property!(ro+observe x0: i32);
@@ -647,7 +647,7 @@ pub trait Observed4 {
 }
 
 /// [Base] and 4 `+batched` observed properties, the same resources as [Observed4].
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Batched4 {
     ww_impl!(base: Base);
     property!(ro+observe+batched x0: i32);

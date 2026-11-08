@@ -6,7 +6,7 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::{Timed, Volt};
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Sequences {
     /// Sum of the timestamps
     fn sum(timestamps: Series<'i, u32>) -> u64;

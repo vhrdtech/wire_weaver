@@ -1174,7 +1174,7 @@ mod tests {
         std::fs::write(
             dir.join("Cargo.toml"),
             format!(
-                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n{dependencies}"
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\n{dependencies}"
             ),
         )
         .unwrap();

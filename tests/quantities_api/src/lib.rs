@@ -19,7 +19,7 @@ use ww_si::{
     RangeDec, Seq, Timed, Unbounded, Volt,
 };
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Quantities {
     property!(rw voltage: Volt);
     /// A supply rail, `0 V ..= 3.3 V` whatever prefix a value is sent with (STD-59)

@@ -6,7 +6,7 @@
 use wire_weaver::prelude::*;
 use ww_si::{Ampere, Radian, Ratio, Volt, Weber};
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Foc {
     /// Phase a current: `Milli` `I32`.
     property!(ro+observe+batched i_a: Ampere);

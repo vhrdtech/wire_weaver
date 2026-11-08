@@ -4,7 +4,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait DefmtLogDemo {
     ww_impl!(log: ww_log::LogDefmt);
 

@@ -30,8 +30,8 @@ use ww_version::FullVersionOwned;
 /// * `root` is named after the crate, contains crate-level docs, and one [ApiItemKindOwned::Trait] item per trait
 ///   in source order (empty for crates with data types only).
 /// * `ext_crates[0]` is the crate itself.
-/// * `wire` is the crate's wire version: its `#[ww_api_root(wire = ..)]` (EVO-24), or for a crate without an API
-///   root the `[package.metadata.wire_weaver] wire = ..` of its `Cargo.toml` (EVO-26); `None` without either.
+/// * `wire` is the crate's wire version: the `[package.metadata.wire_weaver] wire = ..` of its `Cargo.toml` (EVO-26,
+///   EVO-31), or in a test crate its `#[ww_api_root(wire = ..)]`; `None` without either.
 ///   `ext_wire` has it for every crate in `ext_crates` that declares one.
 /// * Traits and types defined in this crate are in-line, traits and types from other crates are skipped
 ///   (their definitions belong to those crates' snapshots), with a signature of the left out definition
@@ -94,7 +94,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
                 }
             }
         }
-        let wire = root_wire(wire, &entry)?;
+        let wire = root_wire(wire, &entry, scratch)?;
         Ok((entry, items, wire))
     })?;
 
@@ -931,7 +931,7 @@ mod tests {
         };
         write(
             "units_lib/Cargo.toml",
-            "[package]\nname = \"units_lib\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+            "[package]\nname = \"units_lib\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n",
         );
         write(
             "units_lib/src/lib.rs",
@@ -952,7 +952,7 @@ mod tests {
         );
         write(
             "api/Cargo.toml",
-            "[package]\nname = \"api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+            "[package]\nname = \"api\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n\
              [dependencies]\nunits_lib = { path = \"../units_lib\" }\n",
         );
         write(

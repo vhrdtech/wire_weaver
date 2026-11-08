@@ -894,15 +894,22 @@ mod tests {
         );
     }
 
-    /// Loads trait `Api` from a throwaway crate with `lib_rs` as its `lib.rs`.
+    /// Loads trait `Api` from a throwaway test crate (`publish = false`) with `lib_rs` as its `lib.rs`.
     fn load_src(name: &str, lib_rs: &str) -> Result<ww_self::ApiBundleOwned> {
+        load_src_with(name, "publish = false\n", lib_rs)
+    }
+
+    /// [load_src] with `package` added to the `[package]` section of its `Cargo.toml`.
+    fn load_src_with(name: &str, package: &str, lib_rs: &str) -> Result<ww_self::ApiBundleOwned> {
         let dir = std::env::temp_dir()
             .join("ww_core_api_tests")
             .join(format!("{name}-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("src")).unwrap();
         std::fs::write(
             dir.join("Cargo.toml"),
-            "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+            format!(
+                "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n{package}"
+            ),
         )
         .unwrap();
         std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
@@ -1102,18 +1109,58 @@ mod tests {
             assert!(e.contains(expected), "{src}: {e}");
         }
 
-        // what the `ww_api_root` macro sees: a bare `#[ww_api_root]` is refused there
-        let e = crate::transform::parse_wire_arg(proc_macro2::TokenStream::new()).unwrap_err();
-        assert!(
-            e.to_string()
-                .contains("`#[ww_api_root(wire = \"w1.0\")]` for a new API"),
-            "{e}"
-        );
         let tokens: proc_macro2::TokenStream = r#"wire = "w2.3""#.parse().unwrap();
         assert_eq!(
             crate::transform::parse_wire_arg(tokens).unwrap(),
             WireVersion::new(2, 3)
         );
+    }
+
+    /// An API root's wire version lives in `Cargo.toml` (EVO-31), `#[ww_api_root(wire = ..)]` only in a test crate
+    /// (`publish = false`) and only when it agrees with the `Cargo.toml` one.
+    #[test]
+    fn wire_version_in_cargo_toml() {
+        use ww_version::WireVersion;
+
+        let metadata =
+            |wire: &str| format!("\n[package.metadata.wire_weaver]\nwire = \"{wire}\"\n");
+        let bare = "#[ww_api_root] pub trait Api { #[since = \"w2.1\"] fn a(); }";
+        let bundle = load_src_with("cargo_wire", &metadata("w2.3"), bare).unwrap();
+        assert_eq!(bundle.wire, Some(WireVersion::new(2, 3)));
+        assert_eq!(bundle.ext_wire, Some(vec![Some(WireVersion::new(2, 3))]));
+
+        // the test entry point: a test crate, with or without the same one in Cargo.toml
+        let attr = r#"#[ww_api_root(wire = "w2.3")] pub trait Api { fn a(); }"#;
+        let test_crate = format!("publish = false\n{}", metadata("w2.3"));
+        let bundle = load_src_with("attr_same", &test_crate, attr).unwrap();
+        assert_eq!(bundle.wire, Some(WireVersion::new(2, 3)));
+
+        for (package, expected) in [
+            (
+                String::new(),
+                "the wire version lives in Cargo.toml: `[package.metadata.wire_weaver] wire = \"w2.3\"`",
+            ),
+            (
+                "publish = true\n".to_string(),
+                "`#[ww_api_root(wire = ..)]` is for test crates, `publish = false`",
+            ),
+            (
+                format!("publish = false\n{}", metadata("w2.4")),
+                "declared twice and differs: `#[ww_api_root(wire = \"w2.3\")]` and \
+                 `[package.metadata.wire_weaver] wire = \"w2.4\"`",
+            ),
+        ] {
+            let e = format!(
+                "{:?}",
+                load_src_with("attr_refused", &package, attr).unwrap_err()
+            );
+            assert!(e.contains(expected), "{package}: {e}");
+        }
+        let e = format!(
+            "{:?}",
+            load_src_with("cargo_wire_bad", &metadata("2.3"), bare).unwrap_err()
+        );
+        assert!(e.contains("no `w` in front"), "{e}");
     }
 
     #[test]

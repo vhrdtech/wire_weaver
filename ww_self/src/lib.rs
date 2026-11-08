@@ -109,16 +109,15 @@ pub struct ApiBundle<'i> {
     /// [ApiItemKind::Trait] `omitted` for the other levels. `None` and an empty list both mean none.
     #[default = None]
     pub root_omitted: Option<RefVec<'i, UNib32>>,
-    /// Wire version of the bundle's own crate (crate 0): the API root's `#[ww_api_root(wire = "w2.3")]` (EVO-24), the
-    /// revision every `#[since]` of the API's own items names; in a snapshot of a crate without an API root, the
-    /// wire version its `Cargo.toml` declares (EVO-26). `None` when it declares none and in a bundle made before wire
+    /// Wire version of the bundle's own crate (crate 0), from its `Cargo.toml` (`[package.metadata.wire_weaver] wire
+    /// = "w2.3"`, EVO-26 and EVO-31; `#[ww_api_root(wire = ..)]` in a test crate): for an API root the revision every
+    /// `#[since]` of the API's own items names. `None` when it declares none and in a bundle made before wire
     /// versions existed.
     #[default = None]
     pub wire: Option<WireVersion>,
     /// Wire version of each crate in `ext_crates`, by the same index (EVO-26): the revision every `#[since]` of that
-    /// crate's own traits, fields and variants names. A `#[ww_trait]` crate declares it in its `Cargo.toml`
-    /// (`[package.metadata.wire_weaver] wire = "w1.2"`), the API root crate with `#[ww_api_root(wire = ..)]` (also
-    /// in `wire` above). `None` inside: that crate declares none. `None`, or shorter than `ext_crates`: the crates
+    /// crate's own traits, fields and variants names. Every crate declares it in its `Cargo.toml`
+    /// (`[package.metadata.wire_weaver] wire = "w1.2"`); the API root crate's is also in `wire` above. `None` inside: that crate declares none. `None`, or shorter than `ext_crates`: the crates
     /// past its end declare none (a bundle made before EVO-26).
     #[default = None]
     pub ext_wire: Option<RefVec<'i, Option<WireVersion>>>,

@@ -4,7 +4,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait ReportTest {
     ww_impl!(firmware: ww_firmware_info::FirmwareInfo);
     ww_impl!(reset: ww_firmware_info::LastReset);

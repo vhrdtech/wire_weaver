@@ -23,7 +23,7 @@ fn dep_dir(version: &str, wire: Option<&str>) -> PathBuf {
     std::fs::write(
         dir.join("Cargo.toml"),
         format!(
-            "[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\n{metadata}"
+            "[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n{metadata}"
         ),
     )
     .unwrap();

@@ -19,7 +19,7 @@
 use wire_weaver::prelude::*;
 
 /// nucleo_g0b1re device
-#[ww_api_root(wire = "w1.3")]
+#[ww_api_root]
 pub trait NucleoG0b1reApi {
     /// LD4 solid on (`leds` shows it until another mode)
     fn led_on();

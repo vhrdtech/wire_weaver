@@ -106,9 +106,18 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()
 }
 
-/// Define an API entry point (root level) with its wire version, otherwise the same as [ww_trait]:
-/// `#[ww_api_root(wire = "w2.3")]` (EVO-24), line 2, revision 3. Peers on one line talk, `#[since = "w2.1"]` names
-/// the revision that added an item; a new API starts at `w1.0`. The crate version is Cargo's alone.
+/// Define an API entry point (root level), otherwise the same as [ww_trait]. Its wire version lives in the crate's
+/// `Cargo.toml` (EVO-31), line 2, revision 3 here; a new API starts at `w1.0`:
+///
+/// ```toml
+/// [package.metadata.wire_weaver]
+/// wire = "w2.3"
+/// ```
+///
+/// Peers on one line talk, `#[since = "w2.1"]` names the revision that added an item. The crate version is Cargo's
+/// alone. A test crate (`publish = false`) may give it in the attribute instead, `#[ww_api_root(wire = "w2.3")]`:
+/// several roots in one crate standing for different lines. It is refused in a crate that can be published, and
+/// when the crate's `Cargo.toml` declares a different one.
 ///
 /// Next to `*_FULL_GID`, the trait gets a `*_WIRE_VERSION: ww_version::WireVersion` const.
 #[proc_macro_attribute]

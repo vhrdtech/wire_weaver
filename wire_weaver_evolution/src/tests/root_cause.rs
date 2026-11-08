@@ -18,7 +18,7 @@ fn dep_dir(version: &str, id_ty: &str) -> PathBuf {
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("Cargo.toml"),
-        format!("[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\n"),
+        format!("[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n"),
     )
     .unwrap();
     std::fs::write(

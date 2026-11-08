@@ -5,7 +5,7 @@ use ww_si::{Fixed, prefix::One, units::Row};
 /// How many rows to answer with.
 pub type RowCount = Fixed<Row, One, u32>;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait Archive {
     /// `rows` rows in one reply.
     fn table(rows: RowCount) -> RefVec<'i, Reading<'i>>;

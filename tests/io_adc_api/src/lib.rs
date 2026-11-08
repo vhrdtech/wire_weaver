@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait IoAdcTest {
     ww_impl!(adc: ww_adc::Adc);
     ww_impl!(adc_stream: ww_adc::AdcStream);

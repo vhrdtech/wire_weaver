@@ -13,7 +13,7 @@ fn assert_saves_with_env() {
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("Cargo.toml"),
-        "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\n",
+        "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\n",
     )
     .unwrap();
     std::fs::write(

@@ -4,7 +4,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait CounterApi {
     /// Adds `by` times `step` to the total, returns the new total and sends it on `totals`
     fn add(by: u32) -> u32;

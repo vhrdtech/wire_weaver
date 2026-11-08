@@ -198,7 +198,7 @@ fn load_inner(
         Ok((entry, trait_name, items))
     })?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
-    let wire = root_wire(get_wire_attr(&item_trait.attrs, &entry)?, &entry)?;
+    let wire = root_wire(get_wire_attr(&item_trait.attrs, &entry)?, &entry, scratch)?;
 
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
@@ -221,20 +221,35 @@ fn load_inner(
     })
 }
 
-/// Wire version of a crate with an API root: its `#[ww_api_root(wire = ..)]`. Declaring it in `Cargo.toml` too is
-/// refused, one crate has one wire version and the root's is where readers look for it.
+/// Wire version of a crate with an API root (EVO-31): `[package.metadata.wire_weaver] wire = ".."` in its
+/// `Cargo.toml`, like every other crate. `#[ww_api_root(wire = "..")]` is the entry point for tests (several roots
+/// in one crate standing for different lines): only in a crate with `publish = false`, and not when it differs from
+/// the `Cargo.toml` one.
 pub(crate) fn root_wire(
     attr: Option<WireVersion>,
     crate_cx: &CrateContext,
+    scratch: &mut Scratch,
 ) -> Result<Option<WireVersion>> {
-    match (attr, crate_cx.wire) {
-        (Some(attr), Some(manifest)) => Err(anyhow!(
-            "the wire version is declared twice, `#[ww_api_root(wire = \"{attr}\")]` and \
-             `[package.metadata.wire_weaver] wire = \"{manifest}\"`: an API root crate keeps only the attribute"
+    let Some(attr) = attr else {
+        return Ok(crate_cx.wire);
+    };
+    if let Some(manifest) = crate_cx.wire
+        && manifest != attr
+    {
+        return Err(anyhow!(
+            "the wire version is declared twice and differs: `#[ww_api_root(wire = \"{attr}\")]` and \
+             `[package.metadata.wire_weaver] wire = \"{manifest}\"` in Cargo.toml; keep the Cargo.toml one"
         ))
-        .context(crate_cx.err_context()),
-        (attr, manifest) => Ok(attr.or(manifest)),
+        .context(crate_cx.err_context());
     }
+    if crate_cx.manifest.publishable(scratch)? {
+        return Err(anyhow!(
+            "the wire version lives in Cargo.toml: `[package.metadata.wire_weaver] wire = \"{attr}\"` and a bare \
+             `#[ww_api_root]` (EVO-31); `#[ww_api_root(wire = ..)]` is for test crates, `publish = false`"
+        ))
+        .context(crate_cx.err_context());
+    }
+    Ok(Some(attr))
 }
 
 /// Main scratch space and cache used to build ApiBundleOwned
@@ -352,8 +367,8 @@ impl ApiBundleScratch {
         idx.into()
     }
 
-    /// [ApiBundleOwned::ext_wire] of the crates so far, crate 0's being `root_wire` (its `#[ww_api_root(wire = ..)]`
-    /// or its manifest's); `None` when no crate declares one.
+    /// [ApiBundleOwned::ext_wire] of the crates so far, crate 0's being `root_wire` (its manifest's, or
+    /// `#[ww_api_root(wire = ..)]` in a test crate); `None` when no crate declares one.
     pub(crate) fn ext_wire(
         &self,
         root_wire: Option<WireVersion>,
@@ -1013,8 +1028,30 @@ impl ManifestContext {
         Ok(self.package_version.get_or_init(|| known).clone())
     }
 
+    /// Whether the crate can be published: `publish = false` (or `publish = []`, also through
+    /// `publish.workspace = true`) marks test, bench and example crates.
+    fn publishable(&self, scratch: &mut Scratch) -> Result<bool> {
+        let package = self
+            .manifest
+            .package
+            .as_ref()
+            .context("No package section found in Cargo.toml")?;
+        let publish = match &package.publish {
+            Inheritable::Set(publish) => publish.clone(),
+            Inheritable::Inherited => self
+                .load_parent_manifest(scratch)?
+                .manifest
+                .workspace
+                .as_ref()
+                .and_then(|w| w.package.as_ref())
+                .map(|p| p.publish.clone())
+                .unwrap_or_default(),
+        };
+        Ok(publish != false)
+    }
+
     /// The wire version in `[package.metadata.wire_weaver] wire = "w1.2"` (EVO-26), `None` without one. A crate
-    /// version or a bare `1.2` is refused, as in `#[ww_api_root(wire = ..)]`.
+    /// version or a bare `1.2` is refused.
     fn wire(&self) -> Result<Option<WireVersion>> {
         let Some(wire) = self
             .manifest

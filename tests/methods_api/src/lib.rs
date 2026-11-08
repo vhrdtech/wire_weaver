@@ -1,6 +1,6 @@
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait Methods {
     fn no_args();
     fn one_plain_arg(value: u8);

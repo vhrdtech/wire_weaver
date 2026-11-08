@@ -36,4 +36,5 @@ pub mod internal {
     };
     pub use ww_self;
     pub use ww_self::PropertyAccess;
+    pub use ww_version::WireVersion;
 }

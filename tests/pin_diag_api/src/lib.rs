@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait PinDiagTest {
     ww_impl!(pins: ww_pin_diag::PinDiag);
 }

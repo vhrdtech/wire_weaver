@@ -11,7 +11,7 @@ use core::ops::Range;
 use geometry::Point as Spot;
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 trait ModulePaths {
     /// The point mirrored at the origin
     fn mirror(p: Spot) -> geometry::Point;

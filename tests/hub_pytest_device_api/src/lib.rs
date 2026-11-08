@@ -3,7 +3,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait PytestDevice {
     /// Shared state: one process writes it, another reads it, both through the ww hub's tunnel.
     property!(rw counter: u32);

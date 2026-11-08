@@ -57,7 +57,7 @@ pub(crate) fn get_since_attr(
             if Version::parse(&value).is_ok() {
                 anyhow!(
                     "#[since = \"{value}\"] names a crate version: `#[since]` names the wire revision that added \
-                     the item, like `#[since = \"w1.2\"]`, on the line of the API root's `#[ww_api_root(wire = ..)]`"
+                     the item, like `#[since = \"w1.2\"]`, on the API root's wire line (`[package.metadata.wire_weaver] wire` in its Cargo.toml)"
                 )
             } else {
                 anyhow!("#[since = \"{value}\"]: {e}")
@@ -70,8 +70,8 @@ pub(crate) fn get_since_attr(
     }
 }
 
-/// `wire = "w2.3"` of `#[ww_api_root(wire = "w2.3")]` (EVO-24), `None` when the trait has no `#[ww_api_root]` or
-/// it has no arguments. The `ww_api_root` macro requires it; inline sources of tests may leave it out.
+/// `wire = "w2.3"` of `#[ww_api_root(wire = "w2.3")]` (EVO-24), the test entry point (EVO-31): `None` when the
+/// trait has no `#[ww_api_root]` or it has no arguments, its wire version then comes from `Cargo.toml`.
 pub(crate) fn get_wire_attr(
     attrs: &[Attribute],
     current_crate: &CrateContext,
@@ -95,7 +95,8 @@ pub fn parse_wire_arg(tokens: proc_macro2::TokenStream) -> syn::Result<WireVersi
     if tokens.is_empty() {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
-            "an API root declares its wire version: `#[ww_api_root(wire = \"w1.0\")]` for a new API (EVO-24)",
+            "expected `wire = \"w<line>.<revision>\"`; outside tests the wire version lives in Cargo.toml, \
+             `[package.metadata.wire_weaver] wire = \"w1.0\"` with a bare `#[ww_api_root]` (EVO-31)",
         ));
     }
     let name_value: syn::MetaNameValue = syn::parse2(tokens)?;

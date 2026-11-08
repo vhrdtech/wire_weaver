@@ -1076,7 +1076,8 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         None => {
             let msg = format!(
                 "a client of `{}` needs the wire version of its API root, link setup decides on it (EVO-25): mark \
-                 the trait `#[ww_api_root(wire = \"w1.0\")]` instead of `#[ww_trait]`",
+                 the trait `#[ww_api_root]` instead of `#[ww_trait]` and declare it in the crate's Cargo.toml, \
+                 `[package.metadata.wire_weaver]` with `wire = \"w1.0\"` (EVO-31)",
                 root.trait_name
             );
             quote! { compile_error!(#msg) }

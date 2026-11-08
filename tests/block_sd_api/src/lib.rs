@@ -4,14 +4,14 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait BlockSdTest {
     ww_impl!(card: ww_block::BlockDevice);
     ww_impl!(sd: ww_sd::SdCard);
 }
 
 /// A small firmware's card: only the block device, its `bulk` group left out (`omit = ["card.bulk"]`).
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait BlockLeanTest {
     ww_impl!(card: ww_block::BlockDevice);
 }

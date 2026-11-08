@@ -7,7 +7,7 @@
 use wire_weaver::prelude::*;
 use ww_si::{Ampere, Volt};
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait PowerStage {
     /// Inductor current, the period's average: `Milli` `I32`.
     property!(ro+observe+batched i_l: Ampere);

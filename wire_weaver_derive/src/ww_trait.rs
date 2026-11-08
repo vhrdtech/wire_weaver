@@ -10,7 +10,8 @@ use syn::{
 use wire_weaver_core::internal::ww_self::ApiBundleOwned;
 use wire_weaver_core::internal::ww_self::errors::error_list_docs;
 use wire_weaver_core::internal::{
-    ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs, parse_wire_arg,
+    ErrorListError, PropertyAccess, PropertyMacroArgs, StreamAndImplMacroArgs, WireVersion,
+    parse_wire_arg,
 };
 use wire_weaver_core::load;
 
@@ -19,46 +20,61 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
         return Error::new_spanned(
             attr,
             "a trait's global id is not written in code: add `crate::Trait` to ww_global/wire_weaver_gid.json, \
-             the codegen looks it up by name (API-20); a wire version belongs to `#[ww_api_root(wire = ..)]`",
+             the codegen looks it up by name (API-20); a wire version belongs to the crate's Cargo.toml, \
+             `[package.metadata.wire_weaver] wire = \"w1.0\"` (EVO-31)",
         )
         .to_compile_error();
     }
-    ww_trait_inner(item).unwrap_or_else(|e| e.to_compile_error())
+    ww_trait_inner(item)
+        .map(|(tokens, _wire)| tokens)
+        .unwrap_or_else(|e| e.to_compile_error())
 }
 
-/// [ww_trait] with the API root's wire version, `#[ww_api_root(wire = "w2.3")]` (EVO-24).
+/// [ww_trait] with the API root's wire version (EVO-31): from `[package.metadata.wire_weaver] wire = "w2.3"` in the
+/// crate's `Cargo.toml` for a bare `#[ww_api_root]`, or `#[ww_api_root(wire = "w2.3")]` in a test crate (the walker
+/// checks where each is allowed).
 pub fn ww_api_root(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let wire = match parse_wire_arg(attr) {
-        Ok(wire) => wire,
+    if !attr.is_empty()
+        && let Err(e) = parse_wire_arg(attr)
+    {
+        return e.to_compile_error();
+    }
+    let item_trait = match syn::parse2::<ItemTrait>(item.clone()) {
+        Ok(item_trait) => item_trait,
         Err(e) => return e.to_compile_error(),
     };
-    let wire_const = match syn::parse2::<ItemTrait>(item.clone()) {
-        Ok(item_trait) => {
-            let ident = Ident::new(
-                format!("{}_WIRE_VERSION", item_trait.ident)
-                    .to_case(Case::Constant)
-                    .as_str(),
-                item_trait.ident.span(),
-            );
-            let doc = format!(
-                "Wire version of the [{}] API, `{wire}`: peers on line {} talk, `#[since]` names its revisions.",
-                item_trait.ident, wire.line.0
-            );
-            let (line, revision) = (wire.line.0, wire.revision.0);
-            quote! {
-                #[doc = #doc]
-                pub const #ident: ww_version::WireVersion = ww_version::WireVersion::new(#line, #revision);
-            }
-        }
+    let (tokens, wire) = match ww_trait_inner(item) {
+        Ok(tokens_and_wire) => tokens_and_wire,
         Err(e) => return e.to_compile_error(),
     };
-    match ww_trait_inner(item) {
-        Ok(tokens) => quote! { #tokens #wire_const },
-        Err(e) => e.to_compile_error(),
+    let Some(wire) = wire else {
+        return Error::new(
+            Span::call_site(),
+            "an API root declares its wire version in its crate's Cargo.toml: \
+             `[package.metadata.wire_weaver]` with `wire = \"w1.0\"` for a new API (EVO-31)",
+        )
+        .to_compile_error();
+    };
+    let ident = Ident::new(
+        format!("{}_WIRE_VERSION", item_trait.ident)
+            .to_case(Case::Constant)
+            .as_str(),
+        item_trait.ident.span(),
+    );
+    let doc = format!(
+        "Wire version of the [{}] API, `{wire}`: peers on line {} talk, `#[since]` names its revisions.",
+        item_trait.ident, wire.line.0
+    );
+    let (line, revision) = (wire.line.0, wire.revision.0);
+    quote! {
+        #tokens
+        #[doc = #doc]
+        pub const #ident: ww_version::WireVersion = ww_version::WireVersion::new(#line, #revision);
     }
 }
 
-fn ww_trait_inner(item: TokenStream) -> Result<TokenStream, Error> {
+/// The trait's generated items, and the wire version the walker found for it.
+fn ww_trait_inner(item: TokenStream) -> Result<(TokenStream, Option<WireVersion>), Error> {
     let item_trait: ItemTrait = syn::parse2(item)?;
     let trait_name = item_trait.ident.to_string();
     let crate_path = PathBuf::from(
@@ -95,13 +111,14 @@ fn ww_trait_inner(item: TokenStream) -> Result<TokenStream, Error> {
     let compact_gid_doc = format!(
         "Global ID and version of the [{trait_name}] API, if it has one in the registry, shorter on the wire than [{full_gid}]."
     );
-    Ok(quote! {
+    let tokens = quote! {
         #doc_trait
         #[doc = #full_gid_doc]
         pub const #full_gid: ww_version::FullVersion = wire_weaver::full_version!();
         #[doc = #compact_gid_doc]
         pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#trait_ident);
-    })
+    };
+    Ok((tokens, api_bundle.wire))
 }
 
 /// Rust trait of the same name as the API trait, so that rustdoc shows the API, see `wire_weaver::api_doc`.

@@ -5,7 +5,7 @@
 
 use wire_weaver::prelude::*;
 
-#[ww_api_root(wire = "w2.0")]
+#[ww_api_root]
 pub trait CrossVersion {
     fn identify();
     ww_impl!(device: Device);

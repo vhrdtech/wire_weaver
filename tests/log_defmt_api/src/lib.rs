@@ -4,7 +4,7 @@
 use wire_weaver::prelude::*;
 use ww_log::Severity;
 
-#[ww_api_root(wire = "w1.0")]
+#[ww_api_root]
 pub trait LogTest {
     ww_impl!(defmt: ww_log::LogDefmt);
     ww_impl!(text: ww_log::LogText);

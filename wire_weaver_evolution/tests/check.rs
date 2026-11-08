@@ -41,7 +41,7 @@ impl TestCrate {
         std::fs::write(
             self.dir.join("Cargo.toml"),
             format!(
-                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n{dependencies}"
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\n{dependencies}"
             ),
         )
         .unwrap();
@@ -598,7 +598,7 @@ fn write_dep(name: &str, version: &str, id_ty: &str) -> PathBuf {
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("Cargo.toml"),
-        format!("[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\n"),
+        format!("[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n"),
     )
     .unwrap();
     std::fs::write(

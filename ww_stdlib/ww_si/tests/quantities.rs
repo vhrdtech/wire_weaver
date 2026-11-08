@@ -183,7 +183,9 @@ fn units_and_dimensions() {
     assert!(matches!(volt, UnitExpr::Named(def) if def.names.symbol == "V"));
     assert_eq!(volt, Volt::unit());
     assert!(ww_si::units::by_name("Volts").is_none());
-    assert_eq!(ww_si::units::ALL.len(), 130);
+    // `Feet100` is in ALL only with exact_units' `customary`, which another workspace crate turns on in a workspace run
+    let customary = usize::from(ww_si::units::by_name("Feet100").is_some());
+    assert_eq!(ww_si::units::ALL.len(), 130 + customary);
 }
 
 #[test]

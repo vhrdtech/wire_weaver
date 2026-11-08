@@ -36,6 +36,9 @@ pub enum Rule {
     /// Arguments added at the end with a default, or promoted to a `#[flatten]` struct (EVO-22): the same bytes,
     /// but handlers and client calls take other parameters.
     Signature,
+    /// An enum variant is never removed: Rust code using it breaks. The wire keeps with a catch-all (a reader of the
+    /// new version takes an old writer's value as it), the type check finds the break of an enum without one.
+    VariantRemoved,
 }
 
 impl Rule {
@@ -72,6 +75,10 @@ impl Rule {
                 "arguments added at the end with a default, or promoted to a #[flatten] struct, keep the wire, \
                  but change the Rust signatures of handlers and client calls"
             }
+            Rule::VariantRemoved => {
+                "an enum variant is never removed: Rust code using it breaks, and a newer reader takes an older \
+                 writer's value as the catch-all"
+            }
         }
     }
 
@@ -89,6 +96,7 @@ impl Rule {
             Rule::Meaning => "docs/evolution/units_by_meaning.md",
             Rule::Bound => "docs/evolution/rules.md#bounds",
             Rule::Signature => "docs/evolution/rules.md#arguments",
+            Rule::VariantRemoved => "docs/evolution/rules.md#unsized-types",
         }
     }
 
@@ -97,7 +105,12 @@ impl Rule {
     pub fn keeps_wire(&self) -> bool {
         matches!(
             self,
-            Rule::Renamed | Rule::FieldKind | Rule::Optional | Rule::CatchAll | Rule::Signature
+            Rule::Renamed
+                | Rule::FieldKind
+                | Rule::Optional
+                | Rule::CatchAll
+                | Rule::Signature
+                | Rule::VariantRemoved
         )
     }
 }

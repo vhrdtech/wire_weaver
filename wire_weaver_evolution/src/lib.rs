@@ -856,6 +856,20 @@ impl<'a> Checker<'a> {
                         }
                     }
                 }
+                // the wire side is the type check's: with a catch-all, a reader of the new version takes an old
+                // writer's value as it, without one the type check finds a break of its own
+                for old_variant in &old.variants {
+                    if !new
+                        .variants
+                        .iter()
+                        .any(|v| v.discriminant == old_variant.discriminant)
+                    {
+                        self.breaks(
+                            Rule::VariantRemoved,
+                            format!("{name}::{} removed (breaks Rust code)", old_variant.ident),
+                        );
+                    }
+                }
             }
             _ => {}
         }
@@ -1192,6 +1206,27 @@ mod tests {
 
     fn report(old: &str, new: &str) -> Report {
         compare(&load("0.1.0", old), &load("0.1.0", new)).unwrap()
+    }
+
+    /// A removed variant breaks Rust code using it (EVO-28, found by the dual-driver bench); with a catch-all the
+    /// wire keeps, a new reader takes an old writer's value as it. Without one, the type check finds the wire break.
+    #[test]
+    fn removed_variant_breaks_rust_code() {
+        let v1 = r#"
+            #[ww_api_root(wire = "w1.0")]
+            pub trait Api { property!(rw mode: Mode); }
+            #[derive_shrink_wrap(ww_repr = u4)]
+            pub enum Mode { Idle, Continuous, Triggered }
+        "#;
+        let v2 = v1.replace(", Triggered", "");
+        let report = self::report(v1, &v2);
+        assert_breaking(&report, "Mode::Triggered removed (breaks Rust code)");
+        assert_eq!(report.wire_bump, WireBump::None, "{report:?}");
+
+        let sized = v1.replace("ww_repr = u4", "sized, ww_repr = u4");
+        let report = self::report(&sized, &sized.replace(", Triggered", ""));
+        assert_breaking(&report, "Mode::Triggered removed (breaks Rust code)");
+        assert_eq!(report.wire_bump, WireBump::Line, "{report:?}");
     }
 
     fn assert_breaking(report: &Report, reason_contains: &str) {

@@ -12,6 +12,7 @@
 
 ### 🐛 Fixes
 
+- A removed enum variant is a breaking change (EVO-28): `compare` used to say nothing about it, so a crate dropping `Mode::Triggered` passed with a patch bump while every Rust `match` on it broke. The finding has the new `Rule::VariantRemoved`, which keeps the wire when the enum has a catch-all (`Rule::keeps_wire()`); without one the type check reports the wire break as before. Code matching on `Rule` exhaustively adds the variant.
 - A `#[since]` newer than the crate's own version is warned about on every resource, field and variant of the crate, not only on additions: a host built with it refuses that item on every device of this version. Additions with a `#[since]` older than the new version are still warned about as before.
 - The scales of a product and a quotient of two `Fixed` values, `Product<A, B>` / `Quotient<A, B>` (STD-83), are compared by their factor as other scales are: `Product<Milli, Milli>` for `Micro` is the same value, `Quotient<Milli, Milli>` for `Product<Milli, Milli>` is breaking.
 - `exact_units::Fixed` (what `ww_si::Fixed` re-exports since STD-61) is recognised as `Fixed`, so `Quantity` -> `Fixed` gets its hint again; a marker with its definition in the snapshot (INT-13) comes back in-line and is named without its module path in findings.

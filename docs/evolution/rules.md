@@ -200,6 +200,9 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * TODO: clarify: `T` -> struct containing `T`
 * Struct fields and enum variants can be renamed (but their position must NOT change).
+* Enum variants are never removed: Rust code naming one breaks, so the checker asks for a breaking crate bump. With a
+  catch-all the wire keeps (a reader of the new version takes an older writer's value of it as the catch-all), so
+  the wire version needs no bump of its own; without one it is a wire break too.
 * A tuple struct (`struct Pair(u8, u16);`) follows the same rules by position: new fields with `#[default = ..]` only
   at the end. Naming the fields of a tuple struct, or the other way round, keeps every byte, but the API model then
   describes a different type (named instead of unnamed fields), which the checker reports as breaking. A unit

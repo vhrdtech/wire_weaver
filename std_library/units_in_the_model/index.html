@@ -5886,7 +5886,11 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 </tr>
 <tr>
 <td><code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code></td>
-<td>the bounds of a <code>Fixed</code></td>
+<td>the bounds of a <code>Fixed</code>; each refuses NaN</td>
+</tr>
+<tr>
+<td><code>MaybeNan</code></td>
+<td>a float <code>Fixed</code> that may hold NaN, the one bound that takes it</td>
 </tr>
 <tr>
 <td><code>Origin(OriginDef { unit, symbol, reference, offset, .. })</code></td>

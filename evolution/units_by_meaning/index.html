@@ -5979,6 +5979,13 @@ for the side that refuses. In the place of a bound, <code>Wrapping</code> and <c
   <code>Fixed</code> of it.</li>
 <li><strong><code>Range&lt;..&gt;</code> -&gt; <code>Saturating</code></strong>: a bound widened, breaking as such.</li>
 </ul>
+<p>A float <code>Fixed</code> with any bound but <code>MaybeNan</code> refuses NaN, <code>Unbounded</code> included (exact_units NUM-19), so <code>MaybeNan</code>
+holds one value more:</p>
+<ul>
+<li><strong><code>Unbounded</code> -&gt; <code>MaybeNan</code></strong> or back: breaking for the side that refuses NaN.</li>
+<li><strong>A plain <code>f32</code> -&gt; <code>Fixed&lt;.., f32&gt;</code></strong>: breaking, a plain float may be NaN; to <code>Fixed&lt;.., f32, MaybeNan&gt;</code> it is
+  compatible.</li>
+</ul>
 <h2 id="markers-compared-by-name">Markers compared by name<a class="headerlink" href="#markers-compared-by-name" title="Permanent link">&para;</a></h2>
 <p>A marker without a definition in the model (a unit struct of your own that is no <code>unit!</code>, <code>scale!</code> or <code>origin!</code>, or
 a model saved before INT-13) is still compared by name, with its own arguments. Levels (STD-67), kinds (STD-68) and

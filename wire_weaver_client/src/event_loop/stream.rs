@@ -4,7 +4,9 @@
 //! The medium is owned by a dedicated IO thread, that moves bytes between it and two channels:
 //! chunks written by [StreamTx] go out, bytes read in are cut into messages by [StreamRx].
 //! Stream boundaries are not preserved, so messages are never split (`write_full` in [ww_framer]),
-//! same as `StreamTx` / `StreamRx` on the device side (`ww_device`).
+//! same as `StreamTx` / `StreamRx` on the device side (`ww_device`). The hello goes outside the framer both ways
+//! (EVO-23): written as the stream's frozen frame ([ww_link::hello::rtt]), found in what is read by
+//! [ww_link::hello::rtt::Scanner] before the framer sees it.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -116,6 +118,8 @@ where
             from_io,
             chunk: vec![],
             chunk_pos: 0,
+            hello: None,
+            scanner: ww_link::hello::rtt::Scanner::new(ww_link::Role::Device),
             error,
             name: config.name,
             tap,
@@ -209,6 +213,10 @@ impl<H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamTx<H, C, T> {
         let Some(chunk) = self.framer.flush_to_vec() else {
             return Ok(false);
         };
+        self.send(chunk).await
+    }
+
+    async fn send(&mut self, chunk: Vec<u8>) -> Result<bool, String> {
         if self.tap.wants_frames() {
             self.tap.frame(ww_tap::Dir::Tx, &chunk);
         }
@@ -228,6 +236,16 @@ where
     T: Tail + Send + 'static,
 {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
+        if kind == ww_link::Kind::Hello as u8
+            && let Ok(hello) = ww_link::Hello::from_bytes(message)
+        {
+            // in the frozen frame, after what the framer holds, outside it
+            self.send_chunk().await?;
+            return self
+                .send(ww_link::hello::rtt::frame(&hello).to_vec())
+                .await
+                .map(|_| ());
+        }
         loop {
             match self.framer.write_full(kind, message) {
                 Ok(true) => return Ok(()),
@@ -282,6 +300,9 @@ pub(crate) struct StreamRx<H: Head, C, T> {
     /// Bytes from the IO thread that did not fit into the framer yet
     chunk: Vec<u8>,
     chunk_pos: usize,
+    /// The device's hello found outside the framer, the message returned last
+    hello: Option<[u8; ww_link::hello::HELLO_LEN]>,
+    scanner: ww_link::hello::rtt::Scanner,
     error: Arc<OnceLock<String>>,
     name: &'static str,
     tap: ww_tap::RecorderLink,
@@ -295,6 +316,7 @@ where
 {
     /// Cancel-safe: bytes live in the framer and `chunk`, the only await is the channel receive.
     async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
+        self.hello = None;
         loop {
             // Consumes the message returned by the previous call (if any) and tries to cut the next one
             // out of what is already staged (a read can end anywhere in a message), before staging more.
@@ -323,6 +345,14 @@ where
                 self.framer.reset();
             }
             let len = self.framer.free().min(self.chunk.len() - self.chunk_pos);
+            let bytes = &self.chunk[self.chunk_pos..self.chunk_pos + len];
+            if let Some((hello, end)) = self.scanner.scan(bytes) {
+                // a new session: the framer drops what it held, what follows the hello is scanned next
+                self.framer.reset();
+                self.chunk_pos += end;
+                let hello = self.hello.insert(hello.to_bytes());
+                return Ok((ww_link::Kind::Hello as u8, hello));
+            }
             // cannot fail, at most free() bytes
             _ = self
                 .framer
@@ -331,5 +361,105 @@ where
         }
         // second lookup instead of returning from inside the loop: keeps the borrow checker happy
         Ok(self.framer.message().expect("checked above"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+    use std::sync::Mutex;
+
+    use ww_link::{Hello, Kind, Role, RttChecksum, RttHead, RttTail};
+
+    use super::*;
+
+    /// A stream device: serves `from_device` a few bytes per read, keeps what the host writes.
+    struct Fake {
+        from_device: VecDeque<u8>,
+        read_chunk: usize,
+        to_device: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl BlockingStreamIo for Fake {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, String> {
+            let n = buf.len().min(self.read_chunk).min(self.from_device.len());
+            for b in &mut buf[..n] {
+                *b = self.from_device.pop_front().unwrap();
+            }
+            Ok(n)
+        }
+
+        fn write(&mut self, bytes: &[u8]) -> Result<usize, String> {
+            self.to_device.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+    }
+
+    const CONFIG: StreamConfig = StreamConfig {
+        name: "test_stream",
+        poll_interval: Duration::from_millis(1),
+        read_chunk: 64,
+    };
+
+    fn tap() -> ww_tap::RecorderLink {
+        ww_tap::Recorder::new(ww_tap::RecorderConfig::default()).link()
+    }
+
+    /// The hello goes outside the framer on a stream (EVO-23): the host writes the frozen bytes after what its framer
+    /// holds; a device whose framer is of another generation (made-up generation 2 bytes) still has its hello read,
+    /// at any read size; what an earlier session left (half a message, its hello) comes before this session's hello.
+    #[tokio::test]
+    async fn hello_outside_the_framer() {
+        let mut gen2 = Hello::new(Role::Device, 1, 0x55);
+        gen2.generations.framer = 2;
+        let this = Hello::new(Role::Device, 1, 0x56);
+        for read_chunk in [1, 3, 64] {
+            let mut from_device = VecDeque::new();
+            from_device.extend([0xF7, 0x01, 0x02]);
+            from_device.extend(ww_link::hello::rtt::frame(&gen2));
+            // half of a 20 byte message of an earlier session, then this session's hello and a message
+            from_device.extend([0x08, 20, 1, 2, 3]);
+            from_device.extend(ww_link::hello::rtt::frame(&this));
+            from_device.extend([0x03, 7, 8, 9]);
+            let to_device = Arc::new(Mutex::new(vec![]));
+            let fake = Fake {
+                from_device,
+                read_chunk,
+                to_device: to_device.clone(),
+            };
+            let opened =
+                open::<_, RttHead, RttChecksum, RttTail>(CONFIG, tap(), 256, move || Ok(fake))
+                    .await
+                    .unwrap();
+            let (mut tx, mut rx) = (opened.tx, opened.rx);
+
+            let mut hellos = vec![];
+            loop {
+                let (kind, m) = rx.read_message().await.unwrap();
+                if kind == Kind::Hello as u8 {
+                    hellos.push(Hello::from_bytes(m).unwrap());
+                    if hellos.len() == 2 {
+                        break;
+                    }
+                }
+            }
+            assert_eq!(hellos, [gen2, this], "read_chunk = {read_chunk}");
+            let (kind, m) = rx.read_message().await.unwrap();
+            assert_eq!(
+                (kind, m),
+                (0, &[7u8, 8, 9][..]),
+                "read_chunk = {read_chunk}"
+            );
+
+            let host = Hello::new(Role::Host, 1, 0x56);
+            tx.write_message(Kind::Nop as u8, &[]).await.unwrap();
+            tx.write_message(Kind::Hello as u8, &host.to_bytes())
+                .await
+                .unwrap();
+            tx.close().await;
+            let mut expected = vec![0x30, 0x30];
+            expected.extend(ww_link::hello::rtt::frame(&host));
+            assert_eq!(*to_device.lock().unwrap(), expected);
+        }
     }
 }

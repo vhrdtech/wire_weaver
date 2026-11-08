@@ -888,6 +888,76 @@ mod stream {
         block(tx.flush()).unwrap();
         assert_eq!(drain(&mut rx), [(2, vec![3, 4])]);
     }
+
+    /// The hello goes outside the framer on a stream (EVO-23): a host whose framer is of another generation (made-up
+    /// generation 2 bytes around its hello) still has its hello read, at any read size, also when this framer has
+    /// already cut some of the hello's bytes into junk; before a hello of this
+    /// build, what an earlier session left (half a message) is dropped and what follows the hello is read; the
+    /// device's hello goes out as the frozen bytes after what the framer held.
+    #[test]
+    fn hello_outside_the_framer() {
+        use ww_link::{Hello, Kind, Role};
+        let mut gen2 = Hello::new(Role::Host, 1, 0x55);
+        gen2.generations.framer = 2;
+        let this = Hello::new(Role::Host, 1, 0x56);
+        for read_chunk in [1, 2, 5, 64] {
+            let pipe = Pipe {
+                read_chunk,
+                ..Pipe::default()
+            };
+            {
+                let mut bytes = pipe.bytes.borrow_mut();
+                bytes.extend([0xF7, 0x01, 0x02]);
+                bytes.extend(ww_link::hello::rtt::frame(&gen2));
+                bytes.extend([0xF7, 0x03, 0x04]);
+                // half of a 20 byte message of an earlier session (2 byte head), then this build's hello
+                bytes.extend([0x08, 20, 1, 2, 3]);
+                bytes.extend(ww_link::hello::rtt::frame(&this));
+            }
+            let mut tx_buf = [0u8; 64];
+            let mut tx = Tx::new(pipe.clone(), &mut tx_buf);
+            block(tx.write_message(0, &[1, 2, 3])).unwrap();
+            block(tx.flush()).unwrap();
+            let mut rx_buf = [0u8; 64 + OVERHEAD];
+            let mut rx = Rx::new(pipe.clone(), &mut rx_buf);
+            let got = drain(&mut rx);
+            // the generation 2 bytes may be cut into messages of this framer, which the link ignores before setup;
+            // both hellos come whole, and only what follows the last one after it
+            let hellos: Vec<_> = got
+                .iter()
+                .filter(|(k, _)| *k == Kind::Hello as u8)
+                .map(|(_, b)| b.clone())
+                .collect();
+            assert_eq!(
+                hellos,
+                [gen2.to_bytes().to_vec(), this.to_bytes().to_vec()],
+                "read_chunk = {read_chunk}"
+            );
+            assert_eq!(
+                got.last(),
+                Some(&(0, vec![1, 2, 3])),
+                "read_chunk = {read_chunk}"
+            );
+            assert_eq!(
+                got[got.len() - 2].0,
+                Kind::Hello as u8,
+                "read_chunk = {read_chunk}"
+            );
+        }
+
+        let pipe = Pipe::default();
+        let mut tx_buf = [0u8; 64];
+        let mut tx = Tx::new(pipe.clone(), &mut tx_buf);
+        let device = Hello::new(Role::Device, 1, 0x56);
+        block(tx.write_message(Kind::Nop as u8, &[])).unwrap();
+        block(tx.write_hello(&device)).unwrap();
+        let mut expected = vec![0x30, 0x30];
+        expected.extend(ww_link::hello::rtt::frame(&device));
+        assert_eq!(
+            pipe.bytes.borrow().iter().copied().collect::<Vec<_>>(),
+            expected
+        );
+    }
 }
 
 /// Async server with in-memory message transports: replies to default priority requests wait for the accumulation

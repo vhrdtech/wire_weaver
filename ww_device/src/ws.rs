@@ -120,6 +120,14 @@ impl<S: Socket> MessageTx for WsTx<'_, S> {
         Ok(())
     }
 
+    /// The frozen WebSocket hello ([ww_link::hello::ws]): one binary message, the kind byte and the payload, as every
+    /// link message here; WebSocket frames the stream, there is no framer to go around.
+    async fn write_hello(&mut self, hello: &ww_link::Hello) -> Result<(), Self::Error> {
+        let frame = ww_link::hello::ws::frame(hello);
+        self.write_message(frame[0], &frame[1..]).await?;
+        self.flush().await
+    }
+
     async fn flush(&mut self) -> Result<(), Self::Error> {
         if self.len == 0 {
             return Ok(());
@@ -661,6 +669,33 @@ mod tests {
         block_on(tx.write_message(6, &[])).unwrap();
         block_on(tx.flush()).unwrap();
         assert_eq!(script.borrow().output, [0x82, 3, 5, 1, 2, 0x82, 1, 6]);
+    }
+
+    /// The hello is the frozen WebSocket message both ways (EVO-23): a host's hello of another framer generation is
+    /// read as such, the device's goes out as `ww_link::hello::ws`.
+    #[test]
+    fn frozen_hello_both_ways() {
+        let script = Rc::new(RefCell::new(Script::default()));
+        let mut gen2 = ww_link::Hello::new(ww_link::Role::Host, 1, 0x55);
+        gen2.generations.framer = 2;
+        let host = ww_link::hello::ws::frame(&gen2);
+        script.borrow_mut().input = bytes(&[REQUEST, &frame(0x2, &host)]);
+        let conn = WsConnection::new(MockSocket(script.clone()));
+        let (mut rx_buf, mut tx_buf) = ([0u8; 256], [0u8; 64]);
+        let mut rx = WsRx::new(&conn, &mut rx_buf);
+        let mut tx = WsTx::new(&conn, &mut tx_buf);
+        block_on(rx.wait_connected());
+        script.borrow_mut().output.clear();
+        block_on(rx.wait_message()).unwrap();
+        let (kind, payload) = rx.message().unwrap();
+        assert_eq!((kind, payload), (host[0], &host[1..]));
+        assert_eq!(ww_link::hello::ws::find(&host), Some(gen2));
+
+        let device = ww_link::Hello::new(ww_link::Role::Device, 1, 0x55);
+        block_on(tx.write_hello(&device)).unwrap();
+        let mut expected = std::vec![0x82, ww_link::hello::ws::FRAME_LEN as u8];
+        expected.extend_from_slice(&ww_link::hello::ws::frame(&device));
+        assert_eq!(script.borrow().output, expected);
     }
 
     #[test]

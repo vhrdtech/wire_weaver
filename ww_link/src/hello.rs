@@ -340,6 +340,78 @@ pub mod rtt {
             (hello.role == role).then_some((hello, at..at + 3 + len))
         })
     }
+
+    /// Finds the peer's hello in a stream read in chunks, before the framer sees them: a hello split across two
+    /// reads is found too, as the last bytes of every chunk are kept for the next one. A hello of up to
+    /// [HELLO_FRAME_MAX] bytes is found across reads.
+    ///
+    /// The stream has no checksum, so bytes inside a message that happen to be a whole hello frame of the peer's
+    /// role (head, magic, role, generation count and token) are taken for one: only a payload that carries a
+    /// WireWeaver hello frame itself does that.
+    pub struct Scanner {
+        role: Role,
+        /// The last bytes scanned, a hello may start in them
+        tail: [u8; HELLO_FRAME_MAX - 1],
+        tail_len: usize,
+    }
+
+    impl Scanner {
+        /// Looks for hellos of `role`: [Role::Host] on a device, [Role::Device] on a host.
+        pub const fn new(role: Role) -> Self {
+            Scanner {
+                role,
+                tail: [0; HELLO_FRAME_MAX - 1],
+                tail_len: 0,
+            }
+        }
+
+        /// Forget the bytes kept, e.g. when the medium went down.
+        pub fn reset(&mut self) {
+            self.tail_len = 0;
+        }
+
+        /// The first hello in the bytes kept and `bytes`, and how many of `bytes` it ends after: the caller drops
+        /// what came before it (the framer too) and scans what follows with the next call. None: no hello, `bytes`
+        /// go to the framer.
+        pub fn scan(&mut self, bytes: &[u8]) -> Option<(Hello, usize)> {
+            // a hello starting in the kept bytes, ending in these
+            let mut joined = [0u8; 2 * HELLO_FRAME_MAX];
+            let head = bytes.len().min(HELLO_FRAME_MAX);
+            joined[..self.tail_len].copy_from_slice(&self.tail[..self.tail_len]);
+            joined[self.tail_len..self.tail_len + head].copy_from_slice(&bytes[..head]);
+            let found = match find(&joined[..self.tail_len + head], self.role) {
+                Some((hello, at)) if at.start < self.tail_len => {
+                    Some((hello, at.end - self.tail_len))
+                }
+                _ => find(bytes, self.role).map(|(hello, at)| (hello, at.end)),
+            };
+            match found {
+                Some((hello, end)) => {
+                    self.tail_len = 0;
+                    Some((hello, end))
+                }
+                None => {
+                    self.keep(bytes);
+                    None
+                }
+            }
+        }
+
+        fn keep(&mut self, bytes: &[u8]) {
+            let cap = self.tail.len();
+            if bytes.len() >= cap {
+                self.tail.copy_from_slice(&bytes[bytes.len() - cap..]);
+                self.tail_len = cap;
+            } else {
+                let keep = (self.tail_len + bytes.len()).min(cap);
+                let from_tail = keep - bytes.len();
+                self.tail
+                    .copy_within(self.tail_len - from_tail..self.tail_len, 0);
+                self.tail[from_tail..keep].copy_from_slice(bytes);
+                self.tail_len = keep;
+            }
+        }
+    }
 }
 
 /// The hello on WebSocket, frozen: one binary WebSocket message, the kind byte 4 ([Kind::Hello](crate::Kind::Hello))
@@ -476,6 +548,41 @@ mod tests {
             rtt::find(&stream, Role::Host),
             Some((HOST, 7..stream.len()))
         );
+    }
+
+    /// A hello split across reads is found, at any cut; one wholly in a chunk too, with what follows it left for
+    /// the next call; a host hello is not a device's.
+    #[test]
+    fn rtt_scanner_across_reads() {
+        let device = Hello {
+            role: Role::Device,
+            ..HOST
+        };
+        let mut stream = std::vec![0x30, 0x30, 0xAA, 0x30, 0x48];
+        let at = stream.len();
+        stream.extend_from_slice(&rtt::frame(&device));
+        stream.extend_from_slice(&[0x30, 0x30]);
+        let end = at + rtt::FRAME_LEN;
+        for cut in 0..stream.len() {
+            let mut s = rtt::Scanner::new(Role::Device);
+            let (a, b) = stream.split_at(cut);
+            let found = match s.scan(a) {
+                Some((h, e)) => Some((h, e)),
+                None => s.scan(b).map(|(h, e)| (h, cut + e)),
+            };
+            assert_eq!(found, Some((device, end)), "cut at {cut}");
+        }
+        // three bytes at a time
+        let mut s = rtt::Scanner::new(Role::Device);
+        let mut found = None;
+        for (i, c) in stream.chunks(3).enumerate() {
+            if let Some((h, e)) = s.scan(c) {
+                found = Some((h, i * 3 + e));
+                break;
+            }
+        }
+        assert_eq!(found, Some((device, end)));
+        assert_eq!(rtt::Scanner::new(Role::Host).scan(&stream), None);
     }
 
     #[test]

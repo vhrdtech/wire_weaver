@@ -1,4 +1,5 @@
-//! WebSocket [Transport]: one [ww_link] message per binary WebSocket message, `[kind: u8][payload ..]`.
+//! WebSocket [Transport]: one [ww_link] message per binary WebSocket message, `[kind: u8][payload ..]`. The hello is
+//! frozen in that form (`ww_link::hello::ws`, EVO-23): WebSocket frames the stream, there is no framer to go around.
 //!
 //! WebSocket has its own framing and runs over a reliable stream, so [ww_framer] is not used: messages are never
 //! split, and there is nothing to re-synchronize on. Messages are buffered until [MessageTx::flush], so the ones

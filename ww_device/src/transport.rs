@@ -475,16 +475,35 @@ impl<S: StreamSink, H: Head<UserKind = u8>, C: Checksum, T: Tail> MessageTx
     fn new_session(&mut self) {
         self.framer.new_session();
     }
+
+    /// In the stream's frozen frame ([ww_link::hello::rtt]), after what the framer holds, outside it.
+    async fn write_hello(&mut self, hello: &Hello) -> Result<(), Self::Error> {
+        self.send_chunk().await?;
+        self.sink
+            .write_all(&ww_link::hello::rtt::frame(hello))
+            .await
+            .map_err(FramedError::Transport)
+    }
 }
 
 /// [MessageRx] over a [StreamSource], cutting messages out of a byte stream with [ww_framer].
 /// Bytes are read directly into the framer's buffer, without an extra copy.
+///
+/// Every read is scanned for the host's hello in the stream's frozen frame ([ww_link::hello::rtt::Scanner]) before
+/// the framer sees it, so a host whose framer is of another generation is still understood: the hello is the next
+/// message, the framer drops what it held, and what follows the hello is scanned again.
 pub struct StreamRx<'a, S, H: Head, C, T> {
     framer: ww_framer::FramedRx<'a, H, C, T>,
     source: S,
     max_message_len: usize,
+    assembly_len: usize,
     /// A message is ready and not consumed yet
     ready: bool,
+    /// The ready message is a hello found outside the framer: its payload
+    hello: Option<[u8; HELLO_LEN]>,
+    /// Bytes after a hello, at the start of the staging area, not scanned yet
+    pending: usize,
+    scanner: ww_link::hello::rtt::Scanner,
 }
 
 impl<'a, S: StreamSource, H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamRx<'a, S, H, C, T> {
@@ -495,11 +514,16 @@ impl<'a, S: StreamSource, H: Head<UserKind = u8>, C: Checksum, T: Tail> StreamRx
             .len()
             .saturating_sub(stream_overhead::<H, C, T>());
         debug_assert!(max_message_len > 0);
+        let assembly_len = assembly_buf.len();
         StreamRx {
             framer: ww_framer::FramedRx::new(assembly_buf),
             source,
             max_message_len,
+            assembly_len,
             ready: false,
+            hello: None,
+            pending: 0,
+            scanner: ww_link::hello::rtt::Scanner::new(ww_link::Role::Host),
         }
     }
 
@@ -529,24 +553,42 @@ impl<S: StreamSource, H: Head<UserKind = u8>, C: Checksum, T: Tail> MessageRx
                 // only possible if the host sent a message larger than advertised
                 warn!("rx assembly buffer overflow, dropping partial message");
                 self.framer.reset();
+                self.pending = 0;
             }
-            let buf = self.framer.staging_buf();
-            let len = self.source.read(buf).await.map_err(RxError::Transport)?;
+            let len = if self.pending > 0 {
+                core::mem::take(&mut self.pending)
+            } else {
+                let buf = self.framer.staging_buf();
+                self.source.read(buf).await.map_err(RxError::Transport)?
+            };
+            if let Some((hello, end)) = self.scanner.scan(&self.framer.staging_buf()[..len]) {
+                // a new session: the framer drops what it held, what follows the hello is scanned next
+                let start = self.assembly_len - self.framer.free();
+                self.framer.reset();
+                self.framer
+                    .staging_buf()
+                    .copy_within(start + end..start + len, 0);
+                self.pending = len - end;
+                self.hello = Some(hello.to_bytes());
+                self.ready = true;
+                return Ok(());
+            }
             // cannot fail, buf was taken from the free area
             _ = self.framer.commit_staged(len);
         }
     }
 
     fn message(&self) -> Option<(u8, &[u8])> {
-        if self.ready {
-            self.framer.message()
-        } else {
-            None
+        match (&self.hello, self.ready) {
+            (Some(hello), true) => Some((Kind::Hello as u8, hello)),
+            (None, true) => self.framer.message(),
+            _ => None,
         }
     }
 
     fn consume(&mut self) {
         self.ready = false;
+        self.hello = None;
     }
 
     async fn wait_connected(&mut self) {
@@ -556,6 +598,9 @@ impl<S: StreamSource, H: Head<UserKind = u8>, C: Checksum, T: Tail> MessageRx
     fn reset(&mut self) {
         self.framer.reset();
         self.ready = false;
+        self.hello = None;
+        self.pending = 0;
+        self.scanner.reset();
     }
 
     fn max_message_len(&self) -> usize {

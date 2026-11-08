@@ -656,6 +656,7 @@ fn numeric(values: &[&NumericValue], base: &NumericBaseType, restarts: &[bool]) 
         B::I16 => (16, true, ints!(i16)),
         B::I32 => (32, true, ints!(i32)),
         B::I64 => (64, true, ints!(i64)),
+        B::INib32 => (32, true, ints!(i32)),
         B::UB(bits) => {
             let width = bits.0;
             let values = values

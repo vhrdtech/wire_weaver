@@ -16,7 +16,7 @@ use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_reader::Cursors;
 use shrink_wrap::buf_writer_owned::UnsizedBuilderOwned;
 use shrink_wrap::{
-    BufReader, BufWriterOwned, DeserializeShrinkWrap, ElementSize, Nibble, OptionAnyVec,
+    BufReader, BufWriterOwned, DeserializeShrinkWrap, ElementSize, INib32, Nibble, OptionAnyVec,
     OptionAnyVecBuilderOwned, UNib32, UVlq32, UVlq64,
 };
 use std::borrow::Cow;
@@ -1055,6 +1055,7 @@ fn des_numeric(rd: &mut BufReader, base_ty: &NumericBaseType) -> Result<NumericV
         NumericBaseType::F64 => NumericValue::F64(rd.read_f64()?),
         NumericBaseType::UVlq32 => NumericValue::UVlq32(UVlq32(rd.read_uvlq32()?)),
         NumericBaseType::UVlq64 => NumericValue::UVlq64(UVlq64(rd.read_uvlq64()?)),
+        NumericBaseType::INib32 => NumericValue::INib32(INib32(rd.read_inib32()?)),
         NumericBaseType::UB(bits) => {
             let bits = bits.0;
             unsigned_value(bits, rd.read_un64(bits)?)
@@ -1577,6 +1578,7 @@ fn ser_numeric(
         NumericBaseType::F64 => wr.write_f64(float_value(value)?)?,
         NumericBaseType::UVlq32 => wr.write_uvlq32(int!(u32))?,
         NumericBaseType::UVlq64 => wr.write_uvlq64(int!(u64))?,
+        NumericBaseType::INib32 => wr.write_inib32(int!(i32))?,
         NumericBaseType::UB(bits) => {
             let bits = bits.0;
             let v = int!(u64);
@@ -1621,6 +1623,7 @@ pub(crate) fn int_value(value: &NumericValue) -> Result<i128> {
         NumericValue::I128(v) => *v,
         NumericValue::UVlq32(v) => v.0 as i128,
         NumericValue::UVlq64(v) => v.0 as i128,
+        NumericValue::INib32(v) => v.0 as i128,
         u => bail!("expected an integer, got {u:?}"),
     })
 }

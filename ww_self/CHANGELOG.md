@@ -216,6 +216,12 @@
   `OptionAnyVecIter::read_slot_with()`, instead of the sequential field encoding. The field's value is still a plain
   `ValueOwned::Option`; only the wire layout differs. Dynamic tools (the `ww` CLI, `wire_weaver_py`, the observe host
   client) now decode a sparse struct correctly, e.g. a trait level's generated `<Trait>Update` (SRV-18).
+* `NumericBaseType::INib32` / `NumericValue::INib32` (SW-24) read, written, explained and evaluated as a Rust
+  expression the same way `UNib32` is: `des_numeric` / `ser_numeric` in `value.rs` (through the new
+  `BufReader::read_inib32` / `BufWriter::write_inib32`), the dynamic `Series` reader and writer (`series.rs`,
+  `series_write.rs`, treated as a plain signed 32-bit column like `I32`, not re-zigzagged at this layer),
+  `expr.rs`'s integer-literal evaluator, and `explain.rs`'s nibble alignment. So the `ww` CLI, `wire_weaver_py`
+  and any other dynamic-client code understand a field of this type without the static derive.
 
 ### 🐛 Fixes
 

@@ -25,7 +25,7 @@ use shrink_wrap::series::dynamic::{
     read_struct_head,
 };
 use shrink_wrap::series::{Level, StructExtent};
-use shrink_wrap::{BufReader, Nibble, UNib32, UVlq32, UVlq64};
+use shrink_wrap::{BufReader, INib32, Nibble, UNib32, UVlq32, UVlq64};
 use std::collections::HashMap;
 use ww_numeric::{NumericBaseType, NumericValue};
 
@@ -905,6 +905,7 @@ fn numeric(
         B::I16 => (16, true),
         B::I32 => (32, true),
         B::I64 => (64, true),
+        B::INib32 => (32, true),
         B::UB(bits) => (bits.0, false),
         B::IB(bits) => (bits.0, true),
         other => bail!("numeric type {other:?} is not supported in a Series"),
@@ -932,6 +933,7 @@ fn numeric(
             B::I16 => NumericValue::I16(x as i16),
             B::I32 => NumericValue::I32(x as i32),
             B::I64 => NumericValue::I64(x as i64),
+            B::INib32 => NumericValue::INib32(INib32(x as i32)),
             B::IB(bits) => signed_value(bits.0, x as i64),
             _ => unsigned_value(width, x),
         }));

@@ -395,7 +395,7 @@ fn alignment(ty: &TypeOwned, api_bundle: &ApiBundleOwned) -> usize {
 fn base_alignment(base: &NumericBaseType) -> usize {
     match base {
         NumericBaseType::UB(_) | NumericBaseType::IB(_) => 1,
-        NumericBaseType::Nibble | NumericBaseType::UNib32 => 4,
+        NumericBaseType::Nibble | NumericBaseType::UNib32 | NumericBaseType::INib32 => 4,
         _ => 8,
     }
 }

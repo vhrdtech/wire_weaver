@@ -15,7 +15,7 @@ use crate::{
 };
 use anyhow::{Context, Result, anyhow, bail};
 use quote::ToTokens;
-use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
+use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
 use syn::punctuated::Punctuated;
 use syn::{Expr, Lit, Member, Token, UnOp};
 use ww_numeric::{NumericBaseType, NumericValue};
@@ -615,6 +615,7 @@ pub fn int_value(i: i128, base: &NumericBaseType) -> Result<NumericValue> {
         B::I128 => N::I128(i),
         B::UVlq32 => N::UVlq32(UVlq32(fit!(u32))),
         B::UVlq64 => N::UVlq64(UVlq64(fit!(u64))),
+        B::INib32 => N::INib32(INib32(fit!(i32))),
         B::UB(bits) => {
             let v = fit!(u64);
             if bits.0 < 64 && v >> bits.0 != 0 {

@@ -4059,6 +4059,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-canonical-unit" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5662,6 +5673,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#identity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Identity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-canonical-unit" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5837,7 +5859,7 @@
 
 <h1 id="units-in-the-api-model">Units in the API model<a class="headerlink" href="#units-in-the-api-model" title="Permanent link">&para;</a></h1>
 <p>A unit or scale marker an API uses (<code>Volt</code>, <code>prefix::Milli</code>, a crate's own <code>Rpm</code>) carries its definition in the API
-model a device sends: its symbol, dimension and exact factor. A client, <code>ww</code> and Python learn the units of any crate
+model a device sends: its identity, symbol, dimension and exact factor. A client, <code>ww</code> and Python learn the units of any crate
 from that, without a table of their own, and compare two units by what they are, not by how they are written.</p>
 <p>A crate declares its own markers with <code>unit!</code>, <code>scale!</code> and <code>origin!</code> (from <code>exact_units</code>, re-exported by <code>ww_si</code>);
 WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the macros'
@@ -5865,11 +5887,11 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Unit(UnitDef { symbol, dim, magnitude })</code></td>
-<td>a named unit: <code>V</code>, <code>rpm</code>, a counted <code>bucket</code></td>
+<td><code>Unit(exact_units::UnitDef)</code></td>
+<td>a named unit: <code>V</code>, <code>rpm</code>, a counted <code>bucket</code>, <code>Ω</code>, <code>inHg</code> at 32 °F</td>
 </tr>
 <tr>
-<td><code>Scale(ScaleDef { symbol, magnitude })</code></td>
+<td><code>Scale(ScaleDef { id, symbol, magnitude })</code></td>
 <td>a named scale: <code>prefix::Milli</code> (<code>"m"</code>, 10⁻³), a crate's <code>Mdps70</code></td>
 </tr>
 <tr>
@@ -5893,26 +5915,70 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 <td>a float <code>Fixed</code> that may hold NaN, the one bound that takes it</td>
 </tr>
 <tr>
-<td><code>Origin(OriginDef { unit, symbol, reference, offset, .. })</code></td>
+<td><code>Origin(OriginDef { id, unit, symbol, reference, offset, .. })</code></td>
 <td>an origin of a <code>Point</code>: <code>origins::Celsius</code>, a crate's <code>origin!</code></td>
 </tr>
 <tr>
 <td><code>Angle</code></td>
 <td><code>origins::Angle&lt;U&gt;</code>, its unit argument is the instance's</td>
 </tr>
+</tbody>
+</table>
+<p>A unit's definition is <code>exact_units</code>' own <code>UnitDef</code>, the record <code>unit!</code> compiles, field for field:</p>
+<table>
+<thead>
 <tr>
-<td><code>ConventionalUnit(ConventionalUnitDef { unit, source, year })</code></td>
-<td>a unit that is a value a standard prints: <code>inHg</code> at 32 °F (<a href="../customary/">customary</a>)</td>
+<th>Field</th>
+<th>Is</th>
+<th><code>Rpm</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>a <code>MarkerId</code>: the declaring crate as Rust names it and the marker's name</td>
+<td><code>my_api::Rpm</code></td>
+</tr>
+<tr>
+<td><code>names</code></td>
+<td>how it is written: its <code>symbol</code></td>
+<td><code>"rpm"</code></td>
+</tr>
+<tr>
+<td><code>dim</code></td>
+<td>its dimension</td>
+<td>rad·s⁻¹</td>
+</tr>
+<tr>
+<td><code>quantity</code></td>
+<td>a kind of quantity of its own (<code>"resistance"</code> for <code>Ohm</code>), <code>None</code> for a plain unit (STD-68)</td>
+<td><code>None</code></td>
+</tr>
+<tr>
+<td><code>scale</code></td>
+<td>the exact factor to the coherent SI unit of <code>dim</code>: 1 for a volt, 8 for a byte (in bits)</td>
+<td>π/30</td>
+</tr>
+<tr>
+<td><code>provenance</code></td>
+<td><code>Defined</code>, or <code>Conventional { source, year }</code> for a value a standard prints (<a href="../customary/">customary</a>)</td>
+<td><code>Defined</code></td>
 </tr>
 </tbody>
 </table>
-<p><code>magnitude</code> is the exact factor to the coherent SI unit of <code>dim</code>: 1 for a volt, π/30 for <code>rpm</code> (in rad/s), 8 for a
-byte (in bits). Each marker is named by its crate and its path in it (<code>quantities_api</code>, <code>Rpm</code>), the identity it has
-across bundles.</p>
+<p>A unit has no offset: °C is the origin <code>origins::Celsius</code> of kelvins, and a <code>unit!</code> line with an <code>Affine</code> scale is
+an error. Scales and origins carry a <code>MarkerId</code> too.</p>
+<h2 id="identity">Identity<a class="headerlink" href="#identity" title="Permanent link">&para;</a></h2>
+<p>A marker is known by its crate and its ident (<code>my_api</code>, <code>Rpm</code>), not by its module path: it stays the same unit when
+it moves between modules, and two crates' <code>Rpm</code> are two units that print the same. So a crate has one marker of a
+name: the walker refuses an API whose crate declares two markers named <code>Rpm</code> in two modules, naming both, and
+refuses a model with two different definitions under one identity (two versions of one crate whose <code>Rpm</code>s differ).
+The crate is the one <code>CARGO_CRATE_NAME</code> gives (<code>my_api</code> for a package <code>my-api</code>), the same <code>unit!</code> compiles into its
+<code>UnitDef</code>, and a test of the walker checks every marker of <code>exact_units</code> against its compiled definition.</p>
 <p>Not there yet:</p>
 <ul>
-<li><code>ww_si</code>'s <code>DegreeCelsius</code> as the unit of a <code>Quantity</code> (an affine unit, not an exact factor) has no definition; a
-  temperature in °C is a <a href="../points/"><code>Point</code></a> against <code>origins::Celsius</code>, and the runtime side follows with STD-74.</li>
+<li>A temperature in °C is a <a href="../points/"><code>Point</code></a> against <code>origins::Celsius</code>; <code>ww_si</code>'s <code>Quantity</code> and <code>AnyQuantity</code>
+  follow with STD-74.</li>
 <li>Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
   <code>MarkerDef</code> when their markers exist.</li>
 <li><code>ww</code> and Python show a <code>Quantity</code> of any crate's unit (<code>1500 rpm</code>), and a <code>Fixed</code> with its unit and scale
@@ -5943,8 +6009,13 @@ full-scale, <code>Product</code> and <code>Quotient</code> markers, and an overf
 </thead>
 <tbody>
 <tr>
+<td><code>id</code></td>
+<td>its <code>MarkerId</code></td>
+<td><code>exact_units::Celsius</code></td>
+</tr>
+<tr>
 <td><code>unit</code></td>
-<td>the unit of the points' numbers and offsets, written out as a <code>UnitDef</code></td>
+<td>the unit of the points' numbers and offsets, a named unit's <code>UnitDef</code></td>
 <td>K</td>
 </tr>
 <tr>
@@ -5954,8 +6025,8 @@ full-scale, <code>Product</code> and <code>Quotient</code> markers, and an overf
 </tr>
 <tr>
 <td><code>reference</code></td>
-<td>what <code>offset</code> is measured from: <code>None</code> for the unit's own zero, else a <code>MarkerRef</code></td>
-<td><code>None</code></td>
+<td>what <code>offset</code> is measured from, a <code>MarkerId</code>: <code>exact_units::UnitZero</code> for the unit's own zero</td>
+<td><code>UnitZero</code></td>
 </tr>
 <tr>
 <td><code>offset</code></td>
@@ -5979,9 +6050,10 @@ full-scale, <code>Product</code> and <code>Quotient</code> markers, and an overf
 </tr>
 </tbody>
 </table>
-<p>A definition is flat on purpose: it holds no <code>Type</code> of the model, only values and <code>MarkerRef { crate_id, name }</code>
-(gauge pressure's <code>exact_units::point::AmbientPressure</code>), so a pass that renumbers the model's types never has to
-look inside one. A crate's own origin is declared with <code>origin!</code> and written out by the walker:</p>
+<p>A definition is flat on purpose: it holds no <code>Type</code> of the model, only values and <code>MarkerId</code>s (gauge pressure's
+<code>exact_units::AmbientPressure</code>), so a pass that renumbers the model's types never has to look inside one. For the
+same reason an origin's unit is a named unit: the walker refuses an <code>origin!</code> over <code>Per&lt;..&gt;</code> or <code>Times&lt;..&gt;</code>, declare
+a unit of that dimension with <code>unit!</code> instead. A crate's own origin is declared with <code>origin!</code> and written out by the walker:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">origin</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="sd">/// The board&#39;s temperature sensor reads 0 at 25 °C</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">BoardTemp</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">above</span><span class="p">:</span><span class="w"> </span><span class="nc">Celsius</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="nc">Offset</span><span class="p">::</span><span class="n">int</span><span class="p">(</span><span class="mi">25</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
@@ -5990,7 +6062,7 @@ look inside one. A crate's own origin is declared with <code>origin!</code> and 
 <p><code>BoardTemp</code> comes out as unit K, symbol <code>"°C"</code>, offset 298.15 K and <code>shown</code> 273.15 K: the register <code>raw / 256 + 25 °C</code>
 is shown in °C. <code>origins::Angle&lt;U&gt;</code> has no fields of its own: it is a <code>MarkerDef::Angle</code>, and its unit argument says
 the rest. <code>ww_self::units::origin_of(ty, bundle)</code> gives the <code>OriginDef</code> of either, an <code>Angle&lt;Degree&gt;</code> as unit <code>°</code>,
-modulus 360; <code>marker_name_of</code> names an origin (or any marker) by its crate and name.</p>
+modulus 360; <code>marker_id_of</code> gives the <code>MarkerId</code> of an origin (or any marker).</p>
 <p>As for units, a hand-written <code>impl Origin</code> compiles but the walker refuses an API that uses it.</p>
 <h2 id="on-the-wire">On the wire<a class="headerlink" href="#on-the-wire" title="Permanent link">&para;</a></h2>
 <p><code>ItemStruct::extra</code> is an <code>Option&lt;RefBox&lt;ItemStructExtra&gt;&gt;</code>, appended with <code>#[default = None]</code>: a plain struct writes
@@ -6006,8 +6078,8 @@ the dynamic client and Python.</p>
 <h2 id="on-the-device">On the device<a class="headerlink" href="#on-the-device" title="Permanent link">&para;</a></h2>
 <p>No firmware cost in code: markers are zero-size types, and <code>unit!</code> / <code>scale!</code> expand to the same constants a
 hand-written impl has. The introspection data a firmware stores grows only by the definitions of its own crate's
-markers (the definition of <code>Rpm</code> is 22 bytes, see the case <code>model.marker_def.unit</code>, an origin's about 40, see
-<code>model.marker_def.origin</code>); stdlib markers are left out as skipped definitions.</p>
+markers (the definition of <code>my_api::Rpm</code> is 35 bytes, see the case <code>model.marker_def.unit</code>, an origin's about 100,
+see <code>model.marker_def.origin</code>); stdlib markers are left out as skipped definitions.</p>
 
 
 

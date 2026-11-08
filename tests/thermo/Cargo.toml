@@ -25,3 +25,4 @@ thermo_devices.workspace = true
 tracing-subscriber.workspace = true
 wire_weaver_core.workspace = true
 wire_weaver_evolution.workspace = true
+ww_client_server = { workspace = true, features = ["std"] }

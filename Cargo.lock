@@ -5136,6 +5136,7 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "wire_weaver_evolution",
+ "ww_client_server",
  "ww_indication",
  "ww_si",
 ]

@@ -8,6 +8,8 @@
 ### 🚀 Features
 
 - `INib32` (SW-24): converts to and from a plain Python `int`, like `i32`; its numpy column dtype is `int32`.
+- `ww.Quantity(text, unit=None)` makes a quantity to write (EVO-28): `ww.Quantity("0.25 K")`, `ww.Quantity("250 mK")`, `ww.Quantity("1.5", "Ratio")`. Written into an `exact_units::Fixed` it converts exactly into the stored scale or raises `ValueError` before anything is sent, so one script writes the same value to devices whose types store it in other scales.
+- `dev.wire`: the device's wire version as `(line, revision)`, `None` when it reports none (EVO-28), for a script that talks to several wire lines of one API (`dev.wire >= (2, 1)`).
 - `dev.info` shows the device's wire version and the hello generations this connection agreed on, next to the
   crate versions (EVO-34): `API wire version: w2.3` (or `none`) and `Hello generations: framer=1 link=1
   shrink_wrap=1 api_model=1`.

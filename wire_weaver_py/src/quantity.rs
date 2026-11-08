@@ -5,7 +5,7 @@ use exact_units::{MarkerId, Prefix};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use wire_weaver_client::quantity::{DynQuantity, DynUnit};
+use wire_weaver_client::quantity::{DynQuantity, DynUnit, parse_quantity};
 use wire_weaver_client::ww_self::units::Bound as Bound_;
 
 /// A value with a unit, as the device sent it: `value` in units of `prefix`, `str()` is `3300 mV`, `float()` the
@@ -20,6 +20,21 @@ pub(crate) struct Quantity {
 
 #[pymethods]
 impl Quantity {
+    /// A quantity written as text, to write into any property or argument of its dimension: `Quantity("0.25 K")`,
+    /// `Quantity("250 mK")`, `Quantity("1.5", "Ratio")`. The number then the unit's symbol, with a prefix or none;
+    /// `unit` (a name as [convert](Self::convert) takes it) is the unit the text is in, needed for a number alone.
+    /// Written into a `Fixed` it converts exactly into the stored scale or is refused, as one read from a device.
+    #[new]
+    #[pyo3(signature = (text, unit = None))]
+    fn new(text: &str, unit: Option<&str>) -> PyResult<Self> {
+        let unit = unit
+            .map(DynUnit::from_name)
+            .transpose()
+            .map_err(PyValueError::new_err)?;
+        let q = parse_quantity(text, unit.as_ref()).map_err(PyValueError::new_err)?;
+        Ok(Quantity { q })
+    }
+
     /// The number as stored, in units of `prefix`: `3300` for 3300 mV.
     #[getter]
     fn value<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {

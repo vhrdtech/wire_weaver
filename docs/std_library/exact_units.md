@@ -120,11 +120,14 @@ u.to_si()                    # 1730000000.0
 dev.window.read().bounds     # (1, 5000)
 dev.uptime.write(dev.timeout.read())  # 5 ms, stored as 5000
 dev.uptime.write(5000)       # as stored: 5000 µs
+dev.uptime.write(ww.Quantity("5 ms"))  # made from text, stored as 5000
 ```
 
 A write takes a `ww.Quantity` of a unit of the same dimension, converted exactly, or the stored number; anything
 else is a `ValueError` with the same text as above. `float("nan")` into a NaN-free float `Fixed` is refused the
-same way, and bytes holding NaN raise `ww.WireWeaverError` on decode.
+same way, and bytes holding NaN raise `ww.WireWeaverError` on decode. `ww.Quantity("0.25 K")` or
+`ww.Quantity("1.5", "Ratio")` makes one from text, so a script writes the same value to firmware that stores it in
+another scale ([a host for several wire lines](../evolution/multi_line_host.md)).
 
 In Rust, `wire_weaver_client::quantity::fixed_of(&ty, &bundle)` reads the type as a `FixedType` (unit, scale as a
 `DynPrefix`, `Storage { base, bounds }`), `DynQuantity::from_value` reads a value of it, and `DynQuantity::to_value`

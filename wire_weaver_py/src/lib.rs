@@ -142,6 +142,17 @@ impl Device {
         )
     }
 
+    /// The device's wire version as `(line, revision)`, `(1, 2)` for w1.2, `None` when it reports none: what a script
+    /// talking to several wire lines of one API compares (`dev.wire >= (2, 1)`), see [info](Self::info).
+    #[getter]
+    fn wire(&self) -> Option<(u32, u32)> {
+        self.conn
+            .client
+            .device_api_info()
+            .user_api_wire
+            .map(|w| (w.line.0, w.revision.0))
+    }
+
     /// Disconnect from the device, also done when the last object referring to it is garbage collected.
     fn disconnect(&self, py: Python<'_>) -> PyResult<()> {
         let conn = &self.conn;

@@ -111,10 +111,15 @@ u.to_si()                    # 1730000000.0
 dev.window.read().bounds     # (1, 5000) for Range<1, 5000>, else None
 dev.uptime.write(dev.timeout.read())    # 5 ms, stored as 5000
 dev.uptime.write(5000)       # a number is the stored one: 5000 µs
+dev.uptime.write(ww.Quantity("5 ms"))   # made from text, stored as 5000
+dev.gain.write(ww.Quantity("1.5", "Ratio"))  # a number alone in the unit given
 ```
 
 A write that isn't whole in the stored scale, overflows the storage or leaves the bounds is a `ValueError` naming the
 type (`5001 µs can't be written into Fixed<Second, Milli, u16, Range<1, 5000>>: not a whole number of ms`).
+`ww.Quantity(text, unit=None)` makes a quantity to write: a number, then a unit symbol with a prefix or none
+(`"0.25 K"`, `"250 mK"`); `unit` names the unit of a number alone (`"Ratio"`). A script that writes quantities this
+way needs no per-device code when two firmwares store the same value in other scales or number types.
 
 ## Interactive console
 

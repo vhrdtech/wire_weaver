@@ -57,6 +57,7 @@ import wire_weaver as ww
 print(ww.list_devices())                       # connected USB devices, one line each
 dev = ww.connect(vid_pid=(0xc0de, 0xcafe), timeout=1.0)
 dev.info                                       # API, wire version, link, hello generations reported by the device
+dev.wire                                       # wire version as (line, revision), e.g. (1, 2); None if not reported
 dev                                            # resource tree with signatures and docs
 dev.disconnect()                               # or `with ww.connect(...) as dev:`
 ```

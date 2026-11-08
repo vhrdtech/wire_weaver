@@ -6319,7 +6319,7 @@ are served anywhere in a frame with spare bandwidth, not only at frame starts, s
 shows the measured residual.</p>
 <h2 id="composing-into-a-device-api">Composing into a device API<a class="headerlink" href="#composing-into-a-device-api" title="Permanent link">&para;</a></h2>
 <p>A device exposes its clock once at the root (or nested, if grouped with other traits):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.0&quot;</span><span class="cp">)]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">DeviceApi</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">clock</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_timebase</span><span class="p">::</span><span class="n">Clock</span><span class="p">);</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="c1">// ... other traits</span>

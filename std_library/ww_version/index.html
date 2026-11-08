@@ -5814,8 +5814,8 @@ and depends only on <code>shrink_wrap</code> and <code>ww_global</code> (for <co
 <li><code>WireVersion</code> - <code>line</code> / <code>revision: UNib32</code>; <code>final_structure</code>. An API's <a href="../../evolution/rules/#the-wire-version">wire version</a>,
   written <code>w2.3</code> (line 2, revision 3), apart from its crate version: <code>Display</code> and <code>FromStr</code> in that form only, so
   <code>2.3</code>, <code>w2.3.0</code> and a crate version like <code>0.2.0</code> are refused with a <code>WireVersionError</code> that says why. Ordered by
-  line, then revision; <code>same_line</code>, <code>next_revision</code>, <code>next_line</code>. <code>#[ww_api_root(wire = "w2.3")]</code> emits a
-  <code>&lt;TRAIT&gt;_WIRE_VERSION</code> constant, and <code>#[since]</code> names one.</li>
+  line, then revision; <code>same_line</code>, <code>next_revision</code>, <code>next_line</code>. <code>#[ww_api_root]</code> emits a <code>&lt;TRAIT&gt;_WIRE_VERSION</code>
+  constant from the crate's <code>[package.metadata.wire_weaver] wire = "w2.3"</code>, and <code>#[since]</code> names one.</li>
 <li><code>ApiHashPair&lt;'i&gt;</code> - <code>no_docs</code> / <code>with_docs: ApiHash&lt;'i&gt;</code>; <code>final_structure</code>. Two hashes of a device's
   <a href="../ww_self/"><code>ApiBundle</code></a>, with and without doc strings, so a client can detect <em>any</em> change to the API (not just
   ones that bumped the version) while still being able to drop doc strings to save flash and fall back to a cached

@@ -5662,7 +5662,8 @@ from another crate is identified by that crate's name and version. <code>ww_vers
 puts the API root's into a <code>&lt;ROOT_TRAIT&gt;_FULL_GID</code> constant (<code>BLINKY_API_FULL_GID</code>), which the device reports when a
 host connects.</p>
 <p>The crate version is for Cargo; devices and hosts decide on the API root's
-<a href="../../evolution/rules/#the-wire-version">wire version</a>, <code>#[ww_api_root(wire = "w2.3")]</code>, which codegen puts into a
+<a href="../../evolution/rules/#the-wire-version">wire version</a>, <code>[package.metadata.wire_weaver] wire = "w2.3"</code> in the API
+crate's <code>Cargo.toml</code>, which codegen puts into a
 <code>&lt;ROOT_TRAIT&gt;_WIRE_VERSION</code> constant next to the full id. On connection, a generated client checks the device's API
 crate name and wire line against its own and refuses another API or line with <code>Error::IncompatibleDeviceProtocol</code>;
 the device does the same with the host's. A crate breaking bump on the same wire line connects. Within a line the

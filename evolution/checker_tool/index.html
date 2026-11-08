@@ -5894,8 +5894,7 @@ version to put into <code>Cargo.toml</code>:</p>
 <p><code>blinky_api</code>'s snapshot of 0.1.0 was saved before wire versions existed, so only the crate version is checked
 against it; the next section shows both.</p>
 <h2 id="two-bumps-the-wire-and-the-crate">Two bumps: the wire and the crate<a class="headerlink" href="#two-bumps-the-wire-and-the-crate" title="Permanent link">&para;</a></h2>
-<p>The wire version (<code>#[ww_api_root(wire = "w1.0")]</code>, or <code>[package.metadata.wire_weaver] wire</code> in <code>Cargo.toml</code> for a
-crate without an API root) and the crate version are bumped apart: the wire version for what devices and hosts of
+<p>The wire version (<code>[package.metadata.wire_weaver] wire = "w1.0"</code> in <code>Cargo.toml</code>) and the crate version are bumped apart: the wire version for what devices and hosts of
 the two versions can still say to each other, the crate version for Rust code. One comparison gives both, on the
 <code>needs:</code> line, and the check fails when either is not bumped enough, naming what to change for each. A trailing
 argument with a default is a wire-compatible addition, a new wire revision, but a breaking change of the Rust
@@ -5908,7 +5907,7 @@ signatures, a breaking crate bump:</p>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>Error: my_device_api 0.1.0 -&gt; 0.1.1 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Bump `version` in my_device_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save my_device_api` and commit api_snapshots/.
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>my_device_api wire w1.0 -&gt; w1.0 has MyDevice::led_on: arguments added or removed at the end, which needs a new wire revision: w1.1 or later.
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>Bump the wire version in `#[ww_api_root(wire = ..)]` to w1.1 or later (docs/evolution/rules.md#the-wire-version).
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>Bump the wire version in `[package.metadata.wire_weaver] wire` of my_device_api/Cargo.toml to w1.1 or later (docs/evolution/rules.md#the-wire-version).
 </span></code></pre></div>
 <p>Which change needs which bump is in <a href="../rules/#which-bump-a-change-needs">the rules</a>. In short:</p>
 <ul>

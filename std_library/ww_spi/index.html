@@ -5823,7 +5823,7 @@ the <code>Hertz</code>, <code>Second</code> and <code>Volt</code> quantity types
 <p><code>Spi</code> is one bus: configure it, full-duplex transfers, transactions with CS held, writes, and, on adapters with the
 hardware for it, every frame on the bus on the <a href="../../api/optional_items/">optional</a> <code>monitor</code> stream. A device with
 several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, monitoring included:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.0&quot;</span><span class="cp">)]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">MyAdapter</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">spi</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_spi</span><span class="p">::</span><span class="n">Spi</span><span class="p">);</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">}</span>

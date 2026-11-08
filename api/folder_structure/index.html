@@ -5642,10 +5642,18 @@
 <p>The name of the API crate (from <code>Cargo.toml</code>) identifies the API worldwide (it goes into <code>ww_version::FullVersion</code>,
 the generated <code>&lt;ROOT_TRAIT&gt;_FULL_GID</code> constant), so publish it to crates.io for an open-source project, or pick a
 name unique enough for internal use.</p>
-<p>Its version is checked on every connection: a host and a device with compatible versions talk, others are told
-apart before the first call, and your code can read the device's version to show a proper message when it meets an
-older or newer firmware. Normal <a href="https://semver.org">SemVer rules</a> apply, what counts as a breaking change is in the
-<a href="../../evolution/rules/">evolution rules</a>. More in <a href="../versioning/">Versioning</a>.</p>
+<p>Its <code>Cargo.toml</code> holds two versions. The crate version is Cargo's: normal <a href="https://semver.org">SemVer rules</a> for
+the Rust API. The <a href="../../evolution/rules/#the-wire-version">wire version</a> is what a host and a device decide on when
+they connect: the same line talks, another line is told apart before the first call.</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[package]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_device_api&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[package.metadata.wire_weaver]</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">wire</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w1.0&quot;</span>
+</span></code></pre></div>
+<p>What counts as a breaking change for each is in the <a href="../../evolution/rules/">evolution rules</a>; <code>ww api check</code> says
+which bumps a change needs. More in <a href="../versioning/">Versioning</a>.</p>
 
 
 

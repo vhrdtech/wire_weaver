@@ -7701,16 +7701,16 @@ observing), SRV-46 (peer identity).
   <code>stale_hello_and_split_tail_before_this_sessions_hello</code> (USB and UDP), <code>stream::tests::hello_outside_the_framer</code>,
   <code>unknown_peer_format</code>, <code>ww_hub</code> <code>hub_serves_by_generation</code>).</li>
 <li>✅ <strong>EVO-24 Wire version of its own</strong> · <code>v0.5</code> — an API root declares its wire version apart from its crate
-  version, <code>#[ww_api_root(wire = "w2.3")]</code> (line 2, revision 3), as <code>ww_version::WireVersion</code>; the <code>w</code> is part of the
-  notation everywhere and a parser refuses <code>2.3</code>, <code>w2.3.0</code> and crate versions with an error that says why. The trait
-  gets a <code>*_WIRE_VERSION</code> const, <code>ww_self::ApiBundle::wire</code> carries it (crate snapshots too), and <code>#[since = "w2.1"]</code>
+  version, <code>#[ww_api_root(wire = "w2.3")]</code> (line 2, revision 3; in <code>Cargo.toml</code> since EVO-31), as
+  <code>ww_version::WireVersion</code>; the <code>w</code> is part of the notation everywhere and a parser refuses <code>2.3</code>, <code>w2.3.0</code> and
+  crate versions with an error that says why. The trait gets a <code>*_WIRE_VERSION</code> const, <code>ww_self::ApiBundle::wire</code> carries it (crate snapshots too), and <code>#[since = "w2.1"]</code>
   on items, fields and variants names a wire revision; the crate-version form is refused with a hint. The client
   compares <code>#[since]</code> with the device's wire version (from link setup since EVO-25, else from its introspection
   data), the checker hints and checks markers against the root's wire version (<code>docs/evolution/rules.md#the-wire-version</code>;
   tests <code>ww_version</code> <code>wire::tests</code>, <code>wire_weaver_core</code> <code>wire_version_and_since</code>, <code>tests/cross_version</code>).</li>
 <li>✅ <strong>EVO-26 Wire versions of shared crates</strong> · <code>v0.5</code> — every crate whose traits or types cross the wire has a
   wire version apart from its crate version: a crate without an API root declares it in <code>Cargo.toml</code>,
-  <code>[package.metadata.wire_weaver] wire = "w1.2"</code> (an API root crate only in <code>#[ww_api_root(wire = ..)]</code>), and bundles
+  <code>[package.metadata.wire_weaver] wire = "w1.2"</code> (API root crates too since EVO-31), and bundles
   and snapshots carry it per crate (<code>ww_self::ApiBundle::ext_wire</code>, <code>crate_wire</code>). Every <code>ww_stdlib</code> crate,
   <code>ww_global</code> and <code>ww_tap</code> are at <code>w1.0</code>, <code>ww_board_info</code> at <code>w1.2</code>, <code>ww_si</code> at <code>w2.0</code> (its 0.2.0 moved the units to
   <code>exact_units</code>, a wire break from 0.1.0 at <code>w1.0</code>, found by EVO-27's check of every snapshot pair). <code>#[since]</code> names a revision of the crate that
@@ -7750,11 +7750,19 @@ observing), SRV-46 (peer identity).
   <code>Disconnect(IncompatibleVersion)</code> on the device). A crate breaking bump that keeps the wire (EVO-22) connects. The
   host checks <code>#[since]</code> against the wire version from link setup, also without introspection data; dynamic hosts
   and the hub keep working (a tunnel fronts the device with its wire version). A full client needs its root's wire
-  version (a compile error says to mark it <code>#[ww_api_root(wire = ..)]</code>); the crate version is for display and
+  version (a compile error says to mark it <code>#[ww_api_root]</code> with a wire version, in <code>Cargo.toml</code> since EVO-31); the crate version is for display and
   <code>Version::is_protocol_compatible</code> for crate versions only (<code>docs/evolution/rules.md#the-wire-version</code>; tests
   <code>tests/wire_line</code>, <code>ww_device</code> <code>incompatible_and_dynamic_hosts</code>, <code>wire_weaver_client</code>
   <code>crate_breaking_bump_on_the_same_line_connects</code>, <code>incompatible_host_is_refused</code>, conformance <code>device_info.wire_version</code>,
   <code>link_setup.wire_version</code>).</li>
+<li>✅ <strong>EVO-31 Wire version in Cargo.toml</strong> · <code>v0.5</code> — every crate declares its wire version one way, in its
+  <code>Cargo.toml</code>, <code>[package.metadata.wire_weaver] wire = "w2.3"</code>: API root crates too, with a bare <code>#[ww_api_root]</code>.
+  <code>#[ww_api_root(wire = ..)]</code> stays as the entry point for tests (several roots of one crate on different lines, the
+  EVO-28 bench): refused in a crate that can be published (<code>publish = false</code> marks test crates) and when the
+  crate's <code>Cargo.toml</code> declares a different one. Every API root in the repository moved to <code>Cargo.toml</code>
+  (<code>tests/wire_line_old_api</code> keeps the attribute as the end-to-end case); <code>ww api scaffold</code> says where the wire
+  version lives or how to declare it (<code>docs/evolution/rules.md#the-wire-version</code>; tests <code>wire_weaver_core</code>
+  <code>wire_version_in_cargo_toml</code>, <code>wire_version_note</code>, <code>tests/wire_line</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

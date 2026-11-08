@@ -6022,7 +6022,7 @@ shared time base for anything less exact than a sample.</p>
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants and <code>defmt::Format</code> are
 available by enabling the crate's <code>std</code> / <code>defmt</code> features.</p>
 <h2 id="composing-into-a-device-api">Composing into a device API<a class="headerlink" href="#composing-into-a-device-api" title="Permanent link">&para;</a></h2>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.0&quot;</span><span class="cp">)]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">MyProbe</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">la</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_logic_analyzer</span><span class="p">::</span><span class="n">LogicAnalyzer</span><span class="p">);</span>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="p">}</span>

@@ -5885,8 +5885,7 @@ crate version, declared in its <code>Cargo.toml</code>:</p>
 and <code>#[since]</code> in the crate names its revisions: <code>ww_board_info</code>'s <code>set_reworks</code> is <code>#[since = "w1.2"]</code> of
 <code>ww_board_info</code>, whatever the wire version of the API that implements <code>BoardInfo</code>. A host compares such a marker with
 the device's wire version of <code>ww_board_info</code>, from its introspection data. The same works for any crate without an API
-root whose traits or types cross the wire; an API root crate declares its wire version only in
-<code>#[ww_api_root(wire = ..)]</code>.</p>
+root whose traits or types cross the wire, and API root crates declare theirs the same way (EVO-31).</p>
 <ul>
 <li>Wire-compatible change (following the <a href="../rules/#data-types">data type</a> and <a href="../rules/#api">API</a> rules) -&gt; bump the
   wire revision (<code>w1.2</code> -&gt; <code>w1.3</code>) and mark what was added with it; the crate version takes the compatible position

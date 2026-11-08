@@ -98,8 +98,8 @@ pub enum Message<'i> {
 | `Data`               | both          | Application bytes, opaque to the link. Channel `0` carries `ww_client_server`; `1` and `2` are free for future use.                           |
 | `Nop`                | both          | Ignored by the receiver. Sent first after connecting so that a lost first packet (e.g., USB toggle mismatch) doesn't eat something important. |
 | `Hello`              | both          | The [frozen hello](#the-frozen-hello): generations and the [setup token](#setup-token). From the host it starts link setup and a new session in the device's transmit framer; the device answers with its own. |
-| `DeviceInfo`         | device → host | After the device's hello, when every generation matches: link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token. |
-| `LinkSetup`          | host → device | Host user API version, max message length the host accepts, the token.                                                                        |
+| `DeviceInfo`         | device → host | After the device's hello, when every generation matches: link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token, the user API's wire version. |
+| `LinkSetup`          | host → device | Host user API version, max message length the host accepts, the token, client meta, the wire version of the host's client.                   |
 | `LinkReady`          | device → host | Setup accepted, `Data` may flow; the token (`u64` LE).                                                                                        |
 | `Ping`               | both          | Keep-alive, sent when nothing else was sent for `PING_INTERVAL_MS` (3 s).                                                                     |
 | `GetStats` / `Stats` | host ↔ device | Reserved for link statistics, payload not defined yet.                                                                                        |
@@ -176,9 +176,11 @@ Also re-exported for convenience: `DisconnectReason`, `CompactVersion`, `FullVer
 Rules the reference event loop follows (and a new transport should too):
 
 - The hello is retried every 50 ms, up to 5 times; then link setup is considered failed.
-- The host refuses the connection if `DeviceInfo.user_api_version` is not protocol-compatible with the
-  generated client API (see [ww_version](../std_library/ww_version.md)). A device may likewise reply with
-  `Disconnect(IncompatibleVersion)` after `LinkSetup`.
+- Both sides decide on the user API's [wire line](../evolution/rules.md#the-wire-version) (EVO-25), never on its
+  crate version. The host refuses the connection when `DeviceInfo.user_api_wire` is on another line than its
+  generated client, or `user_api_version` names another API crate. The device likewise replies
+  `Disconnect(IncompatibleVersion)` to a `LinkSetup` whose `host_user_wire` is on another line or missing; a dynamic
+  host (an empty crate id, no wire version) is always taken.
 - `Data` accumulates into the current frame for `packet_accumulation_time_us` (as requested by the device) before
   being flushed, never longer; an urgent request is flushed at once, see
   [latency and priority](ww_framer.md#latency-and-priority). Control messages are flushed immediately.
@@ -342,7 +344,7 @@ next to the link:
 | —                                                     | `blocking::Server` for devices without async                       |
 
 **`DeviceLink`** answers a hello (a new framer session, then Nop flushed alone, then its own hello, then `DeviceInfo`
-with the host's token when the generations match), checks the token and the host version on `LinkSetup` and
+with the host's token when the generations match), checks the token and the host's API and wire line on `LinkSetup` and
 replies `LinkReady` or `Disconnect(IncompatibleVersion)`, runs the frame accumulation window and pings, and
 declares the host gone after the peer timeout. A hello while the link is up means the host application
 restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as

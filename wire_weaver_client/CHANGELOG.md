@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Link setup decides on the wire line, not the crate version (EVO-25): `ClientConfig::client_version(version, wire)` takes the wire version of the client's API root, carried as the new `ClientApi` (`generated`, `dynamic`, `is_dynamic`) in `Command::Connect::client_version`. A device of the same API crate on the same wire line connects whatever its crate version, so a crate breaking bump that keeps the wire (EVO-22) no longer refuses old devices. `Error::IncompatibleDeviceProtocol` is a struct variant `{ device, device_wire, host, host_wire }` and says which line each side is on and who should update. `DeviceApiInfo::user_api_wire` comes from the device's `DeviceInfo`, so `#[since]` is checked without introspection data too.
 - USB: the host writes its hello as the frozen packet and checks every received packet for the device's hello before the framer (EVO-23), so a device whose framer is of another generation fails with `IncompatibleGeneration` naming the framer. The tap decoder reads hello packets the same way; on a link with the frame counter, the hello packets carry no prefix and are not counted as checked.
 - UDP (sockets and in-process): the host writes its hello as the frozen datagram and checks every datagram for the device's hello before the framer (EVO-23), as on USB; the tap decoder reads UDP hello datagrams the same way.
 - RTT: the host writes its hello as the frozen stream bytes and scans what it reads for the device's hello before the framer (EVO-23), as on USB and UDP.

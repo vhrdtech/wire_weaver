@@ -51,6 +51,10 @@ project's own crates follow). `pre` is not compared by this rule - it answers "c
 not "are these the exact same build". `FullVersion::is_protocol_compatible` additionally requires the same
 `crate_id`, and `CompactVersion::is_protocol_compatible` the same `gid`.
 
+These are crate-version rules: global trait paths use them to find a reusable trait of a compatible crate version.
+Link setup doesn't: it decides on the user API's `WireVersion` (`WireVersion::same_line`, EVO-25), so a crate
+breaking bump that keeps the wire connects.
+
 ## Reading the current crate's version
 
 `Version`, `FullVersion` and `CompactVersion` all have a `const fn new(..)` (plus `Version::full` for `pre`/`build`

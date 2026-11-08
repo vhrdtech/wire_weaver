@@ -21,6 +21,7 @@
 
 ### 🚀 Features
 
+- The wire version of the user API in link setup (EVO-25): `DeviceInfo::user_api_wire` and `LinkSetup::host_user_wire`, both `Option<WireVersion>`, appended with `#[default = None]` (wire-compatible both ways: an older peer reads as `None` and steps over the field). `WireVersion` is re-exported. **Rust-source break:** `DeviceInfo { .. }` and `LinkSetup { .. }` literals add the field.
 - `ClientMeta` and `ClientKind` (CLT-41): who a client is (program, app version, label, kind, pid, user, host, purpose, instance id), carried in the new `LinkSetup::client_meta: Option<ClientMeta>` (`#[default = None]`, appended: wire-compatible both ways, older peers read it as absent / ignore it). **Rust-source break:** `LinkSetup { .. }` literals need `client_meta`.
 
 - `Framing` (TR-15): a medium's framer configuration as one type (`Head`, `Checksum`, `Tail`, `Prefix`), with `FramingTx` / `FramingRx` (and `FramingTxOwned` / `FramingRxOwned` with `std`) for its framers; `UsbFraming`, `UdpFraming` and `UsbSeqFraming` (USB with a `SeqPrefix` frame counter, a diagnostic). `UsbPrefix` / `UdpPrefix` next to the checksum aliases, `LinkCrc32` (the CRC-32 of `ww_block`), `USB_INTERFACE_PROTOCOL` (0x37) / `USB_INTERFACE_PROTOCOL_SEQ` (0x38) and `UsbFramingProtocol`: a USB device tells the host its framing in its interface protocol.

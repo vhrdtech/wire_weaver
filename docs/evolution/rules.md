@@ -48,14 +48,17 @@ run the [evolution checker](checker_tool.md), it compares your crate with its la
 
 ## Your API's version
 
-Name and version of the user API crate are sent during link setup, and both device and host refuse to connect if
-they are not compatible (`ww_version::Version::is_protocol_compatible`):
+An API has two versions, for two jobs:
 
-* Before 1.0: major and minor must match, so `0.2.0` and `0.2.7` connect, `0.2.0` and `0.3.0` don't.
-* After 1.0: major must match.
+* The **crate version** is Cargo's: SemVer for the Rust code built against the API crate. A Rust-only break (a
+  trailing argument with a default, a `#[flatten]` promotion, see [Arguments](#arguments)) bumps its breaking
+  position, a wire-compatible addition its compatible one (patch before 1.0, minor after).
+* The **wire version** (below) is what devices and hosts decide on: link setup connects a device and a host of the
+  same API on the same wire line, whatever their crate versions, and refuses another line.
 
-So the compatible position (patch before 1.0, minor after) is for wire-compatible additions: new methods,
-properties, streams, new fields with defaults, etc. Everything else bumps the breaking position.
+Name and version of the user API crate are still sent during link setup, for display (`DeviceApiInfo`, logs,
+`PeerVersion` on the device), and the crate name tells APIs apart: a host whose client was generated from another
+API crate is refused. Nothing decides on the crate version's numbers.
 
 ### The wire version
 
@@ -63,8 +66,20 @@ Apart from the crate version, the API root declares its wire version, `#[ww_api_
 2.3": line 2, revision 3. A wire-compatible addition bumps the revision (`w2.3` -> `w2.4`), a wire break the line
 (`w3.0`). A new API starts at `w1.0`. The `w` is part of the notation everywhere, so a crate version can't be taken
 for one: `2.3`, `w2.3.0` and `0.2.0` are refused. The trait gets a `*_WIRE_VERSION: ww_version::WireVersion` const
-next to its `*_FULL_GID`. Link setup still decides on the crate version above; deciding on the wire line instead is
-EVO-25.
+next to its `*_FULL_GID`.
+
+Link setup decides on the line (EVO-25): `DeviceInfo` carries the device's wire version, `LinkSetup` the host's.
+
+* The same line connects, whatever the revisions: a `w2.4` host talks to a `w2.3` device and the other way round.
+  Items newer than the device's revision are refused by the host, see [`#[since]`](#since).
+* Another line is refused on both sides: the host with `Error::IncompatibleDeviceProtocol`, which names both lines
+  and who should update, the device with `Disconnect(IncompatibleVersion)`.
+* A host without generated code (the dynamic client, `ww`, Python) works from the device's introspection data and
+  connects to any line.
+* A device or host that doesn't say its wire version (built before it existed) is refused by a generated peer.
+
+A full client needs the wire version of its root: `ww_codegen!` stops with an error naming the fix when the root
+trait is a plain `#[ww_trait]`.
 
 Mark additions with `#[since = "w2.4"]`, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
@@ -84,8 +99,8 @@ marker's.
   the marker's to say: an item the new line removed is reported from the device's introspection data
   (`Error::NotImplementedByDevice`).
 
-The host knows the device's wire version from its introspection data (the bundle carries the root's wire version);
-without it, `#[since]` isn't checked until link setup carries the wire version (EVO-25).
+The host knows the device's wire version from link setup (`DeviceInfo`, EVO-25), and from its introspection data
+when the device says nothing there; only a device from before wire versions leaves `#[since]` unchecked.
 
 A marker names a revision of the crate that declares the item, not of the API root: a trait from a `ww_stdlib` crate
 (`ww_impl!(board: ww_board_info::BoardInfo)`) carries that crate's markers, compared with the device's wire version of
@@ -307,7 +322,8 @@ the rules for [unsized types](#unsized-types) (EVO-22, [methods](../api/methods.
 
 Each of the compatible changes still gives the handler and the client call other parameters: a break of the API
 crate's Rust API. `ww api check` reports it with its own rule, `breaking (Rust only, the wire is compatible)`, and
-the breaking version position is bumped, as for a rename. Devices and hosts of both versions keep talking.
+the breaking version position is bumped, as for a rename. The wire version gets a new revision at most, so devices
+and hosts of both versions keep talking: link setup decides on the wire line, not on the crate version.
 
 Streams (API-30, API-31, [stream reliability](../api/stream_reliability.md)): the delivery kind of a stream is part
 of the API. Turning a plain `stream!` into a `#[counted]` or `#[reliable]` one (or back, or one into the other), or

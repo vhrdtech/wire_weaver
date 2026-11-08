@@ -9,6 +9,7 @@
 
 ### 🐛 Fixes
 
+- A tunnel fronts the device with the device's wire version (EVO-25): a generated client on another wire line is refused by the hub as by the device itself, a dynamic one connects.
 - Reads and builds `Observe` requests with their body as a `RefBox` / `Box` (SRV-54, `ww_client_server`'s breaking change); merged observe requests are the same bytes as before.
 - `Adopt::prepare` takes `wire_weaver_client::adopt::HandoverOwned` (the link residual and the medium residual, CLT-44): the medium residual's kind must be the device key's medium, and its bytes are checked by that medium before the slot is kept.
 - `registry().devices()` lists a lent device as `DeviceState::Lent` with its claim (SRV-32), not as free: a borrower such as probe-rs writes no lock file.

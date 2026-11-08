@@ -1888,8 +1888,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   notation everywhere and a parser refuses `2.3`, `w2.3.0` and crate versions with an error that says why. The trait
   gets a `*_WIRE_VERSION` const, `ww_self::ApiBundle::wire` carries it (crate snapshots too), and `#[since = "w2.1"]`
   on items, fields and variants names a wire revision; the crate-version form is refused with a hint. The client
-  compares `#[since]` with the device's wire version (from its introspection data until link setup carries it,
-  EVO-25), the checker hints and checks markers against the root's wire version (`docs/evolution/rules.md#the-wire-version`;
+  compares `#[since]` with the device's wire version (from link setup since EVO-25, else from its introspection
+  data), the checker hints and checks markers against the root's wire version (`docs/evolution/rules.md#the-wire-version`;
   tests `ww_version` `wire::tests`, `wire_weaver_core` `wire_version_and_since`, `tests/cross_version`).
 - ✅ **EVO-26 Wire versions of shared crates** · `v0.5` — every crate whose traits or types cross the wire has a
   wire version apart from its crate version: a crate without an API root declares it in `Cargo.toml`,
@@ -1909,6 +1909,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   crate major and minor the request carries, so a host built with another crate major of a `ww_stdlib` crate on the
   same wire line gets `TraitNotFound`. The request would carry the crate's wire line instead (or next to it): a wire
   change of `PathKind` (`final_structure`), with an API model generation bump in the frozen hello.
+- ✅ **EVO-25 Link setup decides on the wire line** · `v0.5` — `DeviceInfo::user_api_wire` and
+  `LinkSetup::host_user_wire` (appended, `None` from older peers) carry the API root's wire version; device
+  (`LinkConfig::user_api_wire`, `LinkConfig::new` takes it) and host (`ClientConfig::client_version(version, wire)`,
+  `ClientApi`) connect a peer of the same API crate on the same wire line, whatever its crate version, and refuse
+  another line (`Error::IncompatibleDeviceProtocol` names both lines and who should update,
+  `Disconnect(IncompatibleVersion)` on the device). A crate breaking bump that keeps the wire (EVO-22) connects. The
+  host checks `#[since]` against the wire version from link setup, also without introspection data; dynamic hosts
+  and the hub keep working (a tunnel fronts the device with its wire version). A full client needs its root's wire
+  version (a compile error says to mark it `#[ww_api_root(wire = ..)]`); the crate version is for display and
+  `Version::is_protocol_compatible` for crate versions only (`docs/evolution/rules.md#the-wire-version`; tests
+  `tests/wire_line`, `ww_device` `incompatible_and_dynamic_hosts`, `wire_weaver_client`
+  `crate_breaking_bump_on_the_same_line_connects`, `incompatible_host_is_refused`, conformance `device_info.wire_version`,
+  `link_setup.wire_version`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

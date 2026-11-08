@@ -131,6 +131,9 @@ impl<'i> Version<'i> {
         }
     }
 
+    /// SemVer compatibility of two crate versions: the same major from 1.0 on, the same major and minor before it.
+    /// For crate versions only (global trait paths, the evolution checker): link setup decides on the user API's
+    /// [WireVersion] line instead (EVO-25), so a crate breaking bump that keeps the wire still connects.
     pub fn is_protocol_compatible(&self, other: &Self) -> bool {
         if self.major.0 >= 1 && other.major.0 >= 1 {
             self.major == other.major

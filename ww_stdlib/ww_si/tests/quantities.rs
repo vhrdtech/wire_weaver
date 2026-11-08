@@ -5,9 +5,9 @@ use shrink_wrap::prelude::*;
 use ww_si::units::{self, Per, Times};
 use ww_si::ww_numeric::{NumericBaseType, NumericValue, UVlq32};
 use ww_si::{
-    Acceleration, Ampere, AngularVelocity, Coulomb, DeciBel, Degree, DegreeCelsius, Dim, Gram,
-    Hertz, Joule, Meter, Newton, Overflow, Prefix, Quantity, Radian, Ratio, Rounding, Second,
-    Speed, Timed, Torque, UnitExpr, Volt, Watt,
+    Acceleration, Ampere, AngularVelocity, Coulomb, DeciBel, Degree, Dim, Gram, Hertz, Joule,
+    Meter, Newton, Overflow, Prefix, Quantity, Radian, Ratio, Rounding, Second, Speed, Timed,
+    Torque, UnitExpr, Volt, Watt,
 };
 
 #[test]
@@ -68,8 +68,6 @@ fn conversions() {
 #[test]
 fn to_si() {
     assert!((Degree::base(90u8).to_si_f64() - core::f64::consts::FRAC_PI_2).abs() < 1e-12);
-    assert!((DegreeCelsius::base(20u8).to_si_f64() - 293.15).abs() < 1e-9);
-    assert!((DegreeCelsius::milli(-40_000i32).to_si_f64() - 233.15).abs() < 1e-9);
     assert_eq!(Gram::base(5u8).to_si_f64(), 0.005);
     assert_eq!(Gram::kilo(5u8).to_si_f64(), 5.0);
     assert_eq!(Volt::milli(3300u16).to_si_f64(), 3.3);
@@ -153,7 +151,6 @@ fn display_and_debug() {
     assert_eq!(Ratio::percent(50u8).to_string(), "50 %");
     assert_eq!(Ratio::ppm(250u16).to_string(), "250 ppm");
     assert_eq!(Ratio::from_f32(0.5).to_string(), "0.5");
-    assert_eq!(DegreeCelsius::base(21u8).to_string(), "21 °C");
     let b = Quantity::<Per<units::Torque, units::AngularVelocity>>::from_f32(1.2e-4);
     assert_eq!(b.to_string(), "0.00012 N·m/(rad/s)");
     let b = Quantity::<Per<units::Torque, units::AngularVelocity>>::milli(5u8);
@@ -183,10 +180,10 @@ fn units_and_dimensions() {
     let fan = <Per<units::Torque, Times<units::AngularVelocity, units::AngularVelocity>> as ww_si::Unit>::DIM;
     assert_eq!(fan.to_string(), "kg·m²·rad⁻³");
     let volt = ww_si::units::by_name("Volt").unwrap();
-    assert!(matches!(volt, UnitExpr::Named { symbol: "V", .. }));
+    assert!(matches!(volt, UnitExpr::Named(def) if def.names.symbol == "V"));
     assert_eq!(volt, Volt::unit());
     assert!(ww_si::units::by_name("Volts").is_none());
-    assert_eq!(ww_si::units::ALL.len(), 132);
+    assert_eq!(ww_si::units::ALL.len(), 131);
 }
 
 #[test]

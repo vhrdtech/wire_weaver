@@ -16,11 +16,11 @@
 //! `Per<Volt, Ampere>` is not an `Ohm`, by `exact_units`' rules ([exact_units::Kind]).
 
 use crate::{
-    ApiBundleOwned, ConventionalUnitDefOwned, GenericArgOwned, ItemStructOwned, KindUnitDefOwned,
-    MarkerDefOwned, OriginDefOwned, TypeOwned, UnitDefOwned, ValueOwned,
+    ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
+    ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
-use exact_units::{DimOwned, Kind, Magnitude, Offset};
+use exact_units::{DimOwned, Kind, Magnitude, MarkerIdOwned, Offset, UnitDefOwned};
 use std::fmt;
 
 /// Deepest nesting of `Per`, `Times`, `Sqrt`, full-scale, `Product` and `Quotient` markers [unit_of] and [scale_of] follow: a bundle from a
@@ -47,7 +47,7 @@ impl fmt::Display for MarkerName {
 pub enum UnitKind {
     /// No kind beyond the dimension.
     Plain,
-    /// A kind of its own (`resistance`), from a [KindUnit](MarkerDefOwned::KindUnit).
+    /// A kind of its own (`resistance`), from a [unit](MarkerDefOwned::Unit)'s `quantity`.
     Named(String),
     /// Dimension one, a ratio of two quantities of this dimension: `Per<Volt, Volt>`.
     RatioOf(Box<DimOwned>),
@@ -88,8 +88,8 @@ impl fmt::Display for UnitKind {
 #[derive(Clone, Debug)]
 pub struct UnitPower {
     pub marker: MarkerName,
-    /// What the unit's definition writes after a number: `V`, `rpm`.
-    pub symbol: String,
+    /// The unit's definition: its identity, symbol (`V`, `rpm`), dimension and scale.
+    pub def: UnitDefOwned,
     /// The power doubled: 2 for `m`, -4 for `s⁻²`, 1 for `√Hz`. Never 0.
     pub exp_x2: i16,
 }
@@ -129,6 +129,14 @@ impl CanonicalUnit {
             dim: exact_units::Dim::ONE.into(),
             magnitude: Magnitude::ONE,
             kind: UnitKind::Plain,
+        }
+    }
+
+    /// The named unit this is, when it is one to the power one: `Kelvin`, not `Per<Meter, Second>` or a ratio.
+    pub fn named(&self) -> Option<&UnitDefOwned> {
+        match self.powers.as_slice() {
+            [p] if p.exp_x2 == 2 => Some(&p.def),
+            _ => None,
         }
     }
 
@@ -227,9 +235,10 @@ impl fmt::Display for CanonicalUnit {
                 f.write_str("·")?;
             }
             // a compound symbol to a power in parentheses: `(rad/s)⁻¹`
-            match p.exp_x2 != 2 && p.symbol.contains(['·', '/', ' ']) {
-                true => write!(f, "({})", p.symbol)?,
-                false => f.write_str(&p.symbol)?,
+            let symbol = &p.def.names.symbol;
+            match p.exp_x2 != 2 && symbol.contains(['·', '/', ' ']) {
+                true => write!(f, "({symbol})")?,
+                false => f.write_str(symbol)?,
             }
             match (p.exp_x2 % 2 == 0, p.exp_x2 / 2) {
                 (true, 1) => {}
@@ -306,15 +315,17 @@ pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwn
                 .checked_mul(Magnitude::PI)
                 .and_then(|t| t.checked_div(unit.magnitude))
                 .map_err(|e| anyhow!("a turn in {unit}: {e:?}"))?;
-            let symbol = unit.to_string();
+            let Some(def) = unit.named() else {
+                bail!("Angle<{unit}>: an angle's unit is a named unit");
+            };
             Ok(OriginDefOwned {
-                unit: UnitDefOwned {
-                    symbol: symbol.clone(),
-                    dim: unit.dim,
-                    magnitude: unit.magnitude,
+                id: MarkerIdOwned {
+                    crate_name: "exact_units".into(),
+                    name: "Angle".into(),
                 },
-                symbol,
-                reference: None,
+                unit: def.clone(),
+                symbol: unit.to_string(),
+                reference: unit_zero(),
                 offset: Offset::ZERO,
                 modulus: Some(turn),
                 step: Magnitude::ONE,
@@ -323,6 +334,65 @@ pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwn
         }
         _ => bail!("{} is not an origin", marker_name(s, bundle)?),
     }
+}
+
+/// The identity of a unit, scale or origin definition (`exact_units::MarkerId`), `None` for `exact_units`' generic
+/// markers, which are known by their variant.
+pub fn def_id(def: &MarkerDefOwned) -> Option<&MarkerIdOwned> {
+    match def {
+        MarkerDefOwned::Unit(u) => Some(&u.id),
+        MarkerDefOwned::Scale(s) => Some(&s.id),
+        MarkerDefOwned::Origin(o) => Some(&o.id),
+        _ => None,
+    }
+}
+
+/// Refuses a bundle with two different definitions under one identity (UNIT-7): a marker is known by its crate and
+/// name, so two versions of one crate whose `Rpm`s differ, or a hand-edited model, would give one unit two meanings.
+pub fn check_marker_ids(bundle: &ApiBundleOwned) -> Result<()> {
+    let mut seen = std::collections::HashMap::new();
+    for location in &bundle.types {
+        let crate::TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(s),
+            ..
+        } = location
+        else {
+            continue;
+        };
+        let Some(def) = s.marker() else {
+            continue;
+        };
+        let Some(id) = def_id(def) else {
+            continue;
+        };
+        if let Some(first) = seen.insert(id, def)
+            && first != def
+        {
+            bail!(
+                "marker {} has two definitions in the model: {first:?} and {def:?}",
+                id.as_id()
+            );
+        }
+    }
+    Ok(())
+}
+
+/// `exact_units::UnitZero`, the reference of an origin measured from its unit's own zero.
+pub fn unit_zero() -> MarkerIdOwned {
+    MarkerIdOwned {
+        crate_name: "exact_units".into(),
+        name: "UnitZero".into(),
+    }
+}
+
+/// The identity of the marker struct `ty` is (a generic one's definition for an instance): its crate as Rust names
+/// it (`my_api`, never `my-api`) and its ident, without the module path, as `exact_units::MarkerId` has it.
+pub fn marker_id_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<MarkerIdOwned> {
+    let (s, _) = marker(ty, bundle)?;
+    Ok(MarkerIdOwned {
+        crate_name: bundle.crate_name(s.crate_idx.0)?.replace('-', "_"),
+        name: s.ident.clone(),
+    })
 }
 
 /// The crate and name of the marker struct `ty` is (a generic one's definition for an instance).
@@ -390,25 +460,23 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
     match definition(s, bundle)? {
         // `Ratio`: the unit of a plain number, no factor of a product (`Times<Per<Ratio, Second>, Meter>` is m·s⁻¹)
         MarkerDefOwned::Unit(def)
-        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. })
-            if def.symbol.is_empty()
+            if def.names.symbol.is_empty()
                 && def.dim.as_dim().is_one()
-                && def.magnitude == Magnitude::ONE =>
+                && def.quantity.is_none()
+                && def.scale == Magnitude::ONE =>
         {
             Ok(CanonicalUnit::one())
         }
-        MarkerDefOwned::Unit(def)
-        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. })
-        | MarkerDefOwned::KindUnit(KindUnitDefOwned { unit: def, .. }) => Ok(CanonicalUnit {
+        MarkerDefOwned::Unit(def) => Ok(CanonicalUnit {
             powers: vec![UnitPower {
                 marker: marker_name(s, bundle)?,
-                symbol: def.symbol.clone(),
+                def: def.clone(),
                 exp_x2: 2,
             }],
             dim: def.dim.clone(),
-            magnitude: def.magnitude,
-            kind: match definition(s, bundle)?.kind() {
-                Some(k) => UnitKind::Named(k.to_string()),
+            magnitude: def.scale,
+            kind: match &def.quantity {
+                Some(k) => UnitKind::Named(k.clone()),
                 None => UnitKind::Plain,
             },
         }),

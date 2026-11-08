@@ -28,8 +28,9 @@ use ww_self::{
     ApiBundleOwned, FieldsOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned,
     ItemStructOwned, MarkerDefOwned, TypeOwned, ValueOwned,
 };
+use ww_si::exact_units::UnitDefOwned;
 use ww_si::tree::{self, Tree};
-use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned, Scale};
+use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned};
 pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
 /// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
@@ -40,14 +41,9 @@ pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 pub enum DynUnit {
     /// A named unit of `ww_si::units`: symbol, dimension and scale are known.
     Known(&'static UnitExpr),
-    /// A named unit `ww_si` doesn't have (a device's own `Rpm`): symbol, dimension and scale as the device sent them
-    /// in an `AnyQuantity`, or as the bundle defines the marker of a `Quantity<U>` (INT-13, an `Exact` scale).
-    Named {
-        name: String,
-        symbol: String,
-        dim: DimOwned,
-        scale: Scale,
-    },
+    /// A named unit `ww_si` doesn't have (a device's own `Rpm`): its definition as the device sent it in an
+    /// `AnyQuantity`, or as the bundle defines the marker of a `Quantity<U>` (INT-13).
+    Named(UnitDefOwned),
     /// A marker without a definition in the bundle (hand-written, or from a bundle of before INT-13): its name and
     /// docs, nothing else.
     Unknown { name: String, docs: Vec<String> },
@@ -65,7 +61,7 @@ impl DynUnit {
     /// The unit of a typed `Quantity<U>`, `U::EXPR`: the same tree a dynamic client builds from introspection data.
     pub fn from_expr(expr: &'static UnitExpr) -> Self {
         match expr {
-            UnitExpr::Named { .. } => DynUnit::Known(expr),
+            UnitExpr::Named(_) => DynUnit::Known(expr),
             UnitExpr::Mul(a, b) => {
                 DynUnit::Times(Box::new(Self::from_expr(a)), Box::new(Self::from_expr(b)))
             }
@@ -94,19 +90,9 @@ impl DynUnit {
                 Err(_) => Box::new(unknown()),
             };
             match e {
-                SIExpr::Named {
-                    name,
-                    symbol,
-                    dim,
-                    scale,
-                } => match e.known() {
+                SIExpr::Def(def) => match e.known() {
                     Some(known) => DynUnit::Known(known),
-                    None => DynUnit::Named {
-                        name: name.to_string(),
-                        symbol: symbol.to_string(),
-                        dim: (*dim).into(),
-                        scale: *scale,
-                    },
+                    None => DynUnit::Named((*def).into()),
                 },
                 SIExpr::Mul(a, b) => DynUnit::Times(child(a), child(b)),
                 SIExpr::Div(a, b) => DynUnit::Per(child(a), child(b)),
@@ -122,17 +108,7 @@ impl DynUnit {
     pub fn to_si_expr(&self) -> Option<SIExprOwned> {
         Some(match self {
             DynUnit::Known(expr) => SIExprOwned::from(*expr),
-            DynUnit::Named {
-                name,
-                symbol,
-                dim,
-                scale,
-            } => SIExprOwned::Named {
-                name: name.clone(),
-                symbol: symbol.clone(),
-                dim: dim.clone(),
-                scale: *scale,
-            },
+            DynUnit::Named(def) => SIExprOwned::Def(def.clone()),
             DynUnit::Unknown { .. } => return None,
             DynUnit::Per(a, b) => {
                 SIExprOwned::Div(Box::new(a.to_si_expr()?), Box::new(b.to_si_expr()?))
@@ -182,11 +158,6 @@ impl DynUnit {
         }
     }
 
-    /// Offset to coherent SI: only a named unit with an affine scale (°C) has one.
-    pub fn offset(&self) -> f64 {
-        tree::offset(&Part::Dyn(self))
-    }
-
     /// Docs of an unknown marker, empty otherwise.
     pub fn docs(&self) -> &[String] {
         match self {
@@ -210,18 +181,15 @@ impl<'a> Tree<'a> for Part<'a> {
             Part::Expr(expr) => Some(expr.node()?.map(Part::Expr)),
             Part::Dyn(unit) => Some(match unit {
                 DynUnit::Known(expr) => expr.node()?.map(Part::Expr),
-                DynUnit::Named {
-                    name,
-                    symbol,
-                    dim,
-                    scale,
-                } => tree::Node::Named {
-                    name,
-                    symbol,
-                    dim: Some(dim.as_dim()),
-                    scale: Some(*scale),
+                DynUnit::Named(def) => tree::Node::Named {
+                    crate_name: Some(&def.id.crate_name),
+                    name: &def.id.name,
+                    symbol: &def.names.symbol,
+                    dim: Some(def.dim.as_dim()),
+                    scale: Some(def.scale),
                 },
                 DynUnit::Unknown { name, .. } => tree::Node::Named {
+                    crate_name: None,
                     name,
                     symbol: name,
                     dim: None,
@@ -512,9 +480,6 @@ impl DynQuantity {
             if from != to {
                 return Err(refuse(format!("dimension {from} is not {to}")));
             }
-            if self.unit.offset() != 0.0 || fixed.unit.offset() != 0.0 {
-                return Err(refuse("a unit with an offset converts as a point".into()));
-            }
             let (Some(from), Some(to)) = (self.unit.magnitude(), fixed.unit.magnitude()) else {
                 return Err(refuse("a unit without an exact factor to SI".into()));
             };
@@ -569,7 +534,7 @@ impl DynQuantity {
     /// doesn't, nor does a pound-force to a pound). An integer comes out as an integer with the largest SI prefix
     /// that keeps it whole (2 lbf·s is `8896443230521 p(N·s)`, 0 is `0` in the unit itself), an error when no prefix does (a factor that is not a
     /// fraction of integers whose denominator has only the primes 2 and 5, or a number past `i64`); a float is
-    /// scaled and comes out as an `f64` in the unit itself. A unit with an offset (°C) converts as a point, not here.
+    /// scaled and comes out as an `f64` in the unit itself. °C is a point (`exact_units::origins::Celsius`), not a unit.
     pub fn convert(&self, unit: &DynUnit) -> Result<DynQuantity, String> {
         let refuse = |why: &str| format!("{} can't be converted to {}: {why}", self, unit.symbol());
         let (Some(from), Some(to)) = (self.unit.dim(), unit.dim()) else {
@@ -577,9 +542,6 @@ impl DynQuantity {
         };
         if from != to {
             return Err(refuse(&format!("dimension {from} is not {to}")));
-        }
-        if self.unit.offset() != 0.0 || unit.offset() != 0.0 {
-            return Err(refuse("a unit with an offset converts as a point"));
         }
         let (Some(from), Some(to)) = (self.unit.magnitude(), unit.magnitude()) else {
             return Err(refuse("a unit without an exact factor to SI"));
@@ -637,11 +599,11 @@ impl DynQuantity {
         Ok(DynQuantity::new(prefix, value, unit.clone()))
     }
 
-    /// The value in coherent SI through the unit's scale (90 ° is 1.5708 rad, 20 °C is 293.15 K), `None` when the
+    /// The value in coherent SI through the unit's scale (90 ° is 1.5708 rad), `None` when the
     /// unit has an unknown marker in it or the prefix is a scale from a newer version (`Prefix::Unknown`).
     pub fn to_si_f64(&self) -> Option<f64> {
         self.prefix.magnitude()?;
-        Some(self.to_f64() * self.unit.factor()? + self.unit.offset())
+        Some(self.to_f64() * self.unit.factor()?)
     }
 }
 
@@ -727,8 +689,9 @@ pub fn parse_quantity_in(
         None => ww_si::units::ALL
             .iter()
             .filter_map(|expr| match expr {
-                UnitExpr::Named { symbol: s, .. } if !s.is_empty() => {
-                    prefix_before(&symbol, s, None).map(|p| (p, DynUnit::Known(expr)))
+                UnitExpr::Named(def) if !def.names.symbol.is_empty() => {
+                    prefix_before(&symbol, def.names.symbol, None)
+                        .map(|p| (p, DynUnit::Known(expr)))
                 }
                 _ => None,
             })
@@ -1169,14 +1132,9 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
     // any other crate's unit by the definition the bundle carries, also a unit by convention (exact_units'
     // `customary`, which a host doesn't need to enable for it)
     if let Some(def) = s.marker().and_then(MarkerDefOwned::unit_def) {
-        return DynUnit::Named {
-            name: s.ident.clone(),
-            symbol: def.symbol.clone(),
-            dim: def.dim.clone(),
-            scale: Scale::Exact(def.magnitude),
-        };
+        return DynUnit::Named(def.clone());
     }
-    // a marker without a definition: hand-written, from a bundle older than INT-13, or with an offset (TODO(STD-74))
+    // a marker without a definition: hand-written, or from a bundle older than INT-13
     DynUnit::Unknown {
         name: s.ident.clone(),
         docs: s.docs.clone(),
@@ -1187,9 +1145,7 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
 mod tests {
     use super::*;
     use wire_weaver::shrink_wrap::SerializeShrinkWrap;
-    use ww_si::units::{
-        AngularVelocity, Degree, DegreeCelsius, Meter, Per, Ratio, Second, Speed, Times, Torque,
-    };
+    use ww_si::units::{AngularVelocity, Degree, Meter, Per, Ratio, Second, Speed, Times, Torque};
 
     #[test]
     fn quantities_from_text() {
@@ -1197,9 +1153,10 @@ mod tests {
             let q = parse_quantity(text, None).unwrap();
             (q.prefix.si().unwrap(), q.value, q.unit.symbol())
         };
+        // °C is a point, not a unit (TODO(STD-74): text input of points)
         assert_eq!(
-            any("20 °C"),
-            (Prefix::Unit, NumericValue::I32(20), "°C".into())
+            any("293 K"),
+            (Prefix::Unit, NumericValue::I32(293), "K".into())
         );
         // an exponent only with digits after it: 5 electron volt
         assert_eq!(
@@ -1254,7 +1211,6 @@ mod tests {
         same(Quantity::<Ratio>::micro(-3i32));
         same(Quantity::<Ratio>::kilo(1u8));
         same(Quantity::<Degree>::from_f32(90.0));
-        same(Quantity::<DegreeCelsius>::base(20u8));
         same(Quantity::<Per<Torque, AngularVelocity>>::from_f32(1.2e-4));
         same(Quantity::<
             Per<Torque, Times<AngularVelocity, AngularVelocity>>,

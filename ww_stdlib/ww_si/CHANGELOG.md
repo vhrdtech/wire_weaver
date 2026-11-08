@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `exact_units` at UNIT-7 piece 1 (STD-106): `Scale` and `DegreeCelsius` are gone (no re-export, no `ww_si::DegreeCelsius` alias), a unit has an exact `Magnitude` and no offset, so `to_si_f64` no longer adds one; °C is the point `origins::Celsius`. An `SIExpr`'s named unit is `SIExpr::Def(UnitDef)` with its identity, so `AnyQuantity` bytes grow by the crate name (19 to 35 bytes for 3300 mV). The run-time side catches up with STD-74.
 * Wire version `w2.0` (was `w1.0`, EVO-26, EVO-27): 0.2.0 moved the units, scales and origins to `exact_units` and changed `Timed`, a wire break from 0.1.0, which stays at `w1.0`. The evolution checker found the two on one line once it checked the wire version. APIs using `ww_si` record it at `w2.0` in their snapshots.
 
 ### 🚀 Features

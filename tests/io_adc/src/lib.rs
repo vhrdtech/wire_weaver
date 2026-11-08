@@ -82,10 +82,12 @@ mod tests {
                 },
                 ChannelInfo {
                     name: MaxLen::new("TEMP").unwrap(),
-                    unit: SIExpr::of::<units::DegreeCelsius>(),
+                    // TODO(STD-74): °C is a point (`origins::Celsius`), not a unit: the channel reads kelvins until
+                    // AnyQuantity carries points
+                    unit: SIExpr::of::<units::Kelvin>(),
                     prefix: Prefix::Unit,
-                    min: NumericValue::F32(-40.0),
-                    max: NumericValue::F32(125.0),
+                    min: NumericValue::F32(233.15),
+                    max: NumericValue::F32(398.15),
                     bits: 12,
                     calibrated: false,
                     raw_to_value: None,
@@ -482,8 +484,7 @@ mod tests {
         assert_eq!(vin.unit, *<units::Volt as ww_si::Unit>::EXPR);
         assert_eq!(vin.unit.known(), Some(<units::Volt as ww_si::Unit>::EXPR));
         let temp = channels.next().unwrap();
-        assert_eq!(temp.unit.to_string(), "°C");
-        assert_eq!(temp.unit.offset(), 273.15);
+        assert_eq!(temp.unit.to_string(), "K");
 
         let reading = adc.read(0).call().await.unwrap();
         let expected = 2048.0 * 3300.0 / 4095.0;

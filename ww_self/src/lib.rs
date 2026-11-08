@@ -747,8 +747,10 @@ pub struct ItemStructExtra<'i> {
     ww_repr = unib32
 )]
 pub enum MarkerDef<'i> {
-    /// A unit (`exact_units::unit!`): `Volt`, a user's `Rpm`, a counted `Bucket`.
-    Unit(UnitDef<'i>),
+    /// A unit (`exact_units::unit!`): `Volt`, a user's `Rpm`, a counted `Bucket`, `exact_units`' definition whole:
+    /// its identity (the declaring crate and the marker's name), symbol, dimension, kind of quantity (`resistance`
+    /// for `Ohm`, STD-68), exact scale and provenance (`conventional("NIST SP 811", 2008)` for inHg, STD-72).
+    Unit(exact_units::UnitDef<'i>),
     /// A scale of a `Fixed` (`exact_units::scale!`): `prefix::Milli`, a user's `Lsb70`.
     Scale(ScaleDef<'i>),
     /// `exact_units::units::Per<A, B>`: `A / B`.
@@ -786,13 +788,6 @@ pub enum MarkerDef<'i> {
     /// `exact_units::Saturating`: a `Fixed` without bounds whose arithmetic stops at the ends of its storage (Q
     /// formats).
     Saturating,
-    /// A unit by convention (STD-72, `exact_units`' `customary` units like inHg): a [Self::Unit] with the source of
-    /// its value. A reader from before it gets `Unknown` and treats the struct as a marker it can't convert.
-    ConventionalUnit(ConventionalUnitDef<'i>),
-    /// A unit of a kind of quantity of its own (STD-68, `kind "resistance"` on a `unit!` line: `Ohm`): a
-    /// [Self::Unit] that doesn't convert to or from another unit of its dimension (`Per<Volt, Ampere>`). A reader
-    /// from before it gets `Unknown` and treats the struct as a marker it can't convert.
-    KindUnit(KindUnitDef<'i>),
     /// `exact_units::prefix::Product<A, B>`: `A · B`, the scale of a product of two `Fixed` values (STD-83):
     /// `Product<Milli, Milli>` is 10⁻⁶. A reader from before it gets `Unknown` and treats the struct as a marker it
     /// can't convert.
@@ -808,49 +803,6 @@ pub enum MarkerDef<'i> {
     MaybeNan,
 }
 
-/// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    derive(Clone, Debug, PartialEq)
-)]
-pub struct UnitDef<'i> {
-    pub symbol: &'i str,
-    pub dim: exact_units::Dim<'i>,
-    /// The exact factor to the coherent SI unit of [Self::dim]: 1 for `Volt`, `π/30` for `Rpm` (rad/s), 8 for a
-    /// byte (bit).
-    pub magnitude: exact_units::Magnitude,
-}
-
-/// A unit fixed by a physical property (`conventional("NIST SP 811", 2008)` on a `unit!` line: inHg at 32 °F, a Btu
-/// at 60 °F): [Self::unit]'s magnitude is the value a source prints, not a definition, and a newer edition may
-/// differ (STD-72). A variant of its own, so a defined unit's bytes don't pay for it.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    derive(Clone, Debug, PartialEq)
-)]
-pub struct ConventionalUnitDef<'i> {
-    pub unit: UnitDef<'i>,
-    /// The document the value is from: `"NIST SP 811"`.
-    pub source: &'i str,
-    /// Its edition.
-    pub year: u16,
-}
-
-/// A unit of a kind of its own, see [MarkerDef::KindUnit]. A variant of its own, so a plain unit's bytes don't pay
-/// for it.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    derive(Clone, Debug, PartialEq)
-)]
-pub struct KindUnitDef<'i> {
-    pub unit: UnitDef<'i>,
-    /// The kind, by its ISO 80000 name: `"resistance"`, `"conductance"` ([exact_units::Kind::Named]).
-    pub kind: &'i str,
-}
-
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -858,6 +810,8 @@ pub struct KindUnitDef<'i> {
     derive(Clone, Debug, PartialEq)
 )]
 pub struct ScaleDef<'i> {
+    /// The crate and marker that declare it: `exact_units::FixedScale::ID`.
+    pub id: exact_units::MarkerId<'i>,
     /// Written before the unit's symbol (`"m"` in `ms`), empty for a factor without a prefix.
     pub symbol: &'i str,
     pub magnitude: exact_units::Magnitude,
@@ -871,14 +825,16 @@ pub struct ScaleDef<'i> {
     derive(Clone, Debug, PartialEq)
 )]
 pub struct OriginDef<'i> {
-    /// The unit of the points' numbers and of the offsets: Kelvin for every temperature scale.
-    pub unit: UnitDef<'i>,
+    /// The crate and marker that declare it: `exact_units::Origin::ID`.
+    pub id: exact_units::MarkerId<'i>,
+    /// The unit of the points' numbers and of the offsets, a named unit: Kelvin for every temperature scale.
+    pub unit: exact_units::UnitDef<'i>,
     /// Written after a point's number: `"°C"`.
     pub symbol: &'i str,
-    /// What [Self::offset] is measured from: `None` for the unit's own zero (0 K, vacuum), else the marker of a
-    /// zero only known at run time (`exact_units::point::AmbientPressure` for gauge pressure). Points of origins with
-    /// different references don't convert into each other.
-    pub reference: Option<MarkerRef<'i>>,
+    /// What [Self::offset] is measured from (`exact_units::Reference::ID`): `exact_units::UnitZero` for the unit's
+    /// own zero (0 K, vacuum), else the marker of a zero only known at run time (`exact_units::AmbientPressure` for
+    /// gauge pressure). Points of origins with different references don't convert into each other.
+    pub reference: exact_units::MarkerId<'i>,
     /// Where the origin lies from the reference's zero, in [Self::unit]: 273.15 for °C.
     pub offset: exact_units::Offset,
     /// The period in [Self::unit] for points that wrap (an angle: 360 for degrees), `None` for points that don't.
@@ -888,18 +844,6 @@ pub struct OriginDef<'i> {
     /// Where the shown number's zero lies, from the reference's zero: [Self::offset], or that of the origin it is
     /// declared above (a register `raw / 256 + 25 °C` is shown in °C, from 273.15 K).
     pub shown: exact_units::Offset,
-}
-
-/// A marker struct named by its crate and its path in it, the identity it has across bundles (D16b):
-/// `exact_units`, `point::AmbientPressure`.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
-    derive(Clone, Debug, PartialEq)
-)]
-pub struct MarkerRef<'i> {
-    pub crate_id: &'i str,
-    pub name: &'i str,
 }
 
 #[derive_shrink_wrap(

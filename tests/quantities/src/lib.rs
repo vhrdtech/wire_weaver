@@ -23,8 +23,7 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
         Ampere, AnyQuantity, Dim, Fixed, FixedScale, Index, IndexFrom1, Magnitude, Micros, Point,
-        Prefix, Quantity, Range, RangeDec, SIExpr, Scale, Second, Seq, Timed, Unbounded, Unit,
-        Volt,
+        Prefix, Quantity, Range, RangeDec, SIExpr, Second, Seq, Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
@@ -73,12 +72,24 @@ mod tests {
 
     /// A pressure sensor input in bar, a unit `ww_si` doesn't have: sent with its dimension and scale.
     fn bar() -> SIExpr<'static> {
-        SIExpr::Named {
+        SIExpr::Def(BAR)
+    }
+
+    const BAR: ww_si::exact_units::UnitDef<'static> = ww_si::exact_units::UnitDef {
+        id: ww_si::exact_units::MarkerId {
+            crate_name: "quantities",
             name: "Bar",
-            symbol: "bar",
-            dim: Dim::new(-2, -1, 1, 0, 0, 0, 0),
-            scale: Scale::Pow10(5),
-        }
+        },
+        names: ww_si::exact_units::UnitNames { symbol: "bar" },
+        dim: Dim::new(-2, -1, 1, 0, 0, 0, 0),
+        quantity: None,
+        scale: Magnitude::pow10(5),
+        provenance: ww_si::Provenance::Defined,
+    };
+
+    /// The definition `unit!` compiled for `U`, which the walker reads from source into the model.
+    fn unit_def<U: Unit>() -> ww_si::exact_units::UnitDefOwned {
+        (*U::EXPR.def().expect("a named unit")).into()
     }
 
     fn sensor() -> AnyQuantity<'static> {
@@ -653,15 +664,7 @@ mod tests {
         let (client, root) = connect(&device).await;
         let speed = read_quantity(&client, &root, "speed").await;
         let typed = values.lock().unwrap().speed;
-        assert_eq!(
-            speed.unit,
-            DynUnit::Named {
-                name: "Rpm".into(),
-                symbol: "rpm".into(),
-                dim: Rpm::DIM.into(),
-                scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
-            }
-        );
+        assert_eq!(speed.unit, DynUnit::Named(unit_def::<Rpm>()));
         assert_eq!(speed.to_string(), "1500 rpm");
         assert_eq!(speed.to_string(), typed.to_string());
         assert_eq!(speed.unit.dim().unwrap().to_string(), "s⁻¹·rad");
@@ -794,20 +797,23 @@ mod tests {
         let [board, heading]: [_; 2] = origins.try_into().unwrap();
         let compiled = <BoardTemp as ww_si::Origin>::DEF;
         assert_eq!(board.symbol, "°C");
-        assert_eq!(board.unit.symbol, "K");
+        assert_eq!(board.id.as_id(), compiled.id);
+        assert_eq!(board.unit, unit_def::<units::Kelvin>());
         assert_eq!(board.offset, compiled.offset);
         assert_eq!(board.offset, ww_si::Offset::decimal(29815, -2));
         // shown in °C, from 273.15 K
         assert_eq!(board.shown, ww_si::Offset::decimal(27315, -2));
-        assert_eq!((board.modulus, board.reference), (None, None));
+        assert_eq!(board.modulus, None);
+        assert_eq!(board.reference.as_id(), compiled.reference);
         let compiled = <Angle<Degree> as ww_si::Origin>::DEF;
         assert_eq!(heading.modulus, compiled.modulus);
         assert_eq!(heading.modulus, Some(Magnitude::ratio(360, 1)));
         assert_eq!(
-            (heading.symbol.as_str(), heading.unit.symbol.as_str()),
+            (heading.symbol.as_str(), heading.unit.names.symbol.as_str()),
             ("°", "°")
         );
-        assert_eq!(heading.unit.magnitude, Magnitude::new(1, 180, 0, 0, 1));
+        assert_eq!(heading.unit.scale, Magnitude::new(1, 180, 0, 0, 1));
+        assert_eq!(heading.id.as_id(), compiled.id);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -952,15 +958,7 @@ mod tests {
             "the unit is in the value, not the type"
         );
         let p = read_quantity(&client, &root, "sensor").await;
-        assert_eq!(
-            p.unit,
-            DynUnit::Named {
-                name: "Bar".into(),
-                symbol: "bar".into(),
-                dim: Dim::new(-2, -1, 1, 0, 0, 0, 0).into(),
-                scale: Scale::Pow10(5),
-            }
-        );
+        assert_eq!(p.unit, DynUnit::Named(BAR.into()));
         // the device's own unit, shown and converted as the device's AnyQuantity shows it
         assert_eq!(p.to_string(), "1013 mbar");
         assert_eq!(p.to_string(), sensor().to_string());

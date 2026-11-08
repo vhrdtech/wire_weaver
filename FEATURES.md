@@ -2002,6 +2002,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the USB string descriptor (`ApiId`), which doesn't carry one (a wire-format change of its own, not attempted
   here); `docs/cli_reference.md` and `docs/std_library/device_contract.md` say so (tests `tests/device_report`
   `info_of_any_device`, `ww_link` `hello::tests::generations_display`).
+- ✅ **EVO-35 Unit definitions with an identity in the model** · `v0.5` — the wire change of STD-106 to the API model:
+  `MarkerDef` folds `Unit`, `ConventionalUnit` and `KindUnit` into `Unit(exact_units::UnitDef)`, `ScaleDef` and
+  `OriginDef` gain a `MarkerId`, `OriginDef::reference` is one (`UnitZero` for the unit's zero) and `MarkerRef` is
+  gone; the variants after `Saturating` move down two places. Bundle bytes, snapshot hashes and the conformance
+  cases `model.marker_def.*`, `model.item_struct_extra.marker` and `stdlib.si.si_expr.*` change (marked
+  `wire_change`); no device or host is listed as using the format.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
@@ -2326,6 +2332,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   293/100. Flash of the bench 34.1 → 18.1 KB (`fw-z`), 47.8 → 27.6 KB (`fw-3`). Donguru `.text` 305,256 → 290,664
   B, rePort 402,548 → 392,812 B (measured at exact_units 15cd9f5). TEST-33 is a gate now. `docs/std_library/ww_si.md#conversions-and-comparisons`.
 - ✅ **STD-105 NaN-free floats in the model and the clients** · `v0.5` — the wire_weaver side of exact_units NUM-19: a float `Fixed` is never NaN unless its bound is `MaybeNan`. The walker reads `MaybeNan` (`ww_self::MarkerDef::MaybeNan`, re-exported as `ww_si::MaybeNan`); `ww_self::units::NumBounds` refuses NaN for every other bound on decode and encode, so the dynamic client, Python and `ww` refuse it before sending and on receiving; the evolution checker sees `MaybeNan` → NaN-free and a plain float → NaN-free `Fixed` as a bound narrowed. `ww_self::expr` writes and reads NaN and ±∞ as `f32::NAN`, `f32::INFINITY`, `-f64::INFINITY`. Conformance cases `stdlib.si.fixed.f32*`, `stdlib.si.fixed.maybe_nan.*`, `model.marker_def.maybe_nan`; tests in `tests/quantities` (`sense`, `raw_sense`) and `wire_weaver_py/tests/test_offline.py`. [Docs](docs/std_library/exact_units.md#in-ww-python-and-dynamic-clients).
+- ✅ **STD-106 Unit identity in the model** · `v0.5` — the wire_weaver side of exact_units UNIT-7 (piece 3, the walker and the schema): a unit's definition in the model is `exact_units::UnitDef`, the record `unit!` compiles, with its `MarkerId` (the declaring crate as `CARGO_CRATE_NAME` gives it, and the marker's ident), names, dimension, kind of quantity, exact scale and provenance; scales and origins carry ids, an origin's reference is a `MarkerId` and its unit a named unit's `UnitDef`. The walker builds the ids, refuses an `Affine` scale (°C is `origins::Celsius`), two markers of one crate named alike in two modules, and a model with two different definitions under one identity (`ww_self::units::check_marker_ids`); `exact_units_definitions_match_the_compiled_consts` compares every walked definition with the compiled one field by field. Wire change EVO-35. The run-time side (`AnyQuantity` compacted against the API's table, `DynUnit` on `Ref`) follows with STD-74. [Docs](docs/std_library/units_in_the_model.md#identity).
 - 📋 **STD-104 `Finite` bound in the model** — exact_units NUM-20's `Finite` (refuses ±∞ and NaN) read by the walker and checked by `NumBounds` like `MaybeNan`, once NUM-20 is in exact_units. `TODO(STD-104)` in `ww_self/src/units.rs` and `wire_weaver_core/src/transform/markers.rs`.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,

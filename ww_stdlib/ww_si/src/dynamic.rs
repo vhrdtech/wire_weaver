@@ -20,7 +20,7 @@ mod owned {
 
         /// Like [AnyQuantity::to_si_f64].
         pub fn to_si_f64(&self) -> Option<f64> {
-            Some(self.to_f64() * self.unit.factor()? + self.unit.offset())
+            Some(self.to_f64() * self.unit.factor()?)
         }
 
         /// Like [AnyQuantity::to_quantity].
@@ -102,7 +102,7 @@ impl<'i> AnyQuantity<'i> {
     /// The value in coherent SI through the unit's scale, like [Quantity::to_si_f64]; `None` when the unit's factor
     /// isn't known ([SIExpr::factor]).
     pub fn to_si_f64(&self) -> Option<f64> {
-        Some(self.to_f64() * self.unit.factor()? + self.unit.offset())
+        Some(self.to_f64() * self.unit.factor()?)
     }
 
     /// The typed quantity, if the unit is `U`'s (the same tree, [SIExpr] `==` [UnitExpr](crate::UnitExpr)).
@@ -144,7 +144,9 @@ impl fmt::Debug for AnyQuantity<'_> {
 impl defmt::Format for AnyQuantity<'_> {
     fn format(&self, f: defmt::Formatter<'_>) {
         crate::quantity::defmt_number(&self.value, f);
-        if let SIExpr::Named { symbol: "", .. } = self.unit {
+        if let SIExpr::Def(def) = &self.unit
+            && def.names.symbol.is_empty()
+        {
             Prefix::defmt_ratio(self.prefix, f);
         } else {
             defmt::write!(f, " {=str}{}", self.prefix.symbol(), self.unit);

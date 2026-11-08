@@ -115,7 +115,7 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 | `electrical`   | `Ampere`, `Volt`, `Ohm`, `Farad`, `Siemens`, `Henry`, `Coulomb`, `Watt`, `Weber`, `Tesla`         |
 | `mechanical`   | `Meter`, `Gram`, `Newton`, `Pascal`, `Joule`, `Torque`, `Litre`, `VolumetricFlow`, `Speed` .. `Yank` |
 | `angle`        | `Radian`, `Degree`, `Steradian`, `AngularVelocity`, `AngularAcceleration` (rad is a dimension)    |
-| `thermal`      | `Kelvin`, `DegreeCelsius`                                                                         |
+| `thermal`      | `Kelvin` (°C is a point, `origins::Celsius`)                                                      |
 | `chemical`     | `Mole`, `Katal`                                                                                   |
 | `photometric`  | `Candela`, `Lumen`, `Lux`                                                                         |
 | `radiation`    | `Becquerel`, `Gray`, `Sievert`, `ElectronVolt`                                                    |

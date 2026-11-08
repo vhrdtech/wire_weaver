@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e1dd7a6ebc91f1a948ef1b012b099bbc36314f71c0c6226b1d4307c28c72f1e0
+// shrink_wrap sha256: 1a93c7e169d85a77c90aa6966c8d717a48f8b781288f9e77d6c12f43f447915a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -150,14 +150,14 @@
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "SIExpr", signature: [
-        166,
-        68,
-        30,
-        151,
-        144,
-        84,
-        182,
-        23,
+        246,
+        210,
+        186,
+        227,
+        183,
+        233,
+        6,
+        118,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`value = raw * scale + offset`, in the channel\'s unit and prefix.",

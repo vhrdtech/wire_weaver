@@ -14,7 +14,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
 
-use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance};
+use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance, UnitDefOwned};
 use shrink_wrap::ElementSize;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::signature;
@@ -23,8 +23,7 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
     GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned, Length, MarkerDefOwned,
-    OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, UnitDefOwned, ValueOwned,
-    VariantOwned,
+    OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
 };
 use ww_version::{FullVersionOwned, WireVersion};
 
@@ -972,8 +971,8 @@ impl<'a> TypeCheck<'a> {
             magnitude,
             kind: UnitKind::Plain,
         };
-        let kind_of = |def: &MarkerDefOwned| match def.kind() {
-            Some(k) => UnitKind::Named(k.to_string()),
+        let kind_of = |def: &UnitDefOwned| match &def.quantity {
+            Some(k) => UnitKind::Named(k.clone()),
             None => UnitKind::Plain,
         };
         let one = || exact_units::DimOwned::from(exact_units::Dim::ONE);
@@ -981,17 +980,17 @@ impl<'a> TypeCheck<'a> {
         if let (Some(w_unit), Some(r_unit)) = (w_def.unit_def(), r_def.unit_def()) {
             let changed = what("unit");
             let (mut w_step, mut r_step) = (
-                step(&w_unit.dim, w_unit.magnitude),
-                step(&r_unit.dim, r_unit.magnitude),
+                step(&w_unit.dim, w_unit.scale),
+                step(&r_unit.dim, r_unit.scale),
             );
-            (w_step.kind, r_step.kind) = (kind_of(w_def), kind_of(r_def));
+            (w_step.kind, r_step.kind) = (kind_of(w_unit), kind_of(r_unit));
             // a kind of its own given to (or taken from) the unit under its name: the same values (STD-68)
             if w_step.same_but_kind_added(&r_step) {
                 self.note_kind_added(&w_step.kind, &r_step.kind);
                 r_step.kind = w_step.kind.clone();
             }
-            let (w_prov, r_prov) = (w_def.provenance(), r_def.provenance());
-            return match (&w_prov, &r_prov) {
+            let (w_prov, r_prov) = (&w_unit.provenance, &r_unit.provenance);
+            return match (w_prov, r_prov) {
                 (Provenance::Defined, Provenance::Defined) => {
                     self.check_steps(&changed, &w_step, &r_step)
                 }
@@ -1000,20 +999,20 @@ impl<'a> TypeCheck<'a> {
                     if !w_step.dim.as_dim().same(r_step.dim.as_dim()) {
                         return self.check_steps(&changed, &w_step, &r_step);
                     }
-                    if w_unit.magnitude != r_unit.magnitude || w_prov != r_prov {
+                    if w_unit.scale != r_unit.scale || w_prov != r_prov {
                         let shown = |u: &UnitDefOwned, p: &Provenance| {
                             format!(
                                 "1 {} = {} in SI, {}",
-                                u.symbol,
-                                round6(u.magnitude.to_f64()),
+                                u.names.symbol,
+                                round6(u.scale.to_f64()),
                                 provenance(p)
                             )
                         };
                         self.note_compatible(Unwrapped {
                             path: self.path.clone(),
                             writer_name: self.writer_name,
-                            written: shown(w_unit, &w_prov),
-                            read: shown(r_unit, &r_prov),
+                            written: shown(w_unit, w_prov),
+                            read: shown(r_unit, r_prov),
                             same: "conventional value updated",
                         });
                     }
@@ -1248,22 +1247,21 @@ impl<'a> TypeCheck<'a> {
                 r.unit.dim.as_dim()
             ))
         } else if w.reference != r.reference {
-            let name = |o: &OriginDefOwned| match &o.reference {
-                Some(m) => format!("{}::{}", m.crate_id, m.name),
-                None => "the unit's zero".into(),
+            let name = |o: &OriginDefOwned| match o.reference == units::unit_zero() {
+                true => "the unit's zero".into(),
+                false => o.reference.as_id().to_string(),
             };
             Some(format!("another reference ({} vs {})", name(w), name(r)))
         } else if w.offset.is_negative() != r.offset.is_negative()
-            || si(w.offset.magnitude(), &w.unit.magnitude)
-                != si(r.offset.magnitude(), &r.unit.magnitude)
+            || si(w.offset.magnitude(), &w.unit.scale) != si(r.offset.magnitude(), &r.unit.scale)
         {
             Some(format!(
                 "another zero ({} {} vs {} {})",
-                w.offset, w.unit.symbol, r.offset, r.unit.symbol
+                w.offset, w.unit.names.symbol, r.offset, r.unit.names.symbol
             ))
-        } else if si(w.modulus, &w.unit.magnitude) != si(r.modulus, &r.unit.magnitude) {
+        } else if si(w.modulus, &w.unit.scale) != si(r.modulus, &r.unit.scale) {
             let show = |o: &OriginDefOwned| match o.modulus {
-                Some(m) => format!("wraps every 1{m} {}", o.unit.symbol),
+                Some(m) => format!("wraps every 1{m} {}", o.unit.names.symbol),
                 None => "doesn't wrap".into(),
             };
             Some(format!("another period ({} vs {})", show(w), show(r)))
@@ -2240,8 +2238,10 @@ fn conventional_units<'a>(
         let Ok((TypeOwned::Struct(s), _)) = bundle.get_ty(type_idx.0) else {
             return;
         };
-        if let Some(MarkerDefOwned::ConventionalUnit(c)) = s.marker() {
-            out.push((s.qualified_name(), &c.unit));
+        if let Some(MarkerDefOwned::Unit(u)) = s.marker()
+            && matches!(u.provenance, Provenance::Conventional { .. })
+        {
+            out.push((s.qualified_name(), u));
         }
         let args = match (ty, &s.instance_of) {
             (TypeOwned::Instance { args, .. }, _) => args,

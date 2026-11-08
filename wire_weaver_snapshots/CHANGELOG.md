@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Snapshots saved again with unit definitions as `exact_units::UnitDef` and ids on scales and origins (STD-106, EVO-35): `exact_units`' snapshot holds the new `MarkerDef`, and `ww_si` and `ww_adc` the new signature of `SIExpr`.
 * Snapshots of the current versions saved again with `ww_si` at wire version `w2.0` (EVO-27). The `ww_board_info` 0.1.0 and 0.2.0 snapshots record `RevisionSource`'s catch-all, `Unknown(u32)`, which their source had by default (SW-47, 14 Oct 2026, before both were last saved from source): saved before EVO-10, they read as without it, so the variant `Provisional` added in 0.2.0 looked like a wire break. Re-hashed.
 * Snapshots saved again for `ApiBundle::wire` and `#[since]` as a wire revision (EVO-24); the older `ww_board_info` snapshots were rewritten for the new marker form and re-hashed.
 - `exact_units`' snapshot taken at db126d6: `Unbounded`'s definition changed (NUM-19), so the signatures of every type naming it changed, and `MaybeNan` carries `MarkerDef::MaybeNan` (STD-105).

@@ -5,15 +5,14 @@
 use shrink_wrap::prelude::*;
 use ww_si::units::{self, AngularVelocity, Per, Torque};
 use ww_si::ww_numeric::NumericValue;
-use ww_si::{
-    AnyQuantity, AnyQuantityOwned, DegreeCelsius, Dim, Magnitude, Prefix, Quantity, Ratio, SIExpr,
-    Scale, Volt,
-};
+use ww_si::{AnyQuantity, AnyQuantityOwned, Dim, Magnitude, Prefix, Quantity, Ratio, SIExpr, Volt};
 
 type Viscous = Per<Torque, AngularVelocity>;
 
-const VOLT_BYTES: [u8; 15] = [
-    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x14,
+// the unit's definition: crate `exact_units`, marker `Volt`, symbol `V`, dimension, kind, scale one, provenance
+const VOLT_BYTES: [u8; 31] = [
+    0x00, b'e', b'x', b'a', b'c', b't', b'_', b'u', b'n', b'i', b't', b's', b'V', b'o', b'l', b't',
+    b'V', 0x01, 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x24, 0x39, 0x5b,
 ];
 
 #[test]
@@ -24,9 +23,9 @@ fn any_quantity() {
     // the typed value's bytes, then the unit
     let mut expected = vec![0x12, 0xe4, 0x0c];
     expected.extend_from_slice(&VOLT_BYTES);
-    expected.push(0x79);
+    expected.push(0x7b);
     assert_eq!(bytes, expected);
-    assert_eq!(bytes.len(), 19);
+    assert_eq!(bytes.len(), 35);
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
     assert_eq!(back, v);
     assert_eq!(back.to_string(), Volt::milli(3300u16).to_string());
@@ -61,17 +60,19 @@ fn any_quantity() {
         b.to_string(),
         Quantity::<Viscous>::new(Prefix::Milli, 12u8).to_string()
     );
-    let t = AnyQuantity::from(DegreeCelsius::base(20u8));
-    assert_eq!(t.to_string(), "20 °C");
-    assert_eq!(t.to_si_f64(), Some(293.15));
 
     // a device's own unit, not in ww_si
-    let rpm = SIExpr::Named {
-        name: "Rpm",
-        symbol: "rpm",
+    let rpm = SIExpr::Def(ww_si::exact_units::UnitDef {
+        id: ww_si::exact_units::MarkerId {
+            crate_name: "my_api",
+            name: "Rpm",
+        },
+        names: ww_si::exact_units::UnitNames { symbol: "rpm" },
         dim: Dim::new(-1, 0, 0, 0, 0, 0, 0),
-        scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
-    };
+        quantity: None,
+        scale: Magnitude::new(1, 30, 0, 0, 1),
+        provenance: ww_si::Provenance::Defined,
+    });
     let q = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
     assert_eq!(q.to_string(), "3 krpm");
     assert_eq!(q.unit.known(), None);

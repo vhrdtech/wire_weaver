@@ -910,6 +910,10 @@ pub fn table() -> Vec<Typed> {
         case(
             "model.marker_def.scale",
             ww_self::MarkerDefOwned::Scale(ww_self::ScaleDefOwned {
+                id: ww_si::exact_units::MarkerIdOwned {
+                    crate_name: "my_api".into(),
+                    name: "Mdps70".into(),
+                },
                 symbol: String::new(),
                 magnitude: ww_si::Magnitude::ratio(7, 100),
             }),
@@ -1027,50 +1031,62 @@ fn si_expr(e: &ww_si::UnitExpr) -> ww_si::SIExprOwned {
     e.into()
 }
 
-/// A user's `unit!(Rpm, "rpm", ..)`: rad/s times π/30.
+/// The identity of a marker of crate `crate_name`.
+fn marker_id(crate_name: &str, name: &str) -> ww_si::exact_units::MarkerIdOwned {
+    ww_si::exact_units::MarkerIdOwned {
+        crate_name: crate_name.into(),
+        name: name.into(),
+    }
+}
+
+/// `exact_units`' definition of the unit `U`, as the walker puts it into the model.
+fn unit_def<U: ww_si::Unit>() -> ww_si::exact_units::UnitDefOwned {
+    (*U::EXPR.def().expect("a named unit")).into()
+}
+
+/// A user's `unit!(Rpm, "rpm", ..)` of crate `my_api`: rad/s times π/30.
 fn rpm() -> ww_self::MarkerDefOwned {
-    ww_self::MarkerDefOwned::Unit(ww_self::UnitDefOwned {
-        symbol: "rpm".into(),
+    ww_self::MarkerDefOwned::Unit(ww_si::exact_units::UnitDefOwned {
+        id: marker_id("my_api", "Rpm"),
+        names: ww_si::exact_units::UnitNamesOwned {
+            symbol: "rpm".into(),
+        },
         dim: dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)),
-        magnitude: ww_si::Magnitude::new(1, 30, 0, 0, 1),
+        quantity: None,
+        scale: ww_si::Magnitude::new(1, 30, 0, 0, 1),
+        provenance: ww_si::exact_units::ProvenanceOwned::Defined,
     })
 }
 
 /// `unit!(InchOfMercury32f, .., conventional("NIST SP 811", 2008))`: a scale that is a value a source prints.
 fn inch_of_mercury_32f() -> ww_self::MarkerDefOwned {
-    ww_self::MarkerDefOwned::ConventionalUnit(ww_self::ConventionalUnitDefOwned {
-        unit: ww_self::UnitDefOwned {
+    ww_self::MarkerDefOwned::Unit(ww_si::exact_units::UnitDefOwned {
+        id: marker_id("exact_units", "InchOfMercury32f"),
+        names: ww_si::exact_units::UnitNamesOwned {
             symbol: "inHg (32 °F)".into(),
-            dim: dim(ww_si::Dim::new(-2, -1, 1, 0, 0, 0, 0)),
-            magnitude: ww_si::Magnitude::ratio(338638, 100),
         },
-        source: "NIST SP 811".into(),
-        year: 2008,
+        dim: dim(ww_si::Dim::new(-2, -1, 1, 0, 0, 0, 0)),
+        quantity: None,
+        scale: ww_si::Magnitude::ratio(338638, 100),
+        provenance: ww_si::exact_units::ProvenanceOwned::Conventional {
+            source: "NIST SP 811".into(),
+            year: 2008,
+        },
     })
 }
 
 /// `unit!(Ohm, "Ω", [..] kind "resistance")`: a unit of a kind of its own (STD-68), no `Per<Volt, Ampere>`.
 fn ohm() -> ww_self::MarkerDefOwned {
-    ww_self::MarkerDefOwned::KindUnit(ww_self::KindUnitDefOwned {
-        unit: ww_self::UnitDefOwned {
-            symbol: "Ω".into(),
-            dim: dim(ww_si::Dim::new(-3, 2, 1, -2, 0, 0, 0)),
-            magnitude: ww_si::Magnitude::ONE,
-        },
-        kind: "resistance".into(),
-    })
+    ww_self::MarkerDefOwned::Unit(unit_def::<ww_si::units::Ohm>())
 }
 
-/// °C as `origin!` declares it, from 0 K: no reference, no modulus.
+/// °C as `origin!` declares it, from 0 K: the unit's zero, no modulus.
 fn celsius() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Origin(ww_self::OriginDefOwned {
-        unit: ww_self::UnitDefOwned {
-            symbol: "K".into(),
-            dim: dim(ww_si::Dim::new(0, 0, 0, 0, 1, 0, 0)),
-            magnitude: ww_si::Magnitude::ONE,
-        },
+        id: marker_id("exact_units", "Celsius"),
+        unit: unit_def::<ww_si::units::Kelvin>(),
         symbol: "°C".into(),
-        reference: None,
+        reference: marker_id("exact_units", "UnitZero"),
         offset: ww_si::Offset::decimal(27315, -2),
         modulus: None,
         step: ww_si::Magnitude::ONE,

@@ -104,9 +104,8 @@ fn repr(value: &NumericValue) -> Option<Repr> {
 mod any {
     use super::*;
     use crate::{AnyQuantityOwned, SIExprOwned};
-    use exact_units::{Dim, Scale};
+    use exact_units::{Dim, MarkerId, Provenance, UnitDef, UnitNames};
     use std::boxed::Box;
-    use std::string::ToString;
 
     impl AnyQuantityOwned {
         /// Any [Fixed] exactly, whatever its scale: as [Quantity::try_from_fixed] where a run-time [Prefix] stands
@@ -118,12 +117,21 @@ mod any {
             if let Ok(q) = Quantity::try_from_fixed(f) {
                 return q.into();
             }
-            let scale = SIExprOwned::Named {
-                name: P::NAME.to_string(),
-                symbol: P::SYMBOL.to_string(),
-                dim: Dim::ONE.into(),
-                scale: Scale::Exact(P::SCALE),
-            };
+            // TODO(STD-74): a scale is no unit; a generic scale without an id (`Pow2<-15>`) is named by its NAME alone
+            let scale = SIExprOwned::Def(
+                UnitDef {
+                    id: P::ID.unwrap_or(MarkerId {
+                        crate_name: "",
+                        name: P::NAME,
+                    }),
+                    names: UnitNames { symbol: P::SYMBOL },
+                    dim: Dim::ONE,
+                    quantity: None,
+                    scale: P::SCALE,
+                    provenance: Provenance::Defined,
+                }
+                .into(),
+            );
             AnyQuantityOwned {
                 prefix: Prefix::Unit,
                 value: f.get().into(),

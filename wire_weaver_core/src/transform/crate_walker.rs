@@ -249,7 +249,7 @@ fn load_inner(
         trait_name,
         items,
     };
-    Ok(ApiBundleOwned {
+    let bundle = ApiBundleOwned {
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
         root,
@@ -259,7 +259,9 @@ fn load_inner(
         root_omitted: None,
         wire,
         ext_wire: scratch.root_bundle.ext_wire(wire),
-    })
+    };
+    ww_self::units::check_marker_ids(&bundle)?;
+    Ok(bundle)
 }
 
 /// Wire version of a crate with an API root (EVO-31): `[package.metadata.wire_weaver] wire = ".."` in its
@@ -305,6 +307,10 @@ pub(crate) struct Scratch {
     /// Reuse already converted traits instead of adding them again, when referenced more than once.
     /// Off for codegen to keep API hashes of existing APIs unchanged.
     pub(crate) dedup_traits: bool,
+    /// Unit, scale and origin markers converted so far, by crate (as Rust names it) and ident, with the module that
+    /// declares each: a marker's identity is its crate and ident (`exact_units::MarkerId`, UNIT-7), so two markers
+    /// of one crate with the same ident in two modules are refused.
+    pub(crate) marker_modules: HashMap<(String, String), Vec<String>>,
     /// User-defined types being converted, to stop on self-referential types instead of recursing forever.
     pub(crate) types_in_progress: Vec<TypeInProgress>,
     /// Self-referential types already converted: their definitions refer to their own index, so they are found by
@@ -1653,6 +1659,75 @@ mod tests {
         );
         let debug = format!("{:?}", load_api(&dir.join("api")).unwrap());
         assert!(debug.contains("size: Unsized"), "{debug}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// UNIT-7: a marker is known by its crate and ident, so two `Rpm` markers in two modules of one crate are
+    /// refused, naming both.
+    #[test]
+    fn two_markers_with_one_ident_are_refused() {
+        let dir = scratch_dir("duplicate_marker");
+        write_crate(
+            &dir,
+            "api",
+            "[workspace]\n",
+            "pub mod a {\n    exact_units::unit! { pub struct Rpm = \"rpm\", [rad 1, s -1], Exact(1 / 30, pi 1); }\n}\n\
+             pub mod b {\n    exact_units::unit! { pub struct Rpm = \"r/min\", [rad 1, s -1], Exact(1 / 30, pi 1); }\n}\n\
+             #[ww_api_root]\npub trait Api {\n    fn a() -> a::Rpm;\n    fn b() -> b::Rpm;\n}\n",
+        );
+        let err = format!("{:#}", load_api(&dir.join("api")).unwrap_err());
+        assert!(
+            err.contains("api::a::Rpm and api::b::Rpm") && err.contains("named Rpm"),
+            "{err}"
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// UNIT-7: a unit marker's definition carries its identity, the crate as Rust names it and the ident; a model
+    /// with two different definitions under one identity is refused.
+    #[test]
+    fn a_marker_id_has_one_definition() {
+        let dir = scratch_dir("marker_id");
+        write_crate(
+            &dir,
+            "my-api",
+            "[workspace]\n",
+            "pub mod speed {\n    exact_units::unit! { pub struct Rpm = \"rpm\", [rad 1, s -1], Exact(1 / 30, pi 1); }\n}\n\
+             #[ww_api_root]\npub trait Api {\n    fn rpm() -> speed::Rpm;\n}\n",
+        );
+        let mut bundle = load_api(&dir.join("my-api")).unwrap();
+        let rpm = bundle
+            .types
+            .iter()
+            .find_map(|t| match t {
+                TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } if s.ident == "Rpm" => Some(s.clone()),
+                _ => None,
+            })
+            .unwrap();
+        let Some(ww_self::MarkerDefOwned::Unit(def)) = rpm.marker() else {
+            panic!("{rpm:?}")
+        };
+        assert_eq!(def.id.as_id().to_string(), "my_api::Rpm");
+        ww_self::units::check_marker_ids(&bundle).unwrap();
+        // the same identity, another symbol: another crate version's `Rpm`
+        let mut other = rpm.clone();
+        let Some(ww_self::MarkerDefOwned::Unit(def)) =
+            other.extra.as_mut().and_then(|e| e.marker.as_mut())
+        else {
+            panic!()
+        };
+        def.names.symbol = "r/min".into();
+        bundle.types.push(TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(other),
+            crate_idx: rpm.crate_idx,
+        });
+        let err = ww_self::units::check_marker_ids(&bundle)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("my_api::Rpm has two definitions"), "{err}");
         fs::remove_dir_all(&dir).unwrap();
     }
 

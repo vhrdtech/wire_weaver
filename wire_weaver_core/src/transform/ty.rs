@@ -907,6 +907,13 @@ fn convert_item_struct(
         }
         None => ElementSize::Unsized,
     };
+    let marker = marker_def(item_struct, current_crate.crate_name(), &mut |fields| {
+        origin_def(fields, current_crate, scratch)
+    })
+    .context(current_crate.err_context())?;
+    if marker.is_some() {
+        unique_marker(current_crate, scratch, &item_struct.ident.to_string())?;
+    }
     let ty = TypeOwned::Struct(ItemStructOwned {
         instance_of: None,
         size,
@@ -917,15 +924,35 @@ fn convert_item_struct(
         fields,
         sparse: args.sparse,
         path,
-        extra: ItemStructOwned::extra_of(
-            args.transparent,
-            marker_def(item_struct, current_crate.crate_name(), &mut |fields| {
-                origin_def(fields, current_crate, scratch)
-            })
-            .context(current_crate.err_context())?,
-        ),
+        extra: ItemStructOwned::extra_of(args.transparent, marker),
     });
     Ok(ty)
+}
+
+/// Refuses a second marker named `ident` in another module of the crate: a marker is identified by its crate and
+/// ident (`exact_units::MarkerId`, UNIT-7), so a client could not tell the two apart.
+fn unique_marker(current_crate: &CrateContext, scratch: &mut Scratch, ident: &str) -> Result<()> {
+    let key = (
+        current_crate.crate_name().replace('-', "_"),
+        ident.to_string(),
+    );
+    let module = current_crate.module_names();
+    match scratch.marker_modules.get(&key) {
+        Some(first) if *first != module => Err(anyhow!(
+            "markers {0}::{1} and {0}::{2}: two unit, scale or origin markers of crate {0} named {3}; a marker is \
+             known by its crate and name, rename one",
+            key.0,
+            first.iter().map(|m| format!("{m}::")).collect::<String>() + ident,
+            module.iter().map(|m| format!("{m}::")).collect::<String>() + ident,
+            ident,
+        ))
+        .context(current_crate.err_context()),
+        Some(_) => Ok(()),
+        None => {
+            scratch.marker_modules.insert(key, module);
+            Ok(())
+        }
+    }
 }
 
 /// Leaves only the one field of a `transparent` struct (DER-18) in `fields`: `PhantomData` fields are already left

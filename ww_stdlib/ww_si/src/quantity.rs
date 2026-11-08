@@ -175,10 +175,10 @@ impl<U: Unit, B: QuantityBounds> Quantity<U, B> {
         T::of_value(&self.value, self.prefix, prefix, r, o)
     }
 
-    /// The value in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005
+    /// The value in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 5 g is 0.005
     /// (kg). Equal to [to_f64](Self::to_f64) for a coherent unit (V, A, N·m).
     pub fn to_si_f64(&self) -> f64 {
-        self.to_f64() * U::EXPR.factor() + U::EXPR.offset()
+        self.to_f64() * U::EXPR.factor()
     }
 
     /// The same value in units of `prefix` and in the same number type: rounded by `r` where it isn't a whole number
@@ -290,7 +290,8 @@ impl<U: Unit, B: QuantityBounds> defmt::Format for Quantity<U, B> {
     fn format(&self, f: defmt::Formatter<'_>) {
         defmt_number(&self.value, f);
         let unit = U::EXPR;
-        if let UnitExpr::Named { symbol, .. } = unit {
+        if let UnitExpr::Named(def) = unit {
+            let symbol = def.names.symbol;
             if symbol.is_empty() {
                 Prefix::defmt_ratio(self.prefix, f);
             } else {
@@ -325,7 +326,7 @@ struct DefmtName(&'static UnitExpr);
 impl defmt::Format for DefmtName {
     fn format(&self, f: defmt::Formatter<'_>) {
         match self.0 {
-            UnitExpr::Named { symbol, .. } => defmt::write!(f, "{=str}", symbol),
+            UnitExpr::Named(def) => defmt::write!(f, "{=str}", def.names.symbol),
             UnitExpr::Mul(a, b) => defmt::write!(f, "({}·{})", DefmtName(a), DefmtName(b)),
             UnitExpr::Div(a, b) => defmt::write!(f, "({}/{})", DefmtName(a), DefmtName(b)),
             UnitExpr::Pow(a, n) => defmt::write!(f, "({}^{=i8})", DefmtName(a), n),

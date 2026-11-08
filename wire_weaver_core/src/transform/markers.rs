@@ -10,17 +10,15 @@
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude, Offset};
+use exact_units::{
+    CountedOwned, DimOwned, Irrational, Magnitude, MarkerIdOwned, Offset, ProvenanceOwned,
+    UnitDefOwned, UnitNamesOwned,
+};
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
-use syn::{
-    Attribute, Ident, Item, LitFloat, LitInt, LitStr, Token, Visibility, bracketed, parenthesized,
-};
-use ww_self::units::{marker_name_of, origin_of, scale_of, unit_of};
-use ww_self::{
-    ApiBundleOwned, ConventionalUnitDefOwned, KindUnitDefOwned, MarkerDefOwned, MarkerRefOwned,
-    OriginDefOwned, ScaleDefOwned, UnitDefOwned,
-};
+use syn::{Attribute, Ident, Item, LitInt, LitStr, Token, Visibility, bracketed, parenthesized};
+use ww_self::units::{marker_id_of, origin_of, scale_of, unit_of, unit_zero};
+use ww_self::{ApiBundleOwned, MarkerDefOwned, OriginDefOwned, ScaleDefOwned};
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
 pub(crate) const MARKER_ATTR: &str = "ww_marker";
@@ -377,16 +375,17 @@ pub(crate) fn origin_def(
         } => {
             let (unit_ty, bundle) = resolve(unit)?;
             let unit = unit_of(&unit_ty, &bundle).context("the origin's unit")?;
+            let Some(unit) = unit.named().cloned() else {
+                bail!(
+                    "the origin's unit {unit} is not a named unit: declare one of its dimension with                      `exact_units::unit!` and use it"
+                );
+            };
             let reference = match reference {
                 Some(r) if !last_ident_is(r, "UnitZero") => {
                     let (ty, bundle) = resolve(r)?;
-                    let name = marker_name_of(&ty, &bundle).context("the origin's reference")?;
-                    Some(MarkerRefOwned {
-                        crate_id: name.crate_id,
-                        name: name.name,
-                    })
+                    marker_id_of(&ty, &bundle).context("the origin's reference")?
                 }
-                _ => None,
+                _ => unit_zero(),
             };
             let modulus = match modulus {
                 Some(m) if !last_ident_is(m, "Linear") => {
@@ -400,12 +399,12 @@ pub(crate) fn origin_def(
             };
             let offset = offset_value(offset)?;
             Ok(OriginDefOwned {
-                unit: UnitDefOwned {
-                    symbol: unit.to_string(),
-                    dim: unit.dim,
-                    // a unit expression has no provenance of its own yet: origins are over defined units (K, °)
-                    magnitude: unit.magnitude,
+                // set by marker_def, which knows the origin's crate and name
+                id: MarkerIdOwned {
+                    crate_name: String::new(),
+                    name: String::new(),
                 },
+                unit,
                 symbol: symbol.clone(),
                 reference,
                 offset,
@@ -634,6 +633,10 @@ pub(crate) fn marker_def(
 ) -> Result<Option<MarkerDefOwned>> {
     let crate_name = crate_name.replace('-', "_");
     let ident = item_struct.ident.to_string();
+    let id = || MarkerIdOwned {
+        crate_name: crate_name.clone(),
+        name: ident.clone(),
+    };
     if crate_name == EXACT_UNITS
         && let Some((_, def)) = BUILT_IN.iter().find(|(name, _)| *name == ident)
     {
@@ -698,7 +701,7 @@ pub(crate) fn marker_def(
                     ],
                 },
             };
-            let magnitude = match &line.scale {
+            let scale = match &line.scale {
                 UnitScaleLine::Coherent => Magnitude::ONE,
                 UnitScaleLine::Pow10(e) => magnitude(&MagnitudeLine {
                     num: 1,
@@ -713,28 +716,20 @@ pub(crate) fn marker_def(
                 UnitScaleLine::Exact(m) => {
                     magnitude(m).with_context(|| format!("unit marker {ident}"))?
                 }
-                // TODO(STD-74): °C over K goes to origins; the model carries the offset as exact_units::Offset then
-                UnitScaleLine::Affine { .. } => return Ok(None),
             };
-            let unit = UnitDefOwned {
-                symbol: line.symbol,
+            MarkerDefOwned::Unit(UnitDefOwned {
+                id: id(),
+                names: UnitNamesOwned {
+                    symbol: line.symbol,
+                },
                 dim,
-                magnitude,
-            };
-            match (line.provenance, line.kind) {
-                (Some(_), Some(_)) => bail!(
-                    "unit marker {ident}: a unit by convention of a kind of its own isn't in the model yet"
-                ),
-                (Some((source, year)), None) => {
-                    MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned {
-                        unit,
-                        source,
-                        year,
-                    })
-                }
-                (None, Some(kind)) => MarkerDefOwned::KindUnit(KindUnitDefOwned { unit, kind }),
-                (None, None) => MarkerDefOwned::Unit(unit),
-            }
+                quantity: line.kind,
+                scale,
+                provenance: match line.provenance {
+                    Some((source, year)) => ProvenanceOwned::Conventional { source, year },
+                    None => ProvenanceOwned::Defined,
+                },
+            })
         }
         MarkerLineDef::Scale(line) => {
             let m = match &line.factor {
@@ -759,13 +754,15 @@ pub(crate) fn marker_def(
                 ScaleFactorLine::Exact(m) => m.clone(),
             };
             MarkerDefOwned::Scale(ScaleDefOwned {
+                id: id(),
                 symbol: line.symbol,
                 magnitude: magnitude(&m).with_context(|| format!("scale marker {ident}"))?,
             })
         }
-        MarkerLineDef::Origin(fields) => MarkerDefOwned::Origin(
-            origin(&fields).with_context(|| format!("origin marker {ident}"))?,
-        ),
+        MarkerLineDef::Origin(fields) => MarkerDefOwned::Origin(OriginDefOwned {
+            id: id(),
+            ..origin(&fields).with_context(|| format!("origin marker {ident}"))?
+        }),
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
@@ -827,7 +824,6 @@ pub(crate) enum DimLine {
 pub(crate) enum UnitScaleLine {
     Coherent,
     Pow10(i8),
-    Affine { factor: f64, offset: f64 },
     Exact(MagnitudeLine),
 }
 
@@ -927,31 +923,16 @@ impl Parse for UnitLine {
                 "Pow10" => UnitScaleLine::Pow10(in_parens(input, parse_i8)?),
                 "Exact" => UnitScaleLine::Exact(in_parens(input, MagnitudeLine::parse)?),
                 "Affine" => {
-                    let content;
-                    syn::braced!(content in input);
-                    let field = |name: &str| -> syn::Result<f64> {
-                        let ident: Ident = content.parse()?;
-                        if ident != name {
-                            return Err(syn::Error::new(
-                                ident.span(),
-                                format!("expected `{name}`"),
-                            ));
-                        }
-                        content.parse::<Token![:]>()?;
-                        let value = parse_f64(&content)?;
-                        if !content.is_empty() {
-                            content.parse::<Token![,]>()?;
-                        }
-                        Ok(value)
-                    };
-                    let factor = field("factor")?;
-                    let offset = field("offset")?;
-                    UnitScaleLine::Affine { factor, offset }
+                    return Err(syn::Error::new(
+                        kind.span(),
+                        "a unit has no offset: a scale with a zero of its own is an origin of points \
+                         (`exact_units::origin!`, °C is `exact_units::origins::Celsius`)",
+                    ));
                 }
                 _ => {
                     return Err(syn::Error::new(
                         kind.span(),
-                        "a unit's scale is Pow10(e), Exact(num / den, ..) or Affine { factor, offset }",
+                        "a unit's scale is Pow10(e) or Exact(num / den, ..)",
                     ));
                 }
             }
@@ -1084,23 +1065,11 @@ fn parse_i8(input: ParseStream) -> syn::Result<i8> {
     i8::try_from(v).map_err(|_| syn::Error::new(lit.span(), "out of i8"))
 }
 
-fn parse_f64(input: ParseStream) -> syn::Result<f64> {
-    let neg = input.parse::<Option<Token![-]>>()?.is_some();
-    let v: f64 = if input.peek(LitFloat) {
-        input.parse::<LitFloat>()?.base10_parse()?
-    } else {
-        let lit: LitInt = input.parse()?;
-        lit.base10_parse::<f64>()
-            .map_err(|_| syn::Error::new(lit.span(), "a number"))?
-    };
-    Ok(if neg { -v } else { v })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use exact_units::{FixedScale, Origin, Scale, UnitExpr, origins, prefix};
-    use shrink_wrap::{SerializeShrinkWrap, SerializeShrinkWrapOwned};
+    use exact_units::{FixedScale, Origin, origins, prefix};
+    use shrink_wrap::SerializeShrinkWrapOwned;
     use std::collections::BTreeMap;
     use ww_self::{TypeLocationOwned, TypeOwned};
 
@@ -1127,8 +1096,27 @@ mod tests {
         dim.to_ww_bytes_owned().unwrap()
     }
 
-    /// INT-13: the walker's reading of each `unit!` / `scale!` line is the definition rustc compiled from it, so the
-    /// grammar here and the macros can't drift apart.
+    /// The walked definition of a unit against the compiled one, field by field, so a mismatch names its field.
+    fn assert_unit_def(walked: &UnitDefOwned, compiled: &exact_units::UnitDef<'_>, name: &str) {
+        let compiled = UnitDefOwned::from(*compiled);
+        assert_eq!(walked.id, compiled.id, "{name}: id");
+        assert_eq!(walked.names, compiled.names, "{name}: names");
+        assert_eq!(
+            dim_bytes(&walked.dim),
+            dim_bytes(&compiled.dim),
+            "{name}: dim {:?} vs {:?}",
+            walked.dim,
+            compiled.dim
+        );
+        assert_eq!(walked.quantity, compiled.quantity, "{name}: quantity");
+        assert_eq!(walked.scale, compiled.scale, "{name}: scale");
+        assert_eq!(walked.provenance, compiled.provenance, "{name}: provenance");
+        assert_eq!(*walked, compiled, "{name}");
+    }
+
+    /// INT-13, UNIT-7: the walker's reading of each `unit!` / `scale!` / `origin!` line is the definition rustc
+    /// compiled from it (`UnitDef`, `FixedScale::ID` and `SCALE`, `Origin::DEF`), so the grammar here and the macros
+    /// can't drift apart.
     #[test]
     fn exact_units_definitions_match_the_compiled_consts() {
         let mut markers = exact_units_markers();
@@ -1136,101 +1124,58 @@ mod tests {
             .iter()
             .chain(exact_units::units::CUSTOMARY)
         {
-            let UnitExpr::Named {
-                name,
-                symbol,
-                dim,
-                scale,
-                provenance,
-            } = expr
-            else {
+            let Some(compiled) = expr.def() else {
                 panic!("units::ALL holds named units")
             };
-            let magnitude = match scale {
-                Scale::Coherent => Magnitude::ONE,
-                Scale::Pow10(e) => Magnitude::pow10(*e),
-                Scale::Exact(m) => *m,
-                // TODO(STD-74): °C, not in the model until origins carry its offset
-                Scale::Affine { .. } => {
-                    assert!(!markers.contains_key(*name), "{name}");
-                    continue;
-                }
-            };
-            let marker = markers.remove(*name);
+            let name = compiled.id.name;
+            assert_eq!(compiled.id.crate_name, EXACT_UNITS, "{name}");
+            let marker = markers.remove(name);
             let Some(def) = marker.as_ref().and_then(MarkerDefOwned::unit_def) else {
                 panic!("{name}: no unit definition in the model");
             };
-            assert_eq!(def.symbol, *symbol, "{name}");
-            assert_eq!(
-                dim_bytes(&def.dim),
-                dim.to_ww_bytes(&mut [0; 64]).unwrap(),
-                "{name}: {:?} vs {dim:?}",
-                def.dim
-            );
-            assert_eq!(def.magnitude, magnitude, "{name}");
-            let compiled = match provenance {
-                exact_units::Provenance::Defined => exact_units::ProvenanceOwned::Defined,
-                exact_units::Provenance::Conventional { source, year } => {
-                    exact_units::ProvenanceOwned::Conventional {
-                        source: source.to_string(),
-                        year: *year,
-                    }
-                }
-                exact_units::Provenance::Unknown(_) => {
-                    panic!("{name}: a compiled unit is never unknown")
-                }
-            };
-            assert_eq!(marker.as_ref().unwrap().provenance(), compiled, "{name}");
-            // STD-68: the kind the walker read is the one rustc compiled (plain for all but these)
-            let compiled_kind = match *name {
-                "Ohm" => <exact_units::units::Ohm as exact_units::Unit>::KIND,
-                "Siemens" => <exact_units::units::Siemens as exact_units::Unit>::KIND,
-                "VoltAmpere" => <exact_units::units::VoltAmpere as exact_units::Unit>::KIND,
-                "Var" => <exact_units::units::Var as exact_units::Unit>::KIND,
-                "EnergyDensity" => <exact_units::units::EnergyDensity as exact_units::Unit>::KIND,
-                "DampingRatio" => <exact_units::units::DampingRatio as exact_units::Unit>::KIND,
-                "QualityFactor" => <exact_units::units::QualityFactor as exact_units::Unit>::KIND,
-                "Entropy" => <exact_units::units::Entropy as exact_units::Unit>::KIND,
-                _ => exact_units::Kind::Plain,
-            };
-            let walked = marker
-                .as_ref()
-                .unwrap()
-                .kind()
-                .map_or(exact_units::Kind::Plain, exact_units::Kind::Named);
-            assert_eq!(walked, compiled_kind, "{name}");
+            assert_unit_def(def, compiled, name);
         }
         macro_rules! scales {
             ($($name:ident)*) => {
-                [$((stringify!($name), <prefix::$name as FixedScale>::SYMBOL, <prefix::$name as FixedScale>::SCALE)),*]
+                [$((stringify!($name), <prefix::$name as FixedScale>::DEF)),*]
             };
         }
-        for (name, symbol, magnitude) in scales!(
+        for (name, compiled) in scales!(
             Quecto Ronto Yocto Zepto Atto Femto Pico Nano Micro Milli Centi Deci One Deca Hecto Kilo Mega Giga Tera
             Peta Exa Zetta Yotta Ronna Quetta Kibi Mebi Gibi Tebi
-        ) {
+        )
+        .into_iter()
+        .chain([("TwoPi", <origins::TwoPi as FixedScale>::DEF)])
+        {
             let Some(MarkerDefOwned::Scale(def)) = markers.remove(name) else {
                 panic!("{name}: no scale definition in the model");
             };
             assert_eq!(
-                (def.symbol.as_str(), def.magnitude),
-                (symbol, magnitude),
+                (
+                    Some(def.id.as_id()),
+                    def.symbol.as_str(),
+                    def.magnitude
+                ),
+                (compiled.id, compiled.symbol, compiled.scale),
                 "{name}"
             );
         }
-        let Some(MarkerDefOwned::Scale(two_pi)) = markers.remove("TwoPi") else {
-            panic!("TwoPi: no scale definition in the model");
-        };
-        assert_eq!(two_pi.magnitude, <origins::TwoPi as FixedScale>::SCALE);
         // `q!`'s dimensionless unit (`q!(5 s^-1)` is `Per<Unitless, Second>`), in no catalogue and behind exact_units'
         // feature `q`: its line is `unit! { pub struct Unitless = "", []; }`
         let unitless = markers.remove("Unitless");
         let Some(def) = unitless.as_ref().and_then(MarkerDefOwned::unit_def) else {
             panic!("Unitless: no unit definition in the model");
         };
-        assert_eq!(def.symbol, "", "Unitless");
+        assert_eq!(
+            def.id.as_id(),
+            exact_units::MarkerId {
+                crate_name: EXACT_UNITS,
+                name: "Unitless"
+            }
+        );
+        assert_eq!(def.names.symbol, "", "Unitless");
         assert_eq!(def.dim, DimOwned::from(exact_units::Dim::ONE), "Unitless");
-        assert_eq!(def.magnitude, Magnitude::ONE, "Unitless");
+        assert_eq!(def.scale, Magnitude::ONE, "Unitless");
         macro_rules! origins {
             ($($name:ident)*) => {
                 [$((stringify!($name), <origins::$name as Origin>::DEF)),*]
@@ -1242,26 +1187,13 @@ mod tests {
             let Some(MarkerDefOwned::Origin(def)) = markers.remove(name) else {
                 panic!("{name}: no origin definition in the model");
             };
-            let UnitExpr::Named {
-                symbol, dim, scale, ..
-            } = compiled.unit
-            else {
+            assert_eq!(def.id.as_id(), compiled.id, "{name}");
+            let Some(unit) = compiled.unit.def() else {
                 panic!("{name}: a named unit");
             };
-            assert_eq!(def.unit.symbol, *symbol, "{name}");
-            assert_eq!(
-                dim_bytes(&def.unit.dim),
-                dim.to_ww_bytes(&mut [0; 64]).unwrap(),
-                "{name}"
-            );
-            assert_eq!(*scale, Scale::Coherent, "{name}");
-            assert_eq!(def.unit.magnitude, Magnitude::ONE, "{name}");
+            assert_unit_def(&def.unit, unit, name);
             assert_eq!(def.symbol, compiled.symbol, "{name}");
-            assert_eq!(
-                def.reference.is_some(),
-                !compiled.reference.is_empty(),
-                "{name}"
-            );
+            assert_eq!(def.reference.as_id(), compiled.reference, "{name}");
             assert_eq!(
                 (def.offset, def.modulus, def.step, def.shown),
                 (
@@ -1389,12 +1321,11 @@ mod tests {
                 pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
                 #[cfg(feature = "x")]
                 pub struct Bucket = "bucket", counted;
-                pub struct DegC = "°C", [k 1], Affine { factor: 1.0, offset: 273.15 };
                 pub struct InHg = "inHg", [kg 1, m -1, s -2], Exact(338638 / 100), conventional("NIST SP 811", 2008);
             }
             "#,
         );
-        assert_eq!(items.len(), 4);
+        assert_eq!(items.len(), 3);
         let Item::Struct(rpm) = &items[0] else {
             panic!()
         };
@@ -1429,21 +1360,7 @@ mod tests {
             panic!()
         };
         assert_eq!(line.dim, DimLine::Counted(None));
-        let Item::Struct(deg_c) = &items[2] else {
-            panic!()
-        };
-        let Some(MarkerLineDef::Unit(line)) = marker_line(&deg_c.attrs).unwrap() else {
-            panic!()
-        };
-        assert_eq!(
-            line.scale,
-            UnitScaleLine::Affine {
-                factor: 1.0,
-                offset: 273.15
-            }
-        );
-        assert_eq!(line.provenance, None);
-        let Item::Struct(in_hg) = &items[3] else {
+        let Item::Struct(in_hg) = &items[2] else {
             panic!()
         };
         let Some(MarkerLineDef::Unit(line)) = marker_line(&in_hg.attrs).unwrap() else {
@@ -1548,6 +1465,7 @@ mod tests {
             r#"unit! { pub struct A = "a", [s 1] knd "x"; }"#,
             r#"unit! { pub struct A = "a", [s 1] kind x; }"#,
             r#"unit! { pub struct A = "a", [s 1] }"#,
+            r#"unit! { pub struct DegC = "°C", [k 1], Affine { factor: 1.0, offset: 273.15 }; }"#,
         ] {
             let mut file = syn::parse_file(src).unwrap();
             assert!(expand_marker_macros(&mut file.items).is_err(), "{src}");

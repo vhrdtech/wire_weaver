@@ -5,7 +5,7 @@ level: advanced
 # Units in the API model
 
 A unit or scale marker an API uses (`Volt`, `prefix::Milli`, a crate's own `Rpm`) carries its definition in the API
-model a device sends: its symbol, dimension and exact factor. A client, `ww` and Python learn the units of any crate
+model a device sends: its identity, symbol, dimension and exact factor. A client, `ww` and Python learn the units of any crate
 from that, without a table of their own, and compare two units by what they are, not by how they are written.
 
 A crate declares its own markers with `unit!`, `scale!` and `origin!` (from `exact_units`, re-exported by `ww_si`);
@@ -32,25 +32,43 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 
 | Variant                                                        | For                                                                |
 |----------------------------------------------------------------|--------------------------------------------------------------------|
-| `Unit(UnitDef { symbol, dim, magnitude })`                     | a named unit: `V`, `rpm`, a counted `bucket`                       |
-| `Scale(ScaleDef { symbol, magnitude })`                        | a named scale: `prefix::Milli` (`"m"`, 10⁻³), a crate's `Mdps70`   |
+| `Unit(exact_units::UnitDef)`                                   | a named unit: `V`, `rpm`, a counted `bucket`, `Ω`, `inHg` at 32 °F |
+| `Scale(ScaleDef { id, symbol, magnitude })`                    | a named scale: `prefix::Milli` (`"m"`, 10⁻³), a crate's `Mdps70`   |
 | `Per`, `Times`, `Sqrt`                                         | `exact_units`' unit combinators, their arguments are the instance's |
 | `Pow10`, `Pow2`, `Rational`, `FullScale`, `FullScaleMax`       | `exact_units`' generic scales, their const arguments say the value |
 | `Product`, `Quotient`                                          | the scale of `Fixed * Fixed` and `Fixed / Fixed`, its scale arguments are the instance's |
 | `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`; each refuses NaN                          |
 | `MaybeNan`                                                     | a float `Fixed` that may hold NaN, the one bound that takes it     |
-| `Origin(OriginDef { unit, symbol, reference, offset, .. })`    | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
+| `Origin(OriginDef { id, unit, symbol, reference, offset, .. })` | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
-| `ConventionalUnit(ConventionalUnitDef { unit, source, year })` | a unit that is a value a standard prints: `inHg` at 32 °F ([customary](customary.md)) |
 
-`magnitude` is the exact factor to the coherent SI unit of `dim`: 1 for a volt, π/30 for `rpm` (in rad/s), 8 for a
-byte (in bits). Each marker is named by its crate and its path in it (`quantities_api`, `Rpm`), the identity it has
-across bundles.
+A unit's definition is `exact_units`' own `UnitDef`, the record `unit!` compiles, field for field:
+
+| Field        | Is                                                                                          | `Rpm`               |
+|--------------|---------------------------------------------------------------------------------------------|---------------------|
+| `id`         | a `MarkerId`: the declaring crate as Rust names it and the marker's name                     | `my_api::Rpm`       |
+| `names`      | how it is written: its `symbol`                                                              | `"rpm"`             |
+| `dim`        | its dimension                                                                                | rad·s⁻¹             |
+| `quantity`   | a kind of quantity of its own (`"resistance"` for `Ohm`), `None` for a plain unit (STD-68)    | `None`              |
+| `scale`      | the exact factor to the coherent SI unit of `dim`: 1 for a volt, 8 for a byte (in bits)      | π/30                |
+| `provenance` | `Defined`, or `Conventional { source, year }` for a value a standard prints ([customary](customary.md)) | `Defined` |
+
+A unit has no offset: °C is the origin `origins::Celsius` of kelvins, and a `unit!` line with an `Affine` scale is
+an error. Scales and origins carry a `MarkerId` too.
+
+## Identity
+
+A marker is known by its crate and its ident (`my_api`, `Rpm`), not by its module path: it stays the same unit when
+it moves between modules, and two crates' `Rpm` are two units that print the same. So a crate has one marker of a
+name: the walker refuses an API whose crate declares two markers named `Rpm` in two modules, naming both, and
+refuses a model with two different definitions under one identity (two versions of one crate whose `Rpm`s differ).
+The crate is the one `CARGO_CRATE_NAME` gives (`my_api` for a package `my-api`), the same `unit!` compiles into its
+`UnitDef`, and a test of the walker checks every marker of `exact_units` against its compiled definition.
 
 Not there yet:
 
-- `ww_si`'s `DegreeCelsius` as the unit of a `Quantity` (an affine unit, not an exact factor) has no definition; a
-  temperature in °C is a [`Point`](points.md) against `origins::Celsius`, and the runtime side follows with STD-74.
+- A temperature in °C is a [`Point`](points.md) against `origins::Celsius`; `ww_si`'s `Quantity` and `AnyQuantity`
+  follow with STD-74.
 - Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
   `MarkerDef` when their markers exist.
 - `ww` and Python show a `Quantity` of any crate's unit (`1500 rpm`), and a `Fixed` with its unit and scale
@@ -79,17 +97,19 @@ The origin of a [`Point<O, F>`](points.md) is a marker as well, its definition a
 
 | Field       | Is                                                                                         | °C        |
 |-------------|--------------------------------------------------------------------------------------------|-----------|
-| `unit`      | the unit of the points' numbers and offsets, written out as a `UnitDef`                     | K         |
+| `id`        | its `MarkerId`                                                                              | `exact_units::Celsius` |
+| `unit`      | the unit of the points' numbers and offsets, a named unit's `UnitDef`                       | K         |
 | `symbol`    | written after a point's number                                                              | `"°C"`    |
-| `reference` | what `offset` is measured from: `None` for the unit's own zero, else a `MarkerRef`          | `None`    |
+| `reference` | what `offset` is measured from, a `MarkerId`: `exact_units::UnitZero` for the unit's own zero | `UnitZero` |
 | `offset`    | where the origin lies from the reference's zero, an exact `Offset` in `unit`                | 273.15    |
 | `modulus`   | the period for points that wrap, `None` for points that don't                              | `None`    |
 | `step`      | the step the shown number counts, in `unit`                                                 | 1         |
 | `shown`     | where the shown number's zero lies: `offset`, or that of the origin it is declared above    | 273.15    |
 
-A definition is flat on purpose: it holds no `Type` of the model, only values and `MarkerRef { crate_id, name }`
-(gauge pressure's `exact_units::point::AmbientPressure`), so a pass that renumbers the model's types never has to
-look inside one. A crate's own origin is declared with `origin!` and written out by the walker:
+A definition is flat on purpose: it holds no `Type` of the model, only values and `MarkerId`s (gauge pressure's
+`exact_units::AmbientPressure`), so a pass that renumbers the model's types never has to look inside one. For the
+same reason an origin's unit is a named unit: the walker refuses an `origin!` over `Per<..>` or `Times<..>`, declare
+a unit of that dimension with `unit!` instead. A crate's own origin is declared with `origin!` and written out by the walker:
 
 ```rust
 ww_si::origin! {
@@ -101,7 +121,7 @@ ww_si::origin! {
 `BoardTemp` comes out as unit K, symbol `"°C"`, offset 298.15 K and `shown` 273.15 K: the register `raw / 256 + 25 °C`
 is shown in °C. `origins::Angle<U>` has no fields of its own: it is a `MarkerDef::Angle`, and its unit argument says
 the rest. `ww_self::units::origin_of(ty, bundle)` gives the `OriginDef` of either, an `Angle<Degree>` as unit `°`,
-modulus 360; `marker_name_of` names an origin (or any marker) by its crate and name.
+modulus 360; `marker_id_of` gives the `MarkerId` of an origin (or any marker).
 
 As for units, a hand-written `impl Origin` compiles but the walker refuses an API that uses it.
 
@@ -124,5 +144,5 @@ the dynamic client and Python.
 
 No firmware cost in code: markers are zero-size types, and `unit!` / `scale!` expand to the same constants a
 hand-written impl has. The introspection data a firmware stores grows only by the definitions of its own crate's
-markers (the definition of `Rpm` is 22 bytes, see the case `model.marker_def.unit`, an origin's about 40, see
-`model.marker_def.origin`); stdlib markers are left out as skipped definitions.
+markers (the definition of `my_api::Rpm` is 35 bytes, see the case `model.marker_def.unit`, an origin's about 100,
+see `model.marker_def.origin`); stdlib markers are left out as skipped definitions.

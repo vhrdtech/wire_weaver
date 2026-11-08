@@ -49,9 +49,9 @@ pub use exact_units;
 pub use exact_units::{
     Bounds, Count, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED, MAX_UNIT_DEPTH,
     Magnitude, MaybeNan, Offset, Origin, OutOfBounds, Overflow, Point, PointDiff, Prefix,
-    PrefixRatio, Provenance, Range, RangeDec, RangeU64, Repr, Rounding, SIExpr, Scale, Storage,
-    Unbounded, Unit, UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, origin, origins, prefix,
-    scale, unit, units,
+    PrefixRatio, Provenance, Range, RangeDec, RangeU64, Repr, Rounding, SIExpr, Storage, Unbounded,
+    Unit, UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, origin, origins, prefix, scale,
+    unit, units,
 };
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};
@@ -263,10 +263,6 @@ pub type AngularAcceleration = Quantity<units::AngularAcceleration>;
 /// Thermodynamic temperature in kelvins with a prefix (K, mK).
 #[cfg(feature = "thermal")]
 pub type Kelvin = Quantity<units::Kelvin>;
-
-/// Temperature in degrees Celsius with a prefix (°C, m°C).
-#[cfg(feature = "thermal")]
-pub type DegreeCelsius = Quantity<units::DegreeCelsius>;
 
 /// Amount of substance in moles with a prefix (mol, mmol, µmol).
 #[cfg(feature = "chemical")]

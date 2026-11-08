@@ -79,7 +79,7 @@ Some quantities share a dimension and still are not the same: a voltage gain V/V
 W/W and a duty cycle are all dimension one; a transimpedance V/A has the dimension of a resistance Ω (STD-68). A
 step of the number has the kind of its unit next to its dimension and factor, by `exact_units`' rules (its `kind`
 module): a quotient of one dimension keeps what cancelled, `Ohm` and `Siemens` are kinds of their own (`kind
-"resistance"` on their `unit!` lines, a `MarkerDef::KindUnit` in the model), anything else is plain.
+"resistance"` on their `unit!` lines, the `quantity` of their `UnitDef` in the model), anything else is plain.
 
 * **Another kind of one dimension** (`Per<Volt, Volt>` -> `Ratio` or `Per<Ampere, Ampere>`, `Per<Volt, Ampere>` ->
   `Ohm`): breaking, under `Rule::Meaning`, with both kinds in the finding (`plain vs resistance, another kind of

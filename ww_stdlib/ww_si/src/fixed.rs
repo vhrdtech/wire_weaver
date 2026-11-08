@@ -21,33 +21,39 @@ impl fmt::Display for UnknownScale {
 impl core::error::Error for UnknownScale {}
 
 impl<U: Unit> Quantity<U> {
-    /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`; a
-    /// float storage takes the nearest float. Where `P` has a run-time prefix (a named one, `Pow10`, `Pow2`,
-    /// `FullScale`), on exact_units' integer kernel at the width of the enabled number types, no float code for an
-    /// integer storage; any other scale (`Rational<33, 10>` over 4096) through [Fixed::from_scaled] and a
+    /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`: a
+    /// float on either side too gives the exact value or `None` (exact_units NUM-30), so 516558.94 mV of an `f32` is no
+    /// `f32` of µV. Into an integer storage where `P` has a run-time prefix (a named one, `Pow10`, `Pow2`,
+    /// `FullScale`) on exact_units' integer kernel at the width of the enabled number types: no float code for an
+    /// integer, an `f32` rounded once and checked against the exact product, no `f64`. Into a float storage, from an
+    /// `f64`, or with any other scale (`Rational<33, 10>` over 4096), through [Fixed::from_scaled] and a
     /// [Magnitude](crate::Magnitude), a host's path.
     pub fn to_fixed<P: FixedScale, T: Storage, B: Bounds<T>>(&self) -> Option<Fixed<U, P, T, B>> {
+        let exact = || Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude()?);
         let Some(to) = P::RUNTIME else {
-            return Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude()?);
+            return exact();
         };
+        if T::IS_FLOAT {
+            return exact();
+        }
         let ratio = self.prefix.ratio_to(to)?;
         let v = match self.value.to_integer() {
-            Some(x) if !T::IS_FLOAT => {
+            Some(x) => {
                 let m = ratio.apply::<Magnitude, Magnitude>(x.magnitude())?;
                 // A no-op only when ww_numeric's `u128` makes `Magnitude` a u128.
                 #[allow(clippy::useless_conversion)]
                 let m = i128::try_from(m).ok()?;
                 T::from_int(if x.is_negative() { -m } else { m })?
             }
-            Some(x) if T::BITS == 32 => {
-                let m = x.magnitude() as f32;
-                T::from_f32(ratio.apply_f32(if x.is_negative() { -m } else { m }))?
-            }
-            Some(x) => {
-                let m = x.magnitude() as f64;
-                T::from_float(ratio.apply_f64(if x.is_negative() { -m } else { m }))?
-            }
-            None => float_to::<T>(&self.value, &ratio)?,
+            None => match self.value {
+                #[cfg(feature = "f32")]
+                NumericValue::F32(x) => f32_to_int::<T>(x, &ratio)?,
+                // a host's
+                #[cfg(feature = "f64")]
+                NumericValue::F64(_) => return exact(),
+                // `UN` / `IN`
+                _ => return None,
+            },
         };
         Fixed::try_new(v).ok()
     }
@@ -76,17 +82,21 @@ impl<U: Unit> Quantity<U> {
     }
 }
 
-/// A float value scaled by `ratio` into `T`: the nearest float for a float storage, a whole number that fits for an
-/// integer one; `None` for `UN` / `IN`, NaN, and without float types.
-#[allow(unused_variables)]
-fn float_to<T: Storage>(value: &NumericValue, ratio: &exact_units::PrefixRatio) -> Option<T> {
-    match *value {
-        #[cfg(feature = "f32")]
-        NumericValue::F32(x) => T::from_f32(ratio.apply_f32(x)),
-        #[cfg(feature = "f64")]
-        NumericValue::F64(x) => T::from_float(ratio.apply_f64(x)),
-        _ => None,
-    }
+/// `x · ratio` in the integer storage `T`, if it is a whole number that fits: rounded once to the nearest `f32` on
+/// the integer kernel, then compared with the exact product there, so a firmware links no `f64` and, for a storage
+/// of up to 32 bits, no 128-bit code.
+#[cfg(feature = "f32")]
+fn f32_to_int<T: Storage>(x: f32, ratio: &exact_units::PrefixRatio) -> Option<T> {
+    let v = T::from_f32(ratio.apply_f32(x))?;
+    let same = if T::BITS <= 32 {
+        ratio.cmp_scaled_f32(x, v.to_i64())
+    } else {
+        match v.to_repr() {
+            Repr::Int(i) => ratio.cmp_scaled_f32(x, i),
+            Repr::Float(_) => None,
+        }
+    };
+    (same == Some(core::cmp::Ordering::Equal)).then_some(v)
 }
 
 /// A number as [Fixed::from_scaled] takes it.

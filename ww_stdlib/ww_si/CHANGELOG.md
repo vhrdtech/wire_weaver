@@ -244,6 +244,7 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
 
 ### 🐛 Fixes
 
+- `Quantity::to_fixed` with a float on either side gives the exact value or `None`, as exact_units' `Fixed::to` does since NUM-30 (STD-59 parity): 516558.94 mV of an `f32` is no `f32` of µV. An `f32` into an integer storage is rounded once and checked on the integer kernel (`PrefixRatio::cmp_scaled_f32`), no `f64` and no 128-bit code for storages up to 32 bits; into a float storage, and from an `f64`, it goes through `Fixed::from_scaled` (a host's path, `Magnitude` code in a firmware that converts into a float `Fixed`).
 * `to_f32()` scales by one exact power of ten instead of repeated `* 10` / `/ 10`, so `Second::milli(2u8)` is
   `0.002` rounded once.
 

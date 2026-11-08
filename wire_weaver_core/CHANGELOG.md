@@ -20,6 +20,7 @@
 
 ### 🐛 Fixes
 
+- Code generated from a dependency under another name (`thermo_w1 = { package = "thermo_api", .. }`) names the API's crate by that name, also when the entry is inherited from `[workspace.dependencies]`: the client's gid paths, `client_version`, the source marker and the server's `API_ID` used the package name, so a host depending on two versions of one API crate didn't compile (EVO-28). `CratePaths::find` takes the dependency key the API was loaded from.
 - A `use_async = true` server with introspection off (`introspect` not given or `"disabled"`) whose levels all have sync handlers (`handler_model = "_=sync"`) compiles: its root level is `async fn` (the `Introspect` arm answers with a `Close` event) but `process_request_bytes` didn't await it ("expected future, found `WrAction`").
 - The crate walker finds a git or registry dependency that the workspace `[patch]`es to a path (`[patch."https://github.com/vhrdtech/wire_weaver"] shrink_wrap = { path = .. }`) instead of failing with "has no source": `exact_units` takes `shrink_wrap` by git, and wire_weaver builds it with its own.
 - The crate walker shares a module's parsed source between the contexts it hands out instead of copying it for every type found there: a module with hundreds of `unit!` markers (`exact_units`' customary units) was walked in quadratic time, a snapshot test loading `ww_si` and `exact_units` took 1 s instead of 0.7 s.

@@ -97,7 +97,7 @@ pub fn load_dep_with_paths(
         .insert(current_crate_path, current_crate_manifest.clone());
     let trait_name = trait_name.map(|t| t.as_ref().to_string());
     let bundle = load_inner(dep_manifest, dep_features, trait_name, &mut scratch)?;
-    let paths = CratePaths::find(&current_crate_manifest, &bundle, &scratch);
+    let paths = CratePaths::find(&current_crate_manifest, dep_name.as_ref(), &bundle, &scratch);
     Ok((bundle, paths))
 }
 
@@ -138,8 +138,15 @@ impl CratePaths {
     }
 
     /// Paths for the crates of `bundle` that `current`, the generating crate, doesn't depend on: through the root
-    /// re-exports of the crates it does depend on, transitively, among the crates walked for `bundle`.
-    fn find(current: &ManifestContext, bundle: &ApiBundleOwned, scratch: &Scratch) -> Self {
+    /// re-exports of the crates it does depend on, transitively, among the crates walked for `bundle`. `api_key` is
+    /// the dependency `bundle` was loaded from: when `current` depends on several versions of one crate under other
+    /// names (`thermo_w1 = { package = "thermo_api", .. }`, EVO-28), the API's own crate is named by that one.
+    fn find(
+        current: &ManifestContext,
+        api_key: &str,
+        bundle: &ApiBundleOwned,
+        scratch: &Scratch,
+    ) -> Self {
         let mut found: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut queue = VecDeque::new();
         let direct = current
@@ -148,9 +155,13 @@ impl CratePaths {
             .iter()
             .chain(&current.manifest.dev_dependencies);
         for (key, dep) in direct {
-            let package = dep.package().unwrap_or(key).to_string();
+            let package = dep_package(current, key, dep, scratch);
             found.insert(package.clone(), vec![key.clone()]);
             queue.push_back(package);
+        }
+        // the root crate is always first in `ext_crates`
+        if let Some(root) = bundle.ext_crates.first() {
+            found.insert(root.crate_id.clone(), vec![api_key.to_string()]);
         }
         while let Some(name) = queue.pop_front() {
             let Some(crate_cx) = scratch.crates.values().find(|c| c.crate_name() == name) else {
@@ -181,6 +192,26 @@ impl CratePaths {
             .collect();
         CratePaths { paths }
     }
+}
+
+/// Package name of the dependency `key` of `current`: `package = ".."` of its entry, or of the workspace's entry
+/// for `key.workspace = true`, else `key` itself.
+fn dep_package(current: &ManifestContext, key: &str, dep: &Dependency, scratch: &Scratch) -> String {
+    if let Some(package) = dep.package() {
+        return package.to_string();
+    }
+    if let Dependency::Inherited(_) = dep {
+        let workspace_entry = scratch
+            .manifests
+            .values()
+            .filter(|m| current.crate_path.starts_with(&m.crate_path))
+            .filter_map(|m| m.manifest.workspace.as_ref()?.dependencies.get(key))
+            .next();
+        if let Some(package) = workspace_entry.and_then(|d| d.package()) {
+            return package.to_string();
+        }
+    }
+    key.to_string()
 }
 
 /// The API of the crate of `manifest`, built with `features`.
@@ -1463,6 +1494,42 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A host depending on two versions of one API crate under other names (EVO-28): code generated for each names
+    /// the API's crate by the dependency it was loaded from, not by the package name both share.
+    #[test]
+    fn two_versions_of_one_crate_under_other_names() {
+        let dir = scratch_dir("two_versions");
+        for (folder, version) in [("w1", "1.2.0"), ("w2", "2.1.0")] {
+            write(
+                &dir.join(folder).join("Cargo.toml"),
+                &format!(
+                    "[package]\nname = \"api\"\nversion = \"{version}\"\nedition = \"2024\"\n"
+                ),
+            );
+            write(
+                &dir.join(folder).join("src/lib.rs"),
+                "#[ww_api_root]\npub trait Api {\n    fn get() -> u8;\n}\n",
+            );
+        }
+        write(
+            &dir.join("host/Cargo.toml"),
+            "[package]\nname = \"host\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n\
+             [dependencies]\napi_w1 = { path = \"../w1\", package = \"api\" }\n\
+             api_w2 = { path = \"../w2\", package = \"api\" }\n",
+        );
+        let current = ManifestContext::load(&dir.join("host")).unwrap();
+        for key in ["api_w1", "api_w2"] {
+            let mut scratch = Scratch::default();
+            let (api, features) = current
+                .load_dependent_manifest(key, &current.default_features(), &mut scratch)
+                .unwrap();
+            let bundle = load_inner(api, features, None, &mut scratch).unwrap();
+            let paths = CratePaths::find(&current, key, &bundle, &scratch);
+            assert_eq!(paths.get("api"), Some(&[key.to_string()][..]), "{key}");
+        }
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// A crate that isn't a ww API crate (no `wire_weaver`, no `#[ww_trait]`), re-exported by the API crate: its
     /// types are walked like any other, and code generated in a crate depending only on the API crate names them
     /// through the re-export (API-60).
@@ -1501,7 +1568,7 @@ mod tests {
             crate_names(&bundle),
             [("api".into(), 1), ("units".into(), 2)]
         );
-        let paths = CratePaths::find(&current, &bundle, &scratch);
+        let paths = CratePaths::find(&current, "api", &bundle, &scratch);
         assert_eq!(
             paths.get("units"),
             Some(&["api".to_string(), "units".to_string()][..])

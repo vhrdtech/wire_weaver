@@ -208,7 +208,7 @@ fn client_structs_recursive(
             .as_str(),
         Span::call_site(),
     );
-    let crate_name = Ident::new(crate_name, Span::call_site());
+    let crate_name = api_bundle.crate_path(crate_name);
     let trait_name = LitStr::new(&api_level.trait_name, Span::call_site());
     let gid_paths = (
         quote! { #crate_name::#full_gid },
@@ -1060,7 +1060,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
     );
     // API crate name and version, same constant the device reports, and the wire version link setup decides on
     let root = &api_bundle.root;
-    let crate_name = Ident::new(root.crate_name(api_bundle).unwrap(), Span::call_site());
+    let crate_name = api_bundle.crate_path(root.crate_name(api_bundle).unwrap());
     let full_gid = Ident::new(
         format!("{}_FULL_GID", root.trait_name)
             .to_case(Case::Constant)

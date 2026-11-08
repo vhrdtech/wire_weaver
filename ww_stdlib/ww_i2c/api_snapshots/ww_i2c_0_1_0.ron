@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e2931288b01464d31cd9d81ece2cea5dfb4b060230f1b11ea9c6d606f6889aa6
+// shrink_wrap sha256: b041c52a08c3990e6661e44598f63ce2165b04c3a6abe60ee76af91a5d097f18
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -106,14 +106,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        109,
-        124,
-        211,
-        237,
-        88,
-        250,
-        217,
-        103,
+        125,
+        222,
+        26,
+        132,
+        50,
+        2,
+        203,
+        144,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         149,

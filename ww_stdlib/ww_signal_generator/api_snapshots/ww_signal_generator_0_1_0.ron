@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 16093e2074ada7f046669dd7605079fb964e6ee0e9bea5123e579c7349cc27cf
+// shrink_wrap sha256: 20d533f77814e8dd09972b142f5a668589fb3828a7edcb879c3ba8f86e101a90
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -69,24 +69,24 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        109,
-        124,
-        211,
-        237,
-        88,
-        250,
-        217,
-        103,
+        125,
+        222,
+        26,
+        132,
+        50,
+        2,
+        203,
+        144,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "RateLimit", signature: [
-        242,
-        130,
-        149,
-        235,
-        29,
-        140,
-        119,
-        62,
+        11,
+        71,
+        136,
+        55,
+        222,
+        25,
+        58,
+        46,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a pattern generator offers, see `PatternGenerator::capabilities`.",

@@ -75,6 +75,7 @@ all = [
     "u16",
     "u32",
     "unib32",
+    "inib32",
     "u64",
     "i32",
     "f32",
@@ -93,6 +94,7 @@ nibble = ["ww_numeric/nibble"]
 u16 = ["ww_numeric/u16"]
 u32 = ["ww_numeric/u32"]
 unib32 = ["ww_numeric/unib32"]
+inib32 = ["ww_numeric/inib32"]
 u64 = ["ww_numeric/u64"]
 i32 = ["ww_numeric/i32"]
 f32 = ["ww_numeric/f32"]

@@ -90,6 +90,8 @@ pub enum NumericBaseType {
 
     /// [INib32](shrink_wrap::INib32): variable length i32, zigzag over `UNib32` (SW-24), alignment of
     /// four-bits, 1 to 11 nibbles. Appended after the others: a tag-only addition (DER-25), never renumbered.
+    /// Breaking (no catch-all on this enum for an old reader to fall back to): a new wire line, w2.0.
+    #[since = "w2.0"]
     INib32,
 }
 
@@ -203,8 +205,9 @@ pub enum NumericValue {
     #[cfg(feature = "uvlq64")]
     UVlq64(UVlq64),
     /// Variable length i32 ([INib32]), zigzag over `UNib32` (SW-24): small negative and positive values both
-    /// one nibble.
+    /// one nibble. Breaking (no catch-all on this enum for an old reader to fall back to): a new wire line, w2.0.
     #[cfg(feature = "inib32")]
+    #[since = "w2.0"]
     INib32(INib32),
     // TODO: the rest
 }

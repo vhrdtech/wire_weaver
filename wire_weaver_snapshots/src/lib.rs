@@ -153,7 +153,10 @@ mod tests {
     /// scales and its `Unknown(u16)` catch-all (STD-59, DER-25); and again moving `exact_units` to its level-rates
     /// main (STD-99), which changes `Quantity`'s skipped `Prefix` and `SIExpr` signatures the same way; and with
     /// `Argument::default` and `flatten` in the model (EVO-22), which every method argument writes; and with
-    /// `exact_units`' NaN-free floats (NUM-19), which changed the definition of `Unbounded` that `Quantity` names.
+    /// `exact_units`' NaN-free floats (NUM-19), which changed the definition of `Unbounded` that `Quantity` names;
+    /// and with `ww_numeric` moving to a new wire line, w2.0 (SW-24, `NumericBaseType`/`NumericValue::INib32`
+    /// have no catch-all on either enum, so the addition is breaking), which changes `AnyQuantity`'s skipped
+    /// `NumericValue` signature that `Quantity` carries, hence `Second`'s.
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -187,7 +190,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0x98, 0x20, 0x7f, 0xc6, 0x23, 0x9f, 0xae, 0x46]);
+        assert_eq!(signature, [0x61, 0xf6, 0xc6, 0x3f, 0x76, 0x5d, 0x2f, 0xf9]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

@@ -27,6 +27,11 @@
 
 ### ⚠️ Breaking
 
+* `NumericBaseType::INib32` / `NumericValue::INib32` (SW-24) is a wire break: both enums have no catch-all for an
+  unknown variant, so an old reader given the new tag fails instead of falling back. `#[since = "w2.0"]`, a new
+  wire line (`[package.metadata.wire_weaver] wire = "w1.0"` -> `"w2.0"`), crate `0.2.0` -> `0.3.0` (the breaking
+  position pre-1.0). `ww_si` picks this up by rebuilding against the new `ww_numeric`, no `ww_si` version change
+  of its own.
 * `Integer::cmp_pow10`, `checked_scale_pow10`, `exact_scale_pow10` and `to_u32_wrapping_pow10` are removed (STD-102): scaling and comparing across powers of ten, and every other prefix, is `exact_units`' integer kernel's (`Prefix::rescale`, `Prefix::cmp_scaled`, `PrefixRatio`), which `ww_si` calls on the `Integer`'s magnitude. Write `Prefix::from_pow10(a)?.cmp_scaled(x, Prefix::from_pow10(b)?, y)` on magnitudes, or use `ww_si::Quantity::to_in` / `PartialOrd`. `Integer` keeps its arithmetic, `Ord`, `to_i32` / `to_u32` and the conversions to and from number types.
 Wire-incompatible with 0.1.1.
 

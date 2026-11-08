@@ -1,6 +1,6 @@
 [package]
 name = "ww_numeric"
-version = "0.2.0"
+version = "0.3.0"
 authors.workspace = true
 description = "Various numeric types, subtypes, shift-scale"
 edition.workspace = true
@@ -9,7 +9,7 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
-wire = "w1.0"
+wire = "w2.0"
 
 [features]
 default = ["std"]

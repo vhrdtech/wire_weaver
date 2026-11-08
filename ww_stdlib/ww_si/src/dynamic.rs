@@ -2,7 +2,7 @@
 
 #[cfg(feature = "std")]
 use crate::SIExprOwned;
-use crate::tree::{self, Resolved, Tree};
+use crate::tree::{self, Tree};
 use crate::{CompactError, Prefix, Quantity, SIExpr, Unit, UnitTable};
 use core::fmt;
 use shrink_wrap::prelude::*;
@@ -36,7 +36,7 @@ mod owned {
             &'a self,
             table: &'a T,
         ) -> impl fmt::Display + 'a {
-            Shown(self.prefix, &self.value, Resolved::new(&self.unit, table))
+            Shown(self.prefix, &self.value, tree::Resolved::new(&self.unit, table))
         }
 
         /// The same value with each unit `table` lists as a [Ref](SIExpr::Ref), as [SIExprOwned::compact]: what a

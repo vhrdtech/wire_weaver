@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7d9877c26b8d7883132855362c4ec7c5903c46fd5c1d332161b47f6f62299738
+// shrink_wrap sha256: fa4d0fbbb209e80b3e468e7e843f58200f0ae35171977fdb44fcb66c35a3b437
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -1115,6 +1115,12 @@
     ], fields: Named([]), sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Phase))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "This crate\'s named units that are enabled, as a [UnitTable]: what [by_id] finds, [ALL] and with `customary` its",
+        "units too.",
+    ], ident: "Table", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value in unit `U` and prefix `P`, stored as `T`, within the bounds `B`: on the wire exactly `T`, the unit,",
         "prefix and bounds are only in the type. `shared_us: u64` becomes `shared: Fixed<Second, Micro, u64>` (or",
@@ -1591,10 +1597,10 @@
         (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 2.",
         ], slot: None, series_opaque: false),
-        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 206)), docs: [
+        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 207)), docs: [
             "π, ln 2 and ln 10, `None` when all their exponents are 0.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 207))), docs: [
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 208))), docs: [
             "Primes other than 2 and 5, ascending, used slots first.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1622,7 +1628,7 @@
         (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 10.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 208)), docs: [
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 209)), docs: [
             "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1660,7 +1666,7 @@
         (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [
             "Below the reference; never for zero.",
         ], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 209)), docs: [
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 210)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1805,7 +1811,7 @@
         (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
             "The square root of what the exponents describe, see above.",
         ], slot: None, series_opaque: false),
-        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 218))), docs: [
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 219))), docs: [
             "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1837,23 +1843,23 @@
         "The scale is a [Magnitude](crate::Magnitude), always: a unit has no offset (°C is the origin",
         "[Celsius](crate::origins::Celsius) of kelvins) and no float factor.",
     ], ident: "UnitDef", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 216), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 217), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 217), docs: [
+        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 218), docs: [
             "How it is written.",
         ], slot: None, series_opaque: false),
-        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 219), docs: [
+        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 220), docs: [
             "Its dimension.",
         ], slot: None, series_opaque: false),
         (ident: Some("quantity"), default: None, since: None, ty: Option(some_ty: String), docs: [
             "The kind of quantity of its own, by its ISO 80000 name (`\"resistance\"` for [Ohm](crate::units::Ohm)), `None`",
             "for a plain unit ([Kind::Named](crate::Kind)). A quantity reference once quantity specs exist (UNIT-8).",
         ], slot: None, series_opaque: false),
-        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 209), docs: [
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 210), docs: [
             "The exact factor to coherent SI: ° is π/180 rad, eV 1.602176634·10⁻¹⁹ J.",
         ], slot: None, series_opaque: false),
-        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 220), docs: [
+        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 221), docs: [
             "Whether the scale is the unit\'s definition or a value a source prints.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1862,39 +1868,55 @@
         "(a configurable sensor channel, an ADC input whose unit is set by a jumper). A type-level unit maps one to one onto",
         "an `SIExpr` ([Unit::SI_EXPR], [SIExpr::named]), so a dynamic client shows both the same way.",
         "",
+        "A leaf is a named unit, by reference or in full. A [Ref](SIExpr::Ref) names a unit by its [MarkerId] and reads",
+        "through a [UnitTable] that lists it (this crate\'s [units::TABLE](crate::units::TABLE), an API model); a",
+        "[Def](SIExpr::Def) carries the whole [UnitDef] and reads alone. [SIExpr::of] gives `Def` leaves, so it means the",
+        "same anywhere; [compact_in](SIExpr::compact_in) turns the ones a table lists into `Ref`s, the form a value sent",
+        "next to its API carries. A reference is by identity, not by an index into one table, so it means the same unit in",
+        "any table that lists it.",
+        "",
+        "The walks ([dim](Self::dim), [magnitude](Self::magnitude), [symbol](Self::symbol), [same](Self::same)) take the",
+        "table. A `Ref` the table doesn\'t list is shown by its name and has no dimension or factor, so a conversion over it",
+        "refuses. `==` is by content: a `Ref` and a `Def` of the same unit differ, [same](Self::same) resolves both first.",
+        "",
         "Children are [RefBox]es: decoding an `SIExpr` reads only its top node, the rest is decoded when walked. Every",
         "walk stops at [MAX_UNIT_DEPTH](crate::MAX_UNIT_DEPTH) levels.",
         "",
-        "On the wire a nibble for the variant, then its fields: `Volt` is its [UnitDef].",
+        "On the wire a nibble for the variant, then its fields: `Ref(Volt)` is its [MarkerId], `Def(Volt)` its [UnitDef].",
     ], ident: "SIExpr", generics: [], variants: [
         (docs: [
-            "A named unit, described in full: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
+            "A named unit, described in full: one no table at hand lists, or a tree that reads alone.",
         ], ident: "Def", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 221), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 222), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
+        (docs: [
+            "A named unit a table lists, by its identity: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
+        ], ident: "Ref", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 217), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 222)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 222)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 222)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 222)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 2, since: None),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 222)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 3, since: None),
+        ]), discriminant: 4, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 222)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 4, since: None),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 223)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "A scale chosen at run time: an SI prefix from quecto (10⁻³⁰) to quetta (10³⁰), a binary prefix (Ki .. Ti), or one",

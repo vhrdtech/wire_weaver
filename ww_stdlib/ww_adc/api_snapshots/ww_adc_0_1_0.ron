@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1a93c7e169d85a77c90aa6966c8d717a48f8b781288f9e77d6c12f43f447915a
+// shrink_wrap sha256: 4d49c009f35d4b70e2db9f6fec0ea8adf15762c88e6eefeab9dd592c92f22dbc
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -150,14 +150,14 @@
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "SIExpr", signature: [
-        246,
-        210,
-        186,
-        227,
-        183,
-        233,
-        6,
-        118,
+        24,
+        103,
+        192,
+        99,
+        15,
+        179,
+        184,
+        88,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`value = raw * scale + offset`, in the channel\'s unit and prefix.",
@@ -173,7 +173,9 @@
         ], slot: None, series_opaque: false),
         (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
             "Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max]: a unit of ww_si",
-            "(`SIExpr::of::<ww_si::units::Volt>()`) or the device\'s own, with its dimension and scale.",
+            "(`SIExpr::of::<ww_si::units::Volt>()`) or the device\'s own, in full, or a reference to one the API lists",
+            "(`SIExpr::Ref`, [AnyQuantity](ww_si::AnyQuantity)\'s compacted form), which a client reads through the API",
+            "model.",
         ], slot: None, series_opaque: false),
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "SI prefix of the values.",

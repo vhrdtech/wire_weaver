@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- Serves clients by generation (EVO-23): a client that says its generations in the preamble is served when its link, shrink_wrap and API model generations are the hub's own (or in `window.rs`'s generation windows), whatever its versions, and refused with status 4 naming the layer otherwise. A client from before the generations is judged by its `ww_link` and `ww_client_server` versions as before; the version windows are gone (they were empty).
 - A client through the hub gets the device's `ImageFacts` in its `DeviceInfo` (SRV-56), as on a direct link.
 
 ### 🐛 Fixes

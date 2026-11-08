@@ -5,9 +5,11 @@
 ### ⚠️ Breaking
 
 - `Preamble` has the new public field `adopt` (CLT-44): struct literals and exhaustive patterns need it (`..`).
+- `Preamble` has the new public field `generations` (EVO-23): struct literals and exhaustive patterns need it (`..`).
 
 ### 🚀 Features
 
+- Preamble trailer entry `TAG_GENERATIONS` (EVO-23, `Preamble::generations`, `with_generations`, `Generations`): the client's framer, link, shrink_wrap and API model generations, the bytes of its link hello; a later client's longer entry is read for its first four. A hub before it skips the entry. `Status::Versions` reads "versions or generations are not served".
 - Preamble trailer entry `TAG_ADOPT` (`Preamble::adopt`, `with_adopt`): the tunnel of a program whose live link the hub adopted (CLT-44) names the adoption's id. A hub before it skips the entry.
 - `HandoverRequest` / `HandoverAnswer` (CLT-43): what a program asks a direct holder of a device on the holder's socket,
   frozen like the preamble: `"WWHO"`, version (1), op (`Op::HandToHub`) or status (`HandoverStatus::Released`,

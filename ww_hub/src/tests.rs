@@ -36,11 +36,15 @@ async fn start(dir: &Path, idle_ms: u64) -> (tokio::task::JoinHandle<Exit>, Shut
 }
 
 async fn hello(dir: &Path, target: Target) -> (Answer, ww_local_socket::Stream) {
+    hello_with(dir, Preamble::new(target)).await
+}
+
+async fn hello_with(dir: &Path, preamble: Preamble) -> (Answer, ww_local_socket::Stream) {
     let (stream, _) = ww_local_socket::connect(&dir.join(HUB_SOCKET))
         .await
         .unwrap();
     let (mut rx, mut tx) = stream.split();
-    tx.write_all(&Preamble::new(target).encode()).await.unwrap();
+    tx.write_all(&preamble.encode()).await.unwrap();
     let answer = Answer::read(&mut rx).await.unwrap();
     (
         answer,
@@ -73,6 +77,27 @@ async fn hub_answers_preambles() {
     assert_eq!(answer.hub_version, HUB_VERSION);
     let (answer, _) = hello(&dir, Target::Device("usb:c0de:cafe:1".into())).await;
     assert_eq!(answer.status, Status::UnknownDevice);
+    shutdown.shutdown();
+    assert_eq!(hub.await.unwrap(), Exit::Shutdown);
+}
+
+/// A client of another shrink_wrap generation is refused with `Versions`, one of the hub's own is served (EVO-23).
+#[tokio::test]
+async fn hub_serves_by_generation() {
+    let dir = runtime_dir("generations");
+    let (hub, shutdown) = start(&dir, 60_000).await;
+    let own = crate::window::generations();
+    let gens = |shrink_wrap| ww_local_socket::Generations {
+        framer: own.framer,
+        link: own.link,
+        shrink_wrap,
+        api_model: own.api_model,
+    };
+    let preamble = |g| Preamble::new(Target::Hub).with_generations(g);
+    let (answer, _conn) = hello_with(&dir, preamble(gens(own.shrink_wrap))).await;
+    assert_eq!(answer.status, Status::Ok);
+    let (answer, _) = hello_with(&dir, preamble(gens(own.shrink_wrap + 1))).await;
+    assert_eq!(answer.status, Status::Versions);
     shutdown.shutdown();
     assert_eq!(hub.await.unwrap(), Exit::Shutdown);
 }

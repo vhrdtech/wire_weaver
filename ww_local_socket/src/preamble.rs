@@ -10,7 +10,9 @@
 //! as new entries, the layout before them never changes. Entries: [TAG_LINK_VERSION] and [TAG_API_MODEL_VERSION], the
 //! client's `ww_link` and `ww_client_server` versions, each `| major: u32 LE | minor: u32 LE | patch: u32 LE |`. A
 //! hub that doesn't serve them answers [Status::Versions]. [TAG_ADOPT] (CLT-44): `| id: u64 LE |`, the tunnel of a
-//! program whose live link the hub adopted ([Preamble::adopt]). A version 1 preamble (a client from before SRV-30) has no
+//! program whose live link the hub adopted ([Preamble::adopt]). [TAG_GENERATIONS] (EVO-23): the client's generation
+//! bytes in the order of the link's hello, `| framer | link | shrink_wrap | API model |`; a later client appends
+//! more, a reader takes the four it knows. A version 1 preamble (a client from before SRV-30) has no
 //! trailer: its versions are unknown. A hub that only reads version 1 answers [Status::PreambleVersion] to version 2,
 //! and the client connects again with version 1.
 //!
@@ -31,6 +33,8 @@ pub const TAG_LINK_VERSION: u8 = 1;
 pub const TAG_API_MODEL_VERSION: u8 = 2;
 /// Trailer entry: the id of an adopted link (CLT-44), the tunnel goes on with it.
 pub const TAG_ADOPT: u8 = 3;
+/// Trailer entry: the client's generations (EVO-23), see [Generations].
+pub const TAG_GENERATIONS: u8 = 4;
 /// Longest trailer accepted.
 pub const MAX_TRAILER_LEN: usize = 1024;
 /// Longest device key accepted, so that a peer can't make the other side allocate much.
@@ -91,6 +95,30 @@ impl fmt::Display for Version {
     }
 }
 
+/// A client's generation bytes, one per foundation layer, as in the link's hello (`ww_link::hello::Generations`):
+/// each counts only breaks of its layer.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Generations {
+    pub framer: u8,
+    pub link: u8,
+    pub shrink_wrap: u8,
+    pub api_model: u8,
+}
+
+impl Generations {
+    fn decode(bytes: &[u8]) -> Option<Generations> {
+        let [framer, link, shrink_wrap, api_model, ..] = *bytes else {
+            return None;
+        };
+        Some(Generations {
+            framer,
+            link,
+            shrink_wrap,
+            api_model,
+        })
+    }
+}
+
 /// What a client sends first.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Preamble {
@@ -102,6 +130,8 @@ pub struct Preamble {
     pub api_model_version: Option<Version>,
     /// The tunnel of a program whose live link the hub adopted (CLT-44): the id `Adopt::prepare` answered
     pub adopt: Option<u64>,
+    /// The client's generations (EVO-23), None when it didn't say (a client from before them)
+    pub generations: Option<Generations>,
 }
 
 #[derive(Debug)]
@@ -125,6 +155,7 @@ impl Preamble {
             link_version: None,
             api_model_version: None,
             adopt: None,
+            generations: None,
         }
     }
 
@@ -145,6 +176,14 @@ impl Preamble {
         }
     }
 
+    /// With the client's generations in the trailer (EVO-23).
+    pub fn with_generations(self, generations: Generations) -> Self {
+        Preamble {
+            generations: Some(generations),
+            ..self
+        }
+    }
+
     /// The same as version 1, for a hub that doesn't read version 2: without the trailer.
     pub fn v1(self) -> Self {
         Preamble {
@@ -152,6 +191,7 @@ impl Preamble {
             link_version: None,
             api_model_version: None,
             adopt: None,
+            generations: None,
             ..self
         }
     }
@@ -182,6 +222,16 @@ impl Preamble {
             if let Some(id) = self.adopt {
                 trailer.extend_from_slice(&[TAG_ADOPT, 8]);
                 trailer.extend_from_slice(&id.to_le_bytes());
+            }
+            if let Some(g) = self.generations {
+                trailer.extend_from_slice(&[
+                    TAG_GENERATIONS,
+                    4,
+                    g.framer,
+                    g.link,
+                    g.shrink_wrap,
+                    g.api_model,
+                ]);
             }
             bytes.extend_from_slice(&(trailer.len() as u16).to_le_bytes());
             bytes.extend_from_slice(&trailer);
@@ -221,6 +271,7 @@ impl Preamble {
             link_version: None,
             api_model_version: None,
             adopt: None,
+            generations: None,
         };
         if version >= 2 {
             let mut len = [0u8; 2];
@@ -244,6 +295,7 @@ impl Preamble {
                     TAG_ADOPT => {
                         preamble.adopt = value.try_into().ok().map(u64::from_le_bytes);
                     }
+                    TAG_GENERATIONS => preamble.generations = Generations::decode(value),
                     // from a later client: skipped
                     _ => {}
                 }
@@ -310,7 +362,10 @@ impl fmt::Display for Status {
             Status::UnknownDevice => write!(f, "no such device"),
             Status::HeldElsewhere => write!(f, "the device is held by another program"),
             Status::PreambleVersion => write!(f, "preamble version not served"),
-            Status::Versions => write!(f, "this program's WireWeaver versions are not served"),
+            Status::Versions => write!(
+                f,
+                "this program's WireWeaver versions or generations are not served"
+            ),
             Status::Lent => write!(f, "the device is lent to another program"),
             Status::Other(s) => write!(f, "status {s}"),
         }
@@ -462,6 +517,32 @@ mod tests {
         assert_eq!(p.link_version, None);
         assert_eq!(p.api_model_version, Some(Version::new(1, 2, 3)));
         assert_eq!(r, b"link");
+    }
+
+    /// The generations entry (EVO-23), and a later client's longer one: the first four are read.
+    #[tokio::test]
+    async fn generations_entry() {
+        let g = Generations {
+            framer: 1,
+            link: 2,
+            shrink_wrap: 3,
+            api_model: 4,
+        };
+        let p = Preamble::new(Target::Hub).with_generations(g);
+        let bytes = p.encode();
+        assert_eq!(
+            bytes,
+            b"WWHB\x02\x00\x00\x00\x06\x00\x04\x04\x01\x02\x03\x04"
+        );
+        assert_eq!(Preamble::read(&mut &bytes[..]).await.unwrap(), p);
+        let later = b"WWHB\x02\x00\x00\x00\x07\x00\x04\x05\x01\x02\x03\x04\x09";
+        let read = Preamble::read(&mut &later[..]).await.unwrap();
+        assert_eq!(read.generations, Some(g));
+        // too short to be one: unknown
+        let short = b"WWHB\x02\x00\x00\x00\x05\x00\x04\x03\x01\x02\x03";
+        let read = Preamble::read(&mut &short[..]).await.unwrap();
+        assert_eq!(read.generations, None);
+        assert_eq!(p.v1().generations, None);
     }
 
     #[test]

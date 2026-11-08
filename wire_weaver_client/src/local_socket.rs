@@ -332,19 +332,33 @@ fn own_versions() -> (Version, Version) {
     )
 }
 
-/// Connects to the socket at `path` and asks for `target` with the preamble, which carries this program's versions;
+/// This program's generations, for the preamble (EVO-23): the same bytes as in its link hello.
+fn own_generations() -> ww_local_socket::Generations {
+    let g = crate::event_loop::core::GENERATIONS;
+    ww_local_socket::Generations {
+        framer: g.framer,
+        link: g.link,
+        shrink_wrap: g.shrink_wrap,
+        api_model: g.api_model,
+    }
+}
+
+/// Connects to the socket at `path` and asks for `target` with the preamble, which carries this program's versions
+/// and generations;
 /// a hub that only reads the first preamble layout is asked again with it.
 pub(crate) async fn open(path: &std::path::Path, target: Target) -> Result<Tunnel, OpenError> {
     open_preamble(path, Preamble::new(target)).await
 }
 
-/// [open] with `preamble`, to which this program's versions are added.
+/// [open] with `preamble`, to which this program's versions and generations are added.
 pub(crate) async fn open_preamble(
     path: &std::path::Path,
     preamble: Preamble,
 ) -> Result<Tunnel, OpenError> {
     let (link, api_model) = own_versions();
-    let preamble = preamble.with_versions(link, api_model);
+    let preamble = preamble
+        .with_versions(link, api_model)
+        .with_generations(own_generations());
     match open_with(path, &preamble).await {
         Err(OpenError::Refused { answer, .. }) if answer.status == Status::PreambleVersion => {
             debug!(

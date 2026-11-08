@@ -34,8 +34,9 @@ pub use handover::{
 };
 #[cfg(feature = "socket")]
 pub use preamble::{
-    Answer, AnswerError, DISCONNECT_LENT, MAGIC, MAX_KEY_LEN, MAX_TRAILER_LEN, PREAMBLE_VERSION,
-    Preamble, PreambleError, Status, TAG_API_MODEL_VERSION, TAG_LINK_VERSION, Target, Version,
+    Answer, AnswerError, DISCONNECT_LENT, Generations, MAGIC, MAX_KEY_LEN, MAX_TRAILER_LEN,
+    PREAMBLE_VERSION, Preamble, PreambleError, Status, TAG_API_MODEL_VERSION, TAG_GENERATIONS,
+    TAG_LINK_VERSION, Target, Version,
 };
 #[cfg(feature = "socket")]
 pub use socket::{Listener, Peer, Stream, connect, listen};

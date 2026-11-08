@@ -78,11 +78,13 @@ then, both ways   | len: u32 LE | kind: u8 | payload |    len counts kind + payl
 - `target` 0 is the hub's own API (no key), 1 a device by its key (`usb:c0de:cafe:<serial>`); a process serving a
   single device accepts any key, the client sends an empty one.
 - The trailer (version 2, SRV-30) carries the client's versions, each value `| major: u32 LE | minor: u32 LE | patch:
-  u32 LE |`: tag 1 its `ww_link`, tag 2 its `ww_client_server`. A reader takes the entries it knows and skips the
+  u32 LE |`: tag 1 its `ww_link`, tag 2 its `ww_client_server`. Tag 3 names an adopted link (CLT-44), tag 4 (EVO-23)
+  carries the client's generations, `| framer | link | shrink_wrap | API model |`, the bytes of its
+  [link hello](ww_link.md#the-frozen-hello); a later client appends more and a reader takes the four it knows. A reader takes the entries it knows and skips the
   others; a missing entry is unknown. Version 1 is the same without the trailer, as clients from before SRV-30 send
   it: a server reads both, and a client asks again with version 1 when a server answers status 3 to version 2.
 - `status`: 0 ok, 1 no such device, 2 the device is held by another program, 3 preamble version not served, 4 the
-  client's `ww_link` or `ww_client_server` version is not served ([Version skew](#version-skew-and-handover-srv-30)),
+  client's generations (or, without them, its `ww_link` or `ww_client_server` version) are not served ([Version skew](#version-skew-and-handover-srv-30)),
   5 the device is lent to another program for a while (SRV-32: wait and ask again). The server closes the
   connection after any status but 0, and the client's connect error says which, with the server's version
   (`Error::HubRefused`).
@@ -575,11 +577,14 @@ hub for both. Three layers keep that working, each under WireWeaver's own [evolu
 1. **The preamble** is frozen ([Wire format](#wire-format)): any client and any hub can exchange their versions and a
    clear refusal.
 2. **The envelope.** The hub reads only what is around a user API: `ww_link` messages and the envelope of
-   `ww_client_server` requests and events. A client says its `ww_link` and `ww_client_server` versions in the
-   preamble, and the hub serves every version its build is compatible with by Cargo's SemVer rule (the same major;
-   for 0.x the same minor), so a newer hub keeps serving older clients. When a release breaks `ww_link` or
-   `ww_client_server`, the hub keeps the previous major's code for one more major and lists it in its window
-   (`ww_hub/src/window.rs`), as a device keeps an old protocol. The device's versions only have to match the hub's
+   `ww_client_server` requests and events, all shrink_wrap. A client says its generations in the preamble (EVO-23),
+   the same bytes as in its link hello, and the hub serves a client whose link, shrink_wrap and API model
+   generations are its own, whatever their versions: a generation counts only breaks, so a newer hub keeps serving
+   older clients. The framer's generation doesn't matter, the local socket carries no framer frames. When a release
+   breaks one of these layers, the hub keeps the previous generation's code for a while and lists it in its window
+   (`ww_hub/src/window.rs`), as a device keeps an old protocol. A client from before the generations is judged by its
+   `ww_link` and `ww_client_server` versions in the preamble by Cargo's SemVer rule (the same major; for 0.x the same
+   minor). The device's versions only have to match the hub's
    build: the hub talks to the device itself. The user API is end to end between client and device, checked against
    the device as without a hub (CLT-8).
 3. **The hub's own API** (`ww_hub_api`) evolves like any API: a client newer than the hub gets `Unimplemented` for

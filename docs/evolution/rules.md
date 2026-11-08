@@ -370,12 +370,14 @@ different WireWeaver releases and the devices, so it adds rules of its own:
 
 * **The preamble is frozen.** Its bytes never change; new fields are new trailer entries (a new tag), which a reader
   that doesn't know them skips. That is what lets any client and any hub exchange their versions and a clear refusal.
-* **What the hub serves.** A client says its `ww_link` and `ww_client_server` versions in the preamble; the hub serves
-  every version its build is compatible with by Cargo's SemVer rule (the same major, 0.x: the same minor). A
-  wire-compatible change of either is invisible to the hub. A breaking one means: the hub keeps the previous major's
-  code for one more major and lists it in its window, the way a device keeps an old protocol, so programs built
-  before the break keep working through a newer hub until they are rebuilt. A client outside the window is refused
-  (status 4) with both versions and the fix, never served half-way.
+* **What the hub serves.** A client says its generations in the preamble (EVO-23, the bytes of its
+  [link hello](../transport/ww_link.md#the-frozen-hello)); the hub serves every client whose link, shrink_wrap and
+  API model generations are its own. A wire-compatible change of any of them is invisible to the hub. A breaking one
+  bumps that layer's generation and means: the hub keeps the previous generation's code for a while and lists it in
+  its window, the way a device keeps an old protocol, so programs built before the break keep working through a
+  newer hub until they are rebuilt. A client outside the window is refused (status 4) with its versions and the fix,
+  never served half-way. A client from before the generations is judged by its `ww_link` and `ww_client_server`
+  versions by Cargo's SemVer rule (the same major, 0.x: the same minor).
 * **The user API is end to end.** The hub reads the envelope only, never a user API: a user API change is between the
   client and the device as without a hub, and the hub doesn't need rebuilding for it.
 * **`ww_hub_api`** evolves like any API crate: additions are wire-compatible (an older hub answers `Unimplemented`),

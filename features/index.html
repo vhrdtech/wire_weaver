@@ -7708,6 +7708,24 @@ observing), SRV-46 (peer identity).
   compares <code>#[since]</code> with the device's wire version (from its introspection data until link setup carries it,
   EVO-25), the checker hints and checks markers against the root's wire version (<code>docs/evolution/rules.md#the-wire-version</code>;
   tests <code>ww_version</code> <code>wire::tests</code>, <code>wire_weaver_core</code> <code>wire_version_and_since</code>, <code>tests/cross_version</code>).</li>
+<li>✅ <strong>EVO-26 Wire versions of shared crates</strong> · <code>v0.5</code> — every crate whose traits or types cross the wire has a
+  wire version apart from its crate version: a crate without an API root declares it in <code>Cargo.toml</code>,
+  <code>[package.metadata.wire_weaver] wire = "w1.2"</code> (an API root crate only in <code>#[ww_api_root(wire = ..)]</code>), and bundles
+  and snapshots carry it per crate (<code>ww_self::ApiBundle::ext_wire</code>, <code>crate_wire</code>). Every <code>ww_stdlib</code> crate,
+  <code>ww_global</code> and <code>ww_tap</code> are at <code>w1.0</code>, <code>ww_board_info</code> at <code>w1.2</code>. <code>#[since]</code> names a revision of the crate that
+  declares the item: the client compares it with the device's wire version of that crate (<code>ww_board_info</code>'s
+  <code>set_reworks</code>, <code>w1.2</code>, was refused under API roots at <code>w1.0</code>), and <code>Error::OlderProtocol</code> names the crate. The
+  checker and the connect-time check compare a dependency's traits and types by its wire line when both sides declare
+  one, so a Rust-only break of a <code>ww_stdlib</code> crate no longer breaks the APIs using it; global trait paths resolved on
+  the host match the line too. Signatures hash a frozen canonical bundle, so appended <code>ApiBundle</code> fields never move
+  them. Open: a device resolving a global path itself still matches crate versions (EVO-29); <code>exact_units</code> declares
+  none yet (its own repository) (<code>docs/evolution/crate_layers.md#layer-2-ww_stdlib</code>; tests <code>wire_weaver_client</code>
+  <code>since_of_a_stdlib_crate</code>, <code>stdlib_trait_found_by_wire_line</code>, <code>wire_weaver_evolution</code> <code>tests::wire_lines</code>).</li>
+<li>💡 <strong>EVO-29 Global paths by wire line on the device</strong> — a device without introspection data resolves <code>GlobalFull</code>
+  and <code>GlobalCompact</code> paths itself (<code>ww_client_server::global_full_path</code>, the generated <code>GlobalTrait</code> table) by the
+  crate major and minor the request carries, so a host built with another crate major of a <code>ww_stdlib</code> crate on the
+  same wire line gets <code>TraitNotFound</code>. The request would carry the crate's wire line instead (or next to it): a wire
+  change of <code>PathKind</code> (<code>final_structure</code>), with an API model generation bump in the frozen hello.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

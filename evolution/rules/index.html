@@ -6211,6 +6211,11 @@ marker's.</p>
 </ul>
 <p>The host knows the device's wire version from its introspection data (the bundle carries the root's wire version);
 without it, <code>#[since]</code> isn't checked until link setup carries the wire version (EVO-25).</p>
+<p>A marker names a revision of the crate that declares the item, not of the API root: a trait from a <code>ww_stdlib</code> crate
+(<code>ww_impl!(board: ww_board_info::BoardInfo)</code>) carries that crate's markers, compared with the device's wire version of
+that crate (<code>[package.metadata.wire_weaver] wire = ..</code> in its <code>Cargo.toml</code>, see
+<a href="../crate_layers/#layer-2-ww_stdlib">crate layers</a>). They need the device's introspection data; link setup carries
+only the root's wire version.</p>
 <p>A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
 version); the <a href="../checker_tool/">evolution checker</a> warns about it.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a

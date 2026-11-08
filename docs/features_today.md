@@ -302,7 +302,7 @@ round, and tell you before a release when a change would break that.
 - **[Evolution checker](evolution/checker_tool.md)**: `ww api check` and `ww api diff` say whether a change is compatible.
 - **[One cause, not many breaks](evolution/checker_tool.md#several-broken-items-one-cause-evo-21)**: Several broken traits or types caused by the one dependency that changed are reported together, naming it once.
 - **[Arguments that evolve](api/methods.md#arguments-that-evolve)**: Add trailing arguments with a default, or turn arguments into one `#[flatten]` struct, without breaking the wire.
-- **[Frozen hello](transport/ww_link.md#the-frozen-hello)**: Link setup opens with a few fixed bytes that name each layer's generation, so a host and a device that can't talk say which side to update instead of timing out. <span class="ww-status">in progress</span>
+- **[Frozen hello](transport/ww_link.md#the-frozen-hello)**: Link setup opens with a few fixed bytes that name each layer's generation, so a host and a device that can't talk say which side to update instead of timing out.
 - **[Wire version of its own](evolution/rules.md#the-wire-version)**: `#[ww_api_root(wire = "w2.3")]` says which devices and hosts talk, apart from the crate version, and `#[since = "w2.1"]` names the revision that added an item.
 - **[Checker knows the catch-all](evolution/rules.md#unsized-types)**: Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible.
 - **[Evolution check at every commit](evolution/checker_tool.md#checking-at-every-commit)**: A test of your API crate fails when the API changed without the version bump it needs.

@@ -75,7 +75,8 @@ Each [ww_link](ww_link.md) message is one binary WebSocket message:
 | kind: u8 | payload ... |
 ```
 
-`kind` is `ww_link::Kind`, the payload is what the same message carries over other media. WebSocket has its own
+`kind` is `ww_link::Kind`, the payload is what the same message carries over other media. The hello is frozen in this form, kind
+`04` and its payload ([the frozen hello](ww_link.md#the-frozen-hello), `ww_link::hello::ws`). WebSocket has its own
 framing over a reliable stream, so [ww_framer](ww_framer.md) is not used: messages are never split or packed
 together, and there is nothing to re-synchronize on. Small messages still share TCP segments: the host buffers them
 until the event loop flushes (after the accumulation time) and writes them out in one go. The host's socket has

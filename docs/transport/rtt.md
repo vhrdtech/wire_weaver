@@ -117,7 +117,9 @@ split across chunks (`Tx::write_full`), and the receiver cuts messages out of th
 `NoBlockSkip` writes are atomic, so nothing is lost mid-message either.
 
 Without a delimiter there is nothing to re-synchronize on: a message larger than the receiver's buffer is skipped,
-but the bytes that follow are misinterpreted until the transport is reset. The device reports its
+but the bytes that follow are misinterpreted until the transport is reset. The one exception is the hello: both sides scan
+every read for the peer's [frozen hello](ww_link.md#the-frozen-hello) before the framer sees it, so a new session
+starts cleanly from it, and a peer whose framer is of another generation still has its hello read. The device reports its
 `MAX_MESSAGE_LEN` during link setup, a host must never send more than that.
 
 Many small messages are still packed into one chunk, accumulated for the window the device asks for in

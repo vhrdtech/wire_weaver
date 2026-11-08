@@ -45,8 +45,8 @@ server.run(&mut state).await;
 
 UDP has no connections, so the device serves one host (peer) at a time and replies to it only:
 
-- a host is adopted when it starts link setup: the first message of its datagram is `Nop` or `Hello`, which
-  the host sends alone before anything else;
+- a host is adopted when it starts link setup: its datagram is a `Nop` first or the
+  [frozen hello](ww_link.md#the-frozen-hello), which the host sends alone before anything else;
 - datagrams from other hosts are dropped, unless they start link setup: then the new host replaces the current
   one, as if another process opened a USB device. The device reports `LinkEvent::Down(DownReason::Transport)`,
   starts over and handles the datagram that started the takeover, so the new host connects without waiting for a
@@ -112,10 +112,12 @@ Each datagram is one [ww_framer](ww_framer.md) frame, with `ww_link::UdpFraming`
 then the messages with `UdpHead` (`U2Head`) heads and `UdpChecksum`, a CRC-32/ISO-HDLC (the CRC-32 of zip and
 Ethernet, computed by `ww_block`) after every message, covering the prefix, the head and the message, and `UdpTail`
 (none). Same as over USB, small messages accumulated by the event loop share a datagram and big ones are split across
-several. Byte examples are on [framer wire format](ww_framer_wire.md#with-a-crc-32-on-every-message-udp).
+several. Byte examples are on [framer wire format](ww_framer_wire.md#with-a-crc-32-on-every-message-udp). The hello is
+the one datagram outside the framer: no frame prefix, its own CRC, and it is not counted
+([the frozen hello](ww_link.md#the-frozen-hello)).
 
 The device starts a new session of its framer on every hello (the epoch goes up), and the host drops
-everything before the `DeviceInfo` with its [setup token](ww_link.md#setup-token). A datagram only starts link setup
+everything before the device's hello with its [setup token](ww_link.md#setup-token). A datagram only starts link setup
 (and takes the device over from another host) when its CRC is good.
 
 The host sends datagrams of at most `ww_link::UDP_MAX_DATAGRAM_LEN` (1452 B: Ethernet MTU minus IPv6 and UDP headers,

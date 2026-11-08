@@ -59,8 +59,7 @@ against it; the next section shows both.
 
 ## Two bumps: the wire and the crate
 
-The wire version (`#[ww_api_root(wire = "w1.0")]`, or `[package.metadata.wire_weaver] wire` in `Cargo.toml` for a
-crate without an API root) and the crate version are bumped apart: the wire version for what devices and hosts of
+The wire version (`[package.metadata.wire_weaver] wire = "w1.0"` in `Cargo.toml`) and the crate version are bumped apart: the wire version for what devices and hosts of
 the two versions can still say to each other, the crate version for Rust code. One comparison gives both, on the
 `needs:` line, and the check fails when either is not bumped enough, naming what to change for each. A trailing
 argument with a default is a wire-compatible addition, a new wire revision, but a breaking change of the Rust
@@ -75,7 +74,7 @@ my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1
 Error: my_device_api 0.1.0 -> 0.1.1 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
 Bump `version` in my_device_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save my_device_api` and commit api_snapshots/.
 my_device_api wire w1.0 -> w1.0 has MyDevice::led_on: arguments added or removed at the end, which needs a new wire revision: w1.1 or later.
-Bump the wire version in `#[ww_api_root(wire = ..)]` to w1.1 or later (docs/evolution/rules.md#the-wire-version).
+Bump the wire version in `[package.metadata.wire_weaver] wire` of my_device_api/Cargo.toml to w1.1 or later (docs/evolution/rules.md#the-wire-version).
 ```
 
 Which change needs which bump is in [the rules](rules.md#which-bump-a-change-needs). In short:

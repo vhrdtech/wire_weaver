@@ -521,20 +521,25 @@ fn wire_hint(report: &Report, crate_path: Option<&Path>) -> String {
 }
 
 /// Where the crate at `crate_path` declares its wire version: `[package.metadata.wire_weaver] wire` in its
-/// `Cargo.toml` when that has it (a crate without an API root, EVO-26), else the API root's attribute. The only place
-/// the checker decides this, so moving every crate's wire version into `Cargo.toml` changes this function alone.
+/// `Cargo.toml` (every crate, EVO-31), or the attribute of a test crate whose root says `#[ww_api_root(wire = ..)]`
+/// instead. The only place the checker decides this.
 fn wire_declared_at(crate_path: Option<&Path>) -> String {
-    let cargo_toml = crate_path.map(|p| p.join("Cargo.toml"));
-    let in_manifest = cargo_toml.as_ref().is_some_and(|path| {
-        fs::read_to_string(path).is_ok_and(|text| text.contains("[package.metadata.wire_weaver]"))
-    });
-    match (in_manifest, cargo_toml) {
-        (true, Some(path)) => format!("`[package.metadata.wire_weaver] wire` of {}", path.display()),
-        (false, Some(_)) => "`#[ww_api_root(wire = ..)]`".to_string(),
-        // a snapshot file: either
-        (_, None) => "`#[ww_api_root(wire = ..)]` (or `[package.metadata.wire_weaver] wire` in `Cargo.toml` of a \
-                      crate without an API root)"
-            .to_string(),
+    let Some(crate_path) = crate_path else {
+        // a snapshot file
+        return "`[package.metadata.wire_weaver] wire` in the crate's `Cargo.toml`".to_string();
+    };
+    let cargo_toml = crate_path.join("Cargo.toml");
+    let in_manifest = fs::read_to_string(&cargo_toml)
+        .is_ok_and(|text| text.contains("[package.metadata.wire_weaver]"));
+    let in_attribute = fs::read_to_string(crate_path.join("src/lib.rs"))
+        .is_ok_and(|text| text.contains("#[ww_api_root(wire"));
+    if in_attribute && !in_manifest {
+        "`#[ww_api_root(wire = ..)]`".to_string()
+    } else {
+        format!(
+            "`[package.metadata.wire_weaver] wire` of {}",
+            cargo_toml.display()
+        )
     }
 }
 

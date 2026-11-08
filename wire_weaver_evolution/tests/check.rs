@@ -731,16 +731,24 @@ fn both_bumps_named_in_the_verdict() {
     );
 }
 
-/// EVO-27: a crate without an API root declares its wire version in `Cargo.toml` (EVO-26), and the hint says so.
+/// EVO-27: a crate declares its wire version in `Cargo.toml` (EVO-26; API roots too since EVO-31), and the hint
+/// says so: once for a crate without an API root, once for a bare `#[ww_api_root]`.
 #[test]
 fn wire_version_of_a_crate_without_root_is_bumped_in_cargo_toml() {
+    wire_version_in_cargo_toml_is_bumped("manifest-wire", "#[ww_trait]");
+    wire_version_in_cargo_toml_is_bumped("manifest-wire-root", "#[ww_api_root]");
+}
+
+fn wire_version_in_cargo_toml_is_bumped(name: &str, marker: &str) {
     let shared = r#"
 #[ww_trait]
 pub trait Shared {
     fn get() -> u8;
 }
 "#;
-    let c = TestCrate::new("manifest-wire");
+    let shared = shared.replace("#[ww_trait]", marker);
+    let shared = shared.as_str();
+    let c = TestCrate::new(name);
     let write = |version: &str, wire: &str, lib_rs: &str| {
         c.write(version, lib_rs);
         let manifest = c.path().join("Cargo.toml");

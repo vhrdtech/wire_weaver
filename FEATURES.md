@@ -1884,9 +1884,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `stale_hello_and_split_tail_before_this_sessions_hello` (USB and UDP), `stream::tests::hello_outside_the_framer`,
   `unknown_peer_format`, `ww_hub` `hub_serves_by_generation`).
 - ✅ **EVO-24 Wire version of its own** · `v0.5` — an API root declares its wire version apart from its crate
-  version, `#[ww_api_root(wire = "w2.3")]` (line 2, revision 3), as `ww_version::WireVersion`; the `w` is part of the
-  notation everywhere and a parser refuses `2.3`, `w2.3.0` and crate versions with an error that says why. The trait
-  gets a `*_WIRE_VERSION` const, `ww_self::ApiBundle::wire` carries it (crate snapshots too), and `#[since = "w2.1"]`
+  version, `#[ww_api_root(wire = "w2.3")]` (line 2, revision 3; in `Cargo.toml` since EVO-31), as
+  `ww_version::WireVersion`; the `w` is part of the notation everywhere and a parser refuses `2.3`, `w2.3.0` and
+  crate versions with an error that says why. The trait gets a `*_WIRE_VERSION` const, `ww_self::ApiBundle::wire` carries it (crate snapshots too), and `#[since = "w2.1"]`
   on items, fields and variants names a wire revision; the crate-version form is refused with a hint. The client
   compares `#[since]` with the device's wire version (from link setup since EVO-25, else from its introspection
   data), the checker hints and checks markers against the root's wire version (`docs/evolution/rules.md#the-wire-version`;

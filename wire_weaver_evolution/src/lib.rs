@@ -11,7 +11,7 @@
 //!
 //! Resources are matched by id inside each trait, traits and types by name.
 //!
-//! The wire version (`#[ww_api_root(wire = "w2.3")]`, or `[package.metadata.wire_weaver] wire` in `Cargo.toml`) is
+//! The wire version (`[package.metadata.wire_weaver] wire = "w2.3"` in `Cargo.toml`, EVO-31) is
 //! checked apart from the crate version, see [WireBump] (EVO-27):
 //!
 //! * A new line (`w2.3` -> `w3.0`): a change that breaks the wire, as above, but not one that only breaks Rust code

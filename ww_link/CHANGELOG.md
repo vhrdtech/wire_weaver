@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Frozen hello (EVO-23): `Kind::GetDeviceInfo` / `Message::GetDeviceInfo { token }` became `Kind::Hello` / `Message::Hello(Hello)`, sent by both sides. Its payload is plain bytes at fixed positions (new `hello` module: `Hello`, `Role`, `Generations`, `Layer`, `Mismatch`, `HelloError`, `GENERATION`, `hello::usb::{HEAD, frame, find}`): magic `WW`, role, generation bytes of framer, link, shrink_wrap and API model, the token. `DeviceInfo` now follows the device's hello and only when every generation matches. Match `Message::Hello(hello)` and use `hello.token` where you matched `GetDeviceInfo { token }`; wire break, every device and host is rebuilt together.
 - `DeviceInfo` has a new field `image_facts: ImageFacts` (SRV-56): code built with a struct literal adds it. The wire stays compatible both ways, it is appended with a default: an old device reads as making no special choice, an old host steps over it.
 
 ### 🐛 Fixes

@@ -564,7 +564,7 @@ and reopen of the same board with `WW_LIVE_HANDOVER=off`:
 | Longest time without an answer | 163 ms median | 140 ms median |
 
 The longest time without an answer is mostly the other program's own introspection fetch (a dynamic client), which
-the device sends before the next answers; it is there either way. The hub's trace shows no `GetDeviceInfo`,
+the device sends before the next answers; it is there either way. The hub's trace shows no `Hello`,
 `LinkSetup` or control transfer to the device at the adoption.
 
 ## Version skew and handover (SRV-30)

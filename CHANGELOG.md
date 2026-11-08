@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Frozen hello in link setup (EVO-23): a few plain bytes at fixed positions open every link, with one generation byte each for the framer, link, shrink_wrap and API model, so a host and a device that can't talk name the layer and who should update instead of failing on a decode error or a timeout. `GetDeviceInfo` became `Hello` (wire break). See `ww_link/`, `ww_device/`, `wire_weaver_client/`, `shrink_wrap/`, `ww_framer/` and `ww_stdlib/ww_client_server/` CHANGELOGs.
 - Arguments that evolve (EVO-22): methods and stream functions take trailing arguments with a default (`#[default = ..]`, implicit for `Option`, `Vec` and `String`), and an argument list can become a struct with `#[flatten]` without changing a byte. `ww api check` compares arguments like trailing struct fields and says when only Rust callers break. Breaking for introspection data and snapshots (`ww_self::Argument` gained two fields). See `ww_self/`, `wire_weaver_core/`, `wire_weaver_derive/`, `wire_weaver_evolution/`, `wire_weaver_client/`, `wire_weaver_py/`, `wire_weaver_cli/` and `wire_weaver_snapshots/` CHANGELOGs.
 - The no-float firmware guard (TEST-33) is a gate in `just test` (`just no-float-guard`): `ww_si`'s device operations link no `f64`, 128-bit or slow-path code, and no `f32` where a firmware didn't opt into floats. See `ww_si/` CHANGELOG.
 - `exact_units` taken at b114829 (STD-99, LVL-3): levels and their rates as quantities (`Neper`, `Decibel`, a loss

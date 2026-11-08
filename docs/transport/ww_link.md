@@ -81,7 +81,7 @@ framing: USB tells it in the interface protocol (`USB_INTERFACE_PROTOCOL`, 0x37,
 pub enum Message<'i> {
     Data { channel: u8, bytes: &'i [u8] },   // channel 0..=2
     Nop,
-    GetDeviceInfo { token: u64 },
+    Hello(Hello),                           // the frozen hello, both ways
     DeviceInfo(DeviceInfo<'i>),             // DeviceInfo::token echoes it
     LinkSetup(LinkSetup<'i>),               // LinkSetup::token
     LinkReady { token: u64 },
@@ -97,8 +97,8 @@ pub enum Message<'i> {
 | -------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Data`               | both          | Application bytes, opaque to the link. Channel `0` carries `ww_client_server`; `1` and `2` are free for future use.                           |
 | `Nop`                | both          | Ignored by the receiver. Sent first after connecting so that a lost first packet (e.g., USB toggle mismatch) doesn't eat something important. |
-| `GetDeviceInfo`      | host → device | Start of link setup, with the host's [setup token](#setup-token) (`u64` LE). The device starts a new session in its transmit framer.         |
-| `DeviceInfo`         | device → host | Link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token.                      |
+| `Hello`              | both          | The [frozen hello](#the-frozen-hello): generations and the [setup token](#setup-token). From the host it starts link setup and a new session in the device's transmit framer; the device answers with its own. |
+| `DeviceInfo`         | device → host | After the device's hello, when every generation matches: link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token. |
 | `LinkSetup`          | host → device | Host user API version, max message length the host accepts, the token.                                                                        |
 | `LinkReady`          | device → host | Setup accepted, `Data` may flow; the token (`u64` LE).                                                                                        |
 | `Ping`               | both          | Keep-alive, sent when nothing else was sent for `PING_INTERVAL_MS` (3 s).                                                                     |
@@ -137,7 +137,7 @@ Errors are deliberately small:
 | `Error`           | When                                                                                |
 | ----------------- | ----------------------------------------------------------------------------------- |
 | `UnknownKind(u8)` | `user_kind` is not a `Kind` — ignore, likely a newer peer                           |
-| `Malformed(Kind)` | payload didn't deserialize — a leftover from a previous session or version mismatch |
+| `Malformed(Kind)` | payload didn't deserialize — a leftover from a previous session or version mismatch; a malformed `Hello` or `DeviceInfo` during setup is a peer of an unknown format |
 | `ScratchTooSmall` | `encode` was given a buffer too small for `DeviceInfo` / `LinkSetup`                |
 
 ### Constants
@@ -156,9 +156,11 @@ Also re-exported for convenience: `DisconnectReason`, `CompactVersion`, `FullVer
  host                                       device
  ────                                       ──────
  Nop                     ───────────►
- GetDeviceInfo { token } ───────────►       (new session in the transmit framer)
+ Hello { gens, token }   ───────────►       (new session in the transmit framer)
+                         ◄───────────       Hello { gens, token }
+   (compare generations: a mismatch ends setup here, named)
                          ◄───────────       DeviceInfo { versions, hash, max_len, acc_time, token }
-   (check link and user API compatibility)
+   (check user API compatibility)
  LinkSetup { version, max_len, token } ──►
                          ◄───────────       LinkReady { token }
 
@@ -173,14 +175,14 @@ Also re-exported for convenience: `DisconnectReason`, `CompactVersion`, `FullVer
 
 Rules the reference event loop follows (and a new transport should too):
 
-- `GetDeviceInfo` is retried every 50 ms, up to 5 times; then link setup is considered failed.
+- The hello is retried every 50 ms, up to 5 times; then link setup is considered failed.
 - The host refuses the connection if `DeviceInfo.user_api_version` is not protocol-compatible with the
   generated client API (see [ww_version](../std_library/ww_version.md)). A device may likewise reply with
   `Disconnect(IncompatibleVersion)` after `LinkSetup`.
 - `Data` accumulates into the current frame for `packet_accumulation_time_us` (as requested by the device) before
   being flushed, never longer; an urgent request is flushed at once, see
   [latency and priority](ww_framer.md#latency-and-priority). Control messages are flushed immediately.
-- The host drops every message until the `DeviceInfo` carrying its token, see [Setup token](#setup-token).
+- The host drops every message until the device's hello carrying its token, see [Setup token](#setup-token).
 - `Data` received before `LinkReady` and `Disconnect` received while not connected are ignored — they are
   stragglers from a previous session.
 - Nothing received for `PEER_TIMEOUT_MS` → the host disconnects with an error.
@@ -189,24 +191,65 @@ Rules the reference event loop follows (and a new transport should too):
 ### Setup token
 
 A new session can start while the previous one still has bytes on the way: an answer already in the device's USB IN
-buffer for a host that went away, the rest of a split message, a reply to a `GetDeviceInfo` the host already
-re-sent. Without anything to tell them apart, an old `DeviceInfo` would be taken for the new one. So the host puts a
-random, non-zero 64-bit **token** into `GetDeviceInfo` and `LinkSetup` (one per connection, the same on retries),
-the device echoes it in `DeviceInfo` and `LinkReady`, and:
+buffer for a host that went away, the rest of a split message, a reply to a hello the host already re-sent.
+Without anything to tell them apart, an old `DeviceInfo` would be taken for the new one. So the host puts a random,
+non-zero 64-bit **token** into its hello and `LinkSetup` (one per connection, the same on retries), the device echoes
+it in its hello, `DeviceInfo` and `LinkReady`, and:
 
-- the host drops everything that arrives before the `DeviceInfo` with its token, and a `LinkReady` with another
-  one; a wrong match needs a stale reply to carry the same 64-bit value (1 in 1.8·10¹⁹);
-- the device takes `LinkSetup` only with the token of the last `GetDeviceInfo`;
-- on `GetDeviceInfo` the device starts a new session in its transmit framer (`Transmit::NewSession`,
+- the host drops everything that arrives before the device's hello with its token, and a `DeviceInfo` or
+  `LinkReady` with another one; a wrong match needs a stale reply to carry the same 64-bit value (1 in 1.8·10¹⁹);
+- the device takes `LinkSetup` only with the token of the last hello, and only when its generations matched;
+- on a hello the device starts a new session in its transmit framer (`Transmit::NewSession`,
   `MessageTx::new_session`, `Tx::new_session` in `ww_framer`): a frame being filled and a half-sent message are
   dropped, the reply starts in a fresh frame, and with a [frame prefix](ww_framer.md#frame-prefix) the epoch goes
   up, so that frames of the old session still on the way are dropped by the host's framer;
 - there is no USB reset on connect (slow, re-enumerates, kicks other tools off the device).
 
-A peer built before the token sends none (the field reads as 0): a host answers such a `DeviceInfo` with
-`Error::IncompatibleLinkVersion` ("without setup token"), a device answers such a `GetDeviceInfo` or `LinkSetup`
-with `Disconnect(IncompatibleVersion)`, so a mismatch is a clear error, not a setup timeout. The host also checks
-`DeviceInfo::dev_link_version` against its own `LINK_VERSION`.
+A peer built before the hello is still told apart, so a mismatch is a clear error, not a setup timeout:
+
+- a device answers a host's bare token (or a `LinkSetup` without a matching hello) with
+  `Disconnect(IncompatibleVersion)`;
+- a device from before the hello reads the first 8 bytes of the host's hello as its token and echoes them in
+  `DeviceInfo`; the host recognises them and fails with `Error::IncompatibleLinkVersion` ("before the hello").
+
+### The frozen hello
+
+Everything else on a link is evolvable: shrink_wrap inside framer frames. A break in one of those layers would make
+the version exchange itself unreadable, an obscure decode error or a setup timeout. So link setup opens with a
+**hello** of plain bytes at fixed positions, read before anything evolvable (EVO-23,
+`ww_link::hello`). Its payload is the same on every medium and never changes:
+
+| Offset | Size | Field                                                                     |
+| ------ | ---- | ------------------------------------------------------------------------- |
+| 0      | 2    | magic `WW` (`57 57`)                                                      |
+| 2      | 1    | role: `H` (`48`) host, `D` (`44`) device                                  |
+| 3      | 1    | `n`, the number of generation bytes that follow (4)                       |
+| 4      | n    | generations: framer, link, shrink_wrap, API model (`ww_client_server`)    |
+| 4 + n  | 8    | setup token, `u64` little endian                                          |
+| 12 + n | ..   | nothing yet; a reader ignores what follows                                |
+
+A **generation** is one byte per foundation layer (`ww_framer::GENERATION`, `ww_link::hello::GENERATION`,
+`shrink_wrap::GENERATION`, `ww_client_server::GENERATION`, all 1). It counts only breaks of that layer's bytes:
+additions never change it, they are negotiated in `DeviceInfo` and `LinkSetup` after the hello. A later layer gets
+its byte appended (`n` grows), and a reader takes the four it knows.
+
+The frame around the payload is frozen per medium too. On USB it is one packet: the head framer generation 1 writes
+for a whole `Hello` of 16 bytes (`30 48 10`, `ww_link::hello::usb::HEAD`), then the payload, 19 bytes in all;
+`hello::usb::find` reads it from a packet without the framer, whatever generation the sender's framer is. The other
+media follow in EVO-23's second part.
+
+What each side does with it:
+
+- The device always answers with its own hello. `DeviceInfo` follows only when every generation matches; otherwise
+  setup stops there, and a `LinkSetup` that comes anyway is refused.
+- The host compares the device's generations with its own and fails with `Error::IncompatibleGeneration`, naming the
+  layer: "The device speaks shrink_wrap generation 2, this host shrink_wrap generation 1: update the host". A device
+  in the field is stuck and a host is not, so the advice is always about the host (or, for an older device, a host
+  that still speaks its generation).
+- During setup, a `Hello` or `DeviceInfo` the host can't decode is reported as `Error::UnknownPeerFormat` with its
+  bytes, never as a bare decode error.
+- The hello costs bytes only in link setup, once each way per connection: nothing is added to any message after
+  `LinkReady`.
 
 ## How the host runs it
 
@@ -223,7 +266,7 @@ timers and hold no channels. A thin per-transport wrapper supplies those.
  responses, streams ◄──── RxCore ◄── (kind, payload) ◄── framer ◄── medium
 ```
 
-**Tx** handles every command, drives link setup (Nop → GetDeviceInfo with retries → LinkSetup), decides when
+**Tx** handles every command, drives link setup (Nop → hello with retries → LinkSetup), decides when
 to flush the accumulated frame, sends pings and allocates request IDs.
 **Rx** decodes messages, does the version check, routes responses and stream data to waiting callers, times out
 requests and detects a silent peer.
@@ -272,10 +315,10 @@ next to the link:
 | `worker` with `tokio::select!`, two tasks             | user loop with `Server::wait()` / `Server::handle()`, or `run()`   |
 | —                                                     | `blocking::Server` for devices without async                       |
 
-**`DeviceLink`** answers `GetDeviceInfo` (a new framer session, then Nop flushed alone, then `DeviceInfo` with
-the host's token), checks the token and the host version on `LinkSetup` and
+**`DeviceLink`** answers a hello (a new framer session, then Nop flushed alone, then its own hello, then `DeviceInfo`
+with the host's token when the generations match), checks the token and the host version on `LinkSetup` and
 replies `LinkReady` or `Disconnect(IncompatibleVersion)`, runs the frame accumulation window and pings, and
-declares the host gone after the peer timeout. `GetDeviceInfo` while the link is up means the host application
+declares the host gone after the peer timeout. A hello while the link is up means the host application
 restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as
 a few flags (no queue, no allocations) and handed out by `poll_transmit()`; link state changes come out of
 `poll_event()` as `LinkEvent::Up` / `Down(reason)`.

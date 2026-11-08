@@ -107,3 +107,10 @@ path = "src/tape_reader.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "link-hello"
+path = "src/link_hello.rs"
+test = false
+doc = false
+bench = false

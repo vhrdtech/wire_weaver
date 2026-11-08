@@ -105,11 +105,12 @@ keeps working with a host or firmware built against `wire_weaver 0.6`, as long a
 The exception is code that defines what goes on the wire:
 
 * `ww_framer` (frame layout, heads, checksums, frame prefixes) and `ww_link` (message kinds, `DeviceInfo`,
-  `LinkSetup`, each medium's `Framing`) - changing these breaks every device from every host. The host checks the
-  device's `DeviceInfo::dev_link_version` against its own `LINK_VERSION` and the setup token
-  ([link setup](../transport/ww_link.md#setup-token)), and fails with `Error::IncompatibleLinkVersion` instead of a
-  setup timeout. Only add new message kinds that old peers ignore; never change existing ones. The last such break
-  was TR-15 (0.5): the setup token in `GetDeviceInfo` / `DeviceInfo` / `LinkSetup` / `LinkReady`, USB packets
+  `LinkSetup`, each medium's `Framing`) - changing these breaks every device from every host. Such a break bumps
+  the layer's generation in the [frozen hello](../transport/ww_link.md#the-frozen-hello) (`ww_framer::GENERATION`,
+  `ww_link::hello::GENERATION`), so peers on both sides of it fail with `Error::IncompatibleGeneration`, naming the
+  layer, instead of a setup timeout. Only add new message kinds that old peers ignore; never change existing ones.
+  The hello itself (EVO-23, 0.5) was such a break: `GetDeviceInfo` became `Hello`. The one before it was TR-15
+  (0.5): the setup token in `GetDeviceInfo` / `DeviceInfo` / `LinkSetup` / `LinkReady`, USB packets
   without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every message. A device and a
   host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the token, which is refused as
   well, so every firmware and host is rebuilt together.

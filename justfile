@@ -330,6 +330,11 @@ fuzz-framer:
 fuzz-framer-lossy:
     cargo +nightly fuzz run framer-lossy -- -max_len=32768
 
+# Fuzz the link setup hello (EVO-23)
+[working-directory('fuzz')]
+fuzz-link-hello:
+    cargo +nightly fuzz run link-hello -- -max_len=64
+
 # Fuzz shrink_wrap TailSize types (SW-22)
 [working-directory('fuzz')]
 fuzz-shrink-wrap:

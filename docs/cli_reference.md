@@ -392,7 +392,7 @@ link 0 tx:
   overhead: prefixes 0 B, heads 26 B, checksums and tails 0 B, unused 312 B
   messages 13, 1 split over 2 frames
   message to frame: mean 926.0 µs, max 2.44 ms
-  link messages: Data0 9, Disconnect 1, GetDeviceInfo 1, LinkSetup 1, Nop 1
+  link messages: Data0 9, Disconnect 1, Hello 1, LinkSetup 1, Nop 1
 link 0 rx:
   frames 10 (140.6/s), 418 bytes, fill 65.3%, 1.20 messages/frame
   overhead: prefixes 0 B, heads 25 B, checksums and tails 0 B, unused 222 B

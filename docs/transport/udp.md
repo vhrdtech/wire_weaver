@@ -45,7 +45,7 @@ server.run(&mut state).await;
 
 UDP has no connections, so the device serves one host (peer) at a time and replies to it only:
 
-- a host is adopted when it starts link setup: the first message of its datagram is `Nop` or `GetDeviceInfo`, which
+- a host is adopted when it starts link setup: the first message of its datagram is `Nop` or `Hello`, which
   the host sends alone before anything else;
 - datagrams from other hosts are dropped, unless they start link setup: then the new host replaces the current
   one, as if another process opened a USB device. The device reports `LinkEvent::Down(DownReason::Transport)`,
@@ -99,7 +99,7 @@ Nothing is retransmitted:
   the remaining length and the CRC, and continues with the next one;
 - every message carries a CRC-32: a datagram corrupted on the way (the UDP checksum is a 16-bit sum, and optional over
   IPv4) is dropped instead of decoded into wrong values;
-- link setup survives losses, `GetDeviceInfo` is retried;
+- link setup survives losses, the hello is retried;
 - if the device goes away silently, the peer timeout ends the session.
 
 Keep messages that must not be lost small enough to fit in one datagram, or use [WebSocket](websocket.md) if the
@@ -114,7 +114,7 @@ Ethernet, computed by `ww_block`) after every message, covering the prefix, the 
 (none). Same as over USB, small messages accumulated by the event loop share a datagram and big ones are split across
 several. Byte examples are on [framer wire format](ww_framer_wire.md#with-a-crc-32-on-every-message-udp).
 
-The device starts a new session of its framer on every `GetDeviceInfo` (the epoch goes up), and the host drops
+The device starts a new session of its framer on every hello (the epoch goes up), and the host drops
 everything before the `DeviceInfo` with its [setup token](ww_link.md#setup-token). A datagram only starts link setup
 (and takes the device over from another host) when its CRC is good.
 

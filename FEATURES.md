@@ -1857,6 +1857,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   and reports an added or promoted argument with the wire intact as `Rule::Signature`, a Rust-only break
   (`docs/api/methods.md#arguments-that-evolve`, `docs/evolution/rules.md#arguments`; tests `tests/args_evolution`,
   `wire_weaver_evolution` `tests::args`, conformance `args.*`).
+- 🚧 **EVO-23 Frozen hello in link setup** · `v0.5` — link setup opens with a hello of plain bytes at fixed
+  positions, read before any evolvable layer: magic `WW`, role, one generation byte per foundation layer (framer,
+  link, shrink_wrap, API model; `GENERATION` consts in `ww_framer`, `ww_link::hello`, `shrink_wrap`,
+  `ww_client_server`) and the setup token. Generations count only breaks. `Kind::GetDeviceInfo` became
+  `Kind::Hello`, sent both ways; the device sends `DeviceInfo` only when every generation matches, the host fails
+  with `Error::IncompatibleGeneration` naming the layer and who should update, and a setup message it can't read
+  with `Error::UnknownPeerFormat` and its bytes. Not a byte is added after `LinkReady`. Done: the payload, the USB
+  frame (`hello::usb`), device and host on USB and in-process. Open: the frozen frame on UDP, RTT and WebSocket, and
+  the hub's preamble and windows by generation
+  (`docs/transport/ww_link.md#the-frozen-hello`; tests `ww_link` `hello::tests`, `ww_device`
+  `hello_of_other_generations`, `wire_weaver_client` `device_of_another_generation`, `unknown_peer_format`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

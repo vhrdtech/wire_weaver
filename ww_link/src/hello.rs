@@ -281,7 +281,6 @@ mod tests {
         let mut tx = FramingTx::<UsbFraming>::new(&mut packet);
         tx.write(Kind::Hello as u8, &HOST.to_bytes()).unwrap();
         let len = tx.flush();
-        drop(tx);
         assert_eq!(&packet[..len], &usb::frame(&HOST)[..]);
         assert_eq!(usb::find(&packet[..len], 0), Some(HOST));
         assert_eq!(usb::find(&packet[1..len], 0), None);

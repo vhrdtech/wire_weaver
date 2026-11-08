@@ -6064,9 +6064,10 @@ name. A change is breaking if:</p>
 <li>a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   <code>ww_si 0.1</code> -&gt; <code>0.2</code>), or one from the same crate version with a different definition.</li>
 </ul>
-<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> older than the new version, and about any
-resource, field or variant whose <code>#[since]</code> is newer than the crate's own version (a host built with it would refuse
-that item on every device of this version, see <a href="../rules/#since"><code>#[since]</code></a>).</p>
+<p>It also warns about additions without <code>#[since]</code>, or with a <code>#[since]</code> older than the new wire version (and about a
+wire revision that wasn't bumped for them), and about any resource, field or variant whose <code>#[since]</code> is newer than
+the API's own wire version (a host built with it would refuse that item on every device of this version, see
+<a href="../rules/#since"><code>#[since]</code></a>). A change of the root's wire version is listed too.</p>
 <h2 id="new-fields-in-padding-bits">New fields in padding bits<a class="headerlink" href="#new-fields-in-padding-bits" title="Permanent link">&para;</a></h2>
 <p>Padding inside a type, before a field aligned to a nibble or a byte, is always written as zero bits and skipped when
 reading. A new field of any type, <code>Unsized</code> or not, can take such bits, anywhere between the old fields, if:</p>
@@ -6082,8 +6083,8 @@ always starts at a byte boundary, so its padding is always in the same place:</p
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in w1.1, reads as 0 from old data</span>
 </span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
 </span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
 </span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="p">}</span>
@@ -6098,8 +6099,8 @@ offset:</p>
 </span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
 </span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
 </span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in w1.1, reads as 0 from old data</span>
 </span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
 </span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="p">}</span>
 </span></code></pre></div>

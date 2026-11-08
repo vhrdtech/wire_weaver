@@ -6017,7 +6017,7 @@ variants are available by enabling the crate's <code>std</code> feature; the pla
 <code>Pin</code>, <code>StopBits</code>, <code>Parity</code>, <code>DataBits</code>) also derive <code>PartialEq</code>/<code>Eq</code>.</p>
 <h2 id="composing-into-a-device-api">Composing into a device API<a class="headerlink" href="#composing-into-a-device-api" title="Permanent link">&para;</a></h2>
 <p>A device exposes a UART by implementing <code>Uart</code> on its API root:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_api_root]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.0&quot;</span><span class="cp">)]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">MyDeviceApi</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">uart</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_uart</span><span class="p">::</span><span class="n">Uart</span><span class="p">);</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>

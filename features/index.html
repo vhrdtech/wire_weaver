@@ -6228,8 +6228,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   SRV-18 (<code>docs/serdes/layouts.md</code>, <code>docs/evolution/rules.md</code>; test <code>shrink_wrap/tests/sparse.rs</code>, fuzz
   <code>shrink-wrap-option-any-vec</code>). <code>ww_self</code> carries the flag (<code>ItemStruct::sparse</code>, <code>Field::slot</code>, TOOL-11), so a
   dynamic decoder (<code>ValueOwned</code>, the <code>ww</code> CLI, <code>wire_weaver_py</code>) reads a sparse struct correctly.</li>
-<li>📋 <strong>DER-5 <code>#[since = "x.y.z"]</code> on fields</strong> — generate correct evolution code from it (<code>TODO</code> in
-  <code>shrink_wrap_derive/src/lib.rs</code>).</li>
+<li>📋 <strong>DER-5 <code>#[since = "w1.2"]</code> on fields</strong> — generate correct evolution code from it (the derive keeps the text,
+  <code>wire_weaver_core</code> reads it as a wire revision, EVO-24).</li>
 <li>📋 <strong>DER-6 Check that <code>TailBytes</code> ends the outer type too</strong> — a struct ending in <code>TailBytes</code> used as a non-last field
   of an outer <code>sized</code> / <code>final_structure</code> type ("last in the first <code>Unsized</code> type on the way up") is not visible to
   the derive; needs a marker on the type, e.g. an associated const, and a compile-time assertion in the outer type.</li>
@@ -7686,6 +7686,14 @@ observing), SRV-46 (peer identity).
   the hub's preamble and windows by generation
   (<code>docs/transport/ww_link.md#the-frozen-hello</code>; tests <code>ww_link</code> <code>hello::tests</code>, <code>ww_device</code>
   <code>hello_of_other_generations</code>, <code>wire_weaver_client</code> <code>device_of_another_generation</code>, <code>unknown_peer_format</code>).</li>
+<li>✅ <strong>EVO-24 Wire version of its own</strong> · <code>v0.5</code> — an API root declares its wire version apart from its crate
+  version, <code>#[ww_api_root(wire = "w2.3")]</code> (line 2, revision 3), as <code>ww_version::WireVersion</code>; the <code>w</code> is part of the
+  notation everywhere and a parser refuses <code>2.3</code>, <code>w2.3.0</code> and crate versions with an error that says why. The trait
+  gets a <code>*_WIRE_VERSION</code> const, <code>ww_self::ApiBundle::wire</code> carries it (crate snapshots too), and <code>#[since = "w2.1"]</code>
+  on items, fields and variants names a wire revision; the crate-version form is refused with a hint. The client
+  compares <code>#[since]</code> with the device's wire version (from its introspection data until link setup carries it,
+  EVO-25), the checker hints and checks markers against the root's wire version (<code>docs/evolution/rules.md#the-wire-version</code>;
+  tests <code>ww_version</code> <code>wire::tests</code>, <code>wire_weaver_core</code> <code>wire_version_and_since</code>, <code>tests/cross_version</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

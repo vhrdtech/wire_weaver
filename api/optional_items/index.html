@@ -5895,7 +5895,7 @@ the generated <code>ww_codegen!</code> call; the stubs of optional items it keep
 <p><code>#[optional]</code> on a <code>ww_impl!</code> makes the whole trait attachment optional, with everything below it: its items, its
 nested traits, its consts. It is for a block a firmware has only with one of its features, such as pin diagnostics
 served only in a debug build:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_api_root]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.0&quot;</span><span class="cp">)]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Board</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">ping</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u8</span><span class="p">;</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="sd">/// Pin diagnostics, the firmware&#39;s `pin-diag` feature.</span>

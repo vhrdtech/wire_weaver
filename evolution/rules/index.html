@@ -2526,6 +2526,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-wire-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The wire version
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#since" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5839,6 +5850,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-wire-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The wire version
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#since" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6132,24 +6154,26 @@ wire; changing a field's <code>u8</code> to <code>u16</code> in an API type comp
 what you can change in your API crate without breaking either, and which version to bump when you do.
 For changing WireWeaver itself or a <code>ww_stdlib</code> crate, see <a href="../crate_layers/">crate layers and version bumps</a>.</p>
 <h2 id="in-short">In short<a class="headerlink" href="#in-short" title="Permanent link">&para;</a></h2>
-<p>A device runs <code>blinky_api 0.1.0</code>. The next version adds a method and a field, and keeps everything else:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_api_root]</span>
+<p>A device runs <code>blinky_api 0.1.0</code>, wire version <code>w1.0</code>. The next version adds a method and a field, and keeps
+everything else:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">)]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">BlinkyApi</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_on</span><span class="p">();</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_off</span><span class="p">();</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">led_toggle</span><span class="p">();</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="cp">#[derive_shrink_wrap]</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Status</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="n">on</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="cp">#[default = None]</span>
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="n">brightness</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// old data reads as None</span>
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Both are wire-compatible additions, so the crate goes from <code>0.1.0</code> to <code>0.1.1</code>: an old device and a new host still
+<p>Both are wire-compatible additions, so the wire version goes from <code>w1.0</code> to <code>w1.1</code> and the crate from <code>0.1.0</code> to
+<code>0.1.1</code>: an old device and a new host still
 connect, the host gets a clean error when it calls <code>led_toggle</code> on the old device, and reads <code>None</code> for the
 brightness it doesn't send. The rest of this page lists which changes are compatible like these. When in doubt,
 run the <a href="../checker_tool/">evolution checker</a>, it compares your crate with its last release.</p>
@@ -6161,24 +6185,34 @@ they are not compatible (<code>ww_version::Version::is_protocol_compatible</code
 <li>After 1.0: major must match.</li>
 </ul>
 <p>So the compatible position (patch before 1.0, minor after) is for wire-compatible additions: new methods,
-properties, streams, new fields with defaults, etc. Mark them with <code>#[since = "0.2.3"]</code>, so that a newer host can
-report a clean error when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).
-Everything else bumps the breaking position.</p>
+properties, streams, new fields with defaults, etc. Everything else bumps the breaking position.</p>
+<h3 id="the-wire-version">The wire version<a class="headerlink" href="#the-wire-version" title="Permanent link">&para;</a></h3>
+<p>Apart from the crate version, the API root declares its wire version, <code>#[ww_api_root(wire = "w2.3")]</code>, said "wire
+2.3": line 2, revision 3. A wire-compatible addition bumps the revision (<code>w2.3</code> -&gt; <code>w2.4</code>), a wire break the line
+(<code>w3.0</code>). A new API starts at <code>w1.0</code>. The <code>w</code> is part of the notation everywhere, so a crate version can't be taken
+for one: <code>2.3</code>, <code>w2.3.0</code> and <code>0.2.0</code> are refused. The trait gets a <code>*_WIRE_VERSION: ww_version::WireVersion</code> const
+next to its <code>*_FULL_GID</code>. Link setup still decides on the crate version above; deciding on the wire line instead is
+EVO-25.</p>
+<p>Mark additions with <code>#[since = "w2.4"]</code>, the revision that adds them, so that a newer host can report a clean error
+when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).</p>
 <h3 id="since"><code>#[since]</code><a class="headerlink" href="#since" title="Permanent link">&para;</a></h3>
-<p><code>#[since = "x.y.z"]</code> is the version of the crate that added a resource, field or variant. A host refuses to call a
-resource marked newer than the connected device's API version, with <code>Error::OlderProtocol</code>, before sending anything.
-Versions are compared in full, <code>major.minor.patch</code> in order: the device has the item when its version is at least
-the marker's.</p>
+<p><code>#[since = "w2.4"]</code> is the wire revision that added a resource, field or variant. A crate version there
+(<code>#[since = "0.2.0"]</code>, the form before wire versions) is refused with a hint. A host refuses to call a resource
+marked newer than the connected device's wire version, with <code>Error::OlderProtocol</code>, before sending anything. Wire
+versions are compared by line, then revision: the device has the item when its wire version is at least the
+marker's.</p>
 <ul>
-<li>Within one compatible line (<code>0.6.x</code> before 1.0, <code>1.x</code> after), that is the version that added the item: a <code>0.6.3</code>
-  device has an item marked <code>0.6.2</code> and not one marked <code>0.6.4</code>. After 1.0 a patch can add items too.</li>
-<li>A breaking bump (<code>0.5.2</code> -&gt; <code>0.6.0</code>, <code>1.4.0</code> -&gt; <code>2.0.0</code>) starts a new line, in which every older marker counts as
-  present: an item marked <code>0.5.2</code> is callable on a <code>0.6.0</code> device. Keep the markers as they are on a breaking bump,
-  don't rewrite them to the new version. Whether an item survived the bump is not the marker's to say: an item the
-  new version removed is reported from the device's introspection data (<code>Error::NotImplementedByDevice</code>).</li>
+<li>On one line, that is the revision that added the item: a <code>w2.5</code> device has an item marked <code>w2.4</code> and not one
+  marked <code>w2.6</code>.</li>
+<li>A new line (<code>w2.5</code> -&gt; <code>w3.0</code>) counts every older marker as present: an item marked <code>w2.4</code> is callable on a <code>w3.0</code>
+  device. Keep the markers as they are on a new line, don't rewrite them. Whether an item survived the break is not
+  the marker's to say: an item the new line removed is reported from the device's introspection data
+  (<code>Error::NotImplementedByDevice</code>).</li>
 </ul>
-<p>A marker newer than the crate's own version is a mistake (the item would be refused on every device of this version);
-the <a href="../checker_tool/">evolution checker</a> warns about it.</p>
+<p>The host knows the device's wire version from its introspection data (the bundle carries the root's wire version);
+without it, <code>#[since]</code> isn't checked until link setup carries the wire version (EVO-25).</p>
+<p>A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
+version); the <a href="../checker_tool/">evolution checker</a> warns about it.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
 wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
 <h3 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h3>

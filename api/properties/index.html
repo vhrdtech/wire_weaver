@@ -5993,7 +5993,7 @@ dynamic-client/CLI/Python equivalent that needs no generated code at all.</p>
 <h2 id="const-items">Const items<a class="headerlink" href="#const-items" title="Permanent link">&para;</a></h2>
 <p>A <code>const</code> item of a trait is a value that doesn't change while the firmware runs: a firmware name and version, a
 board record, chip ids, limits of an implementation.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[ww_api_root]</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w1.0&quot;</span><span class="cp">)]</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="sd">/// Known at compile time.</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LIMITS</span><span class="p">:</span><span class="w"> </span><span class="nc">Limits</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>

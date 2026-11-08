@@ -104,7 +104,7 @@ fn repr(value: &NumericValue) -> Option<Repr> {
 mod any {
     use super::*;
     use crate::{AnyQuantityOwned, SIExprOwned};
-    use exact_units::{Dim, MarkerId, Provenance, UnitDef, UnitNames};
+    use exact_units::{Dim, MarkerId, Provenance, UnitDef, UnitNames, UnitTable};
     use std::boxed::Box;
 
     impl AnyQuantityOwned {
@@ -141,19 +141,27 @@ mod any {
 
         /// The value as a [Fixed] of the unit `U`, if it is exact (as [Fixed::to]) and within `B`: from `U` itself, or
         /// from any unit of `U`'s dimension whose factor to it is exact (a scale [from_fixed](Self::from_fixed) put
-        /// in, `Bit` for `Byte`). `None` for another dimension or an `Affine` unit other than `U`.
-        pub fn to_fixed<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>>(
+        /// in, `Bit` for `Byte`), the unit's references looked up in `table`. `None` for another dimension, or a
+        /// reference `table` doesn't list.
+        pub fn to_fixed<
+            U: Unit,
+            P: FixedScale,
+            T: Storage,
+            B: Bounds<T>,
+            Tb: UnitTable + ?Sized,
+        >(
             &self,
+            table: &Tb,
         ) -> Option<Fixed<U, P, T, B>> {
             if let Some(q) = self.to_quantity::<U>() {
                 return q.to_fixed();
             }
-            if self.unit.dim()? != U::EXPR.dim() {
+            if self.unit.dim(table)? != U::EXPR.dim() {
                 return None;
             }
             let to_u = self
                 .unit
-                .magnitude()?
+                .magnitude(table)?
                 .checked_div(U::EXPR.magnitude()?)
                 .ok()?;
             Fixed::from_scaled(

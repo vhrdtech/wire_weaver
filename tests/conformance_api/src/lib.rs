@@ -149,6 +149,7 @@ trait Conformance {
     property!(rw index_from_1: ww_si::IndexFrom1<ww_si::units::Item, u8, ww_si::Range<1, 4>>);
     property!(rw seq_pair: SeqPair);
     property!(rw si_expr: ww_si::SIExpr<'i>);
+    property!(rw any_quantity: ww_si::AnyQuantity<'i>);
     // the API model's own definitions of units and scales (INT-13), as a device sends them in its introspection data
     property!(rw marker_def: ww_self::MarkerDef<'i>);
     property!(rw item_struct_extra: ww_self::ItemStructExtra<'i>);

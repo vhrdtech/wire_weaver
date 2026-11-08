@@ -13,8 +13,11 @@
 //!
 //! [ww_self::units] resolves the same types to a canonical expression, for comparing units across crates.
 //!
-//! A value of `ww_si::AnyQuantity` (STD-37) carries its unit as an `SIExpr`: a named unit `ww_si` has becomes the same
-//! [DynUnit] as the typed quantity's, a device's own named unit keeps the dimension and scale it sent.
+//! A value of `ww_si::AnyQuantity` (STD-37) carries its unit as an `SIExpr`: a named unit in full, or a reference by
+//! its identity to one the API lists (UNIT-7), looked up in the bundle, which is a `UnitTable` of the API's units
+//! (`exact_units`' own among them), and then in `ww_si`'s own. A named unit `ww_si` has becomes the same [DynUnit] as
+//! the typed quantity's, a device's own named unit keeps the definition the bundle or the value gave. A value the
+//! client writes is compacted against the bundle: the API's units go by reference.
 //!
 //! [DynQuantity] is a value with that unit: `3300 mV` as stored, `3.3 V` with `{:#}`, [DynQuantity::to_si_f64]. Units
 //! are shown, named and converted by `ww_si::tree`, the code that does it for typed quantities.
@@ -28,9 +31,9 @@ use ww_self::{
     ApiBundleOwned, FieldsOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned,
     ItemStructOwned, MarkerDefOwned, TypeOwned, ValueOwned,
 };
-use ww_si::exact_units::UnitDefOwned;
+use ww_si::exact_units::{MarkerIdOwned, UnitDefOwned};
 use ww_si::tree::{self, Tree};
-use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned};
+use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned, UnitTable};
 pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
 /// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
@@ -47,6 +50,9 @@ pub enum DynUnit {
     /// A marker without a definition in the bundle (hand-written, or from a bundle of before INT-13): its name and
     /// docs, nothing else.
     Unknown { name: String, docs: Vec<String> },
+    /// A reference (`SIExpr::Ref`) to a unit no table at hand lists: its identity, nothing else. Written back as the
+    /// same reference.
+    Ref(MarkerIdOwned),
     /// `units::Per<A, B>`, `A / B`.
     Per(Box<DynUnit>, Box<DynUnit>),
     /// `units::Times<A, B>`, `A · B`.
@@ -73,11 +79,18 @@ impl DynUnit {
         }
     }
 
-    /// The unit of an `AnyQuantity`: a named unit `ww_si` has is [Known](DynUnit::Known), so it is the same
-    /// `DynUnit` as the typed quantity's. Followed [MAX_UNIT_DEPTH] levels deep, a part that is deeper or doesn't
-    /// decode is an unknown `?`.
-    pub fn from_si_expr(expr: &SIExpr<'_>) -> Self {
-        fn conv(e: &SIExpr<'_>, depth: usize) -> DynUnit {
+    /// The unit of an `AnyQuantity`, its references looked up in `table` (the bundle, `ww_si::units::TABLE`, both
+    /// chained): a named unit `ww_si` has is [Known](DynUnit::Known), so it is the same `DynUnit` as the typed
+    /// quantity's; a reference `table` doesn't list is a [Ref](DynUnit::Ref). Followed [MAX_UNIT_DEPTH] levels deep,
+    /// a part that is deeper or doesn't decode is an unknown `?`.
+    pub fn from_si_expr<T: UnitTable + ?Sized>(expr: &SIExpr<'_>, table: &T) -> Self {
+        fn named(def: ww_si::UnitDef<'_>) -> DynUnit {
+            match SIExpr::Def(def).known() {
+                Some(known) => DynUnit::Known(known),
+                None => DynUnit::Named(def.into()),
+            }
+        }
+        fn conv<T: UnitTable + ?Sized>(e: &SIExpr<'_>, table: &T, depth: usize) -> DynUnit {
             let unknown = || DynUnit::Unknown {
                 name: "?".into(),
                 docs: vec![],
@@ -86,13 +99,14 @@ impl DynUnit {
                 return unknown();
             }
             let child = |r: &RefBox<'_, SIExpr<'_>>| match r.read() {
-                Ok(e) => Box::new(conv(&e, depth + 1)),
+                Ok(e) => Box::new(conv(&e, table, depth + 1)),
                 Err(_) => Box::new(unknown()),
             };
             match e {
-                SIExpr::Def(def) => match e.known() {
-                    Some(known) => DynUnit::Known(known),
-                    None => DynUnit::Named((*def).into()),
+                SIExpr::Def(def) => named(*def),
+                SIExpr::Ref(id) => match table.unit(*id) {
+                    Some(def) => named(def),
+                    None => DynUnit::Ref((*id).into()),
                 },
                 SIExpr::Mul(a, b) => DynUnit::Times(child(a), child(b)),
                 SIExpr::Div(a, b) => DynUnit::Per(child(a), child(b)),
@@ -100,16 +114,18 @@ impl DynUnit {
                 SIExpr::Sqrt(a) => DynUnit::Sqrt(child(a)),
             }
         }
-        conv(expr, 0)
+        conv(expr, table, 0)
     }
 
-    /// The unit as it goes on the wire in an `AnyQuantity`, `None` when a part of it is an unknown marker (no
-    /// dimension or scale to send).
+    /// The unit as it goes on the wire in an `AnyQuantity`, its named units in full (a [Ref](DynUnit::Ref) as the
+    /// reference it is), `None` when a part of it is an unknown marker (no dimension or scale to send).
+    /// `SIExprOwned::compact` against the bundle turns the API's units into references.
     pub fn to_si_expr(&self) -> Option<SIExprOwned> {
         Some(match self {
             DynUnit::Known(expr) => SIExprOwned::from(*expr),
             DynUnit::Named(def) => SIExprOwned::Def(def.clone()),
             DynUnit::Unknown { .. } => return None,
+            DynUnit::Ref(id) => SIExprOwned::Ref(id.clone()),
             DynUnit::Per(a, b) => {
                 SIExprOwned::Div(Box::new(a.to_si_expr()?), Box::new(b.to_si_expr()?))
             }
@@ -126,8 +142,8 @@ impl DynUnit {
         tree::name(&Part::Dyn(self)).to_string()
     }
 
-    /// The symbol as written after a number: `V`, `N·m/(rad/s)`, empty for a ratio; an unknown marker's name stands
-    /// for its symbol. Same as `Display`.
+    /// The symbol as written after a number: `V`, `N·m/(rad/s)`, empty for a ratio; an unknown marker's or an
+    /// unresolved reference's name stands for its symbol. Same as `Display`.
     pub fn symbol(&self) -> String {
         self.to_string()
     }
@@ -192,6 +208,13 @@ impl<'a> Tree<'a> for Part<'a> {
                     crate_name: None,
                     name,
                     symbol: name,
+                    dim: None,
+                    scale: None,
+                },
+                DynUnit::Ref(id) => tree::Node::Named {
+                    crate_name: Some(&id.crate_name),
+                    name: &id.name,
+                    symbol: &id.name,
                     dim: None,
                     scale: None,
                 },
@@ -377,7 +400,7 @@ impl DynQuantity {
             return Some(DynQuantity::new(
                 q.prefix,
                 q.value,
-                DynUnit::from_si_expr(&q.unit),
+                DynUnit::from_si_expr(&q.unit, &units_of(bundle)),
             ));
         }
         if let Some(fixed) = fixed_of(ty, bundle) {
@@ -413,6 +436,13 @@ impl DynQuantity {
                     self.unit.name()
                 ));
             };
+            // the API's units by reference, as a device sends them
+            let unit = unit.compact(bundle).map_err(|e| {
+                format!(
+                    "a quantity in {} can't be sent in an AnyQuantity: {e:?}",
+                    self.unit.name()
+                )
+            })?;
             let bytes = AnyQuantityOwned {
                 prefix,
                 value,
@@ -1015,6 +1045,12 @@ impl fmt::Display for DynCount {
     }
 }
 
+/// The units an `SIExpr` reference of a value of this API resolves through: the bundle's, then `ww_si`'s own (a
+/// unit the API doesn't use, sent in full or by a device built with a newer model).
+pub fn units_of(bundle: &ApiBundleOwned) -> [&dyn UnitTable; 2] {
+    [bundle, &ww_si::units::TABLE]
+}
+
 /// The unit of `ty` if it is a `ww_si::Quantity<U, B>` of ww_si 0.2 or later, in a
 /// [prepared](ww_self::generics::prepare) bundle. `B`, its bounds (STD-59), is the second argument; a device built
 /// before them sends `Quantity<U>`.
@@ -1200,8 +1236,24 @@ mod tests {
         let mut buf = [0u8; 256];
         let bytes = any.to_ww_bytes(&mut buf).unwrap();
         let back = ww_si::AnyQuantity::from_ww_bytes(bytes).unwrap();
-        assert_eq!(DynUnit::from_si_expr(&back.unit), d.unit);
+        assert_eq!(DynUnit::from_si_expr(&back.unit, &()), d.unit);
         assert_eq!(d.unit.to_si_expr().unwrap(), SIExprOwned::from(U::EXPR));
+        // by reference: the same unit through a table that lists it, its names through none
+        let compact = SIExprOwned::from(U::EXPR)
+            .compact(&ww_si::units::TABLE)
+            .unwrap();
+        let bytes = compact.to_ww_bytes_owned().unwrap();
+        let compact = SIExpr::from_ww_bytes(&bytes).unwrap();
+        assert_eq!(
+            DynUnit::from_si_expr(&compact, &ww_si::units::TABLE),
+            d.unit
+        );
+        let unresolved = DynUnit::from_si_expr(&compact, &());
+        assert_eq!(unresolved.dim(), None);
+        assert_eq!(
+            unresolved.to_si_expr().unwrap().to_ww_bytes_owned().unwrap(),
+            bytes
+        );
     }
 
     #[test]

@@ -901,6 +901,27 @@ pub fn table() -> Vec<Typed> {
             ),
         ),
         case(
+            "stdlib.si.si_expr.ref",
+            ww_si::SIExprOwned::Ref(marker_id("exact_units", "Volt")),
+        ),
+        case(
+            "stdlib.si.si_expr.ref_per",
+            ww_si::SIExprOwned::Div(
+                Box::new(ww_si::SIExprOwned::Ref(marker_id("my_api", "Rpm"))),
+                Box::new(ww_si::SIExprOwned::Ref(marker_id("exact_units", "Second"))),
+            ),
+        ),
+        case(
+            "stdlib.si.any_quantity.def",
+            ww_si::AnyQuantityOwned::from(ww_si::Volt::milli(3300u16)),
+        ),
+        case(
+            "stdlib.si.any_quantity.ref",
+            ww_si::AnyQuantityOwned::from(ww_si::Volt::milli(3300u16))
+                .compact(&ww_si::units::TABLE)
+                .unwrap(),
+        ),
+        case(
             "stdlib.si.si_expr.rejected",
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
         ),

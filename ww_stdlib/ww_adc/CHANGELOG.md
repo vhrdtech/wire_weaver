@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `ChannelInfo::unit`'s `SIExpr` takes exact_units UNIT-7's form (STD-107, EVO-36): a named unit is `SIExpr::Def(UnitDef)` (`SIExpr::of::<ww_si::units::Volt>()` as before) or `SIExpr::Ref(MarkerId)` to a unit the API lists, which a host reads through the API model.
 - `ChannelInfo::unit` is a `ww_si::SIExpr<'i>` (STD-37) instead of `ww_si::BaseUnit<'i>`, which is removed: a unit of
   ww_si is `SIExpr::of::<ww_si::units::Volt>()`, a device's own `SIExpr::Named { name, symbol, dim, scale }` with its
   dimension and scale, so a host converts readings of any channel to SI. `ww_adc` re-exports `SIExpr` (and

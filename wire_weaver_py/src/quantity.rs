@@ -107,7 +107,8 @@ impl Quantity {
     /// for an angular velocity, `{"bit": 1}` for a byte, counted bases by their name (`{"Sample": 1, "s": -1}`), halves for a root
     /// (V/√Hz: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`), `{}`
     /// when dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
-    /// device sent with its dimension in an `AnyQuantity`).
+    /// device sent with its dimension in an `AnyQuantity`, nor one the API's model lists), or a reference to a unit
+    /// the model doesn't list.
     #[getter]
     fn dim<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
         let Some(dim) = self.q.unit.dim() else {

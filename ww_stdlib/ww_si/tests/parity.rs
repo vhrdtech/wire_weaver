@@ -11,7 +11,7 @@ use ww_si::exact_units::{Bounds, FixedScale, Storage, Unit};
 use ww_si::prefix::{
     FullScale, FullScaleMax, Kibi, Kilo, Micro, Milli, One, Pow2, Pow10, Rational,
 };
-use ww_si::units::{Byte, Radian, Ratio, Second, Volt};
+use ww_si::units::{self, Byte, Radian, Ratio, Second, Volt};
 use ww_si::ww_numeric::NumericValue;
 use ww_si::{AnyQuantityOwned, Fixed, Prefix, Quantity, Unbounded, UnknownScale};
 
@@ -48,10 +48,14 @@ fn any<
         P::NAME
     );
     let q = AnyQuantityOwned::from_fixed(f);
-    assert_eq!(q.to_fixed::<U, P, T, Unbounded>(), Some(f), "{a:?} back");
+    assert_eq!(
+        q.to_fixed::<U, P, T, Unbounded, _>(&units::TABLE),
+        Some(f),
+        "{a:?} back"
+    );
     assert_eq!(
         f.to::<P2, T2>(),
-        q.to_fixed::<U, P2, T2, Unbounded>(),
+        q.to_fixed::<U, P2, T2, Unbounded, _>(&units::TABLE),
         "{a:?} {} -> {}",
         P::NAME,
         P2::NAME
@@ -144,7 +148,7 @@ fn which_side() {
         Err(UnknownScale)
     );
     let bam = AnyQuantityOwned::from_fixed(Fixed::<Radian, Bam16Rad, u16>::new(16384));
-    assert!((bam.to_si_f64().unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-15);
+    assert!((bam.to_si_f64(&units::TABLE).unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-15);
     // shown alike: the number, then the factor and the unit
     let duty = Fixed::<Ratio, FullScaleMax<One, 16>, u16>::new(32768);
     assert_eq!(duty.to_string(), "32768·1/65535");

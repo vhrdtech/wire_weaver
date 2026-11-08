@@ -97,7 +97,9 @@ raises `ValueError`.
 
 An `AnyQuantity` (a value whose unit is only known at run time, STD-37) is a `ww.Quantity` too, the same as the typed
 quantity of its unit (`==` holds). A unit the device sent that `ww_si` doesn't have keeps its symbol, `dim` and
-scale, so `to_si()` works; writing takes any `ww.Quantity` whose unit has a dimension (not a marker known by name only).
+scale, so `to_si()` works; a unit sent by reference (its crate and name, UNIT-7) is looked up in the API's model, which
+lists every unit the API uses. Writing takes any `ww.Quantity` whose unit has a dimension (not a marker known by name
+only), the API's units by reference.
 
 An `exact_units::Fixed` (CLT-54) is a `ww.Quantity` with its scale, storage and bounds fixed by the type, shown
 exactly (`1730000000000000 µs`, `4 KiB`, never through a float):

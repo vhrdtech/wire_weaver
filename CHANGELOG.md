@@ -308,6 +308,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- Run-time units by reference (STD-107, CLT-66, EVO-36, exact_units UNIT-7): an `AnyQuantity`'s `SIExpr` names a unit the API lists by its crate and marker (`Ref`), resolved through the API model by clients, `ww`, Python and saved captures; two crates' `Rpm`s stay apart. See `ww_stdlib/ww_si`, `ww_self`, `wire_weaver_client`, `wire_weaver_py`, `wire_weaver_cli` and `ww_stdlib/ww_adc` CHANGELOGs.
 - Unit identity in the API model (STD-106, exact_units UNIT-7): a unit's definition is `exact_units`' `UnitDef` with its crate and marker name, scales and origins carry ids, and the walker refuses two markers of one crate named alike; `MarkerDef` folds its three unit variants into one (wire break of the model, EVO-35). See `ww_self/`, `wire_weaver_core/`, `wire_weaver_evolution/`, `wire_weaver_client/`, `ww_si/` and `wire_weaver_snapshots/` CHANGELOGs.
 - `ww_si` conversions, comparisons and bounds on `exact_units`' integer kernel (STD-102): one `to_in::<T>(prefix, Rounding, Overflow)` and `rescaled` instead of five methods with a policy in each name, exact for every prefix, no float or 128-bit code on a device; `exact_units` by git without a `rev`, `Cargo.lock` pins 1819d9f (the kernel's `u32` fast path). See `ww_si/` and `ww_numeric/` CHANGELOGs.
 - `ww bootsel` and `ww stm32dfu` moved under `ww dfu` as `ww dfu rp` and `ww dfu stm32`; the old names are gone. See `wire_weaver_cli/CHANGELOG.md`.

@@ -176,7 +176,9 @@ pub struct ChannelInfo<'i> {
     /// For the user: "IO0", "VBUS", "die temperature".
     pub name: MaxLen<&'i str, MAX_NAME_LEN>,
     /// Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max]: a unit of ww_si
-    /// (`SIExpr::of::<ww_si::units::Volt>()`) or the device's own, with its dimension and scale.
+    /// (`SIExpr::of::<ww_si::units::Volt>()`) or the device's own, in full, or a reference to one the API lists
+    /// (`SIExpr::Ref`, [AnyQuantity](ww_si::AnyQuantity)'s compacted form), which a client reads through the API
+    /// model.
     pub unit: SIExpr<'i>,
     /// SI prefix of the values.
     pub prefix: Prefix,

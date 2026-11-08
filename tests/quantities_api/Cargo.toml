@@ -13,8 +13,9 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std"]
+std = ["fan_api/std", "wire_weaver/std", "ww_si/std"]
 
 [dependencies]
+fan_api = { workspace = true, default-features = false }
 wire_weaver.workspace = true
 ww_si = { workspace = true, features = ["time", "electrical", "mechanical", "angle", "information", "counting"] }

@@ -1514,28 +1514,61 @@
       "name": "stdlib.si.si_expr.sqrt",
       "type": "si_expr",
       "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V"}, "dim": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}, {"Sqrt": {"Def": {"id": {"crate_name": "exact_units", "name": "Hertz"}, "names": {"symbol": "Hz"}, "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}}]},
-      "bytes": "200065786163745f756e697473566f6c745601d21f000000000000000124395b400065786163745f756e697473486572747a487a02f000000000000000000135397b1c3c7b",
-      "wire_change": "EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106)",
+      "bytes": "300065786163745f756e697473566f6c745601d21f000000000000000124395b500065786163745f756e697473486572747a487a02f000000000000000000135397b1c3c7b",
+      "wire_change": "EVO-36 / SIExpr's leaves are Def and Ref (exact_units UNIT-7): Mul, Div, Pow and Sqrt move up one variant (STD-107); before it, a unit's definition became exact_units' UnitDef with its identity (EVO-35)",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
-      "note": "V/√Hz as Per<Volt, Sqrt<Hertz>>: the Sqrt node is variant 4 (STD-55, EVO-16)"
+      "note": "V/√Hz as Per<Volt, Sqrt<Hertz>>: Div is variant 3, the Sqrt node variant 5 (STD-55, EVO-16, EVO-36)"
     },
     {
       "name": "stdlib.si.si_expr.decibel_loss_per_hundred_metres",
       "type": "si_expr",
       "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "DecibelLoss"}, "names": {"symbol": "dB"}, "dim": {"s": 0, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [{"crate_name": "exact_units", "name": "NeperLoss", "exp": 1}, null, null, null]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": -2, "irrational": {"pi": 0, "ln2": 0, "ln10": 2}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}}, {"Def": {"id": {"crate_name": "exact_units", "name": "Metres100"}, "names": {"symbol": "100 m"}, "dim": {"s": 0, "m": 1, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "quantity": null, "scale": {"pow10": 4, "rest": null}, "provenance": "Defined"}}]},
-      "bytes": "200065786163745f756e6974734465636962656c4c6f7373644202000000000465786163745f756e6974734e657065724c6f737310fe80fe80000002000000119393393902890065786163745f756e6974734d6574726573313030313030206d050100000000000400001619396c00d589",
-      "wire_change": "EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106)",
+      "bytes": "300065786163745f756e6974734465636962656c4c6f7373644202000000000465786163745f756e6974734e657065724c6f737310fe80fe80000002000000119393393902890065786163745f756e6974734d6574726573313030313030206d050100000000000400001619396c00d589",
+      "wire_change": "EVO-36 / SIExpr's leaves are Def and Ref (exact_units UNIT-7): Mul, Div, Pow and Sqrt move up one variant (STD-107); before it, a unit's definition became exact_units' UnitDef with its identity (EVO-35)",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "LVL-3 dB/100 m, a cable datasheet's own rate: Per<Loss<Decibel>, Metres100> is Per<DecibelLoss, Metres100>, DecibelLoss sharing NeperLoss's counted base scaled ln10/20"
+    },
+    {
+      "name": "stdlib.si.si_expr.ref",
+      "type": "si_expr",
+      "value": {"Ref": {"crate_name": "exact_units", "name": "Volt"}},
+      "bytes": "1065786163745f756e697473566f6c740439",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a named unit by reference (UNIT-7, STD-107): variant nibble 1, then its MarkerId, crate and marker name; the reader looks the definition up in the API's model"
+    },
+    {
+      "name": "stdlib.si.si_expr.ref_per",
+      "type": "si_expr",
+      "value": {"Div": [{"Ref": {"crate_name": "my_api", "name": "Rpm"}}, {"Ref": {"crate_name": "exact_units", "name": "Second"}}]},
+      "bytes": "30106d795f61706952706d361065786163745f756e6974735365636f6e6406394a39",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "rpm/s compacted against an API that lists both units: a device's own unit and a built-in one, each by reference (STD-107)"
+    },
+    {
+      "name": "stdlib.si.any_quantity.def",
+      "type": "any_quantity",
+      "value": {"prefix": "Milli", "value": {"U16": 3300}, "unit": {"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V"}, "dim": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}},
+      "bytes": "12e40c0065786163745f756e697473566f6c745601d21f000000000000000124395b7b",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "a ww.Quantity holds its unit, not the unit's wire form (Def or Ref), and writes the API's units by reference (CLT-67)"},
+      "note": "AnyQuantity::from(Volt::milli(3300u16)): the prefix and the number as a Quantity writes them, then the unit in full, so the value reads alone (STD-37)"
+    },
+    {
+      "name": "stdlib.si.any_quantity.ref",
+      "type": "any_quantity",
+      "value": {"prefix": "Milli", "value": {"U16": 3300}, "unit": {"Ref": {"crate_name": "exact_units", "name": "Volt"}}},
+      "bytes": "12e40c1065786163745f756e697473566f6c7404392a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "a ww.Quantity holds its unit, not the unit's wire form (Def or Ref), and writes the API's units by reference (CLT-67)"},
+      "note": "the same value compacted against the API's model: the unit by reference, 22 bytes in all instead of 35 (STD-107)"
     },
     {
       "name": "stdlib.si.si_expr.rejected",
       "type": "si_expr",
       "value": null,
-      "bytes": "50",
+      "bytes": "60",
+      "wire_change": "EVO-36 / Ref is variant 1, Sqrt moved up to 5: 6 is the first unknown variant",
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
-      "note": "variant 5 is past Sqrt: SIExpr is no_future_version, a reader can't show a unit kind it doesn't know"
+      "note": "variant 6 is past Sqrt: SIExpr is no_future_version, a reader can't show a unit kind it doesn't know"
     },
     {
       "name": "model.marker_def.unit",

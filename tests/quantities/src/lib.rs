@@ -55,6 +55,7 @@ mod tests {
         duty: Quantity<units::Ratio>,
         damping: Damping,
         speed: Quantity<Rpm>,
+        fan: Quantity<fan_api::Rpm>,
         /// The `AnyQuantity` property, serialized.
         sensor: Vec<u8>,
         timeout: Timeout,
@@ -106,6 +107,7 @@ mod tests {
             ),
             damping: Damping::from_f32(1.2e-4),
             speed: Quantity::<Rpm>::base(1500u16),
+            fan: Quantity::<fan_api::Rpm>::base(900u16),
             sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
             timeout: Fixed::new(250),
             window: Window::bounded(100),
@@ -239,6 +241,22 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Quantity<Rpm>, ()> {
                 GetResult::Value(self.values.lock().unwrap().speed)
+            }
+
+            fn set_fan(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Quantity<fan_api::Rpm>,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().fan = value;
+                SetResult::Set
+            }
+
+            fn get_fan(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Quantity<fan_api::Rpm>, ()> {
+                GetResult::Value(self.values.lock().unwrap().fan)
             }
 
             fn set_sensor(
@@ -963,7 +981,7 @@ mod tests {
         assert_eq!(p.to_string(), "1013 mbar");
         assert_eq!(p.to_string(), sensor().to_string());
         assert_eq!(format!("{p:#}"), format!("{:#}", sensor()));
-        assert_eq!(p.to_si_f64(), sensor().to_si_f64());
+        assert_eq!(p.to_si_f64(), sensor().to_si_f64(&()));
         assert_eq!(p.unit.dim().unwrap().to_string(), "kg·m⁻¹·s⁻²");
         assert_eq!(p.unit.name(), "Bar");
     }
@@ -1024,6 +1042,163 @@ mod tests {
             unknown.to_value(&sensor_ty, bundle).unwrap_err(),
             "a quantity in Furlong has no dimension and scale to send in an AnyQuantity"
         );
+    }
+
+    /// The identity of the named unit `U`, as an `SIExpr` reference carries it.
+    fn id_of<U: Unit>() -> ww_si::MarkerId<'static> {
+        U::EXPR.def().expect("a named unit").id
+    }
+
+    /// An `AnyQuantity` the device sends with its unit by reference, serialized.
+    fn by_ref(id: ww_si::MarkerId<'_>, value: u16) -> Vec<u8> {
+        AnyQuantity::new(Prefix::Unit, value, SIExpr::Ref(id))
+            .to_ww_bytes(&mut [0u8; 64])
+            .unwrap()
+            .to_vec()
+    }
+
+    /// Two API crates with a unit named `Rpm` each (UNIT-7): the same symbol, dimension and scale, two units by their
+    /// identity. The model lists both, so a value that names either by reference resolves through the bundle alone,
+    /// and a value the client writes goes out by reference too.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn two_crates_rpm_by_reference() {
+        use ww_si::UnitTable;
+        let (device, values) = start("quantities/two_rpm");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let (own, fan) = (id_of::<Rpm>(), id_of::<fan_api::Rpm>());
+        assert_eq!((own.crate_name, own.name), ("quantities_api", "Rpm"));
+        assert_eq!((fan.crate_name, fan.name), ("fan_api", "Rpm"));
+        // the model lists both, each with the definition its crate compiled
+        assert_eq!(bundle.unit(own).as_ref(), Rpm::EXPR.def());
+        assert_eq!(bundle.unit(fan).as_ref(), fan_api::Rpm::EXPR.def());
+
+        let speed = read_quantity(&client, &root, "speed").await;
+        let fan_speed = read_quantity(&client, &root, "fan").await;
+        assert_eq!(fan_speed.unit, DynUnit::Named(unit_def::<fan_api::Rpm>()));
+        assert_ne!(fan_speed.unit, speed.unit);
+        assert_eq!(fan_speed.to_string(), "900 rpm");
+
+        // a reference to each, resolved through the bundle
+        let sensor = |bytes: Vec<u8>| values.lock().unwrap().sensor = bytes;
+        sensor(by_ref(own, 1500));
+        let any = read_quantity(&client, &root, "sensor").await;
+        assert_eq!(any.unit, speed.unit);
+        assert_eq!(any, speed);
+        sensor(by_ref(fan, 900));
+        let any = read_quantity(&client, &root, "sensor").await;
+        assert_eq!(any.unit, fan_speed.unit);
+        assert_eq!(any.to_string(), "900 rpm");
+        assert!((any.to_si_f64().unwrap() - 30.0 * std::f64::consts::PI).abs() < 1e-9);
+
+        // a reference the model doesn't list: shown by its name, no factor, written back as the same reference
+        let other = ww_si::MarkerId {
+            crate_name: "other_api",
+            name: "Rpm",
+        };
+        sensor(by_ref(other, 7));
+        let any = read_quantity(&client, &root, "sensor").await;
+        assert_eq!(any.unit, DynUnit::Ref(other.into()));
+        assert_eq!(any.to_string(), "7 Rpm");
+        assert_eq!(any.unit.dim(), None);
+        assert_eq!(any.to_si_f64(), None);
+        let (_, sensor_ty) = read(&client, &root, "sensor").await;
+        let root_sensor = root.child("sensor").unwrap();
+        root_sensor
+            .write(client.cmd(), &any.to_value(&sensor_ty, bundle).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().sensor, by_ref(other, 7));
+
+        // the client writes the fan's speed by reference: the device reads it as fan_api's Rpm, not the other one
+        root_sensor
+            .write(client.cmd(), &fan_speed.to_value(&sensor_ty, bundle).unwrap())
+            .await
+            .unwrap();
+        let bytes = values.lock().unwrap().sensor.clone();
+        assert_eq!(bytes, by_ref(fan, 900));
+        let got = AnyQuantity::from_ww_bytes(&bytes).unwrap();
+        assert_eq!(
+            got.to_quantity::<fan_api::Rpm>(),
+            Some(Quantity::<fan_api::Rpm>::base(900u16))
+        );
+        assert_eq!(got.to_quantity::<Rpm>(), None);
+    }
+
+    /// A capture (`ww_tape` blocks back to back, as `ww tap capture` writes a file) of reading an `AnyQuantity` of the
+    /// API's own `Rpm`, sent by reference: decoded by the tap's decoder from the capture alone (no lookup, no local
+    /// cache), the unit found in the API bundle stored in the capture, not in anything compiled into the reader.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn tape_decodes_a_reference_from_its_bundle() {
+        use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
+        use wire_weaver_client::tap::decode::{Decoder, DecoderConfig, What};
+        use wire_weaver_client::tap::{Layers, Recorder, RecorderConfig};
+        use wire_weaver_client::ww_tape::FileBlocks;
+
+        let (device, values) = start("quantities/tape");
+        values.lock().unwrap().sensor = by_ref(id_of::<Rpm>(), 1500);
+        let recorder = Recorder::new(RecorderConfig::default());
+        let sub = recorder.subscribe(Layers::ALL, 256);
+        let client = DynClient::from_config(
+            ClientConfig::new()
+                .in_process_path(device.path())
+                .tap(recorder.clone()),
+        )
+        .connect()
+        .await
+        .expect("connect");
+        // the device's bundle as it sent it, into the capture's describe blocks (what `ww tap` does)
+        let introspect = client.device_introspect().unwrap();
+        let bytes = introspect.sent_api_bundle.to_ww_bytes_owned().unwrap();
+        recorder.add_bundle(&introspect.api_hash.no_docs.hash, &bytes);
+        let root = DynResource::root(introspect.api_bundle.clone());
+        root.child("sensor")
+            .unwrap()
+            .read(client.cmd())
+            .await
+            .unwrap();
+        recorder.flush();
+        let mut capture = vec![];
+        while let Some(chunk) = sub.try_recv() {
+            capture.extend_from_slice(chunk.bytes());
+        }
+        drop(client);
+
+        let mut decoder = Decoder::new(DecoderConfig {
+            frames: false,
+            ..DecoderConfig::default()
+        });
+        let mut blocks = FileBlocks::new(capture.as_slice());
+        while let Some(block) = blocks.next_block() {
+            decoder.feed(&block.expect("a whole capture"));
+        }
+        decoder.finish();
+        let mut quantities = vec![];
+        while let Some(d) = decoder.next() {
+            let What::Message(m) = &d.what else {
+                continue;
+            };
+            let Some(envelope) = m.api.as_ref().and_then(|a| a.envelope.clone()) else {
+                continue;
+            };
+            let bundle = decoder.link_api(d.link.unwrap()).unwrap().bundle().clone();
+            let (Ok(values), Some(ty)) = (&envelope.explained.result, envelope.types.first())
+            else {
+                continue;
+            };
+            if let Some(q) = values
+                .first()
+                .and_then(|v| DynQuantity::from_value(v, ty, &bundle))
+            {
+                quantities.push(q);
+            }
+        }
+        let [q] = quantities.as_slice() else {
+            panic!("one quantity in the capture: {quantities:?}");
+        };
+        assert_eq!(q.unit, DynUnit::Named(unit_def::<Rpm>()));
+        assert_eq!(q.to_string(), "1500 rpm");
+        assert!((q.to_si_f64().unwrap() - 50.0 * std::f64::consts::PI).abs() < 1e-9);
     }
 
     /// The `Fixed` of a property or of the `Timed` items of a method's `Series`, with its name as `ww` shows it.

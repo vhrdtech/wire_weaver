@@ -1904,6 +1904,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
+name = "fan_api"
+version = "0.1.0"
+dependencies = [
+ "ww_si",
+]
+
+[[package]]
 name = "fancy-regex"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4040,6 +4047,7 @@ name = "quantities"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "fan_api",
  "quantities_api",
  "tests_common",
  "tokio",
@@ -4054,6 +4062,7 @@ dependencies = [
 name = "quantities_api"
 version = "0.1.0"
 dependencies = [
+ "fan_api",
  "wire_weaver",
  "ww_si",
 ]

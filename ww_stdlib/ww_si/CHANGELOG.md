@@ -2,11 +2,13 @@
 
 ### ⚠️ Breaking
 
+- `AnyQuantity` names units by reference (STD-107, exact_units UNIT-7, wire change EVO-36): its `SIExpr` leaves are `Def(UnitDef)` (variant 0) and `Ref(MarkerId)` (variant 1), `Mul`, `Div`, `Pow` and `Sqrt` move up one place. The walks take a `UnitTable`: `AnyQuantity::to_si_f64(&table)`, `AnyQuantityOwned::to_si_f64(&table)` and `AnyQuantityOwned::to_fixed::<U, P, T, B, _>(&table)` (was without an argument); pass `&ww_si::units::TABLE` for exact_units' units, `&()` for a value whose units are all `Def`s, or the API model a client has. `to_quantity::<U>()` takes none (it reads through `U`'s definition), `Display` reads through `units::TABLE`.
 - `exact_units` at UNIT-7 piece 1 (STD-106): `Scale` and `DegreeCelsius` are gone (no re-export, no `ww_si::DegreeCelsius` alias), a unit has an exact `Magnitude` and no offset, so `to_si_f64` no longer adds one; °C is the point `origins::Celsius`. An `SIExpr`'s named unit is `SIExpr::Def(UnitDef)` with its identity, so `AnyQuantity` bytes grow by the crate name (19 to 35 bytes for 3300 mV). The run-time side catches up with STD-74.
 * Wire version `w2.0` (was `w1.0`, EVO-26, EVO-27): 0.2.0 moved the units, scales and origins to `exact_units` and changed `Timed`, a wire break from 0.1.0, which stays at `w1.0`. The evolution checker found the two on one line once it checked the wire version. APIs using `ww_si` record it at `w2.0` in their snapshots.
 
 ### 🚀 Features
 
+* `AnyQuantity::display(&table)` and `compact_in(&table, &mut arena)` (no allocation, a named unit needs no arena), `AnyQuantityOwned::display`, `compact` and `resolve` (STD-107): a value sent beside its API carries the API's units as `Ref`s, 22 bytes for 3300 mV instead of 35. Re-exports `UnitTable`, `UnitDef`, `UnitNames`, `MarkerId`, `CompactError` and, with `std`, `UnitDefOwned`, `MarkerIdOwned`.
 * Re-exports `exact_units::MaybeNan` next to `Unbounded` (STD-105).
 * `exact_units` taken at 1819d9f, its integer kernel (NUM-13) with the `u32` fast path for SI prefixes, and by git without a `rev`: `Cargo.lock` pins the commit. Re-exports `Rounding`, `Overflow` and `PrefixRatio`; new `ToIn`, the number types `to_in` gives (STD-102).
 * The no-float guard (TEST-33) is a gate: `just no-float-guard`, part of `just test`, fails when the fixture firmware calling every device operation (`to_in`, `rescaled`, `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`) links `f64`, 128-bit or slow-path code, or `f32` / VFP code without the `f32` feature, on Cortex-M0 and M4F at `fw-z` and `fw-3`. All 16 builds are clean (STD-102).

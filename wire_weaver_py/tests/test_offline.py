@@ -382,14 +382,18 @@ def test_quantities():
     assert (str(s), s.symbol, s.unit, s.dim) == ("1500 rpm", "rpm", "Rpm", {"rad": 1, "s": -1})
     assert s.to_si() == pytest.approx(50 * math.pi)
 
-    # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes it
-    any_volt = "12e40c" + "00566f6c7456d21f00000000000114" + "79"
+    # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes
+    # it, the unit's definition in full (crate, name, symbol, dimension, kind, scale, provenance)
+    any_volt = "12e40c" + "00" + b"exact_unitsVoltV".hex() + "01d21f000000000000000124395b" + "7b"
     a = api.sensor.decode(bytes.fromhex(any_volt))
     assert isinstance(a, ww.Quantity)
     # the same quantity as the typed property's
     assert a == q
     assert (str(a), a.symbol, a.unit, a.dim) == ("3300 mV", "V", "Volt", {"kg": 1, "m": 2, "s": -3, "A": -1})
-    assert api.sensor.encode(a).hex() == any_volt
+    # written back by reference (UNIT-7): the API's model lists exact_units::Volt, so the name is enough
+    any_volt_ref = "12e40c" + "10" + b"exact_unitsVolt".hex() + "04392a"
+    assert api.sensor.encode(a).hex() == any_volt_ref
+    assert api.sensor.decode(bytes.fromhex(any_volt_ref)) == q
     # any quantity goes in with its unit, the compound one too
     assert api.sensor.decode(api.sensor.encode(b)) == b
     assert str(api.sensor.decode(api.sensor.encode(b))) == "0.00012 N·m/(rad/s)"

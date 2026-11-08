@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- An `AnyQuantity` written from Python names the API's units by reference (STD-107, CLT-66, wire change EVO-36): `api.sensor.encode(q)` of 3300 mV is 22 bytes (`exact_units::Volt` by its crate and name) instead of the unit's whole definition; reading takes both forms, a reference resolved through the API's model. A reference the model doesn't list reads as a quantity whose unit is known by its name only (`dim` is `None`).
 - `float("nan")` written into a float `Fixed` whose bound isn't `MaybeNan` raises `ValueError`, and bytes holding NaN raise `WireWeaverError` on decode (STD-105, exact_units NUM-19); `MaybeNan` takes NaN both ways, ±∞ is a value everywhere.
 - `Quantity.prefix` is a `str` of any scale (`"Kibi"` for a binary one, a `Fixed`'s other scale by its symbol or factor, `"2⁻¹⁵"`) and `Quantity.exponent` is `None` for a scale that is no power of ten (CLT-54).
 - `Quantity.prefix` is `"Pow10"`, `"Pow2"` or `"FullScale"` for a scale without a name (its number in the new `Quantity.prefix_param`: `-4`, `-15`, `16`) and `"Unknown"` for one of a newer version (its tag in `prefix_param`); `Quantity.exponent` is `None` for a binary prefix (`"Kibi"`), `Pow2` and `FullScale` (STD-59); new `Quantity.scale`, the prefix's scale as a float (`0.001`, `1024.0`, `1/65535`, `nan` for `Unknown`).

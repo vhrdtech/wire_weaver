@@ -31,6 +31,8 @@ trait Quantities {
     /// Viscous damping: torque per angular velocity
     property!(rw damping: Quantity<Per<Torque, AngularVelocity>>);
     property!(rw speed: Quantity<Rpm>);
+    /// The fan's speed in another crate's `Rpm`: the model lists both units, told apart by their crate (UNIT-7)
+    property!(rw fan: Quantity<fan_api::Rpm>);
     /// A sensor input whose unit is set by configuration, sent with every value (STD-37)
     property!(rw sensor: AnyQuantity<'i>);
     /// `B` left out: the walker fills in `Unbounded`

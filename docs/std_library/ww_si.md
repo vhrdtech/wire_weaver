@@ -63,7 +63,7 @@ every value:
 |---|---|---|---|---|
 | `Fixed<U, P, T, B>` | in the type | in the type | the number alone: `Micros<u32>` is 4 B | the API knows the scale and the storage: a timeout in ms as `u16`, a duty cycle in 1/65535, an ADC step |
 | `Quantity<U, B>` | in the type | per value | a prefix and number type nibble, then the number: `Volt::milli(3300u16)` is 3 B | the API knows the unit, each device picks the scale and storage (`u16` of mV here, `f32` of V there) |
-| `AnyQuantity` | per value | per value | the prefix, number and the whole unit: 19 B for 3300 mV | the unit is set at run time: configured sensor inputs, generic loggers |
+| `AnyQuantity` | per value | per value | the prefix, number and the unit: 3300 mV is 22 B with the unit by reference, 35 B in full | the unit is set at run time: configured sensor inputs, generic loggers |
 
 The units are one system in all three: the markers of `ww_si::units` (from [exact_units](exact_units.md)), with real
 dimensions. A value only converts into another of the same dimension: `Byte`, `Sample` and `Ratio` are each a
@@ -407,8 +407,9 @@ to them, not their definitions.
 A client that only has a device's introspection data still knows a quantity for what it is: `ww introspect` and
 `ww observe` print `3300 mV`, Python gets a `ww.Quantity`. The unit comes from the marker: a marker of `ww_si::units`
 by its name through `units::by_name` (symbol, dimension and scale), `Per<A, B>` and `Times<A, B>` as a tree of their
-parts (`0.00012 N·m/(rad/s)`), and a marker of your own API crate (`struct Rpm;`) by its name and docs, without a
-dimension or a conversion to SI. This works for ww_si 0.2 and later.
+parts (`0.00012 N·m/(rad/s)`), a unit of your own API crate (`unit!`) by the definition the model carries (INT-13,
+its identity, symbol, dimension and exact scale), and a hand-written marker without one by its name and docs only.
+This works for ww_si 0.2 and later.
 
 ```python
 q = dev.supply.read()        # Quantity(3300 mV U16)
@@ -423,8 +424,12 @@ and a `DynUnit`; its `Display` is the same text as the typed `Quantity`'s, `to_s
 scale and `to_value()` makes a value to write. See `wire_weaver_py/README.md` for the Python side.
 
 An [`AnyQuantity`](#units-known-only-at-run-time) goes the same way: `DynQuantity::from_value` reads its unit from the
-value, a named unit of ww_si becomes the same `DynUnit` as the typed quantity's (so `3300 mV` either way), a device's
-own unit keeps the dimension and scale it sent, and `ww`, Python and `to_value()` treat it like any other quantity.
+value, a reference through the bundle (`ww_self`'s `ApiBundleOwned` is a `UnitTable` of every unit the API uses) and
+then `ww_si::units::TABLE` (`quantity::units_of`). A named unit of ww_si becomes the same `DynUnit` as the typed
+quantity's (so `3300 mV` either way), a device's own unit keeps its definition, and a reference no table lists is a
+`DynUnit::Ref`, shown by its name. `ww`, Python and `to_value()` treat it like any other quantity; `to_value()`
+compacts the unit against the bundle, so the API's units go out by reference. A capture (`ww tap`) stores the
+device's bundle, so its values decode with no API crate at hand.
 `DynUnit` is shown and converted by `ww_si::tree`, the code behind the typed `Display`: a client with its own unit
 model implements `ww_si::tree::Tree` for it and gets the same text.
 
@@ -436,9 +441,9 @@ with one is an `AnyQuantity { prefix, value, unit }`:
 
 ```rust
 use ww_si::units::{self, AngularVelocity, Per, Torque};
-use ww_si::{AnyQuantity, Dim, Magnitude, Prefix, SIExpr, Scale, Volt};
+use ww_si::{AnyQuantity, Dim, Magnitude, MarkerId, Prefix, Provenance, SIExpr, UnitDef, UnitNames, Volt};
 
-// a ww_si unit, or a typed quantity turned into one
+// a ww_si unit, or a typed quantity turned into one: the unit's definition in full
 let v = AnyQuantity::from(Volt::milli(3300u16));
 assert_eq!(v.to_string(), "3300 mV");
 assert_eq!(format!("{v:#}"), "3.3 V");
@@ -446,48 +451,69 @@ assert_eq!(v.to_quantity::<units::Volt>(), Some(Volt::milli(3300u16)));
 let unit = SIExpr::of::<Per<Torque, AngularVelocity>>();
 assert_eq!(unit.to_string(), "N·m/(rad/s)");
 
-// a device's own unit: its dimension and scale make it convertible to SI anyway
-let rpm = SIExpr::Named {
-    name: "Rpm",
-    symbol: "rpm",
+// the same value naming its unit by reference, for a reader that has a table of the units (the API's model)
+let r = v.compact_in(&units::TABLE, &mut []).unwrap();
+assert_eq!(r.unit, SIExpr::Ref(MarkerId { crate_name: "exact_units", name: "Volt" }));
+assert_eq!(r.to_si_f64(&units::TABLE), Some(3.3));
+assert_eq!(r.to_si_f64(&()), None); // a table that doesn't list it: no factor
+
+// a unit no table lists, in full: its dimension and scale make it convertible to SI anyway
+let rpm = SIExpr::Def(UnitDef {
+    id: MarkerId { crate_name: "my_api", name: "Rpm" },
+    names: UnitNames { symbol: "rpm" },
     dim: Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1),
+    quantity: None,
     // exactly π/30 rad/s: 2π per 60 s
-    scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
-};
+    scale: Magnitude::new(1, 30, 0, 0, 1),
+    provenance: Provenance::Defined,
+});
 let speed = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
 assert_eq!(speed.to_string(), "3 krpm");
 ```
 
-`SIExpr` is the same model as the markers, put on the wire: `Named { name, symbol, dim, scale }`, `Mul`, `Div` and
-`Pow` of other `SIExpr`s (through `RefBox`, so decoding one reads only its top node). A marker's `UnitExpr` maps one
-to one onto an `SIExpr` (`Unit::SI_EXPR`, `SIExpr::of::<U>()`; `SIExprOwned::from(&UnitExpr)` on a host), and back
-`SIExpr == UnitExpr` compares the trees and `known()` finds the ww_si unit of a named one. Symbol, name, dimension
-and factor are computed by the same code for both, so a run-time unit is shown exactly like the typed one. A tree
-that comes from another device is walked at most `MAX_UNIT_DEPTH` (32) levels deep: a deeper part has no dimension
-and is shown as `…`, it can't overflow the stack.
+`SIExpr` is the same model as the markers, put on the wire. A leaf is a named unit: `Def(UnitDef)`, its whole
+definition (identity, symbol, dimension, kind, exact scale, provenance), or `Ref(MarkerId)`, its identity alone, the
+declaring crate and the marker's name. Above them are `Mul`, `Div`, `Pow` and `Sqrt` of other `SIExpr`s (through
+`RefBox`, so decoding one reads only its top node). A marker's `UnitExpr` maps one to one onto an `SIExpr` with `Def`
+leaves (`Unit::SI_EXPR`, `SIExpr::of::<U>()`; `SIExprOwned::from(&UnitExpr)` on a host), which reads alone anywhere.
+
+A `Ref` reads through a `UnitTable`, which maps an identity to its definition: `units::TABLE` lists the units of
+exact_units, a `UnitExpr` lists its own named units, a slice of tables chains them, and the API model a client has
+lists every unit the API uses, the device's own and exact_units' alike. So the walks take the table:
+`AnyQuantity::to_si_f64(&table)`, `display(&table)`, `SIExpr::dim`, `magnitude` and `same`. `Display` reads through
+`units::TABLE`, and `to_quantity::<U>()` through `U`'s own definition. A `Ref` the table doesn't list is shown by its
+name and has no dimension or factor, so a conversion over it refuses. Two crates' units of one name are two units:
+`my_api::Rpm` and `fan_api::Rpm` are told apart by their crate.
+
+`compact_in(&table, &mut arena)` (no allocation; a named unit needs no arena) and `AnyQuantityOwned::compact(&table)`
+turn each `Def` the table lists into a `Ref`, refusing a `Def` whose identity the table lists with another
+definition; `resolve` does the reverse. A value sent beside its API carries the compact form: `wire_weaver_client`
+compacts what it writes into an `AnyQuantity` against the API's model, and a device can compact against the units
+it uses. A tree that comes from another device is walked at most `MAX_UNIT_DEPTH` (32) levels deep: a deeper part has
+no dimension and is shown as `…`, it can't overflow the stack.
 
 `Dim` is nine 4-bit signed exponents in the order s, m, kg, A, K, mol, cd, rad, bit (each -8..=7), the `root` bit,
-then four optional counted bases (`Counted { crate_name, name, exp }`), `final_structure`. `Dim::new` is `const` and refuses an exponent
-out of range at compile time; `checked_mul`, `checked_div` and `checked_pow` give `None` for a run-time tree whose
-exponents leave the range or that needs a fifth counted base. `Scale` is a nibble and then its numbers. These are the
-bytes:
+then four optional counted bases (`Counted { crate_name, name, exp }`), `final_structure`. `Dim::new` is `const` and
+refuses an exponent out of range at compile time; `checked_mul`, `checked_div` and `checked_pow` give `None` for a
+run-time tree whose exponents leave the range or that needs a fifth counted base. A unit's scale is an exact
+`Magnitude`. These are the bytes (strings and their lengths are laid out as shrink_wrap does it, lengths at the end):
 
-| Value                                        | Bytes                                         |
-|----------------------------------------------|-----------------------------------------------|
-| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)              | `d2 1f 00 00 00 00`                           |
-| `Dim` of `AngularVelocity` (s⁻¹ rad)         | `f0 00 00 01 00 00`                           |
-| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)  | `00 00 00 00 14`, `ww_si`, `Sample`, `f0 65`  |
-| `Scale::Coherent`                            | `0`                                           |
-| `Scale::Pow10(-3)`                           | `1` `fd`                                      |
-| `Scale::Affine` of °C                        | `2` and two `f64`, 17 B                       |
-| `Scale::Exact` of a degree (π/180)           | `30 fe 80 fe 80 02 00 00 83 fc 00 00`         |
-| `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 00 00 01 14`, 15 B |
-| `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 53 B                                        |
-| `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 15 B of the unit, `79`: 19 B  |
+| Value                                                  | Bytes                                                  |
+|--------------------------------------------------------|--------------------------------------------------------|
+| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)                        | `d2 1f 00 00 00 00`                                    |
+| `Dim` of `AngularVelocity` (s⁻¹ rad)                   | `f0 00 00 01 00 00`                                    |
+| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)            | `00 00 00 00 14`, `exact_units`, `Sample`, `f0 06 39`, 25 B |
+| `Magnitude` one                                        | `00 00`                                                |
+| `Magnitude` of a degree (π/180)                        | `fe 80 fe 80 02 00 00 83 fc 00 00`                     |
+| `SIExpr::of::<units::Volt>()`, a `Def`                 | `00`, `exact_units`, `Volt`, `V`, `01 d2 1f 00 00 00 00 00 00 00 01 24 39 5b`, 31 B |
+| the same compacted, a `Ref`                            | `10`, `exact_units`, `Volt`, `04 39`, 18 B             |
+| `SIExpr::of::<Per<Torque, AngularVelocity>>()`         | 85 B; compacted, two `Ref`s: 52 B                      |
+| `AnyQuantity::from(Volt::milli(3300u16))`              | `12 e4 0c`, the unit's 31 B, `7b`: 35 B                |
+| the same compacted                                     | `12 e4 0c`, the unit's 18 B, `2a`: 22 B                |
 
-The unit costs bytes on every value (19 bytes instead of 3 for 3300 mV), so a value whose unit is known when the
-API is written stays a typed quantity, and a channel's unit is better sent once in its description than with every
-reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its readings.
+The unit costs bytes on every value (22 bytes by reference, 35 in full, instead of 3 for 3300 mV), so a value whose
+unit is known when the API is written stays a typed quantity, and a channel's unit is better sent once in its
+description than with every reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its readings.
 
 ## Prefixes
 

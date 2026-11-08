@@ -17,7 +17,7 @@
 //! impl<'a> Tree<'a> for &'a MyUnit {
 //!     fn node(&self) -> Option<Node<'a, Self>> {
 //!         Some(match *self {
-//!             MyUnit::Name(n) => Node::Named { name: n, symbol: n, dim: None, scale: None },
+//!             MyUnit::Name(n) => Node::Named { crate_name: None, name: n, symbol: n, dim: None, scale: None },
 //!             MyUnit::Per(a, b) => Node::Div(&**a, &**b),
 //!         })
 //!     }

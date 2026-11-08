@@ -377,6 +377,25 @@ pub fn check_marker_ids(bundle: &ApiBundleOwned) -> Result<()> {
     Ok(())
 }
 
+/// The bundle as an [exact_units::UnitTable]: the definition of every named unit whose marker it carries, by its
+/// identity. The schema lists every unit the API uses, `exact_units`' own too, so an `SIExpr` reference
+/// (`SIExpr::Ref`) a device sends beside its API resolves through the bundle alone, with no crate compiled in.
+impl exact_units::UnitTable for ApiBundleOwned {
+    fn unit(&self, id: exact_units::MarkerId<'_>) -> Option<exact_units::UnitDef<'_>> {
+        self.types.iter().find_map(|location| match location {
+            crate::TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(s),
+                ..
+            } => s
+                .marker()?
+                .unit_def()
+                .filter(|def| def.id.as_id() == id)
+                .map(UnitDefOwned::as_def),
+            _ => None,
+        })
+    }
+}
+
 /// `exact_units::UnitZero`, the reference of an origin measured from its unit's own zero.
 pub fn unit_zero() -> MarkerIdOwned {
     MarkerIdOwned {

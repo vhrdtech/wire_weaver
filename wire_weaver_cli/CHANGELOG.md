@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww tap`, `ww observe`, `ww stream` and `ww explain` show an `AnyQuantity` whose unit comes by reference (STD-107, CLT-66) with the unit the device's API model defines (`1500 rpm`), also from a capture file, which stores the model.
 - `ww tap`'s session line shows the device's wire version once link is set up (EVO-34): `link set up (wire w2.3)`,
   decoded from the session's `DeviceInfo` bytes (`wire_weaver_client::tap::session_wire_version`).
 - `ww api check` names both bumps a change needs (EVO-27): a `needs:` line under the header (`needs: wire w1.0 -> w1.1 or later (a new wire revision), crate 0.1.0 -> 0.2.0 or later (breaking position ...)`), and fails when the wire version is not bumped enough, goes back, is dropped, or is lower than a `#[since]`, saying what to declare and where. `ww api save` refuses the same without `--force`.

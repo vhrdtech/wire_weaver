@@ -1946,6 +1946,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`tests/wire_line_old_api` keeps the attribute as the end-to-end case); `ww api scaffold` says where the wire
   version lives or how to declare it (`docs/evolution/rules.md#the-wire-version`; tests `wire_weaver_core`
   `wire_version_in_cargo_toml`, `wire_version_note`, `tests/wire_line`).
+- 🚧 **EVO-28 A host for several wire lines** · `v0.5` — one host driver bundles a generated client per wire line
+  of an API (two versions of the API crate as renamed dependencies) behind a facade and connects once to a device
+  on any of them: `ClientConfig::speaks(ClientLine)` lists every line (`client_line()` of each generated client),
+  link setup takes the device on whichever it is and sends that line's client version, and the facade picks its
+  client in `WwClient::from_cmd` by `DeviceApiInfo::user_api_wire`; a line it doesn't know is refused naming every
+  line the host speaks. Codegen names the API crate by its dependency key, and the checker reports a removed enum
+  variant. Done: two lines (`docs/evolution/multi_line_host.md`; bench `tests/thermo` with
+  `tests/thermo_api/{w1_0,w1,w2_0,w2}`, test `tests/thermo/tests/lines.rs`, `wire_weaver_client`
+  `host_of_two_lines_*`, `wire_weaver_core` `two_versions_of_one_crate_under_other_names`, `wire_weaver_evolution`
+  `removed_variant_breaks_rust_code`). Open: a third line, the dynamic client and Python on the same bench.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

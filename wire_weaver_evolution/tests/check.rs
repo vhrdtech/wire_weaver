@@ -414,7 +414,11 @@ fn old_format_snapshot_passes_against_unchanged_source() {
     // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still, ApiBundle::wire (EVO-24) last
     assert_eq!(
         unrecorded(&outcome),
-        ["ApiBundle::wire", "ItemEnum::future_version", "ItemStruct::extra"]
+        [
+            "ApiBundle::wire",
+            "ItemEnum::future_version",
+            "ItemStruct::extra"
+        ]
     );
     has_all(
         &outcome.to_string(),

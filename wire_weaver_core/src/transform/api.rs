@@ -1061,8 +1061,10 @@ mod tests {
         assert_eq!(bundle.wire, Some(WireVersion::new(2, 3)));
         assert_eq!(bundle.root.items[0].since, None);
         assert_eq!(bundle.root.items[1].since, Some(WireVersion::new(2, 1)));
-        let ww_self::TypeLocationOwned::InLine { ty: ww_self::TypeOwned::Struct(s), .. } =
-            &bundle.types[0]
+        let ww_self::TypeLocationOwned::InLine {
+            ty: ww_self::TypeOwned::Struct(s),
+            ..
+        } = &bundle.types[0]
         else {
             panic!("{:?}", bundle.types[0]);
         };
@@ -1103,7 +1105,8 @@ mod tests {
         // what the `ww_api_root` macro sees: a bare `#[ww_api_root]` is refused there
         let e = crate::transform::parse_wire_arg(proc_macro2::TokenStream::new()).unwrap_err();
         assert!(
-            e.to_string().contains("`#[ww_api_root(wire = \"w1.0\")]` for a new API"),
+            e.to_string()
+                .contains("`#[ww_api_root(wire = \"w1.0\")]` for a new API"),
             "{e}"
         );
         let tokens: proc_macro2::TokenStream = r#"wire = "w2.3""#.parse().unwrap();

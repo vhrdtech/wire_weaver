@@ -970,7 +970,10 @@ pub(crate) mod tests {
         let (tx, _rx) = tokio::sync::mpsc::channel(1);
         let mut cmd2 = Commander::new(tx);
         cmd2.connected_device = cmd.connected_device.clone();
-        assert_eq!(cmd2.connected_device.user_api_wire, Some(WireVersion::new(1, 0)));
+        assert_eq!(
+            cmd2.connected_device.user_api_wire,
+            Some(WireVersion::new(1, 0))
+        );
         cmd2.connected_device.user_api_hash.no_docs.hash = vec![2];
         cmd2.set_client_introspect(introspect(bundle("c", "0.1.1", client), 1));
         cmd2.resolve_api_match();

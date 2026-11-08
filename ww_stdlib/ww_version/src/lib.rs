@@ -11,9 +11,9 @@ mod wire;
 pub use semver;
 
 pub use api_hash::{ApiHash, ApiHashPair};
-pub use wire::{WireVersion, WireVersionError};
 #[cfg(feature = "std")]
 pub use api_hash::{ApiHashOwned, ApiHashPairOwned};
+pub use wire::{WireVersion, WireVersionError};
 
 /// SemVer version as defined by <https://semver.org> in ShrinkWrap format.
 /// The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.

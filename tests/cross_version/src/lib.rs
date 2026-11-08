@@ -31,7 +31,10 @@ mod tests {
         assert_eq!(new, WireVersion::new(2, 0));
         assert!(!old.same_line(&new));
         assert_eq!(new.to_string(), "w2.0");
-        assert_eq!(cross_version_api::CROSS_VERSION_FULL_GID.crate_id, "cross_version_api");
+        assert_eq!(
+            cross_version_api::CROSS_VERSION_FULL_GID.crate_id,
+            "cross_version_api"
+        );
     }
 
     /// What the old device was asked to do.

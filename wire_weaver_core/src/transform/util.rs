@@ -65,7 +65,8 @@ pub(crate) fn get_since_attr(
         });
         Ok(Some(since.context(current_crate.err_context())?))
     } else {
-        Err(anyhow!("expected #[since = \"w<line>.<revision>\"]").context(current_crate.err_context()))
+        Err(anyhow!("expected #[since = \"w<line>.<revision>\"]")
+            .context(current_crate.err_context()))
     }
 }
 
@@ -114,10 +115,9 @@ pub fn parse_wire_arg(tokens: proc_macro2::TokenStream) -> syn::Result<WireVersi
             "expected a string: `wire = \"w2.3\"`",
         ));
     };
-    lit_str
-        .value()
-        .parse::<WireVersion>()
-        .map_err(|e| syn::Error::new_spanned(lit_str, format!("wire = \"{}\": {e}", lit_str.value())))
+    lit_str.value().parse::<WireVersion>().map_err(|e| {
+        syn::Error::new_spanned(lit_str, format!("wire = \"{}\": {e}", lit_str.value()))
+    })
 }
 
 /// Delivery kind of a `stream!` from `#[counted]` / `#[reliable]`, plain without either. Not allowed on `sink!`.

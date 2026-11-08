@@ -93,7 +93,9 @@ impl Display for WireVersionError {
             WireVersionError::ThreeParts => {
                 "three numbers are a crate version: a wire version has a line and a revision, `w2.3`"
             }
-            WireVersionError::NoRevision => "no revision: write `w2.0` for the first revision of line 2",
+            WireVersionError::NoRevision => {
+                "no revision: write `w2.0` for the first revision of line 2"
+            }
             WireVersionError::Malformed => "expected `w<line>.<revision>`, like `w2.3`",
             WireVersionError::BadNumber => {
                 "line and revision are decimal numbers without leading zeros, like `w2.3`"
@@ -222,8 +224,14 @@ mod tests {
         let mut buf = [0u8; 16];
         let bytes = WireVersion::new(2, 3).to_ww_bytes(&mut buf).unwrap();
         assert_eq!(bytes, hex!("23"));
-        assert_eq!(WireVersion::from_ww_bytes(bytes).unwrap(), WireVersion::new(2, 3));
+        assert_eq!(
+            WireVersion::from_ww_bytes(bytes).unwrap(),
+            WireVersion::new(2, 3)
+        );
         let bytes = WireVersion::new(1, 200).to_ww_bytes(&mut buf).unwrap();
-        assert_eq!(WireVersion::from_ww_bytes(bytes).unwrap(), WireVersion::new(1, 200));
+        assert_eq!(
+            WireVersion::from_ww_bytes(bytes).unwrap(),
+            WireVersion::new(1, 200)
+        );
     }
 }

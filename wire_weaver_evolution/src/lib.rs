@@ -701,9 +701,7 @@ impl<'a> Checker<'a> {
             (Some(old), Some(new)) if new < old => self
                 .warnings
                 .push(format!("wire version {old} goes back to {new}")),
-            (Some(old), Some(new)) => self
-                .compatible
-                .push(format!("wire version {old} -> {new}")),
+            (Some(old), Some(new)) => self.compatible.push(format!("wire version {old} -> {new}")),
             (None, Some(new)) => self.compatible.push(format!("wire version {new} declared")),
             (Some(old), None) => self
                 .warnings
@@ -1095,7 +1093,9 @@ mod tests {
         let report = compare(&load("0.1.0", API), &load("0.1.1", &old_marker)).unwrap();
         assert_eq!(
             report.warnings,
-            ["Api::led_off is added with #[since = \"w1.0\"], expected #[since = \"w1.1\"] and a wire bump"]
+            [
+                "Api::led_off is added with #[since = \"w1.0\"], expected #[since = \"w1.1\"] and a wire bump"
+            ]
         );
     }
 
@@ -1120,8 +1120,11 @@ mod tests {
             "w1.2",
         );
         // w1.2 -> w2.0: older markers stay as they are, no warnings
-        let report =
-            compare(&load("0.5.2", &old), &load("0.6.0", &old.replace("wire = \"w1.2\"", "wire = \"w2.0\""))).unwrap();
+        let report = compare(
+            &load("0.5.2", &old),
+            &load("0.6.0", &old.replace("wire = \"w1.2\"", "wire = \"w2.0\"")),
+        )
+        .unwrap();
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
 
         let new = wire(

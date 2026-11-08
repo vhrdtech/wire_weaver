@@ -58,7 +58,9 @@ pub enum Error {
         hex(.bytes)
     )]
     UnknownPeerFormat { kind: u8, bytes: Vec<u8> },
-    #[error("Connected device {device:?} is at wire {device_wire}, the operation needs {required} or newer")]
+    #[error(
+        "Connected device {device:?} is at wire {device_wire}, the operation needs {required} or newer"
+    )]
     OlderProtocol {
         device: Box<FullVersionOwned>,
         /// Wire version of the device's API (EVO-24).

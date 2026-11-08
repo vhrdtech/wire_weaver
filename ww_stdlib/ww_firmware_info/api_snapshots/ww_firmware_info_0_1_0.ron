@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8a900a0b893997f091394e61f1fb507770804aa7e6a64adf5d0220003fc7d5d6
+// shrink_wrap sha256: 4b379f2ce0023363d054f0cfee6e8e0877a47a3a65fc490b28a69a4e7affff2b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -327,5 +327,5 @@
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
 ]))

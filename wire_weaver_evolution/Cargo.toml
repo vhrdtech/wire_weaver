@@ -33,3 +33,7 @@ required-features = ["source"]
 [[test]]
 name = "save_env"
 required-features = ["source"]
+
+[[test]]
+name = "snapshot_pairs"
+required-features = ["source"]

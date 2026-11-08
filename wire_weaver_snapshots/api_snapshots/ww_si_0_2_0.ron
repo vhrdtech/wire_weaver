@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 58e7750d7f6896276b4c3edec44e1f706e5b84643eff7ebbaae9566c1cc2babb
+// shrink_wrap sha256: 8dc3e7b505dcd111196eba27aaa653ea0b1fdd6affaefe402d875f83569031d4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -176,8 +176,8 @@
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     None,
     Some((line: 1, revision: 0)),
 ]))

@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 60284bcf2b3a0acc7f8f169d9bc1eed957621b3eecac8a1efcf651aae987415b
+// shrink_wrap sha256: 25ac33753de480592b57ebe61136e66b5b19655551421f4c1cc5f8fc7c671291
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -221,5 +221,5 @@
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
 ]))

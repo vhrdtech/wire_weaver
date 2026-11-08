@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* Snapshots of the current versions saved again with `ww_si` at wire version `w2.0` (EVO-27). The `ww_board_info` 0.1.0 and 0.2.0 snapshots record `RevisionSource`'s catch-all, `Unknown(u32)`, which their source had by default (SW-47, 14 Oct 2026, before both were last saved from source): saved before EVO-10, they read as without it, so the variant `Provisional` added in 0.2.0 looked like a wire break. Re-hashed.
 * Snapshots saved again for `ApiBundle::wire` and `#[since]` as a wire revision (EVO-24); the older `ww_board_info` snapshots were rewritten for the new marker form and re-hashed.
 - Snapshots saved again with the `ww_self::Argument` fields `default` and `flatten` (EVO-22): the signatures of traits with methods or stream functions changed with the format, so a host with these snapshots finds the stdlib traits of a device built before only through the definition cache.
 - Snapshots of the current versions of `ww_global`, `ww_tap` and the `ww_stdlib` crates saved again with each enum's catch-all (EVO-10, `ww_self::ItemEnum::future_version`); signatures are unchanged. Older versions' snapshots stay without it and count as enums without a catch-all.

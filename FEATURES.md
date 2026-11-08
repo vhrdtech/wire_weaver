@@ -1895,7 +1895,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   wire version apart from its crate version: a crate without an API root declares it in `Cargo.toml`,
   `[package.metadata.wire_weaver] wire = "w1.2"` (an API root crate only in `#[ww_api_root(wire = ..)]`), and bundles
   and snapshots carry it per crate (`ww_self::ApiBundle::ext_wire`, `crate_wire`). Every `ww_stdlib` crate,
-  `ww_global` and `ww_tap` are at `w1.0`, `ww_board_info` at `w1.2`. `#[since]` names a revision of the crate that
+  `ww_global` and `ww_tap` are at `w1.0`, `ww_board_info` at `w1.2`, `ww_si` at `w2.0` (its 0.2.0 moved the units to
+  `exact_units`, a wire break from 0.1.0 at `w1.0`, found by EVO-27's check of every snapshot pair). `#[since]` names a revision of the crate that
   declares the item: the client compares it with the device's wire version of that crate (`ww_board_info`'s
   `set_reworks`, `w1.2`, was refused under API roots at `w1.0`), and `Error::OlderProtocol` names the crate. The
   checker and the connect-time check compare a dependency's traits and types by its wire line when both sides declare
@@ -1917,7 +1918,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww api save` refuses the same. A `ww_stdlib` crate on a new wire line is one reason with the breaks it causes
   named under it (EVO-21) (`docs/evolution/checker_tool.md#two-bumps-the-wire-and-the-crate`,
   `docs/evolution/rules.md#which-bump-a-change-needs`; `wire_weaver_evolution` tests `tests::both_bumps`,
-  `tests::wire_lines`, `check::both_bumps_named_in_the_verdict`).
+  `tests::wire_lines`, `check::both_bumps_named_in_the_verdict`, and `snapshot_pairs`, every saved snapshot of
+  `ww_global`, `ww_tap` and the `ww_stdlib` crates against the one before it).
 - 💡 **EVO-29 Global paths by wire line on the device** — a device without introspection data resolves `GlobalFull`
   and `GlobalCompact` paths itself (`ww_client_server::global_full_path`, the generated `GlobalTrait` table) by the
   crate major and minor the request carries, so a host built with another crate major of a `ww_stdlib` crate on the

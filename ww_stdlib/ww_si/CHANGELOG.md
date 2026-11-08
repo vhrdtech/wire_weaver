@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+* Wire version `w2.0` (was `w1.0`, EVO-26, EVO-27): 0.2.0 moved the units, scales and origins to `exact_units` and changed `Timed`, a wire break from 0.1.0, which stays at `w1.0`. The evolution checker found the two on one line once it checked the wire version. APIs using `ww_si` record it at `w2.0` in their snapshots.
+
 ### 🚀 Features
 
 * `exact_units` taken at 1819d9f, its integer kernel (NUM-13) with the `u32` fast path for SI prefixes, and by git without a `rev`: `Cargo.lock` pins the commit. Re-exports `Rounding`, `Overflow` and `PrefixRatio`; new `ToIn`, the number types `to_in` gives (STD-102).

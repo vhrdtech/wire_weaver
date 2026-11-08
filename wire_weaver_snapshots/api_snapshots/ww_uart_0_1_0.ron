@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 36020e5354bd8df738b7dfae1733c09abcfc33c36804ae69914304abc10916f3
+// shrink_wrap sha256: 1637a10e791c7d39c3b5ea7d73b015438254e86f0813b43e49fa47d00c0f3981
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -433,6 +433,6 @@
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

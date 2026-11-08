@@ -331,8 +331,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   level batch on an STM32H725 at `opt-level = 3` against 60 k for column-wise `DeltaPacked` (SW-64), for 2.3x the
   bytes. Built and measured on branch `s/18oct2026-memcpy-fast-sw65`, not landed; may come back after observe cells
   and a `u32` payload in `NumericValueStore`.
-- 💡 **SW-24 ZigZag encoding for signed variable length numbers** — consider ZigZag (as in protobuf) so that small
-  negative values stay short, e.g. signed counterparts of `UNib32`/`UVlq32`.
+- ✅ **SW-24 `INib32`: a signed nibble varint, zigzag over `UNib32`** — small negative values stay as short as
+  small positive ones (`INib32(-4)` and `INib32(4)` both 1 nibble). A field type and a `#[wire(INib32)]` field
+  attribute (reuses `Error::MalformedUNib32`: on the wire it *is* a `UNib32`); in `Series` columns and the dynamic
+  (`ww_self`) value/`Series`/`expr` paths it is a plain signed 32-bit number, not re-zigzagged there (the column
+  codec's own signed delta/zigzag already compacts it). `wire_weaver_py` converts it like `i32`
+  (`int`/`"int32"` numpy dtype, not `UNib32`'s unsigned group); `wire_weaver_evolution` gives it `UNib32`'s size
+  class. Not wired into `ww_repr`/enum discriminants (a field type, not a discriminant type) — a genuinely new ask.
+  Conformance cases (`docs/serdes/conformance.md`) pass the Rust derive, the dynamic client, Python and `explain`;
+  the C runtime has no `Op::INib32` of its own yet, only `UNib32` (gap-marked, SW-75).
+- 💡 **SW-75 `INib32` in the C runtime** — `shrink_wrap/c`'s `Op` enum, FFI decls and `shrink_wrap.{h,c}` have no
+  signed-nibble-varint codec (only `UNib32`'s). A new `Op::INib32`, its zigzag+nibble encode/decode in C, and
+  golden/cross tests against the Rust type (SW-43's style) — closes the C gap of SW-24's conformance cases
+  (`inib32.one_nibble`, `inib32.two_nibbles`, `inib32.min`, `inib32.max`).
 - 💡 **SW-25 In-place builder for server handlers** · `v0.5.x` — a new step-by-step / partial builder (e.g. for a
   `RefVec`) might be useful with the new `Context` in server handlers, to write replies and events straight
   into the buffer. It might not work out.

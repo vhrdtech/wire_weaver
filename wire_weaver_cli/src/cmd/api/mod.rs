@@ -45,7 +45,7 @@ pub enum ApiCommand {
 
         /// The API root to scaffold: a trait name, or `module::Trait` in a crate with several roots
         /// (`wire_v2::Thermo`, EVO-37). Required when the crate defines more than one
-        #[arg(long)]
+        #[arg(long, alias = "name")]
         root: Option<String>,
 
         /// Server struct name

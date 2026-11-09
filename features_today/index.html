@@ -5889,6 +5889,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../types/#tuple-structs">Tuple and unit structs</a></strong>: <code>struct Celsius(f32);</code> works like a named struct, with the same bytes; <code>struct Marker;</code> keeps room to grow fields later.</li>
 <li><strong><a href="../types/#booleans-and-numbers">Integers of any width</a></strong>: <code>u1</code> to <code>u32</code> and nibbles, packed bit after bit, so a 3-bit field takes 3 bits.</li>
 <li><strong><a href="../types/">Variable-length numbers</a></strong>: <code>UNib32</code> and <code>UVlq32</code>, where small values take a nibble or a byte.</li>
+<li><strong><a href="../serdes/showcase/#unib32-variable-length-numbers-by-the-nibble">Signed variable-length numbers</a></strong>: <code>INib32</code>, zigzag over <code>UNib32</code>: small negative values stay as short as small positive ones.</li>
 <li><strong><a href="../serdes/derive/#borrowed-owned-or-both">Zero-copy reads</a></strong>: Strings and lists are read in place from the received buffer; an owned twin of each type is generated for values you keep.</li>
 <li><strong><a href="../serdes/derive/#evolving-types">Evolvable by default</a></strong>: Add fields later with <code>#[default = ..]</code>, and old and new code still read each other's data.</li>
 <li><strong><a href="../serdes/derive/#enum-variants-from-a-newer-version">Enum variants from a newer version</a></strong>: An older reader takes an unknown variant as <code>Unknown(u32)</code> instead of failing.</li>

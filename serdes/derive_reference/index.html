@@ -6851,8 +6851,8 @@ variable-length one. The code that uses the struct sees <code>i8</code> and <cod
   <code>into_plain</code> when it is read), in three forms:<ul>
 <li><strong>An integer as a narrower or variable-length integer</strong>: the field is a plain integer (<code>u8</code>..<code>u128</code>,
   <code>i8</code>..<code>i128</code>, <code>usize</code>, <code>isize</code>), <code>W</code> an integer of 64 bits or less (<code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>Nibble</code>,
-  <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, <code>UNib32</code>, <code>UVlq32</code>, <code>UVlq64</code>), both signed or both unsigned; anything else is a
-  compile error naming the field. shrink_wrap implements <code>WireAs</code> for these pairs.</li>
+  <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, <code>UNib32</code>, <code>UVlq32</code>, <code>UVlq64</code> or <code>INib32</code>), both signed or both unsigned; anything
+  else is a compile error naming the field. shrink_wrap implements <code>WireAs</code> for these pairs.</li>
 <li><strong>A handle as the value it stands for</strong> (DER-23): <code>W</code> is a user type without a lifetime that implements
   <code>WireAs&lt;T&gt;</code> for the field's type: a one-byte index in Rust that writes the full value it stands for (example
   below). <code>T</code> is cloned to be written (free for a <code>Copy</code> handle).</li>

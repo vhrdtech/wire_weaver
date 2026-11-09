@@ -6170,8 +6170,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   level batch on an STM32H725 at <code>opt-level = 3</code> against 60 k for column-wise <code>DeltaPacked</code> (SW-64), for 2.3x the
   bytes. Built and measured on branch <code>s/18oct2026-memcpy-fast-sw65</code>, not landed; may come back after observe cells
   and a <code>u32</code> payload in <code>NumericValueStore</code>.</li>
-<li>💡 <strong>SW-24 ZigZag encoding for signed variable length numbers</strong> — consider ZigZag (as in protobuf) so that small
-  negative values stay short, e.g. signed counterparts of <code>UNib32</code>/<code>UVlq32</code>.</li>
+<li>✅ <strong>SW-24 <code>INib32</code>: a signed nibble varint, zigzag over <code>UNib32</code></strong> — small negative values stay as short as
+  small positive ones (<code>INib32(-4)</code> and <code>INib32(4)</code> both 1 nibble). A field type and a <code>#[wire(INib32)]</code> field
+  attribute (reuses <code>Error::MalformedUNib32</code>: on the wire it <em>is</em> a <code>UNib32</code>); in <code>Series</code> columns and the dynamic
+  (<code>ww_self</code>) value/<code>Series</code>/<code>expr</code> paths it is a plain signed 32-bit number, not re-zigzagged there (the column
+  codec's own signed delta/zigzag already compacts it). <code>wire_weaver_py</code> converts it like <code>i32</code>
+  (<code>int</code>/<code>"int32"</code> numpy dtype, not <code>UNib32</code>'s unsigned group); <code>wire_weaver_evolution</code> gives it <code>UNib32</code>'s size
+  class. Not wired into <code>ww_repr</code>/enum discriminants (a field type, not a discriminant type) — a genuinely new ask.
+  Conformance cases (<code>docs/serdes/conformance.md</code>) pass the Rust derive, the dynamic client, Python and <code>explain</code>;
+  the C runtime has no <code>Op::INib32</code> of its own yet, only <code>UNib32</code> (gap-marked, SW-75).
+  <code>NumericBaseType</code>/<code>NumericValue::INib32</code> is breaking (neither enum has a catch-all for an unknown variant):
+  <code>ww_numeric</code> 0.3.0, wire line w2.0, <code>#[since = "w2.0"]</code>; dependents re-saved, none bump their own version.</li>
+<li>💡 <strong>SW-75 <code>INib32</code> in the C runtime</strong> — <code>shrink_wrap/c</code>'s <code>Op</code> enum, FFI decls and <code>shrink_wrap.{h,c}</code> have no
+  signed-nibble-varint codec (only <code>UNib32</code>'s). A new <code>Op::INib32</code>, its zigzag+nibble encode/decode in C, and
+  golden/cross tests against the Rust type (SW-43's style) — closes the C gap of SW-24's conformance cases
+  (<code>inib32.one_nibble</code>, <code>inib32.two_nibbles</code>, <code>inib32.min</code>, <code>inib32.max</code>).</li>
 <li>💡 <strong>SW-25 In-place builder for server handlers</strong> · <code>v0.5.x</code> — a new step-by-step / partial builder (e.g. for a
   <code>RefVec</code>) might be useful with the new <code>Context</code> in server handlers, to write replies and events straight
   into the buffer. It might not work out.</li>

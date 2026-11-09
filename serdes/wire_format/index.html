@@ -6165,7 +6165,7 @@ without <code>read</code>, takes no level for it: read nested values with <code>
 <p><code>BufWriterOwned</code> writes the same bits into a growable <code>Vec&lt;u8&gt;</code> instead of a fixed slice (<code>std</code> only), and has no
 <code>u16::MAX</code> limit per value, which plain <code>BufWriter</code> currently has.</p>
 <h2 id="alignment">Alignment<a class="headerlink" href="#alignment" title="Permanent link">&para;</a></h2>
-<p><code>bool</code>, <code>U1</code>..<code>U64</code> and <code>I2</code>..<code>I64</code> are bit-aligned, <code>Nibble</code> and <code>UNib32</code> nibble-aligned, everything else
+<p><code>bool</code>, <code>U1</code>..<code>U64</code> and <code>I2</code>..<code>I64</code> are bit-aligned, <code>Nibble</code>, <code>UNib32</code> and <code>INib32</code> nibble-aligned, everything else
 byte-aligned. Byte arrays, strings and <code>Unsized</code> values are all byte-aligned, to keep the code and the computations
 small. Unused bits are set to zero and can be reclaimed when evolving a type:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">fn</span><span class="w"> </span><span class="nf">version1</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
@@ -6458,7 +6458,7 @@ already known to the reader from the tag runs above it):</p>
 </thead>
 <tbody>
 <tr>
-<td>integers (<code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, <code>Nibble</code>, <code>UNib32</code>, <code>UVlq32</code>, <code>UVlq64</code>)</td>
+<td>integers (<code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, <code>Nibble</code>, <code>UNib32</code>, <code>INib32</code>, <code>UVlq32</code>, <code>UVlq64</code>)</td>
 <td>a numeric column at the type's value width</td>
 </tr>
 <tr>

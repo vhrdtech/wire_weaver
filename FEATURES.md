@@ -2189,7 +2189,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   by reading the file and looking for that call, `wire_weaver_evolution::missing_test_warning`), so a wire break
   is caught by `cargo test` and a pre-commit hook, not only when someone remembers to run `ww api check` by hand
   (`donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
-  hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning`.
+  hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning-tool-31`.
 - 💡 **TOOL-32 `ww api scaffold --dep`** — the printed `ww_codegen!` call names the API by its package
   (`thermo_api ::`), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
   versions of it (EVO-28, `docs/evolution/multi_line_host.md`). A `--dep NAME` option writes that name instead.

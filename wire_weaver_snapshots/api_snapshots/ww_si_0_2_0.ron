@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4d401a1796d0df78b63b24344c8935d6198f277228923cba08dbeb5fc105712c
+// shrink_wrap sha256: 95a79b098d6a4430a54a2b5ecb9a1aa79655144ad593c904d2bd80520f21c11b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -35,14 +35,14 @@
         162,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "NumericValue", signature: [
-        191,
-        150,
-        129,
-        169,
-        248,
-        0,
-        130,
-        181,
+        86,
+        196,
+        113,
+        105,
+        83,
+        118,
+        172,
+        80,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "SIExpr", signature: [
         24,
@@ -188,9 +188,9 @@
 ], traits: [], ext_crates: [
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_numeric", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
     Some((line: 2, revision: 0)),
     None,
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
 ]))

@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4d49c009f35d4b70e2db9f6fec0ea8adf15762c88e6eefeab9dd592c92f22dbc
+// shrink_wrap sha256: 824b77156d24aab8f2fc1dda9c797b9c2adf0dde9e880f154998bf5f7b850197
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -61,14 +61,14 @@
     (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "AdcCapture", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
-        191,
-        150,
-        129,
-        169,
-        248,
-        0,
-        130,
-        181,
+        86,
+        196,
+        113,
+        105,
+        83,
+        118,
+        172,
+        80,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
         167,
@@ -101,14 +101,14 @@
         162,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        96,
-        190,
-        107,
-        106,
-        110,
-        150,
-        181,
-        201,
+        125,
+        222,
+        26,
+        132,
+        50,
+        2,
+        203,
+        144,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One calibrated reading, see `Adc::read`.",
@@ -487,13 +487,13 @@
     ], compact_id: Some(96), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_adc", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_numeric", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
     None,
     Some((line: 2, revision: 0)),
     Some((line: 1, revision: 0)),

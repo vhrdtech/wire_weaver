@@ -4663,6 +4663,7 @@ dependencies = [
 name = "shared_sub_level"
 version = "0.1.0"
 dependencies = [
+ "observe_api",
  "shared_sub_level_api",
  "tests_common",
  "tokio",

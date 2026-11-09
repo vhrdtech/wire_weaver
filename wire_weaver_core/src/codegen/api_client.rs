@@ -315,10 +315,7 @@ fn client_structs_recursive(
     under_array: bool,
 ) -> TokenStream {
     let Ctx {
-        api_bundle,
-        model,
-        path_mode,
-        ..
+        api_bundle, model, ..
     } = *ctx;
     let mut ts = TokenStream::new();
     // observing a level under a resource array isn't possible yet (SRV-18)
@@ -355,15 +352,45 @@ fn client_structs_recursive(
     );
     // index chains of nested levels start from the root trait of this client, so global paths name that trait
     let root_gid_paths = root_gid_paths.unwrap_or(&gid_paths);
-    let methods = level_methods(
-        ctx,
-        api_level,
-        index_chain,
-        model,
-        path_mode,
-        root_gid_paths,
-        observable,
-    );
+    // a level of a shared client (CLT-68) doesn't know whether a line reaches it under a resource array: its struct
+    // takes that as `const OBSERVE: bool`, and only `<.., true>` has the observe methods, as a level's own client
+    // would have them (SRV-18)
+    let shared_tree = index_chain.is_dynamic();
+    let (methods, methods_unobserved) = if shared_tree && observable {
+        let m = |observable: bool| {
+            let arg = if observable {
+                quote! { true }
+            } else {
+                quote! { false }
+            };
+            level_methods(
+                ctx,
+                api_level,
+                index_chain,
+                root_gid_paths,
+                observable,
+                &arg,
+            )
+        };
+        (m(true), Some(m(false)))
+    } else {
+        let arg = if shared_tree {
+            quote! { OBSERVE }
+        } else if under_array {
+            quote! { false }
+        } else {
+            quote! { true }
+        };
+        let methods = level_methods(
+            ctx,
+            api_level,
+            index_chain,
+            root_gid_paths,
+            observable,
+            &arg,
+        );
+        (methods, None)
+    };
 
     let mut maybe_signature = quote! {};
     let mut maybe_doc = quote! {};
@@ -446,7 +473,7 @@ fn client_structs_recursive(
                     api_level.trait_name
                 );
                 maybe_signature = quote! {
-                    impl #ident<'_> {
+                    impl #ident<'_, true> {
                         /// The trait's signature (docs and `#[since]` left out), checked against each line's at
                         /// compile time.
                         pub const WW_SIGNATURE: u64 = #signature;
@@ -457,17 +484,54 @@ fn client_structs_recursive(
             }
             _ => client_struct_name,
         };
+        let struct_and_impls = if !shared_tree {
+            quote! {
+                pub struct #client_struct_name<'i> {
+                    #maybe_index_chain_field
+                    pub cmd: &'i wire_weaver_client::Commander,
+                }
+
+                impl<'i> #client_struct_name<'i> {
+                    #methods
+                    #attachment
+                }
+            }
+        } else {
+            let impls = match methods_unobserved {
+                Some(unobserved) => quote! {
+                    impl<'i> #client_struct_name<'i, true> {
+                        #methods
+                    }
+
+                    /// Reached under a resource array: observing it isn't possible yet (SRV-18).
+                    impl<'i> #client_struct_name<'i, false> {
+                        #unobserved
+                    }
+                },
+                None => quote! {
+                    impl<'i, const OBSERVE: bool> #client_struct_name<'i, OBSERVE> {
+                        #methods
+                    }
+                },
+            };
+            quote! {
+                /// `OBSERVE`: `false` when a line reaches the level under a resource array, which can't be observed
+                /// yet (SRV-18): then it has no observe methods.
+                pub struct #client_struct_name<'i, const OBSERVE: bool = true> {
+                    #maybe_index_chain_field
+                    pub cmd: &'i wire_weaver_client::Commander,
+                }
+
+                #impls
+
+                impl<'i, const OBSERVE: bool> #client_struct_name<'i, OBSERVE> {
+                    #attachment
+                }
+            }
+        };
         quote! {
             #maybe_doc
-            pub struct #client_struct_name<'i> {
-                #maybe_index_chain_field
-                pub cmd: &'i wire_weaver_client::Commander,
-            }
-
-            impl<'i> #client_struct_name<'i> {
-                #methods
-                #attachment
-            }
+            #struct_and_impls
 
             #maybe_signature
         }
@@ -495,12 +559,11 @@ fn level_methods(
     ctx: &Ctx,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
-    model: ClientModel,
-    path_mode: ClientPathMode,
     gid_paths: &GidPaths,
     observable: bool,
+    observe_arg: &TokenStream,
 ) -> TokenStream {
-    let api_bundle = ctx.api_bundle;
+    let (api_bundle, model, path_mode) = (ctx.api_bundle, ctx.model, ctx.path_mode);
     // the level's own path, for observing it
     let level_chain = observable.then(|| {
         if index_chain.is_empty() {
@@ -521,6 +584,7 @@ fn level_methods(
             path_mode,
             gid_paths,
             level_chain.as_ref(),
+            observe_arg,
         )
     });
     let observe_fn = level_chain.as_ref().map(|level_chain| {
@@ -547,9 +611,17 @@ fn level_method(
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
     level_chain: Option<&TokenStream>,
+    observe_arg: &TokenStream,
 ) -> TokenStream {
     let api_bundle = ctx.api_bundle;
     let id = item.id.0;
+    let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
+    // `OBSERVE` of a level under this one in a shared client's tree (CLT-68): an array is never observed (SRV-18)
+    let child_observe = if is_array {
+        quote! { false }
+    } else {
+        observe_arg.clone()
+    };
     let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
     let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
         Multiplicity::Flat => (index_chain_push_pre.clone(), quote! {}),
@@ -660,6 +732,7 @@ fn level_method(
                     shared,
                     index_chain_push,
                     maybe_index_arg,
+                    &child_observe,
                 )
                 .unwrap_or_else(|e| {
                     let msg = format!("sub_levels `{}`: {e:#}", shared.trait_path());
@@ -668,8 +741,11 @@ fn level_method(
             }
             let mod_name = util::mod_name(level, api_bundle);
             let client_struct_name = client_struct_name(&mod_name.to_string());
+            let observe = index_chain
+                .is_dynamic()
+                .then(|| quote! { , #child_observe });
             quote! {
-                pub fn #level_entry_fn_name(&self #maybe_index_arg) -> #mod_name::#client_struct_name<'_> {
+                pub fn #level_entry_fn_name(&self #maybe_index_arg) -> #mod_name::#client_struct_name<'_ #observe> {
                     #index_chain_push
                     #mod_name::#client_struct_name {
                         index_chain,
@@ -1329,6 +1405,7 @@ fn shared_accessor(
     shared: &SharedSubLevel,
     index_chain_push: TokenStream,
     maybe_index_arg: TokenStream,
+    observe: &TokenStream,
 ) -> anyhow::Result<TokenStream> {
     let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind else {
         anyhow::bail!("not a trait");
@@ -1349,8 +1426,8 @@ fn shared_accessor(
         item.ident,
     );
     Ok(quote! {
-        pub fn #ident(&self #maybe_index_arg) -> #client<'_> {
-            const _: () = assert!(#client::WW_SIGNATURE == #signature, #msg);
+        pub fn #ident(&self #maybe_index_arg) -> #client<'_, #observe> {
+            const _: () = assert!(<#client<'static, true>>::WW_SIGNATURE == #signature, #msg);
             #index_chain_push
             #client {
                 index_chain: index_chain.to_vec(),

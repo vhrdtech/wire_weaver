@@ -196,6 +196,10 @@ mod api_v2 {
   line's tree has the trait, flat or as an array, at any depth, the accessor (`indication()`, `probe().channel()`,
   `aux(i)`) returns the shared client and no per-line client is generated for it. Code over the trait is written
   once: `async fn blink(i: IndicationClient<'_>)` takes it from any line.
+* Under a resource array (`aux[i]`), the accessor returns `ChannelClient<'_, false>`: a level under an array can't
+  be observed yet (SRV-18), so, as on a client of its own, it has no `observe(cfg)` and its `+observe` properties'
+  `observe_<name>()` is the plain stream. Elsewhere it is `ChannelClient<'_>` (`OBSERVE = true`). Code taking both
+  is generic over it: `async fn read<const O: bool>(c: ChannelClient<'_, O>)`.
 * The calls go by path, as every other call of the line: nothing changes on the device, and global trait paths are
   not needed. A `trait_client` can't take `sub_levels`, its paths start at its own trait.
 * A `const` assert in each accessor checks that the line has the trait the shared client was generated from: the

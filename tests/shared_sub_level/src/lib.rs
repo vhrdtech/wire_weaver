@@ -255,8 +255,9 @@ mod tests {
         }
     }
 
-    /// Code over a channel, written once for both lines.
-    async fn read_and_reset(channel: ChannelClient<'_>) -> Result<Code, Error> {
+    /// Code over a channel, written once for both lines and for `aux[]`, which is reached under a resource array
+    /// (`ChannelClient<'_, false>`, without observe methods, SRV-18).
+    async fn read_and_reset<const O: bool>(channel: ChannelClient<'_, O>) -> Result<Code, Error> {
         let code = channel.read().call().await?;
         channel.reset().call().await?;
         Ok(code)
@@ -345,16 +346,17 @@ mod tests {
             .await
             .unwrap();
 
-        for (channel, required) in [
-            (c1.channel(), WireVersion::new(1, 1)),
-            (c2.probe().channel(), WireVersion::new(2, 1)),
-            (c2.aux(0), WireVersion::new(2, 1)),
-        ] {
-            channel.read().call().await.unwrap();
-            match channel.reset().call().await {
-                Err(Error::OlderProtocol { required: r, .. }) => assert_eq!(r, required),
-                other => panic!("expected OlderProtocol needing {required}, got {other:?}"),
-            }
+        refuses_reset(c1.channel(), WireVersion::new(1, 1)).await;
+        refuses_reset(c2.probe().channel(), WireVersion::new(2, 1)).await;
+        refuses_reset(c2.aux(0), WireVersion::new(2, 1)).await;
+    }
+
+    /// `read` works, `reset` is refused as needing `required`.
+    async fn refuses_reset<const O: bool>(channel: ChannelClient<'_, O>, required: WireVersion) {
+        channel.read().call().await.unwrap();
+        match channel.reset().call().await {
+            Err(Error::OlderProtocol { required: r, .. }) => assert_eq!(r, required),
+            other => panic!("expected OlderProtocol needing {required}, got {other:?}"),
         }
     }
 
@@ -397,5 +399,91 @@ mod tests {
             );
         }
         assert_ne!(IndicationClient::WW_SIGNATURE, ChannelClient::WW_SIGNATURE);
+    }
+
+    /// A shared client of a trait with `+observe` properties has the observe methods where its own client would:
+    /// `observe_api::Motor` on the root (`MotorClient<'_, true>`), not `observe_api::Bank` under `bank[]`
+    /// (`BankClient<'_, false>`, observing it isn't possible yet, SRV-18), where `observe_level()` is the plain
+    /// stream, as on a client of its own.
+    mod motor_client {
+        wire_weaver::ww_codegen!(
+            observe_api :: Motor for MotorClient,
+            client = "sub_level",
+        );
+    }
+    mod bank_client {
+        wire_weaver::ww_codegen!(
+            observe_api :: Bank for BankClient,
+            client = "sub_level",
+        );
+    }
+    use bank_client::BankClient;
+    use motor_client::MotorClient;
+
+    mod observe_clients {
+        use super::*;
+
+        pub struct Shared {
+            pub cmd: Commander,
+        }
+
+        impl WwClient for Shared {
+            fn default_config() -> ClientConfig {
+                ClientConfig::default()
+            }
+
+            fn from_cmd(cmd: Commander) -> Self {
+                Self { cmd }
+            }
+        }
+
+        /// The same API with a client of its own for every level.
+        pub struct Own {
+            pub cmd: Commander,
+        }
+
+        impl WwClient for Own {
+            fn default_config() -> ClientConfig {
+                ClientConfig::default()
+            }
+
+            fn from_cmd(cmd: Commander) -> Self {
+                Self { cmd }
+            }
+        }
+
+        mod shared_api {
+            wire_weaver::ww_codegen!(
+                observe_api :: Observe for super::Shared,
+                client = "std_client",
+                sub_levels = [
+                    observe_api::Motor => crate::tests::MotorClient,
+                    observe_api::Bank => crate::tests::BankClient,
+                ],
+            );
+        }
+
+        pub mod own_api {
+            wire_weaver::ww_codegen!(
+                observe_api :: Observe for super::Own,
+                client = "std_client",
+            );
+        }
+    }
+
+    /// Type-checked only: the shapes of the observe methods, shared and own side by side.
+    #[allow(dead_code)]
+    async fn observe_shapes(shared: &observe_clients::Shared, own: &observe_clients::Own) {
+        use motor_client::observe_api_motor::MotorObserve;
+        use observe_clients::own_api::observe_api_observe::observe_api_motor::MotorObserve as OwnMotorObserve;
+        use wire_weaver_client::observe::PreparedObserve;
+
+        let motor: MotorClient<'_, true> = shared.motor();
+        let _: PreparedObserve<_, _> = motor.observe(MotorObserve::default());
+        let _: PreparedObserve<_, _> = own.motor().observe(OwnMotorObserve::default());
+
+        let bank: BankClient<'_, false> = shared.bank(0);
+        let _: Result<wire_weaver_client::Stream<u8>, Error> = bank.observe_level().await;
+        let _: Result<wire_weaver_client::Stream<u8>, Error> = own.bank(0).observe_level().await;
     }
 }

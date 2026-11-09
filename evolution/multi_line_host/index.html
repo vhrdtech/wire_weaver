@@ -5880,6 +5880,10 @@ line and picks one at connect time. This page shows how, on the example in <code
 API whose line 2 broke line 1 in several ways and whose line 3 broke line 2 in others, and one host driver,
 <code>Thermo</code>, that runs the same code against firmware of any of the three lines. Scripts and tools without generated
 code (the dynamic client, Python) are <a href="#scripts-and-tools-without-generated-code">at the end</a>.</p>
+<p>Since EVO-37 one API crate can hold every line, one root per module, with the types the lines share in one module
+(<a href="../rules/#several-lines-in-one-crate">several lines in one crate</a>): no renamed dependencies and no conversions of
+unchanged types. This page still shows the earlier layout, two versions of the crate; its rework for one crate is
+EVO-42.</p>
 <p>The shape in short:</p>
 <ol>
 <li>Both versions of the API crate are dependencies of the host, under two names.</li>

@@ -2537,6 +2537,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#several-lines-in-one-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several lines in one crate
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#which-bump-a-change-needs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5901,6 +5912,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#several-lines-in-one-crate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Several lines in one crate
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#which-bump-a-change-needs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6276,6 +6298,35 @@ is refused in a crate that can be published, and when the crate's <code>Cargo.to
 trait is a plain <code>#[ww_trait]</code>.</p>
 <p>Mark additions with <code>#[since = "w2.4"]</code>, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).</p>
+<h3 id="several-lines-in-one-crate">Several lines in one crate<a class="headerlink" href="#several-lines-in-one-crate" title="Permanent link">&para;</a></h3>
+<p>One API crate can hold every wire line still in use, one <code>#[ww_api_root]</code> per module, with the types and sub-traits
+the lines share unchanged in a module of their own (EVO-37, <code>tests/multi_root_api</code>):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>src/lib.rs        pub mod common; pub mod wire_v1; pub mod wire_v2;
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>src/common.rs     types and #[ww_trait]s every line uses as they are
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>src/wire_v1.rs    #[ww_api_root] pub trait Thermo { .. }   // line 1
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>src/wire_v2.rs    #[ww_api_root] pub trait Thermo { .. }   // line 2
+</span></code></pre></div>
+<p>Each root's wire version is an entry of the <code>roots</code> table, by its module path:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[package.metadata.wire_weaver.roots]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="s2">&quot;wire_v1::Thermo&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w1.2&quot;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="s2">&quot;wire_v2::Thermo&quot;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w2.1&quot;</span>
+</span></code></pre></div>
+<ul>
+<li>A shared type is one Rust type on every line: a host of several lines converts nothing between them.</li>
+<li>The crate version is for Rust only, so one crate version serves firmware of every line it holds. A line leaves the
+  crate when no device runs it any more, a breaking crate bump.</li>
+<li><code>ww_codegen!</code> names a root by its module path, <code>ww_codegen!(thermo_api::wire_v2::Thermo for Client, ..)</code>; with
+  several roots, a bare <code>Thermo</code> or no name is an error listing them. Two roots of one name differ by their line;
+  two traits of one name in one root's tree are refused, since the API model names a trait by crate and name.</li>
+<li>A line's module names the shared types with <code>use super::common::Code;</code> and the shared sub-traits by path,
+  <code>ww_impl!(channel: super::common::Channel)</code>.</li>
+<li>An item of a shared type or trait was added in a revision of each line it is on: <code>#[since = "w1.2, w2.1"]</code> names
+  one revision per line, and each root takes its own line's.</li>
+<li>Every root needs an entry once the table exists; a crate-level <code>wire = ..</code> stays for a crate with one root and for
+  crates whose traits are reached by global paths (<code>ww_stdlib</code>).</li>
+<li>Snapshots and checks per root are EVO-38 and EVO-39: until then <code>ww api save</code> and <code>ww api check</code> refuse a crate
+  with a <code>roots</code> table.</li>
+</ul>
 <h3 id="which-bump-a-change-needs">Which bump a change needs<a class="headerlink" href="#which-bump-a-change-needs" title="Permanent link">&para;</a></h3>
 <p>The wire version and the crate version are bumped apart, each for what it describes: the wire version for what
 devices and hosts of the two versions can still say to each other, the crate version for Rust code (Cargo SemVer).

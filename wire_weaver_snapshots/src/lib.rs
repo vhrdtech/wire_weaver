@@ -178,7 +178,7 @@ mod tests {
     /// have no catch-all on either enum, so the addition is breaking), which changes `AnyQuantity`'s skipped
     /// `NumericValue` signature that `Quantity` carries, hence `Second`'s; and with `ww_si` moving to 0.3.0 and a
     /// new wire line, w3.0, for exact_units' new `Dim` and `UnitNames` (UNIT-10, IO-9, EVO-44), which `Second` now
-    /// names.
+    /// names; and with `ww_si` moving to 0.4.0 and wire w4.0 for exact_units' systems of units (UNIT-9, EVO-47).
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -212,7 +212,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0xe7, 0x22, 0x9a, 0x43, 0x3f, 0x5c, 0xb0, 0x77]);
+        assert_eq!(signature, [0x00, 0xb2, 0x37, 0xc2, 0xb6, 0xd2, 0xbf, 0xa7]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

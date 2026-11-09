@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Version 0.4.0 on a new wire line, `w4.0` (EVO-47): `ww api check` against the 0.3.0 snapshot from before exact_units UNIT-9 finds `SIExpr`'s new signature (its `Dim` starts with its system's id) as a wire break of `SIExpr` and `AnyQuantity`. `ww_si_0_4_0.ron` is new; `ww_si_0_3_0.ron` and `ww_si_0_2_0.ron` keep their in-place save, so their `SIExpr` reference resolves against exact_units 0.1.0's snapshot. Depend on `ww_si = "0.4"`.
 - `exact_units` at UNIT-9 (wire change EVO-47): a `Dim` starts with the `MarkerId` of its system, so `SIExpr` and `AnyQuantity` holding a `UnitDef` change bytes (13 more per SI unit for `exact_unitsSi`). `ww_si_0_3_0.ron` (never published) and `ww_si_0_2_0.ron` (its `SIExpr` signature) saved again in place.
 - `exact_units` at UNIT-8 (wire change EVO-45): a unit names its quantity by the quantity marker's `MarkerId`, so `SIExpr` and `AnyQuantity` holding such a `UnitDef` (`Hertz`, `Ohm`) change bytes. New re-exports: `Character`, `QuantityDef`, `QuantityExpr`, `QuantityRef`, `QuantitySpec`, `quantities`, `quantity!` (and `QuantityDefOwned`, `QuantityRefOwned` with `std`); `units::Of` and `units::Phase` (now `Of<PhaseAngle, A>`) through `units`.
 - Version 0.3.0 on a new wire line, `w3.0` (EVO-44): `SIExpr` and `AnyQuantity` carry exact_units' new `Dim` and `UnitNames`, which `ww api check` finds as a wire break. `ww_si_0_2_0.ron` was saved again in place (its `SIExpr` signature, as exact_units stays 0.1.0); `ww_si_0_3_0.ron` is new. Depend on `ww_si = "0.3"`.

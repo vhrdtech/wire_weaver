@@ -1,6 +1,6 @@
 [package]
 name = "ww_adc"
-version = "0.2.0"
+version = "0.3.0"
 authors.workspace = true
 description = "Analog input (ADC) data types and remote API: readings, streams, captures"
 edition.workspace = true
@@ -9,7 +9,7 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
-wire = "w2.0"
+wire = "w3.0"
 
 [features]
 default = ["std"]

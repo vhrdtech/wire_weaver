@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2d0a3321a82f94ec366b6815acde9fec356279063c9b3f32b3d271d3aec88504
+// shrink_wrap sha256: 182f9e6199719960f623476450ff6a84bc011171ab4d6dfb5f68fe6b725fcfce
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -61,14 +61,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        103,
-        233,
-        14,
-        1,
-        201,
-        233,
-        204,
-        160,
+        110,
+        231,
+        112,
+        5,
+        126,
+        194,
+        52,
+        206,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line errors seen in a chunk.",
@@ -428,11 +428,11 @@
 ], ext_crates: [
     (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 3, revision: 0)),
+    Some((line: 4, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

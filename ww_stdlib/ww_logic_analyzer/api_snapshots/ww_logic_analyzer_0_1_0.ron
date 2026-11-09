@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 91f84778054f47bc8ad856a78f9975048c1b71776ccb714170b936321c849760
+// shrink_wrap sha256: 2a0d92b0e3ae63cec71540cbc176fe54aea374657c50e0f98c16f83a61a8538d
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -71,14 +71,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        103,
-        233,
-        14,
-        1,
-        201,
-        233,
-        204,
-        160,
+        110,
+        231,
+        112,
+        5,
+        126,
+        194,
+        52,
+        206,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`min..=max`.",
@@ -599,14 +599,14 @@
 ], ext_crates: [
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
     (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 3, revision: 0)),
+    Some((line: 4, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),

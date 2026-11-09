@@ -45,6 +45,7 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
 | `Quantity(exact_units::QuantityDef)`                           | a quantity of ISO 80000's tree: `quantities::Height`, `Resistance`, a crate's own `quantity!` |
 | `Of`                                                           | `units::Of<Q, U>`, the unit `U` measuring the quantity `Q`; `Phase<A>` is `Of<PhaseAngle, A>` |
+| `System(exact_units::SystemDef)`                               | a system of units other than SI: `systems::Gaussian`, `systems::Natural` ([below](#systems-of-units)) |
 
 A `unit!` line ending in `base` (`pub struct Bucket = "bucket", base;`) declares a unit and the base it is, so its
 marker is a `Base`: the unit whole, as for `Unit`, and the base, exact_units' `BaseDef`, is `{ id: def.id }`, its
@@ -58,9 +59,9 @@ A unit's definition is `exact_units`' own `UnitDef`, the record `unit!` compiles
 |--------------|---------------------------------------------------------------------------------------------|---------------------|
 | `id`         | a `MarkerId`: the declaring crate as Rust names it and the marker's name                     | `my_api::Rpm`       |
 | `names`      | how it is written and read (exact_units IO-9): `symbol`, `ascii`, `long` and `plural`, `aliases`, `ucum`, `prefixes` | `"rpm"`, no other names |
-| `dim`        | its dimension: seven exponents in halves and the distinguished bases (exact_units UNIT-10)   | rad·s⁻¹             |
+| `dim`        | its dimension: its system's `MarkerId`, that system's exponents in halves (SI's seven) and the distinguished bases (exact_units UNIT-10, UNIT-9) | rad·s⁻¹             |
 | `quantity`   | the quantity it measures, by the quantity marker's `MarkerId` (`exact_units::Resistance` for `Ohm`, UNIT-8), `None` for its dimension's quantity | `None` |
-| `scale`      | the exact factor to the coherent SI unit of `dim`: 1 for a volt, 8 for a byte (in bits)      | π/30                |
+| `scale`      | the exact factor to the coherent unit of `dim` in its system: 1 for a volt, 8 for a byte (in bits), 1 for the gauss in Gaussian | π/30                |
 | `provenance` | `Defined`, or `Conventional { source, year }` for a value a standard prints ([customary](customary.md)) | `Defined` |
 
 A unit has no offset: °C is the origin `origins::Celsius` of kelvins, and a `unit!` line with an `Affine` scale is
@@ -132,6 +133,50 @@ plain metre, not to a width; `Ohm` doesn't convert to `Per<Volt, Ampere>`. `ww`,
 and convert a value of `Of<Q, U>` as one of `U`, as its `UnitExpr` is `U`'s: the quantity is in the type and the
 model, not in a value's unit.
 
+## Systems of units
+
+A dimension counts in a system of units (exact_units UNIT-9, the book's [Systems](https://exact.vhrd.tech/maths/systems/)):
+SI's seven bases s, m, kg, A, K, mol, cd, Gaussian's six g, cm, s, K, mol, cd (no current of its own), or Natural's
+five eV, A, K, mol, cd (ħ = c = 1). A `unit!` or `quantity!` line names a system other than SI before a colon in its
+dimension, and its bases by their symbols:
+
+```rust
+use ww_si::systems::Gaussian;
+use ww_si::systems::gaussian::quantities::GaussianFluxDensity;
+
+ww_si::unit! {
+    /// The gamma of magnetic surveys, 10⁻⁵ G
+    pub struct Gamma = "γ" (ascii "gamma", long "gamma"), [Gaussian: g 1/2, cm -1/2, s -1]
+        quantity GaussianFluxDensity, Pow10(-5);
+}
+```
+
+The walker knows the three systems of `exact_units` by name (`Si`, `Natural`, `Gaussian`); a crate's own system is
+refused until it can be declared by a line the walker reads. A unit's dimension then names its system by
+`MarkerId`, and its scale is the factor to that system's coherent unit (the gauss is 1 in Gaussian).
+
+A system marker's definition is `MarkerDef::System(exact_units::SystemDef)`, the record `System::DEF` holds:
+
+| Field         | Is                                                                                       | `Gaussian`              |
+|---------------|------------------------------------------------------------------------------------------|-------------------------|
+| `id`          | its `MarkerId`                                                                            | `exact_units::Gaussian` |
+| `bases`       | the symbols of its true bases, in the order of a dimension's exponents                   | g, cm, s, K, mol, cd    |
+| `set_to_one`  | the constants it sets to 1, with their exact SI value (data for display)                 | none (Natural: ħ, c)    |
+| `by_dim`      | per SI base, its image in this system with an exact factor, `None` where there is none    | 1 m = 100 cm, A: `None` |
+| `by_quantity` | rows by quantity, which win over the rule: an SI quantity, one of this system, the factor | B, H, E, D, .. (13)     |
+| `no_rule`     | SI quantities the rule doesn't bridge                                                     | none (Natural: Hz, Bq)  |
+
+As for quantities, a definition names its system only by `MarkerId`, so a bundle lists the system other than SI a
+unit or quantity counts in: it comes along when a device leaves out what the snapshots know and when a client puts it
+back. SI is never listed: every reader knows it. `MarkerDefOwned::system_ref` names a marker's system,
+`units::system_of` and `system_type_idx` find its definition.
+
+Two units of different systems never have the same dimension, so `factor_to` gives none between the gauss and the
+tesla, and the evolution checker finds a unit that moved to another system breaking (`another system of units`).
+A value crosses between systems only in Rust, by `Fixed::to_system`, which picks a row or the rule at compile time.
+A dimension without true exponents (a ratio, an angle, a count) belongs to every system and is written as SI's.
+Python's `Quantity.system` names the system, and `Quantity.dim` counts in its bases (`{"g": 0.5, "cm": -0.5, "s": -1}`).
+
 ## Origins
 
 The origin of a [`Point<O, F>`](points.md) is a marker as well, its definition a `MarkerDef::Origin(OriginDef)`:
@@ -178,12 +223,13 @@ know a newer kind of marker treats the struct as a marker it can't convert, inst
 The definitions of `exact_units`' and `ww_si`'s markers are in the embedded [snapshots](../cli_reference.md#ww-api):
 a device leaves them out of its introspection data, and the client puts them back.
 
-The conformance corpus has cases `model.marker_def.*` and `model.item_struct_extra.*` (TEST-23), through the derive,
+The conformance corpus has cases `model.marker_def.*` (`model.marker_def.system` a small system of three bases) and
+`model.item_struct_extra.*` (TEST-23), through the derive,
 the dynamic client and Python.
 
 ## On the device
 
 No firmware cost in code: markers are zero-size types, and `unit!` / `scale!` expand to the same constants a
 hand-written impl has. The introspection data a firmware stores grows only by the definitions of its own crate's
-markers (the definition of `my_api::Rpm` is 35 bytes, see the case `model.marker_def.unit`, an origin's about 100,
-see `model.marker_def.origin`); stdlib markers are left out as skipped definitions.
+markers (the definition of `my_api::Rpm` is 74 bytes, see the case `model.marker_def.unit`, an origin's 136, see
+`model.marker_def.origin`; a `Dim` carries its system's `MarkerId`, 14 bytes more for `exact_units::Si`: `stdlib.si.dim.volt` went from 6 to 20); stdlib markers are left out as skipped definitions.

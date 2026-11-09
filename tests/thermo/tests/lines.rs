@@ -258,6 +258,28 @@ fn checker_agrees_on_both_bumps() {
     ] {
         assert!(reasons.contains(broke), "{broke} not in:\n{reasons}");
     }
+    // the root's own `Channel` is not a break of its own, and the new side is not labelled with the old version
+    assert!(
+        !reasons.contains("trait thermo_api::Channel changed"),
+        "{reasons}"
+    );
+    assert!(!reasons.contains("different wire lines"), "{reasons}");
+    // a field that changed scale and storage reports both (EVO-33)
+    let sample = report
+        .breaking
+        .iter()
+        .find(|f| f.message.starts_with("struct Sample: field `temp`"))
+        .expect("Sample::temp");
+    for both in [
+        "prefix::Centi",
+        "argument 2 of Fixed: i16 on the old version, i32 on the new version",
+    ] {
+        assert!(
+            sample.message.contains(both),
+            "{both} not in {}",
+            sample.message
+        );
+    }
     // Rust-only: the rename, the variant gone
     let breaking: Vec<_> = report.breaking.iter().map(|f| f.message.as_str()).collect();
     for rust in [

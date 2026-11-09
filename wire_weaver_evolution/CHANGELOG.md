@@ -14,6 +14,8 @@
 
 ### 🐛 Fixes
 
+- Findings on a new wire line read cleanly (EVO-33). The root crate's own traits and types are no longer reported as "on different wire lines" (`a wire break because trait thermo_api::Channel changed`, with the old crate version as the new side's label): `compare` gives both sides the old crate version, so a pair of the same version is one source. Every difference of a type is reported, not the first: all fields that differ, and the markers together with the other generic arguments (`Sample::temp` says both the scale and the storage, `Centi` -> `Milli` and `i16` -> `i32`), joined by `; `.
+
 - A removed enum variant is a breaking change (EVO-28): `compare` used to say nothing about it, so a crate dropping `Mode::Triggered` passed with a patch bump while every Rust `match` on it broke. The finding has the new `Rule::VariantRemoved`, which keeps the wire when the enum has a catch-all (`Rule::keeps_wire()`); without one the type check reports the wire break as before. Code matching on `Rule` exhaustively adds the variant.
 - A `#[since]` newer than the crate's own version is warned about on every resource, field and variant of the crate, not only on additions: a host built with it refuses that item on every device of this version. Additions with a `#[since]` older than the new version are still warned about as before.
 - The scales of a product and a quotient of two `Fixed` values, `Product<A, B>` / `Quotient<A, B>` (STD-83), are compared by their factor as other scales are: `Product<Milli, Milli>` for `Micro` is the same value, `Quotient<Milli, Milli>` for `Product<Milli, Milli>` is breaking.

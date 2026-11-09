@@ -496,7 +496,10 @@ fn check_same_origin(
         ));
     }
     match (crate_wire_of(a_bundle, a.0), crate_wire_of(b_bundle, b.0)) {
-        (Some(a_wire), Some(b_wire)) if !a_wire.same_line(&b_wire) => Err(format!(
+        // the same crate version on both sides is one source, so one line; the root crate's own items look like
+        // this after `compare` gave both bundles the old version, and their wire lines differ across a line break
+        // by design (the items themselves are compared one by one)
+        (Some(a_wire), Some(b_wire)) if a.0 != b.0 && !a_wire.same_line(&b_wire) => Err(format!(
             "{what} {} from {} on different wire lines: {a_wire} ({:?}) vs {b_wire} ({:?})",
             a.1, a.0.crate_id, a.0, b.0
         )),
@@ -927,23 +930,32 @@ impl<'a> TypeCheck<'a> {
         let markers = type_def(self.writer, wi)
             .map(marker_params)
             .unwrap_or_default();
-        self.check_markers(&w.1, &markers, wa, ra)?;
+        // the markers and every other argument are all checked, so a scale and a storage type that changed together
+        // are both reported
+        let mut differences = vec![];
+        if let Err(e) = self.check_markers(&w.1, &markers, wa, ra) {
+            differences.push(e);
+        }
         for (i, (w_arg, r_arg)) in wa.iter().zip(ra).enumerate() {
             if markers.iter().any(|(m, _)| *m == i) {
                 continue;
             }
             match (w_arg, r_arg) {
-                (GenericArgOwned::Type(w_ty), GenericArgOwned::Type(r_ty)) => self
-                    .check(w_ty, r_ty)
-                    .map_err(|e| format!("argument {i} of {}: {e}", w.1))?,
+                (GenericArgOwned::Type(w_ty), GenericArgOwned::Type(r_ty)) => {
+                    if let Err(e) = self.check(w_ty, r_ty) {
+                        differences.push(format!("argument {i} of {}: {e}", w.1));
+                    }
+                }
                 (GenericArgOwned::Const(w_value), GenericArgOwned::Const(r_value))
                     if w_value == r_value => {}
-                _ => {
-                    return Err(format!("argument {i} of {}: {w_arg:?} vs {r_arg:?}", w.1));
-                }
+                _ => differences.push(format!("argument {i} of {}: {w_arg:?} vs {r_arg:?}", w.1)),
             }
         }
-        Ok(())
+        if differences.is_empty() {
+            Ok(())
+        } else {
+            Err(differences.join("; "))
+        }
     }
 
     fn check_struct(&mut self, w: &ItemStructOwned, r: &ItemStructOwned) -> Result<(), String> {
@@ -1629,10 +1641,16 @@ impl<'a> TypeCheck<'a> {
                 return self.check_padding_reuse(w, r, is_unsized, noun);
             }
         }
+        // every field that differs is reported, not only the first
+        let mut differences = vec![];
         for (i, (w_field, r_field)) in w.iter().zip(r).enumerate() {
             let segment = format!("{noun} {}", field_name(i, r_field));
-            self.within(&segment, |c| c.check(&w_field.ty, &r_field.ty))
-                .map_err(|e| format!("{segment}: {e}"))?;
+            if let Err(e) = self.within(&segment, |c| c.check(&w_field.ty, &r_field.ty)) {
+                differences.push(format!("{segment}: {e}"));
+            }
+        }
+        if !differences.is_empty() {
+            return Err(differences.join("; "));
         }
         if is_unsized {
             self.check_trailing(w.len(), r, noun)?;

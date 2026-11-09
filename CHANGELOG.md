@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Evolution checker findings on a new wire line (EVO-33): the root's own unchanged traits are not breaks of their own, and every difference of a field is reported, scale and storage together. See `wire_weaver_evolution/CHANGELOG.md`.
 - The C requantize rounds floats exactly, as `exact_units` does since NUM-30: one rounding from the float's bits, not a product in doubles and a cast; new corpus cases at the `f32` edge. See `shrink_wrap/c/` CHANGELOG.
 - A host for several wire lines (EVO-28): one host driver bundles a generated client per wire line of an API and connects once to a device on any of them (`ClientConfig::speaks`, `client_line()`); codegen names an API crate taken under another dependency name by that name, and the checker reports a removed enum variant as breaking. Bench `tests/thermo`, docs `evolution/multi_line_host.md`. See `wire_weaver_client/`, `wire_weaver_core/` and `wire_weaver_evolution/` CHANGELOGs.
 - The evolution checker derives both bumps (EVO-27): `ww api check` says which wire version (`w2.3` -> `w2.4` for an addition, `w3.0` for a wire break, none for a Rust-only break) and which crate version a change needs, and fails when either is not bumped enough or a `#[since]` is newer than the wire version. See `wire_weaver_evolution/` and `wire_weaver_cli/` CHANGELOGs.

@@ -2004,7 +2004,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   own unchanged sub-trait (`Channel`) is reported as a wire break of its own, with the old crate version as the new
   label (`thermo_api@1.2.0` for 2.1.0); a resource replaced in place reads as a rename with another argument
   (`set_rate` -> `configure`); a field that changed scale and storage (`Sample::temp`, `Centi` `i16` -> `Milli`
-  `i32`) reports only the scale. `checker_agrees_on_both_bumps` takes about 1.4 s, each `load_crate` walking
+  `i32`) reports only the scale. The wrong label, the `Channel` noise and the single reported difference are fixed
+  (`wire_weaver_evolution`, `checker_agrees_on_both_bumps`); the replacement read as a rename stays. `checker_agrees_on_both_bumps` takes about 1.4 s, each `load_crate` walking
   `ww_si` and `exact_units` again.
 - ✅ **EVO-34 Wire versions and generations in docs, CLI and Python** · `v0.5` — `ww info` and `ww report` show the
   device's wire version next to its crate version (`API ... (wire w2.3)`) and the hello generations this

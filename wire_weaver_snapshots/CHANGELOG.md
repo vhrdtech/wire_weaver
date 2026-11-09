@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Snapshots saved again with `Magnitude`'s `Symbols { pi, ln2, ln10, mu0, g }` and 16 prime slots (exact_units NUM-10, EVO-43).
 - Snapshots saved again with unit definitions as `exact_units::UnitDef` and ids on scales and origins (STD-106, EVO-35): `exact_units`' snapshot holds the new `MarkerDef`, and `ww_si` and `ww_adc` the new signature of `SIExpr`.
 * `ww_numeric` 0.3.0, a new wire line w2.0 (SW-24, `NumericBaseType`/`NumericValue::INib32`, breaking: neither
   enum has a catch-all for an unknown variant). The old `ww_numeric_0_2_0.ron` stays as it was (pinned by

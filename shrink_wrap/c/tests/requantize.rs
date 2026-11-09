@@ -2,7 +2,7 @@
 //! for random factors (exact ratios up to 128 bits, fixed points of factors that aren't fractions of integers),
 //! storages, policies and values, and for the edge values of every storage.
 
-use exact_units::{Irrational, Magnitude, Overflow, Repr, Requantizer, Rounding, StorageKind};
+use exact_units::{Magnitude, Overflow, Repr, Requantizer, Rounding, StorageKind, Symbols};
 use proptest::prelude::*;
 use shrink_wrap_c::requantize::{CRequantizer, c_struct_sizes};
 
@@ -59,7 +59,12 @@ fn factor() -> impl Strategy<Value = Magnitude> {
                 2 => (0, half, 0),
                 _ => (0, 0, half),
             };
-            let irr = Irrational { pi, ln2, ln10 };
+            let irr = Symbols {
+                pi,
+                ln2,
+                ln10,
+                ..Symbols::NONE
+            };
             let (pow10, pow2) = m.pow10_pow2_x2();
             Magnitude::from_parts_x2(pow10, pow2, irr, m.primes()).ok()
         },

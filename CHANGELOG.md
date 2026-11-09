@@ -351,6 +351,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   library itself (scales, bounds, aliases, points, indices, rounding, customary units); nothing moved out without a
   page there to land on. `FEATURES.md`, `AGENTS.md` and `features_today.md` (`just features-page`) point the same
   way; `evolution/units_by_meaning.md`'s two deep links to the old pages now go to the book.
+- Measured constants stay symbols (exact_units NUM-10, EVO-43): μ₀ and G are exact symbols of a `Magnitude` in the model and on the wire, beside π, ln 2 and ln 10; a scale such as an oersted's is exact, and a client converts it only through a named set of values. The walker reads `mu0 e` and `g e`. **Breaking:** the wire form of `Magnitude` changes (two more symbol exponents, 16 prime slots), so the conformance goldens of magnitudes, offsets, SIExpr and model markers carry the change. See `wire_weaver_core/`, `wire_weaver_client/`, `wire_weaver_py/` and `wire_weaver_snapshots/` CHANGELOGs.
 
 ### Removed
 

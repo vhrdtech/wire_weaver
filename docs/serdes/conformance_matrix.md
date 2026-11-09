@@ -385,17 +385,24 @@ Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each 
 
 - `device_info.ordinary`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
 - `device_info.no_observe_samples`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
+- `stdlib.si.magnitude.kibi`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.degree`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.sqrt2`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.decibel_in_neper`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.pound`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.rejected`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.offset.minus_forty`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
 - `stdlib.si.si_expr.volt`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
-- `stdlib.si.si_expr.pound_force`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
+- `stdlib.si.si_expr.pound_force`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `stdlib.si.si_expr.sqrt`: EVO-36 / SIExpr's leaves are Def and Ref (exact_units UNIT-7): Mul, Div, Pow and Sqrt move up one variant (STD-107); before it, a unit's definition became exact_units' UnitDef with its identity (EVO-35).
-- `stdlib.si.si_expr.decibel_loss_per_hundred_metres`: EVO-36 / SIExpr's leaves are Def and Ref (exact_units UNIT-7): Mul, Div, Pow and Sqrt move up one variant (STD-107); before it, a unit's definition became exact_units' UnitDef with its identity (EVO-35).
+- `stdlib.si.si_expr.decibel_loss_per_hundred_metres`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-36 / SIExpr's leaves are Def and Ref (exact_units UNIT-7): Mul, Div, Pow and Sqrt move up one variant (STD-107); before it, a unit's definition became exact_units' UnitDef with its identity (EVO-35).
 - `stdlib.si.si_expr.rejected`: EVO-36 / Ref is variant 1, Sqrt moved up to 5: 6 is the first unknown variant.
-- `model.marker_def.unit`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
+- `model.marker_def.unit`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.unit_conventional`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.unit_kind`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
-- `model.marker_def.scale`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
+- `model.marker_def.scale`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.product`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.quotient`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.origin`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.maybe_nan`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
-- `model.item_struct_extra.marker`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
+- `model.item_struct_extra.marker`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).

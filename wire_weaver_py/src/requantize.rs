@@ -3,7 +3,7 @@
 //! `Fixed::requantize` and the dynamic client, bit for bit (CLT-54).
 
 use exact_units::{
-    Irrational, Magnitude, Overflow, PrimePower, Repr, Requantizer as Inner, Rounding, StorageKind,
+    Magnitude, Overflow, PrimePower, Repr, Requantizer as Inner, Rounding, StorageKind, Symbols,
 };
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -98,25 +98,19 @@ fn magnitude(factor: &Bound<'_, PyAny>) -> PyResult<Magnitude> {
     })?;
     let pow10: i8 = field(d, "pow10")?.extract()?;
     let rest = field(d, "rest")?;
-    let (mut pow2, mut irr, mut primes) = (
-        0,
-        Irrational {
-            pi: 0,
-            ln2: 0,
-            ln10: 0,
-        },
-        vec![],
-    );
+    let (mut pow2, mut irr, mut primes) = (0, Symbols::NONE, vec![]);
     if !rest.is_none() {
         let rest = rest.cast::<PyDict>()?;
         pow2 = field(rest, "pow2")?.extract()?;
-        let i = field(rest, "irrational")?;
+        let i = field(rest, "symbols")?;
         if !i.is_none() {
             let i = i.cast::<PyDict>()?;
-            irr = Irrational {
+            irr = Symbols {
                 pi: field(i, "pi")?.extract()?,
                 ln2: field(i, "ln2")?.extract()?,
                 ln10: field(i, "ln10")?.extract()?,
+                mu0: field(i, "mu0")?.extract()?,
+                g: field(i, "g")?.extract()?,
             };
         }
         for f in field(rest, "factors")?.try_iter()? {

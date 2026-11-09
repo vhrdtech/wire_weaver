@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `ww.requantize` reads a factor's dict with `symbols` (was `irrational`) holding `pi`, `ln2`, `ln10`, `mu0` and `g` (exact_units NUM-10); a factor with μ₀ or G left in it converts nothing.
+
 ### 🚀 Features
 
 - `INib32` (SW-24): converts to and from a plain Python `int`, like `i32`; its numpy column dtype is `int32`.

@@ -11,7 +11,7 @@ use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{
-    CountedOwned, DimOwned, Irrational, Magnitude, MarkerIdOwned, Offset, ProvenanceOwned,
+    CountedOwned, DimOwned, Magnitude, MarkerIdOwned, Offset, ProvenanceOwned, Symbols,
     UnitDefOwned, UnitNamesOwned,
 };
 use proc_macro2::TokenStream;
@@ -711,6 +711,8 @@ pub(crate) fn marker_def(
                     pi: 0,
                     ln2: 0,
                     ln10: 0,
+                    mu0_x2: 0,
+                    g_x2: 0,
                 })
                 .with_context(|| format!("unit marker {ident}"))?,
                 UnitScaleLine::Exact(m) => {
@@ -741,6 +743,8 @@ pub(crate) fn marker_def(
                     pi: 0,
                     ln2: 0,
                     ln10: 0,
+                    mu0_x2: 0,
+                    g_x2: 0,
                 },
                 ScaleFactorLine::Pow2(e) => MagnitudeLine {
                     num: 1,
@@ -750,6 +754,8 @@ pub(crate) fn marker_def(
                     pi: 0,
                     ln2: 0,
                     ln10: 0,
+                    mu0_x2: 0,
+                    g_x2: 0,
                 },
                 ScaleFactorLine::Exact(m) => m.clone(),
             };
@@ -776,7 +782,7 @@ pub(crate) fn marker_def(
     Ok(Some(def))
 }
 
-/// The exact magnitude a `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e` line means.
+/// The exact magnitude a `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e, mu0 f, g h` line means.
 fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
     let x2 = |e: i8| {
         e.checked_mul(2)
@@ -785,10 +791,12 @@ fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
     let powers = Magnitude::from_parts_x2(
         x2(m.pow10)?,
         x2(m.pow2)?,
-        Irrational {
+        Symbols {
             pi: x2(m.pi)?,
             ln2: x2(m.ln2)?,
             ln10: x2(m.ln10)?,
+            mu0: m.mu0_x2,
+            g: m.g_x2,
         },
         [],
     )
@@ -827,7 +835,8 @@ pub(crate) enum UnitScaleLine {
     Exact(MagnitudeLine),
 }
 
-/// `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e`.
+/// `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e, mu0 f, g h`: the measured constants μ₀ and G stay symbols
+/// (exact_units NUM-10), their exponent whole or a half (`mu0 1 / 2`).
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MagnitudeLine {
     pub(crate) num: u64,
@@ -837,6 +846,10 @@ pub(crate) struct MagnitudeLine {
     pub(crate) pi: i8,
     pub(crate) ln2: i8,
     pub(crate) ln10: i8,
+    /// Twice the exponent of μ₀.
+    pub(crate) mu0_x2: i8,
+    /// Twice the exponent of G.
+    pub(crate) g_x2: i8,
 }
 
 /// `"<symbol>", <factor>[, prefix <Prefix>]` of a `scale!` line.
@@ -1017,6 +1030,8 @@ impl Parse for MagnitudeLine {
             pi: 0,
             ln2: 0,
             ln10: 0,
+            mu0_x2: 0,
+            g_x2: 0,
         };
         let mut next = 0;
         while input.peek(Token![,]) {
@@ -1025,12 +1040,12 @@ impl Parse for MagnitudeLine {
                 break;
             }
             let name: Ident = input.parse()?;
-            let order = ["pow10", "pow2", "pi", "ln2", "ln10"];
+            let order = ["pow10", "pow2", "pi", "ln2", "ln10", "mu0", "g"];
             let Some(pos) = order.iter().position(|o| name == o).filter(|p| *p >= next) else {
                 return Err(syn::Error::new(
                     name.span(),
-                    "after `num / den` come `pow10 e`, `pow2 e`, `pi e`, `ln2 e`, `ln10 e`, each at most once and in \
-                     this order",
+                    "after `num / den` come `pow10 e`, `pow2 e`, `pi e`, `ln2 e`, `ln10 e`, `mu0 e`, `g e`, each at \
+                     most once and in this order",
                 ));
             };
             next = pos + 1;
@@ -1040,11 +1055,31 @@ impl Parse for MagnitudeLine {
                 1 => m.pow2 = e,
                 2 => m.pi = e,
                 3 => m.ln2 = e,
-                _ => m.ln10 = e,
+                4 => m.ln10 = e,
+                5 => m.mu0_x2 = symbol_x2(input, e)?,
+                _ => m.g_x2 = symbol_x2(input, e)?,
             }
         }
         Ok(m)
     }
+}
+
+/// Twice the exponent `e` of a measured symbol, or `e` itself after `/ 2`: a half power (`mu0 1 / 2`).
+fn symbol_x2(input: ParseStream, e: i8) -> syn::Result<i8> {
+    if !input.peek(Token![/]) {
+        return e
+            .checked_mul(2)
+            .ok_or_else(|| input.error("exponent out of range"));
+    }
+    input.parse::<Token![/]>()?;
+    let two: LitInt = input.parse()?;
+    if two.base10_parse::<u8>()? != 2 {
+        return Err(syn::Error::new(
+            two.span(),
+            "a symbol's exponent is whole or a half: `/ 2`",
+        ));
+    }
+    Ok(e)
 }
 
 fn in_parens<T>(input: ParseStream, f: fn(ParseStream) -> syn::Result<T>) -> syn::Result<T> {
@@ -1348,6 +1383,8 @@ mod tests {
                     pi: 1,
                     ln2: 0,
                     ln10: 0,
+                    mu0_x2: 0,
+                    g_x2: 0,
                 }),
                 provenance: None,
             }

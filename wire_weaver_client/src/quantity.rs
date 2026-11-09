@@ -296,11 +296,12 @@ impl DynPrefix {
         }
     }
 
-    /// `x` times the factor.
+    /// `x` times the factor; NaN for a factor with μ₀ or G left in it, which has no value without a named set
+    /// (exact_units NUM-10).
     pub fn scale_f64(&self, x: f64) -> f64 {
         match self {
             DynPrefix::Si(p) => p.scale_f64(x),
-            DynPrefix::Exact { magnitude, .. } => magnitude.apply_f64(x),
+            DynPrefix::Exact { magnitude, .. } => magnitude.apply_f64(x).unwrap_or(f64::NAN),
         }
     }
 }
@@ -520,7 +521,9 @@ impl DynQuantity {
         let factor =
             factor.map_err(|_| refuse("the factor leaves what a Magnitude holds".into()))?;
         let number = if fixed.storage.is_float() {
-            let x = factor.apply_f64(self.value.to_f64());
+            let x = factor.apply_f64(self.value.to_f64()).ok_or_else(|| {
+                refuse("the factor keeps a measured constant (μ₀, G): it has no value without a named set".into())
+            })?;
             match fixed.storage.base {
                 NumericBaseType::F32 => NumericValue::F32(x as f32),
                 _ => NumericValue::F64(x),
@@ -814,16 +817,18 @@ impl fmt::Display for DynQuantity {
             return fmt::Display::fmt(&tree::quantity(*prefix, &self.value, &unit), f);
         }
         // a scale from a newer version has no factor to write it in the unit itself
+        // nor does one with a measured constant (μ₀, G) left in it, without a named set
         if f.alternate()
             && let Some(magnitude) = self.prefix.magnitude()
+            && !magnitude.has_measured()
         {
             match self.value.to_i128() {
                 Some(x) => match (magnitude.apply_int(x), magnitude.as_pow10()) {
                     (Some(x), _) => write!(f, "{x}")?,
                     (None, Some(e)) => write_decimal(x, e, f)?,
-                    (None, None) => write!(f, "{}", magnitude.apply_f64(x as f64))?,
+                    (None, None) => write_f64(magnitude.apply_f64(x as f64), f)?,
                 },
-                None => write!(f, "{}", magnitude.apply_f64(self.value.to_f64()))?,
+                None => write_f64(magnitude.apply_f64(self.value.to_f64()), f)?,
             }
             return tree::write_unit(Prefix::Unit, &unit, f);
         }
@@ -866,10 +871,15 @@ fn prefix_unit(prefix: &DynPrefix, unit: &DynUnit) -> String {
     P(prefix, unit).to_string().trim_start().to_string()
 }
 
+/// A factor's product as a float; `None` (a measured constant left in it, which callers rule out first) as NaN.
+fn write_f64(x: Option<f64>, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", x.unwrap_or(f64::NAN))
+}
+
 /// An integer at a power of ten below the unit, exactly: 1500 at 10⁻⁶ is `0.0015` (as `exact_units::Fixed` writes it).
 fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if !(-38..0).contains(&e) {
-        return write!(f, "{}", Magnitude::pow10(e).apply_f64(x as f64));
+        return write_f64(Magnitude::pow10(e).apply_f64(x as f64), f);
     }
     let digits = e.unsigned_abs() as u32;
     let p = 10u128.pow(digits);

@@ -48,7 +48,7 @@ pub fn load(
     trait_name: Option<String>,
     offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
-    load_with_hints(crate_path, trait_name, offline_mode).map(|(bundle, _hints)| bundle)
+    load_with_hints(crate_path, trait_name, offline_mode).map(|(bundle, _hints, _paths)| bundle)
 }
 
 /// [load] of the crate generated code is in (`ww_codegen!(crate :: Trait ..)`), with the modules of its traits
@@ -69,17 +69,19 @@ pub fn load_own_with_paths(
     Ok((bundle, paths))
 }
 
-/// [load], also returning the unit-suffix hints found (TOOL-22), for `ww api scaffold` to show.
+/// [load], also returning the unit-suffix hints found (TOOL-22) and the modules of the root's own trait
+/// ([CratePaths::trait_module], empty at the crate root), for `ww api scaffold` to show (TOOL-32).
 pub fn load_with_hints(
     crate_path: &Path,
     trait_name: Option<String>,
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>, CratePaths)> {
     let mut scratch = Scratch::default();
     let manifest = ManifestContext::load(crate_path)?;
     let features = manifest.default_features();
     let bundle = load_inner(manifest, features, trait_name, &mut scratch)?;
-    Ok((bundle, scratch.unit_hints))
+    let paths = CratePaths::default().with_trait_modules(&scratch);
+    Ok((bundle, scratch.unit_hints, paths))
 }
 
 /// Load API definition and all referenced data types for a given dependency of 'current crate'.
@@ -390,7 +392,7 @@ pub(crate) fn root_wire(
 }
 
 /// How `Cargo.toml` and `ww_codegen!` name an API root: `Thermo` at the crate root, `wire_v2::Thermo` in a module.
-fn root_key(modules: &[String], trait_name: &str) -> String {
+pub(crate) fn root_key(modules: &[String], trait_name: &str) -> String {
     modules
         .iter()
         .map(String::as_str)

@@ -227,9 +227,9 @@ Types crossing the wire use `#[derive_shrink_wrap(..)]` (directives in `docs/ser
 ## Server handlers: scaffold and sync with the API
 
 Handler names and signatures depend on the `ww_codegen!` arguments, so don't write them by hand: `ww api scaffold
-<api_crate> [--name Trait]` prints the struct, a stub per handler and the matching `ww_codegen!` call. Pass the same
-options as the target `ww_codegen!` (`ww api scaffold --help`: `--use-async`, `--method-model`, `--medium`,
-`--alloc`, ...).
+<api_crate> [--root Trait]` prints the struct, a stub per handler and the matching `ww_codegen!` call; `--root` takes
+a module path in a crate with several roots (`--root wire_v2::Thermo`, EVO-37). Pass the same options as the target
+`ww_codegen!` (`ww api scaffold --help`: `--use-async`, `--method-model`, `--medium`, `--alloc`, ...).
 
 To bring an existing server in line after the API changed:
 

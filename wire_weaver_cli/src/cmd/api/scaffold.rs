@@ -6,12 +6,12 @@ use wire_weaver_core::{ServerScaffoldConfig, gen_server_scaffold, load_with_hint
 
 pub(crate) fn scaffold(
     crate_path: PathBuf,
-    trait_name: Option<String>,
+    root: Option<String>,
     config: ServerScaffoldConfig,
     output: Option<PathBuf>,
 ) -> Result<()> {
-    let (api_bundle, hints) = load_with_hints(&crate_path, trait_name, false)?;
-    let code = rustfmt(gen_server_scaffold(&api_bundle, &config)?)?;
+    let (api_bundle, hints, crate_paths) = load_with_hints(&crate_path, root, false)?;
+    let code = rustfmt(gen_server_scaffold(&api_bundle, &config, &crate_paths)?)?;
     match output {
         Some(path) => {
             let mut file = std::fs::File::create_new(&path)

@@ -5,6 +5,7 @@
 - `ww api save` refreshes the snapshot of the crate's current version when the source changed, instead of refusing without `--force` (EVO-12); `--force` now only saves a version not bumped enough since the previous version's snapshot. An older version's snapshot is never written. A released version's snapshot still never changes: bump the version first.
 - `--elf` is one global flag now (TOOL-20): `ww counters --elf X` and `ww report --elf X` work as before, `--elf` also goes before the subcommand, and with `--rtt` it gives the RTT control block. `WW_ELF` and the `elf` key in `ww.toml` are for the control block only; `counters` and `report` still look up the ELF by build id unless `--elf` is on the command line.
 - `ww dfu flash` is run by the `ww-chunky` plugin (chunky_mcu_updater's `ww_chunky`: `just install` there, or `cargo install --git https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`) and without it on PATH says so; the arguments, `-s`/`--serial` and the other selection options, the environment variables and the output are the same. `ww dfu reboot | status | confirm | revert` stay in `ww` (their `status` shows the flash layout as a number, `ww-chunky status` by chip name). This cuts the dependency of `wire_weaver_cli` on chunky_mcu_updater, which depended on wire_weaver by path: `cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli --locked` works on a PC without sibling checkouts.
+- `ww api scaffold`'s `--name <Trait>` is renamed `--root <Trait>` (TOOL-32): the same meaning for a crate with one root, and it now takes a module path (`--root wire_v2::Thermo`) to pick a root in a crate with several (EVO-37).
 
 ### 🚀 Features
 
@@ -63,6 +64,7 @@
 - `ww api tree` shows types as `ww introspect` does, generic instances made concrete: a `Fixed` there has its unit and bounds after it too (`[ms, 1..=5000]`, CLT-54).
 - `ww pins test --plan FILE --watch POINTS` tests the plan's points next to the watched ones; it tested only the watched points, the plan's were dropped (TOOL-15). `--watch` without a plan and without points still only reads.
 - `ww hub stop` closes its own connection after asking the hub to stop: the hub waited up to 500 ms for it before letting go of `hub.lock` (0.5 s down to 0.1 s). Every `ww hub` command is about ten times quicker with the client fixes (TOOL-17).
+- `ww api scaffold` of a root in a crate with several roots (EVO-37) prints a `ww_codegen!` call naming it by a bare trait name, which doesn't compile when the crate has more than one trait of that name: it now names the root by its module path, as `--root` took it (TOOL-32).
 - `ww hub status` and `ww list` show a device lent with `ww hub lend` as `lent by <program> (pid N): <purpose>`, not as free (SRV-32).
 - Strings a device, or another program through the hub, hands over (USB product/manufacturer/serial, introspection
   docs and resource/type names, `UserStr` text, pin names, holder program/label/user/host) are escaped before

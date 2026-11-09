@@ -503,7 +503,12 @@ mod tests {
             introspect: String::new(),
             introspect_compression: String::new(),
         };
-        let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
+        let code = wire_weaver_core::gen_server_scaffold(
+            &bundle,
+            &config,
+            &wire_weaver_core::CratePaths::default(),
+        )
+        .unwrap();
         for expected in [
             "fn i2c_i2c_write(",
             "fn i2c_i2c_wiggle_clock(",
@@ -522,7 +527,12 @@ mod tests {
             observe_samples: true,
             ..config
         };
-        let e = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap_err();
+        let e = wire_weaver_core::gen_server_scaffold(
+            &bundle,
+            &config,
+            &wire_weaver_core::CratePaths::default(),
+        )
+        .unwrap_err();
         assert!(e.to_string().contains("not #[optional]"), "{e}");
     }
 

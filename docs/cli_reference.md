@@ -152,7 +152,7 @@ options, so pass the same ones the `ww_codegen!` call uses:
 
 | Option                     | Default         | Description                                                                 |
 |----------------------------|-----------------|-----------------------------------------------------------------------------|
-| `--name <Trait>`           |                 | The trait, when the crate defines more than one                             |
+| `--root <Trait>`           |                 | The API root to scaffold: a trait name, or `module::Trait` in a crate with several roots (`wire_v2::Thermo`, EVO-37); required when the crate defines more than one |
 | `--server <Struct>`        | `Server`        | Name of the server struct                                                   |
 | `--use-async`              |                 | Async handlers                                                              |
 | `--handler-model <M>`      |                 | With `--use-async`: which handlers are `async fn`, the rest plain `fn`, see [sync and async handlers](api/handlers.md) |
@@ -166,6 +166,13 @@ options, so pass the same ones the `ww_codegen!` call uses:
 
 ```sh
 ww api scaffold examples/blinky_api --use-async -o firmware/src/server.rs
+```
+
+In a crate with several roots (EVO-37), `--root` takes the module path, and the printed `ww_codegen!` call and the
+scaffold's own comments name the root by it too, so the output compiles as is:
+
+```sh
+ww api scaffold tests/multi_root_api --root wire_v2::Thermo
 ```
 
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every

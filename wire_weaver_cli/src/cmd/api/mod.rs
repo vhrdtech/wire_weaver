@@ -43,9 +43,10 @@ pub enum ApiCommand {
         #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
 
-        /// Optional trait name if more than one is present
+        /// The API root to scaffold: a trait name, or `module::Trait` in a crate with several roots
+        /// (`wire_v2::Thermo`, EVO-37). Required when the crate defines more than one
         #[arg(long)]
-        name: Option<String>,
+        root: Option<String>,
 
         /// Server struct name
         #[arg(long, default_value = "Server")]
@@ -212,7 +213,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
         }
         ApiCommand::Scaffold {
             path,
-            name,
+            root,
             server,
             alloc,
             use_async,
@@ -229,7 +230,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             output,
         } => scaffold::scaffold(
             path,
-            name,
+            root,
             ServerScaffoldConfig {
                 server_struct: server,
                 no_alloc: !alloc,

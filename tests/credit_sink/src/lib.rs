@@ -1210,7 +1210,12 @@ mod tests {
             introspect: String::new(),
             introspect_compression: String::new(),
         };
-        let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
+        let code = wire_weaver_core::gen_server_scaffold(
+            &bundle,
+            &config,
+            &wire_weaver_core::CratePaths::default(),
+        )
+        .unwrap();
         let code: String = code.split_whitespace().collect::<Vec<_>>().join(" ");
         for expected in [
             "pub plan_credit: ww_stream::sink::SinkCredit,",

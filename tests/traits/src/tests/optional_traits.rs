@@ -384,7 +384,12 @@ fn scaffold_leaves_out_omitted_traits() {
         introspect: String::new(),
         introspect_compression: String::new(),
     };
-    let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
+    let code = wire_weaver_core::gen_server_scaffold(
+        &bundle,
+        &config,
+        &wire_weaver_core::CratePaths::default(),
+    )
+    .unwrap();
     for expected in [
         "// optional, all handlers of diag can be left out with omit = [\"diag\"]",
         "// optional, all handlers of probe[] can be left out with omit = [\"probes\"]",
@@ -398,7 +403,12 @@ fn scaffold_leaves_out_omitted_traits() {
         omit: vec!["diag".into()],
         ..config
     };
-    let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
+    let code = wire_weaver_core::gen_server_scaffold(
+        &bundle,
+        &config,
+        &wire_weaver_core::CratePaths::default(),
+    )
+    .unwrap();
     for omitted in ["diag_", "DIAG_POINTS", "BoardConsts"] {
         assert!(!code.contains(omitted), "{omitted}\n{code}");
     }

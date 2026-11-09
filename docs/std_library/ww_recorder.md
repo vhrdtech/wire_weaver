@@ -207,7 +207,7 @@ Generate handler stubs with `ww api scaffold` (AGENTS.md describes the flow) for
 `ww_codegen!` call:
 
 ```sh
-cargo ww api scaffold ww_stdlib/ww_recorder --name Recorder
+cargo ww api scaffold ww_stdlib/ww_recorder --root Recorder
 ```
 
 It prints the server struct, a stub for every handler (`status`, `card`, `prepare_format`, ..., `track_info`,

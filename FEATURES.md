@@ -2203,11 +2203,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   is caught by `cargo test` and a pre-commit hook, not only when someone remembers to run `ww api check` by hand
   (`donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning-tool-31`.
-- 💡 **TOOL-32 `ww api scaffold --dep`** — the printed `ww_codegen!` call names the API by its package
-  (`thermo_api ::`), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
-  versions of it (EVO-28, `docs/evolution/multi_line_host.md`). A `--dep NAME` option writes that name instead.
 - 💡 **TOOL-33 `ww api line new` / `retire`** — copies `wire_vN.rs` to `wire_vN+1.rs` at `w(N+1).0` with its
   `roots` entry, and removes a line once no device runs it, with the breaking crate bump (EVO-37).
+- ✅ **TOOL-32 `ww api scaffold --root`** · `v0.5` — `--root <Trait>` names the API root to scaffold: a trait
+  name, or `module::Trait` in a crate with several roots (`--root wire_v2::Thermo`, EVO-37), reshaping the earlier
+  `--dep` idea the EVO-37 one-crate layout made unnecessary (no renamed dependency left to name). The printed
+  `ww_codegen!` call and the scaffold's own header and section comments name the root by its module path too
+  (`CratePaths::trait_module`, `CodegenBundle` in `gen_server_scaffold`), so they compile and read right in a crate
+  with several roots; the wire-version note points at `[package.metadata.wire_weaver.roots]` for such a root,
+  instead of the crate-level `wire`. `wire_weaver_core::gen_server_scaffold` test `several_roots`,
+  `tests/multi_root_api`.
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`

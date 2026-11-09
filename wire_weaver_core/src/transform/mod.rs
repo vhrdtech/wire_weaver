@@ -12,6 +12,7 @@ mod unit_hint;
 mod util;
 
 pub use api::{PropertyMacroArgs, StreamAndImplMacroArgs};
+pub(crate) use crate_walker::root_key;
 pub use crate_walker::{
     CratePaths, api_roots, dependency_dir, load, load_dep, load_dep_with_paths,
     load_own_with_paths, load_with_hints,

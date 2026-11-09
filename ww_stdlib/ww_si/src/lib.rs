@@ -47,18 +47,20 @@ pub use timestamp::{UnwrapError, Unwrapper};
 
 pub use exact_units;
 pub use exact_units::{
-    Bounds, CompactError, Count, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED,
-    MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds, Overflow, Point,
-    PointDiff, Prefix, PrefixRatio, Provenance, Range, RangeDec, RangeU64, Repr, Rounding, SIExpr,
-    Storage, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul, UnitNames, UnitTable,
-    UnsignedStorage, counted, origin, origins, prefix, scale, unit, units,
+    BaseDef, BaseExp, Bases, Bounds, CompactError, Count, DecimalPrefix, Dim, DimWire, Exp, Fixed,
+    FixedScale, MAX_TRUE_BASES, MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin,
+    OutOfBounds, Overflow, Point, PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, Range,
+    RangeDec, RangeU64, Repr, Rounding, SIExpr, Storage, Unbounded, Unit, UnitDef, UnitDiv,
+    UnitExpr, UnitMul, UnitNames, UnitTable, UnsignedStorage, base, origin, origins, prefix, scale,
+    unit, units,
+};
+#[cfg(feature = "std")]
+pub use exact_units::{
+    BaseDefOwned, BaseExpOwned, DimOwned, DimWireOwned, MarkerIdOwned, ProvenanceOwned,
+    SIExprOwned, UnitDefOwned, UnitNamesOwned,
 };
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};
-#[cfg(feature = "std")]
-pub use exact_units::{
-    CountedOwned, DimOwned, MarkerIdOwned, ProvenanceOwned, SIExprOwned, UnitDefOwned,
-};
 #[cfg(feature = "time")]
 pub use exact_units::{Days, Hours, Hz, Micros, Millis, Minutes, Nanos, Secs};
 #[cfg(feature = "dimensionless")]

@@ -355,7 +355,20 @@ fn convert_def(
     let saved_alias_args = std::mem::take(&mut scratch.alias_args);
     let ty = match item {
         Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ident, path, item_enum),
-        Item::Struct(item_struct) => convert_item_struct(def_cx, scratch, ident, path, item_struct),
+        Item::Struct(item_struct) => match wire_shape(def_cx, &ty_name, scratch) {
+            // the shape's fields and directives, the type's own docs
+            Ok(Some((shape_cx, shape))) => {
+                convert_item_struct(&shape_cx, scratch, ident, path, &shape).map(|ty| match ty {
+                    TypeOwned::Struct(s) => TypeOwned::Struct(ItemStructOwned {
+                        docs: collect_docs(&item_struct.attrs),
+                        ..s
+                    }),
+                    other => other,
+                })
+            }
+            Ok(None) => convert_item_struct(def_cx, scratch, ident, path, item_struct),
+            Err(e) => Err(e),
+        },
         _ => unreachable!(),
     };
     scratch.alias_args = saved_alias_args;
@@ -381,6 +394,32 @@ fn convert_def(
             let type_idx = scratch.root_bundle.push_out_of_line_idx(ty, def_cx);
             Ok(TypeOwned::OutOfLine { type_idx })
         }
+    }
+}
+
+/// Types with a hand-written `SerializeShrinkWrap` whose bytes are those of a derived struct beside them, by crate,
+/// the type and that struct: the model describes the type with the struct's fields and directives, under the type's
+/// own name. `exact_units::Dim` holds its bases as a tree and writes them as `DimWire`'s sorted list (UNIT-10); a test
+/// there checks both write the same bytes.
+const WIRE_SHAPES: [(&str, &str, &str); 1] = [("exact_units", "Dim", "DimWire")];
+
+/// The shape struct of `ty_name` of `def_cx` in [WIRE_SHAPES], with the module that defines it.
+fn wire_shape(
+    def_cx: &CrateContext,
+    ty_name: &str,
+    scratch: &mut Scratch,
+) -> Result<Option<(CrateContext, ItemStruct)>> {
+    let Some((_, _, shape)) = WIRE_SHAPES
+        .iter()
+        .find(|(krate, ty, _)| *krate == def_cx.crate_name() && *ty == ty_name)
+    else {
+        return Ok(None);
+    };
+    match find_user_item(shape, def_cx, scratch)? {
+        (shape_cx, Item::Struct(item_struct)) => Ok(Some((shape_cx, item_struct))),
+        _ => Err(anyhow!(
+            "{shape}, the wire shape of {ty_name}, is not a struct"
+        )),
     }
 }
 

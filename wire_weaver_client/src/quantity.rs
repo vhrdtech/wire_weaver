@@ -31,7 +31,7 @@ use ww_self::{
     ApiBundleOwned, FieldsOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned,
     ItemStructOwned, MarkerDefOwned, TypeOwned, ValueOwned,
 };
-use ww_si::exact_units::{MarkerIdOwned, UnitDefOwned};
+use ww_si::exact_units::{BaseSource, MarkerId, MarkerIdOwned, UnitDefOwned};
 use ww_si::tree::{self, Tree};
 use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned, UnitTable};
 pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
@@ -148,9 +148,10 @@ impl DynUnit {
         self.to_string()
     }
 
-    /// SI base-unit exponents, `None` when a part of the unit is an unknown marker.
-    pub fn dim(&self) -> Option<Dim<'_>> {
-        tree::dim(&Part::Dyn(self))
+    /// The dimension: SI base-unit exponents and distinguished bases, `None` when a part of the unit is an unknown
+    /// marker.
+    pub fn dim(&self) -> Option<DimOwned> {
+        tree::dim(&Part::Dyn(self)).map(DimOwned::from)
     }
 
     /// Factor to coherent SI (offsets left out, as in [UnitExpr::factor]), `None` with an unknown marker in it.
@@ -201,6 +202,7 @@ impl<'a> Tree<'a> for Part<'a> {
                     crate_name: Some(&def.id.crate_name),
                     name: &def.id.name,
                     symbol: &def.names.symbol,
+                    names: Some(def.names.as_names()),
                     dim: Some(def.dim.as_dim()),
                     scale: Some(def.scale),
                 },
@@ -208,6 +210,7 @@ impl<'a> Tree<'a> for Part<'a> {
                     crate_name: None,
                     name,
                     symbol: name,
+                    names: None,
                     dim: None,
                     scale: None,
                 },
@@ -215,6 +218,7 @@ impl<'a> Tree<'a> for Part<'a> {
                     crate_name: Some(&id.crate_name),
                     name: &id.name,
                     symbol: &id.name,
+                    names: None,
                     dim: None,
                     scale: None,
                 },
@@ -224,6 +228,17 @@ impl<'a> Tree<'a> for Part<'a> {
                 DynUnit::Sqrt(a) => tree::Node::Sqrt(Part::Dyn(a)),
             }),
         }
+    }
+}
+
+/// The distinguished bases of a [DynUnit]'s dimension, read off the tree when asked ([DynUnit::dim]).
+impl BaseSource for Part<'_> {
+    fn exp_of(&self, base: MarkerId<'_>) -> Option<i32> {
+        tree::exp_of(self, base)
+    }
+
+    fn each_base<'s>(&'s self, f: &mut dyn FnMut(MarkerId<'s>)) -> bool {
+        tree::each_base(self, f)
     }
 }
 
@@ -1238,12 +1253,12 @@ mod tests {
         assert_eq!(format!("{d:#}"), format!("{q:#}"));
         assert_eq!(d.unit.symbol(), U::EXPR.symbol().to_string());
         assert_eq!(d.unit.name(), U::EXPR.name().to_string());
-        assert_eq!(d.unit.dim(), Some(U::DIM));
+        assert_eq!(d.unit.dim(), Some(U::DIM.into()));
         assert_eq!(d.to_f64(), q.to_f64());
         assert_eq!(d.to_si_f64(), Some(q.to_si_f64()));
         // as an AnyQuantity: its unit on the wire gives the same DynUnit back, and goes out the same way
         let any = ww_si::AnyQuantity::from(q);
-        let mut buf = [0u8; 256];
+        let mut buf = [0u8; 1024];
         let bytes = any.to_ww_bytes(&mut buf).unwrap();
         let back = ww_si::AnyQuantity::from_ww_bytes(bytes).unwrap();
         assert_eq!(DynUnit::from_si_expr(&back.unit, &()), d.unit);

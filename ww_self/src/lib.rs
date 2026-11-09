@@ -801,6 +801,10 @@ pub enum MarkerDef<'i> {
     /// `exact_units::MaybeNan` (NUM-19): a float `Fixed` without bounds that may hold NaN. Every other bounds marker,
     /// [Self::Unbounded] included, refuses NaN on decode and encode. A reader from before it gets `Unknown`.
     MaybeNan,
+    /// A unit that is a distinguished base of its own (a `unit!` line with `base`, exact_units UNIT-10): `Radian`,
+    /// `Neper`, `Bit`, a user's `Pixel`. The unit whole, as [Self::Unit]; the base it declares is
+    /// `BaseDef { id: def.id }`, and its dimension that base to the 1st power. A reader from before it gets `Unknown`.
+    Base(exact_units::UnitDef<'i>),
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

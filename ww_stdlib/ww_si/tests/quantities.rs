@@ -174,7 +174,10 @@ fn display_and_debug() {
 #[test]
 fn units_and_dimensions() {
     assert_eq!(Volt::unit().dim(), Dim::new(-3, 2, 1, -1, 0, 0, 0));
-    assert_eq!(Volt::unit().dim().exps(), [-3, 2, 1, -1, 0, 0, 0, 0, 0]);
+    assert_eq!(
+        Volt::unit().dim().exps().map(|e| e.whole()),
+        [-3, 2, 1, -1, 0, 0, 0].map(Some)
+    );
     assert_eq!(Volt::unit().dim().to_string(), "kg·m²·s⁻³·A⁻¹");
     assert_eq!(Ratio::unit().dim().to_string(), "1");
     let fan = <Per<units::Torque, Times<units::AngularVelocity, units::AngularVelocity>> as ww_si::Unit>::DIM;
@@ -185,7 +188,7 @@ fn units_and_dimensions() {
     assert!(ww_si::units::by_name("Volts").is_none());
     // `Feet100` is in ALL only with exact_units' `customary`, which another workspace crate turns on in a workspace run
     let customary = usize::from(ww_si::units::by_name("Feet100").is_some());
-    assert_eq!(ww_si::units::ALL.len(), 130 + customary);
+    assert_eq!(ww_si::units::ALL.len(), 131 + customary);
 }
 
 #[test]

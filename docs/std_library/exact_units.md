@@ -143,5 +143,5 @@ The unit markers are grouped by cargo feature, each with its own dimension, symb
 and `Sqrt` build the rest. See the book's [Units and dimensions](https://exact.vhrd.tech/start/units/).
 
 The wire format is the feature `shrink_wrap`, on by default through `ww_si`. Without it `exact_units` has no
-dependencies and its types are plain Rust (a `Dim`'s exponents are `i8`): code that only checks units at compile
+dependencies and its types are plain Rust (a `Dim`'s exponents are halves in an `i8`): code that only checks units at compile
 time builds without the wire format, and the bytes are the same whichever crate turns it on.

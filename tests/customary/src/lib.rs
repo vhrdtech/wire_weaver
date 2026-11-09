@@ -45,7 +45,7 @@ mod tests {
         Values {
             impulse: BURN,
             impulse_q: Impulse::milli(2000i32),
-            impulse_any: any.to_ww_bytes(&mut [0u8; 128]).unwrap().to_vec(),
+            impulse_any: any.to_ww_bytes(&mut [0u8; 512]).unwrap().to_vec(),
         }
     }
 

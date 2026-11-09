@@ -81,7 +81,7 @@ mod tests {
             crate_name: "quantities",
             name: "Bar",
         },
-        names: ww_si::exact_units::UnitNames { symbol: "bar" },
+        names: ww_si::UnitNames::new("bar", ww_si::PrefixPolicy::Decimal),
         dim: Dim::new(-2, -1, 1, 0, 0, 0, 0),
         quantity: None,
         scale: Magnitude::pow10(5),

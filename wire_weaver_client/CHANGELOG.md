@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `quantity::DynUnit::dim()` answers `Option<DimOwned>` (was `Option<Dim<'_>>`; exact_units UNIT-10): the dimension of a tree is now a lazy view over the tree, so the client gives an owned one. Compare with `==` or `as_dim().same(..)`; `exps()` has seven exponents in halves and `bases()` the distinguished ones.
 - A conversion of an `AnyQuantity` whose factor keeps a measured constant (μ₀, G; exact_units NUM-10) is refused with a reason, as it has no value without a named set; `DynPrefix::scale_f64` gives NaN for such a scale, and `{:#}` writes such a value in its own scale.
 - `quantity::DynUnit::from_si_expr(expr, table)` takes the `UnitTable` the unit's references resolve through (CLT-66, exact_units UNIT-7); new variant `DynUnit::Ref(MarkerIdOwned)` for a reference no table lists (shown by its name, no dimension, written back as the same reference). `DynQuantity::from_value` resolves an `AnyQuantity`'s references through the bundle, then `ww_si::units::TABLE` (`quantity::units_of(bundle)`), and `to_value` compacts what it writes into an `AnyQuantity` against the bundle, so the API's units go out by reference (STD-107).
 - `quantity::DynUnit::Named` holds the unit's `exact_units::UnitDefOwned` (STD-106, exact_units UNIT-7), its identity included, instead of `name`, `symbol`, `dim` and `scale: Scale`; `DynUnit::offset()` is gone with offsets (`exact_units` has no affine units, °C is a point), and so are the refusals of a unit with an offset in `convert`. The run-time side is reworked with STD-74.

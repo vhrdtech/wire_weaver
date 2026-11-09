@@ -871,10 +871,11 @@ pub fn qualified_name(path: Option<&[String]>, ident: &str) -> String {
 }
 
 impl MarkerDefOwned {
-    /// The definition of a [Unit](MarkerDefOwned::Unit), `None` for any other marker.
+    /// The definition of a [Unit](MarkerDefOwned::Unit) or a [Base](MarkerDefOwned::Base), `None` for any other
+    /// marker.
     pub fn unit_def(&self) -> Option<&exact_units::UnitDefOwned> {
         match self {
-            MarkerDefOwned::Unit(def) => Some(def),
+            MarkerDefOwned::Unit(def) | MarkerDefOwned::Base(def) => Some(def),
             _ => None,
         }
     }

@@ -383,8 +383,9 @@ def test_quantities():
     assert s.to_si() == pytest.approx(50 * math.pi)
 
     # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes
-    # it, the unit's definition in full (crate, name, symbol, dimension, kind, scale, provenance)
-    any_volt = "12e40c" + "00" + b"exact_unitsVoltV".hex() + "01d21f000000000000000124395b" + "7b"
+    # it, the unit's definition in full (crate, name, names, dimension, kind, scale, provenance)
+    names = "00" + b"voltvolts".hex() + "80" + b"V".hex()
+    any_volt = "12e40c" + "00" + b"exact_unitsVoltV".hex() + names + "110541b18143000000000010" + "70a4393d" + "5d"
     a = api.sensor.decode(bytes.fromhex(any_volt))
     assert isinstance(a, ww.Quantity)
     # the same quantity as the typed property's
@@ -399,6 +400,12 @@ def test_quantities():
     assert str(api.sensor.decode(api.sensor.encode(b))) == "0.00012 N·m/(rad/s)"
     # the API's own unit too, with the dimension and factor of its definition
     assert api.sensor.decode(api.sensor.encode(s)) == s
+    # a root: an exponent counts halves (exact_units UNIT-10), so V/√Hz has s at -2.5;
+    # AnyQuantity::from(Quantity::<Per<Volt, Sqrt<Hertz>>>::nano(5u8)) as the derived type writes it
+    noise = api.sensor.decode(bytes.fromhex(
+        "3105300065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d50006578616374"
+        "5f756e697473486572747a487a00686572747a686572747a80487a120552300000000000001073a5396d0e2e5d02c9"))
+    assert (str(noise), noise.dim) == ("5 nV/√Hz", {"kg": 1, "m": 2, "s": -2.5, "A": -1})
 
 
 def test_fixed_and_counts():

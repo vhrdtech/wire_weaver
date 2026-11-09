@@ -2256,7 +2256,7 @@ fn conventional_units<'a>(
         let Ok((TypeOwned::Struct(s), _)) = bundle.get_ty(type_idx.0) else {
             return;
         };
-        if let Some(MarkerDefOwned::Unit(u)) = s.marker()
+        if let Some(MarkerDefOwned::Unit(u) | MarkerDefOwned::Base(u)) = s.marker()
             && matches!(u.provenance, Provenance::Conventional { .. })
         {
             out.push((s.qualified_name(), u));
@@ -2332,12 +2332,7 @@ impl Step {
                 .into();
         }
         if let Some(dim) = dim {
-            self.dim = self
-                .dim
-                .as_dim()
-                .checked_mul(dim.as_dim())
-                .ok_or("dimension out of range")?
-                .into();
+            self.dim = self.dim.checked_mul(dim).ok_or("dimension out of range")?;
         }
         self.magnitude = self
             .magnitude

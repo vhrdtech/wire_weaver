@@ -5,12 +5,13 @@ level: advanced
 # Units in the API model
 
 A unit or scale marker an API uses (`Volt`, `prefix::Milli`, a crate's own `Rpm`) carries its definition in the API
-model a device sends: its identity, symbol, dimension and exact factor. A client, `ww` and Python learn the units of any crate
+model a device sends: its identity, names, dimension and exact factor. A client, `ww` and Python learn the units of any crate
 from that, without a table of their own, and compare two units by what they are, not by how they are written.
 
 A crate declares its own markers with `unit!`, `scale!` and `origin!` (from `exact_units`, re-exported by `ww_si`);
 WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the macros'
-grammar — the dimension, the scale, `kind` and `conventional(..)` provenance — see the book's
+grammar — the names, the dimension (halves, `base`, `base(Other)`), the scale, `kind` and `conventional(..)`
+provenance — see the book's
 [Your own units](https://exact.vhrd.tech/units/declare/). A marker with a hand-written `impl Unit` still compiles,
 but the walker refuses an API that uses it: a client wouldn't know the unit.
 
@@ -32,7 +33,8 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 
 | Variant                                                        | For                                                                |
 |----------------------------------------------------------------|--------------------------------------------------------------------|
-| `Unit(exact_units::UnitDef)`                                   | a named unit: `V`, `rpm`, a counted `bucket`, `Ω`, `inHg` at 32 °F |
+| `Unit(exact_units::UnitDef)`                                   | a named unit: `V`, `rpm`, `dB`, `Ω`, `inHg` at 32 °F               |
+| `Base(exact_units::UnitDef)`                                   | a unit that is a distinguished base of its own: `rad`, `Np`, `bit`, `sample`, a crate's `bucket` |
 | `Scale(ScaleDef { id, symbol, magnitude })`                    | a named scale: `prefix::Milli` (`"m"`, 10⁻³), a crate's `Mdps70`   |
 | `Per`, `Times`, `Sqrt`                                         | `exact_units`' unit combinators, their arguments are the instance's |
 | `Pow10`, `Pow2`, `Rational`, `FullScale`, `FullScaleMax`       | `exact_units`' generic scales, their const arguments say the value |
@@ -42,13 +44,19 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Origin(OriginDef { id, unit, symbol, reference, offset, .. })` | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
 
+A `unit!` line ending in `base` (`pub struct Bucket = "bucket", base;`) declares a unit and the base it is, so its
+marker is a `Base`: the unit whole, as for `Unit`, and the base, exact_units' `BaseDef`, is `{ id: def.id }`, its
+dimension that base to the 1st power. A scaled unit of another marker's base (`base(Neper)` for the decibel) is a
+plain `Unit` whose dimension names that base. The walker's test checks this against `Unit::BASE` for every marker of
+`exact_units`.
+
 A unit's definition is `exact_units`' own `UnitDef`, the record `unit!` compiles, field for field:
 
 | Field        | Is                                                                                          | `Rpm`               |
 |--------------|---------------------------------------------------------------------------------------------|---------------------|
 | `id`         | a `MarkerId`: the declaring crate as Rust names it and the marker's name                     | `my_api::Rpm`       |
-| `names`      | how it is written: its `symbol`                                                              | `"rpm"`             |
-| `dim`        | its dimension                                                                                | rad·s⁻¹             |
+| `names`      | how it is written and read (exact_units IO-9): `symbol`, `ascii`, `long` and `plural`, `aliases`, `ucum`, `prefixes` | `"rpm"`, no other names |
+| `dim`        | its dimension: seven exponents in halves and the distinguished bases (exact_units UNIT-10)   | rad·s⁻¹             |
 | `quantity`   | a kind of quantity of its own (`"resistance"` for `Ohm`), `None` for a plain unit (STD-68)    | `None`              |
 | `scale`      | the exact factor to the coherent SI unit of `dim`: 1 for a volt, 8 for a byte (in bits)      | π/30                |
 | `provenance` | `Defined`, or `Conventional { source, year }` for a value a standard prints ([customary](customary.md)) | `Defined` |

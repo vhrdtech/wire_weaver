@@ -114,7 +114,7 @@ fn repr(value: &NumericValue) -> Option<Repr> {
 mod any {
     use super::*;
     use crate::{AnyQuantityOwned, SIExprOwned};
-    use exact_units::{Dim, MarkerId, Provenance, UnitDef, UnitNames, UnitTable};
+    use exact_units::{Dim, MarkerId, PrefixPolicy, Provenance, UnitDef, UnitNames, UnitTable};
     use std::boxed::Box;
 
     impl AnyQuantityOwned {
@@ -134,7 +134,7 @@ mod any {
                         crate_name: "",
                         name: P::NAME,
                     }),
-                    names: UnitNames { symbol: P::SYMBOL },
+                    names: UnitNames::new(P::SYMBOL, PrefixPolicy::None),
                     dim: Dim::ONE,
                     quantity: None,
                     scale: P::SCALE,

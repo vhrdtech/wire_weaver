@@ -1,7 +1,7 @@
 //! `ww.Quantity`: a value of a `ww_si::Quantity<U>` with its unit (CLT-31), what `decode` / `read` give for one.
 
 use crate::convert::numeric_to_py;
-use exact_units::Prefix;
+use exact_units::{MarkerId, Prefix};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -104,8 +104,8 @@ impl Quantity {
     }
 
     /// The dimension as base-unit exponents, `{"kg": 1, "m": 2, "s": -3, "A": -1}` for a volt, `{"rad": 1, "s": -1}`
-    /// for an angular velocity, `{"bit": 1}` for a byte, counted bases by their name (`{"Sample": 1, "s": -1}`), halves for a root
-    /// (V/√Hz: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`), `{}`
+    /// for an angular velocity, `{"bit": 1}` for a byte, other distinguished bases by their marker's name
+    /// (`{"Sample": 1, "s": -1}`), halves as floats (V/√Hz: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`), `{}`
     /// when dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
     /// device sent with its dimension in an `AnyQuantity`, nor one the API's model lists), or a reference to a unit
     /// the model doesn't list.
@@ -115,8 +115,8 @@ impl Quantity {
             return Ok(None);
         };
         let dict = PyDict::new(py);
-        let [s, m, kg, a, k, mol, cd, rad, bit] = dim.exps();
-        let fixed = [
+        let [s, m, kg, a, k, mol, cd] = dim.exps();
+        let true_bases = [
             ("kg", kg),
             ("m", m),
             ("s", s),
@@ -124,16 +124,25 @@ impl Quantity {
             ("K", k),
             ("mol", mol),
             ("cd", cd),
-            ("rad", rad),
-            ("bit", bit),
         ];
-        for (symbol, exp) in fixed.into_iter().chain(dim.counted_bases()) {
-            match exp {
-                0 => {}
-                // a root's odd exponent is a half: V/√Hz has s -2.5
-                e if dim.root && e % 2 != 0 => dict.set_item(symbol, e as f64 / 2.0)?,
-                e if dim.root => dict.set_item(symbol, e / 2)?,
-                e => dict.set_item(symbol, e)?,
+        // a distinguished base by its marker's name, exact_units' Radian and Bit by the spelling a unit! line uses
+        let bases = dim.bases().iter().map(|b| {
+            let id = b.base.as_id();
+            let name = if id == MarkerId::RADIAN {
+                "rad"
+            } else if id == MarkerId::BIT {
+                "bit"
+            } else {
+                &b.base.name
+            };
+            (name, b.exp)
+        });
+        for (symbol, exp) in true_bases.into_iter().chain(bases) {
+            match exp.whole() {
+                Some(0) => {}
+                Some(e) => dict.set_item(symbol, e)?,
+                // a half: V/√Hz has s -2.5
+                None => dict.set_item(symbol, f64::from(exp.halves()) / 2.0)?,
             }
         }
         Ok(Some(dict))

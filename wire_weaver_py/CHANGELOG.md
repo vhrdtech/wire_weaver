@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Quantity.dim` comes from the new `Dim` (exact_units UNIT-10): the seven SI exponents and every distinguished base, `rad` and `bit` by those names and any other (`Sample`, `Neper`, a crate's own) by its marker's name; a half exponent is a float (`{"kg": 1, "m": 2, "s": -2.5, "A": -1}` for V/√Hz).
 - `ww.requantize` reads a factor's dict with `symbols` (was `irrational`) holding `pi`, `ln2`, `ln10`, `mu0` and `g` (exact_units NUM-10); a factor with μ₀ or G left in it converts nothing.
 
 ### 🚀 Features

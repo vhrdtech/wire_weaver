@@ -12,10 +12,12 @@ use ww_si::{
 
 type Viscous = Per<Torque, AngularVelocity>;
 
-// the unit's definition: crate `exact_units`, marker `Volt`, symbol `V`, dimension, kind, scale one, provenance
-const VOLT_BYTES: [u8; 31] = [
+// the unit's definition: crate `exact_units`, marker `Volt`, names (symbol `V`, long `volt`, plural `volts`, UCUM
+// `V`), dimension (seven exponents, no base), kind, scale one, provenance
+const VOLT_BYTES: [u8; 45] = [
     0x00, b'e', b'x', b'a', b'c', b't', b'_', b'u', b'n', b'i', b't', b's', b'V', b'o', b'l', b't',
-    b'V', 0x01, 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x24, 0x39, 0x5b,
+    b'V', 0x00, b'v', b'o', b'l', b't', b'v', b'o', b'l', b't', b's', 0x80, b'V', 0x11, 0x05, 0x41,
+    0xb1, 0x81, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x70, 0xa4, 0x39, 0x3d,
 ];
 
 #[test]
@@ -26,9 +28,9 @@ fn any_quantity() {
     // the typed value's bytes, then the unit
     let mut expected = vec![0x12, 0xe4, 0x0c];
     expected.extend_from_slice(&VOLT_BYTES);
-    expected.push(0x7b);
+    expected.push(0x5d);
     assert_eq!(bytes, expected);
-    assert_eq!(bytes.len(), 35);
+    assert_eq!(bytes.len(), 49);
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
     assert_eq!(back, v);
     assert_eq!(back.to_string(), Volt::milli(3300u16).to_string());
@@ -70,7 +72,7 @@ fn any_quantity() {
             crate_name: "my_api",
             name: "Rpm",
         },
-        names: ww_si::exact_units::UnitNames { symbol: "rpm" },
+        names: ww_si::exact_units::UnitNames::new("rpm", ww_si::PrefixPolicy::Decimal),
         dim: Dim::new(-1, 0, 0, 0, 0, 0, 0),
         quantity: None,
         scale: Magnitude::new(1, 30, 0, 0, 1),
@@ -87,7 +89,7 @@ fn any_quantity() {
 /// reader, and a turn is `2π` rad.
 #[test]
 fn exact_scale_through_the_wire() {
-    let mut buf = [0u8; 64];
+    let mut buf = [0u8; 128];
     let deg = AnyQuantity::from(ww_si::Degree::base(90u8));
     let bytes = deg.to_ww_bytes(&mut buf).unwrap().to_vec();
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();

@@ -158,11 +158,10 @@ impl CanonicalUnit {
         }
         .into();
         let dim = match sign {
-            1 => a.checked_mul(b),
-            _ => a.checked_div(b),
+            1 => self.dim.checked_mul(&other.dim),
+            _ => self.dim.checked_div(&other.dim),
         }
-        .ok_or_else(|| anyhow!("dimension of {self} and {other} combined is out of range"))?
-        .into();
+        .ok_or_else(|| anyhow!("dimension of {self} and {other} combined is out of range"))?;
         let magnitude = match sign {
             1 => self.magnitude.checked_mul(other.magnitude),
             _ => self.magnitude.checked_div(other.magnitude),
@@ -198,10 +197,8 @@ impl CanonicalUnit {
     fn checked_sqrt(self) -> Result<Self> {
         let dim = self
             .dim
-            .as_dim()
             .checked_sqrt()
-            .ok_or_else(|| anyhow!("square root of {self}, which already is a root"))?
-            .into();
+            .ok_or_else(|| anyhow!("square root of {self}, an odd power of a half"))?;
         let magnitude = self
             .magnitude
             .checked_sqrt()
@@ -305,9 +302,7 @@ pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwn
                 Some(GenericArgOwned::Type(u)) => unit_of(u, bundle)?,
                 _ => bail!("{} without its unit", s.ident),
             };
-            let mut rest = unit.dim.clone();
-            rest.rad -= 1;
-            if !rest.as_dim().is_one() {
+            if !is_plane_angle(&unit.dim) {
                 bail!("Angle<{unit}>: {unit} is not a plane angle");
             }
             // a turn, 2π rad, in the unit
@@ -340,7 +335,7 @@ pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwn
 /// markers, which are known by their variant.
 pub fn def_id(def: &MarkerDefOwned) -> Option<&MarkerIdOwned> {
     match def {
-        MarkerDefOwned::Unit(u) => Some(&u.id),
+        MarkerDefOwned::Unit(u) | MarkerDefOwned::Base(u) => Some(&u.id),
         MarkerDefOwned::Scale(s) => Some(&s.id),
         MarkerDefOwned::Origin(o) => Some(&o.id),
         _ => None,
@@ -486,7 +481,7 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
         {
             Ok(CanonicalUnit::one())
         }
-        MarkerDefOwned::Unit(def) => Ok(CanonicalUnit {
+        MarkerDefOwned::Unit(def) | MarkerDefOwned::Base(def) => Ok(CanonicalUnit {
             powers: vec![UnitPower {
                 marker: marker_name(s, bundle)?,
                 def: def.clone(),
@@ -504,9 +499,7 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
         MarkerDefOwned::Sqrt => arg(0)?.checked_sqrt(),
         MarkerDefOwned::Phase => {
             let unit = arg(0)?;
-            let mut rest = unit.dim.clone();
-            rest.rad -= 1;
-            if !rest.as_dim().is_one() || unit.kind != UnitKind::Plain {
+            if !is_plane_angle(&unit.dim) || unit.kind != UnitKind::Plain {
                 bail!("Phase<{unit}>: {unit} is not a plane angle");
             }
             Ok(CanonicalUnit {
@@ -833,4 +826,10 @@ pub fn check_wrapper(
         }
     }
     Ok(())
+}
+
+/// rad¹ and nothing else: the dimension of an `Angle<U>`'s or a `Phase<U>`'s unit.
+fn is_plane_angle(dim: &DimOwned) -> bool {
+    dim.checked_div(&<exact_units::units::Radian as exact_units::Unit>::DIM.into())
+        .is_some_and(|rest| rest.as_dim().is_one())
 }

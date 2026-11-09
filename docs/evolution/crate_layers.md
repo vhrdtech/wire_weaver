@@ -94,7 +94,7 @@ root whose traits or types cross the wire, and API root crates declare theirs th
   (EVO-29).
 
 `exact_units` is the bottom of this layer: the unit markers, `Dim`, `Magnitude`, `SIExpr` and `Fixed`, which `ww_si`
-re-exports. A unit's identity on the wire includes its crate (a counted base is `exact_units` + its marker name), so
+re-exports. A unit's identity on the wire includes its crate (a distinguished base such as `Sample` is `exact_units` + its marker name), so
 moving a marker to another crate is a wire change, and a break in `exact_units` is a break in `ww_si` and everything
 built on it.
 

@@ -786,23 +786,39 @@ pub fn table() -> Vec<Typed> {
         ),
         case(
             "stdlib.si.dim.rad_bit",
-            dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0)
-                .with_rad(1)
-                .with_bit(-3)),
+            dim_of(
+                [-1, 0, 0, 0, 0, 0, 0],
+                &[("exact_units", "Bit", -3), ("exact_units", "Radian", 1)],
+            ),
         ),
         case(
             "stdlib.si.dim.counted",
-            dim(ww_si::Dim::counted("ww_si", "Sample")
-                .div(ww_si::Dim::counted("ww_si", "Frame"))
-                .mul(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0))),
+            dim_of(
+                [-1, 0, 0, 0, 0, 0, 0],
+                &[("ww_si", "Frame", -1), ("ww_si", "Sample", 1)],
+            ),
+        ),
+        case(
+            "stdlib.si.dim.six_bases",
+            dim_of(
+                [0, 0, 0, 0, 0, 0, 0],
+                &[
+                    ("exact_units", "Bit", 1),
+                    ("exact_units", "Neper", 1),
+                    ("exact_units", "Radian", -1),
+                    ("exact_units", "Sample", 2),
+                    ("my_api", "Pixel", -2),
+                    ("my_api", "Tile", 1),
+                ],
+            ),
         ),
         case("stdlib.si.dim.rejected", dim(ww_si::Dim::ONE)),
+        case("stdlib.si.dim.zero.rejected", dim(ww_si::Dim::ONE)),
+        case("stdlib.si.dim.count.rejected", dim(ww_si::Dim::ONE)),
         case(
             "stdlib.si.dim.root",
-            dim(<ww_si::units::Volt as ww_si::Unit>::DIM
-                .div(<ww_si::units::Hertz as ww_si::Unit>::DIM.sqrt())),
+            dim(<ww_si::units::Per<ww_si::units::Volt, ww_si::units::Sqrt<ww_si::units::Hertz>> as ww_si::Unit>::DIM),
         ),
-        case("stdlib.si.dim.root.rejected", dim(ww_si::Dim::ONE)),
         case(
             "stdlib.si.fixed.pow10",
             ww_si::Fixed::<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>::new(0xDEAD_BEEF),
@@ -960,6 +976,10 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.unit_conventional", inch_of_mercury_32f()),
         case("model.marker_def.unit_kind", ohm()),
         case(
+            "model.marker_def.base",
+            ww_self::MarkerDefOwned::Base(unit_def::<ww_si::units::Radian>()),
+        ),
+        case(
             "model.marker_def.scale",
             ww_self::MarkerDefOwned::Scale(ww_self::ScaleDefOwned {
                 id: ww_si::exact_units::MarkerIdOwned {
@@ -1079,6 +1099,22 @@ fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {
     d.into()
 }
 
+/// The dimension with the whole exponents `exps` of s, m, kg, A, K, mol, cd and the distinguished bases `bases`
+/// (crate, marker, whole exponent), sorted as the wire has them.
+fn dim_of(exps: [i8; 7], bases: &[(&str, &str, i8)]) -> ww_si::DimOwned {
+    ww_si::DimOwned::try_from(ww_si::DimWireOwned {
+        exps: exps.map(ww_si::Exp::int).to_vec(),
+        bases: bases
+            .iter()
+            .map(|(crate_name, name, exp)| ww_si::BaseExpOwned {
+                base: marker_id(crate_name, name),
+                exp: ww_si::Exp::int(*exp),
+            })
+            .collect(),
+    })
+    .expect("a canonical dimension")
+}
+
 fn si_expr(e: &ww_si::UnitExpr) -> ww_si::SIExprOwned {
     e.into()
 }
@@ -1100,10 +1136,8 @@ fn unit_def<U: ww_si::Unit>() -> ww_si::exact_units::UnitDefOwned {
 fn rpm() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Unit(ww_si::exact_units::UnitDefOwned {
         id: marker_id("my_api", "Rpm"),
-        names: ww_si::exact_units::UnitNamesOwned {
-            symbol: "rpm".into(),
-        },
-        dim: dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)),
+        names: ww_si::UnitNames::new("rpm", ww_si::PrefixPolicy::None).into(),
+        dim: dim_of([-1, 0, 0, 0, 0, 0, 0], &[("exact_units", "Radian", 1)]),
         quantity: None,
         scale: ww_si::Magnitude::new(1, 30, 0, 0, 1),
         provenance: ww_si::exact_units::ProvenanceOwned::Defined,
@@ -1114,9 +1148,7 @@ fn rpm() -> ww_self::MarkerDefOwned {
 fn inch_of_mercury_32f() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Unit(ww_si::exact_units::UnitDefOwned {
         id: marker_id("exact_units", "InchOfMercury32f"),
-        names: ww_si::exact_units::UnitNamesOwned {
-            symbol: "inHg (32 °F)".into(),
-        },
+        names: ww_si::UnitNames::new("inHg (32 °F)", ww_si::PrefixPolicy::None).into(),
         dim: dim(ww_si::Dim::new(-2, -1, 1, 0, 0, 0, 0)),
         quantity: None,
         scale: ww_si::Magnitude::ratio(338638, 100),

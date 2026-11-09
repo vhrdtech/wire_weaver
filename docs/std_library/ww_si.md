@@ -49,8 +49,8 @@ pub type Ampere = Quantity<units::Ampere>;
 APIs and code write the aliases (`property!(ro vbus: Volt)`, `Timed<Ampere>`). Everything below is written once for
 all quantities, so `Hertz::kilo(400u32)` works the same way as `Volt::milli(3300u16)`.
 
-A marker knows its unit through the `Unit` trait: its dimension (`Dim`, exponents of s, m, kg, A, K, mol, cd, rad,
-bit and up to four counted bases, see [dimensions](#dimensions)), its name and symbol, and how a value becomes coherent SI (`Scale`: coherent, a power of ten, a factor, or a factor
+A marker knows its unit through the `Unit` trait: its dimension (`Dim`, exponents of s, m, kg, A, K, mol, cd and any
+number of distinguished bases such as rad, bit and counted things, see [dimensions](#dimensions)), its name and symbol, and how a value becomes coherent SI (`Scale`: coherent, a power of ten, a factor, or a factor
 and an offset for °C). `Volt::unit()` returns it; `ww_si::units::by_name("Volt")` finds it by the marker's name, which
 is what a client that only sees introspection data uses.
 
@@ -63,11 +63,11 @@ every value:
 |---|---|---|---|---|
 | `Fixed<U, P, T, B>` | in the type | in the type | the number alone: `Micros<u32>` is 4 B | the API knows the scale and the storage: a timeout in ms as `u16`, a duty cycle in 1/65535, an ADC step |
 | `Quantity<U, B>` | in the type | per value | a prefix and number type nibble, then the number: `Volt::milli(3300u16)` is 3 B | the API knows the unit, each device picks the scale and storage (`u16` of mV here, `f32` of V there) |
-| `AnyQuantity` | per value | per value | the prefix, number and the unit: 3300 mV is 22 B with the unit by reference, 35 B in full | the unit is set at run time: configured sensor inputs, generic loggers |
+| `AnyQuantity` | per value | per value | the prefix, number and the unit: 3300 mV is 22 B with the unit by reference, 49 B in full | the unit is set at run time: configured sensor inputs, generic loggers |
 
 The units are one system in all three: the markers of `ww_si::units` (from [exact_units](exact_units.md)), with real
 dimensions. A value only converts into another of the same dimension: `Byte`, `Sample` and `Ratio` are each a
-dimension of their own (information, a counted base, one) and never convert into each other, whatever their numbers.
+dimension of their own (information, a counted thing, one) and never convert into each other, whatever their numbers.
 
 Conversions, both ways and exact:
 
@@ -286,29 +286,36 @@ SI alone would call the same:
   (32 bit) and `Doubleword` (64 bit) are scales of it, like `Gram` to kilogram. `units::Nibble` is this unit, not
   `shrink_wrap::Nibble`, the 4-bit storage a `Fixed` may hold its number in. Bytes are never a `Ratio` or an angle,
   and `Per<Byte, Second>` is a data rate, not a frequency.
-- **Counted bases.** `Item`, `Sample`, `Frame`, `Packet`, `Line`, `Row`, `Record`, `Entry`, `Cycle`, `Block`,
-  `Sector`, `Chunk`, `Char` and `Code` count things: each is a dimension of its own, so `Per<Sample, Second>`
-  (s⁻¹·Sample) isn't `Hertz` and samples aren't packets. A base is known by its crate and marker name together (`Counted { crate_name, name, exp }`): two crates'
-  `Sample` are different bases, and a marker moved to another module of its crate stays the same base. It is shown by
-  the marker name alone. An API crate's own counted marker takes its dimension from `ww_si::counted!(Bucket)`, which
-  fills in the crate. A dimension holds up to four of them (`MAX_COUNTED`), sorted by crate and name; a `Dim` on the
-  wire whose bases are out of order, repeated or with a zero exponent is refused on decode, so every dimension has
-  exactly one encoding. Bytes of a block are `Per<Byte, Block>`.
-- **Square roots.** A noise density in V/√Hz has half exponents. `Dim` keeps whole ones and a `root` flag: the
-  dimension is the square root of what the exponents describe (kg²·m⁴·s⁻⁵·A⁻² with `root`), shown with halves as
-  `kg·m²·s⁻⁵ᐟ²·A⁻¹`. `Dim::sqrt` and `mul` / `div` keep it canonical: `root` only while some exponent is odd, so
-  √(m²) is m; a root of a root isn't a `Dim` (`checked_sqrt` is `None`).
+- **Counted things.** `Item`, `Sample`, `Frame`, `Packet`, `Line`, `Row`, `Record`, `Entry`, `Cycle`, `Block`,
+  `Sector`, `Chunk`, `Char` and `Code` count things: each is a distinguished base of its own, so `Per<Sample, Second>`
+  (Sample·s⁻¹) isn't `Hertz` and samples aren't packets. Bytes of a block are `Per<Byte, Block>`.
+- **Distinguished bases.** Radian, bit, neper and every counted thing are bases beside SI's seven, each named by the
+  crate and the marker that declare it (`MarkerId`): two crates' `Sample` are different bases, and a marker moved to
+  another module of its crate stays the same base. A dimension holds any number of them (exact_units UNIT-10). An API
+  crate declares its own with a `unit!` line ending in `base` (`pub struct Bucket = "bucket", base;`), or a scaled
+  unit of another one's base with `base(Other)` (the decibel is `base(Neper)`); `ww_si::base!(Bucket)` is its
+  `MarkerId`. `rad` and `bit` are written by those names, any other base by its marker's name. On the wire the bases
+  follow the exponents as a list sorted by crate and name; a list out of order, with a base twice or with an exponent
+  of 0 is refused on decode, so every dimension has exactly one encoding. `Dim::strip(MarkerId::RADIAN)` drops a base
+  on purpose (the joule of a torque, for v = ωr), `true_part()` drops all of them.
+- **Square roots.** A noise density in V/√Hz has half exponents. Every exponent of a `Dim` counts halves (`Exp`,
+  ±63½), so V/√Hz is kg·m²·s⁻⁵ᐟ²·A⁻¹. `DimOwned::checked_sqrt` refuses an odd count of halves: a fourth root isn't a
+  dimension.
 
 ```rust
-use ww_si::units::{Byte, Per, Sample};
+use ww_si::units::{Byte, Per, Sample, Sqrt};
 use ww_si::Unit;
 
 let per_sample = <Per<Byte, Sample> as Unit>::DIM;
 assert_eq!(per_sample.to_string(), "bit·Sample⁻¹");
-assert!(per_sample.mul(<Sample as Unit>::DIM).same(<Byte as Unit>::DIM));
+let bytes = per_sample.checked_mul(&<Sample as Unit>::DIM).unwrap();
+assert!(bytes.same(<Byte as Unit>::DIM));
 
-let density = <ww_si::units::Volt as Unit>::DIM.div(<ww_si::units::Hertz as Unit>::DIM.sqrt());
+let density = <Per<ww_si::units::Volt, Sqrt<ww_si::units::Hertz>> as Unit>::DIM;
 assert_eq!(density.to_string(), "kg·m²·s⁻⁵ᐟ²·A⁻¹");
+
+let torque = <ww_si::units::Torque as Unit>::DIM;
+assert_eq!(torque.strip(ww_si::MarkerId::RADIAN).to_string(), "kg·m²·s⁻²");
 ```
 
 ## Compound units and your own
@@ -440,8 +447,8 @@ channel, a calibration that turns volts into bar. For those the unit goes on the
 with one is an `AnyQuantity { prefix, value, unit }`:
 
 ```rust
-use ww_si::units::{self, AngularVelocity, Per, Torque};
-use ww_si::{AnyQuantity, Dim, Magnitude, MarkerId, Prefix, Provenance, SIExpr, UnitDef, UnitNames, Volt};
+use ww_si::units::{self, AngularVelocity, Per, Radian, Second, Torque};
+use ww_si::{AnyQuantity, Magnitude, MarkerId, Prefix, PrefixPolicy, Provenance, SIExpr, Unit, UnitDef, UnitNames, Volt};
 
 // a ww_si unit, or a typed quantity turned into one: the unit's definition in full
 let v = AnyQuantity::from(Volt::milli(3300u16));
@@ -460,8 +467,8 @@ assert_eq!(r.to_si_f64(&()), None); // a table that doesn't list it: no factor
 // a unit no table lists, in full: its dimension and scale make it convertible to SI anyway
 let rpm = SIExpr::Def(UnitDef {
     id: MarkerId { crate_name: "my_api", name: "Rpm" },
-    names: UnitNames { symbol: "rpm" },
-    dim: Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1),
+    names: UnitNames::new("rpm", PrefixPolicy::Decimal),
+    dim: <Per<Radian, Second> as Unit>::DIM,
     quantity: None,
     // exactly π/30 rad/s: 2π per 60 s
     scale: Magnitude::new(1, 30, 0, 0, 1),
@@ -472,7 +479,7 @@ assert_eq!(speed.to_string(), "3 krpm");
 ```
 
 `SIExpr` is the same model as the markers, put on the wire. A leaf is a named unit: `Def(UnitDef)`, its whole
-definition (identity, symbol, dimension, kind, exact scale, provenance), or `Ref(MarkerId)`, its identity alone, the
+definition (identity, names, dimension, kind, exact scale, provenance), or `Ref(MarkerId)`, its identity alone, the
 declaring crate and the marker's name. Above them are `Mul`, `Div`, `Pow` and `Sqrt` of other `SIExpr`s (through
 `RefBox`, so decoding one reads only its top node). A marker's `UnitExpr` maps one to one onto an `SIExpr` with `Def`
 leaves (`Unit::SI_EXPR`, `SIExpr::of::<U>()`; `SIExprOwned::from(&UnitExpr)` on a host), which reads alone anywhere.
@@ -492,22 +499,24 @@ compacts what it writes into an `AnyQuantity` against the API's model, and a dev
 it uses. A tree that comes from another device is walked at most `MAX_UNIT_DEPTH` (32) levels deep: a deeper part has
 no dimension and is shown as `…`, it can't overflow the stack.
 
-`Dim` is nine 4-bit signed exponents in the order s, m, kg, A, K, mol, cd, rad, bit (each -8..=7), the `root` bit,
-then four optional counted bases (`Counted { crate_name, name, exp }`), `final_structure`. `Dim::new` is `const` and
-refuses an exponent out of range at compile time; `checked_mul`, `checked_div` and `checked_pow` give `None` for a
-run-time tree whose exponents leave the range or that needs a fifth counted base. A unit's scale is an exact
+`Dim` is on the wire as `DimWire`: the seven exponents of s, m, kg, A, K, mol, cd as a list of `INib32` halves, then
+the distinguished bases as a sorted list of `BaseExp { base: MarkerId, exp: Exp }`, `final_structure`. `Dim::new` is
+`const`; `DimOwned::checked_mul`, `checked_div`, `checked_pow` and `checked_sqrt` give `None` for a run-time result
+whose exponents leave ±63½ or a root that isn't whole halves. A unit's names (`UnitNames`: symbol, ASCII form, long
+names, aliases, UCUM code, prefixes, exact_units IO-9) travel with its definition. A unit's scale is an exact
 `Magnitude`. These are the bytes (strings and their lengths are laid out as shrink_wrap does it, lengths at the end):
 
 | Value                                                  | Bytes                                                  |
 |--------------------------------------------------------|--------------------------------------------------------|
-| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)                        | `d2 1f 00 00 00 00`                                    |
-| `Dim` of `AngularVelocity` (s⁻¹ rad)                   | `f0 00 00 01 00 00`                                    |
-| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)            | `00 00 00 00 14`, `exact_units`, `Sample`, `f0 06 39`, 25 B |
+| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)                        | `b1 81 43 00 00 07`                                    |
+| `Dim` of `Per<Volt, Sqrt<Hertz>>` (s⁻⁵ᐟ² m² kg A⁻¹)    | `91 81 43 00 00 07`                                    |
+| `Dim` of `AngularVelocity` (s⁻¹ rad)                   | `30 00 00 00`, `exact_units`, `Radian`, `46 39 17`, 24 B |
+| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)            | `00 00 00 00`, `exact_units`, `Bit`, `40`, `exact_units`, `Sample`, `30 63 93 39 27`, 41 B |
 | `Magnitude` one                                        | `00 00`                                                |
-| `Magnitude` of a degree (π/180)                        | `fe 80 fe 80 02 00 00 83 fc 00 00`                     |
-| `SIExpr::of::<units::Volt>()`, a `Def`                 | `00`, `exact_units`, `Volt`, `V`, `01 d2 1f 00 00 00 00 00 00 00 01 24 39 5b`, 31 B |
+| `Magnitude` of a degree (π/180)                        | `fe 80 fe 80 02 00 00 00 00 83 fc 00 00`               |
+| `SIExpr::of::<units::Volt>()`, a `Def`                 | `00`, `exact_units`, `Volt`, `V`, `00`, `volt`, `volts`, `80`, `V`, `11 05 41 b1 81 43 00 00 00 00 00 10 70 a4 39 3d`, 45 B |
 | the same compacted, a `Ref`                            | `10`, `exact_units`, `Volt`, `04 39`, 18 B             |
-| `SIExpr::of::<Per<Torque, AngularVelocity>>()`         | 85 B; compacted, two `Ref`s: 52 B                      |
+| `SIExpr::of::<Per<Torque, AngularVelocity>>()`         | 204 B; compacted, two `Ref`s: 52 B                     |
 | `AnyQuantity::from(Volt::milli(3300u16))`              | `12 e4 0c`, the unit's 31 B, `7b`: 35 B                |
 | the same compacted                                     | `12 e4 0c`, the unit's 18 B, `2a`: 22 B                |
 

@@ -305,7 +305,7 @@ round, and tell you before a release when a change would break that.
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-14 | Priority in every request | Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after. | transport/ww_framer.md#latency-and-priority
 - EVO-13 | Upgrades don't touch your snapshots | A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading. | evolution/checker_tool.md#the-current-versions-snapshot
-- EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: counted bases sorted, out-of-order ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/ww_si.md#units-known-only-at-run-time
+- EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: distinguished bases sorted, out-of-order, repeated or zero ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/ww_si.md#units-known-only-at-run-time
 - EVO-15 | Units and bounds in the checker | Wrapping a plain number in a unit type passes as the same bytes; changing its unit, prefix or bound is caught as breaking. | evolution/rules.md#transparent-wrappers-units-and-scales
 
 ## Advanced
@@ -420,6 +420,8 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-105 | NaN-free floats in clients | A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused. | std_library/exact_units.md
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
 - UNIT-7 | A unit is defined once, by its crate | A unit made with `unit!` carries its crate and name, so two crates' `Rpm` are two units that print the same, and its definition is plain data a client can read. | std_library/units_in_the_model.md#identity
+- UNIT-10 | Any number of distinguished bases, half exponents | Radians, bits, nepers and every counted thing (`Sample`, your own `Pixel`) are bases of their own, as many in one unit as it needs, and V/√Hz is plain halves: rad/s never becomes Hz, torque never energy. | std_library/ww_si.md#dimensions
+- IO-9 | Unit names in the model | A unit's ASCII form, long names, aliases, UCUM code and the prefixes it takes travel with its definition, so a client writes and reads it as its crate does. | std_library/units_in_the_model.md#what-the-model-holds
 - STD-107 | Run-time units by reference | An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them. | std_library/ww_si.md#units-known-only-at-run-time
 - NUM-14 | Readable unit errors | A refused conversion names both units and dimensions in the compile error, and the operation that would give the right one. |
 - NUM-8 | Niche codes next to `Bounds` | `Niched<V, N>` marks a sentinel value next to a `Fixed`'s bounds, so "no reading" needs no `Option` and costs no extra space. |
@@ -500,3 +502,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.
 - UNIT-11 | How `q!`'s symbol table is made and checked: the user-visible side is NUM-15.
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.
+- EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.

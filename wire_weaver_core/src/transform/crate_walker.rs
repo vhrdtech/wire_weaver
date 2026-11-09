@@ -62,7 +62,10 @@ pub fn load_own_with_paths(
     let features = manifest.default_features();
     let bundle = load_inner(manifest, features, root, &mut scratch)?;
     let mut paths = CratePaths::default().with_trait_modules(&scratch);
-    paths.insert(bundle.root.crate_name(&bundle)?.to_string(), vec!["crate".to_string()]);
+    paths.insert(
+        bundle.root.crate_name(&bundle)?.to_string(),
+        vec!["crate".to_string()],
+    );
     Ok((bundle, paths))
 }
 
@@ -277,7 +280,11 @@ fn load_inner(
         let entry = CrateContext::load_from_manifest(manifest.clone(), features.clone(), scratch)?;
         let (root_cx, trait_name) = find_root(&entry, root.as_deref(), scratch)?;
         let item_trait = get_trait(&root_cx.lib_rs_ast, &trait_name)?;
-        let wire = if item_trait.attrs.iter().any(|a| a.path().is_ident("ww_api_root")) {
+        let wire = if item_trait
+            .attrs
+            .iter()
+            .any(|a| a.path().is_ident("ww_api_root"))
+        {
             root_wire(
                 get_wire_attr(&item_trait.attrs, &root_cx)?,
                 &root_cx,
@@ -333,7 +340,10 @@ pub(crate) fn root_wire(
     let key = root_key(&root_cx.module_names(), trait_name);
     let roots = root_cx.manifest.roots()?;
     let manifest = match roots.get(&key) {
-        Some(wire) => Some((*wire, format!("[package.metadata.wire_weaver.roots] \"{key}\" = \"{wire}\""))),
+        Some(wire) => Some((
+            *wire,
+            format!("[package.metadata.wire_weaver.roots] \"{key}\" = \"{wire}\""),
+        )),
         None if !roots.is_empty() => {
             return Err(anyhow!(
                 "the API root `{key}` has no wire version: `[package.metadata.wire_weaver.roots]` in Cargo.toml lists \
@@ -342,9 +352,12 @@ pub(crate) fn root_wire(
             ))
             .context(root_cx.err_context());
         }
-        None => root_cx
-            .wire
-            .map(|wire| (wire, format!("[package.metadata.wire_weaver] wire = \"{wire}\""))),
+        None => root_cx.wire.map(|wire| {
+            (
+                wire,
+                format!("[package.metadata.wire_weaver] wire = \"{wire}\""),
+            )
+        }),
     };
     let Some(attr) = attr else {
         return Ok(manifest.map(|(wire, _)| wire));
@@ -1310,9 +1323,18 @@ impl ManifestContext {
                 let wire = wire
                     .as_str()
                     .ok_or_else(|| anyhow!("`{root}`: expected a string, `\"{root}\" = \"w1.0\"`"))
-                    .and_then(|s| s.parse::<WireVersion>().map_err(|e| anyhow!("`{root}` = `{s}`: {e}")))
+                    .and_then(|s| {
+                        s.parse::<WireVersion>()
+                            .map_err(|e| anyhow!("`{root}` = `{s}`: {e}"))
+                    })
                     .with_context(context)?;
-                Ok((root.split("::").map(str::trim).collect::<Vec<_>>().join("::"), wire))
+                Ok((
+                    root.split("::")
+                        .map(str::trim)
+                        .collect::<Vec<_>>()
+                        .join("::"),
+                    wire,
+                ))
             })
             .collect()
     }
@@ -1520,7 +1542,10 @@ fn find_root(
             let mut cx = entry.clone();
             for segment in &segments {
                 cx = cx.module(segment, scratch)?.ok_or_else(|| {
-                    anyhow!("API root `{root}`: no module `{segment}` in crate {}", entry.crate_name())
+                    anyhow!(
+                        "API root `{root}`: no module `{segment}` in crate {}",
+                        entry.crate_name()
+                    )
                 })?;
             }
             get_trait(&cx.lib_rs_ast, &trait_name).with_context(|| format!("API root `{root}`"))?;
@@ -1590,7 +1615,8 @@ fn marked_traits(entry: &Rc<CrateContext>, scratch: &mut Scratch) -> Result<Vec<
         for item in &cx.lib_rs_ast.items {
             match item {
                 Item::Trait(item_trait) => {
-                    let marked = |name: &str| item_trait.attrs.iter().any(|a| a.path().is_ident(name));
+                    let marked =
+                        |name: &str| item_trait.attrs.iter().any(|a| a.path().is_ident(name));
                     if marked("ww_api_root") || marked("ww_trait") {
                         found.push(MarkedTrait {
                             cx: cx.clone(),

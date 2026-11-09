@@ -52,10 +52,16 @@ pub(crate) fn get_since_attr(
         return Ok(None);
     };
     let Meta::NameValue(name_value) = &attr.meta else {
-        return Err(anyhow!("expected #[since = \"w<line>.<revision>\"]").context(current_crate.err_context()));
+        return Err(anyhow!("expected #[since = \"w<line>.<revision>\"]")
+            .context(current_crate.err_context()));
     };
-    let Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }) = &name_value.value else {
-        return Err(anyhow!("expected #[since = \"w<line>.<revision>\"]").context(current_crate.err_context()));
+    let Expr::Lit(ExprLit {
+        lit: Lit::Str(lit_str),
+        ..
+    }) = &name_value.value
+    else {
+        return Err(anyhow!("expected #[since = \"w<line>.<revision>\"]")
+            .context(current_crate.err_context()));
     };
     let value = lit_str.value();
     let parse = |value: &str| {

@@ -16,7 +16,7 @@ anyhow.workspace = true
 convert_case.workspace = true
 darling = "0.24"
 pathsearch = "0.2"
-proc-macro2 = { workspace = true, features = ["span-locations"] }
+proc-macro2 = { workspace = true }
 quote = { workspace = true }
 subprocess = "1.2"
 syn = { workspace = true }

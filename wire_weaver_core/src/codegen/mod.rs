@@ -53,7 +53,10 @@ impl CodegenBundle<'_> {
     /// How generated code names the module of `level`'s trait, where the consts `#[ww_api_root]`/`#[ww_trait]` emit
     /// next to the trait are (`<TRAIT>_FULL_GID`): its crate's path, and the trait's module in a crate with several
     /// roots (`thermo_api::wire_v2`, EVO-37).
-    pub(crate) fn trait_module_path(&self, level: &ww_self::ApiLevelOwned) -> proc_macro2::TokenStream {
+    pub(crate) fn trait_module_path(
+        &self,
+        level: &ww_self::ApiLevelOwned,
+    ) -> proc_macro2::TokenStream {
         let crate_name = level.crate_name(self.bundle).unwrap();
         let crate_path = self.crate_path(crate_name);
         let modules = self

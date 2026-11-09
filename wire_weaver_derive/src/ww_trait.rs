@@ -127,17 +127,23 @@ fn ww_trait_inner(item: TokenStream) -> Result<(TokenStream, Option<WireVersion>
 /// IDEs).
 fn load_own(crate_path: &Path, ident: &Ident) -> anyhow::Result<ApiBundleOwned> {
     let name = ident.to_string();
-    let Some(modules) = file_modules(crate_path, ident.span()).filter(|m| !m.is_empty()) else {
+    let Some(modules) = file_modules(crate_path).filter(|m| !m.is_empty()) else {
         return load(crate_path, Some(name), false);
     };
     let root = format!("{}::{name}", modules.join("::"));
-    load(crate_path, Some(root), false).or_else(|e| load(crate_path, Some(name), false).map_err(|_| e))
+    load(crate_path, Some(root), false)
+        .or_else(|e| load(crate_path, Some(name), false).map_err(|_| e))
 }
 
-/// The modules of the crate at `crate_path` that the file of `span` is: `["wire_v2"]` for `src/wire_v2.rs` or
-/// `src/wire_v2/mod.rs`, empty for `src/lib.rs`; `None` when the file isn't known or not under `src/`.
-fn file_modules(crate_path: &Path, span: Span) -> Option<Vec<String>> {
-    let file = span.local_file()?;
+/// The modules of the crate at `crate_path` that the file the macro is called in is: `["wire_v2"]` for
+/// `src/wire_v2.rs` or `src/wire_v2/mod.rs`, empty for `src/lib.rs`; `None` when the file isn't known or not under
+/// `src/`. Asked of `proc_macro` itself: `proc-macro2`'s `span-locations` feature would make every span of every
+/// proc macro in the build bigger.
+fn file_modules(crate_path: &Path) -> Option<Vec<String>> {
+    if !proc_macro::is_available() {
+        return None;
+    }
+    let file = proc_macro::Span::call_site().local_file()?;
     let file = if file.is_absolute() {
         file
     } else {

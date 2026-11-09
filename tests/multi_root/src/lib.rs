@@ -224,11 +224,10 @@ mod tests {
                 .traits
                 .iter()
                 .find_map(|t| match t {
-                    wire_weaver_core::internal::ww_self::ApiLevelLocationOwned::InLine { level, .. }
-                        if level.trait_name == "Channel" =>
-                    {
-                        Some(level)
-                    }
+                    wire_weaver_core::internal::ww_self::ApiLevelLocationOwned::InLine {
+                        level,
+                        ..
+                    } if level.trait_name == "Channel" => Some(level),
                     _ => None,
                 })
                 .expect("Channel in the bundle");

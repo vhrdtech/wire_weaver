@@ -3,15 +3,17 @@
 //! at run time (`AnyQuantity`, STD-37), and values with unit, prefix and storage fixed at compile time (`Fixed`,
 //! STD-55), written with and without their default bounds, and points against an origin of this crate and an angle
 //! (STD-64). `Fixed` values, indices and sequence numbers as clients show, parse and check them (CLT-54): a property, a
-//! method argument and return, a stream item.
+//! method argument and return, a stream item. Units that measure a quantity of ISO 80000's tree (`Of`, `Phase`, `Ohm`,
+//! UNIT-8).
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::origins::{Angle, Celsius};
 use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
+use ww_si::quantities::{Height, Width};
 use ww_si::units::{
-    self, AngularVelocity, Byte, Degree, Frame, Item, Meter, Per, Ratio, Sample, Second, Times,
+    self, AngularVelocity, Byte, Degree, Frame, Item, Meter, Of, Per, Ratio, Sample, Second, Times,
     Torque, Watt,
 };
 use ww_si::{
@@ -76,6 +78,14 @@ trait Quantities {
     property!(ro power: Fixed<Watt, Product<Milli, Milli>, i32>);
     /// mV per µA, as `Fixed / Fixed` gives it (STD-83): one step is 1 kV/A, the scale `Quotient<Milli, Micro>`
     property!(ro transimpedance: Fixed<Per<units::Volt, units::Ampere>, Quotient<Milli, Micro>, i32>);
+    /// A rack's height in mm: a quantity of ISO 80000's tree, a length but not a width (UNIT-8)
+    property!(ro height: Fixed<Of<Height, Meter>, Milli, u16>);
+    /// The rack's width, of one dimension with its height
+    property!(ro width: Fixed<Of<Width, Meter>, Milli, u16>);
+    /// A shunt: `Ohm`'s line names its quantity, a resistance, which a transimpedance V/A is not
+    property!(ro shunt: Fixed<units::Ohm, Milli, u16>);
+    /// An NCO's phase in 0.01°: `Phase<Degree>` is `Of<PhaseAngle, Degree>`, not a mechanical angle
+    property!(ro phase: Fixed<units::Phase<Degree>, Centi, u16>);
 }
 
 ww_si::origin! {

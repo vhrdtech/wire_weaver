@@ -8,10 +8,10 @@ A unit or scale marker an API uses (`Volt`, `prefix::Milli`, a crate's own `Rpm`
 model a device sends: its identity, names, dimension and exact factor. A client, `ww` and Python learn the units of any crate
 from that, without a table of their own, and compare two units by what they are, not by how they are written.
 
-A crate declares its own markers with `unit!`, `scale!` and `origin!` (from `exact_units`, re-exported by `ww_si`);
-WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the macros'
-grammar — the names, the dimension (halves, `base`, `base(Other)`), the scale, `kind` and `conventional(..)`
-provenance — see the book's
+A crate declares its own markers with `unit!`, `scale!`, `origin!` and `quantity!` (from `exact_units`, re-exported
+by `ww_si`); WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the
+macros' grammar — the names, the dimension (halves, `base`, `base(Other)`), the scale, `quantity <Quantity>` and
+`conventional(..)` provenance — see the book's
 [Your own units](https://exact.vhrd.tech/units/declare/). A marker with a hand-written `impl Unit` still compiles,
 but the walker refuses an API that uses it: a client wouldn't know the unit.
 
@@ -43,6 +43,8 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `MaybeNan`                                                     | a float `Fixed` that may hold NaN, the one bound that takes it     |
 | `Origin(OriginDef { id, unit, symbol, reference, offset, .. })` | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
+| `Quantity(exact_units::QuantityDef)`                           | a quantity of ISO 80000's tree: `quantities::Height`, `Resistance`, a crate's own `quantity!` |
+| `Of`                                                           | `units::Of<Q, U>`, the unit `U` measuring the quantity `Q`; `Phase<A>` is `Of<PhaseAngle, A>` |
 
 A `unit!` line ending in `base` (`pub struct Bucket = "bucket", base;`) declares a unit and the base it is, so its
 marker is a `Base`: the unit whole, as for `Unit`, and the base, exact_units' `BaseDef`, is `{ id: def.id }`, its
@@ -57,7 +59,7 @@ A unit's definition is `exact_units`' own `UnitDef`, the record `unit!` compiles
 | `id`         | a `MarkerId`: the declaring crate as Rust names it and the marker's name                     | `my_api::Rpm`       |
 | `names`      | how it is written and read (exact_units IO-9): `symbol`, `ascii`, `long` and `plural`, `aliases`, `ucum`, `prefixes` | `"rpm"`, no other names |
 | `dim`        | its dimension: seven exponents in halves and the distinguished bases (exact_units UNIT-10)   | rad·s⁻¹             |
-| `quantity`   | a kind of quantity of its own (`"resistance"` for `Ohm`), `None` for a plain unit (STD-68)    | `None`              |
+| `quantity`   | the quantity it measures, by the quantity marker's `MarkerId` (`exact_units::Resistance` for `Ohm`, UNIT-8), `None` for its dimension's quantity | `None` |
 | `scale`      | the exact factor to the coherent SI unit of `dim`: 1 for a volt, 8 for a byte (in bits)      | π/30                |
 | `provenance` | `Defined`, or `Conventional { source, year }` for a value a standard prints ([customary](customary.md)) | `Defined` |
 
@@ -77,8 +79,7 @@ Not there yet:
 
 - A temperature in °C is a [`Point`](points.md) against `origins::Celsius`; `ww_si`'s `Quantity` and `AnyQuantity`
   follow with STD-74.
-- Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
-  `MarkerDef` when their markers exist.
+- Levels (STD-67) and sentinels (STD-66) append their own variants to `MarkerDef` when their markers exist.
 - `ww` and Python show a `Quantity` of any crate's unit (`1500 rpm`), and a `Fixed` with its unit and scale
   ([in clients](exact_units.md#in-ww-python-and-dynamic-clients)).
 
@@ -98,6 +99,38 @@ It is shown with its symbols, `(rad/s)⁻¹·N·m` for `Per<Torque, AngularVeloc
 
 A bundle from a device is untrusted: both walk at most `MAX_UNIT_NESTING` (16) levels of `Per`, `Times`, `Sqrt`,
 full-scale, `Product` and `Quotient` markers, and an overflowing dimension or factor is an error, not a panic.
+
+## Quantities
+
+Some quantities share a dimension and still are not the same: a height and a width are both lengths, Hz and Bq are
+both s⁻¹, Ω and V/A are both kg·m²·s⁻³·A⁻². `exact_units` tells them apart with ISO 80000's tree of quantities
+(UNIT-8, the book's [Quantities](https://exact.vhrd.tech/maths/quantities/)): a quantity marker declared with
+`quantity!`, a unit line that names the quantity it measures (`quantity crate::quantities::Resistance` on `Ohm`'s
+line), and `units::Of<Q, U>`, the unit `U` measuring `Q`, as in `Fixed<Of<Height, Meter>, Milli, u16>`.
+
+A quantity marker's definition is `MarkerDef::Quantity(exact_units::QuantityDef)`:
+
+| Field       | Is                                                                                             | `Height`     |
+|-------------|------------------------------------------------------------------------------------------------|--------------|
+| `id`        | its `MarkerId`, in one namespace with the crate's units                                        | `exact_units::Height` |
+| `parent`    | the quantity it is a kind of, by `MarkerId`; `None` for a root                                 | `exact_units::Length` |
+| `dim`       | its dimension, its parent's for a child                                                        | m            |
+| `is_kind`   | a kind of its own (`Resistance`, `Activity`, `PhaseAngle`): converts with no other quantity of its dimension | `false` |
+| `character` | `Scalar`, `Complex` or `Vector`                                                                | `Scalar`     |
+
+`Of<Q, U>` is `MarkerDef::Of`, its two arguments the instance's; `Phase<A>` is an alias of `Of<PhaseAngle, A>`, so
+it is no marker of its own. As for origins, a definition names other markers only by `MarkerId`, never by a type of
+the model, so a bundle lists every quantity it names: a unit's quantity and each quantity's parent come along when
+a device leaves out what the snapshots know and when a client puts it back. The walker refuses a second *open root*
+of one dimension (a root without `kind`): each would be the quantity a plain unit of the dimension measures.
+
+`unit_of` gives the quantity in `CanonicalUnit::quantity`, a `QuantityExprOwned`: `Spec` of a quantity by id,
+`RatioOf` a dimension (V/V), or `Derived` (its dimension's quantity, which a dimension's open root is too, so
+`Of<Length, Meter>` is `Derived`). Two canonical units are the same only with the same quantity, and `factor_to`
+takes `exact_units`' conversion rule with the bundle as the table of quantities: a height converts to a length or a
+plain metre, not to a width; `Ohm` doesn't convert to `Per<Volt, Ampere>`. `ww`, Python and the dynamic client show
+and convert a value of `Of<Q, U>` as one of `U`, as its `UnitExpr` is `U`'s: the quantity is in the type and the
+model, not in a value's unit.
 
 ## Origins
 

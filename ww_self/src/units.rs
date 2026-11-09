@@ -12,15 +12,20 @@
 //! `Per<Meter, Second>` re-declared elsewhere are the same `m·s⁻¹` when they name the same markers with the same
 //! powers. Two units of the same [dimension](CanonicalUnit::dim) convert into each other by the quotient of their
 //! [magnitudes](CanonicalUnit::magnitude) even when their expressions differ (`km/h` and `m/s`), when they are of
-//! the same [kind](CanonicalUnit::kind) (STD-68): `Per<Volt, Volt>` is a voltage gain, not a ratio, and
-//! `Per<Volt, Ampere>` is not an `Ohm`, by `exact_units`' rules ([exact_units::Kind]).
+//! the same [quantity](CanonicalUnit::quantity) (STD-68, UNIT-8): `Per<Volt, Volt>` is a voltage gain, not a
+//! ratio, `Per<Volt, Ampere>` is not an `Ohm`, and `Of<Height, Meter>` converts to a length but not to a width, by
+//! `exact_units`' rules ([exact_units::QuantityExpr]) with the bundle's [quantity](crate::MarkerDef::Quantity)
+//! definitions as their table.
 
 use crate::{
     ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
     ValueOwned,
 };
-use anyhow::{Result, anyhow, bail};
-use exact_units::{DimOwned, Kind, Magnitude, MarkerIdOwned, Offset, UnitDefOwned};
+use anyhow::{Context, Result, anyhow, bail};
+use exact_units::{
+    DimOwned, Magnitude, MarkerIdOwned, Offset, QuantityDefOwned, QuantityExpr, QuantityRef,
+    UnitDefOwned, UnitTable,
+};
 use std::fmt;
 
 /// Deepest nesting of `Per`, `Times`, `Sqrt`, full-scale, `Product` and `Quotient` markers [unit_of] and [scale_of] follow: a bundle from a
@@ -42,44 +47,60 @@ impl fmt::Display for MarkerName {
     }
 }
 
-/// The kind of quantity of a unit beyond its dimension (STD-68), owned: an [exact_units::Kind] read from a bundle.
+/// The quantity a unit measures beyond its dimension (STD-68, UNIT-8), owned: an [exact_units::QuantityExpr] read
+/// from a bundle. A dimension's open root (`Length`, `Energy`) is always [Self::Derived], so two of these are the
+/// same quantity exactly when they are equal.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum UnitKind {
-    /// No kind beyond the dimension.
-    Plain,
-    /// A kind of its own (`resistance`), from a [unit](MarkerDefOwned::Unit)'s `quantity`.
-    Named(String),
+pub enum QuantityExprOwned {
+    /// A quantity of the tree other than an open root, by its id: `Ohm`'s resistance, `Of<Height, Meter>`'s height.
+    Spec(MarkerIdOwned),
     /// Dimension one, a ratio of two quantities of this dimension: `Per<Volt, Volt>`.
     RatioOf(Box<DimOwned>),
+    /// The quantity of a dimension and nothing more: `Meter`, `Per<Volt, Ampere>`.
+    Derived(Box<DimOwned>),
 }
 
-impl UnitKind {
-    /// The kind as `exact_units` has it, for its rules.
-    pub fn as_kind(&self) -> Kind<'_> {
+impl QuantityExprOwned {
+    /// The quantity as `exact_units` has it, for its rules: a spec by its [id](QuantityRef::Id), resolved through a
+    /// table.
+    pub fn as_expr(&self) -> QuantityExpr<'_> {
         match self {
-            UnitKind::Plain => Kind::Plain,
-            UnitKind::Named(n) => Kind::Named(n),
-            UnitKind::RatioOf(d) => Kind::RatioOf(d.as_dim()),
+            QuantityExprOwned::Spec(id) => QuantityExpr::Spec(QuantityRef::Id(id.as_id())),
+            QuantityExprOwned::RatioOf(d) => QuantityExpr::RatioOf(d.as_dim()),
+            QuantityExprOwned::Derived(d) => QuantityExpr::Derived(d.as_dim()),
         }
+    }
+
+    /// `e` owned, a spec looked up in `table`: an open root becomes [Self::Derived]; an error for a spec the table
+    /// doesn't list.
+    pub fn resolve(e: QuantityExpr<'_>, table: &dyn UnitTable) -> Result<Self> {
+        Ok(match e {
+            QuantityExpr::Spec(r) => {
+                let def = r
+                    .resolve(table)
+                    .ok_or_else(|| anyhow!("the quantity {} is not in the bundle", r.id()))?;
+                match def.is_open_root() {
+                    true => QuantityExprOwned::Derived(Box::new(def.dim.into())),
+                    false => QuantityExprOwned::Spec(def.id.into()),
+                }
+            }
+            QuantityExpr::RatioOf(d) => QuantityExprOwned::RatioOf(Box::new(d.into())),
+            QuantityExpr::Derived(d) => QuantityExprOwned::Derived(Box::new(d.into())),
+        })
+    }
+
+    /// Whether it is [Self::Derived]: nothing beyond the dimension.
+    pub fn is_derived(&self) -> bool {
+        matches!(self, QuantityExprOwned::Derived(_))
     }
 }
 
-impl From<Kind<'_>> for UnitKind {
-    fn from(k: Kind<'_>) -> Self {
-        match k {
-            Kind::Plain => UnitKind::Plain,
-            Kind::Named(n) => UnitKind::Named(n.to_string()),
-            Kind::RatioOf(d) => UnitKind::RatioOf(Box::new(d.into())),
-        }
-    }
-}
-
-/// `resistance`, `ratio of V` (by the dimension), `plain`.
-impl fmt::Display for UnitKind {
+/// `resistance`, `ratio of V` (by the dimension), `derived`.
+impl fmt::Display for QuantityExprOwned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UnitKind::Plain => f.write_str("plain"),
-            kind => fmt::Display::fmt(&kind.as_kind(), f),
+            QuantityExprOwned::Derived(_) => f.write_str("derived"),
+            q => fmt::Display::fmt(&q.as_expr(), f),
         }
     }
 }
@@ -102,16 +123,17 @@ pub struct CanonicalUnit {
     pub dim: DimOwned,
     /// The exact factor to the coherent SI unit of [Self::dim].
     pub magnitude: Magnitude,
-    /// The kind beyond the dimension: what a quotient of one dimension kept, a named unit's own kind.
-    pub kind: UnitKind,
+    /// The quantity beyond the dimension: what a quotient of one dimension kept, a named unit's own quantity, the
+    /// `Q` of an `Of<Q, U>`.
+    pub quantity: QuantityExprOwned,
 }
 
-/// The same unit: the same named units to the same powers, of the same kind (`Per<Volt, Volt>` is no ratio,
+/// The same unit: the same named units to the same powers, of the same quantity (`Per<Volt, Volt>` is no ratio,
 /// though both have no powers left). `km/h` and `m/s` are not the same, they are
 /// [convertible](CanonicalUnit::factor_to).
 impl PartialEq for CanonicalUnit {
     fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
+        self.quantity == other.quantity
             && self.powers.len() == other.powers.len()
             && self
                 .powers
@@ -128,7 +150,7 @@ impl CanonicalUnit {
             powers: Vec::new(),
             dim: exact_units::Dim::ONE.into(),
             magnitude: Magnitude::ONE,
-            kind: UnitKind::Plain,
+            quantity: QuantityExprOwned::Derived(Box::new(exact_units::Dim::ONE.into())),
         }
     }
 
@@ -140,10 +162,17 @@ impl CanonicalUnit {
         }
     }
 
-    /// The exact factor a number in this unit is multiplied by to be in `other`, `None` when the dimensions or the
-    /// kinds differ: 1/1000 from `m` to `km`, π/30 from `rpm` to `rad/s`; none from V/V to a ratio.
-    pub fn factor_to(&self, other: &CanonicalUnit) -> Option<Magnitude> {
-        if !self.dim.as_dim().same(other.dim.as_dim()) || self.kind != other.kind {
+    /// The exact factor a number in this unit is multiplied by to be in `other`, `None` when the dimensions differ
+    /// or the quantity doesn't [convert](QuantityExpr::converts) (`table`, usually the bundle, lists the quantities
+    /// of both): 1/1000 from `m` to `km`, π/30 from `rpm` to `rad/s`, 1 from a height in m to a length in m; none
+    /// from V/V to a ratio, nor from a width to a height.
+    pub fn factor_to(&self, other: &CanonicalUnit, table: &dyn UnitTable) -> Option<Magnitude> {
+        if !self.dim.as_dim().same(other.dim.as_dim())
+            || !self
+                .quantity
+                .as_expr()
+                .converts(other.quantity.as_expr(), table)?
+        {
             return None;
         }
         self.magnitude.checked_div(other.magnitude).ok()
@@ -151,17 +180,21 @@ impl CanonicalUnit {
 
     fn checked_mul(self, other: CanonicalUnit, sign: i16) -> Result<Self> {
         let (a, b) = (self.dim.as_dim(), other.dim.as_dim());
-        let (ka, kb) = (self.kind.as_kind(), other.kind.as_kind());
-        let kind = match sign {
-            1 => ka.mul(a, kb, b),
-            _ => ka.div(a, kb, b),
-        }
-        .into();
         let dim = match sign {
             1 => self.dim.checked_mul(&other.dim),
             _ => self.dim.checked_div(&other.dim),
         }
         .ok_or_else(|| anyhow!("dimension of {self} and {other} combined is out of range"))?;
+        let (qa, qb) = (self.quantity.as_expr(), other.quantity.as_expr());
+        // the rules give a spec of an input or a derived/ratio quantity, never a new spec: no table needed
+        let quantity = match match sign {
+            1 => qa.mul(a, qb, b, dim.as_dim()),
+            _ => qa.div(a, qb, b, dim.as_dim()),
+        } {
+            QuantityExpr::Spec(r) => QuantityExprOwned::Spec(r.id().into()),
+            QuantityExpr::RatioOf(d) => QuantityExprOwned::RatioOf(Box::new(d.into())),
+            QuantityExpr::Derived(d) => QuantityExprOwned::Derived(Box::new(d.into())),
+        };
         let magnitude = match sign {
             1 => self.magnitude.checked_mul(other.magnitude),
             _ => self.magnitude.checked_div(other.magnitude),
@@ -190,7 +223,7 @@ impl CanonicalUnit {
             powers,
             dim,
             magnitude,
-            kind,
+            quantity,
         })
     }
 
@@ -210,12 +243,12 @@ impl CanonicalUnit {
             }
             p.exp_x2 /= 2;
         }
-        let kind = self.kind.as_kind().sqrt().into();
+        let quantity = QuantityExprOwned::Derived(Box::new(dim.clone()));
         Ok(CanonicalUnit {
             powers,
             dim,
             magnitude,
-            kind,
+            quantity,
         })
     }
 }
@@ -389,6 +422,20 @@ impl exact_units::UnitTable for ApiBundleOwned {
             _ => None,
         })
     }
+
+    fn quantity(&self, id: exact_units::MarkerId<'_>) -> Option<exact_units::QuantityDef<'_>> {
+        self.types.iter().find_map(|location| match location {
+            crate::TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(s),
+                ..
+            } => s
+                .marker()?
+                .quantity_def()
+                .filter(|def| def.id.as_id() == id)
+                .map(QuantityDefOwned::as_def),
+            _ => None,
+        })
+    }
 }
 
 /// `exact_units::UnitZero`, the reference of an origin measured from its unit's own zero.
@@ -407,6 +454,42 @@ pub fn marker_id_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<MarkerIdO
         crate_name: bundle.crate_name(s.crate_idx.0)?.replace('-', "_"),
         name: s.ident.clone(),
     })
+}
+
+/// The definition of the quantity marker `ty` (`exact_units::quantity!`, UNIT-8): `Height`, `Resistance`.
+pub fn quantity_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<QuantityDefOwned> {
+    let (s, _) = marker(ty, bundle)?;
+    match definition(s, bundle)? {
+        MarkerDefOwned::Quantity(def) => Ok(def.clone()),
+        _ => bail!("{} is not a quantity", marker_name(s, bundle)?),
+    }
+}
+
+/// The index in `bundle` of the quantity marker `id` (UNIT-8): its definition in line, or skipped under its name
+/// (`quantities::Resistance` of crate `exact_units`). A marker that names a quantity by id
+/// ([MarkerDefOwned::quantity_ref]) keeps it in the bundle, as a reference to a type would.
+pub fn quantity_type_idx(bundle: &ApiBundleOwned, id: &MarkerIdOwned) -> Option<u32> {
+    let of_crate = |crate_idx: u32| {
+        bundle
+            .crate_name(crate_idx)
+            .is_ok_and(|name| name.replace('-', "_") == id.crate_name)
+    };
+    let idx = bundle.types.iter().position(|location| match location {
+        crate::TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(s),
+            ..
+        } => s
+            .marker()
+            .and_then(MarkerDefOwned::quantity_def)
+            .is_some_and(|def| def.id == *id),
+        crate::TypeLocationOwned::SkippedFullVersion {
+            crate_idx,
+            type_name,
+            ..
+        } => of_crate(crate_idx.0) && type_name.rsplit("::").next() == Some(id.name.as_str()),
+        _ => false,
+    })?;
+    Some(idx as u32)
 }
 
 /// The crate and name of the marker struct `ty` is (a generic one's definition for an instance).
@@ -489,23 +572,34 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
             }],
             dim: def.dim.clone(),
             magnitude: def.scale,
-            kind: match &def.quantity {
-                Some(k) => UnitKind::Named(k.clone()),
-                None => UnitKind::Plain,
-            },
+            quantity: QuantityExprOwned::resolve(def.as_def().quantity_expr(), bundle)
+                .with_context(|| format!("unit {}", def.id.as_id()))?,
         }),
         MarkerDefOwned::Per => arg(0)?.checked_mul(arg(1)?, -1),
         MarkerDefOwned::Times => arg(0)?.checked_mul(arg(1)?, 1),
         MarkerDefOwned::Sqrt => arg(0)?.checked_sqrt(),
-        MarkerDefOwned::Phase => {
-            let unit = arg(0)?;
-            if !is_plane_angle(&unit.dim) || unit.kind != UnitKind::Plain {
-                bail!("Phase<{unit}>: {unit} is not a plane angle");
+        MarkerDefOwned::Of => {
+            let q = match args.first() {
+                Some(GenericArgOwned::Type(t)) => quantity_of(t, bundle)?,
+                _ => bail!("{} without its quantity", s.ident),
+            };
+            let unit = arg(1)?;
+            let name = || format!("Of<{}, {unit}>", q.id.name);
+            if !q.dim.as_dim().same(unit.dim.as_dim()) {
+                bail!("{}: the quantity's dimension is not the unit's", name());
             }
-            Ok(CanonicalUnit {
-                kind: UnitKind::Named("phase angle".to_string()),
-                ..unit
-            })
+            if unit.quantity.as_expr().reaches(&q.as_def(), bundle) != Some(true) {
+                bail!(
+                    "{}: the unit's own quantity ({}) doesn't reach it (a sibling, or another kind)",
+                    name(),
+                    unit.quantity
+                );
+            }
+            let quantity = QuantityExprOwned::resolve(
+                QuantityExpr::Spec(QuantityRef::Def(&q.as_def())),
+                bundle,
+            )?;
+            Ok(CanonicalUnit { quantity, ..unit })
         }
         _ => bail!("{} is not a unit", marker_name(s, bundle)?),
     }
@@ -828,7 +922,7 @@ pub fn check_wrapper(
     Ok(())
 }
 
-/// rad¹ and nothing else: the dimension of an `Angle<U>`'s or a `Phase<U>`'s unit.
+/// rad¹ and nothing else: the dimension of an `Angle<U>`'s unit.
 fn is_plane_angle(dim: &DimOwned) -> bool {
     dim.checked_div(&<exact_units::units::Radian as exact_units::Unit>::DIM.into())
         .is_some_and(|rest| rest.as_dim().is_one())

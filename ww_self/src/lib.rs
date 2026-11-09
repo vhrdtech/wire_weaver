@@ -795,9 +795,11 @@ pub enum MarkerDef<'i> {
     /// `exact_units::prefix::Quotient<A, B>`: `A / B`, the scale of a quotient of two `Fixed` values (STD-83):
     /// `Quotient<Milli, Milli>` is 1. A reader from before it gets `Unknown`.
     Quotient,
-    /// `exact_units::units::Phase<A>`: the unit `A` (a plane angle, rad¹) under the kind `phase angle`, so it
-    /// doesn't convert to `A` itself. A reader from before it gets `Unknown`.
-    Phase,
+    /// `exact_units::units::Of<Q, U>` (UNIT-8): the unit `U` measuring the quantity `Q`, a
+    /// [quantity](Self::Quantity) marker of `U`'s dimension: `Of<Height, Meter>` is a height in metres, which
+    /// converts to a length but not to a width. `Phase<A>` is `Of<PhaseAngle, A>`. A reader from before it gets
+    /// `Unknown`.
+    Of,
     /// `exact_units::MaybeNan` (NUM-19): a float `Fixed` without bounds that may hold NaN. Every other bounds marker,
     /// [Self::Unbounded] included, refuses NaN on decode and encode. A reader from before it gets `Unknown`.
     MaybeNan,
@@ -805,6 +807,10 @@ pub enum MarkerDef<'i> {
     /// `Neper`, `Bit`, a user's `Pixel`. The unit whole, as [Self::Unit]; the base it declares is
     /// `BaseDef { id: def.id }`, and its dimension that base to the 1st power. A reader from before it gets `Unknown`.
     Base(exact_units::UnitDef<'i>),
+    /// A quantity of ISO 80000's tree (`exact_units::quantity!`, UNIT-8): `Height`, `Resistance`, a user's
+    /// `BeltTension`; the `Q` of an [Of](Self::Of) and what a [unit](Self::Unit)'s `quantity` names by id. Its parent
+    /// is named by id too: a bundle lists every quantity it names. A reader from before it gets `Unknown`.
+    Quantity(exact_units::QuantityDef<'i>),
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

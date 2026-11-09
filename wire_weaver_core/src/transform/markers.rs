@@ -1,24 +1,25 @@
-//! Unit, scale and origin markers declared with `exact_units::unit!` / `exact_units::scale!` (INT-13) and
-//! `exact_units::origin!` (STD-64).
+//! Unit, scale and origin markers declared with `exact_units::unit!` / `exact_units::scale!` (INT-13),
+//! `exact_units::origin!` (STD-64), and quantity markers declared with `exact_units::quantity!` (UNIT-8).
 //!
 //! The walker reads such an invocation as rustc does: a unit struct per line, with the line's attributes. Each struct
 //! also gets a `#[ww_marker(..)]` attribute holding its line, from which its definition (dimension, scale, symbol)
 //! goes into the API model. The grammar is the one documented at the macros; a line the macros don't accept is an
 //! error here too. An `origin!` declares one struct, `<attrs> <vis> struct <Name> { <keyed fields> }`; its fields
-//! are kept as they are in `#[ww_marker(origin, ..)]`.
+//! are kept as they are in `#[ww_marker(origin, ..)]`. A `quantity!` line is `= [kind] <dimension>[, <character>]`
+//! for a root or `: [kind] <Parent>[, <character>]` for a child, kept with its `=` or `:`.
 
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{
-    BaseExpOwned, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned, Offset,
-    Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, Symbols, UnitDefOwned, UnitNames,
-    UnitNamesOwned,
+    BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned,
+    Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols,
+    UnitDefOwned, UnitNames, UnitNamesOwned,
 };
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, Item, LitInt, LitStr, Token, Visibility, bracketed, parenthesized};
-use ww_self::units::{marker_id_of, origin_of, scale_of, unit_of, unit_zero};
+use ww_self::units::{marker_id_of, origin_of, quantity_of, scale_of, unit_of, unit_zero};
 use ww_self::{ApiBundleOwned, MarkerDefOwned, OriginDefOwned, ScaleDefOwned};
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
@@ -30,6 +31,7 @@ fn marker_macro(item: &syn::ItemMacro) -> Option<MacroKind> {
         "unit" => Some(MacroKind::Unit),
         "scale" => Some(MacroKind::Scale),
         "origin" => Some(MacroKind::Origin),
+        "quantity" => Some(MacroKind::Quantity),
         _ => None,
     }
 }
@@ -39,9 +41,10 @@ pub(crate) enum MacroKind {
     Unit,
     Scale,
     Origin,
+    Quantity,
 }
 
-/// Replaces every `unit!` / `scale!` / `origin!` invocation in `items` (and in inline modules) with the structs it declares.
+/// Replaces every `unit!` / `scale!` / `origin!` / `quantity!` invocation in `items` (and in inline modules) with the structs it declares.
 pub(crate) fn expand_marker_macros(items: &mut Vec<Item>) -> Result<()> {
     let mut expanded = Vec::with_capacity(items.len());
     for mut item in items.drain(..) {
@@ -149,7 +152,8 @@ fn parse_invocation(kind: MacroKind, tokens: TokenStream) -> Result<Vec<MarkerLi
     Ok(syn::parse::Parser::parse2(parser, tokens)?)
 }
 
-/// One line: `<attrs> <vis> struct <Name> = <def>;`.
+/// One line: `<attrs> <vis> struct <Name> = <def>;`, for a `quantity!` line also `: <def>` (the `=` or `:` is kept in
+/// `def`).
 pub(crate) struct MarkerLine {
     attrs: Vec<Attribute>,
     vis: Visibility,
@@ -163,8 +167,12 @@ impl MarkerLine {
         let vis = input.parse()?;
         input.parse::<Token![struct]>()?;
         let ident = input.parse()?;
-        input.parse::<Token![=]>()?;
         let mut def = TokenStream::new();
+        if kind == MacroKind::Quantity && (input.peek(Token![:]) || input.peek(Token![=])) {
+            def.extend([input.parse::<proc_macro2::TokenTree>()?]);
+        } else {
+            input.parse::<Token![=]>()?;
+        }
         while !input.peek(Token![;]) {
             if input.is_empty() {
                 return Err(input.error("expected `;` at the end of the line"));
@@ -179,6 +187,9 @@ impl MarkerLine {
             }
             MacroKind::Scale => {
                 syn::parse2::<ScaleLine>(def.clone())?;
+            }
+            MacroKind::Quantity => {
+                syn::parse2::<QuantityLine>(def.clone())?;
             }
             MacroKind::Origin => unreachable!("an origin! is one OriginDecl"),
         }
@@ -201,6 +212,7 @@ impl MarkerLine {
         let kind = match kind {
             MacroKind::Unit => quote::quote!(unit),
             MacroKind::Scale => quote::quote!(scale),
+            MacroKind::Quantity => quote::quote!(quantity),
             MacroKind::Origin => unreachable!("an origin! is one OriginDecl"),
         };
         syn::parse_quote! {
@@ -572,6 +584,8 @@ pub(crate) enum MarkerLineDef {
     /// The keyed fields of an `origin!`: `unit: Kelvin, symbol: "°C", offset: Offset::decimal(27315, -2)` or
     /// `above: Celsius, offset: ..`.
     Origin(Box<OriginFields>),
+    /// A `quantity!` line.
+    Quantity(QuantityLine),
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -587,7 +601,11 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             "scale" => Ok(MarkerLineDef::Scale(input.parse()?)),
             "hand" => Ok(MarkerLineDef::Hand(input.parse::<Ident>()?.to_string())),
             "origin" => Ok(MarkerLineDef::Origin(Box::new(input.parse()?))),
-            _ => Err(syn::Error::new(kind.span(), "unit, scale, hand or origin")),
+            "quantity" => Ok(MarkerLineDef::Quantity(input.parse()?)),
+            _ => Err(syn::Error::new(
+                kind.span(),
+                "unit, scale, hand, origin or quantity",
+            )),
         }
     })?;
     Ok(Some(def))
@@ -613,9 +631,36 @@ static BUILT_IN: [(&str, MarkerDefOwned); 19] = [
     ("Saturating", MarkerDefOwned::Saturating),
     ("Product", MarkerDefOwned::Product),
     ("Quotient", MarkerDefOwned::Quotient),
-    ("Phase", MarkerDefOwned::Phase),
+    ("Of", MarkerDefOwned::Of),
     ("MaybeNan", MarkerDefOwned::MaybeNan),
 ];
+
+/// Resolves what a marker line names elsewhere, as types of the crate it is declared in.
+pub(crate) trait MarkerRefs {
+    /// The definition of an `origin!` with `fields`, its id left empty ([origin_def]).
+    fn origin(&mut self, fields: &OriginFields) -> Result<OriginDefOwned>;
+    /// The definition of the quantity marker `ty` names (a unit line's `quantity X`, a quantity's parent), the
+    /// marker converted so that the bundle lists it.
+    fn quantity(&mut self, ty: &syn::Type) -> Result<QuantityDefOwned>;
+}
+
+/// [MarkerRefs] in `current_crate`: the types converted into the root bundle and resolved through their own
+/// definitions.
+pub(crate) struct CrateRefs<'a, 'b> {
+    pub(crate) current_crate: &'a CrateContext,
+    pub(crate) scratch: &'b mut Scratch,
+}
+
+impl MarkerRefs for CrateRefs<'_, '_> {
+    fn origin(&mut self, fields: &OriginFields) -> Result<OriginDefOwned> {
+        origin_def(fields, self.current_crate, self.scratch)
+    }
+
+    fn quantity(&mut self, ty: &syn::Type) -> Result<QuantityDefOwned> {
+        let ty = convert_ty(ty, self.current_crate, self.scratch)?;
+        quantity_of(&ty, &self.scratch.root_bundle.to_bundle())
+    }
+}
 
 /// The crate whose markers [BUILT_IN] names.
 const EXACT_UNITS: &str = "exact_units";
@@ -625,12 +670,12 @@ const EXACT_UNITS: &str = "exact_units";
 ///
 /// [ItemStructOwned::marker]: ww_self::ItemStructOwned::marker
 ///
-/// An `origin!` is resolved by `origin`: its unit, reference, modulus and parent are types to convert, see
-/// [origin_def].
+/// What a marker names elsewhere is resolved through `refs`: an `origin!`'s unit, reference, modulus and parent
+/// ([origin_def]), a unit line's quantity and a quantity's parent ([MarkerRefs::quantity]).
 pub(crate) fn marker_def(
     item_struct: &syn::ItemStruct,
     crate_name: &str,
-    origin: &mut dyn FnMut(&OriginFields) -> Result<OriginDefOwned>,
+    refs: &mut dyn MarkerRefs,
 ) -> Result<Option<MarkerDefOwned>> {
     let crate_name = crate_name.replace('-', "_");
     let ident = item_struct.ident.to_string();
@@ -671,11 +716,28 @@ pub(crate) fn marker_def(
                 }
             };
             let names = line.names.to_owned(&line.symbol, &line.dim, &line.scale);
+            let quantity = match &line.quantity {
+                Some(q) => {
+                    let q = refs
+                        .quantity(q)
+                        .with_context(|| format!("the quantity of unit marker {ident}"))?;
+                    if !q.dim.as_dim().same(dim.as_dim()) {
+                        bail!(
+                            "unit marker {ident} of dimension {} measures {}, of dimension {}",
+                            dim.as_dim(),
+                            q.id.name,
+                            q.dim.as_dim()
+                        );
+                    }
+                    Some(q.id)
+                }
+                None => None,
+            };
             let def = UnitDefOwned {
                 id: id(),
                 names,
                 dim,
-                quantity: line.kind,
+                quantity,
                 scale,
                 provenance: match line.provenance {
                     Some((source, year)) => ProvenanceOwned::Conventional { source, year },
@@ -722,8 +784,41 @@ pub(crate) fn marker_def(
         }
         MarkerLineDef::Origin(fields) => MarkerDefOwned::Origin(OriginDefOwned {
             id: id(),
-            ..origin(&fields).with_context(|| format!("origin marker {ident}"))?
+            ..refs
+                .origin(&fields)
+                .with_context(|| format!("origin marker {ident}"))?
         }),
+        MarkerLineDef::Quantity(line) => {
+            let (parent, dim, is_kind, character) = match line {
+                QuantityLine::Root {
+                    is_kind,
+                    dim,
+                    character,
+                } => {
+                    let dim = dim
+                        .to_owned(&crate_name, &ident)
+                        .with_context(|| format!("quantity marker {ident}"))?;
+                    (None, dim, is_kind, character)
+                }
+                QuantityLine::Child {
+                    is_kind,
+                    parent,
+                    character,
+                } => {
+                    let parent = refs
+                        .quantity(&parent)
+                        .with_context(|| format!("the parent of quantity marker {ident}"))?;
+                    (Some(parent.id), parent.dim, is_kind, character)
+                }
+            };
+            MarkerDefOwned::Quantity(QuantityDefOwned {
+                id: id(),
+                parent,
+                dim,
+                is_kind,
+                character,
+            })
+        }
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
@@ -761,15 +856,16 @@ fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
         .map_err(|e| anyhow!("{} / {} · {powers:?}: {e:?}", m.num, m.den))
 }
 
-/// `"<symbol>" [(<names>)], <dimension>[ kind "<kind>"][, <scale>]` of a `unit!` line.
+/// `"<symbol>" [(<names>)], <dimension>[ quantity <Quantity>][, <scale>]` of a `unit!` line.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct UnitLine {
     pub(crate) symbol: String,
     /// The names in parentheses after the symbol (exact_units IO-9), all left out when there are none.
     pub(crate) names: NamesLine,
     pub(crate) dim: DimLine,
-    /// `kind "resistance"` after the dimension: a kind of quantity of its own (STD-68).
-    pub(crate) kind: Option<String>,
+    /// `quantity crate::quantities::Resistance` after the dimension: the quantity the unit measures (UNIT-8), a
+    /// path to a quantity marker.
+    pub(crate) quantity: Option<syn::Type>,
     pub(crate) scale: UnitScaleLine,
     /// `conventional("<source>", <year>)` after the scale: a value a source prints, not a definition.
     pub(crate) provenance: Option<(String, u16)>,
@@ -1021,47 +1117,7 @@ impl Parse for UnitLine {
         let dim = if input.peek(syn::token::Bracket) {
             let content;
             bracketed!(content in input);
-            let mut exps = Vec::new();
-            while !content.is_empty() {
-                let base: Ident = content.parse()?;
-                let name = base.to_string();
-                if !TRUE_BASES.contains(&name.as_str()) && name != "rad" && name != "bit" {
-                    return Err(syn::Error::new(
-                        base.span(),
-                        format!(
-                            "a base of a dimension is one of {}, rad or bit",
-                            TRUE_BASES.join(", ")
-                        ),
-                    ));
-                }
-                if exps.iter().any(|(b, _)| *b == name) {
-                    return Err(syn::Error::new(
-                        base.span(),
-                        "a base twice in the dimension of a unit! line",
-                    ));
-                }
-                let n = parse_i8(&content)?;
-                let e = if content.peek(Token![/]) {
-                    content.parse::<Token![/]>()?;
-                    let two: LitInt = content.parse()?;
-                    if two.base10_parse::<u8>()? != 2 {
-                        return Err(syn::Error::new(
-                            two.span(),
-                            "an exponent of a dimension is whole or a half: n or n/2",
-                        ));
-                    }
-                    Exp::from_halves(n)
-                } else {
-                    Exp::checked_int(n).ok_or_else(|| {
-                        syn::Error::new(base.span(), "exponent of a dimension out of -64..=63")
-                    })?
-                };
-                exps.push((name, e));
-                if !content.is_empty() {
-                    content.parse::<Token![,]>()?;
-                }
-            }
-            DimLine::Exps(exps)
+            DimLine::Exps(parse_exps(&content)?)
         } else {
             let word: Ident = input.parse()?;
             if word != "base" {
@@ -1079,15 +1135,15 @@ impl Parse for UnitLine {
             };
             DimLine::Base(base)
         };
-        let kind = if input.peek(Ident) {
+        let quantity = if input.peek(Ident) {
             let word: Ident = input.parse()?;
-            if word != "kind" {
+            if word != "quantity" {
                 return Err(syn::Error::new(
                     word.span(),
-                    "after the dimension only `kind \"<name>\"`",
+                    "after the dimension only `quantity <Quantity>`",
                 ));
             }
-            Some(input.parse::<LitStr>()?.value())
+            Some(type_path(input)?)
         } else {
             None
         };
@@ -1138,10 +1194,130 @@ impl Parse for UnitLine {
             symbol,
             names,
             dim,
-            kind,
+            quantity,
             scale,
             provenance,
         })
+    }
+}
+
+/// The exponents in the brackets of a dimension: `s 1, m -2, rad 1, kg 1/2`.
+fn parse_exps(input: ParseStream) -> syn::Result<Vec<(String, Exp)>> {
+    let mut exps = Vec::new();
+    while !input.is_empty() {
+        let base: Ident = input.parse()?;
+        let name = base.to_string();
+        if !TRUE_BASES.contains(&name.as_str()) && name != "rad" && name != "bit" {
+            return Err(syn::Error::new(
+                base.span(),
+                format!(
+                    "a base of a dimension is one of {}, rad or bit",
+                    TRUE_BASES.join(", ")
+                ),
+            ));
+        }
+        if exps.iter().any(|(b, _)| *b == name) {
+            return Err(syn::Error::new(base.span(), "a base twice in a dimension"));
+        }
+        let n = parse_i8(input)?;
+        let e = if input.peek(Token![/]) {
+            input.parse::<Token![/]>()?;
+            let two: LitInt = input.parse()?;
+            if two.base10_parse::<u8>()? != 2 {
+                return Err(syn::Error::new(
+                    two.span(),
+                    "an exponent of a dimension is whole or a half: n or n/2",
+                ));
+            }
+            Exp::from_halves(n)
+        } else {
+            Exp::checked_int(n).ok_or_else(|| {
+                syn::Error::new(base.span(), "exponent of a dimension out of -64..=63")
+            })?
+        };
+        exps.push((name, e));
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+        }
+    }
+    Ok(exps)
+}
+
+/// A path to a marker, as a type: `crate::quantities::Resistance`, `Length`.
+fn type_path(input: ParseStream) -> syn::Result<syn::Type> {
+    let path = input.call(syn::Path::parse_mod_style)?;
+    Ok(syn::parse_quote!(#path))
+}
+
+/// `= [kind] [<exponents>][, <character>]` (a root) or `: [kind] <Parent>[, <character>]` (a child) of a
+/// `quantity!` line.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum QuantityLine {
+    /// A root, with its dimension.
+    Root {
+        is_kind: bool,
+        dim: DimLine,
+        character: Character,
+    },
+    /// A child of `parent`, of its dimension.
+    Child {
+        is_kind: bool,
+        parent: syn::Type,
+        character: Character,
+    },
+}
+
+impl Parse for QuantityLine {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let root = input.peek(Token![=]);
+        if root {
+            input.parse::<Token![=]>()?;
+        } else {
+            input.parse::<Token![:]>()?;
+        }
+        let is_kind = input.peek(Ident) && input.fork().parse::<Ident>()? == "kind";
+        if is_kind {
+            input.parse::<Ident>()?;
+        }
+        let mut line = match root {
+            true if input.peek(syn::token::Bracket) => {
+                let content;
+                bracketed!(content in input);
+                QuantityLine::Root {
+                    is_kind,
+                    dim: DimLine::Exps(parse_exps(&content)?),
+                    character: Character::Scalar,
+                }
+            }
+            true => {
+                return Err(input.error("a root quantity's dimension is `[<base> <exponent>, ..]`"));
+            }
+            false => QuantityLine::Child {
+                is_kind,
+                parent: type_path(input)?,
+                character: Character::Scalar,
+            },
+        };
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            let word: Ident = input.parse()?;
+            let (QuantityLine::Root { character, .. } | QuantityLine::Child { character, .. }) =
+                &mut line;
+            *character = match word.to_string().as_str() {
+                "complex" => Character::Complex,
+                "vector" => Character::Vector,
+                _ => {
+                    return Err(syn::Error::new(
+                        word.span(),
+                        "a quantity's character is `complex` or `vector` (scalar without)",
+                    ));
+                }
+            };
+        }
+        if !input.is_empty() {
+            return Err(input.error("unexpected tokens after the quantity's character"));
+        }
+        Ok(line)
     }
 }
 
@@ -1411,6 +1587,17 @@ mod tests {
                 "{name}"
             );
         }
+        // UNIT-8: each `quantity!` line, its parent by id
+        for compiled in exact_units::quantities::ALL {
+            let name = compiled.id.name;
+            let Some(MarkerDefOwned::Quantity(def)) = markers.remove(name) else {
+                panic!("{name}: no quantity definition in the model");
+            };
+            let compiled = QuantityDefOwned::from(**compiled);
+            assert_eq!(def.parent, compiled.parent, "{name}: parent");
+            assert_eq!(dim_bytes(&def.dim), dim_bytes(&compiled.dim), "{name}: dim");
+            assert_eq!(def, compiled, "{name}");
+        }
         for (name, def) in BUILT_IN.iter().cloned() {
             assert_eq!(markers.remove(name), Some(def), "{name}");
         }
@@ -1455,8 +1642,17 @@ mod tests {
         file.items
     }
 
-    fn no_origin(_: &OriginFields) -> Result<OriginDefOwned> {
-        bail!("no origins here")
+    /// Resolves nothing: the lines tested name no origin parts and no quantities.
+    struct NoRefs;
+
+    impl MarkerRefs for NoRefs {
+        fn origin(&mut self, _: &OriginFields) -> Result<OriginDefOwned> {
+            bail!("no origins here")
+        }
+
+        fn quantity(&mut self, _: &syn::Type) -> Result<QuantityDefOwned> {
+            bail!("no quantities here")
+        }
     }
 
     #[test]
@@ -1577,7 +1773,7 @@ mod tests {
                 symbol: "rpm".into(),
                 names: NamesLine::default(),
                 dim: DimLine::Exps(vec![("rad".into(), Exp::ONE), ("s".into(), Exp::int(-1))]),
-                kind: None,
+                quantity: None,
                 scale: UnitScaleLine::Exact(MagnitudeLine {
                     num: 1,
                     den: 30,
@@ -1638,7 +1834,7 @@ mod tests {
             .iter()
             .map(|item| {
                 let Item::Struct(s) = item else { panic!() };
-                marker_def(s, "my_api", &mut no_origin).unwrap().unwrap()
+                marker_def(s, "my_api", &mut NoRefs).unwrap().unwrap()
             })
             .collect();
         let compiled_crate = env!("CARGO_CRATE_NAME");
@@ -1743,19 +1939,19 @@ mod tests {
                 _ => None,
             })
             .collect();
-        let err = marker_def(structs[0], "my-api", &mut no_origin)
+        let err = marker_def(structs[0], "my-api", &mut NoRefs)
             .unwrap_err()
             .to_string();
         assert!(
             err.contains("Rpm") && err.contains("my_api") && err.contains("unit!"),
             "{err}"
         );
-        let err = marker_def(structs[1], "my_api", &mut no_origin)
+        let err = marker_def(structs[1], "my_api", &mut NoRefs)
             .unwrap_err()
             .to_string();
         assert!(err.contains("Lsb") && err.contains("scale!"), "{err}");
         assert!(
-            marker_def(structs[2], "my_api", &mut no_origin)
+            marker_def(structs[2], "my_api", &mut NoRefs)
                 .unwrap()
                 .is_none()
         );
@@ -1778,7 +1974,15 @@ mod tests {
             r#"scale! { pub struct A = "a", Factor(2.0); }"#,
             r#"unit! { pub struct A = "a", [s 1], Factor(2.0); }"#,
             r#"unit! { pub struct A = "a", [s 1] knd "x"; }"#,
-            r#"unit! { pub struct A = "a", [s 1] kind x; }"#,
+            r#"unit! { pub struct A = "a", [s 1] kind "x"; }"#,
+            r#"unit! { pub struct A = "a", [s 1] quantity "x"; }"#,
+            r#"quantity! { pub struct A = [q 1]; }"#,
+            r#"quantity! { pub struct A = kind; }"#,
+            r#"quantity! { pub struct A = Length; }"#,
+            r#"quantity! { pub struct A: [m 1]; }"#,
+            r#"quantity! { pub struct A: Length, scalar; }"#,
+            r#"quantity! { pub struct A = [m 1], complex vector; }"#,
+            r#"quantity! { pub struct A; }"#,
             r#"unit! { pub struct A = "a", [s 1] }"#,
             r#"unit! { pub struct DegC = "°C", [k 1], Affine { factor: 1.0, offset: 273.15 }; }"#,
         ] {

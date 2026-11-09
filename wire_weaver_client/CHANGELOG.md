@@ -77,6 +77,7 @@
 
 ### 🚀 Features
 
+- `units::Of<Q, U>` (exact_units UNIT-8) is shown and converted as `U` by `quantity::DynUnit`, as its `UnitExpr` is `U`'s; the quantity is in the model (`ww_self::units::CanonicalUnit::quantity`).
 - A host speaking several wire lines of one API (EVO-28): `ClientConfig::speaks(ClientLine)` adds a line from a generated client's `client_line()`; the first call sets the version and introspection data as `client_version` and `introspect_client` do. Link setup takes a device on any of the lines and sends the version of that line's client, the Commander gets that line's introspection data, so a facade bundling clients of several lines connects once and picks its client in `WwClient::from_cmd` by `DeviceApiInfo::user_api_wire`. A line of another API, or two clients of one line, are refused when connecting. New `ClientApi::wires` and `ClientApi::for_device`. See `tests/thermo`.
 - The hub preamble carries this program's generations (EVO-23, `TAG_GENERATIONS`), which the hub serves by.
 - Compressed introspection data (INT-16): downloads (`Introspect::get`, `download`, the blocking ones, promises), the connection's introspection at link setup, `decode_introspection`, `ww tap`'s bundles and an embedded client bundle are decompressed when they are compressed (`ww_self::compressed`, told apart by the first bytes); data that is neither a bundle nor compressed is an error naming its magic. Hashes are checked and bundles cached over the decompressed bytes, so a compressed device shares cache entries with a plain one of the same API.

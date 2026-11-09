@@ -48,6 +48,10 @@ mod tests {
     type Power = Fixed<units::Watt, Product<Milli, Milli>, i32>;
     /// mV per µA (STD-83)
     type Transimpedance = Fixed<Per<units::Volt, units::Ampere>, Quotient<Milli, Micro>, i32>;
+    type Height = Fixed<units::Of<ww_si::quantities::Height, units::Meter>, Milli, u16>;
+    type Width = Fixed<units::Of<ww_si::quantities::Width, units::Meter>, Milli, u16>;
+    type Shunt = Fixed<units::Ohm, Milli, u16>;
+    type NcoPhase = Fixed<units::Phase<units::Degree>, Centi, u16>;
 
     struct Values {
         voltage: Volt,
@@ -533,6 +537,34 @@ mod tests {
             ) -> GetResult<Transimpedance, ()> {
                 GetResult::Value(Transimpedance::new(47))
             }
+
+            fn get_height(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Height, ()> {
+                GetResult::Value(Height::new(1750))
+            }
+
+            fn get_width(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Width, ()> {
+                GetResult::Value(Width::new(600))
+            }
+
+            fn get_shunt(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Shunt, ()> {
+                GetResult::Value(Shunt::new(100))
+            }
+
+            fn get_phase(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<NcoPhase, ()> {
+                GetResult::Value(NcoPhase::new(9000))
+            }
         }
 
         pub mod api_impl {
@@ -731,8 +763,8 @@ mod tests {
         assert_eq!(volt.to_string(), "V");
         // a different unit of another dimension: no factor between them
         assert_ne!(rpm, volt);
-        assert_eq!(rpm.factor_to(&volt), None);
-        assert_eq!(rpm.factor_to(&rpm), Some(Magnitude::ONE));
+        assert_eq!(rpm.factor_to(&volt, &**bundle), None);
+        assert_eq!(rpm.factor_to(&rpm, &**bundle), Some(Magnitude::ONE));
         // scales: a prefix, a full-scale step, a scale marker of the API's crate
         let mut scales = Vec::new();
         for name in ["timeout", "adc", "gyro", "power", "transimpedance"] {
@@ -778,7 +810,7 @@ mod tests {
         let one = ww_self::units::CanonicalUnit::one();
         assert_eq!(one.to_string(), "1");
         // a dimensionless ratio converts into rpm by nothing: the dimensions differ
-        assert_eq!(one.factor_to(&rpm), None);
+        assert_eq!(one.factor_to(&rpm, &**bundle), None);
         // Ratio is no named unit of the product: (1/s)·m is m·s⁻¹
         let (_, belt) = read(&client, &root, "belt").await;
         let Ok(TypeOwned::Struct(f)) = belt.get_in_line(bundle) else {
@@ -791,6 +823,70 @@ mod tests {
         assert_eq!(belt.to_string(), "m·s⁻¹");
         let names: Vec<_> = belt.powers.iter().map(|p| p.marker.name.as_str()).collect();
         assert_eq!(names, ["units::Meter", "units::Second"]);
+    }
+
+    /// UNIT-8: a unit that measures a quantity of ISO 80000's tree carries it in the model, by the quantity
+    /// marker's id, and the bundle lists every quantity it names with its parents; `Of<Q, U>` is `U` measuring `Q`.
+    /// A height converts to nothing but a height (a width is another quantity of one dimension), `Ohm` is a resistance
+    /// that `Per<Volt, Ampere>` is not, `Phase<Degree>` a phase angle.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn quantities_of_the_model() {
+        use ww_self::units::QuantityExprOwned;
+        let (device, _values) = start("quantities/quantity_specs");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let mut units = Vec::new();
+        for name in ["height", "width", "shunt", "phase", "transimpedance"] {
+            let (_, ty) = read(&client, &root, name).await;
+            let Ok(TypeOwned::Struct(f)) = ty.get_in_line(bundle) else {
+                panic!("Fixed");
+            };
+            let Some(GenericArgOwned::Type(u)) = f.instance_of.as_ref().unwrap().args.first()
+            else {
+                panic!("Fixed<U, ..>");
+            };
+            units.push(ww_self::units::unit_of(u, bundle).unwrap());
+        }
+        let [height, width, shunt, phase, transimpedance]: [_; 5] = units.try_into().unwrap();
+        let spec = |name: &str| {
+            QuantityExprOwned::Spec(ww_si::MarkerIdOwned {
+                crate_name: "exact_units".into(),
+                name: name.into(),
+            })
+        };
+        assert_eq!(height.quantity, spec("Height"));
+        assert_eq!(width.quantity, spec("Width"));
+        assert_eq!(shunt.quantity, spec("Resistance"));
+        assert_eq!(phase.quantity, spec("PhaseAngle"));
+        assert!(transimpedance.quantity.is_derived());
+        // the same metre, two quantities: printed alike, not the same unit, no factor either way
+        assert_eq!(height.to_string(), width.to_string());
+        assert_ne!(height, width);
+        assert_eq!(height.factor_to(&width, &**bundle), None);
+        assert_eq!(height.factor_to(&height, &**bundle), Some(Magnitude::ONE));
+        assert_eq!(shunt.factor_to(&transimpedance, &**bundle), None);
+        // the bundle lists Height's parent, so a walk up the tree needs no table of the client's own
+        let length = ww_si::MarkerId {
+            crate_name: "exact_units",
+            name: "Length",
+        };
+        let length = ww_si::UnitTable::quantity(&**bundle, length).expect("Length in the bundle");
+        assert!(length.is_open_root());
+        // a height is a length: up the tree converts, to the dimension's open root and so to a plain metre
+        assert_eq!(
+            height
+                .quantity
+                .as_expr()
+                .converts(ww_si::QuantityExpr::Derived(length.dim), &**bundle),
+            Some(true)
+        );
+        assert_eq!(
+            width
+                .quantity
+                .as_expr()
+                .converts(height.quantity.as_expr(), &**bundle),
+            Some(false)
+        );
     }
 
     /// INT-13: the origins of points come with their definitions, an origin of the API's crate declared above °C
@@ -1371,7 +1467,7 @@ mod tests {
     async fn fixed_shown_as_typed() {
         let (device, _values) = start("quantities/fixed_shown");
         let (client, root) = connect(&device).await;
-        let typed: [(&str, String, String); 9] = [
+        let typed: [(&str, String, String); 12] = [
             (
                 "timeout",
                 Timeout::new(250).to_string(),
@@ -1416,6 +1512,21 @@ mod tests {
                 "transimpedance",
                 Transimpedance::new(47).to_string(),
                 format!("{:#}", Transimpedance::new(47)),
+            ),
+            (
+                "height",
+                Height::new(1750).to_string(),
+                format!("{:#}", Height::new(1750)),
+            ),
+            (
+                "shunt",
+                Shunt::new(100).to_string(),
+                format!("{:#}", Shunt::new(100)),
+            ),
+            (
+                "phase",
+                NcoPhase::new(9000).to_string(),
+                format!("{:#}", NcoPhase::new(9000)),
             ),
         ];
         for (name, shown, alternate) in typed {

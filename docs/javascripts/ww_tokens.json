@@ -32,7 +32,7 @@
     "Degree", "DegreeCelsius", "Doubleword", "ElectronVolt", "Entry", "Farad", "Frame", "Gram",
     "Gray", "Halfword", "Henry", "Hertz", "HertzPerSecond", "Hour", "Item", "Jerk", "Joule",
     "Katal", "Kelvin", "Line", "Litre", "Lumen", "Lux", "Meter", "Minute", "Mole", "Newton",
-    "Nibble", "Ohm", "Packet", "Pascal", "Per", "Phase", "Radian", "Ratio", "Record", "Row",
+    "Nibble", "Of", "Ohm", "Packet", "Pascal", "Per", "Phase", "Radian", "Ratio", "Record", "Row",
     "Sample", "Second", "Sector", "Siemens", "Sievert", "Snap", "Speed", "Sqrt", "Steradian",
     "Tesla", "Times", "Torque", "Turn", "Var", "Volt", "VoltAmpere", "VolumetricFlow", "Watt",
     "Weber", "Week", "Word", "Yank"

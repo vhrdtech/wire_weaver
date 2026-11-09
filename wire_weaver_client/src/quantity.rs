@@ -1169,6 +1169,13 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
                 if g.marker() == Some(&def))
                 || is_ww_si(inst.type_idx.0, units, name, bundle)
         };
+        if let [GenericArgOwned::Type(_), GenericArgOwned::Type(u)] = inst.args.as_slice()
+            && is(MarkerDefOwned::Of, "Of")
+        {
+            // `Of<Q, U>` (UNIT-8) is written and shown as `U`, as its `UnitExpr` is: the quantity is in the type and
+            // the model (`ww_self::units::CanonicalUnit::quantity`), not in a value's unit
+            return unit(u, bundle, depth + 1);
+        }
         if let [GenericArgOwned::Type(a), GenericArgOwned::Type(b)] = inst.args.as_slice() {
             let (a, b) = (
                 Box::new(unit(a, bundle, depth + 1)),
@@ -1326,6 +1333,7 @@ mod tests {
     struct Square;
 
     impl Unit for Square {
+        type Bare = Self;
         const DIM: ww_si::Dim<'static> = ww_si::Dim::new(0, 2, 0, 0, 0, 0, 0);
         const EXPR: &'static UnitExpr = &UnitExpr::Pow(<Meter as Unit>::EXPR, 2);
         const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Pow(

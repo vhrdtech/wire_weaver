@@ -1609,9 +1609,9 @@
     {
       "name": "stdlib.si.si_expr.sqrt",
       "type": "si_expr",
-      "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}, {"Sqrt": {"Def": {"id": {"crate_name": "exact_units", "name": "Hertz"}, "names": {"symbol": "Hz", "ascii": null, "long": "hertz", "plural": "hertz", "aliases": "", "ucum": "Hz", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}}]},
-      "bytes": "300065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d500065786163745f756e697473486572747a487a00686572747a686572747a80487a120552300000000000001073a5396d0e2e5d",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}, {"Sqrt": {"Def": {"id": {"crate_name": "exact_units", "name": "Hertz"}, "names": {"symbol": "Hz", "ascii": null, "long": "hertz", "plural": "hertz", "aliases": "", "ucum": "Hz", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": {"crate_name": "exact_units", "name": "Frequency"}, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}}]},
+      "bytes": "300065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d500065786163745f756e697473486572747a487a00686572747a686572747a80487a1205523000000865786163745f756e6974734672657175656e637900000011939073a5390489078902995d",
+      "wire_change": "EVO-45 / exact_units UNIT-8: Hertz's UnitDef names its quantity, exact_units::Frequency, by id; before it, EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "V/√Hz as Per<Volt, Sqrt<Hertz>>: Div is variant 3, the Sqrt node variant 5 (STD-55, EVO-16, EVO-36)"
     },
@@ -1688,11 +1688,11 @@
     {
       "name": "model.marker_def.unit_kind",
       "type": "marker_def",
-      "value": {"Unit": {"id": {"crate_name": "exact_units", "name": "Ohm"}, "names": {"symbol": "Ω", "ascii": null, "long": "ohm", "plural": "ohms", "aliases": "", "ucum": "Ohm", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -4}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": "resistance", "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
-      "bytes": "0065786163745f756e6974734f686dcea9006f686d6f686d73804f686d130432b181470008726573697374616e6365000000129071a3396e",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Unit": {"id": {"crate_name": "exact_units", "name": "Ohm"}, "names": {"symbol": "Ω", "ascii": null, "long": "ohm", "plural": "ohms", "aliases": "", "ucum": "Ohm", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -4}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": {"crate_name": "exact_units", "name": "Resistance"}, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
+      "bytes": "0065786163745f756e6974734f686dcea9006f686d6f686d73804f686d130432b18147000865786163745f756e697473526573697374616e636500000012939071a3390289",
+      "wire_change": "EVO-45 / exact_units UNIT-8: a UnitDef names its quantity by the quantity marker's MarkerId (crate and name), not by an English name; before it, EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
-      "note": "a unit of a kind of quantity of its own (STD-68): Ohm's UnitDef names the quantity resistance, which Per<Volt, Ampere> (a transimpedance) of the same dimension is not (STD-106)"
+      "note": "a unit of a kind of quantity of its own (STD-68, UNIT-8): Ohm's UnitDef names the quantity exact_units::Resistance by its id, which Per<Volt, Ampere> (a transimpedance) of the same dimension is not (STD-106)"
     },
     {
       "name": "model.marker_def.base",
@@ -1762,6 +1762,30 @@
       "wire_change": "EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106)",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "exact_units' MaybeNan bound (NUM-19, STD-105): the variant alone; a reader from before it gets Unknown"
+    },
+    {
+      "name": "model.marker_def.of",
+      "type": "marker_def",
+      "value": "Of",
+      "bytes": "c2",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' generic units::Of<Q, U>, the unit U measuring the quantity Q (UNIT-8, EVO-45): the variant alone, Q (a quantity marker) and U come from the instance's arguments; Phase<A> is Of<PhaseAngle, A>; a reader from before it gets Unknown"
+    },
+    {
+      "name": "model.marker_def.quantity",
+      "type": "marker_def",
+      "value": {"Quantity": {"id": {"crate_name": "exact_units", "name": "Height"}, "parent": {"crate_name": "exact_units", "name": "Length"}, "dim": {"exps": [{"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "is_kind": false, "character": "Scalar"}},
+      "bytes": "f265786163745f756e6974734865696768748065786163745f756e6974734c656e6774680400000000076396394d",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a quantity of ISO 80000's tree (quantity! line `pub struct Height: Length;`, UNIT-8, EVO-45): its id, its parent by id, its parent's dimension, not a kind of its own, scalar"
+    },
+    {
+      "name": "model.marker_def.quantity_kind",
+      "type": "marker_def",
+      "value": {"Quantity": {"id": {"crate_name": "exact_units", "name": "Activity"}, "parent": null, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "is_kind": true, "character": "Scalar"}},
+      "bytes": "f265786163745f756e697473416374697669747903000000800709393b",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a root quantity that is a kind of its own (quantity! line `pub struct Activity = kind [s -1];`, UNIT-8, EVO-45): no parent, its dimension s⁻¹, so Bq doesn't convert to Hz"
     },
     {
       "name": "model.item_struct_extra.transparent",

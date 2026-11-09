@@ -33,7 +33,7 @@ mod exact;
 pub use exact::Steps;
 mod fixed;
 pub use fixed::UnknownScale;
-mod quantity;
+mod quantity_impl;
 mod scale;
 pub use scale::ToIn;
 #[cfg(feature = "time")]
@@ -47,17 +47,18 @@ pub use timestamp::{UnwrapError, Unwrapper};
 
 pub use exact_units;
 pub use exact_units::{
-    BaseDef, BaseExp, Bases, Bounds, CompactError, Count, DecimalPrefix, Dim, DimWire, Exp, Fixed,
-    FixedScale, MAX_TRUE_BASES, MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin,
-    OutOfBounds, Overflow, Point, PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, Range,
-    RangeDec, RangeU64, Repr, Rounding, SIExpr, Storage, Unbounded, Unit, UnitDef, UnitDiv,
-    UnitExpr, UnitMul, UnitNames, UnitTable, UnsignedStorage, base, origin, origins, prefix, scale,
-    unit, units,
+    BaseDef, BaseExp, Bases, Bounds, Character, CompactError, Count, DecimalPrefix, Dim, DimWire,
+    Exp, Fixed, FixedScale, MAX_TRUE_BASES, MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset,
+    Origin, OutOfBounds, Overflow, Point, PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance,
+    QuantityDef, QuantityExpr, QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Repr,
+    Rounding, SIExpr, Storage, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul, UnitNames,
+    UnitTable, UnsignedStorage, base, origin, origins, prefix, quantities, quantity, scale, unit,
+    units,
 };
 #[cfg(feature = "std")]
 pub use exact_units::{
     BaseDefOwned, BaseExpOwned, DimOwned, DimWireOwned, MarkerIdOwned, ProvenanceOwned,
-    SIExprOwned, UnitDefOwned, UnitNamesOwned,
+    QuantityDefOwned, QuantityRefOwned, SIExprOwned, UnitDefOwned, UnitNamesOwned,
 };
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};

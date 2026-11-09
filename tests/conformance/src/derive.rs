@@ -996,6 +996,15 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.origin", celsius()),
         case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
         case("model.marker_def.maybe_nan", ww_self::MarkerDefOwned::MaybeNan),
+        case("model.marker_def.of", ww_self::MarkerDefOwned::Of),
+        case(
+            "model.marker_def.quantity",
+            quantity_def::<ww_si::quantities::Height>(),
+        ),
+        case(
+            "model.marker_def.quantity_kind",
+            quantity_def::<ww_si::quantities::Activity>(),
+        ),
         case(
             "model.item_struct_extra.transparent",
             ww_self::ItemStructExtraOwned {
@@ -1132,6 +1141,11 @@ fn unit_def<U: ww_si::Unit>() -> ww_si::exact_units::UnitDefOwned {
     (*U::EXPR.def().expect("a named unit")).into()
 }
 
+/// `exact_units`' definition of the quantity `Q`, as the walker puts it into the model: its parent by id.
+fn quantity_def<Q: ww_si::QuantitySpec>() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Quantity((*Q::DEF).into())
+}
+
 /// A user's `unit!(Rpm, "rpm", ..)` of crate `my_api`: rad/s times π/30.
 fn rpm() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Unit(ww_si::exact_units::UnitDefOwned {
@@ -1159,7 +1173,8 @@ fn inch_of_mercury_32f() -> ww_self::MarkerDefOwned {
     })
 }
 
-/// `unit!(Ohm, "Ω", [..] kind "resistance")`: a unit of a kind of its own (STD-68), no `Per<Volt, Ampere>`.
+/// `Ohm`'s `unit!` line with `quantity crate::quantities::Resistance`: a unit of a quantity of its own (STD-68,
+/// UNIT-8), no `Per<Volt, Ampere>`.
 fn ohm() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Unit(unit_def::<ww_si::units::Ohm>())
 }

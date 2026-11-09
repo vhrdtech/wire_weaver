@@ -473,7 +473,20 @@ fn drop_unused(bundle: &mut ApiBundleOwned, keep_own_types: bool) {
     loop {
         if let Some(idx) = refs.types.pop() {
             if !std::mem::replace(&mut used_types[idx as usize], true) {
-                refs.visit_type_location(&bundle.types[idx as usize]);
+                let location = &bundle.types[idx as usize];
+                refs.visit_type_location(location);
+                // a quantity named by id (UNIT-8) stays as a referenced type does
+                if let TypeLocationOwned::InLine {
+                    ty: TypeOwned::Struct(s),
+                    ..
+                } = location
+                    && let Some(q) = s
+                        .marker()
+                        .and_then(ww_self::MarkerDefOwned::quantity_ref)
+                        .and_then(|id| ww_self::units::quantity_type_idx(bundle, id))
+                {
+                    refs.types.push(q);
+                }
             }
         } else if let Some(idx) = refs.traits.pop() {
             if !std::mem::replace(&mut used_traits[idx as usize], true) {

@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2f2d3da663feff3405607e2d1e8a8d5be7dffe60331d6bf89b67663d7cdcea61
+// shrink_wrap sha256: df6b4d41ba5a615d85dacc273800a0fb922f62e7051c189ab543f5c9058362cc
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -59,14 +59,14 @@
     (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "CanXl", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        149,
-        186,
-        120,
-        228,
-        162,
-        183,
-        17,
-        232,
+        231,
+        143,
+        219,
+        237,
+        43,
+        208,
+        55,
+        128,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
         55,
@@ -141,14 +141,14 @@
         (ident: Some("sleep"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Ohm", signature: [
-        120,
-        178,
-        226,
-        125,
-        199,
-        11,
-        23,
-        122,
+        204,
+        42,
+        123,
+        0,
+        145,
+        216,
+        154,
+        158,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].",
@@ -312,14 +312,14 @@
         ], ident: "Sleep", fields: Unit, discriminant: 8, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        160,
-        239,
-        149,
-        227,
-        90,
-        10,
-        69,
-        211,
+        46,
+        208,
+        13,
+        138,
+        241,
+        182,
+        229,
+        228,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bit timing in time quanta: a bit is `1 + seg1 + seg2` quanta of `prescaler` clock periods each, sampled after",

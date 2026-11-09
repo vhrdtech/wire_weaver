@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b571db572235e38d3f4b269e065aaab39387f39c67ce788dde51447346313661
+// shrink_wrap sha256: 91f84778054f47bc8ad856a78f9975048c1b71776ccb714170b936321c849760
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -106,14 +106,14 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        149,
-        186,
-        120,
-        228,
-        162,
-        183,
-        17,
-        232,
+        231,
+        143,
+        219,
+        237,
+        43,
+        208,
+        55,
+        128,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Up to `channels` channels sample at up to `max_rate`.",
@@ -193,14 +193,14 @@
         (ident: Some("when"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        160,
-        239,
-        149,
-        227,
-        90,
-        10,
-        69,
-        211,
+        46,
+        208,
+        13,
+        138,
+        241,
+        182,
+        229,
+        228,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "I2cAddress", signature: [
         150,

@@ -40,9 +40,10 @@ another name. A moment in POSIX time is a `Point` of `origins::UnixEpoch`, alias
 
 ## Arithmetic and conversions
 
-A unit's kind (STD-68) keeps a voltage gain from converting into a duty cycle or a resistance from a
-transimpedance, the compiler and the evolution checker alike: see the book's [Kinds of
-quantity](https://exact.vhrd.tech/maths/kinds/). The same kind picks a gain's dB formula, 20·lg or 10·lg: [Decibels](https://exact.vhrd.tech/levels/decibels/).
+A unit's quantity (STD-68, UNIT-8) keeps a voltage gain from converting into a duty cycle, a resistance from a
+transimpedance, a width from a height and Bq from Hz, the compiler and the evolution checker alike: see the book's
+[Quantities](https://exact.vhrd.tech/maths/quantities/) and, for the model, [Quantities in the
+model](units_in_the_model.md#quantities). A ratio's quantity picks a gain's dB formula, 20·lg or 10·lg: [Decibels](https://exact.vhrd.tech/levels/decibels/).
 Multiplying or dividing two `Fixed` values gives back the exact result unit and scale as a type, with checked,
 saturating and wrapping forms for what doesn't fit: [Products and
 requantization](https://exact.vhrd.tech/fixed_point/products/).

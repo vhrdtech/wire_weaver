@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d3f9298b3015012b02896aec7fcff7511cbfbb5da18a84938753213613acd625
+// shrink_wrap sha256: 3699e32d996d74bbc3cdd33565d95f186a0d1c715d5ce6424ea502dcc5d94590
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -49,14 +49,14 @@
     (id: 3, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "PwmCaptureChannel", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        149,
-        186,
-        120,
-        228,
-        162,
-        183,
-        17,
-        232,
+        231,
+        143,
+        219,
+        237,
+        43,
+        208,
+        55,
+        128,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
         55,

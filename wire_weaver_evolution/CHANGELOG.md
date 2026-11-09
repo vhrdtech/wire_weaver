@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Units are compared by quantity (exact_units UNIT-8, EVO-45): a step carries a `ww_self::units::QuantityExprOwned` for the old kind; another quantity of one dimension (`Of<Height, Meter>` vs `Of<Width, Meter>`) is a `Rule::Meaning` break, a unit that gained a quantity under its name the note `quantity of its own added`.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `Clock`, `LastReset`, `Counters` and `Indication` follow `ww_si` 0.3.0 (EVO-44), as they did for SW-24 and NUM-19.
 - Units are compared on exact_units UNIT-10's `Dim` (EVO-44): a `MarkerDef::Base` is read as a unit, and dimensions combine with `DimOwned::checked_mul`.
 - Unit definitions are read from `exact_units::UnitDef` (STD-106): the kind from its `quantity`, a conventional value from its `provenance`; an origin's reference is a `MarkerId` and shown by it (`exact_units::AmbientPressure`, `the unit's zero` for `UnitZero`). Same verdicts as before.

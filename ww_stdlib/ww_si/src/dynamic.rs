@@ -232,7 +232,7 @@ impl fmt::Debug for AnyQuantity<'_> {
 #[cfg(feature = "defmt")]
 impl defmt::Format for AnyQuantity<'_> {
     fn format(&self, f: defmt::Formatter<'_>) {
-        crate::quantity::defmt_number(&self.value, f);
+        crate::quantity_impl::defmt_number(&self.value, f);
         if let SIExpr::Def(def) = &self.unit
             && def.names.symbol.is_empty()
         {

@@ -879,6 +879,25 @@ impl MarkerDefOwned {
             _ => None,
         }
     }
+
+    /// The quantity marker this one names by id (UNIT-8): a unit's quantity (also an origin's unit's), a quantity's
+    /// parent. A bundle lists it as it lists the types a definition refers to ([crate::units::quantity_type_idx]).
+    pub fn quantity_ref(&self) -> Option<&exact_units::MarkerIdOwned> {
+        match self {
+            MarkerDefOwned::Unit(def) | MarkerDefOwned::Base(def) => def.quantity.as_ref(),
+            MarkerDefOwned::Origin(def) => def.unit.quantity.as_ref(),
+            MarkerDefOwned::Quantity(def) => def.parent.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// The quantity's definition: `Some` for a [quantity](MarkerDefOwned::Quantity) marker.
+    pub fn quantity_def(&self) -> Option<&exact_units::QuantityDefOwned> {
+        match self {
+            MarkerDefOwned::Quantity(def) => Some(def),
+            _ => None,
+        }
+    }
 }
 
 impl ItemStructOwned {

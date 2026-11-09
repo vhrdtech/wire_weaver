@@ -18,7 +18,7 @@ use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance, UnitDefOwn
 use shrink_wrap::ElementSize;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::signature;
-use ww_self::units::{self, CanonicalUnit, UnitKind};
+use ww_self::units::{self, CanonicalUnit, QuantityExprOwned};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
@@ -981,11 +981,13 @@ impl<'a> TypeCheck<'a> {
         let step = |dim: &DimOwned, magnitude| Step {
             dim: dim.clone(),
             magnitude,
-            kind: UnitKind::Plain,
+            kind: QuantityExprOwned::Derived(Box::new(dim.clone())),
         };
+        // the quantity a unit line names, by id: a unit that names its dimension's open root is listed as one that
+        // gained a quantity, the same values
         let kind_of = |def: &UnitDefOwned| match &def.quantity {
-            Some(k) => UnitKind::Named(k.clone()),
-            None => UnitKind::Plain,
+            Some(q) => QuantityExprOwned::Spec(q.clone()),
+            None => QuantityExprOwned::Derived(Box::new(def.dim.clone())),
         };
         let one = || exact_units::DimOwned::from(exact_units::Dim::ONE);
         let what = |kind: &str| format!("{kind} {} redefined", r.ident);
@@ -996,7 +998,7 @@ impl<'a> TypeCheck<'a> {
                 step(&r_unit.dim, r_unit.scale),
             );
             (w_step.kind, r_step.kind) = (kind_of(w_unit), kind_of(r_unit));
-            // a kind of its own given to (or taken from) the unit under its name: the same values (STD-68)
+            // a quantity of its own given to (or taken from) the unit under its name: the same values (STD-68, UNIT-8)
             if w_step.same_but_kind_added(&r_step) {
                 self.note_kind_added(&w_step.kind, &r_step.kind);
                 r_step.kind = w_step.kind.clone();
@@ -1156,7 +1158,7 @@ impl<'a> TypeCheck<'a> {
                     if w_alone.same(&r_alone) {
                         r_step.mul(r).map_err(at)?;
                     } else if !*renamed && w_alone.same_but_kind_added(&r_alone) {
-                        // the unit gained a kind of its own under its name (STD-68): the same step
+                        // the unit gained a quantity of its own under its name (STD-68, UNIT-8): the same step
                         self.note_kind_added(&w_alone.kind, &r_alone.kind);
                         r_step.mul(w).map_err(at)?;
                     } else if !*renamed
@@ -1327,14 +1329,14 @@ impl<'a> TypeCheck<'a> {
         }
     }
 
-    /// A unit that gained or lost a kind of its own under its name (STD-68): the same values, listed apart.
-    fn note_kind_added(&mut self, w: &UnitKind, r: &UnitKind) {
+    /// A unit that gained or lost a quantity of its own under its name (STD-68, UNIT-8): the same values, listed apart.
+    fn note_kind_added(&mut self, w: &QuantityExprOwned, r: &QuantityExprOwned) {
         self.note_compatible(Unwrapped {
             path: self.path.clone(),
             writer_name: self.writer_name,
-            written: format!("kind {w}"),
-            read: format!("kind {r}"),
-            same: "kind of its own added",
+            written: format!("quantity {w}"),
+            read: format!("quantity {r}"),
+            same: "quantity of its own added",
         });
     }
 
@@ -2293,7 +2295,7 @@ fn provenance(p: &Provenance) -> String {
 struct Step {
     dim: DimOwned,
     magnitude: Magnitude,
-    kind: UnitKind,
+    kind: QuantityExprOwned,
 }
 
 impl Step {
@@ -2301,7 +2303,7 @@ impl Step {
         Step {
             dim: exact_units::Dim::ONE.into(),
             magnitude: Magnitude::ONE,
-            kind: UnitKind::Plain,
+            kind: QuantityExprOwned::Derived(Box::new(exact_units::Dim::ONE.into())),
         }
     }
 
@@ -2311,11 +2313,11 @@ impl Step {
             && self.kind == other.kind
     }
 
-    /// The same but for a kind on one side only: a unit that gained (or lost) a kind of its own under its name.
+    /// The same but for a quantity on one side only: a unit that gained (or lost) one of its own under its name.
     fn same_but_kind_added(&self, other: &Step) -> bool {
         self.dim.as_dim().same(other.dim.as_dim())
             && self.magnitude == other.magnitude
-            && (self.kind == UnitKind::Plain) != (other.kind == UnitKind::Plain)
+            && self.kind.is_derived() != other.kind.is_derived()
     }
 
     fn mul(&mut self, meaning: &Meaning) -> Result<(), String> {
@@ -2324,15 +2326,26 @@ impl Step {
             Meaning::Scale(scale) => (None, *scale),
             Meaning::Origin(_) => return Ok(()),
         };
-        if let (Some(dim), Meaning::Unit(unit)) = (dim, meaning) {
-            self.kind = self
-                .kind
-                .as_kind()
-                .mul(self.dim.as_dim(), unit.kind.as_kind(), dim.as_dim())
-                .into();
-        }
         if let Some(dim) = dim {
-            self.dim = self.dim.checked_mul(dim).ok_or("dimension out of range")?;
+            let product = self.dim.checked_mul(dim).ok_or("dimension out of range")?;
+            if let Meaning::Unit(unit) = meaning {
+                // the rules give a spec of a factor or a derived/ratio quantity, never a new spec
+                self.kind = match self.kind.as_expr().mul(
+                    self.dim.as_dim(),
+                    unit.quantity.as_expr(),
+                    dim.as_dim(),
+                    product.as_dim(),
+                ) {
+                    exact_units::QuantityExpr::Spec(r) => QuantityExprOwned::Spec(r.id().into()),
+                    exact_units::QuantityExpr::RatioOf(d) => {
+                        QuantityExprOwned::RatioOf(Box::new(d.into()))
+                    }
+                    exact_units::QuantityExpr::Derived(d) => {
+                        QuantityExprOwned::Derived(Box::new(d.into()))
+                    }
+                };
+            }
+            self.dim = product;
         }
         self.magnitude = self
             .magnitude

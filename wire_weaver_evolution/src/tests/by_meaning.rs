@@ -25,8 +25,15 @@ const OWN_MARKERS: &str = r#"
         pub struct KmPerHour = "km/h", [m 1, s -1], Exact(5 / 18);
         /// Millivolts as a unit of their own.
         pub struct MilliVolt = "mV", [kg 1, m 2, s -3, a -1], Pow10(-3);
-        /// Ohms of the crate's own, of no kind beyond the dimension.
+        /// Ohms of the crate's own, of no quantity beyond the dimension.
         pub struct OwnOhm = "Ω", [kg 1, m 2, s -3, a -2];
+    }
+
+    ww_si::quantity! {
+        /// A resistance of the crate's own, a kind of its own.
+        pub struct Resistance = kind [kg 1, m 2, s -3, a -2];
+        /// An impedance's magnitude, another kind of one dimension.
+        pub struct Impedance = kind [kg 1, m 2, s -3, a -2];
     }
 
     ww_si::origin! {
@@ -303,38 +310,66 @@ fn transimpedance_is_no_resistance() {
     let transimpedance = "Fixed<Per<Volt, ww_si::units::Ampere>, One, i32>";
     assert_meaning(
         &report(transimpedance, "Fixed<ww_si::units::Ohm, One, i32>"),
-        "plain vs resistance, another kind of quantity",
+        "derived vs resistance, another kind of quantity",
     );
     assert_meaning(
         &report(
             "Fixed<Per<ww_si::units::Ampere, Volt>, One, i32>",
             "Fixed<ww_si::units::Siemens, One, i32>",
         ),
-        "plain vs conductance",
+        "derived vs conductance",
     );
     assert_same_value(transimpedance, "Fixed<OwnOhm, One, i32>");
 }
 
-/// A unit of the crate's own that gains a kind of its own under its name keeps its values, listed apart; another
-/// kind under the same name is another meaning (STD-68).
+/// A unit of the crate's own that gains a quantity of its own under its name keeps its values, listed apart; another
+/// quantity under the same name is another meaning (STD-68, UNIT-8).
 #[test]
 fn kind_added_under_the_same_name() {
     let ty = "Fixed<OwnOhm, One, i32>";
-    let resistance = OWN_MARKERS.replace("a -2];", "a -2] kind \"resistance\";");
+    let own_ohm = "pub struct OwnOhm = \"Ω\", [kg 1, m 2, s -3, a -2];";
+    let resistance = OWN_MARKERS.replace(
+        own_ohm,
+        "pub struct OwnOhm = \"Ω\", [kg 1, m 2, s -3, a -2] quantity Resistance;",
+    );
     let report_ = report_of(&api(ty), &api_with(ty, &resistance));
     assert_eq!(report_.change, Change::Compatible, "{report_:#?}");
     assert!(
         report_
             .compatible
             .iter()
-            .any(|c| c.ends_with("kind plain -> kind resistance, kind of its own added")),
+            .any(|c| c
+                .ends_with("quantity derived -> quantity resistance, quantity of its own added")),
         "{:#?}",
         report_.compatible
     );
-    let impedance = OWN_MARKERS.replace("a -2];", "a -2] kind \"impedance\";");
+    let impedance = OWN_MARKERS.replace(
+        own_ohm,
+        "pub struct OwnOhm = \"Ω\", [kg 1, m 2, s -3, a -2] quantity Impedance;",
+    );
     assert_meaning(
         &report_of(&api_with(ty, &resistance), &api_with(ty, &impedance)),
         "resistance vs impedance, another kind of quantity",
+    );
+}
+
+/// One metre, two quantities of ISO 80000's tree (UNIT-8): a height read as a width, or as a plain length, is another
+/// meaning; the same quantity in another scale is the same value.
+#[test]
+fn another_quantity_of_one_dimension() {
+    let height = "Fixed<ww_si::units::Of<ww_si::quantities::Height, Meter>, Milli, u16>";
+    let width = "Fixed<ww_si::units::Of<ww_si::quantities::Width, Meter>, Milli, u16>";
+    assert_meaning(
+        &report(height, width),
+        "height vs width, another kind of quantity",
+    );
+    assert_meaning(
+        &report(height, "Fixed<Meter, Milli, u16>"),
+        "height vs derived",
+    );
+    assert_same_value(
+        "Fixed<ww_si::units::Phase<Degree>, Centi, i32>",
+        "Fixed<ww_si::units::Phase<Degree>, Pow10<-2>, i32>",
     );
 }
 

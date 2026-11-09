@@ -423,6 +423,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
 - UNIT-7 | A unit is defined once, by its crate | A unit made with `unit!` carries its crate and name, so two crates' `Rpm` are two units that print the same, and its definition is plain data a client can read. | std_library/units_in_the_model.md#identity
 - UNIT-10 | Any number of distinguished bases, half exponents | Radians, bits, nepers and every counted thing (`Sample`, your own `Pixel`) are bases of their own, as many in one unit as it needs, and V/√Hz is plain halves: rad/s never becomes Hz, torque never energy. | std_library/ww_si.md#dimensions
+- UNIT-8 | Quantities beyond the dimension | ISO 80000's tree of quantities: a height is a length but not a width, Hz is not Bq, Ω is not V/A. `Of<Height, Meter>` names what a unit measures; up the tree converts, down is a named step, and the API model, clients and the evolution check carry it. | std_library/units_in_the_model.md#quantities
 - IO-9 | Unit names in the model | A unit's ASCII form, long names, aliases, UCUM code and the prefixes it takes travel with its definition, so a client writes and reads it as its crate does. | std_library/units_in_the_model.md#what-the-model-holds
 - STD-107 | Run-time units by reference | An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them. | std_library/ww_si.md#units-known-only-at-run-time
 - NUM-14 | Readable unit errors | A refused conversion names both units and dimensions in the compile error, and the operation that would give the right one. |
@@ -505,3 +506,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - UNIT-11 | How `q!`'s symbol table is made and checked: the user-visible side is NUM-15.
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.
 - EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.
+- EVO-45 | The wire change behind quantity specs (a unit names its quantity by id, `MarkerDef::Quantity` and `Of`): the user-visible side is exact_units UNIT-8.

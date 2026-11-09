@@ -1,6 +1,6 @@
 use super::{
     crate_walker::{CrateContext, Scratch, TypeInProgress},
-    markers::{marker_def, origin_def},
+    markers::{CrateRefs, marker_def},
     unit_hint::{is_silenced, suggest},
     util::{
         Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
@@ -18,8 +18,8 @@ use ww_numeric::NumericValue;
 use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_self::{
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
-    GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr,
-    TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
+    GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, MarkerDefOwned, NumericBaseType,
+    Repr, TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
 };
 
 pub(crate) fn convert_ty(
@@ -353,23 +353,29 @@ fn convert_def(
     });
     let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
     let saved_alias_args = std::mem::take(&mut scratch.alias_args);
-    let ty = match item {
-        Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ident, path, item_enum),
-        Item::Struct(item_struct) => match wire_shape(def_cx, &ty_name, scratch) {
-            // the shape's fields and directives, the type's own docs
-            Ok(Some((shape_cx, shape))) => {
-                convert_item_struct(&shape_cx, scratch, ident, path, &shape).map(|ty| match ty {
-                    TypeOwned::Struct(s) => TypeOwned::Struct(ItemStructOwned {
-                        docs: collect_docs(&item_struct.attrs),
-                        ..s
-                    }),
-                    other => other,
-                })
-            }
-            Ok(None) => convert_item_struct(def_cx, scratch, ident, path, item_struct),
-            Err(e) => Err(e),
-        },
+    let own_attrs = match item {
+        Item::Enum(item_enum) => &item_enum.attrs,
+        Item::Struct(item_struct) => &item_struct.attrs,
         _ => unreachable!(),
+    };
+    let ty = match wire_shape(def_cx, &ty_name, scratch) {
+        // the shape's fields and directives, the type's own docs
+        Ok(Some((shape_cx, shape))) => convert_item_struct(&shape_cx, scratch, ident, path, &shape)
+            .map(|ty| match ty {
+                TypeOwned::Struct(s) => TypeOwned::Struct(ItemStructOwned {
+                    docs: collect_docs(own_attrs),
+                    ..s
+                }),
+                other => other,
+            }),
+        Ok(None) => match item {
+            Item::Enum(item_enum) => convert_item_enum(def_cx, scratch, ident, path, item_enum),
+            Item::Struct(item_struct) => {
+                convert_item_struct(def_cx, scratch, ident, path, item_struct)
+            }
+            _ => unreachable!(),
+        },
+        Err(e) => Err(e),
     };
     scratch.alias_args = saved_alias_args;
     scratch.generic_scope = saved_scope;
@@ -397,11 +403,15 @@ fn convert_def(
     }
 }
 
-/// Types with a hand-written `SerializeShrinkWrap` whose bytes are those of a derived struct beside them, by crate,
+/// Types (structs or enums) with a hand-written `SerializeShrinkWrap` whose bytes are those of a derived struct beside them, by crate,
 /// the type and that struct: the model describes the type with the struct's fields and directives, under the type's
 /// own name. `exact_units::Dim` holds its bases as a tree and writes them as `DimWire`'s sorted list (UNIT-10); a test
-/// there checks both write the same bytes.
-const WIRE_SHAPES: [(&str, &str, &str); 1] = [("exact_units", "Dim", "DimWire")];
+/// there checks both write the same bytes. `exact_units::QuantityRef`, an enum of a quantity's definition or its id,
+/// writes the id (UNIT-8).
+const WIRE_SHAPES: [(&str, &str, &str); 2] = [
+    ("exact_units", "Dim", "DimWire"),
+    ("exact_units", "QuantityRef", "MarkerId"),
+];
 
 /// The shape struct of `ty_name` of `def_cx` in [WIRE_SHAPES], with the module that defines it.
 fn wire_shape(
@@ -947,12 +957,20 @@ fn convert_item_struct(
         }
         None => ElementSize::Unsized,
     };
-    let marker = marker_def(item_struct, current_crate.crate_name(), &mut |fields| {
-        origin_def(fields, current_crate, scratch)
-    })
+    let marker = marker_def(
+        item_struct,
+        current_crate.crate_name(),
+        &mut CrateRefs {
+            current_crate,
+            scratch,
+        },
+    )
     .context(current_crate.err_context())?;
     if marker.is_some() {
         unique_marker(current_crate, scratch, &item_struct.ident.to_string())?;
+    }
+    if let Some(MarkerDefOwned::Quantity(q)) = &marker {
+        one_open_root(q, scratch).context(current_crate.err_context())?;
     }
     let ty = TypeOwned::Struct(ItemStructOwned {
         instance_of: None,
@@ -967,6 +985,36 @@ fn convert_item_struct(
         extra: ItemStructOwned::extra_of(args.transparent, marker),
     });
     Ok(ty)
+}
+
+/// Refuses a second open root of one dimension (a root quantity that is not a kind of its own, UNIT-8): each would
+/// be the dimension's quantity `Derived` stands for, so two of them would each convert with a plain unit of the
+/// dimension but not with each other. The second one is declared `kind`, or a child of the first.
+fn one_open_root(q: &exact_units::QuantityDefOwned, scratch: &Scratch) -> Result<()> {
+    if q.parent.is_some() || q.is_kind {
+        return Ok(());
+    }
+    let other = scratch.root_bundle.types.iter().find_map(|t| match t {
+        TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(s),
+            ..
+        } => s.marker()?.quantity_def().filter(|o| {
+            o.parent.is_none() && !o.is_kind && o.id != q.id && o.dim.as_dim().same(q.dim.as_dim())
+        }),
+        _ => None,
+    });
+    match other {
+        Some(o) => Err(anyhow!(
+            "quantities {}::{} and {}::{}: two open roots of the dimension {}; declare one `kind`, or a child of the \
+             other",
+            o.id.crate_name,
+            o.id.name,
+            q.id.crate_name,
+            q.id.name,
+            q.dim.as_dim()
+        )),
+        None => Ok(()),
+    }
 }
 
 /// Refuses a second marker named `ident` in another module of the crate: a marker is identified by its crate and

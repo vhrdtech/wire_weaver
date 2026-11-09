@@ -2730,6 +2730,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scripts-and-tools-without-generated-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scripts and tools without generated code
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#testing-every-line" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5719,6 +5730,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scripts-and-tools-without-generated-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scripts and tools without generated code
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#testing-every-line" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5855,8 +5877,9 @@
 each other in link setup. Firmware in the field doesn't update all at once, so a host application often has to talk
 to devices of both lines for a while. Generated clients are static, one per line, so the host bundles one client per
 line and picks one at connect time. This page shows how, on the example in <code>tests/thermo</code> (EVO-28): a thermometer
-API whose line 2 broke line 1 in several ways, and one host driver, <code>Thermo</code>, that runs the same code against
-firmware of either line.</p>
+API whose line 2 broke line 1 in several ways and whose line 3 broke line 2 in others, and one host driver,
+<code>Thermo</code>, that runs the same code against firmware of any of the three lines. Scripts and tools without generated
+code (the dynamic client, Python) are <a href="#scripts-and-tools-without-generated-code">at the end</a>.</p>
 <p>The shape in short:</p>
 <ol>
 <li>Both versions of the API crate are dependencies of the host, under two names.</li>
@@ -5865,7 +5888,10 @@ firmware of either line.</p>
 <li>The connection speaks every line the driver knows; link setup takes the device on whichever it is, and the
    facade picks the matching client from the line the device reported. One handshake, no reconnect.</li>
 </ol>
-<p>Adding a third line is one more module of the same kind and one more line in each of the two lists in step 4.</p>
+<p>Adding a line is one more module of the same kind and one more line in each of the two lists in step 4. When the new
+line holds a value more finely or in a wider type than the driver's types do (line 3's <code>uptime</code> went from whole
+seconds in a <code>u32</code> to milliseconds in a <code>u64</code>), the driver's type follows the new line and the older lines'
+modules convert into it, exactly.</p>
 <h2 id="two-versions-of-one-api-crate">Two versions of one API crate<a class="headerlink" href="#two-versions-of-one-api-crate" title="Permanent link">&para;</a></h2>
 <p>Cargo takes two versions of one crate under different names:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
@@ -5888,7 +5914,7 @@ firmware of either line.</p>
 <p>and the same in <code>v2.rs</code> with <code>thermo_api_w2</code>. <code>ww api scaffold</code> prints the package name (<code>thermo_api ::</code>): write the
 dependency key instead.</p>
 <p>Inside one repository a workspace can't hold two packages of one name, so the bench keeps its API crates
-(<code>tests/thermo_api/{w1_0,w1,w2_0,w2}</code>) in the root <code>exclude</code> and adds them to <code>[workspace.dependencies]</code> by path,
+(<code>tests/thermo_api/{w1_0,w1,w2_0,w2,w3}</code>) in the root <code>exclude</code> and adds them to <code>[workspace.dependencies]</code> by path,
 each with its <code>package = "thermo_api"</code>. A host taking released versions from a registry needs none of that.</p>
 <h2 id="the-drivers-own-types">The driver's own types<a class="headerlink" href="#the-drivers-own-types" title="Permanent link">&para;</a></h2>
 <p>The application should not see two <code>Sample</code> types. The driver has its own types (<code>model.rs</code>), shaped like the
@@ -5977,7 +6003,7 @@ its client in <code>WwClient::from_cmd</code> by the line the device reported:</
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>A device on a line the driver doesn't know (a newer line 3) is refused in link setup with
+<p>A device on a line the driver doesn't know (one newer than all of them) is refused in link setup with
 <code>Error::IncompatibleDeviceProtocol</code>, which names every line the host speaks and says to update the host. Two clients
 of one line, or a line of another API, are refused when connecting.</p>
 <h2 id="shared-ww_stdlib-traits">Shared <code>ww_stdlib</code> traits<a class="headerlink" href="#shared-ww_stdlib-traits" title="Permanent link">&para;</a></h2>
@@ -6000,9 +6026,29 @@ the same for all lines:</p>
 </span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Prefer this for every <code>ww_stdlib</code> trait in a driver of several lines: it needs no per-line code at all.</p>
+<h2 id="scripts-and-tools-without-generated-code">Scripts and tools without generated code<a class="headerlink" href="#scripts-and-tools-without-generated-code" title="Permanent link">&para;</a></h2>
+<p>A script, <code>ww</code> or a test bench usually has no generated client at all: the dynamic client
+(<code>wire_weaver_client::DynClient</code>) and Python read the API from the device's own introspection data, so one script
+talks to every line with no client per line. <code>tests/thermo/tests/dynamic.rs</code> and
+<code>wire_weaver_py/tests/test_thermo_lines.py</code> run the bench's scenario this way.</p>
+<ul>
+<li><strong>Values in another scale or storage need no code.</strong> A <code>Fixed</code> is read as a quantity with its unit and scale
+  (<code>DynQuantity</code>, <code>ww.Quantity</code>), so 21.5 °C reads the same from 0.01 K in an <code>i16</code> and 0.001 K in an <code>i32</code>. A
+  quantity written into a line's type converts exactly or is refused before anything is sent: <code>ww.Quantity("1.5",
+  "Ratio")</code> into a gain of whole steps, or 0.001 K into 0.01 K steps, raises <code>ValueError</code> naming the type. Write
+  quantities (<code>ww.Quantity("0.25 K")</code>, <code>DynQuantity::to_value</code>), not stored numbers, which differ per line.</li>
+<li><strong>Look items up by what the device has, not by its line number.</strong> A moved item is found at its old or new path
+  (<code>uptime</code> or <code>health.uptime</code>), a replaced method by its name (<code>configure</code> or <code>set_rate</code>), a changed stream item by
+  its shape (a <code>Batch</code> has <code>temps</code>, a <code>Sample</code> has <code>temp</code>), an enum variant in the type's variants. <code>dev.wire</code> (Python)
+  and <code>DeviceApiInfo::user_api_wire</code> give the line when a choice really depends on it.</li>
+<li>A <code>Point</code> (<code>Point&lt;Celsius, Fixed&lt;Kelvin, ..&gt;&gt;</code>) is read through its one field, <code>coord</code>, a quantity from the
+  origin: the dynamic client and Python don't read a point as such yet (CLT-65).</li>
+</ul>
 <h2 id="testing-every-line">Testing every line<a class="headerlink" href="#testing-every-line" title="Permanent link">&para;</a></h2>
 <p><code>tests/thermo/tests/lines.rs</code> runs one scenario against simulated firmware of each line through the same <code>Thermo</code>
-and checks that every operation behaves the same, or fails with an error naming what the device's line lacks.</p>
+and checks that every operation behaves the same, or fails with an error naming what the device's line lacks. The
+simulated firmware is a crate of its own, <code>tests/thermo_devices</code>, so the dynamic client's test and Python's
+(<code>thermo_pytest_devices</code> hosts every line behind a ww hub) use the same devices.</p>
 <ul>
 <li>Simulate the first revision of each line too (here w1.0 and w2.0), to see <code>#[since]</code> items refused. Build it from
   its own version of the API crate: a device built from the newer crate has the client's API hash, and identical
@@ -6010,12 +6056,16 @@ and checks that every operation behaves the same, or fails with an error naming 
 <li>An observed <code>get_set</code> property only reports changes the firmware marks (<code>mark_changed_&lt;name&gt;</code>); a simulated
   handler for the write must call it as real firmware does.</li>
 <li>A device of a line the driver has no client of checks the refusal and its message.</li>
+<li>Build and check the API crates through the host's workspace, never on their own: a <code>cargo check</code> inside one
+  that is excluded from the workspace writes its own <code>Cargo.lock</code>, which may lock <code>exact_units</code> at another commit.
+  The checker then loads <code>ww_si</code> types from two revisions and reports a shared trait (<code>ww_indication</code>) as changed.</li>
 </ul>
 <h2 id="cost">Cost<a class="headerlink" href="#cost" title="Permanent link">&para;</a></h2>
-<p>Measured on the bench (two lines against one, 8 Nov 2026): each extra line adds about 780 lines of generated
-client code, 0.8 s (dev) to 1.7 s (release) to the driver crate's rebuild and about 133 KiB to a stripped release
-binary. The API crates themselves build in no time, as <code>#[ww_api_root]</code> and <code>#[ww_trait]</code> expand to nothing. The cost
-that grows is the hand-written part: about 200 lines of conversions and facade impl per line.</p>
+<p>Measured on the bench (one, two and three lines, 8 Nov 2026): each extra line adds about 800 lines of generated
+client code, 0.4 to 0.8 s (dev) and 0.5 to 1.7 s (release) to the driver crate's rebuild, and 125 to 133 KiB to a
+stripped release binary. The API crates themselves build in no time, as <code>#[ww_api_root]</code> and <code>#[ww_trait]</code> expand
+to nothing. The cost that grows is the hand-written part: about 200 lines of conversions and facade impl per line,
+about half of it the same signatures and boxing in every module (CLT-64).</p>
 
 
 

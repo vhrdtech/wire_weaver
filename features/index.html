@@ -7507,7 +7507,22 @@ observing), SRV-46 (peer identity).
 - 💡 <strong>CLT-63 Reconnect into another wire line</strong> — a facade of several lines (EVO-28) picks its client once, in
   <code>from_cmd</code>. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
   connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an
-  error naming both lines.</p>
+  error naming both lines.
+- 💡 <strong>CLT-64 A facade for several wire lines without boilerplate</strong> — the EVO-28 bench's driver repeats every
+  operation in three places (an object-safe trait with boxed futures, an <code>impl</code> per line, a wrapper on the facade),
+  about half of each line's 200 hand-written lines, and inside <code>impl Backend for Client</code> the generated methods share
+  the trait's names (<code>Client::read_once(self)</code>). A <code>macro_rules!</code> in <code>wire_weaver_client</code> could take the operations
+  once (<code>async fn read_once(&amp;self) -&gt; Sample;</code> with docs) and the lines (<code>3 =&gt; thermo_api_w3</code>, ...) and emit the
+  trait, the facade with its wrappers, <code>default_config</code> with every line's <code>speaks</code> and a <code>from_cmd</code> that picks by
+  line, and each line's client module; a line then writes only bodies (<code>async fn read_once(c) { .. }</code> with the
+  client as <code>c</code>), and an operation a line lacks defaults to an <code>Unsupported</code> error. The stream, observer and sink
+  adapters (<code>StreamOf</code>, <code>SplitStreamOf</code>, <code>ObserverOf</code>, <code>SinkOf</code>) move into <code>wire_weaver_client</code> as they are. The
+  conversions and emulations stay the driver's.
+- 💡 <strong>CLT-65 Points and counts in the dynamic client</strong> — <code>DynQuantity::from_value</code> reads a <code>Fixed</code> but not a
+  <code>Point</code> (<code>Point&lt;Celsius, Fixed&lt;Kelvin, Milli, i32&gt;&gt;</code>): the dynamic client and Python give its one field, <code>coord</code>,
+  and the origin is left to the script, which reads 21.5 K from the origin rather than 21.5 °C. <code>quantity::DynCount</code> reads an
+  <code>Index</code>, <code>IndexFrom1</code> or <code>Seq</code> but has no <code>to_value</code>: Rust code builds the struct (<code>Seq { seq: 100 }</code>) by hand,
+  where Python takes the number. Found by the EVO-28 bench's dynamic test.</p>
 </li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
@@ -7831,16 +7846,20 @@ observing), SRV-46 (peer identity).
   (<code>tests/wire_line_old_api</code> keeps the attribute as the end-to-end case); <code>ww api scaffold</code> says where the wire
   version lives or how to declare it (<code>docs/evolution/rules.md#the-wire-version</code>; tests <code>wire_weaver_core</code>
   <code>wire_version_in_cargo_toml</code>, <code>wire_version_note</code>, <code>tests/wire_line</code>).</li>
-<li>🚧 <strong>EVO-28 A host for several wire lines</strong> · <code>v0.5</code> — one host driver bundles a generated client per wire line
-  of an API (two versions of the API crate as renamed dependencies) behind a facade and connects once to a device
-  on any of them: <code>ClientConfig::speaks(ClientLine)</code> lists every line (<code>client_line()</code> of each generated client),
-  link setup takes the device on whichever it is and sends that line's client version, and the facade picks its
-  client in <code>WwClient::from_cmd</code> by <code>DeviceApiInfo::user_api_wire</code>; a line it doesn't know is refused naming every
-  line the host speaks. Codegen names the API crate by its dependency key, and the checker reports a removed enum
-  variant. Done: two lines (<code>docs/evolution/multi_line_host.md</code>; bench <code>tests/thermo</code> with
-  <code>tests/thermo_api/{w1_0,w1,w2_0,w2}</code>, test <code>tests/thermo/tests/lines.rs</code>, <code>wire_weaver_client</code>
-  <code>host_of_two_lines_*</code>, <code>wire_weaver_core</code> <code>two_versions_of_one_crate_under_other_names</code>, <code>wire_weaver_evolution</code>
-  <code>removed_variant_breaks_rust_code</code>). Open: a third line, the dynamic client and Python on the same bench.</li>
+<li>✅ <strong>EVO-28 A host for several wire lines</strong> · <code>v0.5</code> — one host driver bundles a generated client per wire line
+  of an API (versions of the API crate as renamed dependencies) behind a facade and connects once to a device on
+  any of them: <code>ClientConfig::speaks(ClientLine)</code> lists every line (<code>client_line()</code> of each generated client), link
+  setup takes the device on whichever it is and sends that line's client version, and the facade picks its client
+  in <code>WwClient::from_cmd</code> by <code>DeviceApiInfo::user_api_wire</code>; a line it doesn't know is refused naming every line the
+  host speaks. Codegen names the API crate by its dependency key, and the checker reports a removed enum variant.
+  Scripts without generated code talk to every line from the device's introspection data: the dynamic client and
+  Python write quantities (<code>DynQuantity::to_value</code>, <code>ww.Quantity("0.25 K")</code>) exactly into each line's types, and
+  Python has <code>dev.wire</code>. Bench <code>tests/thermo</code> with three lines, each a wire break
+  (<code>tests/thermo_api/{w1_0,w1,w2_0,w2,w3}</code>, simulated firmware <code>tests/thermo_devices</code>); tests
+  <code>tests/thermo/tests/lines.rs</code> (the facade), <code>dynamic.rs</code> (the dynamic client), <code>wire_weaver_py</code> <code>test_thermo_lines.py</code>,
+  <code>wire_weaver_client</code> <code>host_of_two_lines_*</code>, <code>wire_weaver_core</code> <code>two_versions_of_one_crate_under_other_names</code>,
+  <code>wire_weaver_evolution</code> <code>removed_variant_breaks_rust_code</code>; docs <code>docs/evolution/multi_line_host.md</code>. Follow-ups:
+  EVO-32, EVO-33, CLT-61 to CLT-65, SRV-57, TOOL-32.</li>
 <li>💡 <strong>EVO-32 Conversions between unchanged types of two versions</strong> — a host bundling two versions of one API
   crate (EVO-28) sees each of the crate's own types as a distinct Rust type per version, also when it didn't change
   (<code>RateError</code>, <code>Command</code> in <code>tests/thermo</code>), so the driver writes a conversion per type per line. Codegen could
@@ -7852,7 +7871,10 @@ observing), SRV-46 (peer identity).
   (<code>set_rate</code> -&gt; <code>configure</code>); a field that changed scale and storage (<code>Sample::temp</code>, <code>Centi</code> <code>i16</code> -&gt; <code>Milli</code>
   <code>i32</code>) reports only the scale. The wrong label, the <code>Channel</code> noise and the single reported difference are fixed
   (<code>wire_weaver_evolution</code>, <code>checker_agrees_on_both_bumps</code>); the replacement read as a rename stays. <code>checker_agrees_on_both_bumps</code> takes about 1.4 s, each <code>load_crate</code> walking
-  <code>ww_si</code> and <code>exact_units</code> again.</li>
+  <code>ww_si</code> and <code>exact_units</code> again. Line 3 of the bench adds: a stream item replaced by another type (<code>Sample</code> by
+  <code>Batch</code>) reads as "type <code>Sample</code> changed" with its <code>temp</code> field compared to <code>temps</code>, and items moved into a new
+  sub-level (<code>uptime</code>, <code>self_test</code> into <code>health</code>) as <code>uptime</code> renamed to <code>health</code> and <code>self_test</code> removed: a move
+  could be named as one.</li>
 <li>✅ <strong>EVO-34 Wire versions and generations in docs, CLI and Python</strong> · <code>v0.5</code> — <code>ww info</code> and <code>ww report</code> show the
   device's wire version next to its crate version (<code>API ... (wire w2.3)</code>) and the hello generations this
   connection agreed on (<code>Hello framer=1 link=1 shrink_wrap=1 api_model=1</code>, EVO-23), through <code>ww_report::clients::Contract</code>

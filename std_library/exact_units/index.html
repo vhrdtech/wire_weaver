@@ -5999,10 +5999,13 @@ number and type:</p>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">bounds</span>     <span class="c1"># (1, 5000)</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>  <span class="c1"># 5 ms, stored as 5000</span>
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>       <span class="c1"># as stored: 5000 µs</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;5 ms&quot;</span><span class="p">))</span>  <span class="c1"># made from text, stored as 5000</span>
 </span></code></pre></div>
 <p>A write takes a <code>ww.Quantity</code> of a unit of the same dimension, converted exactly, or the stored number; anything
 else is a <code>ValueError</code> with the same text as above. <code>float("nan")</code> into a NaN-free float <code>Fixed</code> is refused the
-same way, and bytes holding NaN raise <code>ww.WireWeaverError</code> on decode.</p>
+same way, and bytes holding NaN raise <code>ww.WireWeaverError</code> on decode. <code>ww.Quantity("0.25 K")</code> or
+<code>ww.Quantity("1.5", "Ratio")</code> makes one from text, so a script writes the same value to firmware that stores it in
+another scale (<a href="../../evolution/multi_line_host/">a host for several wire lines</a>).</p>
 <p>In Rust, <code>wire_weaver_client::quantity::fixed_of(&amp;ty, &amp;bundle)</code> reads the type as a <code>FixedType</code> (unit, scale as a
 <code>DynPrefix</code>, <code>Storage { base, bounds }</code>), <code>DynQuantity::from_value</code> reads a value of it, and <code>DynQuantity::to_value</code>
 writes into it exactly or returns the error above. <code>quantity::DynCount</code> does the same for indices and sequence

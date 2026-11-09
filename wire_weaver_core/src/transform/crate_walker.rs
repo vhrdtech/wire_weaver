@@ -580,8 +580,8 @@ impl CrateContext {
         Self::load_from_manifest(dep_manifest, dep_features, scratch)
     }
 
-    /// Resolve the leading segments of a path (e.g. `a::b` in `a::b::Ty`): `crate`, `self`, modules of this crate or
-    /// dependent crates, followed by modules.
+    /// Resolve the leading segments of a path (e.g. `a::b` in `a::b::Ty`): `crate`, `self`, `super`, modules of this
+    /// crate or dependent crates, followed by modules.
     pub(crate) fn resolve_path<'s>(
         &self,
         segments: impl IntoIterator<Item = &'s syn::Ident>,
@@ -595,6 +595,7 @@ impl CrateContext {
             let next = match name.as_str() {
                 "self" if i == 0 => continue,
                 "crate" if i == 0 => cx.crate_root(scratch)?,
+                "super" => cx.parent(scratch)?,
                 _ => match cx.module(&name, scratch)? {
                     Some(module) => module,
                     None if let Some(module) = cx.imported_module(&name, scratch)? => module,
@@ -668,6 +669,20 @@ impl CrateContext {
     /// The root of the crate this module is in.
     fn crate_root(&self, scratch: &mut Scratch) -> Result<Rc<Self>> {
         Self::load_from_manifest(self.manifest.clone(), (*self.features).clone(), scratch)
+    }
+
+    /// The module this one is declared in, for `super::`: from the crate root down the modules before it.
+    fn parent(&self, scratch: &mut Scratch) -> Result<Rc<Self>> {
+        let Some((_, before)) = self.mod_path.split_last() else {
+            return Err(anyhow!("`super` at the crate root").context(self.err_context()));
+        };
+        let mut cx = self.crate_root(scratch)?;
+        for segment in before {
+            cx = cx.module(&segment.name, scratch)?.ok_or_else(|| {
+                anyhow!("Module {} not found", segment.name).context(self.err_context())
+            })?;
+        }
+        Ok(cx)
     }
 
     /// Whether `name` is a child module of this crate or module.
@@ -850,7 +865,10 @@ impl CrateContext {
                         UseLeaf::Glob => continue,
                     };
                     let is_local = use_path.first().is_some_and(|first| {
-                        *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
+                        *first == "self"
+                            || *first == "crate"
+                            || *first == "super"
+                            || cx.has_module(&first.to_string())
                     });
                     if !is_local || *name != last.name {
                         continue;
@@ -933,7 +951,10 @@ impl CrateContext {
             }
             for (path, leaf) in use_tree_leaves(&item_use.tree) {
                 let is_local = path.first().is_some_and(|first| {
-                    *first == "self" || *first == "crate" || self.has_module(&first.to_string())
+                    *first == "self"
+                        || *first == "crate"
+                        || *first == "super"
+                        || self.has_module(&first.to_string())
                 });
                 if !is_local {
                     continue;

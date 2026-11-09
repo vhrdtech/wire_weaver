@@ -1073,7 +1073,7 @@ mod tests {
     fn observed_setter_note() {
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_api");
         let bundle = crate::load(&crate_path, Some("Observe".into()), false).unwrap();
-        let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        let code = gen_server_scaffold(&bundle, &config(&[]), &CratePaths::default()).unwrap();
         assert!(
             code.contains("// observers get it after `SetResult::Set`: the generated code calls `mark_changed_gain()`"),
             "{code}"

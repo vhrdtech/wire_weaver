@@ -6015,7 +6015,7 @@ ms"</code>). See the book's <a href="https://exact.vhrd.tech/wire/shrink_wrap/#s
 <p>The unit markers are grouped by cargo feature, each with its own dimension, symbol and exact scale; <code>Per</code>, <code>Times</code>
 and <code>Sqrt</code> build the rest. See the book's <a href="https://exact.vhrd.tech/start/units/">Units and dimensions</a>.</p>
 <p>The wire format is the feature <code>shrink_wrap</code>, on by default through <code>ww_si</code>. Without it <code>exact_units</code> has no
-dependencies and its types are plain Rust (a <code>Dim</code>'s exponents are <code>i8</code>): code that only checks units at compile
+dependencies and its types are plain Rust (a <code>Dim</code>'s exponents are halves in an <code>i8</code>): code that only checks units at compile
 time builds without the wire format, and the bytes are the same whichever crate turns it on.</p>
 
 

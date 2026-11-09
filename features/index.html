@@ -7496,11 +7496,16 @@ observing), SRV-46 (peer identity).
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
   <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.
 - 💡 <strong>CLT-67 An <code>AnyQuantity</code>'s unit as its wire form in Python</strong> — <code>ww.Quantity</code> keeps the resolved unit (symbol, <code>dim</code>, <code>to_si()</code>), not the <code>SIExpr</code> it came in (a <code>Def</code> or a <code>Ref</code>, STD-107), and writes the API's units by reference (CLT-66); a <code>unit_expr</code> view and a way to write a unit in full would let the conformance corpus check Python's <code>AnyQuantity</code> bytes (<code>stdlib.si.any_quantity.*</code>, its gap mark).
-- 💡 <strong>CLT-61 <code>#[since]</code> checked when the API hashes match</strong> — with <code>ApiMatch::Identical</code> the client skips every
-  resource check, <code>#[since]</code> included, so firmware built from a newer API crate that claims an older wire revision
-  gets calls to items it lacks. Checking <code>#[since]</code> against the device's wire version from link setup costs
-  nothing and needs no introspection data. Found by the EVO-28 bench, which needed one API crate per revision to
-  test <code>#[since]</code> refusals.
+- ✅ <strong>CLT-61 Hello wire matches the bundle's</strong> · <code>v0.5</code> — <code>Commander::resolve_api_match</code> refuses a device whose
+  hello claim (<code>DeviceInfo::user_api_wire</code>) differs from its own introspection bundle's wire (<code>ApiBundle::wire</code>)
+  once both are known, naming both wires (new <code>Error::HelloWireMismatch</code>), before deciding <code>ApiMatch</code> — including
+  on the <code>Identical</code> shortcut that skips downloading the device's bundle. The root's wire version was already part
+  of what <code>api_hash</code> covers (<code>ApiBundle::wire</code> is a hashed field), so two builds differing only in their declared
+  wire hash differently (<code>compat::tests::api_hash_differs_by_wire_version_only</code>); no hash change was needed.
+  Introspection caching and both local registries (<code>wire_weaver_core</code> and <code>wire_weaver_client</code> <code>local_registry.rs</code>)
+  already key their cached files by the bundle's hash, so a revision-only wire bump gets its own cache entry
+  without any change. Test
+  <code>wire_weaver_client</code> <code>compat::tests::resolve_api_match_refuses_a_hello_wire_that_differs_from_the_bundles</code>.
 - 💡 <strong>CLT-62 Fallible <code>WwClient::from_cmd</code></strong> — a facade of several wire lines (EVO-28) picks its client in
   <code>from_cmd</code>, which can't fail, so a line it has no client of is <code>unreachable!</code>, sound only because link setup
   refused that device first. A <code>try_from_cmd</code> returning an error would say so in the types.

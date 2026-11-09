@@ -51,6 +51,21 @@ pub fn load(
     load_with_hints(crate_path, trait_name, offline_mode).map(|(bundle, _hints)| bundle)
 }
 
+/// [load] of the crate generated code is in (`ww_codegen!(crate :: Trait ..)`), with the modules of its traits
+/// ([CratePaths::trait_module]) and the crate itself named `crate`.
+pub fn load_own_with_paths(
+    crate_path: &Path,
+    root: Option<String>,
+) -> Result<(ApiBundleOwned, CratePaths)> {
+    let mut scratch = Scratch::default();
+    let manifest = ManifestContext::load(crate_path)?;
+    let features = manifest.default_features();
+    let bundle = load_inner(manifest, features, root, &mut scratch)?;
+    let mut paths = CratePaths::default().with_trait_modules(&scratch);
+    paths.insert(bundle.root.crate_name(&bundle)?.to_string(), vec!["crate".to_string()]);
+    Ok((bundle, paths))
+}
+
 /// [load], also returning the unit-suffix hints found (TOOL-22), for `ww api scaffold` to show.
 pub fn load_with_hints(
     crate_path: &Path,
@@ -102,7 +117,8 @@ pub fn load_dep_with_paths(
         dep_name.as_ref(),
         &bundle,
         &scratch,
-    );
+    )
+    .with_trait_modules(&scratch);
     Ok((bundle, paths))
 }
 
@@ -128,12 +144,34 @@ pub fn dependency_dir(crate_path: &Path, dep_name: &str) -> Result<PathBuf> {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CratePaths {
     paths: BTreeMap<String, Vec<String>>,
+    /// Module of each trait of the API by crate and trait name, where it isn't the crate root (EVO-37).
+    trait_modules: BTreeMap<(String, String), Vec<String>>,
 }
 
 impl CratePaths {
     /// Path segments naming `crate_name` (`["ww_si", "exact_units"]`), `None` when it is named by its own name.
     pub fn get(&self, crate_name: &str) -> Option<&[String]> {
         self.paths.get(crate_name).map(|path| path.as_slice())
+    }
+
+    /// Modules from its crate's root to the trait `trait_name` of `crate_name` (`["wire_v2"]`), where the trait and
+    /// the consts `#[ww_api_root]`/`#[ww_trait]` emit next to it are; empty at the crate root (EVO-37).
+    pub fn trait_module(&self, crate_name: &str, trait_name: &str) -> &[String] {
+        self.trait_modules
+            .get(&(crate_name.to_string(), trait_name.to_string()))
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+    }
+
+    /// The modules of the traits walked in `scratch`.
+    fn with_trait_modules(mut self, scratch: &Scratch) -> Self {
+        self.trait_modules = scratch
+            .trait_modules
+            .iter()
+            .filter(|(_, modules)| !modules.is_empty())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        self
     }
 
     /// Name `crate_name` by `path` in generated code: `["crate"]` for code generated inside that crate itself
@@ -195,7 +233,10 @@ impl CratePaths {
                     .then(|| (c.crate_id.clone(), path.clone()))
             })
             .collect();
-        CratePaths { paths }
+        CratePaths {
+            paths,
+            trait_modules: BTreeMap::new(),
+        }
     }
 }
 
@@ -224,28 +265,42 @@ fn dep_package(
     key.to_string()
 }
 
-/// The API of the crate of `manifest`, built with `features`.
+/// The API of the crate of `manifest`, built with `features`. `root` names the API root: `Trait`, or
+/// `module::Trait` in a crate with several roots (EVO-37); `None` takes the crate's only root.
 fn load_inner(
     manifest: Rc<ManifestContext>,
     features: Features,
-    trait_name: Option<String>,
+    root: Option<String>,
     scratch: &mut Scratch,
 ) -> Result<ApiBundleOwned> {
-    let (entry, trait_name, items) = scratch.walk(|scratch| {
+    let (entry, root_cx, trait_name, wire, items) = scratch.walk(|scratch| {
         let entry = CrateContext::load_from_manifest(manifest.clone(), features.clone(), scratch)?;
-        let trait_name = find_trait_if_none(trait_name.clone(), &entry.lib_rs_ast)?;
-        let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
-        let items = convert_api_items(item_trait, &entry, scratch)?;
-        Ok((entry, trait_name, items))
+        let (root_cx, trait_name) = find_root(&entry, root.as_deref(), scratch)?;
+        let item_trait = get_trait(&root_cx.lib_rs_ast, &trait_name)?;
+        let wire = if item_trait.attrs.iter().any(|a| a.path().is_ident("ww_api_root")) {
+            root_wire(
+                get_wire_attr(&item_trait.attrs, &root_cx)?,
+                &root_cx,
+                &trait_name,
+                scratch,
+            )?
+        } else {
+            // a `#[ww_trait]` loaded as the root of its own client is on its crate's line
+            root_cx.wire
+        };
+        // `#[since]` of the root crate's items names a revision of this root's line (EVO-37)
+        scratch.root = Some((entry.version.clone(), wire));
+        scratch.note_trait_module(&root_cx, &trait_name)?;
+        let items = convert_api_items(item_trait, &root_cx, scratch)?;
+        Ok((entry, root_cx, trait_name, wire, items))
     })?;
-    let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
-    let wire = root_wire(get_wire_attr(&item_trait.attrs, &entry)?, &entry, scratch)?;
+    let item_trait = get_trait(&root_cx.lib_rs_ast, &trait_name)?;
 
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
         crate_idx: 0.into(),
         compact_id: compact_trait_id(&entry, &trait_name),
-        meta: get_meta(&item_trait.attrs, MetaSite::Trait, &entry)?,
+        meta: get_meta(&item_trait.attrs, MetaSite::Trait, &root_cx)?,
         trait_name,
         items,
     };
@@ -264,35 +319,62 @@ fn load_inner(
     Ok(bundle)
 }
 
-/// Wire version of a crate with an API root (EVO-31): `[package.metadata.wire_weaver] wire = ".."` in its
-/// `Cargo.toml`, like every other crate. `#[ww_api_root(wire = "..")]` is the entry point for tests (several roots
-/// in one crate standing for different lines): only in a crate with `publish = false`, and not when it differs from
-/// the `Cargo.toml` one.
+/// Wire version of an API root (EVO-31, EVO-37): its entry in `[package.metadata.wire_weaver.roots]` of its crate's
+/// `Cargo.toml` (`"wire_v2::Thermo" = "w2.1"`, for a crate with several roots), else the crate's
+/// `[package.metadata.wire_weaver] wire = ".."`, like every other crate. `#[ww_api_root(wire = "..")]` is the entry
+/// point for tests (several roots in one crate standing for different lines): only in a crate with
+/// `publish = false`, and not when it differs from the `Cargo.toml` one.
 pub(crate) fn root_wire(
     attr: Option<WireVersion>,
-    crate_cx: &CrateContext,
+    root_cx: &CrateContext,
+    trait_name: &str,
     scratch: &mut Scratch,
 ) -> Result<Option<WireVersion>> {
-    let Some(attr) = attr else {
-        return Ok(crate_cx.wire);
+    let key = root_key(&root_cx.module_names(), trait_name);
+    let roots = root_cx.manifest.roots()?;
+    let manifest = match roots.get(&key) {
+        Some(wire) => Some(*wire),
+        None if !roots.is_empty() => {
+            return Err(anyhow!(
+                "the API root `{key}` has no wire version: `[package.metadata.wire_weaver.roots]` in Cargo.toml lists \
+                 {}, add `\"{key}\" = \"w1.0\"` (EVO-37)",
+                roots.keys().map(|k| format!("`{k}`")).collect::<Vec<_>>().join(", ")
+            ))
+            .context(root_cx.err_context());
+        }
+        None => root_cx.wire,
     };
-    if let Some(manifest) = crate_cx.wire
+    let Some(attr) = attr else {
+        return Ok(manifest);
+    };
+    if let Some(manifest) = manifest
         && manifest != attr
     {
         return Err(anyhow!(
             "the wire version is declared twice and differs: `#[ww_api_root(wire = \"{attr}\")]` and \
-             `[package.metadata.wire_weaver] wire = \"{manifest}\"` in Cargo.toml; keep the Cargo.toml one"
+             `{manifest}` in Cargo.toml; keep the Cargo.toml one"
         ))
-        .context(crate_cx.err_context());
+        .context(root_cx.err_context());
     }
-    if crate_cx.manifest.publishable(scratch)? {
+    if root_cx.manifest.publishable(scratch)? {
         return Err(anyhow!(
             "the wire version lives in Cargo.toml: `[package.metadata.wire_weaver] wire = \"{attr}\"` and a bare \
-             `#[ww_api_root]` (EVO-31); `#[ww_api_root(wire = ..)]` is for test crates, `publish = false`"
+             `#[ww_api_root]` (EVO-31), or `[package.metadata.wire_weaver.roots] \"{key}\" = \"{attr}\"` in a crate with \
+             several roots (EVO-37); `#[ww_api_root(wire = ..)]` is for test crates, `publish = false`"
         ))
-        .context(crate_cx.err_context());
+        .context(root_cx.err_context());
     }
     Ok(Some(attr))
+}
+
+/// How `Cargo.toml` and `ww_codegen!` name an API root: `Thermo` at the crate root, `wire_v2::Thermo` in a module.
+fn root_key(modules: &[String], trait_name: &str) -> String {
+    modules
+        .iter()
+        .map(String::as_str)
+        .chain([trait_name])
+        .collect::<Vec<_>>()
+        .join("::")
 }
 
 /// Main scratch space and cache used to build ApiBundleOwned
@@ -338,6 +420,34 @@ pub(crate) struct Scratch {
     /// Unit-suffix hints found so far (TOOL-22), not part of the bundle: `load`/`load_crate` drop them,
     /// `load_with_hints`/`load_crate_with_hints` return them alongside it.
     pub(crate) unit_hints: Vec<super::UnitHint>,
+    /// The crate of the API root being loaded and the root's wire version: `#[since = "w1.5, w2.2"]` on an item of
+    /// that crate takes the revision of the root's line (EVO-37).
+    pub(crate) root: Option<(FullVersionOwned, Option<WireVersion>)>,
+    /// Module of every trait converted, by crate and trait name ([CratePaths::trait_module]).
+    pub(crate) trait_modules: BTreeMap<(String, String), Vec<String>>,
+}
+
+impl Scratch {
+    /// Note the module `trait_name` is defined in. The API model names a trait by its crate and name, so two traits
+    /// of one name in two modules of a crate can't both be in one API.
+    pub(crate) fn note_trait_module(&mut self, cx: &CrateContext, trait_name: &str) -> Result<()> {
+        let modules = cx.module_names();
+        let key = (cx.crate_name().to_string(), trait_name.to_string());
+        match self.trait_modules.get(&key) {
+            Some(known) if *known != modules => Err(anyhow!(
+                "two traits named `{trait_name}` in one API, `{}` and `{}`: the API model names a trait by its crate \
+                 and name, rename one",
+                root_key(known, trait_name),
+                root_key(&modules, trait_name)
+            ))
+            .context(cx.err_context()),
+            Some(_) => Ok(()),
+            None => {
+                self.trait_modules.insert(key, modules);
+                Ok(())
+            }
+        }
+    }
 }
 
 /// A leaf of a `pub use` within the crate, with the module its path names ([CrateContext::local_reexports]).
@@ -481,6 +591,11 @@ impl CrateContext {
         &self.version.crate_id
     }
 
+    /// Whether the crate's `Cargo.toml` has `[package.metadata.wire_weaver.roots]`, several API roots (EVO-37).
+    pub(crate) fn has_roots_table(&self) -> Result<bool> {
+        Ok(!self.manifest.roots()?.is_empty())
+    }
+
     /// The modules from the crate root to this one, by name: which module of the crate it is.
     pub(crate) fn module_names(&self) -> Vec<String> {
         self.mod_path.iter().map(|m| m.name.clone()).collect()
@@ -589,11 +704,17 @@ impl CrateContext {
     ) -> Result<Rc<Self>> {
         // None is self, to avoid cloning it
         let mut resolved: Option<Rc<Self>> = None;
+        // only `self` and `super` so far: `super` may follow
+        let mut leading = true;
         for (i, segment) in segments.into_iter().enumerate() {
             let cx = resolved.as_deref().unwrap_or(self);
             let name = segment.to_string();
+            let is_leading = leading && (name == "self" || name == "super");
+            leading = is_leading;
             let next = match name.as_str() {
                 "self" if i == 0 => continue,
+                // a line's module naming the shared types of a crate with several roots (EVO-37)
+                "super" if is_leading => cx.parent_module(scratch)?,
                 "crate" if i == 0 => cx.crate_root(scratch)?,
                 "super" => cx.parent(scratch)?,
                 _ => match cx.module(&name, scratch)? {
@@ -664,6 +785,20 @@ impl CrateContext {
             return Ok(Some(module));
         }
         Ok(None)
+    }
+
+    /// The module this one is in, `super`.
+    fn parent_module(&self, scratch: &mut Scratch) -> Result<Rc<Self>> {
+        let Some((_, parents)) = self.mod_path.split_last() else {
+            return Err(anyhow!("`super` at the crate root").context(self.err_context()));
+        };
+        let mut cx = self.crate_root(scratch)?;
+        for segment in parents {
+            cx = cx
+                .module(&segment.name, scratch)?
+                .ok_or_else(|| anyhow!("internal: module {} not found", segment.name))?;
+        }
+        Ok(cx)
     }
 
     /// The root of the crate this module is in.
@@ -1144,6 +1279,42 @@ impl ManifestContext {
         Ok(Some(wire))
     }
 
+    /// The wire version of each API root in `[package.metadata.wire_weaver.roots]` (EVO-37), by its module path and
+    /// name (`"wire_v2::Thermo" = "w2.1"`); empty without the table.
+    fn roots(&self) -> Result<BTreeMap<String, WireVersion>> {
+        let Some(roots) = self
+            .manifest
+            .package
+            .as_ref()
+            .and_then(|p| p.metadata.as_ref())
+            .and_then(|m| m.get("wire_weaver"))
+            .and_then(|m| m.get("roots"))
+        else {
+            return Ok(BTreeMap::new());
+        };
+        let context = || {
+            format!(
+                "[package.metadata.wire_weaver.roots] in {}/Cargo.toml",
+                self.crate_path.display()
+            )
+        };
+        let roots = roots
+            .as_table()
+            .ok_or_else(|| anyhow!("expected a table: `\"wire_v2::Thermo\" = \"w2.1\"`"))
+            .with_context(context)?;
+        roots
+            .iter()
+            .map(|(root, wire)| {
+                let wire = wire
+                    .as_str()
+                    .ok_or_else(|| anyhow!("`{root}`: expected a string, `\"{root}\" = \"w1.0\"`"))
+                    .and_then(|s| s.parse::<WireVersion>().map_err(|e| anyhow!("`{root}` = `{s}`: {e}")))
+                    .with_context(context)?;
+                Ok((root.split("::").map(str::trim).collect::<Vec<_>>().join("::"), wire))
+            })
+            .collect()
+    }
+
     /// Features of this crate when nobody asks for any: its default ones.
     fn default_features(&self) -> Features {
         enabled_features(&self.manifest, [], true)
@@ -1332,34 +1503,110 @@ fn parse_rs_uncached(path: &Path) -> Result<File> {
     Ok(file)
 }
 
-fn find_trait_if_none(trait_name: Option<String>, lib_rs: &File) -> Result<String> {
-    if let Some(name) = trait_name {
-        return Ok(name.to_string());
-    }
-    let mut ww_api_root = vec![];
-    let mut ww_trait = vec![];
-    for item in &lib_rs.items {
-        let Item::Trait(item_trait) = item else {
-            continue;
+/// The module and name of the API root `root` names (EVO-37): `module::Trait` is looked up in that module; a bare
+/// `Trait` at the crate root first, then in every module, and must be the only one of its name; `None` takes the
+/// crate's only `#[ww_api_root]`, or its only `#[ww_trait]` when it has no root.
+fn find_root(
+    entry: &Rc<CrateContext>,
+    root: Option<&str>,
+    scratch: &mut Scratch,
+) -> Result<(Rc<CrateContext>, String)> {
+    if let Some(root) = root {
+        let mut segments: Vec<&str> = root.split("::").map(str::trim).collect();
+        let trait_name = segments.pop().unwrap_or_default().to_string();
+        if !segments.is_empty() {
+            let mut cx = entry.clone();
+            for segment in &segments {
+                cx = cx.module(segment, scratch)?.ok_or_else(|| {
+                    anyhow!("API root `{root}`: no module `{segment}` in crate {}", entry.crate_name())
+                })?;
+            }
+            get_trait(&cx.lib_rs_ast, &trait_name).with_context(|| format!("API root `{root}`"))?;
+            return Ok((cx, trait_name));
+        }
+        if get_trait(&entry.lib_rs_ast, &trait_name).is_ok() {
+            return Ok((entry.clone(), trait_name));
+        }
+        let found: Vec<_> = marked_traits(entry, scratch)?
+            .into_iter()
+            .filter(|m| m.name == trait_name)
+            .collect();
+        return match found.as_slice() {
+            [one] => Ok((one.cx.clone(), trait_name)),
+            [] => Err(anyhow!("Trait with name {trait_name} not found")),
+            several => Err(anyhow!(
+                "{} traits named `{trait_name}` in crate {}: name one by its module, {} (EVO-37)",
+                several.len(),
+                entry.crate_name(),
+                list_keys(several)
+            )),
         };
-        let attrs = &item_trait.attrs;
-        if attrs.iter().any(|attr| attr.path().is_ident("ww_api_root")) {
-            ww_api_root.push(item_trait.ident.to_string());
-        }
-        if attrs.iter().any(|attr| attr.path().is_ident("ww_trait")) {
-            ww_trait.push(item_trait.ident.to_string());
+    }
+    let marked = marked_traits(entry, scratch)?;
+    let roots: Vec<_> = marked.iter().filter(|m| m.api_root).collect();
+    let traits: Vec<_> = marked.iter().filter(|m| !m.api_root).collect();
+    match (roots.as_slice(), traits.as_slice()) {
+        ([], []) => Err(anyhow!(
+            "No #[ww_api_root] or #[ww_trait] marked traits found in crate {}",
+            entry.crate_name()
+        )),
+        ([], [one]) | ([one], _) => Ok((one.cx.clone(), one.name.clone())),
+        ([], several) => Err(anyhow!(
+            "Multiple #[ww_trait] marked traits found in crate {}, name one: {}",
+            entry.crate_name(),
+            list_keys(several.iter().copied())
+        )),
+        (several, _) => Err(anyhow!(
+            "Multiple #[ww_api_root] marked traits found in crate {}, name one by its module path \
+             (`ww_codegen!(api::wire_v2::Thermo ..)`, EVO-37): {}",
+            entry.crate_name(),
+            list_keys(several.iter().copied())
+        )),
+    }
+}
+
+/// A trait marked `#[ww_api_root]` or `#[ww_trait]`, with the module it is defined in.
+struct MarkedTrait {
+    cx: Rc<CrateContext>,
+    name: String,
+    api_root: bool,
+}
+
+fn list_keys<'a>(marked: impl IntoIterator<Item = &'a MarkedTrait>) -> String {
+    marked
+        .into_iter()
+        .map(|m| format!("`{}`", root_key(&m.cx.module_names(), &m.name)))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Every `#[ww_api_root]` and `#[ww_trait]` of the crate, in `src/lib.rs` and its modules, in source order.
+fn marked_traits(entry: &Rc<CrateContext>, scratch: &mut Scratch) -> Result<Vec<MarkedTrait>> {
+    let mut found = vec![];
+    let mut queue = VecDeque::from([entry.clone()]);
+    while let Some(cx) = queue.pop_front() {
+        for item in &cx.lib_rs_ast.items {
+            match item {
+                Item::Trait(item_trait) => {
+                    let marked = |name: &str| item_trait.attrs.iter().any(|a| a.path().is_ident(name));
+                    if marked("ww_api_root") || marked("ww_trait") {
+                        found.push(MarkedTrait {
+                            cx: cx.clone(),
+                            name: item_trait.ident.to_string(),
+                            api_root: marked("ww_api_root"),
+                        });
+                    }
+                }
+                Item::Mod(item_mod) => {
+                    if let Some(module) = cx.module(&item_mod.ident.to_string(), scratch)? {
+                        queue.push_back(module);
+                    }
+                }
+                _ => {}
+            }
         }
     }
-    match (ww_api_root.len(), ww_trait.len()) {
-        (0, 0) => Err(anyhow!(
-            "No #[ww_api_root] or #[ww_trait] marked traits found in lib.rs"
-        )),
-        (0, 1) => Ok(ww_trait[0].clone()),
-        (1, _) => Ok(ww_api_root[0].clone()),
-        _ => Err(anyhow!(
-            "Multiple #[ww_api_root] or #[ww_trait] marked traits found in lib.rs"
-        )),
-    }
+    Ok(found)
 }
 
 fn get_trait<'i>(lib_rs: &'i File, trait_name: &str) -> Result<&'i syn::ItemTrait> {

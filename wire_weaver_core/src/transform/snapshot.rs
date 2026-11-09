@@ -62,7 +62,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
                             ))
                             .context(entry.err_context());
                         }
-                        wire = Some(root_wire);
+                        wire = Some((root_wire, item_trait.ident.to_string()));
                     }
                     let trait_idx = convert_trait(item_trait, &entry, scratch)?;
                     items.push(ApiItemOwned {
@@ -94,7 +94,17 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
                 }
             }
         }
-        let wire = root_wire(wire, &entry, scratch)?;
+        if entry.has_roots_table()? {
+            return Err(anyhow!(
+                "a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) is saved and \
+                 checked per root, which isn't there yet (EVO-38)"
+            ))
+            .context(entry.err_context());
+        }
+        let wire = match wire {
+            Some((wire, trait_name)) => root_wire(Some(wire), &entry, &trait_name, scratch)?,
+            None => entry.wire,
+        };
         Ok((entry, items, wire))
     })?;
 

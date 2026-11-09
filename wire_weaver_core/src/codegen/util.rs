@@ -52,19 +52,21 @@ pub(crate) fn fixed_err_seq(name: &str) -> TokenStream {
 
 pub(crate) fn mod_name(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> Ident {
     let crate_name = api_level.crate_name(api_bundle).unwrap();
+    // a trait in a module of a crate with several roots (EVO-37): `wire_v1::Thermo` and `wire_v2::Thermo` differ
+    let modules = api_bundle.trait_module(crate_name, &api_level.trait_name);
     Ident::new(
-        format!(
-            "{}_{}",
-            crate_name,
-            api_level.trait_name.to_case(Case::Snake)
-        )
-        .as_str(),
+        &[crate_name.to_string()]
+            .into_iter()
+            .chain(modules.iter().cloned())
+            .chain([api_level.trait_name.to_case(Case::Snake)])
+            .collect::<Vec<_>>()
+            .join("_"),
         Span::call_site(),
     )
 }
 
 pub(crate) fn source_marker(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> TokenStream {
-    let crate_name = api_bundle.crate_path(api_level.crate_name(api_bundle).unwrap());
+    let crate_name = api_bundle.trait_module_path(api_level);
     let trait_full_gid = Ident::new(
         &format!("{}_FULL_GID", api_level.trait_name).to_case(Case::Constant),
         Span::call_site(),

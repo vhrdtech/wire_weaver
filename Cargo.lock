@@ -3304,6 +3304,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "multi_root"
+version = "0.1.0"
+dependencies = [
+ "multi_root_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+]
+
+[[package]]
+name = "multi_root_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6239,6 +6260,7 @@ dependencies = [
 name = "wire_weaver_derive"
 version = "0.5.0"
 dependencies = [
+ "anyhow",
  "convert_case 0.11.0",
  "darling",
  "pathsearch",

@@ -875,7 +875,7 @@ fn convert_item_enum(
                     .context(current_crate.err_context()));
             }
         }
-        let since = get_since_attr(&variant.attrs, current_crate)?;
+        let since = get_since_attr(&variant.attrs, current_crate, scratch)?;
         variants.push(VariantOwned {
             docs: collect_docs(&variant.attrs),
             ident: variant.ident.to_string(),
@@ -1040,7 +1040,7 @@ fn convert_fields(
                         scratch.unit_hints.push(hint);
                     }
                 }
-                let since = get_since_attr(&f.attrs, current_crate)?;
+                let since = get_since_attr(&f.attrs, current_crate, scratch)?;
                 let default = get_default_attr(&f.attrs, current_crate)?;
                 let wire = get_wire_attr(&f.attrs);
                 // a user wire type is an opaque run of its bytes in a `Series` (DER-23, `series::WiredOpaque`)

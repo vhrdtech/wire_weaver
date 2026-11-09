@@ -193,7 +193,6 @@ fn client_structs_recursive(
     };
     let args_structs = args_structs(api_bundle, api_level, model.no_alloc());
 
-    let crate_name = api_level.crate_name(api_bundle).unwrap();
     let mod_name = util::mod_name(api_level, api_bundle);
     let client_struct_name = client_struct_name(&mod_name.to_string());
     let full_gid = Ident::new(
@@ -208,11 +207,11 @@ fn client_structs_recursive(
             .as_str(),
         Span::call_site(),
     );
-    let crate_name = api_bundle.crate_path(crate_name);
+    let trait_module = api_bundle.trait_module_path(api_level);
     let trait_name = LitStr::new(&api_level.trait_name, Span::call_site());
     let gid_paths = (
-        quote! { #crate_name::#full_gid },
-        quote! { #crate_name::#compact_gid },
+        quote! { #trait_module::#full_gid },
+        quote! { #trait_module::#compact_gid },
         quote! { #trait_name },
     );
     // index chains of nested levels start from the root trait of this client, so global paths name that trait
@@ -1060,7 +1059,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
     );
     // API crate name and version, same constant the device reports, and the wire version link setup decides on
     let root = &api_bundle.root;
-    let crate_name = api_bundle.crate_path(root.crate_name(api_bundle).unwrap());
+    let crate_name = api_bundle.trait_module_path(root);
     let full_gid = Ident::new(
         format!("{}_FULL_GID", root.trait_name)
             .to_case(Case::Constant)

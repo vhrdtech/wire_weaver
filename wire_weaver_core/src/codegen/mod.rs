@@ -44,6 +44,27 @@ impl<'a> CodegenBundle<'a> {
     }
 }
 
+impl CodegenBundle<'_> {
+    /// Modules from its crate's root to the trait `trait_name` of `crate_name`, empty at the crate root (EVO-37).
+    pub(crate) fn trait_module(&self, crate_name: &str, trait_name: &str) -> &[String] {
+        self.crate_paths.trait_module(crate_name, trait_name)
+    }
+
+    /// How generated code names the module of `level`'s trait, where the consts `#[ww_api_root]`/`#[ww_trait]` emit
+    /// next to the trait are (`<TRAIT>_FULL_GID`): its crate's path, and the trait's module in a crate with several
+    /// roots (`thermo_api::wire_v2`, EVO-37).
+    pub(crate) fn trait_module_path(&self, level: &ww_self::ApiLevelOwned) -> proc_macro2::TokenStream {
+        let crate_name = level.crate_name(self.bundle).unwrap();
+        let crate_path = self.crate_path(crate_name);
+        let modules = self
+            .crate_paths
+            .trait_module(crate_name, &level.trait_name)
+            .iter()
+            .map(|s| quote::format_ident!("{s}"));
+        quote::quote! { #crate_path #(:: #modules)* }
+    }
+}
+
 impl Deref for CodegenBundle<'_> {
     type Target = ApiBundleOwned;
 

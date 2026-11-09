@@ -1,7 +1,7 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{ToTokens, quote};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 use syn::{
     Attribute, Error, Expr, FnArg, GenericArgument, ItemTrait, Lifetime, Lit, Meta, PathArguments,
@@ -81,7 +81,7 @@ fn ww_trait_inner(item: TokenStream) -> Result<(TokenStream, Option<WireVersion>
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
     // Parse fully to catch errors early - in API crates, not in user ones that depend on them.
-    let api_bundle = load(&crate_path, Some(trait_name.clone()), false).map_err(|e| {
+    let api_bundle = load_own(&crate_path, &item_trait.ident).map_err(|e| {
         // a wrong #[errors(..)] list points at the name in it
         match e.chain().find_map(|e| e.downcast_ref::<ErrorListError>()) {
             Some(list_e) => Error::new(
@@ -119,6 +119,41 @@ fn ww_trait_inner(item: TokenStream) -> Result<(TokenStream, Option<WireVersion>
         pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#trait_ident);
     };
     Ok((tokens, api_bundle.wire))
+}
+
+/// The API of the trait `ident` the macro is on. In a crate with several roots (EVO-37) two of them may share a name
+/// (`wire_v1::Thermo`, `wire_v2::Thermo`), so the trait is looked up in the module of the file the macro is called
+/// in, and by its name alone where that doesn't find it (a trait in an in-line module, or no file known, as in some
+/// IDEs).
+fn load_own(crate_path: &Path, ident: &Ident) -> anyhow::Result<ApiBundleOwned> {
+    let name = ident.to_string();
+    let Some(modules) = file_modules(crate_path, ident.span()).filter(|m| !m.is_empty()) else {
+        return load(crate_path, Some(name), false);
+    };
+    let root = format!("{}::{name}", modules.join("::"));
+    load(crate_path, Some(root), false).or_else(|e| load(crate_path, Some(name), false).map_err(|_| e))
+}
+
+/// The modules of the crate at `crate_path` that the file of `span` is: `["wire_v2"]` for `src/wire_v2.rs` or
+/// `src/wire_v2/mod.rs`, empty for `src/lib.rs`; `None` when the file isn't known or not under `src/`.
+fn file_modules(crate_path: &Path, span: Span) -> Option<Vec<String>> {
+    let file = span.local_file()?;
+    let file = if file.is_absolute() {
+        file
+    } else {
+        std::env::current_dir().ok()?.join(file)
+    };
+    let file = file.canonicalize().ok()?;
+    let src = crate_path.join("src").canonicalize().ok()?;
+    let relative = file.strip_prefix(src).ok()?.with_extension("");
+    let mut modules: Vec<String> = relative
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    if modules.last().is_some_and(|m| m == "mod") || modules == ["lib"] {
+        modules.pop();
+    }
+    Some(modules)
 }
 
 /// Rust trait of the same name as the API trait, so that rustdoc shows the API, see `wire_weaver::api_doc`.

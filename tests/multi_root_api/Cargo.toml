@@ -1,0 +1,20 @@
+[package]
+name = "multi_root_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Two wire lines of one API in one crate (EVO-37): one root per module, each with its own wire version
+[package.metadata.wire_weaver.roots]
+"wire_v1::Thermo" = "w1.2"
+"wire_v2::Thermo" = "w2.1"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+
+[dependencies]
+wire_weaver = { workspace = true }

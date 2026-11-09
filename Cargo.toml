@@ -259,6 +259,7 @@ uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 uid_api = { version = "0.1.0", path = "./tests/uid_api" }
 user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 wire_line_api = { version = "0.4.0", path = "./tests/wire_line_api" }
+multi_root_api = { version = "0.1.0", path = "./tests/multi_root_api" }
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }
 
 # exact_units takes shrink_wrap from this repository by git: use the one here, so there is one shrink_wrap

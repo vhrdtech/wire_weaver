@@ -1,10 +1,10 @@
-use super::crate_walker::CrateContext;
+use super::crate_walker::{CrateContext, Scratch};
 use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
 use semver::Version;
 use shrink_wrap::ElementSize;
 use syn::parse::{Parse, ParseStream};
-use syn::{Attribute, Expr, Lit, Meta, Token, UseTree};
+use syn::{Attribute, Expr, ExprLit, Lit, Meta, Token, UseTree};
 use ww_self::{Batching, Delivery, FlowControl, OptionalOwned, Repr};
 use ww_version::WireVersion;
 
@@ -40,21 +40,27 @@ pub(crate) fn collect_docs(attrs: &[Attribute]) -> Vec<String> {
 }
 
 /// `#[since = "w2.1"]`: the wire revision that added the item (EVO-24). A crate version (`"0.2.0"`), the form before
-/// wire versions, is refused with a hint.
+/// wire versions, is refused with a hint. An item of a type shared by several lines of one crate names a revision per
+/// line, `#[since = "w1.5, w2.2"]` (EVO-37): the one on the line of the API root being loaded is taken; loaded on
+/// its own (a shared `#[ww_trait]`'s check), on no line, it is `None`.
 pub(crate) fn get_since_attr(
     attrs: &[Attribute],
     current_crate: &CrateContext,
+    scratch: &Scratch,
 ) -> Result<Option<WireVersion>> {
     let Some(attr) = attrs.iter().find(|a| a.path().is_ident("since")) else {
         return Ok(None);
     };
-    if let Meta::NameValue(name_value) = &attr.meta
-        && let Expr::Lit(expr_lit) = &name_value.value
-        && let Lit::Str(lit_str) = &expr_lit.lit
-    {
-        let value = lit_str.value();
-        let since = value.parse::<WireVersion>().map_err(|e| {
-            if Version::parse(&value).is_ok() {
+    let Meta::NameValue(name_value) = &attr.meta else {
+        return Err(anyhow!("expected #[since = \"w<line>.<revision>\"]").context(current_crate.err_context()));
+    };
+    let Expr::Lit(ExprLit { lit: Lit::Str(lit_str), .. }) = &name_value.value else {
+        return Err(anyhow!("expected #[since = \"w<line>.<revision>\"]").context(current_crate.err_context()));
+    };
+    let value = lit_str.value();
+    let parse = |value: &str| {
+        value.parse::<WireVersion>().map_err(|e| {
+            if Version::parse(value).is_ok() {
                 anyhow!(
                     "#[since = \"{value}\"] names a crate version: `#[since]` names the wire revision that added \
                      the item, like `#[since = \"w1.2\"]`, on the API root's wire line (`[package.metadata.wire_weaver] wire` in its Cargo.toml)"
@@ -62,11 +68,37 @@ pub(crate) fn get_since_attr(
             } else {
                 anyhow!("#[since = \"{value}\"]: {e}")
             }
-        });
-        Ok(Some(since.context(current_crate.err_context())?))
-    } else {
-        Err(anyhow!("expected #[since = \"w<line>.<revision>\"]")
-            .context(current_crate.err_context()))
+        })
+    };
+    let revisions = value
+        .split(',')
+        .map(|v| parse(v.trim()))
+        .collect::<Result<Vec<_>>>()
+        .context(current_crate.err_context())?;
+    if let [one] = revisions.as_slice() {
+        return Ok(Some(*one));
+    }
+    // a type shared by several lines of one crate (EVO-37): one revision per line, the root's line picks
+    let line = match &scratch.root {
+        Some((root_crate, wire)) if root_crate == current_crate.version() => wire.map(|w| w.line),
+        _ => current_crate.wire.map(|w| w.line),
+    };
+    // a shared trait loaded on its own (its `#[ww_trait]` check) is on no line: its revision per line doesn't apply
+    let Some(line) = line else {
+        return Ok(None);
+    };
+    let mut on_line = revisions.iter().filter(|r| r.line == line);
+    match (on_line.next(), on_line.next()) {
+        (Some(since), None) => Ok(Some(*since)),
+        (None, _) => Err(anyhow!(
+            "#[since = \"{value}\"] names no revision of line {}, the line of the API root it is loaded for: add one \
+             (`w{}.0` when the item was there from the line's start)",
+            line.0,
+            line.0
+        ))
+        .context(current_crate.err_context()),
+        (Some(_), Some(_)) => Err(anyhow!("#[since = \"{value}\"] names line {} twice", line.0))
+            .context(current_crate.err_context()),
     }
 }
 

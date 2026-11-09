@@ -16,7 +16,7 @@ use wire_weaver_core::handler_model::HandlerModel;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::{ClientModel, gen_client, gen_server};
-use wire_weaver_core::{CratePaths, load, load_dep_with_paths};
+use wire_weaver_core::{load_dep_with_paths, load_own_with_paths};
 
 pub fn ww_api(args: ApiArgs) -> TokenStream {
     api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
@@ -31,21 +31,19 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
     let own_crate = args.dep_name == "crate";
+    // `Trait`, or `module::Trait` for a crate with several roots (EVO-37)
+    let root = args
+        .modules
+        .iter()
+        .chain([&args.trait_name])
+        .map(Ident::to_string)
+        .collect::<Vec<_>>()
+        .join("::");
     let (api_bundle, crate_paths) = if own_crate {
         // the API crate itself (local_trait, CLT-57): its types are named through `crate::`
-        let bundle = load(&manifest_dir, Some(args.trait_name.to_string()), false)
-            .map_err(|e| format!("{e:?}"))?;
-        let mut paths = CratePaths::default();
-        let name = bundle
-            .root
-            .crate_name(&bundle)
-            .map_err(|e| format!("{e:?}"))?
-            .to_string();
-        paths.insert(name, vec!["crate".to_string()]);
-        (bundle, paths)
+        load_own_with_paths(&manifest_dir, Some(root)).map_err(|e| format!("{e:?}"))?
     } else {
-        load_dep_with_paths(args.dep_name.to_string(), Some(args.trait_name.to_string()))
-            .map_err(|e| format!("{e:?}"))?
+        load_dep_with_paths(args.dep_name.to_string(), Some(root)).map_err(|e| format!("{e:?}"))?
     };
     if own_crate && (args.ext.server || !args.ext.client.is_empty()) {
         return Err("`crate :: Trait` only generates `local_trait`, server and client code is generated from \
@@ -83,6 +81,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
 
     // emit marker with correct spans to help IDEs navigate back to the source
     let dep_name = args.dep_name;
+    let modules = &args.modules;
     let full_gid_const = Ident::new(
         format!("{}_FULL_GID", args.trait_name)
             .to_case(convert_case::Case::Constant)
@@ -95,7 +94,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
         quote! {
             // unused when the call comes from a `macro_rules!` whose module is not reachable from outside
             #[allow(unused_imports)]
-            pub use #dep_name :: #full_gid_const as _SOURCE_MARKER;
+            pub use #dep_name :: #(#modules ::)* #full_gid_const as _SOURCE_MARKER;
         }
     };
 

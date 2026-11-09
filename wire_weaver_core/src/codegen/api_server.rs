@@ -267,7 +267,6 @@ pub fn gen_server(
     } else {
         quote! { wire_weaver::BlockingEventOut }
     };
-    let crate_name = api_level.crate_name(api_bundle).unwrap();
     let medium_ty = match &config.medium {
         Some(path) => quote! { #path },
         None => quote! { () },
@@ -335,7 +334,6 @@ pub fn gen_server(
         api_bundle,
         api_level,
         IndexChain::new(),
-        crate_name,
         &cx,
         Some(handle_introspect),
     );
@@ -1421,7 +1419,6 @@ fn process_request_inner_recursive(
     api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
-    crate_name: &str,
     cx: &ApiServerCGContext<'_>,
     introspect: Option<TokenStream>,
 ) -> TokenStream {
@@ -1437,7 +1434,6 @@ fn process_request_inner_recursive(
         &omitted,
         &level_name_chain,
         index_chain,
-        crate_name,
         cx,
     );
     let maybe_index_chain_def = index_chain.fun_argument_def();
@@ -1502,19 +1498,11 @@ fn process_request_inner_recursive(
             api_bundle,
             level,
             index_chain,
-            level.crate_name(api_bundle).unwrap(),
             &cx,
             None,
         ));
     }
     ts
-}
-
-fn mod_ident(level: &ApiLevelOwned, crate_name: &str) -> Ident {
-    Ident::new(
-        format!("{}_{}", crate_name, level.trait_name.to_case(Case::Snake)).as_str(),
-        Span::call_site(),
-    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1524,7 +1512,6 @@ fn level_matchers(
     omitted: &BTreeMap<u32, Omission>,
     level_name_chain: &str,
     index_chain: IndexChain,
-    crate_name: &str,
     cx: &ApiServerCGContext<'_>,
 ) -> TokenStream {
     let present = api_level
@@ -1565,7 +1552,7 @@ fn level_matchers(
             item,
             level_name_chain,
             index_chain,
-            mod_ident(api_level, crate_name),
+            util::mod_name(api_level, api_bundle),
             cx,
         ),
         Multiplicity::Array { .. } => {
@@ -1577,7 +1564,7 @@ fn level_matchers(
                 item,
                 level_name_chain,
                 index_chain_with_this_index,
-                mod_ident(api_level, crate_name),
+                util::mod_name(api_level, api_bundle),
                 cx,
             );
 

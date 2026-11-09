@@ -43,7 +43,7 @@ pub(crate) fn introspect(
         });
     }
     let root = &api_bundle.root;
-    let crate_name = api_bundle.crate_path(root.crate_name(api_bundle).unwrap());
+    let crate_name = api_bundle.trait_module_path(root);
     let full_gid = Ident::new(
         &format!("{}_FULL_GID", root.trait_name).to_case(Case::Constant),
         Span::call_site(),

@@ -98,7 +98,7 @@ pub(crate) fn convert_api_items(
             }
             TraitItem::Const(trait_item_const) => {
                 let ty = convert_ty(&trait_item_const.ty, current_crate, scratch)?;
-                let since = get_since_attr(&trait_item_const.attrs, current_crate)?;
+                let since = get_since_attr(&trait_item_const.attrs, current_crate, scratch)?;
                 let docs = collect_docs(&trait_item_const.attrs);
                 reject_errors_attr(
                     &trait_item_const.attrs,
@@ -343,7 +343,7 @@ fn convert_api_item_fn(
         scratch,
     )
     .context(current_crate.err_context())?;
-    let since = get_since_attr(&item_fn.attrs, current_crate)?;
+    let since = get_since_attr(&item_fn.attrs, current_crate, scratch)?;
     let kind = match stream_fn {
         Some(_)
             if return_ty
@@ -411,7 +411,7 @@ fn convert_api_item_stream(
         .context(current_crate.err_context())?;
     let ty = convert_ty(&args.type_or_trait, current_crate, scratch)?;
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
-    let since = get_since_attr(&item_macro.attrs, current_crate)?;
+    let since = get_since_attr(&item_macro.attrs, current_crate, scratch)?;
     let docs = collect_docs(&item_macro.attrs);
     let flow = get_flow_attr(&item_macro.attrs, is_up, current_crate)?;
     let delivery = get_delivery_attr(&item_macro.attrs, is_up, current_crate)?;
@@ -542,7 +542,7 @@ fn convert_api_item_property(
         None
     };
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
-    let since = get_since_attr(&item_macro.attrs, current_crate)?;
+    let since = get_since_attr(&item_macro.attrs, current_crate, scratch)?;
     let docs = collect_docs(&item_macro.attrs);
     let errors = get_errors_attr(
         &item_macro.attrs,
@@ -612,7 +612,7 @@ fn convert_api_item_impl(
         find_and_convert_trait(trait_name, &cx, scratch)?
     };
     let multiplicity = convert_multiplicity(&args.multiplicity, current_crate, scratch)?;
-    let since = get_since_attr(&item_macro.attrs, current_crate)?;
+    let since = get_since_attr(&item_macro.attrs, current_crate, scratch)?;
     reject_errors_attr(
         &item_macro.attrs,
         &args.resource_name.to_string(),
@@ -669,6 +669,7 @@ pub(crate) fn convert_trait(
 ) -> Result<UNib32> {
     let crate_idx = scratch.root_bundle.find_crate_or_create(current_crate);
     let trait_name = item_trait.ident.to_string();
+    scratch.note_trait_module(current_crate, &trait_name)?;
     if scratch.dedup_traits
         && let Some(idx) = scratch.root_bundle.traits.iter().position(|l| {
             matches!(l, ApiLevelLocationOwned::InLine { level, .. } if level.crate_idx == crate_idx && level.trait_name == trait_name)

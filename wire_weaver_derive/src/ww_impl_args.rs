@@ -9,6 +9,9 @@ use wire_weaver_core::codegen::omit::Omit;
 pub(crate) struct ApiArgs {
     /// The API crate, or `crate` for the crate the macro is called in (`local_trait` only, CLT-57).
     pub(crate) dep_name: Ident,
+    /// Modules from the API crate's root to the API root, empty at the crate root: `wire_v2` of
+    /// `thermo_api :: wire_v2 :: Thermo` in a crate with several roots (EVO-37).
+    pub(crate) modules: Vec<Ident>,
     pub(crate) trait_name: Ident,
     /// `for <server or client struct>`, optional when only `local_trait` is generated.
     pub(crate) context_ident: Option<Path>,
@@ -97,7 +100,12 @@ impl Parse for ApiArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let dep_name = Ident::parse_any(input)?;
         let _: Token![::] = input.parse()?;
-        let trait_name = input.parse()?;
+        let mut modules = vec![];
+        let mut trait_name: Ident = input.parse()?;
+        while input.peek(Token![::]) {
+            let _: Token![::] = input.parse()?;
+            modules.push(std::mem::replace(&mut trait_name, input.parse()?));
+        }
         let context_ident = if input.peek(Token![for]) {
             let _: Token![for] = input.parse()?;
             Some(input.parse()?)
@@ -107,6 +115,7 @@ impl Parse for ApiArgs {
         let _: Token![,] = input.parse()?;
         Ok(ApiArgs {
             dep_name,
+            modules,
             trait_name,
             context_ident,
             ext: input.parse()?,

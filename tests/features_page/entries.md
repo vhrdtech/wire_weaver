@@ -193,6 +193,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-3, CLT-4, CLT-5 | Transports | USB, RTT through a debug probe, WebSocket, UDP, and in-process for tests. | transport/overview.md
 - CLT-9 | Picking a device | By serial number, label or path, with clear errors when none is found. | transport/overview.md#connecting
 - CLT-8 | Compatibility check on connect | The client compares its API with the device's and tells what doesn't match. | evolution/rules.md
+- CLT-61 | Hello wire matches the bundle | A device whose hello and its own introspection bundle disagree on its wire version is refused, naming both, instead of trusting whichever claim came first. | evolution/rules.md#the-wire-version
 
 ## Advanced
 

@@ -1060,7 +1060,7 @@ pub(crate) mod tests {
             cmd.connected_device.user_api_hash = introspect(device.clone(), 2).api_hash;
             cmd.set_client_introspect(introspect(client.clone(), 1));
             cmd.set_device_introspect(introspect(device, 2));
-            cmd.resolve_api_match();
+            cmd.resolve_api_match().unwrap();
             cmd
         };
         let call = |cmd: &Commander| {
@@ -1145,7 +1145,7 @@ pub(crate) mod tests {
         cmd.connected_device.user_api_hash = introspect(bundle("d", "0.1.0", device), 2).api_hash;
         cmd.set_client_introspect(introspect(bundle("c", "0.1.1", client), 1));
         cmd.set_device_introspect(introspect(bundle("d", "0.1.0", device), 2));
-        cmd.resolve_api_match();
+        cmd.resolve_api_match().unwrap();
 
         fn call(cmd: &Commander, id: u32) -> Result<(), Error> {
             cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
@@ -1165,7 +1165,7 @@ pub(crate) mod tests {
 
         // same hash: nothing is checked
         cmd.connected_device.user_api_hash.no_docs.hash = vec![1];
-        cmd.resolve_api_match();
+        cmd.resolve_api_match().unwrap();
         assert!(call(&cmd, 2).is_ok());
 
         // device API unknown: only since is checked, against the wire version the device's introspection data gave
@@ -1178,14 +1178,96 @@ pub(crate) mod tests {
         );
         cmd2.connected_device.user_api_hash.no_docs.hash = vec![2];
         cmd2.set_client_introspect(introspect(bundle("c", "0.1.1", client), 1));
-        cmd2.resolve_api_match();
+        cmd2.resolve_api_match().unwrap();
         assert!(call(&cmd2, 0).is_ok());
         assert!(matches!(call(&cmd2, 1), Err(Error::OlderProtocol { .. })));
 
         // device API and wire version unknown (a device from before wire versions): nothing to compare with
         cmd2.connected_device.user_api_wire = None;
-        cmd2.resolve_api_match();
+        cmd2.resolve_api_match().unwrap();
         assert!(call(&cmd2, 1).is_ok());
+    }
+
+    /// The root's wire version is part of what `api_hash` covers (CLT-61): two builds of the same API that differ
+    /// only in their declared wire hash differently, so an `ApiMatch::Identical` computed from one can never
+    /// silently stand for the other too.
+    #[test]
+    fn api_hash_differs_by_wire_version_only() {
+        use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
+
+        let src = |wire: &str| {
+            format!(
+                r#"
+                    #[ww_api_root(wire = "{wire}")]
+                    pub trait Api {{
+                        fn a();
+                    }}
+                "#
+            )
+        };
+        let w1_0 = bundle("hash_wire", "0.1.0", &src("w1.0"));
+        let w1_1 = bundle("hash_wire", "0.1.0", &src("w1.1"));
+        assert_eq!(w1_0.wire, Some(WireVersion::new(1, 0)));
+        assert_eq!(w1_1.wire, Some(WireVersion::new(1, 1)));
+
+        let hash = |b: &ApiBundleOwned| signature::api_hash(&b.to_ww_bytes_owned().unwrap());
+        assert_ne!(
+            hash(&w1_0),
+            hash(&w1_1),
+            "the wire version must be part of what api_hash covers"
+        );
+    }
+
+    /// A device's hello (`DeviceInfo::user_api_wire`) can claim a wire version that differs from the one baked
+    /// into its own introspection bundle (`ApiBundle::wire`): a build where the two didn't come from the same
+    /// place (CLT-61). `resolve_api_match` refuses it, naming both wires, before deciding `ApiMatch` at all -
+    /// including when the API hashes already match and it would otherwise take the `Identical` shortcut.
+    #[test]
+    fn resolve_api_match_refuses_a_hello_wire_that_differs_from_the_bundles() {
+        use crate::config::IntrospectBundle;
+        use crate::{Commander, Error};
+        use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
+
+        let device_bundle = bundle(
+            "hello_wire",
+            "0.1.0",
+            r#"
+                #[ww_api_root(wire = "w1.0")]
+                pub trait Api {
+                    fn a();
+                }
+            "#,
+        );
+        assert_eq!(device_bundle.wire, Some(WireVersion::new(1, 0)));
+
+        let hash = ApiHashPairOwned {
+            no_docs: ApiHashOwned { hash: vec![1] },
+            with_docs: ApiHashOwned { hash: vec![] },
+        };
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        let mut cmd = Commander::new(tx);
+        cmd.connected_device.user_api_version =
+            FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
+        // the hello claimed w1.1, the device's own bundle says w1.0: the device's build is inconsistent
+        cmd.connected_device.user_api_wire = Some(WireVersion::new(1, 1));
+        cmd.connected_device.user_api_hash = hash.clone();
+        // client and device report the same hash: without the check, this would take the Identical shortcut
+        cmd.set_client_introspect(
+            IntrospectBundle::from_sent(device_bundle.clone(), hash.clone(), 0).unwrap(),
+        );
+        cmd.set_device_introspect(IntrospectBundle::from_sent(device_bundle, hash, 0).unwrap());
+
+        match cmd.resolve_api_match() {
+            Err(Error::HelloWireMismatch {
+                hello_wire,
+                bundle_wire,
+                ..
+            }) => {
+                assert_eq!(hello_wire, WireVersion::new(1, 1));
+                assert_eq!(bundle_wire, WireVersion::new(1, 0));
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]
@@ -1245,7 +1327,7 @@ pub(crate) mod tests {
         .unwrap();
         cmd.set_client_introspect(client);
         // device API unknown: only since is checked
-        cmd.resolve_api_match();
+        cmd.resolve_api_match().unwrap();
 
         let call = |id: u32| -> Result<(), Error> {
             cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")

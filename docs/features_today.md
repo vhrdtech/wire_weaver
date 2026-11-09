@@ -202,6 +202,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Transports](transport/overview.md)**: USB, RTT through a debug probe, WebSocket, UDP, and in-process for tests.
 - **[Picking a device](transport/overview.md#connecting)**: By serial number, label or path, with clear errors when none is found.
 - **[Compatibility check on connect](evolution/rules.md)**: The client compares its API with the device's and tells what doesn't match.
+- **[Hello wire matches the bundle](evolution/rules.md#the-wire-version)**: A device whose hello and its own introspection bundle disagree on its wire version is refused, naming both, instead of trusting whichever claim came first.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 

@@ -54,6 +54,21 @@ pub enum Error {
     },
     #[error("The device speaks link {device}, this host link {host}: update the older side")]
     IncompatibleLinkVersion { device: String, host: String },
+    /// The device's hello (`DeviceInfo::user_api_wire`, EVO-25) names a wire version that differs from the one its
+    /// own introspection bundle (`ApiBundle::wire`) reports: the two always agree on a correctly built device, so
+    /// a device reporting them differently is refused before any `#[since]` check or resource comparison trusts
+    /// either claim (CLT-61).
+    #[error(
+        "Connected device {device:?} says wire {hello_wire} in its hello, but its introspection bundle says wire \
+         {bundle_wire}: its firmware build is inconsistent"
+    )]
+    HelloWireMismatch {
+        device: Box<FullVersionOwned>,
+        /// The wire version from the device's `DeviceInfo` (hello).
+        hello_wire: WireVersion,
+        /// The wire version from the device's own introspection bundle.
+        bundle_wire: WireVersion,
+    },
     /// The device's hello (EVO-23) names another generation of a foundation layer: link setup stops there, neither
     /// side can read the other's messages after it. The device in the field is stuck and the host is not, so the
     /// advice is always about the host.
@@ -354,6 +369,7 @@ impl Error {
             Error::NoTransportSelected
             | Error::ShrinkWrap(_)
             | Error::IncompatibleDeviceProtocol { .. }
+            | Error::HelloWireMismatch { .. }
             | Error::IncompatibleLinkVersion { .. }
             | Error::IncompatibleGeneration { .. }
             | Error::UnknownPeerFormat { .. }

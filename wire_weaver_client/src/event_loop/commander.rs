@@ -954,15 +954,29 @@ impl Commander {
     /// * same API hash - all resources are the same by definition,
     /// * different hash - every method, property, stream and trait is compared with the device's one,
     /// * different hash and device API unknown - only `#[since]` is checked against the device's wire version.
-    pub(crate) fn resolve_api_match(&mut self) {
-        if let Some(device) = &self.device_introspect
-            && self.connected_device.user_api_wire.is_none()
-        {
-            self.connected_device.user_api_wire = device.api_bundle.wire;
+    ///
+    /// Refuses first when the device's own introspection bundle (`ApiBundle::wire`) names a wire version that
+    /// differs from the one its hello already claimed (`DeviceInfo::user_api_wire`, EVO-25): the two always agree
+    /// on a correctly built device, so a mismatch is a build bug on the device and is refused before any
+    /// `#[since]` check or resource comparison trusts either claim (CLT-61). Runs on every path that makes a
+    /// device bundle known, including the `ApiMatch::Identical` shortcut that skips downloading it.
+    pub(crate) fn resolve_api_match(&mut self) -> Result<(), Error> {
+        if let Some(device) = &self.device_introspect {
+            match (self.connected_device.user_api_wire, device.api_bundle.wire) {
+                (Some(hello_wire), Some(bundle_wire)) if hello_wire != bundle_wire => {
+                    return Err(Error::HelloWireMismatch {
+                        device: Box::new(self.connected_device.user_api_version.clone()),
+                        hello_wire,
+                        bundle_wire,
+                    });
+                }
+                (None, bundle_wire) => self.connected_device.user_api_wire = bundle_wire,
+                _ => {}
+            }
         }
         let Some(client) = &self.client_introspect else {
             self.api_match = ApiMatch::NoClientApi;
-            return;
+            return Ok(());
         };
         self.api_match = if client.api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
             ApiMatch::Identical
@@ -993,6 +1007,7 @@ impl Commander {
             );
             ApiMatch::DeviceApiUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)))
         };
+        Ok(())
     }
 
     pub fn device_introspect(&self) -> Option<&IntrospectBundle> {

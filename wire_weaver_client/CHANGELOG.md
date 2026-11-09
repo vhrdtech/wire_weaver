@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+- New `Error::HelloWireMismatch { device, hello_wire, bundle_wire }` (CLT-61): a device whose hello
+  (`DeviceInfo::user_api_wire`) names a wire version that differs from the one its own introspection bundle
+  (`ApiBundle::wire`) reports is refused, naming both wires, before any `#[since]` check or resource comparison
+  trusts either claim. `Commander::resolve_api_match` runs this check first, even when the API hashes already
+  match and the connection would otherwise take the `ApiMatch::Identical` shortcut. Code matching `Error`
+  exhaustively handles the new variant.
 - `quantity::DynUnit::dim()` answers `Option<DimOwned>` (was `Option<Dim<'_>>`; exact_units UNIT-10): the dimension of a tree is now a lazy view over the tree, so the client gives an owned one. Compare with `==` or `as_dim().same(..)`; `exps()` has seven exponents in halves and `bases()` the distinguished ones.
 - A conversion of an `AnyQuantity` whose factor keeps a measured constant (μ₀, G; exact_units NUM-10) is refused with a reason, as it has no value without a named set; `DynPrefix::scale_f64` gives NaN for such a scale, and `{:#}` writes such a value in its own scale.
 - `quantity::DynUnit::from_si_expr(expr, table)` takes the `UnitTable` the unit's references resolve through (CLT-66, exact_units UNIT-7); new variant `DynUnit::Ref(MarkerIdOwned)` for a reference no table lists (shown by its name, no dimension, written back as the same reference). `DynQuantity::from_value` resolves an `AnyQuantity`'s references through the bundle, then `ww_si::units::TABLE` (`quantity::units_of(bundle)`), and `to_value` compacts what it writes into an `AnyQuantity` against the bundle, so the API's units go out by reference (STD-107).

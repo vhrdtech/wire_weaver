@@ -66,7 +66,7 @@ impl<T: WwClient> PreparedConnection<T> {
         let supervise = config.hub_reconnect.is_some();
         #[cfg(feature = "clock_sync")]
         let clock = ClockStart::new(&config, attempt.key, reconnect.via_hub.clone());
-        let mut commander = create_commander(config, cmd_tx, device_api_info).await;
+        let mut commander = create_commander(config, cmd_tx, device_api_info).await?;
         if supervise {
             reconnect.supervise(commander.downgrade());
         }
@@ -118,7 +118,7 @@ impl<T: WwClient> PreparedConnection<T> {
                     #[cfg(not(feature = "clock_sync"))]
                     let _ = (key, via_hub);
                     #[allow(unused_mut)]
-                    let mut commander = create_commander_blocking(config, cmd_tx, device_api_info);
+                    let mut commander = create_commander_blocking(config, cmd_tx, device_api_info)?;
                     #[cfg(feature = "clock_sync")]
                     clock.start(&mut commander);
                     return Ok(T::from_cmd(commander));
@@ -879,7 +879,7 @@ async fn create_commander(
     config: ValidatedConfig,
     cmd_tx: mpsc::Sender<Command>,
     device_api_info: DeviceApiInfo,
-) -> Commander {
+) -> Result<Commander, crate::Error> {
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     // the device has no introspection data: known for good, unlike a failed download (SRV-53)
@@ -904,8 +904,8 @@ async fn create_commander(
         }
     }
     attach_global_paths(&commander, device_api_hash, no_introspection);
-    commander.resolve_api_match();
-    commander
+    commander.resolve_api_match()?;
+    Ok(commander)
 }
 
 /// NOTE: keep in sync with [create_commander]
@@ -913,7 +913,7 @@ fn create_commander_blocking(
     config: ValidatedConfig,
     cmd_tx: mpsc::Sender<Command>,
     device_api_info: DeviceApiInfo,
-) -> Commander {
+) -> Result<Commander, crate::Error> {
     let device_api_hash = device_api_info.user_api_hash.clone();
     let mut commander = create_commander_inner(config, cmd_tx, device_api_info);
     // the device has no introspection data: known for good, unlike a failed download (SRV-53)
@@ -938,8 +938,8 @@ fn create_commander_blocking(
         }
     }
     attach_global_paths(&commander, device_api_hash, no_introspection);
-    commander.resolve_api_match();
-    commander
+    commander.resolve_api_match()?;
+    Ok(commander)
 }
 
 /// Tell the connection's global trait paths (SRV-53) how to reach the device, and its API if the connection has it.

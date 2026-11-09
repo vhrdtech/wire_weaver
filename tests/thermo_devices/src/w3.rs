@@ -77,8 +77,7 @@ impl Server {
         value: Fixed<Ratio, Centi, u16, Range<100, 1600>>,
     ) -> SetResult<()> {
         self.gain = value;
-        // observers with `OnChange` get it at the next poll
-        self.mark_changed_gain();
+        // observers with `OnChange` get it at the next poll: the generated code marks it changed (SRV-57)
         SetResult::Set
     }
 

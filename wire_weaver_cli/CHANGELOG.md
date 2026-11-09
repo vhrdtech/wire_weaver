@@ -8,7 +8,7 @@
 
 ### 🚀 Features
 
-- `ww api save` on a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) saves one snapshot per root and wire version, `api_snapshots/<crate>.<module path>.<Trait>@w<line>.<revision>.ron`, each checked against the root's previous one, and prints a line per root (EVO-38).
+- `ww api save` on a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) saves a snapshot per root, `api_snapshots/<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`, each checked against the root's previous one, prints a line per root, and warns when a root has no earlier snapshot while the crate has older ones (EVO-38).
 - `ww tap`, `ww observe`, `ww stream` and `ww explain` show an `AnyQuantity` whose unit comes by reference (STD-107, CLT-66) with the unit the device's API model defines (`1500 rpm`), also from a capture file, which stores the model.
 - `ww tap`'s session line shows the device's wire version once link is set up (EVO-34): `link set up (wire w2.3)`,
   decoded from the session's `DeviceInfo` bytes (`wire_weaver_client::tap::session_wire_version`).

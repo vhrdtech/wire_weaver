@@ -11,8 +11,8 @@ use ww_version::{VersionOwned, WireVersion};
 
 use crate::recorded::Recorded;
 use crate::snapshot_files::{
-    RootSnapshot, SNAPSHOTS_DIR, Snapshot, latest_snapshot, read, root_file_name, root_snapshots,
-    triplet,
+    SNAPSHOTS_DIR, Snapshot, latest_snapshot, read, root_file_name, root_of_file_name,
+    root_snapshots, triplet,
 };
 use crate::{Change, Report, compare_recorded};
 
@@ -273,9 +273,8 @@ impl Check {
     }
 
     /// The snapshot of the API root `root` (`wire_v2::Thermo`) at its wire version `wire`, and the text to write,
-    /// `None` when it is up to date. The root's file of the same wire version saved by an older crate version is kept
-    /// when the root didn't change since, and rewritten with the current crate version when it did without a wire
-    /// change (doc comments, Rust-only changes).
+    /// `None` when it is up to date. Only the current crate version's file is ever written: a root that didn't change
+    /// since its previous snapshot keeps that one, which an older crate version saved.
     fn plan_root(
         &self,
         root: &str,
@@ -283,48 +282,61 @@ impl Check {
         force: bool,
     ) -> Result<(Saved, Option<String>), String> {
         let bundle = wire_weaver_core::load_root(&self.path, root).map_err(|e| format!("{e:#}"))?;
-        let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
+        let own = bundle.crate_version(0).map_err(|e| e.to_string())?.clone();
         let version = own.version.clone();
         let dir = self.crate_snapshots_dir();
-        let path = dir.join(root_file_name(&own.crate_id, root, wire));
+        let path = dir.join(root_file_name(&own, root, wire));
         let contents = wire_weaver_snapshots::render_root_ron(&bundle, root)?;
         let all = root_snapshots(&dir, &own.crate_id, root, wire.line.0)?;
-        let current = ((wire.line.0, wire.revision.0), key(&version));
-        let at = |s: &RootSnapshot| ((s.wire.line.0, s.wire.revision.0), key(&s.version));
-        if let Some(newer) = all.iter().find(|s| at(s) > current) {
+        if let Some(newer) = all.iter().find(|s| key(&s.version) > key(&version)) {
             return Err(format!(
-                "{} has `{root}` at wire {} of {} {}, newer than the source's wire {wire} of {}: a snapshot of an older \
-                 version is never written",
+                "{} has `{root}` of {} {} (wire {}), newer than the source's {}: a snapshot of an older version is \
+                 never written",
                 newer.snapshot.path.display(),
-                newer.wire,
                 own.crate_id,
                 triplet(&newer.version),
+                newer.wire,
                 triplet(&version)
             ));
         }
+        let mut warnings = vec![];
         let previous = all
             .into_iter()
-            .rfind(|s| at(s) < current)
+            .rfind(|s| key(&s.version) < key(&version))
             .map(|s| s.snapshot);
+        if previous.is_none() {
+            warnings.extend(no_previous_warning(
+                &dir,
+                &own.crate_id,
+                &version,
+                root,
+                wire,
+            )?);
+        }
         let previous = self.check_bump(previous, &bundle, Some(root), force)?;
-        let older_same_wire = previous.as_ref().is_some_and(|(p, _)| *p == path);
-        let status = if older_same_wire {
-            // saved by an older crate version: kept as long as the root is the same
-            match &previous {
-                Some((_, report)) if report.change == Change::None => SaveStatus::UpToDate,
-                _ => SaveStatus::Refreshed,
+        let unchanged = previous
+            .as_ref()
+            .is_some_and(|(_, report)| report.change == Change::None);
+        let (path, status) = match previous.as_ref() {
+            // the previous crate version's snapshot of the root stays its latest
+            Some((previous_path, _)) if unchanged && !path.exists() => {
+                (previous_path.clone(), SaveStatus::UpToDate)
             }
-        } else {
-            existing_status(&path, &bundle, &contents)?
+            _ => {
+                let status = existing_status(&path, &bundle, &contents)?;
+                (path, status)
+            }
         };
-        Ok(planned(
+        let (mut saved, contents) = planned(
             path,
             status,
             previous,
             bundle,
             Some(root.to_string()),
             contents,
-        ))
+        );
+        saved.warnings = warnings;
+        Ok((saved, contents))
     }
 
     /// Compares `bundle` with the snapshot `previous`, refusing a version or wire version not bumped enough unless
@@ -376,7 +388,14 @@ impl Check {
     pub fn assert(&self) {
         if std::env::var_os(SAVE_ENV).is_some_and(|v| !v.is_empty() && v != "0") {
             match self.save(false) {
-                Ok(saved) => saved.iter().for_each(|saved| println!("{saved}")),
+                Ok(saved) => {
+                    for saved in &saved {
+                        println!("{saved}");
+                        for warning in &saved.warnings {
+                            println!("warning: {warning}");
+                        }
+                    }
+                }
                 Err(e) => panic!("\n{e}"),
             }
         }
@@ -441,7 +460,8 @@ pub struct NoSnapshot {
 /// What [Check::save] did.
 #[derive(Debug)]
 pub struct Saved {
-    /// The snapshot of the current version, or of the root's current wire version.
+    /// The snapshot of the current version. For an API root that didn't change since its previous snapshot, that
+    /// one (saved by an older crate version), which stays its latest.
     pub path: PathBuf,
     pub status: SaveStatus,
     /// The previous version's snapshot and what changed since, if there is one.
@@ -450,6 +470,9 @@ pub struct Saved {
     pub bundle: ApiBundleOwned,
     /// The API root (`wire_v2::Thermo`) of a crate with several, `None` for a whole-crate snapshot.
     pub root: Option<String>,
+    /// What looked wrong but didn't stop the save: an API root saved without an earlier snapshot to check it
+    /// against, while the crate has other snapshots.
+    pub warnings: Vec<String>,
 }
 
 /// Whether [Check::save] wrote the snapshot.
@@ -664,6 +687,85 @@ pub fn missing_test_warning(crate_path: &Path) -> Option<String> {
     ))
 }
 
+/// The warning for an API root saved with no earlier snapshot of its own while `dir` has snapshots of older versions
+/// of the crate: a root renamed, moved to another module or to another line is not matched by them (EVO-40), and
+/// would otherwise be saved unchecked without a word. `None` when the crate has no older snapshots (a new crate, or
+/// only this version's files of its roots).
+fn no_previous_warning(
+    dir: &Path,
+    crate_id: &str,
+    version: &VersionOwned,
+    root: &str,
+    wire: WireVersion,
+) -> Result<Option<String>, String> {
+    let trait_name = root.rsplit("::").next().unwrap_or(root);
+    let mut others = vec![];
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("reading {}: {e}", dir.display())),
+    };
+    for entry in entries {
+        let path = entry
+            .map_err(|e| format!("reading {}: {e}", dir.display()))?
+            .path();
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        if path.extension().is_none_or(|ext| ext != "ron") {
+            continue;
+        }
+        if let Some(name) = root_of_file_name(file_name) {
+            if name.crate_id == crate_id && name.version < key(version) {
+                others.push(format!("{file_name} (root `{}`)", name.root));
+            }
+            continue;
+        }
+        let snapshot = read(&path)?;
+        let own = snapshot
+            .bundle
+            .crate_version(0)
+            .map_err(|e| e.to_string())?;
+        if own.crate_id != crate_id || key(&own.version) >= key(version) {
+            continue;
+        }
+        let roots: Vec<_> = snapshot
+            .bundle
+            .root
+            .items
+            .iter()
+            .filter(|item| matches!(item.kind, ww_self::ApiItemKindOwned::Trait { .. }))
+            .map(|item| format!("`{}`", item.ident))
+            .collect();
+        let wire = snapshot
+            .bundle
+            .wire
+            .map_or("no wire version".to_string(), |w| w.to_string());
+        others.push(format!(
+            "{file_name} (whole crate, {wire}, traits {})",
+            if roots.is_empty() {
+                "none".to_string()
+            } else {
+                roots.join(", ")
+            }
+        ));
+    }
+    if others.is_empty() {
+        return Ok(None);
+    }
+    others.sort();
+    Ok(Some(format!(
+        "API root `{root}` has no earlier snapshot, so it is saved unchecked: looked for its own files \
+         ({crate_id}_*.{}@w*.ron) and for whole-crate snapshots on line {} with a root trait `{trait_name}`, and \
+         {} has only {}. A root renamed, moved to another module or to another line is not matched by name \
+         (EVO-40); compare it by hand with `ww api diff <snapshot> --against <its old snapshot>` once saved",
+        root.replace("::", "."),
+        wire.line.0,
+        dir.display(),
+        others.join(", ")
+    )))
+}
+
 /// Whether the snapshot file at `path`, of the same version as `bundle`, needs writing.
 fn existing_status(
     path: &Path,
@@ -709,6 +811,7 @@ fn planned(
         previous,
         bundle,
         root,
+        warnings: vec![],
     };
     (saved, write)
 }

@@ -2018,16 +2018,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client` `host_of_two_lines_*`, `wire_weaver_core` `two_versions_of_one_crate_under_other_names`,
   `wire_weaver_evolution` `removed_variant_breaks_rust_code`; docs `docs/evolution/multi_line_host.md`. Follow-ups:
   EVO-32, EVO-33, CLT-61 to CLT-65, SRV-57, TOOL-32.
-- ✅ **EVO-38 Snapshots per root** · `v0.5` — a crate with a `roots` table (EVO-37) has one snapshot per API root
-  and wire version, `api_snapshots/<crate>.<module path>.<Trait>@w<line>.<revision>.ron`: the root and what it
-  reaches, `#[since]` on its line, the crate version recorded inside (`wire_weaver_core::load_root`). `ww api save`
-  and `Check::save` save each root, checked against its previous snapshot, and write nothing when one is refused; an
-  unchanged root keeps its file and older crate version, one changed without a wire change has it rewritten. The
-  crate's whole-crate files from before it had several roots are read as earlier snapshots of the root on their line
-  with the same trait name (`snapshot_files::root_snapshots`). Crates with one root or none and `ww_stdlib` keep
-  crate-version files; `wire_weaver_snapshots` embeds only those, so `just save-snapshots` is unchanged. `ww api
-  check` of such a crate is EVO-39. Docs: `docs/evolution/checker_tool.md#several-api-roots-in-one-crate`; tests
-  `wire_weaver_evolution` `snapshots_per_root`, `crate_snapshot_is_a_roots_previous_one`, `wire_weaver_core`
+- ✅ **EVO-38 Snapshots per root** · `v0.5` — a crate with a `roots` table (EVO-37) has a snapshot per API root,
+  `api_snapshots/<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`: the root and what it
+  reaches, `#[since]` on its line (`wire_weaver_core::load_root`). `ww api save` and `Check::save` save each root,
+  checked against its previous snapshot, and write nothing when one is refused. Only the current crate version's
+  files are written, so a released snapshot never changes; a root that didn't change keeps its previous file as its
+  latest. The crate's whole-crate files from before it had several roots are read as earlier snapshots of the root
+  on their line with the same trait name (`snapshot_files::root_snapshots`); a root with no earlier snapshot while
+  the crate has older ones is saved with a warning naming what was looked for and what is there. Crates with one
+  root or none and `ww_stdlib` keep whole-crate files; per-root files in `wire_weaver_snapshots` and `just
+  save-snapshots` are EVO-46, `ww api check` of such a crate EVO-39. Docs:
+  `docs/evolution/checker_tool.md#several-api-roots-in-one-crate`; tests `wire_weaver_evolution` `snapshots_per_root`,
+  `crate_snapshot_is_a_roots_previous_one`, `renamed_root_is_saved_with_a_warning`, `wire_weaver_core`
   `snapshot_per_root`.
 - 📋 **EVO-39 The checker per root** · `v0.5` — each root against its own line's latest snapshot, a changed
   `common` type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
@@ -2042,6 +2044,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **EVO-42 The multi-line bench on one crate** · `v0.5` — `tests/thermo_api` as one crate of three lines and
   `tests/thermo` on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
   baseline; `docs/evolution/multi_line_host.md` rewritten for it.
+- 📋 **EVO-46 Per-root snapshots for stdlib and `wire_weaver_snapshots`** · `v0.5` — a `ww_stdlib` (or `ww_global`,
+  `ww_tap`) crate with a `roots` table has no whole-crate snapshot today: `load_crate` refuses it, so
+  `wire_weaver_snapshots` can't embed it, `just save-snapshots` saves only its per-root files (which the build script
+  skips, EVO-38), and a device's skipped items from it can't be put back by crate version. Decide how such a crate is
+  embedded (a whole-crate snapshot of its shared types and traits next to the per-root files, or the per-root files
+  keyed by crate and root), then make `wire_weaver_snapshots`, its `get`/`all`/`files` and `just save-snapshots`
+  take it.
 - 💡 **EVO-33 Checker findings on a new line read cleanly** — found by the EVO-28 bench's line break: the root's
   own unchanged sub-trait (`Channel`) is reported as a wire break of its own, with the old crate version as the new
   label (`thermo_api@1.2.0` for 2.1.0); a resource replaced in place reads as a rename with another argument

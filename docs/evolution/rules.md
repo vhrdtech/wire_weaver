@@ -138,7 +138,7 @@ Each root's wire version is an entry of the `roots` table, by its module path:
   one revision per line, and each root takes its own line's.
 * Every root needs an entry once the table exists; a crate-level `wire = ..` stays for a crate with one root and for
   crates whose traits are reached by global paths (`ww_stdlib`).
-* `ww api save` saves one snapshot per root and wire version
+* `ww api save` saves a snapshot per root
   ([several API roots](checker_tool.md#several-api-roots-in-one-crate)). Checks per root are EVO-39: until then
   `ww api check` refuses a crate with a `roots` table.
 
@@ -151,13 +151,17 @@ when either is not bumped enough:
 
 | Change                                                          | Wire version        | Crate version     |
 |-----------------------------------------------------------------|---------------------|-------------------|
-| doc comments only                                               | none                | compatible        |
+| [doc comments](#doc-comments) only                              | none                | compatible        |
 | a new method, property, stream, trait, type, field or variant   | `w2.3` -> `w2.4`    | compatible        |
 | a trailing argument with a default                              | `w2.3` -> `w2.4`    | breaking          |
 | a rename, a `#[flatten]` promotion, a catch-all changed         | none                | breaking          |
 | a wire break (removed, moved, a type changed, a bound narrowed) | `w2.3` -> `w3.0`    | breaking          |
 | a dependency at a newer revision of its wire line               | `w2.3` -> `w2.4`    | as its changes    |
 | a dependency on a new wire line                                 | `w2.3` -> `w3.0`    | breaking          |
+
+Doc comments are not silent: they can say what the code can't (a unit's meaning, a limit, when to call what), they
+are in introspection data and snapshots, and the compatible crate bump lets tools see and show that the docs changed
+([doc comments](#doc-comments)).
 
 "Compatible" is the crate's patch before 1.0 and minor after, "breaking" minor before 1.0 and major after. A bigger
 bump than needed is always accepted, so a new line by hand for a change of meaning the checker can't see stays
@@ -195,8 +199,8 @@ wire-incompatible version, or [the API model](#api-model), is a breaking change 
 
 ### Doc comments
 
-Doc comments on traits, resources and types are not part of the wire format, but they are shipped in introspection
-data and in [crate snapshots](../cli_reference.md#ww-api), so a GUI or CLI can show them. A released version's snapshot never
+Doc comments on traits, resources and types are not part of the wire format, but they carry meaning the code can't
+express (what a value means, its limits, when to use what) and are shipped in introspection data and in [crate snapshots](../cli_reference.md#ww-api), so a GUI or CLI can show them. A released version's snapshot never
 changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
 same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
 improved docs are available. `ww api save` refuses to overwrite a snapshot with changed docs, and the

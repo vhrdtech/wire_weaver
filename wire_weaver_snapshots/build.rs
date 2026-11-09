@@ -17,7 +17,7 @@ fn main() {
         .unwrap_or_else(|e| panic!("reading {}: {e}", dir.display()))
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
-        // a crate's snapshot per API root (`crate.wire_v2.Thermo@w2.1.ron`, EVO-38) is for its evolution checks only:
+        // a crate's snapshot per API root (`api_0_1_0.wire_v2.Thermo@w2.1.ron`, EVO-38) is for its evolution checks only:
         // bundles name skipped items by crate version, which the whole-crate snapshots resolve
         .filter(|path| !path.file_name().unwrap().to_string_lossy().contains('@'))
         .collect();

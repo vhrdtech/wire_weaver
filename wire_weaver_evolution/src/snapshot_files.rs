@@ -1,12 +1,13 @@
 //! Snapshot files of a crate, as `ww api save` writes them into its `api_snapshots/`: one per crate version
 //! (`<crate>_<major>_<minor>_<patch>.ron`), or, for a crate with several API roots (EVO-37), one per root and wire
-//! version (`<crate>.<module path>.<Trait>@w<line>.<revision>.ron`, EVO-38).
+//! version and the crate version that saved it (`<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`,
+//! EVO-38).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use ww_self::ApiBundleOwned;
-use ww_version::{VersionOwned, WireVersion};
+use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use crate::recorded::Recorded;
 
@@ -93,23 +94,49 @@ pub fn triplet(v: &VersionOwned) -> String {
     format!("{}.{}.{}", v.major.0, v.minor.0, v.patch.0)
 }
 
-/// File name of the snapshot of the API root `root` (`wire_v2::Thermo`) of crate `crate_id` at wire version `wire`:
-/// `multi_root_api.wire_v2.Thermo@w2.1.ron`.
-pub fn root_file_name(crate_id: &str, root: &str, wire: WireVersion) -> String {
-    format!("{crate_id}.{}@{wire}.ron", root.replace("::", "."))
+/// File name of the snapshot of the API root `root` (`wire_v2::Thermo`) of crate version `version` at wire version
+/// `wire`: `multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron`. A crate version saves a root's file only when the root
+/// changed since its previous one, and a saved file of an older crate version is never written again.
+pub fn root_file_name(version: &FullVersionOwned, root: &str, wire: WireVersion) -> String {
+    format!(
+        "{}.{}@{wire}.ron",
+        version.filename_friendly(),
+        root.replace("::", ".")
+    )
 }
 
-/// The crate, root and wire version a per-root snapshot file is named after ([root_file_name]); `None` for any
-/// other file, a crate-version one too.
-pub fn root_of_file_name(file_name: &str) -> Option<(String, String, WireVersion)> {
+/// What a per-root snapshot file is named after ([root_file_name]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RootFileName {
+    pub crate_id: String,
+    /// The crate version, `(major, minor, patch)`.
+    pub version: (u32, u32, u32),
+    /// `wire_v2::Thermo`.
+    pub root: String,
+    pub wire: WireVersion,
+}
+
+/// The crate version, root and wire version a per-root snapshot file is named after ([root_file_name]); `None` for
+/// any other file, a whole-crate one too.
+pub fn root_of_file_name(file_name: &str) -> Option<RootFileName> {
     let stem = file_name.strip_suffix(".ron")?;
     let (path, wire) = stem.rsplit_once('@')?;
     let wire = wire.parse().ok()?;
-    let (crate_id, root) = path.split_once('.')?;
+    let (crate_version, root) = path.split_once('.')?;
+    let mut parts = crate_version.rsplitn(4, '_');
+    let patch = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let major = parts.next()?.parse().ok()?;
+    let crate_id = parts.next()?;
     if crate_id.is_empty() || root.is_empty() {
         return None;
     }
-    Some((crate_id.to_string(), root.replace('.', "::"), wire))
+    Some(RootFileName {
+        crate_id: crate_id.to_string(),
+        version: (major, minor, patch),
+        root: root.replace('.', "::"),
+        wire,
+    })
 }
 
 /// An earlier snapshot of an API root, with the wire and crate versions it was saved at.
@@ -150,10 +177,11 @@ pub fn root_snapshots(
             continue;
         }
         match root_of_file_name(file_name) {
-            Some((c, r, wire)) => {
-                if c != crate_id || r != root {
+            Some(name) => {
+                if name.crate_id != crate_id || name.root != root {
                     continue;
                 }
+                let wire = name.wire;
                 let snapshot = read(&path)?;
                 if snapshot.bundle.wire != Some(wire) {
                     return Err(format!(
@@ -171,6 +199,16 @@ pub fn root_snapshots(
                     .map_err(|e| e.to_string())?
                     .version
                     .clone();
+                if key(&version) != name.version {
+                    return Err(format!(
+                        "{} is named after crate version {}.{}.{}, and has {}",
+                        path.display(),
+                        name.version.0,
+                        name.version.1,
+                        name.version.2,
+                        triplet(&version)
+                    ));
+                }
                 found.push(RootSnapshot {
                     snapshot,
                     wire,
@@ -220,19 +258,27 @@ mod tests {
     #[test]
     fn root_file_names_round_trip() {
         let wire: WireVersion = "w2.1".parse().unwrap();
-        let name = root_file_name("thermo_api", "wire_v2::Thermo", wire);
-        assert_eq!(name, "thermo_api.wire_v2.Thermo@w2.1.ron");
+        let version: FullVersionOwned =
+            ww_version::FullVersion::new("thermo_api", ww_version::Version::new(0, 12, 3)).into();
+        let name = root_file_name(&version, "wire_v2::Thermo", wire);
+        assert_eq!(name, "thermo_api_0_12_3.wire_v2.Thermo@w2.1.ron");
         assert_eq!(
             root_of_file_name(&name),
-            Some(("thermo_api".into(), "wire_v2::Thermo".into(), wire))
+            Some(RootFileName {
+                crate_id: "thermo_api".into(),
+                version: (0, 12, 3),
+                root: "wire_v2::Thermo".into(),
+                wire
+            })
         );
-        let nested = root_file_name("a", "lines::v3::Api", wire);
-        assert_eq!(root_of_file_name(&nested).unwrap().1, "lines::v3::Api");
+        let nested = root_file_name(&version, "lines::v3::Api", wire);
+        assert_eq!(root_of_file_name(&nested).unwrap().root, "lines::v3::Api");
         for other in [
             "thermo_api_0_1_0.ron",
-            "thermo_api@w2.1.ron",
-            "x.Thermo@2.1.ron",
-            "x.Y@w1.0.txt",
+            "thermo_api_0_1_0@w2.1.ron",
+            "thermo_api.Thermo@w2.1.ron",
+            "x_0_1_0.Thermo@2.1.ron",
+            "x_0_1_0.Y@w1.0.txt",
         ] {
             assert_eq!(root_of_file_name(other), None, "{other}");
         }

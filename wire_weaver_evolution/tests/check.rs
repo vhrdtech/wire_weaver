@@ -861,8 +861,8 @@ fn snapshots_per_root() {
     let roots = [("wire_v1::Api", "w1.0"), ("wire_v2::Api", "w2.0")];
     let modules = [("common", COMMON), ("wire_v1", LINE_1), ("wire_v2", LINE_2)];
     c.write_roots("0.1.0", &roots, &modules);
-    let v1 = "test_api.wire_v1.Api@w1.0.ron";
-    let v2 = "test_api.wire_v2.Api@w2.0.ron";
+    let v1 = "test_api_0_1_0.wire_v1.Api@w1.0.ron";
+    let v2 = "test_api_0_1_0.wire_v2.Api@w2.0.ron";
     assert_eq!(
         saved_roots(c.path()),
         [
@@ -878,16 +878,15 @@ fn snapshots_per_root() {
     let bundle = wire_weaver_evolution::snapshot_files::parse(&c.snapshot(v2)).unwrap();
     assert_eq!(bundle.root.items.len(), 1);
     assert_eq!(bundle.wire, Some("w2.0".parse().unwrap()));
-    assert!(
-        saved_roots(c.path())
-            .iter()
-            .all(|(_, _, s)| *s == SaveStatus::UpToDate)
-    );
+    let again = Check::new(c.path()).save(false).unwrap();
+    assert!(again.iter().all(|s| s.status == SaveStatus::UpToDate));
+    assert!(again.iter().all(|s| s.warnings.is_empty()), "{again:?}");
     // the whole crate is checked per root in EVO-39
     let err = Check::new(c.path()).run().unwrap_err();
     assert!(err.contains("EVO-39"), "{err}");
 
-    // line 2 gets a method: a new revision of its line and a compatible crate bump; line 1 is unchanged
+    // line 2 gets a method: a new revision of its line and a compatible crate bump; line 1 is unchanged and keeps
+    // the file 0.1.0 saved
     let line_2b = LINE_2.replace("Channel);\n", "Channel);\n    fn stop();\n");
     let modules = [
         ("common", COMMON),
@@ -898,45 +897,59 @@ fn snapshots_per_root() {
     c.write_roots("0.1.1", &roots, &modules);
     let saved = Check::new(c.path()).save(false).unwrap();
     assert_eq!(saved[0].status, SaveStatus::UpToDate);
+    assert_eq!(
+        saved[0].path,
+        c.snapshot(v1),
+        "an unchanged root keeps its file"
+    );
     assert_eq!(saved[1].status, SaveStatus::Saved);
-    assert_eq!(saved[1].path, c.snapshot("test_api.wire_v2.Api@w2.1.ron"));
+    let v2_1 = "test_api_0_1_1.wire_v2.Api@w2.1.ron";
+    assert_eq!(saved[1].path, c.snapshot(v2_1));
     let (previous, report) = saved[1].previous.as_ref().unwrap();
     assert_eq!(previous, &c.snapshot(v2));
     assert_eq!(report.change, Change::Compatible);
-    assert_eq!(
-        crate_version_in(&c.snapshot(v1)),
-        "0.1.0",
-        "an unchanged root keeps its file"
-    );
-    assert_eq!(
-        crate_version_in(&c.snapshot("test_api.wire_v2.Api@w2.1.ron")),
-        "0.1.1"
-    );
+    assert_eq!(crate_version_in(&c.snapshot(v2_1)), "0.1.1");
+    assert!(!c.snapshot("test_api_0_1_1.wire_v1.Api@w1.0.ron").exists());
 
-    // a doc comment on line 1: a compatible crate bump, no wire bump, its file of w1.0 is rewritten at 0.1.2
+    // a doc comment on line 1: a compatible crate bump, no wire bump; a new file at 0.1.2, the released one of 0.1.0
+    // never changes
     let line_1b = LINE_1.replace("#[ww_api_root]", "/// The first line.\n#[ww_api_root]");
     let modules = [
         ("common", COMMON),
         ("wire_v1", &line_1b),
         ("wire_v2", &line_2b),
     ];
+    let released = std::fs::read_to_string(c.snapshot(v1)).unwrap();
     c.write_roots("0.1.2", &roots, &modules);
     let saved = saved_roots(c.path());
-    assert_eq!(saved[0].2, SaveStatus::Refreshed);
+    let v1_2 = "test_api_0_1_2.wire_v1.Api@w1.0.ron";
+    assert_eq!(saved[0].1, v1_2);
+    assert_eq!(saved[0].2, SaveStatus::Saved);
     assert_eq!(saved[1].2, SaveStatus::UpToDate);
-    assert_eq!(crate_version_in(&c.snapshot(v1)), "0.1.2");
-
-    // line 2 breaks without a new line: refused, naming the root and its entry in the table, and nothing is written,
-    // not even line 1's file
+    assert_eq!(std::fs::read_to_string(c.snapshot(v1)).unwrap(), released);
+    // the current version's own file is refreshed while it is worked on
     let line_1c = line_1b.replace("The first line.", "Line one.");
-    let line_2c = line_2b.replace("    fn stop();\n", "");
     let modules = [
         ("common", COMMON),
         ("wire_v1", &line_1c),
+        ("wire_v2", &line_2b),
+    ];
+    c.write_roots("0.1.2", &roots, &modules);
+    assert_eq!(
+        saved_roots(c.path())[0],
+        ("wire_v1::Api".into(), v1_2.into(), SaveStatus::Refreshed)
+    );
+
+    // line 2 breaks without a new line: refused, naming the root and its entry in the table, and nothing is written,
+    // not even line 1's file
+    let line_1d = line_1c.replace("Line one.", "Line 1.");
+    let line_2c = line_2b.replace("    fn stop();\n", "");
+    let modules = [
+        ("common", COMMON),
+        ("wire_v1", &line_1d),
         ("wire_v2", &line_2c),
     ];
     c.write_roots("0.2.0", &roots, &modules);
-    let before = std::fs::read_to_string(c.snapshot(v1)).unwrap();
     let err = Check::new(c.path()).save(false).unwrap_err();
     for expected in [
         "API root `wire_v2::Api`",
@@ -945,7 +958,7 @@ fn snapshots_per_root() {
     ] {
         assert!(err.contains(expected), "'{expected}' not in:\n{err}");
     }
-    assert_eq!(std::fs::read_to_string(c.snapshot(v1)).unwrap(), before);
+    assert!(!c.snapshot("test_api_0_2_0.wire_v1.Api@w1.0.ron").exists());
 
     // an older crate version than a saved snapshot of the root is never saved
     c.write_roots(
@@ -981,10 +994,65 @@ fn crate_snapshot_is_a_roots_previous_one() {
     let line_1 = "#[ww_api_root]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n";
     c.write_roots("0.2.0", &roots, &[("wire_v1", line_1), ("wire_v2", line_2)]);
     let saved = Check::new(c.path()).save(false).unwrap();
-    assert_eq!(saved[0].status, SaveStatus::Saved);
+    // line 1 is what 0.1.0 saved as the whole crate: that file stays its latest snapshot
+    assert_eq!(saved[0].status, SaveStatus::UpToDate);
+    assert_eq!(saved[0].path, c.snapshot("test_api_0_1_0.ron"));
     let (previous, report) = saved[0].previous.as_ref().unwrap();
     assert_eq!(previous, &c.snapshot("test_api_0_1_0.ron"));
     assert_eq!(report.change, Change::None);
-    // line 2 has no earlier snapshot: the crate's was on line 1
+    assert!(saved[0].warnings.is_empty(), "{:?}", saved[0].warnings);
+    // line 2 has no earlier snapshot: the crate's was on line 1, which the warning says
+    assert_eq!(saved[1].status, SaveStatus::Saved);
     assert!(saved[1].previous.is_none());
+    let [warning] = saved[1].warnings.as_slice() else {
+        panic!("{:?}", saved[1].warnings);
+    };
+    for expected in [
+        "API root `wire_v2::Api` has no earlier snapshot",
+        "on line 2 with a root trait `Api`",
+        "test_api_0_1_0.ron (whole crate, w1.0, traits `Api`)",
+    ] {
+        assert!(
+            warning.contains(expected),
+            "'{expected}' not in:\n{warning}"
+        );
+    }
+}
+
+/// A root renamed as it moved into its module matches no earlier snapshot by name: it is saved with a warning naming
+/// what was looked for and what is there, not silently unchecked (EVO-38).
+#[test]
+fn renamed_root_is_saved_with_a_warning() {
+    let c = TestCrate::new("renamed_root");
+    c.write(
+        "0.1.0",
+        "#[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    fn led_on();\n}\n",
+    )
+    .save();
+    let line_1 = "#[ww_api_root]\npub trait Led {\n    fn led_on();\n}\n";
+    c.write_roots("0.2.0", &[("wire_v1::Led", "w1.0")], &[("wire_v1", line_1)]);
+    let saved = save_one(c.path(), false);
+    assert_eq!(saved.status, SaveStatus::Saved);
+    assert!(saved.previous.is_none());
+    let [warning] = saved.warnings.as_slice() else {
+        panic!("{:?}", saved.warnings);
+    };
+    for expected in [
+        "API root `wire_v1::Led` has no earlier snapshot, so it is saved unchecked",
+        "test_api_*.wire_v1.Led@w*.ron",
+        "with a root trait `Led`",
+        "traits `Api`",
+    ] {
+        assert!(
+            warning.contains(expected),
+            "'{expected}' not in:\n{warning}"
+        );
+    }
+    // still unchecked while 0.2.0 is worked on; the next version is checked against its own file, and isn't warned
+    assert_eq!(save_one(c.path(), false).warnings.len(), 1);
+    let line_1 = "/// Docs.\n#[ww_api_root]\npub trait Led {\n    fn led_on();\n}\n";
+    c.write_roots("0.2.1", &[("wire_v1::Led", "w1.0")], &[("wire_v1", line_1)]);
+    let saved = save_one(c.path(), false);
+    assert!(saved.warnings.is_empty(), "{:?}", saved.warnings);
+    assert!(saved.previous.is_some());
 }

@@ -85,7 +85,8 @@ Which change needs which bump is in [the rules](rules.md#which-bump-a-change-nee
 * A new wire revision (`w1.0` -> `w1.1`): a wire-compatible addition (a method, property, stream, trait, type, field,
   variant or trailing argument), a raised max length, or a dependency at a newer revision of its line.
 * No wire bump: doc comments, and changes that only break Rust code (a rename, a `#[flatten]` promotion, a changed
-  catch-all).
+  catch-all). Doc comments still need the compatible crate bump: they are in introspection data and snapshots, so
+  tools show the new docs ([doc comments](rules.md#doc-comments)).
 
 A bigger bump than needed is always accepted, so a line bumped by hand for a change of meaning the checker can't see
 passes. A wire version going back, or no longer declared, fails, and so does a `#[since]` newer than the crate's wire
@@ -244,33 +245,34 @@ done
 ## Several API roots in one crate
 
 A crate that holds several wire lines, one `#[ww_api_root]` per module with its wire version in
-`[package.metadata.wire_weaver.roots]` ([several lines in one crate](rules.md#several-lines-in-one-crate)), has one
-snapshot per root and wire version instead of one per crate version. Crates with one root, or none (`ww_stdlib`),
-keep their crate-version files:
+`[package.metadata.wire_weaver.roots]` ([several lines in one crate](rules.md#several-lines-in-one-crate)), has a
+snapshot per root, named after the crate version that saved it and the root's wire version,
+`<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`. Crates with one root, or none
+(`ww_stdlib`), keep their whole-crate files:
 
 ```
 $ ww api save tests/multi_root_api
-wire_v1::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api.wire_v1.Thermo@w1.2.ron, 5 resources, 2 traits, 1 types
-wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api.wire_v2.Thermo@w2.1.ron, 5 resources, 2 traits, 1 types
+wire_v1::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.wire_v1.Thermo@w1.2.ron, 5 resources, 2 traits, 1 types
+wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron, 5 resources, 2 traits, 1 types
 ```
 
-* A root's snapshot holds the root, the traits and types it reaches, and the crate version it was saved at. A type in
-  `common` that no root uses is in none of them, and another line's types are not in this one's.
+* A root's snapshot holds the root and the traits and types it reaches. A type in `common` that no root uses is in
+  none of them, and another line's types are not in this one's.
 * `#[since = "w1.2, w2.1"]` on a shared item is recorded as the revision of the snapshot's own line.
 * Each root is checked against its own previous snapshot before it is saved, as a crate is: the version and the
   entry in the `roots` table must be bumped enough. Nothing is written when any root is refused.
-* A root that didn't change since a crate bump keeps its file, with the older crate version in it. A root changed
-  without a wire change (a doc comment, a Rust-only change) has the file of its wire version rewritten at the new
-  crate version: the file of a wire version holds the latest Rust shape of that wire. A wire change gets a new file.
+* Only the current crate version's files are written, as for a whole crate, so a released snapshot never changes and
+  the pre-commit hook [above](#a-released-snapshot-never-changes) works unchanged.
+* A root that didn't change since its previous snapshot gets no new file: that one, saved by an older crate version,
+  stays its latest. A root that changed, a doc comment too, gets a file of the new crate version.
 * A crate that had one root and now has several still has its older whole-crate snapshots
   (`thermo_api_1_2_0.ron`). Each counts as an earlier snapshot of the root on the same line with the same trait
   name, cut down to that root.
+* A root with no earlier snapshot is saved unchecked. When the crate has snapshots of older versions, `ww api save`
+  warns, naming what it looked for and what is there: a root renamed, or moved to another module or line, matches
+  none of them by name (EVO-40).
 * `ww api check` and `Check::run` refuse such a crate for now: checking each root against its line's latest snapshot
   is EVO-39.
-
-The pre-commit hook [above](#a-released-snapshot-never-changes) refuses the rewrite of a released root's file. In a
-crate with a `roots` table, leave the per-root files out of its loop with
-`-- my_device_api/api_snapshots ':!my_device_api/api_snapshots/*@w*'`.
 
 ## Listing all changes
 

@@ -40,6 +40,9 @@ pub(crate) fn save(
         {
             print_report(report, old_path, "source");
         }
+        for warning in &saved.warnings {
+            println!("{} {warning}", style("warning:").yellow());
+        }
         if saved.status == SaveStatus::UpToDate {
             println!("{root}{} is up to date", saved.path.display());
             continue;

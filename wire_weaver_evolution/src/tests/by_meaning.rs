@@ -382,6 +382,27 @@ fn another_dimension_is_breaking() {
     );
 }
 
+/// exact_units UNIT-9: a unit that moved to another system of units is breaking, even where the same bytes hold the
+/// same field (1 G is 10⁻⁴ T under the 1948 ampere): a value crosses between systems only by a named step.
+#[test]
+fn another_system_is_breaking() {
+    assert_meaning(
+        &report(
+            "Fixed<ww_si::units::Tesla, Pow10<-4>, i32>",
+            "Fixed<ww_si::systems::gaussian::Gauss, One, i32>",
+        ),
+        "another system of units (Si vs Gaussian)",
+    );
+    // a ratio of lengths in each system: dimension one alike, but each a ratio of its own system's quantity
+    assert_meaning(
+        &report(
+            "Fixed<Per<Meter, Meter>, Milli, u16>",
+            "Fixed<Per<ww_si::systems::gaussian::GaussianCentimeter, ww_si::systems::gaussian::GaussianCentimeter>, Milli, u16>",
+        ),
+        "ratio of m vs ratio of cm, another kind of quantity",
+    );
+}
+
 /// Origins of points by where they lie: the same zero under another name is compatible, another zero or a reference
 /// only known at run time is breaking. How a point is shown (its symbol) doesn't matter.
 #[test]

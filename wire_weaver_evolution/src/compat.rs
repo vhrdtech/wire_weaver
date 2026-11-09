@@ -1205,7 +1205,19 @@ impl<'a> TypeCheck<'a> {
     /// A step of the number as the writer and as the reader have it: the same dimension and the same exact factor,
     /// or breaking. A different factor is the Mars Climate Orbiter's mistake: lbf·s read as N·s.
     fn check_steps(&mut self, changed: &str, w: &Step, r: &Step) -> Result<(), String> {
-        if !w.dim.as_dim().same(r.dim.as_dim()) {
+        let (wd, rd) = (w.dim.as_dim(), r.dim.as_dim());
+        // exact_units UNIT-9: a value crosses between systems only by a named step, never by reading its bytes
+        if wd.has_true_exps() && rd.has_true_exps() && wd.system() != rd.system() {
+            self.rule = Some(Rule::Meaning);
+            return Err(format!(
+                "{changed}: {wd} vs {rd}, another system of units ({} vs {}): the {} would read them as a \
+                 quantity of its own system, where crossing takes a named step with a factor",
+                w.dim.system().name,
+                r.dim.system().name,
+                self.reader_name
+            ));
+        }
+        if !wd.same(rd) {
             self.rule = Some(Rule::Meaning);
             return Err(format!(
                 "{changed}: {} vs {}, another dimension: the {} would read them as another quantity",

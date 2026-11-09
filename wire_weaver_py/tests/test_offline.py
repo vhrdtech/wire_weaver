@@ -383,9 +383,10 @@ def test_quantities():
     assert s.to_si() == pytest.approx(50 * math.pi)
 
     # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes
-    # it, the unit's definition in full (crate, name, names, dimension, kind, scale, provenance)
+    # it, the unit's definition in full (crate, name, names, dimension with its system, kind, scale, provenance)
     names = "00" + b"voltvolts".hex() + "80" + b"V".hex()
-    any_volt = "12e40c" + "00" + b"exact_unitsVoltV".hex() + names + "110541b18143000000000010" + "70a4393d" + "5d"
+    dim = b"exact_unitsSi".hex() + "b18143000000000001072390"
+    any_volt = "12e40c" + "00" + b"exact_unitsVoltV".hex() + names + "110541" + dim + "a4392f" + "4f"
     a = api.sensor.decode(bytes.fromhex(any_volt))
     assert isinstance(a, ww.Quantity)
     # the same quantity as the typed property's
@@ -403,9 +404,17 @@ def test_quantities():
     # a root: an exponent counts halves (exact_units UNIT-10), so V/√Hz has s at -2.5;
     # AnyQuantity::from(Quantity::<Per<Volt, Sqrt<Hertz>>>::nano(5u8)) as the derived type writes it
     noise = api.sensor.decode(bytes.fromhex(
-        "3105300065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d50006578616374"
-        "5f756e697473486572747a487a00686572747a686572747a80487a120552300000000000001073a5396d0e2e5d02c9"))
+        "3105300065786163745f756e697473566f6c745600766f6c74766f6c7473805611054165786163745f756e6974735369b181430000"
+        "00000001072390a4392f500065786163745f756e697473486572747a487a00686572747a686572747a80487a12055265786163745f75"
+        "6e69747353693000000865786163745f756e6974734672657175656e6379000000011939072393a53903a906a901b94f01ba"))
     assert (str(noise), noise.dim) == ("5 nV/√Hz", {"kg": 1, "m": 2, "s": -2.5, "A": -1})
+    assert noise.system == "Si"
+
+    # a unit of Gaussian (exact_units UNIT-9): its dimension in Gaussian's bases, exact_units' gauss and the API's gamma
+    f = api.field.decode(api.field.encode(500))
+    assert (str(f), f.symbol, f.system, f.dim) == ("500 mG", "G", "Gaussian", {"g": 0.5, "cm": -0.5, "s": -1})
+    g = api.survey.decode(api.survey.encode(50000))
+    assert (g.symbol, g.unit, g.system, g.dim) == ("γ", "Gamma", "Gaussian", {"g": 0.5, "cm": -0.5, "s": -1})
 
 
 def test_fixed_and_counts():

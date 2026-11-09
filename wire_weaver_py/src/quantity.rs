@@ -1,7 +1,7 @@
 //! `ww.Quantity`: a value of a `ww_si::Quantity<U>` with its unit (CLT-31), what `decode` / `read` give for one.
 
 use crate::convert::numeric_to_py;
-use exact_units::{MarkerId, Prefix};
+use exact_units::{Exp, MarkerId, Prefix};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -123,32 +123,50 @@ impl Quantity {
     /// (`{"Sample": 1, "s": -1}`), halves as floats (V/√Hz: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`), `{}`
     /// when dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
     /// device sent with its dimension in an `AnyQuantity`, nor one the API's model lists), or a reference to a unit
-    /// the model doesn't list.
+    /// the model doesn't list. A unit of another system than SI counts in that system's bases ([Self::system],
+    /// exact_units UNIT-9): the gauss is `{"g": 0.5, "cm": -0.5, "s": -1}`.
     #[getter]
     fn dim<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
         let Some(dim) = self.q.unit.dim() else {
             return Ok(None);
         };
         let dict = PyDict::new(py);
-        let [s, m, kg, a, k, mol, cd] = dim.exps();
-        let true_bases = [
-            ("kg", kg),
-            ("m", m),
-            ("s", s),
-            ("A", a),
-            ("K", k),
-            ("mol", mol),
-            ("cd", cd),
-        ];
+        let exps = dim.exps();
+        let system = dim.as_dim().system();
+        let true_bases: Vec<(String, Exp)> = match system.def() {
+            Some(def) if !def.is_si() => (0..def.base_count())
+                .map(|i| (def.symbol(i).unwrap_or("?").to_string(), exps[i]))
+                .collect(),
+            // SI in the order a unit is read, kg, m, s; a system known by its id only by its bases' positions
+            Some(_) => {
+                let [s, m, kg, a, k, mol, cd] = exps;
+                [
+                    ("kg", kg),
+                    ("m", m),
+                    ("s", s),
+                    ("A", a),
+                    ("K", k),
+                    ("mol", mol),
+                    ("cd", cd),
+                ]
+                .map(|(symbol, e)| (symbol.to_string(), e))
+                .to_vec()
+            }
+            None => exps
+                .iter()
+                .enumerate()
+                .map(|(i, e)| (format!("base{i}"), *e))
+                .collect(),
+        };
         // a distinguished base by its marker's name, exact_units' Radian and Bit by the spelling a unit! line uses
         let bases = dim.bases().iter().map(|b| {
             let id = b.base.as_id();
             let name = if id == MarkerId::RADIAN {
-                "rad"
+                "rad".to_string()
             } else if id == MarkerId::BIT {
-                "bit"
+                "bit".to_string()
             } else {
-                &b.base.name
+                b.base.name.clone()
             };
             (name, b.exp)
         });
@@ -161,6 +179,13 @@ impl Quantity {
             }
         }
         Ok(Some(dict))
+    }
+
+    /// The system of units the dimension counts in (exact_units UNIT-9): `"Si"`, `"Gaussian"` for the gauss,
+    /// `"Natural"`; `None` where [Self::dim] is.
+    #[getter]
+    fn system(&self) -> Option<String> {
+        self.q.unit.dim().map(|dim| dim.system().name.clone())
     }
 
     /// The number type the device stores it in: `"U16"`, `"F32"` for a `Quantity`, which may hold any; a `Fixed`'s

@@ -1,6 +1,7 @@
-//! Embeds `api_snapshots/*.ron` (copied from ww_global and ww_stdlib crates by `just save-snapshots`) as shrink_wrap
-//! bytes, see `ww_self::snapshot`. The RON text is read here only: each file is encoded, the result must hash to
-//! the SHA-256 `ww api save` wrote in the file's header (or the build fails), and the library embeds the bytes
+//! Embeds the whole-crate snapshots in `api_snapshots/*.ron` (copied from ww_global and ww_stdlib crates by `just
+//! save-snapshots`) as shrink_wrap bytes, see `ww_self::snapshot`. The RON text is read here only: each file is
+//! encoded, the result must hash to the SHA-256 `ww api save` wrote in the file's header (or the build fails), and the
+//! library embeds the bytes
 //! and never parses RON.
 
 use std::fmt::Write;
@@ -16,6 +17,9 @@ fn main() {
         .unwrap_or_else(|e| panic!("reading {}: {e}", dir.display()))
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "ron"))
+        // a crate's snapshot per API root (`crate.wire_v2.Thermo@w2.1.ron`, EVO-38) is for its evolution checks only:
+        // bundles name skipped items by crate version, which the whole-crate snapshots resolve
+        .filter(|path| !path.file_name().unwrap().to_string_lossy().contains('@'))
         .collect();
     paths.sort();
 

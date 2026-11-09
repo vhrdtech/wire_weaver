@@ -28,21 +28,28 @@ pub(crate) fn save(
         };
         anyhow!("{e}{hint}")
     })?;
-    if let Some((old_path, report)) = &saved.previous
-        && report.change != Change::None
-        && saved.status != SaveStatus::UpToDate
-    {
-        print_report(report, old_path, "source");
+    // one per API root for a crate with several (EVO-38)
+    for saved in &saved {
+        let root = match &saved.root {
+            Some(root) => format!("{root}: "),
+            None => String::new(),
+        };
+        if let Some((old_path, report)) = &saved.previous
+            && report.change != Change::None
+            && saved.status != SaveStatus::UpToDate
+        {
+            print_report(report, old_path, "source");
+        }
+        if saved.status == SaveStatus::UpToDate {
+            println!("{root}{} is up to date", saved.path.display());
+            continue;
+        }
+        println!(
+            "{root}{} {}, {}",
+            style(saved.status).green(),
+            saved.path.display(),
+            crate::api_tree::summary(&saved.bundle)
+        );
     }
-    if saved.status == SaveStatus::UpToDate {
-        println!("{} is up to date", saved.path.display());
-        return Ok(());
-    }
-    println!(
-        "{} {}, {}",
-        style(saved.status).green(),
-        saved.path.display(),
-        crate::api_tree::summary(&saved.bundle)
-    );
     Ok(())
 }

@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
-use wire_weaver_evolution::{Change, Check, Outcome, Rule, SaveStatus};
+use wire_weaver_evolution::{Change, Check, Outcome, Rule, SaveStatus, Saved};
 
 const API: &str = r#"
 #[ww_api_root(wire = "w1.0")]
@@ -65,6 +65,40 @@ impl TestCrate {
         self
     }
 
+    /// A crate with several API roots (EVO-37): `roots` as `[package.metadata.wire_weaver.roots]`, `modules` as
+    /// `src/<name>.rs`, each `pub mod` of `lib.rs`.
+    fn write_roots(
+        &self,
+        version: &str,
+        roots: &[(&str, &str)],
+        modules: &[(&str, &str)],
+    ) -> &Self {
+        let roots: String = roots
+            .iter()
+            .map(|(root, wire)| format!("\"{root}\" = \"{wire}\"\n"))
+            .collect();
+        std::fs::write(
+            self.dir.join("Cargo.toml"),
+            format!(
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n\n\
+                 [package.metadata.wire_weaver.roots]\n{roots}\n[dependencies]\n"
+            ),
+        )
+        .unwrap();
+        let mut lib_rs = String::new();
+        for (name, source) in modules {
+            lib_rs.push_str(&format!("pub mod {name};\n"));
+            let source = format!("use wire_weaver::prelude::*;\n{source}");
+            std::fs::write(self.dir.join(format!("src/{name}.rs")), source).unwrap();
+        }
+        std::fs::write(self.dir.join("src/lib.rs"), lib_rs).unwrap();
+        self
+    }
+
+    fn snapshot(&self, file_name: &str) -> PathBuf {
+        self.dir.join(SNAPSHOTS_DIR).join(file_name)
+    }
+
     fn path(&self) -> &Path {
         &self.dir
     }
@@ -74,6 +108,13 @@ impl Drop for TestCrate {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.dir);
     }
+}
+
+/// [Check::save] of a crate with one snapshot (no `roots` table).
+fn save_one(path: &Path, force: bool) -> Saved {
+    let mut saved = Check::new(path).save(force).unwrap();
+    assert_eq!(saved.len(), 1, "{saved:?}");
+    saved.remove(0)
 }
 
 fn check(path: &Path, strict: bool) -> (Outcome, Result<String, String>) {
@@ -287,7 +328,7 @@ fn require_current_fails_when_source_changed_after_save() {
     );
 
     // saved again, the snapshot of 0.1.1 is compared with 0.1.0's
-    let saved = Check::new(c.path()).save(false).unwrap();
+    let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::Refreshed);
     let (outcome, ok) = check_current(c.path());
     assert_eq!(ok.unwrap(), "version is bumped enough");
@@ -303,14 +344,11 @@ fn require_current_fails_when_source_changed_after_save() {
 fn save_writes_only_the_current_version_and_refuses_a_bump_too_small() {
     let c = TestCrate::new("save");
     c.write("0.1.0", API);
-    let saved = Check::new(c.path()).save(false).unwrap();
+    let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::Saved);
     assert!(saved.previous.is_none());
     let released = std::fs::read_to_string(&saved.path).unwrap();
-    assert_eq!(
-        Check::new(c.path()).save(false).unwrap().status,
-        SaveStatus::UpToDate
-    );
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::UpToDate);
 
     // breaking change with a patch bump: refused, nothing written
     let removed = API.replace("    fn led_off();\n", "");
@@ -320,13 +358,10 @@ fn save_writes_only_the_current_version_and_refuses_a_bump_too_small() {
     let dir = c.path().join(SNAPSHOTS_DIR);
     assert!(!dir.join("test_api_0_1_1.ron").exists());
     // --force saves anyway
-    assert_eq!(
-        Check::new(c.path()).save(true).unwrap().status,
-        SaveStatus::Saved
-    );
+    assert_eq!(save_one(c.path(), true).status, SaveStatus::Saved);
 
     c.write("0.2.0", &removed);
-    let saved = Check::new(c.path()).save(false).unwrap();
+    let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::Saved);
     let (previous, report) = saved.previous.as_ref().unwrap();
     assert!(previous.ends_with("test_api_0_1_1.ron"), "{previous:?}");
@@ -512,13 +547,10 @@ fn any_field_a_snapshot_lacks_is_not_recorded() {
 
     // saving it again records every field, and leaves an unchanged one up to date
     c.write("0.1.0", &api);
-    let saved = Check::new(c.path()).save(false).unwrap();
+    let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::Reformatted);
     assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
-    assert_eq!(
-        Check::new(c.path()).save(false).unwrap().status,
-        SaveStatus::UpToDate
-    );
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::UpToDate);
 }
 
 /// TOOL-22: a plain integer field whose name ends in a known unit suffix is noted, never an error, and the note
@@ -772,4 +804,187 @@ pub trait Shared {
     }
     write("0.1.1", "w1.1", &added);
     assert_eq!(check(c.path(), true).1.unwrap(), "version is bumped enough");
+}
+
+const COMMON: &str = r#"
+#[derive_shrink_wrap]
+pub struct Code(pub u16);
+
+#[ww_trait]
+pub trait Channel {
+    fn read() -> Code;
+}
+"#;
+
+const LINE_1: &str = r#"
+use super::common::Code;
+#[ww_api_root]
+pub trait Api {
+    fn read_once() -> Code;
+    ww_impl!(channel: super::common::Channel);
+}
+"#;
+
+const LINE_2: &str = r#"
+use super::common::Code;
+#[ww_api_root]
+pub trait Api {
+    fn read_once(average: u8) -> Code;
+    ww_impl!(channel: super::common::Channel);
+}
+"#;
+
+/// The names and statuses [Check::save] gave, by root.
+fn saved_roots(path: &Path) -> Vec<(String, String, SaveStatus)> {
+    Check::new(path)
+        .save(false)
+        .unwrap()
+        .into_iter()
+        .map(|s| {
+            let file = s.path.file_name().unwrap().to_str().unwrap().to_string();
+            (s.root.unwrap(), file, s.status)
+        })
+        .collect()
+}
+
+fn crate_version_in(path: &Path) -> String {
+    let bundle = wire_weaver_evolution::snapshot_files::parse(path).unwrap();
+    wire_weaver_evolution::snapshot_files::triplet(&bundle.ext_crates[0].version)
+}
+
+/// A crate with several roots (EVO-38): one snapshot per root and wire version, each holding its root and what it
+/// reaches; a root that didn't change keeps its file and the crate version it was saved at, a changed one gets a new
+/// file at its new wire version, checked against its previous one.
+#[test]
+fn snapshots_per_root() {
+    let c = TestCrate::new("per_root");
+    let roots = [("wire_v1::Api", "w1.0"), ("wire_v2::Api", "w2.0")];
+    let modules = [("common", COMMON), ("wire_v1", LINE_1), ("wire_v2", LINE_2)];
+    c.write_roots("0.1.0", &roots, &modules);
+    let v1 = "test_api.wire_v1.Api@w1.0.ron";
+    let v2 = "test_api.wire_v2.Api@w2.0.ron";
+    assert_eq!(
+        saved_roots(c.path()),
+        [
+            ("wire_v1::Api".into(), v1.into(), SaveStatus::Saved),
+            ("wire_v2::Api".into(), v2.into(), SaveStatus::Saved),
+        ]
+    );
+    let text = std::fs::read_to_string(c.snapshot(v2)).unwrap();
+    assert!(
+        text.starts_with("// test_api 0.1.0: API root wire_v2::Api at wire w2.0"),
+        "{text}"
+    );
+    let bundle = wire_weaver_evolution::snapshot_files::parse(&c.snapshot(v2)).unwrap();
+    assert_eq!(bundle.root.items.len(), 1);
+    assert_eq!(bundle.wire, Some("w2.0".parse().unwrap()));
+    assert!(
+        saved_roots(c.path())
+            .iter()
+            .all(|(_, _, s)| *s == SaveStatus::UpToDate)
+    );
+    // the whole crate is checked per root in EVO-39
+    let err = Check::new(c.path()).run().unwrap_err();
+    assert!(err.contains("EVO-39"), "{err}");
+
+    // line 2 gets a method: a new revision of its line and a compatible crate bump; line 1 is unchanged
+    let line_2b = LINE_2.replace("Channel);\n", "Channel);\n    fn stop();\n");
+    let modules = [
+        ("common", COMMON),
+        ("wire_v1", LINE_1),
+        ("wire_v2", &line_2b),
+    ];
+    let roots = [("wire_v1::Api", "w1.0"), ("wire_v2::Api", "w2.1")];
+    c.write_roots("0.1.1", &roots, &modules);
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert_eq!(saved[0].status, SaveStatus::UpToDate);
+    assert_eq!(saved[1].status, SaveStatus::Saved);
+    assert_eq!(saved[1].path, c.snapshot("test_api.wire_v2.Api@w2.1.ron"));
+    let (previous, report) = saved[1].previous.as_ref().unwrap();
+    assert_eq!(previous, &c.snapshot(v2));
+    assert_eq!(report.change, Change::Compatible);
+    assert_eq!(
+        crate_version_in(&c.snapshot(v1)),
+        "0.1.0",
+        "an unchanged root keeps its file"
+    );
+    assert_eq!(
+        crate_version_in(&c.snapshot("test_api.wire_v2.Api@w2.1.ron")),
+        "0.1.1"
+    );
+
+    // a doc comment on line 1: a compatible crate bump, no wire bump, its file of w1.0 is rewritten at 0.1.2
+    let line_1b = LINE_1.replace("#[ww_api_root]", "/// The first line.\n#[ww_api_root]");
+    let modules = [
+        ("common", COMMON),
+        ("wire_v1", &line_1b),
+        ("wire_v2", &line_2b),
+    ];
+    c.write_roots("0.1.2", &roots, &modules);
+    let saved = saved_roots(c.path());
+    assert_eq!(saved[0].2, SaveStatus::Refreshed);
+    assert_eq!(saved[1].2, SaveStatus::UpToDate);
+    assert_eq!(crate_version_in(&c.snapshot(v1)), "0.1.2");
+
+    // line 2 breaks without a new line: refused, naming the root and its entry in the table, and nothing is written,
+    // not even line 1's file
+    let line_1c = line_1b.replace("The first line.", "Line one.");
+    let line_2c = line_2b.replace("    fn stop();\n", "");
+    let modules = [
+        ("common", COMMON),
+        ("wire_v1", &line_1c),
+        ("wire_v2", &line_2c),
+    ];
+    c.write_roots("0.2.0", &roots, &modules);
+    let before = std::fs::read_to_string(c.snapshot(v1)).unwrap();
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    for expected in [
+        "API root `wire_v2::Api`",
+        "`\"wire_v2::Api\"` of `[package.metadata.wire_weaver.roots]`",
+        "w3.0",
+    ] {
+        assert!(err.contains(expected), "'{expected}' not in:\n{err}");
+    }
+    assert_eq!(std::fs::read_to_string(c.snapshot(v1)).unwrap(), before);
+
+    // an older crate version than a saved snapshot of the root is never saved
+    c.write_roots(
+        "0.1.0",
+        &roots,
+        &[
+            ("common", COMMON),
+            ("wire_v1", LINE_1),
+            ("wire_v2", &line_2b),
+        ],
+    );
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    assert!(err.contains("never written"), "{err}");
+}
+
+/// A crate that had one root and now has several (EVO-38): its whole-crate snapshots are the earlier snapshots of
+/// the root on the same line with the same trait name.
+#[test]
+fn crate_snapshot_is_a_roots_previous_one() {
+    let c = TestCrate::new("one_to_several");
+    c.write("0.1.0", "#[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n#[derive_shrink_wrap]\npub struct Unused { pub a: u8 }\n")
+        .save();
+    let line_1 = "#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n";
+    let line_2 = "#[ww_api_root]\npub trait Api {\n    fn blink();\n}\n";
+    let roots = [("wire_v1::Api", "w1.0"), ("wire_v2::Api", "w2.0")];
+    c.write_roots("0.2.0", &roots, &[("wire_v1", line_1), ("wire_v2", line_2)]);
+    // `led_off` removed from line 1 without a new line; `Unused`, which no root reaches, is not compared
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    assert!(err.contains("API root `wire_v1::Api`"), "{err}");
+    assert!(err.contains("led_off"), "{err}");
+    assert!(!err.contains("Unused"), "{err}");
+
+    let line_1 = "#[ww_api_root]\npub trait Api {\n    fn led_on();\n    fn led_off();\n}\n";
+    c.write_roots("0.2.0", &roots, &[("wire_v1", line_1), ("wire_v2", line_2)]);
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert_eq!(saved[0].status, SaveStatus::Saved);
+    let (previous, report) = saved[0].previous.as_ref().unwrap();
+    assert_eq!(previous, &c.snapshot("test_api_0_1_0.ron"));
+    assert_eq!(report.change, Change::None);
+    // line 2 has no earlier snapshot: the crate's was on line 1
+    assert!(saved[1].previous.is_none());
 }

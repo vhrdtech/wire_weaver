@@ -7,10 +7,13 @@ use std::path::{Path, PathBuf};
 
 pub use wire_weaver_core::UnitHint;
 use ww_self::{ApiBundleOwned, snapshot};
-use ww_version::VersionOwned;
+use ww_version::{VersionOwned, WireVersion};
 
 use crate::recorded::Recorded;
-use crate::snapshot_files::{SNAPSHOTS_DIR, Snapshot, latest_snapshot, read, triplet};
+use crate::snapshot_files::{
+    RootSnapshot, SNAPSHOTS_DIR, Snapshot, latest_snapshot, read, root_file_name, root_snapshots,
+    triplet,
+};
 use crate::{Change, Report, compare_recorded};
 
 /// Checks a crate, or a snapshot file, against an earlier snapshot.
@@ -96,6 +99,18 @@ impl Check {
     /// Loads both versions and compares them. Whether the version is bumped enough is up to [Outcome::verdict].
     pub fn run(&self) -> Result<Outcome, String> {
         let is_snapshot = self.is_snapshot();
+        if !is_snapshot
+            && !wire_weaver_core::api_roots(&self.path)
+                .map_err(|e| format!("{e:#}"))?
+                .is_empty()
+        {
+            // TODO(EVO-39): each root against its own line's latest snapshot
+            return Err(format!(
+                "{} has several API roots (`[package.metadata.wire_weaver.roots]`): checking them per root is not there \
+                 yet (EVO-39); `ww api save` saves and checks each root's snapshot",
+                self.path.display()
+            ));
+        }
         if self.require_current && !is_snapshot && self.against.is_none() {
             return self.run_current();
         }
@@ -207,15 +222,43 @@ impl Check {
     /// refreshes it if it differs from the source. A snapshot of an older version is never written. Refuses a version
     /// not bumped enough since the previous version's snapshot, unless `force` is true.
     ///
+    /// A crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) gets one snapshot per root and
+    /// wire version instead ([root_file_name], EVO-38), each checked against that root's previous one: one [Saved]
+    /// per root, in the table's order. Nothing is written when any root is refused.
+    ///
     /// The snapshot of a released version never changes, which this can't know: a pre-commit hook refusing changes to
     /// committed snapshots of released versions does (docs/evolution/checker_tool.md).
-    pub fn save(&self, force: bool) -> Result<Saved, String> {
+    pub fn save(&self, force: bool) -> Result<Vec<Saved>, String> {
         if self.is_snapshot() {
             return Err(format!(
                 "{} is a snapshot file, saving needs a crate directory",
                 self.path.display()
             ));
         }
+        let roots = wire_weaver_core::api_roots(&self.path).map_err(|e| format!("{e:#}"))?;
+        let planned = if roots.is_empty() {
+            vec![self.plan_crate(force)?]
+        } else {
+            roots
+                .iter()
+                .map(|(root, wire)| self.plan_root(root, *wire, force))
+                .collect::<Result<Vec<_>, _>>()?
+        };
+        let mut saved = vec![];
+        for (one, contents) in planned {
+            if let Some(contents) = contents {
+                let dir = one.path.parent().unwrap_or(Path::new("."));
+                fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+                fs::write(&one.path, contents)
+                    .map_err(|e| format!("writing {}: {e}", one.path.display()))?;
+            }
+            saved.push(one);
+        }
+        Ok(saved)
+    }
+
+    /// The snapshot of the whole crate at its version, and the text to write, `None` when it is up to date.
+    fn plan_crate(&self, force: bool) -> Result<(Saved, Option<String>), String> {
         let bundle = wire_weaver_core::load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
         let dir = self.crate_snapshots_dir();
@@ -223,77 +266,106 @@ impl Check {
         // with the hash of the shrink_wrap bytes the RON stands for: the build of wire_weaver_snapshots re-encodes the
         // RON and fails when it differs, which proves the round trip lossless
         let contents = wire_weaver_snapshots::render_ron(&bundle)?;
+        let previous = latest_snapshot(&dir, &bundle, &own.version, false)?;
+        let previous = self.check_bump(previous, &bundle, None, force)?;
+        let status = existing_status(&path, &bundle, &contents)?;
+        Ok(planned(path, status, previous, bundle, None, contents))
+    }
 
-        let previous = match latest_snapshot(&dir, &bundle, &own.version, false)? {
-            Some(previous) => {
-                let report = compare_recorded(
-                    &previous.bundle,
-                    &previous.recorded,
-                    &bundle,
-                    &Recorded::default(),
-                )?;
-                if let Err(e) = report.check_version()
-                    && !force
-                {
-                    return Err(format!(
-                        "{e}.\nNot saved: bump `version` in {} to {} or later (docs/evolution/rules.md#your-apis-version) \
-                         and save again.",
-                        self.path.join("Cargo.toml").display(),
-                        triplet(&report.minimal_version())
-                    ));
-                }
-                if let Err(e) = report.check_wire()
-                    && !force
-                {
-                    return Err(format!(
-                        "{e}.\nNot saved: {} and save again.",
-                        wire_hint(&report, Some(&self.path))
-                    ));
-                }
-                Some((previous.path, report))
-            }
-            None => None,
-        };
-
-        let status = match fs::read_to_string(&path) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => SaveStatus::Saved,
-            Err(e) => return Err(format!("reading {}: {e}", path.display())),
-            Ok(text) => {
-                let old = read(&path).ok();
-                let same = old.as_ref().is_some_and(|old| {
-                    old.bundle.ww_self_version == bundle.ww_self_version
-                        && compare_recorded(
-                            &old.bundle,
-                            &old.recorded,
-                            &bundle,
-                            &Recorded::default(),
-                        )
-                        .is_ok_and(|r| r.change == Change::None)
-                });
-                let complete = old.is_some_and(|old| old.recorded.unrecorded().is_empty());
-                // the same definitions in another ww_self format or with fields it didn't record yet, or a file
-                // without (or with another) hash, are saved again
-                if !same {
-                    SaveStatus::Refreshed
-                } else if !complete
-                    || snapshot::saved_hash(&text) != snapshot::saved_hash(&contents)
-                {
-                    SaveStatus::Reformatted
-                } else {
-                    SaveStatus::UpToDate
-                }
-            }
-        };
-        if status != SaveStatus::UpToDate {
-            fs::create_dir_all(&dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
-            fs::write(&path, contents).map_err(|e| format!("writing {}: {e}", path.display()))?;
+    /// The snapshot of the API root `root` (`wire_v2::Thermo`) at its wire version `wire`, and the text to write,
+    /// `None` when it is up to date. The root's file of the same wire version saved by an older crate version is kept
+    /// when the root didn't change since, and rewritten with the current crate version when it did without a wire
+    /// change (doc comments, Rust-only changes).
+    fn plan_root(
+        &self,
+        root: &str,
+        wire: WireVersion,
+        force: bool,
+    ) -> Result<(Saved, Option<String>), String> {
+        let bundle = wire_weaver_core::load_root(&self.path, root).map_err(|e| format!("{e:#}"))?;
+        let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
+        let version = own.version.clone();
+        let dir = self.crate_snapshots_dir();
+        let path = dir.join(root_file_name(&own.crate_id, root, wire));
+        let contents = wire_weaver_snapshots::render_root_ron(&bundle, root)?;
+        let all = root_snapshots(&dir, &own.crate_id, root, wire.line.0)?;
+        let current = ((wire.line.0, wire.revision.0), key(&version));
+        let at = |s: &RootSnapshot| ((s.wire.line.0, s.wire.revision.0), key(&s.version));
+        if let Some(newer) = all.iter().find(|s| at(s) > current) {
+            return Err(format!(
+                "{} has `{root}` at wire {} of {} {}, newer than the source's wire {wire} of {}: a snapshot of an older \
+                 version is never written",
+                newer.snapshot.path.display(),
+                newer.wire,
+                own.crate_id,
+                triplet(&newer.version),
+                triplet(&version)
+            ));
         }
-        Ok(Saved {
+        let previous = all
+            .into_iter()
+            .rfind(|s| at(s) < current)
+            .map(|s| s.snapshot);
+        let previous = self.check_bump(previous, &bundle, Some(root), force)?;
+        let older_same_wire = previous.as_ref().is_some_and(|(p, _)| *p == path);
+        let status = if older_same_wire {
+            // saved by an older crate version: kept as long as the root is the same
+            match &previous {
+                Some((_, report)) if report.change == Change::None => SaveStatus::UpToDate,
+                _ => SaveStatus::Refreshed,
+            }
+        } else {
+            existing_status(&path, &bundle, &contents)?
+        };
+        Ok(planned(
             path,
             status,
             previous,
             bundle,
-        })
+            Some(root.to_string()),
+            contents,
+        ))
+    }
+
+    /// Compares `bundle` with the snapshot `previous`, refusing a version or wire version not bumped enough unless
+    /// `force`. `root` names the API root of a crate with several.
+    fn check_bump(
+        &self,
+        previous: Option<Snapshot>,
+        bundle: &ApiBundleOwned,
+        root: Option<&str>,
+        force: bool,
+    ) -> Result<Option<(PathBuf, Report)>, String> {
+        let Some(previous) = previous else {
+            return Ok(None);
+        };
+        let report = compare_recorded(
+            &previous.bundle,
+            &previous.recorded,
+            bundle,
+            &Recorded::default(),
+        )?;
+        let of = root.map_or(String::new(), |root| format!("API root `{root}`: "));
+        if let Err(e) = report.check_version()
+            && !force
+        {
+            return Err(format!(
+                "{of}{e}.\nNot saved: bump `version` in {} to {} or later (docs/evolution/rules.md#your-apis-version) \
+                 and save again.",
+                self.path.join("Cargo.toml").display(),
+                triplet(&report.minimal_version())
+            ));
+        }
+        if let Err(e) = report.check_wire()
+            && !force
+        {
+            let at = wire_declared_at(Some(&self.path), root);
+            return Err(format!(
+                "{of}{e}.\nNot saved: {} and save again.",
+                wire_hint_at(&report, &at)
+            ));
+        }
+        Ok(Some((previous.path, report)))
     }
 
     /// [run](Self::run) and [verdict](Outcome::verdict), printing what was found; panics with what is wrong and what
@@ -304,7 +376,7 @@ impl Check {
     pub fn assert(&self) {
         if std::env::var_os(SAVE_ENV).is_some_and(|v| !v.is_empty() && v != "0") {
             match self.save(false) {
-                Ok(saved) => println!("{saved}"),
+                Ok(saved) => saved.iter().for_each(|saved| println!("{saved}")),
                 Err(e) => panic!("\n{e}"),
             }
         }
@@ -369,13 +441,15 @@ pub struct NoSnapshot {
 /// What [Check::save] did.
 #[derive(Debug)]
 pub struct Saved {
-    /// The snapshot of the current version.
+    /// The snapshot of the current version, or of the root's current wire version.
     pub path: PathBuf,
     pub status: SaveStatus,
     /// The previous version's snapshot and what changed since, if there is one.
     pub previous: Option<(PathBuf, Report)>,
-    /// The crate as loaded from source.
+    /// The crate as loaded from source, or the API root with [root](Self::root).
     pub bundle: ApiBundleOwned,
+    /// The API root (`wire_v2::Thermo`) of a crate with several, `None` for a whole-crate snapshot.
+    pub root: Option<String>,
 }
 
 /// Whether [Check::save] wrote the snapshot.
@@ -510,7 +584,11 @@ impl Comparison {
 
 /// What to change for [Report::check_wire]: the wire version to declare, and where it is declared.
 fn wire_hint(report: &Report, crate_path: Option<&Path>) -> String {
-    let at = wire_declared_at(crate_path);
+    wire_hint_at(report, &wire_declared_at(crate_path, None))
+}
+
+/// [wire_hint] with the place the wire version is declared at, [wire_declared_at].
+fn wire_hint_at(report: &Report, at: &str) -> String {
     match (report.minimal_wire(), report.new_wire) {
         (Some(min), Some(new)) if new < min => {
             format!("bump the wire version in {at} to {min} or later")
@@ -522,8 +600,16 @@ fn wire_hint(report: &Report, crate_path: Option<&Path>) -> String {
 
 /// Where the crate at `crate_path` declares its wire version: `[package.metadata.wire_weaver] wire` in its
 /// `Cargo.toml` (every crate, EVO-31), or the attribute of a test crate whose root says `#[ww_api_root(wire = ..)]`
-/// instead. The only place the checker decides this.
-fn wire_declared_at(crate_path: Option<&Path>) -> String {
+/// instead, or for the API root `root` of a crate with several, its entry in `[package.metadata.wire_weaver.roots]`.
+/// The only place the checker decides this.
+fn wire_declared_at(crate_path: Option<&Path>, root: Option<&str>) -> String {
+    if let Some(root) = root {
+        let cargo_toml = crate_path.map_or("Cargo.toml".into(), |p| p.join("Cargo.toml"));
+        return format!(
+            "`\"{root}\"` of `[package.metadata.wire_weaver.roots]` in {}",
+            cargo_toml.display()
+        );
+    }
     let Some(crate_path) = crate_path else {
         // a snapshot file
         return "`[package.metadata.wire_weaver] wire` in the crate's `Cargo.toml`".to_string();
@@ -576,6 +662,59 @@ pub fn missing_test_warning(crate_path: &Path) -> Option<String> {
          run by hand",
         test_path.display()
     ))
+}
+
+/// Whether the snapshot file at `path`, of the same version as `bundle`, needs writing.
+fn existing_status(
+    path: &Path,
+    bundle: &ApiBundleOwned,
+    contents: &str,
+) -> Result<SaveStatus, String> {
+    Ok(match fs::read_to_string(path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => SaveStatus::Saved,
+        Err(e) => return Err(format!("reading {}: {e}", path.display())),
+        Ok(text) => {
+            let old = read(path).ok();
+            let same = old.as_ref().is_some_and(|old| {
+                old.bundle.ww_self_version == bundle.ww_self_version
+                    && compare_recorded(&old.bundle, &old.recorded, bundle, &Recorded::default())
+                        .is_ok_and(|r| r.change == Change::None)
+            });
+            let complete = old.is_some_and(|old| old.recorded.unrecorded().is_empty());
+            // the same definitions in another ww_self format or with fields it didn't record yet, or a file
+            // without (or with another) hash, are saved again
+            if !same {
+                SaveStatus::Refreshed
+            } else if !complete || snapshot::saved_hash(&text) != snapshot::saved_hash(contents) {
+                SaveStatus::Reformatted
+            } else {
+                SaveStatus::UpToDate
+            }
+        }
+    })
+}
+
+fn planned(
+    path: PathBuf,
+    status: SaveStatus,
+    previous: Option<(PathBuf, Report)>,
+    bundle: ApiBundleOwned,
+    root: Option<String>,
+    contents: String,
+) -> (Saved, Option<String>) {
+    let write = (status != SaveStatus::UpToDate).then_some(contents);
+    let saved = Saved {
+        path,
+        status,
+        previous,
+        bundle,
+        root,
+    };
+    (saved, write)
+}
+
+fn key(v: &VersionOwned) -> (u32, u32, u32) {
+    (v.major.0, v.minor.0, v.patch.0)
 }
 
 /// The snapshot of exactly the version of `bundle` in `dir`.

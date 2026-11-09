@@ -79,6 +79,26 @@ pub fn render_ron(bundle: &ApiBundleOwned) -> Result<String, String> {
         "// {} {}.{}.{} traits and types, saved by `ww api save`.\n// Do not edit, bump the crate version and save a new snapshot instead.\n",
         version.crate_id, v.major.0, v.minor.0, v.patch.0
     );
+    render_with_header(bundle, header)
+}
+
+/// [render_ron] for the snapshot of one API root of a crate with several (EVO-38), naming the root and its wire
+/// version in the header.
+pub fn render_root_ron(bundle: &ApiBundleOwned, root: &str) -> Result<String, String> {
+    let version = bundle.crate_version(0).map_err(|e| e.to_string())?;
+    let v = &version.version;
+    let wire = bundle
+        .wire
+        .ok_or_else(|| format!("API root {root} has no wire version"))?;
+    let header = format!(
+        "// {} {}.{}.{}: API root {root} at wire {wire} and what it reaches, saved by `ww api save`.\n// Do not edit, \
+         bump the crate version and save a new snapshot instead.\n",
+        version.crate_id, v.major.0, v.minor.0, v.patch.0
+    );
+    render_with_header(bundle, header)
+}
+
+fn render_with_header(bundle: &ApiBundleOwned, header: String) -> Result<String, String> {
     let bytes = snapshot::encode(bundle).map_err(|e| e.to_string())?;
     let ron =
         ron::ser::to_string_pretty(bundle, ron::ser::PrettyConfig::new().compact_structs(true))

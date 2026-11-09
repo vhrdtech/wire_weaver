@@ -326,6 +326,13 @@ fn load_inner(
     Ok(bundle)
 }
 
+/// The API roots a crate with several lists in `[package.metadata.wire_weaver.roots]` of its `Cargo.toml` (EVO-37),
+/// by module path and name (`wire_v2::Thermo`), with their wire versions. Empty without the table: a crate with one
+/// root or none, whose snapshot is the whole crate ([load_crate](super::load_crate)).
+pub fn api_roots(crate_path: &Path) -> Result<BTreeMap<String, WireVersion>> {
+    ManifestContext::load(crate_path)?.roots()
+}
+
 /// Wire version of an API root (EVO-31, EVO-37): its entry in `[package.metadata.wire_weaver.roots]` of its crate's
 /// `Cargo.toml` (`"wire_v2::Thermo" = "w2.1"`, for a crate with several roots), else the crate's
 /// `[package.metadata.wire_weaver] wire = ".."`, like every other crate. `#[ww_api_root(wire = "..")]` is the entry
@@ -609,6 +616,12 @@ impl CrateContext {
     /// Whether the crate's `Cargo.toml` has `[package.metadata.wire_weaver.roots]`, several API roots (EVO-37).
     pub(crate) fn has_roots_table(&self) -> Result<bool> {
         Ok(!self.manifest.roots()?.is_empty())
+    }
+
+    /// The API roots of `[package.metadata.wire_weaver.roots]` (EVO-37) with their wire versions, by module path and
+    /// name (`wire_v2::Thermo`); empty without the table.
+    pub(crate) fn roots_table(&self) -> Result<BTreeMap<String, WireVersion>> {
+        self.manifest.roots()
     }
 
     /// The modules from the crate root to this one, by name: which module of the crate it is.
@@ -1530,7 +1543,7 @@ fn parse_rs_uncached(path: &Path) -> Result<File> {
 /// The module and name of the API root `root` names (EVO-37): `module::Trait` is looked up in that module; a bare
 /// `Trait` at the crate root first, then in every module, and must be the only one of its name; `None` takes the
 /// crate's only `#[ww_api_root]`, or its only `#[ww_trait]` when it has no root.
-fn find_root(
+pub(crate) fn find_root(
     entry: &Rc<CrateContext>,
     root: Option<&str>,
     scratch: &mut Scratch,
@@ -1637,7 +1650,7 @@ fn marked_traits(entry: &Rc<CrateContext>, scratch: &mut Scratch) -> Result<Vec<
     Ok(found)
 }
 
-fn get_trait<'i>(lib_rs: &'i File, trait_name: &str) -> Result<&'i syn::ItemTrait> {
+pub(crate) fn get_trait<'i>(lib_rs: &'i File, trait_name: &str) -> Result<&'i syn::ItemTrait> {
     for item in &lib_rs.items {
         let Item::Trait(item_trait) = item else {
             continue;

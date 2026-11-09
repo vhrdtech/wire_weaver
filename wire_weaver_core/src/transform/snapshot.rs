@@ -1,6 +1,6 @@
 use super::{
     api::convert_trait,
-    crate_walker::{CrateContext, Scratch, root_wire},
+    crate_walker::{CrateContext, Scratch, find_root, get_trait, root_wire},
     ty::{convert_named_def, is_phantom_data},
     util::{collect_docs, get_wire_attr, use_tree_globs, use_tree_names, use_tree_path_to},
 };
@@ -16,7 +16,7 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
 };
-use ww_version::FullVersionOwned;
+use ww_version::{FullVersionOwned, WireVersion};
 
 /// Load all `#[ww_trait]`/`#[ww_api_root]` traits defined in a crate's `src/lib.rs`, and all `#[derive_shrink_wrap]`
 /// types and unit marker structs (`pub struct Volt;`) defined there, in its `pub mod`s at any depth, or re-exported
@@ -47,6 +47,13 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
     // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
     let (entry, items, wire) = scratch.walk(|scratch| {
         let entry = CrateContext::load_all_features(crate_path, scratch)?;
+        if entry.has_roots_table()? {
+            return Err(anyhow!(
+                "a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) has a snapshot per \
+                 root (load_root, EVO-38), not one of the whole crate"
+            ))
+            .context(entry.err_context());
+        }
         let mut items = vec![];
         let mut globs = vec![];
         let mut wire = None;
@@ -94,13 +101,6 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
                 }
             }
         }
-        if entry.has_roots_table()? {
-            return Err(anyhow!(
-                "a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) is saved and \
-                 checked per root, which isn't there yet (EVO-38)"
-            ))
-            .context(entry.err_context());
-        }
         let wire = match wire {
             Some((wire, trait_name)) => root_wire(Some(wire), &entry, &trait_name, scratch)?,
             None => entry.wire,
@@ -108,6 +108,112 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
         Ok((entry, items, wire))
     })?;
 
+    let docs = collect_docs(&entry.lib_rs_ast.attrs);
+    snapshot_bundle(scratch, docs, items, wire, true)
+}
+
+/// The snapshot of one API root of a crate with several (`[package.metadata.wire_weaver.roots]`, EVO-37, EVO-38):
+/// `root` names it by module path and name (`wire_v2::Thermo`, a key of [api_roots](super::crate_walker::api_roots)).
+///
+/// Laid out as [load_crate]'s bundle, so the checker compares it the same way, with these differences:
+/// * `root` has one [ApiItemKindOwned::Trait] item, the API root.
+/// * Only the traits and types the root reaches are in: another line's root and types, or a shared type no root
+///   uses, are not part of this root's wire.
+/// * `#[since = "w1.5, w2.2"]` on a shared item takes the revision on this root's line.
+/// * `wire` is the root's wire version from the `roots` table.
+pub fn load_root(crate_path: &Path, root: &str) -> Result<ApiBundleOwned> {
+    load_root_with_hints(crate_path, root).map(|(bundle, _hints)| bundle)
+}
+
+/// [load_root], also returning the unit-suffix hints found (TOOL-22).
+pub fn load_root_with_hints(
+    crate_path: &Path,
+    root: &str,
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+    let mut scratch = Scratch::default();
+    scratch.dedup_traits = true;
+    let (entry, item, wire) = scratch.walk(|scratch| {
+        let entry = CrateContext::load_all_features(crate_path, scratch)?;
+        let roots = entry.roots_table()?;
+        if roots.is_empty() {
+            return Err(anyhow!(
+                "the crate has no `[package.metadata.wire_weaver.roots]` table: its snapshot is the whole crate \
+                 (load_crate), not one per root"
+            ))
+            .context(entry.err_context());
+        }
+        if !roots.contains_key(root) {
+            return Err(anyhow!(
+                "`{root}` is not an API root of the crate: `[package.metadata.wire_weaver.roots]` lists {}",
+                roots
+                    .keys()
+                    .map(|k| format!("`{k}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ))
+            .context(entry.err_context());
+        }
+        let (root_cx, trait_name) = find_root(&entry, Some(root), scratch)?;
+        let item_trait = get_trait(&root_cx.lib_rs_ast, &trait_name)?;
+        if !has_attr(&item_trait.attrs, &["ww_api_root"]) {
+            return Err(anyhow!(
+                "`{root}` is listed in `[package.metadata.wire_weaver.roots]`, but is not a #[ww_api_root]"
+            ))
+            .context(root_cx.err_context());
+        }
+        let wire = root_wire(
+            get_wire_attr(&item_trait.attrs, &root_cx)?,
+            &root_cx,
+            &trait_name,
+            scratch,
+        )?;
+        // `#[since]` of the crate's shared items names a revision of this root's line
+        scratch.root = Some((entry.version().clone(), wire));
+        let trait_idx = convert_trait(item_trait, &root_cx, scratch)?;
+        let item = ApiItemOwned {
+            id: UNib32(0),
+            kind: ApiItemKindOwned::Trait {
+                trait_idx,
+                omitted: None,
+            },
+            multiplicity: Multiplicity::Flat,
+            since: None,
+            ident: trait_name,
+            docs: vec![],
+            optional: None,
+            meta: None,
+        };
+        Ok((entry, item, wire))
+    })?;
+    let docs = collect_docs(&entry.lib_rs_ast.attrs);
+    snapshot_bundle(scratch, docs, vec![item], wire, false)
+}
+
+/// The part of a whole-crate snapshot ([load_crate]) that is the API root `trait_name`, laid out as [load_root]'s:
+/// its one `Trait` item and what it reaches. For a crate that had one root and now has several (EVO-38), so its
+/// older snapshots are compared with each root's. `None` if the snapshot has no such root item.
+pub fn root_of_crate_snapshot(bundle: &ApiBundleOwned, trait_name: &str) -> Option<ApiBundleOwned> {
+    let item = bundle.root.items.iter().find(|item| {
+        item.ident == trait_name && matches!(item.kind, ApiItemKindOwned::Trait { .. })
+    })?;
+    let mut root = bundle.clone();
+    root.root.items = vec![ApiItemOwned {
+        id: UNib32(0),
+        ..item.clone()
+    }];
+    drop_unused(&mut root, false);
+    Some(root)
+}
+
+/// The bundle of a snapshot from what [load_crate] or [load_root] walked: other crates' traits and types skipped,
+/// what nothing uses dropped (except this crate's own types with `keep_own_types`).
+fn snapshot_bundle(
+    scratch: Scratch,
+    docs: Vec<String>,
+    items: Vec<ApiItemOwned>,
+    wire: Option<WireVersion>,
+    keep_own_types: bool,
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
     let unit_hints = scratch.unit_hints;
     let scratch = scratch.root_bundle;
     let ext_wire = scratch.ext_wire(wire);
@@ -115,7 +221,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
         magic: ww_self::MAGIC,
         ww_self_version: ww_self::VERSION,
         root: ApiLevelOwned {
-            docs: collect_docs(&entry.lib_rs_ast.attrs),
+            docs,
             crate_idx: UNib32(0),
             trait_name: scratch.ext_crates[0].crate_id.clone(),
             compact_id: None,
@@ -130,7 +236,7 @@ pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<s
         ext_wire,
     };
     skip_foreign(&mut bundle)?;
-    drop_unused(&mut bundle, true);
+    drop_unused(&mut bundle, keep_own_types);
     Ok((bundle, unit_hints))
 }
 
@@ -680,7 +786,7 @@ impl VisitMut for Remap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ww_version::FullVersionOwned;
+    use ww_version::{FullVersionOwned, WireVersion};
 
     #[test]
     fn ww_uart_snapshot() {
@@ -732,6 +838,68 @@ mod tests {
                 .iter()
                 .all(|&idx| (idx as usize) < bundle.ext_crates.len())
         );
+    }
+
+    /// A crate with several roots (EVO-38): one snapshot per root, each with its root, what it reaches, its wire
+    /// version and the `#[since]` of its line; the whole crate has none.
+    #[test]
+    fn snapshot_per_root() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/multi_root_api");
+        let roots = crate::transform::api_roots(&crate_path).unwrap();
+        let keys: Vec<_> = roots.keys().map(String::as_str).collect();
+        assert_eq!(keys, ["wire_v1::Thermo", "wire_v2::Thermo"]);
+        for (key, wire, args) in [
+            ("wire_v1::Thermo", "w1.2", 0),
+            ("wire_v2::Thermo", "w2.1", 1),
+        ] {
+            let wire: WireVersion = wire.parse().unwrap();
+            assert_eq!(roots[key], wire);
+            let bundle = load_root(&crate_path, key).unwrap();
+            assert_eq!(bundle.wire, Some(wire), "{key}");
+            assert_eq!(bundle.root.trait_name, "multi_root_api");
+            let [item] = bundle.root.items.as_slice() else {
+                panic!("{key}: {:?}", bundle.root.items);
+            };
+            assert_eq!(item.ident, "Thermo");
+            let level = |name: &str| {
+                bundle
+                    .traits
+                    .iter()
+                    .find_map(|l| match l {
+                        ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == name => {
+                            Some(level)
+                        }
+                        _ => None,
+                    })
+                    .unwrap_or_else(|| panic!("{key}: no trait {name}"))
+            };
+            let read_once = level("Thermo")
+                .items
+                .iter()
+                .find(|i| i.ident == "read_once")
+                .unwrap();
+            let ApiItemKindOwned::Method { args: a, .. } = &read_once.kind else {
+                panic!("{key}: read_once is {:?}", read_once.kind);
+            };
+            assert_eq!(a.len(), args, "{key}");
+            let reset = level("Channel")
+                .items
+                .iter()
+                .find(|i| i.ident == "reset")
+                .unwrap();
+            assert_eq!(reset.since, Some(wire), "{key}: #[since] on its line");
+            type_idx(&bundle, "Code");
+        }
+        let err = load_root(&crate_path, "wire_v3::Thermo").unwrap_err();
+        assert!(
+            format!("{err:#}").contains("lists `wire_v1::Thermo`, `wire_v2::Thermo`"),
+            "{err:#}"
+        );
+        let err = load_crate(&crate_path).unwrap_err();
+        assert!(format!("{err:#}").contains("snapshot per root"), "{err:#}");
+        let one_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
+        assert!(crate::transform::api_roots(&one_root).unwrap().is_empty());
+        assert!(load_root(&one_root, "Uart").is_err());
     }
 
     /// A crate that isn't a ww API crate (API-60): no traits, its types and unit markers are the snapshot.

@@ -111,6 +111,10 @@ pub enum ApiCommand {
     },
     /// Save all traits and types defined in a crate into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`
     ///
+    /// A crate with several API roots (`[package.metadata.wire_weaver.roots]`) gets one snapshot per root and wire
+    /// version instead, `<crate>.<module path>.<Trait>@w<line>.<revision>.ron`: the root and what it reaches, checked
+    /// against the root's previous snapshot. A root that didn't change keeps its file.
+    ///
     /// Snapshots are meant to be committed and kept unchanged, so that API bundles (e.g., device introspection data)
     /// can refer to these traits and types by crate name and version only, instead of carrying their definitions.
     /// Traits and types from other crates are only referenced, save a snapshot of each of those crates as well.

@@ -689,6 +689,7 @@ dependencies = [
 name = "wire_weaver_derive"
 version = "0.5.0"
 dependencies = [
+ "anyhow",
  "convert_case",
  "darling",
  "pathsearch",

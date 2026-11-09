@@ -2719,10 +2719,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#shared-ww_stdlib-traits" class="md-nav__link">
+  <a href="#shared-sub-traits" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Shared <code>ww_stdlib</code> traits
+        Shared sub-traits
       </span>
     </span>
   </a>
@@ -5719,10 +5719,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#shared-ww_stdlib-traits" class="md-nav__link">
+  <a href="#shared-sub-traits" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Shared <code>ww_stdlib</code> traits
+        Shared sub-traits
       </span>
     </span>
   </a>
@@ -6010,26 +6010,52 @@ its client in <code>WwClient::from_cmd</code> by the line the device reported:</
 <p>A device on a line the driver doesn't know (one newer than all of them) is refused in link setup with
 <code>Error::IncompatibleDeviceProtocol</code>, which names every line the host speaks and says to update the host. Two clients
 of one line, or a line of another API, are refused when connecting.</p>
-<h2 id="shared-ww_stdlib-traits">Shared <code>ww_stdlib</code> traits<a class="headerlink" href="#shared-ww_stdlib-traits" title="Permanent link">&para;</a></h2>
-<p>A <code>ww_stdlib</code> trait the API uses as a sub-level (here <code>ww_indication::Indication</code>, the status LED) appears in each
-line's generated client as a client of its own. A <code>client = "trait_client"</code> of the <code>ww_stdlib</code> trait reaches it by
-its global path wherever the device has it, so one client serves every line, and its types are the <code>ww_stdlib</code> crate's,
-the same for all lines:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Indication</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="n">cmd</span><span class="p">:</span><span class="w"> </span><span class="nc">Commander</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">}</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">mod</span><span class="w"> </span><span class="nn">indication_client</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="k">use</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">Indication</span><span class="p">;</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">        </span><span class="n">ww_indication</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Indication</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Indication</span><span class="p">,</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;trait_client&quot;</span><span class="p">,</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">        </span><span class="n">no_alloc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">        </span><span class="n">use_async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">}</span>
+<h2 id="shared-sub-traits">Shared sub-traits<a class="headerlink" href="#shared-sub-traits" title="Permanent link">&para;</a></h2>
+<p>A sub-trait every line uses unchanged, a <code>ww_stdlib</code> one (here <code>ww_indication::Indication</code>, the status LED) or one
+of the API crate's own (<code>common::Channel</code>), would get a client of its own in each line's generated client: one Rust
+type per line for the same trait, and the driver forwards every call per line. Generate its client once instead,
+with <code>client = "sub_level"</code>, and let each line's client return it (CLT-68, <code>tests/shared_sub_level</code>):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">mod</span><span class="w"> </span><span class="nn">indication_client</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">        </span><span class="n">ww_indication</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Indication</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">IndicationClient</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;sub_level&quot;</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">indication_client</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">;</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_v2</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">        </span><span class="n">thermo_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">wire_v2</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Thermo</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">ClientV2</span><span class="p">,</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">,</span>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">        </span><span class="n">sub_levels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">ww_indication</span><span class="p">::</span><span class="n">Indication</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">],</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Prefer this for every <code>ww_stdlib</code> trait in a driver of several lines: it needs no per-line code at all.</p>
+<ul>
+<li><code>client = "sub_level"</code> generates the struct itself (<code>IndicationClient&lt;'i&gt;</code>, named by the plain identifier after
+  <code>for</code>), with the trait's methods, its nested levels and its types, in a module beside it.</li>
+<li>Each <code>sub_levels</code> entry names a trait by its crate and module path and the shared client for it. Wherever that
+  line's tree has the trait, flat or as an array, at any depth, the accessor (<code>indication()</code>, <code>probe().channel()</code>,
+  <code>aux(i)</code>) returns the shared client and no per-line client is generated for it. Code over the trait is written
+  once: <code>async fn blink(i: IndicationClient&lt;'_&gt;)</code> takes it from any line.</li>
+<li>Under a resource array (<code>aux[i]</code>), the accessor returns <code>ChannelClient&lt;'_, false&gt;</code>: a level under an array can't
+  be observed yet (SRV-18), so, as on a client of its own, it has no <code>observe(cfg)</code> and its <code>+observe</code> properties'
+  <code>observe_&lt;name&gt;()</code> is the plain stream. Elsewhere it is <code>ChannelClient&lt;'_&gt;</code> (<code>OBSERVE = true</code>). Code taking both
+  is generic over it: <code>async fn read&lt;const O: bool&gt;(c: ChannelClient&lt;'_, O&gt;)</code>.</li>
+<li>The calls go by path, as every other call of the line: nothing changes on the device, and global trait paths are
+  not needed. A <code>trait_client</code> can't take <code>sub_levels</code>, its paths start at its own trait.</li>
+<li>A <code>const</code> assert in each accessor checks that the line has the trait the shared client was generated from: the
+  trait's signature, with docs and <code>#[since]</code> left out. It fails to compile when the API crate takes another version
+  of the trait than the driver does (two versions of <code>ww_indication</code>), and the message says to generate a client per
+  line for it, which is then right: the trait really differs.</li>
+<li><code>#[since]</code> still works per line. Loaded on its own, a shared trait has no line, so its <code>#[since = "w1.1, w2.1"]</code>
+  means nothing to the shared client; its calls go through the line client's <code>Commander</code>, which checks each call's
+  path against that line's own API, <code>#[since]</code> included. A <code>w1.0</code> device refuses <code>reset</code> with
+  <code>Error::OlderProtocol</code> naming <code>w1.1</code>, a <code>w2.0</code> device naming <code>w2.1</code>.</li>
+</ul>
+<p>A <code>client = "trait_client"</code> of the trait reaches it by its global path instead, wherever the device has it. That
+needs the device to resolve global paths, which costs it memory and some CPU and is the device's choice, so a
+driver of several lines reaches its sub-traits by path, through the shared client.</p>
 <h2 id="scripts-and-tools-without-generated-code">Scripts and tools without generated code<a class="headerlink" href="#scripts-and-tools-without-generated-code" title="Permanent link">&para;</a></h2>
 <p>A script, <code>ww</code> or a test bench usually has no generated client at all: the dynamic client
 (<code>wire_weaver_client::DynClient</code>) and Python read the API from the device's own introspection data, so one script

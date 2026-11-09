@@ -6322,6 +6322,8 @@ the lines share unchanged in a module of their own (EVO-37, <code>tests/multi_ro
   <code>ww_impl!(channel: super::common::Channel)</code>.</li>
 <li>An item of a shared type or trait was added in a revision of each line it is on: <code>#[since = "w1.2, w2.1"]</code> names
   one revision per line, and each root takes its own line's.</li>
+<li>A host gets one client for a shared sub-trait for all lines, generated once with <code>client = "sub_level"</code> and named
+  by each line's client with <code>sub_levels = [..]</code> (<a href="../multi_line_host/#shared-sub-traits">shared sub-traits</a>, CLT-68).</li>
 <li>Every root needs an entry once the table exists; a crate-level <code>wire = ..</code> stays for a crate with one root and for
   crates whose traits are reached by global paths (<code>ww_stdlib</code>).</li>
 <li><code>ww api save</code> saves a snapshot per root

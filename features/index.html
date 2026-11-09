@@ -7527,10 +7527,14 @@ observing), SRV-46 (peer identity).
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
-<li>📋 <strong>CLT-68 One sub-level client for a stdlib trait shared by lines</strong> · <code>v0.5</code> — the lines of one crate that
-  reach the same <code>ww_stdlib</code> trait (<code>ww_indication::Indication</code>) by path get one generated sub-level client type
-  instead of one per line, with a compile-time check that the trait's signature is the one it was generated from.
-  No trait calls: the device is unchanged.</li>
+<li>✅ <strong>CLT-68 One sub-level client for a stdlib trait shared by lines</strong> · <code>v0.5</code> — the lines of one crate that
+  reach the same sub-trait by path (a <code>ww_stdlib</code> one, <code>ww_indication::Indication</code>, or the crate's own
+  <code>common::Channel</code>) get one client type for it: <code>ww_codegen!(ww_indication::Indication for IndicationClient,
+  client = "sub_level")</code> once, and each line's <code>ww_codegen!(.., sub_levels = [ww_indication::Indication =&gt;
+  crate::IndicationClient])</code> returns it wherever its tree has the trait, at any depth or as an array. A <code>const</code>
+  assert checks the trait's signature (docs and <code>#[since]</code> left out) is the one the shared client was generated
+  from. No trait calls: the device is unchanged, and each line's <code>#[since]</code> is still checked per call. Docs:
+  <code>docs/evolution/multi_line_host.md#shared-sub-traits</code>; tests <code>tests/shared_sub_level</code>.</li>
 <li>✅ <strong>TR-1 <code>ww_framer</code></strong>: packs many small messages into one packet or splits a big one across packets; U2Head with
   1 byte overhead, CRC, recovery from missed frames, fuzzed.</li>
 <li>✅ <strong>TR-2 <code>ww_link</code></strong>: link setup, device info, API version exchange.</li>

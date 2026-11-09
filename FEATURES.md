@@ -1681,6 +1681,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 ## Transports and protocols (`TR`)
 
+- 📋 **CLT-68 One sub-level client for a stdlib trait shared by lines** · `v0.5` — the lines of one crate that
+  reach the same `ww_stdlib` trait (`ww_indication::Indication`) by path get one generated sub-level client type
+  instead of one per line, with a compile-time check that the trait's signature is the one it was generated from.
+  No trait calls: the device is unchanged.
 - ✅ **TR-1 `ww_framer`**: packs many small messages into one packet or splits a big one across packets; U2Head with
   1 byte overhead, CRC, recovery from missed frames, fuzzed.
 - ✅ **TR-2 `ww_link`**: link setup, device info, API version exchange.
@@ -2014,11 +2018,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client` `host_of_two_lines_*`, `wire_weaver_core` `two_versions_of_one_crate_under_other_names`,
   `wire_weaver_evolution` `removed_variant_breaks_rust_code`; docs `docs/evolution/multi_line_host.md`. Follow-ups:
   EVO-32, EVO-33, CLT-61 to CLT-65, SRV-57, TOOL-32.
-- 💡 **EVO-32 Conversions between unchanged types of two versions** — a host bundling two versions of one API
-  crate (EVO-28) sees each of the crate's own types as a distinct Rust type per version, also when it didn't change
-  (`RateError`, `Command` in `tests/thermo`), so the driver writes a conversion per type per line. Codegen could
-  emit `From` between two versions' types whose signatures (EVO-2) are equal, or an API crate could take its
-  unchanged types from a shared crate of its own. Types of shared crates (`ww_si`) are one Rust type already.
+- 📋 **EVO-38 Snapshots per root** · `v0.5` — one snapshot per API root and wire version
+  (`crate.module.Trait@w2.1`), the crate version recorded inside; old crate-version files still read; `ww api
+  save`, `wire_weaver_snapshots` and `just save-snapshots` per root. Needed before `ww api save`/`check` take a
+  crate with a `roots` table (EVO-37).
+- 📋 **EVO-39 The checker per root** · `v0.5` — each root against its own line's latest snapshot, a changed
+  `common` type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
+  root a breaking crate bump, `#[since]` per line checked, one `load_crate` cache across roots and the CLI.
+- 📋 **EVO-40 `#[moved_from]`** · `v0.5` — `#[moved_from(w1.4, path::to::item)]` on an item's new place: the
+  checker verifies the signature is the same and reports a move. Resources match by position within a line and
+  only by `moved_from` across a break; the checker proposes same-name matches on a first break and never adds the
+  attribute itself.
+- 📋 **EVO-41 `w0`, the design line** · `v0.5` — a root on `w0` accepts breaks: no snapshots, `ww api check`
+  informs only, `#[since]` refused, a client always compares the device's introspection data. A first release
+  starts at `w1.0`.
+- 📋 **EVO-42 The multi-line bench on one crate** · `v0.5` — `tests/thermo_api` as one crate of three lines and
+  `tests/thermo` on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
+  baseline; `docs/evolution/multi_line_host.md` rewritten for it.
 - 💡 **EVO-33 Checker findings on a new line read cleanly** — found by the EVO-28 bench's line break: the root's
   own unchanged sub-trait (`Channel`) is reported as a wire break of its own, with the old crate version as the new
   label (`thermo_api@1.2.0` for 2.1.0); a resource replaced in place reads as a rename with another argument
@@ -2049,6 +2065,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **EVO-36 `SIExpr` references** · `v0.5` — the wire change of STD-107: `SIExpr`'s leaves are `Def(UnitDef)` (variant 0) and `Ref(MarkerId)` (variant 1, new), so `Mul`, `Div`, `Pow` and `Sqrt` move up one place (2..5); an `AnyQuantity` a client writes names the API's units by reference. Conformance cases `stdlib.si.si_expr.sqrt`, `decibel_loss_per_hundred_metres` and `rejected` carry the mark; `si_expr.ref`, `ref_per` and `any_quantity.*` are new. No device or host uses the format.
 - ✅ **EVO-43 Measured constants in `Magnitude`** · `v0.5` — the wire change of exact_units NUM-10: `Magnitude`'s `Irrational { pi, ln2, ln10 }` becomes `Symbols { pi, ln2, ln10, mu0, g }`, so μ₀ and G are exact symbols of a scale in the model and on the wire (two more exponents), and `MAX_FACTORS` goes from 12 to 16, so the prime list has 4 more slots. The walker reads `mu0 e` and `g e`; the dynamic client, Python's `ww.requantize` and the C runtime's tests refuse a conversion that keeps μ₀ or G without a named set of values. Conformance cases `stdlib.si.magnitude.*`, `stdlib.si.offset.*` and the `SIExpr` and model marker cases that hold a magnitude carry the mark. No device or host uses the format.
 - ✅ **EVO-44 The dimension's shape and a unit's names** · `v0.5` — the wire change of exact_units UNIT-10 and IO-9: a `Dim` is its seven exponents of s, m, kg, A, K, mol, cd as a list of `INib32` halves (no 4-bit range, no `root` flag), then the distinguished bases (rad, bit, neper, every counted thing, a crate's own `base` unit) as a list sorted by crate and name, any number of them; a `UnitDef` carries `UnitNames` (ASCII form, long names, aliases, UCUM code, prefixes). The model describes `Dim` by its shape struct `DimWire`; a `unit!` line with `base` is `MarkerDef::Base(UnitDef)`. The walker reads names, halves, `base` and `base(Other)` and checks them against the compiled definitions, Python's `dim` gives halves as floats. Conformance cases `stdlib.si.dim.*` and every case holding a `UnitDef` carry the mark; `dim.six_bases`, `dim.zero.rejected`, `dim.count.rejected` and `model.marker_def.base` are new, `dim.root.rejected` is withdrawn. No device or host uses the format.
+- ✅ **EVO-37 Several wire lines in one API crate** · `v0.5` — one `#[ww_api_root]` per module (`wire_v1`,
+  `wire_v2`) and the types and sub-traits the lines share in one module (`common`), each root's wire version in
+  `[package.metadata.wire_weaver.roots]` (`"wire_v2::Thermo" = "w2.1"`). `ww_codegen!(api::wire_v2::Thermo ..)`
+  names a root by its module path, `#[ww_api_root]` in a module finds itself from its source file, a line's module
+  names shared items with `super::`, and `#[since = "w1.2, w2.1"]` on a shared item names a revision per line.
+  Snapshots and checks per root are EVO-38/EVO-39. Docs: `docs/evolution/rules.md#several-lines-in-one-crate`;
+  tests `tests/multi_root`.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
@@ -2162,6 +2185,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **TOOL-32 `ww api scaffold --dep`** — the printed `ww_codegen!` call names the API by its package
   (`thermo_api ::`), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
   versions of it (EVO-28, `docs/evolution/multi_line_host.md`). A `--dep NAME` option writes that name instead.
+- 💡 **TOOL-33 `ww api line new` / `retire`** — copies `wire_vN.rs` to `wire_vN+1.rs` at `w(N+1).0` with its
+  `roots` entry, and removes a line once no device runs it, with the breaking crate bump (EVO-37).
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`
@@ -2966,6 +2991,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   request (CLT-15, `docs/std_library/ww_gpio.md#several-pins`); several pins at one instant or with precise timing
   (bit-banged parallel buses, a strobe with its data lines) belong to the signal generator (STD-22) and the logic
   analyzer (STD-21). The extra methods only cost flash on every GPIO server.
+- **EVO-32 Conversions between unchanged types of two versions** — superseded by EVO-37: the lines of one API
+  live in one crate and share unchanged types from one module, one Rust type, nothing to convert (Roman, 9 Nov 2026).
 - **SW-31 `Delta` / `DeltaOfDelta`**, **SW-32 `XorFloat`**, **SW-50 compressed sequences in APIs** — superseded by
   `Series<T>` (SW-60): its numeric columns use the SW-31 prefix code with the delta or delta of delta predictor, its
   float columns the SW-32 XOR code, plus packed, constant and plain and the smallest picked per column, in every API

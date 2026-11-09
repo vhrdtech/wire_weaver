@@ -106,6 +106,41 @@ trait is a plain `#[ww_trait]`.
 Mark additions with `#[since = "w2.4"]`, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
 
+### Several lines in one crate
+
+One API crate can hold every wire line still in use, one `#[ww_api_root]` per module, with the types and sub-traits
+the lines share unchanged in a module of their own (EVO-37, `tests/multi_root_api`):
+
+```text
+src/lib.rs        pub mod common; pub mod wire_v1; pub mod wire_v2;
+src/common.rs     types and #[ww_trait]s every line uses as they are
+src/wire_v1.rs    #[ww_api_root] pub trait Thermo { .. }   // line 1
+src/wire_v2.rs    #[ww_api_root] pub trait Thermo { .. }   // line 2
+```
+
+Each root's wire version is an entry of the `roots` table, by its module path:
+
+```toml
+[package.metadata.wire_weaver.roots]
+"wire_v1::Thermo" = "w1.2"
+"wire_v2::Thermo" = "w2.1"
+```
+
+* A shared type is one Rust type on every line: a host of several lines converts nothing between them.
+* The crate version is for Rust only, so one crate version serves firmware of every line it holds. A line leaves the
+  crate when no device runs it any more, a breaking crate bump.
+* `ww_codegen!` names a root by its module path, `ww_codegen!(thermo_api::wire_v2::Thermo for Client, ..)`; with
+  several roots, a bare `Thermo` or no name is an error listing them. Two roots of one name differ by their line;
+  two traits of one name in one root's tree are refused, since the API model names a trait by crate and name.
+* A line's module names the shared types with `use super::common::Code;` and the shared sub-traits by path,
+  `ww_impl!(channel: super::common::Channel)`.
+* An item of a shared type or trait was added in a revision of each line it is on: `#[since = "w1.2, w2.1"]` names
+  one revision per line, and each root takes its own line's.
+* Every root needs an entry once the table exists; a crate-level `wire = ..` stays for a crate with one root and for
+  crates whose traits are reached by global paths (`ww_stdlib`).
+* Snapshots and checks per root are EVO-38 and EVO-39: until then `ww api save` and `ww api check` refuse a crate
+  with a `roots` table.
+
 ### Which bump a change needs
 
 The wire version and the crate version are bumped apart, each for what it describes: the wire version for what

@@ -12,6 +12,11 @@ API whose line 2 broke line 1 in several ways and whose line 3 broke line 2 in o
 `Thermo`, that runs the same code against firmware of any of the three lines. Scripts and tools without generated
 code (the dynamic client, Python) are [at the end](#scripts-and-tools-without-generated-code).
 
+Since EVO-37 one API crate can hold every line, one root per module, with the types the lines share in one module
+([several lines in one crate](rules.md#several-lines-in-one-crate)): no renamed dependencies and no conversions of
+unchanged types. This page still shows the earlier layout, two versions of the crate; its rework for one crate is
+EVO-42.
+
 The shape in short:
 
 1. Both versions of the API crate are dependencies of the host, under two names.

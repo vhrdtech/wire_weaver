@@ -333,7 +333,7 @@ pub(crate) fn root_wire(
     let key = root_key(&root_cx.module_names(), trait_name);
     let roots = root_cx.manifest.roots()?;
     let manifest = match roots.get(&key) {
-        Some(wire) => Some(*wire),
+        Some(wire) => Some((*wire, format!("[package.metadata.wire_weaver.roots] \"{key}\" = \"{wire}\""))),
         None if !roots.is_empty() => {
             return Err(anyhow!(
                 "the API root `{key}` has no wire version: `[package.metadata.wire_weaver.roots]` in Cargo.toml lists \
@@ -342,17 +342,19 @@ pub(crate) fn root_wire(
             ))
             .context(root_cx.err_context());
         }
-        None => root_cx.wire,
+        None => root_cx
+            .wire
+            .map(|wire| (wire, format!("[package.metadata.wire_weaver] wire = \"{wire}\""))),
     };
     let Some(attr) = attr else {
-        return Ok(manifest);
+        return Ok(manifest.map(|(wire, _)| wire));
     };
-    if let Some(manifest) = manifest
+    if let Some((manifest, declared)) = manifest
         && manifest != attr
     {
         return Err(anyhow!(
             "the wire version is declared twice and differs: `#[ww_api_root(wire = \"{attr}\")]` and \
-             `{manifest}` in Cargo.toml; keep the Cargo.toml one"
+             `{declared}` in Cargo.toml; keep the Cargo.toml one"
         ))
         .context(root_cx.err_context());
     }

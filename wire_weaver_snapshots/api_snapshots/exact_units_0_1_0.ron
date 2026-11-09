@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7b7ec183fc4829b9a2e9c3f6ead93b29b7a68d9d5d26f061390f3ab31866f4ec
+// shrink_wrap sha256: 1871257c434404fc82ddd63a106bf966d94c32d54c2a69bd323ed8a78c77bf94
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -928,7 +928,8 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Sievert"), names: (symbol: "Sv"), dim: (s: -2, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Energy in electron-volts, eV (1.602176634·10⁻¹⁹ J).",
+        "Energy in electron-volts, eV: 1.602176634·10⁻¹⁹ J exactly, the elementary charge times a volt (SI Brochure, 9th",
+        "ed., table 8; exact since the 2019 SI fixed e).",
     ], ident: "ElectronVolt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "ElectronVolt"), names: (symbol: "eV"), dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: -56, pow2: 2, primes: [
@@ -1903,10 +1904,16 @@
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a named unit\'s scale comes from. On the wire (in an API model\'s `UnitDef`) an evolvable enum, so a later",
         "kind of source can be added.",
+        "",
+        "There is no `Default`: a unit read from data says where its scale comes from, and one that doesn\'t is refused",
+        "rather than taken for a definition.",
+        "",
+        "```compile_fail",
+        "let p = exact_units::Provenance::default();",
+        "```",
     ], ident: "Provenance", generics: [], variants: [
         (docs: [
-            "The scale is the unit\'s definition: exact by law or by the SI (a foot is 0.3048 m). The default: what a",
-            "unit read from data without a provenance has.",
+            "The scale is the unit\'s definition: exact by law or by the SI (a foot is 0.3048 m).",
         ], ident: "Defined", fields: Unit, discriminant: 0, since: None),
         (docs: [
             "The unit is fixed by a physical property (mercury at 32 °F, a calorie at 15 °C): its scale is the value a",
@@ -3476,7 +3483,7 @@
         "Inch of mercury (conventional): 1 in · 13 595.1 kg/m³ · g_n.",
         "",
         "- NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid\'s density; conventional ones per ISO 80000",
-        "- Unsourced: conventional mercury density 13 595.1 kg/m³ is ISO 80000-4, not fetched",
+        "- 71/354/EEC: Ch. III 8.3: conventional 1 mmHg = 13.5951 mmH2O, 1 mH2O = 9 806.65 Pa",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "InchOfMercuryConventional", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -3491,7 +3498,7 @@
         "Foot of mercury (conventional): 1 ft · 13 595.1 kg/m³ · g_n.",
         "",
         "- NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid\'s density; conventional ones per ISO 80000",
-        "- Unsourced: conventional mercury density 13 595.1 kg/m³ is ISO 80000-4, not fetched",
+        "- 71/354/EEC: Ch. III 8.3: conventional 1 mmHg = 13.5951 mmH2O, 1 mH2O = 9 806.65 Pa",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "FootOfMercuryConventional", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -3506,7 +3513,7 @@
         "Millimetre of mercury (conventional): 1 mm · 13 595.1 kg/m³ · g_n.",
         "",
         "- NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid\'s density; conventional ones per ISO 80000",
-        "- Unsourced: conventional mercury density 13 595.1 kg/m³ is ISO 80000-4, not fetched",
+        "- 71/354/EEC: Ch. III 8.3: conventional 1 mmHg = 13.5951 mmH2O, 1 mH2O = 9 806.65 Pa",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "MillimetreOfMercuryConventional", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -3531,7 +3538,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Torr: 1/760 atm.",
         "",
-        "- Unsourced: 1/760 atm not stated in the fetched texts; SP 811 B.8 prints the matching value",
+        "- 71/354/EEC: Ch. III 8.3: 1 torr = 101 325/760 Pa",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Torr", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -3920,7 +3927,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower (metric, PS): 75 kgf·m/s.",
         "",
-        "- Unsourced: 75 kgf·m/s is DIN 66036, not fetched; SP 811 B.8 prints the matching value",
+        "- 71/354/EEC: Ch. III 8.4: 1 PS = 735.498 75 W, 1 kgf = 9.806 65 N",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "HorsepowerMetric", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -4079,18 +4086,89 @@
         (7, -2),
     ]), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The Unix epoch, 1970-01-01 00:00:00 UTC: a point from it is a moment in POSIX time, UTC with leap seconds",
-        "not counted, as `CLOCK_REALTIME`, `time_t`, journald\'s `__REALTIME_TIMESTAMP` and most log formats count",
-        "it. Every day is 86400 s on this scale: a leap second repeats one (or the clock smears it), so the",
-        "difference of two such points is the elapsed time only up to the leap seconds between them (27 from 1972",
-        "to 2017).",
-        "",
-        "Clocks that count every SI second (TAI, GPS = TAI − 19 s) and UTC with its leap-second table come with",
-        "WireWeaver\'s PT-3 as clocks of their own; this origin stays POSIX time, and a conversion to them goes",
-        "through the table, never at compile time.",
+        "International Atomic Time, the time scale that counts every SI second: its zero is 1958-01-01 00:00:00 TAI.",
+        "GPS time (TAI − 19 s) and PTP\'s are origins on it ([GpsEpoch], [PtpEpoch]), so points convert between them",
+        "exactly at compile time. To and from [PosixScale] only through a leap-second table at run time",
+        "([Point::across], feature `leap_seconds`).",
+    ], ident: "TaiScale", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "UTC as POSIX time counts it, every day 86400 s, a leap second not counted: its zero is 1970-01-01 00:00:00",
+        "UTC ([UnixEpoch]). `time_t`, `CLOCK_REALTIME`, NTP ([NtpEpoch]) and most log formats count it. A difference",
+        "of two of its points is the elapsed time only up to the leap seconds between them; to and from [TaiScale]",
+        "only through a leap-second table at run time ([Point::across], feature `leap_seconds`).",
+    ], ident: "PosixScale", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A device\'s monotonic clock (a timer since boot): a time scale of its own, whose zero is known only at run time",
+        "and differs per device and per boot, and whose rate is its crystal\'s. Its points reach a host\'s scale only",
+        "through [Point::against] with where the device\'s zero lies there, what a clock sync measures. A host that",
+        "talks to several devices declares a reference per device the same way, so their points can\'t mix.",
+    ], ident: "DeviceMonotonic", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The Unix epoch, 1970-01-01 00:00:00 UTC, on [PosixScale]: a point from it is a moment in POSIX time, as",
+        "`CLOCK_REALTIME`, `time_t`, journald\'s `__REALTIME_TIMESTAMP` and most log formats count it. Every day is",
+        "86400 s on this scale: a leap second repeats one (or the clock smears it), so the difference of two such",
+        "points is the elapsed time only up to the leap seconds between them (27 from 1972 to 2017). To TAI or GPS",
+        "time only through a leap-second table ([Point::across]), never at compile time.",
     ], ident: "UnixEpoch", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "UnixEpoch"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "UnixEpoch"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (crate_name: "exact_units", name: "PosixScale"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "NTP\'s epoch, 1900-01-01 00:00:00 UTC, on [PosixScale]: 2 208 988 800 s before the [UnixEpoch], exactly",
+        "(NTP counts every day as 86400 s too, RFC 5905).",
+    ], ident: "NtpEpoch", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "NtpEpoch"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (crate_name: "exact_units", name: "PosixScale"), offset: (negative: true, magnitude: Some((pow10: 4, pow2: 10, primes: [
+        (3, 6),
+        (37, 2),
+        (691, 2),
+    ]))), modulus: None, step: (pow10: 0), shown: (negative: true, magnitude: Some((pow10: 4, pow2: 10, primes: [
+        (3, 6),
+        (37, 2),
+        (691, 2),
+    ])))))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "TAI\'s zero, 1958-01-01 00:00:00 TAI, on [TaiScale].",
+    ], ident: "TaiEpoch1958", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "TaiEpoch1958"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s TAI", reference: (crate_name: "exact_units", name: "TaiScale"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The GPS epoch, 1980-01-06 00:00:00 GPS time, which is 1980-01-06 00:00:19 TAI: GPS time counts every SI",
+        "second and stays 19 s behind TAI, so it is an origin on [TaiScale], 694 656 019 s after",
+        "[TaiEpoch1958] (8040 days and 19 s).",
+    ], ident: "GpsEpoch", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "GpsEpoch"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s GPS", reference: (crate_name: "exact_units", name: "TaiScale"), offset: (magnitude: Some((pow10: 0, primes: [
+        (37, 2),
+        (109, 2),
+        (172243, 2),
+    ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: 0, primes: [
+        (37, 2),
+        (109, 2),
+        (172243, 2),
+    ])))))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "PTP\'s epoch (IEEE 1588), 1970-01-01 00:00:00 TAI, on [TaiScale]: 378 691 200 s (4383 days) after",
+        "[TaiEpoch1958]. A PTP timestamp counts TAI seconds from it, 37 s ahead of POSIX time since 2017.",
+    ], ident: "PtpEpoch", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "PtpEpoch"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s PTP", reference: (crate_name: "exact_units", name: "TaiScale"), offset: (magnitude: Some((pow10: 4, pow2: 10, primes: [
+        (3, 10),
+        (487, 2),
+    ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: 4, pow2: 10, primes: [
+        (3, 10),
+        (487, 2),
+    ])))))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A device\'s boot, the zero of its monotonic clock, on [DeviceMonotonic].",
+    ], ident: "DeviceBoot", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((id: (crate_name: "exact_units", name: "DeviceBoot"), unit: (id: (crate_name: "exact_units", name: "Second"), names: (symbol: "s"), dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s since boot", reference: (crate_name: "exact_units", name: "DeviceMonotonic"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Thermodynamic temperature, from absolute zero: `Point<AbsoluteZero, Fixed<Kelvin, Milli, u32>>` is a",
         "temperature in mK.",

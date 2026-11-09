@@ -270,7 +270,8 @@ impl OriginDecl {
 pub(crate) enum OriginFields {
     /// From the unit's zero, or from a reference.
     Unit {
-        unit: syn::Type,
+        // boxed: a `syn::Type` is over 200 bytes, and would make the variant far larger than `Above`
+        unit: Box<syn::Type>,
         symbol: String,
         offset: syn::Expr,
         // boxed: rarely given, and they would make the variant far larger than `Above`
@@ -280,7 +281,7 @@ pub(crate) enum OriginFields {
     },
     /// `above: Parent, offset: ..`.
     Above {
-        parent: syn::Type,
+        parent: Box<syn::Type>,
         offset: syn::Expr,
     },
 }
@@ -317,7 +318,7 @@ impl Parse for OriginFields {
             if !key(input, "unit")? {
                 return Err(input.error("`unit: ..` or `above: ..`"));
             }
-            let unit = input.parse()?;
+            let unit = Box::new(input.parse()?);
             input.parse::<Token![,]>()?;
             if !key(input, "symbol")? {
                 return Err(input.error("`symbol: \"..\"` after `unit`"));
@@ -577,7 +578,7 @@ fn int_lit(e: &syn::Expr) -> Result<i128> {
 
 /// What a `#[ww_marker(..)]` attribute says.
 pub(crate) enum MarkerLineDef {
-    Unit(UnitLine),
+    Unit(Box<UnitLine>),
     Scale(ScaleLine),
     /// A hand-written `impl Unit` / `impl FixedScale` (the trait's name).
     Hand(String),
@@ -597,7 +598,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
         let kind: Ident = input.parse()?;
         input.parse::<Token![,]>()?;
         match kind.to_string().as_str() {
-            "unit" => Ok(MarkerLineDef::Unit(input.parse()?)),
+            "unit" => Ok(MarkerLineDef::Unit(Box::new(input.parse()?))),
             "scale" => Ok(MarkerLineDef::Scale(input.parse()?)),
             "hand" => Ok(MarkerLineDef::Hand(input.parse::<Ident>()?.to_string())),
             "origin" => Ok(MarkerLineDef::Origin(Box::new(input.parse()?))),
@@ -1262,7 +1263,7 @@ pub(crate) enum QuantityLine {
     /// A child of `parent`, of its dimension.
     Child {
         is_kind: bool,
-        parent: syn::Type,
+        parent: Box<syn::Type>,
         character: Character,
     },
 }
@@ -1294,7 +1295,7 @@ impl Parse for QuantityLine {
             }
             false => QuantityLine::Child {
                 is_kind,
-                parent: type_path(input)?,
+                parent: Box::new(type_path(input)?),
                 character: Character::Scalar,
             },
         };
@@ -1768,7 +1769,7 @@ mod tests {
             panic!()
         };
         assert_eq!(
-            line,
+            *line,
             UnitLine {
                 symbol: "rpm".into(),
                 names: NamesLine::default(),

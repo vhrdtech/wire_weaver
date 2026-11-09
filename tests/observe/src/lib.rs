@@ -28,6 +28,7 @@ mod tests {
     const LABEL: u32 = 3;
     const MOTOR: u32 = 5;
     const BANK: u32 = 6;
+    const GAIN: u32 = 7;
     const SPEED: u32 = 0;
     const CURRENT: u32 = 1;
     const POSITION: u32 = 2;
@@ -47,6 +48,8 @@ mod tests {
         pub struct Server {
             pub mode: u8,
             pub temp: f32,
+            /// Written by hosts; `set_gain` doesn't mark it changed, the generated code does (SRV-57)
+            pub gain: u8,
             pub label: String,
             pub observe: api_impl::ObserveState,
             /// Fake microsecond clock, set by the test
@@ -90,6 +93,23 @@ mod tests {
 
             fn get_plain(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
                 GetResult::Value(0)
+            }
+
+            /// Refuses 0, and doesn't call `mark_changed_gain`
+            fn set_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                value: u8,
+            ) -> SetResult<()> {
+                if value == 0 {
+                    return SetResult::SetError(());
+                }
+                self.gain = value;
+                SetResult::Set
+            }
+
+            fn get_gain(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+                GetResult::Value(self.gain)
             }
 
             fn get_label(
@@ -258,6 +278,21 @@ mod tests {
                 GetResult::Value(0)
             }
 
+            fn set_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _value: u8,
+            ) -> SetResult<()> {
+                SetResult::Set
+            }
+
+            fn get_gain(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<u8, ()> {
+                GetResult::Value(4)
+            }
+
             fn get_label(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -401,6 +436,7 @@ mod tests {
             let server = server::Server {
                 mode: 0,
                 temp: 0.0,
+                gain: 1,
                 label: "hello".into(),
                 observe,
                 driven: driven.clone(),
@@ -834,6 +870,41 @@ mod tests {
         assert_eq!(budget, 0);
         b.client.set_temp(3.5).call().await.unwrap();
         b.run(41_000, 60_000, 1_000).await;
+        assert!(b.drain().await.is_empty());
+    }
+
+    /// SRV-57: a host's write of an observed `get_set` property reaches its observers, though `set_gain` doesn't
+    /// mark it changed: the generated code marks it after `SetResult::Set`, and not after a refused write.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_write_marks_get_set_changed() {
+        let mut b = Bench::start("observe/host_write_marks_get_set_changed", limits()).await;
+        let (granted, _, _) = b
+            .observe(&[], &[on_change(GAIN, 1_000)], false, None)
+            .await
+            .unwrap();
+        assert_eq!(granted, [on_change(GAIN, 1_000)]);
+        b.at(1_000).await;
+        let first = b.drain().await;
+        assert_eq!(first.len(), 1, "{first:?}");
+        assert_eq!(
+            ObserveUpdate::from_ww_bytes(&first[0].data).unwrap().gain,
+            Some(1)
+        );
+        b.run(2_000, 5_000, 1_000).await;
+        assert!(b.drain().await.is_empty());
+
+        b.client.write_gain(5).write().await.unwrap();
+        b.at(6_000).await;
+        let sent = b.drain().await;
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert_eq!(
+            ObserveUpdate::from_ww_bytes(&sent[0].data).unwrap().gain,
+            Some(5)
+        );
+
+        // refused: not marked, nothing sent
+        assert!(b.client.write_gain(0).write().await.is_err());
+        b.run(7_000, 10_000, 1_000).await;
         assert!(b.drain().await.is_empty());
     }
 

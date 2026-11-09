@@ -1986,6 +1986,12 @@ fn handle_property(
             quote! { SetResult<()> },
         ),
     };
+    // SRV-57: an observed property is marked changed by the generated code after a successful write, so a host's own
+    // write reaches every observer even when the handler doesn't mark it
+    let mark_changed = maybe_quote_cl(cx.observable.contains(&prefixed_ident.to_string()), || {
+        let mark_changed = mark_changed_ident(&prefixed_ident);
+        quote! { self.#mark_changed(); }
+    });
     let des_compact = |es: &TokenStream| {
         quote! {
             let Some(value) = ww_client_server::dispatch::des::<#enforce_ty>(data.as_slice()) else {
@@ -2015,10 +2021,24 @@ fn handle_property(
                     let ev_kind_builder = cx.prepare_event_kind_builder();
                     if cx.no_alloc {
                         let des = des_compact(&es);
-                        quote! {
-                            #des
-                            let result: #set_result_ty = #set_call;
-                            #reply_set(wr, d, result)
+                        if mark_changed.is_empty() {
+                            quote! {
+                                #des
+                                let result: #set_result_ty = #set_call;
+                                #reply_set(wr, d, result)
+                            }
+                        } else {
+                            // marked after the reply, so a set error borrowing `self` has ended
+                            quote! {
+                                #des
+                                let result: #set_result_ty = #set_call;
+                                let set = matches!(result, SetResult::Set);
+                                let action = #reply_set(wr, d, result);
+                                if set {
+                                    #mark_changed
+                                }
+                                action
+                            }
                         }
                     } else {
                         quote! {
@@ -2026,6 +2046,7 @@ fn handle_property(
                             let value = __ww_try!(wr, d, #des_value(&mut rd), #es, PropertyDesFailed);
                             match #set_call {
                                 SetResult::Set => {
+                                    #mark_changed
                                     #ev_kind_builder
                                     WrAction::WrittenOk
                                 },
@@ -2043,11 +2064,6 @@ fn handle_property(
                     }
                 }
                 PropertyModelKind::ValueOnChanged => {
-                    let mark_changed =
-                        maybe_quote_cl(cx.observable.contains(&prefixed_ident.to_string()), || {
-                            let mark_changed = mark_changed_ident(&prefixed_ident);
-                            quote! { self.#mark_changed(); }
-                        });
                     let changed_property = Ident::new(
                         format!("changed_{}", prefixed_ident).as_str(),
                         Span::call_site(),

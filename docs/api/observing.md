@@ -81,8 +81,10 @@ Cortex-M0+ this took the floor of a one-method server from 26.3 KB to 14.5 KB at
 
 Three things the user adds, for an API with any `+observe` properties: an `ObserveState` field, handed out by
 `observe_state()`, a `poll_properties` call in the event loop, and `mark_changed_<name>()` where the device changes
-a value by itself (a `value_on_changed` write calls it automatically). `ww api scaffold` prints the field and
-`observe_state()`.
+a value by itself. A host's write needs no mark: the generated code calls it after a `value_on_changed` write that
+changed the value and after a `get_set` setter returns `SetResult::Set` (SRV-57), so a setter that forgets it can't
+hide the write from observers; a setter may still call it itself, a second mark is the same as one. `ww api scaffold`
+prints the field and `observe_state()`.
 
 ```rust
 struct Server {

@@ -1264,11 +1264,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   variant), so the device hashes nothing and requests shrink; that is a wire change (`PathKind` is
   `final_structure`) and needs its own EVO item when mesh comes. See
   `docs/articles/flash_budget.md#global-trait-paths-by-hash-srv-53`.
-- 💡 **SRV-57 A host write marks an observed property changed** — an on-change observer of a `get_set` property
-  sees only values the firmware marks with `mark_changed_<name>`, so a handler that forgets it hides the host's own
-  write from every observer (the EVO-28 bench's observe test passed about 4 runs in 5 until its simulated firmware
-  called it). Generated dispatch could mark the property after a successful set, or `ww api scaffold` could put the
-  call into the setter stub.
+- ✅ **SRV-57 A host write marks an observed property changed** — the generated server calls `mark_changed_<name>()`
+  after an observed `get_set` property's setter returns `SetResult::Set`, as after a `value_on_changed` write, so a
+  setter that forgets it can't hide the host's own write from on-change observers (the EVO-28 bench's observe test
+  passed about 4 runs in 5 while its simulated firmware had to call it). A refused write marks nothing; `ww api
+  scaffold`'s setter stub says so. Test `tests/observe` `host_write_marks_get_set_changed`.
 
 ## Client / host side (`CLT`)
 

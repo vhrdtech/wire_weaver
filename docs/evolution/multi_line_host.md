@@ -219,8 +219,8 @@ simulated firmware is a crate of its own, `tests/thermo_devices`, so the dynamic
 - Simulate the first revision of each line too (here w1.0 and w2.0), to see `#[since]` items refused. Build it from
   its own version of the API crate: a device built from the newer crate has the client's API hash, and identical
   hashes skip the resource checks, `#[since]` included.
-- An observed `get_set` property only reports changes the firmware marks (`mark_changed_<name>`); a simulated
-  handler for the write must call it as real firmware does.
+- An observed `get_set` property reports a host's write by itself: the generated code marks it changed after the
+  setter returns `SetResult::Set` (SRV-57). Changes the firmware makes on its own still need `mark_changed_<name>`.
 - A device of a line the driver has no client of checks the refusal and its message.
 - Build and check the API crates through the host's workspace, never on their own: a `cargo check` inside one
   that is excluded from the workspace writes its own `Cargo.lock`, which may lock `exact_units` at another commit.

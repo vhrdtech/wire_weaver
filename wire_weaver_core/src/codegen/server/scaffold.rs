@@ -134,6 +134,7 @@ pub fn gen_server_scaffold(
         consts: String::new(),
         handlers: String::new(),
         positioned: false,
+        observable: observed.observable(),
     };
     s.level(root, None, "root".into(), 0, "", &[], None)?;
     if s.positioned {
@@ -329,6 +330,8 @@ struct Scaffold<'a> {
     handlers: String,
     /// A counted or reliable stream was scaffolded: `new_stream_session` is needed
     positioned: bool,
+    /// Prefixed names of the observable properties: the generated code marks them changed after a write (SRV-57)
+    observable: std::collections::BTreeSet<String>,
 }
 
 impl Scaffold<'_> {
@@ -569,9 +572,18 @@ impl Scaffold<'_> {
             PropertyModelKind::GetSet => {
                 if is_writable {
                     self.docs(item)?;
+                    let observed_note = if self.observable.contains(name) {
+                        format!(
+                            "// observers get it after `SetResult::Set`: the generated code calls \
+                             `mark_changed_{name}()`\n"
+                        )
+                    } else {
+                        String::new()
+                    };
                     writeln!(
                         self.handlers,
                         "{maybe_async}fn set_{name}(&mut self, {cx}{idx}_value: {value_ty}) -> SetResult<{err_ty}> {{\n\
+                         {observed_note}\
                          Unimplemented.into()\n\
                          }}\n",
                     )?;
@@ -987,6 +999,20 @@ mod tests {
         // without a model everything follows use_async
         let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
         assert!(code.contains("async fn get_motor_current(") && !code.contains("handler_model"));
+    }
+
+    /// SRV-57: the setter stub of an observed `get_set` property says the generated code marks it changed, a
+    /// property without `+observe` has no such note.
+    #[test]
+    fn observed_setter_note() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_api");
+        let bundle = crate::load(&crate_path, Some("Observe".into()), false).unwrap();
+        let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(
+            code.contains("// observers get it after `SetResult::Set`: the generated code calls `mark_changed_gain()`"),
+            "{code}"
+        );
+        assert!(!code.contains("mark_changed_plain"), "{code}");
     }
 
     /// `no_alloc = false` (API-21): handlers take and give owned types, as the generated server calls them.

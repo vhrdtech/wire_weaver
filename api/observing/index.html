@@ -6232,8 +6232,10 @@ Cortex-M0+ this took the floor of a one-method server from 26.3 KB to 14.5 KB at
 <h2 id="the-device-side">The device side<a class="headerlink" href="#the-device-side" title="Permanent link">&para;</a></h2>
 <p>Three things the user adds, for an API with any <code>+observe</code> properties: an <code>ObserveState</code> field, handed out by
 <code>observe_state()</code>, a <code>poll_properties</code> call in the event loop, and <code>mark_changed_&lt;name&gt;()</code> where the device changes
-a value by itself (a <code>value_on_changed</code> write calls it automatically). <code>ww api scaffold</code> prints the field and
-<code>observe_state()</code>.</p>
+a value by itself. A host's write needs no mark: the generated code calls it after a <code>value_on_changed</code> write that
+changed the value and after a <code>get_set</code> setter returns <code>SetResult::Set</code> (SRV-57), so a setter that forgets it can't
+hide the write from observers; a setter may still call it itself, a second mark is the same as one. <code>ww api scaffold</code>
+prints the field and <code>observe_state()</code>.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Server</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="n">observe</span><span class="p">:</span><span class="w"> </span><span class="nc">api_impl</span><span class="p">::</span><span class="n">ObserveState</span><span class="p">,</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="c1">// ..</span>

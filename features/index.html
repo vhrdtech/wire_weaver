@@ -7107,11 +7107,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>docs/articles/flash_budget.md#global-trait-paths-by-hash-srv-53</code>.</li>
 </ol>
 </li>
-<li>💡 <strong>SRV-57 A host write marks an observed property changed</strong> — an on-change observer of a <code>get_set</code> property
-  sees only values the firmware marks with <code>mark_changed_&lt;name&gt;</code>, so a handler that forgets it hides the host's own
-  write from every observer (the EVO-28 bench's observe test passed about 4 runs in 5 until its simulated firmware
-  called it). Generated dispatch could mark the property after a successful set, or <code>ww api scaffold</code> could put the
-  call into the setter stub.</li>
+<li>✅ <strong>SRV-57 A host write marks an observed property changed</strong> — the generated server calls <code>mark_changed_&lt;name&gt;()</code>
+  after an observed <code>get_set</code> property's setter returns <code>SetResult::Set</code>, as after a <code>value_on_changed</code> write, so a
+  setter that forgets it can't hide the host's own write from on-change observers (the EVO-28 bench's observe test
+  passed about 4 runs in 5 while its simulated firmware had to call it). A refused write marks nothing; <code>ww api
+  scaffold</code>'s setter stub says so. Test <code>tests/observe</code> <code>host_write_marks_get_set_changed</code>.</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>

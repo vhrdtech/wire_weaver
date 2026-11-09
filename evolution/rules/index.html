@@ -6324,8 +6324,9 @@ the lines share unchanged in a module of their own (EVO-37, <code>tests/multi_ro
   one revision per line, and each root takes its own line's.</li>
 <li>Every root needs an entry once the table exists; a crate-level <code>wire = ..</code> stays for a crate with one root and for
   crates whose traits are reached by global paths (<code>ww_stdlib</code>).</li>
-<li>Snapshots and checks per root are EVO-38 and EVO-39: until then <code>ww api save</code> and <code>ww api check</code> refuse a crate
-  with a <code>roots</code> table.</li>
+<li><code>ww api save</code> saves a snapshot per root
+  (<a href="../checker_tool/#several-api-roots-in-one-crate">several API roots</a>). Checks per root are EVO-39: until then
+  <code>ww api check</code> refuses a crate with a <code>roots</code> table.</li>
 </ul>
 <h3 id="which-bump-a-change-needs">Which bump a change needs<a class="headerlink" href="#which-bump-a-change-needs" title="Permanent link">&para;</a></h3>
 <p>The wire version and the crate version are bumped apart, each for what it describes: the wire version for what
@@ -6342,7 +6343,7 @@ when either is not bumped enough:</p>
 </thead>
 <tbody>
 <tr>
-<td>doc comments only</td>
+<td><a href="#doc-comments">doc comments</a> only</td>
 <td>none</td>
 <td>compatible</td>
 </tr>
@@ -6378,6 +6379,9 @@ when either is not bumped enough:</p>
 </tr>
 </tbody>
 </table>
+<p>Doc comments are not silent: they can say what the code can't (a unit's meaning, a limit, when to call what), they
+are in introspection data and snapshots, and the compatible crate bump lets tools see and show that the docs changed
+(<a href="#doc-comments">doc comments</a>).</p>
 <p>"Compatible" is the crate's patch before 1.0 and minor after, "breaking" minor before 1.0 and major after. A bigger
 bump than needed is always accepted, so a new line by hand for a change of meaning the checker can't see stays
 allowed. A wire version may not go back, and a crate that declared one keeps declaring it.</p>
@@ -6407,8 +6411,8 @@ version); the <a href="../checker_tool/">evolution checker</a> fails on it.</p>
 <p>The API crate's dependencies are part of this contract: upgrading a <code>ww_stdlib</code> crate or <code>shrink_wrap</code> to a
 wire-incompatible version, or <a href="#api-model">the API model</a>, is a breaking change of the user API too.</p>
 <h3 id="doc-comments">Doc comments<a class="headerlink" href="#doc-comments" title="Permanent link">&para;</a></h3>
-<p>Doc comments on traits, resources and types are not part of the wire format, but they are shipped in introspection
-data and in <a href="../../cli_reference/#ww-api">crate snapshots</a>, so a GUI or CLI can show them. A released version's snapshot never
+<p>Doc comments on traits, resources and types are not part of the wire format, but they carry meaning the code can't
+express (what a value means, its limits, when to use what) and are shipped in introspection data and in <a href="../../cli_reference/#ww-api">crate snapshots</a>, so a GUI or CLI can show them. A released version's snapshot never
 changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
 same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
 improved docs are available. <code>ww api save</code> refuses to overwrite a snapshot with changed docs, and the

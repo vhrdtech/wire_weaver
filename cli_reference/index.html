@@ -6678,6 +6678,11 @@ options, so pass the same ones the <code>ww_codegen!</code> call uses:</p>
 <code>#[derive_shrink_wrap]</code> type and unit marker struct (<code>pub struct Volt;</code>) defined there, in a <code>pub mod</code> at any depth,
 or re-exported from a module with <code>pub use</code> (each known by its path and name, <code>units::Volt</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example
 <code>ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron</code>. Commit the snapshot and never change it afterward.
+A crate with several API roots (a <code>[package.metadata.wire_weaver.roots]</code> table, <a href="../evolution/rules/#several-lines-in-one-crate">several lines in one
+crate</a>) gets a snapshot per root instead,
+<code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.&lt;module path&gt;.&lt;Trait&gt;@w&lt;line&gt;.&lt;revision&gt;.ron</code>
+(<code>multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron</code>): the root and what it reaches, saved only when the root changed
+(<a href="../evolution/checker_tool/#several-api-roots-in-one-crate">Several API roots in one crate</a>).
 It is a regular API bundle in RON: the root is named after the crate and has one nested trait resource per trait,
 definitions from this crate are included, and traits and types from other crates are only referenced by crate
 version, path and name, and signature. Save a snapshot of each of those crates too.</p>

@@ -4081,6 +4081,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Quantities
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#origins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5695,6 +5706,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#quantities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Quantities
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#origins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5861,10 +5883,10 @@
 <p>A unit or scale marker an API uses (<code>Volt</code>, <code>prefix::Milli</code>, a crate's own <code>Rpm</code>) carries its definition in the API
 model a device sends: its identity, names, dimension and exact factor. A client, <code>ww</code> and Python learn the units of any crate
 from that, without a table of their own, and compare two units by what they are, not by how they are written.</p>
-<p>A crate declares its own markers with <code>unit!</code>, <code>scale!</code> and <code>origin!</code> (from <code>exact_units</code>, re-exported by <code>ww_si</code>);
-WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the macros'
-grammar — the names, the dimension (halves, <code>base</code>, <code>base(Other)</code>), the scale, <code>kind</code> and <code>conventional(..)</code>
-provenance — see the book's
+<p>A crate declares its own markers with <code>unit!</code>, <code>scale!</code>, <code>origin!</code> and <code>quantity!</code> (from <code>exact_units</code>, re-exported
+by <code>ww_si</code>); WireWeaver's walker reads the same lines from source, so the compiler and the model agree. For the
+macros' grammar — the names, the dimension (halves, <code>base</code>, <code>base(Other)</code>), the scale, <code>quantity &lt;Quantity&gt;</code> and
+<code>conventional(..)</code> provenance — see the book's
 <a href="https://exact.vhrd.tech/units/declare/">Your own units</a>. A marker with a hand-written <code>impl Unit</code> still compiles,
 but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">unit</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
@@ -5927,6 +5949,14 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 <td><code>Angle</code></td>
 <td><code>origins::Angle&lt;U&gt;</code>, its unit argument is the instance's</td>
 </tr>
+<tr>
+<td><code>Quantity(exact_units::QuantityDef)</code></td>
+<td>a quantity of ISO 80000's tree: <code>quantities::Height</code>, <code>Resistance</code>, a crate's own <code>quantity!</code></td>
+</tr>
+<tr>
+<td><code>Of</code></td>
+<td><code>units::Of&lt;Q, U&gt;</code>, the unit <code>U</code> measuring the quantity <code>Q</code>; <code>Phase&lt;A&gt;</code> is <code>Of&lt;PhaseAngle, A&gt;</code></td>
+</tr>
 </tbody>
 </table>
 <p>A <code>unit!</code> line ending in <code>base</code> (<code>pub struct Bucket = "bucket", base;</code>) declares a unit and the base it is, so its
@@ -5961,7 +5991,7 @@ plain <code>Unit</code> whose dimension names that base. The walker's test check
 </tr>
 <tr>
 <td><code>quantity</code></td>
-<td>a kind of quantity of its own (<code>"resistance"</code> for <code>Ohm</code>), <code>None</code> for a plain unit (STD-68)</td>
+<td>the quantity it measures, by the quantity marker's <code>MarkerId</code> (<code>exact_units::Resistance</code> for <code>Ohm</code>, UNIT-8), <code>None</code> for its dimension's quantity</td>
 <td><code>None</code></td>
 </tr>
 <tr>
@@ -5989,8 +6019,7 @@ The crate is the one <code>CARGO_CRATE_NAME</code> gives (<code>my_api</code> fo
 <ul>
 <li>A temperature in °C is a <a href="../points/"><code>Point</code></a> against <code>origins::Celsius</code>; <code>ww_si</code>'s <code>Quantity</code> and <code>AnyQuantity</code>
   follow with STD-74.</li>
-<li>Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
-  <code>MarkerDef</code> when their markers exist.</li>
+<li>Levels (STD-67) and sentinels (STD-66) append their own variants to <code>MarkerDef</code> when their markers exist.</li>
 <li><code>ww</code> and Python show a <code>Quantity</code> of any crate's unit (<code>1500 rpm</code>), and a <code>Fixed</code> with its unit and scale
   (<a href="../exact_units/#in-ww-python-and-dynamic-clients">in clients</a>).</li>
 </ul>
@@ -6007,6 +6036,61 @@ It is shown with its symbols, <code>(rad/s)⁻¹·N·m</code> for <code>Per&lt;T
 <code>Fixed&lt;Watt, Product&lt;Milli, Milli&gt;, i32&gt;</code> is a step of 10⁻⁶ W, the factor rustc gives <code>Product&lt;Milli, Milli&gt;::SCALE</code>.</p>
 <p>A bundle from a device is untrusted: both walk at most <code>MAX_UNIT_NESTING</code> (16) levels of <code>Per</code>, <code>Times</code>, <code>Sqrt</code>,
 full-scale, <code>Product</code> and <code>Quotient</code> markers, and an overflowing dimension or factor is an error, not a panic.</p>
+<h2 id="quantities">Quantities<a class="headerlink" href="#quantities" title="Permanent link">&para;</a></h2>
+<p>Some quantities share a dimension and still are not the same: a height and a width are both lengths, Hz and Bq are
+both s⁻¹, Ω and V/A are both kg·m²·s⁻³·A⁻². <code>exact_units</code> tells them apart with ISO 80000's tree of quantities
+(UNIT-8, the book's <a href="https://exact.vhrd.tech/maths/quantities/">Quantities</a>): a quantity marker declared with
+<code>quantity!</code>, a unit line that names the quantity it measures (<code>quantity crate::quantities::Resistance</code> on <code>Ohm</code>'s
+line), and <code>units::Of&lt;Q, U&gt;</code>, the unit <code>U</code> measuring <code>Q</code>, as in <code>Fixed&lt;Of&lt;Height, Meter&gt;, Milli, u16&gt;</code>.</p>
+<p>A quantity marker's definition is <code>MarkerDef::Quantity(exact_units::QuantityDef)</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Is</th>
+<th><code>Height</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>its <code>MarkerId</code>, in one namespace with the crate's units</td>
+<td><code>exact_units::Height</code></td>
+</tr>
+<tr>
+<td><code>parent</code></td>
+<td>the quantity it is a kind of, by <code>MarkerId</code>; <code>None</code> for a root</td>
+<td><code>exact_units::Length</code></td>
+</tr>
+<tr>
+<td><code>dim</code></td>
+<td>its dimension, its parent's for a child</td>
+<td>m</td>
+</tr>
+<tr>
+<td><code>is_kind</code></td>
+<td>a kind of its own (<code>Resistance</code>, <code>Activity</code>, <code>PhaseAngle</code>): converts with no other quantity of its dimension</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>character</code></td>
+<td><code>Scalar</code>, <code>Complex</code> or <code>Vector</code></td>
+<td><code>Scalar</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>Of&lt;Q, U&gt;</code> is <code>MarkerDef::Of</code>, its two arguments the instance's; <code>Phase&lt;A&gt;</code> is an alias of <code>Of&lt;PhaseAngle, A&gt;</code>, so
+it is no marker of its own. As for origins, a definition names other markers only by <code>MarkerId</code>, never by a type of
+the model, so a bundle lists every quantity it names: a unit's quantity and each quantity's parent come along when
+a device leaves out what the snapshots know and when a client puts it back. The walker refuses a second <em>open root</em>
+of one dimension (a root without <code>kind</code>): each would be the quantity a plain unit of the dimension measures.</p>
+<p><code>unit_of</code> gives the quantity in <code>CanonicalUnit::quantity</code>, a <code>QuantityExprOwned</code>: <code>Spec</code> of a quantity by id,
+<code>RatioOf</code> a dimension (V/V), or <code>Derived</code> (its dimension's quantity, which a dimension's open root is too, so
+<code>Of&lt;Length, Meter&gt;</code> is <code>Derived</code>). Two canonical units are the same only with the same quantity, and <code>factor_to</code>
+takes <code>exact_units</code>' conversion rule with the bundle as the table of quantities: a height converts to a length or a
+plain metre, not to a width; <code>Ohm</code> doesn't convert to <code>Per&lt;Volt, Ampere&gt;</code>. <code>ww</code>, Python and the dynamic client show
+and convert a value of <code>Of&lt;Q, U&gt;</code> as one of <code>U</code>, as its <code>UnitExpr</code> is <code>U</code>'s: the quantity is in the type and the
+model, not in a value's unit.</p>
 <h2 id="origins">Origins<a class="headerlink" href="#origins" title="Permanent link">&para;</a></h2>
 <p>The origin of a <a href="../points/"><code>Point&lt;O, F&gt;</code></a> is a marker as well, its definition a <code>MarkerDef::Origin(OriginDef)</code>:</p>
 <table>

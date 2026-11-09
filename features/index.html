@@ -7864,10 +7864,19 @@ observing), SRV-46 (peer identity).
   <code>wire_weaver_client</code> <code>host_of_two_lines_*</code>, <code>wire_weaver_core</code> <code>two_versions_of_one_crate_under_other_names</code>,
   <code>wire_weaver_evolution</code> <code>removed_variant_breaks_rust_code</code>; docs <code>docs/evolution/multi_line_host.md</code>. Follow-ups:
   EVO-32, EVO-33, CLT-61 to CLT-65, SRV-57, TOOL-32.</li>
-<li>📋 <strong>EVO-38 Snapshots per root</strong> · <code>v0.5</code> — one snapshot per API root and wire version
-  (<code>crate.module.Trait@w2.1</code>), the crate version recorded inside; old crate-version files still read; <code>ww api
-  save</code>, <code>wire_weaver_snapshots</code> and <code>just save-snapshots</code> per root. Needed before <code>ww api save</code>/<code>check</code> take a
-  crate with a <code>roots</code> table (EVO-37).</li>
+<li>✅ <strong>EVO-38 Snapshots per root</strong> · <code>v0.5</code> — a crate with a <code>roots</code> table (EVO-37) has a snapshot per API root,
+  <code>api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.&lt;module path&gt;.&lt;Trait&gt;@w&lt;line&gt;.&lt;revision&gt;.ron</code>: the root and what it
+  reaches, <code>#[since]</code> on its line (<code>wire_weaver_core::load_root</code>). <code>ww api save</code> and <code>Check::save</code> save each root,
+  checked against its previous snapshot, and write nothing when one is refused. Only the current crate version's
+  files are written, so a released snapshot never changes; a root that didn't change keeps its previous file as its
+  latest. The crate's whole-crate files from before it had several roots are read as earlier snapshots of the root
+  on their line with the same trait name (<code>snapshot_files::root_snapshots</code>); a root with no earlier snapshot while
+  the crate has older ones is saved with a warning naming what was looked for and what is there. Crates with one
+  root or none and <code>ww_stdlib</code> keep whole-crate files; per-root files in <code>wire_weaver_snapshots</code> and <code>just
+  save-snapshots</code> are EVO-46, <code>ww api check</code> of such a crate EVO-39. Docs:
+  <code>docs/evolution/checker_tool.md#several-api-roots-in-one-crate</code>; tests <code>wire_weaver_evolution</code> <code>snapshots_per_root</code>,
+  <code>crate_snapshot_is_a_roots_previous_one</code>, <code>renamed_root_is_saved_with_a_warning</code>, <code>wire_weaver_core</code>
+  <code>snapshot_per_root</code>.</li>
 <li>📋 <strong>EVO-39 The checker per root</strong> · <code>v0.5</code> — each root against its own line's latest snapshot, a changed
   <code>common</code> type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
   root a breaking crate bump, <code>#[since]</code> per line checked, one <code>load_crate</code> cache across roots and the CLI.</li>
@@ -7881,6 +7890,13 @@ observing), SRV-46 (peer identity).
 <li>📋 <strong>EVO-42 The multi-line bench on one crate</strong> · <code>v0.5</code> — <code>tests/thermo_api</code> as one crate of three lines and
   <code>tests/thermo</code> on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
   baseline; <code>docs/evolution/multi_line_host.md</code> rewritten for it.</li>
+<li>📋 <strong>EVO-46 Per-root snapshots for stdlib and <code>wire_weaver_snapshots</code></strong> · <code>v0.5</code> — a <code>ww_stdlib</code> (or <code>ww_global</code>,
+  <code>ww_tap</code>) crate with a <code>roots</code> table has no whole-crate snapshot today: <code>load_crate</code> refuses it, so
+  <code>wire_weaver_snapshots</code> can't embed it, <code>just save-snapshots</code> saves only its per-root files (which the build script
+  skips, EVO-38), and a device's skipped items from it can't be put back by crate version. Decide how such a crate is
+  embedded (a whole-crate snapshot of its shared types and traits next to the per-root files, or the per-root files
+  keyed by crate and root), then make <code>wire_weaver_snapshots</code>, its <code>get</code>/<code>all</code>/<code>files</code> and <code>just save-snapshots</code>
+  take it.</li>
 <li>💡 <strong>EVO-33 Checker findings on a new line read cleanly</strong> — found by the EVO-28 bench's line break: the root's
   own unchanged sub-trait (<code>Channel</code>) is reported as a wire break of its own, with the old crate version as the new
   label (<code>thermo_api@1.2.0</code> for 2.1.0); a resource replaced in place reads as a rename with another argument
@@ -7916,8 +7932,9 @@ observing), SRV-46 (peer identity).
   <code>[package.metadata.wire_weaver.roots]</code> (<code>"wire_v2::Thermo" = "w2.1"</code>). <code>ww_codegen!(api::wire_v2::Thermo ..)</code>
   names a root by its module path, <code>#[ww_api_root]</code> in a module finds itself from its source file, a line's module
   names shared items with <code>super::</code>, and <code>#[since = "w1.2, w2.1"]</code> on a shared item names a revision per line.
-  Snapshots and checks per root are EVO-38/EVO-39. Docs: <code>docs/evolution/rules.md#several-lines-in-one-crate</code>;
+  Snapshots per root are EVO-38, checks per root EVO-39. Docs: <code>docs/evolution/rules.md#several-lines-in-one-crate</code>;
   tests <code>tests/multi_root</code>.</li>
+<li>✅ <strong>EVO-45 Quantity specs in the model</strong> · <code>v0.5</code> — the wire change of exact_units UNIT-8: a <code>UnitDef</code> names the quantity it measures by the quantity marker's <code>MarkerId</code> (<code>exact_units::Resistance</code> for <code>Ohm</code>) instead of an English name; <code>MarkerDef::Quantity(QuantityDef)</code> is new (id, parent by id, dimension, <code>is_kind</code>, character), appended after <code>Base</code>, and <code>MarkerDef::Of</code> (<code>units::Of&lt;Q, U&gt;</code>) takes <code>Phase</code>'s place, <code>Phase&lt;A&gt;</code> being the alias <code>Of&lt;PhaseAngle, A&gt;</code>. The walker reads <code>quantity!</code> lines and <code>quantity X</code> on <code>unit!</code> lines and checks them against <code>quantities::ALL</code>, describes <code>QuantityRef</code> by <code>MarkerId</code>'s shape, and refuses two open roots of one dimension; a bundle keeps every quantity a marker names by id, on the device and when a client puts skipped definitions back. <code>ww_self::units</code> resolves a unit's quantity (<code>CanonicalUnit::quantity</code>, a <code>QuantityExprOwned</code> for <code>UnitKind</code>) with the bundle as the table, <code>factor_to</code> takes exact_units' conversion rule (a height converts to a length, not to a width), the evolution checker compares quantities, and the dynamic client shows <code>Of&lt;Q, U&gt;</code> as <code>U</code>. Conformance case <code>model.marker_def.unit_kind</code> carries the mark; <code>model.marker_def.of</code>, <code>.quantity</code> and <code>.quantity_kind</code> are new; tests in <code>tests/quantities</code> (<code>quantities_of_the_model</code>). No device or host uses the format. <a href="../docs/std_library/units_in_the_model/#quantities">Docs</a>.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -8027,7 +8044,7 @@ observing), SRV-46 (peer identity).
   by reading the file and looking for that call, <code>wire_weaver_evolution::missing_test_warning</code>), so a wire break
   is caught by <code>cargo test</code> and a pre-commit hook, not only when someone remembers to run <code>ww api check</code> by hand
   (<code>donguru_api</code> and <code>b135_api</code> had no such test and STD-98's wire break was found only by
-  hand). Never affects the verdict, like the TOOL-22 hints. <code>docs/evolution/checker_tool.md#a-missing-test-warning</code>.</li>
+  hand). Never affects the verdict, like the TOOL-22 hints. <code>docs/evolution/checker_tool.md#a-missing-test-warning-tool-31</code>.</li>
 <li>💡 <strong>TOOL-32 <code>ww api scaffold --dep</code></strong> — the printed <code>ww_codegen!</code> call names the API by its package
   (<code>thermo_api ::</code>), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
   versions of it (EVO-28, <code>docs/evolution/multi_line_host.md</code>). A <code>--dep NAME</code> option writes that name instead.</li>

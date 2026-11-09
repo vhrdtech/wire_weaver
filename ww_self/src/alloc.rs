@@ -891,6 +891,26 @@ impl MarkerDefOwned {
         }
     }
 
+    /// The system other than SI this marker's dimension counts in (UNIT-9): a unit's (also an origin's unit's), a
+    /// quantity's. A bundle lists it as it lists a named quantity ([crate::units::system_type_idx]).
+    pub fn system_ref(&self) -> Option<&exact_units::MarkerIdOwned> {
+        let dim = match self {
+            MarkerDefOwned::Unit(def) | MarkerDefOwned::Base(def) => &def.dim,
+            MarkerDefOwned::Origin(def) => &def.unit.dim,
+            MarkerDefOwned::Quantity(def) => &def.dim,
+            _ => return None,
+        };
+        (!dim.as_dim().system().is_si()).then(|| dim.system())
+    }
+
+    /// The system's definition: `Some` for a [system](MarkerDefOwned::System) marker.
+    pub fn system_def(&self) -> Option<&exact_units::SystemDefOwned> {
+        match self {
+            MarkerDefOwned::System(def) => Some(def),
+            _ => None,
+        }
+    }
+
     /// The quantity's definition: `Some` for a [quantity](MarkerDefOwned::Quantity) marker.
     pub fn quantity_def(&self) -> Option<&exact_units::QuantityDefOwned> {
         match self {

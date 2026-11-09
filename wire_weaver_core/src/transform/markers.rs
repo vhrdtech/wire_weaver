@@ -13,13 +13,15 @@ use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{
     BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned,
-    Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols,
-    UnitDefOwned, UnitNames, UnitNamesOwned,
+    Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols, System,
+    SystemDef, SystemDefOwned, UnitDefOwned, UnitNames, UnitNamesOwned, systems::Si,
 };
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, Item, LitInt, LitStr, Token, Visibility, bracketed, parenthesized};
-use ww_self::units::{marker_id_of, origin_of, quantity_of, scale_of, unit_of, unit_zero};
+use ww_self::units::{
+    marker_id_of, origin_of, quantity_of, scale_of, system_of, unit_of, unit_zero,
+};
 use ww_self::{ApiBundleOwned, MarkerDefOwned, OriginDefOwned, ScaleDefOwned};
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
@@ -643,6 +645,9 @@ pub(crate) trait MarkerRefs {
     /// The definition of the quantity marker `ty` names (a unit line's `quantity X`, a quantity's parent), the
     /// marker converted so that the bundle lists it.
     fn quantity(&mut self, ty: &syn::Type) -> Result<QuantityDefOwned>;
+    /// The definition of the system marker `ty` names (before a dimension's colon, UNIT-9), the marker converted so
+    /// that the bundle lists it.
+    fn system(&mut self, ty: &syn::Type) -> Result<SystemDefOwned>;
 }
 
 /// [MarkerRefs] in `current_crate`: the types converted into the root bundle and resolved through their own
@@ -660,6 +665,11 @@ impl MarkerRefs for CrateRefs<'_, '_> {
     fn quantity(&mut self, ty: &syn::Type) -> Result<QuantityDefOwned> {
         let ty = convert_ty(ty, self.current_crate, self.scratch)?;
         quantity_of(&ty, &self.scratch.root_bundle.to_bundle())
+    }
+
+    fn system(&mut self, ty: &syn::Type) -> Result<SystemDefOwned> {
+        let ty = convert_ty(ty, self.current_crate, self.scratch)?;
+        system_of(&ty, &self.scratch.root_bundle.to_bundle())
     }
 }
 
@@ -689,6 +699,12 @@ pub(crate) fn marker_def(
     {
         return Ok(Some(def.clone()));
     }
+    if crate_name == EXACT_UNITS && SYSTEMS.contains(&ident.as_str()) {
+        return Ok(Some(MarkerDefOwned::System(
+            SystemDefOwned::try_from(*builtin_system(&ident)?)
+                .map_err(|e| anyhow!("system {ident}: {e:?}"))?,
+        )));
+    }
     let Some(line) = marker_line(&item_struct.attrs)? else {
         return Ok(None);
     };
@@ -698,6 +714,9 @@ pub(crate) fn marker_def(
                 .dim
                 .to_owned(&crate_name, &ident)
                 .with_context(|| format!("unit marker {ident}"))?;
+            line.dim
+                .list_system(refs)
+                .with_context(|| format!("the system of unit marker {ident}"))?;
             let scale = match &line.scale {
                 UnitScaleLine::Coherent => Magnitude::ONE,
                 UnitScaleLine::Pow10(e) => magnitude(&MagnitudeLine {
@@ -796,6 +815,8 @@ pub(crate) fn marker_def(
                     dim,
                     character,
                 } => {
+                    dim.list_system(refs)
+                        .with_context(|| format!("the system of quantity marker {ident}"))?;
                     let dim = dim
                         .to_owned(&crate_name, &ident)
                         .with_context(|| format!("quantity marker {ident}"))?;
@@ -875,8 +896,14 @@ pub(crate) struct UnitLine {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum DimLine {
     /// `[s 1, m -2, rad 1, kg 1/2]`: exponents by base name, in halves (`s`, `m`, `kg`, `a`, `k`, `mol`, `cd`, and
-    /// `rad`, `bit`, the reserved spellings of exact_units' distinguished bases `Radian` and `Bit`).
-    Exps(Vec<(String, Exp)>),
+    /// `rad`, `bit`, the reserved spellings of exact_units' distinguished bases `Radian` and `Bit`). With a system
+    /// before a colon (`[Gaussian: g 1/2, cm -1/2, s -1]`, exact_units UNIT-9), the true bases are that system's, by
+    /// their symbols.
+    Exps {
+        /// The system marker named before the colon, SI's syntax without one.
+        system: Option<String>,
+        exps: Vec<(String, Exp)>,
+    },
     /// `base` or `base(Other)`: a distinguished base of its own, named by the crate and the marker, or, with
     /// `(Other)`, the base of another marker of this crate (`Decibel`'s `base(Neper)` is a scaled unit of `Neper`'s
     /// base, so a `Decibel` converts into a `Neper` by scale alone).
@@ -884,6 +911,31 @@ pub(crate) enum DimLine {
 }
 
 impl DimLine {
+    /// Lists the system the line names before its colon in the bundle through `refs`, when it isn't SI: the marker
+    /// the name resolves to in the crate must be exact_units' system of that name.
+    fn list_system(&self, refs: &mut dyn MarkerRefs) -> Result<()> {
+        let DimLine::Exps {
+            system: Some(name), ..
+        } = self
+        else {
+            return Ok(());
+        };
+        let builtin = builtin_system(name)?;
+        if builtin.is_si() {
+            return Ok(());
+        }
+        let ident = Ident::new(name, proc_macro2::Span::call_site());
+        let def = refs.system(&syn::parse_quote!(#ident))?;
+        if def.id.as_id() != builtin.id {
+            bail!(
+                "{name} names {}::{}, not exact_units' system",
+                def.id.crate_name,
+                def.id.name
+            );
+        }
+        Ok(())
+    }
+
     /// The dimension of the line, declared in crate `crate_name` by the marker `ident`.
     fn to_owned(&self, crate_name: &str, ident: &str) -> Result<DimOwned> {
         let id = |name: &str| MarkerIdOwned {
@@ -892,15 +944,24 @@ impl DimLine {
         };
         let wire = match self {
             DimLine::Base(base) => DimWireOwned {
+                system: MarkerIdOwned::from(Si::ID),
                 exps: vec![Exp::ZERO; MAX_TRUE_BASES],
                 bases: vec![BaseExpOwned {
                     base: id(base.as_deref().unwrap_or(ident)),
                     exp: Exp::ONE,
                 }],
             },
-            DimLine::Exps(exps) => {
+            DimLine::Exps { system, exps } => {
+                let (def, names) = match system {
+                    Some(name) => {
+                        let def = builtin_system(name)?;
+                        (def, def.bases.iter().filter_map(Result::ok).collect())
+                    }
+                    None => (Si::DEF, TRUE_BASES.to_vec()),
+                };
                 let mut wire = DimWireOwned {
-                    exps: vec![Exp::ZERO; MAX_TRUE_BASES],
+                    system: MarkerIdOwned::from(def.id),
+                    exps: vec![Exp::ZERO; names.len()],
                     bases: Vec::new(),
                 };
                 for (name, e) in exps {
@@ -917,10 +978,9 @@ impl DimLine {
                             wire.bases.push(BaseExpOwned { base, exp: *e });
                             continue;
                         }
-                        other => TRUE_BASES
-                            .iter()
-                            .position(|b| *b == other)
-                            .ok_or_else(|| anyhow!("{other} is no base of a dimension"))?,
+                        other => names.iter().position(|b| *b == other).ok_or_else(|| {
+                            anyhow!("{other} is no base of a dimension of {}", def.id.name)
+                        })?,
                     };
                     let Some(exp) = wire.exps.get_mut(slot) else {
                         bail!("{name} is no base of a dimension");
@@ -957,8 +1017,8 @@ impl NamesLine {
     fn to_owned(&self, symbol: &str, dim: &DimLine, scale: &UnitScaleLine) -> UnitNamesOwned {
         let default = match (dim, scale) {
             (DimLine::Base(_), _) => PrefixPolicy::None,
-            (DimLine::Exps(_), UnitScaleLine::Coherent) => PrefixPolicy::Decimal,
-            (DimLine::Exps(_), _) => PrefixPolicy::None,
+            (DimLine::Exps { .. }, UnitScaleLine::Coherent) => PrefixPolicy::Decimal,
+            (DimLine::Exps { .. }, _) => PrefixPolicy::None,
         };
         let base = UnitNames::new(symbol, default);
         let aliases = self.aliases.join("|");
@@ -1101,8 +1161,32 @@ pub(crate) enum ScaleFactorLine {
     Exact(MagnitudeLine),
 }
 
-/// The true bases of a dimension, in the order of [DimOwned::exps].
+/// The true bases of an SI dimension as a `unit!` line without a system spells them, in the order of
+/// [DimOwned::exps].
 const TRUE_BASES: [&str; MAX_TRUE_BASES] = ["s", "m", "kg", "a", "k", "mol", "cd"];
+
+/// The systems a `unit!` or `quantity!` line may name before its bracket: exact_units' own, by the marker's name.
+// TODO(UNIT-9): a user's system, once it is declared by a line the walker reads (a `system!`)
+const SYSTEMS: [&str; 3] = ["Si", "Natural", "Gaussian"];
+
+/// The definition of the built-in system `name` ([SYSTEMS]).
+fn builtin_system(name: &str) -> Result<&'static SystemDef<'static>> {
+    let def = SYSTEMS
+        .contains(&name)
+        .then(|| {
+            exact_units::systems::builtin(exact_units::MarkerId {
+                crate_name: EXACT_UNITS,
+                name,
+            })
+        })
+        .flatten();
+    def.ok_or_else(|| {
+        anyhow!(
+            "{name} is not a system the walker knows: a dimension names one of {} before its colon",
+            SYSTEMS.join(", ")
+        )
+    })
+}
 
 impl Parse for UnitLine {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -1118,7 +1202,7 @@ impl Parse for UnitLine {
         let dim = if input.peek(syn::token::Bracket) {
             let content;
             bracketed!(content in input);
-            DimLine::Exps(parse_exps(&content)?)
+            parse_exps(&content)?
         } else {
             let word: Ident = input.parse()?;
             if word != "base" {
@@ -1202,18 +1286,36 @@ impl Parse for UnitLine {
     }
 }
 
-/// The exponents in the brackets of a dimension: `s 1, m -2, rad 1, kg 1/2`.
-fn parse_exps(input: ParseStream) -> syn::Result<Vec<(String, Exp)>> {
+/// The exponents in the brackets of a dimension: `s 1, m -2, rad 1, kg 1/2`, or with a system before a colon,
+/// `Gaussian: g 1/2, cm -1/2, s -1`.
+fn parse_exps(input: ParseStream) -> syn::Result<DimLine> {
+    let system = if input.peek(Ident) && input.peek2(Token![:]) && !input.peek2(Token![::]) {
+        let ident: Ident = input.parse()?;
+        input.parse::<Token![:]>()?;
+        builtin_system(&ident.to_string()).map_err(|e| syn::Error::new(ident.span(), e))?;
+        Some(ident.to_string())
+    } else {
+        None
+    };
+    let names: Vec<&str> = match &system {
+        Some(name) => builtin_system(name)
+            .map_err(|e| input.error(e))?
+            .bases
+            .iter()
+            .filter_map(Result::ok)
+            .collect(),
+        None => TRUE_BASES.to_vec(),
+    };
     let mut exps = Vec::new();
     while !input.is_empty() {
         let base: Ident = input.parse()?;
         let name = base.to_string();
-        if !TRUE_BASES.contains(&name.as_str()) && name != "rad" && name != "bit" {
+        if !names.contains(&name.as_str()) && name != "rad" && name != "bit" {
             return Err(syn::Error::new(
                 base.span(),
                 format!(
                     "a base of a dimension is one of {}, rad or bit",
-                    TRUE_BASES.join(", ")
+                    names.join(", ")
                 ),
             ));
         }
@@ -1241,7 +1343,7 @@ fn parse_exps(input: ParseStream) -> syn::Result<Vec<(String, Exp)>> {
             input.parse::<Token![,]>()?;
         }
     }
-    Ok(exps)
+    Ok(DimLine::Exps { system, exps })
 }
 
 /// A path to a marker, as a type: `crate::quantities::Resistance`, `Length`.
@@ -1286,7 +1388,7 @@ impl Parse for QuantityLine {
                 bracketed!(content in input);
                 QuantityLine::Root {
                     is_kind,
-                    dim: DimLine::Exps(parse_exps(&content)?),
+                    dim: parse_exps(&content)?,
                     character: Character::Scalar,
                 }
             }
@@ -1502,9 +1604,12 @@ mod tests {
             .filter(|(_, def)| matches!(def, MarkerDefOwned::Base(_)))
             .map(|(name, _)| name.clone())
             .collect();
+        // UNIT-9: the units of Natural and Gaussian, their dimensions in their own systems
         for expr in exact_units::units::ALL
             .iter()
             .chain(exact_units::units::CUSTOMARY)
+            .chain(exact_units::systems::natural::ALL)
+            .chain(exact_units::systems::gaussian::ALL)
         {
             let Some(compiled) = expr.def() else {
                 panic!("units::ALL holds named units")
@@ -1589,7 +1694,10 @@ mod tests {
             );
         }
         // UNIT-8: each `quantity!` line, its parent by id
-        for compiled in exact_units::quantities::ALL {
+        for compiled in exact_units::quantities::ALL
+            .iter()
+            .chain(exact_units::systems::gaussian::quantities::ALL)
+        {
             let name = compiled.id.name;
             let Some(MarkerDefOwned::Quantity(def)) = markers.remove(name) else {
                 panic!("{name}: no quantity definition in the model");
@@ -1601,6 +1709,18 @@ mod tests {
         }
         for (name, def) in BUILT_IN.iter().cloned() {
             assert_eq!(markers.remove(name), Some(def), "{name}");
+        }
+        // UNIT-9: each system marker carries its definition whole
+        for compiled in [
+            exact_units::systems::Si::DEF,
+            exact_units::systems::Natural::DEF,
+            exact_units::systems::Gaussian::DEF,
+        ] {
+            let name = compiled.id.name;
+            let Some(MarkerDefOwned::System(def)) = markers.remove(name) else {
+                panic!("{name}: no system definition in the model");
+            };
+            assert_eq!(def, SystemDefOwned::try_from(*compiled).unwrap(), "{name}");
         }
         // UNIT-10: exactly the `base` lines are `Base`, each declaring the base its id names; `base(Other)` is none
         macro_rules! bases {
@@ -1653,6 +1773,10 @@ mod tests {
 
         fn quantity(&mut self, _: &syn::Type) -> Result<QuantityDefOwned> {
             bail!("no quantities here")
+        }
+
+        fn system(&mut self, _: &syn::Type) -> Result<SystemDefOwned> {
+            bail!("no systems here")
         }
     }
 
@@ -1773,7 +1897,10 @@ mod tests {
             UnitLine {
                 symbol: "rpm".into(),
                 names: NamesLine::default(),
-                dim: DimLine::Exps(vec![("rad".into(), Exp::ONE), ("s".into(), Exp::int(-1))]),
+                dim: DimLine::Exps {
+                    system: None,
+                    exps: vec![("rad".into(), Exp::ONE), ("s".into(), Exp::int(-1))]
+                },
                 quantity: None,
                 scale: UnitScaleLine::Exact(MagnitudeLine {
                     num: 1,

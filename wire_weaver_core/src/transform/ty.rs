@@ -407,10 +407,11 @@ fn convert_def(
 /// the type and that struct: the model describes the type with the struct's fields and directives, under the type's
 /// own name. `exact_units::Dim` holds its bases as a tree and writes them as `DimWire`'s sorted list (UNIT-10); a test
 /// there checks both write the same bytes. `exact_units::QuantityRef`, an enum of a quantity's definition or its id,
-/// writes the id (UNIT-8).
-const WIRE_SHAPES: [(&str, &str, &str); 2] = [
+/// writes the id (UNIT-8), and so does `exact_units::SystemRef`, a system's definition or its id (UNIT-9).
+const WIRE_SHAPES: [(&str, &str, &str); 3] = [
     ("exact_units", "Dim", "DimWire"),
     ("exact_units", "QuantityRef", "MarkerId"),
+    ("exact_units", "SystemRef", "MarkerId"),
 ];
 
 /// The shape struct of `ty_name` of `def_cx` in [WIRE_SHAPES], with the module that defines it.

@@ -16,7 +16,7 @@ std = ["shrink_wrap/std"]
 anyhow.workspace = true
 cargo_toml = "1.0"
 convert_case.workspace = true
-exact_units = { workspace = true, features = ["std", "shrink_wrap"] }
+exact_units = { workspace = true, features = ["std", "shrink_wrap", "systems"] }
 hex = { workspace = true, features = ["std"] }
 pest = "2.8"
 pest_derive = { version = "2.8", features = ["grammar-extras"] }

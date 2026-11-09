@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `exact_units` at UNIT-9 (wire change EVO-47): a `Dim` starts with the `MarkerId` of its system, so `SIExpr` and `AnyQuantity` holding a `UnitDef` change bytes (13 more per SI unit for `exact_unitsSi`). `ww_si_0_3_0.ron` (never published) and `ww_si_0_2_0.ron` (its `SIExpr` signature) saved again in place.
 - `exact_units` at UNIT-8 (wire change EVO-45): a unit names its quantity by the quantity marker's `MarkerId`, so `SIExpr` and `AnyQuantity` holding such a `UnitDef` (`Hertz`, `Ohm`) change bytes. New re-exports: `Character`, `QuantityDef`, `QuantityExpr`, `QuantityRef`, `QuantitySpec`, `quantities`, `quantity!` (and `QuantityDefOwned`, `QuantityRefOwned` with `std`); `units::Of` and `units::Phase` (now `Of<PhaseAngle, A>`) through `units`.
 - Version 0.3.0 on a new wire line, `w3.0` (EVO-44): `SIExpr` and `AnyQuantity` carry exact_units' new `Dim` and `UnitNames`, which `ww api check` finds as a wire break. `ww_si_0_2_0.ron` was saved again in place (its `SIExpr` signature, as exact_units stays 0.1.0); `ww_si_0_3_0.ron` is new. Depend on `ww_si = "0.3"`.
 - `exact_units` at UNIT-10 and IO-9 (wire change EVO-44): a `Dim` is seven exponents in halves and any number of distinguished bases (rad, bit, neper, counted things, a crate's own), and a `UnitDef` carries `UnitNames` (ASCII form, long names, aliases, UCUM code, prefixes). `Counted`, `CountedOwned`, `MAX_COUNTED` and `counted!` are gone from the re-exports: write `base!(Name)` and `Dim::base(..)`, a `unit!` line `base` or `base(Other)` instead of `counted` / `counted(Other)`, and build `UnitNames` with `UnitNames::new(symbol, PrefixPolicy::..)`. An `AnyQuantity` with a unit in full is longer on the wire (3300 mV: 49 B, was 35 B).
@@ -11,6 +12,7 @@
 
 ### 🚀 Features
 
+- Re-exports exact_units UNIT-9's systems: `System`, `SystemDef`, `SystemRef`, `BaseRule`, `BridgeDef`, `BridgeError`, `SetToOne`, `Crossing` and the `systems` module (`Si`, `Natural`, `Gaussian`, their units and quantities), with `std` their owned forms; a `systems` feature (on with `std`) turns on exact_units' `systems`.
 - Re-exports `Exp`, `Bases`, `BaseExp`, `BaseDef`, `DimWire`, `MAX_TRUE_BASES`, `PrefixPolicy`, `base!`, and with `std` `BaseExpOwned`, `BaseDefOwned`, `DimWireOwned`, `UnitNamesOwned` (exact_units UNIT-10, IO-9).
 * `AnyQuantity::display(&table)` and `compact_in(&table, &mut arena)` (no allocation, a named unit needs no arena), `AnyQuantityOwned::display`, `compact` and `resolve` (STD-107): a value sent beside its API carries the API's units as `Ref`s, 22 bytes for 3300 mV instead of 35. Re-exports `UnitTable`, `UnitDef`, `UnitNames`, `MarkerId`, `CompactError` and, with `std`, `UnitDefOwned`, `MarkerIdOwned`.
 * Re-exports `exact_units::MaybeNan` next to `Unbounded` (STD-105).

@@ -47,18 +47,20 @@ pub use timestamp::{UnwrapError, Unwrapper};
 
 pub use exact_units;
 pub use exact_units::{
-    BaseDef, BaseExp, Bases, Bounds, Character, CompactError, Count, DecimalPrefix, Dim, DimWire,
-    Exp, Fixed, FixedScale, MAX_TRUE_BASES, MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset,
-    Origin, OutOfBounds, Overflow, Point, PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance,
-    QuantityDef, QuantityExpr, QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Repr,
-    Rounding, SIExpr, Storage, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul, UnitNames,
-    UnitTable, UnsignedStorage, base, origin, origins, prefix, quantities, quantity, scale, unit,
-    units,
+    BaseDef, BaseExp, BaseRule, Bases, Bounds, BridgeDef, BridgeError, Character, CompactError,
+    Count, Crossing, DecimalPrefix, Dim, DimWire, Exp, Fixed, FixedScale, MAX_TRUE_BASES,
+    MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds, Overflow, Point,
+    PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, QuantityDef, QuantityExpr,
+    QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Repr, Rounding, SIExpr, SetToOne,
+    Storage, System, SystemDef, SystemRef, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul,
+    UnitNames, UnitTable, UnsignedStorage, base, origin, origins, prefix, quantities, quantity,
+    scale, systems, unit, units,
 };
 #[cfg(feature = "std")]
 pub use exact_units::{
-    BaseDefOwned, BaseExpOwned, DimOwned, DimWireOwned, MarkerIdOwned, ProvenanceOwned,
-    QuantityDefOwned, QuantityRefOwned, SIExprOwned, UnitDefOwned, UnitNamesOwned,
+    BaseDefOwned, BaseExpOwned, BaseRuleOwned, BridgeDefOwned, DimOwned, DimWireOwned,
+    MarkerIdOwned, ProvenanceOwned, QuantityDefOwned, QuantityRefOwned, SIExprOwned,
+    SetToOneOwned, SystemDefOwned, SystemRefOwned, UnitDefOwned, UnitNamesOwned,
 };
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};

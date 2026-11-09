@@ -811,6 +811,12 @@ pub enum MarkerDef<'i> {
     /// `BeltTension`; the `Q` of an [Of](Self::Of) and what a [unit](Self::Unit)'s `quantity` names by id. Its parent
     /// is named by id too: a bundle lists every quantity it names. A reader from before it gets `Unknown`.
     Quantity(exact_units::QuantityDef<'i>),
+    /// A system of units other than SI (exact_units UNIT-9): `systems::Natural`, `systems::Gaussian`, `exact_units`'
+    /// definition whole: its base symbols, what it sets to 1, the rule by dimension and the rows by quantity that
+    /// bridge it to SI. A [unit](Self::Unit) or [quantity](Self::Quantity) whose dimension counts in it names it by
+    /// id ([exact_units::DimOwned::system]), and a bundle lists it as it lists a named quantity; SI is never listed,
+    /// every reader knows it. A reader from before it gets `Unknown`.
+    System(exact_units::SystemDef<'i>),
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

@@ -820,6 +820,12 @@ pub fn table() -> Vec<Typed> {
             dim(<ww_si::units::Per<ww_si::units::Volt, ww_si::units::Sqrt<ww_si::units::Hertz>> as ww_si::Unit>::DIM),
         ),
         case(
+            "stdlib.si.dim.gaussian_half",
+            dim(<ww_si::systems::gaussian::Gauss as ww_si::Unit>::DIM),
+        ),
+        case("stdlib.si.dim.gaussian.count.rejected", dim(ww_si::Dim::ONE)),
+        case("stdlib.si.dim.gaussian.ratio.rejected", dim(ww_si::Dim::ONE)),
+        case(
             "stdlib.si.fixed.pow10",
             ww_si::Fixed::<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>::new(0xDEAD_BEEF),
         ),
@@ -1005,6 +1011,7 @@ pub fn table() -> Vec<Typed> {
             "model.marker_def.quantity_kind",
             quantity_def::<ww_si::quantities::Activity>(),
         ),
+        case("model.marker_def.system", cgs_system()),
         case(
             "model.item_struct_extra.transparent",
             ww_self::ItemStructExtraOwned {
@@ -1112,6 +1119,7 @@ fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {
 /// (crate, marker, whole exponent), sorted as the wire has them.
 fn dim_of(exps: [i8; 7], bases: &[(&str, &str, i8)]) -> ww_si::DimOwned {
     ww_si::DimOwned::try_from(ww_si::DimWireOwned {
+        system: marker_id("exact_units", "Si"),
         exps: exps.map(ww_si::Exp::int).to_vec(),
         bases: bases
             .iter()
@@ -1144,6 +1152,34 @@ fn unit_def<U: ww_si::Unit>() -> ww_si::exact_units::UnitDefOwned {
 /// `exact_units`' definition of the quantity `Q`, as the walker puts it into the model: its parent by id.
 fn quantity_def<Q: ww_si::QuantitySpec>() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Quantity((*Q::DEF).into())
+}
+
+/// A system of crate `my_api` other than SI (exact_units UNIT-9), small enough to read: three bases g, cm, s; the rule
+/// maps s, m and kg (1 m is 100 cm, 1 kg is 1000 g), not the ampere; one row by quantity and one quantity the rule
+/// doesn't bridge.
+fn cgs_system() -> ww_self::MarkerDefOwned {
+    let exps = |halves: &[i16]| halves.iter().map(|h| ww_si::Exp::from_halves(*h as i8)).collect();
+    let rule = |halves: &[i16], pow10: i8| {
+        Some(ww_si::BaseRuleOwned {
+            exps: exps(halves),
+            factor: ww_si::Magnitude::new(1, 1, pow10, 0, 0),
+        })
+    };
+    ww_self::MarkerDefOwned::System(ww_si::SystemDefOwned {
+        id: marker_id("my_api", "Cgs"),
+        bases: vec!["g".into(), "cm".into(), "s".into()],
+        set_to_one: vec![ww_si::SetToOneOwned {
+            symbol: "k".into(),
+            si: ww_si::Magnitude::ONE,
+        }],
+        by_dim: vec![rule(&[0, 0, 2], 0), rule(&[0, 2], 2), rule(&[2], 3), None, None, None, None],
+        by_quantity: vec![ww_si::BridgeDefOwned {
+            si: marker_id("exact_units", "ElectricCharge"),
+            here: marker_id("my_api", "CgsCharge"),
+            factor: ww_si::Magnitude::new(1, 1, -1, 0, 0),
+        }],
+        no_rule: vec![marker_id("exact_units", "Frequency")],
+    })
 }
 
 /// A user's `unit!(Rpm, "rpm", ..)` of crate `my_api`: rad/s times π/30.

@@ -633,14 +633,18 @@ impl VisitMut for Import<'_, '_, '_> {
 
     fn visit_item_struct(&mut self, node: &mut ItemStructOwned) {
         self.remap(&mut node.crate_idx, Self::crate_idx);
-        // a quantity named by id (UNIT-8) comes along as a referenced type does
-        if let Some(src_idx) = node
-            .marker()
-            .and_then(crate::MarkerDefOwned::quantity_ref)
-            .and_then(|id| crate::units::quantity_type_idx(self.src, id))
-        {
-            let mut idx = UNib32(src_idx);
-            self.remap(&mut idx, Self::type_idx);
+        // a quantity named by id (UNIT-8) and a system other than SI (UNIT-9) come along as a referenced type does
+        if let Some(marker) = node.marker() {
+            let quantity = marker
+                .quantity_ref()
+                .and_then(|id| crate::units::quantity_type_idx(self.src, id));
+            let system = marker
+                .system_ref()
+                .and_then(|id| crate::units::system_type_idx(self.src, id));
+            for src_idx in quantity.into_iter().chain(system) {
+                let mut idx = UNib32(src_idx);
+                self.remap(&mut idx, Self::type_idx);
+            }
         }
         visit_mut::visit_item_struct(self, node)
     }

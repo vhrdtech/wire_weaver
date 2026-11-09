@@ -24,7 +24,7 @@ use crate::{
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{
     DimOwned, Magnitude, MarkerIdOwned, Offset, QuantityDefOwned, QuantityExpr, QuantityRef,
-    UnitDefOwned, UnitTable,
+    SystemDefOwned, UnitDefOwned, UnitTable,
 };
 use std::fmt;
 
@@ -465,10 +465,40 @@ pub fn quantity_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<QuantityDe
     }
 }
 
+/// The definition of the system marker `ty` (exact_units UNIT-9): `systems::Gaussian`.
+pub fn system_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<SystemDefOwned> {
+    let (s, _) = marker(ty, bundle)?;
+    match definition(s, bundle)? {
+        MarkerDefOwned::System(def) => Ok(def.clone()),
+        _ => bail!("{} is not a system of units", marker_name(s, bundle)?),
+    }
+}
+
+/// The index in `bundle` of the system marker `id` (UNIT-9): its definition in line, or skipped under its name
+/// (`systems::gaussian::Gaussian` of crate `exact_units`). A marker whose dimension counts in a system other than
+/// SI ([MarkerDefOwned::system_ref]) keeps it in the bundle, as a reference to a type would.
+pub fn system_type_idx(bundle: &ApiBundleOwned, id: &MarkerIdOwned) -> Option<u32> {
+    marker_type_idx(bundle, id, |def| {
+        def.system_def().is_some_and(|def| def.id == *id)
+    })
+}
+
 /// The index in `bundle` of the quantity marker `id` (UNIT-8): its definition in line, or skipped under its name
 /// (`quantities::Resistance` of crate `exact_units`). A marker that names a quantity by id
 /// ([MarkerDefOwned::quantity_ref]) keeps it in the bundle, as a reference to a type would.
 pub fn quantity_type_idx(bundle: &ApiBundleOwned, id: &MarkerIdOwned) -> Option<u32> {
+    marker_type_idx(bundle, id, |def| {
+        def.quantity_def().is_some_and(|def| def.id == *id)
+    })
+}
+
+/// The index in `bundle` of the marker `id`: a struct in line whose definition passes `is_it`, or one skipped under
+/// its name.
+fn marker_type_idx(
+    bundle: &ApiBundleOwned,
+    id: &MarkerIdOwned,
+    is_it: impl Fn(&MarkerDefOwned) -> bool,
+) -> Option<u32> {
     let of_crate = |crate_idx: u32| {
         bundle
             .crate_name(crate_idx)
@@ -478,10 +508,7 @@ pub fn quantity_type_idx(bundle: &ApiBundleOwned, id: &MarkerIdOwned) -> Option<
         crate::TypeLocationOwned::InLine {
             ty: TypeOwned::Struct(s),
             ..
-        } => s
-            .marker()
-            .and_then(MarkerDefOwned::quantity_def)
-            .is_some_and(|def| def.id == *id),
+        } => s.marker().is_some_and(&is_it),
         crate::TypeLocationOwned::SkippedFullVersion {
             crate_idx,
             type_name,

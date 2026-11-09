@@ -511,3 +511,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.
 - EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.
 - EVO-45 | The wire change behind quantity specs (a unit names its quantity by id, `MarkerDef::Quantity` and `Of`): the user-visible side is exact_units UNIT-8.
+- EVO-47 | The wire change behind systems of units (a dimension names its system, `MarkerDef::System`): the user-visible side is exact_units UNIT-9.

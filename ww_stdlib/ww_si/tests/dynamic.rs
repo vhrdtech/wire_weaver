@@ -13,11 +13,12 @@ use ww_si::{
 type Viscous = Per<Torque, AngularVelocity>;
 
 // the unit's definition: crate `exact_units`, marker `Volt`, names (symbol `V`, long `volt`, plural `volts`, UCUM
-// `V`), dimension (seven exponents, no base), kind, scale one, provenance
-const VOLT_BYTES: [u8; 45] = [
-    0x00, b'e', b'x', b'a', b'c', b't', b'_', b'u', b'n', b'i', b't', b's', b'V', b'o', b'l', b't',
-    b'V', 0x00, b'v', b'o', b'l', b't', b'v', b'o', b'l', b't', b's', 0x80, b'V', 0x11, 0x05, 0x41,
-    0xb1, 0x81, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x70, 0xa4, 0x39, 0x3d,
+// `V`), dimension (its system `exact_units::Si`, seven exponents, no base), kind, scale one, provenance
+const VOLT_BYTES: [u8; 60] = [
+    0x00, b'e', b'x', b'a', b'c', b't', 0x5f, b'u', b'n', b'i', b't', b's', b'V', b'o', b'l', b't', b'V', 0x00,
+    b'v', b'o', b'l', b't', b'v', b'o', b'l', b't', b's', 0x80, b'V', 0x11, 0x05, b'A', b'e', b'x', b'a', b'c',
+    b't', 0x5f, b'u', b'n', b'i', b't', b's', b'S', b'i', 0xb1, 0x81, b'C', 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+    0x07, 0x23, 0x90, 0xa4, 0x39, 0x2f,
 ];
 
 #[test]
@@ -28,9 +29,9 @@ fn any_quantity() {
     // the typed value's bytes, then the unit
     let mut expected = vec![0x12, 0xe4, 0x0c];
     expected.extend_from_slice(&VOLT_BYTES);
-    expected.push(0x5d);
+    expected.push(0x4f);
     assert_eq!(bytes, expected);
-    assert_eq!(bytes.len(), 49);
+    assert_eq!(bytes.len(), 64);
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
     assert_eq!(back, v);
     assert_eq!(back.to_string(), Volt::milli(3300u16).to_string());

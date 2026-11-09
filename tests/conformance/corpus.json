@@ -1113,35 +1113,36 @@
     {
       "name": "stdlib.si.dim.volt",
       "type": "dim",
-      "value": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []},
-      "bytes": "b18143000007",
-      "wire_change": "EVO-44 / exact_units UNIT-10: a Dim is its seven exponents in halves (INib32) and a sorted list of distinguished bases, no root flag or counted slots",
+      "value": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []},
+      "bytes": "65786163745f756e6974735369b1814300007239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "Volt: kg·m²·s⁻³·A⁻¹, seven INib32 exponents in halves and no distinguished base (UNIT-10)"
     },
     {
       "name": "stdlib.si.dim.rad_bit",
       "type": "dim",
-      "value": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Bit"}, "exp": {"halves": -6}}, {"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]},
-      "bytes": "3000000065786163745f756e697473426974b165786163745f756e69747352616469616e4063933927",
-      "wire_change": "EVO-44 / exact_units UNIT-10: a Dim is its seven exponents in halves (INib32) and a sorted list of distinguished bases, no root flag or counted slots",
+      "value": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Bit"}, "exp": {"halves": -6}}, {"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]},
+      "bytes": "65786163745f756e69747353693000000065786163745f756e697473426974b165786163745f756e69747352616469616e463933927239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "rad and bit are distinguished bases, exact_units' Radian and Bit: bit⁻³·rad/s, the bases sorted by crate and name (UNIT-10)"
     },
     {
       "name": "stdlib.si.dim.counted",
       "type": "dim",
-      "value": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "ww_si", "name": "Frame"}, "exp": {"halves": -2}}, {"base": {"crate_name": "ww_si", "name": "Sample"}, "exp": {"halves": 2}}]},
-      "bytes": "3000000077775f73694672616d653077775f736953616d706c6540655527",
-      "wire_change": "EVO-44 / exact_units UNIT-10: a Dim is its seven exponents in halves (INib32) and a sorted list of distinguished bases, no root flag or counted slots",
+      "value": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "ww_si", "name": "Frame"}, "exp": {"halves": -2}}, {"base": {"crate_name": "ww_si", "name": "Sample"}, "exp": {"halves": 2}}]},
+      "bytes": "65786163745f756e69747353693000000077775f73694672616d653077775f736953616d706c654655527239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "Sample/(Frame·s): counted things are distinguished bases, named by crate and marker, sorted (UNIT-10)"
     },
     {
       "name": "stdlib.si.dim.six_bases",
       "type": "dim",
-      "value": {"exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Bit"}, "exp": {"halves": 2}}, {"base": {"crate_name": "exact_units", "name": "Neper"}, "exp": {"halves": 2}}, {"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": -2}}, {"base": {"crate_name": "exact_units", "name": "Sample"}, "exp": {"halves": 4}}, {"base": {"crate_name": "my_api", "name": "Pixel"}, "exp": {"halves": -4}}, {"base": {"crate_name": "my_api", "name": "Tile"}, "exp": {"halves": 2}}]},
-      "bytes": "0000000065786163745f756e6974734269744065786163745f756e6974734e657065724065786163745f756e69747352616469616e3065786163745f756e69747353616d706c65816d795f617069506978656c706d795f61706954696c6540465663963953933967",
+      "value": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Bit"}, "exp": {"halves": 2}}, {"base": {"crate_name": "exact_units", "name": "Neper"}, "exp": {"halves": 2}}, {"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": -2}}, {"base": {"crate_name": "exact_units", "name": "Sample"}, "exp": {"halves": 4}}, {"base": {"crate_name": "my_api", "name": "Pixel"}, "exp": {"halves": -4}}, {"base": {"crate_name": "my_api", "name": "Tile"}, "exp": {"halves": 2}}]},
+      "bytes": "65786163745f756e69747353690000000065786163745f756e6974734269744065786163745f756e6974734e657065724065786163745f756e69747352616469616e3065786163745f756e69747353616d706c65816d795f617069506978656c706d795f61706954696c654465663963953933967239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "six distinguished bases in one dimension, exact_units' and a user's, no count limit (UNIT-10)"
     },
@@ -1149,8 +1150,8 @@
       "name": "stdlib.si.dim.rejected",
       "type": "dim",
       "value": null,
-      "bytes": "3000000077775f736953616d706c654077775f73694672616d6530556527",
-      "wire_change": "EVO-44 / exact_units UNIT-10: a Dim is its seven exponents in halves (INib32) and a sorted list of distinguished bases, no root flag or counted slots",
+      "bytes": "65786163745f756e69747353693000000077775f736953616d706c654077775f73694672616d653556527239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
       "note": "distinguished bases out of order (Sample before Frame): DimOwned refuses a non-canonical list (UNIT-10)"
@@ -1159,7 +1160,8 @@
       "name": "stdlib.si.dim.zero.rejected",
       "type": "dim",
       "value": null,
-      "bytes": "3000000077775f736953616d706c65006517",
+      "bytes": "65786163745f756e69747353693000000077775f736953616d706c6506517239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
       "note": "a distinguished base with exponent 0: one dimension has one encoding, DimOwned refuses it (UNIT-10)"
@@ -1168,19 +1170,46 @@
       "name": "stdlib.si.dim.count.rejected",
       "type": "dim",
       "value": null,
-      "bytes": "30000006",
+      "bytes": "65786163745f756e6974735369300000006239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
-      "note": "six exponents: a reader refuses a count other than SI's seven (UNIT-10)"
+      "note": "six exponents under SI: a reader refuses a count other than the system's, SI's seven (UNIT-10, UNIT-9)"
     },
     {
       "name": "stdlib.si.dim.root",
       "type": "dim",
-      "value": {"exps": [{"halves": -5}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []},
-      "bytes": "918143000007",
-      "wire_change": "EVO-44 / exact_units UNIT-10: a Dim is its seven exponents in halves (INib32) and a sorted list of distinguished bases, no root flag or counted slots",
+      "value": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -5}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []},
+      "bytes": "65786163745f756e697473536991814300007239",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "V/√Hz: kg·m²·s⁻⁵ᐟ²·A⁻¹, an exponent counts halves, so s is -5 halves (UNIT-10)"
+    },
+    {
+      "name": "stdlib.si.dim.gaussian_half",
+      "type": "dim",
+      "value": {"system": {"crate_name": "exact_units", "name": "Gaussian"}, "exps": [{"halves": 1}, {"halves": -1}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []},
+      "bytes": "65786163745f756e697473476175737369616e213000060939",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the gauss: g¹ᐟ²·cm⁻¹ᐟ²·s⁻¹ in Gaussian, its system's id and its six exponents of g, cm, s, K, mol, cd (UNIT-9)"
+    },
+    {
+      "name": "stdlib.si.dim.gaussian.count.rejected",
+      "type": "dim",
+      "value": null,
+      "bytes": "65786163745f756e697473476175737369616e00300000070939",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "seven exponents under Gaussian, which has six: a reader refuses another count for a system it knows (UNIT-9)"
+    },
+    {
+      "name": "stdlib.si.dim.gaussian.ratio.rejected",
+      "type": "dim",
+      "value": null,
+      "bytes": "65786163745f756e697473476175737369616e000000060939",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "dimension one under Gaussian: a dimension without true exponents belongs to every system and is written as SI's, so one dimension has one encoding (UNIT-9)"
     },
     {
       "name": "stdlib.si.fixed.pow10",
@@ -1591,36 +1620,36 @@
     {
       "name": "stdlib.si.si_expr.volt",
       "type": "si_expr",
-      "value": {"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
-      "bytes": "0065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
+      "bytes": "0065786163745f756e697473566f6c745600766f6c74766f6c7473805611054165786163745f756e6974735369b18143000000000001072390a4392f",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a named unit: variant nibble 0, its UnitDef: id (crate exact_units, marker Volt), symbol, Dim, kind, scale and provenance (STD-37, Dim v2 STD-60, STD-106)"
     },
     {
       "name": "stdlib.si.si_expr.pound_force",
       "type": "si_expr",
-      "value": {"Def": {"id": {"crate_name": "exact_units", "name": "PoundForce"}, "names": {"symbol": "lbf", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"exps": [{"halves": -4}, {"halves": 2}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": -24, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 7, "exp": 4}, {"prime": 11, "exp": 2}, {"prime": 97, "exp": 2}, {"prime": 6073, "exp": 2}, {"prime": 28019, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}},
-      "bytes": "0065786163745f756e697473506f756e64466f7263656c62660000000374400000e880fe47048b100289c10289feb1028bede602000000107729392f",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Def": {"id": {"crate_name": "exact_units", "name": "PoundForce"}, "names": {"symbol": "lbf", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -4}, {"halves": 2}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": -24, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 7, "exp": 4}, {"prime": 11, "exp": 2}, {"prime": 97, "exp": 2}, {"prime": 6073, "exp": 2}, {"prime": 28019, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}},
+      "bytes": "0065786163745f756e697473506f756e64466f7263656c62660000000365786163745f756e697473536974400000e880fe47048b100289c10289feb1028bede6020000000107239729390199",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "an imperial unit as a client learns it: lb · g_n = 4.4482216152605 N, an exact Magnitude scale (STD-72)"
     },
     {
       "name": "stdlib.si.si_expr.sqrt",
       "type": "si_expr",
-      "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}, {"Sqrt": {"Def": {"id": {"crate_name": "exact_units", "name": "Hertz"}, "names": {"symbol": "Hz", "ascii": null, "long": "hertz", "plural": "hertz", "aliases": "", "ucum": "Hz", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": {"crate_name": "exact_units", "name": "Frequency"}, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}}]},
-      "bytes": "300065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d500065786163745f756e697473486572747a487a00686572747a686572747a80487a1205523000000865786163745f756e6974734672657175656e637900000011939073a5390489078902995d",
-      "wire_change": "EVO-45 / exact_units UNIT-8: Hertz's UnitDef names its quantity, exact_units::Frequency, by id; before it, EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}, {"Sqrt": {"Def": {"id": {"crate_name": "exact_units", "name": "Hertz"}, "names": {"symbol": "Hz", "ascii": null, "long": "hertz", "plural": "hertz", "aliases": "", "ucum": "Hz", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": {"crate_name": "exact_units", "name": "Frequency"}, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}}]},
+      "bytes": "300065786163745f756e697473566f6c745600766f6c74766f6c7473805611054165786163745f756e6974735369b18143000000000001072390a4392f500065786163745f756e697473486572747a487a00686572747a686572747a80487a12055265786163745f756e69747353693000000865786163745f756e6974734672657175656e6379000000011939072393a53903a906a901b94f",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "V/√Hz as Per<Volt, Sqrt<Hertz>>: Div is variant 3, the Sqrt node variant 5 (STD-55, EVO-16, EVO-36)"
     },
     {
       "name": "stdlib.si.si_expr.decibel_loss_per_hundred_metres",
       "type": "si_expr",
-      "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "DecibelLoss"}, "names": {"symbol": "dB", "ascii": null, "long": "decibel", "plural": "decibels", "aliases": "", "ucum": "dB", "prefixes": "None"}, "dim": {"exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "NeperLoss"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": -2, "symbols": {"pi": 0, "ln2": 0, "ln10": 2, "mu0": 0, "g": 0}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}}, {"Def": {"id": {"crate_name": "exact_units", "name": "Metres100"}, "names": {"symbol": "100 m", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": "hm", "prefixes": "None"}, "dim": {"exps": [{"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 4, "rest": null}, "provenance": "Defined"}}]},
-      "bytes": "300065786163745f756e6974734465636962656c4c6f73736442006465636962656c6465636962656c73806442002009720000000065786163745f756e6974734e657065724c6f737340fe80fe800000020000000000011939171b393903b90065786163745f756e6974734d6574726573313030313030206d0080686d0200050400000004000001074919394d06d6b9",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Div": [{"Def": {"id": {"crate_name": "exact_units", "name": "DecibelLoss"}, "names": {"symbol": "dB", "ascii": null, "long": "decibel", "plural": "decibels", "aliases": "", "ucum": "dB", "prefixes": "None"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "NeperLoss"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": -2, "symbols": {"pi": 0, "ln2": 0, "ln10": 2, "mu0": 0, "g": 0}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}}, {"Def": {"id": {"crate_name": "exact_units", "name": "Metres100"}, "names": {"symbol": "100 m", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": "hm", "prefixes": "None"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 4, "rest": null}, "provenance": "Defined"}}]},
+      "bytes": "300065786163745f756e6974734465636962656c4c6f73736442006465636962656c6465636962656c738064420020097265786163745f756e69747353690000000065786163745f756e6974734e657065724c6f737340fe80fe80000002000000000011939172391b393901d90065786163745f756e6974734d6574726573313030313030206d0080686d02000565786163745f756e6974735369040000000400001072394919392f04f4d9",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "LVL-3 dB/100 m, a cable datasheet's own rate: Per<Loss<Decibel>, Metres100> is Per<DecibelLoss, Metres100>, DecibelLoss sharing NeperLoss's counted base scaled ln10/20"
     },
@@ -1643,9 +1672,9 @@
     {
       "name": "stdlib.si.any_quantity.def",
       "type": "any_quantity",
-      "value": {"prefix": "Milli", "value": {"U16": 3300}, "unit": {"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}},
-      "bytes": "12e40c0065786163745f756e697473566f6c745600766f6c74766f6c74738056110541b1814300000000001070a4393d5d",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"prefix": "Milli", "value": {"U16": 3300}, "unit": {"Def": {"id": {"crate_name": "exact_units", "name": "Volt"}, "names": {"symbol": "V", "ascii": null, "long": "volt", "plural": "volts", "aliases": "", "ucum": "V", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}}},
+      "bytes": "12e40c0065786163745f756e697473566f6c745600766f6c74766f6c7473805611054165786163745f756e6974735369b18143000000000001072390a4392f4f",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "a ww.Quantity holds its unit, not the unit's wire form (Def or Ref), and writes the API's units by reference (CLT-67)"},
       "note": "AnyQuantity::from(Volt::milli(3300u16)): the prefix and the number as a Quantity writes them, then the unit in full, so the value reads alone (STD-37)"
     },
@@ -1670,35 +1699,36 @@
     {
       "name": "model.marker_def.unit",
       "type": "marker_def",
-      "value": {"Unit": {"id": {"crate_name": "my_api", "name": "Rpm"}, "names": {"symbol": "rpm", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": 0, "symbols": {"pi": 2, "ln2": 0, "ln10": 0, "mu0": 0, "g": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}},
-      "bytes": "006d795f61706952706d72706d000000033000000065786163745f756e69747352616469616e40fe800080020000000083fe00000001639177361f",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Unit": {"id": {"crate_name": "my_api", "name": "Rpm"}, "names": {"symbol": "rpm", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": 0, "symbols": {"pi": 2, "ln2": 0, "ln10": 0, "mu0": 0, "g": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}},
+      "bytes": "006d795f61706952706d72706d0000000365786163745f756e69747353693000000065786163745f756e69747352616469616e40fe800080020000000083fe0000001639172397360789",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a user's rpm: its UnitDef with id my_api::Rpm, symbol, Dim rad/s and the exact factor π/30 (INT-13, STD-106)"
     },
     {
       "name": "model.marker_def.unit_conventional",
       "type": "marker_def",
-      "value": {"Unit": {"id": {"crate_name": "exact_units", "name": "InchOfMercury32f"}, "names": {"symbol": "inHg (32 °F)", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"exps": [{"halves": -4}, {"halves": -2}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": -4, "rest": {"pow2": 2, "symbols": null, "factors": [{"prime": 169319, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": {"Conventional": {"source": "NIST SP 811", "year": 2008}}}},
-      "bytes": "0065786163745f756e697473496e63684f664d657263757279333266696e48672028333220c2b04629000000005973400000fc80024fcda950020000104e49535420535020383131d8073979072a0a390799",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Unit": {"id": {"crate_name": "exact_units", "name": "InchOfMercury32f"}, "names": {"symbol": "inHg (32 °F)", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -4}, {"halves": -2}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": -4, "rest": {"pow2": 2, "symbols": null, "factors": [{"prime": 169319, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": {"Conventional": {"source": "NIST SP 811", "year": 2008}}}},
+      "bytes": "0065786163745f756e697473496e63684f664d657263757279333266696e48672028333220c2b04629000000005965786163745f756e697473536973400000fc80024fcda950020000104e49535420535020383131d80739079072392a0a3906b9",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a unit fixed by a physical property: its scale is the value NIST SP 811 (2008) prints, Provenance::Conventional in its UnitDef (STD-72, STD-106)"
     },
     {
       "name": "model.marker_def.unit_kind",
       "type": "marker_def",
-      "value": {"Unit": {"id": {"crate_name": "exact_units", "name": "Ohm"}, "names": {"symbol": "Ω", "ascii": null, "long": "ohm", "plural": "ohms", "aliases": "", "ucum": "Ohm", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -4}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": {"crate_name": "exact_units", "name": "Resistance"}, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
-      "bytes": "0065786163745f756e6974734f686dcea9006f686d6f686d73804f686d130432b18147000865786163745f756e697473526573697374616e636500000012939071a3390289",
-      "wire_change": "EVO-45 / exact_units UNIT-8: a UnitDef names its quantity by the quantity marker's MarkerId (crate and name), not by an English name; before it, EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Unit": {"id": {"crate_name": "exact_units", "name": "Ohm"}, "names": {"symbol": "Ω", "ascii": null, "long": "ohm", "plural": "ohms", "aliases": "", "ucum": "Ohm", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -6}, {"halves": 4}, {"halves": 2}, {"halves": -4}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": {"crate_name": "exact_units", "name": "Resistance"}, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
+      "bytes": "0065786163745f756e6974734f686dcea9006f686d6f686d73804f686d13043265786163745f756e6974735369b18147000865786163745f756e697473526573697374616e6365000000012939072391a33901a9",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a unit of a kind of quantity of its own (STD-68, UNIT-8): Ohm's UnitDef names the quantity exact_units::Resistance by its id, which Per<Volt, Ampere> (a transimpedance) of the same dimension is not (STD-106)"
     },
     {
       "name": "model.marker_def.base",
       "type": "marker_def",
-      "value": {"Base": {"id": {"crate_name": "exact_units", "name": "Radian"}, "names": {"symbol": "rad", "ascii": null, "long": "radian", "plural": "radians", "aliases": "", "ucum": "rad", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
-      "bytes": "e265786163745f756e69747352616469616e7261640072616469616e72616469616e73807261641307630000000065786163745f756e69747352616469616e4000000001639170b6390099",
+      "value": {"Base": {"id": {"crate_name": "exact_units", "name": "Radian"}, "names": {"symbol": "rad", "ascii": null, "long": "radian", "plural": "radians", "aliases": "", "ucum": "rad", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}},
+      "bytes": "e265786163745f756e69747352616469616e7261640072616469616e72616469616e738072616413076365786163745f756e69747353690000000065786163745f756e69747352616469616e400000001639172390b63906a9",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a unit that is a distinguished base of its own (exact_units' Radian, a unit! line with base): its UnitDef, the base named by its id (UNIT-10)"
     },
@@ -1740,9 +1770,9 @@
     {
       "name": "model.marker_def.origin",
       "type": "marker_def",
-      "value": {"Origin": {"id": {"crate_name": "exact_units", "name": "Celsius"}, "unit": {"id": {"crate_name": "exact_units", "name": "Kelvin"}, "names": {"symbol": "K", "ascii": null, "long": "kelvin", "plural": "kelvins", "aliases": "", "ucum": "K", "prefixes": "Decimal"}, "dim": {"exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}, "symbol": "°C", "reference": {"crate_name": "exact_units", "name": "UnitZero"}, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}}},
-      "bytes": "e165786163745f756e69747343656c7369757365786163745f756e6974734b656c76696e4b006b656c76696e6b656c76696e73804b110761000040000000001074a639c2b04365786163745f756e697473556e69745a65726f40fe80fe43048fb9100200000020fe80fe43048fb910020000093930e73906e9",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"Origin": {"id": {"crate_name": "exact_units", "name": "Celsius"}, "unit": {"id": {"crate_name": "exact_units", "name": "Kelvin"}, "names": {"symbol": "K", "ascii": null, "long": "kelvin", "plural": "kelvins", "aliases": "", "ucum": "K", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}, "symbol": "°C", "reference": {"crate_name": "exact_units", "name": "UnitZero"}, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}}},
+      "bytes": "e165786163745f756e69747343656c7369757365786163745f756e6974734b656c76696e4b006b656c76696e6b656c76696e73804b11076165786163745f756e69747353690000400000000001072394a639c2b04365786163745f756e697473556e69745a65726f40fe80fe43048fb9100200000020fe80fe43048fb910020000093937f739058a",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "origin! of °C: its id, Kelvin's UnitDef, 273.15 K above the reference exact_units::UnitZero, shown from there, no modulus (INT-13, STD-64, STD-106)"
     },
@@ -1774,18 +1804,28 @@
     {
       "name": "model.marker_def.quantity",
       "type": "marker_def",
-      "value": {"Quantity": {"id": {"crate_name": "exact_units", "name": "Height"}, "parent": {"crate_name": "exact_units", "name": "Length"}, "dim": {"exps": [{"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "is_kind": false, "character": "Scalar"}},
-      "bytes": "f265786163745f756e6974734865696768748065786163745f756e6974734c656e6774680400000000076396394d",
+      "value": {"Quantity": {"id": {"crate_name": "exact_units", "name": "Height"}, "parent": {"crate_name": "exact_units", "name": "Length"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "is_kind": false, "character": "Scalar"}},
+      "bytes": "f265786163745f756e6974734865696768748065786163745f756e6974734c656e67746865786163745f756e6974735369040000000072396396392f",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a quantity of ISO 80000's tree (quantity! line `pub struct Height: Length;`, UNIT-8, EVO-45): its id, its parent by id, its parent's dimension, not a kind of its own, scalar"
     },
     {
       "name": "model.marker_def.quantity_kind",
       "type": "marker_def",
-      "value": {"Quantity": {"id": {"crate_name": "exact_units", "name": "Activity"}, "parent": null, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "is_kind": true, "character": "Scalar"}},
-      "bytes": "f265786163745f756e697473416374697669747903000000800709393b",
+      "value": {"Quantity": {"id": {"crate_name": "exact_units", "name": "Activity"}, "parent": null, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "is_kind": true, "character": "Scalar"}},
+      "bytes": "f265786163745f756e69747341637469766974790065786163745f756e69747353693000000800723909392d",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a root quantity that is a kind of its own (quantity! line `pub struct Activity = kind [s -1];`, UNIT-8, EVO-45): no parent, its dimension s⁻¹, so Bq doesn't convert to Hz"
+    },
+    {
+      "name": "model.marker_def.system",
+      "type": "marker_def",
+      "value": {"System": {"id": {"crate_name": "my_api", "name": "Cgs"}, "bases": ["g", "cm", "s"], "set_to_one": [{"symbol": "k", "si": {"pow10": 0, "rest": null}}], "by_dim": [{"exps": [{"halves": 0}, {"halves": 0}, {"halves": 2}], "factor": {"pow10": 0, "rest": null}}, {"exps": [{"halves": 0}, {"halves": 2}], "factor": {"pow10": 4, "rest": null}}, {"exps": [{"halves": 2}], "factor": {"pow10": 6, "rest": null}}, null, null, null, null], "by_quantity": [{"si": {"crate_name": "exact_units", "name": "ElectricCharge"}, "here": {"crate_name": "my_api", "name": "CgsCharge"}, "factor": {"pow10": -2, "rest": null}}], "no_rule": [{"crate_name": "exact_units", "name": "Frequency"}]}},
+      "bytes": "836d795f61706943677367636d736b0001800040000380040402804006010065786163745f756e697473456c6563747269634368617267656d795f617069436773436861726765fe0196693965786163745f756e6974734672657175656e6379193915d133473112133601d9",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a system other than SI (UNIT-9): id, base symbols, what it sets to 1, the rule per SI base (none for the ampere and the rest) and the rows by quantity"
     },
     {
       "name": "model.item_struct_extra.transparent",
@@ -1798,9 +1838,9 @@
     {
       "name": "model.item_struct_extra.marker",
       "type": "item_struct_extra",
-      "value": {"transparent": false, "marker": {"Unit": {"id": {"crate_name": "my_api", "name": "Rpm"}, "names": {"symbol": "rpm", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": 0, "symbols": {"pi": 2, "ln2": 0, "ln10": 0, "mu0": 0, "g": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}}},
-      "bytes": "40006d795f61706952706d72706d000000033000000065786163745f756e69747352616469616e40fe800080020000000083fe00000001639177361f3f",
-      "wire_change": "EVO-44 / exact_units UNIT-10 and IO-9: a Dim is seven exponents in halves and a sorted list of distinguished bases, a UnitDef carries its names",
+      "value": {"transparent": false, "marker": {"Unit": {"id": {"crate_name": "my_api", "name": "Rpm"}, "names": {"symbol": "rpm", "ascii": null, "long": "", "plural": "", "aliases": "", "ucum": null, "prefixes": "None"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": -2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": [{"base": {"crate_name": "exact_units", "name": "Radian"}, "exp": {"halves": 2}}]}, "quantity": null, "scale": {"pow10": -2, "rest": {"pow2": 0, "symbols": {"pi": 2, "ln2": 0, "ln10": 0, "mu0": 0, "g": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}}},
+      "bytes": "40006d795f61706952706d72706d0000000365786163745f756e69747353693000000065786163745f756e69747352616469616e40fe800080020000000083fe00000016391723973607890299",
+      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a unit marker struct: its definition after the transparent flag (INT-13, STD-106)"
     },

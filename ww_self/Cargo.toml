@@ -12,6 +12,8 @@ default = ["std"]
 std = [
     "shrink_wrap/std",
     "exact_units/std",
+    # a Dim of Natural or Gaussian read from a bundle keeps its system's count of exponents (UNIT-9)
+    "exact_units/systems",
     "ww_numeric/std",
     "ww_version/std",
     "dep:anyhow",

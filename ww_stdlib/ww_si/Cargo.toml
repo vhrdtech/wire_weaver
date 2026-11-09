@@ -19,6 +19,7 @@ std = [
     "exact_units/std",
     "all",
     "quantities",
+    "systems",
     "host",
 ]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_numeric/defmt", "exact_units/defmt"]
@@ -66,6 +67,9 @@ counting = ["exact_units/counting"]
 # imperial, US customary and other units outside the SI (exact_units' customary): inch, pound, psi, gallon, Btu, ...
 # Opt-in only, not in `quantities` or `std`: an API without them pays nothing for them
 customary = ["exact_units/customary"]
+# the systems Natural (ħ = c = 1, eV) and Gaussian (cm, g, s) beside SI, their units (Gauss, Oersted, Statcoulomb, Erg,
+# NaturalElectronVolt, ...) and the bridges to SI (`Fixed::to_system`); turns on electrical, mechanical and time
+systems = ["exact_units/systems"]
 # host helpers: timestamp Unwrapper
 host = ["time", "u64"]
 

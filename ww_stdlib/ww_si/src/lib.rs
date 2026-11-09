@@ -59,8 +59,8 @@ pub use exact_units::{
 #[cfg(feature = "std")]
 pub use exact_units::{
     BaseDefOwned, BaseExpOwned, BaseRuleOwned, BridgeDefOwned, DimOwned, DimWireOwned,
-    MarkerIdOwned, ProvenanceOwned, QuantityDefOwned, QuantityRefOwned, SIExprOwned,
-    SetToOneOwned, SystemDefOwned, SystemRefOwned, UnitDefOwned, UnitNamesOwned,
+    MarkerIdOwned, ProvenanceOwned, QuantityDefOwned, QuantityRefOwned, SIExprOwned, SetToOneOwned,
+    SystemDefOwned, SystemRefOwned, UnitDefOwned, UnitNamesOwned,
 };
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};

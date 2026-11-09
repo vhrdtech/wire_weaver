@@ -1158,8 +1158,8 @@ fn quantity_def<Q: ww_si::QuantitySpec>() -> ww_self::MarkerDefOwned {
 /// maps s, m and kg (1 m is 100 cm, 1 kg is 1000 g), not the ampere; one row by quantity and one quantity the rule
 /// doesn't bridge.
 fn cgs_system() -> ww_self::MarkerDefOwned {
-    let exps = |halves: &[i16]| halves.iter().map(|h| ww_si::Exp::from_halves(*h as i8)).collect();
-    let rule = |halves: &[i16], pow10: i8| {
+    let exps = |halves: &[i8]| halves.iter().map(|h| ww_si::Exp::from_halves(*h)).collect();
+    let rule = |halves: &[i8], pow10: i8| {
         Some(ww_si::BaseRuleOwned {
             exps: exps(halves),
             factor: ww_si::Magnitude::new(1, 1, pow10, 0, 0),
@@ -1172,7 +1172,15 @@ fn cgs_system() -> ww_self::MarkerDefOwned {
             symbol: "k".into(),
             si: ww_si::Magnitude::ONE,
         }],
-        by_dim: vec![rule(&[0, 0, 2], 0), rule(&[0, 2], 2), rule(&[2], 3), None, None, None, None],
+        by_dim: vec![
+            rule(&[0, 0, 2], 0),
+            rule(&[0, 2], 2),
+            rule(&[2], 3),
+            None,
+            None,
+            None,
+            None,
+        ],
         by_quantity: vec![ww_si::BridgeDefOwned {
             si: marker_id("exact_units", "ElectricCharge"),
             here: marker_id("my_api", "CgsCharge"),

@@ -15,10 +15,10 @@ type Viscous = Per<Torque, AngularVelocity>;
 // the unit's definition: crate `exact_units`, marker `Volt`, names (symbol `V`, long `volt`, plural `volts`, UCUM
 // `V`), dimension (its system `exact_units::Si`, seven exponents, no base), kind, scale one, provenance
 const VOLT_BYTES: [u8; 60] = [
-    0x00, b'e', b'x', b'a', b'c', b't', 0x5f, b'u', b'n', b'i', b't', b's', b'V', b'o', b'l', b't', b'V', 0x00,
-    b'v', b'o', b'l', b't', b'v', b'o', b'l', b't', b's', 0x80, b'V', 0x11, 0x05, b'A', b'e', b'x', b'a', b'c',
-    b't', 0x5f, b'u', b'n', b'i', b't', b's', b'S', b'i', 0xb1, 0x81, b'C', 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
-    0x07, 0x23, 0x90, 0xa4, 0x39, 0x2f,
+    0x00, b'e', b'x', b'a', b'c', b't', 0x5f, b'u', b'n', b'i', b't', b's', b'V', b'o', b'l', b't',
+    b'V', 0x00, b'v', b'o', b'l', b't', b'v', b'o', b'l', b't', b's', 0x80, b'V', 0x11, 0x05, b'A',
+    b'e', b'x', b'a', b'c', b't', 0x5f, b'u', b'n', b'i', b't', b's', b'S', b'i', 0xb1, 0x81, b'C',
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x07, 0x23, 0x90, 0xa4, 0x39, 0x2f,
 ];
 
 #[test]

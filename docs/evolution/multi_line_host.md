@@ -165,30 +165,51 @@ A device on a line the driver doesn't know (one newer than all of them) is refus
 `Error::IncompatibleDeviceProtocol`, which names every line the host speaks and says to update the host. Two clients
 of one line, or a line of another API, are refused when connecting.
 
-## Shared `ww_stdlib` traits
+## Shared sub-traits
 
-A `ww_stdlib` trait the API uses as a sub-level (here `ww_indication::Indication`, the status LED) appears in each
-line's generated client as a client of its own. A `client = "trait_client"` of the `ww_stdlib` trait reaches it by
-its global path wherever the device has it, so one client serves every line, and its types are the `ww_stdlib` crate's,
-the same for all lines:
+A sub-trait every line uses unchanged, a `ww_stdlib` one (here `ww_indication::Indication`, the status LED) or one
+of the API crate's own (`common::Channel`), would get a client of its own in each line's generated client: one Rust
+type per line for the same trait, and the driver forwards every call per line. Generate its client once instead,
+with `client = "sub_level"`, and let each line's client return it (CLT-68, `tests/shared_sub_level`):
 
 ```rust
-pub struct Indication {
-    cmd: Commander,
-}
-
 mod indication_client {
-    use super::Indication;
     wire_weaver::ww_codegen!(
-        ww_indication :: Indication for Indication,
-        client = "trait_client",
-        no_alloc = false,
-        use_async = true,
+        ww_indication :: Indication for IndicationClient,
+        client = "sub_level",
+    );
+}
+pub use indication_client::IndicationClient;
+
+mod api_v2 {
+    wire_weaver::ww_codegen!(
+        thermo_api :: wire_v2 :: Thermo for super::ClientV2,
+        client = "std_client",
+        sub_levels = [ww_indication::Indication => crate::IndicationClient],
     );
 }
 ```
 
-Prefer this for every `ww_stdlib` trait in a driver of several lines: it needs no per-line code at all.
+* `client = "sub_level"` generates the struct itself (`IndicationClient<'i>`, named by the plain identifier after
+  `for`), with the trait's methods, its nested levels and its types, in a module beside it.
+* Each `sub_levels` entry names a trait by its crate and module path and the shared client for it. Wherever that
+  line's tree has the trait, flat or as an array, at any depth, the accessor (`indication()`, `probe().channel()`,
+  `aux(i)`) returns the shared client and no per-line client is generated for it. Code over the trait is written
+  once: `async fn blink(i: IndicationClient<'_>)` takes it from any line.
+* The calls go by path, as every other call of the line: nothing changes on the device, and global trait paths are
+  not needed. A `trait_client` can't take `sub_levels`, its paths start at its own trait.
+* A `const` assert in each accessor checks that the line has the trait the shared client was generated from: the
+  trait's signature, with docs and `#[since]` left out. It fails to compile when the API crate takes another version
+  of the trait than the driver does (two versions of `ww_indication`), and the message says to generate a client per
+  line for it, which is then right: the trait really differs.
+* `#[since]` still works per line. Loaded on its own, a shared trait has no line, so its `#[since = "w1.1, w2.1"]`
+  means nothing to the shared client; its calls go through the line client's `Commander`, which checks each call's
+  path against that line's own API, `#[since]` included. A `w1.0` device refuses `reset` with
+  `Error::OlderProtocol` naming `w1.1`, a `w2.0` device naming `w2.1`.
+
+A `client = "trait_client"` of the trait reaches it by its global path instead, wherever the device has it. That
+needs the device to resolve global paths, which costs it memory and some CPU and is the device's choice, so a
+driver of several lines reaches its sub-traits by path, through the shared client.
 
 ## Scripts and tools without generated code
 

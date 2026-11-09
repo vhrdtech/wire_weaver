@@ -4,11 +4,25 @@ use quote::quote;
 #[derive(Copy, Clone)]
 pub struct IndexChain {
     len: usize,
+    /// The chain's start is only known at run time, kept in a `Vec<UNib32>`: a shared sub-level client reached at
+    /// another depth in each line (CLT-68). `len` counts what is pushed after that start.
+    dynamic: bool,
 }
 
 impl IndexChain {
     pub fn new() -> Self {
-        IndexChain { len: 0 }
+        IndexChain {
+            len: 0,
+            dynamic: false,
+        }
+    }
+
+    /// A chain whose start is a `Vec<UNib32>` field set at run time (CLT-68).
+    pub fn dynamic() -> Self {
+        IndexChain {
+            len: 0,
+            dynamic: true,
+        }
     }
 
     // pub fn from_len(len: usize) -> Self {
@@ -26,7 +40,9 @@ impl IndexChain {
 
     pub fn struct_field_def(&self) -> TokenStream {
         let len = self.len;
-        if len == 0 {
+        if self.dynamic {
+            quote! { pub index_chain: Vec<UNib32>, }
+        } else if len == 0 {
             quote! {}
         } else {
             quote! { pub index_chain: [UNib32; #len], }
@@ -67,7 +83,12 @@ impl IndexChain {
         let prev_len = self.len;
         self.len += 1;
         let len = self.len;
-        if prev_len == 0 {
+        if self.dynamic {
+            quote! {
+                let mut index_chain: Vec<UNib32> = #source index_chain.to_vec();
+                index_chain.push(#expr);
+            }
+        } else if prev_len == 0 {
             quote! {
                 let index_chain: [UNib32; 1] = [#expr];
             }
@@ -84,11 +105,15 @@ impl IndexChain {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.len == 0 && !self.dynamic
     }
 
-    /// Indices pushed (the depth of a level's own path, array indices counted).
+    /// Indices pushed (the depth of a level's own path, array indices counted), not counting a dynamic start.
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn is_dynamic(&self) -> bool {
+        self.dynamic
     }
 }

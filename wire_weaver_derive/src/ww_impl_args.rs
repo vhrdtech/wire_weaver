@@ -2,8 +2,10 @@ use darling::FromMeta;
 use darling::ast::NestedMeta;
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
 use syn::ext::IdentExt;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::{Parse, ParseStream, Parser};
+use syn::punctuated::Punctuated;
 use syn::{Error, ExprArray, Ident, Path, Result, Token};
+use wire_weaver_core::codegen::api_client::SharedSubLevel;
 use wire_weaver_core::codegen::omit::Omit;
 
 pub(crate) struct ApiArgs {
@@ -94,6 +96,10 @@ pub(crate) struct ImplExtArgs {
     /// `omit = ["a.b", ..]` and `omit_if(<cfg>) = [..]`, parsed before darling (`omit_if(..) = ..` is not a `Meta`).
     #[darling(skip)]
     pub(crate) omit: Vec<Omit>,
+
+    /// `sub_levels = [ww_indication::Indication => crate::IndicationClient, ..]` (CLT-68), parsed before darling.
+    #[darling(skip)]
+    pub(crate) sub_levels: Vec<SharedSubLevel>,
 }
 
 impl Parse for ApiArgs {
@@ -128,7 +134,12 @@ impl Parse for ImplExtArgs {
         let ts: TokenStream = input.parse()?;
         let mut rest = TokenStream::new();
         let mut omit = vec![];
+        let mut sub_levels = vec![];
         for arg in split_args(ts) {
+            if let Some(s) = parse_sub_levels(&arg)? {
+                sub_levels.extend(s);
+                continue;
+            }
             match parse_omit(&arg)? {
                 Some(o) => omit.extend(o),
                 None => {
@@ -140,7 +151,81 @@ impl Parse for ImplExtArgs {
         let attr_args = NestedMeta::parse_meta_list(rest)?;
         let mut ext_args = ImplExtArgs::from_list(&attr_args)?;
         ext_args.omit = omit;
+        ext_args.sub_levels = sub_levels;
         Ok(ext_args)
+    }
+}
+
+/// `sub_levels = [dep::Trait => path::Client, ..]` (CLT-68), `None` for any other argument.
+fn parse_sub_levels(arg: &[TokenTree]) -> Result<Option<Vec<SharedSubLevel>>> {
+    let value = match arg {
+        [TokenTree::Ident(ident), TokenTree::Punct(eq), value @ ..]
+            if ident == "sub_levels" && eq.as_char() == '=' =>
+        {
+            value
+        }
+        [TokenTree::Ident(ident), ..] if ident == "sub_levels" => {
+            return Err(Error::new(
+                ident.span(),
+                "expected sub_levels = [dep::Trait => path::SharedClient, ..]",
+            ));
+        }
+        _ => return Ok(None),
+    };
+    let group = match value {
+        [TokenTree::Group(g)] if g.delimiter() == Delimiter::Bracket => g,
+        _ => {
+            return Err(Error::new(
+                arg[0].span(),
+                "expected sub_levels = [dep::Trait => path::SharedClient, ..]",
+            ));
+        }
+    };
+    let entries: Punctuated<SubLevelEntry, Token![,]> =
+        Punctuated::parse_terminated.parse2(group.stream())?;
+    Ok(Some(
+        entries
+            .into_iter()
+            .map(|e| {
+                let mut segments: Vec<String> = e
+                    .trait_path
+                    .segments
+                    .iter()
+                    .map(|s| s.ident.to_string())
+                    .collect();
+                let trait_name = segments.pop().unwrap_or_default();
+                let crate_name = segments.remove(0);
+                SharedSubLevel {
+                    crate_name,
+                    modules: segments,
+                    trait_name,
+                    client: e.client,
+                }
+            })
+            .collect(),
+    ))
+}
+
+/// `dep::Trait => path::SharedClient`
+struct SubLevelEntry {
+    trait_path: Path,
+    client: Path,
+}
+
+impl Parse for SubLevelEntry {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let trait_path: Path = input.parse()?;
+        if trait_path.segments.len() < 2 {
+            return Err(Error::new_spanned(
+                &trait_path,
+                "name the trait with its crate: `ww_indication::Indication`",
+            ));
+        }
+        let _: Token![=>] = input.parse()?;
+        Ok(SubLevelEntry {
+            trait_path,
+            client: input.parse()?,
+        })
     }
 }
 

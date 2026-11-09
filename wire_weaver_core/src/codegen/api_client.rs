@@ -29,6 +29,34 @@ pub struct GenClientConfig {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
+    /// Sub-level traits reached through a client generated once with [ClientModel::StdSubLevelClient] (CLT-68),
+    /// instead of a client of their own in this one.
+    pub shared_sub_levels: Vec<SharedSubLevel>,
+}
+
+/// A sub-level trait whose client is generated once with [ClientModel::StdSubLevelClient] and shared by the clients
+/// of several lines (CLT-68): `ww_indication::Indication => crate::IndicationClient`.
+#[derive(Clone, Debug)]
+pub struct SharedSubLevel {
+    /// The crate of the trait, as Rust names it (`ww_indication`).
+    pub crate_name: String,
+    /// Modules from the crate's root to the trait, empty at the root (`["common"]` of `thermo_api::common::Channel`).
+    pub modules: Vec<String>,
+    pub trait_name: String,
+    /// The shared client type (`crate::IndicationClient`), what the accessor returns.
+    pub client: Path,
+}
+
+impl SharedSubLevel {
+    /// `ww_indication::Indication`, as written.
+    pub fn trait_path(&self) -> String {
+        [self.crate_name.as_str()]
+            .into_iter()
+            .chain(self.modules.iter().map(String::as_str))
+            .chain([self.trait_name.as_str()])
+            .collect::<Vec<_>>()
+            .join("::")
+    }
 }
 
 /// API client code generation configuration.
@@ -43,6 +71,8 @@ pub struct GenClientConfigRaw {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
+    /// See [GenClientConfig::shared_sub_levels].
+    pub shared_sub_levels: Vec<SharedSubLevel>,
 }
 
 impl From<GenClientConfig> for GenClientConfigRaw {
@@ -51,6 +81,7 @@ impl From<GenClientConfig> for GenClientConfigRaw {
             model: config.model,
             client_struct_path: super::util::str_to_path(&config.client_struct_path),
             crate_paths: config.crate_paths,
+            shared_sub_levels: config.shared_sub_levels,
         }
     }
 }
@@ -68,6 +99,11 @@ pub enum ClientModel {
     /// Similar to StdFullClient, but uses different addressing mode starting from traits, and not API root.
     /// Useful when generating client code for traits, e.g., for Gpio, regardless of where it actually might be implemented.
     StdTraitClient,
+    /// A client of one sub-level trait reached by path (CLT-68), `client = "sub_level"`: the struct named by
+    /// `client_struct_path` (a plain identifier) is generated too, holding the trait's absolute path, which each
+    /// line's client sets when it reaches the trait (`shared_sub_levels`). One type for every line that has the
+    /// trait with the same signature; no global paths, the device is unchanged.
+    StdSubLevelClient,
 }
 
 impl ClientModel {
@@ -76,6 +112,7 @@ impl ClientModel {
             ClientModel::Raw => true,
             ClientModel::StdFullClient => false,
             ClientModel::StdTraitClient => false,
+            ClientModel::StdSubLevelClient => false,
         }
     }
 }
@@ -102,7 +139,7 @@ pub fn gen_client(
     let api_bundle = &CodegenBundle::new(api_bundle, &config.crate_paths);
     let additional_use = if matches!(
         config.model,
-        ClientModel::StdFullClient | ClientModel::StdTraitClient
+        ClientModel::StdFullClient | ClientModel::StdTraitClient | ClientModel::StdSubLevelClient
     ) {
         quote! { #[allow(unused_imports)] use wire_weaver_client::ww_client_server::PathKind; }
     } else {
@@ -126,15 +163,35 @@ pub fn gen_client(
         ClientPathMode::Absolute
     };
 
-    // let root_mod_name = api_level.mod_ident(Some(ext_crate_name));
-    // let root_client_struct_name = api_level.client_struct_name(Some(ext_crate_name));
+    let shared = &config.shared_sub_levels;
+    if !shared.is_empty() && path_mode == ClientPathMode::GlobalTrait {
+        let msg = "sub_levels: a trait client's paths start at its trait (global paths), a path-reached shared \
+                   sub-level client can't be used in one (CLT-68)";
+        return quote! { compile_error!(#msg); };
+    }
+    let mut shared_use = quote! {};
+    let (top, index_chain) = if config.model == ClientModel::StdSubLevelClient {
+        let Some(ident) = client_struct_path.get_ident() else {
+            let msg = "client = \"sub_level\" generates the client struct itself: name it with a plain identifier, \
+                       `for IndicationClient`";
+            return quote! { compile_error!(#msg); };
+        };
+        let mod_name = util::mod_name(api_level, api_bundle);
+        shared_use = quote! { pub use #mod_name::#ident; };
+        (Top::Shared(ident.clone()), IndexChain::dynamic())
+    } else {
+        (Top::UserRoot(&client_struct_path), IndexChain::new())
+    };
     let trait_clients = client_structs_recursive(
-        api_bundle,
+        &Ctx {
+            api_bundle,
+            model: config.model,
+            path_mode,
+            shared,
+        },
         api_level,
-        IndexChain::new(),
-        config.model,
-        path_mode,
-        Some(&client_struct_path),
+        index_chain,
+        top,
         None,
         false,
     );
@@ -155,7 +212,86 @@ pub fn gen_client(
         #hl_init
 
         #trait_clients
+        #shared_use
     }
+}
+
+/// What every level of one client's generation shares.
+struct Ctx<'a, 'b> {
+    api_bundle: &'a CodegenBundle<'b>,
+    model: ClientModel,
+    path_mode: ClientPathMode,
+    shared: &'a [SharedSubLevel],
+}
+
+/// Where a level's client struct comes from.
+enum Top<'a> {
+    /// The API root: `impl` on the user's struct.
+    UserRoot(&'a Path),
+    /// The trait of a shared sub-level client (CLT-68): the struct is generated, named so.
+    Shared(Ident),
+    /// A nested level: a generated struct named after its module.
+    Nested,
+}
+
+/// The shared client of `level`'s trait, when this client reaches it through one (CLT-68).
+fn shared_for<'s>(
+    shared: &'s [SharedSubLevel],
+    api_bundle: &CodegenBundle,
+    level: &ApiLevelOwned,
+) -> Option<&'s SharedSubLevel> {
+    let crate_name = level.crate_name(api_bundle).ok()?.replace('-', "_");
+    let modules = api_bundle.trait_module(&crate_name, &level.trait_name);
+    shared.iter().find(|s| {
+        s.crate_name == crate_name && s.trait_name == level.trait_name && s.modules == modules
+    })
+}
+
+/// Signature of a trait as a shared sub-level client sees it (CLT-68): its canonical stand-alone form (as for skipped
+/// definitions, `ww_self::signature`) with docs and every `#[since]` cleared. A shared trait has a revision per line
+/// (`#[since = "w1.2, w2.1"]`, EVO-37) and none loaded on its own; the client doesn't need one, since the per-call
+/// check resolves the path in the line's own bundle. `trait_idx`: the trait in `bundle.traits`, `None` for the root.
+pub fn shared_signature(
+    bundle: &ww_self::ApiBundleOwned,
+    trait_idx: Option<u32>,
+) -> anyhow::Result<u64> {
+    use ww_self::visit_mut::{self, VisitMut};
+    struct Clear;
+    impl VisitMut for Clear {
+        fn visit_api_item(&mut self, node: &mut ApiItemOwned) {
+            node.since = None;
+            visit_mut::visit_api_item(self, node);
+        }
+        fn visit_field(&mut self, node: &mut ww_self::FieldOwned) {
+            node.since = None;
+            visit_mut::visit_field(self, node);
+        }
+        fn visit_variant(&mut self, node: &mut ww_self::VariantOwned) {
+            node.since = None;
+            visit_mut::visit_variant(self, node);
+        }
+        fn visit_docs(&mut self, node: &mut Vec<String>) {
+            node.clear();
+        }
+    }
+    let mut bundle = bundle.clone();
+    let trait_idx = match trait_idx {
+        Some(idx) => idx,
+        None => {
+            let crate_idx = bundle.root.crate_idx;
+            bundle.traits.push(ww_self::ApiLevelLocationOwned::InLine {
+                level: bundle.root.clone(),
+                crate_idx,
+            });
+            bundle.traits.len() as u32 - 1
+        }
+    };
+    Clear.visit_api_bundle(&mut bundle);
+    let signature =
+        ww_self::signature::trait_signature(&bundle, trait_idx, &ww_self::signature::no_resolve)?;
+    let mut bytes = [0u8; 8];
+    bytes.copy_from_slice(&signature[..8]);
+    Ok(u64::from_le_bytes(bytes))
 }
 
 /// Paths to a trait's `FULL_GID` and `COMPACT_GID` constants, and its name.
@@ -170,17 +306,20 @@ fn client_struct_name(mod_name: &str) -> Ident {
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 fn client_structs_recursive(
-    api_bundle: &CodegenBundle,
+    ctx: &Ctx,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
-    model: ClientModel,
-    path_mode: ClientPathMode,
-    is_at_root: Option<&Path>,
+    top: Top,
     root_gid_paths: Option<&GidPaths>,
     under_array: bool,
 ) -> TokenStream {
+    let Ctx {
+        api_bundle,
+        model,
+        path_mode,
+        ..
+    } = *ctx;
     let mut ts = TokenStream::new();
     // observing a level under a resource array isn't possible yet (SRV-18)
     let observable = model != ClientModel::Raw
@@ -217,7 +356,7 @@ fn client_structs_recursive(
     // index chains of nested levels start from the root trait of this client, so global paths name that trait
     let root_gid_paths = root_gid_paths.unwrap_or(&gid_paths);
     let methods = level_methods(
-        api_bundle,
+        ctx,
         api_level,
         index_chain,
         model,
@@ -226,6 +365,8 @@ fn client_structs_recursive(
         observable,
     );
 
+    let mut maybe_signature = quote! {};
+    let mut maybe_doc = quote! {};
     // call before increment_length so that root level does not have it
     let maybe_index_chain_field = index_chain.struct_field_def();
 
@@ -235,6 +376,10 @@ fn client_structs_recursive(
             continue;
         }
         let level = item.get_as_level(api_bundle).unwrap();
+        if shared_for(ctx.shared, api_bundle, level).is_some() {
+            // reached through the shared client (CLT-68), see level_method
+            continue;
+        }
         let mut index_chain = index_chain;
         index_chain.increment_length();
         let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
@@ -242,19 +387,17 @@ fn client_structs_recursive(
             index_chain.increment_length();
         }
         child_ts.extend(client_structs_recursive(
-            api_bundle,
+            ctx,
             level,
             index_chain,
-            model,
-            path_mode,
-            None,
+            Top::Nested,
             Some(root_gid_paths),
             under_array || is_array,
         ));
     }
 
     let trait_name = LitStr::new(&api_level.trait_name, Span::call_site());
-    let index_chain = if is_at_root.is_some() {
+    let index_chain = if matches!(top, Top::UserRoot(_)) {
         quote! { vec![] }
     } else {
         quote! { self.index_chain.to_vec() }
@@ -272,7 +415,7 @@ fn client_structs_recursive(
         }
     };
 
-    let impl_new_or_user_struct = if let Some(client_struct_path) = is_at_root {
+    let impl_new_or_user_struct = if let Top::UserRoot(client_struct_path) = top {
         let path = if let Some(first) = client_struct_path.segments.first()
             && first.ident == "super"
         {
@@ -287,7 +430,35 @@ fn client_structs_recursive(
             }
         }
     } else {
+        let client_struct_name = match top {
+            Top::Shared(ident) => {
+                // checked by each line's client that reaches the trait through this one (CLT-68)
+                let signature = match shared_signature(api_bundle, None) {
+                    Ok(s) => quote! { #s },
+                    Err(e) => {
+                        let msg = format!("signature of `{}`: {e:#}", api_level.trait_name);
+                        quote! { compile_error!(#msg) }
+                    }
+                };
+                let doc = format!(
+                    " Client of `{}` reached by path, shared by the clients of every line that has it with the same \
+                     signature (`sub_levels = [.. => ..]`, CLT-68).",
+                    api_level.trait_name
+                );
+                maybe_signature = quote! {
+                    impl #ident<'_> {
+                        /// The trait's signature (docs and `#[since]` left out), checked against each line's at
+                        /// compile time.
+                        pub const WW_SIGNATURE: u64 = #signature;
+                    }
+                };
+                maybe_doc = quote! { #[doc = #doc] };
+                ident
+            }
+            _ => client_struct_name,
+        };
         quote! {
+            #maybe_doc
             pub struct #client_struct_name<'i> {
                 #maybe_index_chain_field
                 pub cmd: &'i wire_weaver_client::Commander,
@@ -297,6 +468,8 @@ fn client_structs_recursive(
                 #methods
                 #attachment
             }
+
+            #maybe_signature
         }
     };
     let source_marker = util::source_marker(api_level, api_bundle);
@@ -319,7 +492,7 @@ fn client_structs_recursive(
 }
 
 fn level_methods(
-    api_bundle: &CodegenBundle,
+    ctx: &Ctx,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
     model: ClientModel,
@@ -327,17 +500,20 @@ fn level_methods(
     gid_paths: &GidPaths,
     observable: bool,
 ) -> TokenStream {
+    let api_bundle = ctx.api_bundle;
     // the level's own path, for observing it
     let level_chain = observable.then(|| {
         if index_chain.is_empty() {
             quote! { let index_chain: [UNib32; 0] = []; }
+        } else if index_chain.is_dynamic() {
+            quote! { let index_chain = self.index_chain.clone(); }
         } else {
             quote! { let index_chain = self.index_chain; }
         }
     });
     let handlers = api_level.items.iter().map(|item| {
         level_method(
-            api_bundle,
+            ctx,
             api_level,
             item,
             index_chain,
@@ -363,7 +539,7 @@ fn level_methods(
 
 #[allow(clippy::too_many_arguments)]
 fn level_method(
-    api_bundle: &CodegenBundle,
+    ctx: &Ctx,
     api_level: &ApiLevelOwned,
     item: &ApiItemOwned,
     mut index_chain: IndexChain,
@@ -372,6 +548,7 @@ fn level_method(
     gid_paths: &GidPaths,
     level_chain: Option<&TokenStream>,
 ) -> TokenStream {
+    let api_bundle = ctx.api_bundle;
     let id = item.id.0;
     let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
     let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
@@ -476,6 +653,19 @@ fn level_method(
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
+            if let Some(shared) = shared_for(ctx.shared, api_bundle, level) {
+                return shared_accessor(
+                    api_bundle,
+                    item,
+                    shared,
+                    index_chain_push,
+                    maybe_index_arg,
+                )
+                .unwrap_or_else(|e| {
+                    let msg = format!("sub_levels `{}`: {e:#}", shared.trait_path());
+                    quote! { compile_error!(#msg); }
+                });
+            }
             let mod_name = util::mod_name(level, api_bundle);
             let client_struct_name = client_struct_name(&mod_name.to_string());
             quote! {
@@ -1129,6 +1319,45 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
             self.cmd.disconnect()
         }
     }
+}
+
+/// Accessor of a sub-level reached through a shared client (CLT-68), with the compile-time check that the shared
+/// client was generated from the same trait as this line has.
+fn shared_accessor(
+    api_bundle: &CodegenBundle,
+    item: &ApiItemOwned,
+    shared: &SharedSubLevel,
+    index_chain_push: TokenStream,
+    maybe_index_arg: TokenStream,
+) -> anyhow::Result<TokenStream> {
+    let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind else {
+        anyhow::bail!("not a trait");
+    };
+    let signature = shared_signature(api_bundle, Some(trait_idx.0))?;
+    let client = &shared.client;
+    let ident = Ident::new(&item.ident, Span::call_site());
+    let line = match api_bundle.root_wire_version() {
+        Some(w) => format!(" (w{}.{})", w.line.0, w.revision.0),
+        None => String::new(),
+    };
+    let msg = format!(
+        "`{}` was generated from another `{}` than `{}::{}`{line} has: generate a client per line for it, or bring \
+         both to one version of the trait (CLT-68)",
+        quote!(#client).to_string().replace(' ', ""),
+        shared.trait_path(),
+        api_bundle.root.trait_name,
+        item.ident,
+    );
+    Ok(quote! {
+        pub fn #ident(&self #maybe_index_arg) -> #client<'_> {
+            const _: () = assert!(#client::WW_SIGNATURE == #signature, #msg);
+            #index_chain_push
+            #client {
+                index_chain: index_chain.to_vec(),
+                cmd: &self.cmd,
+            }
+        }
+    })
 }
 
 /// Creates ww_client_server::PathKind in user context

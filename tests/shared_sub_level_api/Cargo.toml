@@ -1,0 +1,21 @@
+[package]
+name = "shared_sub_level_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Two wire lines in one crate (EVO-37) sharing a sub-trait of their own and a ww_stdlib one (CLT-68)
+[package.metadata.wire_weaver.roots]
+"wire_v1::Thermo" = "w1.1"
+"wire_v2::Thermo" = "w2.1"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_indication/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_indication.workspace = true

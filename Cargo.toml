@@ -239,6 +239,7 @@ recorder_groups_api = { version = "0.1.0", path = "./tests/recorder_groups_api" 
 recursive_api = { version = "0.1.0", path = "./tests/recursive_api" }
 series_api = { version = "0.1.0", path = "./tests/series_api" }
 settings_api = { version = "0.1.0", path = "./examples/settings_api" }
+shared_sub_level_api = { version = "0.1.0", path = "./tests/shared_sub_level_api" }
 shrink_wrap_c = { version = "0.1.0", path = "./shrink_wrap/c" }
 standalone_api = { version = "0.1.0", path = "./tests/standalone_api" }
 standalone_units = { version = "0.1.0", path = "./tests/standalone_units" }

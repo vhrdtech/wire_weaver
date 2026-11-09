@@ -4660,6 +4660,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared_sub_level"
+version = "0.1.0"
+dependencies = [
+ "shared_sub_level_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "wire_weaver_core",
+ "ww_client_server",
+ "ww_indication",
+ "ww_si",
+]
+
+[[package]]
+name = "shared_sub_level_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_indication",
+]
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

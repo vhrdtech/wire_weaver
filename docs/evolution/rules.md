@@ -136,6 +136,8 @@ Each root's wire version is an entry of the `roots` table, by its module path:
   `ww_impl!(channel: super::common::Channel)`.
 * An item of a shared type or trait was added in a revision of each line it is on: `#[since = "w1.2, w2.1"]` names
   one revision per line, and each root takes its own line's.
+* A host gets one client for a shared sub-trait for all lines, generated once with `client = "sub_level"` and named
+  by each line's client with `sub_levels = [..]` ([shared sub-traits](multi_line_host.md#shared-sub-traits), CLT-68).
 * Every root needs an entry once the table exists; a crate-level `wire = ..` stays for a crate with one root and for
   crates whose traits are reached by global paths (`ww_stdlib`).
 * `ww api save` saves a snapshot per root

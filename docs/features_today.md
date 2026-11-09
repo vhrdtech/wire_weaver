@@ -314,6 +314,7 @@ round, and tell you before a release when a change would break that.
 - **[Wire version in Cargo.toml](evolution/rules.md#the-wire-version)**: Every crate declares its wire version one way, in its `Cargo.toml` next to its crate version; the attribute form is left for test crates that stand for several lines.
 - **[A host for several wire lines](evolution/multi_line_host.md)**: One host driver carries a generated client per wire line of an API and talks to devices of any of them through one facade, picking the client of the device's line in a single link setup; scripts reach every line through the dynamic client and Python, writing quantities exactly into each line's types.
 - **[Several wire lines in one crate](evolution/rules.md#several-lines-in-one-crate)**: One API crate holds every wire line still in use, a root per module with its own wire version, and the types the lines share are one Rust type.
+- **[One client for a shared sub-trait](evolution/multi_line_host.md#shared-sub-traits)**: The lines of one crate that reach the same sub-trait (`common::Channel`, `ww_indication::Indication`) by path return one generated client type for it, checked at compile time to be the trait each line has.
 - **[Snapshots per API root](evolution/checker_tool.md#several-api-roots-in-one-crate)**: A crate with several lines saves a snapshot per root when it changed, checked against that root's previous one, and never rewrites a released one.
 - **[Wire versions and generations shown](std_library/device_contract.md#ww-info)**: `ww info`, `ww tap` and the Python client show a device's wire version and the hello generations a connection agreed on, next to its crate version.
 - **[Unit definitions with an identity](std_library/units_in_the_model.md#identity)**: The API model holds each unit's whole definition with the crate and marker that declare it, so two crates' units of one name stay apart.
@@ -333,7 +334,7 @@ round, and tell you before a release when a change would break that.
 - **[Definitions from another revision](std_library/ww_self.md#the-definition-cache)**: A device built from an unpublished revision still connects, with a warning.
 - **[Units compared by meaning](evolution/units_by_meaning.md)**: `Milli` → `Pow10<-3>` passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr) in the feature tracker.</p>
 
 ## Tools
 

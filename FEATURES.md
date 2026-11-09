@@ -1681,10 +1681,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 ## Transports and protocols (`TR`)
 
-- 📋 **CLT-68 One sub-level client for a stdlib trait shared by lines** · `v0.5` — the lines of one crate that
-  reach the same `ww_stdlib` trait (`ww_indication::Indication`) by path get one generated sub-level client type
-  instead of one per line, with a compile-time check that the trait's signature is the one it was generated from.
-  No trait calls: the device is unchanged.
+- ✅ **CLT-68 One sub-level client for a stdlib trait shared by lines** · `v0.5` — the lines of one crate that
+  reach the same sub-trait by path (a `ww_stdlib` one, `ww_indication::Indication`, or the crate's own
+  `common::Channel`) get one client type for it: `ww_codegen!(ww_indication::Indication for IndicationClient,
+  client = "sub_level")` once, and each line's `ww_codegen!(.., sub_levels = [ww_indication::Indication =>
+  crate::IndicationClient])` returns it wherever its tree has the trait, at any depth or as an array. A `const`
+  assert checks the trait's signature (docs and `#[since]` left out) is the one the shared client was generated
+  from. No trait calls: the device is unchanged, and each line's `#[since]` is still checked per call. Docs:
+  `docs/evolution/multi_line_host.md#shared-sub-traits`; tests `tests/shared_sub_level`.
 - ✅ **TR-1 `ww_framer`**: packs many small messages into one packet or splits a big one across packets; U2Head with
   1 byte overhead, CRC, recovery from missed frames, fuzzed.
 - ✅ **TR-2 `ww_link`**: link setup, device info, API version exchange.

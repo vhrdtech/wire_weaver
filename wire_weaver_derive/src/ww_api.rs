@@ -167,9 +167,10 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             "raw" => ClientModel::Raw,
             "std_client" => ClientModel::StdFullClient,
             "trait_client" => ClientModel::StdTraitClient,
+            "sub_level" => ClientModel::StdSubLevelClient,
             _ => {
                 return Err(format!(
-                    "client must be std_client, trait_client or raw, got: '{}'",
+                    "client must be std_client, trait_client, sub_level or raw, got: '{}'",
                     args.ext.client
                 ));
             }
@@ -180,6 +181,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 model,
                 client_struct_path: context_ident()?,
                 crate_paths: crate_paths.clone(),
+                shared_sub_levels: args.ext.sub_levels.clone(),
             },
         );
         codegen_ts.append_all(ts);
@@ -193,6 +195,11 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 &context_ident()?,
             ));
         }
+    } else if !args.ext.sub_levels.is_empty() {
+        return Err(
+            "sub_levels name shared clients for a generated client: add client = \"std_client\""
+                .into(),
+        );
     } else if !args.ext.impl_local_trait.is_empty() {
         return Err(
             "impl_local_trait is implemented on the generated client: add client = \"std_client\""

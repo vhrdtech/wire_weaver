@@ -822,7 +822,7 @@ mod tests {
         // shown in °C, from 273.15 K
         assert_eq!(board.shown, ww_si::Offset::decimal(27315, -2));
         assert_eq!(board.modulus, None);
-        assert_eq!(board.reference.as_id(), compiled.reference);
+        assert_eq!(board.reference.as_id(), compiled.reference.id);
         let compiled = <Angle<Degree> as ww_si::Origin>::DEF;
         assert_eq!(heading.modulus, compiled.modulus);
         assert_eq!(heading.modulus, Some(Magnitude::ratio(360, 1)));

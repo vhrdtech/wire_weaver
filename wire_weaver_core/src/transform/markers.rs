@@ -1217,7 +1217,8 @@ mod tests {
             };
         }
         for (name, compiled) in origins!(
-            AbsoluteZero Celsius Rankine Fahrenheit Vacuum Gauge AboveStandardAtmosphere UnixEpoch
+            AbsoluteZero Celsius Rankine Fahrenheit Vacuum Gauge AboveStandardAtmosphere UnixEpoch NtpEpoch TaiEpoch1958 GpsEpoch PtpEpoch
+            DeviceBoot
         ) {
             let Some(MarkerDefOwned::Origin(def)) = markers.remove(name) else {
                 panic!("{name}: no origin definition in the model");
@@ -1228,7 +1229,7 @@ mod tests {
             };
             assert_unit_def(&def.unit, unit, name);
             assert_eq!(def.symbol, compiled.symbol, "{name}");
-            assert_eq!(def.reference.as_id(), compiled.reference, "{name}");
+            assert_eq!(def.reference.as_id(), compiled.reference.id, "{name}");
             assert_eq!(
                 (def.offset, def.modulus, def.step, def.shown),
                 (

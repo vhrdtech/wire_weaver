@@ -12,6 +12,8 @@ use wire_weaver::shrink_wrap::Series;
 use ww_si::origins::{Angle, Celsius};
 use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
 use ww_si::quantities::{Height, Width};
+use ww_si::systems::Gaussian;
+use ww_si::systems::gaussian::{Gauss, quantities::GaussianFluxDensity};
 use ww_si::units::{
     self, AngularVelocity, Byte, Degree, Frame, Item, Meter, Of, Per, Ratio, Sample, Second, Times,
     Torque, Watt,
@@ -86,6 +88,10 @@ trait Quantities {
     property!(ro shunt: Fixed<units::Ohm, Milli, u16>);
     /// An NCO's phase in 0.01°: `Phase<Degree>` is `Of<PhaseAngle, Degree>`, not a mechanical angle
     property!(ro phase: Fixed<units::Phase<Degree>, Centi, u16>);
+    /// A magnetometer in mG: a unit of Gaussian, not of SI (exact_units UNIT-9)
+    property!(ro field: Fixed<Gauss, Milli, i16>);
+    /// The same field in this crate's gamma, 10⁻⁵ G, a unit declared in Gaussian
+    property!(ro survey: Fixed<Gamma, One, i32>);
 }
 
 ww_si::origin! {
@@ -96,6 +102,8 @@ ww_si::origin! {
 ww_si::unit! {
     /// Revolutions per minute: π/30 rad/s
     pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
+    /// The gamma of magnetic surveys, 10⁻⁵ G: a unit of Gaussian (exact_units UNIT-9)
+    pub struct Gamma = "γ" (ascii "gamma", long "gamma"), [Gaussian: g 1/2, cm -1/2, s -1] quantity GaussianFluxDensity, Pow10(-5);
 }
 
 /// Degrees per second, a gyro's rate

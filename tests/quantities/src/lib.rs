@@ -52,6 +52,8 @@ mod tests {
     type Width = Fixed<units::Of<ww_si::quantities::Width, units::Meter>, Milli, u16>;
     type Shunt = Fixed<units::Ohm, Milli, u16>;
     type NcoPhase = Fixed<units::Phase<units::Degree>, Centi, u16>;
+    type Field = Fixed<ww_si::systems::gaussian::Gauss, Milli, i16>;
+    type Survey = Fixed<quantities_api::Gamma, One, i32>;
 
     struct Values {
         voltage: Volt,
@@ -565,6 +567,21 @@ mod tests {
             ) -> GetResult<NcoPhase, ()> {
                 GetResult::Value(NcoPhase::new(9000))
             }
+
+            fn get_field(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Field, ()> {
+                // the Earth's field, about 0.5 G
+                GetResult::Value(Field::new(500))
+            }
+
+            fn get_survey(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Survey, ()> {
+                GetResult::Value(Survey::new(50_000))
+            }
         }
 
         pub mod api_impl {
@@ -887,6 +904,55 @@ mod tests {
                 .converts(height.quantity.as_expr(), &**bundle),
             Some(false)
         );
+    }
+
+    /// exact_units UNIT-9: a unit of Gaussian, exact_units' and a crate's own, comes with its dimension in Gaussian
+    /// and the bundle lists Gaussian's definition, so a client tells mG from mT and converts the gamma to the gauss
+    /// without a table of its own.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn systems_of_the_model() {
+        let (device, _values) = start("quantities/systems");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let mut units = Vec::new();
+        for name in ["field", "survey"] {
+            let (_, ty) = read(&client, &root, name).await;
+            let Ok(TypeOwned::Struct(f)) = ty.get_in_line(bundle) else {
+                panic!("Fixed");
+            };
+            let Some(GenericArgOwned::Type(u)) = f.instance_of.as_ref().unwrap().args.first()
+            else {
+                panic!("Fixed<U, ..>");
+            };
+            units.push(ww_self::units::unit_of(u, bundle).unwrap());
+        }
+        let [gauss, gamma]: [_; 2] = units.try_into().unwrap();
+        let gaussian = ww_si::MarkerIdOwned {
+            crate_name: "exact_units".into(),
+            name: "Gaussian".into(),
+        };
+        assert_eq!(gauss.dim.system(), &gaussian);
+        assert_eq!(gamma.dim.system(), &gaussian);
+        assert_eq!(gauss.dim.as_dim().to_string(), "g¹ᐟ²·cm⁻¹ᐟ²·s⁻¹");
+        // the bundle lists the system the units count in, its definition whole
+        let listed = bundle.types.iter().find_map(|t| match t {
+            ww_self::TypeLocationOwned::InLine {
+                ty: TypeOwned::Struct(s),
+                ..
+            } => s.marker()?.system_def(),
+            _ => None,
+        });
+        let compiled =
+            ww_si::SystemDefOwned::try_from(*<ww_si::systems::Gaussian as ww_si::System>::DEF)
+                .unwrap();
+        assert_eq!(listed, Some(&compiled));
+        // within Gaussian by scale: 1 γ is 10⁻⁵ G
+        assert_eq!(
+            gamma.factor_to(&gauss, &**bundle),
+            Some(Magnitude::new(1, 1, -5, 0, 0))
+        );
+        // a tesla is SI's: B's dimension in another system, not the same, so no factor between them
+        assert!(!gauss.dim.as_dim().same(<units::Tesla as Unit>::DIM));
     }
 
     /// INT-13: the origins of points come with their definitions, an origin of the API's crate declared above °C

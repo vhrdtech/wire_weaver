@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9c81ec5c3d97a0b78294f5f63eeeea03f83aef8c2f9f27d7f4a8e95c33cf8426
+// shrink_wrap sha256: d3f9298b3015012b02896aec7fcff7511cbfbb5da18a84938753213613acd625
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -69,14 +69,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        125,
-        222,
-        26,
-        132,
-        50,
-        2,
-        203,
-        144,
+        103,
+        233,
+        14,
+        1,
+        201,
+        233,
+        204,
+        160,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",
@@ -360,11 +360,11 @@
 ], ext_crates: [
     (crate_id: "ww_pwm", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 2, revision: 0)),
+    Some((line: 3, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

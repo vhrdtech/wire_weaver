@@ -141,7 +141,7 @@ ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_tape = { version = "0.1.0", path = "./ww_tape", default-features = false }
 
 # ww_stdlib, each crate has its own version
-ww_adc = { version = "0.1.0", path = "./ww_stdlib/ww_adc", default-features = false }
+ww_adc = { version = "0.2.0", path = "./ww_stdlib/ww_adc", default-features = false }
 ww_block = { version = "0.1.0", path = "./ww_stdlib/ww_block", default-features = false }
 ww_board_info = { version = "0.3.0", path = "./ww_stdlib/ww_board_info", default-features = false }
 ww_can_bus = { version = "0.1.0", path = "./ww_stdlib/ww_can_bus", default-features = false }
@@ -166,7 +166,7 @@ ww_pin_diag = { version = "0.1.0", path = "./ww_stdlib/ww_pin_diag", default-fea
 ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
 ww_recorder = { version = "0.1.0", path = "./ww_stdlib/ww_recorder", default-features = false }
 ww_sd = { version = "0.1.0", path = "./ww_stdlib/ww_sd", default-features = false }
-ww_si = { version = "0.2.0", path = "./ww_stdlib/ww_si", default-features = false }
+ww_si = { version = "0.3.0", path = "./ww_stdlib/ww_si", default-features = false }
 ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generator", default-features = false }
 ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
 ww_timebase = { version = "0.1.0", path = "./ww_stdlib/ww_timebase", default-features = false }

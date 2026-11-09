@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `Clock`, `LastReset`, `Counters` and `Indication` follow `ww_si` 0.3.0 (EVO-44), as they did for SW-24 and NUM-19.
 - Units are compared on exact_units UNIT-10's `Dim` (EVO-44): a `MarkerDef::Base` is read as a unit, and dimensions combine with `DimOwned::checked_mul`.
 - Unit definitions are read from `exact_units::UnitDef` (STD-106): the kind from its `quantity`, a conventional value from its `provenance`; an origin's reference is a `MarkerId` and shown by it (`exact_units::AmbientPressure`, `the unit's zero` for `UnitZero`). Same verdicts as before.
 - The wire version is checked apart from the crate version (EVO-27): `Check`'s verdict and `Check::save` fail when the declared wire version is lower than the changes need, goes back, or is no longer declared, naming the version to declare and where (`#[ww_api_root(wire = ..)]`, or `[package.metadata.wire_weaver] wire` in `Cargo.toml` for a crate without an API root). A `#[since]` newer than the crate's wire version fails the check too, instead of being a warning: it is in the new `Report::since_too_new`, no longer in `Report::warnings`. Code that only checked `Report::check_version()` calls `Report::check_wire()` as well. `Report` has new public fields `old_wire`, `new_wire`, `wire_bump`, `wire_reasons` and `since_too_new`, so a `Report { .. }` literal needs them. `compat::signature_change` returns the new `SignatureChange` (`message`, `arguments_changed`) instead of a `String`.

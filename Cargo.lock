@@ -6269,7 +6269,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "ww_adc"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
@@ -6735,7 +6735,7 @@ dependencies = [
 
 [[package]]
 name = "ww_si"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",

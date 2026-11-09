@@ -156,7 +156,9 @@ mod tests {
     /// `exact_units`' NaN-free floats (NUM-19), which changed the definition of `Unbounded` that `Quantity` names;
     /// and with `ww_numeric` moving to a new wire line, w2.0 (SW-24, `NumericBaseType`/`NumericValue::INib32`
     /// have no catch-all on either enum, so the addition is breaking), which changes `AnyQuantity`'s skipped
-    /// `NumericValue` signature that `Quantity` carries, hence `Second`'s.
+    /// `NumericValue` signature that `Quantity` carries, hence `Second`'s; and with `ww_si` moving to 0.3.0 and a
+    /// new wire line, w3.0, for exact_units' new `Dim` and `UnitNames` (UNIT-10, IO-9, EVO-44), which `Second` now
+    /// names.
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -190,7 +192,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0x61, 0xf6, 0xc6, 0x3f, 0x76, 0x5d, 0x2f, 0xf9]);
+        assert_eq!(signature, [0xe7, 0x22, 0x9a, 0x43, 0x3f, 0x5c, 0xb0, 0x77]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

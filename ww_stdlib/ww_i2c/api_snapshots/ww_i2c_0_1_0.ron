@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b041c52a08c3990e6661e44598f63ce2165b04c3a6abe60ee76af91a5d097f18
+// shrink_wrap sha256: 7b8b0f6455dad6047530fee575c00c8e5ff3b225e2a5d5a33ac1e5d57fbd9e55
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -106,14 +106,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        125,
-        222,
-        26,
-        132,
-        50,
-        2,
-        203,
-        144,
+        103,
+        233,
+        14,
+        1,
+        201,
+        233,
+        204,
+        160,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         149,
@@ -975,11 +975,11 @@
 ], ext_crates: [
     (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 2, revision: 0)),
+    Some((line: 3, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `ww_si` 0.3.0 (wire `w3.0`) and `ww_adc` 0.2.0 (wire `w2.0`) snapshots are new (EVO-44); every current snapshot that names a `ww_si` type (`ww_can_bus`, `ww_counters`, `ww_firmware_info`, `ww_gpio`, `ww_i2c`, `ww_indication`, `ww_logic_analyzer`, `ww_onewire`, `ww_pwm`, `ww_recorder`, `ww_signal_generator`, `ww_spi`, `ww_timebase`, `ww_uart`) saved again in place against it, as SW-24 did, and `ww_si_0_2_0.ron` / `ww_adc_0_1_0.ron` in place for `SIExpr`'s new signature. `signatures_from_before_marker_definitions`' pinned `ww_timebase::Clock` signature moves with it.
 - Snapshots saved again with exact_units UNIT-10's `Dim` (seven exponents in halves, a sorted list of distinguished bases, described by `DimWire`'s shape) and IO-9's `UnitNames` (EVO-44): `exact_units`, `ww_si` and `ww_adc`.
 - Snapshots saved again with `Magnitude`'s `Symbols { pi, ln2, ln10, mu0, g }` and 16 prime slots (exact_units NUM-10, EVO-43).
 - Snapshots saved again with unit definitions as `exact_units::UnitDef` and ids on scales and origins (STD-106, EVO-35): `exact_units`' snapshot holds the new `MarkerDef`, and `ww_si` and `ww_adc` the new signature of `SIExpr`.

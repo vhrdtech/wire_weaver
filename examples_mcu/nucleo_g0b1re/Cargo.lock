@@ -2045,7 +2045,7 @@ dependencies = [
 
 [[package]]
 name = "ww_si"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "exact_units",
  "shrink_wrap",

@@ -2018,10 +2018,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client` `host_of_two_lines_*`, `wire_weaver_core` `two_versions_of_one_crate_under_other_names`,
   `wire_weaver_evolution` `removed_variant_breaks_rust_code`; docs `docs/evolution/multi_line_host.md`. Follow-ups:
   EVO-32, EVO-33, CLT-61 to CLT-65, SRV-57, TOOL-32.
-- 📋 **EVO-38 Snapshots per root** · `v0.5` — one snapshot per API root and wire version
-  (`crate.module.Trait@w2.1`), the crate version recorded inside; old crate-version files still read; `ww api
-  save`, `wire_weaver_snapshots` and `just save-snapshots` per root. Needed before `ww api save`/`check` take a
-  crate with a `roots` table (EVO-37).
+- ✅ **EVO-38 Snapshots per root** · `v0.5` — a crate with a `roots` table (EVO-37) has one snapshot per API root
+  and wire version, `api_snapshots/<crate>.<module path>.<Trait>@w<line>.<revision>.ron`: the root and what it
+  reaches, `#[since]` on its line, the crate version recorded inside (`wire_weaver_core::load_root`). `ww api save`
+  and `Check::save` save each root, checked against its previous snapshot, and write nothing when one is refused; an
+  unchanged root keeps its file and older crate version, one changed without a wire change has it rewritten. The
+  crate's whole-crate files from before it had several roots are read as earlier snapshots of the root on their line
+  with the same trait name (`snapshot_files::root_snapshots`). Crates with one root or none and `ww_stdlib` keep
+  crate-version files; `wire_weaver_snapshots` embeds only those, so `just save-snapshots` is unchanged. `ww api
+  check` of such a crate is EVO-39. Docs: `docs/evolution/checker_tool.md#several-api-roots-in-one-crate`; tests
+  `wire_weaver_evolution` `snapshots_per_root`, `crate_snapshot_is_a_roots_previous_one`, `wire_weaver_core`
+  `snapshot_per_root`.
 - 📋 **EVO-39 The checker per root** · `v0.5` — each root against its own line's latest snapshot, a changed
   `common` type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
   root a breaking crate bump, `#[since]` per line checked, one `load_crate` cache across roots and the CLI.
@@ -2070,7 +2077,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `[package.metadata.wire_weaver.roots]` (`"wire_v2::Thermo" = "w2.1"`). `ww_codegen!(api::wire_v2::Thermo ..)`
   names a root by its module path, `#[ww_api_root]` in a module finds itself from its source file, a line's module
   names shared items with `super::`, and `#[since = "w1.2, w2.1"]` on a shared item names a revision per line.
-  Snapshots and checks per root are EVO-38/EVO-39. Docs: `docs/evolution/rules.md#several-lines-in-one-crate`;
+  Snapshots per root are EVO-38, checks per root EVO-39. Docs: `docs/evolution/rules.md#several-lines-in-one-crate`;
   tests `tests/multi_root`.
 - ✅ **EVO-45 Quantity specs in the model** · `v0.5` — the wire change of exact_units UNIT-8: a `UnitDef` names the quantity it measures by the quantity marker's `MarkerId` (`exact_units::Resistance` for `Ohm`) instead of an English name; `MarkerDef::Quantity(QuantityDef)` is new (id, parent by id, dimension, `is_kind`, character), appended after `Base`, and `MarkerDef::Of` (`units::Of<Q, U>`) takes `Phase`'s place, `Phase<A>` being the alias `Of<PhaseAngle, A>`. The walker reads `quantity!` lines and `quantity X` on `unit!` lines and checks them against `quantities::ALL`, describes `QuantityRef` by `MarkerId`'s shape, and refuses two open roots of one dimension; a bundle keeps every quantity a marker names by id, on the device and when a client puts skipped definitions back. `ww_self::units` resolves a unit's quantity (`CanonicalUnit::quantity`, a `QuantityExprOwned` for `UnitKind`) with the bundle as the table, `factor_to` takes exact_units' conversion rule (a height converts to a length, not to a width), the evolution checker compares quantities, and the dynamic client shows `Of<Q, U>` as `U`. Conformance case `model.marker_def.unit_kind` carries the mark; `model.marker_def.of`, `.quantity` and `.quantity_kind` are new; tests in `tests/quantities` (`quantities_of_the_model`). No device or host uses the format. [Docs](docs/std_library/units_in_the_model.md#quantities).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor

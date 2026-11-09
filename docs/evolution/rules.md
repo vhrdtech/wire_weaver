@@ -138,8 +138,9 @@ Each root's wire version is an entry of the `roots` table, by its module path:
   one revision per line, and each root takes its own line's.
 * Every root needs an entry once the table exists; a crate-level `wire = ..` stays for a crate with one root and for
   crates whose traits are reached by global paths (`ww_stdlib`).
-* Snapshots and checks per root are EVO-38 and EVO-39: until then `ww api save` and `ww api check` refuse a crate
-  with a `roots` table.
+* `ww api save` saves one snapshot per root and wire version
+  ([several API roots](checker_tool.md#several-api-roots-in-one-crate)). Checks per root are EVO-39: until then
+  `ww api check` refuses a crate with a `roots` table.
 
 ### Which bump a change needs
 

@@ -241,6 +241,37 @@ for f in $(git diff --cached --name-only --diff-filter=MD -- my_device_api/api_s
 done
 ```
 
+## Several API roots in one crate
+
+A crate that holds several wire lines, one `#[ww_api_root]` per module with its wire version in
+`[package.metadata.wire_weaver.roots]` ([several lines in one crate](rules.md#several-lines-in-one-crate)), has one
+snapshot per root and wire version instead of one per crate version. Crates with one root, or none (`ww_stdlib`),
+keep their crate-version files:
+
+```
+$ ww api save tests/multi_root_api
+wire_v1::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api.wire_v1.Thermo@w1.2.ron, 5 resources, 2 traits, 1 types
+wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api.wire_v2.Thermo@w2.1.ron, 5 resources, 2 traits, 1 types
+```
+
+* A root's snapshot holds the root, the traits and types it reaches, and the crate version it was saved at. A type in
+  `common` that no root uses is in none of them, and another line's types are not in this one's.
+* `#[since = "w1.2, w2.1"]` on a shared item is recorded as the revision of the snapshot's own line.
+* Each root is checked against its own previous snapshot before it is saved, as a crate is: the version and the
+  entry in the `roots` table must be bumped enough. Nothing is written when any root is refused.
+* A root that didn't change since a crate bump keeps its file, with the older crate version in it. A root changed
+  without a wire change (a doc comment, a Rust-only change) has the file of its wire version rewritten at the new
+  crate version: the file of a wire version holds the latest Rust shape of that wire. A wire change gets a new file.
+* A crate that had one root and now has several still has its older whole-crate snapshots
+  (`thermo_api_1_2_0.ron`). Each counts as an earlier snapshot of the root on the same line with the same trait
+  name, cut down to that root.
+* `ww api check` and `Check::run` refuse such a crate for now: checking each root against its line's latest snapshot
+  is EVO-39.
+
+The pre-commit hook [above](#a-released-snapshot-never-changes) refuses the rewrite of a released root's file. In a
+crate with a `roots` table, leave the per-root files out of its loop with
+`-- my_device_api/api_snapshots ':!my_device_api/api_snapshots/*@w*'`.
+
 ## Listing all changes
 
 `ww api diff <path>` compares the same versions as `ww api check` (and also takes `--against` or a snapshot file), and

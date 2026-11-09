@@ -6194,7 +6194,7 @@ left out. A device picks any subset the same way, one <code>omit_if(..)</code> e
 <h2 id="serving-it">Serving it<a class="headerlink" href="#serving-it" title="Permanent link">&para;</a></h2>
 <p>Generate handler stubs with <code>ww api scaffold</code> (AGENTS.md describes the flow) for the same options as your
 <code>ww_codegen!</code> call:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cargo<span class="w"> </span>ww<span class="w"> </span>api<span class="w"> </span>scaffold<span class="w"> </span>ww_stdlib/ww_recorder<span class="w"> </span>--name<span class="w"> </span>Recorder
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cargo<span class="w"> </span>ww<span class="w"> </span>api<span class="w"> </span>scaffold<span class="w"> </span>ww_stdlib/ww_recorder<span class="w"> </span>--root<span class="w"> </span>Recorder
 </span></code></pre></div>
 <p>It prints the server struct, a stub for every handler (<code>status</code>, <code>card</code>, <code>prepare_format</code>, ..., <code>track_info</code>,
 <code>track_counters</code>, <code>valid_indices_root_track</code>, the <code>settings</code> getter and setter) and the matching <code>ww_codegen!</code>; the

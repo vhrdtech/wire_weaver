@@ -6,6 +6,7 @@ use crate::codegen::{index_chain::IndexChain, ty_def::TyPos};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
+use std::collections::{BTreeSet, HashMap, HashSet};
 use ww_self::{
     ApiItemKindOwned, ApiLevelOwned, Batching, Delivery, Multiplicity, PropertyAccess, TypeOwned,
 };
@@ -25,6 +26,9 @@ fn to_ww_bytes(no_alloc: bool, buf: TokenStream) -> TokenStream {
     }
 }
 
+/// Serializers of stream updates of `level` and every level under it: one struct per trait and depth. A trait used
+/// at several places of one API (`probe.channel` and `aux[]`) gets one struct per depth it is at, and one only per
+/// depth, since the code depends on nothing else.
 pub(crate) fn stream_ser_methods_recursive(
     bundle: &CodegenBundle,
     level: &ApiLevelOwned,
@@ -32,6 +36,79 @@ pub(crate) fn stream_ser_methods_recursive(
     no_alloc: bool,
     is_root: bool,
 ) -> TokenStream {
+    let mut names = SerNames::default();
+    names.collect_depths(bundle, level, index_chain);
+    stream_ser_level(bundle, level, index_chain, no_alloc, is_root, &mut names)
+}
+
+/// Names of the serializer structs: the depths each trait is at, and the structs already emitted.
+#[derive(Default)]
+struct SerNames {
+    depths: HashMap<String, BTreeSet<usize>>,
+    emitted: HashSet<String>,
+}
+
+impl SerNames {
+    fn collect_depths(
+        &mut self,
+        bundle: &CodegenBundle,
+        level: &ApiLevelOwned,
+        index_chain: IndexChain,
+    ) {
+        let mod_name = util::mod_name(level, bundle).to_string();
+        if !self
+            .depths
+            .entry(mod_name)
+            .or_default()
+            .insert(index_chain.len())
+        {
+            return;
+        }
+        for item in &level.items {
+            if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind {
+                let mut index_chain = index_chain;
+                index_chain.increment_length();
+                if matches!(item.multiplicity, Multiplicity::Array { .. }) {
+                    index_chain.increment_length();
+                }
+                self.collect_depths(bundle, bundle.get_trait(trait_idx.0).unwrap(), index_chain);
+            }
+        }
+    }
+
+    /// `<Mod>StreamSerializer`, with the depth when the trait is at more than one.
+    fn name(
+        &self,
+        level: &ApiLevelOwned,
+        bundle: &CodegenBundle,
+        index_chain: IndexChain,
+    ) -> Ident {
+        let mod_name = util::mod_name(level, bundle);
+        let several = self
+            .depths
+            .get(&mod_name.to_string())
+            .is_some_and(|d| d.len() > 1);
+        let name = if several {
+            format!("{mod_name}_stream_serializer_{}", index_chain.len())
+        } else {
+            format!("{mod_name}_stream_serializer")
+        };
+        Ident::new(name.to_case(Case::Pascal).as_str(), mod_name.span())
+    }
+}
+
+fn stream_ser_level(
+    bundle: &CodegenBundle,
+    level: &ApiLevelOwned,
+    index_chain: IndexChain,
+    no_alloc: bool,
+    is_root: bool,
+    names: &mut SerNames,
+) -> TokenStream {
+    let ser_struct_name = names.name(level, bundle, index_chain);
+    if !names.emitted.insert(ser_struct_name.to_string()) {
+        return TokenStream::new();
+    }
     let mut ts = TokenStream::new();
     let mut child_ts = TokenStream::new();
     let mut methods_ts = TokenStream::new();
@@ -46,18 +123,19 @@ pub(crate) fn stream_ser_methods_recursive(
 
         if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind {
             let child_level = bundle.get_trait(trait_idx.0).unwrap();
-            let child_struct_name = stream_ser_struct_name(child_level, bundle);
 
             index_chain.increment_length();
             if is_array {
                 index_chain.increment_length();
             }
-            child_ts.extend(stream_ser_methods_recursive(
+            let child_struct_name = names.name(child_level, bundle, index_chain);
+            child_ts.extend(stream_ser_level(
                 bundle,
                 child_level,
                 index_chain,
                 no_alloc,
                 false,
+                names,
             ));
 
             let level_entry_fn_name = Ident::new(item.ident.as_str(), Span::call_site());
@@ -243,7 +321,6 @@ pub(crate) fn stream_ser_methods_recursive(
         });
     }
 
-    let ser_struct_name = stream_ser_struct_name(level, bundle);
     let root_entry_fn = maybe_quote(
         is_root,
         quote! {
@@ -689,14 +766,4 @@ fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> Toke
             quote! { let index_chain = [UNib32(#id), UNib32(index)]; }
         }
     }
-}
-
-fn stream_ser_struct_name(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> Ident {
-    let mod_name = util::mod_name(api_level, api_bundle);
-    Ident::new(
-        format!("{}_stream_serializer", mod_name)
-            .to_case(Case::Pascal)
-            .as_str(),
-        mod_name.span(),
-    )
 }

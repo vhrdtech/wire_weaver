@@ -86,4 +86,9 @@ impl IndexChain {
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    /// Indices pushed (the depth of a level's own path, array indices counted).
+    pub fn len(&self) -> usize {
+        self.len
+    }
 }

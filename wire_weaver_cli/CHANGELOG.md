@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- w0, the design line (EVO-41): `ww api save` saves no snapshot of a crate or root on `w0.x` and says why, `ww api check` shows what differs from a snapshot as information with no bump asked, and both warn when such a crate can be published.
 - `ww api save` on a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) saves a snapshot per root, `api_snapshots/<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`, each checked against the root's previous one, prints a line per root, and warns when a root has no earlier snapshot while the crate has older ones (EVO-38).
 - `ww api scaffold`'s `--name <Trait>` is now `--root <Trait>` (TOOL-32, `--name` still works as a hidden alias for scripts): the same meaning for a crate with one root, and it now takes a module path (`--root wire_v2::Thermo`) to pick a root in a crate with several (EVO-37).
 - `ww tap`, `ww observe`, `ww stream` and `ww explain` show an `AnyQuantity` whose unit comes by reference (STD-107, CLT-66) with the unit the device's API model defines (`1500 rpm`), also from a capture file, which stores the model.

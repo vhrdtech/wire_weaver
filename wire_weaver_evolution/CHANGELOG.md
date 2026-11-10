@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- w0, the design line (EVO-41): `Check::save` keeps no snapshot of a crate or API root on `w0.x`, the new `SaveStatus::DesignLine` says so; its first snapshot is saved once it moves to `w1.0`. `Check::run` on a w0 crate passes, with `strict` and `require_current` too: against a snapshot that exists (one kept from before, or `against`) the report is information and needs no bump of either kind (`Comparison::design_line`, `NoSnapshot::design_line`), and `Report::check_wire` asks no wire bump between two w0 versions. A crate that can be published with a root on w0 gets a warning (`Comparison::warnings`, `NoSnapshot::warnings`, `Outcome::warnings()`, `Saved::warnings`). Code building `Comparison` or `NoSnapshot` with a struct literal or matching `SaveStatus` exhaustively adds the new fields and variant.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `Clock`, `LastReset`, `Counters` and `Indication` follow `ww_si` 0.4.0 (EVO-47), as they did for EVO-44.
 - Units are compared by quantity (exact_units UNIT-8, EVO-45): a step carries a `ww_self::units::QuantityExprOwned` for the old kind; another quantity of one dimension (`Of<Height, Meter>` vs `Of<Width, Meter>`) is a `Rule::Meaning` break, a unit that gained a quantity under its name the note `quantity of its own added`.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `Clock`, `LastReset`, `Counters` and `Indication` follow `ww_si` 0.3.0 (EVO-44), as they did for SW-24 and NUM-19.

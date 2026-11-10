@@ -335,6 +335,13 @@ pub fn api_roots(crate_path: &Path) -> Result<BTreeMap<String, WireVersion>> {
     ManifestContext::load(crate_path)?.roots()
 }
 
+/// Whether the crate at `crate_path` can be published: not `publish = false` (or `publish = []`, also through
+/// `publish.workspace = true`), which marks test, bench and example crates. `ww api check` warns on a w0 root in
+/// one (EVO-41).
+pub fn publishable(crate_path: &Path) -> Result<bool> {
+    ManifestContext::load(crate_path)?.publishable(&mut Scratch::default())
+}
+
 /// Wire version of an API root (EVO-31, EVO-37): its entry in `[package.metadata.wire_weaver.roots]` of its crate's
 /// `Cargo.toml` (`"wire_v2::Thermo" = "w2.1"`, for a crate with several roots), else the crate's
 /// `[package.metadata.wire_weaver] wire = ".."`, like every other crate. `#[ww_api_root(wire = "..")]` is the entry

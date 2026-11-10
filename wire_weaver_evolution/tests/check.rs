@@ -1056,3 +1056,125 @@ fn renamed_root_is_saved_with_a_warning() {
     assert!(saved.warnings.is_empty(), "{:?}", saved.warnings);
     assert!(saved.previous.is_some());
 }
+
+/// w0, the design line (EVO-41): no snapshot is saved or required, a difference against one is information, and
+/// the move to w1.0 saves the first snapshot.
+#[test]
+fn design_line_keeps_no_snapshots() {
+    let design = API.replace("wire = \"w1.0\"", "wire = \"w0.3\"");
+    let c = TestCrate::new("design_line");
+    c.write("0.1.0", &design);
+    let saved = save_one(c.path(), false);
+    assert_eq!(saved.status, SaveStatus::DesignLine);
+    assert!(saved.warnings.is_empty(), "a test crate: {:?}", saved.warnings);
+    assert!(!c.path().join(SNAPSHOTS_DIR).exists());
+
+    // strict and require_current pass: none is missing
+    for outcome in [
+        Check::new(c.path()).strict(true).run().unwrap(),
+        Check::new(c.path()).require_current(true).run().unwrap(),
+    ] {
+        let Outcome::NoSnapshot(n) = &outcome else {
+            panic!("{outcome:?}")
+        };
+        assert!(n.design_line);
+        has_all(
+            &outcome.verdict().unwrap(),
+            &["w0 is the design line", "breaks are accepted"],
+        );
+    }
+    Check::new(c.path()).require_current(true).assert();
+
+    // a break against a snapshot (one kept from before, or `--against`) is information, no bump of either kind
+    c.save();
+    let snapshot = c.snapshot("test_api_0_1_0.ron");
+    c.write("0.1.0", &design.replace("    fn led_off();\n", ""));
+    for check in [
+        Check::new(c.path()).strict(true),
+        Check::new(c.path()).require_current(true),
+        Check::new(c.path()).against(&snapshot),
+    ] {
+        let outcome = check.run().unwrap();
+        let Outcome::Compared(comparison) = &outcome else {
+            panic!("{outcome:?}")
+        };
+        assert!(comparison.design_line);
+        assert_eq!(comparison.report.change, Change::Breaking);
+        assert!(comparison.report.check_wire().is_ok());
+        assert!(
+            comparison
+                .report
+                .required()
+                .contains("wire w0.3 (the design line: no wire bump)"),
+            "{}",
+            comparison.report.required()
+        );
+        has_all(
+            &outcome.verdict().unwrap(),
+            &["w0.3 is the design line", "the differences above are information"],
+        );
+    }
+    std::fs::remove_dir_all(c.path().join(SNAPSHOTS_DIR)).unwrap();
+
+    // the first release: w1.0, and the first snapshot
+    c.write("0.2.0", &design.replace("wire = \"w0.3\"", "wire = \"w1.0\""));
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::Saved);
+    assert!(c.snapshot("test_api_0_2_0.ron").exists());
+    assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
+}
+
+/// A crate that can be published with its root on w0 (EVO-41): `ww api check` and `ww api save` warn, the verdict
+/// passes.
+#[test]
+fn design_line_in_a_publishable_crate_warns() {
+    let c = TestCrate::new("design_line_publishable");
+    std::fs::write(
+        c.path().join("Cargo.toml"),
+        "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+         [package.metadata.wire_weaver]\nwire = \"w0.0\"\n\n[dependencies]\n",
+    )
+    .unwrap();
+    std::fs::write(
+        c.path().join("src/lib.rs"),
+        "use wire_weaver::prelude::*;\n#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n",
+    )
+    .unwrap();
+    let outcome = Check::new(c.path()).strict(true).run().unwrap();
+    assert!(outcome.verdict().is_ok());
+    let [warning] = outcome.warnings() else {
+        panic!("{:?}", outcome.warnings())
+    };
+    has_all(
+        warning,
+        &["test_api can be published", "w0.0, the design line", "move it to w1.0 before publishing"],
+    );
+    assert!(outcome.to_string().contains("warning: test_api can be published"));
+    let saved = save_one(c.path(), false);
+    assert_eq!(saved.status, SaveStatus::DesignLine);
+    assert_eq!(saved.warnings.len(), 1, "{:?}", saved.warnings);
+}
+
+/// A w0 root next to a released one in one crate (EVO-41): only the released root gets a snapshot.
+#[test]
+fn design_line_root_gets_no_snapshot_of_its_own() {
+    let c = TestCrate::new("design_line_root");
+    let roots = [("wire_v1::Api", "w1.0"), ("wire_v2::Api", "w0.0")];
+    let modules = [("common", COMMON), ("wire_v1", LINE_1), ("wire_v2", LINE_2)];
+    c.write_roots("0.1.0", &roots, &modules);
+    assert_eq!(
+        saved_roots(c.path()),
+        [
+            (
+                "wire_v1::Api".into(),
+                "test_api_0_1_0.wire_v1.Api@w1.0.ron".into(),
+                SaveStatus::Saved
+            ),
+            (
+                "wire_v2::Api".into(),
+                "test_api_0_1_0.wire_v2.Api@w0.0.ron".into(),
+                SaveStatus::DesignLine
+            ),
+        ]
+    );
+    assert!(!c.snapshot("test_api_0_1_0.wire_v2.Api@w0.0.ron").exists());
+}

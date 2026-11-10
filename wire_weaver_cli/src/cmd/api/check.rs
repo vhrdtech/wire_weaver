@@ -23,12 +23,15 @@ pub(crate) fn check(
         Ok(ok) if matches!(outcome, Outcome::NoSnapshot(_)) => println!("{ok}"),
         Ok(ok) => {
             if let Outcome::Compared(c) = &outcome
-                && c.report.change != Change::None
+                && (c.report.change != Change::None || c.design_line)
             {
                 println!("{}", style(ok).green());
             }
         }
         Err(e) => return Err(anyhow!(e)),
+    }
+    for warning in outcome.warnings() {
+        println!("{} {warning}", style("warning:").yellow());
     }
     print_hints(outcome.hints());
     Ok(())

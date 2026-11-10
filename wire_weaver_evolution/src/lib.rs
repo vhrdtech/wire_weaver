@@ -252,6 +252,8 @@ impl Report {
             (Some(old), Some(new)) if new < old => {
                 errors.push(format!("{crate_id} wire version {new} is older than {old}"))
             }
+            // w0, the design line (EVO-41): breaks are accepted without a new line
+            (Some(old), Some(new)) if old.is_design_line() && new.is_design_line() => {}
             (Some(old), Some(new)) if WireBump::between(old, new) < self.wire_bump => {
                 errors.push(format!(
                     "{crate_id} wire {old} -> {new} has {}, which needs {}: {} or later",
@@ -284,6 +286,9 @@ impl Report {
     /// later (compatible position ...)`.
     pub fn required(&self) -> String {
         let wire = match (self.old_wire, self.minimal_wire()) {
+            _ if let Some(new) = self.new_wire.filter(|w| w.is_design_line()) => {
+                format!("wire {new} (the design line: no wire bump)")
+            }
             (Some(old), Some(_)) if self.wire_bump == WireBump::None => {
                 format!("wire {old} (no wire bump)")
             }

@@ -111,9 +111,6 @@ impl Check {
                 self.path.display()
             ));
         }
-        if self.require_current && !is_snapshot && self.against.is_none() {
-            return self.run_current();
-        }
         let (new, new_recorded, new_label, dir, hints) = if is_snapshot {
             let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
             let new = read(&self.path)?;
@@ -130,6 +127,15 @@ impl Check {
             let dir = self.crate_snapshots_dir();
             (new, Recorded::default(), "source".to_string(), dir, hints)
         };
+        // w0, the design line (EVO-41): no snapshot is required, what one shows is information
+        let design_line = new.wire.is_some_and(|w| w.is_design_line());
+        let warnings = match design_line && !is_snapshot {
+            true => design_line_warnings(&self.path, &new)?,
+            false => vec![],
+        };
+        if self.require_current && !is_snapshot && self.against.is_none() && !design_line {
+            return self.run_current(new, hints);
+        }
         let old = match &self.against {
             Some(against) => read(against)?,
             None => {
@@ -143,10 +149,12 @@ impl Check {
                             version: own.version.clone(),
                             dir,
                             crate_path: (!is_snapshot).then(|| self.path.clone()),
-                            strict: self.strict,
+                            strict: self.strict && !design_line,
                             current_required: false,
                             previous: None,
                             hints,
+                            design_line,
+                            warnings,
                         }));
                     }
                 }
@@ -162,13 +170,13 @@ impl Check {
             new,
             current_required: false,
             hints,
+            design_line,
+            warnings,
         })))
     }
 
-    /// [run](Self::run) with [require_current](Self::require_current).
-    fn run_current(&self) -> Result<Outcome, String> {
-        let (source, hints) =
-            wire_weaver_core::load_crate_with_hints(&self.path).map_err(|e| format!("{e:#}"))?;
+    /// [run](Self::run) with [require_current](Self::require_current), `source` loaded from the crate.
+    fn run_current(&self, source: ApiBundleOwned, hints: Vec<UnitHint>) -> Result<Outcome, String> {
         let dir = self.crate_snapshots_dir();
         let own = source.crate_version(0).map_err(|e| e.to_string())?;
         let current = current_snapshot(&dir, &source)?;
@@ -184,6 +192,8 @@ impl Check {
                 current_required: true,
                 previous: previous.map(|s| s.path),
                 hints,
+                design_line: false,
+                warnings: vec![],
             }));
         };
         let report = compare_recorded(
@@ -215,6 +225,8 @@ impl Check {
             new,
             current_required: true,
             hints,
+            design_line: false,
+            warnings: vec![],
         })))
     }
 
@@ -225,6 +237,9 @@ impl Check {
     /// A crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) gets one snapshot per root and
     /// wire version instead ([root_file_name], EVO-38), each checked against that root's previous one: one [Saved]
     /// per root, in the table's order. Nothing is written when any root is refused.
+    ///
+    /// A crate or root on w0, the design line (EVO-41), gets no snapshot: [SaveStatus::DesignLine]. Its first one
+    /// is saved once it moves to `w1.0`, its first release.
     ///
     /// The snapshot of a released version never changes, which this can't know: a pre-commit hook refusing changes to
     /// committed snapshots of released versions does (docs/evolution/checker_tool.md).
@@ -263,6 +278,10 @@ impl Check {
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
         let dir = self.crate_snapshots_dir();
         let path = dir.join(format!("{}.ron", own.filename_friendly()));
+        if bundle.wire.is_some_and(|w| w.is_design_line()) {
+            let warnings = design_line_warnings(&self.path, &bundle)?;
+            return Ok(not_saved(path, bundle, None, warnings));
+        }
         // with the hash of the shrink_wrap bytes the RON stands for: the build of wire_weaver_snapshots re-encodes the
         // RON and fails when it differs, which proves the round trip lossless
         let contents = wire_weaver_snapshots::render_ron(&bundle)?;
@@ -286,6 +305,10 @@ impl Check {
         let version = own.version.clone();
         let dir = self.crate_snapshots_dir();
         let path = dir.join(root_file_name(&own, root, wire));
+        if wire.is_design_line() {
+            let warnings = design_line_warnings(&self.path, &bundle)?;
+            return Ok(not_saved(path, bundle, Some(root.to_string()), warnings));
+        }
         let contents = wire_weaver_snapshots::render_root_ron(&bundle, root)?;
         let all = root_snapshots(&dir, &own.crate_id, root, wire.line.0)?;
         if let Some(newer) = all.iter().find(|s| key(&s.version) > key(&version)) {
@@ -437,6 +460,11 @@ pub struct Comparison {
     /// Unit-suffix hints found in the source (TOOL-22), empty for a snapshot file: a note, never part of the
     /// verdict.
     pub hints: Vec<UnitHint>,
+    /// The newer side is on w0, the design line (EVO-41): breaks are accepted, the report is information and the
+    /// verdict passes.
+    pub design_line: bool,
+    /// What looked wrong but doesn't change the verdict: a crate that can be published with its root on w0.
+    pub warnings: Vec<String>,
 }
 
 /// No snapshot of the crate at or before its version.
@@ -455,6 +483,10 @@ pub struct NoSnapshot {
     pub previous: Option<PathBuf>,
     /// Unit-suffix hints found in the source (TOOL-22), empty for a snapshot file.
     pub hints: Vec<UnitHint>,
+    /// The crate is on w0, the design line (EVO-41): it keeps no snapshots, so none is missing.
+    pub design_line: bool,
+    /// What looked wrong but doesn't change the verdict: a crate that can be published with its root on w0.
+    pub warnings: Vec<String>,
 }
 
 /// What [Check::save] did.
@@ -486,6 +518,8 @@ pub enum SaveStatus {
     Reformatted,
     /// Nothing written.
     UpToDate,
+    /// Nothing written: the crate or root is on w0, the design line (EVO-41), which keeps no snapshots.
+    DesignLine,
 }
 
 impl fmt::Display for SaveStatus {
@@ -495,6 +529,7 @@ impl fmt::Display for SaveStatus {
             SaveStatus::Refreshed => "refreshed",
             SaveStatus::Reformatted => "reformatted",
             SaveStatus::UpToDate => "up to date",
+            SaveStatus::DesignLine => "not saved, w0 is the design line",
         })
     }
 }
@@ -521,11 +556,22 @@ impl Outcome {
             Outcome::NoSnapshot(n) => &n.hints,
         }
     }
+
+    /// What looked wrong but doesn't change the verdict (a w0 root in a crate that can be published, EVO-41).
+    pub fn warnings(&self) -> &[String] {
+        match self {
+            Outcome::Compared(c) => &c.warnings,
+            Outcome::NoSnapshot(n) => &n.warnings,
+        }
+    }
 }
 
 impl Comparison {
     fn verdict(&self) -> Result<String, String> {
         let report = &self.report;
+        if self.design_line {
+            return Ok(design_line_verdict(report.new_wire, "the differences above are information"));
+        }
         let wire = report.check_wire().err().map(|e| {
             format!(
                 "{e}.\n{} (docs/evolution/rules.md#the-wire-version).",
@@ -766,6 +812,48 @@ fn no_previous_warning(
     )))
 }
 
+/// The passing verdict of a crate on w0, the design line (EVO-41).
+fn design_line_verdict(wire: Option<WireVersion>, what: &str) -> String {
+    let wire = wire.map_or("w0".to_string(), |w| w.to_string());
+    format!(
+        "{wire} is the design line: breaks are accepted and {what}; at its first release the API moves to w1.0, and \
+         `ww api save` keeps its first snapshot (docs/evolution/rules.md#w0-the-design-line)"
+    )
+}
+
+/// The warnings for a crate at `crate_path` with a root on w0, the design line (EVO-41): one when it can be
+/// published, since others then build on an API that may still break without a new line.
+fn design_line_warnings(crate_path: &Path, bundle: &ApiBundleOwned) -> Result<Vec<String>, String> {
+    if !wire_weaver_core::publishable(crate_path).map_err(|e| format!("{e:#}"))? {
+        return Ok(vec![]);
+    }
+    let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
+    Ok(vec![format!(
+        "{} can be published (its Cargo.toml has no `publish = false`), and its API is on {}, the design line, \
+         where breaks need no new line: move it to w1.0 before publishing (docs/evolution/rules.md#w0-the-design-line)",
+        own.crate_id,
+        bundle.wire.map_or("w0".to_string(), |w| w.to_string())
+    )])
+}
+
+/// [Saved] of a crate or root on the design line: nothing to write.
+fn not_saved(
+    path: PathBuf,
+    bundle: ApiBundleOwned,
+    root: Option<String>,
+    warnings: Vec<String>,
+) -> (Saved, Option<String>) {
+    let saved = Saved {
+        path,
+        status: SaveStatus::DesignLine,
+        previous: None,
+        bundle,
+        root,
+        warnings,
+    };
+    (saved, None)
+}
+
 /// Whether the snapshot file at `path`, of the same version as `bundle`, needs writing.
 fn existing_status(
     path: &Path,
@@ -829,6 +917,9 @@ fn current_snapshot(dir: &Path, bundle: &ApiBundleOwned) -> Result<Option<Snapsh
 
 impl NoSnapshot {
     fn verdict(&self) -> Result<String, String> {
+        if self.design_line {
+            return Ok(design_line_verdict(None, "no snapshot is kept or needed"));
+        }
         if self.current_required {
             let version = format!("{} {}", self.crate_id, triplet(&self.version));
             let previous = match &self.previous {
@@ -876,6 +967,9 @@ impl fmt::Display for Outcome {
                 )?;
                 for hint in &n.hints {
                     write!(f, "\n  note: {hint}")?;
+                }
+                for warning in &n.warnings {
+                    write!(f, "\n  warning: {warning}")?;
                 }
                 Ok(())
             }
@@ -925,6 +1019,9 @@ impl fmt::Display for Comparison {
         }
         for hint in &self.hints {
             write!(f, "\n  note: {hint}")?;
+        }
+        for warning in &self.warnings {
+            write!(f, "\n  warning: {warning}")?;
         }
         Ok(())
     }

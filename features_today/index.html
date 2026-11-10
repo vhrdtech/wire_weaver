@@ -5905,6 +5905,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/series/">Columnar series</a></strong>: <code>Series&lt;T&gt;</code>: a list of numbers, timestamps, floats or any struct written field by field, with deltas and bit packing per field, several times smaller than a <code>Vec&lt;T&gt;</code> of samples.</li>
 <li><strong><a href="../serdes/layouts/#sparse-a-struct-of-optional-fields">Sparse structs</a></strong>: A struct of optional fields stored as an <code>OptionAnyVec</code>, for "only what changed" updates.</li>
 <li><strong><a href="../serdes/derive_reference/#validate-path">Checks on read</a></strong>: <code>validate = path</code> rejects out-of-range values as they are read.</li>
+<li><strong><a href="../serdes/derive_reference/#validate-path">Refusals with numbers</a></strong>: A <code>validate</code> hook can say which value it refused and the range it wanted; a host reader gets both, firmware pays nothing.</li>
 <li><strong><a href="../serdes/derive_reference/#display"><code>Display</code> from doc comments</a></strong>: Error enums print their doc lines, no hand-written <code>Display</code>.</li>
 <li><strong><a href="../serdes/derive_reference/#cfg-on-enum-variants"><code>#[cfg]</code> on enum variants</a></strong>: Compile a variant out; it keeps its number on the wire.</li>
 <li><strong><a href="../serdes/derive_reference/#ww_repr-repr-enums-only">Checked discriminants</a></strong>: Variant numbers must fit the chosen <code>ww_repr</code>, implicit ones count like in Rust.</li>

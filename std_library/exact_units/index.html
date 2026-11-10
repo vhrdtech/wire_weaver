@@ -6060,6 +6060,15 @@ refused, naming the nearest one.</p>
 linear <code>FixedType</code>, the code's storage), and <code>ww_self::units::codec_decode</code> / <code>codec_encode</code> run a definition. Only
 μ-law has an algorithm in <code>exact_units</code> so far; the walker reads the shapes without parameters (<code>MuLaw</code>, <code>ALaw</code>,
 <code>PiecewisePower</code>), and a codec whose shape has no algorithm yet is shown as its code.</p>
+<p>A codec may name spare codes, codes that mean no value (<code>CodecDef::spare</code>, a list of <code>CodeSpan { low, high }</code>):
+<code>MuLawSingleZero</code> is μ-law with 0x7F spare, where <code>MuLaw</code> reads it as a second zero. A spare code read from the
+wire is refused, by the typed <code>Coded</code> and by every client from the definition in the model, with the code named:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>127 is a spare code of MuLawSingleZero, no value (exact_units::Coded&lt;MuLawSingleZero, Fixed&lt;Ratio, Pow2&lt;-13&gt;, i16, Unbounded&gt;, u8&gt;)
+</span></code></pre></div>
+<p><code>codec_decode</code> gives <code>None</code> for one, as <code>CodecDef::decode</code> does, and <code>codec_is_spare</code> asks. A spare code is where
+an <code>exact_units::niche::Niched</code> puts its own codes: <code>Niched&lt;Coded&lt;MuLawSingleZero, ..&gt;, Null&lt;0x7F&gt;, u8&gt;</code> is an
+<code>Option</code> of a μ-law sample in one byte, 0x7F the <code>None</code>. The model has no niche wrapper yet, so a client reads a
+<code>Niched</code> as its raw code.</p>
 <h2 id="serde">serde<a class="headerlink" href="#serde" title="Permanent link">&para;</a></h2>
 <p>With the feature <code>serde</code> the numbers are <code>Serialize</code> / <code>Deserialize</code>, <code>no_std</code> and without alloc (STD-94): the same
 rule as the wire, each value as the number it stores, and a field marked <code>with_unit</code> as text in its unit (<code>"1.5

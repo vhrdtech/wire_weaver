@@ -7,7 +7,7 @@ use super::{
     unit_hint::{is_silenced, suggest},
     util::{
         Batched, collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr,
-        get_optional_attr, get_since_attr, get_stream_fn_attr,
+        get_optional_attr, get_since_attr, get_stream_fn_attr, use_tree_globs, use_tree_path_to,
     },
 };
 use anyhow::{Context, Result, anyhow};
@@ -710,20 +710,52 @@ fn find_and_convert_trait(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<ApiItemKindOwned> {
+    let (def_cx, item_trait) = find_trait(&trait_name.ident.to_string(), current_crate, scratch)?;
+    let trait_idx = convert_trait(&item_trait, &def_cx, scratch)?;
+    Ok(ApiItemKindOwned::Trait {
+        trait_idx,
+        omitted: None,
+    })
+}
+
+/// The trait named `name` in `current_crate` and the crate or module it is defined in: defined there, imported by
+/// name (`use super::common::Channel`, `use a::Trait as Renamed`) or through a glob import (looked into last, as Rust
+/// does), as [find_user_item](super::ty) finds a type.
+fn find_trait(
+    name: &str,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<(CrateContext, syn::ItemTrait)> {
     for item in &current_crate.lib_rs_ast.items {
-        let Item::Trait(item_trait) = item else {
+        match item {
+            Item::Trait(item_trait) if item_trait.ident == name => {
+                return Ok((current_crate.clone(), item_trait.clone()));
+            }
+            Item::Use(item_use) => {
+                let Some((path, imported)) = use_tree_path_to(&item_use.tree, name) else {
+                    continue;
+                };
+                let def_cx = current_crate.resolve_path(path, scratch)?;
+                return find_trait(&imported.to_string(), &def_cx, scratch);
+            }
+            _ => {}
+        }
+    }
+    for item in &current_crate.lib_rs_ast.items {
+        let Item::Use(item_use) = item else {
             continue;
         };
-        if item_trait.ident != trait_name.ident {
-            continue;
+        for path in use_tree_globs(&item_use.tree) {
+            // a glob into a crate that can't be walked (`std`) or that doesn't have the trait
+            let Ok(def_cx) = current_crate.resolve_path(path, scratch) else {
+                continue;
+            };
+            if let Ok(found) = find_trait(name, &def_cx, scratch) {
+                return Ok(found);
+            }
         }
-        let trait_idx = convert_trait(item_trait, current_crate, scratch)?;
-        return Ok(ApiItemKindOwned::Trait {
-            trait_idx,
-            omitted: None,
-        });
     }
-    Err(anyhow!("Trait {trait_name:?} not found").context(current_crate.err_context()))
+    Err(anyhow!("Trait {name} not found").context(current_crate.err_context()))
 }
 
 /// Convert a trait and put it into [Scratch] traits array, returns its index.

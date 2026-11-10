@@ -5,7 +5,7 @@
 //! - The clients are of the same crate at three versions, as Cargo renamed dependencies (`thermo_api_w1`,
 //!   `thermo_api_w2`, `thermo_api_w3`), one module each (`v1.rs`, `v2.rs`, `v3.rs`).
 //! - [Thermo] is an enum over the three clients, made by `wire_weaver_client::facade!` (CLT-64) from the operations
-//!   below: each line implements its trait in [line] for its client; `self_test`, which line 1 lacks, is
+//!   below: each line implements its trait in [line](mod@line) for its client; `self_test`, which line 1 lacks, is
 //!   [Error::Unsupported] there.
 //! - The connection speaks every line (`ClientConfig::speaks`): link setup takes a device on any of them, and
 //!   `Thermo::try_from_cmd` picks the client of the line the device reported. One handshake, no reconnect.

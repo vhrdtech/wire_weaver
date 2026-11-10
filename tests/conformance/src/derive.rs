@@ -965,6 +965,26 @@ pub fn table() -> Vec<Typed> {
                     .collect::<Vec<_>>(),
             ),
         ),
+        // compared by `Debug`: `Quantity`'s `==` holds across prefixes (1000 mA == 1 A), its `Debug` shows the
+        // prefix and the number type
+        case_debug("stdlib.si.timed.series.prefix_change", || {
+            use ww_si::{Ampere, Prefix, Timed, origins::DeviceMicros};
+            let i = [
+                Ampere::new(Prefix::Micro, 480i32),
+                Ampere::new(Prefix::Micro, 481i32),
+                Ampere::new(Prefix::Micro, 482i32),
+                Ampere::new(Prefix::Milli, 1520i32),
+                Ampere::new(Prefix::Milli, 1530i32),
+                Ampere::new(Prefix::Milli, 1700i16),
+                Ampere::new(Prefix::Micro, 498i32),
+                Ampere::new(Prefix::Micro, 497i32),
+            ];
+            SeriesOwned(
+                (0..8u32)
+                    .map(|k| Timed::new(DeviceMicros::from_raw(1_000_000 + k * 40), i[k as usize]))
+                    .collect::<Vec<_>>(),
+            )
+        }),
         case(
             "stdlib.si.index.in_struct",
             WithIndex {

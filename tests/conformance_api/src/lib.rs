@@ -160,6 +160,8 @@ trait Conformance {
     property!(rw si_timed_millis: ww_si::Timed<u16, ww_si::origins::DeviceMillis<u16>>);
     /// A batch of `ww_si::Timed<V>` as a timed batched stream sends it (STD-110)
     property!(rw series_si_timed: Series<'i, ww_si::Timed<u16>>);
+    /// A batch of `ww_si::Timed<Ampere>` whose prefix and number type change mid-batch: the value column restarts
+    property!(rw series_si_timed_ampere: Series<'i, ww_si::Timed<ww_si::Ampere>>);
     property!(rw point_bounded: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Deci, i16, ww_si::Range<-400, 1250>>>);
     property!(rw offset: ww_si::Offset);
     // ww_si::Index, IndexFrom1, Seq (STD-58): the number alone, the table it counts in is in the type

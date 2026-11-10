@@ -760,3 +760,39 @@ fn threaded_hand_off() {
         check::threaded(count, seed);
     }
 }
+
+/// A level column whose prefix changes mid-batch (a current that autoranges µA → mA → µA) can't be written straight
+/// from the store's arrays: `encode_column` rebuilds the items into the scratch memory and writes, or counts, the
+/// bytes of the item walk, which read back with every prefix and number type.
+#[test]
+fn column_with_a_prefix_change_falls_back_to_the_walk() {
+    use wire_weaver::shrink_wrap::SerializeShrinkWrap;
+    use wire_weaver::shrink_wrap::series::DeltaPacked;
+    let items: [Ampere; 32] = core::array::from_fn(|k| match k {
+        0..10 => Ampere::new(Prefix::Micro, 480 + k as i32),
+        10..20 => Ampere::new(Prefix::Milli, 1500 + 10 * k as i32),
+        20 => Ampere::new(Prefix::Milli, 1700i16),
+        _ => Ampere::new(Prefix::Micro, 520 - k as i32),
+    });
+    let mut store = Ampere::empty_store::<32>();
+    for (k, item) in items.iter().enumerate() {
+        Ampere::set(&mut store, k, item);
+    }
+    let mut scratch = Scratch::<{ scratch_bytes::<Ampere>(32) }>::new();
+    for rows in [0..32, 5..25, 12..18] {
+        let mut buf = [0u8; 512];
+        let len = scratch
+            .encode_column::<Ampere, _, 32>(&store, rows.clone(), DeltaPacked, Some(&mut buf))
+            .unwrap();
+        let counted = scratch
+            .encode_column::<Ampere, _, 32>(&store, rows.clone(), DeltaPacked, None)
+            .unwrap();
+        let mut walk = [0u8; 512];
+        let walked = Series::with_policy(&items[rows.clone()], DeltaPacked)
+            .to_ww_bytes(&mut walk)
+            .unwrap();
+        assert_eq!((&buf[..len], counted), (walked, walked.len()));
+        let back = decode::<Ampere>(&buf[..len]);
+        assert!(back.iter().zip(&items[rows]).all(|(a, b)| a.same_repr(b)));
+    }
+}

@@ -100,3 +100,72 @@ fn timed_volt_bytes() {
         assert!(a.t == b.t && a.value.same_repr(&b.value));
     }
 }
+
+/// A current that autoranges mid-batch: µA while it is small, mA from the step on, µA again after it, and one item
+/// in `I16` among `I32`s. Every policy restarts the value column at each change (a full value, fresh codec state)
+/// and reads back the same prefix and number of every item; the store path leaves such a batch to the item walk.
+#[test]
+fn prefix_changes_mid_batch() {
+    use shrink_wrap::series::{
+        CodecPolicy, DeltaPacked, NumericCodec, Predictor, Coder, FloatCodec, RawPlain, SeriesPolicy, SeriesStore,
+        write_store_series,
+    };
+    use shrink_wrap::{BufWriter, SerializeShrinkWrap};
+    use ww_si::{Timed, origins::DeviceMicros};
+
+    let items: Vec<Timed<Ampere>> = (0..32u32)
+        .map(|k| {
+            let i = match k {
+                0..10 => Ampere::new(Prefix::Micro, 480 + (k as i32 % 3)),
+                10..20 => Ampere::new(Prefix::Milli, 1500 + 10 * k as i32),
+                20 => Ampere::new(Prefix::Milli, 1700i16),
+                _ => Ampere::new(Prefix::Micro, 520 - k as i32),
+            };
+            Timed::new(DeviceMicros::from_raw(1_000_000 + k * 40), i)
+        })
+        .collect();
+
+    fn check<P: SeriesPolicy + Copy>(items: &[Timed<Ampere>], policy: P) -> usize {
+        let mut buf = [0u8; 1024];
+        let bytes = Series::with_policy(items, policy).to_ww_bytes(&mut buf).unwrap();
+        within_bound::<Timed<Ampere>>(items.len(), bytes);
+        let back = SeriesOwned::<Timed<Ampere>>::from_ww_bytes_owned(bytes).unwrap();
+        assert_eq!(back.len(), items.len());
+        for (a, b) in back.iter().zip(items) {
+            assert!(a.t == b.t && a.value.same_repr(&b.value), "{a:?} vs {b:?}");
+        }
+        // the store keeps every item, but a prefix change leaves the batch to the item walk
+        let mut store = Timed::<Ampere>::empty_store::<32>();
+        for (k, item) in items.iter().enumerate() {
+            Timed::set(&mut store, k, item);
+        }
+        let mut other = [0u8; 1024];
+        let mut wr = BufWriter::new(&mut other);
+        assert!(!write_store_series::<Timed<Ampere>, P, 32>(&mut wr, &store, 0..32, &policy).unwrap());
+        let walked: Vec<_> = (0..32).map(|k| Timed::<Ampere>::get(&store, k)).collect();
+        let mut again = [0u8; 1024];
+        assert_eq!(
+            Series::with_policy(&walked, policy).to_ww_bytes(&mut again).unwrap(),
+            bytes
+        );
+        bytes.len()
+    }
+    let smallest = check(&items, CodecPolicy::SMALLEST);
+    let delta = check(&items, DeltaPacked);
+    let dod = check(
+        &items,
+        CodecPolicy::fixed(
+            NumericCodec::new(Predictor::DeltaOfDelta, Coder::Packed),
+            FloatCodec::Xor,
+        ),
+    );
+    let raw = check(&items, RawPlain);
+    assert_eq!(back_prefixes(&items), [Prefix::Micro, Prefix::Milli, Prefix::Micro]);
+    assert!(smallest <= delta.min(dod) && delta < raw, "{smallest} {delta} {dod} {raw}");
+
+    fn back_prefixes(items: &[Timed<Ampere>]) -> Vec<Prefix> {
+        let mut runs: Vec<Prefix> = items.iter().map(|t| t.value.prefix).collect();
+        runs.dedup();
+        runs
+    }
+}

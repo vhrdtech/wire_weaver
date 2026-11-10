@@ -1683,6 +1683,14 @@
       "note": "8 Timed<u16> 40 µs apart across the u32 wrap: a time column of a regular clock that wraps, and a value column (STD-110)"
     },
     {
+      "name": "stdlib.si.timed.series.prefix_change",
+      "type": "series_si_timed_ampere",
+      "value": [{"t": {"coord": {"value": 1000000}}, "value": {"prefix": "Micro", "value": {"I32": 480}}}, {"t": {"coord": {"value": 1000040}}, "value": {"prefix": "Micro", "value": {"I32": 481}}}, {"t": {"coord": {"value": 1000080}}, "value": {"prefix": "Micro", "value": {"I32": 482}}}, {"t": {"coord": {"value": 1000120}}, "value": {"prefix": "Milli", "value": {"I32": 1520}}}, {"t": {"coord": {"value": 1000160}}, "value": {"prefix": "Milli", "value": {"I32": 1530}}}, {"t": {"coord": {"value": 1000200}}, "value": {"prefix": "Milli", "value": {"I16": 1700}}}, {"t": {"coord": {"value": 1000240}}, "value": {"prefix": "Micro", "value": {"I32": 498}}}, {"t": {"coord": {"value": 1000280}}, "value": {"prefix": "Micro", "value": {"I32": 497}}}],
+      "bytes": "816000f4240a81486446a60c18261e01e11e25f05fa1f21f1076a400",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "8 Timed<Ampere> 40 µs apart that autorange µA → mA → µA, one in I16: the prefix and number type runs change mid-batch, and the value column restarts at each change with a full value and fresh codec state"
+    },
+    {
       "name": "stdlib.si.index.in_struct",
       "type": "with_index",
       "value": {"slot": {"index": 1000}, "tag": 7},

@@ -6200,6 +6200,10 @@ without an anchor). That holds while consecutive times are less than half a wrap
 32.7 s for <code>U16</code> ms); the device may change prefix and storage on the way. Each stream handle (each half of a split)
 and each observe level counts on its own, and the count starts over after a disconnect (the device may have rebooted)
 and at a new clock epoch in a head's <code>ext</code>. <code>U64</code> and float times come as they are.</p>
+<p>The items of a timed batched stream carry a <a href="../../std_library/ww_si/#which-time-point">time point</a> instead
+(<code>DeviceMicros&lt;u32&gt;</code> by default), whose step and storage are fixed by the type: the typed client unwraps it with
+<code>ww_si::TimeUnwrapper</code> into the same point in 64 bits (<code>DeviceMicros&lt;u64&gt;</code>), the dynamic client and Python into a
+<code>Second</code> <code>U64</code> in the point's step, by the same rule.</p>
 <p>Three ways to timestamp, chosen per stream:</p>
 <table>
 <thead>

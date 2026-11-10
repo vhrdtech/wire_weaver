@@ -6461,9 +6461,9 @@ does (a field appended to <code>T</code> later is skipped by an older reader).</
 <p>Mark the item type with <code>series</code> and write the slice:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">prelude</span><span class="p">::</span><span class="o">*</span><span class="p">;</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">series</span><span class="p">::{</span><span class="n">Series</span><span class="p">,</span><span class="w"> </span><span class="n">SeriesOwned</span><span class="p">};</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">};</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">};</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">items</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cm">/* 32 currents with their times */</span><span class="p">;</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">items</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cm">/* 32 currents with their times, DeviceMicros&lt;u32&gt; */</span><span class="p">;</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Series</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">items</span><span class="p">).</span><span class="n">to_ww_bytes_owned</span><span class="p">()</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// that&#39;s the line</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">back</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Series</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Timed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;&gt;</span><span class="p">::</span><span class="n">from_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bytes</span><span class="p">)</span><span class="o">?</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">collect</span><span class="p">();</span>
@@ -6679,27 +6679,27 @@ What the choice costs, encoding 32 samples of a motor phase current (<code>Serie
 <tbody>
 <tr>
 <td><code>SMALLEST</code></td>
-<td>969</td>
-<td>50</td>
-<td>25.4 KB</td>
+<td>965</td>
+<td>49</td>
+<td>21.5 KB</td>
 </tr>
 <tr>
 <td><code>fixed(delta, packed)</code></td>
-<td>341</td>
-<td>79</td>
-<td>25.4 KB</td>
+<td>300</td>
+<td>78</td>
+<td>21.5 KB</td>
 </tr>
 <tr>
 <td><code>fixed(delta-of-delta, packed)</code></td>
-<td>334</td>
-<td>61</td>
-<td>25.4 KB</td>
+<td>290</td>
+<td>60</td>
+<td>21.5 KB</td>
 </tr>
 <tr>
 <td><code>DeltaPacked</code></td>
-<td>341</td>
-<td>79</td>
-<td>15.0 KB</td>
+<td>302</td>
+<td>78</td>
+<td>15.9 KB</td>
 </tr>
 </tbody>
 </table>
@@ -6777,7 +6777,7 @@ struct of arrays, one array per leaf field, no padding between them. <code>Timed
 against 24 in a <code>[Timed&lt;Ampere&gt;; 32]</code>.</p>
 <p>A batched stream's or observe level's <code>Batcher</code> holds <strong>two</strong> such stores: the producer (an interrupt, the control
 loop) fills one while the event loop encodes the other, and sealing swaps them behind one atomic word, no lock. On a
-Cortex-M3 a push is about 62 instructions, the push that seals a batch 71, a poll that seals nothing 108. If the spare
+Cortex-M3 a push is about 75 instructions, the push that seals a batch 77, a poll that seals nothing 95. If the spare
 store isn't back from encoding when the next batch seals, that batch is lost and counted, it never blocks the
 producer. RAM for the motor demo's whole <code>foc</code> level at 32 samples: 8.4 KB.
 <a href="../../serdes/series/#collecting-items-on-a-device-seriesstore">SeriesStore</a> and
@@ -7381,9 +7381,11 @@ All of these were built at <code>opt-level = "z"</code>; at <code>opt-level = 3<
 The M7 spends about 2 to 2.5 cycles per QEMU instruction on this code (three flash wait states, a call per value
 written, branchy code), more than the 1 to 1.5 first guessed, which is why the MCU table above quotes both.</p>
 <h3 id="why-the-shared-clock-halves-the-cpu">Why the shared clock halves the CPU<a class="headerlink" href="#why-the-shared-clock-halves-the-cpu" title="Permanent link">&para;</a></h3>
-<p>A <code>Timed&lt;T&gt;</code> item has a time column next to its value, and a time is itself a quantity: a prefix run, a storage tag
-run and a value column, the same three columns as the value. So the time is half of the columns an encoder walks
-per item, and sharing one time column across a level's properties removes nearly half the work. On the H725, one
+<p>A <code>Timed&lt;T&gt;</code> item has a time column next to its value. When this was measured its time was a <code>Second</code>, itself a
+quantity: a prefix run, a storage tag run and a value column, the same three columns as the value. So the time was
+half of the columns an encoder walks per item, and sharing one time column across a level's properties removed
+nearly half the work. (<code>Timed.t</code> is now a <a href="../../std_library/ww_si/#which-time-point">time point</a>, one <code>u32</code> column,
+so a <code>Timed&lt;T&gt;</code> costs less than below; the level batch's shared <code>sample_times</code> is still a <code>Series&lt;Second&gt;</code>.) On the H725, one
 <code>foc</code> level batch (21 properties, 32 samples):</p>
 <table>
 <thead>

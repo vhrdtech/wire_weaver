@@ -6154,10 +6154,12 @@ gets this for free, while a bare <code>f32</code> pays for every bit of mantissa
 <code>ww_si</code> went from 96 to 117 kB/s. Quantities pay off once they're batched into a <code>Series</code>; sending one at a time
 gets you the worse of both.</p>
 <h2 id="time-timedt">Time: <code>Timed&lt;T&gt;</code><a class="headerlink" href="#time-timedt" title="Permanent link">&para;</a></h2>
-<p><code>ww_si::Timed&lt;T&gt; { t: Second, value: T }</code> (<a href="../derive_reference/#generics">DER-14</a> generic struct with
+<p><code>ww_si::Timed&lt;V, Tm&gt; { t: Tm, value: V }</code> (<a href="../derive_reference/#generics">DER-14</a> generic struct with
 <code>series</code>) is not a special case of <code>Series</code> — it gets a <code>t</code> column like any other field, and a regular sampling
-rate costs about nothing (delta + constant: <code>t0 + period</code>). Use <code>Series&lt;Timed&lt;T&gt;&gt;</code> wherever a batch needs its own
-timestamps; where a stream already carries time for the whole batch, a plain <code>Series&lt;T&gt;</code> works just as well.</p>
+rate costs about nothing (delta + constant: <code>t0 + period</code>). <code>t</code> is a <a href="../../std_library/ww_si/#which-time-point">time point</a>,
+<code>DeviceMicros&lt;u32&gt;</code> by default: a plain <code>u32</code> column, no prefix run and no number tag. Use <code>Series&lt;Timed&lt;T&gt;&gt;</code>
+wherever a batch needs its own timestamps; where a stream already carries time for the whole batch, a plain
+<code>Series&lt;T&gt;</code> works just as well.</p>
 <h2 id="using-it">Using it<a class="headerlink" href="#using-it" title="Permanent link">&para;</a></h2>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">shrink_wrap</span><span class="p">::</span><span class="n">series</span><span class="p">::{</span><span class="n">Series</span><span class="p">,</span><span class="w"> </span><span class="n">SeriesOwned</span><span class="p">};</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
@@ -6194,9 +6196,10 @@ links only them: <code>DeltaPacked</code> (delta and packed residuals, XOR float
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">Series</span><span class="p">::</span><span class="n">with_policy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">items</span><span class="p">,</span><span class="w"> </span><span class="n">DeltaOfDeltaPacked</span><span class="p">).</span><span class="n">to_ww_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
-<p>What a <code>Series&lt;Timed&lt;Ampere&gt;&gt;</code> costs (64 samples of a motor's phase current, <code>examples_mcu/mcu_qemu</code> and
-<code>mcu_qemu_m4f</code>, instructions counted in QEMU with <code>examples_mcu/qemu_icount</code>; flash is the bin's <code>.text</code> minus the
-same bin without a <code>Series</code>):</p>
+<p>What a <code>Series&lt;Timed&lt;Ampere&gt;&gt;</code> costs (64 samples of a motor's phase current, <code>t</code> a <code>DeviceMicros&lt;u32&gt;</code>,
+<code>examples_mcu/mcu_qemu</code> and <code>mcu_qemu_m4f</code> at <code>opt-level = "z"</code> with fat LTO, instructions of one batch counted in
+QEMU with <code>examples_mcu/qemu_icount</code> and divided by <code>n</code>; flash is the bin's <code>.text</code> minus the same bin without a
+<code>Series</code>):</p>
 <table>
 <thead>
 <tr>
@@ -6209,35 +6212,37 @@ same bin without a <code>Series</code>):</p>
 <tbody>
 <tr>
 <td><code>SMALLEST</code></td>
-<td>1112 / 969 / 950</td>
-<td>21 / 50 / 89</td>
-<td>25.4 KB</td>
+<td>1096 / 965 / 946</td>
+<td>20 / 49 / 87</td>
+<td>21.5 KB</td>
 </tr>
 <tr>
 <td><code>fixed(delta, packed)</code></td>
-<td>409 / 341 / 332</td>
-<td>27 / 79 / 153</td>
-<td>25.4 KB</td>
+<td>355 / 300 / 290</td>
+<td>25 / 78 / 151</td>
+<td>21.5 KB</td>
 </tr>
 <tr>
 <td><code>fixed(delta-of-delta, packed)</code></td>
-<td>411 / 334 / 321</td>
-<td>28 / 61 / 100</td>
-<td>25.4 KB</td>
+<td>359 / 290 / 278</td>
+<td>26 / 60 / 99</td>
+<td>21.5 KB</td>
 </tr>
 <tr>
 <td><code>DeltaPacked</code></td>
-<td>406 / 341 / 333</td>
-<td>27 / 79 / 153</td>
-<td>15.0 KB</td>
+<td>354 / 302 / 294</td>
+<td>25 / 78 / 151</td>
+<td>15.9 KB</td>
 </tr>
 </tbody>
 </table>
-<p>A Cortex-M4F takes about the same instructions; its flash is 17.6 KB with a <code>CodecPolicy</code> and 9.8 KB with
+<p>A Cortex-M4F takes about the same instructions; its flash is 18.9 KB with a <code>CodecPolicy</code> and 13.6 KB with
 <code>DeltaPacked</code>. On an STM32H725 (Cortex-M7 at 540 MHz, caches on, <code>examples_mcu/usb_stm32h725ig</code>'s
-<code>series_encode_cycles</code>) a batch of 32 takes 25 200 cycles with <code>DeltaPacked</code> (47 µs, 790 cycles per item) and
-60 800 with <code>SMALLEST</code>. A fixed codec is about 3x cheaper in CPU than <code>SMALLEST</code>, for 1.2x to 1.7x the bytes on this signal
-(a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).</p>
+<code>series_encode_cycles</code>, same profile) a batch of 32 takes 22 700 cycles with <code>DeltaPacked</code> (42 µs, 710 cycles per
+item) and 59 300 with <code>SMALLEST</code>. A fixed codec is about 3x cheaper in CPU than <code>SMALLEST</code>, for 1.2x to 1.7x the
+bytes on this signal (a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).
+While <code>t</code> was a <code>Second</code> (a prefix and a number type per item) the same batch took 20 % to 50 % more instructions
+in QEMU, 50 % to 75 % more cycles on the H725, and 30 % (M3) to 55 % (M4F) more flash.</p>
 <h3 id="from-the-store-column-by-column">From the store, column by column<a class="headerlink" href="#from-the-store-column-by-column" title="Permanent link">&para;</a></h3>
 <p>SW-64. A batch kept in a <code>SeriesStore</code> can be written without rebuilding its items: <code>write_store_series</code> writes rows
 of a store column by column, straight from its arrays, the same bytes as <code>Series::with_policy(items, policy)</code>.
@@ -6301,8 +6306,8 @@ implements next to <code>SeriesColumns</code>:</p>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">item</span><span class="p">:</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">Ampere</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">get</span><span class="p">(</span><span class="o">&amp;</span><span class="n">store</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">);</span>
 </span></code></pre></div>
 <p>Without padding between fields of different sizes it takes less RAM than the items themselves: <code>Store&lt;32&gt;</code> of
-<code>Timed&lt;Ampere&gt;</code> is 12 bytes per item with <code>ww_numeric</code>'s <code>U8</code>, <code>U32</code>, <code>I32</code> and <code>F32</code> enabled, where
-<code>[Timed&lt;Ampere&gt;; 32]</code> takes 24. What each kind of type keeps:</p>
+<code>Timed&lt;Ampere&gt;</code> is 11 bytes per item with <code>ww_numeric</code>'s <code>U8</code>, <code>U32</code>, <code>I32</code> and <code>F32</code> enabled, where
+<code>[Timed&lt;Ampere&gt;; 32]</code> takes 16. What each kind of type keeps:</p>
 <table>
 <thead>
 <tr>
@@ -6363,8 +6368,8 @@ get without writing it. <code>SeriesColumns::MAX_ITEM_BITS</code> and <code>MAX_
 per item and per series: every column at its longest code under any <code>CodecPolicy</code> (not only the one <code>SMALLEST</code>
 picks), every run changing at every item. <code>Series::&lt;T&gt;::max_bytes(n)</code> puts them together with the count and the
 padding. Strings, byte lists and opaque fields have no bound (<code>None</code>).</p>
-<p>The bound is far from what real data takes: 32 samples of <code>Timed&lt;Volt&gt;</code> at a regular clock are 22 bytes, against a
-bound of 570 with the number types up to 32 bits and 1272 with every one enabled (<code>NumericValue</code> is bounded by its
+<p>The bound is far from what real data takes: 32 samples of <code>Timed&lt;Volt&gt;</code> at a regular clock are 21 bytes, against a
+bound of 545 with the number types up to 32 bits and 893 with every one enabled (<code>NumericValue</code> is bounded by its
 widest variant). It tells when a batch is safely below a budget, and a measurement (<code>BitCounter</code>) is needed only
 close to it.</p>
 <h2 id="introspection-and-dynamic-clients">Introspection and dynamic clients<a class="headerlink" href="#introspection-and-dynamic-clients" title="Permanent link">&para;</a></h2>

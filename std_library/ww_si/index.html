@@ -4048,6 +4048,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Timed values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-time-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which time point
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-full-time-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The full time on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5913,6 +5941,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Timed values">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-time-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Which time point
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-full-time-on-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The full time on the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6272,7 +6328,7 @@ Bounds cost no bytes on the wire: a bounded quantity has the bytes of the unboun
 </tbody>
 </table>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># firmware with voltages and timestamps, stored as u16, u32 and f32</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.4&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;electrical&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u16&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u32&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;f32&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;electrical&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u16&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u32&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;f32&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>The bytes on the wire are the same for every feature set.</p>
 <h2 id="constructors">Constructors<a class="headerlink" href="#constructors" title="Permanent link">&para;</a></h2>
@@ -6502,7 +6558,8 @@ prefix (40 µs added to a time in ms), or when <code>b</code> in <code>a</code>'
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">t0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">4_294_967_000</span><span class="k">u32</span><span class="p">);</span>
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">times</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t0</span><span class="p">.</span><span class="n">steps</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">40</span><span class="k">u8</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">take</span><span class="p">(</span><span class="mi">32</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
 </span></code></pre></div>
-<p>A batched stream's generated <code>&lt;name&gt;_push_many(state, t0, dt, values)</code> stamps a block of samples this way.</p>
+<p>A batched stream's generated <code>&lt;name&gt;_push_many(state, t0, dt, values)</code> stamps a block of samples the same way, on
+the <a href="#which-time-point">time point</a> of its <code>Timed</code> items.</p>
 <h2 id="dimensions">Dimensions<a class="headerlink" href="#dimensions" title="Permanent link">&para;</a></h2>
 <p>Besides the seven SI base dimensions, <code>Dim</code> has three kinds of its own, so the compiler and a client keep apart what
 SI alone would call the same:</p>
@@ -6614,18 +6671,93 @@ timestamps can be in different prefixes, and the timestamps can change prefix an
 be) and counts on from there; <code>restart()</code> starts over, for a device whose clock restarted. This is what
 <code>wire_weaver_client</code> does for every time a device sends (<a href="../../api/stream_reliability/#timestamps">timestamps</a>).</p>
 <h2 id="timed-values">Timed values<a class="headerlink" href="#timed-values" title="Permanent link">&para;</a></h2>
-<p><code>Timed&lt;T&gt; { t: Second, value: T }</code> is a value with the time it was taken, <code>t</code> a device timestamp as above: a
-sample of a property, an item of a stream (<code>Timed&lt;Ampere&gt;</code>). It is a <code>final_structure</code> struct of <code>t</code> and then
-<code>value</code>, the same bytes a <code>#[derive_shrink_wrap(final_structure)]</code> struct of those two fields has, so no fields can
-be added to it later. In an API it is used with its argument, <code>property!(ro current: Timed&lt;Ampere&gt;)</code>; its definition
-is in the <code>ww_si</code> snapshot, so devices leave it out of their introspection data (see
+<p><code>Timed&lt;V, Tm = DeviceMicros&lt;u32&gt;&gt; { t: Tm, value: V }</code> is a value with the time it was taken: a sample of a
+property, an item of a stream (<code>Timed&lt;Ampere&gt;</code>). <code>t</code> is a <a href="../points/">point</a> on a time scale, by default
+<code>DeviceMicros&lt;u32&gt;</code>: µs since the device booted (origin <code>DeviceBoot</code>) in a <code>u32</code> that wraps every 71.6 minutes. It is
+a <code>final_structure</code> struct of <code>t</code> and then <code>value</code>, the same bytes a <code>#[derive_shrink_wrap(final_structure)]</code> struct
+of those two fields has, so no fields can be added to it later. <code>t</code> is the bytes of its storage alone, no prefix and
+no number tag. In an API it is used with its arguments, <code>property!(ro current: Timed&lt;Ampere&gt;)</code>; its definition is in
+the <code>ww_si</code> snapshot, so devices leave it out of their introspection data (see
 <a href="../../types/#generic-types-in-an-api">generic types in an API</a>).</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">};</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">,</span><span class="w"> </span><span class="n">origins</span><span class="p">::</span><span class="n">DeviceMicros</span><span class="p">};</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1_000_000</span><span class="k">u32</span><span class="p">),</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="o">-</span><span class="mi">1200</span><span class="k">i32</span><span class="p">));</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">DeviceMicros</span><span class="p">::</span><span class="n">from_raw</span><span class="p">(</span><span class="mi">1_000_000</span><span class="k">u32</span><span class="p">),</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="o">-</span><span class="mi">1200</span><span class="k">i32</span><span class="p">));</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">sample</span><span class="p">.</span><span class="n">t</span><span class="p">.</span><span class="n">raw</span><span class="p">(),</span><span class="w"> </span><span class="mi">1_000_000</span><span class="p">);</span>
 </span></code></pre></div>
+<h3 id="which-time-point">Which time point<a class="headerlink" href="#which-time-point" title="Permanent link">&para;</a></h3>
+<p><code>Tm</code> is any <code>TimePoint</code>: a <code>Point&lt;O, Fixed&lt;Second, P, T&gt;&gt;</code> of a linear origin in seconds, in integer steps <code>P</code>
+stored in an integer <code>T</code>, without bounds. The step and the storage are fixed by the type, per stream. Pick the one
+that holds the longest silence between two items of a stream, at the device's resolution:</p>
+<table>
+<thead>
+<tr>
+<th><code>Tm</code></th>
+<th>Wraps after</th>
+<th>Longest gap the host bridges</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DeviceMillis&lt;u16&gt;</code></td>
+<td>65.5 s</td>
+<td>32.7 s</td>
+</tr>
+<tr>
+<td><code>DeviceMicros&lt;u32&gt;</code> (default)</td>
+<td>71.6 min</td>
+<td>35.8 min</td>
+</tr>
+<tr>
+<td><code>Point&lt;DeviceBoot, Fixed&lt;Second, Pow2&lt;-15&gt;, u32&gt;&gt;</code></td>
+<td>36.4 h</td>
+<td>18.2 h</td>
+</tr>
+<tr>
+<td><code>DeviceMillis&lt;u32&gt;</code></td>
+<td>49.7 days</td>
+<td>24.8 days</td>
+</tr>
+<tr>
+<td><code>DeviceMicros&lt;u64&gt;</code></td>
+<td>never</td>
+<td>no unwrapping needed</td>
+</tr>
+</tbody>
+</table>
+<p>A device that keeps a known time scale sends it the same way: <code>UnixMicros&lt;u64&gt;</code> for one that keeps UTC. A device
+whose resolution changes at run time picks one <code>Tm</code> fine and wide enough for all of it; a fixed <code>u32</code> column in a
+<code>Series</code> costs less than a per-item prefix and number tag did. A batched stream picks its <code>Tm</code> with
+<a href="../../api/batching/"><code>batched(time = ..)</code></a>.</p>
+<p>On the device only the wrapping operations of <code>TimePoint</code> are used: <code>t.wrapping_add(dt)</code> and <code>t0.steps(dt)</code> (<code>t0</code>,
+<code>t0 + dt</code>, <code>t0 + 2·dt</code>, .., wrapping like the clock), with <code>dt</code> a <code>TimeStep&lt;Tm&gt;</code> (<code>Fixed&lt;Second, Micro, u32&gt;</code> for
+the default). <code>TimePoint::low(full)</code> takes the low bits of a full reading of the clock. <code>+</code> of a <code>u32</code> point panics
+in a debug build once the clock wraps.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">TimePoint</span><span class="p">,</span><span class="w"> </span><span class="n">TimeStep</span><span class="p">,</span><span class="w"> </span><span class="n">origins</span><span class="p">::</span><span class="n">DeviceMicros</span><span class="p">};</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">t0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DeviceMicros</span><span class="p">::</span><span class="n">from_raw</span><span class="p">(</span><span class="mi">4_294_967_000</span><span class="k">u32</span><span class="p">);</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TimeStep</span><span class="p">::</span><span class="o">&lt;</span><span class="n">DeviceMicros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">40</span><span class="p">);</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1">// the times of 32 samples at 40 µs, the first one taken at t0, wrapping past 2^32 µs</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">times</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">DeviceMicros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t0</span><span class="p">.</span><span class="n">steps</span><span class="p">(</span><span class="n">dt</span><span class="p">).</span><span class="n">take</span><span class="p">(</span><span class="mi">32</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">times</span><span class="p">[</span><span class="mi">8</span><span class="p">].</span><span class="n">raw</span><span class="p">(),</span><span class="w"> </span><span class="mi">24</span><span class="p">);</span>
+</span></code></pre></div>
+<h3 id="the-full-time-on-the-host">The full time on the host<a class="headerlink" href="#the-full-time-on-the-host" title="Permanent link">&para;</a></h3>
+<p><code>TimeUnwrapper&lt;Tm&gt;</code> gets the full point back, <code>TimePoint::Full</code> (<code>DeviceMicros&lt;u64&gt;</code> for the default): each point is
+taken as the one closest to the previous with the same low bits. It is anchored on a full reading of the same clock
+(<code>new(now)</code>, <code>anchor(now)</code>), or without one (<code>default()</code>) takes the first point as is and counts on from there;
+<code>restart()</code> starts over for a device whose clock restarted. Use one per stream. The typed client does this for a
+timed batched stream: its items carry <code>t: Option&lt;DeviceMicros&lt;u64&gt;&gt;</code>.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">TimeUnwrapper</span><span class="p">,</span><span class="w"> </span><span class="n">origins</span><span class="p">::</span><span class="n">DeviceMicros</span><span class="p">};</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">now</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DeviceMicros</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">::</span><span class="n">from_raw</span><span class="p">(</span><span class="mi">5_000_000_123</span><span class="p">);</span><span class="w"> </span><span class="c1">// the device&#39;s clock read in full</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">unwrapper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">TimeUnwrapper</span><span class="p">::</span><span class="o">&lt;</span><span class="n">DeviceMicros</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">now</span><span class="p">);</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">unwrapper</span><span class="p">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">DeviceMicros</span><span class="p">::</span><span class="n">from_raw</span><span class="p">(</span><span class="mi">705_032_827</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// u32 µs from a stream</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">full</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">);</span>
+</span></code></pre></div>
+<p>A full <code>DeviceBoot</code> point is placed on another scale with <code>t.against(boot)</code>, <code>boot</code> being where the device booted on
+that scale (a <code>UnixMicros&lt;u64&gt;</code>): exact, an offset only, right for a device whose clock was set or steered. A
+device clock that runs at its own rate goes through a clock sync fit first.</p>
 <p>In a <code>Series</code> (see <a href="../../serdes/series/">series</a>) <code>t</code> is a column like any other: 32 <code>Timed&lt;Volt&gt;</code> samples at a
-40 µs clock are 22 bytes.</p>
+40 µs clock are 21 bytes.</p>
 <h2 id="on-the-wire-and-in-introspection">On the wire and in introspection<a class="headerlink" href="#on-the-wire-and-in-introspection" title="Permanent link">&para;</a></h2>
 <p>A quantity is a <code>final_structure</code> struct of its prefix and its value; the unit takes no bits. The bytes are the same
 as in ww_si 0.1, where each quantity was a struct of its own, so recorded data and <code>Series</code> blobs still decode:</p>
@@ -6661,11 +6793,11 @@ by its name through <code>units::by_name</code> (symbol, dimension and scale), <
 parts (<code>0.00012 N·m/(rad/s)</code>), a unit of your own API crate (<code>unit!</code>) by the definition the model carries (INT-13,
 its identity, symbol, dimension and exact scale), and a hand-written marker without one by its name and docs only.
 This works for ww_si 0.2 and later.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># Quantity(3300 mV U16)</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">str</span><span class="p">(</span><span class="n">q</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>             <span class="c1"># &quot;3300 mV&quot;, 3.3</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">q</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">dim</span>              <span class="c1"># &quot;V&quot;, {&quot;kg&quot;: 1, &quot;m&quot;: 2, &quot;s&quot;: -3, &quot;A&quot;: -1}</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">q</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 3.3</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span>        <span class="c1"># 1.5 V</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># Quantity(3300 mV U16)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="nb">str</span><span class="p">(</span><span class="n">q</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>             <span class="c1"># &quot;3300 mV&quot;, 3.3</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">q</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">dim</span>              <span class="c1"># &quot;V&quot;, {&quot;kg&quot;: 1, &quot;m&quot;: 2, &quot;s&quot;: -3, &quot;A&quot;: -1}</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">q</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 3.3</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span>        <span class="c1"># 1.5 V</span>
 </span></code></pre></div>
 <p>In Rust, <code>wire_weaver_client::quantity::DynQuantity::from_value(&amp;value, &amp;ty, &amp;bundle)</code> gives the prefix, the number
 and a <code>DynUnit</code>; its <code>Display</code> is the same text as the typed <code>Quantity</code>'s, <code>to_si_f64()</code> converts through the unit's
@@ -6683,35 +6815,35 @@ model implements <code>ww_si::tree::Tree</code> for it and gets the same text.</
 <p>Some units are not known when the API is written: an ADC input whose unit is set by configuration, a generic sensor
 channel, a calibration that turns volts into bar. For those the unit goes on the wire as an <code>SIExpr</code>, and a value
 with one is an <code>AnyQuantity { prefix, value, unit }</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Radian</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">};</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">AnyQuantity</span><span class="p">,</span><span class="w"> </span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">MarkerId</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">PrefixPolicy</span><span class="p">,</span><span class="w"> </span><span class="n">Provenance</span><span class="p">,</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">,</span><span class="w"> </span><span class="n">Unit</span><span class="p">,</span><span class="w"> </span><span class="n">UnitDef</span><span class="p">,</span><span class="w"> </span><span class="n">UnitNames</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">};</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1">// a ww_si unit, or a typed quantity turned into one: the unit&#39;s definition in full</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">));</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3300 mV&quot;</span><span class="p">);</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{v:#}&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;3.3 V&quot;</span><span class="p">);</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">)));</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">of</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;</span><span class="p">();</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">unit</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;N·m/(rad/s)&quot;</span><span class="p">);</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="c1">// the same value naming its unit by reference, for a reader that has a table of the units (the API&#39;s model)</span>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">compact_in</span><span class="p">(</span><span class="o">&amp;</span><span class="n">units</span><span class="p">::</span><span class="n">TABLE</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="p">[]).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">unit</span><span class="p">,</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">Ref</span><span class="p">(</span><span class="n">MarkerId</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">crate_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;exact_units&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Volt&quot;</span><span class="w"> </span><span class="p">}));</span>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">to_si_f64</span><span class="p">(</span><span class="o">&amp;</span><span class="n">units</span><span class="p">::</span><span class="n">TABLE</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mf">3.3</span><span class="p">));</span>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">to_si_f64</span><span class="p">(</span><span class="o">&amp;</span><span class="p">()),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span><span class="w"> </span><span class="c1">// a table that doesn&#39;t list it: no factor</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="c1">// a unit no table lists, in full: its dimension and scale make it convertible to SI anyway</span>
-</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="kd">let</span><span class="w"> </span><span class="n">rpm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">Def</span><span class="p">(</span><span class="n">UnitDef</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">    </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">MarkerId</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">crate_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;my_api&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Rpm&quot;</span><span class="w"> </span><span class="p">},</span>
-</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">    </span><span class="n">names</span><span class="p">:</span><span class="w"> </span><span class="nc">UnitNames</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;rpm&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">PrefixPolicy</span><span class="p">::</span><span class="n">Decimal</span><span class="p">),</span>
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="w">    </span><span class="n">dim</span><span class="p">:</span><span class="w"> </span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Radian</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">,</span>
-</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="w">    </span><span class="n">quantity</span><span class="p">:</span><span class="w"> </span><span class="nb">None</span><span class="p">,</span>
-</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="w">    </span><span class="c1">// exactly π/30 rad/s: 2π per 60 s</span>
-</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="w">    </span><span class="n">scale</span><span class="p">:</span><span class="w"> </span><span class="nc">Magnitude</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span>
-</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="w">    </span><span class="n">provenance</span><span class="p">:</span><span class="w"> </span><span class="nc">Provenance</span><span class="p">::</span><span class="n">Defined</span><span class="p">,</span>
-</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a><span class="p">});</span>
-</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="kd">let</span><span class="w"> </span><span class="n">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Kilo</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="k">u8</span><span class="p">,</span><span class="w"> </span><span class="n">rpm</span><span class="p">);</span>
-</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">speed</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3 krpm&quot;</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Radian</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">};</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">AnyQuantity</span><span class="p">,</span><span class="w"> </span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">MarkerId</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">PrefixPolicy</span><span class="p">,</span><span class="w"> </span><span class="n">Provenance</span><span class="p">,</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">,</span><span class="w"> </span><span class="n">Unit</span><span class="p">,</span><span class="w"> </span><span class="n">UnitDef</span><span class="p">,</span><span class="w"> </span><span class="n">UnitNames</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">};</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1">// a ww_si unit, or a typed quantity turned into one: the unit&#39;s definition in full</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">));</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3300 mV&quot;</span><span class="p">);</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{v:#}&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;3.3 V&quot;</span><span class="p">);</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">)));</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">of</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;</span><span class="p">();</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">unit</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;N·m/(rad/s)&quot;</span><span class="p">);</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="c1">// the same value naming its unit by reference, for a reader that has a table of the units (the API&#39;s model)</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">compact_in</span><span class="p">(</span><span class="o">&amp;</span><span class="n">units</span><span class="p">::</span><span class="n">TABLE</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="p">[]).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">unit</span><span class="p">,</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">Ref</span><span class="p">(</span><span class="n">MarkerId</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">crate_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;exact_units&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Volt&quot;</span><span class="w"> </span><span class="p">}));</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">to_si_f64</span><span class="p">(</span><span class="o">&amp;</span><span class="n">units</span><span class="p">::</span><span class="n">TABLE</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mf">3.3</span><span class="p">));</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">to_si_f64</span><span class="p">(</span><span class="o">&amp;</span><span class="p">()),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span><span class="w"> </span><span class="c1">// a table that doesn&#39;t list it: no factor</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="c1">// a unit no table lists, in full: its dimension and scale make it convertible to SI anyway</span>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="kd">let</span><span class="w"> </span><span class="n">rpm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">Def</span><span class="p">(</span><span class="n">UnitDef</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a><span class="w">    </span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">MarkerId</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">crate_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;my_api&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Rpm&quot;</span><span class="w"> </span><span class="p">},</span>
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="w">    </span><span class="n">names</span><span class="p">:</span><span class="w"> </span><span class="nc">UnitNames</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="s">&quot;rpm&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">PrefixPolicy</span><span class="p">::</span><span class="n">Decimal</span><span class="p">),</span>
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="w">    </span><span class="n">dim</span><span class="p">:</span><span class="w"> </span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Radian</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="o">&gt;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">,</span>
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="w">    </span><span class="n">quantity</span><span class="p">:</span><span class="w"> </span><span class="nb">None</span><span class="p">,</span>
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a><span class="w">    </span><span class="c1">// exactly π/30 rad/s: 2π per 60 s</span>
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="w">    </span><span class="n">scale</span><span class="p">:</span><span class="w"> </span><span class="nc">Magnitude</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span>
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a><span class="w">    </span><span class="n">provenance</span><span class="p">:</span><span class="w"> </span><span class="nc">Provenance</span><span class="p">::</span><span class="n">Defined</span><span class="p">,</span>
+</span><span id="__span-13-27"><a id="__codelineno-13-27" name="__codelineno-13-27" href="#__codelineno-13-27"></a><span class="p">});</span>
+</span><span id="__span-13-28"><a id="__codelineno-13-28" name="__codelineno-13-28" href="#__codelineno-13-28"></a><span class="kd">let</span><span class="w"> </span><span class="n">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Kilo</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="k">u8</span><span class="p">,</span><span class="w"> </span><span class="n">rpm</span><span class="p">);</span>
+</span><span id="__span-13-29"><a id="__codelineno-13-29" name="__codelineno-13-29" href="#__codelineno-13-29"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">speed</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3 krpm&quot;</span><span class="p">);</span>
 </span></code></pre></div>
 <p><code>SIExpr</code> is the same model as the markers, put on the wire. A leaf is a named unit: <code>Def(UnitDef)</code>, its whole
 definition (identity, names, dimension, kind, exact scale, provenance), or <code>Ref(MarkerId)</code>, its identity alone, the

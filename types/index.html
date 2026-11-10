@@ -6353,7 +6353,8 @@ arguments, return values, properties, stream items, fields of other types (API-4
 <code>Tagged&lt;'i, T&gt;</code> as <code>TaggedOwned&lt;String&gt;</code> on the owned side). The API model has each generic definition once, with
 its parameters, and each use as an instance with its arguments; <a href="../std_library/ww_si/"><code>ww_si::Timed&lt;T&gt;</code></a> is known
 from the <code>ww_si</code> snapshot, so a device leaves its definition out of its introspection data like that of any known
-type. The dynamic client, <code>ww</code> and Python see the concrete types (<code>Timed&lt;Ampere&gt;</code>, <code>Window&lt;4&gt;</code>) and read and write
+type. The dynamic client, <code>ww</code> and Python see the concrete types (<code>Timed&lt;Ampere&gt;</code> as <code>Timed&lt;Quantity&lt;Ampere&gt;,
+Point&lt;DeviceBoot, Fixed&lt;Second, Micro, u32&gt;&gt;&gt;</code>, its default time point filled in; <code>Window&lt;4&gt;</code>) and read and write
 the same bytes as the derived ones.</p>
 <p>Arguments can be types, integer and <code>bool</code> literals, <code>const</code> items of the crate, a const parameter passed on
 (<code>struct Outer&lt;const N: usize&gt; { window: Window&lt;N&gt; }</code>), or left to the parameter's default. How a generic type may

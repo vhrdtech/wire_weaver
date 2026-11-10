@@ -7546,20 +7546,25 @@ observing), SRV-46 (peer identity).
   facade's own set of clients. <code>PreparedConnection::connect</code> and <code>connect_blocking</code> call <code>try_from_cmd</code>, so that bug
   now surfaces as a connect error, not a panic. Tests <code>wire_weaver_client</code> <code>ww_client_tests::*</code> (both defaults,
   direct).
+- ✅ <strong>CLT-64 A facade for several wire lines without boilerplate</strong> · <code>v0.5</code> — <code>wire_weaver_client::facade!</code> takes
+  a driver's operations once, with their docs (<code>async fn read_once(&amp;self) -&gt; Sample;</code>), and its lines as the variants
+  of an enum (<code>V3(v3::Client), ..</code>). It emits that enum as the facade, a method per operation that <code>match</code>es over the
+  lines, a module of traits, one per line (<code>line::V3</code>), which each line implements for its client as associated
+  functions (<code>async fn read_once(c: &amp;Client) -&gt; Result&lt;Sample&gt;</code>, so <code>c.read_once()</code> is always the generated method),
+  <code>cmd()</code>, <code>wire()</code>, <code>config()</code>, <code>default_config</code> with every line's <code>speaks</code> and a <code>try_from_cmd</code> that picks by line.
+  All enum dispatch, nothing boxed: a <code>stream</code> or <code>sink</code> operation (<code>-&gt; stream Samples&lt;Sample&gt;;</code>) gets an enum of its
+  own over the lines' receivers (<code>type Samples = StreamOf&lt;..&gt;</code> in each line, with a plain conversion <code>fn</code>; also
+  <code>SplitStreamOf</code>, <code>ObserverOf</code>, <code>SinkOf</code>, all static behind <code>Receives</code> and <code>Sends</code>). Every line must write every
+  operation (a compile error otherwise) except the lines an operation's <code>#[unsupported(V1, needs = "..")]</code> names,
+  which answer <code>facade::Unsupported { what, device, needs }</code>; emulations are written by hand. Misuse (<code>&amp;mut self</code>,
+  generics, a plain <code>fn</code>, a bad <code>#[unsupported]</code>) is a <code>compile_error!</code> naming the operation; attributes come in any
+  order. Async only: <code>facade_line!</code> (a line module's <code>Client</code> and <code>ww_codegen!</code>) refuses <code>use_async = false</code>.
+  <code>tests/thermo</code> runs on it, nothing boxed, the same tests green; trybuild tests <code>wire_weaver_client</code>
+  <code>tests/facade_ui.rs</code> (<code>just test-facade-ui</code>); docs <code>evolution/multi_line_host.md#the-facade</code>.
 - 💡 <strong>CLT-63 Reconnect into another wire line</strong> — a facade of several lines (EVO-28) picks its client once, in
   <code>from_cmd</code>. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
   connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an
   error naming both lines.
-- 💡 <strong>CLT-64 A facade for several wire lines without boilerplate</strong> — the EVO-28 bench's driver repeats every
-  operation in three places (an object-safe trait with boxed futures, an <code>impl</code> per line, a wrapper on the facade),
-  about half of each line's 200 hand-written lines, and inside <code>impl Backend for Client</code> the generated methods share
-  the trait's names (<code>Client::read_once(self)</code>). A <code>macro_rules!</code> in <code>wire_weaver_client</code> could take the operations
-  once (<code>async fn read_once(&amp;self) -&gt; Sample;</code> with docs) and the lines (<code>3 =&gt; thermo_api_w3</code>, ...) and emit the
-  trait, the facade with its wrappers, <code>default_config</code> with every line's <code>speaks</code> and a <code>from_cmd</code> that picks by
-  line, and each line's client module; a line then writes only bodies (<code>async fn read_once(c) { .. }</code> with the
-  client as <code>c</code>), and an operation a line lacks defaults to an <code>Unsupported</code> error. The stream, observer and sink
-  adapters (<code>StreamOf</code>, <code>SplitStreamOf</code>, <code>ObserverOf</code>, <code>SinkOf</code>) move into <code>wire_weaver_client</code> as they are. The
-  conversions and emulations stay the driver's.
 - 💡 <strong>CLT-69 Writing a <code>Point</code> into a different origin through <code>DynQuantity::to_value</code></strong> — CLT-65's <code>to_value</code>
   writes a <code>Point&lt;O, Fixed&lt;U, P, T, B&gt;&gt;</code> back when the <code>DynQuantity</code>'s own origin is the same <code>O</code> (the offset
   cancels, a plain scale conversion); writing one of a <em>different</em> origin (°F into a °C field) needs the full

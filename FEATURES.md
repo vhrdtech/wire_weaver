@@ -1703,15 +1703,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   direct).
 - ✅ **CLT-64 A facade for several wire lines without boilerplate** · `v0.5` — `wire_weaver_client::facade!` takes
   a driver's operations once, with their docs (`async fn read_once(&self) -> Sample;`), and its lines as the variants
-  of an enum (`V3(v3::Client), ..`), and emits that enum as the facade, a method per operation that `match`es over
-  the lines (plain `async fn`, no `dyn`, no boxing), a trait of the operations that each line implements for its
-  client as associated functions (`async fn read_once(c: &Client) -> Result<Sample>`, so `c.read_once()` is always
-  the generated method), `cmd()`, `wire()`, `config()`, `default_config` with every line's `speaks` and a
-  `try_from_cmd` that picks by line. An operation a line doesn't write answers `facade::Unsupported { what, device,
-  needs }`, `needs` from an optional `#[unsupported(needs = "..")]`; emulations are written by hand. `facade_line!`
-  is a line module's header: its `Client` and `ww_codegen!`. The adapters `StreamOf`, `SplitStreamOf`, `ObserverOf`
-  and `SinkOf` moved into `wire_weaver_client::facade`, behind `Updates` and `Sends`. `tests/thermo` runs on it
-  (1078 to 754 hand-written lines, the same tests green); docs `evolution/multi_line_host.md#the-facade`.
+  of an enum (`V3(v3::Client), ..`). It emits that enum as the facade, a method per operation that `match`es over the
+  lines, a module of traits, one per line (`line::V3`), which each line implements for its client as associated
+  functions (`async fn read_once(c: &Client) -> Result<Sample>`, so `c.read_once()` is always the generated method),
+  `cmd()`, `wire()`, `config()`, `default_config` with every line's `speaks` and a `try_from_cmd` that picks by line.
+  All enum dispatch, nothing boxed: a `stream` or `sink` operation (`-> stream Samples<Sample>;`) gets an enum of its
+  own over the lines' receivers (`type Samples = StreamOf<..>` in each line, with a plain conversion `fn`; also
+  `SplitStreamOf`, `ObserverOf`, `SinkOf`, all static behind `Receives` and `Sends`). Every line must write every
+  operation (a compile error otherwise) except the lines an operation's `#[unsupported(V1, needs = "..")]` names,
+  which answer `facade::Unsupported { what, device, needs }`; emulations are written by hand. Misuse (`&mut self`,
+  generics, a plain `fn`, a bad `#[unsupported]`) is a `compile_error!` naming the operation; attributes come in any
+  order. Async only: `facade_line!` (a line module's `Client` and `ww_codegen!`) refuses `use_async = false`.
+  `tests/thermo` runs on it, nothing boxed, the same tests green; trybuild tests `wire_weaver_client`
+  `tests/facade_ui.rs` (`just test-facade-ui`); docs `evolution/multi_line_host.md#the-facade`.
 - 💡 **CLT-63 Reconnect into another wire line** — a facade of several lines (EVO-28) picks its client once, in
   `from_cmd`. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
   connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an

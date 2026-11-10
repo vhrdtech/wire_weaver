@@ -2,7 +2,6 @@
 
 use crate::error::{DeviceError, Error, Result};
 use crate::model::{self, Gain, Offset, Rate, Uptime};
-use crate::{Commands, Updates};
 use thermo_api_w1 as api;
 use wire_weaver_client::facade::{LineClient, ObserverOf, SinkOf, StreamOf};
 use wire_weaver_client::observe::on_change;
@@ -37,9 +36,10 @@ fn to_mode(m: model::Mode) -> api::Mode {
     }
 }
 
-fn gain(
-    g: ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::One, u8, ww_si::Range<1, 16>>,
-) -> Result<Gain> {
+/// Line 1's gain, in whole steps.
+type WholeGain = ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::One, u8, ww_si::Range<1, 16>>;
+
+fn gain(g: WholeGain) -> Result<Gain> {
     // 1..=16 whole steps are 100..=1600 hundredths: in range by construction
     Ok(g.to::<ww_si::prefix::Centi, u16>()
         .and_then(|g| g.to_bounds().ok())
@@ -78,7 +78,12 @@ fn not_representable(c: &Client, what: &'static str, value: impl core::fmt::Debu
     }
 }
 
-impl crate::Line for Client {
+impl crate::line::V1 for Client {
+    type GainUpdates =
+        ObserverOf<api_client::thermo_api_thermo::ThermoUpdate, WholeGain, Gain, Error>;
+    type Samples = StreamOf<api::Sample, model::Sample, Error>;
+    type Commands = SinkOf<api::Command, model::Command, Error>;
+
     /// Line 1 has no `configure`: two calls, not atomic, the rate first so that a refused rate leaves the mode alone.
     async fn configure(c: &Client, rate: Rate, mode: model::Mode) -> Result<()> {
         c.set_rate(rate).call().await?;
@@ -110,22 +115,22 @@ impl crate::Line for Client {
         Ok(c.write_gain(whole).write().await?)
     }
 
-    async fn observe_gain(c: &Client) -> Result<Updates<Gain>> {
+    async fn observe_gain(c: &Client) -> Result<Self::GainUpdates> {
         let observer = c
             .observe_gain(on_change(Default::default()))
             .subscribe()
             .await?;
-        Ok(Box::new(ObserverOf { observer, f: gain }))
+        Ok(ObserverOf { observer, f: gain })
     }
 
-    async fn samples(c: &Client) -> Result<Updates<model::Sample>> {
+    async fn samples(c: &Client) -> Result<Self::Samples> {
         let stream = c.samples().call().await?;
-        Ok(Box::new(StreamOf { stream, f: sample }))
+        Ok(StreamOf { stream, f: sample })
     }
 
-    async fn commands(c: &Client) -> Result<Commands> {
+    async fn commands(c: &Client) -> Result<Self::Commands> {
         let sink = c.commands().await?;
-        Ok(Box::new(SinkOf { sink, f: command }))
+        Ok(SinkOf { sink, f: command })
     }
 
     async fn channel_enabled(c: &Client, ch: u32) -> Result<bool> {
@@ -160,5 +165,5 @@ impl crate::Line for Client {
         Ok(uptime(s))
     }
 
-    // no self_test on line 1: `Unsupported` by default
+    // no self_test: `#[unsupported(V1, ..)]` answers `Unsupported`
 }

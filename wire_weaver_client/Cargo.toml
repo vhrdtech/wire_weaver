@@ -102,6 +102,7 @@ ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "test-util"] }
+trybuild = "1"
 wire_weaver_core = { workspace = true }
 ww_device = { workspace = true, features = ["udp", "ws"] }
 ww_self = { workspace = true, features = ["fuzz"] }

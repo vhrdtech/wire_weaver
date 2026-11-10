@@ -1,0 +1,7 @@
+error: facade_line!: a facade is async only, `use_async = false` can't be one of its lines
+ --> tests/ui/line_not_async.rs:4:5
+  |
+4 |     wire_weaver_client::facade_line!(some_api::Thermo, use_async = false);
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `$crate::facade_line` which comes from the expansion of the macro `wire_weaver_client::facade_line` (in Nightly builds, run with -Z macro-backtrace for more info)

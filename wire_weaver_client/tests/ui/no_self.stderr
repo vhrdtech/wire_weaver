@@ -1,0 +1,13 @@
+error: facade!: operation `read` must be `async fn read(&self, arg: Type, ..)` with `-> Type;`, `-> stream Name<Type>;` or `-> sink Name<Type>;`, found `(channel: u8)` and then `-> u32;`
+  --> tests/ui/no_self.rs:7:1
+   |
+ 7 | / wire_weaver_client::facade! {
+ 8 | |     pub enum Device {
+ 9 | |         V2(v2::Client),
+10 | |         V1(v1::Client),
+...  |
+17 | |     async fn read(channel: u8) -> u32;
+18 | | }
+   | |_^
+   |
+   = note: this error originates in the macro `$crate::facade` which comes from the expansion of the macro `wire_weaver_client::facade` (in Nightly builds, run with -Z macro-backtrace for more info)

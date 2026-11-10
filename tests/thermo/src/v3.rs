@@ -2,7 +2,6 @@
 
 use crate::error::{DeviceError, Error, Result};
 use crate::model::{self, Gain, Offset, Rate, Uptime};
-use crate::{Commands, Updates};
 use thermo_api_w3 as api;
 use wire_weaver_client::facade::{LineClient, ObserverOf, SinkOf, SplitStreamOf};
 use wire_weaver_client::observe::on_change;
@@ -99,7 +98,11 @@ impl Client {
     }
 }
 
-impl crate::Line for Client {
+impl crate::line::V3 for Client {
+    type GainUpdates = ObserverOf<api_client::thermo_api_thermo::ThermoUpdate, Gain, Gain, Error>;
+    type Samples = SplitStreamOf<api::BatchOwned, model::Sample, Error>;
+    type Commands = SinkOf<api::Command, model::Command, Error>;
+
     async fn read_once(c: &Client) -> Result<model::Sample> {
         sample(c.read_once().call().await?)
     }
@@ -120,17 +123,17 @@ impl crate::Line for Client {
         Ok(c.write_gain(g).write().await?)
     }
 
-    async fn observe_gain(c: &Client) -> Result<Updates<Gain>> {
+    async fn observe_gain(c: &Client) -> Result<Self::GainUpdates> {
         let observer = c
             .observe_gain(on_change(Default::default()))
             .subscribe()
             .await?;
-        Ok(Box::new(ObserverOf { observer, f: gain }))
+        Ok(ObserverOf { observer, f: gain })
     }
 
-    async fn commands(c: &Client) -> Result<Commands> {
+    async fn commands(c: &Client) -> Result<Self::Commands> {
         let sink = c.commands().await?;
-        Ok(Box::new(SinkOf { sink, f: command }))
+        Ok(SinkOf { sink, f: command })
     }
 
     async fn channel_enabled(c: &Client, ch: u32) -> Result<bool> {
@@ -157,9 +160,9 @@ impl crate::Line for Client {
         Ok(c.configure(config).call().await?)
     }
 
-    async fn samples(c: &Client) -> Result<Updates<model::Sample>> {
+    async fn samples(c: &Client) -> Result<Self::Samples> {
         let stream = c.samples().call().await?;
-        Ok(Box::new(SplitStreamOf::new(stream, batch)))
+        Ok(SplitStreamOf::new(stream, batch))
     }
 
     async fn uptime(c: &Client) -> Result<Uptime> {

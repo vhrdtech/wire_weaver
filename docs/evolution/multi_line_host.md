@@ -92,9 +92,10 @@ async fn set_gain(c: &Client, g: Gain) -> Result<()> {
 
 ## The facade
 
-The driver's type is an enum over the line clients, `match`ed per operation: plain `async fn`, no trait object, no
-boxed futures, and the compiler checks that every line is handled. `wire_weaver_client::facade!` (CLT-64) writes it
-from the operations, listed once with their docs:
+The driver's type is an enum over the line clients, `match`ed per operation. Everything is enum dispatch: each arm
+is a statically known call, with no trait object, no boxed future and nothing hidden to step through in a debugger.
+`wire_weaver_client::facade!` (CLT-64) writes it from the operations, listed once with their docs. It is async
+only: each line's client is the async `std_client`.
 
 ```rust
 wire_weaver_client::facade! {
@@ -105,18 +106,20 @@ wire_weaver_client::facade! {
         V1(v1::Client),
     }
 
-    /// The operations of [Thermo], implemented by each line's client.
-    pub trait Line;
+    /// The operations of [Thermo], a trait per line, implemented by that line's client.
+    pub mod line;
 
     error = Error;
 
     /// Sets rate and mode. Line 1 has no single call for it: the rate first, then the mode.
     async fn configure(&self, rate: Rate, mode: Mode);
     async fn read_once(&self) -> Sample;
-    async fn samples(&self) -> Updates<Sample>;
+    async fn observe_gain(&self) -> stream GainUpdates<Gain>;
+    async fn samples(&self) -> stream Samples<Sample>;
+    async fn commands(&self) -> sink Commands<Command>;
     // ...
     /// From w2.1, lines 2 and 3.
-    #[unsupported(needs = "line 2 from w2.1")]
+    #[unsupported(V1, needs = "line 2 from w2.1")]
     async fn self_test(&self);
 }
 ```
@@ -124,7 +127,10 @@ wire_weaver_client::facade! {
 It emits:
 
 - the enum, the facade itself, with one method per operation returning `Result<T, Error>`;
-- the trait `Line`, one associated function per operation, which each line implements for its client;
+- the module `line` with a trait per line, named after its variant (`line::V3`), one associated function per
+  operation, which the line implements for its client;
+- for each `stream` and `sink` operation an enum of its own over the lines' receivers or senders (`Samples { V3(..),
+  V2(..), V1(..) }`), with `async fn recv()` or `async fn send(item)` that `match`es the same way;
 - `cmd()`, `wire()`, `Thermo::config(..)` and `WwClient`, with every line's `speaks` and a `try_from_cmd` that picks
   the variant of the device's line (see [below](#connecting-once-on-either-line)).
 
@@ -132,13 +138,17 @@ Each line writes its functions with the client as `c`, with only that line's gen
 
 ```rust
 // v3.rs
-impl crate::Line for Client {
+impl crate::line::V3 for Client {
+    type GainUpdates = ObserverOf<api_client::thermo_api_thermo::ThermoUpdate, Gain, Gain, Error>;
+    type Samples = SplitStreamOf<api::BatchOwned, model::Sample, Error>;
+    type Commands = SinkOf<api::Command, model::Command, Error>;
+
     async fn read_once(c: &Client) -> Result<model::Sample> {
         sample(c.read_once().call().await?)
     }
 
-    async fn uptime(c: &Client) -> Result<Uptime> {
-        Ok(c.health().read_uptime().read().await?)
+    async fn samples(c: &Client) -> Result<Self::Samples> {
+        Ok(SplitStreamOf::new(c.samples().call().await?, batch))
     }
     // ...
 }
@@ -147,20 +157,26 @@ impl crate::Line for Client {
 The trait's functions take no `self`, so `c.read_once()` is always the generated method, even where it has the
 operation's name.
 
-- An operation a line doesn't write answers `wire_weaver_client::facade::Unsupported`: the operation's name, the
-  device's wire version and what has it (`#[unsupported(needs = "..")]` after the operation's docs, else "another
-  line"). The driver's error takes it with `From`; line 1 writes no `self_test`.
+- Every line writes every operation, and the compiler checks it: a line that forgets one doesn't build
+  (`not all trait items implemented, missing: samples`).
+- An operation a line can't have is named for that line in `#[unsupported(V1, V2, needs = "..")]`, after or before
+  its docs. Only the lines named there get a default, which answers `wire_weaver_client::facade::Unsupported`: the
+  operation's name, the device's wire version and `needs` (optional, else "another line"). The driver's error takes
+  it with `From`; line 1 writes no `self_test`. For a stream or a sink such a line still names its receiver,
+  `type Samples = Lacking;`.
 - An emulation is written by hand, and its doc comment says what differs. Line 1 has no `configure`, so its
   function makes two calls, rate first so a refused rate leaves the mode alone. That is not atomic: if atomicity
   matters, the API needs an atomic method.
-- Streams, sinks and observed properties are a different type per line, so they are returned boxed: a line's
-  `Stream<A>`, `Sink<A>` or `Observer<U, A>` and a conversion `fn` in one of `wire_weaver_client::facade`'s adapters
-  (`StreamOf`, `SplitStreamOf` for a batch split into items, `ObserverOf`, `SinkOf`), as `Box<dyn Updates<T, E>>`
-  or `Box<dyn Sends<C, E>>`. One boxed future per item, nothing against a round trip.
+- A stream, an observed property or a sink is a different type on each line, so each line names its receiver or
+  sender as an associated type: a line's `Stream<A>`, `Observer<U, A>` or `Sink<A>` with its conversion, a plain
+  `fn`, in one of `wire_weaver_client::facade`'s adapters (`StreamOf`, `SplitStreamOf` for a batch given item by
+  item, `ObserverOf`, `SinkOf`), or a type of its own implementing `Receives` or `Sends`.
 - Errors of each line fold into the driver's one `Error`. A call to an item newer than the device's revision is
   refused by the generated client before it is sent (`Error::OlderProtocol`, see [`#[since]`](rules.md#since)); the
   driver turns that into `Error::Unsupported`, which names the operation.
 - A variant holds the line's whole client: `match` on the facade reaches what only one line has.
+- A mistake in the operations (`&mut self`, a generic operation, a plain `fn`, a line in `#[unsupported]` the enum
+  doesn't have) is a compile error naming the operation and what is wrong.
 
 ## Connecting once, on either line
 
@@ -296,5 +312,5 @@ client code, 0.4 to 0.8 s (dev) and 0.5 to 1.7 s (release) to the driver crate's
 stripped release binary. The API crates themselves build in no time, as `#[ww_api_root]` and `#[ww_trait]` expand
 to nothing. The cost that grows is the hand-written part: about 200 lines of conversions and facade impl per line,
 about half of it the same signatures and boxing in every module. With `facade!` (CLT-64) the driver went from 1078
-to 754 hand-written lines for three lines: about 160 per line, nearly all of it conversions and the bodies of the
-operations.
+to 762 hand-written lines for three lines, nothing boxed: about 160 per line, nearly all of it conversions and the
+bodies of the operations.

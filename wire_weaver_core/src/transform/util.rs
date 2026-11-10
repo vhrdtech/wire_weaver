@@ -81,14 +81,29 @@ pub(crate) fn get_since_attr(
         .map(|v| parse(v.trim()))
         .collect::<Result<Vec<_>>>()
         .context(current_crate.err_context())?;
-    if let [one] = revisions.as_slice() {
-        return Ok(Some(*one));
-    }
-    // a type shared by several lines of one crate (EVO-37): one revision per line, the root's line picks
+    // the line the item is loaded for: the root's for an item of the root's crate, else its own crate's
     let line = match &scratch.root {
         Some((root_crate, wire)) if root_crate == current_crate.version() => wire.map(|w| w.line),
         _ => current_crate.wire.map(|w| w.line),
     };
+    // w0, the design line (EVO-41): breaks are accepted, so a revision says nothing about what a peer has
+    if line.is_some_and(|line| line.0 == 0) {
+        // a type shared with released lines of one crate (EVO-37) keeps their revisions, they don't apply here
+        let shared = current_crate.has_roots_table()?;
+        return match revisions.iter().any(|r| r.is_design_line() || !shared) {
+            true => Err(anyhow!(
+                "#[since = \"{value}\"] on w0, the design line: breaks are accepted there and revisions mean nothing \
+                 (docs/evolution/rules.md#w0-the-design-line). Remove it; items added after the first release, \
+                 `w1.0`, take `#[since]`"
+            ))
+            .context(current_crate.err_context()),
+            false => Ok(None),
+        };
+    }
+    if let [one] = revisions.as_slice() {
+        return Ok(Some(*one));
+    }
+    // a type shared by several lines of one crate (EVO-37): one revision per line, the root's line picks
     // a shared trait loaded on its own (its `#[ww_trait]` check) is on no line: its revision per line doesn't apply
     let Some(line) = line else {
         return Ok(None);

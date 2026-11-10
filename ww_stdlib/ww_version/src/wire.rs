@@ -40,6 +40,13 @@ impl WireVersion {
         self.line.0 == other.line.0
     }
 
+    /// Line 0, the design line (EVO-41): a root on `w0` is an API still being designed. Breaks are accepted
+    /// without a new line, no snapshots are saved, `#[since]` is refused, and a client checks the device's
+    /// introspection data instead of trusting a revision. A first release starts at `w1.0`.
+    pub const fn is_design_line(&self) -> bool {
+        self.line.0 == 0
+    }
+
     /// The next revision on this line, for a wire-compatible addition.
     pub const fn next_revision(&self) -> Self {
         WireVersion::new(self.line.0, self.revision.0 + 1)
@@ -167,6 +174,13 @@ mod tests {
         for s in ["w0.0", "w2.3", "w4294967295.1"] {
             assert_eq!(parse(s).unwrap().to_string(), s);
         }
+    }
+
+    #[test]
+    fn line_0_is_the_design_line() {
+        assert!(WireVersion::new(0, 0).is_design_line());
+        assert!(WireVersion::new(0, 7).is_design_line());
+        assert!(!WireVersion::new(1, 0).is_design_line());
     }
 
     #[test]

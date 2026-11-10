@@ -1117,6 +1117,35 @@ mod tests {
         );
     }
 
+    /// `#[since]` on w0, the design line (EVO-41): refused on an item or a field, since revisions mean nothing
+    /// there; the same API on w1.0 takes it.
+    #[test]
+    fn since_refused_on_the_design_line() {
+        use ww_version::WireVersion;
+
+        let metadata =
+            |wire: &str| format!("\n[package.metadata.wire_weaver]\nwire = \"{wire}\"\n");
+        for src in [
+            "#[ww_api_root] pub trait Api { #[since = \"w0.1\"] fn a(); }",
+            "#[ww_api_root] pub trait Api { #[since = \"w1.0\"] fn a(); }",
+            r#"#[derive_shrink_wrap]
+            pub struct S { pub a: u8, #[since = "w0.2"] #[default = 0] pub b: u8 }
+            #[ww_api_root] pub trait Api { fn a(s: S); }"#,
+        ] {
+            let e = format!(
+                "{:#}",
+                load_src_with("since_w0", &metadata("w0.3"), src).unwrap_err()
+            );
+            assert!(e.contains("on w0, the design line"), "{src}: {e}");
+        }
+        let src = "#[ww_api_root] pub trait Api { #[since = \"w1.1\"] fn a(); }";
+        let bundle = load_src_with("since_w1", &metadata("w1.1"), src).unwrap();
+        assert_eq!(bundle.root.items[0].since, Some(WireVersion::new(1, 1)));
+        let bundle = load_src_with("no_since_w0", &metadata("w0.3"), "#[ww_api_root] pub trait Api { fn a(); }")
+            .unwrap();
+        assert_eq!(bundle.wire, Some(WireVersion::new(0, 3)));
+    }
+
     /// An API root's wire version lives in `Cargo.toml` (EVO-31), `#[ww_api_root(wire = ..)]` only in a test crate
     /// (`publish = false`) and only when it agrees with the `Cargo.toml` one.
     #[test]

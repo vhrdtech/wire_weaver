@@ -8,6 +8,7 @@
 ### 🚀 Features
 
 * `WireVersion` (EVO-24): an API's wire version, `w2.3` (line 2, revision 3), apart from the crate version. `Display` and `FromStr` in that form only: a bare `2.3`, a three-part `w2.3.0` or a crate version like `0.2.0` is refused with a `WireVersionError` that says why. Ordered by line then revision, `same_line()`, `next_revision()`, `next_line()`; two `UNib32`s on the wire (`w2.3` is one byte).
+* `WireVersion::is_design_line()` (EVO-41): line 0, `w0`, the line of an API still being designed.
 * `ImageFacts` (SRV-56): what a firmware image chose at build time and its API doesn't show, sent in `ww_link`'s `DeviceInfo` outside the API hash. First field `no_observe_samples`.
 * `CompactVersion::is_protocol_compatible()`, same rules as `Version::is_protocol_compatible()` plus the same
   global type id.

@@ -906,6 +906,62 @@ mod tests {
         assert!(load_root(&one_root, "Uart").is_err());
     }
 
+    /// A w0 root next to a released one in one crate (EVO-41): a shared item's revision of the released line doesn't
+    /// apply to the w0 root, a revision on line 0 is refused.
+    #[test]
+    fn design_line_root_shares_with_a_released_one() {
+        let dir = std::env::temp_dir()
+            .join("ww_core_snapshot_tests")
+            .join(format!("design_line-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            "[package]\nname = \"design_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n\
+             [package.metadata.wire_weaver.roots]\n\"wire_v0::Api\" = \"w0.4\"\n\"wire_v1::Api\" = \"w1.2\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("src/lib.rs"),
+            "pub mod common;\npub mod wire_v0;\npub mod wire_v1;\n",
+        )
+        .unwrap();
+        for line in ["v0", "v1"] {
+            std::fs::write(
+                dir.join(format!("src/wire_{line}.rs")),
+                "#[ww_api_root] pub trait Api { ww_impl!(channel: super::common::Channel); }",
+            )
+            .unwrap();
+        }
+        let common = |since: &str| {
+            std::fs::write(
+                dir.join("src/common.rs"),
+                format!("#[ww_trait] pub trait Channel {{ fn read(); #[since = \"{since}\"] fn reset(); }}"),
+            )
+            .unwrap();
+        };
+        let reset_since = |root: &str| {
+            let bundle = load_root(&dir, root).unwrap();
+            bundle
+                .traits
+                .iter()
+                .find_map(|l| match l {
+                    ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Channel" => {
+                        level.items.iter().find(|i| i.ident == "reset").map(|i| i.since)
+                    }
+                    _ => None,
+                })
+                .unwrap()
+        };
+        common("w1.2");
+        assert_eq!(reset_since("wire_v0::Api"), None);
+        assert_eq!(reset_since("wire_v1::Api"), Some(WireVersion::new(1, 2)));
+        common("w0.1, w1.2");
+        let err = load_root(&dir, "wire_v0::Api").unwrap_err();
+        assert!(format!("{err:#}").contains("on w0, the design line"), "{err:#}");
+        assert_eq!(reset_since("wire_v1::Api"), Some(WireVersion::new(1, 2)));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// A crate that isn't a ww API crate (API-60): no traits, its types and unit markers are the snapshot.
     #[test]
     fn standalone_crate_snapshot() {

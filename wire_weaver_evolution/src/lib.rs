@@ -735,6 +735,10 @@ impl<'a> Checker<'a> {
                 continue;
             };
             let from = (moved.from_trait.clone(), moved.from_ident.clone());
+            if from == (moved.trait_name.clone(), moved.ident.clone()) {
+                // its own place: matched by path anyway
+                continue;
+            }
             if let Some((_, (t, i))) = self.moved.iter().find(|(f, _)| *f == from) {
                 let e = format!("{}::{i}'s #[moved_from] names {} too", t, moved.from_path());
                 self.moved_from_errors.push(format!("{moved}: {e}"));

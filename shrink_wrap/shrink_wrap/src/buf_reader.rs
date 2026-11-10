@@ -602,14 +602,6 @@ impl<'i> BufReader<'i> {
         }
     }
 
-    /// Keep `e` for [latched](Self::latched) like a failed `_latch` read, unless an earlier error is kept: a
-    /// `transparent` type with `validate` reports a value out of its range this way when it is read latched (DER-20).
-    #[doc(hidden)]
-    #[inline(always)]
-    pub fn keep_error(&mut self, e: Error) {
-        self.latch.get_or_insert(e);
-    }
-
     /// What `#[derive_shrink_wrap]` does with the error of a `validate = path` function: gives back its [Error]
     /// and, with the `refused` feature, keeps the numbers of a [Refused](crate::refused::Refused) in the reader's
     /// [Slot], if it has one ([with_refusal_slot](Self::with_refusal_slot)).
@@ -621,6 +613,20 @@ impl<'i> BufReader<'i> {
             slot.0.keep(refused);
         }
         r.error()
+    }
+
+    /// What `#[derive_shrink_wrap]` does with the error of a `validate = path` function on a value read latched (a
+    /// `transparent` field, DER-20): [refuse](Self::refuse), and keep the error for [latched](Self::latched) like a
+    /// failed `_latch` read, but only while no error is kept. After an error the latched reads give 0, which a later
+    /// hook may refuse too (an `IndexFrom1` counts from 1): the first refusal is the read's error, and its numbers,
+    /// not the last one's, stay in the [Slot].
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn refuse_latch<R: Refusal>(&mut self, r: R) {
+        if self.latch.is_none() {
+            let e = self.refuse(r);
+            self.latch = Some(e);
+        }
     }
 
     /// Keep a `validate` hook's [Refused](crate::refused::Refused) in `slot`, from this reader and every reader split

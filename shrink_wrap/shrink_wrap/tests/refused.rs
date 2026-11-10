@@ -228,3 +228,86 @@ fn a_reader_stays_send_and_sync() {
     send_sync::<BufReader<'static>>();
     send_sync::<shrink_wrap::refused::Slot>();
 }
+
+/// 1..=5000 ms, transparent: a bounded `Fixed`.
+#[derive_shrink_wrap(owned, transparent, validate = Timeout::validate)]
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Timeout(u16);
+
+impl Timeout {
+    fn validate(&self) -> Result<(), Refused> {
+        if (1..=5000).contains(&self.0) {
+            Ok(())
+        } else {
+            Err(Refused::out_of(
+                RefusedNum::Int(self.0.into()),
+                RefusedNum::Int(1),
+                RefusedNum::Int(5000),
+            ))
+        }
+    }
+}
+
+/// Counts from 1, transparent: an `IndexFrom1`, which refuses the 0 a latched read gives after an error.
+#[derive_shrink_wrap(owned, transparent, validate = Channel::validate)]
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Channel(u8);
+
+impl Channel {
+    fn validate(&self) -> Result<(), Refused> {
+        if self.0 == 0 {
+            Err(Refused::new(RefusedNum::Int(0), Rule::NotZero))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive_shrink_wrap(owned)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct Config {
+    pub timeout: Timeout,
+    pub channel: Channel,
+}
+
+/// The first refusal of a latched read is the one explained: the 0 the next field reads after it, refused by that
+/// field's hook too, doesn't replace it.
+#[test]
+fn the_first_refusal_wins() {
+    let b = Config {
+        timeout: Timeout(6000),
+        channel: Channel(2),
+    }
+    .to_ww_bytes_owned()
+    .unwrap();
+    let err = Config::from_ww_bytes_explained(&b).unwrap_err();
+    assert_eq!(err.error, shrink_wrap::Error::SubtypeOutOfRange);
+    assert_eq!(err.to_string(), "6000 is out of 1..=5000");
+}
+
+#[derive_shrink_wrap(owned)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct EvenThenChannel {
+    pub even: Even,
+    pub channel: Channel,
+}
+
+/// A first refusal without numbers stays without them: the next field's refusal of the latched 0 doesn't lend its
+/// numbers to the error of the first.
+#[test]
+fn a_first_plain_refusal_keeps_no_numbers() {
+    let b = EvenThenChannel {
+        even: Even(3),
+        channel: Channel(2),
+    }
+    .to_ww_bytes_owned()
+    .unwrap();
+    let err = EvenThenChannel::from_ww_bytes_explained(&b).unwrap_err();
+    assert_eq!(
+        err,
+        ReadError {
+            error: shrink_wrap::Error::SubtypeOutOfRange,
+            refused: None
+        }
+    );
+}

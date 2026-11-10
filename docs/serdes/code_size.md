@@ -363,7 +363,7 @@ through `des_shrink_wrap_latch`; the write side gets the same: a hidden `Seriali
 (`ser_shrink_wrap` by default, `ser_shrink_wrap_owned_latch` for owned types), called through
 `BufWriter::write_field` for every user-type field. `bool`, `u8`..`u32`, `i8`..`i32` and `f32` override both sides with
 their `_latch` methods, and a `transparent` struct forwards both to its field. One with `validate` (the bounds of a `Fixed`)
-checks the value after the latched read and keeps a failure for `rd.latched()?` (`BufReader::keep_error`, an
+checks the value after the latched read and keeps a failure for `rd.latched()?` (`BufReader::refuse_latch`, an
 earlier error stays first), so `Fixed<.., Unbounded>`, whose check is `true`, is the plain field's code. Before it, such a
 field went through the wrapper's own `ser_shrink_wrap` with an error check per field: TEST-27's ELF comparison found
 +2 to 15 instructions and +4 to 42 bytes per struct encode or decode on Cortex-M0, M4F and M33. After it the same

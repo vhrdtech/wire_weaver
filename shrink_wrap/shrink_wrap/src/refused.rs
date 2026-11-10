@@ -238,7 +238,8 @@ impl Slot {
         }
     }
 
-    /// Keep `refused`: the last refusal of a read wins.
+    /// Keep `refused`. A read refuses once: a plain read stops at its first refusal, a latched one takes none
+    /// after an error ([BufReader::refuse_latch](crate::BufReader::refuse_latch)), so the first refusal wins.
     #[cfg(feature = "refused")]
     #[inline]
     pub(crate) fn keep(&self, refused: Refused) {

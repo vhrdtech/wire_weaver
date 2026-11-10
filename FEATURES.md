@@ -109,7 +109,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   stays a fieldless `u32` on firmware; with the `refused` feature (on with `std`) a reader made with
   `with_refusal_slot(&slot)` writes it into the caller's `refused::Slot`, shared by every reader split off it and by
   no other read, one pointer more in `BufReader` (40 to 48 B on a 64-bit host); `from_ww_bytes_explained` makes one
-  and returns a `ReadError` (`"6000 is out of 1..=5000"`). Without the feature (firmware) the reader doesn't grow and
+  and returns a `ReadError` (`"6000 is out of 1..=5000"`), the first refusal of the read. Without the feature (firmware) the reader doesn't grow and
   the numbers are dropped where they are made. A `Series` item's hook reports the plain error only. exact_units'
   `Fixed`, `Index`, `IndexFrom1`, `Niched` and `Coded` hooks moving to it is exact_units' side. Tests
   `shrink_wrap/shrink_wrap/tests/refused.rs`, `docs/serdes/derive_reference.md#validate-path`.
@@ -423,7 +423,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the latched `write_*_latch` / `des_shrink_wrap_latch` calls with one error check per type (SW-34, SW-38), not the
   wrapper's own `ser_shrink_wrap` with a checked write per field. Hidden `ser_shrink_wrap_latch` (borrowed and owned)
   with `BufWriter::write_field`, used by the derive for every user-type field; a wrapper with `validate` (`Fixed`'s
-  bounds) keeps a value out of range as the latched error (`BufReader::keep_error`). TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
+  bounds) keeps a value out of range as the latched error (`BufReader::refuse_latch`, the first refusal wins). TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
   M33 before it; same wire format (`docs/serdes/derive_reference.md#transparent`,
   `docs/serdes/code_size.md#transparent-fields`; test `shrink_wrap/tests/transparent.rs`
   `fields_are_latched_like_the_plain_field`, fuzz `shrink_wrap_latched`).

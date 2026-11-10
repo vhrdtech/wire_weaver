@@ -260,12 +260,11 @@ impl<'i> CGItemStruct<'i> {
         });
         // as a field of a derived type, the struct is written and read exactly like its field, a latched one
         // included; a failed `validate` is kept for `rd.latched()?` like a failed read (an earlier error stays
-        // first, and a value read after an error, 0, may fail it too)
+        // first with its numbers: a value read after an error, 0, may fail it too)
         let validate_latch = self.validate.map(|path| {
             quote! {
                 if let Err(e) = #path(&__value) {
-                    let e = rd.refuse(e);
-                    rd.keep_error(e);
+                    rd.refuse_latch(e);
                 }
             }
         });

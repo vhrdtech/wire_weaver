@@ -1075,6 +1075,7 @@ pub fn table() -> Vec<Typed> {
             "model.marker_def.codec.spare",
             mu_law_single_zero_def(),
         ),
+        case("model.marker_def.codec.offset", narrow8_def()),
         case(
             "model.marker_def.reference",
             ww_self::MarkerDefOwned::Reference(ww_self::ReferenceDefOwned::from(
@@ -1369,6 +1370,22 @@ fn mu_law_single_zero_def() -> ww_self::MarkerDefOwned {
         spare: vec![ww_si::codec::CodeSpan::one(0x7F)],
         codes: ww_si::codec::CodeSpan::all::<u8>(),
         nominal: None,
+        curve: None,
+    })
+}
+
+/// `Narrow8`'s `Codec::DEF` as the model holds it: an affine `CodecShape::Offset` with a nominal range (LVL-8,
+/// STD-111).
+fn narrow8_def() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Codec(ww_si::codec::CodecDefOwned {
+        id: marker_id("exact_units", "Narrow8"),
+        shape: ww_si::codec::CodecShapeOwned::Offset { zero: 16 },
+        spare: vec![
+            ww_si::codec::CodeSpan::one(0),
+            ww_si::codec::CodeSpan::one(255),
+        ],
+        codes: ww_si::codec::CodeSpan::all::<u8>(),
+        nominal: Some(ww_si::codec::CodeSpan { low: 16, high: 235 }),
         curve: None,
     })
 }

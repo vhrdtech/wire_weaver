@@ -1963,6 +1963,14 @@
       "note": "impl Codec of MuLawSingleZero: its spare codes, 0x7F, which a client refuses as a value and a Niched claims (LVL-6)"
     },
     {
+      "name": "model.marker_def.codec.offset",
+      "type": "marker_def",
+      "value": {"Codec": {"id": {"crate_name": "exact_units", "name": "Narrow8"}, "shape": {"Offset": {"zero": 16}}, "spare": [{"low": 0, "high": 0}, {"low": 255, "high": 255}], "codes": {"low": 0, "high": 255}, "nominal": {"low": 16, "high": 235}, "curve": null}},
+      "bytes": "a365786163745f756e6974734e6172726f773830100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000ff00000000000000000000000000000000000000000000000000000000000000ff0000000000000000000000000000008010000000000000000000000000000000eb0000000000000000000000000000000021a73900da",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "impl Codec of Narrow8: an affine CodecShape::Offset with a nominal range, video's narrow-range quantization (LVL-8, STD-111)"
+    },
+    {
       "name": "model.marker_def.reference",
       "type": "marker_def",
       "value": {"Reference": {"id": {"crate_name": "exact_units", "name": "TaiScale"}, "name": "TAI", "how": {"TimeScale": {"counting": "EverySecond", "zero": "Agreed"}}}},

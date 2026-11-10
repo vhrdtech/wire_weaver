@@ -450,6 +450,9 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-105 | NaN-free floats in clients | A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused. | std_library/exact_units.md
 - STD-108 | Time scales in the model | An origin says what its zero is measured from and how that zero is known (exact, at run time, a time scale), so clients and the evolution check tell why a Unix time and a TAI or device time don't convert. | std_library/units_in_the_model.md#references
 - STD-109 | Non-linear codes in clients | A G.711 μ-law byte and other codec values read as the number they mean in `ww`, Python and the dynamic client, written by their exact code, from the codec's definition in the API model. | std_library/exact_units.md#non-linear-codes
+- STD-111 | `Offset` codes and a curve above them | Video's narrow-range quantizers (`CodecShape::Offset`) and a transfer curve above a codec (`CurveDef`, signal to light) read into the API model, checked against the compiled codec. | std_library/exact_units.md#non-linear-codes
+- LVL-8 | Video codes and transfer curves | `exact_units::codec::video`'s narrow-range quantizers (ITU-R BT.709-6) and PQ, the first transfer curve, a float edge over HDR video's 10-bit codes. | std_library/exact_units.md#non-linear-codes
+- LVL-9 | Layered codes: transfer curves as data | A transfer curve as data above a quantizer (`CurveDef`, `Transfer<Q, C>`), exact per value where the signal is a rational that fits, a certified `f64` edge elsewhere. | std_library/exact_units.md#non-linear-codes
 - STD-110 | Device time points in `Timed` | A timed value carries its time as a point on the device clock (`DeviceMicros<u32>` by default), four plain bytes in a column, and the host gets the full 64-bit time back across wraps. | std_library/ww_si.md#timed-values
 - STD-113 | Typed numbers in 1-Wire and UART | `ww_onewire`'s family code, byte counts, pin index and ROM search bit position, and `ww_uart`'s byte counts and idle character count, are typed instead of bare integers, so a client or `ww api check` knows what each one means and whether it is in range. | std_library/ww_onewire.md
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
@@ -543,6 +546,9 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-47 | The wire change behind systems of units (a dimension names its system, `MarkerDef::System`): the user-visible side is exact_units UNIT-9.
 - EVO-48 | The wire change behind references of origins (`OriginDef::reference` a `ReferenceDef`, `MarkerDef::Reference`): the user-visible side is STD-108.
 - EVO-49 | The wire change behind a codec's spare codes (`CodecDef::spare`): the user-visible side is STD-109.
+- EVO-53 | The wire change behind a codec's codes, nominal and curve (`CodecDef::codes`/`nominal`/`curve`, `CodecShape::Offset`): the user-visible side is STD-111.
+- NUM-31 | exact_units' own feature (`OneOf`, a bound whose values are a set with gaps): no wire_weaver surface yet.
+- NUM-35 | exact_units' own feature (a run-time exact value with symbols, `units::Ln2`/`Ln10`): no wire_weaver surface yet.
 - EVO-51 | The wire change behind `Timed.t` as a device time point (`ww_si` 0.5.0, wire `w5.0`): the user-visible side is STD-110.
 - EVO-62 | The wire change behind typed CAN numbers (`ww_can_bus` wire `w2.0`): the user-visible side is STD-114.
 - EVO-55 | The wire change behind exact_units at c132f58 (`CodecDef`'s `codes`/`nominal`/`curve`, `Symbols`' `m_u`): the user-visible side is STD-109 (codec) and the Magnitude conformance cases it touches.

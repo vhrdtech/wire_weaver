@@ -21,6 +21,13 @@
 ### ⚠️ Breaking
 
 - Shared sub-level clients (CLT-68) lose their `const OBSERVE: bool` parameter (API-63): a level under a resource array is observable like any other, so `ChannelClient<'_, true>` / `<'_, false>` are both `ChannelClient<'_>`; code generic over `O` drops it. `GenServerConfig` has a new field `observe_elements` (`None` for the default).
+- `markers::codec_curve` reads a codec's `curve` beyond `None` (STD-111): `Some(CurveDef { id, referred, unit,
+  scale, low, high, segments })`, every `Segment`'s `CurveForm` (`Affine`, `Power` incl. its `scale`, `Exp`,
+  `RationalPower`) and `ExpBase` (`E`, `Exactly`) a literal, every number a `Fraction` (`Fraction::ZERO`/`ONE`/
+  `int(n)`/`new(num, den)`). No concrete (non-generic) `Codec` in exact_units sets `curve: Some(..)` yet —
+  `Transfer<Q, C>`, the one that does, is the generic codec STD-112 already leaves uncollected — so this is
+  forward infrastructure; `units::codec_def` still leaves `curve` out of the reconstructed `CodecDef` it hands to
+  `decode`/`encode` (ww_self's own entry above), by design, not by gap.
 - A timed batched stream's generated `<name>_push(to, value, t)` takes `t: Tm`, the stream's time point (`DeviceMicros<u32>` by default, STD-110), and `<name>_push_many(to, t0, dt, values)` takes `t0: Tm`, `dt: ww_si::TimeStep<Tm>` and returns `(Seal, usize)` (the last seal and the items lost), no `Option` any more: the step is in the type. The scaffold prints `Timed<Item, Tm>`. Generated clients name `PositionedStream<T, <Tm as TimePoint>::Full>` (and `Stream`) for a timed batched stream, so its items carry `t: Option<DeviceMicros<u64>>` (CLT-70).
 - The walker reads a codec's spare codes (exact_units codec-niche, EVO-49): an `impl Codec`'s `DEF` names `spare: def_list(&[..])` of `CodeSpan::one(code)` or `CodeSpan { low, high }`, integer literals, a span upside down refused; a `DEF` without `spare` is refused. The parity test checks `MuLaw` and `MuLawSingleZero` against their compiled `Codec::DEF`.
 - `load_crate_with_hints` and `load_root_with_hints` (and their `CrateCache` methods) are `load_crate_with_notes` and `load_root_with_notes`, returning a `SourceNotes` (`hints`, the unit-suffix hints as before, and `moved_from`, EVO-40) instead of the hints alone: use `notes.hints`.

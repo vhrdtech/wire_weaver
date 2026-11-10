@@ -13,11 +13,14 @@
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::codec::{CodeSpan, CodecDefOwned, CodecShapeOwned};
+use exact_units::codec::{
+    CodeSpan, CodecDefOwned, CodecShapeOwned, CurveDefOwned, CurveForm, ExpBase, Referred, Segment,
+};
 use exact_units::{
-    BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned,
-    Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols, System,
-    SystemDef, SystemDefOwned, UnitDefOwned, UnitNames, UnitNamesOwned, systems::Si,
+    BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, Fraction, MAX_TRUE_BASES, Magnitude,
+    MarkerIdOwned, Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned,
+    Symbols, System, SystemDef, SystemDefOwned, UnitDefOwned, UnitNames, UnitNamesOwned,
+    systems::Si,
 };
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
@@ -443,30 +446,205 @@ fn codec_nominal(def: &syn::Expr) -> Result<Option<CodeSpan>> {
     }
 }
 
-/// The `curve` of an `impl Codec`'s `DEF`: `None`, the only form the walker reads so far (a transfer curve waits
-/// for the walker to read its segments).
-fn codec_curve(def: &syn::Expr) -> Result<()> {
+/// The `curve` of an `impl Codec`'s `DEF`: `None`, or `Some(CurveDef { id, referred, unit, scale, low, high,
+/// segments })`, every `Segment`'s `CurveForm` (`Affine`, `Power`, `Exp`, `RationalPower`) and `ExpBase` (`E`,
+/// `Exactly`) a literal, every number a [fraction_lit].
+fn codec_curve(def: &syn::Expr) -> Result<Option<CurveDefOwned>> {
     let syn::Expr::Struct(s) = def else {
         bail!(
             "DEF `{}`: CodecDef {{ id, shape, spare, codes, nominal, curve }}",
             quote::quote!(#def)
         );
     };
-    let Some(curve) = s
-        .fields
-        .iter()
-        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "curve"))
-        .map(|f| &f.expr)
-    else {
-        bail!("DEF `{}`: no `curve: ..`", quote::quote!(#def));
-    };
+    let curve = field(s, "curve").with_context(|| format!("DEF `{}`", quote::quote!(#def)))?;
     match curve {
-        syn::Expr::Path(p) if p.path.is_ident("None") => Ok(()),
+        syn::Expr::Path(p) if p.path.is_ident("None") => Ok(None),
+        syn::Expr::Call(c)
+            if c.args.len() == 1
+                && matches!(&*c.func, syn::Expr::Path(p) if p.path.is_ident("Some")) =>
+        {
+            curve_def_lit(&c.args[0])
+                .with_context(|| format!("curve `{}`", quote::quote!(#curve)))
+                .map(Some)
+        }
         _ => bail!(
-            "curve `{}`: the walker reads `None`; a transfer curve waits for the walker to read its segments",
+            "curve `{}`: None or Some(CurveDef {{ .. }})",
             quote::quote!(#curve)
         ),
     }
+}
+
+/// A `CurveDef { id, referred, unit, scale, low, high, segments }` literal, `segments` a `def_list(&[Segment, ..])`
+/// (or a same-module table [def_list_items] already inlined).
+fn curve_def_lit(e: &syn::Expr) -> Result<CurveDefOwned> {
+    let syn::Expr::Struct(s) = e else {
+        bail!(
+            "`{}` is not CurveDef {{ id, referred, unit, scale, low, high, segments }}",
+            quote::quote!(#e)
+        );
+    };
+    let id = marker_id_lit(field(s, "id")?)?;
+    let referred = referred_lit(field(s, "referred")?)?;
+    let unit = marker_id_lit(field(s, "unit")?)?;
+    let scale = fraction_lit(field(s, "scale")?)?;
+    let low = fraction_lit(field(s, "low")?)?;
+    let high = fraction_lit(field(s, "high")?)?;
+    let segments = def_list_items(field(s, "segments")?)?
+        .map(segment_lit)
+        .collect::<Result<Vec<_>>>()?;
+    Ok(CurveDefOwned {
+        id,
+        referred,
+        unit,
+        scale,
+        low,
+        high,
+        segments,
+    })
+}
+
+/// A `Segment { from, form }` literal.
+fn segment_lit(e: &syn::Expr) -> Result<Segment> {
+    let syn::Expr::Struct(s) = e else {
+        bail!("`{}` is not Segment {{ from, form }}", quote::quote!(#e));
+    };
+    let from = fraction_lit(field(s, "from")?)?;
+    let form = curve_form_lit(field(s, "form")?)?;
+    Ok(Segment { from, form })
+}
+
+/// One `CurveForm` variant literal: `Affine { gain, offset }`, `Power { gain, scale, shift, exponent, offset }`,
+/// `Exp { gain, base, scale, shift, offset }` or `RationalPower { m1, m2, c1, c2, c3 }`, every parameter a
+/// [fraction_lit].
+fn curve_form_lit(e: &syn::Expr) -> Result<CurveForm> {
+    let syn::Expr::Struct(s) = e else {
+        bail!(
+            "`{}` is not a CurveForm variant (Affine, Power, Exp or RationalPower)",
+            quote::quote!(#e)
+        );
+    };
+    let frac = |name: &str| -> Result<Fraction> { fraction_lit(field(s, name)?) };
+    let last = |path: &syn::Path| path.segments.last().map(|s| s.ident.to_string());
+    match last(&s.path).as_deref() {
+        Some("Affine") => Ok(CurveForm::Affine {
+            gain: frac("gain")?,
+            offset: frac("offset")?,
+        }),
+        Some("Power") => Ok(CurveForm::Power {
+            gain: frac("gain")?,
+            scale: frac("scale")?,
+            shift: frac("shift")?,
+            exponent: frac("exponent")?,
+            offset: frac("offset")?,
+        }),
+        Some("Exp") => Ok(CurveForm::Exp {
+            gain: frac("gain")?,
+            base: exp_base_lit(field(s, "base")?)?,
+            scale: frac("scale")?,
+            shift: frac("shift")?,
+            offset: frac("offset")?,
+        }),
+        Some("RationalPower") => Ok(CurveForm::RationalPower {
+            m1: frac("m1")?,
+            m2: frac("m2")?,
+            c1: frac("c1")?,
+            c2: frac("c2")?,
+            c3: frac("c3")?,
+        }),
+        _ => bail!(
+            "`{}` is not a CurveForm variant (Affine, Power, Exp or RationalPower)",
+            quote::quote!(#e)
+        ),
+    }
+}
+
+/// `ExpBase::E` or `ExpBase::Exactly(<fraction>)`.
+fn exp_base_lit(e: &syn::Expr) -> Result<ExpBase> {
+    match e {
+        syn::Expr::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == "E") => {
+            Ok(ExpBase::E)
+        }
+        syn::Expr::Call(c)
+            if c.args.len() == 1
+                && matches!(&*c.func, syn::Expr::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == "Exactly")) =>
+        {
+            Ok(ExpBase::Exactly(fraction_lit(&c.args[0])?))
+        }
+        _ => bail!("`{}` is not ExpBase::E or ExpBase::Exactly(..)", quote::quote!(#e)),
+    }
+}
+
+/// `Referred::Scene` or `Referred::Display`, by the last segment of its path.
+fn referred_lit(e: &syn::Expr) -> Result<Referred> {
+    let syn::Expr::Path(p) = e else {
+        bail!(
+            "`{}` is not Referred::Scene or Referred::Display",
+            quote::quote!(#e)
+        );
+    };
+    match p.path.segments.last().map(|s| s.ident.to_string()).as_deref() {
+        Some("Scene") => Ok(Referred::Scene),
+        Some("Display") => Ok(Referred::Display),
+        _ => bail!(
+            "`{}` is not Referred::Scene or Referred::Display",
+            quote::quote!(#e)
+        ),
+    }
+}
+
+/// A `Fraction` literal: `Fraction::ZERO`, `Fraction::ONE`, `Fraction::int(n)` or `Fraction::new(num, den)`, every
+/// number an [int_expr].
+fn fraction_lit(e: &syn::Expr) -> Result<Fraction> {
+    let call_name = |c: &syn::ExprCall| match &*c.func {
+        syn::Expr::Path(p) => p.path.segments.last().map(|s| s.ident.to_string()),
+        _ => None,
+    };
+    let not_a_fraction = || -> anyhow::Error {
+        anyhow!(
+            "`{}` is not Fraction::ZERO, Fraction::ONE, Fraction::int(n) or Fraction::new(num, den)",
+            quote::quote!(#e)
+        )
+    };
+    match e {
+        syn::Expr::Path(p) => match p.path.segments.last().map(|s| s.ident.to_string()).as_deref() {
+            Some("ZERO") => Ok(Fraction::ZERO),
+            Some("ONE") => Ok(Fraction::ONE),
+            _ => Err(not_a_fraction()),
+        },
+        syn::Expr::Call(c) => match (call_name(c).as_deref(), c.args.len()) {
+            (Some("int"), 1) => Ok(Fraction::int(int_expr(&c.args[0])?)),
+            (Some("new"), 2) => {
+                let den = u128::try_from(int_expr(&c.args[1])?)
+                    .map_err(|_| anyhow!("Fraction::new(.., den): den doesn't fit a u128"))?;
+                Ok(Fraction::new(int_expr(&c.args[0])?, den))
+            }
+            _ => Err(not_a_fraction()),
+        },
+        _ => Err(not_a_fraction()),
+    }
+}
+
+/// A `MarkerId { crate_name: "..", name: ".." }` literal, both string literals.
+fn marker_id_lit(e: &syn::Expr) -> Result<MarkerIdOwned> {
+    let syn::Expr::Struct(s) = e else {
+        bail!(
+            "`{}` is not MarkerId {{ crate_name, name }}",
+            quote::quote!(#e)
+        );
+    };
+    let str_field = |name: &str| -> Result<String> {
+        match field(s, name)? {
+            syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(lit),
+                ..
+            }) => Ok(lit.value()),
+            other => bail!("MarkerId {{ .. }}: `{name}` is `{}`, not a string literal", quote::quote!(#other)),
+        }
+    };
+    Ok(MarkerIdOwned {
+        crate_name: str_field("crate_name")?,
+        name: str_field("name")?,
+    })
 }
 
 /// A `CodeSpan::one(code)`, `CodeSpan { low, high }` or `CodeSpan::all::<T>()` for an integer `T`.
@@ -1390,17 +1568,14 @@ pub(crate) fn marker_def(
                 how: reference_how(&how).with_context(|| format!("reference marker {ident}"))?,
             })
         }
-        MarkerLineDef::Codec(def) => {
-            codec_curve(&def).with_context(|| format!("codec marker {ident}"))?;
-            MarkerDefOwned::Codec(CodecDefOwned {
-                id: id(),
-                shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
-                spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
-                codes: codec_codes(&def).with_context(|| format!("codec marker {ident}"))?,
-                nominal: codec_nominal(&def).with_context(|| format!("codec marker {ident}"))?,
-                curve: None,
-            })
-        }
+        MarkerLineDef::Codec(def) => MarkerDefOwned::Codec(CodecDefOwned {
+            id: id(),
+            shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
+            spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
+            codes: codec_codes(&def).with_context(|| format!("codec marker {ident}"))?,
+            nominal: codec_nominal(&def).with_context(|| format!("codec marker {ident}"))?,
+            curve: codec_curve(&def).with_context(|| format!("codec marker {ident}"))?,
+        }),
         // the struct alone, a generic definition: no marker of its own, an instance is refused in `convert_user_ty`
         MarkerLineDef::GenericCodec => return Ok(None),
         MarkerLineDef::Hand(trait_name) => bail!(

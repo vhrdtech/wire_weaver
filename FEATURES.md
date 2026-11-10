@@ -1281,6 +1281,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   passed about 4 runs in 5 while its simulated firmware had to call it). A refused write marks nothing; `ww api
   scaffold`'s setter stub says so. Test `tests/observe` `host_write_marks_get_set_changed`.
 
+- 💡 **SRV-58 A server at an earlier revision of its root** — `ww_codegen!(.., server = true, revision = "w1.0")` would
+  build firmware of an earlier revision from the current root: the resources added after it (`#[since]`) left out of
+  dispatch and of the bundle, the bundle's and the hello's wire that revision. Mostly for tests: a host driver's
+  bench could then simulate `w1.0` and `w2.0` devices without keeping the crates they were published from (EVO-42
+  keeps `thermo_api` 1.0.0 and 2.0.0 in `tests/thermo_api_old` for that). In practice an old line's maintenance
+  firmware is built from its module at that line's newest revision, so real firmware rarely needs it. Fields and
+  variants with a newer `#[since]` can't be left out of a Rust type, so such a type would be refused.
+
 ## Client / host side (`CLT`)
 
 - ✅ **CLT-1 `std` client** with async, blocking and promise flavors, prepared call objects, no `root()` needed.
@@ -2134,9 +2142,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_evolution` `tests::moved_from::*`, `moved_from_is_read_from_the_source`, `moved_from_of_a_new_root`, `moved_from_chain_over_two_breaks`,
   `moved_from_on_a_trait_outside_the_root_tree`,
   `wire_weaver_core` `moved_from_parses`, `tests/thermo` `checker_agrees_on_both_bumps`.
-- 📋 **EVO-42 The multi-line bench on one crate** · `v0.5` — `tests/thermo_api` as one crate of three lines and
-  `tests/thermo` on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
-  baseline; `docs/evolution/multi_line_host.md` rewritten for it.
+- ✅ **EVO-42 The multi-line bench on one crate** · `v0.5` — `tests/thermo_api` is one crate, `thermo_api` 4.0.0,
+  with a root per line (`wire_v1` w1.2, `wire_v2` w2.1, `wire_v3` w3.0) and what more than one line uses in `common`,
+  in the workspace; its `api_snapshots/` keeps the old crates' snapshots, and `tests/evolution.rs` checks each root
+  against its line. `tests/thermo` converts the `common` types once and reaches `ww_indication` through one shared
+  client (CLT-68). The first revisions w1.0 and w2.0 are the published 1.0.0 and 2.0.0 in `tests/thermo_api_old`,
+  as old firmware: a server can't be built at an earlier revision of its root (SRV-58); they connect to the one-crate
+  client unchanged. Measured against EVO-28's end and the CLT-64 facade, same PC and session: 699 hand-written
+  driver lines (764 with five crates, 1,074 before `facade!`), generated client 2,193 lines (2,575), stripped probe
+  112.6 KiB smaller, rebuild times equal, the checker test 0.7 s (0.9 s), API source now linted by clippy. Found on
+  the way: a sub-level trait named through a `use` wasn't found (`wire_weaver_core`), and the checker took two roots'
+  traits of one name for one shared trait (`wire_weaver_evolution`, `SourceNotes::modules`); the move into modules
+  graded only compatible is EVO-54. Docs: `docs/evolution/multi_line_host.md`; tests `tests/thermo`,
+  `tests/thermo_api` `api_evolution`, `wire_weaver_evolution` `same_name_in_two_modules_is_not_shared`.
+- 📋 **EVO-54 A move into another module is a Rust break** · `v0.5` — moving an API into the several-roots layout
+  (EVO-37) changes every Rust path (`thermo_api::Sample` becomes `thermo_api::wire_v1::Sample`), a breaking crate bump,
+  but the checker compares the bundles, which name items by crate and name only, and asks for a compatible one
+  (`thermo_api` 3.0.0 -> 3.1.0 on the EVO-42 bench, "definitions changed"). The same for a type moved between
+  modules of one crate. The walker notes each item's module (`SourceNotes::modules`, EVO-42); the checker would
+  compare them with the snapshot's (which has none yet: record the module in snapshots, or read it from the
+  snapshot's crate version source) and grade a move `Rule::Signature`, Rust only.
 - 📋 **EVO-46 Per-root snapshots for stdlib and `wire_weaver_snapshots`** · `v0.5` — a `ww_stdlib` (or `ww_global`,
   `ww_tap`) crate with a `roots` table has no whole-crate snapshot today: `load_crate` refuses it, so
   `wire_weaver_snapshots` can't embed it, `just save-snapshots` saves only its per-root files (which the build script
@@ -2307,8 +2332,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`thermo_api ::`), which doesn't compile when the crate is a renamed dependency, as in a host bundling two
   versions of it (EVO-28, `docs/evolution/multi_line_host.md`). A `--dep NAME` option writes that name instead.
   Separate from TOOL-32: the EVO-37 one-crate layout removes the renamed dependency for a crate that holds every
-  line, but the two-crate-under-renamed-keys layout `docs/evolution/multi_line_host.md` still documents (until
-  EVO-42 reworks the bench onto one crate) keeps needing this.
+  line, but a host of an API whose lines were published as versions of one crate, taken under renamed keys
+  (`docs/evolution/multi_line_host.md#every-line-in-one-api-crate`, the layout before EVO-42), keeps needing this.
 - ✅ **TOOL-32 `ww api scaffold --root`** · `v0.5` — `--root <Trait>` names the API root to scaffold: a trait
   name, or `module::Trait` in a crate with several roots (`--root wire_v2::Thermo`, EVO-37); `--name` still works
   as a hidden alias. The printed `ww_codegen!` call and the scaffold's own header and section comments name the

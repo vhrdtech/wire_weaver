@@ -6,62 +6,94 @@ level: advanced
 
 A wire break starts a new [wire line](rules.md#the-wire-version) of an API: a `w2.0` device and a `w1.2` host refuse
 each other in link setup. Firmware in the field doesn't update all at once, so a host application often has to talk
-to devices of both lines for a while. Generated clients are static, one per line, so the host bundles one client per
-line and picks one at connect time. This page shows how, on the example in `tests/thermo` (EVO-28): a thermometer
-API whose line 2 broke line 1 in several ways and whose line 3 broke line 2 in others, and one host driver,
-`Thermo`, that runs the same code against firmware of any of the three lines. Scripts and tools without generated
-code (the dynamic client, Python) are [at the end](#scripts-and-tools-without-generated-code).
-
-Since EVO-37 one API crate can hold every line, one root per module, with the types the lines share in one module
-([several lines in one crate](rules.md#several-lines-in-one-crate)): no renamed dependencies and no conversions of
-unchanged types. This page still shows the earlier layout, two versions of the crate; its rework for one crate is
-EVO-42.
+to devices of several lines for a while. Generated clients are static, one per line, so the host bundles one client
+per line and picks one at connect time. This page shows how, on the example in `tests/thermo` (EVO-28, EVO-42): a
+thermometer API whose line 2 broke line 1 in several ways and whose line 3 broke line 2 in others, and one host
+driver, `Thermo`, that runs the same code against firmware of any of the three lines. Scripts and tools without
+generated code (the dynamic client, Python) are [at the end](#scripts-and-tools-without-generated-code).
 
 The shape in short:
 
-1. Both versions of the API crate are dependencies of the host, under two names.
-2. Each gets a module with its generated client and the conversions to the driver's own types.
+1. One API crate holds every line still in use, one root per module (`wire_v1`, `wire_v2`, `wire_v3`), and what more
+   than one line uses in a module of its own (`common`), see [several lines in one crate](rules.md#several-lines-in-one-crate).
+2. The host has a module per line with its generated client and its conversions to the driver's own types; the
+   types in `common` are converted once, for every line.
 3. A facade, an enum over the line clients made by `wire_weaver_client::facade!`, hides which line the device is on.
 4. The connection speaks every line the driver knows; link setup takes the device on whichever it is, and the
    facade picks the matching client from the line the device reported. A reconnect (after `disconnect().keep_streams()`
    or a lost link) picks the client again, so a DFU to another line is not the end of the session (CLT-63).
 
-Adding a line is one more module of the same kind and one more variant of the facade enum. When the new
-line holds a value more finely or in a wider type than the driver's types do (line 3's `uptime` went from whole
-seconds in a `u32` to milliseconds in a `u64`), the driver's type follows the new line and the older lines'
-modules convert into it, exactly.
+Adding a line is one more root in the API crate (`ww api line new`, TOOL-33), one more module in the host and one
+more variant of the facade enum. When the new line holds a value more finely or in a wider type than the driver's
+types do (line 3's `uptime` went from whole seconds in a `u32` to milliseconds in a `u64`), the driver's type
+follows the new line and the older lines' modules convert into it, exactly.
 
-## Two versions of one API crate
+## Every line in one API crate
 
-Cargo takes two versions of one crate under different names:
-
-```toml
-[dependencies]
-thermo_api_w1 = { package = "thermo_api", version = "1.2" }
-thermo_api_w2 = { package = "thermo_api", version = "2.1" }
+```text
+thermo_api/
+├── Cargo.toml        # [package.metadata.wire_weaver.roots]: "wire_v1::Thermo" = "w1.2", ..
+├── api_snapshots/    # each line's history, then one snapshot per root
+└── src/
+    ├── lib.rs        # pub mod common; pub mod wire_v1; pub mod wire_v2; pub mod wire_v3;
+    ├── common.rs     # RateError, Command (every line); Sample, Config, Mode, Channel, .. (lines 2 and 3)
+    ├── wire_v1.rs    # #[ww_api_root] pub trait Thermo, its own Sample, Mode and Channel
+    ├── wire_v2.rs    # #[ww_api_root] pub trait Thermo, everything else from common
+    └── wire_v3.rs    # #[ww_api_root] pub trait Thermo, Batch and Health
 ```
 
-Each gets its own generated client, named by the dependency key:
+A line's module takes what it shares from `common` with a `use`, as any Rust module does:
 
 ```rust
-// v1.rs
-wire_weaver_client::facade_line!(thermo_api_w1::Thermo);
+// wire_v2.rs
+use super::common::{Channel, Command, Config, Mode, RateError, Sample, SelfTestError};
+
+#[ww_api_root]
+pub trait Thermo {
+    fn configure(config: Config) -> Result<(), RateError>;
+    fn read_once() -> Sample;
+    ww_impl!(channel[]: Channel);
+    // ..
+}
 ```
 
-and the same in `v2.rs` with `thermo_api_w2`. `facade_line!` emits the line's `pub struct Client` and its
-`ww_codegen!(.. for Client, client = "std_client")`; more `ww_codegen!` options go after a comma. `ww api scaffold` prints the package name (`thermo_api ::`): write the
-dependency key instead.
+- A type goes into `common` once more than one line uses it unchanged, not only when every line does: when line 2
+  is retired (`ww api line retire`), line 3 must not lose what it took from line 2's module.
+- The crate version is Rust-only: one crate at 4.0.0 serves firmware of w1.2, w2.1 and w3.0. Each root is checked
+  against its own line's latest snapshot (`ww api check`, a `tests/evolution.rs` with `Check::run`), and a change to
+  a `common` type is named on every line it reaches.
+- An API whose lines were crates of their own before (here 1.x, 2.x and 3.x, each with its root at the crate root)
+  moves into this layout without touching the wire: keep the old snapshots in `api_snapshots/`, and each root is
+  compared with the last snapshot of its line. Firmware built from the old crates keeps working with a host built
+  from the new one; the bench tests that with the published 1.0.0 and 2.0.0 (`tests/thermo_api_old`). The move
+  changes every Rust path (`thermo_api::Sample` is `thermo_api::wire_v1::Sample`), so it is a breaking crate bump,
+  which the checker doesn't ask for yet (EVO-54).
 
-Inside one repository a workspace can't hold two packages of one name, so the bench keeps its API crates
-(`tests/thermo_api/{w1_0,w1,w2_0,w2,w3}`) in the root `exclude` and adds them to `[workspace.dependencies]` by path,
-each with its `package = "thermo_api"`. A host taking released versions from a registry needs none of that.
+The host takes the crate once and names each root by its module path:
+
+```rust
+// v2.rs
+wire_weaver_client::facade_line!(
+    thermo_api::wire_v2::Thermo,
+    sub_levels = [ww_indication::Indication => crate::IndicationClient],
+);
+```
+
+`facade_line!` emits the line's `pub struct Client` and its `ww_codegen!(.. for Client, client = "std_client")`;
+more `ww_codegen!` options go after a comma (`sub_levels`, see [shared sub-traits](#shared-sub-traits)). The generated
+module of a root is named after its path, `api_client::thermo_api_wire_v2_thermo`. `ww api scaffold thermo_api
+--root wire_v2::Thermo` prints the firmware side.
+
+Before EVO-37 the lines had to be versions of one crate under renamed dependencies (`thermo_api_w1 = { package =
+"thermo_api", .. }`), kept out of a workspace that can't hold two packages of one name and so out of `cargo clippy
+--workspace`. That still works, for an API published that way, but every type is then a distinct Rust type per line.
 
 ## The driver's own types
 
-The application should not see two `Sample` types. The driver has its own types (`model.rs`), shaped like the
+The application should not see three `Sample` types. The driver has its own types (`model.rs`), shaped like the
 newest line, and each line converts to and from them.
 
-- Types from shared crates are the same Rust type in every line, as long as both lines take one version of that
+- Types from shared crates are the same Rust type in every line, as long as the lines take one version of that
   crate. All of `ww_si` (`Fixed`, `Point`, `Seq`, `IndexFrom1`) is in this group, so most fields are copied as they
   are:
 
@@ -70,12 +102,13 @@ newest line, and each line converts to and from them.
     pub type Rate = Fixed<Hertz, One, u16, Range<1, 1000>>;
     ```
 
-- The API crate's own structs and enums are a distinct Rust type per line, even when they did not change
-  (`RateError`, `Command`): each needs a conversion per line.
+- The API crate's `common` types are one Rust type for every line that uses them, so one conversion serves all of
+  them (`tests/thermo/src/common.rs`); a `From<DeviceError<RateError>>` can only exist once anyway. Only what a line
+  defines itself (line 1's `Sample` and `Mode`) is converted in that line's module.
 - An evolvable enum read from the device has an `Unknown(u32)` variant for variants newer than the client. The
   conversion maps it to an error of the driver (`Error::UnknownVariant`).
 - What an older line has and the newest one dropped stays in the model and is marked as such: `Mode::Triggered` is
-  line 1 only, and line 2 answers it with `Error::Unsupported`.
+  line 1 only, and lines 2 and 3 answer it with `Error::Unsupported`.
 
 A change of scale or storage is a conversion through `exact_units`. `to()` returns `None` when the value has no exact
 form, so a value line 1 can't take is refused before anything is sent, never rounded:
@@ -140,9 +173,9 @@ Each line writes its functions with the client as `c`, with only that line's gen
 ```rust
 // v3.rs
 impl crate::line::V3 for Client {
-    type GainUpdates = ObserverOf<api_client::thermo_api_thermo::ThermoUpdate, Gain, Gain, Error>;
-    type Samples = SplitStreamOf<api::BatchOwned, model::Sample, Error>;
-    type Commands = SinkOf<api::Command, model::Command, Error>;
+    type GainUpdates = ObserverOf<api_client::thermo_api_wire_v3_thermo::ThermoUpdate, Gain, Gain, Error>;
+    type Samples = SplitStreamOf<thermo_api::wire_v3::BatchOwned, model::Sample, Error>;
+    type Commands = SinkOf<thermo_api::common::Command, model::Command, Error>;
 
     async fn read_once(c: &Client) -> Result<model::Sample> {
         sample(c.read_once().call().await?)
@@ -252,7 +285,8 @@ Test `tests/thermo` `lines::reconnect_after_a_dfu_to_another_line`.
 A sub-trait every line uses unchanged, a `ww_stdlib` one (here `ww_indication::Indication`, the status LED) or one
 of the API crate's own (`common::Channel`), would get a client of its own in each line's generated client: one Rust
 type per line for the same trait, and the driver forwards every call per line. Generate its client once instead,
-with `client = "sub_level"`, and let each line's client return it (CLT-68, `tests/shared_sub_level`):
+with `client = "sub_level"`, and let each line's client return it (CLT-68, `tests/shared_sub_level`; `Thermo`'s
+`indication()` is one `match` returning it from any line):
 
 ```rust
 mod indication_client {
@@ -320,25 +354,38 @@ talks to every line with no client per line. `tests/thermo/tests/dynamic.rs` and
 
 `tests/thermo/tests/lines.rs` runs one scenario against simulated firmware of each line through the same `Thermo`
 and checks that every operation behaves the same, or fails with an error naming what the device's line lacks. The
-simulated firmware is a crate of its own, `tests/thermo_devices`, so the dynamic client's test and Python's
-(`thermo_pytest_devices` hosts every line behind a ww hub) use the same devices.
+simulated firmware is a crate of its own, `tests/thermo_devices`, built from the API crate's roots, so the dynamic
+client's test and Python's (`thermo_pytest_devices` hosts every line behind a ww hub) use the same devices.
 
-- Simulate the first revision of each line too (here w1.0 and w2.0), to see `#[since]` items refused. Build it from
-  its own version of the API crate: a device built from the newer crate has the client's API hash, and identical
-  hashes skip the resource checks, `#[since]` included.
+- Simulate the first revision of each line too (here w1.0 and w2.0), to see `#[since]` items refused. A server is
+  always built at its root's revision, so such firmware comes from the API crate as it was then: the bench keeps
+  the published 1.0.0 and 2.0.0 in `tests/thermo_api_old`, outside the workspace (a workspace can't hold two
+  packages of one name), as old firmware still in the field. A device built from the current crate claiming an
+  older wire is refused (CLT-61). Building a server at an earlier revision of its root is SRV-58.
+- Old crates of the same name make `-p thermo_api` ambiguous for Cargo: name the current one with its version,
+  `-p thermo_api@4.0.0`.
 - An observed `get_set` property reports a host's write by itself: the generated code marks it changed after the
   setter returns `SetResult::Set` (SRV-57). Changes the firmware makes on its own still need `mark_changed_<name>`.
 - A device of a line the driver has no client of checks the refusal and its message.
-- Build and check the API crates through the host's workspace, never on their own: a `cargo check` inside one
-  that is excluded from the workspace writes its own `Cargo.lock`, which may lock `exact_units` at another commit.
-  The checker then loads `ww_si` types from two revisions and reports a shared trait (`ww_indication`) as changed.
+- The checker test compares the roots with each other (line 2 against line 1, line 3 against line 2: each a new
+  line) and each line's root with the snapshot of its first revision (a new revision). The crate version is the API
+  crate's own `tests/evolution.rs`, per root.
+- Build and check an old API crate kept outside the workspace through the host's workspace, never on its own: a
+  `cargo check` inside it writes its own `Cargo.lock`, which may lock `exact_units` at another commit. The checker
+  then loads `ww_si` types from two revisions and reports a shared trait (`ww_indication`) as changed.
 
 ## Cost
 
-Measured on the bench (one, two and three lines, 8 Nov 2026): each extra line adds about 800 lines of generated
-client code, 0.4 to 0.8 s (dev) and 0.5 to 1.7 s (release) to the driver crate's rebuild, and 125 to 133 KiB to a
-stripped release binary. The API crates themselves build in no time, as `#[ww_api_root]` and `#[ww_trait]` expand
-to nothing. The cost that grows is the hand-written part: about 200 lines of conversions and facade impl per line,
-about half of it the same signatures and boxing in every module. With `facade!` (CLT-64) the driver went from 1078
-to 762 hand-written lines for three lines, nothing boxed: about 160 per line, nearly all of it conversions and the
-bodies of the operations.
+Measured on the bench, three lines, on one PC in one session (10 Nov 2026):
+
+- **Build time and size are no reason to drop a line.** An extra line adds about 650 to 720 lines of generated
+  client code and about 125 KiB to a stripped release binary of about 10 MB that already carries tokio and the client
+  runtime. A rebuild of the driver crate takes about 1.1 s (dev) and 1.6 s (release) with all three lines. The API
+  crate itself builds in no time, as `#[ww_api_root]` and `#[ww_trait]` expand to nothing.
+- **Shared sub-traits cost one client.** With `ww_indication` through one shared client instead of one per line,
+  the generated code is 15% shorter (2,193 lines instead of 2,575) and the binary 113 KiB smaller.
+- **The hand-written part is what grows.** The driver is 699 lines for three lines: 245 shared by every line
+  (facade, errors, model), 76 converting the `common` types once, and 105 to 155 per line, most of it the bodies of
+  the operations. A line that shares more with the others (lines 2 and 3) is cheaper; one with its own types and
+  emulations (line 1) is the most. With five crates and no `common` it was 764 lines, and 1,074 with a hand-written
+  boxed facade before `facade!`.

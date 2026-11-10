@@ -239,7 +239,7 @@ def test_error_lists():
 def test_observable_properties():
     # TOOL-11: introspection alone (no device), `plain` is left out (no `+observe`)
     api = ww.load_api(str(API_CRATE.parent / "observe_api"), "Observe")
-    assert api.observable_properties() == {"temp": "f32", "mode": "u8", "label": "String"}
+    assert api.observable_properties() == {"temp": "f32", "mode": "u8", "label": "String", "gain": "u8"}
     assert api.motor.observable_properties() == {
         "speed": "u32",
         "current": "u32",

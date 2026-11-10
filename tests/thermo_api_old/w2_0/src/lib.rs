@@ -1,9 +1,9 @@
-//! `thermo_api` 2.0.0 at wire w2.0: the first revision of line 2 (`../w2`), before `self_test` (w2.1). The bench's
-//! host has no client of it, it talks to it with w2.1's.
+//! `thermo_api` 2.0.0 at wire w2.0: the first revision of line 2 (today `tests/thermo_api`'s `wire_v2`), before
+//! `self_test` (w2.1). The bench's host has no client of it, it talks to it with w2.1's.
 //!
 //! Line 2 of the dual-driver bench (EVO-28), after a wire break of line 1.
 //!
-//! What broke against w1.2 (`../w1`):
+//! What broke against w1.2 (`wire_v1`):
 //! - `set_rate(rate)` is gone, `configure(Config)` sets rate and mode in one call.
 //! - `Sample::temp` is in 0.001 K steps in an `i32`, was 0.01 K in an `i16`.
 //! - `Mode::Triggered` is gone: `Command::Trigger` takes a sample in any mode.

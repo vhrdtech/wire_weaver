@@ -1,12 +1,13 @@
-//! `thermo_api` 1.0.0 at wire w1.0: the first revision of line 1 (`../w1`), before `calibrate` (w1.1) and `uptime`
-//! (w1.2). Firmware in the field may still run it; the bench's host has no client of it, it talks to it with w1.2's.
+//! `thermo_api` 1.0.0 at wire w1.0: the first revision of line 1 (today `tests/thermo_api`'s `wire_v1`), before
+//! `calibrate` (w1.1) and `uptime` (w1.2). Firmware in the field may still run it; the bench's host has no client of
+//! it, it talks to it with w1.2's.
 //!
 //! Line 1 of the dual-driver bench (EVO-28), a small temperature logger.
 //!
 //! It touches every place a wire break can bite: methods with arguments, returns and errors, properties with get,
 //! set and observe, an enum, a stream up and a sink down, an array of sub-levels, items added within the line
 //! (`#[since]`), unit types from `ww_si` and a trait from `ww_stdlib` (`ww_indication`), both shared with line 2.
-//! Line 2 (`../w2`) breaks the wire; `tests/thermo` bundles a client of each.
+//! Line 2 (`wire_v2`) breaks the wire; `tests/thermo` bundles a client of each line.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;

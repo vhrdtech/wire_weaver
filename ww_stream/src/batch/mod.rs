@@ -33,11 +33,12 @@
 //! **Age** counts from the first [poll](Consumer::poll) that saw the batch's first item (no clock in the push), so
 //! a batch goes out at most `max_age` plus one poll interval after its first item.
 //!
-//! **Cost** on a Cortex-M3 (`examples_mcu/mcu_qemu`, bin `qemu-batch-cpu`, instructions counted in a QEMU trace),
-//! `Timed<Ampere>` with [DEFAULT_POLICY]: a `push` about 62 instructions, the push that seals a full batch and hands
-//! it over about 71, a `poll` that seals nothing about 108, one that seals a due batch about 159; `encode_into` of 32
-//! items about 65 250, of which about 2 270 take the store, rebuild the items into the scratch and give the store
-//! back, the rest is the `Series` encode itself. No interrupts are masked on the way (`LDREX`/`STREX`).
+//! **Cost** on a Cortex-M3 (`examples_mcu/mcu_qemu`, bin `qemu-batch-cpu`, `opt-level = "z"` with fat LTO,
+//! instructions counted in a QEMU trace), `Timed<Ampere>` with [DEFAULT_POLICY]: a `push` about 75 instructions, the
+//! push that seals a full batch and hands it over about 77, a `poll` that seals nothing about 95, one that seals a due
+//! batch about 143; `encode_into` of 32 items about 3 500 (written from the store column by column), where a `Series`
+//! encode of the same 32 items walked one by one takes about 9 900. No interrupts are masked on the way
+//! (`LDREX`/`STREX`).
 
 mod batcher;
 mod cells;

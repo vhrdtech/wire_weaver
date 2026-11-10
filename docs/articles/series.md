@@ -305,7 +305,7 @@ against 24 in a `[Timed<Ampere>; 32]`.
 
 A batched stream's or observe level's `Batcher` holds **two** such stores: the producer (an interrupt, the control
 loop) fills one while the event loop encodes the other, and sealing swaps them behind one atomic word, no lock. On a
-Cortex-M3 a push is about 62 instructions, the push that seals a batch 71, a poll that seals nothing 108. If the spare
+Cortex-M3 a push is about 75 instructions, the push that seals a batch 77, a poll that seals nothing 95. If the spare
 store isn't back from encoding when the next batch seals, that batch is lost and counted, it never blocks the
 producer. RAM for the motor demo's whole `foc` level at 32 samples: 8.4 KB.
 [SeriesStore](../serdes/series.md#collecting-items-on-a-device-seriesstore) and

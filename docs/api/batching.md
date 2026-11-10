@@ -174,9 +174,9 @@ A stream has no outbox - its encoded batch goes straight into the stream's own s
 ### Cost: CPU and flash
 
 Pushing an item and polling for a seal are cheap and flat regardless of batch size - on a Cortex-M3
-(`examples_mcu/mcu_qemu`, `Timed<Ampere>`, instructions counted under QEMU): a plain push about 62 instructions,
-the push that fills and seals a batch about 71, a poll that seals nothing about 108, one that seals a due batch
-about 159. No interrupt is masked either way (`LDREX`/`STREX`, not a critical section, except on `thumbv6m` cores
+(`examples_mcu/mcu_qemu`, `Timed<Ampere>`, `opt-level = "z"` with fat LTO, instructions counted under QEMU): a
+plain push about 75 instructions, the push that fills and seals a batch about 77, a poll that seals nothing about 95,
+one that seals a due batch about 143. No interrupt is masked either way (`LDREX`/`STREX`, not a critical section, except on `thumbv6m` cores
 without compare-exchange).
 
 Encoding is where the cost scales with batch size - see [`Series`: CPU and flash on an

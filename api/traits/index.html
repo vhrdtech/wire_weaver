@@ -1653,6 +1653,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-attributes-for-evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resource attributes for evolution
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#in-rustdoc" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5665,6 +5676,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-attributes-for-evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resource attributes for evolution
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#in-rustdoc" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5800,23 +5822,47 @@ crates.io dependencies are read at the newest matching version Cargo has.</p>
 device, the path or the transport: see <a href="../trait_attachments/">Trait attachments</a>. A host can also call a trait by
 its crate's name and version instead of its path, on a device whose API it doesn't know, for example to reboot any
 device into its updater: see <a href="../addressing/#global-trait-addressing-fullversion">global trait addressing</a>.</p>
+<h2 id="resource-attributes-for-evolution">Resource attributes for evolution<a class="headerlink" href="#resource-attributes-for-evolution" title="Permanent link">&para;</a></h2>
+<p>Two attributes on a resource tell the evolution checker and clients where it comes from:</p>
+<ul>
+<li><code>#[since = "w2.4"]</code> names the wire revision that added it. A host refuses to call it on a device of an older
+  revision, before sending anything (<a href="../../evolution/rules/#since"><code>#[since]</code></a>).</li>
+<li><code>#[moved_from(w2.1, Thermo::self_test)]</code> names the place it had on an earlier line, as <code>Trait::resource</code>, when it
+  moved across a line break: into a sub-level, another trait, or under another name. The checker verifies that it is
+  the same resource and reports a move instead of a removal and an addition. A resource that moved over several
+  breaks keeps one attribute per earlier line.</li>
+</ul>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Health</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="sd">/// Added on line 3.</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w3.0&quot;</span><span class="cp">]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="w"> </span><span class="n">uptime</span><span class="p">:</span><span class="w"> </span><span class="nc">Millis</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="sd">/// `self_test` of the root on line 2, `check` on line 1.</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="cp">#[moved_from(w2.1, Thermo::self_test)]</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="cp">#[moved_from(w1.0, Thermo::check)]</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">self_test</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SelfTestError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Within a line a resource can't move, as its position is its id. <a href="../../evolution/rules/#moving-a-resource-to-another-place">Moving a resource to another
+place</a> has the rules.</p>
 <h2 id="in-rustdoc">In rustdoc<a class="headerlink" href="#in-rustdoc" title="Permanent link">&para;</a></h2>
 <p><code>#[ww_trait]</code> and <code>#[ww_api_root]</code> turn the trait into a Rust trait of the same name and visibility, with every
 resource and its doc comment, so an API crate's documentation on docs.rs or from <code>cargo doc</code> shows the whole API.
 Methods keep their signature, the other resources become functions returning a marker from <code>wire_weaver::api_doc</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Uart</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">rx</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Stream</span><span class="o">&lt;</span><span class="n">RxChunk</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">               </span><span class="c1">// stream!(rx: RxChunk&lt;&#39;i&gt;);</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">tx</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Sink</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span><span class="w">                            </span><span class="c1">// sink!(tx: [u8]);</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">UartConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">UartConfig</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Bank</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">pin</span><span class="p">(</span><span class="n">index</span><span class="p">:</span><span class="w"> </span><span class="nc">UNib32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">impl</span><span class="w"> </span><span class="n">Pin</span><span class="p">;</span><span class="w">                </span><span class="c1">// ww_impl!(pin[]: Pin);</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">}</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Pin</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">pull</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Property</span><span class="o">&lt;</span><span class="n">Pull</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span><span class="w">               </span><span class="c1">// property!(rw pull: Pull, Error);</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Uart</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">rx</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Stream</span><span class="o">&lt;</span><span class="n">RxChunk</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span><span class="w">               </span><span class="c1">// stream!(rx: RxChunk&lt;&#39;i&gt;);</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">tx</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Sink</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span><span class="w">                            </span><span class="c1">// sink!(tx: [u8]);</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">UartConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">UartConfig</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Bank</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">pin</span><span class="p">(</span><span class="n">index</span><span class="p">:</span><span class="w"> </span><span class="nc">UNib32</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">impl</span><span class="w"> </span><span class="n">Pin</span><span class="p">;</span><span class="w">                </span><span class="c1">// ww_impl!(pin[]: Pin);</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">}</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Pin</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">pull</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">Property</span><span class="o">&lt;</span><span class="n">Pull</span><span class="p">,</span><span class="w"> </span><span class="n">Error</span><span class="o">&gt;</span><span class="p">;</span><span class="w">               </span><span class="c1">// property!(rw pull: Pull, Error);</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>Access mode, array index, flow control and <code>#[since]</code> are added as the last paragraph of each resource's docs.
+<p>Access mode, array index, flow control, <code>#[since]</code> and <code>#[moved_from]</code> are added as the last paragraph of each
+resource's docs.
 <code>reserved!</code> doesn't show up. The trait is never implemented, handlers are generated by <code>ww_codegen!</code>
 (see <a href="../methods/#server-side">server side</a>), but it can be linked from docs (<code>[Uart]</code>, <code>[Uart::rx]</code>).</p>
 <p>Because it is a real trait, the compiler checks it in the API crate: every type must be valid Rust (<code>RefVec&lt;'i,

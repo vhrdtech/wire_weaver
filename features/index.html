@@ -7953,10 +7953,24 @@ observing), SRV-46 (peer identity).
   <code>removed_root_needs_a_breaking_bump</code>, <code>unchanged_roots_snapshot_stands_for_the_saved_version</code>, <code>wire_weaver_core</code>
   <code>crate_cache_gives_the_same_bundles</code>.</li>
 <li>✅ <strong>EVO-50 A shared crate cache that sees edits</strong> · <code>v0.5</code> — <code>wire_weaver_core::CrateCache</code> is <code>Clone</code>, <code>Send</code> and <code>Sync</code>: each load's bundle is kept with the size and modification time of every file and directory its walk read, and used only while all of them are unchanged, so an edit is seen by the next load and a cache can live as long as a tool. Clones share the bundles across threads; parsed source (<code>syn</code> trees aren't <code>Send</code>) and the walk state built from it stay per thread, also stamp-checked. <code>Check</code> holds one again (<code>Check::cache</code>). A repeated load of unchanged <code>tests/quantities_api</code> takes 0.2 ms instead of 31 ms (release); the first load costs the same. Caching file text was measured and left out: parsing, not reading, is the cost (a cold <code>quantities_api</code> load 211 ms, 67 ms with the source already parsed). Tests <code>wire_weaver_core</code> <code>crate_cache_sees_an_edit</code>, <code>crate_cache_is_shared_across_threads</code>, <code>wire_weaver_evolution</code> <code>a_check_sees_the_source_as_it_is_now</code>.</li>
-<li>📋 <strong>EVO-40 <code>#[moved_from]</code></strong> · <code>v0.5</code> — <code>#[moved_from(w1.4, path::to::item)]</code> on an item's new place: the
-  checker verifies the signature is the same and reports a move. Resources match by position within a line and
-  only by <code>moved_from</code> across a break; the checker proposes same-name matches on a first break and never adds the
-  attribute itself.</li>
+<li>✅ <strong>EVO-40 <code>#[moved_from]</code></strong> · <code>v0.5</code> — <code>#[moved_from(w2.1, Thermo::self_test)]</code> on a resource's new place:
+  the checker verifies the resource is exactly the same (both ways, the same Rust signature, max lengths and types,
+  the crate's own by name) and reports one move (rule <code>MovedAcross</code>) instead of a removal and an addition. Within a
+  line resources match by position; across a break by path (trait and name) and by <code>moved_from</code> only, a resource at
+  another position being a wire change only, an own type replaced by another (<code>Sample</code> by <code>Batch</code>) named as such
+  instead of compared field by field. A resource added with the name of one removed elsewhere is only proposed
+  (<code>Report::proposals</code>, <code>#[moved_from]</code> suggested when the signature is the same), never matched; an attribute that
+  doesn't hold fails the wire check (<code>Report::moved_from_errors</code>): a place or revision the line doesn't have, a
+  revision older than the resource's <code>#[since]</code>, its own place, a place claimed twice, a source still there. A chain
+  over several breaks keeps one attribute per earlier line; links to another line than the one compared with
+  (<code>Report::unverified_moves</code>) are verified by <code>Check</code> against that line's latest snapshot (<code>verify_move</code>), also on
+  later revisions of the new line, a warning when the line has no snapshot. A new line's root in a crate with several is
+  compared with the previous line's root of the same name for its moves (<code>NoSnapshot::previous_line</code>). Read from the
+  source (<code>wire_weaver_core::SourceNotes</code>, <code>load_crate_with_notes</code>), not part of the <code>ww_self</code> model, so the dynamic
+  client doesn't see it. Docs: <code>docs/evolution/rules.md#moving-a-resource-to-another-place</code>, <code>docs/api/traits.md</code>; tests
+  <code>wire_weaver_evolution</code> <code>tests::moved_from::*</code>, <code>moved_from_is_read_from_the_source</code>, <code>moved_from_of_a_new_root</code>, <code>moved_from_chain_over_two_breaks</code>,
+  <code>moved_from_on_a_trait_outside_the_root_tree</code>,
+  <code>wire_weaver_core</code> <code>moved_from_parses</code>, <code>tests/thermo</code> <code>checker_agrees_on_both_bumps</code>.</li>
 <li>📋 <strong>EVO-42 The multi-line bench on one crate</strong> · <code>v0.5</code> — <code>tests/thermo_api</code> as one crate of three lines and
   <code>tests/thermo</code> on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
   baseline; <code>docs/evolution/multi_line_host.md</code> rewritten for it.</li>
@@ -7967,16 +7981,18 @@ observing), SRV-46 (peer identity).
   embedded (a whole-crate snapshot of its shared types and traits next to the per-root files, or the per-root files
   keyed by crate and root), then make <code>wire_weaver_snapshots</code>, its <code>get</code>/<code>all</code>/<code>files</code> and <code>just save-snapshots</code>
   take it.</li>
-<li>💡 <strong>EVO-33 Checker findings on a new line read cleanly</strong> — found by the EVO-28 bench's line break: the root's
+<li>✅ <strong>EVO-33 Checker findings on a new line read cleanly</strong> · <code>v0.5</code> — found by the EVO-28 bench's line break: the root's
   own unchanged sub-trait (<code>Channel</code>) is reported as a wire break of its own, with the old crate version as the new
   label (<code>thermo_api@1.2.0</code> for 2.1.0); a resource replaced in place reads as a rename with another argument
   (<code>set_rate</code> -&gt; <code>configure</code>); a field that changed scale and storage (<code>Sample::temp</code>, <code>Centi</code> <code>i16</code> -&gt; <code>Milli</code>
   <code>i32</code>) reports only the scale. The wrong label, the <code>Channel</code> noise and the single reported difference are fixed
-  (<code>wire_weaver_evolution</code>, <code>checker_agrees_on_both_bumps</code>); the replacement read as a rename stays. <code>checker_agrees_on_both_bumps</code> takes about 1.4 s, each <code>load_crate</code> walking
-  <code>ww_si</code> and <code>exact_units</code> again. Line 3 of the bench adds: a stream item replaced by another type (<code>Sample</code> by
+  (<code>wire_weaver_evolution</code>, <code>checker_agrees_on_both_bumps</code>); the replacement read as a rename is fixed by EVO-40,
+  which matches resources by path across a break. <code>checker_agrees_on_both_bumps</code> took about 1.4 s, each <code>load_crate</code>
+  walking <code>ww_si</code> and <code>exact_units</code> again (the shared cache is EVO-39's). Line 3 of the bench adds: a stream item replaced by another type (<code>Sample</code> by
   <code>Batch</code>) reads as "type <code>Sample</code> changed" with its <code>temp</code> field compared to <code>temps</code>, and items moved into a new
-  sub-level (<code>uptime</code>, <code>self_test</code> into <code>health</code>) as <code>uptime</code> renamed to <code>health</code> and <code>self_test</code> removed: a move
-  could be named as one.</li>
+  sub-level (<code>uptime</code>, <code>self_test</code> into <code>health</code>) as <code>uptime</code> renamed to <code>health</code> and <code>self_test</code> removed. Both are
+  fixed by EVO-40: the batch is named as a replacement, <code>self_test</code> (marked <code>#[moved_from]</code>) as a move, <code>uptime</code> (in
+  another type) as removed with its namesake proposed.</li>
 <li>✅ <strong>EVO-34 Wire versions and generations in docs, CLI and Python</strong> · <code>v0.5</code> — <code>ww info</code> and <code>ww report</code> show the
   device's wire version next to its crate version (<code>API ... (wire w2.3)</code>) and the hello generations this
   connection agreed on (<code>Hello framer=1 link=1 shrink_wrap=1 api_model=1</code>, EVO-23), through <code>ww_report::clients::Contract</code>

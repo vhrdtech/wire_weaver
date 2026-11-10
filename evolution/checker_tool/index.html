@@ -6288,8 +6288,11 @@ removed and added.</p>
 </table>
 <p>Doc comments are not on the wire, but a released version's snapshot never changes, so they need a new version as well
 (see <a href="../rules/#doc-comments">doc comments</a>). A bigger bump than required is always fine.</p>
-<p>Resources are matched by their id inside each trait (their position, as the device sees them), traits and types by
-name. A change is breaking if:</p>
+<p>Traits and types are matched by name. Resources are matched by their id inside each trait (their position, as the
+device sees them) while the old and the new version are on one wire line. Across a line break they are matched by
+their path, the trait and the name, and by <a href="../rules/#moving-a-resource-to-another-place"><code>#[moved_from]</code></a>: a moved
+resource with exactly the same signature is reported as a move, a resource of the same name elsewhere only as a
+proposal, a resource at another position as a wire change only. A change is breaking if:</p>
 <ul>
 <li>a trait, resource or type is removed, or a resource moved to another id (e.g. a new one inserted before it: add new
   resources at the end),</li>

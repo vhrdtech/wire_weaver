@@ -2725,6 +2725,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#moving-a-resource-to-another-place" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moving a resource to another place
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#arguments" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6111,6 +6122,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#moving-a-resource-to-another-place" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Moving a resource to another place
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#arguments" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6625,6 +6647,59 @@ of the API version as well (minor before 1.0, major after, see <a href="#your-ap
 <li><code>T</code> to struct of <code>T</code> in return position</li>
 <li><code>T</code> to <code>Vec&lt;T&gt;</code> in return position?</li>
 </ul>
+<h3 id="moving-a-resource-to-another-place">Moving a resource to another place<a class="headerlink" href="#moving-a-resource-to-another-place" title="Permanent link">&para;</a></h3>
+<p>Within a wire line, a resource is its position in its trait: that is its id on the wire. A new one goes at the end,
+and moving one (inserting another before it, or putting it into a sub-level) is a wire break that needs a new line.</p>
+<p>Across a line break the bytes are incompatible anyway, so position means nothing there. The <a href="../checker_tool/#what-is-checked">evolution
+checker</a> matches resources by their path instead, the trait and the name:
+<code>Thermo::read_once</code> on line 2 is <code>Thermo::read_once</code> on line 3, wherever it sits in the trait. A resource replaced in
+place reads as one removed and one added (<code>set_rate</code> removed, <code>configure</code> added), not as a rename with other
+arguments. A stream item or argument whose type was replaced by another type of the crate (<code>Sample</code> by <code>Batch</code>) is
+reported as replaced, not compared field by field.</p>
+<p>A resource that moved to another place on the new line is marked there with <code>#[moved_from]</code>, naming the wire version
+and the place it had on the line before:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_api_root(wire = </span><span class="s">&quot;w3.0&quot;</span><span class="cp">)]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Thermo</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">Config</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RateError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">health</span><span class="p">:</span><span class="w"> </span><span class="nc">Health</span><span class="p">);</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Health</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="sd">/// Was `Thermo::self_test` on line 2.</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="cp">#[moved_from(w2.1, Thermo::self_test)]</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">self_test</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SelfTestError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li>The place is the trait and the resource name, as the checker writes them (<code>Thermo::self_test</code>), and the version is
+  a revision of the line it had that place on (also as a string, <code>#[moved_from("w2.1", ..)]</code>).</li>
+<li>The checker verifies that the resource is exactly the same: it works with the old one both ways, with the same Rust
+  signature, max lengths and types (the crate's own by name). It then reports one move, <code>Thermo::self_test moved to
+  Health::self_test</code>, instead of a removal and an addition. A move breaks Rust code using the old path, so the crate
+  takes a breaking bump, as for any line break.</li>
+<li>A resource that also changed (<code>uptime</code> from seconds in a <code>u32</code> to milliseconds in a <code>u64</code>) is a new resource: the
+  attribute is refused, and the old one is reported removed.</li>
+<li>A resource that moved over several breaks keeps one attribute per earlier line, so the older link needn't be
+  deleted: <code>#[moved_from(w2.1, Thermo::self_test)]</code> and <code>#[moved_from(w1.0, Thermo::check)]</code>. Two naming one line are
+  refused.</li>
+<li>Each attribute is checked against the snapshot of the line it names: by the comparison itself for the line
+  compared with, against that line's latest snapshot for an older link of a chain and on every later revision of
+  the new line. One that can't be checked, as its line has no snapshot, is a warning.</li>
+<li>An attribute that doesn't hold fails the check: one naming a place the line doesn't have, a revision newer than
+  that line's latest snapshot or older than the resource's own <code>#[since]</code>, a version on the API's own line, its own
+  place, a place another attribute names too, or a resource still there on the new line (a resource that stayed
+  can't have moved too).</li>
+<li>A resource of the same name at another place is never taken for the same one by itself: its meaning may have
+  changed, as <code>on()</code> of a LED and <code>on()</code> of a motor. When a line break is first checked, the checker lists each
+  resource added with the name of one removed elsewhere as a proposal, suggesting <code>#[moved_from]</code> when the signature
+  is the same. It never adds the attribute.</li>
+<li>In a crate with <a href="#several-lines-in-one-crate">several lines</a>, the new line's root has no snapshot of its own line
+  yet. It is compared with the latest snapshot of the previous line's root of the same name, for its moves and
+  proposals only.</li>
+</ul>
+<p><code>#[moved_from]</code> is read from the source and is not part of the API model: a device's introspection data doesn't
+carry it, so the dynamic client and the facade helpers don't see it yet.</p>
 <h3 id="arguments">Arguments<a class="headerlink" href="#arguments" title="Permanent link">&para;</a></h3>
 <p>The arguments of a method or stream function are the fields of an <code>Unsized</code> args struct on the wire, so they follow
 the rules for <a href="#unsized-types">unsized types</a> (EVO-22, <a href="../../api/methods/#arguments-that-evolve">methods</a>):</p>

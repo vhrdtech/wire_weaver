@@ -7501,6 +7501,27 @@ observing), SRV-46 (peer identity).
   <code>Fixed</code> field), <code>wire_weaver_py/tests/test_offline.py</code>, conformance <code>stdlib.si.*</code> green in every consumer (C's
   model-built cases wait on API-26). A GUI's slider limits come from <code>Storage::bounds</code>; the widget is TOOL-6's.
   <a href="../docs/std_library/exact_units/#in-ww-python-and-dynamic-clients">In clients</a>.
+- ✅ <strong>CLT-65 Points and counts in the dynamic client</strong> · <code>v0.5</code> — <code>DynQuantity::from_value</code> now also reads a
+  <code>Point&lt;O, Fixed&lt;U, P, T, B&gt;&gt;</code> (<code>ww_self::units::Wrapper::Point</code>, <code>quantity::point_of</code> resolving <code>O</code>'s definition
+  through <code>origin_of</code>, INT-13; refused when the coord's unit doesn't match the origin's): <code>prefix</code>/<code>value</code>/<code>unit</code>/
+  <code>storage</code> stay the <code>Fixed</code>'s own raw reading, a new <code>origin</code> field carries <code>O</code>'s offset, step and symbol, read by
+  <code>Display</code>, <code>to_f64</code>, <code>to_si_f64</code> and <code>symbol()</code> so a board's register that reads 0 at 25 °C shows and converts as
+  <code>25.5 °C</code>, not <code>2500 cK</code> from its origin — exactly (the offset and step as a ratio first, not cancelled in plain
+  <code>f64</code>, which lost precision for almost every raw value; <code>{:.N}</code> honored, a tie to even as the typed <code>Point</code>
+  rounds; an unresolvable origin falls back to the <code>Fixed</code>'s own honest reading, never a number under the wrong
+  symbol); Python's <code>ww.Quantity</code> gets an <code>origin</code> getter (<code>"Celsius"</code>, <code>"BoardTemp"</code>, <code>"Angle"</code>) the same way.
+  <code>to_value</code> accepts a <code>Point</code> back when its origin matches exactly (the offset cancels); a different origin needs
+  the affine between them and is refused with a clear message (CLT-69). <code>quantity::DynCount::to_value</code> mirrors
+  <code>DynQuantity::to_value</code>'s <code>Fixed</code> branch (kind, what it counts, its number converted exactly into the target's
+  own storage, bounds checked): a count already in hand (<code>DynCount { kind: Seq, value, of }</code>) writes back without
+  a Rust caller building the device's struct type by hand; Python already took the plain number through
+  <code>stored_number</code>, unaffected. <code>tests/quantities</code> (<code>points_shown_as_typed</code> with a same-origin write-back and a
+  wrong-origin refusal, <code>DynCount::to_value</code> storage conversion in <code>indices_and_sequence_numbers</code>),
+  <code>wire_weaver_client/src/quantity.rs</code> (<code>points_shown_exactly_over_i16</code>, the whole <code>i16</code> range of °C and °F,
+  <code>points_honor_precision</code>), <code>wire_weaver_py/tests/test_offline.py</code> (<code>test_points</code>, read, write-back and the wrong
+  origin), conformance <code>stdlib.si.point.*</code> (Python's <code>plain()</code> no longer collapses a point's <code>coord</code> layer away).
+  Found by the EVO-28 bench's dynamic test; the precision loss, the write regression, <code>DynCount</code>'s unchecked
+  storage and the missing unit check found in review.
 - 📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
@@ -7539,11 +7560,12 @@ observing), SRV-46 (peer identity).
   client as <code>c</code>), and an operation a line lacks defaults to an <code>Unsupported</code> error. The stream, observer and sink
   adapters (<code>StreamOf</code>, <code>SplitStreamOf</code>, <code>ObserverOf</code>, <code>SinkOf</code>) move into <code>wire_weaver_client</code> as they are. The
   conversions and emulations stay the driver's.
-- 💡 <strong>CLT-65 Points and counts in the dynamic client</strong> — <code>DynQuantity::from_value</code> reads a <code>Fixed</code> but not a
-  <code>Point</code> (<code>Point&lt;Celsius, Fixed&lt;Kelvin, Milli, i32&gt;&gt;</code>): the dynamic client and Python give its one field, <code>coord</code>,
-  and the origin is left to the script, which reads 21.5 K from the origin rather than 21.5 °C. <code>quantity::DynCount</code> reads an
-  <code>Index</code>, <code>IndexFrom1</code> or <code>Seq</code> but has no <code>to_value</code>: Rust code builds the struct (<code>Seq { seq: 100 }</code>) by hand,
-  where Python takes the number. Found by the EVO-28 bench's dynamic test.</p>
+- 💡 <strong>CLT-69 Writing a <code>Point</code> into a different origin through <code>DynQuantity::to_value</code></strong> — CLT-65's <code>to_value</code>
+  writes a <code>Point&lt;O, Fixed&lt;U, P, T, B&gt;&gt;</code> back when the <code>DynQuantity</code>'s own origin is the same <code>O</code> (the offset
+  cancels, a plain scale conversion); writing one of a <em>different</em> origin (°F into a °C field) needs the full
+  affine between them (both origins' offset and step, a reference check, point.rs's <code>Affine</code>) and is refused. A
+  <code>DynQuantity</code> without an origin, written into a <code>Point</code>, would mean the physical value from the reference's zero
+  (<code>to_si_f64</code>'s inverse). Not needed yet: the EVO-28 bench only reads points and writes back what it read.</p>
 </li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>

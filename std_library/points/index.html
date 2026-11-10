@@ -4031,6 +4031,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#in-ww-python-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In <code>ww</code>, Python and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5617,6 +5628,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#in-ww-python-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In <code>ww</code>, Python and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5762,6 +5784,27 @@ fifteen. A negative zero is not canonical and is refused on decode. The cases ar
 <code>stdlib.si.offset.*</code> in the <a href="../../serdes/conformance/">conformance corpus</a>.</p>
 <p>In the API model a point is an instance of <code>Point</code> with its origin as the first argument; the origin's definition
 (<code>OriginDef</code>) goes into the model with INT-13, see <a href="../units_in_the_model/#origins">Units in the API model</a>.</p>
+<h2 id="in-ww-python-and-dynamic-clients">In <code>ww</code>, Python and dynamic clients<a class="headerlink" href="#in-ww-python-and-dynamic-clients" title="Permanent link">&para;</a></h2>
+<p>A client that only has a device's introspection data reads a <code>Point</code> as a <code>DynQuantity</code> (<code>ww.Quantity</code> in Python,
+CLT-65): its own fields (<code>unit</code>, <code>prefix</code>, <code>value</code>, <code>storage</code>) stay the inner <code>Fixed</code>'s raw reading, the same as for
+a plain <code>Fixed</code>'s (<a href="../exact_units/#in-ww-python-and-dynamic-clients">exact_units</a>), but shown and converted through
+the origin instead of the <code>Fixed</code>'s own unit: a board's temperature register that reads 0 at 25 °C
+(<code>origin! { above: Celsius, offset: Offset::int(25) }</code>) shows <code>25.5 °C</code>, not <code>2500 cK</code>, through <code>ww observe</code>, <code>ww
+explain</code> and Python's <code>str()</code>/<code>float()</code>, the same text and number as the typed <code>Point</code>'s own:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">t</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">board_temp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>       <span class="c1"># 25.5 °C</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">t</span><span class="o">.</span><span class="n">origin</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">unit</span>      <span class="c1"># &quot;BoardTemp&quot;, &quot;°C&quot;, &quot;Kelvin&quot;</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>                        <span class="c1"># 25.5</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">t</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                       <span class="c1"># 298.65, in Kelvin: the Fixed&#39;s own unit, from the reference&#39;s zero</span>
+</span></code></pre></div>
+<p><code>origin</code> names the origin (<code>O</code>'s marker, <code>"Celsius"</code>, <code>"BoardTemp"</code>, <code>"Angle"</code> for a heading that wraps every 360°);
+<code>unit</code> and <code>symbol</code> stay the <code>Fixed</code>'s plain-unit meaning everywhere else, so a point's <code>symbol</code> is the origin's own,
+not the unit's. The shown number is exact, the offset and step as a ratio first, not cancelled in plain <code>f64</code>
+(<code>write!(f, "{:.1}", ..)</code> honors the precision too, a tie rounding to even as the typed <code>Point</code> does); an origin or
+scale from a newer version falls back to the <code>Fixed</code>'s own honest reading instead of a number under the wrong
+symbol.</p>
+<p><code>dev.p.write(dev.p.read())</code> writes a point back exactly: <code>to_value</code> accepts a <code>Quantity</code> of the <em>same</em> origin (the
+offset cancels, only the coord's own scale and storage convert). A <em>different</em> origin needs the affine between
+the two (CLT-69, not yet); a script reaches <code>coord</code> (the <code>Fixed</code> it wraps) directly for that, as before CLT-65.</p>
 
 
 

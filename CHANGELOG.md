@@ -366,6 +366,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Systems of units in the model (EVO-47, exact_units UNIT-9): a dimension names its system (SI, Natural, Gaussian), the walker reads `[Gaussian: ..]` dimensions, `MarkerDef::System` carries a system's definition, `ww_si` re-exports the systems. A wire change of every `Dim`. See `wire_weaver_core`, `ww_self`, `ww_si`, `ww_adc` and `wire_weaver_snapshots` changelogs.
 - References of origins in the model (STD-108, EVO-48, exact_units PT-4): an origin carries what its zero is measured from and how that zero is known (exact, at run time, a time scale), the walker reads `impl Reference`, the evolution checker says why two time scales don't convert. A wire change of every `OriginDef`. See `ww_self`, `wire_weaver_core`, `wire_weaver_evolution` and `ww_si` CHANGELOGs.
 - Non-linear codes in the model and the clients (STD-109, exact_units LVL-6): `MarkerDef::Codec`, the walker reads `impl Codec`, `ww`, Python and the dynamic client read a G.711 μ-law byte as the sample it means and write by its exact code; conformance cases with each byte's decoded value. See `ww_self`, `wire_weaver_core`, `wire_weaver_client` and `wire_weaver_py` CHANGELOGs.
+- `Finite` floats in the model and the clients (STD-104, exact_units NUM-20): ±∞ and NaN refused by `ww`, Python and the dynamic client for a `Finite` float, the evolution checker compares the bound. See `ww_self` and `wire_weaver_evolution` CHANGELOGs.
 
 ### Removed
 

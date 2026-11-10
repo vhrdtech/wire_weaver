@@ -107,6 +107,12 @@ without a literal is written as its type's constant, `f32::NAN`, `f32::INFINITY`
 ```
 NaN is no value of Fixed<Volt, Milli, f32, Unbounded>: only a MaybeNan float holds NaN
 ```
+
+A `Finite` float refuses ±∞ too, on the wire and when a client writes it (STD-104):
+
+```
+inf is no value of exact_units::Fixed<Volt, Milli, f32, Finite>: a Finite float is never ±∞
+```
 [Indices and sequence numbers](indices.md) are shown with what they count, `#1000 (Sample)`,
 `#2 (Item, from 1)`, `seq 41 (Frame)`, and take their number, an `IndexFrom1` refusing 0.
 

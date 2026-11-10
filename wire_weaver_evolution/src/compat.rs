@@ -2034,6 +2034,9 @@ enum Bound {
     /// `MaybeNan`: a float without bounds that may be NaN (NUM-19). Every other bound refuses NaN, so it holds
     /// one value more than [Self::Unbounded].
     MaybeNan,
+    /// `Finite`: a float without bounds that is never ±∞ nor NaN (NUM-20). Two values fewer than
+    /// [Self::Unbounded].
+    Finite,
     /// Inclusive.
     Range {
         min: Dec,
@@ -2082,6 +2085,10 @@ impl Bound {
             (Bound::MaybeNan, _) => true,
             (_, Bound::MaybeNan) => false,
             (Bound::Unbounded | Bound::Saturating | Bound::Wrapping, _) => true,
+            // a float range's ends are finite
+            (Bound::Finite, Bound::Finite | Bound::Range { .. }) => true,
+            (Bound::Finite, _) => false,
+            (Bound::Range { .. }, Bound::Finite) => false,
             (Bound::Range { .. }, Bound::Unbounded | Bound::Saturating | Bound::Wrapping) => false,
             (
                 Bound::Range { min, max },
@@ -2101,6 +2108,7 @@ impl fmt::Display for Bound {
             Bound::Saturating => f.write_str("Saturating"),
             Bound::Wrapping => f.write_str("Wrapping"),
             Bound::MaybeNan => f.write_str("MaybeNan"),
+            Bound::Finite => f.write_str("Finite"),
             Bound::Range { min, max } => write!(f, "{min}..={max}"),
         }
     }
@@ -2131,6 +2139,7 @@ fn bound(bundle: &ApiBundleOwned, ty: &TypeOwned) -> Option<Bound> {
         ("Saturating", []) => Some(Bound::Saturating),
         ("Wrapping", []) => Some(Bound::Wrapping),
         ("MaybeNan", []) => Some(Bound::MaybeNan),
+        ("Finite", []) => Some(Bound::Finite),
         ("Range" | "RangeU64", [min, max]) => Some(Bound::Range {
             min: Dec(num(min)?, 0),
             max: Dec(num(max)?, 0),

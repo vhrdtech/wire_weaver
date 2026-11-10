@@ -41,6 +41,7 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Product`, `Quotient`                                          | the scale of `Fixed * Fixed` and `Fixed / Fixed`, its scale arguments are the instance's |
 | `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`; each refuses NaN                          |
 | `MaybeNan`                                                     | a float `Fixed` that may hold NaN, the one bound that takes it     |
+| `Finite`                                                       | a float `Fixed` that is never ±∞ nor NaN                           |
 | `Origin(OriginDef { id, unit, symbol, reference, offset, .. })` | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
 | `Quantity(exact_units::QuantityDef)`                           | a quantity of ISO 80000's tree: `quantities::Height`, `Resistance`, a crate's own `quantity!` |

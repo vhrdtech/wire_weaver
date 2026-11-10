@@ -1037,7 +1037,8 @@ pub struct NumBounds {
     /// Whether a float may be NaN: only for `MaybeNan` (NUM-19). Every other marker, `Unbounded` included, refuses
     /// NaN, as `exact_units` does on decode.
     pub nan: bool,
-    // TODO(STD-104): exact_units' `Finite` (NUM-20), which refuses ±∞ too, once it exists there
+    /// Whether a float must be finite: only for `Finite` (NUM-20, STD-104), which refuses ±∞ as well as NaN.
+    pub finite: bool,
 }
 
 impl NumBounds {
@@ -1051,6 +1052,9 @@ impl NumBounds {
     pub fn contains(&self, n: &ww_numeric::NumericValue) -> bool {
         if n.to_i128().is_none() && n.to_f64().is_nan() {
             return self.nan;
+        }
+        if n.to_i128().is_none() && n.to_f64().is_infinite() {
+            return !self.finite;
         }
         let above = |b: &Bound| match (b, n.to_i128()) {
             (Bound::Int(min), Some(i)) => i >= *min,
@@ -1084,7 +1088,7 @@ impl fmt::Display for NumBounds {
 }
 
 /// The bounds marker `ty` is (the `B` of a `Fixed`, `Index` or `IndexFrom1`): `Unbounded`, `Wrapping`,
-/// `Saturating` and `MaybeNan` have no ends (only `MaybeNan` takes NaN), `Range<MIN, MAX>` and `RangeU64<MIN, MAX>` integer ends, `RangeDec<MIN, MAX, EXP>` the
+/// `Saturating`, `MaybeNan` and `Finite` have no ends (only `MaybeNan` takes NaN, `Finite` refuses ±∞), `Range<MIN, MAX>` and `RangeU64<MIN, MAX>` integer ends, `RangeDec<MIN, MAX, EXP>` the
 /// float ends `MIN·10^EXP` and `MAX·10^EXP`.
 pub fn bounds_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<NumBounds> {
     let (s, args) = marker(ty, bundle)?;
@@ -1102,10 +1106,14 @@ pub fn bounds_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<NumBounds> {
             nan: true,
             ..NumBounds::default()
         },
+        MarkerDefOwned::Finite => NumBounds {
+            finite: true,
+            ..NumBounds::default()
+        },
         MarkerDefOwned::Range | MarkerDefOwned::RangeU64 => NumBounds {
             min: Some(Bound::Int(int(0)?)),
             max: Some(Bound::Int(int(1)?)),
-            nan: false,
+            ..NumBounds::default()
         },
         MarkerDefOwned::RangeDec => {
             let exp = i8::try_from(int(2)?)
@@ -1118,7 +1126,7 @@ pub fn bounds_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<NumBounds> {
             NumBounds {
                 min: Some(end(0)?),
                 max: Some(end(1)?),
-                nan: false,
+                ..NumBounds::default()
             }
         }
         _ => bail!("{} is not a bounds marker", marker_name(s, bundle)?),
@@ -1153,6 +1161,13 @@ pub fn check_wrapper(
         if !bounds.contains(n) && !bounds.nan && n.to_i128().is_none() && n.to_f64().is_nan() {
             bail!(
                 "NaN is no value of {}: only a MaybeNan float holds NaN",
+                name()
+            );
+        }
+        if !bounds.contains(n) && bounds.finite && n.to_i128().is_none() {
+            bail!(
+                "{} is no value of {}: a Finite float is never ±∞",
+                n.to_f64(),
                 name()
             );
         }

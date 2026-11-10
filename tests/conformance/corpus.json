@@ -1328,6 +1328,32 @@
       "note": "a quiet NaN: every bound but MaybeNan refuses it on decode, Unbounded included (NUM-19, STD-105)"
     },
     {
+      "name": "stdlib.si.fixed.finite",
+      "type": "fixed_finite",
+      "value": {"value": -2.5},
+      "bytes": "000020c0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Fixed<Volt, Milli, f32, Finite>: its f32 on the wire (NUM-20, STD-104)"
+    },
+    {
+      "name": "stdlib.si.fixed.finite.inf.rejected",
+      "type": "fixed_finite",
+      "value": null,
+      "bytes": "0000807f",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "+∞: a value of Unbounded, refused by Finite on decode (NUM-20, STD-104)"
+    },
+    {
+      "name": "stdlib.si.fixed.finite.nan.rejected",
+      "type": "fixed_finite",
+      "value": null,
+      "bytes": "0000c07f",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a quiet NaN, refused by Finite on decode as by every bound but MaybeNan (NUM-20, STD-104)"
+    },
+    {
       "name": "stdlib.si.fixed.maybe_nan.nan",
       "type": "fixed_maybe_nan",
       "value": {"value": "NaN"},
@@ -1880,6 +1906,14 @@
       "wire_change": "EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106)",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "exact_units' MaybeNan bound (NUM-19, STD-105): the variant alone; a reader from before it gets Unknown"
+    },
+    {
+      "name": "model.marker_def.finite",
+      "type": "marker_def",
+      "value": "Finite",
+      "bytes": "b3",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' Finite (NUM-20, STD-104): the variant alone; a reader from before it gets Unknown"
     },
     {
       "name": "model.marker_def.of",

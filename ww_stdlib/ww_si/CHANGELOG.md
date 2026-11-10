@@ -13,6 +13,7 @@
 
 ### 🚀 Features
 
+- Re-exports `Finite` (exact_units NUM-20, STD-104).
 - Re-exports `exact_units::codec` (`Coded`, `Codec`, `CodecDef`, `MuLaw`) for APIs with non-linear codes (STD-109).
 - Re-exports `Reference`, `ReferenceDef`, `ReferenceHow`, `TimeScaleDef`, `TimeCounting`, `TimeZero` and `UnitZero` (exact_units PT-4), so a crate declares a reference of its own through `ww_si` (STD-108).
 - Re-exports exact_units UNIT-9's systems: `System`, `SystemDef`, `SystemRef`, `BaseRule`, `BridgeDef`, `BridgeError`, `SetToOne`, `Crossing` and the `systems` module (`Si`, `Natural`, `Gaussian`, their units and quantities), with `std` their owned forms; a `systems` feature (on with `std`) turns on exact_units' `systems`.

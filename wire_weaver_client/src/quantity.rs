@@ -633,6 +633,9 @@ impl DynQuantity {
         if !fixed.storage.bounds.contains(&number) && number.to_f64().is_nan() {
             return Err(refuse("only a MaybeNan float holds NaN".into()));
         }
+        if !fixed.storage.bounds.contains(&number) && number.to_f64().is_infinite() {
+            return Err(refuse("a Finite float is never ±∞".into()));
+        }
         if !fixed.storage.bounds.contains(&number) {
             return Err(refuse(format!(
                 "{} is out of {}",

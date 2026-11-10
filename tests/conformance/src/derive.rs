@@ -842,6 +842,9 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.fixed.f32", fixed_f32(1.5)),
         case("stdlib.si.fixed.f32.inf", fixed_f32(f32::INFINITY)),
         case("stdlib.si.fixed.f32.nan.rejected", fixed_f32(0.0)),
+        case("stdlib.si.fixed.finite", FixedFinite::bounded(-2.5)),
+        case("stdlib.si.fixed.finite.inf.rejected", FixedFinite::bounded(0.0)),
+        case("stdlib.si.fixed.finite.nan.rejected", FixedFinite::bounded(0.0)),
         // MaybeNan has no `==` (NUM-19): compared by its Debug text, NaN as "NaN"
         case_debug("stdlib.si.fixed.maybe_nan.nan", || FixedMaybeNan::of(f32::NAN)),
         case_debug("stdlib.si.fixed.maybe_nan.number", || FixedMaybeNan::of(-2.5)),
@@ -1023,6 +1026,7 @@ pub fn table() -> Vec<Typed> {
         ),
         case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
         case("model.marker_def.maybe_nan", ww_self::MarkerDefOwned::MaybeNan),
+        case("model.marker_def.finite", ww_self::MarkerDefOwned::Finite),
         case("model.marker_def.of", ww_self::MarkerDefOwned::Of),
         case(
             "model.marker_def.quantity",
@@ -1090,6 +1094,8 @@ type FixedF32 = ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32>;
 fn fixed_f32(mv: f32) -> FixedF32 {
     FixedF32::try_new(mv).unwrap()
 }
+
+type FixedFinite = ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::Finite>;
 
 type FixedMaybeNan = ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::MaybeNan>;
 

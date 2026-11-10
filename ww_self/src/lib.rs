@@ -826,6 +826,9 @@ pub enum MarkerDef<'i> {
     /// without the trait (`CodecDef::decode` / `encode`). The `C` of a `Coded<C, V, T>`, whose bytes are those of
     /// `T`, the code. A reader from before it gets `Unknown`.
     Codec(exact_units::codec::CodecDef<'i>),
+    /// `exact_units::Finite` (NUM-20): a float `Fixed` that is neither ±∞ nor NaN, every finite float. A reader from
+    /// before it gets `Unknown`.
+    Finite,
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

@@ -48,7 +48,7 @@ pub use timestamp::{UnwrapError, Unwrapper};
 pub use exact_units;
 pub use exact_units::{
     BaseDef, BaseExp, BaseRule, Bases, Bounds, BridgeDef, BridgeError, Character, CompactError,
-    Count, Crossing, DecimalPrefix, Dim, DimWire, Exp, Fixed, FixedScale, MAX_TRUE_BASES,
+    Count, Crossing, DecimalPrefix, Dim, DimWire, Exp, Finite, Fixed, FixedScale, MAX_TRUE_BASES,
     MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds, Overflow, Point,
     PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, QuantityDef, QuantityExpr,
     QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Reference, ReferenceDef, ReferenceHow,

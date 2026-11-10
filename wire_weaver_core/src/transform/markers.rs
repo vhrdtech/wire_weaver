@@ -771,8 +771,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
 }
 
 /// `exact_units`' own generic markers, whose meaning is fixed by their name and generic arguments.
-// TODO(STD-104): exact_units' `Finite` (NUM-20), a bound refusing ±∞ and NaN, once it exists there
-static BUILT_IN: [(&str, MarkerDefOwned); 19] = [
+static BUILT_IN: [(&str, MarkerDefOwned); 20] = [
     ("Per", MarkerDefOwned::Per),
     ("Times", MarkerDefOwned::Times),
     ("Sqrt", MarkerDefOwned::Sqrt),
@@ -792,6 +791,7 @@ static BUILT_IN: [(&str, MarkerDefOwned); 19] = [
     ("Quotient", MarkerDefOwned::Quotient),
     ("Of", MarkerDefOwned::Of),
     ("MaybeNan", MarkerDefOwned::MaybeNan),
+    ("Finite", MarkerDefOwned::Finite),
 ];
 
 /// Resolves what a marker line names elsewhere, as types of the crate it is declared in.

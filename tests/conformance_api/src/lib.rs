@@ -135,6 +135,8 @@ trait Conformance {
     // a float Fixed is never NaN unless its bound is MaybeNan (NUM-19, STD-105); ±∞ is a value
     property!(rw fixed_f32: ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32>);
     property!(rw fixed_maybe_nan: ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::MaybeNan>);
+    // a float Fixed that is never ±∞ nor NaN (NUM-20, STD-104)
+    property!(rw fixed_finite: ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::Finite>);
     // an imperial unit (STD-72): the same i32, lbf·s only in the type
     property!(rw fixed_customary: ww_si::Fixed<ww_si::units::Times<ww_si::units::PoundForce, ww_si::units::Second>, ww_si::prefix::Milli, i32>);
     // a non-linear code (LVL-6): a G.711 μ-law byte, the bytes of its u8, the codec's definition in the model

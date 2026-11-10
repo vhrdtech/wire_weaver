@@ -30,6 +30,7 @@
 
 ### 🚀 Features
 
+- `Finite` bounds (exact_units NUM-20, STD-104): `Unbounded`, `MaybeNan` or a plain float read as `Finite` is a bound narrowed; a float range fits inside `Finite`.
 - An origin moved to another reference says why its points don't convert (STD-108): a zero known only at run time, a device clock that needs a clock sync, or a leap-second table between POSIX time and TAI; a reference whose `HOW` changed under the same id is a `Rule::Meaning` break too.
 - A unit that moved to another system of units (exact_units UNIT-9: SI, Natural, Gaussian) is breaking under `Rule::Meaning` with its own reason, `another system of units (Si vs Gaussian)`, also where the same bytes would hold the same value (1 G and 10⁻⁴ T): crossing takes a named step.
 - `NumericBaseType::INib32` is a `Variable { align: 4, granularity: 4 }` size class, the same as `UNib32` (SW-24).

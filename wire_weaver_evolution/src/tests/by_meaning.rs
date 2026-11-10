@@ -53,7 +53,7 @@ fn api_with(ty: &str, markers: &str) -> String {
     format!(
         r#"
         use ww_si::{{Fixed, Offset, Point}};
-        use ww_si::exact_units::{{MaybeNan, Saturating, Wrapping}};
+        use ww_si::exact_units::{{Finite, MaybeNan, Saturating, Wrapping}};
         use ww_si::origins::{{Angle, Celsius}};
         use ww_si::prefix::{{Centi, Milli, One, Pow10}};
         use ww_si::units::{{Coulomb, Degree, Joule, Kelvin, Meter, Newton, Pascal, Per, PoundForce, Radian, Second, Times, Volt}};
@@ -516,5 +516,26 @@ fn maybe_nan_is_one_value_more() {
     let r = report("f32", &fixed("MaybeNan"));
     assert_eq!(r.change, Change::Compatible, "{r:#?}");
     let r = report(&fixed("MaybeNan"), &fixed("MaybeNan"));
+    assert_eq!(r.change, Change::None, "{r:#?}");
+}
+
+/// `Finite` (NUM-20, STD-104): never ±∞ nor NaN, so a reader that turns `Finite` refuses what an `Unbounded` writer
+/// may send; a float range's ends are finite.
+#[test]
+fn finite_is_two_values_fewer() {
+    let fixed = |b: &str| format!("Fixed<Volt, Milli, f32, {b}>");
+    for (old, new) in [
+        (fixed("ww_si::Unbounded"), fixed("Finite")),
+        (fixed("Finite"), fixed("MaybeNan")),
+        ("f32".to_string(), fixed("Finite")),
+    ] {
+        let r = report(&old, &new);
+        assert_eq!(r.change, Change::Breaking, "{old} -> {new}: {r:#?}");
+        assert!(
+            format!("{r:#?}").contains("Finite"),
+            "{old} -> {new}: {r:#?}"
+        );
+    }
+    let r = report(&fixed("Finite"), &fixed("Finite"));
     assert_eq!(r.change, Change::None, "{r:#?}");
 }

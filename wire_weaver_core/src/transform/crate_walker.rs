@@ -11,6 +11,7 @@ use super::util::{UseLeaf, collect_docs, get_wire_attr, use_tree_leaves, use_tre
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
 use shrink_wrap::UNib32;
+use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -448,6 +449,8 @@ pub(crate) fn root_key(modules: &[String], trait_name: &str) -> String {
 /// Main scratch space and cache used to build ApiBundleOwned
 #[derive(Default)]
 pub(crate) struct Scratch {
+    /// Errors of module files parsed when first needed ([LazyAst]); [Scratch::walk] reports the first.
+    parse_errors: ParseErrors,
     /// Cached crates
     crates: HashMap<FullVersionOwned, Rc<CrateContext>>,
     /// Cached manifests
@@ -832,7 +835,7 @@ pub(crate) struct CrateContext {
     /// `src/lib.rs`, or a module of the crate when resolving paths through it. Shared: a context is cloned for
     /// every type found in it, and copying the module's tree each time made a module of hundreds of `unit!`
     /// markers quadratic.
-    pub(crate) lib_rs_ast: Rc<File>,
+    pub(crate) lib_rs_ast: Rc<LazyAst>,
     /// Directory where files of the child modules of `lib_rs_ast` are.
     mod_dir: PathBuf,
     /// Modules from the crate root to `lib_rs_ast`, each with whether it is `pub`; empty for the crate root.
@@ -930,7 +933,7 @@ impl CrateContext {
             version,
             wire,
             features: Rc::new(features),
-            lib_rs_ast: Rc::new(lib_rs),
+            lib_rs_ast: Rc::new(LazyAst::parsed(lib_rs)),
             mod_path: vec![],
         };
         // the root crate is always first in ext_crates, even when no types are referenced from it; the others are
@@ -1099,12 +1102,14 @@ impl CrateContext {
         if let Some(module) = scratch.modules.get(&key) {
             return Ok(module.clone());
         }
-        let module = self.parse_module(name)?.map(Rc::new);
+        let module = self
+            .parse_module(name, scratch.parse_errors.clone())?
+            .map(Rc::new);
         scratch.modules.insert(key, module.clone());
         Ok(module)
     }
 
-    fn parse_module(&self, name: &str) -> Result<Option<Self>> {
+    fn parse_module(&self, name: &str, errors: ParseErrors) -> Result<Option<Self>> {
         let Some(item_mod) = self.lib_rs_ast.items.iter().find_map(|item| match item {
             Item::Mod(item_mod) if item_mod.ident == name => Some(item_mod),
             _ => None,
@@ -1116,7 +1121,7 @@ impl CrateContext {
             Some((_, items)) => {
                 let mut file: File = syn::parse_quote! {};
                 file.items = items.clone();
-                file
+                LazyAst::parsed(file)
             }
             None => {
                 let file_rs = self.mod_dir.join(format!("{name}.rs"));
@@ -1127,10 +1132,7 @@ impl CrateContext {
                 } else {
                     mod_dir.join("mod.rs")
                 };
-                let mut file = parse_rs(&path)?;
-                expand_cfg_attrs(&mut file, &self.features)
-                    .with_context(|| path.display().to_string())?;
-                file
+                LazyAst::file(path, self.features.clone(), errors)
             }
         };
         let mut mod_path = self.mod_path.clone();
@@ -1340,7 +1342,13 @@ impl CrateContext {
             return reexports.clone();
         }
         let mut reexports = vec![];
-        for item in &self.lib_rs_ast.items {
+        // a module without a `pub use` re-exports nothing: not parsed to find that out
+        let items = if self.lib_rs_ast.may_reexport() {
+            &self.lib_rs_ast.items[..]
+        } else {
+            &[]
+        };
+        for item in items {
             let Item::Use(item_use) = item else {
                 continue;
             };
@@ -1393,7 +1401,12 @@ impl Scratch {
     pub(crate) fn walk<T>(&mut self, mut convert: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
         loop {
             self.features_grew = false;
-            let converted = convert(self)?;
+            let converted = convert(self);
+            // a module that didn't parse is the cause of whatever else it made missing
+            if let Some(e) = self.parse_errors.take_first() {
+                return Err(e);
+            }
+            let converted = converted?;
             if !self.features_grew {
                 return Ok(converted);
             }
@@ -1778,6 +1791,141 @@ fn parse_rs(path: &Path) -> Result<File> {
             .insert(path.to_path_buf(), (stamp.0, stamp.1, file.clone()))
     });
     Ok(file)
+}
+
+/// Whether `text` has `pub` followed by `use` or `extern`, with any whitespace and comments between: a cheap scan
+/// instead of a parse. A false positive (in a string, a doc comment) only costs a parse; a false negative would lose a
+/// re-export, so `pub  use`, `pub\nuse` and `pub /* c */ use` all count.
+fn mentions_pub_reexport(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    let mut from = 0;
+    while let Some(at) = text[from..].find("pub") {
+        let mut i = from + at + 3;
+        from = i;
+        loop {
+            match bytes.get(i) {
+                Some(b) if b.is_ascii_whitespace() => i += 1,
+                Some(b'/') if bytes.get(i + 1) == Some(&b'/') => {
+                    i = text[i..].find('\n').map_or(bytes.len(), |n| i + n);
+                }
+                Some(b'/') if bytes.get(i + 1) == Some(&b'*') => {
+                    i = text[i + 2..]
+                        .find("*/")
+                        .map_or(bytes.len(), |n| i + 2 + n + 2);
+                }
+                _ => break,
+            }
+        }
+        let rest = &text[i..];
+        let word_end = |w: &str| {
+            rest.strip_prefix(w)
+                .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        };
+        if word_end("use") || word_end("extern") {
+            return true;
+        }
+    }
+    false
+}
+
+/// Errors of [LazyAst]s, shared by those of one [Scratch].
+#[derive(Clone, Default)]
+pub(crate) struct ParseErrors(Rc<RefCell<Vec<anyhow::Error>>>);
+
+impl ParseErrors {
+    fn push(&self, e: anyhow::Error) {
+        self.0.borrow_mut().push(e);
+    }
+
+    fn take_first(&self) -> Option<anyhow::Error> {
+        let mut errors = self.0.borrow_mut();
+        (!errors.is_empty()).then(|| errors.swap_remove(0))
+    }
+}
+
+/// The syntax tree of a module: parsed on first use, so a module file nothing looks into (a leaf of a big
+/// dependency like exact_units, only asked whether it re-exports anything) is never parsed. Dereferences to the
+/// tree; a file that doesn't parse reads as an empty module and its error is reported by [Scratch::walk].
+pub(crate) struct LazyAst {
+    source: Option<LazySource>,
+    tree: OnceCell<Result<File, String>>,
+    empty: File,
+}
+
+struct LazySource {
+    path: PathBuf,
+    features: Rc<Features>,
+    errors: ParseErrors,
+    /// Whether the file may `pub use` or `pub extern crate` anything, read without parsing ([mentions_pub_reexport]).
+    may_reexport: OnceCell<bool>,
+}
+
+impl LazyAst {
+    /// A tree already at hand: the crate root, an inline module.
+    fn parsed(file: File) -> Self {
+        Self {
+            source: None,
+            tree: OnceCell::from(Ok(file)),
+            empty: syn::parse_quote! {},
+        }
+    }
+
+    /// The tree of `path`, parsed when first used, with `#[cfg_attr(..)]` expanded for `features`.
+    fn file(path: PathBuf, features: Rc<Features>, errors: ParseErrors) -> Self {
+        Self {
+            source: Some(LazySource {
+                path,
+                features,
+                errors,
+                may_reexport: OnceCell::new(),
+            }),
+            tree: OnceCell::new(),
+            empty: syn::parse_quote! {},
+        }
+    }
+
+    /// Whether the module can `pub use` something: false for a file without one, which is then not parsed.
+    fn may_reexport(&self) -> bool {
+        let Some(source) = &self.source else {
+            return true;
+        };
+        if self.tree.get().is_some() {
+            return true;
+        }
+        *source.may_reexport.get_or_init(|| {
+            stamps::note(&source.path);
+            // a file that can't be read is parsed to get its error
+            fs::read_to_string(&source.path).is_ok_and(|text| mentions_pub_reexport(&text))
+                || fs::metadata(&source.path).is_err()
+        })
+    }
+}
+
+impl std::ops::Deref for LazyAst {
+    type Target = File;
+
+    fn deref(&self) -> &File {
+        let tree = self.tree.get_or_init(|| {
+            let source = self.source.as_ref().expect("a tree at hand is set");
+            let load = || -> Result<File> {
+                let mut file = parse_rs(&source.path)?;
+                expand_cfg_attrs(&mut file, &source.features)
+                    .with_context(|| source.path.display().to_string())?;
+                Ok(file)
+            };
+            load().map_err(|e| format!("{e:?}"))
+        });
+        match tree {
+            Ok(file) => file,
+            // every walk using it is told, also one that finds it already failed in a cache
+            Err(e) => {
+                if let Some(source) = &self.source {
+                    source.errors.push(anyhow!("{e}"));
+                }
+                &self.empty
+            }
+        }
+    }
 }
 
 fn parse_rs_uncached(path: &Path) -> Result<File> {
@@ -2388,6 +2536,96 @@ mod tests {
             crate_names(&bundle),
             [("api".into(), 1), ("dep_api".into(), 4)]
         );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A module file is parsed when something looks into it: one with a syntax error that no type lives in and no
+    /// `pub use` goes through is never read as a tree, while one a type is found in refuses the load.
+    #[test]
+    fn module_parsed_when_needed() {
+        let dir = scratch_dir("lazy_module");
+        write(
+            &dir.join("Cargo.toml"),
+            "[package]\nname = \"lazy_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n",
+        );
+        let lib_rs = |ty_module: &str| {
+            write(
+                &dir.join("src/lib.rs"),
+                &format!(
+                    "mod unused;\nmod used;\npub use used::Value;\n\
+                     #[ww_trait] pub trait Api {{ fn get() -> {ty_module}; }}\n"
+                ),
+            );
+        };
+        write(&dir.join("src/unused.rs"), "pub fn broken( {");
+        write(
+            &dir.join("src/used.rs"),
+            "#[derive_shrink_wrap] pub struct Value(u8);\n",
+        );
+        lib_rs("Value");
+        let bundle = load(&dir, Some("Api".into()), true).unwrap();
+        assert_eq!(bundle.root.items.len(), 1);
+
+        write(
+            &dir.join("src/used.rs"),
+            "#[derive_shrink_wrap] pub struct Value(u8;\n",
+        );
+        let err = load(&dir, Some("Api".into()), true).unwrap_err();
+        assert!(format!("{err:#}").contains("used.rs"), "{err:#}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// The scan that decides a module file needs no parse misses no spelling of a public re-export.
+    #[test]
+    fn pub_reexport_spellings() {
+        for yes in [
+            "pub use a::B;",
+            "pub  use a::B;",
+            "pub\nuse a::B;",
+            "pub\t\n  use a::*;",
+            "pub /* why */ use a::B;",
+            "pub // why\n use a::B;",
+            "pub extern crate x;",
+            "pub  extern  crate x as y;",
+            "struct S; pub use a::B;",
+        ] {
+            assert!(mentions_pub_reexport(yes), "{yes:?}");
+        }
+        for no in [
+            "",
+            "pub struct S;",
+            "pub fn user() {}",
+            "pub useful: u8,",
+            "use a::B;",
+            "pub(crate) use a::B;",
+            "pub externally: u8,",
+        ] {
+            assert!(!mentions_pub_reexport(no), "{no:?}");
+        }
+    }
+
+    /// A re-export spelled `pub\nuse` in a module file is followed like any other.
+    #[test]
+    fn reexport_spelled_oddly_is_followed() {
+        let dir = scratch_dir("odd_reexport");
+        write(
+            &dir.join("Cargo.toml"),
+            "[package]\nname = \"odd_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n",
+        );
+        write(
+            &dir.join("src/lib.rs"),
+            "mod outer;\n#[ww_trait] pub trait Api { fn get() -> Value; }\npub use outer::Value;\n",
+        );
+        write(
+            &dir.join("src/outer.rs"),
+            "mod inner;\npub\n  /* odd */ use inner::Value;\n",
+        );
+        write(
+            &dir.join("src/outer/inner.rs"),
+            "#[derive_shrink_wrap] pub struct Value(u8);\n",
+        );
+        let bundle = load(&dir, Some("Api".into()), true).unwrap();
+        assert_eq!(bundle.root.items.len(), 1);
         fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -6,6 +6,7 @@ use super::{
 };
 use anyhow::{Context, Result, anyhow};
 use shrink_wrap::UNib32;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::rc::Rc;
 use syn::{Attribute, Ident, Item, Visibility};
@@ -48,6 +49,10 @@ pub struct SourceNotes {
     pub hints: Vec<super::UnitHint>,
     /// Resources marked `#[moved_from]` (EVO-40), of every crate walked: the checker takes its own crate's.
     pub moved_from: Vec<super::MovedFrom>,
+    /// The module of every trait, struct and enum the load converted, by crate and name, empty at the crate root:
+    /// the API model names them by crate and name only, so roots of one crate reaching a `Channel` each can't tell
+    /// from the bundles whether it is one trait (`common::Channel`) or two (`wire_v1::Channel`, EVO-42).
+    pub modules: BTreeMap<(String, String), Vec<String>>,
 }
 
 /// [load_crate], also returning what else the source says ([SourceNotes]).
@@ -275,6 +280,12 @@ fn snapshot_bundle(
     let notes = SourceNotes {
         hints: std::mem::take(&mut scratch.unit_hints),
         moved_from: std::mem::take(&mut scratch.moved_from),
+        modules: scratch
+            .type_modules
+            .iter()
+            .chain(&scratch.trait_modules)
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
     };
     let scratch = std::mem::take(&mut scratch.root_bundle);
     let ext_wire = scratch.ext_wire(wire);

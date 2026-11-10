@@ -1280,7 +1280,7 @@ fn checker_per_root() {
     assert_eq!(roots.shared.len(), 1, "{outcome}");
     assert_eq!(
         roots.shared[0].to_string(),
-        "shared `Channel` changed on `wire_v1::Api` (w1.1), `wire_v2::Api` (w2.0)"
+        "shared `common::Channel` changed on `wire_v1::Api` (w1.1), `wire_v2::Api` (w2.0)"
     );
     // the `#[since]` of each line is checked against that line's revision
     let early = "    #[since = \"w1.0, w2.1\"]\n    fn reset();\n";
@@ -1335,9 +1335,39 @@ fn checker_per_root() {
     has_all(
         &text,
         &[
-            "shared `Code` changed on `wire_v1::Api` (w1.1), `wire_v2::Api` (w2.1)",
+            "shared `common::Code` changed on `wire_v1::Api` (w1.1), `wire_v2::Api` (w2.1)",
             "crate: 0.2.0 or later, the largest its roots need",
         ],
+    );
+}
+
+/// Two roots that each reach a trait of one name, line 1 its own `wire_v1::Channel` and line 2 `common::Channel`,
+/// don't share it: a change to `common::Channel` is line 2's only, and nothing is named shared (EVO-42, found when
+/// the bench's API moved into one crate). The API model names a trait by crate and name, so the walker notes the
+/// module of each.
+#[test]
+fn same_name_in_two_modules_is_not_shared() {
+    let c = TestCrate::new("same_name_in_two_modules");
+    let own_channel = LINE_1.replace("super::common::Channel", "Channel")
+        + "\n#[ww_trait]\npub trait Channel {\n    fn read() -> Code;\n}\n";
+    let modules = |common_extra: &str| {
+        let mut m = per_root_modules(common_extra);
+        m[1].1 = own_channel.clone();
+        m
+    };
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    let reset = "    #[since = \"w2.1\"]\n    fn reset();\n";
+    write_per_root(&c, "0.1.1", ["w1.0", "w2.1"], &modules(reset));
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    let roots = roots_of(&outcome);
+    assert!(roots.shared.is_empty(), "{outcome}");
+    let text = outcome.to_string();
+    let line_2 = text.find("API root `wire_v2::Api`").unwrap();
+    assert!(
+        !text[..line_2].contains("reset"),
+        "line 1 has its own Channel:\n{text}"
     );
 }
 
@@ -1591,7 +1621,9 @@ fn shared_type_reached_by_a_design_line_root() {
             .iter()
             .map(|s| s.to_string())
             .collect::<Vec<_>>(),
-        ["shared `Code` changed on `wire_v1::Api` (w2.0), also reached by `wire_v2::Api` (w0.1)"]
+        [
+            "shared `common::Code` changed on `wire_v1::Api` (w2.0), also reached by `wire_v2::Api` (w0.1)"
+        ]
     );
     assert_eq!(
         roots

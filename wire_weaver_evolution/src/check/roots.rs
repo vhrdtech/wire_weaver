@@ -78,7 +78,7 @@ pub struct RemovedRoot {
 /// snapshot.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SharedChange {
-    /// Its name, `Code`.
+    /// Its path in the crate, `common::Code`.
     pub item: String,
     /// The roots it changed on, with their wire versions.
     pub roots: Vec<(String, WireVersion)>,
@@ -104,6 +104,7 @@ impl Check {
         let mut hints = vec![];
         let mut warnings = vec![];
         let mut moves = vec![];
+        let mut modules = BTreeMap::new();
         for (root, wire) in roots {
             let (bundle, notes) = cache
                 .load_root_with_notes(&self.path, root)
@@ -125,6 +126,7 @@ impl Check {
                     }
                 }
             }
+            modules.insert(root.clone(), notes.modules);
             loaded.push((root.clone(), *wire, bundle));
         }
         let bundles: Vec<&ApiBundleOwned> = loaded.iter().map(|(_, _, b)| b).collect();
@@ -152,11 +154,13 @@ impl Check {
                 .push(self.against_root(against, loaded, &own, &moves)?);
             return Ok(Outcome::Roots(Box::new(outcome)));
         }
-        // what each root reaches, w0 roots and roots without a snapshot too
+        // what each root reaches, w0 roots and roots without a snapshot too, by path in the crate: two roots may
+        // each reach a `Channel` of their own
         let mut reached: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
         for (root, wire, bundle) in &loaded {
             for name in own_names(bundle) {
-                reached.entry(name).or_default().push((root.clone(), *wire));
+                let path = path_in_crate(&modules[root], &own.crate_id, &name);
+                reached.entry(path).or_default().push((root.clone(), *wire));
             }
         }
         let files = crate_files(&dir, &own.crate_id)?;
@@ -171,7 +175,7 @@ impl Check {
             });
         }
         outcome.removed = removed_roots(&files, roots, &own.version);
-        outcome.shared = shared_changes(&outcome.roots, &reached)?;
+        outcome.shared = shared_changes(&outcome.roots, &reached, &modules, &own.crate_id)?;
         Ok(Outcome::Roots(Box::new(outcome)))
     }
 
@@ -492,11 +496,27 @@ fn own_names(bundle: &ApiBundleOwned) -> BTreeSet<String> {
         .collect()
 }
 
+/// `name`, a type or trait of crate `crate_id`, by its path in the crate (`common::Channel`), from the `modules` a
+/// root's load noted ([wire_weaver_core::SourceNotes::modules]).
+fn path_in_crate(
+    modules: &BTreeMap<(String, String), Vec<String>>,
+    crate_id: &str,
+    name: &str,
+) -> String {
+    match modules.get(&(crate_id.to_string(), name.to_string())) {
+        Some(modules) if !modules.is_empty() => format!("{}::{name}", modules.join("::")),
+        _ => name.to_string(),
+    }
+}
+
 /// The crate's own types and traits that more than one root reaches (`reached`, by every root, w0 roots and roots
-/// without a snapshot too) and that changed on a root compared with its snapshot.
+/// without a snapshot too, by path in the crate) and that changed on a root compared with its snapshot. `modules`:
+/// what each root's load noted, to name an item of a root's bundle by its path.
 fn shared_changes(
     roots: &[RootOutcome],
     reached: &BTreeMap<String, Vec<(String, WireVersion)>>,
+    modules: &BTreeMap<String, BTreeMap<(String, String), Vec<String>>>,
+    crate_id: &str,
 ) -> Result<Vec<SharedChange>, String> {
     let mut changed_on: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
     for r in roots {
@@ -505,8 +525,8 @@ fn shared_changes(
         };
         let changed: BTreeSet<String> = crate::diff(&c.old, &c.new)?
             .iter()
-            .map(|d| item_of(d.path()).to_string())
-            .filter(|name| reached.get(name).is_some_and(|by| by.len() > 1))
+            .map(|d| path_in_crate(&modules[&r.root], crate_id, item_of(d.path())))
+            .filter(|path| reached.get(path).is_some_and(|by| by.len() > 1))
             .collect();
         for name in changed {
             changed_on
@@ -684,7 +704,7 @@ impl fmt::Display for RootsOutcome {
     }
 }
 
-/// `shared `Code` changed on `wire_v1::Api` (w1.0), `wire_v2::Api` (w2.0)`.
+/// `shared `common::Code` changed on `wire_v1::Api` (w1.0), `wire_v2::Api` (w2.0)`.
 impl fmt::Display for SharedChange {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let roots: Vec<_> = self

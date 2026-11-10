@@ -23,6 +23,7 @@
 
 ### 🐛 Fixes
 
+- A crate with several roots: a type or trait is shared only when the roots reach the same item, matched by its path in the crate (`common::Channel`), no longer by name (EVO-42). A root with a `Channel` of its own (`wire_v1::Channel`) was reported as also reaching `common::Channel`, and a change to either was named on the other's roots. `SharedChange::item` is that path (`shared `common::Code` changed on ..`). Test `same_name_in_two_modules_is_not_shared`.
 - Findings on a new wire line read cleanly (EVO-33). The root crate's own traits and types are no longer reported as "on different wire lines" (`a wire break because trait thermo_api::Channel changed`, with the old crate version as the new side's label): `compare` gives both sides the old crate version, so a pair of the same version is one source. Every difference of a type is reported, not the first: all fields that differ, and the markers together with the other generic arguments (`Sample::temp` says both the scale and the storage, `Centi` -> `Milli` and `i16` -> `i32`), joined by `; `.
 
 - A removed enum variant is a breaking change (EVO-28): `compare` used to say nothing about it, so a crate dropping `Mode::Triggered` passed with a patch bump while every Rust `match` on it broke. The finding has the new `Rule::VariantRemoved`, which keeps the wire when the enum has a catch-all (`Rule::keeps_wire()`); without one the type check reports the wire break as before. Code matching on `Rule` exhaustively adds the variant.

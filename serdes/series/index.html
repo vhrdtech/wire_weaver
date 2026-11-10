@@ -1177,6 +1177,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#a-prefix-per-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A prefix per item
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5833,6 +5844,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#a-prefix-per-item" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A prefix per item
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6295,6 +6317,78 @@ generic and compiled into the firmware's own crate, so a <code>[profile.release.
 reach it. A firmware that stays at <code>z</code> gets the bit writer's speed back with <code>shrink_wrap</code>'s <code>fast-io</code> feature (or
 <code>optimize-speed</code> from Rust 1.101 or on nightly): since SW-70 it is out of line at <code>z</code> by default, 0.75 KB smaller and up to 22 % slower, see
 <a href="../code_size/#hot-paths-at-opt-level-z">Hot paths at opt-level z</a>.</p>
+<h3 id="a-prefix-per-item">A prefix per item<a class="headerlink" href="#a-prefix-per-item" title="Permanent link">&para;</a></h3>
+<p>A <code>ww_si</code> <code>Quantity</code> (<code>Ampere</code>, <code>Volt</code>, <code>Second</code>) carries its prefix and number type in every item; a
+<code>Fixed&lt;Ampere, Milli, i32&gt;</code> has them in its type. In a <code>Series</code> both are a column of their own, a run, so a prefix
+that stays the same over a batch costs about one byte per column on the wire. It costs more in CPU: the item walk
+handles the prefix and the <code>NumericValue</code> of every item, and the store writer first checks that every row has the
+same prefix and number type. A prefix that changes mid-batch (an autoranging device) restarts the numeric column
+there, which the wire handles, but the store writer doesn't yet (SW-77): the whole column is rebuilt item by item
+and walked.</p>
+<p>One FOC level batch of the motor demo, the same numbers both ways (21 properties in mA, µ and nV as <code>i32</code>, n = 32,
+two batches, <code>DeltaPacked</code>; <code>examples_mcu/mcu_qemu</code>'s <code>qemu-dyn-prefix-quantity</code>, <code>-fixed</code> and <code>-auto</code>, and
+<code>usb_stm32h725ig</code>'s <code>dyn_prefix_cycles</code>, the H725 warm):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>bytes per batch</th>
+<th>Cortex-M3 instructions, <code>z</code> / <code>3</code></th>
+<th>STM32H725 cycles, <code>z</code> / <code>3</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>21 x <code>Series&lt;Quantity&gt;</code>, item walk</td>
+<td>1 214 / 1 151</td>
+<td>289 200 / 117 300</td>
+<td>350 400 / 125 600</td>
+</tr>
+<tr>
+<td>21 x <code>Series&lt;Fixed&gt;</code>, item walk</td>
+<td>1 188 / 1 128</td>
+<td>85 500 / 54 800</td>
+<td>98 600 / 66 200</td>
+</tr>
+<tr>
+<td>21 x <code>Series&lt;Quantity&gt;</code>, store</td>
+<td>1 214 / 1 151</td>
+<td>66 300 / 34 100</td>
+<td>77 000 / 39 500</td>
+</tr>
+<tr>
+<td>21 x <code>Series&lt;Fixed&gt;</code>, store</td>
+<td>1 188 / 1 128</td>
+<td>52 000 / 24 500</td>
+<td>64 900 / 25 200</td>
+</tr>
+<tr>
+<td>clock: <code>Series&lt;Second&gt;</code>, store</td>
+<td>37</td>
+<td>3 124 / 1 583</td>
+<td>3 552 / 1 739</td>
+</tr>
+<tr>
+<td>clock: <code>Series&lt;DeviceMicros&lt;u32&gt;&gt;</code></td>
+<td>36</td>
+<td>2 426 / 1 098</td>
+<td>2 978 / 1 100</td>
+</tr>
+</tbody>
+</table>
+<p>From the store, the way <code>ww_stream</code>'s batchers and observe cells write a level, a prefix per item costs about 21
+instructions per item on the M3 at <code>z</code> (14 at <code>3</code>) and 18 cycles on the H725 (21 at <code>3</code>): 19 % more cycles at <code>z</code>, 57
+% more at <code>3</code>. On the M3 at <code>z</code> about 60 % of it is the check for one prefix and one number type (SW-78), the rest is
+reading the number out of the <code>NumericValue</code> store. By the item walk a <code>Quantity</code> takes 2x to 3.5x the CPU of a
+<code>Fixed</code>. The bytes differ by 23 to 26 per batch, 2 %. The <code>Fixed</code> bin's <code>.text</code> is 15.6 KB against 22.3 KB at <code>z</code>
+(20.2 KB against 52.1 KB at <code>3</code>).</p>
+<p>Autoranged (each value at the finest prefix whose number fits an <code>i16</code>, so a phase that wraps or a flux through
+zero changes prefix mid-batch: 8 changes in 4 of the 21 columns of the first batch, 2 in 1 of the second), a column
+the store can't take costs 16 700 instructions on the M3 at <code>z</code> against 3 300 for one it can, and the first batch
+138 200 cycles on the H725 at <code>z</code> against 77 000 for the quantities without changes.</p>
+<p>A device that knows its prefixes at build time (most do: an ADC's step, a PWM's resolution) gets the cheaper column
+with <code>Fixed</code>, at the same bytes; a <code>Quantity</code> is for a unit chosen at run time, and an autoranging one is cheap on
+the wire but, until SW-77, not in CPU.</p>
 <h2 id="collecting-items-on-a-device-seriesstore">Collecting items on a device: <code>SeriesStore</code><a class="headerlink" href="#collecting-items-on-a-device-seriesstore" title="Permanent link">&para;</a></h2>
 <p>SW-62. A device that sends items in batches keeps them somewhere until the batch is written. <code>SeriesStore</code> is that
 place: room for <code>N</code> items as a struct of arrays, one array per leaf field, which <code>#[derive_shrink_wrap(.., series)]</code>

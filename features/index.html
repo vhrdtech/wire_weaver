@@ -6115,6 +6115,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (TEST-25): no case turns off the <code>Unknown(u32)</code> catch-all (SW-47) and then feeds an out-of-range discriminant
   (needs hand-written reject bytes, no valid Rust value produces them), and no <code>Series&lt;T&gt;</code> (SW-60) case has a
   field marked <code>#[series(opaque)]</code>, so its own column form is untested.</li>
+<li>📋 <strong>SW-77 Store columns across a prefix change</strong> — <code>write_store_series</code> (SW-64) writes nothing when an enum or
+  <code>Option</code> tag changes in the rows (a ww_si prefix that autoranges, a number type), and the batch is rebuilt item by
+  item and walked: 5x the instructions of a store column on a Cortex-M3 at <code>opt-level = "z"</code> (16.7 k against 3.3 k
+  per column of 32), 4.5x at 3. The wire already has the runs and the restarts; the store writer would write the
+  tag runs from the store's arrays and the numeric column in segments, restarting at each run boundary, the same
+  bytes as the walk. Measured by <code>examples_mcu/mcu_qemu</code>'s <code>qemu-dyn-prefix-auto</code> and <code>stm32h725ig-dyn-prefix-cycles</code>
+  (<code>docs/serdes/series.md#a-prefix-per-item</code>); the round trip and conformance case are in
+  (<code>stdlib.si.timed.series.prefix_change</code>).</li>
+<li>💡 <strong>SW-78 A cheaper one-tag check for store columns</strong> — <code>SeriesStore::columnar</code> scans every row of a ww_si
+  quantity's prefix and number-type arrays before a store column is written: 2 x ~200 instructions per column of
+  32 on a Cortex-M3 at <code>opt-level = "z"</code>, about 60 % of what a <code>Quantity</code> column costs over a <code>Fixed</code> one from the
+  store (<code>docs/serdes/series.md#a-prefix-per-item</code>). Comparing the arrays a word at a time, or a flag the store
+  keeps as rows are set, would take most of it.</li>
 <li>📋 <strong>SW-17 Const / magic type</strong> · <code>v0.5</code> — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the <code>magic</code> field in
   <code>ww_self</code> (a plain <code>u32</code> today).</li>

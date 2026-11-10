@@ -23,7 +23,8 @@ The shape in short:
 2. Each gets a module with its generated client and the conversions to the driver's own types.
 3. A facade, an enum over the line clients made by `wire_weaver_client::facade!`, hides which line the device is on.
 4. The connection speaks every line the driver knows; link setup takes the device on whichever it is, and the
-   facade picks the matching client from the line the device reported. One handshake, no reconnect.
+   facade picks the matching client from the line the device reported. A reconnect (after `disconnect().keep_streams()`
+   or a lost link) picks the client again, so a DFU to another line is not the end of the session (CLT-63).
 
 Adding a line is one more module of the same kind and one more variant of the facade enum. When the new
 line holds a value more finely or in a wider type than the driver's types do (line 3's `uptime` went from whole
@@ -218,6 +219,33 @@ answering `Ok` unconditionally (`Ok(Self { cmd })`): `try_from_cmd` is the one m
 A device on a line the driver doesn't know (one newer than all of them) is refused in link setup with
 `Error::IncompatibleDeviceProtocol`, which names every line the host speaks and says to update the host. Two clients
 of one line, or a line of another API, are refused when connecting.
+
+## Reconnecting onto another line
+
+A device can leave its line behind: a DFU flashes new firmware while the host program keeps running. After
+`disconnect().keep_streams()` or a lost link, `Thermo::reconnect()` (CLT-63, `facade!`'s own method, built on
+`Commander::reconnect_as::<Thermo>()`) picks the client of whichever line the device is on now, the same way
+`try_from_cmd` did at the first connect — link setup refuses any line the connection doesn't speak, so this only
+ever sees a line the facade already has a client of.
+
+```rust
+let t = Thermo::config(|c| c.usb().serial_eq(serial)).connect().await?;
+// .. the link goes (a DFU), or t.cmd().disconnect().keep_streams().await? first
+let t = t.reconnect().await?; // may now be a different variant than before
+```
+
+- On the **same line**, this resumes streams, sinks and observers exactly like the plain `Commander::reconnect`
+  (CLT-36, CLT-40) and returns an equivalent `Thermo`.
+- On **another line** this facade also speaks, old streams, sinks and observers end instead of resuming: their
+  resource paths assumed the old line's API, so nothing of that handle still applies. Use what `reconnect()`
+  returns from here on, not the value it was called on — its calls still assume the old line.
+- A single-line client (no facade) never reaches a line change here: its connection speaks one line, so link setup
+  itself refuses a device on any other one before a reconnect gets this far.
+- Calling the plain `Commander::reconnect()` (no `T`, so it can't pick a client) on a connection whose device came
+  back on another line fails instead, with the new `Error::ReconnectedOnAnotherLine`, naming both wire lines; the
+  hub-supervised reconnect (CLT-40) gives up the same way, since it has no `T` either.
+
+Test `tests/thermo` `lines::reconnect_after_a_dfu_to_another_line`.
 
 ## Shared sub-traits
 

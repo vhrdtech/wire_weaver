@@ -240,6 +240,46 @@ async fn a_fourth_line_is_refused() {
     assert_eq!(requests(&shared), 0);
 }
 
+/// CLT-63: a DFU brings the device back on another wire line the facade also speaks. The plain
+/// `Commander::reconnect` refuses it, naming both lines; `Thermo::reconnect` (`Commander::reconnect_as`) picks
+/// the new line's client instead.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reconnect_after_a_dfu_to_another_line() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let path = "thermo/dfu";
+    let (_shared1, device1) = devices::w1::start(path, thermo_api_w1::THERMO_WIRE_VERSION);
+    let t = connect(&device1).await;
+    assert_eq!(t.wire(), WireVersion::new(1, 2));
+    t.read_once().await.unwrap();
+
+    t.cmd().disconnect().keep_streams().await.unwrap();
+    // the device at `path` comes back flashed with line 3's firmware
+    let (shared3, _device3) = devices::w3::start(path, thermo_api_w3::THERMO_WIRE_VERSION);
+
+    let e = t.cmd().reconnect().await.unwrap_err();
+    assert!(
+        matches!(
+            &e,
+            wire_weaver_client::Error::ReconnectedOnAnotherLine { old_wire, new_wire, .. }
+                if *old_wire == WireVersion::new(1, 2) && *new_wire == WireVersion::new(3, 0)
+        ),
+        "{e:?}"
+    );
+    let text = e.to_string();
+    assert!(
+        text.contains("w3.0") && text.contains("w1.2"),
+        "both lines named: {text}"
+    );
+
+    // `reconnect` left the Commander disconnected again: a fresh reconnect_as picks line 3's client
+    let t3 = t.reconnect().await.expect("the facade also speaks line 3");
+    assert_eq!(t3.wire(), WireVersion::new(3, 0));
+    let before = requests(&shared3);
+    let s = t3.read_once().await.unwrap();
+    assert_eq!(s.temp.raw(), 21_500);
+    assert!(requests(&shared3) > before, "t3 talks to the w3 device");
+}
+
 /// [Thermo::default_config] speaks three lines, and they are three lines: a host speaking one line twice, or another
 /// API, is refused when connecting (`wire_weaver_client`'s `host_of_two_lines_*` tests).
 #[test]

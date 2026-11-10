@@ -3,6 +3,7 @@
 ### ⚠️ Breaking
 
 - Typed stream handles carry the item time's type (CLT-70): `BatchItem<T, Tf = Second>`, `Batch<T, Tf>`, `StreamEvent<T, Tf>`, `Stream<T, Tf>` and `PositionedStream<T, Tf>` with `t: Option<Tf>`; a timed batched stream's handle is `PositionedStream<T, <Tm as TimePoint>::Full>`, so a default one gives `t: Option<DeviceMicros<u64>>`, unwrapped by `ww_si::TimeUnwrapper`. Code naming these types for a timed batched stream adds the parameter; untimed and observe streams keep `Second`. `Unpack<T, Tf>` is a trait object (`Send + Sync`), `unpack_timed::<T, Tm>()` and `unpack_untimed::<T>()` return it boxed, `PositionedStream::batched` takes it, `Commander::prepare_stream_resume<T, Tf>` names the time type. The dynamic client hands a time point on as a `Second` `U64` in the point's step.
+- New `Error::ReconnectedOnAnotherLine { device, old_wire, new_wire }` (CLT-63): `Commander::reconnect` used to refuse any reconnect whose device reports another API than before with the generic `IncompatibleResource`; it now names both wire lines when the device came back on another one it also speaks (a DFU to new firmware, caught only past link setup, which already refuses any other line). The hub-supervised reconnect (CLT-40) gives up with the same message. An exhaustive `match` on `Error` adds the variant.
 - A `Coded` read with a spare code of its codec (exact_units codec-niche, EVO-49) is refused, naming the code and the codec; `DynQuantity::from_value` gives `None` for one. A model saved before has no `spare` in its codec definitions (`MarkerDef::Codec`'s bytes changed).
 - w0, the design line (EVO-41): a client on `w0.x` connected to a device whose API hash differs and whose introspection data is unavailable refuses every call into its API with the new `Error::DesignLineUnchecked`, since `#[since]` means nothing on w0. With the device's introspection data it compares every resource as on any line, whatever the two w0 revisions; equal hashes still need no download, as the hash is over the device's own introspection bytes. An exhaustive `match` on `Error` adds the variant.
 - `WwClient::try_from_cmd(cmd) -> Result<Self, Error>` is now the trait's required method (CLT-62), `from_cmd` a
@@ -106,6 +107,13 @@
 ### 🚀 Features
 
 - `ItemTime` (CLT-70): what an item's time can be (`Second`, a full `TimePoint`), and `ww_si` re-exported for generated code.
+- `Commander::reconnect_as<T: WwClient>` (CLT-63): like `Commander::reconnect`, but on a device that comes back on
+  another wire line this connection also speaks (a DFU to new firmware, EVO-28), picks `T`'s client of that line
+  again instead of refusing; on the same line it resumes streams exactly like `reconnect`. `facade!`'s generated
+  enum gets `reconnect(&self) -> Result<Self, Error>` built on it, so `Thermo::reconnect()` picks the client of
+  whichever line the device is on now. Kept streams, sinks and observers end on a line change (their resource
+  paths assumed the old one) instead of trying to resume; use what `reconnect_as` returns, not the value it was
+  called on.
 - `facade!` and `facade_line!` (CLT-64): an enum facade over the generated clients of several wire lines of one API, from its operations listed once, all enum dispatch with nothing boxed. A trait per line (`line::V3`) that the line implements for its client, each operation required on every line but those its `#[unsupported(V1, needs = "..")]` names, which answer the new `facade::Unsupported`; a `stream`/`sink` operation gets an enum of its own over the lines' receivers with `recv()`/`send()`. New module `facade` with `LineClient`, `Receives`, `Sends`, `Lacking` and the static adapters `StreamOf`, `SplitStreamOf`, `ObserverOf` and `SinkOf` (moved from `tests/thermo`, no longer boxed). Misuse is a compile error naming the operation (trybuild tests, `just test-facade-ui`). See `docs/evolution/multi_line_host.md`.
 - ±∞ written into a `Finite` float `Fixed` is refused before sending (STD-104).
 - `quantity::coded_of` and `CodedType`; `DynQuantity::from_value` reads an `exact_units::codec::Coded` value as the `Fixed` its code means, and `to_value` writes a quantity by its exact code, refusing a value between two codes with the nearest one named (STD-109).

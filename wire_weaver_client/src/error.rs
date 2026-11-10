@@ -130,6 +130,21 @@ pub enum Error {
         device: Box<FullVersionOwned>,
         reason: String,
     },
+    /// A reconnect (CLT-63) found the device on another wire line than the one this client was connected on (a DFU
+    /// to new firmware): its calls assume the old line's resources, so it can't go on. A facade of several lines
+    /// picks the new one's client again with
+    /// [Commander::reconnect_as](crate::Commander::reconnect_as) instead of plain
+    /// `reconnect`, which always ends with this error on a line change.
+    #[error(
+        "the reconnected device is on wire {new_wire}, this client was connected on wire {old_wire}: its calls \
+         would still assume {old_wire}; connect a new client of {new_wire}, or reconnect_as::<_>() on a facade \
+         that speaks it. Device: {device:?}"
+    )]
+    ReconnectedOnAnotherLine {
+        device: Box<FullVersionOwned>,
+        old_wire: WireVersion,
+        new_wire: WireVersion,
+    },
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
     #[error("Remote device returned {}", .0)]
@@ -413,6 +428,7 @@ impl Error {
             | Error::IncompatibleResource { .. }
             | Error::DesignLineUnchecked { .. }
             | Error::NoClientForLine { .. }
+            | Error::ReconnectedOnAnotherLine { .. }
             | Error::User(_)
             | Error::Other(_)
             | Error::AmbiguousDeviceChoice(_)

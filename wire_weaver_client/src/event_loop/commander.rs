@@ -472,9 +472,11 @@ impl Commander {
     /// observers made from it (and its clones) stay valid. Then [Self::resume_streams], whose count it returns.
     ///
     /// Fails with the reason when the device isn't there (yet): the Commander stays disconnected and can try again.
-    /// Also fails when the Commander is still connected, or was connected with `connect_blocking`. A device with another
-    /// API than before (other firmware) is refused with [Error::IncompatibleResource] after it connected: disconnect
-    /// and make a new client.
+    /// Also fails when the Commander is still connected, or was connected with `connect_blocking`. A device with
+    /// another API than before (other firmware) is refused after it connected: [Error::ReconnectedOnAnotherLine]
+    /// (CLT-63) when it came back on another wire line this Commander's `speaks()` also has a client of (a facade,
+    /// EVO-28) — [Self::reconnect_as] picks that client instead of refusing — else [Error::IncompatibleResource].
+    /// Either way, disconnect and make a new client.
     pub async fn reconnect(&self) -> Result<usize, Error> {
         let Some(reconnect) = &self.reconnect else {
             return Err(Error::Unsupported {
@@ -485,13 +487,81 @@ impl Commander {
         self.clear_const_cache();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         if info.user_api_hash.no_docs != self.connected_device.user_api_hash.no_docs {
-            return Err(Error::IncompatibleResource {
+            let e = self.reconnected_elsewhere_error(info);
+            // the link just came up on the wrong API: leave the Commander disconnected, not stuck on a connection
+            // this `reconnect` (or `reconnect_as`) can't take over without a fresh `disconnect().keep_streams()`
+            _ = self.disconnect().asynch().await;
+            return Err(e);
+        }
+        self.resume_streams().await
+    }
+
+    /// Connects again, like [Self::reconnect], but picks the client of the device's wire line again (CLT-63) instead
+    /// of refusing a line change: a DFU may bring the device back on another line this Commander's `speaks()` also
+    /// has a client of (a facade of several lines, EVO-28). On the same line, this resumes streams exactly like
+    /// [Self::reconnect] and returns an equivalent `T`. On another line, old streams, sinks and observers can't
+    /// resume (their resource paths assumed the old line) and are ended; use what this returns, not the value it was
+    /// called on, whose calls still assume the old line.
+    ///
+    /// Fails the same way [Self::reconnect] does when there is nothing to reconnect to, and with
+    /// [Error::NoClientForLine] (CLT-62) only on a bug in `T`'s own set of clients: link setup already refuses any
+    /// line none of `speaks()` names.
+    pub async fn reconnect_as<T: crate::WwClient>(&self) -> Result<T, Error> {
+        let Some(reconnect) = &self.reconnect else {
+            return Err(Error::Unsupported {
+                what: "reconnect",
+                reason: "the Commander wasn't made by an async connect()".into(),
+            });
+        };
+        self.clear_const_cache();
+        let info = reconnect.run(&self.transport_cmd_tx).await?;
+        if info.user_api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
+            self.resume_streams().await?;
+            return T::try_from_cmd(self.clone());
+        }
+        let same_line = matches!(
+            (self.connected_device.user_api_wire, info.user_api_wire),
+            (Some(old), Some(new)) if old.same_line(&new)
+        );
+        if same_line {
+            // same line, a different revision: not resumable the way `reconnect` checks it, for now (CLT-63 is
+            // about a line change; a revision-only mismatch here keeps `reconnect`'s own conservative refusal)
+            let e = self.reconnected_elsewhere_error(info);
+            _ = self.disconnect().asynch().await;
+            return Err(e);
+        }
+        // another line this Commander also speaks (link setup refused any other one): old streams, sinks and
+        // observers assumed the old line's resource paths and can't resume on this one
+        self.end_kept_streams();
+        let config = reconnect.config().clone();
+        let mut commander = crate::client::prepared_connection::create_commander(
+            config,
+            self.transport_cmd_tx.clone(),
+            info,
+        )
+        .await?;
+        commander.set_reconnect(reconnect.clone());
+        T::try_from_cmd(commander)
+    }
+
+    /// Why a reconnect's device isn't the one this Commander (or `T`) was connected to: naming both wire lines when
+    /// the device changed line (CLT-63), else the generic "its API differs" [Error::IncompatibleResource]. Also used
+    /// by the hub-supervised reconnect (CLT-40), which gives up the same way: it has no `T` to pick a client with.
+    pub(crate) fn reconnected_elsewhere_error(&self, info: DeviceApiInfo) -> Error {
+        match (self.connected_device.user_api_wire, info.user_api_wire) {
+            (Some(old_wire), Some(new_wire)) if !old_wire.same_line(&new_wire) => {
+                Error::ReconnectedOnAnotherLine {
+                    device: Box::new(info.user_api_version),
+                    old_wire,
+                    new_wire,
+                }
+            }
+            _ => Error::IncompatibleResource {
                 resource: "the reconnected device".into(),
                 device: Box::new(info.user_api_version),
                 reason: "its API differs from the one connected before".into(),
-            });
+            },
         }
-        self.resume_streams().await
     }
 
     /// Blocking variant of [Self::resume_streams].

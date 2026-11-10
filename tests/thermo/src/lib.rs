@@ -8,7 +8,9 @@
 //!   below: each line implements its trait in [line](mod@line) for its client; `self_test`, which line 1 lacks, is
 //!   [Error::Unsupported] there.
 //! - The connection speaks every line (`ClientConfig::speaks`): link setup takes a device on any of them, and
-//!   `Thermo::try_from_cmd` picks the client of the line the device reported. One handshake, no reconnect.
+//!   `Thermo::try_from_cmd` picks the client of the line the device reported. After `disconnect().keep_streams()`
+//!   or a lost link, `Thermo::reconnect()` picks the client again (CLT-63): a DFU may bring the device back on
+//!   another line this facade also speaks.
 //! - [model] is the driver's own version-free types; each line converts to and from it.
 //! - `ww_indication` is a trait of `ww_stdlib` every line implements: one trait client over global paths serves all,
 //!   with no per-line code ([Thermo::indication]).

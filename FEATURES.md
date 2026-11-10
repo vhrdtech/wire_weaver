@@ -1718,10 +1718,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   order. Async only: `facade_line!` (a line module's `Client` and `ww_codegen!`) refuses `use_async = false`.
   `tests/thermo` runs on it, nothing boxed, the same tests green; trybuild tests `wire_weaver_client`
   `tests/facade_ui.rs` (`just test-facade-ui`); docs `evolution/multi_line_host.md#the-facade`.
-- 💡 **CLT-63 Reconnect into another wire line** — a facade of several lines (EVO-28) picks its client once, in
-  `from_cmd`. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
-  connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an
-  error naming both lines.
+- ✅ **CLT-63 Reconnect into another wire line** · `v0.5` — a facade of several lines (EVO-28) used to keep the
+  client chosen at the first connect even after a DFU brought the device back on another line; `Commander::reconnect`
+  now refuses that with the new `Error::ReconnectedOnAnotherLine`, naming both wire lines, and the new
+  `Commander::reconnect_as<T: WwClient>` picks `T`'s client of the new line instead (same-line reconnects still
+  resume streams as before). `facade!`'s enum gets `reconnect(&self) -> Result<Self, Error>` built on it, so
+  `Thermo::reconnect()` is the one call a facade's driver needs; a line change ends kept streams, sinks and
+  observers instead of resuming them (their resource paths assumed the old line) — use what `reconnect_as` returns,
+  not the value it was called on. The hub-supervised reconnect (CLT-40) gives up with the same dual-named message;
+  it has no `T` to pick a client with, so it never attempts the line-again path itself. Test `tests/thermo`
+  `lines::reconnect_after_a_dfu_to_another_line`.
 - 💡 **CLT-69 Writing a `Point` into a different origin through `DynQuantity::to_value`** — CLT-65's `to_value`
   writes a `Point<O, Fixed<U, P, T, B>>` back when the `DynQuantity`'s own origin is the same `O` (the offset
   cancels, a plain scale conversion); writing one of a *different* origin (°F into a °C field) needs the full

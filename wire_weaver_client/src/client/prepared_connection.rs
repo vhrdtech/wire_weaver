@@ -372,6 +372,12 @@ impl Reconnect {
         _ = self.ctl.send(Ctl::Supervise(Box::new(commander)));
     }
 
+    /// The configuration the Commander was connected with, for [Commander::reconnect_as](crate::Commander::reconnect_as)
+    /// to rebuild one of the device's new line (CLT-63).
+    pub(crate) fn config(&self) -> &ValidatedConfig {
+        &self.config
+    }
+
     /// Connects again with the configuration of the first connection, on the command channel of the event loop that
     /// exited (after `disconnect()`, or a link that went down).
     pub(crate) async fn run(
@@ -618,10 +624,11 @@ impl Keeper {
                 self.via_hub.send_replace(via_hub);
                 let (since, attempts) = (gap.since, gap.attempts);
                 if info.user_api_hash.no_docs != commander.connected_device.user_api_hash.no_docs {
+                    // CLT-63: names both wire lines when the device changed line (a DFU); this loop has no `T` to
+                    // pick a client with, unlike Commander::reconnect_as, so it always gives up here
                     self.give_up(
                         &commander,
-                        "the reconnected device has another API than before: connect a new client"
-                            .into(),
+                        commander.reconnected_elsewhere_error(info).to_string(),
                     );
                     _ = commander.disconnect().asynch().await;
                     return Keeping::Running(residual);
@@ -875,7 +882,7 @@ fn create_commander_inner(
 }
 
 /// NOTE: keep in sync with [create_commander_blocking]
-async fn create_commander(
+pub(crate) async fn create_commander(
     config: ValidatedConfig,
     cmd_tx: mpsc::Sender<Command>,
     device_api_info: DeviceApiInfo,

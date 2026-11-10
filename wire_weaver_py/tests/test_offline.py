@@ -482,6 +482,14 @@ def test_points():
     assert (h.symbol, h.origin) == ("°", "Angle")
     assert float(h) == 90.0
     assert h.to_si() == pytest.approx(math.pi / 2)
+    # a Quantity read from the same origin writes back exactly (CLT-65 review): dev.p.write(dev.p.read()) again
+    assert api.board_temp.encode(t).hex() == (128).to_bytes(2, "little", signed=True).hex()
+    assert api.heading.encode(h).hex() == (9000).to_bytes(2, "little").hex()
+    # the wrong origin is refused, not silently written through the wrong offset
+    with pytest.raises(ValueError, match="BoardTemp"):
+        api.heading.encode(t)
+    # a dict of the coord (the Fixed it wraps) is still accepted, as before CLT-65
+    assert api.board_temp.encode({"coord": {"value": 128}}).hex() == (128).to_bytes(2, "little", signed=True).hex()
 
 
 CUSTOMARY_CRATE = Path(__file__).parents[2] / "tests" / "customary_api"

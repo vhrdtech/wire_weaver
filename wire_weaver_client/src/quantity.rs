@@ -34,7 +34,7 @@ use ww_self::{
 use ww_si::exact_units::codec::CodecDefOwned;
 use ww_si::exact_units::{BaseSource, MarkerId, MarkerIdOwned, Rounding, UnitDefOwned};
 use ww_si::tree::{self, Tree};
-use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned, UnitTable};
+use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, Offset, SIExpr, SIExprOwned, UnitTable};
 pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
 /// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
@@ -420,6 +420,15 @@ pub fn point_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<(OriginDefOwn
     let origin = ww_self::units::origin_of(origin, bundle).ok()?;
     Some((origin, coord.clone()))
 }
+
+/// `def` as a [DynUnit]: the same `Known` a named unit of `ww_si` gets elsewhere, so it compares equal to one.
+fn dyn_unit_of(def: &UnitDefOwned) -> DynUnit {
+    match SIExpr::Def(def.as_def()).known() {
+        Some(known) => DynUnit::Known(known),
+        None => DynUnit::Named(def.clone()),
+    }
+}
+
 /// A value of a `ww_si::Quantity<U>`, a `ww_si::AnyQuantity` or an `exact_units::Fixed<U, P, T, B>`: the prefix and
 /// number the device sent, and the unit.
 #[derive(Clone, Debug, PartialEq)]
@@ -454,6 +463,11 @@ impl DynQuantity {
         if let Some((origin, coord_ty)) = point_of(ty, bundle) {
             let coord_value = wrapped_field(value)?;
             let mut q = DynQuantity::from_value(coord_value, &coord_ty, bundle)?;
+            // a device's own invariant (`Origin<Unit = U>`), not enforced by the wire or the model: refuse rather
+            // than show a number through an origin whose unit doesn't match its Fixed's (CLT-65 review)
+            if q.unit != dyn_unit_of(&origin.unit) {
+                return None;
+            }
             q.origin = Some(origin);
             return Some(q);
         }
@@ -539,12 +553,29 @@ impl DynQuantity {
                 .map_err(|e| format!("{name}: {e:#}"))?;
             return wrapper_value(code, ty, bundle);
         }
-        if self.origin.is_some() {
-            // the raw fields are the inner Fixed's own, not this quantity's physical value (CLT-65 covers reading a
-            // Point, not writing one back: TODO(CLT-65) once a script needs to write a point)
-            return Err(format!(
-                "{self} is a point: writing one back is not supported yet"
-            ));
+        if let Some(origin) = &self.origin {
+            // the raw fields are the inner Fixed's own (unaffected by the origin), so the same origin's offset
+            // cancels exactly and this is a plain Fixed write, converted as fixed_number always does; a different
+            // origin needs the affine between them (offset and step, not just a scale factor) and is refused (CLT-65
+            // review, filed as CLT-69): read a point back and write its own coord instead
+            let (target_origin, coord_ty) = point_of(ty, bundle).ok_or_else(|| {
+                format!(
+                    "{self} is a point where {} is expected",
+                    type_name(ty, bundle)
+                )
+            })?;
+            if target_origin != *origin {
+                return Err(format!(
+                    "{self} (origin {}) where one of {} is expected",
+                    origin.id.name, target_origin.id.name
+                ));
+            }
+            let fixed = fixed_of(&coord_ty, bundle).ok_or_else(|| {
+                format!("{} has no Fixed coordinate", type_name(&coord_ty, bundle))
+            })?;
+            let number = self.fixed_number(&fixed, &type_name(&coord_ty, bundle))?;
+            let coord_value = wrapper_value(number, &coord_ty, bundle)?;
+            return wrapper_value_from(coord_value, ty, bundle);
         }
         if let Some(fixed) = fixed_of(ty, bundle) {
             let number = self.fixed_number(&fixed, &type_name(ty, bundle))?;
@@ -691,15 +722,40 @@ impl DynQuantity {
         }
     }
 
-    /// The number from `origin`'s reference's zero, in `unit`: `raw · prefix + origin.offset`. `None` for an offset
-    /// with a measured constant left in it (μ₀, G), which has no value without a named set.
+    /// The number from `origin`'s reference's zero, in `unit`, exact (an [Offset]): `raw · prefix + origin.offset`.
+    /// `None` when the raw value doesn't fit `i64` or the sum doesn't fit an `Offset`'s 64-bit parts: rare (a huge
+    /// counter-like `Point`), the caller falls back to [physical_f64](Self::physical_f64)'s plain float.
+    fn physical_offset(&self, origin: &OriginDefOwned) -> Option<Offset> {
+        let scale = self.prefix.magnitude()?;
+        let x = i64::try_from(self.value.to_i128()?).ok()?;
+        Offset::ratio(x, 1).mul(scale).checked_add(origin.offset)
+    }
+
+    /// This point shown in `origin`'s own scale, exact: `(physical − origin.shown) / origin.step`. `None` for the
+    /// same reasons as [physical_offset](Self::physical_offset), or a step past what `Offset::checked_recip` holds.
+    fn shown_offset(&self, origin: &OriginDefOwned) -> Option<Offset> {
+        let physical = self.physical_offset(origin)?;
+        let rel = physical.checked_add(origin.shown.neg())?;
+        let step_recip = origin.step.checked_recip().ok()?;
+        Some(rel.mul(step_recip))
+    }
+
+    /// [physical_offset](Self::physical_offset) as an `f64`, exactly when that computes, else straight float
+    /// arithmetic (CLT-65 review: cancelling offsets in float lose precision, so the exact path is tried first).
+    /// `None` for an offset with a measured constant left in it (μ₀, G), which has no value without a named set.
     fn physical_f64(&self, origin: &OriginDefOwned) -> Option<f64> {
+        if let Some(exact) = self.physical_offset(origin) {
+            return exact.checked_to_f64();
+        }
         Some(self.prefix.scale_f64(self.value.to_f64()) + origin.offset.checked_to_f64()?)
     }
 
-    /// This point shown in `origin`'s own scale, from `origin.shown`: `(physical − shown) / step`. `None` for an
-    /// offset with a measured constant left in it.
+    /// [shown_offset](Self::shown_offset) as an `f64`, exactly when that computes, else straight float arithmetic.
+    /// `None` for an offset with a measured constant left in it.
     fn shown_f64(&self, origin: &OriginDefOwned) -> Option<f64> {
+        if let Some(exact) = self.shown_offset(origin) {
+            return exact.checked_to_f64();
+        }
         let physical = self.physical_f64(origin)?;
         let step = origin.step.checked_to_f64()?;
         Some((physical - origin.shown.checked_to_f64()?) / step)
@@ -988,16 +1044,32 @@ fn number_value(text: &str) -> Option<NumericValue> {
 impl fmt::Display for DynQuantity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // a point ([Self::origin]) has one form, as `exact_units::Point`'s `Display` does: the number in its own
-        // origin, its own symbol after it (CLT-65); `{:#}` writes the same, a point has no raw form to show
+        // origin, exactly when the offset and step work out to a terminating decimal (`write_exact`, honoring a
+        // precision flag), else a float; `{:#}` writes the same, a point has no raw form to show. When even that
+        // fails (an origin or scale from a newer version), fall through and show the `Fixed`'s own raw reading
+        // honestly instead of a number under the wrong symbol (CLT-65 review)
         if let Some(origin) = &self.origin {
-            match self.shown_f64(origin) {
-                Some(x) => write!(f, "{x}")?,
-                None => f.write_str(&show_number(&self.value))?,
-            }
-            return match origin.symbol.is_empty() {
-                true => Ok(()),
-                false => write!(f, " {}", origin.symbol),
+            let prec = f.precision();
+            let shown = if let Some(total) = self.shown_offset(origin)
+                && let Some(result) = write_exact(total, prec, f)
+            {
+                result?;
+                true
+            } else if let Some(x) = self.shown_f64(origin) {
+                match prec {
+                    Some(p) => write!(f, "{x:.p$}")?,
+                    None => write!(f, "{x}")?,
+                }
+                true
+            } else {
+                false
             };
+            if shown {
+                return match origin.symbol.is_empty() {
+                    true => Ok(()),
+                    false => write!(f, " {}", origin.symbol),
+                };
+            }
         }
         let unit = Part::Dyn(&self.unit);
         if let (DynPrefix::Si(prefix), None) = (&self.prefix, &self.storage) {
@@ -1081,6 +1153,79 @@ fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{sign}{int}.{frac:0width$}")
 }
 
+/// `total` (a point's exact shown value, [DynQuantity::shown_offset]) as decimal text: rounded to `prec` digits
+/// when given (`{:.N}`), else the shortest terminating decimal; `None` when it doesn't terminate and no `prec` was
+/// given, or a part overflows `i128` (the caller falls back to a float, as `exact_units::Point`'s own `Display`
+/// does for the same reasons, point.rs `Affine`).
+fn write_exact(
+    total: Offset,
+    prec: Option<usize>,
+    f: &mut fmt::Formatter<'_>,
+) -> Option<fmt::Result> {
+    let (num, den) = total.to_ratio()?;
+    let den_i = i128::try_from(den).ok()?;
+    if let Some(prec) = prec {
+        let scale = 10i128.checked_pow(u32::try_from(prec).ok()?)?;
+        let rounded = round_div(num.checked_mul(scale)?, den_i)?;
+        // the sign of the exact value, not of the rounded one: -0.001 at prec 0 is still "-0" (Number::is_negative)
+        return Some(write_decimal_fixed(rounded, num < 0, prec, f));
+    }
+    if den == 1 {
+        return Some(write!(f, "{num}"));
+    }
+    let (rest, a) = strip_pow(den, 2);
+    let (rest, b) = strip_pow(rest, 5);
+    if rest != 1 {
+        return None;
+    }
+    let e = a.max(b);
+    let pow = 10i128.checked_pow(e)?;
+    let mantissa = num.checked_mul(pow)?.checked_div(den_i)?;
+    Some(write_decimal(mantissa, -i8::try_from(e).ok()?, f))
+}
+
+/// `n` with every factor of `p` divided out, and how many there were: `strip_pow(200, 5)` is `(8, 2)`.
+fn strip_pow(mut n: u128, p: u128) -> (u128, u32) {
+    let mut count = 0u32;
+    while n > 1 && n.is_multiple_of(p) {
+        n /= p;
+        count += 1;
+    }
+    (n, count)
+}
+
+/// `n / d` rounded to the nearest integer, half away from zero (`d` > 0, as every denominator here is). `None` on
+/// overflow: unseen in practice, `n` and `d` come from a `prec`-scaled [Offset] well under `i128`.
+fn round_div(n: i128, d: i128) -> Option<u128> {
+    let (n, d) = (n.unsigned_abs(), d.unsigned_abs());
+    let (q, r) = (n / d, n % d);
+    let double_r = r.checked_mul(2)?;
+    // a tie rounds to even, as exact_units' own Number::write_abs does
+    let up = double_r > d || (double_r == d && q % 2 == 1);
+    q.checked_add(u128::from(up))
+}
+
+/// `m` at a fixed `prec` decimal digits, no trimming (unlike [write_decimal]): `2550` at `prec` 2 is `"25.50"`, so
+/// a `{:.N}` precision shows exactly `N` digits. `negative` is the exact value's own sign, not `m`'s (`m` is
+/// already its magnitude): a value that rounds to zero still shows `-0` when it was negative, as `exact_units`'
+/// `Number::is_negative` does.
+fn write_decimal_fixed(
+    m: u128,
+    negative: bool,
+    prec: usize,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    let sign = if negative { "-" } else { "" };
+    if prec == 0 {
+        return write!(f, "{sign}{m}");
+    }
+    let Some(p) = 10u128.checked_pow(u32::try_from(prec).unwrap_or(u32::MAX)) else {
+        return write!(f, "{sign}{m}");
+    };
+    let (int, frac) = (m / p, m % p);
+    write!(f, "{sign}{int}.{frac:0prec$}")
+}
+
 /// The number as stored: integers exactly, floats by their shortest text (`f32` 3.3, not 3.299999952316284).
 fn show_number(n: &NumericValue) -> String {
     match *n {
@@ -1133,16 +1278,27 @@ fn wrapper_value(
     ty: &TypeOwned,
     bundle: &ApiBundleOwned,
 ) -> Result<ValueOwned, String> {
+    wrapper_value_from(ValueOwned::Numeric(number), ty, bundle)
+}
+
+/// The value of the transparent wrapper `ty` holding `field` as its one value: a number for `Fixed`, `Index`,
+/// `IndexFrom1` or `Seq` ([wrapper_value]), a `Fixed`'s own value for a `Point`'s `coord`. Checked as the device
+/// checks it (bounds, an `IndexFrom1`'s 0): a no-op for a `Point`, whose field isn't numeric itself.
+fn wrapper_value_from(
+    field: ValueOwned,
+    ty: &TypeOwned,
+    bundle: &ApiBundleOwned,
+) -> Result<ValueOwned, String> {
     let Ok(TypeOwned::Struct(s)) = ty.get_in_line(bundle) else {
         return Err(format!("{} is not a struct", type_name(ty, bundle)));
     };
     let fields = match &s.fields {
         FieldsOwned::Named(f) => FieldsValueOwned::Named(vec![(
             f.first().and_then(|f| f.ident.clone()).unwrap_or_default(),
-            ValueOwned::Numeric(number),
+            field,
         )]),
-        FieldsOwned::Unnamed(_) => FieldsValueOwned::Unnamed(vec![ValueOwned::Numeric(number)]),
-        FieldsOwned::Unit => return Err(format!("{} holds no number", type_name(ty, bundle))),
+        FieldsOwned::Unnamed(_) => FieldsValueOwned::Unnamed(vec![field]),
+        FieldsOwned::Unit => return Err(format!("{} holds no value", type_name(ty, bundle))),
     };
     ww_self::units::check_wrapper(s, &fields, bundle).map_err(|e| format!("{e:#}"))?;
     Ok(ValueOwned::Struct { fields })
@@ -1243,10 +1399,10 @@ impl DynCount {
     /// 0). For a `DynCount` already at hand (Python takes the number directly, through `stored_number`): `Seq {
     /// kind: CountKind::Seq, value: .., of }.to_value(ty, bundle)` instead of building the wire type by hand.
     pub fn to_value(&self, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ValueOwned, String> {
-        let (kind, of) = match wrapper_of(ty, bundle) {
-            Some(Wrapper::Index { of, .. }) => (CountKind::Index, of),
-            Some(Wrapper::IndexFrom1 { of, .. }) => (CountKind::IndexFrom1, of),
-            Some(Wrapper::Seq { of, .. }) => (CountKind::Seq, of),
+        let (kind, of, storage) = match wrapper_of(ty, bundle) {
+            Some(Wrapper::Index { of, storage, .. }) => (CountKind::Index, of, storage),
+            Some(Wrapper::IndexFrom1 { of, storage, .. }) => (CountKind::IndexFrom1, of, storage),
+            Some(Wrapper::Seq { of, storage }) => (CountKind::Seq, of, storage),
             _ => {
                 return Err(format!(
                     "{self} where {} is expected",
@@ -1267,7 +1423,20 @@ impl DynCount {
                 of.name()
             ));
         }
-        wrapper_value(self.value, ty, bundle)
+        // the number as a DynCount holds it may be of another storage (a Rust caller's own, or read from a
+        // different line): convert it to ty's own, exactly, or refuse (CLT-65 review)
+        let base = ww_self::units::storage_of(storage, bundle).map_err(|e| format!("{e:#}"))?;
+        let x = self
+            .value
+            .to_i128()
+            .ok_or_else(|| format!("{self}: not a whole number"))?;
+        let number = ww_self::expr::int_value(x, &base).map_err(|e| {
+            format!(
+                "{self} can't be written into {}: {e:#}",
+                type_name(ty, bundle)
+            )
+        })?;
+        wrapper_value(number, ty, bundle)
     }
 }
 
@@ -1569,5 +1738,122 @@ mod tests {
         assert_eq!(unknown.to_string(), "Rpm²");
         assert_eq!((unknown.dim(), unknown.factor()), (None, None));
         assert_eq!(unknown.to_si_expr(), None);
+    }
+
+    /// `U`'s definition, as `tests/conformance`'s `unit_def` helper builds it.
+    fn unit_def<U: Unit>() -> UnitDefOwned {
+        (*U::EXPR.def().expect("a named unit")).into()
+    }
+
+    fn marker_id(crate_name: &str, name: &str) -> MarkerIdOwned {
+        MarkerIdOwned {
+            crate_name: crate_name.into(),
+            name: name.into(),
+        }
+    }
+
+    /// `exact_units::origins::Celsius` as `origin_of` would resolve it: offset and shown the same, no modulus.
+    fn celsius_origin() -> OriginDefOwned {
+        OriginDefOwned {
+            id: marker_id("exact_units", "Celsius"),
+            unit: unit_def::<ww_si::units::Kelvin>(),
+            symbol: "°C".into(),
+            reference: ww_self::units::unit_zero(),
+            offset: Offset::decimal(27315, -2),
+            modulus: None,
+            step: Magnitude::ONE,
+            shown: Offset::decimal(27315, -2),
+        }
+    }
+
+    /// `exact_units::origins::Fahrenheit`: 0 °F is 45967/180 K, a degree 5/9 K.
+    fn fahrenheit_origin() -> OriginDefOwned {
+        OriginDefOwned {
+            id: marker_id("exact_units", "Fahrenheit"),
+            unit: unit_def::<ww_si::units::Kelvin>(),
+            symbol: "°F".into(),
+            reference: ww_self::units::unit_zero(),
+            offset: Offset::ratio(45967, 180),
+            modulus: None,
+            step: Magnitude::ratio(5, 9),
+            shown: Offset::ratio(45967, 180),
+        }
+    }
+
+    /// CLT-65 review: `physical_f64`/`shown_f64` used to add then subtract nearly-equal offsets in plain `f64`,
+    /// losing precision for almost every raw value (`-49.99` showed as `-49.990000000000001`). Over the whole
+    /// `i16` range, both a terminating-decimal origin (°C, Centi) and an identity one (°F, its own `Rational<5,
+    /// 9>`, offset and shown the same) must show exactly what the typed `Point` does, not a float's noise.
+    #[test]
+    fn points_shown_exactly_over_i16() {
+        use ww_si::origins::{Celsius, Fahrenheit};
+        use ww_si::prefix::{Centi, Rational};
+        use ww_si::units::Kelvin;
+        use ww_si::{Fixed, Origin, Point};
+
+        type DegC = Point<Celsius, Fixed<Kelvin, Centi, i16>>;
+        type DegF = Point<Fahrenheit, Fixed<Kelvin, Rational<5, 9>, i16>>;
+        let celsius = celsius_origin();
+        let fahrenheit = fahrenheit_origin();
+        assert_eq!(celsius.offset, <Celsius as Origin>::OFFSET);
+        assert_eq!(fahrenheit.offset, <Fahrenheit as Origin>::OFFSET);
+        for raw in i16::MIN..=i16::MAX {
+            let c = DynQuantity {
+                prefix: Prefix::Centi.into(),
+                value: NumericValue::I16(raw),
+                unit: DynUnit::from_expr(<Kelvin as Unit>::EXPR),
+                storage: Some(Storage {
+                    base: NumericBaseType::I16,
+                    bounds: NumBounds::default(),
+                }),
+                origin: Some(celsius.clone()),
+            };
+            assert_eq!(c.to_string(), DegC::from_raw(raw).to_string(), "°C {raw}");
+
+            let f = DynQuantity {
+                prefix: DynPrefix::new("", Magnitude::ratio(5, 9)),
+                value: NumericValue::I16(raw),
+                unit: DynUnit::from_expr(<Kelvin as Unit>::EXPR),
+                storage: Some(Storage {
+                    base: NumericBaseType::I16,
+                    bounds: NumBounds::default(),
+                }),
+                origin: Some(fahrenheit.clone()),
+            };
+            assert_eq!(f.to_string(), DegF::from_raw(raw).to_string(), "°F {raw}");
+            assert_eq!(f.to_f64(), f64::from(raw), "°F {raw}");
+        }
+    }
+
+    /// `{:.N}` on a point rounds the exact value, as the typed `Point`'s own `Display` does (point.rs's `prec`).
+    #[test]
+    fn points_honor_precision() {
+        use ww_si::origins::Celsius;
+        use ww_si::prefix::Centi;
+        use ww_si::units::Kelvin;
+        use ww_si::{Fixed, Point};
+
+        type DegC = Point<Celsius, Fixed<Kelvin, Centi, i16>>;
+        let celsius = celsius_origin();
+        for raw in [-4999i16, 0, 1, 12345, -1] {
+            let c = DynQuantity {
+                prefix: Prefix::Centi.into(),
+                value: NumericValue::I16(raw),
+                unit: DynUnit::from_expr(<Kelvin as Unit>::EXPR),
+                storage: Some(Storage {
+                    base: NumericBaseType::I16,
+                    bounds: NumBounds::default(),
+                }),
+                origin: Some(celsius.clone()),
+            };
+            let typed = DegC::from_raw(raw);
+            for prec in 0..4 {
+                assert_eq!(
+                    format!("{c:.prec$}"),
+                    format!("{typed:.prec$}"),
+                    "°C {raw} at {prec}"
+                );
+            }
+        }
     }
 }

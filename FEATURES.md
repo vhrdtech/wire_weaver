@@ -1658,18 +1658,25 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   [In clients](docs/std_library/exact_units.md#in-ww-python-and-dynamic-clients).
 - ✅ **CLT-65 Points and counts in the dynamic client** · `v0.5` — `DynQuantity::from_value` now also reads a
   `Point<O, Fixed<U, P, T, B>>` (`ww_self::units::Wrapper::Point`, `quantity::point_of` resolving `O`'s definition
-  through `origin_of`, INT-13): `prefix`/`value`/`unit`/`storage` stay the `Fixed`'s own raw reading, a new
-  `origin` field carries `O`'s offset, step and symbol, read by `Display`, `to_f64`, `to_si_f64` and `symbol()` so a
-  board's register that reads 0 at 25 °C shows and converts as `25.5 °C`, not `2500 cK` from its origin; Python's
-  `ww.Quantity` gets an `origin` getter (`"Celsius"`, `"BoardTemp"`, `"Angle"`) the same way. Writing a `Point` back
-  through `to_value` is refused with a clear message (CLT-69): only reading was needed so far.
-  `quantity::DynCount::to_value` mirrors `DynQuantity::to_value`'s `Fixed` branch (kind, what it counts and bounds
-  checked, `wrapper_value`): a count already in hand (`DynCount { kind: Seq, value, of }`) writes back without a
-  Rust caller building the device's struct type by hand; Python already took the plain number through
-  `stored_number`, unaffected. `tests/quantities` (`points_shown_as_typed`, `DynCount::to_value` in
-  `indices_and_sequence_numbers`), `wire_weaver_py/tests/test_offline.py` (`test_points`), conformance
-  `stdlib.si.point.*` (Python's `plain()` no longer collapses a point's `coord` layer away). Found by the EVO-28
-  bench's dynamic test.
+  through `origin_of`, INT-13; refused when the coord's unit doesn't match the origin's): `prefix`/`value`/`unit`/
+  `storage` stay the `Fixed`'s own raw reading, a new `origin` field carries `O`'s offset, step and symbol, read by
+  `Display`, `to_f64`, `to_si_f64` and `symbol()` so a board's register that reads 0 at 25 °C shows and converts as
+  `25.5 °C`, not `2500 cK` from its origin — exactly (the offset and step as a ratio first, not cancelled in plain
+  `f64`, which lost precision for almost every raw value; `{:.N}` honored, a tie to even as the typed `Point`
+  rounds; an unresolvable origin falls back to the `Fixed`'s own honest reading, never a number under the wrong
+  symbol); Python's `ww.Quantity` gets an `origin` getter (`"Celsius"`, `"BoardTemp"`, `"Angle"`) the same way.
+  `to_value` accepts a `Point` back when its origin matches exactly (the offset cancels); a different origin needs
+  the affine between them and is refused with a clear message (CLT-69). `quantity::DynCount::to_value` mirrors
+  `DynQuantity::to_value`'s `Fixed` branch (kind, what it counts, its number converted exactly into the target's
+  own storage, bounds checked): a count already in hand (`DynCount { kind: Seq, value, of }`) writes back without
+  a Rust caller building the device's struct type by hand; Python already took the plain number through
+  `stored_number`, unaffected. `tests/quantities` (`points_shown_as_typed` with a same-origin write-back and a
+  wrong-origin refusal, `DynCount::to_value` storage conversion in `indices_and_sequence_numbers`),
+  `wire_weaver_client/src/quantity.rs` (`points_shown_exactly_over_i16`, the whole `i16` range of °C and °F,
+  `points_honor_precision`), `wire_weaver_py/tests/test_offline.py` (`test_points`, read, write-back and the wrong
+  origin), conformance `stdlib.si.point.*` (Python's `plain()` no longer collapses a point's `coord` layer away).
+  Found by the EVO-28 bench's dynamic test; the precision loss, the write regression, `DynCount`'s unchecked
+  storage and the missing unit check found in review.
 - 📋 **CLT-52 Host sends waiting requests by priority** — today priority (CLT-50) only decides when a frame is
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
@@ -1708,12 +1715,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   client as `c`), and an operation a line lacks defaults to an `Unsupported` error. The stream, observer and sink
   adapters (`StreamOf`, `SplitStreamOf`, `ObserverOf`, `SinkOf`) move into `wire_weaver_client` as they are. The
   conversions and emulations stay the driver's.
-- 💡 **CLT-69 Writing a `Point` back through `DynQuantity::to_value`** — CLT-65 reads a `Point<O, Fixed<U, P, T,
-  B>>` as a `DynQuantity` shown in `O`'s own scale and symbol, but `to_value` still refuses one (`self.origin.is_some()`):
-  writing needs the inverse affine (origin offset and step, not just a scale factor) exactly, the way `fixed_number`
-  already does for a plain `Fixed`'s scale; a `DynQuantity` without an origin, written into a `Point`, would mean
-  the physical value from the reference's zero (`to_si_f64`'s inverse). Not needed yet: the EVO-28 bench only reads
-  points.
+- 💡 **CLT-69 Writing a `Point` into a different origin through `DynQuantity::to_value`** — CLT-65's `to_value`
+  writes a `Point<O, Fixed<U, P, T, B>>` back when the `DynQuantity`'s own origin is the same `O` (the offset
+  cancels, a plain scale conversion); writing one of a *different* origin (°F into a °C field) needs the full
+  affine between them (both origins' offset and step, a reference check, point.rs's `Affine`) and is refused. A
+  `DynQuantity` without an origin, written into a `Point`, would mean the physical value from the reference's zero
+  (`to_si_f64`'s inverse). Not needed yet: the EVO-28 bench only reads points and writes back what it read.
 
 ## Transports and protocols (`TR`)
 

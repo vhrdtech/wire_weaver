@@ -41,5 +41,11 @@ t.to_si()                       # 298.65, in Kelvin: the Fixed's own unit, from 
 
 `origin` names the origin (`O`'s marker, `"Celsius"`, `"BoardTemp"`, `"Angle"` for a heading that wraps every 360°);
 `unit` and `symbol` stay the `Fixed`'s plain-unit meaning everywhere else, so a point's `symbol` is the origin's own,
-not the unit's. Not yet (CLT-69): writing a point back through `to_value` is refused with a clear message; a script
-reaches its `coord` (the `Fixed`) directly to write that instead, as before CLT-65.
+not the unit's. The shown number is exact, the offset and step as a ratio first, not cancelled in plain `f64`
+(`write!(f, "{:.1}", ..)` honors the precision too, a tie rounding to even as the typed `Point` does); an origin or
+scale from a newer version falls back to the `Fixed`'s own honest reading instead of a number under the wrong
+symbol.
+
+`dev.p.write(dev.p.read())` writes a point back exactly: `to_value` accepts a `Quantity` of the *same* origin (the
+offset cancels, only the coord's own scale and storage convert). A *different* origin needs the affine between
+the two (CLT-69, not yet); a script reaches `coord` (the `Fixed` it wraps) directly for that, as before CLT-65.

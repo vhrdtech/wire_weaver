@@ -15,7 +15,9 @@
 - A `Coded` value (a G.711 μ-law byte, exact_units LVL-6) reads as the `ww.Quantity` it means, with the code in `ww.Quantity.code`; a `ww.Quantity` written into one is encoded exactly (STD-109).
 - `Quantity.origin` (CLT-65): the origin's name read from a `Point<O, Fixed<U, ..>>` (`"Celsius"`, `"BoardTemp"`,
   `"Angle"` for a heading), `None` for a plain `ww_si.Quantity`, `AnyQuantity` or `exact_units.Fixed`. Writing a
-  point back is not supported yet (CLT-69); a `dict` of its `coord` (the `Fixed` it wraps) is still accepted.
+  `Quantity` read from the same origin back (`dev.p.write(dev.p.read())`) writes exactly, the offset cancelling;
+  another origin is refused (not supported yet, CLT-69); a `dict` of its `coord` (the `Fixed` it wraps) is still
+  accepted either way.
 - `Quantity.system` names the system of units the dimension counts in (exact_units UNIT-9): `"Si"`, `"Gaussian"`, `"Natural"`; `Quantity.dim` of a unit of Gaussian or Natural counts in that system's bases (`{"g": 0.5, "cm": -0.5, "s": -1}` for the gauss).
 - `INib32` (SW-24): converts to and from a plain Python `int`, like `i32`; its numpy column dtype is `int32`.
 - `ww.Quantity(text, unit=None)` makes a quantity to write (EVO-28): `ww.Quantity("0.25 K")`, `ww.Quantity("250 mK")`, `ww.Quantity("1.5", "Ratio")`. Written into an `exact_units::Fixed` it converts exactly into the stored scale or raises `ValueError` before anything is sent, so one script writes the same value to devices whose types store it in other scales.

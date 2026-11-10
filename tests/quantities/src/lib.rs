@@ -1092,7 +1092,7 @@ mod tests {
     async fn points_shown_as_typed() {
         let (device, _values) = start("quantities/points");
         let (client, root) = connect(&device).await;
-        let (_, board_ty) = read(&client, &root, "board_temp").await;
+        let (board_value, board_ty) = read(&client, &root, "board_temp").await;
         assert!(is_quantity(&board_ty, root.bundle()));
 
         let board = read_quantity(&client, &root, "board_temp").await;
@@ -1111,12 +1111,27 @@ mod tests {
             DynUnit::from_expr(<units::Kelvin as Unit>::EXPR)
         );
 
+        let (heading_value, heading_ty) = read(&client, &root, "heading").await;
         let heading = read_quantity(&client, &root, "heading").await;
         assert_eq!(heading.to_string(), Heading::from_raw(9000).to_string());
         assert_eq!(heading.origin_name(), Some("Angle"));
         assert_eq!(heading.symbol(), "°");
         assert_eq!(heading.to_f64(), 90.0);
         assert!((heading.to_si_f64().unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
+
+        // to_value (CLT-65 review): the same origin round-trips exactly, as a script's `dev.p.write(dev.p.read())`
+        // needs, no affine conversion required (the offset cancels)
+        assert_eq!(
+            board.to_value(&board_ty, root.bundle()).unwrap(),
+            board_value
+        );
+        assert_eq!(
+            heading.to_value(&heading_ty, root.bundle()).unwrap(),
+            heading_value
+        );
+        // a point of the wrong origin is refused, not silently written through the wrong offset
+        let err = board.to_value(&heading_ty, root.bundle()).unwrap_err();
+        assert!(err.contains("BoardTemp") && err.contains("Angle"), "{err}");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1946,9 +1961,24 @@ mod tests {
         assert!(wrong_kind.to_value(&frame_ty, root.bundle()).is_err());
         let wrong_of = DynCount {
             of: count("sample").await.of,
-            ..by_hand
+            ..by_hand.clone()
         };
         assert!(wrong_of.to_value(&frame_ty, root.bundle()).is_err());
+        // a count of another storage (a wider line's own, or a Rust caller's) converts exactly into the target's
+        // storage, or is refused when it doesn't fit (CLT-65 review): never written through unchecked
+        let wider = DynCount {
+            value: NumericValue::U32(12345),
+            ..by_hand.clone()
+        };
+        assert_eq!(
+            wider.to_value(&frame_ty, root.bundle()).unwrap(),
+            parse_value("12345", &frame_ty, root.bundle()).unwrap()
+        );
+        let out_of_range = DynCount {
+            value: NumericValue::U32(100_000),
+            ..by_hand
+        };
+        assert!(out_of_range.to_value(&frame_ty, root.bundle()).is_err());
         let write = async |name: &str, text: &str| {
             let (_, ty) = read(&client, &root, name).await;
             let value = parse_value(text, &ty, root.bundle())?;

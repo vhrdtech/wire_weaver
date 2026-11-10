@@ -21,7 +21,7 @@
 //! | `Series<T>`                       | `list` of `T`, any iterable accepted (columns as numpy arrays: `decode_columns`) |
 //! | `ww_si` quantity (`Volt`, ..)      | `Quantity` (a `Quantity` of the same unit, or a number in the unit itself accepted) |
 //! | `exact_units::Fixed`              | `Quantity` (a `Quantity` converted exactly into its scale and storage, or the stored number accepted) |
-//! | `exact_units::Point`              | `Quantity`, shown in its own origin (`Quantity.origin`, CLT-65); writing one back is not supported yet, a `dict` of its `coord` (its inner `Fixed`) is accepted |
+//! | `exact_units::Point`              | `Quantity`, shown in its own origin (`Quantity.origin`, CLT-65); a `Quantity` read from the same origin writes back exactly, another origin is refused (not supported yet), a `dict` of its `coord` (its inner `Fixed`) is still accepted |
 //! | `Index`, `IndexFrom1`, `Seq`      | `dict` of the number, as a struct (the number alone accepted)       |
 
 use crate::quantity::Quantity;
@@ -32,7 +32,7 @@ use pyo3::types::{
 };
 use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
 use wire_weaver_client::quantity::{
-    DynQuantity, Prefix, coded_of, fixed_of, is_any_quantity, stored_number, unit_of,
+    DynQuantity, Prefix, coded_of, fixed_of, is_any_quantity, point_of, stored_number, unit_of,
 };
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
@@ -78,6 +78,17 @@ fn to_value_at(
     // an exact_units wrapper: a Quantity converts exactly into a Fixed or a codec's code (LVL-6), a number is what
     // it stores (CLT-54)
     if (fixed_of(ty, bundle).is_some() || coded_of(ty, bundle).is_some())
+        && let Ok(q) = obj.cast::<Quantity>()
+    {
+        return q
+            .get()
+            .q
+            .to_value(ty, bundle)
+            .map_err(PyValueError::new_err);
+    }
+    // a Point: a Quantity read from the same origin writes back exactly, the offset cancelling (CLT-65); any other
+    // origin needs the affine between them and is refused by to_value, naming it
+    if point_of(ty, bundle).is_some()
         && let Ok(q) = obj.cast::<Quantity>()
     {
         return q

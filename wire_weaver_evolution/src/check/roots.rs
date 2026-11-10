@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use ww_self::ApiBundleOwned;
+use ww_self::{ApiBundleOwned, qualified_name};
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use super::{
@@ -17,7 +17,7 @@ use crate::snapshot_files::{
     CrateFile, NamedFile, RootFileName, RootSnapshot, crate_files, read, removed_file_name,
     root_of_file_name, root_snapshots, triplet,
 };
-use crate::{Bump, Change, Move, own_traits, own_types, suggest};
+use crate::{Bump, Change, Move, own_traits, own_type_paths, suggest};
 use wire_weaver_core::CrateCache;
 
 /// What [Check::run] found for a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37):
@@ -126,7 +126,7 @@ impl Check {
                     }
                 }
             }
-            modules.insert(root.clone(), notes.modules);
+            modules.insert(root.clone(), notes.trait_modules);
             loaded.push((root.clone(), *wire, bundle));
         }
         let bundles: Vec<&ApiBundleOwned> = loaded.iter().map(|(_, _, b)| b).collect();
@@ -156,12 +156,17 @@ impl Check {
         }
         // what each root reaches, w0 roots and roots without a snapshot too, by path in the crate: two roots may
         // each reach a `Channel` of their own
+        let mut items = BTreeMap::new();
         let mut reached: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
         for (root, wire, bundle) in &loaded {
-            for name in own_names(bundle) {
-                let path = path_in_crate(&modules[root], &own.crate_id, &name);
-                reached.entry(path).or_default().push((root.clone(), *wire));
+            let own = own_items(bundle, &modules[root], &own.crate_id)?;
+            for path in own.values() {
+                reached
+                    .entry(path.clone())
+                    .or_default()
+                    .push((root.clone(), *wire));
             }
+            items.insert(root.clone(), own);
         }
         let files = crate_files(&dir, &own.crate_id)?;
         let saved_at_current = files.iter().any(|f| f.version == key(&own.version));
@@ -175,7 +180,7 @@ impl Check {
             });
         }
         outcome.removed = removed_roots(&files, roots, &own.version);
-        outcome.shared = shared_changes(&outcome.roots, &reached, &modules, &own.crate_id)?;
+        outcome.shared = shared_changes(&outcome.roots, &reached, &items)?;
         Ok(Outcome::Roots(Box::new(outcome)))
     }
 
@@ -484,39 +489,42 @@ fn removed_roots(
         .collect()
 }
 
-/// The crate's own types and traits in `bundle`, its root trait aside: two lines' roots may share a name, never a
-/// definition.
-fn own_names(bundle: &ApiBundleOwned) -> BTreeSet<String> {
-    let root = bundle.root.items.first().map(|item| item.ident.as_str());
-    own_traits(bundle)
-        .into_keys()
-        .filter(|name| Some(*name) != root)
-        .chain(own_types(bundle).into_keys())
-        .map(String::from)
-        .collect()
-}
-
-/// `name`, a type or trait of crate `crate_id`, by its path in the crate (`common::Channel`), from the `modules` a
-/// root's load noted ([wire_weaver_core::SourceNotes::modules]).
-fn path_in_crate(
-    modules: &BTreeMap<(String, String), Vec<String>>,
+/// The crate's own traits and types in `bundle`, its root trait aside (two lines' roots may share a name, never a
+/// definition), by the name the checker's findings give them (`Channel`, `Code`, `geometry::Point` where two types
+/// share a name), each with its path in the crate (`common::Channel`): what tells two roots' items apart. A trait's
+/// module is in `trait_modules`, what the root's load noted ([wire_weaver_core::SourceNotes::trait_modules]); a type
+/// carries its path in the model (API-46).
+fn own_items(
+    bundle: &ApiBundleOwned,
+    trait_modules: &BTreeMap<(String, String), Vec<String>>,
     crate_id: &str,
-    name: &str,
-) -> String {
-    match modules.get(&(crate_id.to_string(), name.to_string())) {
-        Some(modules) if !modules.is_empty() => format!("{}::{name}", modules.join("::")),
-        _ => name.to_string(),
+) -> Result<BTreeMap<String, String>, String> {
+    let root = bundle.root.items.first().map(|item| item.ident.as_str());
+    let mut items = BTreeMap::new();
+    for name in own_traits(bundle).into_keys() {
+        if Some(name) == root {
+            continue;
+        }
+        let modules = trait_modules
+            .get(&(crate_id.to_string(), name.to_string()))
+            .ok_or_else(|| {
+                format!("internal: the load of {crate_id} noted no module for its trait {name}")
+            })?;
+        items.insert(name.to_string(), qualified_name(Some(modules), name));
     }
+    for (key, (path, _)) in own_type_paths(bundle) {
+        items.insert(key, path);
+    }
+    Ok(items)
 }
 
 /// The crate's own types and traits that more than one root reaches (`reached`, by every root, w0 roots and roots
-/// without a snapshot too, by path in the crate) and that changed on a root compared with its snapshot. `modules`:
-/// what each root's load noted, to name an item of a root's bundle by its path.
+/// without a snapshot too, by path in the crate) and that changed on a root compared with its snapshot. `items`:
+/// each root's [own_items], to name what a finding is about by its path.
 fn shared_changes(
     roots: &[RootOutcome],
     reached: &BTreeMap<String, Vec<(String, WireVersion)>>,
-    modules: &BTreeMap<String, BTreeMap<(String, String), Vec<String>>>,
-    crate_id: &str,
+    items: &BTreeMap<String, BTreeMap<String, String>>,
 ) -> Result<Vec<SharedChange>, String> {
     let mut changed_on: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
     for r in roots {
@@ -525,8 +533,9 @@ fn shared_changes(
         };
         let changed: BTreeSet<String> = crate::diff(&c.old, &c.new)?
             .iter()
-            .map(|d| path_in_crate(&modules[&r.root], crate_id, item_of(d.path())))
-            .filter(|path| reached.get(path).is_some_and(|by| by.len() > 1))
+            .filter_map(|d| item_of(&items[&r.root], d.path()))
+            .filter(|path| reached.get(*path).is_some_and(|by| by.len() > 1))
+            .cloned()
             .collect();
         for name in changed {
             changed_on
@@ -548,11 +557,23 @@ fn shared_changes(
         .collect())
 }
 
-/// The type or trait a [crate::Difference]'s path is in: `Code` of `Code: field 0`, `Channel` of `Channel::reset` and
-/// `trait Channel`.
-fn item_of(path: &str) -> &str {
-    let path = path.strip_prefix("trait ").unwrap_or(path);
-    path.split(':').next().unwrap_or(path).trim()
+/// The path in the crate of the trait or type a [crate::Difference]'s path is in, from a root's [own_items]:
+/// `common::Code` of `Code: field 0`, `common::Channel` of `Channel::reset` and `trait Channel`, `other::Point` of
+/// `type other::Point`. `None` for what the root doesn't have (a type it no longer reaches).
+fn item_of<'i>(items: &'i BTreeMap<String, String>, path: &str) -> Option<&'i String> {
+    let path = path
+        .strip_prefix("trait ")
+        .or_else(|| path.strip_prefix("type "))
+        .unwrap_or(path);
+    items
+        .iter()
+        .filter(|(key, _)| {
+            path.strip_prefix(key.as_str()).is_some_and(|rest| {
+                rest.is_empty() || rest.starts_with(':') || rest.starts_with(' ')
+            })
+        })
+        .max_by_key(|(key, _)| key.len())
+        .map(|(_, path)| path)
 }
 
 impl RemovedRoot {

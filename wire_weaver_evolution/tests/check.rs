@@ -1348,27 +1348,82 @@ fn checker_per_root() {
 #[test]
 fn same_name_in_two_modules_is_not_shared() {
     let c = TestCrate::new("same_name_in_two_modules");
-    let own_channel = LINE_1.replace("super::common::Channel", "Channel")
-        + "\n#[ww_trait]\npub trait Channel {\n    fn read() -> Code;\n}\n";
-    let modules = |common_extra: &str| {
+    let modules = |common_extra: &str, own_extra: &str| {
+        let own_channel = LINE_1.replace("super::common::Channel", "Channel")
+            + &format!(
+                "\n#[ww_trait]\npub trait Channel {{\n    fn read() -> Code;\n{own_extra}}}\n"
+            );
         let mut m = per_root_modules(common_extra);
-        m[1].1 = own_channel.clone();
+        m[1].1 = own_channel;
         m
     };
-    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &modules(""));
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &modules("", ""));
     Check::new(c.path()).save(false).unwrap();
+
+    // `common::Channel` changed: line 2's only
     let reset = "    #[since = \"w2.1\"]\n    fn reset();\n";
-    write_per_root(&c, "0.1.1", ["w1.0", "w2.1"], &modules(reset));
+    write_per_root(&c, "0.1.1", ["w1.0", "w2.1"], &modules(reset, ""));
     let (outcome, verdict) = check(c.path(), true);
     assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
-    let roots = roots_of(&outcome);
-    assert!(roots.shared.is_empty(), "{outcome}");
+    assert!(roots_of(&outcome).shared.is_empty(), "{outcome}");
     let text = outcome.to_string();
     let line_2 = text.find("API root `wire_v2::Api`").unwrap();
     assert!(
         !text[..line_2].contains("reset"),
         "line 1 has its own Channel:\n{text}"
     );
+    Check::new(c.path()).save(false).unwrap();
+
+    // and the other way round: `wire_v1::Channel` changed, line 1's only
+    let calibrate = "    #[since = \"w1.1\"]\n    fn calibrate();\n";
+    write_per_root(&c, "0.1.2", ["w1.1", "w2.1"], &modules(reset, calibrate));
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    assert!(roots_of(&outcome).shared.is_empty(), "{outcome}");
+    let text = outcome.to_string();
+    let line_2 = text.find("API root `wire_v2::Api`").unwrap();
+    assert!(text[..line_2].contains("calibrate"), "{text}");
+    assert!(
+        !text[line_2..].contains("calibrate"),
+        "line 2 reaches common::Channel only:\n{text}"
+    );
+}
+
+/// Two types of one name in two modules, both reached by one root (API-46), are two types to the checker too: a
+/// change to `other::Point` is reported as that type's, `geometry::Point` is left alone (EVO-42).
+#[test]
+fn two_types_of_one_name_in_one_root() {
+    for (changed, unchanged) in [("other", "geometry"), ("geometry", "other")] {
+        let c = TestCrate::new(&format!("two_types_of_one_name_{changed}"));
+        let write = |version: &str, wire: &str, ty: &str| {
+            let point = |module: &str, field: &str| {
+                let ty = if module == changed { ty } else { "u8" };
+                format!("#[derive_shrink_wrap]\npub struct Point {{\n    pub {field}: {ty},\n}}\n")
+            };
+            let root = "#[ww_api_root]\npub trait Api {\n    fn flat() -> super::geometry::Point;\n    \
+                        fn high() -> super::other::Point;\n}\n";
+            let (geometry, other) = (point("geometry", "x"), point("other", "z"));
+            let modules = [
+                ("geometry", geometry.as_str()),
+                ("other", other.as_str()),
+                ("wire_v1", root),
+            ];
+            c.write_roots(version, &[("wire_v1::Api", wire)], &modules);
+        };
+        write("0.1.0", "w1.0", "u8");
+        Check::new(c.path()).save(false).unwrap();
+        let (outcome, verdict) = check(c.path(), true);
+        assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+
+        write("0.2.0", "w2.0", "u16");
+        let (outcome, _) = check(c.path(), false);
+        let text = outcome.to_string();
+        assert!(
+            text.contains(&format!("type test_api::{changed}::Point changed")),
+            "{text}"
+        );
+        assert!(!text.contains(&format!("{unchanged}::Point")), "{text}");
+    }
 }
 
 /// A root that was saved before and that the crate no longer lists is a line leaving the crate: a breaking crate

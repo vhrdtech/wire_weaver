@@ -2152,16 +2152,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   driver lines (764 with five crates, 1,074 before `facade!`), generated client 2,193 lines (2,575), stripped probe
   112.6 KiB smaller, rebuild times equal, the checker test 0.7 s (0.9 s), API source now linted by clippy. Found on
   the way: a sub-level trait named through a `use` wasn't found (`wire_weaver_core`), and the checker took two roots'
-  traits of one name for one shared trait (`wire_weaver_evolution`, `SourceNotes::modules`); the move into modules
-  graded only compatible is EVO-54. Docs: `docs/evolution/multi_line_host.md`; tests `tests/thermo`,
+  traits of one name for one shared trait and merged two same-named types of one root (`wire_weaver_evolution`,
+  `SourceNotes::trait_modules`); a lookup through imports that lead back overflowed the stack (`wire_weaver_core`);
+  the move into modules graded only compatible is EVO-54. Docs: `docs/evolution/multi_line_host.md`; tests `tests/thermo`,
   `tests/thermo_api` `api_evolution`, `wire_weaver_evolution` `same_name_in_two_modules_is_not_shared`.
 - 📋 **EVO-54 A move into another module is a Rust break** · `v0.5` — moving an API into the several-roots layout
   (EVO-37) changes every Rust path (`thermo_api::Sample` becomes `thermo_api::wire_v1::Sample`), a breaking crate bump,
-  but the checker compares the bundles, which name items by crate and name only, and asks for a compatible one
-  (`thermo_api` 3.0.0 -> 3.1.0 on the EVO-42 bench, "definitions changed"). The same for a type moved between
-  modules of one crate. The walker notes each item's module (`SourceNotes::modules`, EVO-42); the checker would
-  compare them with the snapshot's (which has none yet: record the module in snapshots, or read it from the
-  snapshot's crate version source) and grade a move `Rule::Signature`, Rust only.
+  but the checker asks for a compatible one (`thermo_api` 3.0.0 -> 3.1.0 on the EVO-42 bench, "definitions
+  changed"). It matches a type by name when the name is unique in the bundle, so a type's changed path (in the model
+  since API-46) goes unreported, and the model names a trait by crate and name only. The walker notes each trait's
+  module (`SourceNotes::trait_modules`, EVO-42), but snapshots don't record it. Report a changed path as a move,
+  `Rule::Signature`, Rust only, for types now and for traits once snapshots carry their module.
 - 📋 **EVO-46 Per-root snapshots for stdlib and `wire_weaver_snapshots`** · `v0.5` — a `ww_stdlib` (or `ww_global`,
   `ww_tap`) crate with a `roots` table has no whole-crate snapshot today: `load_crate` refuses it, so
   `wire_weaver_snapshots` can't embed it, `just save-snapshots` saves only its per-root files (which the build script

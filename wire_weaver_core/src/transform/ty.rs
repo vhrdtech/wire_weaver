@@ -351,10 +351,6 @@ fn convert_def(
         Item::Struct(item_struct) => item_struct.ident.to_string(),
         _ => return Err(anyhow!("not a struct or an enum")),
     };
-    scratch
-        .type_modules
-        .entry((def_cx.crate_name().to_string(), ty_name.clone()))
-        .or_insert_with(|| def_cx.module_names());
     let key = (def_cx.version().clone(), def_cx.qualified_name(&ty_name));
     if let Some(type_idx) = scratch.recursive_types.get(&key) {
         return Ok(TypeOwned::OutOfLine {

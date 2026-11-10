@@ -498,8 +498,6 @@ pub(crate) struct Scratch {
     pub(crate) root: Option<(FullVersionOwned, Option<WireVersion>)>,
     /// Module of every trait converted, by crate and trait name ([CratePaths::trait_module]).
     pub(crate) trait_modules: BTreeMap<(String, String), Vec<String>>,
-    /// Module of every struct and enum converted, by crate and name, the first one seen of a name.
-    pub(crate) type_modules: BTreeMap<(String, String), Vec<String>>,
 }
 
 /// What a walk ([Scratch]) learns about crates that the next walk from the same crate can reuse: the crates and

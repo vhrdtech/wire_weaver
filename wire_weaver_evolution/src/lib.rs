@@ -1474,7 +1474,7 @@ impl<'a> Checker<'a> {
         };
         for (name, ty) in own_types(self.new) {
             match ty {
-                TypeOwned::Struct(s) => with_fields(&mut marked, name, &s.fields),
+                TypeOwned::Struct(s) => with_fields(&mut marked, &name, &s.fields),
                 TypeOwned::Enum(e) => {
                     for variant in &e.variants {
                         let path = format!("{name}::{}", variant.ident);
@@ -1514,18 +1514,42 @@ fn own_traits(bundle: &ApiBundleOwned) -> BTreeMap<&str, &ApiLevelOwned> {
         .collect()
 }
 
-/// In-line structs and enums defined in the crate itself, by name.
-fn own_types(bundle: &ApiBundleOwned) -> BTreeMap<&str, &TypeOwned> {
-    bundle
+/// In-line structs and enums defined in the crate itself, by name, or by their path in the crate where two share a
+/// name (`geometry::Point` and `other::Point`, API-46): two types of one name are two definitions, never one.
+fn own_types(bundle: &ApiBundleOwned) -> BTreeMap<String, &TypeOwned> {
+    own_type_paths(bundle)
+        .into_iter()
+        .map(|(key, (_, ty))| (key, ty))
+        .collect()
+}
+
+/// [own_types], each with its path in the crate (`common::Sample`, [ww_self::qualified_name]) also where its name
+/// alone is unique.
+fn own_type_paths(bundle: &ApiBundleOwned) -> BTreeMap<String, (String, &TypeOwned)> {
+    let defs: Vec<(&str, String, &TypeOwned)> = bundle
         .types
         .iter()
         .filter_map(|location| match location {
             TypeLocationOwned::InLine { ty, crate_idx } if crate_idx.0 == 0 => match ty {
-                TypeOwned::Struct(s) => Some((s.ident.as_str(), ty)),
-                TypeOwned::Enum(e) => Some((e.ident.as_str(), ty)),
+                TypeOwned::Struct(s) => Some((s.ident.as_str(), s.qualified_name(), ty)),
+                TypeOwned::Enum(e) => Some((e.ident.as_str(), e.qualified_name(), ty)),
                 _ => None,
             },
             _ => None,
+        })
+        .collect();
+    let mut by_ident: BTreeMap<&str, usize> = BTreeMap::new();
+    for (ident, _, _) in &defs {
+        *by_ident.entry(ident).or_default() += 1;
+    }
+    defs.into_iter()
+        .map(|(ident, path, ty)| {
+            let key = if by_ident[ident] > 1 {
+                path.clone()
+            } else {
+                ident.to_string()
+            };
+            (key, (path, ty))
         })
         .collect()
 }

@@ -381,8 +381,11 @@ Changes are sorted into four kinds, and each kind requires a bump of a version p
 Doc comments are not on the wire, but a released version's snapshot never changes, so they need a new version as well
 (see [doc comments](rules.md#doc-comments)). A bigger bump than required is always fine.
 
-Resources are matched by their id inside each trait (their position, as the device sees them), traits and types by
-name. A change is breaking if:
+Traits and types are matched by name. Resources are matched by their id inside each trait (their position, as the
+device sees them) while the old and the new version are on one wire line. Across a line break they are matched by
+their path, the trait and the name, and by [`#[moved_from]`](rules.md#moving-a-resource-to-another-place): a moved
+resource with exactly the same signature is reported as a move, a resource of the same name elsewhere only as a
+proposal, a resource at another position as a wire change only. A change is breaking if:
 
 * a trait, resource or type is removed, or a resource moved to another id (e.g. a new one inserted before it: add new
   resources at the end),

@@ -37,26 +37,36 @@ use ww_version::{FullVersionOwned, WireVersion};
 ///   (their definitions belong to those crates' snapshots), with a signature of the left out definition
 ///   (see [ww_self::signature]). Entries only needed by skipped definitions are dropped.
 pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
-    load_crate_with_hints(crate_path).map(|(bundle, _hints)| bundle)
+    load_crate_with_notes(crate_path).map(|(bundle, _notes)| bundle)
 }
 
-/// [load_crate], also returning the unit-suffix hints found (TOOL-22), for `ww api check` to show.
-pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-    CrateCache::default().load_crate_with_hints(crate_path)
+/// What a load found in the source besides the bundle, not part of the API model: for `ww api check` to show and
+/// the evolution checker to use.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SourceNotes {
+    /// Unit-suffix hints (TOOL-22).
+    pub hints: Vec<super::UnitHint>,
+    /// Resources marked `#[moved_from]` (EVO-40), of every crate walked: the checker takes its own crate's.
+    pub moved_from: Vec<super::MovedFrom>,
+}
+
+/// [load_crate], also returning what else the source says ([SourceNotes]).
+pub fn load_crate_with_notes(crate_path: &Path) -> Result<(ApiBundleOwned, SourceNotes)> {
+    CrateCache::default().load_crate_with_notes(crate_path)
 }
 
 impl CrateCache {
     /// [load_crate] with this cache.
     pub fn load_crate(&self, crate_path: &Path) -> Result<ApiBundleOwned> {
-        self.load_crate_with_hints(crate_path)
-            .map(|(bundle, _hints)| bundle)
+        self.load_crate_with_notes(crate_path)
+            .map(|(bundle, _notes)| bundle)
     }
 
-    /// [load_crate_with_hints] with this cache.
-    pub fn load_crate_with_hints(
+    /// [load_crate_with_notes] with this cache.
+    pub fn load_crate_with_notes(
         &self,
         crate_path: &Path,
-    ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+    ) -> Result<(ApiBundleOwned, SourceNotes)> {
         self.walk(crate_path, Load::Crate, |scratch| {
             load_crate_in(crate_path, scratch)
         })
@@ -64,16 +74,16 @@ impl CrateCache {
 
     /// [load_root] with this cache.
     pub fn load_root(&self, crate_path: &Path, root: &str) -> Result<ApiBundleOwned> {
-        self.load_root_with_hints(crate_path, root)
-            .map(|(bundle, _hints)| bundle)
+        self.load_root_with_notes(crate_path, root)
+            .map(|(bundle, _notes)| bundle)
     }
 
-    /// [load_root_with_hints] with this cache.
-    pub fn load_root_with_hints(
+    /// [load_root_with_notes] with this cache.
+    pub fn load_root_with_notes(
         &self,
         crate_path: &Path,
         root: &str,
-    ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+    ) -> Result<(ApiBundleOwned, SourceNotes)> {
         self.walk(crate_path, Load::Root(root.to_string()), |scratch| {
             load_root_in(crate_path, root, scratch)
         })
@@ -83,7 +93,7 @@ impl CrateCache {
 fn load_crate_in(
     crate_path: &Path,
     scratch: &mut Scratch,
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+) -> Result<(ApiBundleOwned, SourceNotes)> {
     scratch.dedup_traits = true;
     // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
     let (entry, items, wire) = scratch.walk(|scratch| {
@@ -163,22 +173,22 @@ fn load_crate_in(
 /// * `#[since = "w1.5, w2.2"]` on a shared item takes the revision on this root's line.
 /// * `wire` is the root's wire version from the `roots` table.
 pub fn load_root(crate_path: &Path, root: &str) -> Result<ApiBundleOwned> {
-    load_root_with_hints(crate_path, root).map(|(bundle, _hints)| bundle)
+    load_root_with_notes(crate_path, root).map(|(bundle, _notes)| bundle)
 }
 
-/// [load_root], also returning the unit-suffix hints found (TOOL-22).
-pub fn load_root_with_hints(
+/// [load_root], also returning what else the source says ([SourceNotes]).
+pub fn load_root_with_notes(
     crate_path: &Path,
     root: &str,
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-    CrateCache::default().load_root_with_hints(crate_path, root)
+) -> Result<(ApiBundleOwned, SourceNotes)> {
+    CrateCache::default().load_root_with_notes(crate_path, root)
 }
 
 fn load_root_in(
     crate_path: &Path,
     root: &str,
     scratch: &mut Scratch,
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+) -> Result<(ApiBundleOwned, SourceNotes)> {
     scratch.dedup_traits = true;
     let (entry, item, wire) = scratch.walk(|scratch| {
         let entry = CrateContext::load_all_features(crate_path, scratch)?;
@@ -261,8 +271,11 @@ fn snapshot_bundle(
     items: Vec<ApiItemOwned>,
     wire: Option<WireVersion>,
     keep_own_types: bool,
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-    let unit_hints = std::mem::take(&mut scratch.unit_hints);
+) -> Result<(ApiBundleOwned, SourceNotes)> {
+    let notes = SourceNotes {
+        hints: std::mem::take(&mut scratch.unit_hints),
+        moved_from: std::mem::take(&mut scratch.moved_from),
+    };
     let scratch = std::mem::take(&mut scratch.root_bundle);
     let ext_wire = scratch.ext_wire(wire);
     let mut bundle = ApiBundleOwned {
@@ -285,7 +298,7 @@ fn snapshot_bundle(
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, keep_own_types);
-    Ok((bundle, unit_hints))
+    Ok((bundle, notes))
 }
 
 /// The types `item` of `cx` (the crate root or a module) puts into a snapshot: itself, what it re-exports, or the
@@ -1034,9 +1047,9 @@ mod tests {
         assert!(cache.load_crate(&multi).is_err());
         assert!(cache.load_root(&multi, "wire_v1::Thermo").is_ok());
         let units = dir.join("tests/thermo_api/w3");
-        let fresh = load_crate_with_hints(&units).unwrap();
+        let fresh = load_crate_with_notes(&units).unwrap();
         for _ in 0..2 {
-            let cached = cache.load_crate_with_hints(&units).unwrap();
+            let cached = cache.load_crate_with_notes(&units).unwrap();
             assert_eq!(format!("{cached:?}"), format!("{fresh:?}"));
         }
     }

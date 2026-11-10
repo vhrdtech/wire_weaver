@@ -477,15 +477,37 @@ fn strip_arg_attrs(
     (inputs, note)
 }
 
+/// `#[since]` and `#[moved_from]` (EVO-40), as written: they are checked when the API is loaded.
 fn since_note(attrs: &[Attribute]) -> Option<String> {
-    let attr = attrs.iter().find(|a| a.path().is_ident("since"))?;
-    if let Meta::NameValue(name_value) = &attr.meta
-        && let Expr::Lit(expr_lit) = &name_value.value
-        && let Lit::Str(lit_str) = &expr_lit.lit
-    {
-        Some(format!("Since `{}`.", lit_str.value()))
-    } else {
-        None
+    let since = attrs
+        .iter()
+        .find(|a| a.path().is_ident("since"))
+        .and_then(|attr| {
+            if let Meta::NameValue(name_value) = &attr.meta
+                && let Expr::Lit(expr_lit) = &name_value.value
+                && let Lit::Str(lit_str) = &expr_lit.lit
+            {
+                Some(format!("Since `{}`.", lit_str.value()))
+            } else {
+                None
+            }
+        });
+    let moved = attrs
+        .iter()
+        .find(|a| a.path().is_ident("moved_from"))
+        .and_then(|attr| match &attr.meta {
+            Meta::List(list) => Some(format!(
+                "Moved from `{}`.",
+                list.tokens
+                    .to_string()
+                    .replace(" . ", ".")
+                    .replace(" :: ", "::")
+            )),
+            _ => None,
+        });
+    match (since, moved) {
+        (Some(since), Some(moved)) => Some(format!("{since} {moved}")),
+        (since, moved) => since.or(moved),
     }
 }
 

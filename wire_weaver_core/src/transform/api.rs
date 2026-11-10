@@ -2,6 +2,7 @@ use super::{
     crate_walker::{CrateContext, Scratch},
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
     meta::{MetaSite, get_meta},
+    moved_from::get_moved_from_attr,
     ty::{convert_named_def, convert_ty, convert_ty_path, convert_ty_path_segment},
     unit_hint::{is_silenced, suggest},
     util::{
@@ -32,6 +33,7 @@ pub(crate) fn convert_api_items(
     let mut items = vec![];
     let mut idx = 0;
     for item in &item_trait.items {
+        let before = items.len();
         match item {
             TraitItem::Fn(item_fn) => {
                 let api_item_fn = convert_api_item_fn(current_crate, scratch, item_fn, idx as u32)?;
@@ -136,10 +138,53 @@ pub(crate) fn convert_api_items(
                     .context(current_crate.err_context()));
             }
         }
+        note_moved_from(
+            item,
+            items.get(before..).unwrap_or_default(),
+            item_trait,
+            current_crate,
+            scratch,
+        )?;
         idx += 1;
     }
     reject_group_item_collisions(&items).context(current_crate.err_context())?;
     Ok(items)
+}
+
+/// `#[moved_from(..)]` of the trait item `item`, converted into `added` (empty for `reserved!`), kept in `scratch`
+/// for the evolution checker (EVO-40).
+fn note_moved_from(
+    item: &TraitItem,
+    added: &[ApiItemOwned],
+    item_trait: &syn::ItemTrait,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<()> {
+    let attrs = match item {
+        TraitItem::Fn(item_fn) => &item_fn.attrs,
+        TraitItem::Macro(item_macro) => &item_macro.attrs,
+        TraitItem::Const(item_const) => &item_const.attrs,
+        _ => return Ok(()),
+    };
+    let trait_name = item_trait.ident.to_string();
+    let crate_id = &current_crate.version().crate_id;
+    let Some(added) = added.first() else {
+        if attrs.iter().any(|a| a.path().is_ident("moved_from")) {
+            return Err(anyhow!(
+                "#[moved_from] on reserved! in {trait_name}: only a resource can have moved"
+            )
+            .context(current_crate.err_context()));
+        }
+        return Ok(());
+    };
+    let moved = get_moved_from_attr(attrs, crate_id, &trait_name, &added.ident)
+        .context(current_crate.err_context())?;
+    if let Some(moved) = moved
+        && !scratch.moved_from.contains(&moved)
+    {
+        scratch.moved_from.push(moved);
+    }
+    Ok(())
 }
 
 /// An `#[optional(group)]` named like an item of the same trait could not be omitted as a whole (`omit` resolves the

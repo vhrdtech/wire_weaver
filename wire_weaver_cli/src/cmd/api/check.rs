@@ -176,4 +176,17 @@ pub(crate) fn print_report(report: &Report, old_path: &Path, new_label: &str) {
     for warning in &report.warnings {
         println!("  {} {warning}", style("warning:").yellow());
     }
+    // across a wire break, resources of the same name elsewhere are never taken for the same ones (EVO-40)
+    for proposal in &report.proposals {
+        println!("  {} {proposal}", style("proposal:").cyan());
+    }
+    if report.across_line {
+        println!(
+            "  {}",
+            style(
+                "resources matched by path and #[moved_from] across the wire break, not by position"
+            )
+            .dim()
+        );
+    }
 }

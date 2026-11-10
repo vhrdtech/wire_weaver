@@ -72,6 +72,54 @@ pub use compat::RootCause;
 pub use diff::{Difference, diff};
 pub use rule::{Finding, Rule};
 
+/// `#[moved_from(w2.1, Thermo::self_test)]` on the new version's resource `Health::self_test` (EVO-40): the same
+/// resource as `self_test` of `Thermo` at w2.1, moved across a wire break, see [compare_moved]. Read from the source,
+/// not part of the API model (`wire_weaver_core::MovedFrom`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Move {
+    /// The trait the resource is in on the new version, and its name there.
+    pub trait_name: String,
+    pub ident: String,
+    /// The wire version named, on the line it moved from.
+    pub wire: WireVersion,
+    /// The trait it was in and its name there.
+    pub from_trait: String,
+    pub from_ident: String,
+}
+
+impl Move {
+    /// `Thermo::self_test`.
+    pub fn from_path(&self) -> String {
+        format!("{}::{}", self.from_trait, self.from_ident)
+    }
+}
+
+impl fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "#[moved_from({}, {})] on {}::{}",
+            self.wire,
+            self.from_path(),
+            self.trait_name,
+            self.ident
+        )
+    }
+}
+
+#[cfg(feature = "source")]
+impl From<&wire_weaver_core::MovedFrom> for Move {
+    fn from(moved: &wire_weaver_core::MovedFrom) -> Self {
+        Move {
+            trait_name: moved.trait_name.clone(),
+            ident: moved.ident.clone(),
+            wire: moved.wire,
+            from_trait: moved.from_trait.clone(),
+            from_ident: moved.from_ident.clone(),
+        }
+    }
+}
+
 const OLD: &str = "old version";
 const NEW: &str = "new version";
 
@@ -198,6 +246,15 @@ pub struct Report {
     /// Items, fields and variants with a `#[since]` newer than the new wire version: a host built with it refuses
     /// them on every device of this version, which [Self::check_wire] fails on.
     pub since_too_new: Vec<String>,
+    /// The new version is on a later wire line than the old one: resources were matched by their path and by
+    /// `#[moved_from]` (EVO-40), not by position.
+    pub across_line: bool,
+    /// Across a wire break, a resource added with the name of one removed from another place: the checker never
+    /// takes it for the same one by itself, and suggests `#[moved_from]` where the signature is the same (EVO-40).
+    pub proposals: Vec<String>,
+    /// `#[moved_from]` attributes that name no resource of the old version, one whose signature differs, or a place
+    /// on the same line: [Self::check_wire] fails on each.
+    pub moved_from_errors: Vec<String>,
 }
 
 impl Report {
@@ -264,7 +321,7 @@ impl Report {
             }
             _ => {}
         }
-        for item in &self.since_too_new {
+        for item in self.since_too_new.iter().chain(&self.moved_from_errors) {
             errors.push(item.clone());
         }
         match errors.is_empty() {
@@ -338,16 +395,19 @@ impl Report {
 /// [compare] of what both sides recorded: a field of the API model that either side's snapshot file doesn't have
 /// (saved by a wire_weaver from before the field) is left out on both, so that upgrading wire_weaver alone never
 /// shows up as a change (EVO-13). [Recorded::default] for a bundle loaded from source, which has every field.
+///
+/// `moves` are the new version's `#[moved_from]` attributes (EVO-40), see [compare_moved].
 pub fn compare_recorded(
     old: &ApiBundleOwned,
     old_recorded: &Recorded,
     new: &ApiBundleOwned,
     new_recorded: &Recorded,
+    moves: &[Move],
 ) -> Result<Report, String> {
     let mut unrecorded = old_recorded.unrecorded();
     unrecorded.extend(new_recorded.unrecorded());
     if unrecorded.is_empty() {
-        return compare(old, new);
+        return compare_moved(old, new, moves);
     }
     let old = Recorded::leave_out(old, &unrecorded)?;
     let new = Recorded::leave_out(new, &unrecorded)?;
@@ -355,7 +415,7 @@ pub fn compare_recorded(
     let signatures = unrecorded
         .iter()
         .all(|u| !ww_self::signature::includes(&u.owner, &u.field));
-    let mut report = compare_with(&old, &new, signatures)?;
+    let mut report = compare_with(&old, &new, signatures, moves)?;
     report.unrecorded = unrecorded.into_iter().collect();
     Ok(report)
 }
@@ -363,14 +423,31 @@ pub fn compare_recorded(
 /// Compare an old version of a crate with a new one. Both are crate bundles, as loaded by
 /// `wire_weaver_core::load_crate` and saved by `ww api save`.
 pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, String> {
-    compare_with(old, new, true)
+    compare_with(old, new, true, &[])
 }
 
-/// [compare], checking definitions one side left out by their signatures when `signatures`.
+/// [compare] with the new version's `#[moved_from]` attributes (EVO-40), which `wire_weaver_core` reads from the
+/// source (`load_crate_with_notes`), as they are not part of the API model.
+///
+/// Within a wire line, a resource is its position in its trait, and `moves` are not used. Across a wire break (the
+/// new version on a later line than the old one), resources are matched by their path (trait and name) and by
+/// `moves` naming a resource of the old version's line: each must have exactly the same signature, and is
+/// reported as a move instead of a removal and an addition. A resource added with the name of one removed elsewhere
+/// is never taken for it, only proposed ([Report::proposals]).
+pub fn compare_moved(
+    old: &ApiBundleOwned,
+    new: &ApiBundleOwned,
+    moves: &[Move],
+) -> Result<Report, String> {
+    compare_with(old, new, true, moves)
+}
+
+/// [compare_moved], checking definitions one side left out by their signatures when `signatures`.
 fn compare_with(
     old: &ApiBundleOwned,
     new: &ApiBundleOwned,
     signatures: bool,
+    moves: &[Move],
 ) -> Result<Report, String> {
     let (Some(old_version), Some(new_version)) = (old.ext_crates.first(), new.ext_crates.first())
     else {
@@ -399,6 +476,14 @@ fn compare_with(
         wire_additions: vec![],
         wire_lines: vec![],
         signatures,
+        across: matches!((old.wire, new.wire), (Some(o), Some(n)) if n.line.0 > o.line.0),
+        moves,
+        moved: vec![],
+        removed: vec![],
+        added: vec![],
+        wire_breaks: vec![],
+        proposals: vec![],
+        moved_from_errors: vec![],
     };
     checker.compare_wire();
     checker.compare_traits();
@@ -423,6 +508,7 @@ fn compare_with(
     let (wire_bump, wire_reasons) = wire_bump(
         &checker.breaking,
         checker.wire_lines,
+        checker.wire_breaks,
         checker.wire_additions,
     );
     Ok(Report {
@@ -438,16 +524,21 @@ fn compare_with(
         wire_bump,
         wire_reasons,
         since_too_new,
+        across_line: checker.across,
+        proposals: checker.proposals,
+        moved_from_errors: checker.moved_from_errors,
     })
 }
 
 /// [Report::wire_bump] and [Report::wire_reasons]: a new line for any finding that breaks the wire (its rule doesn't
-/// [keep it](Rule::keeps_wire)) or a dependency on another line, several findings with one root named once, and
+/// [keep it](Rule::keeps_wire)), a dependency on another line or a `wire_only` change (a resource at another
+/// position across a break, EVO-40), several findings with one root named once, and
 /// under the dependency's new line when the root is in that crate (EVO-21); else a new revision for any
 /// wire-compatible addition.
 fn wire_bump(
     breaking: &[Finding],
     lines: Vec<DependencyLine>,
+    mut wire_only: Vec<String>,
     additions: Vec<String>,
 ) -> (WireBump, Vec<String>) {
     let mut roots: Vec<(&RootCause, usize)> = vec![];
@@ -483,6 +574,7 @@ fn wire_bump(
         }
     }
     reasons.append(&mut plain);
+    reasons.append(&mut wire_only);
     if !reasons.is_empty() {
         return (WireBump::Line, reasons);
     }
@@ -514,6 +606,19 @@ struct Checker<'a> {
     wire_lines: Vec<DependencyLine>,
     /// Definitions left out on one side are checked by their signatures, see [TypeCheck::compare_signatures].
     signatures: bool,
+    /// The new version is on a later wire line: resources are matched by path and `moves` (EVO-40).
+    across: bool,
+    /// `#[moved_from]` of the new version.
+    moves: &'a [Move],
+    /// The moves verified, from the old place (trait, name) to the new one.
+    moved: Vec<((String, String), (String, String))>,
+    /// Across a break, resources removed and added (trait, name), for [Report::proposals].
+    removed: Vec<(String, String)>,
+    added: Vec<(String, String)>,
+    /// Changes only the wire sees: a resource at another position across a break.
+    wire_breaks: Vec<String>,
+    proposals: Vec<String>,
+    moved_from_errors: Vec<String>,
 }
 
 impl<'a> Checker<'a> {
@@ -536,15 +641,205 @@ impl<'a> Checker<'a> {
     fn compare_traits(&mut self) {
         let old_traits = own_traits(self.old);
         let new_traits = own_traits(self.new);
+        self.check_moves(&old_traits, &new_traits);
         for (name, old_level) in &old_traits {
             match new_traits.get(name) {
                 Some(new_level) => self.compare_levels(name, old_level, new_level),
-                None => self.breaks(Rule::Removed, format!("trait {name} removed")),
+                None => {
+                    self.breaks(Rule::Removed, format!("trait {name} removed"));
+                    for item in &old_level.items {
+                        if !self.moved_away(name, &item.ident) {
+                            self.removed.push((name.to_string(), item.ident.clone()));
+                        }
+                    }
+                }
             }
         }
-        for name in new_traits.keys() {
+        for (name, new_level) in &new_traits {
             if !old_traits.contains_key(name) {
                 self.adds(format!("trait {name} added"));
+                for item in &new_level.items {
+                    if !self.moved_here(name, &item.ident) {
+                        self.added.push((name.to_string(), item.ident.clone()));
+                    }
+                }
+            }
+        }
+        for ((from_trait, from_ident), (to_trait, to_ident)) in self.moved.clone() {
+            let item = |traits: &BTreeMap<&str, &'a ApiLevelOwned>, name: &str, ident: &str| {
+                traits[name].items.iter().find(|i| i.ident == ident)
+            };
+            let (Some(old_item), Some(new_item)) = (
+                item(&old_traits, &from_trait, &from_ident),
+                item(&new_traits, &to_trait, &to_ident),
+            ) else {
+                continue;
+            };
+            let from = format!("{from_trait}::{from_ident}");
+            self.breaks(
+                Rule::MovedAcross,
+                format!(
+                    "{from} moved to {to_trait}::{to_ident} (#[moved_from], the same signature)"
+                ),
+            );
+            self.compare_pair(&from, old_item, new_item);
+        }
+        self.propose(&old_traits, &new_traits);
+    }
+
+    /// Checks each `#[moved_from]` on a resource of the new version's own traits (EVO-40): across a break from the
+    /// line it names, the resource it names must be in the old version with exactly the same signature, and is then
+    /// [Self::moved]; a place on the new version's line or a later one is an error, since within a line a resource
+    /// is its position. Moves from an earlier break (another line than the old version's) are left alone.
+    fn check_moves(
+        &mut self,
+        old_traits: &BTreeMap<&str, &'a ApiLevelOwned>,
+        new_traits: &BTreeMap<&str, &'a ApiLevelOwned>,
+    ) {
+        for moved in self.moves {
+            let Some(new_item) = new_traits
+                .get(moved.trait_name.as_str())
+                .and_then(|level| level.items.iter().find(|i| i.ident == moved.ident))
+            else {
+                continue;
+            };
+            let mut error = |e: String| self.moved_from_errors.push(format!("{moved}: {e}"));
+            let Some(new_wire) = self.new_wire else {
+                error(
+                    "the API declares no wire version, and a move is from an earlier wire line"
+                        .into(),
+                );
+                continue;
+            };
+            if moved.wire.line.0 >= new_wire.line.0 {
+                error(format!(
+                    "the API is at {new_wire}: within a line a resource is its position, so it can't have moved \
+                     there; a move is from an earlier line"
+                ));
+                continue;
+            }
+            let Some(old_wire) = self
+                .old_wire
+                .filter(|old| self.across && old.same_line(&moved.wire))
+            else {
+                continue;
+            };
+            let Some(old_item) = old_traits
+                .get(moved.from_trait.as_str())
+                .and_then(|level| level.items.iter().find(|i| i.ident == moved.from_ident))
+            else {
+                error(format!(
+                    "{old_wire}, compared with, has no {}",
+                    moved.from_path()
+                ));
+                continue;
+            };
+            let from = (moved.from_trait.clone(), moved.from_ident.clone());
+            if let Some((_, (t, i))) = self.moved.iter().find(|(f, _)| *f == from) {
+                let e = format!("{}::{i}'s #[moved_from] names {} too", t, moved.from_path());
+                self.moved_from_errors.push(format!("{moved}: {e}"));
+                continue;
+            }
+            match self.same_signature(old_item, new_item) {
+                Ok(()) => self
+                    .moved
+                    .push((from, (moved.trait_name.clone(), moved.ident.clone()))),
+                Err(e) => self.moved_from_errors.push(format!(
+                    "{moved}: not the same signature as {} at {old_wire}, {e}; a resource that changed is a new one, \
+                     without the attribute",
+                    moved.from_path()
+                )),
+            }
+        }
+    }
+
+    /// Whether `old_item` and `new_item` are the same resource but for their place: they work together both ways,
+    /// with the same Rust signature, the same max lengths and types (the crate's own by name).
+    fn same_signature(
+        &self,
+        old_item: &ApiItemOwned,
+        new_item: &ApiItemOwned,
+    ) -> Result<(), String> {
+        let mut bounds = Bounds {
+            strict_writer: Some(self.old),
+            skip_signatures: !self.signatures,
+            own_types_by_name: true,
+            ..Bounds::default()
+        };
+        compare_items(
+            (self.old, old_item, OLD),
+            (self.new, new_item, NEW),
+            &mut bounds,
+        )?;
+        compare_items(
+            (self.new, new_item, NEW),
+            (self.old, old_item, OLD),
+            &mut bounds,
+        )?;
+        if let Some(change) = signature_change(&old_item.kind, &new_item.kind) {
+            return Err(change.message);
+        }
+        if let Some(narrower) = bounds.narrower.first() {
+            return Err(format!("max length changed ({narrower})"));
+        }
+        if let Some(unwrapped) = bounds.unwrapped.first() {
+            return Err(unwrapped.describe(OLD));
+        }
+        Ok(())
+    }
+
+    /// The old version's `name::ident` is a verified move to another place.
+    fn moved_away(&self, name: &str, ident: &str) -> bool {
+        self.moved.iter().any(|((t, i), _)| t == name && i == ident)
+    }
+
+    /// The new version's `name::ident` is a verified move from another place.
+    fn moved_here(&self, name: &str, ident: &str) -> bool {
+        self.moved.iter().any(|(_, (t, i))| t == name && i == ident)
+    }
+
+    /// Across a break, [Report::proposals]: each resource added with the name of one removed from another place.
+    fn propose(
+        &mut self,
+        old_traits: &BTreeMap<&str, &'a ApiLevelOwned>,
+        new_traits: &BTreeMap<&str, &'a ApiLevelOwned>,
+    ) {
+        let (Some(old_wire), true) = (self.old_wire, self.across) else {
+            return;
+        };
+        let item = |traits: &BTreeMap<&str, &'a ApiLevelOwned>,
+                    (name, ident): &(String, String)| {
+            traits[name.as_str()]
+                .items
+                .iter()
+                .find(|i| i.ident == *ident)
+        };
+        for added in &self.added {
+            for removed in self
+                .removed
+                .iter()
+                .filter(|r| r.1 == added.1 && r.0 != added.0)
+            {
+                let (Some(new_item), Some(old_item)) =
+                    (item(new_traits, added), item(old_traits, removed))
+                else {
+                    continue;
+                };
+                let (to, from) = (
+                    format!("{}::{}", added.0, added.1),
+                    format!("{}::{}", removed.0, removed.1),
+                );
+                self.proposals.push(match self.same_signature(old_item, new_item) {
+                    Ok(()) => format!(
+                        "{to} is named like {from} of {old_wire}, removed: if it is the same resource, mark it \
+                         #[moved_from({old_wire}, {from})]; a resource of the same name is never taken for the \
+                         same one by itself"
+                    ),
+                    Err(e) => format!(
+                        "{to} is named like {from} of {old_wire}, removed, but its signature differs ({e}): a new \
+                         resource, which #[moved_from] can't name"
+                    ),
+                });
             }
         }
     }
@@ -571,6 +866,19 @@ impl<'a> Checker<'a> {
             old.meta.as_ref(),
             new.meta.as_ref(),
         );
+        match self.across {
+            true => self.compare_items_by_path(name, old, new),
+            false => self.compare_items_by_position(name, old, new),
+        }
+    }
+
+    /// Within a line: a resource is its position in the trait (its id on the wire).
+    fn compare_items_by_position(
+        &mut self,
+        name: &str,
+        old: &'a ApiLevelOwned,
+        new: &'a ApiLevelOwned,
+    ) {
         let new_items: HashMap<u32, &ApiItemOwned> =
             new.items.iter().map(|item| (item.id.0, item)).collect();
         for old_item in &old.items {
@@ -595,45 +903,7 @@ impl<'a> Checker<'a> {
                     ),
                 );
             }
-            // both ways: old client with a new server, and new client with an old server; a lowered max length
-            // breaks what the old version writes, a raised one is compatible
-            let mut bounds = Bounds {
-                strict_writer: Some(self.old),
-                skip_signatures: !self.signatures,
-                ..Bounds::default()
-            };
-            let result = compare_items(
-                (self.old, old_item, OLD),
-                (self.new, new_item, NEW),
-                &mut bounds,
-            )
-            .and_then(|_| {
-                compare_items(
-                    (self.new, new_item, NEW),
-                    (self.old, old_item, OLD),
-                    &mut bounds,
-                )
-            });
-            if let Err(e) = result {
-                let rule = match bounds.rule {
-                    Some(rule) => rule,
-                    None if bounds.lowered => Rule::MaxLen,
-                    None => Rule::Resource,
-                };
-                self.breaks_with_root(rule, format!("{path}: {e}"), bounds.root.clone());
-            } else if let Some(change) = signature_change(&old_item.kind, &new_item.kind) {
-                // EVO-22: the wire is fine, the Rust signatures are not
-                self.breaks(Rule::Signature, format!("{path}: {}", change.message));
-                if change.arguments_changed {
-                    self.wire_additions
-                        .push(format!("{path}: arguments added or removed at the end"));
-                }
-            }
-            self.bounds_raised(&path, bounds.narrower);
-            self.unwrapped(&path, &bounds.unwrapped);
-            self.compare_error_lists(&path, old_item, new_item);
-            self.compare_optional(&path, old_item, new_item);
-            self.compare_meta(&path, old_item.meta.as_ref(), new_item.meta.as_ref());
+            self.compare_pair(&path, old_item, new_item);
         }
         for new_item in &new.items {
             // moved ones are already reported
@@ -646,6 +916,96 @@ impl<'a> Checker<'a> {
                 self.check_since(&path, new_item.since);
             }
         }
+    }
+
+    /// Across a break (EVO-40): a resource is its path, the trait and its name, unless `#[moved_from]` moved it
+    /// ([Self::moved]); its position on the new line is a wire change only.
+    fn compare_items_by_path(
+        &mut self,
+        name: &str,
+        old: &'a ApiLevelOwned,
+        new: &'a ApiLevelOwned,
+    ) {
+        // the resources that keep their place on each side, moves being matched by their attribute
+        let old_items: Vec<&'a ApiItemOwned> = old
+            .items
+            .iter()
+            .filter(|i| !self.moved_away(name, &i.ident))
+            .collect();
+        let new_items: Vec<&'a ApiItemOwned> = new
+            .items
+            .iter()
+            .filter(|i| !self.moved_here(name, &i.ident))
+            .collect();
+        for old_item in &old_items {
+            let path = format!("{name}::{}", old_item.ident);
+            let Some(new_item) = new_items.iter().find(|i| i.ident == old_item.ident) else {
+                self.breaks(Rule::Removed, format!("{path} removed"));
+                self.removed
+                    .push((name.to_string(), old_item.ident.clone()));
+                continue;
+            };
+            if old_item.id != new_item.id {
+                self.wire_breaks.push(format!(
+                    "{path} at position {} on the new line, was {}",
+                    new_item.id.0, old_item.id.0
+                ));
+            }
+            self.compare_pair(&path, old_item, new_item);
+        }
+        for new_item in &new_items {
+            if !old_items.iter().any(|i| i.ident == new_item.ident) {
+                let path = format!("{name}::{}", new_item.ident);
+                self.adds(format!("{path} added"));
+                self.check_since(&path, new_item.since);
+                self.added.push((name.to_string(), new_item.ident.clone()));
+            }
+        }
+    }
+
+    /// `old_item` and `new_item`, matched as the same resource, compared: both ways, their Rust signatures, error
+    /// lists, `#[optional]` and meta.
+    fn compare_pair(&mut self, path: &str, old_item: &'a ApiItemOwned, new_item: &'a ApiItemOwned) {
+        // both ways: old client with a new server, and new client with an old server; a lowered max length
+        // breaks what the old version writes, a raised one is compatible
+        let mut bounds = Bounds {
+            strict_writer: Some(self.old),
+            skip_signatures: !self.signatures,
+            own_types_by_name: self.across,
+            ..Bounds::default()
+        };
+        let result = compare_items(
+            (self.old, old_item, OLD),
+            (self.new, new_item, NEW),
+            &mut bounds,
+        )
+        .and_then(|_| {
+            compare_items(
+                (self.new, new_item, NEW),
+                (self.old, old_item, OLD),
+                &mut bounds,
+            )
+        });
+        if let Err(e) = result {
+            let rule = match bounds.rule {
+                Some(rule) => rule,
+                None if bounds.lowered => Rule::MaxLen,
+                None => Rule::Resource,
+            };
+            self.breaks_with_root(rule, format!("{path}: {e}"), bounds.root.clone());
+        } else if let Some(change) = signature_change(&old_item.kind, &new_item.kind) {
+            // EVO-22: the wire is fine, the Rust signatures are not
+            self.breaks(Rule::Signature, format!("{path}: {}", change.message));
+            if change.arguments_changed {
+                self.wire_additions
+                    .push(format!("{path}: arguments added or removed at the end"));
+            }
+        }
+        self.bounds_raised(path, bounds.narrower);
+        self.unwrapped(path, &bounds.unwrapped);
+        self.compare_error_lists(path, old_item, new_item);
+        self.compare_optional(path, old_item, new_item);
+        self.compare_meta(path, old_item.meta.as_ref(), new_item.meta.as_ref());
     }
 
     /// An `#[errors(..)]` list (API-32) of a method, stream function or property changing is compatible: nothing on the wire changes and the device
@@ -1149,6 +1509,7 @@ mod tests {
     mod args;
     mod both_bumps;
     mod by_meaning;
+    mod moved_from;
     mod root_cause;
     mod transparent;
     mod wire_lines;

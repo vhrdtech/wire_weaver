@@ -451,8 +451,10 @@ pub(crate) struct Scratch {
     /// before may be missing what they switch on ([Scratch::walk]).
     features_grew: bool,
     /// Unit-suffix hints found so far (TOOL-22), not part of the bundle: `load`/`load_crate` drop them,
-    /// `load_with_hints`/`load_crate_with_hints` return them alongside it.
+    /// `load_with_hints`/`load_crate_with_notes` return them alongside it.
     pub(crate) unit_hints: Vec<super::UnitHint>,
+    /// `#[moved_from]` of the resources converted so far (EVO-40), not part of the bundle either.
+    pub(crate) moved_from: Vec<super::MovedFrom>,
     /// The crate of the API root being loaded and the root's wire version: `#[since = "w1.5, w2.2"]` on an item of
     /// that crate takes the revision of the root's line (EVO-37).
     pub(crate) root: Option<(FullVersionOwned, Option<WireVersion>)>,
@@ -485,7 +487,8 @@ pub(crate) enum Load {
 /// A load's result with the files and directories it came from.
 struct CachedLoad {
     bundle: ApiBundleOwned,
-    hints: Vec<super::UnitHint>,
+    /// Unit hints and `#[moved_from]` (EVO-40), which a load kept from before gives back too.
+    notes: super::SourceNotes,
     reads: Reads,
 }
 
@@ -544,8 +547,8 @@ impl CrateCache {
         &self,
         crate_path: &Path,
         load: Load,
-        walk: impl FnOnce(&mut Scratch) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)>,
-    ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+        walk: impl FnOnce(&mut Scratch) -> Result<(ApiBundleOwned, super::SourceNotes)>,
+    ) -> Result<(ApiBundleOwned, super::SourceNotes)> {
         // inside a proc macro parsed source holds spans valid for one invocation only (parse_rs)
         if proc_macro::is_available() {
             return walk(&mut Scratch::default());
@@ -563,7 +566,7 @@ impl CrateCache {
         if let Some(kept) = kept
             && kept.reads.unchanged()
         {
-            return Ok((kept.bundle.clone(), kept.hints.clone()));
+            return Ok((kept.bundle.clone(), kept.notes.clone()));
         }
         let cached = self
             .take_thread_walk(&key)
@@ -585,12 +588,12 @@ impl CrateCache {
         let mut reads = cached.reads;
         let (walked, read) = stamps::record(|| walk(&mut scratch));
         reads.extend(read);
-        if let Ok((bundle, hints)) = &walked
+        if let Ok((bundle, notes)) = &walked
             && let Ok(mut loads) = self.shared.loads.write()
         {
             let kept = CachedLoad {
                 bundle: bundle.clone(),
-                hints: hints.clone(),
+                notes: notes.clone(),
                 reads: reads.clone(),
             };
             loads.insert(load_key, Arc::new(kept));

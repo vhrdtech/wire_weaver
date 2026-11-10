@@ -13,6 +13,9 @@ pub enum Rule {
     Renamed,
     /// Resources are identified by their position in a trait: new ones go at the end.
     Moved,
+    /// A resource moved to another place across a wire break (`#[moved_from]`, EVO-40): the same resource at a new
+    /// path, which code using the old path doesn't find.
+    MovedAcross,
     /// A trait's `ww_global` id never changes and is never removed.
     GlobalId,
     /// A resource of the old version and the same one of the new version work together, both ways.
@@ -50,6 +53,10 @@ impl Rule {
             }
             Rule::Renamed => "a rename keeps the wire, but breaks Rust code using the old name",
             Rule::Moved => "resources are identified by position, new ones go at the end",
+            Rule::MovedAcross => {
+                "a resource moved to another place on a new wire line keeps its signature, but code and clients \
+                 using its old path break"
+            }
             Rule::GlobalId => "a trait's ww_global id never changes and is never removed",
             Rule::Resource => {
                 "a resource works between the old and the new version, both ways (old client with a new device, \
@@ -86,6 +93,7 @@ impl Rule {
     pub fn doc(&self) -> &'static str {
         match self {
             Rule::Removed | Rule::Moved | Rule::Resource => "docs/evolution/rules.md#api",
+            Rule::MovedAcross => "docs/evolution/rules.md#moving-a-resource-to-another-place",
             Rule::Renamed => "docs/evolution/rules.md",
             Rule::GlobalId => "docs/api/addressing.md#global-trait-addressing-compactversion",
             Rule::Type => "docs/evolution/rules.md#data-types",

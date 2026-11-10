@@ -51,6 +51,8 @@ pub struct Bounds<'a> {
     pub root: Option<RootCause>,
     /// Signatures of skipped definitions are not compared, see [TypeCheck::compare_signatures].
     pub skip_signatures: bool,
+    /// The crate's own structs and enums are the same type only by name, see [TypeCheck::own_types_by_name].
+    pub own_types_by_name: bool,
 }
 
 /// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
@@ -132,10 +134,12 @@ pub fn compare_items<'a>(
     };
     let mut to_device = TypeCheck::new(client, device, client_name, device_name)
         .strict_bounds(strict(client))
-        .compare_signatures(!bounds.skip_signatures);
+        .compare_signatures(!bounds.skip_signatures)
+        .own_types_by_name(bounds.own_types_by_name);
     let mut to_client = TypeCheck::new(device, client, device_name, client_name)
         .strict_bounds(strict(device))
-        .compare_signatures(!bounds.skip_signatures);
+        .compare_signatures(!bounds.skip_signatures)
+        .own_types_by_name(bounds.own_types_by_name);
     let result = compare_kinds(
         (client, client_item, client_name),
         (device, device_item, device_name),
@@ -626,6 +630,8 @@ pub struct TypeCheck<'a> {
     noun: &'static str,
     /// Whether a definition one side left out is checked by its signature, see [Self::compare_signatures].
     compare_signatures: bool,
+    /// See [Self::own_types_by_name].
+    own_types_by_name: bool,
 }
 
 /// Type with out-of-line references resolved.
@@ -659,7 +665,37 @@ impl<'a> TypeCheck<'a> {
             defs: Default::default(),
             noun: "field",
             compare_signatures: true,
+            own_types_by_name: false,
         }
+    }
+
+    /// A struct or enum of the crate itself (the first crate of both bundles) is only the same type as one of the
+    /// same name, never compared field by field with another one: across a wire break (EVO-40), where the bytes
+    /// are incompatible anyway and a type replaced by another (`Sample` by `Batch`) reads better as a replacement.
+    pub fn own_types_by_name(mut self, by_name: bool) -> Self {
+        self.own_types_by_name = by_name;
+        self
+    }
+
+    /// [Self::own_types_by_name]: the writer's and the reader's own types `w` and `r` have other names.
+    fn replaced(&self, w: &TypeOwned, r: &TypeOwned) -> Option<String> {
+        fn own(ty: &TypeOwned) -> Option<&str> {
+            match ty {
+                TypeOwned::Struct(s) if s.crate_idx.0 == 0 => Some(s.ident.as_str()),
+                TypeOwned::Enum(e) if e.crate_idx.0 == 0 => Some(e.ident.as_str()),
+                _ => None,
+            }
+        }
+        if !self.own_types_by_name {
+            return None;
+        }
+        let (w_name, r_name) = (own(w)?, own(r)?);
+        (w_name != r_name).then(|| {
+            format!(
+                "{w_name} on the {}, {r_name} on the {}: another type, not compared field by field",
+                self.writer_name, self.reader_name
+            )
+        })
     }
 
     /// Whether a trait or type one side left out (by crate version and signature) is checked to have the same
@@ -791,6 +827,9 @@ impl<'a> TypeCheck<'a> {
             && !self.seen.insert((w as *const _, r as *const _))
         {
             return Ok(());
+        }
+        if let Some(replaced) = self.replaced(w, r) {
+            return Err(replaced);
         }
         // kept whole (not yet destructured), for `note_root` on the Struct/Enum arms below
         let resolved_r = r;

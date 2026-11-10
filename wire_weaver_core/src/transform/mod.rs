@@ -5,6 +5,7 @@ mod crate_walker;
 mod errors;
 mod markers;
 mod meta;
+mod moved_from;
 pub(crate) use crate_walker::WIRE_WEAVER_REEXPORTS;
 mod snapshot;
 mod stamps;
@@ -19,9 +20,10 @@ pub use crate_walker::{
     load_own_with_paths, load_with_hints, publishable,
 };
 pub use errors::ErrorListError;
+pub use moved_from::MovedFrom;
 pub use snapshot::{
-    load_crate, load_crate_with_hints, load_root, load_root_with_hints, root_of_crate_snapshot,
-    skip_known,
+    SourceNotes, load_crate, load_crate_with_notes, load_root, load_root_with_notes,
+    root_of_crate_snapshot, skip_known,
 };
 pub use unit_hint::UnitHint;
 pub use util::parse_wire_arg;

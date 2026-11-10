@@ -1600,3 +1600,114 @@ fn shared_type_reached_by_a_design_line_root() {
         Some("0.2.0".to_string())
     );
 }
+
+/// Line 2 of an API, and line 3 with `self_test` moved into a sub-level and `uptime` replaced there by a wider one.
+const MOVE_W2: &str = r#"
+#[ww_api_root(wire = "w2.1")]
+pub trait Api {
+    fn configure(rate: u16);
+    property!(ro uptime: u32);
+    fn self_test() -> bool;
+}
+"#;
+
+const MOVE_W3: &str = r#"
+#[ww_api_root(wire = "w3.0")]
+pub trait Api {
+    fn configure(rate: u16);
+    ww_impl!(health: Health);
+}
+
+#[ww_trait]
+pub trait Health {
+    property!(ro uptime: u64);
+    #[moved_from(w2.1, Api::self_test)]
+    fn self_test() -> bool;
+}
+"#;
+
+/// `#[moved_from]` (EVO-40) read from the source by [Check]: a crate's new line against its previous line's snapshot
+/// reports the move and proposes nothing for it, `ww api save` refuses an attribute that doesn't hold.
+#[test]
+fn moved_from_is_read_from_the_source() {
+    let c = TestCrate::new("moved_from_is_read_from_the_source");
+    c.write("0.1.0", MOVE_W2).save();
+    c.write("0.2.0", MOVE_W3);
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    let text = outcome.to_string();
+    has_all(
+        &text,
+        &[
+            "breaking: Api::self_test moved to Health::self_test (#[moved_from], the same signature)",
+            "rules.md#moving-a-resource-to-another-place",
+            "breaking: Api::uptime removed",
+            "proposal: Health::uptime is named like Api::uptime of w2.1, removed, but its signature differs",
+        ],
+    );
+    assert!(!text.contains("Api::self_test removed"), "{text}");
+
+    let same_line = MOVE_W3.replace("(w2.1, Api::self_test)", "(w3.0, Api::self_test)");
+    c.write("0.2.0", &same_line);
+    let err = check(c.path(), true).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "#[moved_from(w3.0, Api::self_test)] on Health::self_test: the API is at w3.0: within a line",
+        ],
+    );
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    assert!(
+        err.contains("within a line a resource is its position"),
+        "{err}"
+    );
+}
+
+/// In a crate with several roots, a root that begins a new line has no snapshot of its own line: it is compared with
+/// the previous line's root of the same name for its moves (EVO-40), and fails only on a `#[moved_from]` that doesn't
+/// hold.
+#[test]
+fn moved_from_of_a_new_root() {
+    let c = TestCrate::new("moved_from_of_a_new_root");
+    c.write_roots(
+        "0.1.0",
+        &[("wire_v2::Api", "w2.1")],
+        &[("wire_v2", MOVE_W2)],
+    );
+    Check::new(c.path()).save(false).unwrap();
+    let roots = [("wire_v2::Api", "w2.1"), ("wire_v3::Api", "w3.0")];
+    c.write_roots(
+        "0.2.0",
+        &roots,
+        &[("wire_v2", MOVE_W2), ("wire_v3", MOVE_W3)],
+    );
+    let (outcome, verdict) = check(c.path(), false);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    let new_line = &roots_of(&outcome).roots[1];
+    assert_eq!(new_line.root, "wire_v3::Api");
+    has_all(
+        &new_line.outcome.to_string(),
+        &[
+            "no snapshot to compare with",
+            "the line before: ",
+            "test_api_0_1_0.wire_v2.Api@w2.1.ron",
+            "moved: Api::self_test moved to Health::self_test",
+            "proposal: Health::uptime is named like Api::uptime of w2.1",
+        ],
+    );
+
+    let nothing = MOVE_W3.replace("Api::self_test)", "Api::self_check)");
+    c.write_roots(
+        "0.2.0",
+        &roots,
+        &[("wire_v2", MOVE_W2), ("wire_v3", &nothing)],
+    );
+    let err = check(c.path(), false).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "#[moved_from(w2.1, Api::self_check)] on Health::self_test: w2.1, compared with, has no Api::self_check",
+            "test_api_0_1_0.wire_v2.Api@w2.1.ron",
+        ],
+    );
+}

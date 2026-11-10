@@ -10,14 +10,14 @@ use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use super::{
     Check, Comparison, NoSnapshot, Outcome, SaveStatus, Saved, UnitHint, design_line_warnings, key,
-    save_command,
+    own_moves, save_command,
 };
 use crate::recorded::Recorded;
 use crate::snapshot_files::{
     CrateFile, NamedFile, RootFileName, RootSnapshot, crate_files, read, removed_file_name,
     root_of_file_name, root_snapshots, triplet,
 };
-use crate::{Bump, Change, compare_recorded, own_traits, own_types, suggest};
+use crate::{Bump, Change, Move, compare_recorded, own_traits, own_types, suggest};
 use wire_weaver_core::CrateCache;
 
 /// What [Check::run] found for a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37):
@@ -103,13 +103,19 @@ impl Check {
         let mut loaded = vec![];
         let mut hints = vec![];
         let mut warnings = vec![];
+        let mut moves = vec![];
         for (root, wire) in roots {
-            let (bundle, root_hints) = cache
-                .load_root_with_hints(&self.path, root)
+            let (bundle, notes) = cache
+                .load_root_with_notes(&self.path, root)
                 .map_err(|e| format!("{e:#}"))?;
-            for hint in root_hints {
-                if !hints.contains(&hint) {
-                    hints.push(hint);
+            for hint in notes.hints.iter() {
+                if !hints.contains(hint) {
+                    hints.push(hint.clone());
+                }
+            }
+            for moved in own_moves(&bundle, &notes) {
+                if !moves.contains(&moved) {
+                    moves.push(moved);
                 }
             }
             if wire.is_design_line() {
@@ -141,7 +147,7 @@ impl Check {
         if let Some(against) = &self.against {
             outcome
                 .roots
-                .push(self.against_root(against, loaded, &own)?);
+                .push(self.against_root(against, loaded, &own, &moves)?);
             return Ok(Outcome::Roots(Box::new(outcome)));
         }
         // what each root reaches, w0 roots and roots without a snapshot too
@@ -155,7 +161,7 @@ impl Check {
         let saved_at_current = files.iter().any(|f| f.version == key(&own.version));
         for (root, wire, bundle) in loaded {
             let all = root_snapshots(&dir, &own.crate_id, &root, wire.line.0)?;
-            let one = self.root_outcome(&root, bundle, all, saved_at_current, &dir)?;
+            let one = self.root_outcome(&root, bundle, all, saved_at_current, &dir, &moves)?;
             outcome.roots.push(RootOutcome {
                 root,
                 wire,
@@ -173,6 +179,7 @@ impl Check {
         against: &Path,
         loaded: Vec<(String, WireVersion, ApiBundleOwned)>,
         own: &FullVersionOwned,
+        moves: &[Move],
     ) -> Result<RootOutcome, String> {
         let Some(name) = against
             .file_name()
@@ -198,7 +205,13 @@ impl Check {
             ));
         };
         let old = read(against)?;
-        let report = compare_recorded(&old.bundle, &old.recorded, &bundle, &Recorded::default())?;
+        let report = compare_recorded(
+            &old.bundle,
+            &old.recorded,
+            &bundle,
+            &Recorded::default(),
+            moves,
+        )?;
         let outcome = Outcome::Compared(Box::new(Comparison {
             old_path: old.path,
             new_label: "source".to_string(),
@@ -230,6 +243,7 @@ impl Check {
         all: Vec<RootSnapshot>,
         saved_at_current: bool,
         dir: &Path,
+        moves: &[Move],
     ) -> Result<Outcome, String> {
         let own = source.crate_version(0).map_err(|e| e.to_string())?.clone();
         let version = own.version.clone();
@@ -243,6 +257,10 @@ impl Check {
             .collect();
         older.sort_by_key(|s| (key(&s.version), (s.wire.line.0, s.wire.revision.0)));
         let Some(latest) = older.pop() else {
+            let previous_line = match design_line {
+                true => None,
+                false => previous_line(dir, root, &source, moves)?,
+            };
             return Ok(Outcome::NoSnapshot(Box::new(NoSnapshot {
                 crate_id: own.crate_id,
                 version,
@@ -254,6 +272,7 @@ impl Check {
                 hints: vec![],
                 design_line,
                 warnings: vec![],
+                previous_line,
             })));
         };
         let at_current = key(&latest.version) == key(&version);
@@ -263,7 +282,13 @@ impl Check {
             // compared as the snapshot of the crate's version, which kept it for this root
             old.bundle.ext_crates[0].version = version.clone();
         }
-        let report = compare_recorded(&old.bundle, &old.recorded, &source, &Recorded::default())?;
+        let report = compare_recorded(
+            &old.bundle,
+            &old.recorded,
+            &source,
+            &Recorded::default(),
+            moves,
+        )?;
         let compared = |old: super::Snapshot,
                         new_label: String,
                         new: ApiBundleOwned,
@@ -304,6 +329,7 @@ impl Check {
                 &previous.snapshot.recorded,
                 &old.bundle,
                 &old.recorded,
+                moves,
             )?;
             let label = old.path.display().to_string();
             return Ok(compared(previous.snapshot, label, old.bundle, report, None));
@@ -329,6 +355,7 @@ impl Check {
             hints: vec![],
             design_line: false,
             warnings: vec![],
+            previous_line: None,
         })))
     }
 
@@ -671,4 +698,47 @@ impl fmt::Display for SharedChange {
         }
         Ok(())
     }
+}
+
+/// A root that begins a new line (no snapshot on its own line, `source`) against the latest snapshot of the root of
+/// the same trait name on the highest line below, for the moves across that break (EVO-40): what its `#[moved_from]`
+/// (`moves`) names is checked, and resources of the same name elsewhere are proposed. Information besides a
+/// [NoSnapshot]: a new line has nothing to keep compatible with. `None` without such a snapshot.
+fn previous_line(
+    dir: &Path,
+    root: &str,
+    source: &ApiBundleOwned,
+    moves: &[Move],
+) -> Result<Option<(PathBuf, Box<crate::Report>)>, String> {
+    let (Some(wire), Ok(own)) = (source.wire, source.crate_version(0)) else {
+        return Ok(None);
+    };
+    let trait_name = |root: &str| root.rsplit("::").next().map(str::to_string);
+    let files = crate_files(dir, &own.crate_id)?;
+    let latest = files
+        .iter()
+        .filter_map(|file| match &file.kind {
+            CrateFile::Root { root: r, wire: w }
+                if w.line.0 < wire.line.0
+                    && !w.is_design_line()
+                    && trait_name(r) == trait_name(root)
+                    && file.version <= key(&own.version) =>
+            {
+                Some(((w.line.0, file.version, w.revision.0), file))
+            }
+            _ => None,
+        })
+        .max_by_key(|(order, _)| *order);
+    let Some((_, file)) = latest else {
+        return Ok(None);
+    };
+    let old = read(&file.path)?;
+    let report = compare_recorded(
+        &old.bundle,
+        &old.recorded,
+        source,
+        &Recorded::default(),
+        moves,
+    )?;
+    Ok(Some((file.path.clone(), Box::new(report))))
 }

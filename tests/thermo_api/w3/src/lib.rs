@@ -3,7 +3,8 @@
 //! What broke against w2.1 (`../w2`), each of a kind the w1 -> w2 break didn't have:
 //! - The stream sends batches: `samples` carries a `Batch` of temperatures of one input with the first one's number,
 //!   no longer one `Sample` per item. A host wanting single samples splits each batch.
-//! - The tree moved: `uptime` and `self_test` are in a new sub-level, `health`, so their paths changed.
+//! - The tree moved: `uptime` and `self_test` are in a new sub-level, `health`, so their paths changed. `self_test`
+//!   is the same resource, marked `#[moved_from]`; `uptime` changed too, so it is a new one.
 //! - `uptime` is in milliseconds in a `u64`, was whole seconds in a `u32`: a host model in seconds can't hold it.
 //!
 //! Unchanged from w2.1: `configure`, `read_once`, `mode`, `gain`, the sink, the channels, `calibrate`, `Sample`,
@@ -51,6 +52,7 @@ pub trait Health {
     /// Time since boot.
     property!(ro uptime: Fixed<Second, Milli, u64>);
     /// Checks the sensor.
+    #[moved_from(w2.1, Thermo::self_test)]
     fn self_test() -> Result<(), SelfTestError>;
 }
 

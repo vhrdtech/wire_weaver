@@ -330,6 +330,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - A `validate` hook can report the refused value and its range (SW-76): `shrink_wrap::refused::Refused`, kept in the caller's slot by a reader made with `with_refusal_slot` and returned by `from_ww_bytes_explained` (`refused` feature, on with `std`), the first refusal of a read also in a latched struct; firmware pays nothing. See `shrink_wrap/CHANGELOG.md`.
 - A shared crate cache that sees edits (EVO-50): `wire_weaver_core::CrateCache` is `Clone`, `Send` and `Sync` and keeps a load only while the files it read are unchanged, so `Check` holds one again (`Check::cache`) and a repeated load of an unchanged crate takes well under a millisecond. See `wire_weaver_core/` and `wire_weaver_evolution/` CHANGELOGs.
 - An enum facade over the clients of several wire lines without boilerplate (CLT-64): `wire_weaver_client::facade!` takes the operations once and emits the enum, a `match` per operation and the line picking, a line writes only bodies. See `wire_weaver_client/CHANGELOG.md`.
+- `#[moved_from]` (EVO-40): within a wire line a resource is its position, across a break its path or the place `#[moved_from(w2.1, Thermo::self_test)]` names; the checker verifies a move is the same resource and reports it as one, and only proposes a resource of the same name elsewhere. See `wire_weaver_evolution/CHANGELOG.md`, `wire_weaver_core/CHANGELOG.md`.
 
 ### Changed
 

@@ -413,6 +413,57 @@ of the API version as well (minor before 1.0, major after, see [your API's versi
 * `T` to struct of `T` in return position
 * `T` to `Vec<T>` in return position?
 
+### Moving a resource to another place
+
+Within a wire line, a resource is its position in its trait: that is its id on the wire. A new one goes at the end,
+and moving one (inserting another before it, or putting it into a sub-level) is a wire break that needs a new line.
+
+Across a line break the bytes are incompatible anyway, so position means nothing there. The [evolution
+checker](checker_tool.md#what-is-checked) matches resources by their path instead, the trait and the name:
+`Thermo::read_once` on line 2 is `Thermo::read_once` on line 3, wherever it sits in the trait. A resource replaced in
+place reads as one removed and one added (`set_rate` removed, `configure` added), not as a rename with other
+arguments. A stream item or argument whose type was replaced by another type of the crate (`Sample` by `Batch`) is
+reported as replaced, not compared field by field.
+
+A resource that moved to another place on the new line is marked there with `#[moved_from]`, naming the wire version
+and the place it had on the line before:
+
+```rust
+#[ww_api_root(wire = "w3.0")]
+pub trait Thermo {
+    fn configure(config: Config) -> Result<(), RateError>;
+    ww_impl!(health: Health);
+}
+
+#[ww_trait]
+pub trait Health {
+    /// Was `Thermo::self_test` on line 2.
+    #[moved_from(w2.1, Thermo::self_test)]
+    fn self_test() -> Result<(), SelfTestError>;
+}
+```
+
+* The place is the trait and the resource name, as the checker writes them (`Thermo::self_test`), and the version is
+  the previous line's (also as a string, `#[moved_from("w2.1", ..)]`).
+* The checker verifies that the resource is exactly the same: it works with the old one both ways, with the same Rust
+  signature, max lengths and types (the crate's own by name). It then reports one move, `Thermo::self_test moved to
+  Health::self_test`, instead of a removal and an addition. A move breaks Rust code using the old path, so the crate
+  takes a breaking bump, as for any line break.
+* A resource that also changed (`uptime` from seconds in a `u32` to milliseconds in a `u64`) is a new resource: the
+  attribute is refused, and the old one is reported removed.
+* An attribute naming a place the previous line doesn't have, or a version on the API's own line, fails the check.
+  On later revisions of the new line it is left alone: it was checked when the line began.
+* A resource of the same name at another place is never taken for the same one by itself: its meaning may have
+  changed, as `on()` of a LED and `on()` of a motor. When a line break is first checked, the checker lists each
+  resource added with the name of one removed elsewhere as a proposal, suggesting `#[moved_from]` when the signature
+  is the same. It never adds the attribute.
+* In a crate with [several lines](#several-lines-in-one-crate), the new line's root has no snapshot of its own line
+  yet. It is compared with the latest snapshot of the previous line's root of the same name, for its moves and
+  proposals only.
+
+`#[moved_from]` is read from the source and is not part of the API model: a device's introspection data doesn't
+carry it, so the dynamic client and the facade helpers don't see it yet.
+
 ### Arguments
 
 The arguments of a method or stream function are the fields of an `Unsized` args struct on the wire, so they follow

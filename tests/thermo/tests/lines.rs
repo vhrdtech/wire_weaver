@@ -257,32 +257,42 @@ fn the_driver_speaks_three_lines() {
 
 /// `ww api check` agrees on both breaks: line 2 against line 1 and line 3 against line 2 each need a new line and a
 /// breaking crate bump, and the versions chosen have both. Each line's later revision needs a new revision and a
-/// minor bump.
+/// minor bump. Across a break resources are matched by path and `#[moved_from]` (EVO-40), within a line by position.
 #[test]
 fn checker_agrees_on_both_bumps() {
-    use wire_weaver_evolution::{Change, WireBump, compare, snapshot_files::triplet};
+    use wire_weaver_evolution::{
+        Change, Move, WireBump, compare, compare_moved, snapshot_files::triplet,
+    };
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../thermo_api");
     let load = |v: &str| wire_weaver_core::load_crate(&dir.join(v)).unwrap();
     let (w1_0, w1, w2_0, w2) = (load("w1_0"), load("w1"), load("w2_0"), load("w2"));
 
     let report = compare(&w1, &w2_0).unwrap();
+    assert!(report.across_line);
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
     assert_eq!(report.minimal_wire(), Some(WireVersion::new(2, 0)));
     assert_eq!(triplet(&report.minimal_version()), "2.0.0");
     report.check_version().unwrap();
     report.check_wire().unwrap();
-    // what the wire break is made of, the resources matched by position: `configure` is `set_rate` renamed, with
-    // another argument
+    // what the wire break is made of, the resources matched by path: `configure` replaces `set_rate`, not a rename
+    // of it with another argument
     let reasons = report.wire_reasons.join("\n");
     for broke in [
         "type thermo_api::Sample changed",
-        "Thermo::set_rate: argument `config`",
+        "Thermo::set_rate removed",
         "Thermo::gain: B of Fixed",
         "Thermo::calibrate: argument `offset`: P of Fixed",
     ] {
         assert!(reasons.contains(broke), "{broke} not in:\n{reasons}");
     }
+    assert!(
+        report
+            .compatible
+            .contains(&"Thermo::configure added".to_string()),
+        "{:?}",
+        report.compatible
+    );
     // the root's own `Channel` is not a break of its own, and the new side is not labelled with the old version
     assert!(
         !reasons.contains("trait thermo_api::Channel changed"),
@@ -305,37 +315,54 @@ fn checker_agrees_on_both_bumps() {
             sample.message
         );
     }
-    // Rust-only: the rename, the variant gone
+    // Rust-only: the variant gone; nothing is a rename across a break
     let breaking: Vec<_> = report.breaking.iter().map(|f| f.message.as_str()).collect();
-    for rust in [
-        "Thermo::set_rate renamed to configure",
-        "Mode::Triggered removed",
-    ] {
-        assert!(
-            breaking.iter().any(|m| m.contains(rust)),
-            "{rust} not in {breaking:#?}"
-        );
-    }
+    assert!(
+        breaking
+            .iter()
+            .any(|m| m.contains("Mode::Triggered removed")),
+        "{breaking:#?}"
+    );
+    assert!(
+        !breaking.iter().any(|m| m.contains("renamed")),
+        "{breaking:#?}"
+    );
 
     // line 2 -> line 3: the batched stream, the tree moved, uptime in another unit and type
-    let w3 = load("w3");
-    let report = compare(&w2, &w3).unwrap();
+    let (w3, notes) = wire_weaver_core::load_crate_with_notes(&dir.join("w3")).unwrap();
+    let moves: Vec<Move> = notes.moved_from.iter().map(Move::from).collect();
+    assert_eq!(moves.len(), 1, "{moves:?}");
+    let report = compare_moved(&w2, &w3, &moves).unwrap();
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
     assert_eq!(report.minimal_wire(), Some(WireVersion::new(3, 0)));
     assert_eq!(triplet(&report.minimal_version()), "3.0.0");
     report.check_version().unwrap();
     report.check_wire().unwrap();
-    // matched by position again: the batch is reported as `Sample` changed, the moves into `health` as a rename and
-    // a removal (EVO-33)
+    // the batch replaces `Sample` without a field-by-field comparison, `self_test` moved into `health` by its
+    // `#[moved_from]`, `uptime` removed, its namesake in `health` only proposed, with the reason it can't be the same
     let reasons = report.wire_reasons.join("\n");
     for broke in [
-        "type thermo_api::Sample changed",
-        "Thermo::uptime: a property on the old version, a trait on the new version",
-        "Thermo::self_test removed",
+        "Thermo::samples: Batch on the new version, Sample on the old version: another type",
+        "Thermo::self_test moved to Health::self_test",
+        "Thermo::uptime removed",
     ] {
         assert!(reasons.contains(broke), "{broke} not in:\n{reasons}");
     }
+    assert!(
+        !reasons.contains("type thermo_api::Sample changed"),
+        "{reasons}"
+    );
+    assert!(!reasons.contains("Thermo::self_test removed"), "{reasons}");
+    assert_eq!(report.proposals.len(), 1, "{:#?}", report.proposals);
+    assert!(
+        report.proposals[0].starts_with(
+            "Health::uptime is named like Thermo::uptime of w2.1, removed, but its \
+             signature differs"
+        ),
+        "{}",
+        report.proposals[0]
+    );
 
     for (old, new, wire, crate_version) in
         [(&w1_0, &w1, (1, 1), "1.1.0"), (&w2_0, &w2, (2, 1), "2.1.0")]

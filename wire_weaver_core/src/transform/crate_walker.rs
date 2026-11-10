@@ -3,6 +3,7 @@ use super::cargo_source::{CargoSources, DepSpec, Dependent};
 use super::cfg::{
     DepRequest, Features, all_features, dep_requests, enabled_features, expand_cfg_attrs,
 };
+use super::macro_cache::{MacroLoad, load_in_macro};
 use super::markers::expand_marker_macros;
 use super::meta::{MetaSite, get_meta};
 use super::stamps::{self, Reads};
@@ -59,6 +60,17 @@ pub fn load_own_with_paths(
     crate_path: &Path,
     root: Option<String>,
 ) -> Result<(ApiBundleOwned, CratePaths)> {
+    let key = MacroLoad::Own {
+        crate_path: MacroLoad::path(crate_path),
+        root: root.clone(),
+    };
+    load_in_macro(key, || load_own_with_paths_walked(crate_path, root))
+}
+
+fn load_own_with_paths_walked(
+    crate_path: &Path,
+    root: Option<String>,
+) -> Result<(ApiBundleOwned, CratePaths)> {
     let mut scratch = Scratch::default();
     let manifest = ManifestContext::load(crate_path)?;
     let features = manifest.default_features();
@@ -77,6 +89,17 @@ pub fn load_with_hints(
     crate_path: &Path,
     trait_name: Option<String>,
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>, CratePaths)> {
+    let key = MacroLoad::Api {
+        crate_path: MacroLoad::path(crate_path),
+        root: trait_name.clone(),
+    };
+    load_in_macro(key, || load_with_hints_walked(crate_path, trait_name))
+}
+
+pub(crate) fn load_with_hints_walked(
+    crate_path: &Path,
+    trait_name: Option<String>,
 ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>, CratePaths)> {
     let mut scratch = Scratch::default();
     let manifest = ManifestContext::load(crate_path)?;
@@ -101,31 +124,42 @@ pub fn load_dep_with_paths(
     dep_name: impl AsRef<str>,
     trait_name: Option<impl AsRef<str>>,
 ) -> Result<(ApiBundleOwned, CratePaths)> {
-    let mut scratch = Scratch::default();
     let current_crate_path = std::env::var("CARGO_MANIFEST_DIR").map_err(|_|
         anyhow!("CARGO_MANIFEST_DIR not set, cannot determine current crate path. Consider calling this method from a build.rs script.")
     )?;
     let current_crate_path = PathBuf::from(current_crate_path);
+    let dep_name = dep_name.as_ref();
+    let trait_name = trait_name.map(|t| t.as_ref().to_string());
+    let key = MacroLoad::Dep {
+        current: MacroLoad::path(&current_crate_path),
+        dep: dep_name.to_string(),
+        root: trait_name.clone(),
+    };
+    load_in_macro(key, || {
+        load_dep_walked(current_crate_path, dep_name, trait_name)
+    })
+}
+
+fn load_dep_walked(
+    current_crate_path: PathBuf,
+    dep_name: &str,
+    trait_name: Option<String>,
+) -> Result<(ApiBundleOwned, CratePaths)> {
+    let mut scratch = Scratch::default();
     let current_crate_manifest = ManifestContext::load(&current_crate_path)?;
     scratch.sources.entry_dir = Some(current_crate_manifest.crate_path.clone());
     let current_features = current_crate_manifest.default_features();
     let (dep_manifest, dep_features) = current_crate_manifest.load_dependent_manifest(
-        dep_name.as_ref(),
+        dep_name,
         &current_features,
         &mut scratch,
     )?;
     scratch
         .manifests
         .insert(current_crate_path, current_crate_manifest.clone());
-    let trait_name = trait_name.map(|t| t.as_ref().to_string());
     let bundle = load_inner(dep_manifest, dep_features, trait_name, &mut scratch)?;
-    let paths = CratePaths::find(
-        &current_crate_manifest,
-        dep_name.as_ref(),
-        &bundle,
-        &scratch,
-    )
-    .with_trait_modules(&scratch);
+    let paths = CratePaths::find(&current_crate_manifest, dep_name, &bundle, &scratch)
+        .with_trait_modules(&scratch);
     Ok((bundle, paths))
 }
 

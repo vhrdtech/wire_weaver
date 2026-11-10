@@ -332,6 +332,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - A shared crate cache that sees edits (EVO-50): `wire_weaver_core::CrateCache` is `Clone`, `Send` and `Sync` and keeps a load only while the files it read are unchanged, so `Check` holds one again (`Check::cache`) and a repeated load of an unchanged crate takes well under a millisecond. See `wire_weaver_core/` and `wire_weaver_evolution/` CHANGELOGs.
 - An enum facade over the clients of several wire lines without boilerplate (CLT-64): `wire_weaver_client::facade!` takes the operations once and emits the enum, a `match` per operation and the line picking, a line writes only bodies. See `wire_weaver_client/CHANGELOG.md`.
 - `#[moved_from]` (EVO-40): within a wire line a resource is its position, across a break its path or the place `#[moved_from(w2.1, Thermo::self_test)]` names; the checker verifies a move is the same resource and reports it as one, and only proposes a resource of the same name elsewhere. See `wire_weaver_evolution/CHANGELOG.md`, `wire_weaver_core/CHANGELOG.md`.
+- API loads kept across proc-macro invocations (EVO-52): a crate with several `ww_codegen!` calls over one API reads it once per compile while its files are unchanged, also in rust-analyzer. See `wire_weaver_core/` CHANGELOG.
 
 ### Changed
 

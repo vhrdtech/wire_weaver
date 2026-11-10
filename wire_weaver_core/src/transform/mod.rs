@@ -3,6 +3,7 @@ mod cargo_source;
 mod cfg;
 mod crate_walker;
 mod errors;
+mod macro_cache;
 mod markers;
 mod meta;
 mod moved_from;

@@ -48,7 +48,9 @@ pub trait BlinkyApi {
 ```
 
 `#[ww_api_root]` marks the top-level trait of a device (`#[ww_trait]` the others). It generates nothing but a few
-consts by itself: `ww_codegen!` reads the trait from its source file. The API's
+consts by itself: `ww_codegen!` reads the trait from its source file, with the crates its types come from. In one
+crate's compile each API is read once: a second `ww_codegen!` of it (a server and a client in one crate) reuses that
+read while none of the files it read has changed (EVO-52). The API's
 [wire version](../evolution/rules.md#the-wire-version) lives in the crate's `Cargo.toml`, next to its crate version
 (`examples/blinky_api/Cargo.toml`):
 

@@ -5773,7 +5773,9 @@ start a new project, copy the <a href="https://github.com/vhrdtech/wire_weaver_t
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>#[ww_api_root]</code> marks the top-level trait of a device (<code>#[ww_trait]</code> the others). It generates nothing but a few
-consts by itself: <code>ww_codegen!</code> reads the trait from its source file. The API's
+consts by itself: <code>ww_codegen!</code> reads the trait from its source file, with the crates its types come from. In one
+crate's compile each API is read once: a second <code>ww_codegen!</code> of it (a server and a client in one crate) reuses that
+read while none of the files it read has changed (EVO-52). The API's
 <a href="../../evolution/rules/#the-wire-version">wire version</a> lives in the crate's <code>Cargo.toml</code>, next to its crate version
 (<code>examples/blinky_api/Cargo.toml</code>):</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[package.metadata.wire_weaver]</span>

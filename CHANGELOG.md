@@ -11,6 +11,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `ww api line new` / `retire` start and end a wire line of a multi-root API crate (TOOL-33, see `wire_weaver_cli/CHANGELOG.md`).
+
 ### Added
 
 - w0, the design line (EVO-41): a new API starts on `w0.0`, where breaks need no new line, no snapshots are kept, `#[since]` is refused and a client checks the device's introspection data instead of trusting a revision; the first release moves to `w1.0`. See `wire_weaver_evolution/`, `wire_weaver_core/`, `wire_weaver_client/`, `wire_weaver_cli/` and `ww_stdlib/ww_version/` CHANGELOGs.

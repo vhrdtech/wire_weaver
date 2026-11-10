@@ -1,6 +1,8 @@
 mod ast;
 pub(crate) mod check;
 mod diff;
+pub use line::LineCommand;
+mod line;
 mod save;
 mod scaffold;
 
@@ -182,6 +184,9 @@ pub enum ApiCommand {
         #[arg(long, value_hint = ValueHint::FilePath)]
         against: Option<PathBuf>,
     },
+    /// Start or end a wire line of a crate with several API roots (TOOL-33, EVO-37)
+    #[command(subcommand)]
+    Line(LineCommand),
     /// Print AST
     Ast {
         /// Path to crate which defines ww_trait
@@ -261,6 +266,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             require_current,
         } => check::check(path, against, strict, require_current),
         ApiCommand::Diff { path, against } => diff::diff(path, against),
+        ApiCommand::Line(cmd) => line::line(cmd),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }
 }

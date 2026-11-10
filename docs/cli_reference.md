@@ -175,6 +175,19 @@ scaffold's own comments name the root by it too, so the output compiles as is:
 ww api scaffold tests/multi_root_api --root wire_v2::Thermo
 ```
 
+`ww api line new <path>` starts the next wire line of a crate with several roots (TOOL-33): it copies the module of the
+root on the highest line (or `--from wire_v2`) to `src/wire_v3.rs` (`--module` names it), declares it in `src/lib.rs`
+and lists `"wire_v3::Thermo" = "w3.0"` in `[package.metadata.wire_weaver.roots]`, keeping the manifest's comments.
+Then make the line's breaking change in the new module. `ww api line retire <path> wire_v1` removes a line no device
+runs any more: its `roots` entry, `pub mod` and module file (git keeps it), with the breaking crate bump of the
+last version that saved the root (`--no-bump` leaves the version alone, a root never saved needs none). `ww api save`
+then records the removal. Only roots in single-file top-level modules are handled.
+
+```sh
+ww api line new tests/multi_root_api
+ww api line retire tests/multi_root_api wire_v1
+```
+
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every
 `#[derive_shrink_wrap]` type and unit marker struct (`pub struct Volt;`) defined there, in a `pub mod` at any depth,
 or re-exported from a module with `pub use` (each known by its path and name, `units::Volt`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example

@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww api line new` and `ww api line retire` (TOOL-33): start the next wire line of a crate with several API roots (copy the module, `pub mod`, `roots` entry at `w(N+1).0`), or remove one no device runs any more with its breaking crate bump (EVO-37).
 - w0, the design line (EVO-41): `ww api save` saves no snapshot of a crate or root on `w0.x` and says why, `ww api check` shows what differs from a snapshot as information with no bump asked, and both warn when such a crate can be published.
 - `ww api check` and `ww api diff` of a crate with several API roots check each root against its own latest snapshot (EVO-39): one report per root under its name and wire version, then the removed roots, the shared types and traits that changed with the roots they changed on, and the crate version the largest root needs. `ww api save` records a removed root (`<root>: removed, recorded in ..`) and refuses it without a breaking crate bump.
 - `ww api save` on a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37) saves a snapshot per root, `api_snapshots/<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`, each checked against the root's previous one, prints a line per root, and warns when a root has no earlier snapshot while the crate has older ones (EVO-38).

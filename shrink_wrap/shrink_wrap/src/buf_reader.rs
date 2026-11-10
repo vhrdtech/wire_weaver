@@ -1,5 +1,8 @@
 use crate::Error::OutOfBoundsRev;
 use crate::nib32::{INib32, UNib32};
+#[cfg(feature = "refused")]
+use crate::refused::SlotRef;
+use crate::refused::{Refusal, Slot};
 use crate::vlq32::UVlq32;
 use crate::vlq64::UVlq64;
 use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
@@ -23,6 +26,10 @@ pub struct BufReader<'i> {
     latch: Option<Error>,
     /// How many more levels of nested values may be read, see [with_max_depth](Self::with_max_depth)
     depth_left: u16,
+    /// Where a `validate` hook's refusal goes, see [with_refusal_slot](Self::with_refusal_slot); readers split off
+    /// this one share it
+    #[cfg(feature = "refused")]
+    refusal_slot: Option<SlotRef<'i>>,
 }
 
 /// The two cursors of a [BufReader] in its base buffer, see [BufReader::cursors_in].
@@ -52,6 +59,8 @@ impl<'i> BufReader<'i> {
             bit_idx: 7,
             latch: None,
             depth_left: Self::DEFAULT_MAX_DEPTH,
+            #[cfg(feature = "refused")]
+            refusal_slot: None,
         }
     }
 
@@ -601,6 +610,36 @@ impl<'i> BufReader<'i> {
         self.latch.get_or_insert(e);
     }
 
+    /// What `#[derive_shrink_wrap]` does with the error of a `validate = path` function: gives back its [Error]
+    /// and, with the `refused` feature, keeps the numbers of a [Refused](crate::refused::Refused) in the reader's
+    /// [Slot], if it has one ([with_refusal_slot](Self::with_refusal_slot)).
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn refuse<R: Refusal>(&mut self, r: R) -> Error {
+        #[cfg(feature = "refused")]
+        if let (Some(refused), Some(slot)) = (r.refused(), self.refusal_slot) {
+            slot.0.keep(refused);
+        }
+        r.error()
+    }
+
+    /// Keep a `validate` hook's [Refused](crate::refused::Refused) in `slot`, from this reader and every reader split
+    /// off it (`refused` feature, on with `std`; without it the slot stays empty and the reader doesn't grow). A
+    /// pointer more in the reader; [new](Self::new) makes one without a slot.
+    pub fn with_refusal_slot(self, slot: &'i Slot) -> Self {
+        #[cfg(feature = "refused")]
+        {
+            let mut rd = self;
+            rd.refusal_slot = Some(SlotRef(slot));
+            rd
+        }
+        #[cfg(not(feature = "refused"))]
+        {
+            let _ = slot;
+            self
+        }
+    }
+
     /// What `#[derive_shrink_wrap]` reads a field of a user type with: [read](Self::read), except for the types
     /// that keep a failed read for [latched](Self::latched) (`U1`..`U64`, `I2`..`I64`), see
     /// [DeserializeShrinkWrap::des_shrink_wrap_latch].
@@ -728,6 +767,8 @@ impl<'i> BufReader<'i> {
             bit_idx: 7,
             latch: None,
             depth_left,
+            #[cfg(feature = "refused")]
+            refusal_slot: self.refusal_slot,
         })
     }
 
@@ -1541,6 +1582,8 @@ mod tests {
                             bit_idx,
                             latch: None,
                             depth_left: BufReader::DEFAULT_MAX_DEPTH,
+                            #[cfg(feature = "refused")]
+                            refusal_slot: None,
                         };
                         states += 1;
                         for op in Op::all() {

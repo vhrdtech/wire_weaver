@@ -10,7 +10,10 @@ readme = "../README.md"
 
 [features]
 default = ["std"]
-std = ["fast-io", "serde/std"]
+std = ["fast-io", "refused", "serde/std"]
+# A `validate` hook's refusal with its numbers (the value and the range) kept in a reader's slot, for
+# `from_ww_bytes_explained` (SW-76): a pointer more in `BufReader`. On with `std`; a firmware without it pays nothing
+refused = []
 # The per-item read and write primitives forced inline and the reader and writer constructors inlined: faster, a few KB
 # larger in a firmware built for size. On with `std`; firmware opts in (docs/serdes/code_size.md)
 fast-io = []

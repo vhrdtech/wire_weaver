@@ -39,6 +39,11 @@ pub use max_len::{ItemMaxSize, LenBounded, MaxLen};
 pub mod max_size;
 pub use max_size::{MaxSize, write_max_size};
 pub mod ref_box;
+pub mod refused;
+#[cfg(all(feature = "refused", not(target_has_atomic = "8")))]
+compile_error!(
+    "shrink_wrap's `refused` feature needs atomic compare-and-swap, which this target doesn't have"
+);
 pub use ref_box::RefBox;
 pub mod ref_vec;
 #[cfg(feature = "std")]

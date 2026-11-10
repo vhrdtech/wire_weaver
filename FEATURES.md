@@ -103,6 +103,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   A unit struct is evolvable (it records its length inside a parent); with `sized`, `final_structure`,
   `self_describing` or `fixed_layout` it is a compile error, as it could never change.
   See `docs/types.md`, `shrink_wrap/shrink_wrap/tests/tuple_structs.rs`, `tests/dynamic`.
+- ✅ **SW-76 A refused value with its numbers** — a `validate = path` function may return
+  `shrink_wrap::refused::Refused` (the stored number read and the rule it broke: a range `low..=high`, NaN, ±∞, zero,
+  a code that means no value) instead of a plain `Error`. The read still fails with `SubtypeOutOfRange`, so `Error`
+  stays a fieldless `u32` on firmware; with the `refused` feature (on with `std`) a reader made with
+  `with_refusal_slot(&slot)` writes it into the caller's `refused::Slot`, shared by every reader split off it and by
+  no other read, one pointer more in `BufReader` (40 to 48 B on a 64-bit host); `from_ww_bytes_explained` makes one
+  and returns a `ReadError` (`"6000 is out of 1..=5000"`). Without the feature (firmware) the reader doesn't grow and
+  the numbers are dropped where they are made. A `Series` item's hook reports the plain error only. exact_units'
+  `Fixed`, `Index`, `IndexFrom1`, `Niched` and `Coded` hooks moving to it is exact_units' side. Tests
+  `shrink_wrap/shrink_wrap/tests/refused.rs`, `docs/serdes/derive_reference.md#validate-path`.
 - ✅ **SW-58 `validate = path` derive directive**: a function checking every struct value just read, so a derived
   type (and the API model it gives to dynamic clients) can still reject out-of-range data; used by `ww_date_time::Year`.
 - ✅ **SW-57 `ArrayString<N>` / `ArrayVec<T, N>`**: owned, no-alloc string/list types backed by a fixed-size

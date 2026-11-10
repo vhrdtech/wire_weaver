@@ -250,13 +250,21 @@ impl<'i> CGItemStruct<'i> {
             )
         };
         let init = self.transparent_init(idx, quote! { __field });
-        let validate = self.validate.map(|path| quote! { #path(&__value)?; });
+        // a `Refused` keeps its numbers in the reader (`rd.refuse`), an `Error` is returned as it is
+        let validate = self.validate.map(|path| {
+            quote! {
+                if let Err(e) = #path(&__value) {
+                    return Err(rd.refuse(e));
+                }
+            }
+        });
         // as a field of a derived type, the struct is written and read exactly like its field, a latched one
         // included; a failed `validate` is kept for `rd.latched()?` like a failed read (an earlier error stays
         // first, and a value read after an error, 0, may fail it too)
         let validate_latch = self.validate.map(|path| {
             quote! {
                 if let Err(e) = #path(&__value) {
+                    let e = rd.refuse(e);
                     rd.keep_error(e);
                 }
             }
@@ -449,10 +457,13 @@ impl ToTokens for CGStructDes<'_> {
             struct_field.buf_read(!self.is_ref, self.item_struct.crate_path, tokens);
         }
         let struct_name = &self.item_struct.ident;
-        let validate = self
-            .item_struct
-            .validate
-            .map(|path| quote! { #path(&__value)?; });
+        let validate = self.item_struct.validate.map(|path| {
+            quote! {
+                if let Err(e) = #path(&__value) {
+                    return Err(rd.refuse(e));
+                }
+            }
+        });
         tokens.append_all(quote! {
             rd.latched()?;
             let __value = #struct_name {

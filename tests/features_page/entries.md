@@ -45,6 +45,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-60 | Columnar series | `Series<T>`: a list of numbers, timestamps, floats or any struct written field by field, with deltas and bit packing per field, several times smaller than a `Vec<T>` of samples. | serdes/series.md
 - DER-13 | Sparse structs | A struct of optional fields stored as an `OptionAnyVec`, for "only what changed" updates. | serdes/layouts.md#sparse-a-struct-of-optional-fields
 - SW-58 | Checks on read | `validate = path` rejects out-of-range values as they are read. | serdes/derive_reference.md#validate-path
+- SW-76 | Refusals with numbers | A `validate` hook can say which value it refused and the range it wanted; a host reader gets both, firmware pays nothing. | serdes/derive_reference.md#validate-path
 - DER-12 | `Display` from doc comments | Error enums print their doc lines, no hand-written `Display`. | serdes/derive_reference.md#display
 - DER-8 | `#[cfg]` on enum variants | Compile a variant out; it keeps its number on the wire. | serdes/derive_reference.md#cfg-on-enum-variants
 - DER-2 | Checked discriminants | Variant numbers must fit the chosen `ww_repr`, implicit ones count like in Rust. | serdes/derive_reference.md#ww_repr-repr-enums-only

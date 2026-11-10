@@ -392,6 +392,38 @@ impl Year {
 }
 ```
 
+The function may return `Result<(), shrink_wrap::refused::Refused>` instead (SW-76): the stored number it refused and
+the rule it broke (`Rule::Range { low, high }`, `NotNan`, `Finite`, `NotZero`, `NoValue`). The read fails with
+`Error::SubtypeOutOfRange` all the same, so `Error` stays a fieldless `u32` and a firmware's `Result`s a register
+wide. With the `refused` feature (on with `std`), `from_ww_bytes_explained` returns a `ReadError { error, refused }`
+with the numbers, whose `Display` reads `101 is out of 0..=100`, also for a value nested at any depth, read latched or
+in a list: the reader holds a pointer to the caller's `refused::Slot`
+(`BufReader::new(buf).with_refusal_slot(&slot)`), and every reader split off it shares it. A reader made with
+`BufReader::new` has no slot, so a decode inside a hook or another read on the same thread never mixes in. The reader
+is one pointer larger (40 to 48 B on a 64-bit host); without the feature (firmware) it doesn't grow and the numbers
+are dropped where they are made. For a borrowed type, `from_ww_bytes_explained(buf, &slot)` takes the slot, as the
+value may keep a reader of the bytes. The numbers are the value's stored ones, without its type or unit: the caller
+knows which type it read. A `Series` item refused this way fails with the plain error.
+
+```rust
+use shrink_wrap::refused::{Refused, RefusedNum};
+
+#[derive_shrink_wrap(owned, transparent, validate = Percent::validate)]
+pub struct Percent(u8);
+
+impl Percent {
+    fn validate(&self) -> Result<(), Refused> {
+        match self.0 {
+            0..=100 => Ok(()),
+            v => Err(Refused::out_of(RefusedNum::Int(v.into()), RefusedNum::Int(0), RefusedNum::Int(100))),
+        }
+    }
+}
+
+let err = Percent::from_ww_bytes_explained(&[101]).unwrap_err();
+assert_eq!(err.to_string(), "101 is out of 0..=100");
+```
+
 ## `series`
 
 SW-60. Also implements `shrink_wrap::series::SeriesColumns` for the type (borrowed and owned), so that it can be

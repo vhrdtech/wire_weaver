@@ -1,6 +1,7 @@
 #[cfg(feature = "std")]
 use crate::BufWriterOwned;
 use crate::max_size::{MaxSize, write_max_size};
+use crate::refused::{ReadError, Slot};
 use crate::{BufReader, BufWriter, Error};
 use paste::paste;
 
@@ -96,6 +97,14 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
         let value = Self::des_shrink_wrap(&mut rd)?;
         Ok(value)
     }
+
+    /// [from_ww_bytes](Self::from_ww_bytes), and for a value a `validate` hook refused, the value and the rule it
+    /// broke ([refused](crate::refused); `refused` feature). `slot` lives as long as the bytes, as the value may
+    /// keep a reader of them (a `RefVec`).
+    fn from_ww_bytes_explained(buf: &'i [u8], slot: &'i Slot) -> Result<Self, ReadError> {
+        let mut rd = BufReader::new(buf).with_refusal_slot(slot);
+        Self::des_shrink_wrap(&mut rd).map_err(|error| ReadError::of(error, slot))
+    }
 }
 
 /// Same as [SerializeShrinkWrap], but serializes into a growable [BufWriterOwned] and without
@@ -141,6 +150,14 @@ pub trait DeserializeShrinkWrapOwned: Sized {
         let mut rd = BufReader::new(buf);
         let value = Self::des_shrink_wrap_owned(&mut rd)?;
         Ok(value)
+    }
+
+    /// [from_ww_bytes_owned](Self::from_ww_bytes_owned), and for a value a `validate` hook refused, the value and
+    /// the rule it broke ([refused](crate::refused); `refused` feature, on with `std`).
+    fn from_ww_bytes_explained(buf: &[u8]) -> Result<Self, ReadError> {
+        let slot = Slot::new();
+        let mut rd = BufReader::new(buf).with_refusal_slot(&slot);
+        Self::des_shrink_wrap_owned(&mut rd).map_err(|error| ReadError::of(error, &slot))
     }
 }
 

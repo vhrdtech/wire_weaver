@@ -2719,6 +2719,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reconnecting-onto-another-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reconnecting onto another line
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#shared-sub-traits" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5719,6 +5730,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reconnecting-onto-another-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reconnecting onto another line
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#shared-sub-traits" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5890,7 +5912,8 @@ EVO-42.</p>
 <li>Each gets a module with its generated client and the conversions to the driver's own types.</li>
 <li>A facade, an enum over the line clients made by <code>wire_weaver_client::facade!</code>, hides which line the device is on.</li>
 <li>The connection speaks every line the driver knows; link setup takes the device on whichever it is, and the
-   facade picks the matching client from the line the device reported. One handshake, no reconnect.</li>
+   facade picks the matching client from the line the device reported. A reconnect (after <code>disconnect().keep_streams()</code>
+   or a lost link) picks the client again, so a DFU to another line is not the end of the session (CLT-63).</li>
 </ol>
 <p>Adding a line is one more module of the same kind and one more variant of the facade enum. When the new
 line holds a value more finely or in a wider type than the driver's types do (line 3's <code>uptime</code> went from whole
@@ -6059,26 +6082,49 @@ answering <code>Ok</code> unconditionally (<code>Ok(Self { cmd })</code>): <code
 <p>A device on a line the driver doesn't know (one newer than all of them) is refused in link setup with
 <code>Error::IncompatibleDeviceProtocol</code>, which names every line the host speaks and says to update the host. Two clients
 of one line, or a line of another API, are refused when connecting.</p>
+<h2 id="reconnecting-onto-another-line">Reconnecting onto another line<a class="headerlink" href="#reconnecting-onto-another-line" title="Permanent link">&para;</a></h2>
+<p>A device can leave its line behind: a DFU flashes new firmware while the host program keeps running. After
+<code>disconnect().keep_streams()</code> or a lost link, <code>Thermo::reconnect()</code> (CLT-63, <code>facade!</code>'s own method, built on
+<code>Commander::reconnect_as::&lt;Thermo&gt;()</code>) picks the client of whichever line the device is on now, the same way
+<code>try_from_cmd</code> did at the first connect — link setup refuses any line the connection doesn't speak, so this only
+ever sees a line the facade already has a client of.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Thermo</span><span class="p">::</span><span class="n">config</span><span class="p">(</span><span class="o">|</span><span class="n">c</span><span class="o">|</span><span class="w"> </span><span class="n">c</span><span class="p">.</span><span class="n">usb</span><span class="p">().</span><span class="n">serial_eq</span><span class="p">(</span><span class="n">serial</span><span class="p">)).</span><span class="n">connect</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1">// .. the link goes (a DFU), or t.cmd().disconnect().keep_streams().await? first</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t</span><span class="p">.</span><span class="n">reconnect</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// may now be a different variant than before</span>
+</span></code></pre></div>
+<ul>
+<li>On the <strong>same line</strong>, this resumes streams, sinks and observers exactly like the plain <code>Commander::reconnect</code>
+  (CLT-36, CLT-40) and returns an equivalent <code>Thermo</code>.</li>
+<li>On <strong>another line</strong> this facade also speaks, old streams, sinks and observers end instead of resuming: their
+  resource paths assumed the old line's API, so nothing of that handle still applies. Use what <code>reconnect()</code>
+  returns from here on, not the value it was called on — its calls still assume the old line.</li>
+<li>A single-line client (no facade) never reaches a line change here: its connection speaks one line, so link setup
+  itself refuses a device on any other one before a reconnect gets this far.</li>
+<li>Calling the plain <code>Commander::reconnect()</code> (no <code>T</code>, so it can't pick a client) on a connection whose device came
+  back on another line fails instead, with the new <code>Error::ReconnectedOnAnotherLine</code>, naming both wire lines; the
+  hub-supervised reconnect (CLT-40) gives up the same way, since it has no <code>T</code> either.</li>
+</ul>
+<p>Test <code>tests/thermo</code> <code>lines::reconnect_after_a_dfu_to_another_line</code>.</p>
 <h2 id="shared-sub-traits">Shared sub-traits<a class="headerlink" href="#shared-sub-traits" title="Permanent link">&para;</a></h2>
 <p>A sub-trait every line uses unchanged, a <code>ww_stdlib</code> one (here <code>ww_indication::Indication</code>, the status LED) or one
 of the API crate's own (<code>common::Channel</code>), would get a client of its own in each line's generated client: one Rust
 type per line for the same trait, and the driver forwards every call per line. Generate its client once instead,
 with <code>client = "sub_level"</code>, and let each line's client return it (CLT-68, <code>tests/shared_sub_level</code>):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">mod</span><span class="w"> </span><span class="nn">indication_client</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">        </span><span class="n">ww_indication</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Indication</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">IndicationClient</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;sub_level&quot;</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">indication_client</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">;</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_v2</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">        </span><span class="n">thermo_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">wire_v2</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Thermo</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">ClientV2</span><span class="p">,</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">,</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">        </span><span class="n">sub_levels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">ww_indication</span><span class="p">::</span><span class="n">Indication</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">],</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="p">);</span>
-</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">mod</span><span class="w"> </span><span class="nn">indication_client</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">        </span><span class="n">ww_indication</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Indication</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">IndicationClient</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;sub_level&quot;</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">indication_client</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">;</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="k">mod</span><span class="w"> </span><span class="nn">api_v2</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="n">wire_weaver</span><span class="p">::</span><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">        </span><span class="n">thermo_api</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">wire_v2</span><span class="w"> </span><span class="p">::</span><span class="w"> </span><span class="nc">Thermo</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="k">super</span><span class="p">::</span><span class="n">ClientV2</span><span class="p">,</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">        </span><span class="n">client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;std_client&quot;</span><span class="p">,</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">        </span><span class="n">sub_levels</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">ww_indication</span><span class="p">::</span><span class="n">Indication</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">crate</span><span class="p">::</span><span class="n">IndicationClient</span><span class="p">],</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">    </span><span class="p">);</span>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
 <li><code>client = "sub_level"</code> generates the struct itself (<code>IndicationClient&lt;'i&gt;</code>, named by the plain identifier after

@@ -7050,7 +7050,7 @@ through <code>des_shrink_wrap_latch</code>; the write side gets the same: a hidd
 (<code>ser_shrink_wrap</code> by default, <code>ser_shrink_wrap_owned_latch</code> for owned types), called through
 <code>BufWriter::write_field</code> for every user-type field. <code>bool</code>, <code>u8</code>..<code>u32</code>, <code>i8</code>..<code>i32</code> and <code>f32</code> override both sides with
 their <code>_latch</code> methods, and a <code>transparent</code> struct forwards both to its field. One with <code>validate</code> (the bounds of a <code>Fixed</code>)
-checks the value after the latched read and keeps a failure for <code>rd.latched()?</code> (<code>BufReader::keep_error</code>, an
+checks the value after the latched read and keeps a failure for <code>rd.latched()?</code> (<code>BufReader::refuse_latch</code>, an
 earlier error stays first), so <code>Fixed&lt;.., Unbounded&gt;</code>, whose check is <code>true</code>, is the plain field's code. Before it, such a
 field went through the wrapper's own <code>ser_shrink_wrap</code> with an error check per field: TEST-27's ELF comparison found
 +2 to 15 instructions and +4 to 42 bytes per struct encode or decode on Cortex-M0, M4F and M33. After it the same

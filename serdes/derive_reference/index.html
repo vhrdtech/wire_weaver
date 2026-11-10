@@ -6710,7 +6710,9 @@ the rule it broke (<code>Rule::Range { low, high }</code>, <code>NotNan</code>, 
 <code>Error::SubtypeOutOfRange</code> all the same, so <code>Error</code> stays a fieldless <code>u32</code> and a firmware's <code>Result</code>s a register
 wide. With the <code>refused</code> feature (on with <code>std</code>), <code>from_ww_bytes_explained</code> returns a <code>ReadError { error, refused }</code>
 with the numbers, whose <code>Display</code> reads <code>101 is out of 0..=100</code>, also for a value nested at any depth, read latched or
-in a list: the reader holds a pointer to the caller's <code>refused::Slot</code>
+in a list. The first refusal of a read is the one explained: in a latched struct the fields after an error read 0,
+and a hook that refuses that 0 (an <code>IndexFrom1</code>) keeps nothing, so <code>{ timeout: 6000, channel: 2 }</code> reads <code>6000 is out
+of 1..=5000</code>. The reader holds a pointer to the caller's <code>refused::Slot</code>
 (<code>BufReader::new(buf).with_refusal_slot(&amp;slot)</code>), and every reader split off it shares it. A reader made with
 <code>BufReader::new</code> has no slot, so a decode inside a hook or another read on the same thread never mixes in. The reader
 is one pointer larger (40 to 48 B on a 64-bit host); without the feature (firmware) it doesn't grow and the numbers

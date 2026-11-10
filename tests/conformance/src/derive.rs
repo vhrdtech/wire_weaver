@@ -837,6 +837,24 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.coded.mu_law.negative_zero", MuLawByte::from_raw(0x7F)),
         case("stdlib.si.coded.mu_law.segment_0_top", MuLawByte::from_raw(0xF0)),
         case("stdlib.si.coded.mu_law.segment_1_bottom", MuLawByte::from_raw(0xEF)),
+        // 0x7F spare: refused as a code, the niche of a `Niched` (exact_units' codec-niche)
+        case(
+            "stdlib.si.coded.mu_law_single_zero.zero",
+            single_zero(0xFF),
+        ),
+        case(
+            "stdlib.si.coded.mu_law_single_zero.loudest",
+            single_zero(0x80),
+        ),
+        case(
+            "stdlib.si.coded.mu_law_single_zero.spare.rejected",
+            single_zero(0xFF),
+        ),
+        case(
+            "stdlib.si.niched.mu_law.value",
+            NichedMuLaw::from(Some(single_zero(0x80))),
+        ),
+        case("stdlib.si.niched.mu_law.niche", NichedMuLaw::from(None)),
         case("stdlib.si.fixed.bounded", fixed_bounded(5000)),
         case("stdlib.si.fixed.bounded.rejected", fixed_bounded(1)),
         case("stdlib.si.fixed.f32", fixed_f32(1.5)),
@@ -1012,6 +1030,10 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.origin", celsius()),
         case("model.marker_def.origin_time_scale", unix_epoch()),
         case("model.marker_def.codec", mu_law_def()),
+        case(
+            "model.marker_def.codec.spare",
+            mu_law_single_zero_def(),
+        ),
         case(
             "model.marker_def.reference",
             ww_self::MarkerDefOwned::Reference(ww_self::ReferenceDefOwned::from(
@@ -1271,11 +1293,36 @@ pub type MuLawByte = ww_si::codec::Coded<
     u8,
 >;
 
+/// A G.711 μ-law byte with 0x7F spare, as `conformance_api`'s `coded_mu_law_single_zero` is.
+pub type SingleZeroByte = ww_si::codec::Coded<
+    ww_si::codec::MuLawSingleZero,
+    ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>,
+    u8,
+>;
+
+/// `SingleZeroByte` or its spare code 0x7F as the niche, as `conformance_api`'s `niched_mu_law` is.
+pub type NichedMuLaw =
+    ww_si::exact_units::niche::Niched<SingleZeroByte, ww_si::exact_units::niche::Null<0x7F>, u8>;
+
+fn single_zero(raw: u8) -> SingleZeroByte {
+    SingleZeroByte::try_from_raw(raw).unwrap()
+}
+
 /// `MuLaw`'s `Codec::DEF` as the model holds it.
 fn mu_law_def() -> ww_self::MarkerDefOwned {
     ww_self::MarkerDefOwned::Codec(ww_si::codec::CodecDefOwned {
         id: marker_id("exact_units", "MuLaw"),
         shape: ww_si::codec::CodecShapeOwned::MuLaw,
+        spare: vec![],
+    })
+}
+
+/// `MuLawSingleZero`'s `Codec::DEF` as the model holds it: 0x7F spare.
+fn mu_law_single_zero_def() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Codec(ww_si::codec::CodecDefOwned {
+        id: marker_id("exact_units", "MuLawSingleZero"),
+        shape: ww_si::codec::CodecShapeOwned::MuLaw,
+        spare: vec![ww_si::codec::CodeSpan::one(0x7F)],
     })
 }
 

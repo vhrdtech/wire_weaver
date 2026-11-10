@@ -192,3 +192,15 @@ fn codec_cases() {
     assert!(checked > 0, "no codec cases");
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
+
+/// A spare code read from the wire is refused with the code and the codec named, by the definition in the model.
+#[test]
+fn spare_code_refusal_names_the_code() {
+    let ty = conformance::dynamic::property_ty("coded_mu_law_single_zero").unwrap();
+    let err = ww_self::ValueOwned::des_shrink_wrap_dyn(&[0x7F], ty, conformance::dynamic::bundle())
+        .unwrap_err();
+    assert_eq!(
+        format!("{err:#}"),
+        "127 is a spare code of MuLawSingleZero, no value (exact_units::Coded<MuLawSingleZero, Fixed<Ratio, Pow2<-13>, i16, Unbounded>, u8>)"
+    );
+}

@@ -448,7 +448,8 @@ impl DynQuantity {
         }
         if let Some(coded) = coded_of(ty, bundle) {
             let raw = wrapped_number(value)?.to_i128()?;
-            let linear = ww_self::units::codec_decode(&coded.codec, raw).ok()?;
+            // a spare code means no value
+            let linear = ww_self::units::codec_decode(&coded.codec, raw).ok()??;
             return Some(DynQuantity {
                 value: ww_self::expr::int_value(linear, &coded.linear.storage.base).ok()?,
                 prefix: coded.linear.prefix,
@@ -488,8 +489,12 @@ impl DynQuantity {
             let code = ww_self::units::codec_encode(&coded.codec, linear, Rounding::NearestEven)
                 .map_err(|e| format!("{self} can't be written into {name}: {e:#}"))?;
             // exact, as into a `Fixed`: a value between two codes is refused, naming the nearest
+            // never a spare code: encode doesn't give one
             let back = ww_self::units::codec_decode(&coded.codec, code)
-                .map_err(|e| format!("{self} can't be written into {name}: {e:#}"))?;
+                .map_err(|e| format!("{self} can't be written into {name}: {e:#}"))?
+                .ok_or_else(|| {
+                    format!("{self} can't be written into {name}: {code} is a spare code")
+                })?;
             if back != linear {
                 let nearest = DynQuantity {
                     value: ww_self::expr::int_value(back, &coded.linear.storage.base)

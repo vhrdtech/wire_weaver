@@ -13,7 +13,7 @@
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::codec::{CodecDefOwned, CodecShapeOwned};
+use exact_units::codec::{CodeSpan, CodecDefOwned, CodecShapeOwned};
 use exact_units::{
     BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned,
     Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols, System,
@@ -226,6 +226,96 @@ fn codec_shape(def: &syn::Expr) -> Result<CodecShapeOwned> {
              Table) waits for its first Codec in exact_units (LVL-4, IO-3)",
             quote::quote!(#shape)
         ),
+    }
+}
+
+/// The `spare` codes of an `impl Codec`'s `DEF`, as `exact_units` writes them: `def_list(&[])`,
+/// `def_list(&[CodeSpan::one(0x7F)])` or `def_list(&[CodeSpan { low: 0x07FE, high: 0x0802 }])`, each code an integer
+/// literal. Checked as `Coded::SPARE` checks them: every span ascending.
+fn codec_spare(def: &syn::Expr) -> Result<Vec<CodeSpan>> {
+    let syn::Expr::Struct(s) = def else {
+        bail!(
+            "DEF `{}`: CodecDef {{ id, shape, spare }}",
+            quote::quote!(#def)
+        );
+    };
+    let Some(spare) = s
+        .fields
+        .iter()
+        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "spare"))
+        .map(|f| &f.expr)
+    else {
+        bail!("DEF `{}`: no `spare: ..`", quote::quote!(#def));
+    };
+    // `def_list(&[..])`, or the slice alone
+    let list = match spare {
+        syn::Expr::Call(c)
+            if c.args.len() == 1
+                && matches!(&*c.func, syn::Expr::Path(p)
+                    if p.path.segments.last().is_some_and(|s| s.ident == "def_list")) =>
+        {
+            &c.args[0]
+        }
+        other => other,
+    };
+    let syn::Expr::Reference(r) = list else {
+        bail!(
+            "spare `{}`: def_list(&[CodeSpan, ..])",
+            quote::quote!(#spare)
+        );
+    };
+    let syn::Expr::Array(a) = &*r.expr else {
+        bail!(
+            "spare `{}`: def_list(&[CodeSpan, ..])",
+            quote::quote!(#spare)
+        );
+    };
+    a.elems
+        .iter()
+        .map(|e| {
+            let span = code_span(e).with_context(|| format!("spare `{}`", quote::quote!(#e)))?;
+            if span.low > span.high {
+                bail!(
+                    "spare `{}`: its low code is above its high code",
+                    quote::quote!(#e)
+                );
+            }
+            Ok(span)
+        })
+        .collect()
+}
+
+/// A `CodeSpan::one(code)` or `CodeSpan { low, high }`.
+fn code_span(e: &syn::Expr) -> Result<CodeSpan> {
+    match e {
+        syn::Expr::Call(c)
+            if c.args.len() == 1
+                && matches!(&*c.func, syn::Expr::Path(p)
+                    if p.path.segments.len() >= 2
+                        && p.path.segments[p.path.segments.len() - 2].ident == "CodeSpan"
+                        && p.path.segments[p.path.segments.len() - 1].ident == "one") =>
+        {
+            Ok(CodeSpan::one(int_lit(&c.args[0])?))
+        }
+        syn::Expr::Struct(s)
+            if s.path
+                .segments
+                .last()
+                .is_some_and(|s| s.ident == "CodeSpan") =>
+        {
+            let field = |name: &str| {
+                s.fields
+                    .iter()
+                    .find(|f| matches!(&f.member, syn::Member::Named(i) if i == name))
+                    .map(|f| int_lit(&f.expr))
+                    .unwrap_or_else(|| bail!("no `{name}: ..`"))
+            };
+            Ok(CodeSpan {
+                low: field("low")?,
+                high: field("high")?,
+            })
+        }
+        _ => bail!("not CodeSpan::one(code) or CodeSpan {{ low, high }}"),
     }
 }
 
@@ -1018,6 +1108,7 @@ pub(crate) fn marker_def(
         MarkerLineDef::Codec(def) => MarkerDefOwned::Codec(CodecDefOwned {
             id: id(),
             shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
+            spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
         }),
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
@@ -1918,15 +2009,17 @@ mod tests {
             };
             assert_eq!(def, ReferenceDefOwned::from(&compiled), "{name}");
         }
-        // LVL-6: each `impl Codec`, its DEF as compiled
-        {
-            let compiled = <exact_units::codec::MuLaw as exact_units::codec::Codec>::DEF;
+        // LVL-6: each `impl Codec`, its DEF as compiled, spare codes included
+        for compiled in [
+            <exact_units::codec::MuLaw as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::MuLawSingleZero as exact_units::codec::Codec>::DEF,
+        ] {
             let name = compiled.id.name;
             let Some(MarkerDefOwned::Codec(def)) = markers.remove(name) else {
                 panic!("{name}: no codec definition in the model");
             };
             // the compiled definition through its own bytes, read back as the model's owned form
-            let mut buf = [0u8; 64];
+            let mut buf = [0u8; 128];
             let bytes = shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&compiled, &mut buf).unwrap();
             let compiled =
                 <CodecDefOwned as shrink_wrap::DeserializeShrinkWrapOwned>::from_ww_bytes_owned(
@@ -2393,5 +2486,36 @@ mod tests {
             let mut file = syn::parse_file(src).unwrap();
             assert!(expand_marker_macros(&mut file.items).is_err(), "{src}");
         }
+    }
+
+    /// LVL-6: a codec's spare codes as exact_units writes them, one code or a span; a span upside down is refused.
+    #[test]
+    fn codec_spare_forms() {
+        let def = |spare: &str| -> syn::Expr {
+            syn::parse_str(&format!(
+                "CodecDef {{ id: MarkerId {{ crate_name: \"c\", name: \"X\" }}, shape: CodecShape::MuLaw, spare: {spare} }}"
+            ))
+            .unwrap()
+        };
+        assert_eq!(codec_spare(&def("def_list(&[])")).unwrap(), vec![]);
+        assert_eq!(
+            codec_spare(&def("def_list(&[CodeSpan::one(0x7F)])")).unwrap(),
+            vec![CodeSpan::one(0x7F)]
+        );
+        assert_eq!(
+            codec_spare(&def(
+                "exact_units::system::def_list(&[CodeSpan { low: 0x07FE, high: 0x0802 }, CodeSpan::one(-1)])"
+            ))
+            .unwrap(),
+            vec![
+                CodeSpan {
+                    low: 0x07FE,
+                    high: 0x0802
+                },
+                CodeSpan::one(-1)
+            ]
+        );
+        assert!(codec_spare(&def("def_list(&[CodeSpan { low: 2, high: 1 }])")).is_err());
+        assert!(codec_spare(&def("SPARE")).is_err());
     }
 }

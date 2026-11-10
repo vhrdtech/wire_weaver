@@ -521,3 +521,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-45 | The wire change behind quantity specs (a unit names its quantity by id, `MarkerDef::Quantity` and `Of`): the user-visible side is exact_units UNIT-8.
 - EVO-47 | The wire change behind systems of units (a dimension names its system, `MarkerDef::System`): the user-visible side is exact_units UNIT-9.
 - EVO-48 | The wire change behind references of origins (`OriginDef::reference` a `ReferenceDef`, `MarkerDef::Reference`): the user-visible side is STD-108.
+- EVO-49 | The wire change behind a codec's spare codes (`CodecDef::spare`): the user-visible side is STD-109.

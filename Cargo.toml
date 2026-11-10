@@ -84,7 +84,7 @@ proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
 ratatui = "0.30"
-ron = "0.12"
+ron = { version = "0.12", features = ["integer128"] }
 rustix = { version = "1", default-features = false, features = ["std", "termios"] }
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }

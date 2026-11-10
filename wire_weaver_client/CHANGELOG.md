@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- A `Coded` read with a spare code of its codec (exact_units codec-niche, EVO-49) is refused, naming the code and the codec; `DynQuantity::from_value` gives `None` for one. A model saved before has no `spare` in its codec definitions (`MarkerDef::Codec`'s bytes changed).
 - w0, the design line (EVO-41): a client on `w0.x` connected to a device whose API hash differs and whose introspection data is unavailable refuses every call into its API with the new `Error::DesignLineUnchecked`, since `#[since]` means nothing on w0. With the device's introspection data it compares every resource as on any line, whatever the two w0 revisions; equal hashes still need no download, as the hash is over the device's own introspection bytes. An exhaustive `match` on `Error` adds the variant.
 - `WwClient::try_from_cmd(cmd) -> Result<Self, Error>` is now the trait's required method (CLT-62), `from_cmd` a
   provided one that unwraps it with a panic (sound to call only where `try_from_cmd` can't answer `Err`, e.g. a

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- The walker reads a codec's spare codes (exact_units codec-niche, EVO-49): an `impl Codec`'s `DEF` names `spare: def_list(&[..])` of `CodeSpan::one(code)` or `CodeSpan { low, high }`, integer literals, a span upside down refused; a `DEF` without `spare` is refused. The parity test checks `MuLaw` and `MuLawSingleZero` against their compiled `Codec::DEF`.
 - `#[since]` on w0, the design line, is refused (EVO-41): a root on `w0.x` accepts breaks, so a revision says nothing there. Remove the markers; items added after the first release (`w1.0`) take `#[since]`. A type shared by a w0 root and a released line of one crate (EVO-37) keeps its released lines' revisions; one naming line 0 is refused.
 - The walker reads exact_units PT-4 (STD-108, EVO-48): an `impl Reference` beside a struct (its `NAME` literal and `HOW` as written) makes it a `MarkerDef::Reference`, and an `origin!`'s reference is that whole `ReferenceDef`, not its `MarkerId`; a `NAME` that isn't a string literal is an error naming the marker. The parity test checks `UnitZero`, `AmbientPressure`, `TaiScale`, `PosixScale` and `DeviceMonotonic` against their compiled `Reference::DEF`.
 - `GenClientConfig` and `GenClientConfigRaw` have a `shared_sub_levels: Vec<SharedSubLevel>` field (CLT-68): code built with a struct literal adds `shared_sub_levels: vec![]` (every sub-level gets its own client, as before). `ClientModel` has a new variant, `StdSubLevelClient`: an exhaustive `match` adds an arm.

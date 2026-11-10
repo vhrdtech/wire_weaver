@@ -173,6 +173,19 @@ linear `FixedType`, the code's storage), and `ww_self::units::codec_decode` / `c
 μ-law has an algorithm in `exact_units` so far; the walker reads the shapes without parameters (`MuLaw`, `ALaw`,
 `PiecewisePower`), and a codec whose shape has no algorithm yet is shown as its code.
 
+A codec may name spare codes, codes that mean no value (`CodecDef::spare`, a list of `CodeSpan { low, high }`):
+`MuLawSingleZero` is μ-law with 0x7F spare, where `MuLaw` reads it as a second zero. A spare code read from the
+wire is refused, by the typed `Coded` and by every client from the definition in the model, with the code named:
+
+```
+127 is a spare code of MuLawSingleZero, no value (exact_units::Coded<MuLawSingleZero, Fixed<Ratio, Pow2<-13>, i16, Unbounded>, u8>)
+```
+
+`codec_decode` gives `None` for one, as `CodecDef::decode` does, and `codec_is_spare` asks. A spare code is where
+an `exact_units::niche::Niched` puts its own codes: `Niched<Coded<MuLawSingleZero, ..>, Null<0x7F>, u8>` is an
+`Option` of a μ-law sample in one byte, 0x7F the `None`. The model has no niche wrapper yet, so a client reads a
+`Niched` as its raw code.
+
 ## serde
 
 With the feature `serde` the numbers are `Serialize` / `Deserialize`, `no_std` and without alloc (STD-94): the same

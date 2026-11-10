@@ -7,6 +7,7 @@
 
 ### 🚀 Features
 
+- A `Coded` byte that is a spare code of its codec (`0x7F` of `MuLawSingleZero`, exact_units codec-niche) raises, naming the code and the codec, as the device's decode refuses it (EVO-49).
 - A `Coded` value (a G.711 μ-law byte, exact_units LVL-6) reads as the `ww.Quantity` it means, with the code in `ww.Quantity.code`; a `ww.Quantity` written into one is encoded exactly (STD-109).
 - `Quantity.system` names the system of units the dimension counts in (exact_units UNIT-9): `"Si"`, `"Gaussian"`, `"Natural"`; `Quantity.dim` of a unit of Gaussian or Natural counts in that system's bases (`{"g": 0.5, "cm": -0.5, "s": -1}` for the gauss).
 - `INib32` (SW-24): converts to and from a plain Python `int`, like `i32`; its numpy column dtype is `int32`.

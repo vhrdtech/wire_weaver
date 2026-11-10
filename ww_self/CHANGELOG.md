@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- A codec's spare codes (exact_units codec-niche, EVO-49): `CodecDef` has `spare`, the codes that mean no value (`CodeSpan { low, high }`), so a `MarkerDef::Codec`'s bytes change. `units::codec_decode` answers `Result<Option<i128>>`, `None` for a spare code as `CodecDef::decode` does; callers that took the number add a `?` or match the `None`. New `units::codec_is_spare`. `units::check_wrapper` refuses a spare code in a `Coded` on decode and encode: `127 is a spare code of MuLawSingleZero, no value (..)`.
 - `MarkerDef::Finite` is appended (exact_units NUM-20, STD-104), and `units::NumBounds` has a `finite` field: refuses ±∞ on decode and encode, with its own message. Struct literals of `NumBounds` add `finite: false` (or `..Default::default()`).
 - `MarkerDef::Codec(exact_units::codec::CodecDef)` is appended (LVL-6, STD-109), and `units::Wrapper` has a `Coded { codec, value, storage }` variant: a `match` over `Wrapper` adds it.
 - References of origins in the model (exact_units PT-4, STD-108, wire change EVO-48): `OriginDef::reference` is a `ReferenceDef { id, name, how }` instead of a `MarkerId`, with `ReferenceHow` (`Exact`, `RunTime`, `TimeScale(TimeScaleDef { counting: TimeCounting, zero: TimeZero })`); `MarkerDef::Reference(ReferenceDef)` is appended. `units::unit_zero()` returns a `ReferenceDefOwned`. Code reading `origin.reference` as a `MarkerId` reads `origin.reference.id`.

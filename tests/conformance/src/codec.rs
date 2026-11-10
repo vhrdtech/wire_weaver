@@ -7,7 +7,7 @@
 use crate::corpus::Case;
 use crate::dynamic::{bundle, property_ty};
 use ww_si::Fixed;
-use ww_si::codec::{Codec, MuLaw};
+use ww_si::codec::{Codec, MuLaw, MuLawSingleZero};
 use ww_si::exact_units::Rounding;
 
 /// The code of a codec case: its golden bytes, little-endian.
@@ -51,19 +51,28 @@ pub fn derive(case: &Case) -> Result<(), String> {
         return Ok(());
     };
     match case.ty.as_str() {
-        "coded_mu_law" => {
-            let raw = u8::try_from(code).map_err(|_| format!("{code} is no u8"))?;
-            let linear = MuLaw::decode(raw).get();
-            let value = i16::try_from(decoded).map_err(|_| format!("{decoded} is no i16"))?;
-            let back = MuLaw::encode(Fixed::new(value), Rounding::NearestEven)
-                .ok_or_else(|| format!("{decoded} doesn't encode"))?;
-            check(
-                (i128::from(linear), i128::from(back)),
-                (decoded, encodes_to),
-            )
-        }
+        "coded_mu_law" => typed::<MuLaw>(code, decoded, encodes_to),
+        "coded_mu_law_single_zero" => typed::<MuLawSingleZero>(code, decoded, encodes_to),
         other => Err(format!("no typed codec for property '{other}'")),
     }
+}
+
+/// A μ-law codec's `decode` and `encode`.
+fn typed<C>(code: i128, decoded: i128, encodes_to: i128) -> Result<(), String>
+where
+    C: Codec<Raw = u8, Linear = Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>>,
+{
+    let raw = u8::try_from(code).map_err(|_| format!("{code} is no u8"))?;
+    let linear = C::decode(raw)
+        .ok_or_else(|| format!("{code} is a spare code"))?
+        .get();
+    let value = i16::try_from(decoded).map_err(|_| format!("{decoded} is no i16"))?;
+    let back = C::encode(Fixed::new(value), Rounding::NearestEven)
+        .ok_or_else(|| format!("{decoded} doesn't encode"))?;
+    check(
+        (i128::from(linear), i128::from(back)),
+        (decoded, encodes_to),
+    )
 }
 
 /// The codec's definition in the API model, run without the trait.
@@ -78,7 +87,9 @@ pub fn dynamic(case: &Case) -> Result<(), String> {
         return Err(format!("'{}' is no Coded in the model", case.ty));
     };
     let def = ww_self::units::codec_of(codec, bundle()).map_err(|e| format!("{e:#}"))?;
-    let linear = ww_self::units::codec_decode(&def, code).map_err(|e| format!("{e:#}"))?;
+    let linear = ww_self::units::codec_decode(&def, code)
+        .map_err(|e| format!("{e:#}"))?
+        .ok_or_else(|| format!("{code} is a spare code of {}", def.id.name))?;
     let back = ww_self::units::codec_encode(&def, decoded, Rounding::NearestEven)
         .map_err(|e| format!("{e:#}"))?;
     check((linear, back), (decoded, encodes_to))

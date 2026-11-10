@@ -22,7 +22,7 @@ use crate::{
     ReferenceDefOwned, ReferenceHow, TimeCounting, TimeScaleDef, TimeZero, TypeOwned, ValueOwned,
 };
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::codec::{CodecDefOwned, CodecShape, CodecShapeOwned};
+use exact_units::codec::{CodecDef, CodecDefOwned, CodecShape, CodecShapeOwned};
 use exact_units::{
     DimOwned, Magnitude, MarkerIdOwned, Offset, QuantityDefOwned, QuantityExpr, QuantityRef,
     SystemDefOwned, UnitDefOwned, UnitTable,
@@ -580,9 +580,9 @@ pub fn codec_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CodecDefOwned
     }
 }
 
-/// `def`'s shape as `exact_units` runs it: the same algorithm as the codec's typed `decode` and `encode`.
-fn codec_shape(def: &CodecDefOwned) -> CodecShape<'_> {
-    match &def.shape {
+/// `def` as `exact_units` runs it: the same algorithm and spare codes as the codec's typed `decode` and `encode`.
+fn codec_def(def: &CodecDefOwned) -> CodecDef<'_> {
+    let shape = match &def.shape {
         CodecShapeOwned::MuLaw => CodecShape::MuLaw,
         CodecShapeOwned::ALaw => CodecShape::ALaw,
         CodecShapeOwned::Power { gamma } => CodecShape::Power { gamma: *gamma },
@@ -593,14 +593,29 @@ fn codec_shape(def: &CodecDefOwned) -> CodecShape<'_> {
         },
         CodecShapeOwned::Table(t) => CodecShape::Table(shrink_wrap::RefVec::Slice { slice: t }),
         CodecShapeOwned::Unknown(d) => CodecShape::Unknown(*d),
+    };
+    CodecDef {
+        id: def.id.as_id(),
+        shape,
+        spare: shrink_wrap::RefVec::Slice { slice: &def.spare },
     }
 }
 
-/// The linear number (the stored number of the codec's `Linear`) code `raw` means, by `def`'s shape alone, as
-/// `CodecDef::decode` computes it; an error for a shape with no algorithm in `exact_units` yet, or a `raw` outside
-/// the code's storage.
-pub fn codec_decode(def: &CodecDefOwned, raw: i128) -> Result<i128> {
-    codec_shape(def).decode(raw).ok_or_else(|| {
+/// Whether `raw` is one of `def`'s spare codes, a code that means no value (`CodecDef::is_spare`): refused on a
+/// read from the wire, free for a `Niched` to claim.
+pub fn codec_is_spare(def: &CodecDefOwned, raw: i128) -> bool {
+    codec_def(def).is_spare(raw)
+}
+
+/// The linear number (the stored number of the codec's `Linear`) code `raw` means, by `def` alone, as
+/// `CodecDef::decode` computes it: `None` for a [spare](codec_is_spare) code, which means no value; an error for a
+/// shape with no algorithm in `exact_units` yet, or a `raw` outside the code's storage.
+pub fn codec_decode(def: &CodecDefOwned, raw: i128) -> Result<Option<i128>> {
+    let def_ = codec_def(def);
+    if def_.is_spare(raw) {
+        return Ok(None);
+    }
+    def_.decode(raw).map(Some).ok_or_else(|| {
         anyhow!(
             "codec {} can't decode {raw}: {}",
             def.id.as_id(),
@@ -609,14 +624,14 @@ pub fn codec_decode(def: &CodecDefOwned, raw: i128) -> Result<i128> {
     })
 }
 
-/// The code of the linear number `value` by `def`'s shape alone, the nearest by `rounding`, as `CodecDef::encode`
-/// computes it; an error for a shape with no algorithm yet, or a `value` beyond every code.
+/// The code of the linear number `value` by `def` alone, the nearest by `rounding` and never a spare code, as
+/// `CodecDef::encode` computes it; an error for a shape with no algorithm yet, or a `value` beyond every code.
 pub fn codec_encode(
     def: &CodecDefOwned,
     value: i128,
     rounding: exact_units::Rounding,
 ) -> Result<i128> {
-    codec_shape(def).encode(value, rounding).ok_or_else(|| {
+    codec_def(def).encode(value, rounding).ok_or_else(|| {
         anyhow!(
             "codec {} can't encode {value}: {}",
             def.id.as_id(),
@@ -1134,7 +1149,8 @@ pub fn bounds_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<NumBounds> {
 }
 
 /// The rules an `exact_units` wrapper's number follows besides its storage, checked on every decode and encode: a
-/// `Fixed`, `Index` or `IndexFrom1` within its bounds, an `IndexFrom1` never 0. `fields` is the value of the
+/// `Fixed`, `Index` or `IndexFrom1` within its bounds, an `IndexFrom1` never 0, a `Coded` never a spare code of its
+/// codec. `fields` is the value of the
 /// transparent struct `s`; anything that isn't such a wrapper passes.
 pub fn check_wrapper(
     s: &ItemStructOwned,
@@ -1155,6 +1171,18 @@ pub fn check_wrapper(
     let name = || ty_name(&TypeOwned::Struct(s.clone()), bundle);
     if matches!(w, Wrapper::IndexFrom1 { .. }) && n.to_i128() == Some(0) {
         bail!("0 is no {}: it counts from 1", name());
+    }
+    if let Wrapper::Coded { codec, .. } = &w
+        && let Some(raw) = n.to_i128()
+    {
+        let def = codec_of(codec, bundle)?;
+        if codec_is_spare(&def, raw) {
+            bail!(
+                "{raw} is a spare code of {}, no value ({})",
+                def.id.name,
+                name()
+            );
+        }
     }
     if let Some(b) = w.bounds_ty() {
         let bounds = bounds_of(b, bundle)?;

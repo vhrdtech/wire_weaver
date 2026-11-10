@@ -1286,6 +1286,49 @@
       "note": "G.711 mu-law byte 0xEF, segment 1's bottom step, 33: the standard leaves a gap after 30 (LVL-6)"
     },
     {
+      "name": "stdlib.si.coded.mu_law_single_zero.zero",
+      "type": "coded_mu_law_single_zero",
+      "value": {"raw": 255},
+      "bytes": "ff",
+      "decoded": 0,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "MuLawSingleZero byte 0xFF, zero: the one zero of a mu-law with 0x7F spare (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law_single_zero.loudest",
+      "type": "coded_mu_law_single_zero",
+      "value": {"raw": 128},
+      "bytes": "80",
+      "decoded": 8031,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "MuLawSingleZero byte 0x80, as MuLaw's: only 0x7F differs (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law_single_zero.spare.rejected",
+      "type": "coded_mu_law_single_zero",
+      "value": null,
+      "bytes": "7f",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "0x7F is a spare code of MuLawSingleZero, no value: refused on decode, where MuLaw reads it as zero (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.niched.mu_law.value",
+      "type": "niched_mu_law",
+      "value": {"raw": 128},
+      "bytes": "80",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Niched<Coded<MuLawSingleZero>, Null<0x7F>> holding the code 0x80: an Option of a mu-law sample in one byte"
+    },
+    {
+      "name": "stdlib.si.niched.mu_law.niche",
+      "type": "niched_mu_law",
+      "value": {"raw": 127},
+      "bytes": "7f",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Niched<Coded<MuLawSingleZero>, Null<0x7F>> holding no sample: the codec's spare code 0x7F is the niche"
+    },
+    {
       "name": "stdlib.si.fixed.bounded",
       "type": "fixed_bounded",
       "value": {"value": 5000},
@@ -1869,10 +1912,19 @@
     {
       "name": "model.marker_def.codec",
       "type": "marker_def",
-      "value": {"Codec": {"id": {"crate_name": "exact_units", "name": "MuLaw"}, "shape": "MuLaw"}},
-      "bytes": "a365786163745f756e6974734d754c61770015393a",
+      "value": {"Codec": {"id": {"crate_name": "exact_units", "name": "MuLaw"}, "shape": "MuLaw", "spare": []}},
+      "bytes": "a365786163745f756e6974734d754c6177000015394a",
+      "wire_change": "EVO-49 / exact_units codec-niche: CodecDef gains spare, the codes that mean no value, appended after shape",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "impl Codec of MuLaw: its id and shape, which a client runs without the trait (LVL-6)"
+    },
+    {
+      "name": "model.marker_def.codec.spare",
+      "type": "marker_def",
+      "value": {"Codec": {"id": {"crate_name": "exact_units", "name": "MuLawSingleZero"}, "shape": "MuLaw", "spare": [{"low": 127, "high": 127}]}},
+      "bytes": "a365786163745f756e6974734d754c617753696e676c655a65726f007f0000000000000000000000000000007f0000000000000000000000000000001179396f",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "impl Codec of MuLawSingleZero: its spare codes, 0x7F, which a client refuses as a value and a Niched claims (LVL-6)"
     },
     {
       "name": "model.marker_def.reference",

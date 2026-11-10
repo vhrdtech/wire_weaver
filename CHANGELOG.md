@@ -318,6 +318,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   different wire versions in the two places is refused before either is trusted, naming both. See `wire_weaver_client/` CHANGELOG.
 - `WwClient::try_from_cmd` (CLT-62): the fallible form of `from_cmd`, so a facade of several wire lines (EVO-28) can say in its error why a line it has no client of got through link setup, rather than `unreachable!`. See `wire_weaver_client/CHANGELOG.md`.
 - The checker per API root (EVO-39): `ww api check` and `ww api diff` of a crate with several wire lines check each root against its own latest snapshot, name a changed shared type with every line it changed on, ask the crate version of the root that needs the most, and treat a removed root as a breaking crate bump that `ww api save` records. One `CrateCache` serves every load of a check. Docs `evolution/checker_tool.md#checking-each-root`. See `wire_weaver_evolution/`, `wire_weaver_core/` and `wire_weaver_cli/` CHANGELOGs.
+- A codec's spare codes in the model (EVO-49, exact_units at 4abc92b): `CodecDef::spare`, `MuLawSingleZero`, a spare code refused by every client and a `Niched` claiming it, new conformance cases. See `ww_self/`, `wire_weaver_core/`, `wire_weaver_client/`, `wire_weaver_py/` and `wire_weaver_snapshots/` CHANGELOGs.
 
 ### Changed
 

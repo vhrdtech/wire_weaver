@@ -183,6 +183,20 @@ pub enum Error {
         what: &'static str,
         reason: String,
     },
+    /// A facade of several wire lines ([ClientConfig::speaks](crate::ClientConfig::speaks), EVO-28) has no client
+    /// of the line the connected device reported (CLT-62), though link setup already limited it to a line the
+    /// facade's own config speaks: a bug in the facade's `try_from_cmd`, not something link setup could catch.
+    #[error(
+        "{client} has no client of {} of {device:?}, though its own config speaks it",
+        describe_no_client_line(*.line)
+    )]
+    NoClientForLine {
+        /// `WwClient::try_from_cmd`'s `Self`, by [std::any::type_name]
+        client: &'static str,
+        /// The connected device's wire line, `None` from a device that didn't report one
+        line: Option<WireVersion>,
+        device: Box<FullVersionOwned>,
+    },
 }
 
 impl Error {
@@ -266,6 +280,13 @@ fn hex(bytes: &[u8]) -> String {
 fn describe_len(len: Option<usize>) -> String {
     len.map(|len| format!(" of {len} bytes"))
         .unwrap_or_default()
+}
+
+fn describe_no_client_line(line: Option<WireVersion>) -> String {
+    match line {
+        Some(line) => format!("wire line {line}"),
+        None => "its wire line (not reported)".into(),
+    }
 }
 
 fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo], over_rtt: bool) -> String {
@@ -391,6 +412,7 @@ impl Error {
             | Error::OlderProtocol { .. }
             | Error::IncompatibleResource { .. }
             | Error::DesignLineUnchecked { .. }
+            | Error::NoClientForLine { .. }
             | Error::User(_)
             | Error::Other(_)
             | Error::AmbiguousDeviceChoice(_)

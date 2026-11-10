@@ -316,6 +316,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww api scaffold --root <Trait>` (TOOL-32, `--name` kept as a hidden alias) picks the API root to scaffold by its module path in a crate with several roots (`--root wire_v2::Thermo`, EVO-37), and the printed `ww_codegen!` call and comments now name it the same way, so the output compiles. See `wire_weaver_core/` and `wire_weaver_cli/` CHANGELOGs.
 - A device's hello and its own introspection bundle must agree on its wire version (CLT-61): a device reporting two
   different wire versions in the two places is refused before either is trusted, naming both. See `wire_weaver_client/` CHANGELOG.
+- `WwClient::try_from_cmd` (CLT-62): the fallible form of `from_cmd`, so a facade of several wire lines (EVO-28) can say in its error why a line it has no client of got through link setup, rather than `unreachable!`. See `wire_weaver_client/CHANGELOG.md`.
 
 ### Changed
 

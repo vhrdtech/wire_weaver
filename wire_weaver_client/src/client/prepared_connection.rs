@@ -73,7 +73,7 @@ impl<T: WwClient> PreparedConnection<T> {
         commander.set_reconnect(reconnect);
         #[cfg(feature = "clock_sync")]
         clock.start(&mut commander);
-        Ok(T::from_cmd(commander))
+        Ok(T::try_from_cmd(commander)?)
     }
 
     pub fn connect_blocking(self) -> Result<T> {
@@ -121,7 +121,7 @@ impl<T: WwClient> PreparedConnection<T> {
                     let mut commander = create_commander_blocking(config, cmd_tx, device_api_info)?;
                     #[cfg(feature = "clock_sync")]
                     clock.start(&mut commander);
-                    return Ok(T::from_cmd(commander));
+                    return Ok(T::try_from_cmd(commander)?);
                 }
                 Selected::NotFound { unmatched: u } => unmatched.extend(u),
             }

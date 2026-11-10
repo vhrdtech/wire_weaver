@@ -316,6 +316,7 @@ round, and tell you before a release when a change would break that.
 - **[A host for several wire lines](evolution/multi_line_host.md)**: One host driver carries a generated client per wire line of an API and talks to devices of any of them through one facade, picking the client of the device's line in a single link setup; scripts reach every line through the dynamic client and Python, writing quantities exactly into each line's types.
 - **[Several wire lines in one crate](evolution/rules.md#several-lines-in-one-crate)**: One API crate holds every wire line still in use, a root per module with its own wire version, and the types the lines share are one Rust type.
 - **[One client for a shared sub-trait](evolution/multi_line_host.md#shared-sub-traits)**: The lines of one crate that reach the same sub-trait (`common::Channel`, `ww_indication::Indication`) by path return one generated client type for it, checked at compile time to be the trait each line has.
+- **[Fallible client pick](evolution/multi_line_host.md#connecting-once-on-either-line)**: A facade of several wire lines returns an error for a line it has no client of, instead of panicking, though link setup already refused every other line.
 - **[Snapshots per API root](evolution/checker_tool.md#several-api-roots-in-one-crate)**: A crate with several lines saves a snapshot per root when it changed, checked against that root's previous one, and never rewrites a released one.
 - **[w0, the design line](evolution/rules.md#w0-the-design-line)**: A new API starts on `w0.0`, where breaks need no new line, no snapshots are kept and a client checks the device's introspection data instead of trusting a revision; the first release moves to `w1.0`.
 - **[Wire versions and generations shown](std_library/device_contract.md#ww-info)**: `ww info`, `ww tap` and the Python client show a device's wire version and the hello generations a connection agreed on, next to its crate version.
@@ -336,7 +337,7 @@ round, and tell you before a release when a change would break that.
 - **[Definitions from another revision](std_library/ww_self.md#the-definition-cache)**: A device built from an unpublished revision still connects, with a warning.
 - **[Units compared by meaning](evolution/units_by_meaning.md)**: `Milli` → `Pow10<-3>` passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Transports and protocols](features.md#transports-and-protocols-tr), [Client / host side](features.md#client-host-side-clt) in the feature tracker.</p>
 
 ## Tools
 

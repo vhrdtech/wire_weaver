@@ -137,7 +137,9 @@ grows an arm per line.
 Link setup refuses a device on any line but the client's own, so a facade must tell it every line it speaks.
 `ClientConfig::speaks` adds a line from a generated client's `client_line()`. Link setup then takes a device on any
 of them, sends that line's client version and gives the `Commander` that line's introspection data. The facade picks
-its client in `WwClient::from_cmd` by the line the device reported:
+its client in `WwClient::try_from_cmd` by the line the device reported (CLT-62): link setup already refused any
+other line, so the `_` arm is a bug in the facade's own set of clients, not something to reach through the device —
+`try_from_cmd` says so in an `Err` rather than `unreachable!`, and the connect call that reaches it fails cleanly:
 
 ```rust
 impl WwClient for Thermo {
@@ -148,18 +150,27 @@ impl WwClient for Thermo {
             .speaks(v1::Client::client_line())
     }
 
-    fn from_cmd(cmd: Commander) -> Self {
+    fn try_from_cmd(cmd: Commander) -> Result<Self, Error> {
         let wire = cmd.device_api_info().user_api_wire;
         let backend: Box<dyn Backend> = match wire.map(|w| w.line.0) {
             Some(1) => Box::new(v1::Client::from_cmd(cmd)),
             Some(2) => Box::new(v2::Client::from_cmd(cmd)),
             // link setup refuses a device on any other line, see `default_config`
-            _ => unreachable!("a thermo_api device at wire {wire:?} got through link setup"),
+            _ => {
+                return Err(Error::NoClientForLine {
+                    client: std::any::type_name::<Self>(),
+                    line: wire,
+                    device: Box::new(cmd.device_api_info().user_api_version.clone()),
+                });
+            }
         };
-        Thermo { backend }
+        Ok(Thermo { backend })
     }
 }
 ```
+
+A single-line client (one `impl WwClient` per generated client, never a facade) still implements plain `from_cmd`,
+which can't fail: `try_from_cmd`'s default wraps it in `Ok`.
 
 A device on a line the driver doesn't know (one newer than all of them) is refused in link setup with
 `Error::IncompatibleDeviceProtocol`, which names every line the host speaks and says to update the host. Two clients

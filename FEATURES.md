@@ -1661,9 +1661,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   already key their cached files by the bundle's hash, so a revision-only wire bump gets its own cache entry
   without any change. Test
   `wire_weaver_client` `compat::tests::resolve_api_match_refuses_a_hello_wire_that_differs_from_the_bundles`.
-- 💡 **CLT-62 Fallible `WwClient::from_cmd`** — a facade of several wire lines (EVO-28) picks its client in
-  `from_cmd`, which can't fail, so a line it has no client of is `unreachable!`, sound only because link setup
-  refused that device first. A `try_from_cmd` returning an error would say so in the types.
+- ✅ **CLT-62 Fallible `WwClient::try_from_cmd`** · `v0.5` — `WwClient` gets `try_from_cmd(cmd) -> Result<Self,
+  Error>`, a default `Ok(Self::from_cmd(cmd))` that every single-line client keeps for free; `from_cmd` gets a
+  default too, `Self::try_from_cmd(cmd).unwrap_or_else(|e| panic!(..))`, so each implementor writes only the one
+  that fits. A facade of several wire lines (EVO-28) overrides `try_from_cmd` instead of `from_cmd` and returns the
+  new `Error::NoClientForLine` for a line it has no client of (tests/thermo's `Thermo`), rather than `unreachable!`;
+  link setup still refuses any other line first, so this only catches a bug in the facade's own set of clients.
+  `PreparedConnection::connect` and `connect_blocking` call `try_from_cmd`, so that bug now surfaces as a connect
+  error, not a panic. Tests `wire_weaver_client` `ww_client_tests::*` (the trait's two defaults, direct).
 - 💡 **CLT-63 Reconnect into another wire line** — a facade of several lines (EVO-28) picks its client once, in
   `from_cmd`. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
   connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an

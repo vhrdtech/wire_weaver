@@ -25,7 +25,9 @@ pub use error::{Error, Result};
 use backend::Backend;
 use model::{Gain, Mode, Offset, Rate, Sample, Uptime};
 use wire_weaver::ww_version::WireVersion;
-use wire_weaver_client::{ClientConfig, Commander, PreparedConnection, WwClient};
+use wire_weaver_client::{
+    ClientConfig, Commander, Error as ClientError, PreparedConnection, WwClient,
+};
 
 /// A `thermo_api` device on any line this driver knows.
 pub struct Thermo {
@@ -41,16 +43,23 @@ impl WwClient for Thermo {
             .speaks(v1::Client::client_line())
     }
 
-    fn from_cmd(cmd: Commander) -> Self {
+    /// Link setup refuses a device on any other line (see `default_config`), so this fails only on a bug in this
+    /// facade's own set of clients, never on the device (CLT-62).
+    fn try_from_cmd(cmd: Commander) -> core::result::Result<Self, ClientError> {
         let wire = cmd.device_api_info().user_api_wire;
         let backend: Box<dyn Backend> = match wire.map(|w| w.line.0) {
             Some(1) => Box::new(v1::Client::from_cmd(cmd)),
             Some(2) => Box::new(v2::Client::from_cmd(cmd)),
             Some(3) => Box::new(v3::Client::from_cmd(cmd)),
-            // link setup refuses a device on any other line, see `default_config`
-            _ => unreachable!("a thermo_api device at wire {wire:?} got through link setup"),
+            _ => {
+                return Err(ClientError::NoClientForLine {
+                    client: std::any::type_name::<Self>(),
+                    line: wire,
+                    device: Box::new(cmd.device_api_info().user_api_version.clone()),
+                });
+            }
         };
-        Thermo { backend }
+        Ok(Thermo { backend })
     }
 }
 

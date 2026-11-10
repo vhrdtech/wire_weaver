@@ -953,7 +953,10 @@ impl Commander {
     /// * no client API (DynClient) - nothing to check,
     /// * same API hash - all resources are the same by definition,
     /// * different hash - every method, property, stream and trait is compared with the device's one,
-    /// * different hash and device API unknown - only `#[since]` is checked against the device's wire version.
+    /// * different hash and device API unknown - only `#[since]` is checked against the device's wire version,
+    /// * the same on w0, the design line (EVO-41) - every resource of the client's API is refused, as `#[since]`
+    ///   means nothing there. Equal hashes need no download on w0 either: the hash is over the device's own
+    ///   introspection bytes.
     ///
     /// Refuses first when the device's own introspection bundle (`ApiBundle::wire`) names a wire version that
     /// differs from the one its hello already claimed (`DeviceInfo::user_api_wire`, EVO-25): the two always agree
@@ -1001,6 +1004,13 @@ impl Commander {
                 );
             }
             ApiMatch::Checked(Arc::new(compat))
+        } else if let Some(wire) = client.api_bundle.wire.filter(|w| w.is_design_line()) {
+            warn!(
+                "device API {:?} differs from the client's and is unknown, and {wire} is the design line: no resource \
+                 of the client's API can be used, enable introspection on the device",
+                self.connected_device.user_api_version
+            );
+            ApiMatch::DesignLineUnknown(Arc::new(ApiCompat::client_only(&client.api_bundle)), wire)
         } else {
             debug!(
                 "device API differs from the client's and is unknown, only #[since] will be checked"
@@ -1146,6 +1156,16 @@ impl Commander {
         let compat = match &self.api_match {
             ApiMatch::NoClientApi | ApiMatch::Identical => return Ok(()),
             ApiMatch::Checked(compat) | ApiMatch::DeviceApiUnknown(compat) => compat,
+            ApiMatch::DesignLineUnknown(compat, wire) => {
+                return match compat.resolve(path) {
+                    Some(resource) => Err(Error::DesignLineUnchecked {
+                        resource: resource.name,
+                        device: Box::new(self.connected_device.user_api_version.clone()),
+                        wire: *wire,
+                    }),
+                    None => Ok(()),
+                };
+            }
         };
         let Some(resource) = compat.resolve(path) else {
             return Ok(());

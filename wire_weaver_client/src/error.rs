@@ -100,6 +100,21 @@ pub enum Error {
         /// The `#[since]` along the resource's path the device doesn't have.
         required: WireVersion,
     },
+    /// The client's API is on w0, the design line (EVO-41), the device's API hash differs from the client's, and its
+    /// introspection data is unavailable: breaks are accepted on w0, so nothing tells whether a resource still means
+    /// the same on the device.
+    #[error(
+        "'{resource}' can't be checked against the connected device, its API is {device:?} on {wire}, the design line: \
+         it differs from the client's and its introspection data is unavailable. Enable introspection on the device \
+         or build both from the same API"
+    )]
+    DesignLineUnchecked {
+        /// Resource path, e.g. `gpio[].set_high`
+        resource: String,
+        device: Box<FullVersionOwned>,
+        /// The client's wire version, on line 0.
+        wire: WireVersion,
+    },
     #[error("'{resource}' is not implemented by the connected device, its API is {device:?}")]
     NotImplementedByDevice {
         /// Resource path, e.g. `gpio[].set_high`
@@ -375,6 +390,7 @@ impl Error {
             | Error::UnknownPeerFormat { .. }
             | Error::OlderProtocol { .. }
             | Error::IncompatibleResource { .. }
+            | Error::DesignLineUnchecked { .. }
             | Error::User(_)
             | Error::Other(_)
             | Error::AmbiguousDeviceChoice(_)

@@ -1267,6 +1267,28 @@ mod tests {
     // Also user may depend on two driver crates, with one using e.g., only WebSocket and the other only USB.
     // In which case two interface features will be enabled and if not for this filter system,
     // it would break the mess with device selection process.
+    /// Link setup takes a device on the client's line whatever its revision: on w0, the design line, too, where a
+    /// different revision is then checked through the device's introspection data (EVO-41).
+    #[test]
+    fn any_revision_of_the_line_is_taken() {
+        let version = FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
+        for (client, device, taken) in [
+            ((0, 3), (0, 0), true),
+            ((0, 3), (0, 9), true),
+            ((0, 3), (1, 0), false),
+            ((1, 2), (1, 5), true),
+            ((1, 2), (0, 2), false),
+        ] {
+            let api = ClientApi::generated(version.clone(), WireVersion::new(client.0, client.1));
+            let device = WireVersion::new(device.0, device.1);
+            assert_eq!(
+                api.for_device("test_api", Some(device)).is_some(),
+                taken,
+                "client {client:?}, device {device}"
+            );
+        }
+    }
+
     #[test]
     fn link_setup_timeout_override() {
         let f = ClientConfig::new().usb().validate().unwrap();

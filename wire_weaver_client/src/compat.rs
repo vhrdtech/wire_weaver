@@ -1,6 +1,7 @@
 //! Per-resource compatibility between the client's API and the connected device's API.
 //!
-//! If both sides report the same API hash, the APIs are identical and nothing is checked. Otherwise, both
+//! If both sides report the same API hash, the APIs are identical and nothing is checked: the hash is taken over the
+//! device's own introspection bytes, so this holds on w0, the design line, too (EVO-41). Otherwise, both
 //! introspection bundles are walked, and every method, property, stream and trait the client knows about is compared
 //! with the resource at the same path on the device. Calling a resource that is missing or incompatible then fails
 //! locally with a clear error, instead of sending bytes the device would misinterpret.
@@ -33,6 +34,9 @@ pub(crate) enum ApiMatch {
     /// API hash is different, but device's API is unknown (introspection disabled and not in the cache).
     /// Only `#[since]` annotations of the client's resources can be checked against the device's wire version.
     DeviceApiUnknown(Arc<ApiCompat>),
+    /// API hash is different, the device's API is unknown, and the client's is on w0, the design line (EVO-41):
+    /// `#[since]` means nothing there, so every resource of the client's API is refused.
+    DesignLineUnknown(Arc<ApiCompat>, WireVersion),
 }
 
 /// Outcome of comparing one client resource with the device's resource at the same path.
@@ -1186,6 +1190,86 @@ pub(crate) mod tests {
         cmd2.connected_device.user_api_wire = None;
         cmd2.resolve_api_match().unwrap();
         assert!(call(&cmd2, 1).is_ok());
+    }
+
+    /// w0, the design line (EVO-41): with the device's introspection data every resource is compared as on any
+    /// line, whatever the two w0 revisions; without it nothing can be checked and every resource is refused, since
+    /// `#[since]` means nothing on w0; equal hashes still need nothing.
+    #[test]
+    fn design_line_checks_the_device_or_refuses() {
+        use crate::config::IntrospectBundle;
+        use crate::{Commander, Error};
+        use ww_client_server::PathKind;
+        use ww_version::{ApiHashOwned, ApiHashPairOwned, VersionOwned};
+
+        let client = r#"
+            #[ww_api_root(wire = "w0.3")]
+            pub trait Api {
+                fn a(x: u8);
+                fn b();
+            }
+        "#;
+        // a break without a new line: `a` changed its argument
+        let device = r#"
+            #[ww_api_root(wire = "w0.5")]
+            pub trait Api {
+                fn a(x: u16);
+                fn b();
+            }
+        "#;
+        let introspect = |bundle, hash| {
+            IntrospectBundle::from_sent(
+                bundle,
+                ApiHashPairOwned {
+                    no_docs: ApiHashOwned { hash: vec![hash] },
+                    with_docs: ApiHashOwned { hash: vec![] },
+                },
+                0,
+            )
+            .unwrap()
+        };
+        fn call(cmd: &Commander, id: u32) -> Result<(), Error> {
+            cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
+                .postpone_err
+        }
+        let commander = || {
+            let (tx, _rx) = tokio::sync::mpsc::channel(1);
+            let mut cmd = Commander::new(tx);
+            cmd.connected_device.user_api_version =
+                FullVersionOwned::new("test_api".into(), VersionOwned::new(0, 1, 0));
+            cmd.connected_device.user_api_wire = Some(WireVersion::new(0, 5));
+            cmd.connected_device.user_api_hash =
+                introspect(bundle("dw0", "0.1.0", device), 2).api_hash;
+            cmd.set_client_introspect(introspect(bundle("cw0", "0.1.0", client), 1));
+            cmd
+        };
+
+        // the device's API known: compared as on any line
+        let mut cmd = commander();
+        cmd.set_device_introspect(introspect(bundle("dw0", "0.1.0", device), 2));
+        cmd.resolve_api_match().unwrap();
+        assert!(
+            matches!(call(&cmd, 0), Err(Error::IncompatibleResource { resource, .. }) if resource == "a")
+        );
+        assert!(call(&cmd, 1).is_ok());
+
+        // unknown: every resource refused, saying why
+        let mut cmd = commander();
+        cmd.resolve_api_match().unwrap();
+        for id in [0, 1] {
+            match call(&cmd, id) {
+                Err(e @ Error::DesignLineUnchecked { wire, .. }) => {
+                    assert_eq!(wire, WireVersion::new(0, 3));
+                    assert!(e.to_string().contains("on w0.3, the design line"), "{e}");
+                }
+                other => panic!("{other:?}"),
+            }
+        }
+
+        // the same hash: identical, nothing to download or refuse
+        cmd.connected_device.user_api_hash.no_docs.hash = vec![1];
+        cmd.resolve_api_match().unwrap();
+        assert!(call(&cmd, 0).is_ok());
     }
 
     /// The root's wire version is part of what `api_hash` covers (CLT-61): two builds of the same API that differ

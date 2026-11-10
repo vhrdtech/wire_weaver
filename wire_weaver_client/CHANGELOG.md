@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- w0, the design line (EVO-41): a client on `w0.x` connected to a device whose API hash differs and whose introspection data is unavailable refuses every call into its API with the new `Error::DesignLineUnchecked`, since `#[since]` means nothing on w0. With the device's introspection data it compares every resource as on any line, whatever the two w0 revisions; equal hashes still need no download, as the hash is over the device's own introspection bytes. An exhaustive `match` on `Error` adds the variant.
 - New `Error::HelloWireMismatch { device, hello_wire, bundle_wire }` (CLT-61): a device whose hello
   (`DeviceInfo::user_api_wire`) names a wire version that differs from the one its own introspection bundle
   (`ApiBundle::wire`) reports is refused, naming both wires, before any `#[since]` check or resource comparison

@@ -119,9 +119,14 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
         (
             1,
             Err(Error::Unsupported {
-                what: "self_test", ..
+                what: "self_test",
+                needs,
+                ..
             }),
-        ) => {}
+        ) => assert_eq!(
+            needs, "line 2 from w2.1",
+            "from the facade's `#[unsupported]`"
+        ),
         (2 | 3, Ok(())) => {
             t.set_channel_enabled(0, false).await.unwrap();
             assert!(matches!(

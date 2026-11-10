@@ -1,34 +1,13 @@
-//! Line 1 (`thermo_api` 1.x, wire w1.y): the generated client and its [Backend].
+//! Line 1 (`thermo_api` 1.x, wire w1.y): the generated client and its operations.
 
-use crate::backend::{Backend, Commands, Fut, ObserverOf, SinkOf, StreamOf, Updates};
 use crate::error::{DeviceError, Error, Result};
 use crate::model::{self, Gain, Offset, Rate, Uptime};
+use crate::{Commands, Updates};
 use thermo_api_w1 as api;
-use wire_weaver::ww_version::WireVersion;
+use wire_weaver_client::facade::{LineClient, ObserverOf, SinkOf, StreamOf};
 use wire_weaver_client::observe::on_change;
-use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
-pub struct Client {
-    cmd: Commander,
-}
-
-impl WwClient for Client {
-    fn default_config() -> ClientConfig {
-        ClientConfig::default()
-    }
-
-    fn try_from_cmd(cmd: Commander) -> core::result::Result<Self, wire_weaver_client::Error> {
-        Ok(Self { cmd })
-    }
-}
-
-mod api_client {
-    wire_weaver::ww_codegen!(
-        thermo_api_w1 :: Thermo for super::Client,
-        client = "std_client",
-    );
-}
-
+wire_weaver_client::facade_line!(thermo_api_w1::Thermo);
 // The API crate's own types: one conversion each way per type, also for the ones that didn't change (`RateError`,
 // `Command`). The `ww_si` fields inside them are the model's types already.
 
@@ -91,129 +70,95 @@ impl From<DeviceError<api::RateError>> for Error {
     }
 }
 
-impl Client {
-    fn not_representable(&self, what: &'static str, value: impl core::fmt::Debug) -> Error {
-        Error::NotRepresentable {
-            what,
-            value: format!("{value:?}"),
-            device: self.wire(),
-        }
+fn not_representable(c: &Client, what: &'static str, value: impl core::fmt::Debug) -> Error {
+    Error::NotRepresentable {
+        what,
+        value: format!("{value:?}"),
+        device: c.wire(),
     }
 }
 
-impl Backend for Client {
-    fn cmd(&self) -> &Commander {
-        &self.cmd
-    }
-
-    fn wire(&self) -> WireVersion {
-        self.cmd
-            .device_api_info()
-            .user_api_wire
-            .expect("link setup refuses a device without a wire version")
-    }
-
+impl crate::Line for Client {
     /// Line 1 has no `configure`: two calls, not atomic, the rate first so that a refused rate leaves the mode alone.
-    fn configure(&self, rate: Rate, mode: model::Mode) -> Fut<'_, ()> {
-        Box::pin(async move {
-            self.set_rate(rate).call().await?;
-            Ok(self.write_mode(to_mode(mode)).write().await?)
-        })
+    async fn configure(c: &Client, rate: Rate, mode: model::Mode) -> Result<()> {
+        c.set_rate(rate).call().await?;
+        Ok(c.write_mode(to_mode(mode)).write().await?)
     }
 
-    fn read_once(&self) -> Fut<'_, model::Sample> {
-        Box::pin(async move { sample(Client::read_once(self).call().await?) })
+    async fn read_once(c: &Client) -> Result<model::Sample> {
+        sample(c.read_once().call().await?)
     }
 
-    fn mode(&self) -> Fut<'_, model::Mode> {
-        Box::pin(async move { mode(self.read_mode().read().await?) })
+    async fn mode(c: &Client) -> Result<model::Mode> {
+        mode(c.read_mode().read().await?)
     }
 
-    fn set_mode(&self, m: model::Mode) -> Fut<'_, ()> {
-        Box::pin(async move { Ok(self.write_mode(to_mode(m)).write().await?) })
+    async fn set_mode(c: &Client, m: model::Mode) -> Result<()> {
+        Ok(c.write_mode(to_mode(m)).write().await?)
     }
 
-    fn gain(&self) -> Fut<'_, Gain> {
-        Box::pin(async move { gain(self.read_gain().read().await?) })
+    async fn gain(c: &Client) -> Result<Gain> {
+        gain(c.read_gain().read().await?)
     }
 
     /// Whole steps only: 1.5 is refused, not rounded.
-    fn set_gain(&self, g: Gain) -> Fut<'_, ()> {
-        Box::pin(async move {
-            let whole = g
-                .to::<ww_si::prefix::One, u8>()
-                .and_then(|g| g.to_bounds().ok())
-                .ok_or_else(|| self.not_representable("gain", g))?;
-            Ok(self.write_gain(whole).write().await?)
-        })
+    async fn set_gain(c: &Client, g: Gain) -> Result<()> {
+        let whole = g
+            .to::<ww_si::prefix::One, u8>()
+            .and_then(|g| g.to_bounds().ok())
+            .ok_or_else(|| not_representable(c, "gain", g))?;
+        Ok(c.write_gain(whole).write().await?)
     }
 
-    fn observe_gain(&self) -> Fut<'_, Box<dyn Updates<Gain>>> {
-        Box::pin(async move {
-            let observer = Client::observe_gain(self, on_change(Default::default()))
-                .subscribe()
-                .await?;
-            Ok(Box::new(ObserverOf { observer, f: gain }) as Box<dyn Updates<Gain>>)
-        })
+    async fn observe_gain(c: &Client) -> Result<Updates<Gain>> {
+        let observer = c
+            .observe_gain(on_change(Default::default()))
+            .subscribe()
+            .await?;
+        Ok(Box::new(ObserverOf { observer, f: gain }))
     }
 
-    fn samples(&self) -> Fut<'_, Box<dyn Updates<model::Sample>>> {
-        Box::pin(async move {
-            let stream = Client::samples(self).call().await?;
-            Ok(Box::new(StreamOf { stream, f: sample }) as Box<dyn Updates<model::Sample>>)
-        })
+    async fn samples(c: &Client) -> Result<Updates<model::Sample>> {
+        let stream = c.samples().call().await?;
+        Ok(Box::new(StreamOf { stream, f: sample }))
     }
 
-    fn commands(&self) -> Fut<'_, Box<dyn Commands>> {
-        Box::pin(async move {
-            let sink = Client::commands(self).await?;
-            Ok(Box::new(SinkOf { sink, f: command }) as Box<dyn Commands>)
-        })
+    async fn commands(c: &Client) -> Result<Commands> {
+        let sink = c.commands().await?;
+        Ok(Box::new(SinkOf { sink, f: command }))
     }
 
-    fn channel_enabled(&self, ch: u32) -> Fut<'_, bool> {
-        Box::pin(async move { Ok(self.channel(ch).read_enabled().read().await?) })
+    async fn channel_enabled(c: &Client, ch: u32) -> Result<bool> {
+        Ok(c.channel(ch).read_enabled().read().await?)
     }
 
-    fn set_channel_enabled(&self, ch: u32, enabled: bool) -> Fut<'_, ()> {
-        Box::pin(async move { Ok(self.channel(ch).write_enabled(enabled).write().await?) })
+    async fn set_channel_enabled(c: &Client, ch: u32, enabled: bool) -> Result<()> {
+        Ok(c.channel(ch).write_enabled(enabled).write().await?)
     }
 
-    fn channel_last(&self, ch: u32) -> Fut<'_, model::Sample> {
-        Box::pin(async move { sample(self.channel(ch).last().call().await?) })
+    async fn channel_last(c: &Client, ch: u32) -> Result<model::Sample> {
+        sample(c.channel(ch).last().call().await?)
     }
 
     /// Line 1 takes 0.01 K steps: a finer offset is refused.
-    fn calibrate(&self, offset: Offset) -> Fut<'_, ()> {
-        Box::pin(async move {
-            let centi = offset
-                .to::<ww_si::prefix::Centi, i16>()
-                .ok_or_else(|| self.not_representable("calibrate offset", offset))?;
-            Client::calibrate(self, centi)
-                .call()
-                .await
-                .map_err(|e| Error::from(e).of("calibrate"))
-        })
+    async fn calibrate(c: &Client, offset: Offset) -> Result<()> {
+        let centi = offset
+            .to::<ww_si::prefix::Centi, i16>()
+            .ok_or_else(|| not_representable(c, "calibrate offset", offset))?;
+        c.calibrate(centi)
+            .call()
+            .await
+            .map_err(|e| Error::from(e).of("calibrate"))
     }
 
-    fn uptime(&self) -> Fut<'_, Uptime> {
-        Box::pin(async move {
-            let s = self
-                .read_uptime()
-                .read()
-                .await
-                .map_err(|e| Error::from(e).of("uptime"))?;
-            Ok(uptime(s))
-        })
+    async fn uptime(c: &Client) -> Result<Uptime> {
+        let s = c
+            .read_uptime()
+            .read()
+            .await
+            .map_err(|e| Error::from(e).of("uptime"))?;
+        Ok(uptime(s))
     }
 
-    fn self_test(&self) -> Fut<'_, ()> {
-        Box::pin(async move {
-            Err(Error::Unsupported {
-                what: "self_test",
-                device: self.wire(),
-                needs: "line 2 from w2.1".into(),
-            })
-        })
-    }
+    // no self_test on line 1: `Unsupported` by default
 }

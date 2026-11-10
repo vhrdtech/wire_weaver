@@ -21,11 +21,11 @@ The shape in short:
 
 1. Both versions of the API crate are dependencies of the host, under two names.
 2. Each gets a module with its generated client and the conversions to the driver's own types.
-3. A facade trait, implemented once per line, hides which line the device is on.
+3. A facade, an enum over the line clients made by `wire_weaver_client::facade!`, hides which line the device is on.
 4. The connection speaks every line the driver knows; link setup takes the device on whichever it is, and the
    facade picks the matching client from the line the device reported. One handshake, no reconnect.
 
-Adding a line is one more module of the same kind and one more line in each of the two lists in step 4. When the new
+Adding a line is one more module of the same kind and one more variant of the facade enum. When the new
 line holds a value more finely or in a wider type than the driver's types do (line 3's `uptime` went from whole
 seconds in a `u32` to milliseconds in a `u64`), the driver's type follows the new line and the older lines'
 modules convert into it, exactly.
@@ -44,19 +44,11 @@ Each gets its own generated client, named by the dependency key:
 
 ```rust
 // v1.rs
-pub struct Client {
-    cmd: Commander,
-}
-
-mod api_client {
-    wire_weaver::ww_codegen!(
-        thermo_api_w1 :: Thermo for super::Client,
-        client = "std_client",
-    );
-}
+wire_weaver_client::facade_line!(thermo_api_w1::Thermo);
 ```
 
-and the same in `v2.rs` with `thermo_api_w2`. `ww api scaffold` prints the package name (`thermo_api ::`): write the
+and the same in `v2.rs` with `thermo_api_w2`. `facade_line!` emits the line's `pub struct Client` and its
+`ww_codegen!(.. for Client, client = "std_client")`; more `ww_codegen!` options go after a comma. `ww api scaffold` prints the package name (`thermo_api ::`): write the
 dependency key instead.
 
 Inside one repository a workspace can't hold two packages of one name, so the bench keeps its API crates
@@ -89,85 +81,119 @@ form, so a value line 1 can't take is refused before anything is sent, never rou
 
 ```rust
 // v1.rs: line 1 takes whole gain steps, the model hundredths
-fn set_gain(&self, g: Gain) -> Fut<'_, ()> {
-    Box::pin(async move {
-        let whole = g
-            .to::<ww_si::prefix::One, u8>()
-            .and_then(|g| g.to_bounds().ok())
-            .ok_or_else(|| self.not_representable("gain", g))?;
-        Ok(self.write_gain(whole).write().await?)
-    })
+async fn set_gain(c: &Client, g: Gain) -> Result<()> {
+    let whole = g
+        .to::<ww_si::prefix::One, u8>()
+        .and_then(|g| g.to_bounds().ok())
+        .ok_or_else(|| not_representable(c, "gain", g))?;
+    Ok(c.write_gain(whole).write().await?)
 }
 ```
 
-## The facade trait
+## The facade
 
-Every operation of the driver is a method of one trait, implemented by each line's client. `async fn` is not allowed
-in a trait object, so each returns a boxed future:
+The driver's type is an enum over the line clients, `match`ed per operation: plain `async fn`, no trait object, no
+boxed futures, and the compiler checks that every line is handled. `wire_weaver_client::facade!` (CLT-64) writes it
+from the operations, listed once with their docs:
 
 ```rust
-pub(crate) type Fut<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
+wire_weaver_client::facade! {
+    /// A `thermo_api` device on any line this driver knows.
+    pub enum Thermo {
+        V3(v3::Client),
+        V2(v2::Client),
+        V1(v1::Client),
+    }
 
-pub(crate) trait Backend: Send + Sync {
-    fn wire(&self) -> WireVersion;
-    fn configure(&self, rate: Rate, mode: Mode) -> Fut<'_, ()>;
-    fn read_once(&self) -> Fut<'_, Sample>;
-    fn observe_gain(&self) -> Fut<'_, Box<dyn Updates<Gain>>>;
-    fn samples(&self) -> Fut<'_, Box<dyn Updates<Sample>>>;
+    /// The operations of [Thermo], implemented by each line's client.
+    pub trait Line;
+
+    error = Error;
+
+    /// Sets rate and mode. Line 1 has no single call for it: the rate first, then the mode.
+    async fn configure(&self, rate: Rate, mode: Mode);
+    async fn read_once(&self) -> Sample;
+    async fn samples(&self) -> Updates<Sample>;
+    // ...
+    /// From w2.1, lines 2 and 3.
+    #[unsupported(needs = "line 2 from w2.1")]
+    async fn self_test(&self);
+}
+```
+
+It emits:
+
+- the enum, the facade itself, with one method per operation returning `Result<T, Error>`;
+- the trait `Line`, one associated function per operation, which each line implements for its client;
+- `cmd()`, `wire()`, `Thermo::config(..)` and `WwClient`, with every line's `speaks` and a `try_from_cmd` that picks
+  the variant of the device's line (see [below](#connecting-once-on-either-line)).
+
+Each line writes its functions with the client as `c`, with only that line's generated types in scope:
+
+```rust
+// v3.rs
+impl crate::Line for Client {
+    async fn read_once(c: &Client) -> Result<model::Sample> {
+        sample(c.read_once().call().await?)
+    }
+
+    async fn uptime(c: &Client) -> Result<Uptime> {
+        Ok(c.health().read_uptime().read().await?)
+    }
     // ...
 }
 ```
 
-A trait object rather than an `enum { V1, V2 }` keeps the per-line code in the line's module: no method of the facade
-grows an arm per line.
+The trait's functions take no `self`, so `c.read_once()` is always the generated method, even where it has the
+operation's name.
 
-- A method that a line lacks is emulated or refused. Line 1 has no `configure`, so its `Backend` makes two calls,
-  rate first, so a refused rate leaves the mode alone. Such an emulation is not atomic: say so in its doc comment.
-- Streams, sinks and observed properties need one generic adapter each, shared by all lines: a line's
-  `Stream<A>`, `Sink<A>` or `Observer<U, A>` and a conversion `fn` (`StreamOf`, `SinkOf`, `ObserverOf` in
-  `backend.rs`).
+- An operation a line doesn't write answers `wire_weaver_client::facade::Unsupported`: the operation's name, the
+  device's wire version and what has it (`#[unsupported(needs = "..")]` after the operation's docs, else "another
+  line"). The driver's error takes it with `From`; line 1 writes no `self_test`.
+- An emulation is written by hand, and its doc comment says what differs. Line 1 has no `configure`, so its
+  function makes two calls, rate first so a refused rate leaves the mode alone. That is not atomic: if atomicity
+  matters, the API needs an atomic method.
+- Streams, sinks and observed properties are a different type per line, so they are returned boxed: a line's
+  `Stream<A>`, `Sink<A>` or `Observer<U, A>` and a conversion `fn` in one of `wire_weaver_client::facade`'s adapters
+  (`StreamOf`, `SplitStreamOf` for a batch split into items, `ObserverOf`, `SinkOf`), as `Box<dyn Updates<T, E>>`
+  or `Box<dyn Sends<C, E>>`. One boxed future per item, nothing against a round trip.
 - Errors of each line fold into the driver's one `Error`. A call to an item newer than the device's revision is
   refused by the generated client before it is sent (`Error::OlderProtocol`, see [`#[since]`](rules.md#since)); the
   driver turns that into `Error::Unsupported`, which names the operation.
-- Inside `impl Backend for Client` a generated method may have the trait method's name (`read_once`, `samples`).
-  Inherent methods win, so `Client::read_once(self)` calls the generated one.
+- A variant holds the line's whole client: `match` on the facade reaches what only one line has.
 
 ## Connecting once, on either line
 
 Link setup refuses a device on any line but the client's own, so a facade must tell it every line it speaks.
 `ClientConfig::speaks` adds a line from a generated client's `client_line()`. Link setup then takes a device on any
 of them, sends that line's client version and gives the `Commander` that line's introspection data. The facade picks
-its client in `WwClient::try_from_cmd` by the line the device reported (CLT-62): link setup already refused any
-other line, so the `_` arm is a bug in the facade's own set of clients, not something to reach through the device —
-`try_from_cmd` says so in an `Err` rather than `unreachable!`, and the connect call that reaches it fails cleanly:
+its client in `WwClient::try_from_cmd` by the line the device reported (CLT-62). `facade!` writes both:
 
 ```rust
+// what `facade!` emits for `Thermo`, in short
 impl WwClient for Thermo {
-    /// Every line this driver has a client of, the newest first.
+    /// Every line this facade has a client of, in the order of its variants.
     fn default_config() -> ClientConfig {
         ClientConfig::default()
-            .speaks(v2::Client::client_line())
-            .speaks(v1::Client::client_line())
+            .speaks(<v3::Client as LineClient>::line())
+            .speaks(<v2::Client as LineClient>::line())
+            .speaks(<v1::Client as LineClient>::line())
     }
 
     fn try_from_cmd(cmd: Commander) -> Result<Self, Error> {
         let wire = cmd.device_api_info().user_api_wire;
-        let backend: Box<dyn Backend> = match wire.map(|w| w.line.0) {
-            Some(1) => Box::new(v1::Client::from_cmd(cmd)),
-            Some(2) => Box::new(v2::Client::from_cmd(cmd)),
-            // link setup refuses a device on any other line, see `default_config`
-            _ => {
-                return Err(Error::NoClientForLine {
-                    client: std::any::type_name::<Self>(),
-                    line: wire,
-                    device: Box::new(cmd.device_api_info().user_api_version.clone()),
-                });
-            }
-        };
-        Ok(Thermo { backend })
+        if wire.map(|w| w.line) == Some(<v3::Client as LineClient>::line().wire.line) {
+            return Ok(Self::V3(v3::Client::try_from_cmd(cmd)?));
+        }
+        // .. the same for V2 and V1
+        Err(Error::NoClientForLine { .. })
     }
 }
 ```
+
+Link setup already refused any other line, so the `Err` is a bug in the facade's own set of clients, not something
+to reach through the device: `try_from_cmd` says so rather than `unreachable!`, and the connect call that reaches it
+fails cleanly.
 
 A single-line client (one `impl WwClient` per generated client, never a facade) implements `try_from_cmd` too,
 answering `Ok` unconditionally (`Ok(Self { cmd })`): `try_from_cmd` is the one method every `WwClient` provides,
@@ -269,4 +295,6 @@ Measured on the bench (one, two and three lines, 8 Nov 2026): each extra line ad
 client code, 0.4 to 0.8 s (dev) and 0.5 to 1.7 s (release) to the driver crate's rebuild, and 125 to 133 KiB to a
 stripped release binary. The API crates themselves build in no time, as `#[ww_api_root]` and `#[ww_trait]` expand
 to nothing. The cost that grows is the hand-written part: about 200 lines of conversions and facade impl per line,
-about half of it the same signatures and boxing in every module (CLT-64).
+about half of it the same signatures and boxing in every module. With `facade!` (CLT-64) the driver went from 1078
+to 754 hand-written lines for three lines: about 160 per line, nearly all of it conversions and the bodies of the
+operations.

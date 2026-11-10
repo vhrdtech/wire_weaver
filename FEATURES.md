@@ -1701,20 +1701,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   facade's own set of clients. `PreparedConnection::connect` and `connect_blocking` call `try_from_cmd`, so that bug
   now surfaces as a connect error, not a panic. Tests `wire_weaver_client` `ww_client_tests::*` (both defaults,
   direct).
+- ✅ **CLT-64 A facade for several wire lines without boilerplate** · `v0.5` — `wire_weaver_client::facade!` takes
+  a driver's operations once, with their docs (`async fn read_once(&self) -> Sample;`), and its lines as the variants
+  of an enum (`V3(v3::Client), ..`), and emits that enum as the facade, a method per operation that `match`es over
+  the lines (plain `async fn`, no `dyn`, no boxing), a trait of the operations that each line implements for its
+  client as associated functions (`async fn read_once(c: &Client) -> Result<Sample>`, so `c.read_once()` is always
+  the generated method), `cmd()`, `wire()`, `config()`, `default_config` with every line's `speaks` and a
+  `try_from_cmd` that picks by line. An operation a line doesn't write answers `facade::Unsupported { what, device,
+  needs }`, `needs` from an optional `#[unsupported(needs = "..")]`; emulations are written by hand. `facade_line!`
+  is a line module's header: its `Client` and `ww_codegen!`. The adapters `StreamOf`, `SplitStreamOf`, `ObserverOf`
+  and `SinkOf` moved into `wire_weaver_client::facade`, behind `Updates` and `Sends`. `tests/thermo` runs on it
+  (1078 to 754 hand-written lines, the same tests green); docs `evolution/multi_line_host.md#the-facade`.
 - 💡 **CLT-63 Reconnect into another wire line** — a facade of several lines (EVO-28) picks its client once, in
   `from_cmd`. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
   connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an
   error naming both lines.
-- 💡 **CLT-64 A facade for several wire lines without boilerplate** — the EVO-28 bench's driver repeats every
-  operation in three places (an object-safe trait with boxed futures, an `impl` per line, a wrapper on the facade),
-  about half of each line's 200 hand-written lines, and inside `impl Backend for Client` the generated methods share
-  the trait's names (`Client::read_once(self)`). A `macro_rules!` in `wire_weaver_client` could take the operations
-  once (`async fn read_once(&self) -> Sample;` with docs) and the lines (`3 => thermo_api_w3`, ...) and emit the
-  trait, the facade with its wrappers, `default_config` with every line's `speaks` and a `from_cmd` that picks by
-  line, and each line's client module; a line then writes only bodies (`async fn read_once(c) { .. }` with the
-  client as `c`), and an operation a line lacks defaults to an `Unsupported` error. The stream, observer and sink
-  adapters (`StreamOf`, `SplitStreamOf`, `ObserverOf`, `SinkOf`) move into `wire_weaver_client` as they are. The
-  conversions and emulations stay the driver's.
 - 💡 **CLT-69 Writing a `Point` into a different origin through `DynQuantity::to_value`** — CLT-65's `to_value`
   writes a `Point<O, Fixed<U, P, T, B>>` back when the `DynQuantity`'s own origin is the same `O` (the offset
   cancels, a plain scale conversion); writing one of a *different* origin (°F into a °C field) needs the full

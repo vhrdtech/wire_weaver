@@ -20,6 +20,7 @@ pub(crate) mod event_loop;
 /// The evolution checker, now its own crate (EVO-11): `wire_weaver_evolution`.
 pub use wire_weaver_evolution as evolution;
 pub mod expr;
+pub mod facade;
 pub mod follow;
 mod global_paths;
 pub mod holders;

@@ -74,6 +74,17 @@ impl From<wire_weaver_client::Error> for Error {
     }
 }
 
+/// An operation a line doesn't write (`wire_weaver_client::facade!`'s default).
+impl From<wire_weaver_client::facade::Unsupported> for Error {
+    fn from(e: wire_weaver_client::facade::Unsupported) -> Self {
+        Error::Unsupported {
+            what: e.what,
+            device: e.device,
+            needs: e.needs.into(),
+        }
+    }
+}
+
 /// A device's error of one line, before it is folded into [Error]: the per-line modules implement `From` for their
 /// error enums.
 pub struct DeviceError<E>(pub E);

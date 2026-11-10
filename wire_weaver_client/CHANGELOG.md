@@ -103,6 +103,7 @@
 
 ### 🚀 Features
 
+- `facade!` and `facade_line!` (CLT-64): an enum facade over the generated clients of several wire lines of one API, from its operations listed once; a `match` per operation, each line implements the generated trait of the operations for its client, and an operation a line doesn't write answers the new `facade::Unsupported`. New module `facade` with `LineClient`, `Updates`, `Sends`, `Fut` and the adapters `StreamOf`, `SplitStreamOf`, `ObserverOf` and `SinkOf` (moved from `tests/thermo`). See `docs/evolution/multi_line_host.md`.
 - ±∞ written into a `Finite` float `Fixed` is refused before sending (STD-104).
 - `quantity::coded_of` and `CodedType`; `DynQuantity::from_value` reads an `exact_units::codec::Coded` value as the `Fixed` its code means, and `to_value` writes a quantity by its exact code, refusing a value between two codes with the nearest one named (STD-109).
 - `quantity::point_of(ty, bundle)` (CLT-65): `ty`'s origin and `F`, `None` for any other type. `DynQuantity` gets

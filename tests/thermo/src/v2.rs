@@ -1,33 +1,13 @@
-//! Line 2 (`thermo_api` 2.x, wire w2.y): the generated client and its [Backend].
+//! Line 2 (`thermo_api` 2.x, wire w2.y): the generated client and its operations.
 
-use crate::backend::{Backend, Commands, Fut, ObserverOf, SinkOf, StreamOf, Updates};
 use crate::error::{DeviceError, Error, Result};
 use crate::model::{self, Gain, Offset, Rate, Uptime};
+use crate::{Commands, Updates};
 use thermo_api_w2 as api;
-use wire_weaver::ww_version::WireVersion;
+use wire_weaver_client::facade::{LineClient, ObserverOf, SinkOf, StreamOf};
 use wire_weaver_client::observe::on_change;
-use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
-pub struct Client {
-    cmd: Commander,
-}
-
-impl WwClient for Client {
-    fn default_config() -> ClientConfig {
-        ClientConfig::default()
-    }
-
-    fn try_from_cmd(cmd: Commander) -> core::result::Result<Self, wire_weaver_client::Error> {
-        Ok(Self { cmd })
-    }
-}
-
-mod api_client {
-    wire_weaver::ww_codegen!(
-        thermo_api_w2 :: Thermo for super::Client,
-        client = "std_client",
-    );
-}
+wire_weaver_client::facade_line!(thermo_api_w2::Thermo);
 
 // The API crate's own types: one conversion each way per type, also for the ones that didn't change (`RateError`,
 // `Command`). The `ww_si` fields inside them are the model's types already.
@@ -91,112 +71,93 @@ impl From<DeviceError<api::SelfTestError>> for Error {
     }
 }
 
+// conversions that need the device's wire version
 impl Client {
     /// `Mode::Triggered` is gone from line 2.
-    fn to_mode(&self, m: model::Mode) -> Result<api::Mode> {
+    fn to_mode(c: &Client, m: model::Mode) -> Result<api::Mode> {
         match m {
             model::Mode::Idle => Ok(api::Mode::Idle),
             model::Mode::Continuous => Ok(api::Mode::Continuous),
             model::Mode::Triggered => Err(Error::Unsupported {
                 what: "Mode::Triggered",
-                device: self.wire(),
+                device: c.wire(),
                 needs: "line 1 (line 2 triggers in any mode)".into(),
             }),
         }
     }
 }
 
-impl Backend for Client {
-    fn cmd(&self) -> &Commander {
-        &self.cmd
+impl crate::Line for Client {
+    async fn read_once(c: &Client) -> Result<model::Sample> {
+        sample(c.read_once().call().await?)
     }
 
-    fn wire(&self) -> WireVersion {
-        self.cmd
-            .device_api_info()
-            .user_api_wire
-            .expect("link setup refuses a device without a wire version")
+    async fn mode(c: &Client) -> Result<model::Mode> {
+        mode(c.read_mode().read().await?)
     }
 
-    fn configure(&self, rate: Rate, mode: model::Mode) -> Fut<'_, ()> {
-        Box::pin(async move {
-            let config = api::Config {
-                rate,
-                mode: self.to_mode(mode)?,
-            };
-            Ok(Client::configure(self, config).call().await?)
-        })
+    async fn set_mode(c: &Client, m: model::Mode) -> Result<()> {
+        Ok(c.write_mode(Client::to_mode(c, m)?).write().await?)
     }
 
-    fn read_once(&self) -> Fut<'_, model::Sample> {
-        Box::pin(async move { sample(Client::read_once(self).call().await?) })
+    async fn gain(c: &Client) -> Result<Gain> {
+        gain(c.read_gain().read().await?)
     }
 
-    fn mode(&self) -> Fut<'_, model::Mode> {
-        Box::pin(async move { mode(self.read_mode().read().await?) })
+    async fn set_gain(c: &Client, g: Gain) -> Result<()> {
+        Ok(c.write_gain(g).write().await?)
     }
 
-    fn set_mode(&self, m: model::Mode) -> Fut<'_, ()> {
-        Box::pin(async move { Ok(self.write_mode(self.to_mode(m)?).write().await?) })
+    async fn observe_gain(c: &Client) -> Result<Updates<Gain>> {
+        let observer = c
+            .observe_gain(on_change(Default::default()))
+            .subscribe()
+            .await?;
+        Ok(Box::new(ObserverOf { observer, f: gain }))
     }
 
-    fn gain(&self) -> Fut<'_, Gain> {
-        Box::pin(async move { gain(self.read_gain().read().await?) })
+    async fn commands(c: &Client) -> Result<Commands> {
+        let sink = c.commands().await?;
+        Ok(Box::new(SinkOf { sink, f: command }))
     }
 
-    fn set_gain(&self, g: Gain) -> Fut<'_, ()> {
-        Box::pin(async move { Ok(self.write_gain(g).write().await?) })
+    async fn channel_enabled(c: &Client, ch: u32) -> Result<bool> {
+        Ok(c.channel(ch).read_enabled().read().await?)
     }
 
-    fn observe_gain(&self) -> Fut<'_, Box<dyn Updates<Gain>>> {
-        Box::pin(async move {
-            let observer = Client::observe_gain(self, on_change(Default::default()))
-                .subscribe()
-                .await?;
-            Ok(Box::new(ObserverOf { observer, f: gain }) as Box<dyn Updates<Gain>>)
-        })
+    async fn set_channel_enabled(c: &Client, ch: u32, enabled: bool) -> Result<()> {
+        Ok(c.channel(ch).write_enabled(enabled).write().await?)
     }
 
-    fn samples(&self) -> Fut<'_, Box<dyn Updates<model::Sample>>> {
-        Box::pin(async move {
-            let stream = Client::samples(self).call().await?;
-            Ok(Box::new(StreamOf { stream, f: sample }) as Box<dyn Updates<model::Sample>>)
-        })
+    async fn channel_last(c: &Client, ch: u32) -> Result<model::Sample> {
+        sample(c.channel(ch).last().call().await?)
     }
 
-    fn commands(&self) -> Fut<'_, Box<dyn Commands>> {
-        Box::pin(async move {
-            let sink = Client::commands(self).await?;
-            Ok(Box::new(SinkOf { sink, f: command }) as Box<dyn Commands>)
-        })
+    async fn calibrate(c: &Client, offset: Offset) -> Result<()> {
+        Ok(c.calibrate(offset).call().await?)
     }
 
-    fn channel_enabled(&self, ch: u32) -> Fut<'_, bool> {
-        Box::pin(async move { Ok(self.channel(ch).read_enabled().read().await?) })
+    async fn configure(c: &Client, rate: Rate, mode: model::Mode) -> Result<()> {
+        let config = api::Config {
+            rate,
+            mode: Client::to_mode(c, mode)?,
+        };
+        Ok(c.configure(config).call().await?)
     }
 
-    fn set_channel_enabled(&self, ch: u32, enabled: bool) -> Fut<'_, ()> {
-        Box::pin(async move { Ok(self.channel(ch).write_enabled(enabled).write().await?) })
+    async fn samples(c: &Client) -> Result<Updates<model::Sample>> {
+        let stream = c.samples().call().await?;
+        Ok(Box::new(StreamOf { stream, f: sample }))
     }
 
-    fn channel_last(&self, ch: u32) -> Fut<'_, model::Sample> {
-        Box::pin(async move { sample(self.channel(ch).last().call().await?) })
+    async fn uptime(c: &Client) -> Result<Uptime> {
+        Ok(uptime(c.read_uptime().read().await?))
     }
 
-    fn calibrate(&self, offset: Offset) -> Fut<'_, ()> {
-        Box::pin(async move { Ok(Client::calibrate(self, offset).call().await?) })
-    }
-
-    fn uptime(&self) -> Fut<'_, Uptime> {
-        Box::pin(async move { Ok(uptime(self.read_uptime().read().await?)) })
-    }
-
-    fn self_test(&self) -> Fut<'_, ()> {
-        Box::pin(async move {
-            Client::self_test(self)
-                .call()
-                .await
-                .map_err(|e| Error::from(e).of("self_test"))
-        })
+    async fn self_test(c: &Client) -> Result<()> {
+        c.self_test()
+            .call()
+            .await
+            .map_err(|e| Error::from(e).of("self_test"))
     }
 }

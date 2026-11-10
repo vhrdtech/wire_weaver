@@ -296,7 +296,8 @@ crate: 0.2.0 or later, the largest its roots need
 * Each root's wire version is checked on its own line, and a wire bump names the root's entry in the `roots` table.
   `#[since = "w1.2, w2.1"]` on a shared item is checked against each line's revision.
 * A type or trait of the crate that more than one root reaches and that changed is listed once more at the end, with
-  every root and line it changed on.
+  every root and line it changed on, and the roots that reach it with nothing to compare (a w0 root). A w0 root's
+  differences add nothing to the crate bump.
 * The crate version is one for all roots, so it has to be bumped for the root that needs the most.
 * A root that didn't change keeps an older crate version's snapshot as its latest. Once the crate version has
   snapshots of other roots, that older snapshot stands for the current version: a change to the root afterwards needs
@@ -304,14 +305,16 @@ crate: 0.2.0 or later, the largest its roots need
 * With `require_current` (the evolution test), a root that changed since its latest snapshot needs a file of the
   current version. A root unchanged since an older version's snapshot needs none.
 * A root the `roots` table no longer lists while it has snapshots is a line leaving the crate, a breaking crate bump
-  ([several lines in one crate](rules.md#several-lines-in-one-crate)). `ww api save` records the removal in
+  ([several lines in one crate](rules.md#several-lines-in-one-crate)) of the last version that shipped it: the newest
+  one saved before the current version while the root had a snapshot. A root only ever saved by the version being
+  worked on was never shipped and needs no bump. `ww api save` records the removal in
   `<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.removed`, a one-line text file, and refuses
   it without the bump. Later versions are not asked again, and the evolution test fails until the removal is recorded.
 * `ww api check --against <file>` takes one root's snapshot file and checks that root. A root's snapshot file checked
   by itself is compared with the previous snapshot of the same root.
 * `ww api diff` lists each root's differences under its name.
 * All roots are loaded with one cache of the crates read (`wire_weaver_core::CrateCache`), so the dependencies'
-  source is walked once for the whole check.
+  source is walked once for the whole check. Each check reads the source anew.
 * A root on w0 gets no snapshot and needs none: its check is on the design line ([below](#the-design-line-w0)).
 
 ## The design line, w0

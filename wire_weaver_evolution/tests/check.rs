@@ -1461,3 +1461,133 @@ fn unchanged_roots_snapshot_stands_for_the_saved_version() {
         "{err}"
     );
 }
+
+/// A root shipped by 0.1.0, changed and saved by 0.1.1, then removed while 0.1.1 is worked on (EVO-39): `run` and
+/// `save` agree that the removal needs a breaking bump of 0.1.0, the last version that shipped it, and once recorded
+/// the removal is recognised, so saving again writes nothing and the evolution test passes.
+#[test]
+fn removal_of_a_root_saved_by_the_current_version() {
+    let c = TestCrate::new("removed_after_save");
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    let mut modules = per_root_modules("");
+    modules[1].1 = LINE_1.replace("#[ww_api_root]", "/// Line 1.\n#[ww_api_root]");
+    write_per_root(&c, "0.1.1", ["w1.0", "w2.0"], &modules);
+    Check::new(c.path()).save(false).unwrap();
+    assert!(c.snapshot("test_api_0_1_1.wire_v1.Api@w1.0.ron").exists());
+    let only_2 = |version: &str| {
+        c.write_roots(
+            version,
+            &[("wire_v2::Api", "w2.0")],
+            &[("common", COMMON), ("wire_v2", LINE_2)],
+        );
+    };
+    only_2("0.1.1");
+    let err = check(c.path(), false).1.unwrap_err();
+    assert!(err.contains("test_api 0.1.0 -> 0.2.0 or later"), "{err}");
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    assert!(err.contains("test_api 0.1.0 -> 0.2.0 or later"), "{err}");
+    assert!(
+        !c.snapshot("test_api_0_1_1.wire_v1.Api@w1.0.removed")
+            .exists()
+    );
+
+    only_2("0.2.0");
+    assert!(check(c.path(), false).1.is_ok());
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert!(
+        saved.iter().any(|s| s.status == SaveStatus::Removed),
+        "{saved:?}"
+    );
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert!(
+        saved.iter().all(|s| s.status == SaveStatus::UpToDate),
+        "{saved:?}"
+    );
+    let (outcome, verdict) = check_current(c.path());
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+}
+
+/// A root that only ever had a snapshot of the version being worked on was never shipped: removing it needs no bump.
+#[test]
+fn removal_of_a_root_never_shipped_needs_no_bump() {
+    let c = TestCrate::new("removed_never_shipped");
+    c.write_roots(
+        "0.1.0",
+        &[("wire_v2::Api", "w2.0")],
+        &[("common", COMMON), ("wire_v2", LINE_2)],
+    );
+    Check::new(c.path()).save(false).unwrap();
+    write_per_root(&c, "0.1.1", ["w1.0", "w2.0"], &per_root_modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    c.write_roots(
+        "0.1.1",
+        &[("wire_v2::Api", "w2.0")],
+        &[("common", COMMON), ("wire_v2", LINE_2)],
+    );
+    assert!(check(c.path(), false).1.is_ok());
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert!(
+        saved.iter().any(|s| s.status == SaveStatus::Removed),
+        "{saved:?}"
+    );
+    assert!(check_current(c.path()).1.is_ok());
+}
+
+/// A check holds no loaded source: it stays `Send` and `Sync`, and runs again after an edit see the edit (EVO-39).
+#[test]
+fn a_check_sees_the_source_as_it_is_now() {
+    fn send_sync<T: Send + Sync>(_: &T) {}
+    let c = TestCrate::new("check_sees_edits");
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    let check = Check::new(c.path()).strict(true);
+    send_sync(&check);
+    assert!(check.run().unwrap().verdict().is_ok());
+    let again = check.clone();
+    let mut modules = per_root_modules("");
+    modules[1].1 = LINE_1.replace("    fn read_once() -> Code;\n", "");
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &modules);
+    let err = again.run().unwrap().verdict().unwrap_err();
+    assert!(err.contains("API root `wire_v1::Api`"), "{err}");
+    assert!(check.run().unwrap().verdict().is_err());
+}
+
+/// A shared type a w0 root reaches too (EVO-41): listed with the w0 root, which needs no bump of its own.
+#[test]
+fn shared_type_reached_by_a_design_line_root() {
+    let c = TestCrate::new("shared_with_w0");
+    let modules = per_root_modules("");
+    write_per_root(&c, "0.1.0", ["w1.0", "w0.0"], &modules);
+    Check::new(c.path()).save(false).unwrap();
+    let wider: Vec<_> = modules
+        .into_iter()
+        .map(|(n, s)| {
+            (
+                n,
+                s.replace(
+                    "pub struct Code(pub u16);",
+                    "pub struct Code(pub u16, pub u8);",
+                ),
+            )
+        })
+        .collect();
+    write_per_root(&c, "0.2.0", ["w2.0", "w0.1"], &wider);
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    let roots = roots_of(&outcome);
+    assert_eq!(
+        roots
+            .shared
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        ["shared `Code` changed on `wire_v1::Api` (w2.0), also reached by `wire_v2::Api` (w0.1)"]
+    );
+    assert_eq!(
+        roots
+            .minimal_version()
+            .map(|v| wire_weaver_evolution::snapshot_files::triplet(&v)),
+        Some("0.2.0".to_string())
+    );
+}

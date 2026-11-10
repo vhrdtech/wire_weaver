@@ -18,6 +18,7 @@ use crate::snapshot_files::{
     root_of_file_name, root_snapshots, triplet,
 };
 use crate::{Bump, Change, compare_recorded, own_traits, own_types, suggest};
+use wire_weaver_core::CrateCache;
 
 /// What [Check::run] found for a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37):
 /// each root compared with its own latest snapshot (EVO-39).
@@ -81,6 +82,9 @@ pub struct SharedChange {
     pub item: String,
     /// The roots it changed on, with their wire versions.
     pub roots: Vec<(String, WireVersion)>,
+    /// The other roots that reach it, with nothing to compare it with: a root on w0, the design line (EVO-41), or
+    /// without a snapshot.
+    pub also: Vec<(String, WireVersion)>,
 }
 
 impl Check {
@@ -93,14 +97,14 @@ impl Check {
     pub(super) fn run_roots(
         &self,
         roots: &BTreeMap<String, WireVersion>,
+        cache: &CrateCache,
     ) -> Result<Outcome, String> {
         let dir = self.crate_snapshots_dir();
         let mut loaded = vec![];
         let mut hints = vec![];
         let mut warnings = vec![];
         for (root, wire) in roots {
-            let (bundle, root_hints) = self
-                .cache
+            let (bundle, root_hints) = cache
                 .load_root_with_hints(&self.path, root)
                 .map_err(|e| format!("{e:#}"))?;
             for hint in root_hints {
@@ -140,6 +144,13 @@ impl Check {
                 .push(self.against_root(against, loaded, &own)?);
             return Ok(Outcome::Roots(Box::new(outcome)));
         }
+        // what each root reaches, w0 roots and roots without a snapshot too
+        let mut reached: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
+        for (root, wire, bundle) in &loaded {
+            for name in own_names(bundle) {
+                reached.entry(name).or_default().push((root.clone(), *wire));
+            }
+        }
         let files = crate_files(&dir, &own.crate_id)?;
         let saved_at_current = files.iter().any(|f| f.version == key(&own.version));
         for (root, wire, bundle) in loaded {
@@ -151,8 +162,8 @@ impl Check {
                 outcome: one,
             });
         }
-        outcome.removed = removed_roots(&files, roots, &own.version, true);
-        outcome.shared = shared_changes(&outcome.roots)?;
+        outcome.removed = removed_roots(&files, roots, &own.version);
+        outcome.shared = shared_changes(&outcome.roots, &reached)?;
         Ok(Outcome::Roots(Box::new(outcome)))
     }
 
@@ -332,7 +343,7 @@ impl Check {
         let dir = self.crate_snapshots_dir();
         let files = crate_files(&dir, &own.crate_id)?;
         let mut planned = vec![];
-        for removed in removed_roots(&files, roots, &own.version, false) {
+        for removed in removed_roots(&files, roots, &own.version) {
             if removed.recorded.is_some() {
                 continue;
             }
@@ -375,39 +386,50 @@ impl Check {
 }
 
 /// Roots with a snapshot in `files` (of one crate, [crate_files]) not newer than `version` that `roots` doesn't
-/// list. `checked`: as [Check::run] sees them, against the newest crate version saved up to `version` itself; else
-/// as [Check::save] does, against the newest one before it.
+/// list. [Check::run] and [Check::save] see them alike: the removal needs a breaking bump of the last crate version
+/// that shipped the root, the newest one saved before `version` while the root had a snapshot; none when it only
+/// ever had snapshots of `version`, which is being worked on. A record of the removal at or after the root's last
+/// snapshot ([removed_file_name]) is the removal already checked and kept.
 fn removed_roots(
     files: &[NamedFile],
     roots: &BTreeMap<String, WireVersion>,
     version: &VersionOwned,
-    checked: bool,
 ) -> Vec<RemovedRoot> {
     let current = key(version);
-    // the newest snapshot of each root no longer listed
-    let mut last: BTreeMap<&str, (&NamedFile, WireVersion)> = BTreeMap::new();
+    // the oldest and the newest snapshot of each root no longer listed
+    struct Known<'a> {
+        first: (u32, u32, u32),
+        last: &'a NamedFile,
+        wire: WireVersion,
+    }
+    let mut known: BTreeMap<&str, Known> = BTreeMap::new();
     for file in files {
         if let CrateFile::Root { root, wire } = &file.kind
             && !roots.contains_key(root)
             && file.version <= current
-            && last
-                .get(root.as_str())
-                .is_none_or(|(l, _)| l.version <= file.version)
         {
-            last.insert(root, (file, *wire));
+            let entry = known.entry(root.as_str()).or_insert(Known {
+                first: file.version,
+                last: file,
+                wire: *wire,
+            });
+            entry.first = entry.first.min(file.version);
+            if entry.last.version <= file.version {
+                (entry.last, entry.wire) = (file, *wire);
+            }
         }
     }
-    let base = files
+    let previous = files
         .iter()
         .map(|f| f.version)
-        .filter(|v| if checked { *v <= current } else { *v < current })
+        .filter(|v| *v < current)
         .max();
-    last.into_iter()
-        .map(|(root, (last, wire))| {
-            let v = last.version;
+    known
+        .into_iter()
+        .map(|(root, Known { first, last, wire })| {
             let recorded = files.iter().find_map(|f| match &f.kind {
                 CrateFile::Removed { root: r, .. }
-                    if r == root && f.version > v && f.version <= current =>
+                    if r == root && f.version >= last.version && f.version <= current =>
                 {
                     Some(f.path.clone())
                 }
@@ -417,8 +439,8 @@ fn removed_roots(
                 root: root.to_string(),
                 last: last.path.clone(),
                 wire,
-                since: base
-                    .filter(|b| *b >= v)
+                since: previous
+                    .filter(|p| *p >= first)
                     .map(|(major, minor, patch)| VersionOwned::new(major, minor, patch)),
                 recorded,
             }
@@ -426,49 +448,51 @@ fn removed_roots(
         .collect()
 }
 
-/// The crate's own types and traits reached by more than one root that changed on any, from the comparisons.
-fn shared_changes(roots: &[RootOutcome]) -> Result<Vec<SharedChange>, String> {
-    let compared: Vec<_> = roots
-        .iter()
-        .filter_map(|r| match &r.outcome {
-            Outcome::Compared(c) => Some((r, c)),
-            _ => None,
-        })
-        .collect();
-    // each root's own trait aside: two lines' roots may share a name, never a definition
-    let names = |bundle: &ApiBundleOwned| -> BTreeSet<String> {
-        let root = bundle.root.items.first().map(|item| item.ident.as_str());
-        own_traits(bundle)
-            .into_keys()
-            .filter(|name| Some(*name) != root)
-            .chain(own_types(bundle).into_keys())
-            .map(String::from)
-            .collect()
-    };
-    let mut reached: BTreeMap<String, usize> = BTreeMap::new();
-    for (_, c) in &compared {
-        for name in names(&c.new) {
-            *reached.entry(name).or_default() += 1;
-        }
-    }
-    let mut shared: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
-    for (r, c) in &compared {
-        let reach = names(&c.new);
+/// The crate's own types and traits in `bundle`, its root trait aside: two lines' roots may share a name, never a
+/// definition.
+fn own_names(bundle: &ApiBundleOwned) -> BTreeSet<String> {
+    let root = bundle.root.items.first().map(|item| item.ident.as_str());
+    own_traits(bundle)
+        .into_keys()
+        .filter(|name| Some(*name) != root)
+        .chain(own_types(bundle).into_keys())
+        .map(String::from)
+        .collect()
+}
+
+/// The crate's own types and traits that more than one root reaches (`reached`, by every root, w0 roots and roots
+/// without a snapshot too) and that changed on a root compared with its snapshot.
+fn shared_changes(
+    roots: &[RootOutcome],
+    reached: &BTreeMap<String, Vec<(String, WireVersion)>>,
+) -> Result<Vec<SharedChange>, String> {
+    let mut changed_on: BTreeMap<String, Vec<(String, WireVersion)>> = BTreeMap::new();
+    for r in roots {
+        let Outcome::Compared(c) = &r.outcome else {
+            continue;
+        };
         let changed: BTreeSet<String> = crate::diff(&c.old, &c.new)?
             .iter()
             .map(|d| item_of(d.path()).to_string())
-            .filter(|name| reach.contains(name) && reached[name] > 1)
+            .filter(|name| reached.get(name).is_some_and(|by| by.len() > 1))
             .collect();
         for name in changed {
-            shared
+            changed_on
                 .entry(name)
                 .or_default()
                 .push((r.root.clone(), r.wire));
         }
     }
-    Ok(shared
+    Ok(changed_on
         .into_iter()
-        .map(|(item, roots)| SharedChange { item, roots })
+        .map(|(item, roots)| {
+            let also = reached[&item]
+                .iter()
+                .filter(|by| !roots.contains(by))
+                .cloned()
+                .collect();
+            SharedChange { item, roots, also }
+        })
         .collect())
 }
 
@@ -500,11 +524,12 @@ impl RemovedRoot {
 }
 
 impl RootsOutcome {
-    /// The smallest crate version for every root's changes and every removal: the largest of what each needs.
-    /// `None` when there is nothing to compare with.
+    /// The smallest crate version for every root's changes and every removal: the largest of what each needs. A
+    /// root on w0, the design line (EVO-41), informs only and needs nothing. `None` when there is nothing to compare
+    /// with.
     pub fn minimal_version(&self) -> Option<VersionOwned> {
         let roots = self.roots.iter().filter_map(|r| match &r.outcome {
-            Outcome::Compared(c) => Some(c.report.minimal_version()),
+            Outcome::Compared(c) if !c.design_line => Some(c.report.minimal_version()),
             _ => None,
         });
         let removed = self
@@ -570,10 +595,10 @@ impl RootsOutcome {
         }
     }
 
-    /// Whether any root changed, or one is removed and not recorded yet.
+    /// Whether any root not on w0 changed, or one is removed and not recorded yet.
     pub fn changed(&self) -> bool {
         self.roots.iter().any(|r| match &r.outcome {
-            Outcome::Compared(c) => c.report.change != Change::None,
+            Outcome::Compared(c) => c.report.change != Change::None && !c.design_line,
             _ => false,
         }) || self.removed.iter().any(|r| r.recorded.is_none())
     }
@@ -635,6 +660,15 @@ impl fmt::Display for SharedChange {
             .iter()
             .map(|(root, wire)| format!("`{root}` ({wire})"))
             .collect();
-        write!(f, "shared `{}` changed on {}", self.item, roots.join(", "))
+        write!(f, "shared `{}` changed on {}", self.item, roots.join(", "))?;
+        if !self.also.is_empty() {
+            let also: Vec<_> = self
+                .also
+                .iter()
+                .map(|(root, wire)| format!("`{root}` ({wire})"))
+                .collect();
+            write!(f, ", also reached by {}", also.join(", "))?;
+        }
+        Ok(())
     }
 }

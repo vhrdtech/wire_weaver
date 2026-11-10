@@ -42,7 +42,6 @@ pub struct Check {
     strict: bool,
     require_current: bool,
     snapshots_dir: Option<PathBuf>,
-    cache: CrateCache,
 }
 
 /// Environment variable that makes [Check::assert] save the snapshot of the current version first, when set to
@@ -58,17 +57,7 @@ impl Check {
             strict: false,
             require_current: false,
             snapshots_dir: None,
-            cache: CrateCache::default(),
         }
-    }
-
-    /// Load the crate with this cache, shared with other checks of the same crate: a crate with several API roots
-    /// walks its dependencies once for all of them (EVO-39). Each `Check` has a cache of its own otherwise, kept by
-    /// its clones, used by [run](Self::run) and [save](Self::save) alike. The source is taken as it was when first
-    /// read: a `Check` doesn't see changes made to it afterwards.
-    pub fn cache(mut self, cache: CrateCache) -> Self {
-        self.cache = cache;
-        self
     }
 
     /// Compare with this snapshot file instead of the newest fitting one.
@@ -112,11 +101,14 @@ impl Check {
 
     /// Loads both versions and compares them. Whether the version is bumped enough is up to [Outcome::verdict].
     pub fn run(&self) -> Result<Outcome, String> {
+        // one cache for every load of this run, so a crate's roots walk their dependencies once (EVO-39); dropped
+        // with it, so the next run reads the source as it is then
+        let cache = CrateCache::default();
         let is_snapshot = self.is_snapshot();
         if !is_snapshot {
             let roots = wire_weaver_core::api_roots(&self.path).map_err(|e| format!("{e:#}"))?;
             if !roots.is_empty() {
-                return self.run_roots(&roots);
+                return self.run_roots(&roots, &cache);
             }
         }
         let (new, new_recorded, new_label, dir, hints) = if is_snapshot {
@@ -130,8 +122,7 @@ impl Check {
                 vec![],
             )
         } else {
-            let (new, hints) = self
-                .cache
+            let (new, hints) = cache
                 .load_crate_with_hints(&self.path)
                 .map_err(|e| format!("{e:#}"))?;
             let dir = self.crate_snapshots_dir();
@@ -275,12 +266,13 @@ impl Check {
             ));
         }
         let roots = wire_weaver_core::api_roots(&self.path).map_err(|e| format!("{e:#}"))?;
+        let cache = CrateCache::default();
         let planned = if roots.is_empty() {
-            vec![self.plan_crate(force)?]
+            vec![self.plan_crate(&cache, force)?]
         } else {
             let mut planned = roots
                 .iter()
-                .map(|(root, wire)| self.plan_root(root, *wire, force))
+                .map(|(root, wire)| self.plan_root(&cache, root, *wire, force))
                 .collect::<Result<Vec<_>, _>>()?;
             let own = planned[0]
                 .0
@@ -305,11 +297,12 @@ impl Check {
     }
 
     /// The snapshot of the whole crate at its version, and the text to write, `None` when it is up to date.
-    fn plan_crate(&self, force: bool) -> Result<(Saved, Option<String>), String> {
-        let bundle = self
-            .cache
-            .load_crate(&self.path)
-            .map_err(|e| format!("{e:#}"))?;
+    fn plan_crate(
+        &self,
+        cache: &CrateCache,
+        force: bool,
+    ) -> Result<(Saved, Option<String>), String> {
+        let bundle = cache.load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
         let dir = self.crate_snapshots_dir();
         let path = dir.join(format!("{}.ron", own.filename_friendly()));
@@ -331,12 +324,12 @@ impl Check {
     /// since its previous snapshot keeps that one, which an older crate version saved.
     fn plan_root(
         &self,
+        cache: &CrateCache,
         root: &str,
         wire: WireVersion,
         force: bool,
     ) -> Result<(Saved, Option<String>), String> {
-        let bundle = self
-            .cache
+        let bundle = cache
             .load_root(&self.path, root)
             .map_err(|e| format!("{e:#}"))?;
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?.clone();

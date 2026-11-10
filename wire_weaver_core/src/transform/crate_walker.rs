@@ -475,11 +475,11 @@ pub(crate) struct CachedCrates {
 /// `ww api check` and an evolution test load a crate more than once (EVO-39). Reading a crate's source again is what
 /// a walk spends most of its time on.
 ///
-/// The source is taken as it was when first read: keep a cache for one check or command, not across changes to the
-/// files. Clones share the cache.
-#[derive(Clone, Default)]
+/// The source is taken as it was when first read, so a cache is for one check or command and is dropped with it:
+/// it is not `Clone`, and a source changed while it lives is not seen. It holds parsed source, which isn't `Send`.
+#[derive(Default)]
 pub struct CrateCache {
-    by_entry: Rc<std::cell::RefCell<HashMap<PathBuf, CachedCrates>>>,
+    by_entry: std::cell::RefCell<HashMap<PathBuf, CachedCrates>>,
 }
 
 impl std::fmt::Debug for CrateCache {

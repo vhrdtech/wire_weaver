@@ -3,10 +3,15 @@
 ### ⚠️ Breaking
 
 - w0, the design line (EVO-41): a client on `w0.x` connected to a device whose API hash differs and whose introspection data is unavailable refuses every call into its API with the new `Error::DesignLineUnchecked`, since `#[since]` means nothing on w0. With the device's introspection data it compares every resource as on any line, whatever the two w0 revisions; equal hashes still need no download, as the hash is over the device's own introspection bytes. An exhaustive `match` on `Error` adds the variant.
-- New `Error::NoClientForLine { client, line, device }` (CLT-62): a facade of several wire lines
-  (`ClientConfig::speaks`, EVO-28) that overrides `WwClient::try_from_cmd` returns it for a line it has no client
-  of, instead of `unreachable!`; link setup already refused every other line, so this only catches a bug in the
-  facade's own set of clients. Code matching `Error` exhaustively handles the new variant.
+- `WwClient::try_from_cmd(cmd) -> Result<Self, Error>` is now the trait's required method (CLT-62), `from_cmd` a
+  provided one that unwraps it with a panic (sound to call only where `try_from_cmd` can't answer `Err`, e.g. a
+  client of one wire line). Every `impl WwClient` (every generated-pattern client, `tests`, `examples`, `ww_hub`,
+  `DynClient`, `HubClient`) changes its `fn from_cmd(cmd: Commander) -> Self { Self { cmd } }` to `fn
+  try_from_cmd(cmd: Commander) -> Result<Self, Error> { Ok(Self { cmd }) }`; a facade of several wire lines
+  (`ClientConfig::speaks`, EVO-28) overrides `try_from_cmd` instead and returns the new `Error::NoClientForLine`
+  for a line it has no client of, rather than `unreachable!`. `PreparedConnection::connect` and `connect_blocking`
+  call `try_from_cmd`, so that failure is now a connect error, not a panic. Code matching `Error` exhaustively
+  handles the new variant.
 - New `Error::HelloWireMismatch { device, hello_wire, bundle_wire }` (CLT-61): a device whose hello
   (`DeviceInfo::user_api_wire`) names a wire version that differs from the one its own introspection bundle
   (`ApiBundle::wire`) reports is refused, naming both wires, before any `#[since]` check or resource comparison
@@ -92,7 +97,6 @@
 - `quantity::coded_of` and `CodedType`; `DynQuantity::from_value` reads an `exact_units::codec::Coded` value as the `Fixed` its code means, and `to_value` writes a quantity by its exact code, refusing a value between two codes with the nearest one named (STD-109).
 - `units::Of<Q, U>` (exact_units UNIT-8) is shown and converted as `U` by `quantity::DynUnit`, as its `UnitExpr` is `U`'s; the quantity is in the model (`ww_self::units::CanonicalUnit::quantity`).
 - A host speaking several wire lines of one API (EVO-28): `ClientConfig::speaks(ClientLine)` adds a line from a generated client's `client_line()`; the first call sets the version and introspection data as `client_version` and `introspect_client` do. Link setup takes a device on any of the lines and sends the version of that line's client, the Commander gets that line's introspection data, so a facade bundling clients of several lines connects once and picks its client in `WwClient::try_from_cmd` (CLT-62) by `DeviceApiInfo::user_api_wire`. A line of another API, or two clients of one line, are refused when connecting. New `ClientApi::wires` and `ClientApi::for_device`. See `tests/thermo`.
-- `WwClient::try_from_cmd(cmd) -> Result<Self, Error>` (CLT-62), the fallible form of `from_cmd`: its default is `Ok(Self::from_cmd(cmd))`, so a client of one wire line keeps implementing only `from_cmd` as before; `from_cmd`'s own default is `Self::try_from_cmd(cmd)` unwrapped with a panic, so a facade of several wire lines (EVO-28) overrides `try_from_cmd` instead and returns `Error::NoClientForLine` for a line it has no client of, rather than `unreachable!`. `PreparedConnection::connect` and `connect_blocking` call `try_from_cmd`, so that failure is now a connect error, not a panic.
 - The hub preamble carries this program's generations (EVO-23, `TAG_GENERATIONS`), which the hub serves by.
 - Compressed introspection data (INT-16): downloads (`Introspect::get`, `download`, the blocking ones, promises), the connection's introspection at link setup, `decode_introspection`, `ww tap`'s bundles and an embedded client bundle are decompressed when they are compressed (`ww_self::compressed`, told apart by the first bytes); data that is neither a bundle nor compressed is an error naming its magic. Hashes are checked and bundles cached over the decompressed bytes, so a compressed device shares cache entries with a plain one of the same API.
 - `Introspect::download_promise`: the promise counterpart of `download`, skipping the cache lookup (`get_promise` now calls it on a cache miss).

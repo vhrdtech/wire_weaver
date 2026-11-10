@@ -128,8 +128,16 @@ pub mod internal {
 pub trait WwClient {
     fn default_config() -> ClientConfig;
 
-    /// Builds the client from a connected [Commander]. Sound to call only where [Self::try_from_cmd] can't fail,
-    /// e.g. a client of one wire line: the default calls it and panics on its `Err` (CLT-62).
+    /// Builds the client from a connected [Commander], or says why it can't (CLT-62): a client of one wire line
+    /// (most of them) answers `Ok` unconditionally; a facade of several wire lines ([ClientConfig::speaks],
+    /// EVO-28) answers [Error::NoClientForLine] for a line it has no client of, rather than `unreachable!` — link
+    /// setup already refused every other line, so that only catches a bug in the facade's own set of clients.
+    fn try_from_cmd(cmd: Commander) -> Result<Self, Error>
+    where
+        Self: Sized;
+
+    /// Builds the client, panicking where [Self::try_from_cmd] would answer `Err`. Sound to call only where that
+    /// can't happen, e.g. a client of one wire line.
     fn from_cmd(cmd: Commander) -> Self
     where
         Self: Sized,
@@ -138,16 +146,6 @@ pub trait WwClient {
             Ok(client) => client,
             Err(e) => panic!("{e:#}"),
         }
-    }
-
-    /// The fallible form of [Self::from_cmd] (CLT-62): the default wraps it in `Ok`. A facade of several wire lines
-    /// ([ClientConfig::speaks], EVO-28) overrides this instead, to say in [Error] why a line it has no client of got
-    /// through link setup ([Error::NoClientForLine]), rather than `unreachable!`.
-    fn try_from_cmd(cmd: Commander) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        Ok(Self::from_cmd(cmd))
     }
 }
 
@@ -160,23 +158,24 @@ mod ww_client_tests {
         Commander::new(tx)
     }
 
-    /// A single-line client overrides only `from_cmd`: `try_from_cmd`'s default wraps it in `Ok`.
+    /// A client of one wire line implements only `try_from_cmd`, answering `Ok` unconditionally.
     struct OneLine;
     impl WwClient for OneLine {
         fn default_config() -> ClientConfig {
             ClientConfig::default()
         }
-        fn from_cmd(_cmd: Commander) -> Self {
-            OneLine
+        fn try_from_cmd(_cmd: Commander) -> Result<Self, Error> {
+            Ok(OneLine)
         }
     }
 
     #[test]
-    fn try_from_cmd_defaults_to_ok_of_from_cmd() {
-        assert!(OneLine::try_from_cmd(bare_commander()).is_ok());
+    fn from_cmd_defaults_to_unwrapping_try_from_cmd() {
+        let _ = OneLine::from_cmd(bare_commander());
     }
 
-    /// A facade overrides only `try_from_cmd`: `from_cmd`'s default panics on its `Err` (CLT-62).
+    /// A facade of several wire lines answers `Err` for a line it has no client of (CLT-62): `from_cmd`'s default
+    /// panics on it.
     struct Facade;
     impl WwClient for Facade {
         fn default_config() -> ClientConfig {

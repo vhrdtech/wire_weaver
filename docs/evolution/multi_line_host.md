@@ -169,8 +169,9 @@ impl WwClient for Thermo {
 }
 ```
 
-A single-line client (one `impl WwClient` per generated client, never a facade) still implements plain `from_cmd`,
-which can't fail: `try_from_cmd`'s default wraps it in `Ok`.
+A single-line client (one `impl WwClient` per generated client, never a facade) implements `try_from_cmd` too,
+answering `Ok` unconditionally (`Ok(Self { cmd })`): `try_from_cmd` is the one method every `WwClient` provides,
+`from_cmd`'s default panics on its `Err` and is sound to call only where that can't happen, as here.
 
 A device on a line the driver doesn't know (one newer than all of them) is refused in link setup with
 `Error::IncompatibleDeviceProtocol`, which names every line the host speaks and says to update the host. Two clients

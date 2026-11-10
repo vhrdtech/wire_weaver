@@ -100,8 +100,8 @@ impl WwClient for Blinky {
     fn default_config() -> ClientConfig {
         ClientConfig::new().usb_vid_pid(0xc0de, 0xcafe)
     }
-    fn from_cmd(cmd: Commander) -> Self {
-        Self { cmd }
+    fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
+        Ok(Self { cmd })
     }
 }
 

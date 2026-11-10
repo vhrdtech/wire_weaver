@@ -90,8 +90,8 @@ impl WwClient for Raw {
         ClientConfig::new()
     }
 
-    fn from_cmd(cmd: Commander) -> Self {
-        Raw(cmd)
+    fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
+        Ok(Raw(cmd))
     }
 }
 

@@ -19,8 +19,8 @@ impl WwClient for HubClient {
         ClientConfig::new().hub_api()
     }
 
-    fn from_cmd(cmd: Commander) -> Self {
-        HubClient { cmd }
+    fn try_from_cmd(cmd: Commander) -> Result<Self, crate::Error> {
+        Ok(HubClient { cmd })
     }
 }
 

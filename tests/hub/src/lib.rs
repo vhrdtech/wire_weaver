@@ -184,8 +184,8 @@ mod tests {
             ClientConfig::default()
         }
 
-        fn from_cmd(cmd: Commander) -> Self {
-            Client { cmd }
+        fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
+            Ok(Client { cmd })
         }
     }
 

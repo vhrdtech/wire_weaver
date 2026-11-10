@@ -96,8 +96,8 @@ mod board_client {
             ClientConfig::default()
         }
 
-        fn from_cmd(cmd: Commander) -> Self {
-            Self { cmd }
+        fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
+            Ok(Self { cmd })
         }
     }
 

@@ -18,8 +18,8 @@ impl WwClient for LeanAppClient {
         ClientConfig::default().default_timeout(Duration::from_secs(2))
     }
 
-    fn from_cmd(cmd: Commander) -> Self {
-        Self { cmd }
+    fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
+        Ok(Self { cmd })
     }
 }
 

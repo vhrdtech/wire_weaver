@@ -17,8 +17,8 @@ impl WwClient for DynClient {
         ClientConfig::new()
     }
 
-    fn from_cmd(cmd: Commander) -> Self {
-        Self { cmd }
+    fn try_from_cmd(cmd: Commander) -> Result<Self, crate::Error> {
+        Ok(Self { cmd })
     }
 }
 

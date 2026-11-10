@@ -12,7 +12,7 @@ pub mod property_model;
 pub mod transform;
 
 pub use transform::{
-    CratePaths, UnitHint, api_roots, dependency_dir, load, load_crate, load_crate_with_hints,
+    CrateCache, CratePaths, UnitHint, api_roots, dependency_dir, load, load_crate, load_crate_with_hints,
     load_dep, load_dep_with_paths, load_own_with_paths, load_root, load_root_with_hints,
     load_with_hints, publishable, root_of_crate_snapshot,
 };

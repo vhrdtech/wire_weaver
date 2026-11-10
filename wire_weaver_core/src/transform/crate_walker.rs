@@ -458,6 +458,72 @@ pub(crate) struct Scratch {
     pub(crate) trait_modules: BTreeMap<(String, String), Vec<String>>,
 }
 
+/// What a walk ([Scratch]) learns about crates that the next walk from the same crate can reuse: the crates and
+/// manifests read, their modules, public paths and re-exports, and Cargo's sources. Not what a walk converts.
+#[derive(Default)]
+pub(crate) struct CachedCrates {
+    crates: HashMap<FullVersionOwned, Rc<CrateContext>>,
+    manifests: HashMap<PathBuf, Rc<ManifestContext>>,
+    public_paths: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Vec<String>>,
+    modules: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Option<Rc<CrateContext>>>,
+    local_reexports: HashMap<(FullVersionOwned, Vec<ModSegment>), Rc<[LocalReexport]>>,
+    sources: CargoSources,
+}
+
+/// The crates a load reads, kept for the next load from the same crate: [load_crate](super::load_crate) and
+/// [load_root](super::load_root) of each API root of a crate walk the same dependencies (ww_si, exact_units), and
+/// `ww api check` and an evolution test load a crate more than once (EVO-39). Reading a crate's source again is what
+/// a walk spends most of its time on.
+///
+/// The source is taken as it was when first read: keep a cache for one check or command, not across changes to the
+/// files. Clones share the cache.
+#[derive(Clone, Default)]
+pub struct CrateCache {
+    by_entry: Rc<std::cell::RefCell<HashMap<PathBuf, CachedCrates>>>,
+}
+
+impl std::fmt::Debug for CrateCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let entries: Vec<_> = self.by_entry.borrow().keys().cloned().collect();
+        f.debug_struct("CrateCache")
+            .field("entries", &entries)
+            .finish()
+    }
+}
+
+impl CrateCache {
+    /// Runs `walk` on a [Scratch] that starts with what earlier walks from `crate_path` read, and keeps what it read
+    /// for the next one, also when it fails.
+    pub(crate) fn walk<T>(
+        &self,
+        crate_path: &Path,
+        walk: impl FnOnce(&mut Scratch) -> Result<T>,
+    ) -> Result<T> {
+        let key = crate_path
+            .canonicalize()
+            .unwrap_or_else(|_| crate_path.to_path_buf());
+        let cached = self.by_entry.borrow_mut().remove(&key).unwrap_or_default();
+        let mut scratch = Scratch::default();
+        scratch.crates = cached.crates;
+        scratch.manifests = cached.manifests;
+        scratch.public_paths = cached.public_paths;
+        scratch.modules = cached.modules;
+        scratch.local_reexports = cached.local_reexports;
+        scratch.sources = cached.sources;
+        let walked = walk(&mut scratch);
+        let cached = CachedCrates {
+            crates: std::mem::take(&mut scratch.crates),
+            manifests: std::mem::take(&mut scratch.manifests),
+            public_paths: std::mem::take(&mut scratch.public_paths),
+            modules: std::mem::take(&mut scratch.modules),
+            local_reexports: std::mem::take(&mut scratch.local_reexports),
+            sources: std::mem::take(&mut scratch.sources),
+        };
+        self.by_entry.borrow_mut().insert(key, cached);
+        walked
+    }
+}
+
 impl Scratch {
     /// Note the module `trait_name` is defined in. The API model names a trait by its crate and name, so two traits
     /// of one name in two modules of a crate can't both be in one API.

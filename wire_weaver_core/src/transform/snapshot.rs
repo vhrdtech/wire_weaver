@@ -1,6 +1,6 @@
 use super::{
     api::convert_trait,
-    crate_walker::{CrateContext, Scratch, find_root, get_trait, root_wire},
+    crate_walker::{CrateContext, CrateCache, Scratch, find_root, get_trait, root_wire},
     ty::{convert_named_def, is_phantom_data},
     util::{collect_docs, get_wire_attr, use_tree_globs, use_tree_names, use_tree_path_to},
 };
@@ -42,7 +42,44 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
 
 /// [load_crate], also returning the unit-suffix hints found (TOOL-22), for `ww api check` to show.
 pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-    let mut scratch = Scratch::default();
+    CrateCache::default().load_crate_with_hints(crate_path)
+}
+
+impl CrateCache {
+    /// [load_crate] with this cache.
+    pub fn load_crate(&self, crate_path: &Path) -> Result<ApiBundleOwned> {
+        self.load_crate_with_hints(crate_path)
+            .map(|(bundle, _hints)| bundle)
+    }
+
+    /// [load_crate_with_hints] with this cache.
+    pub fn load_crate_with_hints(
+        &self,
+        crate_path: &Path,
+    ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+        self.walk(crate_path, |scratch| load_crate_in(crate_path, scratch))
+    }
+
+    /// [load_root] with this cache.
+    pub fn load_root(&self, crate_path: &Path, root: &str) -> Result<ApiBundleOwned> {
+        self.load_root_with_hints(crate_path, root)
+            .map(|(bundle, _hints)| bundle)
+    }
+
+    /// [load_root_with_hints] with this cache.
+    pub fn load_root_with_hints(
+        &self,
+        crate_path: &Path,
+        root: &str,
+    ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+        self.walk(crate_path, |scratch| load_root_in(crate_path, root, scratch))
+    }
+}
+
+fn load_crate_in(
+    crate_path: &Path,
+    scratch: &mut Scratch,
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
     scratch.dedup_traits = true;
     // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
     let (entry, items, wire) = scratch.walk(|scratch| {
@@ -130,7 +167,14 @@ pub fn load_root_with_hints(
     crate_path: &Path,
     root: &str,
 ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-    let mut scratch = Scratch::default();
+    CrateCache::default().load_root_with_hints(crate_path, root)
+}
+
+fn load_root_in(
+    crate_path: &Path,
+    root: &str,
+    scratch: &mut Scratch,
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
     scratch.dedup_traits = true;
     let (entry, item, wire) = scratch.walk(|scratch| {
         let entry = CrateContext::load_all_features(crate_path, scratch)?;
@@ -208,14 +252,14 @@ pub fn root_of_crate_snapshot(bundle: &ApiBundleOwned, trait_name: &str) -> Opti
 /// The bundle of a snapshot from what [load_crate] or [load_root] walked: other crates' traits and types skipped,
 /// what nothing uses dropped (except this crate's own types with `keep_own_types`).
 fn snapshot_bundle(
-    scratch: Scratch,
+    scratch: &mut Scratch,
     docs: Vec<String>,
     items: Vec<ApiItemOwned>,
     wire: Option<WireVersion>,
     keep_own_types: bool,
 ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-    let unit_hints = scratch.unit_hints;
-    let scratch = scratch.root_bundle;
+    let unit_hints = std::mem::take(&mut scratch.unit_hints);
+    let scratch = std::mem::take(&mut scratch.root_bundle);
     let ext_wire = scratch.ext_wire(wire);
     let mut bundle = ApiBundleOwned {
         magic: ww_self::MAGIC,
@@ -969,6 +1013,28 @@ mod tests {
         );
         assert_eq!(reset_since("wire_v1::Api"), Some(WireVersion::new(1, 2)));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A [CrateCache] shared by the loads of a crate's roots and of a whole crate gives the bundles a fresh walk
+    /// gives, in any order, and keeps what a failed load read (EVO-39).
+    #[test]
+    fn crate_cache_gives_the_same_bundles() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let cache = CrateCache::default();
+        let multi = dir.join("tests/multi_root_api");
+        for root in ["wire_v2::Thermo", "wire_v1::Thermo", "wire_v2::Thermo"] {
+            let fresh = load_root(&multi, root).unwrap();
+            let cached = cache.load_root(&multi, root).unwrap();
+            assert_eq!(format!("{cached:?}"), format!("{fresh:?}"), "{root}");
+        }
+        assert!(cache.load_crate(&multi).is_err());
+        assert!(cache.load_root(&multi, "wire_v1::Thermo").is_ok());
+        let units = dir.join("tests/thermo_api/w3");
+        let fresh = load_crate_with_hints(&units).unwrap();
+        for _ in 0..2 {
+            let cached = cache.load_crate_with_hints(&units).unwrap();
+            assert_eq!(format!("{cached:?}"), format!("{fresh:?}"));
+        }
     }
 
     /// A crate that isn't a ww API crate (API-60): no traits, its types and unit markers are the snapshot.

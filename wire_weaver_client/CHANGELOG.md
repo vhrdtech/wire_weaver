@@ -78,6 +78,7 @@
 
 ### 🐛 Fixes
 
+- `ensure_running`'s wait for a freshly started hub to answer on its socket (CLT-39) was a 2 s deadline: a hang detector for a hub that never comes up, not the happy-path speed, since an early exit of the child is caught at once regardless. On a loaded PC, spawning the process, starting its runtime and binding the socket can genuinely take longer than 2 s, failing `ensure_running` with `NotReady` although the hub was still coming up. `READY_TIMEOUT` is now 15 s, `START_LOCK_TIMEOUT` (a second client waiting on the first one's start, which must cover `READY_TIMEOUT`) 20 s.
 - `quantity::parse_quantity(text, None)` refuses a number without a unit symbol (`"5"`): it used to read it as whichever `ww_si` unit came first, every unit matching the empty symbol (EVO-28). With the unit given, a number alone is still in the unit itself.
 - `follow::Follow::left`: waits, bounded, until no device with the serial matches a predicate (the boot ROM stays on the bus for the reboot delay); returns whether it left.
 - Builds `RequestKindOwned::Observe` with the boxed body and reads `RequestKind::Observe`'s body with `RefBox::read` in the request envelope (SRV-54, `ww_client_server`'s breaking change); nothing changes for users.

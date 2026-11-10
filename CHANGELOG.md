@@ -416,6 +416,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `MultiRead`.
 - `exact_units` pinned by `rev` in the root `[workspace.dependencies]` (e89f64e, the commit `Cargo.lock` already had): a repo that takes wire_weaver by path (usb_io_fw, vb135_fdcan_iso_usb_fw, typec_dongle) resolved `exact_units` HEAD with its own lock file and broke on `ww_si` re-exports.
 - The ww hub's `ClockSync::devices` could briefly list a device just closed (SRV-31): a steering task's publish, already in flight when the device closed, could resurrect the entry its close had just removed. See `ww_hub/CHANGELOG.md`.
+- `ensure_running`'s wait for a freshly started hub to answer on its socket (CLT-39) was too tight for a loaded PC (2 s), failing `NotReady` although the hub was still starting up. See `wire_weaver_client/CHANGELOG.md`.
 
 ## [0.5.0] - 2026-10-15
 

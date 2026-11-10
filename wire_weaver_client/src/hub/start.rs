@@ -21,12 +21,15 @@ use ww_local_socket::files::{HUB_LOCK, HUB_LOG, HUB_SOCKET, HUB_START_LOCK};
 
 use super::{EXE_ENV, HANDOVER_ENV, SERVE_ENV, VERSION_ARG};
 
-/// How long a started hub has to answer on its socket.
-const READY_TIMEOUT: Duration = Duration::from_secs(2);
+/// How long a started hub has to answer on its socket: a hang detector, not the happy-path speed (an early exit of
+/// the child is caught at once, whatever this is; a loaded PC can still take real wall-clock time to spawn a
+/// process, init its runtime and bind the socket, so this stays generous rather than racing that).
+const READY_TIMEOUT: Duration = Duration::from_secs(15);
 /// How long a candidate executable has to print its hub version.
 const VERSION_TIMEOUT: Duration = Duration::from_secs(2);
-/// Waiting for another client that is starting a hub: its start plus its readiness wait.
-const START_LOCK_TIMEOUT: Duration = Duration::from_secs(5);
+/// Waiting for another client that is starting a hub: its start plus its readiness wait ([READY_TIMEOUT]), with
+/// margin for spawning the process itself.
+const START_LOCK_TIMEOUT: Duration = Duration::from_secs(20);
 /// One readiness probe: connect, preamble, answer.
 const PROBE_TIMEOUT: Duration = Duration::from_millis(300);
 const POLL: Duration = Duration::from_millis(20);

@@ -1,4 +1,7 @@
-//! `thermo_api` 1.2.0 at wire w1.2: line 1 of the dual-driver bench (EVO-28), a small temperature logger.
+//! `thermo_api` 1.0.0 at wire w1.0: the first revision of line 1 (`../w1`), before `calibrate` (w1.1) and `uptime`
+//! (w1.2). Firmware in the field may still run it; the bench's host has no client of it, it talks to it with w1.2's.
+//!
+//! Line 1 of the dual-driver bench (EVO-28), a small temperature logger.
 //!
 //! It touches every place a wire break can bite: methods with arguments, returns and errors, properties with get,
 //! set and observe, an enum, a stream up and a sink down, an array of sub-levels, items added within the line
@@ -9,10 +12,10 @@
 use wire_weaver::prelude::*;
 use ww_si::origins::Celsius;
 use ww_si::prefix::{Centi, One};
-use ww_si::units::{Hertz, Item, Kelvin, Ratio, Sample as SampleUnit, Second};
+use ww_si::units::{Hertz, Item, Kelvin, Ratio, Sample as SampleUnit};
 use ww_si::{Fixed, IndexFrom1, Point, Range, Seq};
 
-#[ww_api_root(wire = "w1.2")]
+#[ww_api_root(wire = "w1.0")]
 pub trait Thermo {
     /// How often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample is running.
     fn set_rate(rate: Fixed<Hertz, One, u16, Range<1, 1000>>) -> Result<(), RateError>;
@@ -29,12 +32,6 @@ pub trait Thermo {
     ww_impl!(channel[]: Channel);
     /// The status LED, a `ww_stdlib` trait both lines share.
     ww_impl!(indication: ww_indication::Indication);
-    /// Adds `offset` to every sample from now on. Added in w1.1.
-    #[since = "w1.1"]
-    fn calibrate(offset: Fixed<Kelvin, Centi, i16>);
-    /// Time since boot. Added in w1.2.
-    #[since = "w1.2"]
-    property!(ro uptime: Fixed<Second, One, u32>);
 }
 
 #[ww_trait]

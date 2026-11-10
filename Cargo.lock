@@ -5192,9 +5192,7 @@ name = "thermo"
 version = "0.1.0"
 dependencies = [
  "tests_common",
- "thermo_api 1.2.0",
- "thermo_api 2.1.0",
- "thermo_api 3.0.0",
+ "thermo_api 4.0.0",
  "thermo_devices",
  "thiserror 2.0.20",
  "tokio",
@@ -5219,15 +5217,6 @@ dependencies = [
 
 [[package]]
 name = "thermo_api"
-version = "1.2.0"
-dependencies = [
- "wire_weaver",
- "ww_indication",
- "ww_si",
-]
-
-[[package]]
-name = "thermo_api"
 version = "2.0.0"
 dependencies = [
  "wire_weaver",
@@ -5237,18 +5226,10 @@ dependencies = [
 
 [[package]]
 name = "thermo_api"
-version = "2.1.0"
+version = "4.0.0"
 dependencies = [
  "wire_weaver",
- "ww_indication",
- "ww_si",
-]
-
-[[package]]
-name = "thermo_api"
-version = "3.0.0"
-dependencies = [
- "wire_weaver",
+ "wire_weaver_evolution",
  "ww_indication",
  "ww_si",
 ]
@@ -5259,10 +5240,8 @@ version = "0.1.0"
 dependencies = [
  "tests_common",
  "thermo_api 1.0.0",
- "thermo_api 1.2.0",
  "thermo_api 2.0.0",
- "thermo_api 2.1.0",
- "thermo_api 3.0.0",
+ "thermo_api 4.0.0",
  "wire_weaver",
  "ww_client_server",
  "ww_hub",

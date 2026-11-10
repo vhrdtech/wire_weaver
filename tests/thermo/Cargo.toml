@@ -8,9 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-thermo_api_w1.workspace = true
-thermo_api_w2.workspace = true
-thermo_api_w3.workspace = true
+thermo_api.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros"] }
 wire_weaver.workspace = true

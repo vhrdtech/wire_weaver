@@ -7,9 +7,9 @@
 
 fn main() {
     // registered in this process, reached by the hub as `inproc:<path>` (ww_hub's device.rs config_for)
-    let _w1 = thermo_devices::w1::start("thermo-w1", thermo_api_w1::THERMO_WIRE_VERSION);
-    let _w2 = thermo_devices::w2::start("thermo-w2", thermo_api_w2::THERMO_WIRE_VERSION);
-    let _w3 = thermo_devices::w3::start("thermo-w3", thermo_api_w3::THERMO_WIRE_VERSION);
+    let _w1 = thermo_devices::w1::start("thermo-w1", thermo_api::wire_v1::THERMO_WIRE_VERSION);
+    let _w2 = thermo_devices::w2::start("thermo-w2", thermo_api::wire_v2::THERMO_WIRE_VERSION);
+    let _w3 = thermo_devices::w3::start("thermo-w3", thermo_api::wire_v3::THERMO_WIRE_VERSION);
 
     let config = ww_hub::HubConfig::from_env().expect("hub config from the environment");
     eprintln!(

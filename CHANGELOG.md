@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- The multi-line bench on one API crate (EVO-42): `tests/thermo_api` 4.0.0 holds wire lines 1 to 3 as roots (`wire_v1`, `wire_v2`, `wire_v3`) with what they share in `common`, back in the workspace; the driver `tests/thermo` uses the enum facade and one shared `ww_indication` client. Found on the way: a sub-level trait named through a `use` (`wire_weaver_core`) and two roots' same-named traits taken as one shared trait (`wire_weaver_evolution`). See those changelogs.
 - The walker parses a dependency's module files only when something looks into them, so a `#[ww_trait]` walk of `ww_pwm` takes about half the time (see the `wire_weaver_core` changelog).
 - `ww api line new` / `retire` start and end a wire line of a multi-root API crate (TOOL-33, see `wire_weaver_cli/CHANGELOG.md`).
 - `ww_si::Timed.t` is a device time point, `Timed<V, Tm = DeviceMicros<u32>>`, unwrapped on the host by `TimeUnwrapper` (STD-110, wire change EVO-51, `ww_si` 0.5.0 on wire `w5.0`); a batched stream picks its time point with `batched(time = ..)` (API-61), typed stream handles carry the time type (CLT-70). See the `ww_si`, `ww_stream`, `wire_weaver_core`, `wire_weaver_client`, `ww_self` and `wire_weaver_py` changelogs.

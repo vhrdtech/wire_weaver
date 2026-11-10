@@ -153,7 +153,8 @@ async fn exercise(t: &Thermo, shared: &devices::Shared) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn line_1_device() {
     let _ = tracing_subscriber::fmt::try_init();
-    let (shared, device) = devices::w1::start("thermo/w1", thermo_api_w1::THERMO_WIRE_VERSION);
+    let (shared, device) =
+        devices::w1::start("thermo/w1", thermo_api::wire_v1::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
     assert_eq!(t.wire(), WireVersion::new(1, 2));
     exercise(&t, &shared).await;
@@ -162,7 +163,8 @@ async fn line_1_device() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn line_2_device() {
     let _ = tracing_subscriber::fmt::try_init();
-    let (shared, device) = devices::w2::start("thermo/w2", thermo_api_w2::THERMO_WIRE_VERSION);
+    let (shared, device) =
+        devices::w2::start("thermo/w2", thermo_api::wire_v2::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
     assert_eq!(t.wire(), WireVersion::new(2, 1));
     exercise(&t, &shared).await;
@@ -171,7 +173,8 @@ async fn line_2_device() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn line_3_device() {
     let _ = tracing_subscriber::fmt::try_init();
-    let (shared, device) = devices::w3::start("thermo/w3", thermo_api_w3::THERMO_WIRE_VERSION);
+    let (shared, device) =
+        devices::w3::start("thermo/w3", thermo_api::wire_v3::THERMO_WIRE_VERSION);
     let t = connect(&device).await;
     assert_eq!(t.wire(), WireVersion::new(3, 0));
     exercise(&t, &shared).await;
@@ -247,14 +250,14 @@ async fn a_fourth_line_is_refused() {
 async fn reconnect_after_a_dfu_to_another_line() {
     let _ = tracing_subscriber::fmt::try_init();
     let path = "thermo/dfu";
-    let (_shared1, device1) = devices::w1::start(path, thermo_api_w1::THERMO_WIRE_VERSION);
+    let (_shared1, device1) = devices::w1::start(path, thermo_api::wire_v1::THERMO_WIRE_VERSION);
     let t = connect(&device1).await;
     assert_eq!(t.wire(), WireVersion::new(1, 2));
     t.read_once().await.unwrap();
 
     t.cmd().disconnect().keep_streams().await.unwrap();
     // the device at `path` comes back flashed with line 3's firmware
-    let (shared3, _device3) = devices::w3::start(path, thermo_api_w3::THERMO_WIRE_VERSION);
+    let (shared3, _device3) = devices::w3::start(path, thermo_api::wire_v3::THERMO_WIRE_VERSION);
 
     let e = t.cmd().reconnect().await.unwrap_err();
     assert!(
@@ -286,34 +289,40 @@ async fn reconnect_after_a_dfu_to_another_line() {
 fn the_driver_speaks_three_lines() {
     const {
         let (w1, w2, w3) = (
-            thermo_api_w1::THERMO_WIRE_VERSION.line.0,
-            thermo_api_w2::THERMO_WIRE_VERSION.line.0,
-            thermo_api_w3::THERMO_WIRE_VERSION.line.0,
+            thermo_api::wire_v1::THERMO_WIRE_VERSION.line.0,
+            thermo_api::wire_v2::THERMO_WIRE_VERSION.line.0,
+            thermo_api::wire_v3::THERMO_WIRE_VERSION.line.0,
         );
         assert!(w1 != w2 && w2 != w3 && w1 != w3)
     };
     let _ = Thermo::default_config();
 }
 
-/// `ww api check` agrees on both breaks: line 2 against line 1 and line 3 against line 2 each need a new line and a
-/// breaking crate bump, and the versions chosen have both. Each line's later revision needs a new revision and a
-/// minor bump. Across a break resources are matched by path and `#[moved_from]` (EVO-40), within a line by position.
+/// `ww api check` agrees on both breaks, root by root of the one crate (EVO-39, EVO-42): line 2 against line 1 and
+/// line 3 against line 2 each need a new line and a breaking crate bump. Each line's later revision, against the
+/// snapshot its first revision was published with (1.0.0, 2.0.0, its root at the crate root then), needs a new
+/// revision and a minor bump. Across a break resources are matched by path and `#[moved_from]` (EVO-40), within a
+/// line by position.
 #[test]
 fn checker_agrees_on_both_bumps() {
-    use wire_weaver_evolution::{
-        Change, Move, WireBump, compare, compare_moved, snapshot_files::triplet,
-    };
+    use wire_weaver_evolution::{Change, Move, WireBump, compare, compare_moved};
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../thermo_api");
-    let load = |v: &str| wire_weaver_core::load_crate(&dir.join(v)).unwrap();
-    let (w1_0, w1, w2_0, w2) = (load("w1_0"), load("w1"), load("w2_0"), load("w2"));
+    let cache = wire_weaver_core::CrateCache::default();
+    let load = |root: &str| cache.load_root(&dir, root).unwrap();
+    let (w1, w2) = (load("wire_v1::Thermo"), load("wire_v2::Thermo"));
+    let snapshot = |v: &str| {
+        wire_weaver_evolution::snapshot_files::parse(
+            &dir.join(format!("api_snapshots/thermo_api_{v}.ron")),
+        )
+        .unwrap()
+    };
+    let (w1_0, w2_0) = (snapshot("1_0_0"), snapshot("2_0_0"));
 
     let report = compare(&w1, &w2_0).unwrap();
     assert!(report.across_line);
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
     assert_eq!(report.minimal_wire(), Some(WireVersion::new(2, 0)));
-    assert_eq!(triplet(&report.minimal_version()), "2.0.0");
-    report.check_version().unwrap();
     report.check_wire().unwrap();
     // what the wire break is made of, the resources matched by path: `configure` replaces `set_rate`, not a rename
     // of it with another argument
@@ -369,15 +378,13 @@ fn checker_agrees_on_both_bumps() {
     );
 
     // line 2 -> line 3: the batched stream, the tree moved, uptime in another unit and type
-    let (w3, notes) = wire_weaver_core::load_crate_with_notes(&dir.join("w3")).unwrap();
+    let (w3, notes) = cache.load_root_with_notes(&dir, "wire_v3::Thermo").unwrap();
     let moves: Vec<Move> = notes.moved_from.iter().map(Move::from).collect();
     assert_eq!(moves.len(), 1, "{moves:?}");
     let report = compare_moved(&w2, &w3, &moves).unwrap();
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
     assert_eq!(report.minimal_wire(), Some(WireVersion::new(3, 0)));
-    assert_eq!(triplet(&report.minimal_version()), "3.0.0");
-    report.check_version().unwrap();
     report.check_wire().unwrap();
     // the batch replaces `Sample` without a field-by-field comparison, `self_test` moved into `health` by its
     // `#[moved_from]`, `uptime` removed, its namesake in `health` only proposed, with the reason it can't be the same
@@ -404,9 +411,8 @@ fn checker_agrees_on_both_bumps() {
         report.proposals[0]
     );
 
-    for (old, new, wire, crate_version) in
-        [(&w1_0, &w1, (1, 1), "1.1.0"), (&w2_0, &w2, (2, 1), "2.1.0")]
-    {
+    // the crate version is checked per root against the snapshots by `thermo_api`'s own `tests/evolution.rs`
+    for (old, new, wire) in [(&w1_0, &w1, (1, 1)), (&w2_0, &w2, (2, 1))] {
         let report = compare(old, new).unwrap();
         assert_eq!(report.change, Change::Compatible, "{:?}", report.breaking);
         assert_eq!(report.wire_bump, WireBump::Revision);
@@ -414,8 +420,6 @@ fn checker_agrees_on_both_bumps() {
             report.minimal_wire(),
             Some(WireVersion::new(wire.0, wire.1))
         );
-        assert_eq!(triplet(&report.minimal_version()), crate_version);
-        report.check_version().unwrap();
         report.check_wire().unwrap();
     }
 }

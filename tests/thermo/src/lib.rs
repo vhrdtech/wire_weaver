@@ -1,9 +1,10 @@
-//! A host driver for every wire line of `thermo_api` (EVO-28): line 1 (`thermo_api` 1.2.0 at w1.2), line 2 (2.1.0 at
-//! w2.1, a wire break) and line 3 (3.0.0 at w3.0, another break), one generated client each, behind one facade,
+//! A host driver for every wire line of `thermo_api` (EVO-28, EVO-42): line 1 (`wire_v1`, w1.2), line 2 (`wire_v2`,
+//! w2.1, a wire break) and line 3 (`wire_v3`, w3.0, another break), one generated client each, behind one facade,
 //! [Thermo].
 //!
-//! - The clients are of the same crate at three versions, as Cargo renamed dependencies (`thermo_api_w1`,
-//!   `thermo_api_w2`, `thermo_api_w3`), one module each (`v1.rs`, `v2.rs`, `v3.rs`).
+//! - The lines are roots of one API crate, `thermo_api` 4.0.0, one module each (EVO-37); their clients are one module
+//!   each here (`v1.rs`, `v2.rs`, `v3.rs`). What lines share is one type in `thermo_api::common`, converted once
+//!   ([common](mod@common)).
 //! - [Thermo] is an enum over the three clients, made by `wire_weaver_client::facade!` (CLT-64) from the operations
 //!   below: each line implements its trait in [line](mod@line) for its client; `self_test`, which line 1 lacks, is
 //!   [Error::Unsupported] there.
@@ -12,11 +13,12 @@
 //!   or a lost link, `Thermo::reconnect()` picks the client again (CLT-63): a DFU may bring the device back on
 //!   another line this facade also speaks.
 //! - [model] is the driver's own version-free types; each line converts to and from it.
-//! - `ww_indication` is a trait of `ww_stdlib` every line implements: one trait client over global paths serves all,
-//!   with no per-line code ([Thermo::indication]).
+//! - `ww_indication` is a trait of `ww_stdlib` every line has: one client type, [IndicationClient], generated once and
+//!   returned by every line's client (CLT-68), reached by its path in the device's line ([Thermo::indication]).
 //!
 //! Tests against simulated firmware of each line (`thermo_devices`) are in `tests/`.
 
+mod common;
 pub mod error;
 pub mod model;
 pub mod v1;
@@ -26,7 +28,6 @@ pub mod v3;
 pub use error::{Error, Result};
 
 use model::{Command, Gain, Mode, Offset, Rate, Sample, Uptime};
-use wire_weaver_client::Commander;
 
 wire_weaver_client::facade! {
     /// A `thermo_api` device on any line this driver knows. Connect with
@@ -69,25 +70,19 @@ wire_weaver_client::facade! {
 }
 
 impl Thermo {
-    /// The status LED: `ww_indication::Indication`, the same trait and types on every line.
-    pub fn indication(&self) -> Indication {
-        Indication {
-            cmd: self.cmd().clone(),
+    /// The status LED: `ww_indication::Indication`, the same trait and types on every line, one client type.
+    pub fn indication(&self) -> IndicationClient<'_> {
+        match self {
+            Thermo::V3(c) => c.indication(),
+            Thermo::V2(c) => c.indication(),
+            Thermo::V1(c) => c.indication(),
         }
     }
 }
 
-/// `ww_indication::Indication` wherever the device has it, through global paths: one client for every line.
-pub struct Indication {
-    cmd: Commander,
-}
-
 mod indication_client {
-    use super::Indication;
-    wire_weaver::ww_codegen!(
-        ww_indication :: Indication for Indication,
-        client = "trait_client",
-        no_alloc = false,
-        use_async = true,
-    );
+    wire_weaver::ww_codegen!(ww_indication :: Indication for IndicationClient, client = "sub_level");
 }
+/// `ww_indication::Indication`, generated once for every line: each line's client returns it, reached by the path the
+/// trait has in that line's tree (CLT-68).
+pub use indication_client::IndicationClient;

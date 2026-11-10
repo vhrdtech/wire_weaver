@@ -40,7 +40,7 @@ exclude = [
     "examples/compare_wire_formats",
     "examples_mcu",
     "fuzz",
-    "tests/thermo_api",
+    "tests/thermo_api_old",
     "wire_weaver_tool",
 ]
 
@@ -250,11 +250,10 @@ streams_reliable_api = { version = "0.1.0", path = "./tests/streams_reliable_api
 tap_api = { version = "0.1.0", path = "./tests/tap_api" }
 tests_common = { version = "0.1.0", path = "./tests/tests_common" }
 # one API crate at two wire lines and their first revisions, outside the workspace (EVO-28)
-thermo_api_w1 = { package = "thermo_api", version = "1.2.0", path = "./tests/thermo_api/w1" }
-thermo_api_w1_0 = { package = "thermo_api", version = "1.0.0", path = "./tests/thermo_api/w1_0" }
-thermo_api_w2 = { package = "thermo_api", version = "2.1.0", path = "./tests/thermo_api/w2" }
-thermo_api_w2_0 = { package = "thermo_api", version = "2.0.0", path = "./tests/thermo_api/w2_0" }
-thermo_api_w3 = { package = "thermo_api", version = "3.0.0", path = "./tests/thermo_api/w3" }
+thermo_api = { version = "4.0.0", path = "./tests/thermo_api" }
+# firmware of the first revision of lines 1 and 2, built from the crates of that time (EVO-42)
+thermo_api_w1_0 = { package = "thermo_api", version = "1.0.0", path = "./tests/thermo_api_old/w1_0" }
+thermo_api_w2_0 = { package = "thermo_api", version = "2.0.0", path = "./tests/thermo_api_old/w2_0" }
 thermo_devices = { version = "0.1.0", path = "./tests/thermo_devices" }
 traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 uart_api = { version = "0.1.0", path = "./examples/uart_api" }

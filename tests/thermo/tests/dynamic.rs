@@ -414,15 +414,15 @@ async fn every_line_dynamically() {
     let _ = tracing_subscriber::fmt::try_init();
     let devices = [
         (
-            devices::w1::start("thermo-dyn/w1", thermo_api_w1::THERMO_WIRE_VERSION),
+            devices::w1::start("thermo-dyn/w1", thermo_api::wire_v1::THERMO_WIRE_VERSION),
             WireVersion::new(1, 2),
         ),
         (
-            devices::w2::start("thermo-dyn/w2", thermo_api_w2::THERMO_WIRE_VERSION),
+            devices::w2::start("thermo-dyn/w2", thermo_api::wire_v2::THERMO_WIRE_VERSION),
             WireVersion::new(2, 1),
         ),
         (
-            devices::w3::start("thermo-dyn/w3", thermo_api_w3::THERMO_WIRE_VERSION),
+            devices::w3::start("thermo-dyn/w3", thermo_api::wire_v3::THERMO_WIRE_VERSION),
             WireVersion::new(3, 0),
         ),
         (

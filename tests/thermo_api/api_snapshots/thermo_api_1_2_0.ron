@@ -1,0 +1,304 @@
+// thermo_api 1.2.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 17a971ff5bb75b2eed7741317e6317fb67459871b304c977e90995eaa02daecb
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "`thermo_api` 1.2.0 at wire w1.2: line 1 of the dual-driver bench (EVO-28), a small temperature logger.",
+    "",
+    "It touches every place a wire break can bite: methods with arguments, returns and errors, properties with get,",
+    "set and observe, an enum, a stream up and a sink down, an array of sub-levels, items added within the line",
+    "(`#[since]`), unit types from `ww_si` and a trait from `ww_stdlib` (`ww_indication`), both shared with line 2.",
+    "Line 2 (`../w2`) breaks the wire; `tests/thermo` bundles a client of each.",
+], crate_idx: 0, trait_name: "thermo_api", items: [
+    (id: 0, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "Thermo", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Channel", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
+        231,
+        143,
+        219,
+        237,
+        43,
+        208,
+        55,
+        128,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Range", signature: [
+        153,
+        121,
+        110,
+        11,
+        94,
+        3,
+        242,
+        151,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "Unchanged in line 2, yet a type of its own there.",
+    ], ident: "RateError", generics: [], variants: [
+        (docs: [], ident: "Busy", fields: Unit, discriminant: 0, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Sample", signature: [
+        240,
+        162,
+        233,
+        30,
+        69,
+        217,
+        160,
+        41,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Seq", signature: [
+        246,
+        23,
+        187,
+        48,
+        55,
+        71,
+        212,
+        151,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Item", signature: [
+        209,
+        41,
+        142,
+        217,
+        75,
+        19,
+        108,
+        30,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "IndexFrom1", signature: [
+        1,
+        182,
+        9,
+        205,
+        94,
+        232,
+        195,
+        80,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Kelvin", signature: [
+        12,
+        153,
+        184,
+        168,
+        227,
+        124,
+        229,
+        233,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "origins::Celsius", signature: [
+        50,
+        104,
+        184,
+        119,
+        110,
+        222,
+        20,
+        106,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Centi", signature: [
+        158,
+        177,
+        228,
+        115,
+        115,
+        154,
+        131,
+        94,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Point", signature: [
+        100,
+        149,
+        175,
+        132,
+        90,
+        100,
+        223,
+        109,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One temperature reading.",
+    ], ident: "Sample", generics: [], fields: Named([
+        (ident: Some("seq"), default: None, since: None, ty: Instance(type_idx: 6, args: [
+            Type(OutOfLine(type_idx: 5)),
+            Type(NumericAny(Base(U16))),
+        ]), docs: [], slot: None, series_opaque: false),
+        (ident: Some("input"), default: None, since: None, ty: Instance(type_idx: 8, args: [
+            Type(OutOfLine(type_idx: 7)),
+            Type(NumericAny(Base(U8))),
+            Type(Instance(type_idx: 2, args: [
+                Const(Numeric(I64(1))),
+                Const(Numeric(I64(4))),
+            ])),
+        ]), docs: [
+            "The input it was taken on, 1 to 4 as printed on the board.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("temp"), default: None, since: None, ty: Instance(type_idx: 13, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 9)),
+                Type(OutOfLine(type_idx: 11)),
+                Type(NumericAny(Base(I16))),
+                Type(OutOfLine(type_idx: 12)),
+            ])),
+        ]), docs: [
+            "In steps of 0.01 K, from -327.68 °C to 327.67 °C.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Mode", generics: [], variants: [
+        (docs: [], ident: "Idle", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Continuous", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "One sample per `Command::Trigger`.",
+        ], ident: "Triggered", fields: Unit, discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Ratio", signature: [
+        66,
+        50,
+        211,
+        244,
+        48,
+        152,
+        238,
+        114,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Command", generics: [], variants: [
+        (docs: [
+            "Take one sample now. Only in `Mode::Triggered`.",
+        ], ident: "Trigger", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Restart sample numbering at `seq`.",
+        ], ident: "Mark", fields: Named([
+            (ident: Some("seq"), default: None, since: None, ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(U16))),
+            ]), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
+    ]),
+], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "Channel", items: [
+        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [], optional: None, meta: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 14)), errors: None), multiplicity: Flat, since: None, ident: "last", docs: [
+            "The last sample taken on this channel.",
+        ], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, trait_name: "Indication", signature: [
+        225,
+        177,
+        151,
+        247,
+        54,
+        31,
+        115,
+        166,
+    ]),
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "Thermo", items: [
+        (id: 0, kind: Method(args: [
+            (ident: "rate", ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(U16))),
+                Type(Instance(type_idx: 2, args: [
+                    Const(Numeric(I64(1))),
+                    Const(Numeric(I64(1000))),
+                ])),
+            ]), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: None), multiplicity: Flat, since: None, ident: "set_rate", docs: [
+            "How often the device samples while `mode` is `Continuous`. `Busy` while a triggered sample is running.",
+        ], optional: None, meta: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 14)), errors: None), multiplicity: Flat, since: None, ident: "read_once", docs: [
+            "Takes one sample now, whatever the mode.",
+        ], optional: None, meta: None),
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 15), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [], optional: None, meta: None),
+        (id: 3, kind: Property(ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 1)),
+            Type(NumericAny(Base(U8))),
+            Type(Instance(type_idx: 2, args: [
+                Const(Numeric(I64(1))),
+                Const(Numeric(I64(16))),
+            ])),
+        ]), access: ReadWrite(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "gain", docs: [
+            "Amplifier gain, observable: the device changes it itself on overload.",
+        ], optional: None, meta: None),
+        (id: 4, kind: Stream(ty: OutOfLine(type_idx: 14), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
+            "Samples while `mode` is `Continuous`, one per trigger while `Triggered`.",
+        ], optional: None, meta: None),
+        (id: 5, kind: Stream(ty: OutOfLine(type_idx: 17), is_up: false), multiplicity: Flat, since: None, ident: "commands", docs: [
+            "Commands for the sampler, in order.",
+        ], optional: None, meta: None),
+        (id: 6, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
+            "Input channels, 0-based on the wire.",
+        ], optional: None, meta: None),
+        (id: 7, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "indication", docs: [
+            "The status LED, a `ww_stdlib` trait both lines share.",
+        ], optional: None, meta: None),
+        (id: 8, kind: Method(args: [
+            (ident: "offset", ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 9)),
+                Type(OutOfLine(type_idx: 11)),
+                Type(NumericAny(Base(I16))),
+                Type(OutOfLine(type_idx: 12)),
+            ]), default: None, flatten: false),
+        ], return_ty: None, errors: None), multiplicity: Flat, since: Some((line: 1, revision: 1)), ident: "calibrate", docs: [
+            "Adds `offset` to every sample from now on. Added in w1.1.",
+        ], optional: None, meta: None),
+        (id: 9, kind: Property(ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 18)),
+            Type(OutOfLine(type_idx: 1)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 12)),
+        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((line: 1, revision: 2)), ident: "uptime", docs: [
+            "Time since boot. Added in w1.2.",
+        ], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "thermo_api", version: (major: 1, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 2)), ext_wire: Some([
+    Some((line: 1, revision: 2)),
+    None,
+    Some((line: 1, revision: 0)),
+]))

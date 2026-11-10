@@ -1057,10 +1057,12 @@ mod tests {
         }
         assert!(cache.load_crate(&multi).is_err());
         assert!(cache.load_root(&multi, "wire_v1::Thermo").is_ok());
-        let units = dir.join("tests/thermo_api/w3");
-        let fresh = load_crate_with_notes(&units).unwrap();
+        let units = dir.join("tests/thermo_api");
+        let fresh = load_root_with_notes(&units, "wire_v3::Thermo").unwrap();
         for _ in 0..2 {
-            let cached = cache.load_crate_with_notes(&units).unwrap();
+            let cached = cache
+                .load_root_with_notes(&units, "wire_v3::Thermo")
+                .unwrap();
             assert_eq!(format!("{cached:?}"), format!("{fresh:?}"));
         }
     }

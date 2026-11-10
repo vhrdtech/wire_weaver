@@ -13,11 +13,9 @@ path = "src/bin/thermo_pytest_devices.rs"
 
 [dependencies]
 tests_common.workspace = true
-thermo_api_w1.workspace = true
+thermo_api.workspace = true
 thermo_api_w1_0.workspace = true
-thermo_api_w2.workspace = true
 thermo_api_w2_0.workspace = true
-thermo_api_w3.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_hub.workspace = true

@@ -1,14 +1,19 @@
-//! Line 1 (`thermo_api` 1.x, wire w1.y): the generated client and its operations.
+//! Line 1 (`thermo_api::wire_v1`, wire w1.y): the generated client and its operations.
 
-use crate::error::{DeviceError, Error, Result};
+use crate::common::command;
+use crate::error::{Error, Result};
 use crate::model::{self, Gain, Offset, Rate, Uptime};
-use thermo_api_w1 as api;
+use thermo_api::wire_v1 as api;
 use wire_weaver_client::facade::{LineClient, ObserverOf, SinkOf, StreamOf};
 use wire_weaver_client::observe::on_change;
 
-wire_weaver_client::facade_line!(thermo_api_w1::Thermo);
-// The API crate's own types: one conversion each way per type, also for the ones that didn't change (`RateError`,
-// `Command`). The `ww_si` fields inside them are the model's types already.
+wire_weaver_client::facade_line!(
+    thermo_api::wire_v1::Thermo,
+    sub_levels = [ww_indication::Indication => crate::IndicationClient],
+);
+
+// Line 1's own types; what it shares with the other lines converts in `crate::common`. The `ww_si` fields inside them
+// are the model's types already.
 
 fn sample(s: api::Sample) -> Result<model::Sample> {
     Ok(model::Sample {
@@ -51,25 +56,6 @@ fn uptime(s: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::One, u32>) -> Upt
     s.to().expect("seconds in u32 fit milliseconds in u64")
 }
 
-fn command(c: model::Command) -> Result<api::Command> {
-    Ok(match c {
-        model::Command::Trigger => api::Command::Trigger,
-        model::Command::Mark { seq } => api::Command::Mark { seq },
-    })
-}
-
-impl From<DeviceError<api::RateError>> for Error {
-    fn from(e: DeviceError<api::RateError>) -> Self {
-        match e.0 {
-            api::RateError::Busy => Error::Busy,
-            api::RateError::Unknown(code) => Error::UnknownVariant {
-                what: "RateError",
-                code,
-            },
-        }
-    }
-}
-
 fn not_representable(c: &Client, what: &'static str, value: impl core::fmt::Debug) -> Error {
     Error::NotRepresentable {
         what,
@@ -80,9 +66,9 @@ fn not_representable(c: &Client, what: &'static str, value: impl core::fmt::Debu
 
 impl crate::line::V1 for Client {
     type GainUpdates =
-        ObserverOf<api_client::thermo_api_thermo::ThermoUpdate, WholeGain, Gain, Error>;
+        ObserverOf<api_client::thermo_api_wire_v1_thermo::ThermoUpdate, WholeGain, Gain, Error>;
     type Samples = StreamOf<api::Sample, model::Sample, Error>;
-    type Commands = SinkOf<api::Command, model::Command, Error>;
+    type Commands = SinkOf<thermo_api::common::Command, model::Command, Error>;
 
     /// Line 1 has no `configure`: two calls, not atomic, the rate first so that a refused rate leaves the mode alone.
     async fn configure(c: &Client, rate: Rate, mode: model::Mode) -> Result<()> {

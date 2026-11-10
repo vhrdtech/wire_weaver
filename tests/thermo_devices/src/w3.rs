@@ -1,7 +1,8 @@
-//! Firmware of line 3, `thermo_api` 3.0.0 at w3.0, simulated.
+//! Firmware of line 3, `thermo_api::wire_v3`, simulated.
 
 use crate::Shared;
-use thermo_api_w3::{Batch, Command, Config, Mode, RateError, Sample, SelfTestError};
+use thermo_api::common::{Command, Config, Mode, RateError, Sample, SelfTestError};
+use thermo_api::wire_v3::Batch;
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::WireVersion;
 use ww_si::prefix::{Centi, Milli};
@@ -211,7 +212,7 @@ impl Server {
 
 pub mod api_impl {
     wire_weaver::ww_codegen!(
-        thermo_api_w3 :: Thermo for super::Server,
+        thermo_api :: wire_v3 :: Thermo for super::Server,
         server = true, no_alloc = true, use_async = true,
         method_model = "_=immediate",
         property_model = "_=get_set",
@@ -260,7 +261,7 @@ pub fn start(path: &str, wire: WireVersion) -> (Shared, tests_common::TestDevice
     let device = tests_common::start_device_async(
         path,
         server,
-        thermo_api_w3::THERMO_FULL_GID,
+        thermo_api::wire_v3::THERMO_FULL_GID,
         wire,
         api_impl::api_hash(),
     );

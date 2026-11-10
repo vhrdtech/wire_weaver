@@ -1,0 +1,27 @@
+[package]
+name = "thermo_api"
+version = "4.0.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Every wire line still in use, one root per module (EVO-37, EVO-42). Lines 1 to 3 were the crates 1.x, 2.x and 3.x;
+# 4.0.0 holds them all, so one host build talks to firmware of any line and a type the lines share is one Rust type.
+[package.metadata.wire_weaver.roots]
+"wire_v1::Thermo" = "w1.2"
+"wire_v2::Thermo" = "w2.1"
+"wire_v3::Thermo" = "w3.0"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_si/std", "ww_indication/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_indication.workspace = true
+ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
+
+[dev-dependencies]
+wire_weaver_evolution = { workspace = true, features = ["source"] }

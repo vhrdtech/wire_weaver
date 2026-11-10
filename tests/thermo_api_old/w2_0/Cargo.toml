@@ -1,9 +1,9 @@
-# One line of the `thermo_api` bench API (EVO-28). Every line is the same crate, `thermo_api`, at another version,
-# so they live outside the workspace (`exclude` in the root Cargo.toml): a workspace can't hold two packages of one
-# name. Fields that members inherit are written out for the same reason.
+# The first revision of a line of the bench API as it was published, its root at the crate root, before the lines
+# moved into one crate (`tests/thermo_api`, EVO-42): built as old firmware still in the field. Outside the workspace
+# (`exclude` in the root Cargo.toml), which can't hold two packages of one name; fields members inherit are written out.
 [package]
 name = "thermo_api"
-version = "3.0.0"
+version = "2.0.0"
 publish = false
 edition = "2024"
 license = "MIT"

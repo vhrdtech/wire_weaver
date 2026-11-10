@@ -1087,6 +1087,38 @@ mod tests {
         );
     }
 
+    /// CLT-65: a `Point` is read as a `DynQuantity` shown in its own origin, not its `Fixed`'s raw unit.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn points_shown_as_typed() {
+        let (device, _values) = start("quantities/points");
+        let (client, root) = connect(&device).await;
+        let (_, board_ty) = read(&client, &root, "board_temp").await;
+        assert!(is_quantity(&board_ty, root.bundle()));
+
+        let board = read_quantity(&client, &root, "board_temp").await;
+        assert_eq!(
+            board.to_string(),
+            BoardTemperature::from_raw(128).to_string()
+        );
+        assert_eq!(board.origin_name(), Some("BoardTemp"));
+        assert_eq!(board.symbol(), "°C");
+        assert_eq!(board.to_f64(), 25.5);
+        assert!((board.to_si_f64().unwrap() - 298.65).abs() < 1e-9);
+        // the inner `Fixed`'s own reading is still there, unshifted
+        assert_eq!(board.value, NumericValue::I16(128));
+        assert_eq!(
+            board.unit,
+            DynUnit::from_expr(<units::Kelvin as Unit>::EXPR)
+        );
+
+        let heading = read_quantity(&client, &root, "heading").await;
+        assert_eq!(heading.to_string(), Heading::from_raw(9000).to_string());
+        assert_eq!(heading.origin_name(), Some("Angle"));
+        assert_eq!(heading.symbol(), "°");
+        assert_eq!(heading.to_f64(), 90.0);
+        assert!((heading.to_si_f64().unwrap() - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn timed_series_items() {
         let (device, _values) = start("quantities/series");
@@ -1884,7 +1916,39 @@ mod tests {
             (CountKind::IndexFrom1, "#2 (Item, from 1)".into())
         );
         assert_eq!(count("sample").await.to_string(), "#1000 (Sample)");
-        assert_eq!(count("frame").await.to_string(), "seq 41 (Frame)");
+        let frame = count("frame").await;
+        assert_eq!(frame.to_string(), "seq 41 (Frame)");
+        // DynCount::to_value (CLT-65): the count a script already has round-trips through its own type, and a
+        // `DynCount` built by hand (`Seq { seq: 100, .. }`, as a Rust caller without a value to read from would)
+        // writes just the same, with no struct of the device's own types to build
+        let (_, frame_ty) = read(&client, &root, "frame").await;
+        assert_eq!(
+            frame.to_value(&frame_ty, root.bundle()).unwrap(),
+            parse_value("41", &frame_ty, root.bundle()).unwrap()
+        );
+        let by_hand = DynCount {
+            kind: CountKind::Seq,
+            value: NumericValue::U16(100),
+            of: frame.of.clone(),
+        };
+        let value = by_hand.to_value(&frame_ty, root.bundle()).unwrap();
+        root.child("frame")
+            .unwrap()
+            .write(client.cmd(), &value)
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().frame.get(), 100);
+        // a count of the wrong kind or of what it doesn't count is refused
+        let wrong_kind = DynCount {
+            kind: CountKind::Index,
+            ..by_hand.clone()
+        };
+        assert!(wrong_kind.to_value(&frame_ty, root.bundle()).is_err());
+        let wrong_of = DynCount {
+            of: count("sample").await.of,
+            ..by_hand
+        };
+        assert!(wrong_of.to_value(&frame_ty, root.bundle()).is_err());
         let write = async |name: &str, text: &str| {
             let (_, ty) = read(&client, &root, name).await;
             let value = parse_value(text, &ty, root.bundle())?;

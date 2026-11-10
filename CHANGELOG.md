@@ -320,6 +320,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The checker per API root (EVO-39): `ww api check` and `ww api diff` of a crate with several wire lines check each root against its own latest snapshot, name a changed shared type with every line it changed on, ask the crate version of the root that needs the most, and treat a removed root as a breaking crate bump that `ww api save` records. One `CrateCache` serves every load of a check. Docs `evolution/checker_tool.md#checking-each-root`. See `wire_weaver_evolution/`, `wire_weaver_core/` and `wire_weaver_cli/` CHANGELOGs.
 - A codec's spare codes in the model (EVO-49, exact_units at 4abc92b): `CodecDef::spare`, `MuLawSingleZero`, a spare code refused by every client and a `Niched` claiming it, new conformance cases. See `ww_self/`, `wire_weaver_core/`, `wire_weaver_client/`, `wire_weaver_py/` and `wire_weaver_snapshots/` CHANGELOGs.
 - A `validate` hook can report the refused value and its range (SW-76): `shrink_wrap::refused::Refused`, kept in the caller's slot by a reader made with `with_refusal_slot` and returned by `from_ww_bytes_explained` (`refused` feature, on with `std`); firmware pays nothing. See `shrink_wrap/CHANGELOG.md`.
+- A `Point` reads as a `DynQuantity` / `ww.Quantity` shown in its own origin, not its `Fixed`'s raw unit (CLT-65): a
+  board's register that reads 0 at 25 °C shows `25.5 °C`, not `2500 cK`; `DynCount::to_value` writes a count a Rust
+  caller already has back without building the device's struct type by hand. See `ww_self/`, `wire_weaver_client/`
+  and `wire_weaver_py/` CHANGELOGs.
 
 ### Changed
 

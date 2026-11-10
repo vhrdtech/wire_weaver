@@ -21,6 +21,7 @@
 //! | `Series<T>`                       | `list` of `T`, any iterable accepted (columns as numpy arrays: `decode_columns`) |
 //! | `ww_si` quantity (`Volt`, ..)      | `Quantity` (a `Quantity` of the same unit, or a number in the unit itself accepted) |
 //! | `exact_units::Fixed`              | `Quantity` (a `Quantity` converted exactly into its scale and storage, or the stored number accepted) |
+//! | `exact_units::Point`              | `Quantity`, shown in its own origin (`Quantity.origin`, CLT-65); writing one back is not supported yet, a `dict` of its `coord` (its inner `Fixed`) is accepted |
 //! | `Index`, `IndexFrom1`, `Seq`      | `dict` of the number, as a struct (the number alone accepted)       |
 
 use crate::quantity::Quantity;

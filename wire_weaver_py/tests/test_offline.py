@@ -466,6 +466,24 @@ def test_fixed_and_counts():
     assert api.frame.encode(65535).hex() == "ffff"
 
 
+def test_points():
+    # CLT-65: a Point reads as a Quantity shown in its own origin, not its Fixed's raw unit
+    api = ww.load_api(str(QUANTITIES_CRATE), "Quantities")
+    # BoardTemperature::from_raw(128): Fixed<Kelvin, Rational<1, 256>, i16>, BoardTemp (above Celsius, +25) reads 0 at 25 °C
+    t = api.board_temp.decode((128).to_bytes(2, "little", signed=True))
+    assert isinstance(t, ww.Quantity)
+    assert str(t) == "25.5 °C"
+    assert (t.symbol, t.origin, t.unit) == ("°C", "BoardTemp", "Kelvin")
+    assert float(t) == 25.5
+    assert t.to_si() == pytest.approx(298.65)
+    # Heading::from_raw(9000): Fixed<Degree, Centi, u16>, an Angle<Degree> wraps every 360°
+    h = api.heading.decode((9000).to_bytes(2, "little"))
+    assert str(h) == "90 °"
+    assert (h.symbol, h.origin) == ("°", "Angle")
+    assert float(h) == 90.0
+    assert h.to_si() == pytest.approx(math.pi / 2)
+
+
 CUSTOMARY_CRATE = Path(__file__).parents[2] / "tests" / "customary_api"
 
 

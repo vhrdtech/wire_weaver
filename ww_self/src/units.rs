@@ -927,10 +927,15 @@ pub enum Wrapper<'a> {
         value: &'a TypeOwned,
         storage: &'a TypeOwned,
     },
+    /// `Point<O, F>` (CLT-65): a position against the origin `O`, its number `F`, a `Fixed`.
+    Point {
+        origin: &'a TypeOwned,
+        coord: &'a TypeOwned,
+    },
 }
 
 impl Wrapper<'_> {
-    /// `Fixed`, `Index`, `IndexFrom1`, `Seq`.
+    /// `Fixed`, `Index`, `IndexFrom1`, `Seq`, `Coded`, `Point`.
     pub fn name(&self) -> &'static str {
         match self {
             Wrapper::Fixed { .. } => "Fixed",
@@ -938,27 +943,31 @@ impl Wrapper<'_> {
             Wrapper::IndexFrom1 { .. } => "IndexFrom1",
             Wrapper::Seq { .. } => "Seq",
             Wrapper::Coded { .. } => "Coded",
+            Wrapper::Point { .. } => "Point",
         }
     }
 
-    /// The `B` argument, `None` for a `Seq` and a `Coded` (every code decodes).
+    /// The `B` argument, `None` for a `Seq`, a `Coded` (every code decodes) or a `Point` (its `coord`'s own
+    /// bounds apply instead).
     pub fn bounds_ty(&self) -> Option<&TypeOwned> {
         match self {
             Wrapper::Fixed { bounds, .. }
             | Wrapper::Index { bounds, .. }
             | Wrapper::IndexFrom1 { bounds, .. } => Some(bounds),
-            Wrapper::Seq { .. } | Wrapper::Coded { .. } => None,
+            Wrapper::Seq { .. } | Wrapper::Coded { .. } | Wrapper::Point { .. } => None,
         }
     }
 
-    /// The `T` argument, the number stored and sent.
-    pub fn storage_ty(&self) -> &TypeOwned {
+    /// The `T` argument, the number stored and sent, `None` for a `Point` (its `coord`'s own storage applies
+    /// instead, one level deeper than this wrapper sees).
+    pub fn storage_ty(&self) -> Option<&TypeOwned> {
         match self {
             Wrapper::Fixed { storage, .. }
             | Wrapper::Index { storage, .. }
             | Wrapper::IndexFrom1 { storage, .. }
             | Wrapper::Seq { storage, .. }
-            | Wrapper::Coded { storage, .. } => storage,
+            | Wrapper::Coded { storage, .. } => Some(storage),
+            Wrapper::Point { .. } => None,
         }
     }
 }
@@ -1022,6 +1031,10 @@ pub fn wrapper_of_struct<'a>(
             codec: next()?,
             value: next()?,
             storage: next()?,
+        },
+        "Point" => Wrapper::Point {
+            origin: next()?,
+            coord: next()?,
         },
         _ => return None,
     };

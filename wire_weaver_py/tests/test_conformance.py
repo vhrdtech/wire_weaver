@@ -45,10 +45,13 @@ def expected(case):
 
 def plain(value):
     """A decoded value in the corpus form: bytes and tuples as lists, a `ww.Quantity` as the struct it is on the wire
-    (prefix and the stored number; a `Fixed` only the stored number; a `Coded` its code)."""
+    (prefix and the stored number; a `Fixed` only the stored number; a `Coded` its code; a `Point` (CLT-65) its one
+    field, `coord`, the `Fixed` it wraps)."""
     if isinstance(value, ww.Quantity):
         if value.code is not None:
             return {"raw": value.code}
+        if value.origin is not None:
+            return {"coord": {"value": value.value}}
         if value.fixed:
             return {"value": value.value}
         if value.prefix == "Unknown":

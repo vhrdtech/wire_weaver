@@ -92,18 +92,12 @@ def find(dev, *paths):
     return None
 
 
-def kelvin(temp) -> float:
-    """A `Point<Celsius, Fixed<Kelvin, ..>>` read as its one field, the `Fixed` in K from the origin."""
-    q = temp["coord"]
-    assert q.unit == "Kelvin"
-    return float(q)
-
-
 def samples(item) -> list:
-    """A stream item as `(seq, kelvin)` pairs: a `Sample`, or a `Batch` of temperatures numbered from `first`."""
+    """A stream item as `(seq, °C)` pairs: a `Sample`, or a `Batch` of temperatures numbered from `first`. `temp`
+    is a `Point<Celsius, Fixed<Kelvin, ..>>`, read as a `Quantity` shown in its own origin (CLT-65)."""
     if "temps" in item:
-        return [(item["first"]["seq"] + i, kelvin(t)) for i, t in enumerate(item["temps"])]
-    return [(item["seq"]["seq"], kelvin(item["temp"]))]
+        return [(item["first"]["seq"] + i, float(t)) for i, t in enumerate(item["temps"])]
+    return [(item["seq"]["seq"], float(item["temp"]))]
 
 
 @pytest.mark.parametrize("line", [1, 2, 3])
@@ -120,8 +114,9 @@ def test_one_script_every_line(thermo_hub, line):
             dev.mode.write("Continuous")
         assert dev.mode.read() == "Continuous"
 
-        # the same temperature from every line: 0.01 K in an i16 or 0.001 K in an i32, a Quantity either way
-        assert kelvin(dev.read_once()["temp"]) == pytest.approx(21.5)
+        # the same temperature from every line: 0.01 K in an i16 or 0.001 K in an i32, a Point<Celsius, ..> either
+        # way, read as a Quantity shown in its own origin (CLT-65): 21.5 °C, not the Fixed's raw Kelvin reading
+        assert float(dev.read_once()["temp"]) == pytest.approx(21.5)
 
         # whole steps on line 1, hundredths on lines 2 and 3: 1.5 is refused before sending where it isn't exact
         dev.gain.write(ww.Quantity("2", "Ratio"))
@@ -153,13 +148,13 @@ def test_one_script_every_line(thermo_hub, line):
 
         # an argument in another resolution: 0.25 K to every line, 0.001 K only where the type takes it
         dev.calibrate(ww.Quantity("0.25 K"))
-        assert kelvin(dev.read_once()["temp"]) == pytest.approx(21.75)
+        assert float(dev.read_once()["temp"]) == pytest.approx(21.75)
         if line == 1:
             with pytest.raises(ValueError, match="Fixed"):
                 dev.calibrate(ww.Quantity("1 mK"))
         else:
             dev.calibrate(ww.Quantity("1 mK"))
-            assert kelvin(dev.read_once()["temp"]) == pytest.approx(21.501)
+            assert float(dev.read_once()["temp"]) == pytest.approx(21.501)
 
         # uptime at the root or in `health`, whole seconds or ms in a u64: 42 s on every line
         uptime = find(dev, "uptime", "health.uptime")

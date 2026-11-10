@@ -13,6 +13,12 @@
   for a line it has no client of, rather than `unreachable!`. `PreparedConnection::connect` and `connect_blocking`
   call `try_from_cmd`, so that failure is now a connect error, not a panic. Code matching `Error` exhaustively
   handles the new variant.
+- `quantity::DynQuantity` gets a new field, `origin: Option<ww_self::OriginDefOwned>` (CLT-65): set by `from_value`
+  for a `Point<O, Fixed<U, P, T, B>>`, so a struct literal needs it (`None` for everything else). `is_quantity`
+  answers `true` for a `Point` too. With `origin` set, `Display`, `to_f64` and `to_si_f64` show and convert the
+  quantity through the origin (its own scale and symbol, `25.5 °C` for a reading whose `unit` is `Kelvin`) instead
+  of the `Fixed`'s own unit; `convert` and `to_value` refuse one with a clear message (writing a `Point` back is
+  not supported yet, CLT-69).
 - New `Error::HelloWireMismatch { device, hello_wire, bundle_wire }` (CLT-61): a device whose hello
   (`DeviceInfo::user_api_wire`) names a wire version that differs from the one its own introspection bundle
   (`ApiBundle::wire`) reports is refused, naming both wires, before any `#[since]` check or resource comparison
@@ -96,6 +102,12 @@
 
 - ±∞ written into a `Finite` float `Fixed` is refused before sending (STD-104).
 - `quantity::coded_of` and `CodedType`; `DynQuantity::from_value` reads an `exact_units::codec::Coded` value as the `Fixed` its code means, and `to_value` writes a quantity by its exact code, refusing a value between two codes with the nearest one named (STD-109).
+- `quantity::point_of(ty, bundle)` (CLT-65): `ty`'s origin and `F`, `None` for any other type. `DynQuantity` gets
+  `symbol()` (the origin's own symbol for a point, the unit's otherwise) and `origin_name()` (`O`'s marker name,
+  `None` for a plain quantity). `quantity::DynCount::to_value(ty, bundle)` writes a count already in hand (`DynCount
+  { kind: CountKind::Seq, value, of }`) back into an `Index`, `IndexFrom1` or `Seq` of the same kind and what it
+  counts, checked as the device checks it (bounds, an `IndexFrom1`'s 0): a Rust caller no longer builds the device's
+  struct type by hand.
 - `units::Of<Q, U>` (exact_units UNIT-8) is shown and converted as `U` by `quantity::DynUnit`, as its `UnitExpr` is `U`'s; the quantity is in the model (`ww_self::units::CanonicalUnit::quantity`).
 - A host speaking several wire lines of one API (EVO-28): `ClientConfig::speaks(ClientLine)` adds a line from a generated client's `client_line()`; the first call sets the version and introspection data as `client_version` and `introspect_client` do. Link setup takes a device on any of the lines and sends the version of that line's client, the Commander gets that line's introspection data, so a facade bundling clients of several lines connects once and picks its client in `WwClient::try_from_cmd` (CLT-62) by `DeviceApiInfo::user_api_wire`. A line of another API, or two clients of one line, are refused when connecting. New `ClientApi::wires` and `ClientApi::for_device`. See `tests/thermo`.
 - The hub preamble carries this program's generations (EVO-23, `TAG_GENERATIONS`), which the hub serves by.

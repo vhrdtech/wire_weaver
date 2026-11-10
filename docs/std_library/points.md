@@ -22,3 +22,24 @@ fifteen. A negative zero is not canonical and is refused on decode. The cases ar
 
 In the API model a point is an instance of `Point` with its origin as the first argument; the origin's definition
 (`OriginDef`) goes into the model with INT-13, see [Units in the API model](units_in_the_model.md#origins).
+
+## In `ww`, Python and dynamic clients
+
+A client that only has a device's introspection data reads a `Point` as a `DynQuantity` (`ww.Quantity` in Python,
+CLT-65): its own fields (`unit`, `prefix`, `value`, `storage`) stay the inner `Fixed`'s raw reading, the same as for
+a plain `Fixed`'s ([exact_units](exact_units.md#in-ww-python-and-dynamic-clients)), but shown and converted through
+the origin instead of the `Fixed`'s own unit: a board's temperature register that reads 0 at 25 °C
+(`origin! { above: Celsius, offset: Offset::int(25) }`) shows `25.5 °C`, not `2500 cK`, through `ww observe`, `ww
+explain` and Python's `str()`/`float()`, the same text and number as the typed `Point`'s own:
+
+```python
+t = dev.board_temp.read()       # 25.5 °C
+t.origin, t.symbol, t.unit      # "BoardTemp", "°C", "Kelvin"
+float(t)                        # 25.5
+t.to_si()                       # 298.65, in Kelvin: the Fixed's own unit, from the reference's zero
+```
+
+`origin` names the origin (`O`'s marker, `"Celsius"`, `"BoardTemp"`, `"Angle"` for a heading that wraps every 360°);
+`unit` and `symbol` stay the `Fixed`'s plain-unit meaning everywhere else, so a point's `symbol` is the origin's own,
+not the unit's. Not yet (CLT-69): writing a point back through `to_value` is refused with a clear message; a script
+reaches its `coord` (the `Fixed`) directly to write that instead, as before CLT-65.

@@ -29,7 +29,7 @@ pub use ww_self::units::NumBounds;
 use ww_self::units::{Wrapper, wrapper_of};
 use ww_self::{
     ApiBundleOwned, FieldsOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned,
-    ItemStructOwned, MarkerDefOwned, TypeOwned, ValueOwned,
+    ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned, ValueOwned,
 };
 use ww_si::exact_units::codec::CodecDefOwned;
 use ww_si::exact_units::{BaseSource, MarkerId, MarkerIdOwned, Rounding, UnitDefOwned};
@@ -411,6 +411,15 @@ pub fn coded_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<CodedType> {
     })
 }
 
+/// `ty` as a `Point<O, F>` (CLT-65): `O`'s definition and `F`, `None` for any other type or an origin that doesn't
+/// resolve (a hand-written marker, or a bundle older than INT-13).
+pub fn point_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<(OriginDefOwned, TypeOwned)> {
+    let Wrapper::Point { origin, coord } = wrapper_of(ty, bundle)? else {
+        return None;
+    };
+    let origin = ww_self::units::origin_of(origin, bundle).ok()?;
+    Some((origin, coord.clone()))
+}
 /// A value of a `ww_si::Quantity<U>`, a `ww_si::AnyQuantity` or an `exact_units::Fixed<U, P, T, B>`: the prefix and
 /// number the device sent, and the unit.
 #[derive(Clone, Debug, PartialEq)]
@@ -420,6 +429,11 @@ pub struct DynQuantity {
     pub unit: DynUnit,
     /// `Some` for a `Fixed`: its number type and bounds. A `Quantity` stores any number.
     pub storage: Option<Storage>,
+    /// Set by [from_value](Self::from_value) for a `Point<O, Fixed<U, P, T, B>>` (CLT-65): `O`'s definition. The
+    /// other fields are still the `Fixed`'s own reading (`unit` is `U`, `prefix` and `value` its raw number); methods
+    /// that show or convert this quantity use `origin` to read it in `O`'s own scale and symbol instead (`25.5 °C`,
+    /// not `2500 cK`).
+    pub origin: Option<OriginDefOwned>,
 }
 
 impl DynQuantity {
@@ -430,12 +444,19 @@ impl DynQuantity {
             value,
             unit,
             storage: None,
+            origin: None,
         }
     }
 
-    /// `value` of type `ty` as a quantity, `None` when `ty` is not a `ww_si::Quantity<U>`, `ww_si::AnyQuantity` or
-    /// `exact_units::Fixed`, or the value doesn't match it.
+    /// `value` of type `ty` as a quantity, `None` when `ty` is not a `ww_si::Quantity<U>`, `ww_si::AnyQuantity`,
+    /// `exact_units::Fixed` or `exact_units::Point` (CLT-65), or the value doesn't match it.
     pub fn from_value(value: &ValueOwned, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<Self> {
+        if let Some((origin, coord_ty)) = point_of(ty, bundle) {
+            let coord_value = wrapped_field(value)?;
+            let mut q = DynQuantity::from_value(coord_value, &coord_ty, bundle)?;
+            q.origin = Some(origin);
+            return Some(q);
+        }
         if is_any_quantity(ty, bundle) {
             // decoded by the derived type, the unit tree walked with its depth bound
             let bytes = value.ser_shrink_wrap_dyn(ty, bundle).ok()?;
@@ -455,6 +476,7 @@ impl DynQuantity {
                 prefix: coded.linear.prefix,
                 unit: coded.linear.unit,
                 storage: Some(coded.linear.storage),
+                origin: None,
             });
         }
         if let Some(fixed) = fixed_of(ty, bundle) {
@@ -463,6 +485,7 @@ impl DynQuantity {
                 value: wrapped_number(value)?,
                 unit: fixed.unit,
                 storage: Some(fixed.storage),
+                origin: None,
             });
         }
         let unit = unit_of(ty, bundle)?;
@@ -515,6 +538,13 @@ impl DynQuantity {
             let code = ww_self::expr::int_value(code, &coded.storage)
                 .map_err(|e| format!("{name}: {e:#}"))?;
             return wrapper_value(code, ty, bundle);
+        }
+        if self.origin.is_some() {
+            // the raw fields are the inner Fixed's own, not this quantity's physical value (CLT-65 covers reading a
+            // Point, not writing one back: TODO(CLT-65) once a script needs to write a point)
+            return Err(format!(
+                "{self} is a point: writing one back is not supported yet"
+            ));
         }
         if let Some(fixed) = fixed_of(ty, bundle) {
             let number = self.fixed_number(&fixed, &type_name(ty, bundle))?;
@@ -651,9 +681,28 @@ impl DynQuantity {
         Ok(number)
     }
 
-    /// The value in the unit itself (no prefix) as `f64`, as `ww_si::Quantity::to_f64`.
+    /// The value in the unit itself (no prefix) as `f64`, as `ww_si::Quantity::to_f64`; for a `Point`
+    /// ([Self::origin] set), the number shown in its own origin instead (25.5 for 25.5 °C, not the raw `Fixed`
+    /// reading it wraps), `NaN` for an origin whose offset or step is from a newer version.
     pub fn to_f64(&self) -> f64 {
-        self.prefix.scale_f64(self.value.to_f64())
+        match &self.origin {
+            Some(origin) => self.shown_f64(origin).unwrap_or(f64::NAN),
+            None => self.prefix.scale_f64(self.value.to_f64()),
+        }
+    }
+
+    /// The number from `origin`'s reference's zero, in `unit`: `raw · prefix + origin.offset`. `None` for an offset
+    /// with a measured constant left in it (μ₀, G), which has no value without a named set.
+    fn physical_f64(&self, origin: &OriginDefOwned) -> Option<f64> {
+        Some(self.prefix.scale_f64(self.value.to_f64()) + origin.offset.checked_to_f64()?)
+    }
+
+    /// This point shown in `origin`'s own scale, from `origin.shown`: `(physical − shown) / step`. `None` for an
+    /// offset with a measured constant left in it.
+    fn shown_f64(&self, origin: &OriginDefOwned) -> Option<f64> {
+        let physical = self.physical_f64(origin)?;
+        let step = origin.step.checked_to_f64()?;
+        Some((physical - origin.shown.checked_to_f64()?) / step)
     }
 
     /// This quantity in `unit`, exactly, or an error: never the number reinterpreted in another unit. The units have
@@ -661,8 +710,14 @@ impl DynQuantity {
     /// doesn't, nor does a pound-force to a pound). An integer comes out as an integer with the largest SI prefix
     /// that keeps it whole (2 lbf·s is `8896443230521 p(N·s)`, 0 is `0` in the unit itself), an error when no prefix does (a factor that is not a
     /// fraction of integers whose denominator has only the primes 2 and 5, or a number past `i64`); a float is
-    /// scaled and comes out as an `f64` in the unit itself. °C is a point (`exact_units::origins::Celsius`), not a unit.
+    /// scaled and comes out as an `f64` in the unit itself. °C is a point (`exact_units::origins::Celsius`), not a
+    /// unit: converting one ([Self::origin] set) is refused, convert through its origin instead.
     pub fn convert(&self, unit: &DynUnit) -> Result<DynQuantity, String> {
+        if self.origin.is_some() {
+            return Err(format!(
+                "{self} is a point: convert it through its origin instead"
+            ));
+        }
         let refuse = |why: &str| format!("{} can't be converted to {}: {why}", self, unit.symbol());
         let (Some(from), Some(to)) = (self.unit.dim(), unit.dim()) else {
             return Err(refuse("a unit known by its name only"));
@@ -726,11 +781,30 @@ impl DynQuantity {
         Ok(DynQuantity::new(prefix, value, unit.clone()))
     }
 
-    /// The value in coherent SI through the unit's scale (90 ° is 1.5708 rad), `None` when the
-    /// unit has an unknown marker in it or the prefix is a scale from a newer version (`Prefix::Unknown`).
+    /// The value in coherent SI through the unit's scale (90 ° is 1.5708 rad, 20 °C is 293.15 K through its origin),
+    /// `None` when the unit has an unknown marker in it, the prefix is a scale from a newer version
+    /// (`Prefix::Unknown`), or (a `Point`) its origin's offset is.
     pub fn to_si_f64(&self) -> Option<f64> {
         self.prefix.magnitude()?;
-        Some(self.to_f64() * self.unit.factor()?)
+        match &self.origin {
+            Some(origin) => Some(self.physical_f64(origin)? * self.unit.factor()?),
+            None => Some(self.to_f64() * self.unit.factor()?),
+        }
+    }
+
+    /// The symbol written after the number: the unit's own, or, for a `Point` ([Self::origin] set), the origin's own
+    /// symbol instead (`"°C"` for a reading whose `unit` is `"K"`).
+    pub fn symbol(&self) -> String {
+        match &self.origin {
+            Some(origin) => origin.symbol.clone(),
+            None => self.unit.symbol(),
+        }
+    }
+
+    /// The origin's name, the `O` of the `Point<O, Fixed<U, ..>>` this is read from (CLT-65): `"Celsius"`,
+    /// `"BoardTemp"`, `"Angle"`. `None` for a plain `ww_si::Quantity`, `AnyQuantity` or `exact_units::Fixed`.
+    pub fn origin_name(&self) -> Option<&str> {
+        self.origin.as_ref().map(|o| o.id.name.as_str())
     }
 }
 
@@ -837,6 +911,7 @@ pub fn parse_quantity_in(
         value,
         unit,
         storage: None,
+        origin: None,
     })
 }
 
@@ -912,6 +987,18 @@ fn number_value(text: &str) -> Option<NumericValue> {
 /// by the same code.
 impl fmt::Display for DynQuantity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // a point ([Self::origin]) has one form, as `exact_units::Point`'s `Display` does: the number in its own
+        // origin, its own symbol after it (CLT-65); `{:#}` writes the same, a point has no raw form to show
+        if let Some(origin) = &self.origin {
+            match self.shown_f64(origin) {
+                Some(x) => write!(f, "{x}")?,
+                None => f.write_str(&show_number(&self.value))?,
+            }
+            return match origin.symbol.is_empty() {
+                true => Ok(()),
+                false => write!(f, " {}", origin.symbol),
+            };
+        }
         let unit = Part::Dyn(&self.unit);
         if let (DynPrefix::Si(prefix), None) = (&self.prefix, &self.storage) {
             return fmt::Display::fmt(&tree::quantity(*prefix, &self.value, &unit), f);
@@ -1020,17 +1107,21 @@ fn decimal_of(n: &NumericValue) -> Option<(i128, i8)> {
 
 /// The number of a transparent wrapper's value (`Fixed`, `Index`, ..): its one field.
 fn wrapped_number(value: &ValueOwned) -> Option<NumericValue> {
-    let field = match value {
+    match wrapped_field(value)? {
+        ValueOwned::Numeric(n) => Some(*n),
+        _ => None,
+    }
+}
+
+/// The value of a transparent wrapper's one field (`Fixed`, `Index`, `IndexFrom1`, `Seq`, `Point`'s `coord`).
+fn wrapped_field(value: &ValueOwned) -> Option<&ValueOwned> {
+    match value {
         ValueOwned::Struct {
             fields: FieldsValueOwned::Named(f),
         } => f.first().map(|(_, v)| v),
         ValueOwned::Struct {
             fields: FieldsValueOwned::Unnamed(f),
         } => f.first(),
-        _ => None,
-    };
-    match field? {
-        ValueOwned::Numeric(n) => Some(*n),
         _ => None,
     }
 }
@@ -1072,6 +1163,9 @@ pub fn stored_number(
         | Wrapper::IndexFrom1 { storage, .. }
         | Wrapper::Seq { storage, .. }
         | Wrapper::Coded { storage, .. } => storage,
+        // a `Point`'s storage is its `coord`'s, and a plain number there is ambiguous (raw or shown): writing one
+        // is not supported yet (CLT-65 covers reading a Point, not writing one)
+        Wrapper::Point { .. } => return None,
     };
     let name = type_name(ty, bundle);
     Some((|| {
@@ -1135,13 +1229,45 @@ impl DynCount {
             Wrapper::Index { of, .. } => (CountKind::Index, of),
             Wrapper::IndexFrom1 { of, .. } => (CountKind::IndexFrom1, of),
             Wrapper::Seq { of, .. } => (CountKind::Seq, of),
-            Wrapper::Fixed { .. } | Wrapper::Coded { .. } => return None,
+            Wrapper::Fixed { .. } | Wrapper::Coded { .. } | Wrapper::Point { .. } => return None,
         };
         Some(DynCount {
             kind,
             value: wrapped_number(value)?,
             of: unit(of, bundle, 0),
         })
+    }
+
+    /// The value of `ty` (an `Index`, `IndexFrom1` or `Seq` of the same kind, counting what [Self::of] does) this
+    /// count is, for writing it: the number as stored, checked as the device checks it (bounds, an `IndexFrom1`'s
+    /// 0). For a `DynCount` already at hand (Python takes the number directly, through `stored_number`): `Seq {
+    /// kind: CountKind::Seq, value: .., of }.to_value(ty, bundle)` instead of building the wire type by hand.
+    pub fn to_value(&self, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ValueOwned, String> {
+        let (kind, of) = match wrapper_of(ty, bundle) {
+            Some(Wrapper::Index { of, .. }) => (CountKind::Index, of),
+            Some(Wrapper::IndexFrom1 { of, .. }) => (CountKind::IndexFrom1, of),
+            Some(Wrapper::Seq { of, .. }) => (CountKind::Seq, of),
+            _ => {
+                return Err(format!(
+                    "{self} where {} is expected",
+                    type_name(ty, bundle)
+                ));
+            }
+        };
+        if kind != self.kind {
+            return Err(format!(
+                "{self} where {} is expected",
+                type_name(ty, bundle)
+            ));
+        }
+        let of = unit(of, bundle, 0);
+        if of != self.of {
+            return Err(format!(
+                "{self} where one counting {} is expected",
+                of.name()
+            ));
+        }
+        wrapper_value(self.value, ty, bundle)
     }
 }
 
@@ -1179,9 +1305,13 @@ pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<DynUnit> {
     Some(unit(u, bundle, 0))
 }
 
-/// Whether `ty` is a `ww_si::Quantity<U>`, see [unit_of], a `ww_si::AnyQuantity` or an `exact_units::Fixed`.
+/// Whether `ty` is a `ww_si::Quantity<U>`, see [unit_of], a `ww_si::AnyQuantity`, an `exact_units::Fixed` or a
+/// `Point` (CLT-65).
 pub fn is_quantity(ty: &TypeOwned, bundle: &ApiBundleOwned) -> bool {
-    unit_of(ty, bundle).is_some() || is_any_quantity(ty, bundle) || fixed_of(ty, bundle).is_some()
+    unit_of(ty, bundle).is_some()
+        || is_any_quantity(ty, bundle)
+        || fixed_of(ty, bundle).is_some()
+        || point_of(ty, bundle).is_some()
 }
 
 /// Whether `ty` is a `ww_si::AnyQuantity`, a value with its unit (ww_si 0.2 and later).

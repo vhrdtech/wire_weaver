@@ -11,7 +11,8 @@ use wire_weaver_client::ww_self::units::Bound as Bound_;
 /// A value with a unit, as the device sent it: `value` in units of `prefix`, `str()` is `3300 mV`, `float()` the
 /// value in the unit itself (3.3), `to_si()` in coherent SI. Read from a `ww_si::Quantity`, an `AnyQuantity` or an
 /// `exact_units::Fixed` (CLT-54), whose scale, storage and bounds are fixed by its type: `1730000000000000 µs` exactly
-/// from a `u64`, `4 KiB`.
+/// from a `u64`, `4 KiB`. A `Point` (CLT-65) reads the same way, shown in its own origin instead of its `Fixed`'s raw
+/// unit: `str()` is `25.5 °C`, `float()` 25.5, `to_si()` 298.65 (K); [Self::origin] names the origin (`"Celsius"`).
 #[pyclass(module = "wire_weaver", name = "Quantity", frozen, eq)]
 #[derive(PartialEq)]
 pub(crate) struct Quantity {
@@ -115,17 +116,26 @@ impl Quantity {
         ))
     }
 
-    /// The unit's symbol, without the prefix: `"V"`, `"N·m/(rad/s)"`, empty for a ratio; a unit `ww_si` doesn't know
-    /// has its name here.
+    /// The symbol written after the number: the unit's own (`"V"`, `"N·m/(rad/s)"`, empty for a ratio; a unit
+    /// `ww_si` doesn't know has its name here), or, for a point ([Self::origin] set), its origin's own symbol
+    /// instead (`"°C"` for a reading whose [Self::unit] is `"Kelvin"`, CLT-65).
     #[getter]
     fn symbol(&self) -> String {
-        self.q.unit.symbol()
+        self.q.symbol()
     }
 
-    /// The unit's type name: `"Volt"`, `"Per<Torque, AngularVelocity>"`, `"Rpm"`.
+    /// The unit's type name: `"Volt"`, `"Per<Torque, AngularVelocity>"`, `"Rpm"`; a point's own `unit` ([Self::origin]
+    /// set) is its `Fixed`'s, `"Kelvin"` for a temperature, not the origin.
     #[getter]
     fn unit(&self) -> String {
         self.q.unit.name()
+    }
+
+    /// The origin's name, read from a `Point<O, Fixed<U, ..>>` (CLT-65): `"Celsius"`, `"BoardTemp"`, `"Angle"` for a
+    /// heading. `None` for a plain `ww_si.Quantity`, `AnyQuantity` or `exact_units.Fixed`.
+    #[getter]
+    fn origin(&self) -> Option<String> {
+        self.q.origin_name().map(str::to_string)
     }
 
     /// The dimension as base-unit exponents, `{"kg": 1, "m": 2, "s": -3, "A": -1}` for a volt, `{"rad": 1, "s": -1}`
@@ -240,7 +250,8 @@ impl Quantity {
         Ok(Quantity { q, code: None })
     }
 
-    /// The value in the unit itself, without the prefix: 3.3 for 3300 mV.
+    /// The value in the unit itself, without the prefix: 3.3 for 3300 mV; for a point ([Self::origin] set), the
+    /// number shown in its own origin instead (25.5 for 25.5 °C, not the `Fixed`'s raw Kelvin reading, CLT-65).
     fn __float__(&self) -> f64 {
         self.q.to_f64()
     }

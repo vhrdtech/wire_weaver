@@ -357,7 +357,8 @@ pub(crate) fn root_wire(
 ) -> Result<Option<WireVersion>> {
     let key = root_key(&root_cx.module_names(), trait_name);
     let roots = root_cx.manifest.roots()?;
-    let manifest = match roots.get(&key) {
+    let retired = root_cx.manifest.retired_roots()?;
+    let manifest = match roots.get(&key).or_else(|| retired.get(&key)) {
         Some(wire) => Some((
             *wire,
             format!("[package.metadata.wire_weaver.roots] \"{key}\" = \"{wire}\""),
@@ -1512,19 +1513,30 @@ impl ManifestContext {
     /// The wire version of each API root in `[package.metadata.wire_weaver.roots]` (EVO-37), by its module path and
     /// name (`"wire_v2::Thermo" = "w2.1"`); empty without the table.
     fn roots(&self) -> Result<BTreeMap<String, WireVersion>> {
+        self.root_table("roots")
+    }
+
+    /// `[package.metadata.wire_weaver.retired_roots]`: roots whose line left the crate (`ww api line retire`) and
+    /// whose module is kept behind a `retired_*` feature. Only lets such a module compile with the feature on; the
+    /// checker, snapshots and `api_roots` don't see these as roots.
+    fn retired_roots(&self) -> Result<BTreeMap<String, WireVersion>> {
+        self.root_table("retired_roots")
+    }
+
+    fn root_table(&self, table: &str) -> Result<BTreeMap<String, WireVersion>> {
         let Some(roots) = self
             .manifest
             .package
             .as_ref()
             .and_then(|p| p.metadata.as_ref())
             .and_then(|m| m.get("wire_weaver"))
-            .and_then(|m| m.get("roots"))
+            .and_then(|m| m.get(table))
         else {
             return Ok(BTreeMap::new());
         };
         let context = || {
             format!(
-                "[package.metadata.wire_weaver.roots] in {}/Cargo.toml",
+                "[package.metadata.wire_weaver.{table}] in {}/Cargo.toml",
                 self.crate_path.display()
             )
         };

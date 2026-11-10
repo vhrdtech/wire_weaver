@@ -179,7 +179,7 @@ ww api scaffold tests/multi_root_api --root wire_v2::Thermo
 root on the highest line (or `--from wire_v2`) to `src/wire_v3.rs` (`--module` names it), declares it in `src/lib.rs`
 and lists `"wire_v3::Thermo" = "w3.0"` in `[package.metadata.wire_weaver.roots]`, keeping the manifest's comments.
 Then make the line's breaking change in the new module. `ww api line retire <path> wire_v1` removes a line no device
-runs any more: its `roots` entry, and puts `pub mod` behind `#[cfg(feature = "wire_v1")]` with a new `wire_v1 = []` feature nothing enables, so the module file stays in the source (`--delete` removes the file instead, refused unless git tracks it unchanged, `--force` skips that), with the breaking crate bump of the
+runs any more: its `roots` entry, and puts `pub mod` behind `#[cfg(feature = "retired_wire_v1")]` with a new `retired_wire_v1 = []` feature nothing enables (its wire version moves to `[package.metadata.wire_weaver.retired_roots]`, which only lets the module compile with the feature on: `cargo build --features retired_wire_v1`; the checker doesn't read it), so the module file stays in the source (`--delete` removes the file instead, refused unless git tracks it unchanged, `--force` skips that), with the breaking crate bump of the
 last version that saved the root (`--no-bump` leaves the version alone, a root never saved needs none). `ww api save`
 then records the removal. Only roots in single-file top-level modules are handled.
 

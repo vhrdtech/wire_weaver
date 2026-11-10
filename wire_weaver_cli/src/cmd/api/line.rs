@@ -29,7 +29,7 @@ pub enum LineCommand {
     },
     /// Remove a wire line no device runs any more
     ///
-    /// Takes the root out of `roots` and puts its `pub mod` in `src/lib.rs` behind `#[cfg(feature = "wire_v1")]`, a
+    /// Takes the root out of `roots` and puts its `pub mod` in `src/lib.rs` behind `#[cfg(feature = "retired_wire_v1")]`, a
     /// feature added to `Cargo.toml` that nothing enables, so the module stays in the source but is not built. With
     /// `--delete` the module file is removed instead; it has to be tracked and unchanged in git (`--force` skips that
     /// check). That is a breaking crate bump, made in `Cargo.toml` unless the version is already high enough or
@@ -199,8 +199,8 @@ fn gate_mod(lib: &str, module: &str, feature: &str) -> Result<String> {
     Ok(lines.join("\n") + if lib.ends_with('\n') { "\n" } else { "" })
 }
 
-/// Adds `<feature> = []` to `[features]`, creating the table when the crate has none.
-fn add_feature(doc: &mut DocumentMut, feature: &str) -> Result<()> {
+/// Adds `<feature> = []` to `[features]` with a comment line above it, creating the table when the crate has none.
+fn add_feature(doc: &mut DocumentMut, feature: &str, comment: &str) -> Result<()> {
     if doc.get("features").is_none() {
         doc["features"] = Item::Table(Table::new());
     }
@@ -211,7 +211,28 @@ fn add_feature(doc: &mut DocumentMut, feature: &str) -> Result<()> {
         bail!("Cargo.toml has a feature `{feature}` already, rename or remove it");
     }
     features.insert(feature, value(toml_edit::Array::new()));
+    if let Some(mut key) = features.key_mut(feature) {
+        key.leaf_decor_mut().set_prefix(format!("# {comment}\n"));
+    }
     Ok(())
+}
+
+/// Today as `2026-11-10`, UTC.
+fn today() -> String {
+    let days = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() / 86400) as i64;
+    // civil-from-days (Howard Hinnant)
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z.rem_euclid(146097);
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 fn new(path: &Path, from: Option<&str>, module: Option<&str>) -> Result<()> {
@@ -319,7 +340,7 @@ fn retire(path: &Path, root: &str, no_bump: bool, delete: bool, force: bool) -> 
         .iter()
         .any(|(k, _)| *k != key && k.starts_with(&format!("{module}::")));
     let (manifest_path, mut doc) = read_manifest(path)?;
-    roots_table(&mut doc)?.remove(&key);
+    let removed = roots_table(&mut doc)?.remove(&key);
 
     let lib_path = lib_rs(path)?;
     // kept: the module stays behind a feature nothing enables; deleted: gone from lib.rs and disk
@@ -328,11 +349,29 @@ fn retire(path: &Path, root: &str, no_bump: bool, delete: bool, force: bool) -> 
     } else if delete {
         Some(remove_mod(&std::fs::read_to_string(&lib_path)?, module)?)
     } else {
-        add_feature(&mut doc, module)?;
+        let feature = format!("retired_{module}");
+        let line = roots.iter().find(|(k, _)| *k == key).map_or(0, |(_, l)| *l);
+        let comment = format!(
+            "wire line w{line} retired on {}: cargo build --features {feature} to compare",
+            today()
+        );
+        add_feature(&mut doc, &feature, &comment)?;
+        // the module still needs its wire version when the feature is on; the checker doesn't read this table
+        let wire = removed.ok_or_else(|| anyhow!("`{key}` has no entry in `roots`"))?;
+        let metadata = doc["package"]["metadata"]["wire_weaver"]
+            .as_table_mut()
+            .ok_or_else(|| anyhow!("`[package.metadata.wire_weaver]` is not a table"))?;
+        if !metadata.contains_key("retired_roots") {
+            metadata.insert("retired_roots", Item::Table(Table::new()));
+        }
+        metadata["retired_roots"][&key] = wire;
+        if let Some(t) = metadata["retired_roots"].as_table_mut() {
+            t.set_implicit(false);
+        }
         Some(gate_mod(
             &std::fs::read_to_string(&lib_path)?,
             module,
-            module,
+            &feature,
         )?)
     };
     let file = if module_shared {
@@ -396,7 +435,7 @@ fn retire(path: &Path, root: &str, no_bump: bool, delete: bool, force: bool) -> 
         (Some(_), false) => {
             println!("{key} retired: {bump_note}");
             println!(
-                "{module}.rs is kept behind the Cargo feature `{module}` (nothing enables it); next: fix what still uses the module, then `ww api save` records the removal"
+                "{module}.rs is kept behind the Cargo feature `retired_{module}` (nothing enables it); next: fix what still uses the module, then `ww api save` records the removal"
             );
         }
         (None, _) => {
@@ -434,10 +473,10 @@ mod tests {
             "#![no_std]\n\npub mod common;\npub mod wire_v2;\npub mod wire_v3;\n"
         );
         assert!(add_mod(lib, "nope", "x").is_err());
-        let gated = gate_mod(lib, "wire_v1", "wire_v1").unwrap();
+        let gated = gate_mod(lib, "wire_v1", "retired_wire_v1").unwrap();
         assert_eq!(
             gated,
-            "#![no_std]\n\npub mod common;\n#[cfg(feature = \"wire_v1\")]\npub mod wire_v1;\npub mod wire_v2;\n"
+            "#![no_std]\n\npub mod common;\n#[cfg(feature = \"retired_wire_v1\")]\npub mod wire_v1;\npub mod wire_v2;\n"
         );
     }
 
@@ -476,20 +515,42 @@ mod tests {
         let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/multi_root_api");
         copy_dir(&source.join("src"), &dir.join("src"));
         let manifest = std::fs::read_to_string(source.join("Cargo.toml")).unwrap();
-        std::fs::write(dir.join("Cargo.toml"), manifest).unwrap();
+        std::fs::write(dir.join("Cargo.toml"), &manifest).unwrap();
+
+        // a feature of that name exists already: refused, naming it, nothing changed
+        let clash = manifest.replace("[features]", "[features]\nretired_wire_v1 = []");
+        std::fs::write(dir.join("Cargo.toml"), &clash).unwrap();
+        let err = retire(&dir, "wire_v1", false, false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("`retired_wire_v1`"), "{err}");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("Cargo.toml")).unwrap(),
+            clash
+        );
+        std::fs::write(dir.join("Cargo.toml"), &manifest).unwrap();
 
         retire(&dir, "wire_v1", false, false, false).unwrap();
         assert!(dir.join("src/wire_v1.rs").exists(), "the file stays");
         let lib = std::fs::read_to_string(dir.join("src/lib.rs")).unwrap();
         assert!(
-            lib.contains("#[cfg(feature = \"wire_v1\")]\npub mod wire_v1;"),
+            lib.contains("#[cfg(feature = \"retired_wire_v1\")]\npub mod wire_v1;"),
             "{lib}"
         );
         let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
-        assert!(manifest.contains("wire_v1 = []"), "{manifest}");
-        assert!(!manifest.contains("wire_v1::Thermo"));
-        // enabling the feature is not part of the default set
-        assert!(!manifest.contains("default = [\"std\", \"wire_v1\"]"));
+        assert!(manifest.contains("retired_wire_v1 = []"), "{manifest}");
+        assert!(
+            manifest.contains("# wire line w1 retired on 20")
+                && manifest.contains("--features retired_wire_v1 to compare\nretired_wire_v1 = []"),
+            "{manifest}"
+        );
+        assert!(
+            manifest.contains(
+                "[package.metadata.wire_weaver.retired_roots]\n\"wire_v1::Thermo\" = \"w1.2\""
+            ),
+            "{manifest}"
+        );
+        manifest.parse::<toml_edit::DocumentMut>().unwrap();
         let roots = wire_weaver_core::api_roots(&dir).unwrap();
         assert_eq!(roots.keys().collect::<Vec<_>>(), ["wire_v2::Thermo"]);
         std::fs::remove_dir_all(&dir).unwrap();

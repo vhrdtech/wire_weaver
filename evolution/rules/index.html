@@ -2537,6 +2537,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#w0-the-design-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        w0, the design line
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#several-lines-in-one-crate" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5912,6 +5923,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#w0-the-design-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        w0, the design line
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#several-lines-in-one-crate" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6277,7 +6299,8 @@ revision 3.</p>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">wire</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;w2.3&quot;</span>
 </span></code></pre></div>
 <p>A wire-compatible addition bumps the revision (<code>w2.3</code> -&gt; <code>w2.4</code>), a wire break the line
-(<code>w3.0</code>). A new API starts at <code>w1.0</code>. The <code>w</code> is part of the notation everywhere, so a crate version can't be taken
+(<code>w3.0</code>). A new API starts at <code>w0.0</code>, the <a href="#w0-the-design-line">design line</a>, and its first release at <code>w1.0</code>. The
+<code>w</code> is part of the notation everywhere, so a crate version can't be taken
 for one: <code>2.3</code>, <code>w2.3.0</code> and <code>0.2.0</code> are refused. The <code>#[ww_api_root]</code> trait gets a
 <code>*_WIRE_VERSION: ww_version::WireVersion</code> const next to its <code>*_FULL_GID</code>. Every crate whose traits or types cross the
 wire declares its wire version the same way, <code>ww_stdlib</code> crates too (<a href="../crate_layers/">crate layers</a>).</p>
@@ -6298,6 +6321,25 @@ is refused in a crate that can be published, and when the crate's <code>Cargo.to
 trait is a plain <code>#[ww_trait]</code>.</p>
 <p>Mark additions with <code>#[since = "w2.4"]</code>, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see <code>examples/blinky_api_evolved</code>).</p>
+<h3 id="w0-the-design-line">w0, the design line<a class="headerlink" href="#w0-the-design-line" title="Permanent link">&para;</a></h3>
+<p>Line 0 is for an API still being designed (EVO-41): breaks are accepted without a new line, and nothing is kept that
+would hold the API to its earlier shape. A first release moves it to <code>w1.0</code>, and from there every rule above applies.</p>
+<ul>
+<li><code>ww api save</code> keeps no snapshot of a crate or root on <code>w0.x</code> and says why. Moving to <code>w1.0</code> saves the first one.</li>
+<li><code>ww api check</code> and the crate's evolution test pass on w0, with <code>strict</code> and <code>require_current</code> too. Against a
+  snapshot that exists (one kept from before, or <code>--against</code>) they list what differs as information and ask for no
+  bump.</li>
+<li><code>#[since]</code> on w0 is a compile error: revisions mean nothing there. A type shared with released lines of one crate
+  (<a href="#several-lines-in-one-crate">several lines</a>) keeps their revisions; one naming line 0 is refused.</li>
+<li>Link setup takes a device of any w0 revision. A client then needs the device's introspection data whenever the
+  API hashes differ: it compares every resource, as on any line, and refuses per call what differs. Without that
+  data it refuses every call into its API with <code>Error::DesignLineUnchecked</code>, since a revision tells nothing on w0.
+  Equal hashes need nothing more: the hash is over the device's own introspection bytes.</li>
+<li><code>ww api check</code> and <code>ww api save</code> warn when a crate that can be published (no <code>publish = false</code>) has a root on w0:
+  others would build on an API that may still break. Move it to <code>w1.0</code> before publishing.</li>
+</ul>
+<p><code>ww api scaffold</code> suggests <code>w0.0</code> for an API that declares no wire version. Keep devices with a w0 API to the bench:
+any build of it may break any other.</p>
 <h3 id="several-lines-in-one-crate">Several lines in one crate<a class="headerlink" href="#several-lines-in-one-crate" title="Permanent link">&para;</a></h3>
 <p>One API crate can hold every wire line still in use, one <code>#[ww_api_root]</code> per module, with the types and sub-traits
 the lines share unchanged in a module of their own (EVO-37, <code>tests/multi_root_api</code>):</p>

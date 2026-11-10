@@ -7886,6 +7886,17 @@ observing), SRV-46 (peer identity).
   <code>docs/evolution/checker_tool.md#several-api-roots-in-one-crate</code>; tests <code>wire_weaver_evolution</code> <code>snapshots_per_root</code>,
   <code>crate_snapshot_is_a_roots_previous_one</code>, <code>renamed_root_is_saved_with_a_warning</code>, <code>wire_weaver_core</code>
   <code>snapshot_per_root</code>.</li>
+<li>✅ <strong>EVO-41 <code>w0</code>, the design line</strong> · <code>v0.5</code> — a crate or root on <code>w0.x</code> accepts breaks without a new line.
+  <code>ww api save</code> (<code>Check::save</code>) keeps no snapshot of it (<code>SaveStatus::DesignLine</code>); <code>ww api check</code> passes, also
+  strict and with <code>require_current</code>, and lists what differs from a snapshot that exists as information with no bump
+  asked; both warn when such a crate can be published. <code>#[since]</code> on w0 is a compile error (a shared type keeps its
+  released lines' revisions). A client whose device's API hash differs compares the device's introspection data
+  and, without it, refuses every call with <code>Error::DesignLineUnchecked</code>; equal hashes stay identical, the hash being
+  over the device's own introspection bytes. <code>ww api scaffold</code> suggests <code>w0.0</code>; moving to <code>w1.0</code> saves the first
+  snapshot. Docs: <code>docs/evolution/rules.md#w0-the-design-line</code>, <code>docs/evolution/checker_tool.md#the-design-line-w0</code>;
+  tests <code>wire_weaver_evolution</code> <code>design_line_*</code>, <code>wire_weaver_core</code> <code>since_refused_on_the_design_line</code>,
+  <code>design_line_root_shares_with_a_released_one</code>, <code>wire_version_note</code>, <code>wire_weaver_client</code>
+  <code>design_line_checks_the_device_or_refuses</code>, <code>any_revision_of_the_line_is_taken</code>.</li>
 <li>📋 <strong>EVO-39 The checker per root</strong> · <code>v0.5</code> — each root against its own line's latest snapshot, a changed
   <code>common</code> type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
   root a breaking crate bump, <code>#[since]</code> per line checked, one <code>load_crate</code> cache across roots and the CLI.</li>
@@ -7893,9 +7904,6 @@ observing), SRV-46 (peer identity).
   checker verifies the signature is the same and reports a move. Resources match by position within a line and
   only by <code>moved_from</code> across a break; the checker proposes same-name matches on a first break and never adds the
   attribute itself.</li>
-<li>📋 <strong>EVO-41 <code>w0</code>, the design line</strong> · <code>v0.5</code> — a root on <code>w0</code> accepts breaks: no snapshots, <code>ww api check</code>
-  informs only, <code>#[since]</code> refused, a client always compares the device's introspection data. A first release
-  starts at <code>w1.0</code>.</li>
 <li>📋 <strong>EVO-42 The multi-line bench on one crate</strong> · <code>v0.5</code> — <code>tests/thermo_api</code> as one crate of three lines and
   <code>tests/thermo</code> on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
   baseline; <code>docs/evolution/multi_line_host.md</code> rewritten for it.</li>

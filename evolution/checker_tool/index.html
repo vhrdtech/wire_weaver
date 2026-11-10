@@ -2602,6 +2602,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-design-line-w0" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The design line, w0
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#listing-all-changes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5795,6 +5806,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-design-line-w0" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        The design line, w0
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#listing-all-changes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6115,25 +6137,39 @@ snapshot per root, named after the crate version that saved it and the root's wi
   none of them by name (EVO-40).</li>
 <li><code>ww api check</code> and <code>Check::run</code> refuse such a crate for now: checking each root against its line's latest snapshot
   is EVO-39.</li>
+<li>A root on w0 gets no snapshot (below).</li>
+</ul>
+<h2 id="the-design-line-w0">The design line, w0<a class="headerlink" href="#the-design-line-w0" title="Permanent link">&para;</a></h2>
+<p>An API on <code>w0.x</code> is still being designed (<a href="../rules/#w0-the-design-line">w0, the design line</a>): <code>ww api save</code> keeps no
+snapshot of it, and <code>ww api check</code> passes, also with <code>--strict</code> and in the evolution test with <code>require_current</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww api save my_device_api
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>not saved: w0.2 is the design line, which keeps no snapshots (docs/evolution/rules.md#w0-the-design-line); the first is saved once the API moves to w1.0 at its first release
+</span></code></pre></div>
+<ul>
+<li>Against a snapshot that exists (<code>--against</code>, or one kept from before), <code>ww api check</code> prints the report as usual,
+  <code>needs:</code> saying <code>wire w0.2 (the design line: no wire bump)</code>, and passes: what differs is information.</li>
+<li>A crate that can be published (no <code>publish = false</code>) with a root on w0 gets a warning from both commands.</li>
+<li>Moving the API to <code>w1.0</code> makes the next <code>ww api save</code> keep its first snapshot, and every check from there on is
+  the one above.</li>
 </ul>
 <h2 id="listing-all-changes">Listing all changes<a class="headerlink" href="#listing-all-changes" title="Permanent link">&para;</a></h2>
 <p><code>ww api diff &lt;path&gt;</code> compares the same versions as <code>ww api check</code> (and also takes <code>--against</code> or a snapshot file), and
 lists every difference, doc comments included, followed by the verdict. It never fails, and doesn't tell why a change
 is breaking, <code>ww api check</code> does:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww api diff ww_stdlib/ww_uart
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.0 (source)
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  ~ Uart::rx: docs
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>      /// Receive stream
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    + /// of chunks
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>  ~ Uart::prevent_back_feed: docs
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    - /// Optional, check [Capabilities] if supported.
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    + /// Check [Capabilities] if supported.
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>  + Uart::flush: fn flush()
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>  ~ RxFlags: field `parity_error`: docs
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    + /// Parity error
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>  + RxFlags: field `framing_error`: framing_error: bool
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ ww api diff ww_stdlib/ww_uart
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.0 (source)
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  ~ Uart::rx: docs
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>      /// Receive stream
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    + /// of chunks
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>  ~ Uart::prevent_back_feed: docs
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    - /// Optional, check [Capabilities] if supported.
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    + /// Check [Capabilities] if supported.
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>  + Uart::flush: fn flush()
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>  ~ RxFlags: field `parity_error`: docs
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    + /// Parity error
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>  + RxFlags: field `framing_error`: framing_error: bool
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
 </span></code></pre></div>
 <p>Each line is an added (<code>+</code>), removed (<code>-</code>) or changed (<code>~</code>) trait, resource, type, struct field, enum variant or
 dependency crate version. Changes are: a resource's signature (kind, arguments, return type, property access, stream
@@ -6219,30 +6255,30 @@ reading. A new field of any type, <code>Unsized</code> or not, can take such bit
 </ul>
 <p>Old fields are then matched by name. Where padding is depends on the bit offset the type starts at. An <code>Unsized</code> type
 always starts at a byte boundary, so its padding is always in the same place:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive_shrink_wrap]</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in w1.1, reads as 0 from old data</span>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[derive_shrink_wrap]</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in w1.1, reads as 0 from old data</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>An <code>Unsized</code> type can gain fields with <code>#[default]</code> at the end as well, in the same version. Bits after its last field
 are not free though: lengths of variable size fields are written there.</p>
 <p><code>final_structure</code>, <code>self_describing</code> and <code>sized</code> types are packed tightly into their parent, so they can't grow at the
 end, and they can start at any bit inside the parent, so the checker requires that the new field fits for every start
 offset:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[derive_shrink_wrap(sized)]</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in w1.1, reads as 0 from old data</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="cp">#[derive_shrink_wrap(sized)]</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;w1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in w1.1, reads as 0 from old data</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Without <code>a</code>, the padding before <code>b</code> is 7 bits if <code>S</code> starts at a byte boundary, but none if it starts at bit offset 7,
 so <code>g</code> can't be added. Padding after the last field is never free: whatever follows the type in its parent starts
@@ -6255,41 +6291,41 @@ reading as zero from old data. The client uses the same rules when comparing its
 suffix (<code>_us</code>, <code>_ms</code>, <code>_ns</code>, <code>_s</code>, <code>_hz</code>, <code>_khz</code>, <code>_ppb</code>, <code>_ppm</code>, <code>_bytes</code>, <code>_bits</code>, <code>_kib</code>), with the
 <a href="../../std_library/exact_units/"><code>exact_units::Fixed&lt;U, P, T&gt;</code></a> it could become instead: a note, never an error,
 printed after the verdict and never affecting it, even when there is no snapshot to compare with yet:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ ww api check my_device_api
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>no changes
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  note: shared_us: u64 could be exact_units::Fixed&lt;Second, Micro, u64&gt; (exact_units::Micros&lt;u64&gt;), renamed to
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  `shared`; silence with #[no_unit_hint]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>$ ww api check my_device_api
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>no changes
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>  note: shared_us: u64 could be exact_units::Fixed&lt;Second, Micro, u64&gt; (exact_units::Micros&lt;u64&gt;), renamed to
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>  `shared`; silence with #[no_unit_hint]
 </span></code></pre></div>
 <p>A field that really is a plain number (a count of nothing in particular, an index, a value whose unit isn't fixed)
 silences the note with <code>#[no_unit_hint]</code> right on it:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">    </span><span class="cp">#[no_unit_hint]</span>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="n">retry_count_s</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="c1">// not a duration: s is the slot letter here, not seconds</span>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">    </span><span class="cp">#[no_unit_hint]</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="n">retry_count_s</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="c1">// not a duration: s is the slot letter here, not seconds</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>On a trait method the same bare attribute silences every argument, or names only the ones to leave out:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="cp">#[ww_trait]</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="cp">#[no_unit_hint(poll_hz)]</span>
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">poll_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// timeout_ms still gets the note</span>
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="cp">#[no_unit_hint(poll_hz)]</span>
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">poll_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// timeout_ms still gets the note</span>
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>and on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item it silences the resource's own name:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="cp">#[no_unit_hint]</span>
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="p">,</span><span class="w"> </span><span class="n">rate_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// a raw register value here, not a frequency</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="cp">#[no_unit_hint]</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="p">,</span><span class="w"> </span><span class="n">rate_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// a raw register value here, not a frequency</span>
 </span></code></pre></div>
 <p><code>ww api scaffold</code> shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
 handlers are written against <code>Fixed</code> from the start where the note applies.</p>
 <h2 id="a-missing-test-warning-tool-31">A missing-test warning (TOOL-31)<a class="headerlink" href="#a-missing-test-warning-tool-31" title="Permanent link">&para;</a></h2>
 <p><code>ww api check</code> and <code>ww api save</code> also warn, before anything else, when the crate directory has no
 <code>tests/evolution.rs</code> calling <code>wire_weaver_evolution::Check</code> (the <a href="#checking-at-every-commit">test above</a>):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>$ ww api check my_device_api
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>  only by `ww api check` run by hand
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
-</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>no changes
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>$ ww api check my_device_api
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>  only by `ww api check` run by hand
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>no changes
 </span></code></pre></div>
 <p>A crate without the API crate's own test only gets checked when someone remembers to run <code>ww api check</code> by hand:
 <code>cargo test</code>, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,

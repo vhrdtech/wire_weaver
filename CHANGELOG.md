@@ -12,6 +12,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - `ww api line new` / `retire` start and end a wire line of a multi-root API crate (TOOL-33, see `wire_weaver_cli/CHANGELOG.md`).
+- `ww_si::Timed.t` is a device time point, `Timed<V, Tm = DeviceMicros<u32>>`, unwrapped on the host by `TimeUnwrapper` (STD-110, wire change EVO-51, `ww_si` 0.5.0 on wire `w5.0`); a batched stream picks its time point with `batched(time = ..)` (API-61), typed stream handles carry the time type (CLT-70). See the `ww_si`, `ww_stream`, `wire_weaver_core`, `wire_weaver_client`, `ww_self` and `wire_weaver_py` changelogs.
 
 ### Added
 

@@ -12,7 +12,8 @@
 //! `photometric`, `radiation`, `logarithmic`, `dimensionless`, `quantities` for all), as are the number types (`u16`,
 //! `f32`, .., `all`, see `ww_numeric`) and the host helpers (`host`: [Unwrapper]). `std` enables everything.
 //!
-//! A value with the time it was taken is a [Timed] (feature `time`).
+//! A value with the time it was taken is a [Timed] (feature `time`), its time a [TimePoint] on a time scale
+//! (`DeviceMicros<u32>` by default) that the host unwraps with [TimeUnwrapper].
 //!
 //! A value whose unit, prefix and number type the API fixes (`Fixed<Second, Micro, u64>`, a timestamp in µs) is a
 //! [Fixed]: on the wire exactly the number, the unit only in the type.
@@ -39,7 +40,11 @@ pub use scale::ToIn;
 #[cfg(feature = "time")]
 mod timed;
 #[cfg(feature = "time")]
-pub use timed::Timed;
+pub use timed::{TimePoint, TimeStep, Timed};
+#[cfg(feature = "time")]
+mod time_unwrap;
+#[cfg(feature = "time")]
+pub use time_unwrap::{TimeOverflow, TimeUnwrapper};
 #[cfg(feature = "host")]
 mod timestamp;
 #[cfg(feature = "host")]
@@ -48,14 +53,14 @@ pub use timestamp::{UnwrapError, Unwrapper};
 pub use exact_units;
 pub use exact_units::{
     BaseDef, BaseExp, BaseRule, Bases, Bounds, BridgeDef, BridgeError, Character, CompactError,
-    Count, Crossing, DecimalPrefix, Dim, DimWire, Exp, Finite, Fixed, FixedScale, MAX_TRUE_BASES,
-    MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds, Overflow, Point,
-    PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, QuantityDef, QuantityExpr,
-    QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Reference, ReferenceDef, ReferenceHow,
-    Repr, Rounding, SIExpr, SetToOne, Storage, System, SystemDef, SystemRef, TimeCounting,
-    TimeScaleDef, TimeZero, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul, UnitNames,
-    UnitTable, UnitZero, UnsignedStorage, base, codec, origin, origins, prefix, quantities,
-    quantity, scale, systems, unit, units,
+    Count, Crossing, DecimalPrefix, Dim, DimWire, Exp, Finite, Fixed, FixedScale, Linear,
+    MAX_TRUE_BASES, MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds,
+    Overflow, Point, PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, QuantityDef,
+    QuantityExpr, QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Reference, ReferenceDef,
+    ReferenceHow, Repr, Rounding, SIExpr, SetToOne, Storage, System, SystemDef, SystemRef,
+    TimeCounting, TimeScaleDef, TimeZero, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul,
+    UnitNames, UnitTable, UnitZero, UnsignedStorage, base, codec, origin, origins, prefix,
+    quantities, quantity, scale, systems, unit, units,
 };
 #[cfg(feature = "std")]
 pub use exact_units::{
@@ -137,6 +142,10 @@ pub struct Quantity<U: Unit, B: QuantityBounds = Unbounded> {
 /// of ms every 65.5 s. `U64` and `UVlq64` don't wrap in practice (584 000 years of µs); `UVlq32` wraps like `U32`.
 /// Timestamps are never signed or floats. The host gets the full time back with [Unwrapper] (feature `host`),
 /// anchored on a full-width reading of the same clock (`ww_timebase::Clock::now()`).
+///
+/// A `Second` timestamp is for a time whose prefix or storage is chosen at run time: a stream event's head, an
+/// observe update, `Clock::now()`. Where the API fixes them, the time is a [TimePoint] instead (a
+/// `DeviceMicros<u32>`, the `t` of a [Timed]): its bytes alone on the wire, and [TimeUnwrapper] on the host.
 #[cfg(feature = "time")]
 pub type Second = Quantity<units::Second>;
 

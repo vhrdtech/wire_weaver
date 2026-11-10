@@ -92,7 +92,7 @@ fn main() -> ! {
     let mut out_of_range = [0u8; 16];
     let out_of_range = Volt::milli(3301u32).to_ww_bytes(&mut out_of_range).unwrap();
 
-    let timed = Timed::new(t0, rail);
+    let timed = Timed::new(black_box(ww_si::origins::DeviceMicros::from_raw(1_234_567u32)), rail);
     let mut tbuf = [0u8; 32];
 
     let mut sum: u32 = 0;

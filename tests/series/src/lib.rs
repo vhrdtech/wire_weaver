@@ -243,10 +243,10 @@ mod tests {
     }
 
     fn history() -> Vec<ww_si::Timed<ww_si::Volt>> {
-        use ww_si::{Prefix, Second, Timed, Volt};
+        use ww_si::{Prefix, Timed, Volt, origins::DeviceMicros};
         (0..50u32)
             .map(|k| Timed {
-                t: Second::from_parts(Prefix::Micro, NumericValue::U32(1_000_000 + k * 1000)),
+                t: DeviceMicros::from_raw(1_000_000 + k * 1000),
                 value: Volt::from_parts(Prefix::Milli, NumericValue::I32(3300 + (k as i32 % 3))),
             })
             .collect()

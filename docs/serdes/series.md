@@ -98,10 +98,12 @@ gets you the worse of both.
 
 ## Time: `Timed<T>`
 
-`ww_si::Timed<T> { t: Second, value: T }` ([DER-14](derive_reference.md#generics) generic struct with
+`ww_si::Timed<V, Tm> { t: Tm, value: V }` ([DER-14](derive_reference.md#generics) generic struct with
 `series`) is not a special case of `Series` — it gets a `t` column like any other field, and a regular sampling
-rate costs about nothing (delta + constant: `t0 + period`). Use `Series<Timed<T>>` wherever a batch needs its own
-timestamps; where a stream already carries time for the whole batch, a plain `Series<T>` works just as well.
+rate costs about nothing (delta + constant: `t0 + period`). `t` is a [time point](../std_library/ww_si.md#which-time-point),
+`DeviceMicros<u32>` by default: a plain `u32` column, no prefix run and no number tag. Use `Series<Timed<T>>`
+wherever a batch needs its own timestamps; where a stream already carries time for the whole batch, a plain
+`Series<T>` works just as well.
 
 ## Using it
 
@@ -148,22 +150,25 @@ impl FixedCodecs for DeltaOfDeltaPacked {
 Series::with_policy(&items, DeltaOfDeltaPacked).to_ww_bytes(&mut buf)?;
 ```
 
-What a `Series<Timed<Ampere>>` costs (64 samples of a motor's phase current, `examples_mcu/mcu_qemu` and
-`mcu_qemu_m4f`, instructions counted in QEMU with `examples_mcu/qemu_icount`; flash is the bin's `.text` minus the
-same bin without a `Series`):
+What a `Series<Timed<Ampere>>` costs (64 samples of a motor's phase current, `t` a `DeviceMicros<u32>`,
+`examples_mcu/mcu_qemu` and `mcu_qemu_m4f` at `opt-level = "z"` with fat LTO, instructions of one batch counted in
+QEMU with `examples_mcu/qemu_icount` and divided by `n`; flash is the bin's `.text` minus the same bin without a
+`Series`):
 
 | Cortex-M3                       | instructions per item, n = 8 / 32 / 64 | bytes, n = 8 / 32 / 64 | flash   |
 |---------------------------------|----------------------------------------|------------------------|---------|
-| `SMALLEST`                      | 1112 / 969 / 950                       | 21 / 50 / 89           | 25.4 KB |
-| `fixed(delta, packed)`          | 409 / 341 / 332                        | 27 / 79 / 153          | 25.4 KB |
-| `fixed(delta-of-delta, packed)` | 411 / 334 / 321                        | 28 / 61 / 100          | 25.4 KB |
-| `DeltaPacked`                   | 406 / 341 / 333                        | 27 / 79 / 153          | 15.0 KB |
+| `SMALLEST`                      | 1096 / 965 / 946                       | 20 / 49 / 87           | 21.5 KB |
+| `fixed(delta, packed)`          | 355 / 300 / 290                        | 25 / 78 / 151          | 21.5 KB |
+| `fixed(delta-of-delta, packed)` | 359 / 290 / 278                        | 26 / 60 / 99           | 21.5 KB |
+| `DeltaPacked`                   | 354 / 302 / 294                        | 25 / 78 / 151          | 15.9 KB |
 
-A Cortex-M4F takes about the same instructions; its flash is 17.6 KB with a `CodecPolicy` and 9.8 KB with
+A Cortex-M4F takes about the same instructions; its flash is 18.9 KB with a `CodecPolicy` and 13.6 KB with
 `DeltaPacked`. On an STM32H725 (Cortex-M7 at 540 MHz, caches on, `examples_mcu/usb_stm32h725ig`'s
-`series_encode_cycles`) a batch of 32 takes 25 200 cycles with `DeltaPacked` (47 µs, 790 cycles per item) and
-60 800 with `SMALLEST`. A fixed codec is about 3x cheaper in CPU than `SMALLEST`, for 1.2x to 1.7x the bytes on this signal
-(a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).
+`series_encode_cycles`, same profile) a batch of 32 takes 22 700 cycles with `DeltaPacked` (42 µs, 710 cycles per
+item) and 59 300 with `SMALLEST`. A fixed codec is about 3x cheaper in CPU than `SMALLEST`, for 1.2x to 1.7x the
+bytes on this signal (a ramp after a step: delta of delta is the better fixed codec there, delta on flatter signals).
+While `t` was a `Second` (a prefix and a number type per item) the same batch took 20 % to 50 % more instructions
+in QEMU, 50 % to 75 % more cycles on the H725, and 30 % (M3) to 55 % (M4F) more flash.
 
 ### From the store, column by column
 
@@ -215,8 +220,8 @@ let item: Timed<Ampere> = Timed::get(&store, k);
 ```
 
 Without padding between fields of different sizes it takes less RAM than the items themselves: `Store<32>` of
-`Timed<Ampere>` is 12 bytes per item with `ww_numeric`'s `U8`, `U32`, `I32` and `F32` enabled, where
-`[Timed<Ampere>; 32]` takes 24. What each kind of type keeps:
+`Timed<Ampere>` is 11 bytes per item with `ww_numeric`'s `U8`, `U32`, `I32` and `F32` enabled, where
+`[Timed<Ampere>; 32]` takes 16. What each kind of type keeps:
 
 | Type                          | Store                                                                            |
 |-------------------------------|----------------------------------------------------------------------------------|
@@ -255,8 +260,8 @@ per item and per series: every column at its longest code under any `CodecPolicy
 picks), every run changing at every item. `Series::<T>::max_bytes(n)` puts them together with the count and the
 padding. Strings, byte lists and opaque fields have no bound (`None`).
 
-The bound is far from what real data takes: 32 samples of `Timed<Volt>` at a regular clock are 22 bytes, against a
-bound of 570 with the number types up to 32 bits and 1272 with every one enabled (`NumericValue` is bounded by its
+The bound is far from what real data takes: 32 samples of `Timed<Volt>` at a regular clock are 21 bytes, against a
+bound of 545 with the number types up to 32 bits and 893 with every one enabled (`NumericValue` is bounded by its
 widest variant). It tells when a batch is safely below a budget, and a measurement (`BitCounter`) is needed only
 close to it.
 

@@ -38,6 +38,21 @@ attribute above a plain or `#[counted]` `stream!`. `Sample`/`Frame` need `#[deri
 API crate needs `ww_si`. A type without a series size bound (a string, a byte list, an opaque field) is a compile
 error on `batched`.
 
+The item's time is a `DeviceMicros<u32>` by default, µs since the device booted, wrapping every 71.6 minutes. A
+stream that is quiet for longer than half of that, or that has another resolution, picks its own
+[time point](../std_library/ww_si.md#which-time-point) with `batched(time = ..)` (API-61), any type the API crate
+can name:
+
+```rust
+#[stream(Sample, batched(time = ww_si::origins::DeviceMillis<u32>))]
+fn slow();                                               // timed in ms, wraps every 49.7 days
+
+#[batched(time = ww_si::origins::DeviceMillis<u32>)]
+stream!(slow_readings: Sample);
+```
+
+The item is then `Timed<Sample, DeviceMillis<u32>>`, and the time point is part of the stream's wire type.
+
 ### Device side
 
 The stream field's type becomes `ww_stream::batch::Batched<Sink, Timed<Sample>, N>` (or `Batched<Sink, Frame, N>`
@@ -58,7 +73,7 @@ async fn stream_readings(&mut self) -> &mut Batched<Plain, Timed<Sample>, 32> {
 
 // feeding it, anywhere in the device's own code - an ISR, a control loop tick
 let ser = api_impl::stream_data_ser();
-ser.readings_push(&mut self.readings_stream, sample, t);               // one item, its own time
+ser.readings_push(&mut self.readings_stream, sample, t);               // one item, t: DeviceMicros<u32>
 ser.readings_push_many(&mut self.readings_stream, t0, dt, block);      // a regularly-sampled block at once
 ser.frames_push(&mut self.frames_stream, frame);                       // untimed: no `t`
 
@@ -69,7 +84,9 @@ server.poll_streams(&mut out, now_ms, &mut buf, 4096, &mut scratch).await?;
 
 `<name>_push`/`<name>_push_many` are O(1) and interrupt-safe (a copy of the item's fields and two atomic
 operations, see [Sealing](#sealing) below), returning a [`Seal`](#sealing) - whether this push sealed a batch, and
-whether anything was lost. `poll_streams` takes one extra argument next to the buffer and message-length bound an
+whether anything was lost; `push_many` returns the last seal and the number of items lost on the way. Its `dt` is a
+`TimeStep` of the stream's time point (`Fixed<Second, Micro, u32>` for the default), and item `i` gets `t0 + i·dt`,
+wrapping like the device clock. `poll_streams` takes one extra argument next to the buffer and message-length bound an
 unbatched server already passes: a `Scratch<B>`, shared by every batcher of the server, where a sealed batch's
 items are rebuilt before they're written as a `Series` (see [the store](#the-store)). `close_<name>`/the stream
 closing should call `.batcher.flush()` to send a half-full batch rather than wait out `max_age`.

@@ -15,7 +15,7 @@ mod tests {
         self, ApiItemKindOwned, FieldsValueOwned, GenericArgOwned, TypeOwned, ValueOwned,
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
-    use ww_si::origins::Angle;
+    use ww_si::origins::{Angle, DeviceMicros};
     use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
     use ww_si::units::{
         self, AngularVelocity, Degree, Frame, Item, Meter, Per, Ratio, Sample, Times, Torque,
@@ -23,7 +23,7 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
         Ampere, AnyQuantity, Dim, Fixed, FixedScale, Index, IndexFrom1, Magnitude, Micros, Point,
-        Prefix, Quantity, Range, RangeDec, SIExpr, Second, Seq, Timed, Unbounded, Unit, Volt,
+        Prefix, Quantity, Range, RangeDec, SIExpr, Seq, Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
@@ -140,7 +140,7 @@ mod tests {
     fn history() -> Vec<Timed<Ampere>> {
         (0..20u32)
             .map(|k| Timed {
-                t: Second::from_parts(Prefix::Micro, NumericValue::U32(1_000_000 + k * 40)),
+                t: DeviceMicros::from_raw(1_000_000 + k * 40),
                 value: Ampere::from_parts(Prefix::Milli, NumericValue::I32(152 - k as i32)),
             })
             .collect()
@@ -149,7 +149,7 @@ mod tests {
     fn sizes() -> Vec<Timed<Size>> {
         (0..4u32)
             .map(|k| Timed {
-                t: Second::from_parts(Prefix::Micro, NumericValue::U32(100 + k)),
+                t: DeviceMicros::from_raw(100 + k),
                 value: Fixed::new(512 << k),
             })
             .collect()
@@ -158,7 +158,7 @@ mod tests {
     fn ticks() -> Vec<Timed<Micros<u32>>> {
         (0..4u32)
             .map(|k| Timed {
-                t: Second::from_parts(Prefix::Micro, NumericValue::U32(k)),
+                t: DeviceMicros::from_raw(k),
                 value: Fixed::new(1000 * k),
             })
             .collect()
@@ -1552,11 +1552,11 @@ mod tests {
         );
         assert_eq!(
             fixed_name(&root, "sizes"),
-            "Timed<Fixed<Byte, One, u32, Unbounded>>"
+            "Timed<Fixed<Byte, One, u32, Unbounded>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>"
         );
         assert_eq!(
             fixed_name(&root, "ticks"),
-            "Timed<Fixed<Second, Micro, u32, Unbounded>>"
+            "Timed<Fixed<Second, Micro, u32, Unbounded>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>"
         );
     }
 
@@ -1573,7 +1573,7 @@ mod tests {
         );
         assert_eq!(
             fixed_name(&root, "history"),
-            "Timed<Quantity<Ampere, Unbounded>>"
+            "Timed<Quantity<Ampere, Unbounded>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>"
         );
 
         let rail = root.child("rail").unwrap();

@@ -115,17 +115,13 @@ impl Unwrapper {
 
 /// The non-negative value congruent to `low` modulo `modulus` closest to `reference`.
 fn closest(reference: i128, low: i128, modulus: i128) -> i128 {
-    let mut candidate = reference - reference.rem_euclid(modulus) + low;
-    if candidate - reference > modulus / 2 {
-        candidate -= modulus;
-    } else if reference - candidate > modulus / 2 {
-        candidate += modulus;
-    }
+    let candidate = crate::time_unwrap::closest(reference, low, modulus);
     // time since the clock started is never negative
     if candidate < 0 {
-        candidate += modulus;
+        candidate + modulus
+    } else {
+        candidate
     }
-    candidate
 }
 
 #[cfg(all(test, feature = "std"))]

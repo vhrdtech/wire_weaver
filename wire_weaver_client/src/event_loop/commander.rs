@@ -410,12 +410,12 @@ impl Commander {
     /// Resume a counted or reliable stream from `cursor` (generated `name_resume(cursor)`), with the arguments
     /// the device keeps for the session: after a reconnect or a restart of the host program. A cursor of another
     /// session than the device's opens the device's (`StreamEvent::Resumed { ended, .. }`).
-    pub fn prepare_stream_resume<T>(
+    pub fn prepare_stream_resume<T, Tf: crate::ItemTime>(
         &self,
         path: PathKind<'_>,
         delivery: ww_self::Delivery,
         cursor: StreamCursor,
-    ) -> PreparedStreamOpen<(), PositionedStream<T>> {
+    ) -> PreparedStreamOpen<(), PositionedStream<T, Tf>> {
         let mut open = self.prepare_stream_open(path, Some(delivery), Ok(vec![]));
         open.resume = Some(cursor);
         open

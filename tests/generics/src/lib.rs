@@ -17,7 +17,7 @@ mod tests {
         ValueOwned,
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
-    use ww_si::{Ampere, Prefix, Second, Timed};
+    use ww_si::{Ampere, Prefix, Timed};
 
     #[derive(Default)]
     struct SharedTestData {
@@ -265,7 +265,7 @@ mod tests {
 
     fn latest() -> Timed<Ampere> {
         Timed::new(
-            Second::from_parts(Prefix::Milli, NumericValue::U32(1500)),
+            ww_si::origins::DeviceMicros::from_raw(1_500_000),
             Ampere::from_parts(Prefix::Micro, NumericValue::I16(-250)),
         )
     }
@@ -377,11 +377,13 @@ mod tests {
         let bundle = bundle();
         let mut defs = generic_defs(&bundle);
         defs.sort();
-        // `Quantity` twice: the stand-in of this API and `ww_si::Quantity` (in `Timed<Ampere>`, ww_si 0.2)
+        // `Quantity` twice: the stand-in of this API and `ww_si::Quantity` (in `Timed<Ampere>`, ww_si 0.2); `Point`
+        // and `Fixed` of the time in `Timed<Ampere, DeviceMicros<u32>>` (STD-110)
         assert_eq!(
             defs,
             [
-                "Outer", "Pair", "Quantity", "Quantity", "Reading", "Tagged", "Timed", "Window"
+                "Fixed", "Outer", "Pair", "Point", "Quantity", "Quantity", "Reading", "Tagged",
+                "Timed", "Window"
             ]
         );
         let (arg, ret) = method_types(&bundle, 0);
@@ -410,7 +412,7 @@ mod tests {
 
     fn timed_voltage() -> Timed<Volt> {
         Timed::new(
-            Second::from_parts(Prefix::Micro, NumericValue::U16(20)),
+            ww_si::origins::DeviceMicros::from_raw(20),
             Quantity::new(-5),
         )
     }
@@ -468,7 +470,7 @@ mod tests {
         assert_eq!(arg.human_name(false, &bundle).unwrap(), "Quantity<Volt>");
         assert_eq!(
             item_ty(&bundle, 8).human_name(false, &bundle).unwrap(),
-            "Timed<Quantity<Volt>>"
+            "Timed<Quantity<Volt>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>"
         );
         assert_eq!(
             item_ty(&bundle, 9).human_definition(&bundle, true).unwrap(),
@@ -502,7 +504,7 @@ mod tests {
         // ww_self, and the bounds are explicit in the model, `Unbounded` too (STD-59)
         assert_eq!(
             ty.human_name(false, bundle).unwrap(),
-            "Timed<Quantity<Ampere, Unbounded>>"
+            "Timed<Quantity<Ampere, Unbounded>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>"
         );
         let ApiItemKindOwned::Property { ty, .. } = &bundle.get_item(&[4]).unwrap().kind else {
             panic!("property");
@@ -595,22 +597,11 @@ mod tests {
         let latest_value = named(vec![
             (
                 "t",
-                named(vec![
-                    (
-                        "prefix",
-                        ValueOwned::Enum {
-                            variant: "Milli".into(),
-                            fields: FieldsValueOwned::Unit,
-                        },
-                    ),
-                    (
-                        "value",
-                        ValueOwned::Enum {
-                            variant: "U32".into(),
-                            fields: FieldsValueOwned::Unnamed(vec![num(NumericValue::U32(1500))]),
-                        },
-                    ),
-                ]),
+                // a DeviceMicros<u32>: Point { coord: Fixed { value } }, its u32 alone on the wire
+                named(vec![(
+                    "coord",
+                    named(vec![("value", num(NumericValue::U32(1_500_000)))]),
+                )]),
             ),
             (
                 "value",

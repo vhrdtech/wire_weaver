@@ -7,7 +7,8 @@
 ))]
 
 use shrink_wrap::series::SeriesStore;
-use ww_si::{Ampere, Prefix, Second, Timed};
+use ww_si::origins::DeviceMicros;
+use ww_si::{Ampere, Prefix, Timed};
 
 type Store = <Timed<Ampere> as SeriesStore>::Store<32>;
 
@@ -16,28 +17,28 @@ fn round_trip() {
     let mut store = Timed::<Ampere>::empty_store::<32>();
     for k in 0..32u32 {
         let item = Timed::new(
-            Second::micro(k * 40),
+            DeviceMicros::from_raw(k * 40),
             Ampere::new(Prefix::Milli, k as i32 - 16),
         );
         Timed::set(&mut store, k as usize, &item);
     }
     for k in 0..32u32 {
         let item = Timed::<Ampere>::get(&store, k as usize);
-        assert_eq!(item.t, Second::micro(k * 40));
+        assert_eq!(item.t, DeviceMicros::from_raw(k * 40));
         assert_eq!(item.value, Ampere::new(Prefix::Milli, k as i32 - 16));
     }
 }
 
 /// With every number type (the default `std` build): 20 bytes per quantity (prefix code in 2 bytes, variant, a
-/// `u128` payload, `UN` / `IN` width), 40 per item.
+/// `u128` payload, `UN` / `IN` width), and the `u32` of the time point, 24 per item.
 #[cfg(feature = "std")]
 #[test]
 fn size_all_number_types() {
-    assert_eq!(size_of::<Store>(), 32 * 40);
+    assert_eq!(size_of::<Store>(), 32 * 24);
 }
 
 /// A firmware with `U8`, `U32`, `I32` and `F32` only: 7 bytes per quantity (prefix code in 2 bytes, variant, a `u32`
-/// payload), 14 per item, where `[Timed<Ampere>; 32]` takes 24 per item (`cargo test -p ww_si --no-default-features --features
+/// payload) and 4 of the time point, 11 per item, where `[Timed<Ampere>; 32]` takes 16 per item (`cargo test -p ww_si --no-default-features --features
 /// time,electrical,u32,i32,f32 --test store`, run by `just test`).
 #[cfg(not(any(
     feature = "u64",
@@ -51,8 +52,8 @@ fn size_all_number_types() {
 )))]
 #[test]
 fn size_up_to_32_bits() {
-    assert_eq!(size_of::<Store>(), 32 * 14);
-    assert_eq!(size_of::<[Timed<Ampere>; 32]>(), 32 * 24);
+    assert_eq!(size_of::<Store>(), 32 * 11);
+    assert_eq!(size_of::<[Timed<Ampere>; 32]>(), 32 * 16);
 }
 
 /// A quantity column with one prefix and one number type over the rows is written column by column, the bytes
@@ -106,7 +107,10 @@ fn quantities_written_column_by_column() {
 #[test]
 fn unknown_prefix_in_a_store() {
     let mut store = Timed::<Ampere>::empty_store::<32>();
-    let item = Timed::new(Second::micro(5), Ampere::new(Prefix::Unknown(1000), 3));
+    let item = Timed::new(
+        DeviceMicros::from_raw(5),
+        Ampere::new(Prefix::Unknown(1000), 3),
+    );
     Timed::set(&mut store, 0, &item);
     assert_eq!(
         Timed::<Ampere>::get(&store, 0).value.prefix,

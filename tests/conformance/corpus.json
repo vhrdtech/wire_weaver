@@ -1659,6 +1659,30 @@
       "note": "126.6 °C is above Range<-400, 1250>: refused on decode, as for the Fixed alone (STD-64)"
     },
     {
+      "name": "stdlib.si.timed.default",
+      "type": "si_timed",
+      "value": {"t": {"coord": {"value": 5000123}}, "value": 513},
+      "bytes": "bb4b4c000102",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Timed<u16> with its default time, a DeviceMicros<u32> of 5.000123 s since boot: the u32 alone, then the value (STD-110)"
+    },
+    {
+      "name": "stdlib.si.timed.millis_u16",
+      "type": "si_timed_millis",
+      "value": {"t": {"coord": {"value": 65535}}, "value": 7},
+      "bytes": "ffff0700",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Timed<u16, DeviceMillis<u16>> at the last ms before its wrap: the u16 alone, then the value (STD-110)"
+    },
+    {
+      "name": "stdlib.si.timed.series",
+      "type": "series_si_timed",
+      "value": [{"t": {"coord": {"value": 4294967216}}, "value": 1000}, {"t": {"coord": {"value": 4294967256}}, "value": 1001}, {"t": {"coord": {"value": 0}}, "value": 1002}, {"t": {"coord": {"value": 40}}, "value": 1003}, {"t": {"coord": {"value": 80}}, "value": 1004}, {"t": {"coord": {"value": 120}}, "value": 1005}, {"t": {"coord": {"value": 160}}, "value": 1006}, {"t": {"coord": {"value": 200}}, "value": 1007}],
+      "bytes": "816ffffffb0a8301f44080",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "8 Timed<u16> 40 µs apart across the u32 wrap: a time column of a regular clock that wraps, and a value column (STD-110)"
+    },
+    {
       "name": "stdlib.si.index.in_struct",
       "type": "with_index",
       "value": {"slot": {"index": 1000}, "tag": 7},

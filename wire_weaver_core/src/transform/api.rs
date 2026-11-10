@@ -3,11 +3,11 @@ use super::{
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
     meta::{MetaSite, get_meta},
     moved_from::get_moved_from_attrs,
-    ty::{convert_named_def, convert_ty, convert_ty_path, convert_ty_path_segment},
+    ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
     unit_hint::{is_silenced, suggest},
     util::{
-        collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr, get_optional_attr,
-        get_since_attr, get_stream_fn_attr,
+        Batched, collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr,
+        get_optional_attr, get_since_attr, get_stream_fn_attr,
     },
 };
 use anyhow::{Context, Result, anyhow};
@@ -22,7 +22,7 @@ use syn::{
 };
 use ww_self::{
     ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ArgumentOwned, Batching,
-    Delivery, ErrorVariantOwned, GenericArgOwned, Multiplicity, PropertyAccess, TypeOwned,
+    Delivery, ErrorVariantOwned, Multiplicity, PropertyAccess, TypeOwned,
 };
 
 pub(crate) fn convert_api_items(
@@ -404,11 +404,12 @@ fn convert_api_item_fn(
         }
         Some(stream) => {
             let ty = convert_ty(&stream.ty, current_crate, scratch)?;
-            let batch_item_ty = batch_item_ty(&ty, stream.batched, current_crate, scratch)?;
+            let batch_item_ty =
+                batch_item_ty(&stream.ty, stream.batched.as_ref(), current_crate, scratch)?;
             stream_kind(
                 ty,
                 stream.delivery,
-                stream.batched,
+                stream.batched.map(|b| b.batching),
                 args,
                 return_ty,
                 errors,
@@ -473,8 +474,21 @@ fn convert_api_item_stream(
     let kind = match flow {
         Some(flow) => ApiItemKindOwned::FlowSink { ty, flow },
         None if is_up => {
-            let batch_item_ty = batch_item_ty(&ty, batched, current_crate, scratch)?;
-            stream_kind(ty, delivery, batched, vec![], None, None, batch_item_ty)
+            let batch_item_ty = batch_item_ty(
+                &args.type_or_trait,
+                batched.as_ref(),
+                current_crate,
+                scratch,
+            )?;
+            stream_kind(
+                ty,
+                delivery,
+                batched.map(|b| b.batching),
+                vec![],
+                None,
+                None,
+                batch_item_ty,
+            )
         }
         None => ApiItemKindOwned::Stream { ty, is_up },
     };
@@ -524,15 +538,21 @@ fn stream_kind(
     }
 }
 
-/// [stream_kind]'s `batch_item_ty`: `Timed<ty>` for a batched timed stream, `None` otherwise (API-41).
+/// [stream_kind]'s `batch_item_ty`: `Timed<ty>` (or `Timed<ty, Tm>` of `batched(time = Tm)`) for a batched timed
+/// stream, `None` otherwise (API-41, API-61).
 fn batch_item_ty(
-    ty: &TypeOwned,
-    batched: Option<Batching>,
+    ty: &syn::Type,
+    batched: Option<&Batched>,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<Option<TypeOwned>> {
-    match batched {
-        Some(Batching::Timed) => Ok(Some(timed_instance(ty, current_crate, scratch)?)),
+    match batched.map(|b| &b.batching) {
+        Some(Batching::Timed) => Ok(Some(timed_instance(
+            ty,
+            batched.and_then(|b| b.time.as_ref()),
+            current_crate,
+            scratch,
+        )?)),
         // parsed from this same `ww_self` version's attributes, never the `Unknown` catch-all of an older one
         Some(Batching::Untimed)
         | Some(Batching::SharedClock)
@@ -541,27 +561,28 @@ fn batch_item_ty(
     }
 }
 
-/// The `ww_si::Timed` generic definition instantiated with `item_ty` (API-41): the wire item of a batched timed
-/// stream is `Series` of this. `Timed` isn't named anywhere in the trait's own source (only `item_ty` is, as the
-/// stream's plain item type), so it's resolved from `ww_si` directly rather than walked from a type a user wrote.
+/// `ww_si::Timed<item_ty>`, or `ww_si::Timed<item_ty, time>`, converted in the API crate (API-41): the wire item of a
+/// batched timed stream is `Series` of this. `Timed` isn't named anywhere in the trait's own source (only `item_ty`
+/// is, as the stream's plain item type), so it's written here as the API crate would write it; its time parameter
+/// comes from `Timed`'s default (`DeviceMicros<u32>`) unless the stream names one.
 pub(crate) fn timed_instance(
-    item_ty: &TypeOwned,
+    item_ty: &syn::Type,
+    time: Option<&syn::Type>,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<TypeOwned> {
     let ww_si = Ident::new("ww_si", proc_macro2::Span::call_site());
-    let ww_si_cx = current_crate
+    current_crate
         .resolve_path(std::iter::once(&ww_si), scratch)
         .context(
-            "a batched timed stream or +batched property needs ww_si as a dependency (Timed<T>'s wire form \
-             comes from there); depend on it, or for a stream use batched(untimed) if T already carries its own time",
+            "a batched timed stream needs ww_si as a dependency (Timed<T>'s wire form comes from there); depend on \
+             it, or use batched(untimed) if T already carries its own time",
         )?;
-    let timed = Ident::new("Timed", proc_macro2::Span::call_site());
-    let type_idx = convert_named_def(&timed, &ww_si_cx, scratch)?;
-    Ok(TypeOwned::Instance {
-        type_idx,
-        args: vec![GenericArgOwned::Type(item_ty.clone())],
-    })
+    let timed: syn::Type = match time {
+        Some(time) => syn::parse_quote!(ww_si::Timed<#item_ty, #time>),
+        None => syn::parse_quote!(ww_si::Timed<#item_ty>),
+    };
+    convert_ty(&timed, current_crate, scratch)
 }
 
 fn convert_api_item_property(
@@ -1258,7 +1279,7 @@ mod tests {
             Some("StreamsBatched"),
             "reliable",
             "frames",
-            "Timed<Sample>",
+            "Timed<Sample, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>",
         );
     }
 
@@ -1304,12 +1325,20 @@ mod tests {
         // untimed stream or a property that isn't batched: no extra wire data
         assert_eq!(batch_item_ty_of(&full, plain), None);
 
-        // a Timed<T> instance, pointing at the Timed generic definition in ww_si
+        // a Timed<T, Tm> instance, pointing at the Timed generic definition in ww_si, Tm filled in from its
+        // default (API-61)
         let ty = batch_item_ty_of(&full, timed).expect("a batch_item_ty");
         let TypeOwned::Instance { type_idx, args } = &ty else {
             panic!("expected an Instance, got {ty:?}");
         };
-        assert_eq!(args.len(), 1);
+        assert_eq!(args.len(), 2);
+        let ww_self::GenericArgOwned::Type(tm) = &args[1] else {
+            panic!("expected a type argument, got {:?}", args[1]);
+        };
+        assert_eq!(
+            tm.human_name(false, &full).unwrap(),
+            "Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>"
+        );
         let TypeLocationOwned::InLine {
             ty: TypeOwned::Struct(timed_def),
             crate_idx,

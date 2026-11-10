@@ -690,7 +690,7 @@ mod tests {
         for line in [
             "├─ 6 fn double(v: Quantity<Volt>) -> Quantity<Volt>\n",
             "├─ 7 rw property voltage: Quantity<Volt>\n",
-            "├─ 8 rw property timed_voltage: Timed<Quantity<Volt>>\n",
+            "├─ 8 rw property timed_voltage: Timed<Quantity<Volt>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>\n",
             "└─ 9 rw property sample: Pair<Window<2>, Reading<u8>>\n",
         ] {
             assert!(tree.contains(line), "{tree}");

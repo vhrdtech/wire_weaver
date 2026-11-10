@@ -1,5 +1,5 @@
 use crate::Error;
-use crate::client::batch::{BatchItem, Unpacker};
+use crate::client::batch::{BatchItem, ItemTime, Unpacker};
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::event_queue::TryRecvError;
 use crate::event_loop::rx_dispatcher::StreamUpdateReceiver;
@@ -11,17 +11,18 @@ use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::Error as SWError;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKindOwned, StreamSideband};
+use ww_si::Second;
 
 /// Stream of typed values from device to host.
 /// Also holds a sideband channel.
-pub struct Stream<T> {
+pub struct Stream<T, Tf = Second> {
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
     pub(crate) rx: StreamUpdateReceiver,
     /// Batched streams (API-41): how an event becomes items
-    pub(crate) unpacker: Unpacker<T>,
+    pub(crate) unpacker: Unpacker<T, Tf>,
     /// Items of the last batch not taken yet
-    pub(crate) pending: VecDeque<BatchItem<T>>,
+    pub(crate) pending: VecDeque<BatchItem<T, Tf>>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -93,7 +94,7 @@ pub enum StreamError {
     Other(#[from] Error),
 }
 
-impl<T: DeserializeShrinkWrapOwned> Stream<T> {
+impl<T: DeserializeShrinkWrapOwned, Tf: ItemTime> Stream<T, Tf> {
     /// Data events dropped since the stream was opened because its queue on the host was full (the program didn't
     /// read for a while), see [ClientConfig::stream_queue_bytes](crate::ClientConfig::stream_queue_bytes).
     pub fn dropped(&self) -> u64 {
@@ -150,7 +151,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     /// The rest of the next batch of a batched stream (API-41), or the next one whole: its items, each with its
     /// device time (unwrapped, as in [StreamEvent::Item](crate::StreamEvent::Item)). An item of a stream that isn't
     /// batched is a batch of one, without a time.
-    pub async fn recv_batch(&mut self) -> Result<Vec<BatchItem<T>>, StreamError> {
+    pub async fn recv_batch(&mut self) -> Result<Vec<BatchItem<T, Tf>>, StreamError> {
         loop {
             if !self.pending.is_empty() {
                 return Ok(self.pending.drain(..).collect());
@@ -161,7 +162,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     }
 
     /// Blocking variant of [Self::recv_batch].
-    pub fn recv_batch_blocking(&mut self) -> Result<Vec<BatchItem<T>>, StreamError> {
+    pub fn recv_batch_blocking(&mut self) -> Result<Vec<BatchItem<T, Tf>>, StreamError> {
         loop {
             if !self.pending.is_empty() {
                 return Ok(self.pending.drain(..).collect());
@@ -204,7 +205,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
     fn skip(&mut self, ev: &RawStreamEvent) -> bool {
         match ev {
             RawStreamEvent::Connected => {
-                self.unpacker.time.restart();
+                self.unpacker.restart();
                 true
             }
             RawStreamEvent::Dropped { .. } => true,
@@ -339,7 +340,7 @@ impl<T: DeserializeShrinkWrapOwned> Stream<T> {
             },
             RawStreamEvent::Sideband(s) => TypedStreamEvent::Sideband(s),
             RawStreamEvent::Connected => {
-                self.unpacker.time.restart();
+                self.unpacker.restart();
                 TypedStreamEvent::Connected
             }
             RawStreamEvent::Disconnected => TypedStreamEvent::Disconnected,

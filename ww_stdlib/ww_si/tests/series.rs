@@ -47,10 +47,10 @@ fn design_example() {
 /// `Timed<T>` (derived with a type parameter, DER-14) around the sample: a regular clock is a constant delta.
 #[test]
 fn timed_samples() {
-    use ww_si::{Second, Timed};
+    use ww_si::{Timed, origins::DeviceMicros};
     let items: Vec<Timed<IvSample>> = (0..100u32)
         .map(|k| Timed {
-            t: Second::micro(1_000_000 + k * 1000),
+            t: DeviceMicros::from_raw(1_000_000 + k * 1000),
             value: IvSample {
                 v: Volt::milli(3300u16 + (k % 2) as u16),
                 i: Ampere::new(Prefix::Micro, 152_000i32),
@@ -62,7 +62,7 @@ fn timed_samples() {
     let without = Series::new(&untimed).to_ww_bytes_owned().unwrap();
     within_bound::<Timed<IvSample>>(items.len(), &bytes);
     within_bound::<IvSample>(untimed.len(), &without);
-    // the time column: its prefix and storage runs, the header, the first value and the step
+    // the time column: the header, the first value and the step
     assert!(
         bytes.len() <= without.len() + 10,
         "{} vs {}",
@@ -70,18 +70,18 @@ fn timed_samples() {
         without.len()
     );
     let back = SeriesOwned::<Timed<IvSample>>::from_ww_bytes_owned(&bytes).unwrap();
-    assert_eq!(back[99].t.value, NumericValue::U32(1_099_000));
+    assert_eq!(back[99].t.raw(), 1_099_000);
     assert_eq!(back[99].value.v.value, NumericValue::U16(3301));
 }
 
-/// `Series<Timed<Volt>>`: 32 samples at a 40 µs clock, the same 22 bytes as ww_si 0.1.
+/// `Series<Timed<Volt>>`: 32 samples at a 40 µs clock in 21 bytes (22 while `t` was a `Second`: its prefix run).
 #[test]
 fn timed_volt_bytes() {
-    use ww_si::{Second, Timed};
+    use ww_si::{Timed, origins::DeviceMicros};
     let items: Vec<Timed<Volt>> = (0..32u32)
         .map(|k| {
             Timed::new(
-                Second::micro(1_000_000 + k * 40),
+                DeviceMicros::from_raw(1_000_000 + k * 40),
                 Volt::milli(3300u16 + (k % 3) as u16),
             )
         })
@@ -91,12 +91,12 @@ fn timed_volt_bytes() {
     assert_eq!(
         bytes,
         [
-            0x84, 0x21, 0x98, 0x00, 0x3d, 0x09, 0x02, 0xa0, 0x22, 0x28, 0x67, 0x20, 0xab, 0xae,
-            0x85, 0xd7, 0x5c, 0x2b, 0xae, 0xb1, 0x57, 0x5c
+            0x84, 0x60, 0x00, 0xf4, 0x24, 0x0a, 0x80, 0x88, 0xa1, 0x9c, 0x82, 0xae, 0xba, 0x17,
+            0x5d, 0x70, 0xae, 0xba, 0xc5, 0x5d, 0x70
         ]
     );
     let back = SeriesOwned::<Timed<Volt>>::from_ww_bytes_owned(&bytes).unwrap();
     for (a, b) in back.iter().zip(&items) {
-        assert!(a.t.same_repr(&b.t) && a.value.same_repr(&b.value));
+        assert!(a.t == b.t && a.value.same_repr(&b.value));
     }
 }

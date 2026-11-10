@@ -7,21 +7,22 @@ use wire_weaver::shrink_wrap::series::{
     Series, SeriesColumns, SeriesOwned, SeriesPolicy, SeriesStore,
 };
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, UVlq32, UVlq64};
-use ww_si::{Ampere, Prefix, Second, Timed};
+use ww_si::origins::DeviceMicros;
+use ww_si::{Ampere, Prefix, Timed};
 
 type Sample = Timed<Ampere>;
 
 /// A sample that doesn't compress much.
 fn noisy(k: u32) -> Sample {
     Timed::new(
-        Second::micro(k * k * 977),
+        DeviceMicros::from_raw(k * k * 977),
         Ampere::new(Prefix::Milli, (k as i32 * 7919) % 2001 - 1000),
     )
 }
 
 fn sample(k: u32) -> Sample {
     Timed::new(
-        Second::micro(k * 40),
+        DeviceMicros::from_raw(k * 40),
         Ampere::new(Prefix::Milli, (k as i32 % 9) - 4),
     )
 }

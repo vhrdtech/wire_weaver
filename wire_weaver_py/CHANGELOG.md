@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- A `Timed` value's `t` is a time point (`ww_si` STD-110): it decodes as a `ww.Quantity` shown since its origin (`"1.5 s since boot"`), and is written as one or as the dict of its `coord`, not as a `Second`'s `prefix` and `value`.
 - A `Point<O, Fixed<U, ..>>` property, argument, return or stream item (a temperature in °C, a heading) decodes as a
   `ww.Quantity` instead of the generic `dict` of its one field, `coord` (CLT-65): `str()` and `float()` are now the
   number shown in its own origin (`"25.5 °C"`, `25.5`), not the `Fixed`'s raw unit through `coord`; code reading

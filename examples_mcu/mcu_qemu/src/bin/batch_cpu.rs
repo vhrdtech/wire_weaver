@@ -20,7 +20,8 @@ use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
-use ww_si::{Ampere, Prefix, Second, Timed};
+use ww_si::origins::DeviceMicros;
+use ww_si::{Ampere, Prefix, Timed};
 use ww_stream::batch::{Batcher, DEFAULT_POLICY, Scratch, scratch_bytes};
 
 type Sample = Timed<Ampere>;
@@ -39,7 +40,7 @@ fn mark_end() {
 fn sample(k: u32) -> Sample {
     let ripple = [0, 3, 5, 3, 0, -3, -5, -3][k as usize % 8];
     Timed::new(
-        Second::micro(1_000_000 + k * 40),
+        DeviceMicros::from_raw(1_000_000 + k * 40),
         Ampere::new(Prefix::Milli, 2_400 - k as i32 * 150 + ripple),
     )
 }

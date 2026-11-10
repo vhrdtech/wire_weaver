@@ -815,10 +815,13 @@ impl Scaffold<'_> {
         let (state, kind, keeps) = match stream.batched {
             Some(batching) => {
                 let item = self.ty(stream.ty, false)?;
-                let item = if batching == Batching::Untimed {
-                    item
-                } else {
-                    format!("ww_stream::batch::Timed<{item}>")
+                let item = match (batching, stream.batch_time_ty()) {
+                    (Batching::Untimed, _) => item,
+                    // the item's time as the model has it, `batched(time = ..)` or Timed's default (API-61)
+                    (_, Some(tm)) => {
+                        format!("ww_stream::batch::Timed<{item}, {}>", self.ty(tm, false)?)
+                    }
+                    _ => format!("ww_stream::batch::Timed<{item}>"),
                 };
                 (
                     // items per batch: the device's choice, the host doesn't know it

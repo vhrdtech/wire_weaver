@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Timed<V, Tm = DeviceMicros<u32>>` (STD-110, wire change EVO-51): `t` is a time point (`Tm`, a `Point` on a time scale, by default µs since the device booted in a `u32` that wraps every 71.6 minutes) instead of a `Second`; on the wire the bytes of its storage alone, no prefix and no number tag. Write `Timed::new(DeviceMicros::from_raw(t_us), value)` where it was `Timed::new(Second::micro(t_us), value)`; a device that changed prefix or storage at run time picks one `Tm` that holds its longest silence (`DeviceMillis<u32>`, `DeviceMicros<u64>`). `Timed<Ampere>`'s store is 11 bytes per item (12 before) with number types up to 32 bits, 32 `Timed<Volt>` at a regular clock 21 bytes in a `Series` (22).
 - Version 0.4.0 on a new wire line, `w4.0` (EVO-47): `ww api check` against the 0.3.0 snapshot from before exact_units UNIT-9 finds `SIExpr`'s new signature (its `Dim` starts with its system's id) as a wire break of `SIExpr` and `AnyQuantity`. `ww_si_0_4_0.ron` is new; `ww_si_0_3_0.ron` and `ww_si_0_2_0.ron` keep their in-place save, so their `SIExpr` reference resolves against exact_units 0.1.0's snapshot. Depend on `ww_si = "0.4"`.
 - `exact_units` at UNIT-9 (wire change EVO-47): a `Dim` starts with the `MarkerId` of its system, so `SIExpr` and `AnyQuantity` holding a `UnitDef` change bytes (13 more per SI unit for `exact_unitsSi`). `ww_si_0_3_0.ron` (never published) and `ww_si_0_2_0.ron` (its `SIExpr` signature) saved again in place.
 - `exact_units` at UNIT-8 (wire change EVO-45): a unit names its quantity by the quantity marker's `MarkerId`, so `SIExpr` and `AnyQuantity` holding such a `UnitDef` (`Hertz`, `Ohm`) change bytes. New re-exports: `Character`, `QuantityDef`, `QuantityExpr`, `QuantityRef`, `QuantitySpec`, `quantities`, `quantity!` (and `QuantityDefOwned`, `QuantityRefOwned` with `std`); `units::Of` and `units::Phase` (now `Of<PhaseAngle, A>`) through `units`.
@@ -13,6 +14,7 @@
 
 ### 🚀 Features
 
+- `TimePoint` (STD-110): what a `Timed`'s time can be, any `Point<O, Fixed<Second, P, T>>` of a linear origin in integer storage; `Full` (the same point in 64 bits), `BITS`, `low`, `wrapping_add`, `steps` (the times of a regularly sampled block, wrapping like the clock). `TimeStep<Tm>` names its step type. `TimeUnwrapper<Tm>` and `TimeOverflow` (feature `time`): the full point back on the host from narrow storage (`new(now)`, `default()`, `anchor`, `restart`, `last`, `unwrap`); `Unwrapper` (dynamic, `Second`) shares its core. Re-exports `Linear`.
 - Re-exports `Finite` (exact_units NUM-20, STD-104).
 - Re-exports `exact_units::codec` (`Coded`, `Codec`, `CodecDef`, `MuLaw`) for APIs with non-linear codes (STD-109).
 - Re-exports `Reference`, `ReferenceDef`, `ReferenceHow`, `TimeScaleDef`, `TimeCounting`, `TimeZero` and `UnitZero` (exact_units PT-4), so a crate declares a reference of its own through `ww_si` (STD-108).

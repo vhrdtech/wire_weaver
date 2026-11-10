@@ -163,6 +163,19 @@ pub struct StreamFnRef<'a> {
 }
 
 impl<'a> StreamFnRef<'a> {
+    /// [Batching::Timed] only: the time of each item, the second argument of the `Timed<T, Tm>` instance in
+    /// [batch_item_ty](Self::batch_item_ty) (`DeviceMicros<u32>` unless the stream names another, API-61). `None` for
+    /// any other stream, or a `batch_item_ty` that isn't such an instance.
+    pub fn batch_time_ty(&self) -> Option<&'a TypeOwned> {
+        match self.batch_item_ty? {
+            TypeOwned::Instance { args, .. } => match args.get(1)? {
+                GenericArgOwned::Type(ty) => Some(ty),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     /// What one event of this stream carries on the wire: `ty` directly when it isn't batched, `Series<T>`
     /// (untimed) or `Series<Timed<T>>` (timed) otherwise (API-41), for a dynamic decoder. Errors on a form of
     /// batching from a future `ww_self` this one doesn't know.

@@ -19,7 +19,8 @@ use wire_weaver::shrink_wrap::series::DeltaPacked;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{RefVec, Series, UNib32, UVlq32, UVlq32Backfill};
 use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind};
-use ww_si::{Ampere, Second, Timed};
+use ww_si::origins::DeviceMicros;
+use ww_si::{Ampere, Timed};
 
 /// Runs of each case: the first is cold, the others warm.
 pub const RUNS: usize = 3;
@@ -162,7 +163,9 @@ struct SetArgs {
 fn items() -> [Timed<Ampere>; ITEMS] {
     core::array::from_fn(|i| {
         Timed::new(
-            Second::micro(super::motor_signal::T0_US + i as u32 * super::motor_signal::DT_US),
+            DeviceMicros::from_raw(
+                super::motor_signal::T0_US + i as u32 * super::motor_signal::DT_US,
+            ),
             Ampere::milli(super::motor_signal::I_A_MILLIAMPS[i]),
         )
     })
@@ -411,9 +414,7 @@ fn read_series(buf: &[u8]) -> u32 {
     let series = Series::<Timed<Ampere>>::from_ww_bytes(buf).unwrap();
     let mut sum = 0u32;
     for item in series.iter() {
-        sum = sum.rotate_left(3)
-            ^ item.value.value.to_i128().unwrap_or(0) as u32
-            ^ item.t.value.to_i128().unwrap_or(0) as u32;
+        sum = sum.rotate_left(3) ^ item.value.value.to_i128().unwrap_or(0) as u32 ^ item.t.raw();
     }
     sum
 }

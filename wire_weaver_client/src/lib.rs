@@ -19,6 +19,7 @@ mod error_list;
 pub(crate) mod event_loop;
 /// The evolution checker, now its own crate (EVO-11): `wire_weaver_evolution`.
 pub use wire_weaver_evolution as evolution;
+pub use ww_si;
 pub mod expr;
 pub mod facade;
 pub mod follow;
@@ -34,7 +35,7 @@ pub mod tap;
 mod tracing;
 
 pub use client::attachment::Attachment;
-pub use client::batch::{Batch, BatchItem, Unpack, unpack_timed, unpack_untimed};
+pub use client::batch::{Batch, BatchItem, ItemTime, Unpack, unpack_timed, unpack_untimed};
 pub use client::dyn_client::DynClient;
 pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver, DynSamples};
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};

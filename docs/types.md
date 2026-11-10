@@ -261,7 +261,8 @@ Generated server and client code uses the types as written (`Window<4>`, `ww_si:
 `Tagged<'i, T>` as `TaggedOwned<String>` on the owned side). The API model has each generic definition once, with
 its parameters, and each use as an instance with its arguments; [`ww_si::Timed<T>`](std_library/ww_si.md) is known
 from the `ww_si` snapshot, so a device leaves its definition out of its introspection data like that of any known
-type. The dynamic client, `ww` and Python see the concrete types (`Timed<Ampere>`, `Window<4>`) and read and write
+type. The dynamic client, `ww` and Python see the concrete types (`Timed<Ampere>` as `Timed<Quantity<Ampere>,
+Point<DeviceBoot, Fixed<Second, Micro, u32>>>`, its default time point filled in; `Window<4>`) and read and write
 the same bytes as the derived ones.
 
 Arguments can be types, integer and `bool` literals, `const` items of the crate, a const parameter passed on

@@ -945,6 +945,27 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.point.bounded", point_bounded(-400)),
         case("stdlib.si.point.bounded.rejected", point_bounded(1250)),
         case(
+            "stdlib.si.timed.default",
+            ww_si::Timed::new(ww_si::origins::DeviceMicros::from_raw(5_000_123u32), 513u16),
+        ),
+        case(
+            "stdlib.si.timed.millis_u16",
+            ww_si::Timed::new(ww_si::origins::DeviceMillis::from_raw(65_535u16), 7u16),
+        ),
+        case(
+            "stdlib.si.timed.series",
+            SeriesOwned(
+                (0..8u32)
+                    .map(|k| {
+                        ww_si::Timed::new(
+                            ww_si::origins::DeviceMicros::from_raw((u32::MAX - 79).wrapping_add(k * 40)),
+                            1000 + k as u16,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+        ),
+        case(
             "stdlib.si.index.in_struct",
             WithIndex {
                 slot: ww_si::Index::new(1000),

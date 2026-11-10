@@ -47,9 +47,9 @@ Mark the item type with `series` and write the slice:
 ```rust
 use shrink_wrap::prelude::*;
 use shrink_wrap::series::{Series, SeriesOwned};
-use ww_si::{Ampere, Second, Timed};
+use ww_si::{Ampere, Timed};
 
-let items: Vec<Timed<Ampere>> = /* 32 currents with their times */;
+let items: Vec<Timed<Ampere>> = /* 32 currents with their times, DeviceMicros<u32> */;
 let bytes = Series::new(&items).to_ww_bytes_owned()?; // that's the line
 
 let back: Vec<Timed<Ampere>> = Series::<Timed<Ampere>>::from_ww_bytes(&bytes)?.iter().collect();
@@ -233,10 +233,10 @@ What the choice costs, encoding 32 samples of a motor phase current (`Series<Tim
 
 | policy                          | instructions per item | bytes | encoder flash |
 |---------------------------------|-----------------------|-------|---------------|
-| `SMALLEST`                      | 969                   | 50    | 25.4 KB       |
-| `fixed(delta, packed)`          | 341                   | 79    | 25.4 KB       |
-| `fixed(delta-of-delta, packed)` | 334                   | 61    | 25.4 KB       |
-| `DeltaPacked`                   | 341                   | 79    | 15.0 KB       |
+| `SMALLEST`                      | 965                   | 49    | 21.5 KB       |
+| `fixed(delta, packed)`          | 300                   | 78    | 21.5 KB       |
+| `fixed(delta-of-delta, packed)` | 290                   | 60    | 21.5 KB       |
+| `DeltaPacked`                   | 302                   | 78    | 15.9 KB       |
 
 So a fixed codec is about 3x cheaper in CPU than trying them all, for 1.2x to 1.7x the bytes. A run-time
 `CodecPolicy` value links every codec whatever its value; only a `FixedCodecs` type leaves the rest out. And
@@ -728,9 +728,11 @@ written, branchy code), more than the 1 to 1.5 first guessed, which is why the M
 
 ### Why the shared clock halves the CPU
 
-A `Timed<T>` item has a time column next to its value, and a time is itself a quantity: a prefix run, a storage tag
-run and a value column, the same three columns as the value. So the time is half of the columns an encoder walks
-per item, and sharing one time column across a level's properties removes nearly half the work. On the H725, one
+A `Timed<T>` item has a time column next to its value. When this was measured its time was a `Second`, itself a
+quantity: a prefix run, a storage tag run and a value column, the same three columns as the value. So the time was
+half of the columns an encoder walks per item, and sharing one time column across a level's properties removed
+nearly half the work. (`Timed.t` is now a [time point](../std_library/ww_si.md#which-time-point), one `u32` column,
+so a `Timed<T>` costs less than below; the level batch's shared `sample_times` is still a `Series<Second>`.) On the H725, one
 `foc` level batch (21 properties, 32 samples):
 
 | `DeltaPacked`, one level batch        | bytes          | cycles             |

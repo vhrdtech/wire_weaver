@@ -16,7 +16,7 @@ use ww_client_server::stream::StreamOpenedOwned;
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
 use ww_stream::{Opened, StreamCursor};
 
-use crate::client::batch::{Unpack, Unpacker};
+use crate::client::batch::{ItemTime, Unpack, Unpacker};
 use crate::client::positioned::{AckMode, PositionedConfig, PositionedStream, Shared};
 use crate::error_list::{self, ErrorList};
 use crate::event_loop::command::{Command, StreamOpenHook};
@@ -98,10 +98,15 @@ mod sealed {
 pub trait StreamHandle: sealed::Sealed + Sized {
     /// What the handle receives.
     type Item;
+    /// The device time it gives with each item (CLT-70): `Second`, or a timed batched stream's full point.
+    type Time;
     #[doc(hidden)]
     fn positioned() -> bool;
     #[doc(hidden)]
-    fn from_parts(parts: HandleParts, unpack: Option<Unpack<Self::Item>>) -> Self;
+    fn from_parts(
+        parts: HandleParts,
+        unpack: Option<Box<dyn Unpack<Self::Item, Self::Time>>>,
+    ) -> Self;
 }
 
 #[doc(hidden)]
@@ -120,15 +125,16 @@ enum Parts {
     },
 }
 
-impl<T> sealed::Sealed for Stream<T> {}
-impl<T> StreamHandle for Stream<T> {
+impl<T, Tf> sealed::Sealed for Stream<T, Tf> {}
+impl<T, Tf: ItemTime> StreamHandle for Stream<T, Tf> {
     type Item = T;
+    type Time = Tf;
 
     fn positioned() -> bool {
         false
     }
 
-    fn from_parts(parts: HandleParts, unpack: Option<Unpack<T>>) -> Self {
+    fn from_parts(parts: HandleParts, unpack: Option<Box<dyn Unpack<T, Tf>>>) -> Self {
         let Parts::Plain {
             transport_cmd_tx,
             path_kind,
@@ -148,15 +154,16 @@ impl<T> StreamHandle for Stream<T> {
     }
 }
 
-impl<T> sealed::Sealed for PositionedStream<T> {}
-impl<T> StreamHandle for PositionedStream<T> {
+impl<T, Tf> sealed::Sealed for PositionedStream<T, Tf> {}
+impl<T, Tf: ItemTime> StreamHandle for PositionedStream<T, Tf> {
     type Item = T;
+    type Time = Tf;
 
     fn positioned() -> bool {
         true
     }
 
-    fn from_parts(parts: HandleParts, unpack: Option<Unpack<T>>) -> Self {
+    fn from_parts(parts: HandleParts, unpack: Option<Box<dyn Unpack<T, Tf>>>) -> Self {
         let Parts::Positioned {
             transport_cmd_tx,
             path_kind,
@@ -201,7 +208,7 @@ pub struct PreparedStreamOpen<R, S: StreamHandle> {
     /// `#[errors(..)]` of the stream function (API-32), checked on the device's error, see [Self::with_error_list]
     pub(crate) error_check: Option<ErrorCheck<R>>,
     /// A batched stream's events become items with it (API-41), see [Self::batched]
-    pub(crate) unpack: Option<Unpack<S::Item>>,
+    pub(crate) unpack: Option<Box<dyn Unpack<S::Item, S::Time>>>,
     pub(crate) _phantom: PhantomData<(R, S)>,
 }
 
@@ -282,7 +289,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
     /// The stream is batched (API-41): each event is a batch of items, `unpack` ([unpack_timed](crate::unpack_timed)
     /// or [unpack_untimed](crate::unpack_untimed)) decodes one, and the handle gives them one by one. Used by
     /// generated client code.
-    pub fn batched(mut self, unpack: Unpack<S::Item>) -> Self {
+    pub fn batched(mut self, unpack: Box<dyn Unpack<S::Item, S::Time>>) -> Self {
         self.unpack = Some(unpack);
         self
     }
@@ -489,7 +496,7 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
     response: Result<Result<Vec<u8>, Error>, Error>,
     open_check: fn(&[u8]) -> bool,
     error_check: Option<&ErrorCheck<R>>,
-    unpack: Option<Unpack<S::Item>>,
+    unpack: Option<Box<dyn Unpack<S::Item, S::Time>>>,
 ) -> Result<R::With<S>, Error> {
     let decoded = response.and_then(|r| r).and_then(|bytes| {
         let result = decode_opened(&bytes)?.result;

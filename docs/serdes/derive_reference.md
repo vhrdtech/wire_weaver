@@ -503,7 +503,7 @@ DER-14. Structs and enums can have type and const parameters, defaults and a whe
 
 ```rust
 #[derive_shrink_wrap(borrowed, owned, series, final_structure)]
-pub struct Timed<T> { pub t: Second, pub value: T }
+pub struct Timed<V, Tm = DeviceMicros<u32>> { pub t: Tm, pub value: V }
 
 #[derive_shrink_wrap(borrowed, owned)]
 pub struct Label<'i, const N: usize> { pub text: MaxLen<&'i str, N> }

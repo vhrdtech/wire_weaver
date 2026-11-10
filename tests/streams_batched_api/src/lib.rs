@@ -23,6 +23,13 @@ trait StreamsBatched {
     #[stream(Frame, counted, batched(untimed))]
     fn frames();
 
+    /// Timed in ms in a u16 (API-61): wraps every 65.5 s on the device; unit: sample
+    #[batched(time = ww_si::origins::DeviceMillis<u16>)]
+    stream!(slow: Sample);
+
+    /// Device pushes `count` samples into `slow`, values counting from 0, `t` 1 ms apart from `t0`, and seals them
+    fn produce_slow(count: u32, t0: ww_si::origins::DeviceMillis<u16>);
+
     /// Device pushes `count` samples into each timed stream (values counting on, `t` 40 µs apart from `t0_us`) and
     /// `count` frames
     fn produce(count: u32, t0_us: u32);

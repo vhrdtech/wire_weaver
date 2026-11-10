@@ -47,7 +47,8 @@ pub struct DynPositionedStream {
 pub(crate) struct DynBatching {
     /// `Series<Timed<T>>` or `Series<T>` (untimed).
     wire_item_ty: TypeOwned,
-    /// `Timed<T>`'s `t` field type (always `ww_si::Second`), `None` for an untimed batch (no time to unwrap).
+    /// `Timed<T, Tm>`'s `t` field type (a time point, `DeviceMicros<u32>` by default; read as a quantity and
+    /// unwrapped into a `Second` in its step), `None` for an untimed batch (no time to unwrap).
     second_ty: Option<TypeOwned>,
     time: DeviceTime,
 }
@@ -157,7 +158,7 @@ impl DynBatching {
     }
 }
 
-/// `Timed<T>`'s `t` field type (`ww_si::Second`) out of `wire_item_ty` (`Series<Timed<T>>`).
+/// `Timed<T, Tm>`'s `t` field type (`Tm`, a time point) out of `wire_item_ty` (`Series<Timed<T, Tm>>`).
 fn second_field_ty(wire_item_ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<TypeOwned, Error> {
     let other = |msg: String| Error::Other(format!("batched timed stream: {msg}"));
     let TypeOwned::Series(timed) = wire_item_ty else {

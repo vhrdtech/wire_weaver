@@ -17,7 +17,7 @@ use ww_client_server::{PathKindOwned, StreamSideband};
 use ww_stream::rx::{Gaps, Receiver, Verdict};
 use ww_stream::{Opened, StreamCursor, StreamHead};
 
-use crate::client::batch::{Batch, BatchItem, Unpacker};
+use crate::client::batch::{Batch, BatchItem, ItemTime, Unpacker};
 use crate::event_loop::commander::TransportCommander;
 use crate::{Error, StreamError};
 
@@ -31,7 +31,7 @@ pub const DEFAULT_STREAM_QUEUE_BYTES: usize = 4 << 20;
 
 /// Event of a counted or reliable stream, see [PositionedStream::recv_event].
 #[derive(Debug, Clone, PartialEq)]
-pub enum StreamEvent<T> {
+pub enum StreamEvent<T, Tf = Second> {
     /// An item, at position `pos` (of its first unit) in its `run`, `units` long.
     ///
     /// When the device sends an item again from inside it (a resend or a resume from a position in the middle of a
@@ -42,13 +42,14 @@ pub enum StreamEvent<T> {
     /// the items of a batch the host already had are left out.
     ///
     /// Device times in wrapping storage (`U32` µs, `U16` ms, ..) come unwrapped, as a `U64` in the same prefix that
-    /// counts on across wraps, for heads and batch items alike; the count starts over after a disconnect and at a
+    /// counts on across wraps, for heads and batch items alike (a timed batched stream's items as the full point,
+    /// `DeviceMicros<u64>` from `DeviceMicros<u32>`, CLT-70); the count starts over after a disconnect and at a
     /// new clock epoch (`ext`). Each handle (each half of a split) unwraps its own times.
     Item {
         pos: u64,
         units: u64,
         /// Device time of the first unit, when the device sends one.
-        t: Option<Second>,
+        t: Option<Tf>,
         /// Rare markers: a new clock epoch after a reboot.
         ext: Option<ww_stream::HeadExt>,
         run: Run,
@@ -600,23 +601,23 @@ impl Inner {
 /// }
 /// save(samples.cursor()); // with the data, for samples_resume(cursor) after a restart
 /// ```
-pub struct PositionedStream<T> {
+pub struct PositionedStream<T, Tf = Second> {
     pub(crate) shared: Arc<Shared>,
     pub(crate) transport_cmd_tx: TransportCommander,
     pub(crate) path_kind: PathKindOwned,
     /// Some for a half of [Self::split]
     pub(crate) run: Option<Run>,
     /// Batched streams: how an event becomes items
-    pub(crate) unpacker: Unpacker<T>,
+    pub(crate) unpacker: Unpacker<T, Tf>,
     /// Items of the last batch not taken yet
-    pub(crate) pending: VecDeque<StreamEvent<T>>,
+    pub(crate) pending: VecDeque<StreamEvent<T, Tf>>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
-impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
+impl<T: DeserializeShrinkWrapOwned, Tf: ItemTime> PositionedStream<T, Tf> {
     /// Next event: an item, a gap, a resume, ...; [StreamError::Closed] once nothing more can come (closed, or the
     /// link went down without `disconnect_keep_streams`).
-    pub async fn recv_event(&mut self) -> Result<StreamEvent<T>, StreamError> {
+    pub async fn recv_event(&mut self) -> Result<StreamEvent<T, Tf>, StreamError> {
         let shared = self.shared.clone();
         loop {
             let mut notified = pin!(shared.notify.notified());
@@ -629,12 +630,12 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     }
 
     /// Blocking variant of [Self::recv_event].
-    pub fn recv_event_blocking(&mut self) -> Result<StreamEvent<T>, StreamError> {
+    pub fn recv_event_blocking(&mut self) -> Result<StreamEvent<T, Tf>, StreamError> {
         self.take_blocking(None)
     }
 
     /// Next event if there is one queued, without waiting.
-    pub fn try_recv_event(&mut self) -> Result<Option<StreamEvent<T>>, StreamError> {
+    pub fn try_recv_event(&mut self) -> Result<Option<StreamEvent<T, Tf>>, StreamError> {
         self.try_take()
     }
 
@@ -642,7 +643,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     pub fn recv_event_timeout_blocking(
         &mut self,
         timeout: Duration,
-    ) -> Result<StreamEvent<T>, StreamError> {
+    ) -> Result<StreamEvent<T, Tf>, StreamError> {
         self.take_blocking(Some(Instant::now() + timeout))
     }
 
@@ -677,7 +678,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     /// The rest of the next batch, or the next one whole (API-41): its items, each with its device time, for code
     /// that works on blocks. Gaps, resumes and disconnects are skipped as by [Self::recv]. An item of a stream that
     /// isn't batched is a batch of one.
-    pub async fn recv_batch(&mut self) -> Result<Batch<T>, StreamError> {
+    pub async fn recv_batch(&mut self) -> Result<Batch<T, Tf>, StreamError> {
         loop {
             let ev = self.recv_event().await?;
             if let Some(batch) = self.batch_from(ev) {
@@ -687,7 +688,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     }
 
     /// Blocking variant of [Self::recv_batch].
-    pub fn recv_batch_blocking(&mut self) -> Result<Batch<T>, StreamError> {
+    pub fn recv_batch_blocking(&mut self) -> Result<Batch<T, Tf>, StreamError> {
         loop {
             let ev = self.recv_event_blocking()?;
             if let Some(batch) = self.batch_from(ev) {
@@ -697,7 +698,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     }
 
     /// `ev` and the items of its batch still pending, if it is an item.
-    fn batch_from(&mut self, ev: StreamEvent<T>) -> Option<Batch<T>> {
+    fn batch_from(&mut self, ev: StreamEvent<T, Tf>) -> Option<Batch<T, Tf>> {
         let StreamEvent::Item {
             pos, t, run, value, ..
         } = ev
@@ -713,7 +714,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
         Some(Batch { pos, run, items })
     }
 
-    fn try_take(&mut self) -> Result<Option<StreamEvent<T>>, StreamError> {
+    fn try_take(&mut self) -> Result<Option<StreamEvent<T, Tf>>, StreamError> {
         loop {
             if let Some(ev) = self.pending.pop_front() {
                 return Ok(Some(ev));
@@ -733,7 +734,10 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     }
 
     /// The next event, waiting until `deadline` (forever without one).
-    fn take_blocking(&mut self, deadline: Option<Instant>) -> Result<StreamEvent<T>, StreamError> {
+    fn take_blocking(
+        &mut self,
+        deadline: Option<Instant>,
+    ) -> Result<StreamEvent<T, Tf>, StreamError> {
         loop {
             if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
@@ -771,9 +775,9 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
 
     /// The event of an entry; for a batched stream the first new item of its batch, the others go to `pending`
     /// (None: the host had every item of it).
-    fn take_entry(&mut self, entry: Entry) -> Result<Option<StreamEvent<T>>, StreamError> {
+    fn take_entry(&mut self, entry: Entry) -> Result<Option<StreamEvent<T, Tf>>, StreamError> {
         let Entry::Item {
-            mut head,
+            head,
             skip,
             run,
             bytes,
@@ -781,19 +785,22 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
         else {
             if matches!(entry, Entry::Disconnected) {
                 // the device may come back rebooted
-                self.unpacker.time.restart();
+                self.unpacker.restart();
             }
-            return to_event(entry).map(Some);
+            return to_event(entry, None).map(Some);
         };
-        self.unpacker.time.on_head(head.ext.as_ref());
+        self.unpacker.on_head(head.ext.as_ref());
         if !self.unpacker.is_batched() {
-            head.t = head.t.map(|t| self.unpacker.time.unwrap(t));
-            return to_event(Entry::Item {
-                head,
-                skip,
-                run,
-                bytes,
-            })
+            let t = self.unpacker.head_time(head.t);
+            return to_event(
+                Entry::Item {
+                    head,
+                    skip,
+                    run,
+                    bytes,
+                },
+                t,
+            )
             .map(Some);
         }
         let items = self.unpacker.unpack(&bytes)?;
@@ -822,7 +829,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     /// Split into the live run and the backfill run, two handles each delivering its run in order (a dashboard
     /// reads the live one, a recorder both). Call it right after opening; resumes, disconnects and closes come
     /// to both halves.
-    pub fn split(self) -> (PositionedStream<T>, PositionedStream<T>) {
+    pub fn split(self) -> (PositionedStream<T, Tf>, PositionedStream<T, Tf>) {
         let mut inner = self.shared.lock();
         inner.split = true;
         inner.handles += 1;
@@ -842,7 +849,7 @@ impl<T: DeserializeShrinkWrapOwned> PositionedStream<T> {
     }
 }
 
-impl<T> PositionedStream<T> {
+impl<T, Tf> PositionedStream<T, Tf> {
     /// Where to resume from after a restart: every unit before it was received (counted), or acknowledged
     /// (reliable, see [AckMode]). Save it with the data, pass it to `<name>_resume(cursor)` after a restart.
     /// None before the stream was opened.
@@ -899,7 +906,7 @@ impl<T> PositionedStream<T> {
     }
 }
 
-impl<T> Drop for PositionedStream<T> {
+impl<T, Tf> Drop for PositionedStream<T, Tf> {
     fn drop(&mut self) {
         let mut inner = self.shared.lock();
         inner.handles -= 1;
@@ -920,7 +927,11 @@ impl<T> Drop for PositionedStream<T> {
     }
 }
 
-fn to_event<T: DeserializeShrinkWrapOwned>(entry: Entry) -> Result<StreamEvent<T>, StreamError> {
+/// The event of `entry`; an item's time is `t` (its head's, unwrapped).
+fn to_event<T: DeserializeShrinkWrapOwned, Tf>(
+    entry: Entry,
+    t: Option<Tf>,
+) -> Result<StreamEvent<T, Tf>, StreamError> {
     Ok(match entry {
         Entry::Item {
             head,
@@ -930,7 +941,7 @@ fn to_event<T: DeserializeShrinkWrapOwned>(entry: Entry) -> Result<StreamEvent<T
         } => StreamEvent::Item {
             pos: head.pos + skip,
             units: head.units - skip,
-            t: head.t,
+            t,
             ext: head.ext,
             run,
             value: T::from_ww_bytes_owned(&bytes)?,

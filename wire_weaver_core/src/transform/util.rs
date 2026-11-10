@@ -213,11 +213,27 @@ pub(crate) fn get_delivery_attr(
 }
 
 /// `#[stream(T)]`, `#[stream(T, counted)]` or `#[stream(T, reliable)]` on a trait fn: a stream function (API-31),
-/// optionally with `batched` or `batched(untimed)` after the delivery (API-41).
+/// optionally with `batched`, `batched(untimed)` or `batched(time = Tm)` after the delivery (API-41, API-61).
 pub(crate) struct StreamFnAttr {
     pub ty: syn::Type,
     pub delivery: Delivery,
-    pub batched: Option<Batching>,
+    pub batched: Option<Batched>,
+}
+
+/// How a stream is batched (API-41): `batched`, `batched(untimed)`, or `batched(time = Tm)` for a timed stream whose
+/// items carry a `ww_si::Timed<T, Tm>` other than the default `DeviceMicros<u32>` (API-61).
+#[derive(Clone)]
+pub(crate) struct Batched {
+    pub batching: Batching,
+    /// `Tm` of `batched(time = Tm)`, written in the API crate
+    pub time: Option<syn::Type>,
+}
+
+impl Batched {
+    const TIMED: Batched = Batched {
+        batching: Batching::Timed,
+        time: None,
+    };
 }
 
 impl Parse for StreamFnAttr {
@@ -267,29 +283,48 @@ impl Parse for StreamFnAttr {
     }
 }
 
-/// What follows `batched`: nothing, or `(untimed)`.
-fn parse_batching(input: ParseStream) -> syn::Result<Batching> {
+/// What follows `batched`: nothing, `(untimed)` or `(time = Tm)`.
+fn parse_batching(input: ParseStream) -> syn::Result<Batched> {
     if !input.peek(syn::token::Paren) {
-        return Ok(Batching::Timed);
+        return Ok(Batched::TIMED);
     }
     let content;
     syn::parenthesized!(content in input);
-    let form: Ident = content.parse()?;
-    if form != "untimed" || !content.is_empty() {
-        return Err(syn::Error::new(
-            form.span(),
-            "expected batched or batched(untimed)",
-        ));
-    }
-    Ok(Batching::Untimed)
+    parse_batching_args(&content, "batched")
 }
 
-/// `#[batched]` or `#[batched(untimed)]` next to `stream!` (API-41), None without it. Not allowed on `sink!`.
+/// Inside the parentheses of `batched(..)`: `untimed`, or `time = Tm`.
+fn parse_batching_args(input: ParseStream, written: &str) -> syn::Result<Batched> {
+    let expected =
+        || format!("expected {written}, {written}(untimed) or {written}(time = DeviceMillis<u32>)");
+    let form: Ident = input.parse()?;
+    if form == "untimed" && input.is_empty() {
+        return Ok(Batched {
+            batching: Batching::Untimed,
+            time: None,
+        });
+    }
+    if form == "time" && input.peek(Token![=]) {
+        let _eq: Token![=] = input.parse()?;
+        let time: syn::Type = input.parse()?;
+        if !input.is_empty() {
+            return Err(syn::Error::new(input.span(), expected()));
+        }
+        return Ok(Batched {
+            batching: Batching::Timed,
+            time: Some(time),
+        });
+    }
+    Err(syn::Error::new(form.span(), expected()))
+}
+
+/// `#[batched]`, `#[batched(untimed)]` or `#[batched(time = Tm)]` next to `stream!` (API-41, API-61), None without
+/// it. Not allowed on `sink!`.
 pub(crate) fn get_batched_attr(
     attrs: &[Attribute],
     is_up: bool,
     current_crate: &CrateContext,
-) -> Result<Option<Batching>> {
+) -> Result<Option<Batched>> {
     let mut batched = None;
     for attr in attrs.iter().filter(|a| a.path().is_ident("batched")) {
         if !is_up {
@@ -302,21 +337,14 @@ pub(crate) fn get_batched_attr(
             return Err(anyhow!("#[batched] given twice").context(current_crate.err_context()));
         }
         let batching = match &attr.meta {
-            Meta::Path(_) => Batching::Timed,
+            Meta::Path(_) => Batched::TIMED,
             Meta::List(_) => attr
-                .parse_args_with(|input: ParseStream| {
-                    let form: Ident = input.parse()?;
-                    if form != "untimed" || !input.is_empty() {
-                        return Err(syn::Error::new(
-                            form.span(),
-                            "expected #[batched] or #[batched(untimed)]",
-                        ));
-                    }
-                    Ok(Batching::Untimed)
-                })
+                .parse_args_with(|input: ParseStream| parse_batching_args(input, "#[batched]"))
                 .context(current_crate.err_context())?,
             Meta::NameValue(_) => {
-                return Err(anyhow!("expected #[batched] or #[batched(untimed)]")
+                return Err(anyhow!(
+                    "expected #[batched], #[batched(untimed)] or #[batched(time = DeviceMillis<u32>)]"
+                )
                     .context(current_crate.err_context()));
             }
         };
@@ -707,7 +735,21 @@ mod stream_fn_attr_tests {
     use ww_self::{Batching, Delivery};
 
     fn parse(s: &str) -> syn::Result<(Delivery, Option<Batching>)> {
-        syn::parse_str::<StreamFnAttr>(s).map(|a| (a.delivery, a.batched))
+        syn::parse_str::<StreamFnAttr>(s).map(|a| (a.delivery, a.batched.map(|b| b.batching)))
+    }
+
+    #[test]
+    fn batched_time() {
+        let a =
+            syn::parse_str::<StreamFnAttr>("Sample, counted, batched(time = DeviceMillis<u32>)")
+                .unwrap();
+        let b = a.batched.unwrap();
+        assert_eq!(b.batching, Batching::Timed);
+        let time = b.time.unwrap();
+        assert_eq!(quote::quote!(#time).to_string(), "DeviceMillis < u32 >");
+        assert!(syn::parse_str::<StreamFnAttr>("Sample, batched(time)").is_err());
+        assert!(syn::parse_str::<StreamFnAttr>("Sample, batched(time = u32, x)").is_err());
+        assert!(syn::parse_str::<StreamFnAttr>("Sample, batched(timed)").is_err());
     }
 
     #[test]

@@ -18,7 +18,8 @@ use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use wire_weaver::shrink_wrap::series::SeriesPolicy;
-use ww_si::{Ampere, Second, Timed};
+use ww_si::origins::DeviceMicros;
+use ww_si::{Ampere, Timed};
 
 const BATCH_SIZES: [usize; 3] = [8, 32, 64];
 
@@ -35,7 +36,7 @@ fn mark_end() {
 fn items() -> [Timed<Ampere>; 64] {
     core::array::from_fn(|i| {
         Timed::new(
-            Second::micro(super::motor_signal::T0_US + i as u32 * super::motor_signal::DT_US),
+            DeviceMicros::from_raw(super::motor_signal::T0_US + i as u32 * super::motor_signal::DT_US),
             Ampere::milli(super::motor_signal::I_A_MILLIAMPS[i]),
         )
     })

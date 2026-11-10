@@ -268,13 +268,13 @@ fn wire_bytes() {
     final_structure
 )]
 struct TimedAmpere {
-    t: Second,
+    t: ww_si::origins::DeviceMicros<u32>,
     value: Ampere,
 }
 
 #[test]
 fn timed_wire_bytes() {
-    let t = Second::micro(1_000_000u32);
+    let t = ww_si::origins::DeviceMicros::from_raw(1_000_000u32);
     let value = Ampere::milli(-1200i32);
     let mut buf = [0u8; 32];
     let derived = TimedAmpere { t, value }

@@ -599,7 +599,7 @@ async fn s6_resume_after_host_restart_from_saved_cursor() {
     let conn = connect_host(dev, produce_rx).await;
     let mut s = conn
         .cmd
-        .prepare_stream_resume::<TailBytesOwned>(
+        .prepare_stream_resume::<TailBytesOwned, ww_si::Second>(
             path(RELIABLE),
             ww_self::Delivery::Reliable,
             cursor,
@@ -695,7 +695,7 @@ async fn s6_resume_from_a_cursor_inside_a_batch() {
     let conn = connect_host(dev, produce_rx).await;
     let mut s = conn
         .cmd
-        .prepare_stream_resume::<TailBytesOwned>(
+        .prepare_stream_resume::<TailBytesOwned, ww_si::Second>(
             path(RELIABLE),
             ww_self::Delivery::Reliable,
             cursor,

@@ -208,6 +208,11 @@ without an anchor). That holds while consecutive times are less than half a wrap
 and each observe level counts on its own, and the count starts over after a disconnect (the device may have rebooted)
 and at a new clock epoch in a head's `ext`. `U64` and float times come as they are.
 
+The items of a timed batched stream carry a [time point](../std_library/ww_si.md#which-time-point) instead
+(`DeviceMicros<u32>` by default), whose step and storage are fixed by the type: the typed client unwraps it with
+`ww_si::TimeUnwrapper` into the same point in 64 bits (`DeviceMicros<u64>`), the dynamic client and Python into a
+`Second` `U64` in the point's step, by the same rule.
+
 Three ways to timestamp, chosen per stream:
 
 | Granularity | How | Cost | For |

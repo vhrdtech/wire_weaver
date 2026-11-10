@@ -18,7 +18,8 @@ use wire_weaver::shrink_wrap::Series;
 use wire_weaver::shrink_wrap::series::{
     CodecPolicy, Coder, DeltaPacked, FloatCodec, NumericCodec, Predictor, SeriesPolicy,
 };
-use ww_si::{Ampere, Second, Timed};
+use ww_si::origins::DeviceMicros;
+use ww_si::{Ampere, Timed};
 
 #[path = "../../../mcu_qemu/src/motor_signal.rs"]
 mod motor_signal;
@@ -26,7 +27,7 @@ mod motor_signal;
 fn items() -> [Timed<Ampere>; 64] {
     core::array::from_fn(|i| {
         Timed::new(
-            Second::micro(motor_signal::T0_US + i as u32 * motor_signal::DT_US),
+            DeviceMicros::from_raw(motor_signal::T0_US + i as u32 * motor_signal::DT_US),
             Ampere::milli(motor_signal::I_A_MILLIAMPS[i]),
         )
     })

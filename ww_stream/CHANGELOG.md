@@ -32,6 +32,7 @@
 
 ### ⚠️ Breaking
 
+- `batch` re-exports `TimePoint` and `TimeStep` next to `Timed`, whose `t` is a time point now (`ww_si` STD-110, wire change EVO-51): a `Batched<_, Timed<T>, N>` holds `Timed<T, DeviceMicros<u32>>` items.
 - `StreamSideband::ResendFrom` is `Resend` (API-34, `ww_client_server`): `tx::Reliable` and `rx::Receiver` take and send it under the new name, same fields.
 
 - `observe::Selection::present` returns `observe::Present` instead of an `impl Iterator` (SRV-24).

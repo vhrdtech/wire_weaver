@@ -52,8 +52,8 @@ pub use outbox::{LevelBatch, OUTBOX_ENTRY_HEADER, Outbox, OutboxEntry, OutboxPus
 pub use stream::{
     Batched, BatchedError, BatchedPoll, DEFAULT_MAX_AGE_US, MAX_MAX_AGE_US, MIN_MAX_AGE_US, Plain,
 };
-/// The item of a timed batched stream, re-exported for generated code.
-pub use ww_si::Timed;
+/// The item of a timed batched stream and what its time can be, re-exported for generated code.
+pub use ww_si::{TimePoint, TimeStep, Timed};
 
 use core::mem::MaybeUninit;
 use wire_weaver::shrink_wrap::Error;

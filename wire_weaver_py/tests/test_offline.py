@@ -254,16 +254,19 @@ def test_generic_types():
     assert api.outer.signature == "rw outer: Outer<3>"
     # `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named by its definition (alias names are not in ww_self),
     # its bounds `B` explicit (STD-59)
-    assert api.latest.signature == "rw latest: Timed<Quantity<Ampere, Unbounded>>"
+    # `Timed.t` is a device point, `DeviceMicros<u32>` by default (STD-110)
+    assert api.latest.signature == (
+        "rw latest: Timed<Quantity<Ampere, Unbounded>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>"
+    )
     assert api.readings.signature == "stream readings: Reading<i16>"
     outer = dict(id=7, window=dict(samples=[1, 2, 0xFFF]))
     assert api.outer.decode(api.outer.encode(outer)) == outer
     with pytest.raises(ValueError):
         api.outer.encode(dict(id=7, window=dict(samples=[1, 2])))
-    latest = dict(t=dict(prefix="Milli", value={"U32": 1500}), value=dict(prefix="Micro", value={"I16": -250}))
+    latest = dict(t={"coord": {"value": 1500000}}, value=dict(prefix="Micro", value={"I16": -250}))
     # quantities decode as ww.Quantity (CLT-31), the plain dict form still encodes
     decoded = api.latest.decode(api.latest.encode(latest))
-    assert (str(decoded["t"]), str(decoded["value"])) == ("1500 ms", "-250 µA")
+    assert (str(decoded["t"]), str(decoded["value"])) == ("1.5 s since boot", "-250 µA")
     assert api.latest.encode(decoded) == api.latest.encode(latest)
     assert api.swap.encode_args(dict(a=1, b=300))
 

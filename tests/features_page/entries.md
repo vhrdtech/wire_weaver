@@ -121,6 +121,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-50 | Observe cells | Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire. | api/observing.md#cells-sampling-from-an-interrupt
 - API-52 | A cheaper observe poll | The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes. | articles/series.md#cpu-and-flash-on-a-microcontroller
 - API-41 | Batched streams | A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python. | api/batching.md
+- API-61 | A time point per batched stream | `batched(time = DeviceMillis<u32>)` gives a quiet or slow stream a time that wraps later, or another resolution. | api/batching.md
 - API-55 | Compressed streams | A counted stream of text (a UART, a log) goes LZ4-compressed with history across events, 3-5x, when the host decodes it; older hosts get it as it is. | api/stream_compression.md
 - API-18 | Size analysis | Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. | types.md#worst-case-size-at-compile-time
 - DOC-6 | API docs in rustdoc | `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. | api/traits.md#in-rustdoc
@@ -209,6 +210,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-66 | Unit references through the model | A dynamic client resolves a value's unit references through the API's model and writes the API's units by reference. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
 - CLT-54 | Exact units without generated code | `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding. | std_library/exact_units.md#in-ww-python-and-dynamic-clients
 - CLT-65 | Points without generated code | `ww` and Python show a `Point` (a temperature in °C, a heading) in its own origin, not its `Fixed`'s raw unit. | std_library/points.md#in-ww-python-and-dynamic-clients
+- CLT-70 | Typed times of batched items | A timed batched stream's items carry their full device time as a typed point (`DeviceMicros<u64>`), not a `Second`. | api/batching.md#host-side
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-55 | Large messages | Set the limit in `ClientConfig`; both sides keep to the smaller one, an over-limit call fails at once naming both numbers, `no_alloc = false` servers reply past their scratch buffer, and results that grow with the data go as a stream of rows or in pages. | api/large_messages.md
 - CLT-57 | Local trait | The API as an async Rust trait that the client and your own struct both implement, so one call site works in process (a direct call) or remote. | api/local_trait.md
@@ -426,6 +428,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - LVL-7 | Level ranges | `gain.is_in(q!(-3 dB ..= 3 dB, Inside))` checks a linear gain against a range of levels, folded at compile time to compares of the stored gain. |
 - PT-5 | Point literals | `temp > q!(80 degC)` against a temperature stored at any origin, folded into the point's own frame at compile time. |
 - PT-6 | Point ranges | `p.is_in(q!(20 degC ..= 25 degC))` and `q!(25 degC +- 0.5)`: a range of temperatures or other points, folded into the point's own frame at compile time to two compares. |
+- PT-7 | Points in a `Series` and wrapping clocks | A `Point` is a `Series` column like its `Fixed`, and integer points add and subtract with wrapping, as a device clock does. | std_library/ww_si.md#which-time-point
 - NUM-22 | Ranges and tolerances as literals | `v.is_in(q!(4.9 V ..= 5.1 V))` and `q!(5 V +- 1 %)`: a range or a tolerance with its unit, folded at compile time to compares of the stored value. |
 - NUM-24 | Tolerance literals | `q!(+- 50 mV)` and `q!(+- 1 %)` wherever a tolerance around a run-time target is taken, or folded straight to a window. |
 - NUM-28 | Known leading digits | `q!(9.542425... dB)` is the range of values whose decimal starts with those digits, cut and never rounded. |
@@ -438,6 +441,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-105 | NaN-free floats in clients | A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused. | std_library/exact_units.md
 - STD-108 | Time scales in the model | An origin says what its zero is measured from and how that zero is known (exact, at run time, a time scale), so clients and the evolution check tell why a Unix time and a TAI or device time don't convert. | std_library/units_in_the_model.md#references
 - STD-109 | Non-linear codes in clients | A G.711 μ-law byte and other codec values read as the number they mean in `ww`, Python and the dynamic client, written by their exact code, from the codec's definition in the API model. | std_library/exact_units.md#non-linear-codes
+- STD-110 | Device time points in `Timed` | A timed value carries its time as a point on the device clock (`DeviceMicros<u32>` by default), four plain bytes in a column, and the host gets the full 64-bit time back across wraps. | std_library/ww_si.md#timed-values
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
 - UNIT-7 | A unit is defined once, by its crate | A unit made with `unit!` carries its crate and name, so two crates' `Rpm` are two units that print the same, and its definition is plain data a client can read. | std_library/units_in_the_model.md#identity
 - UNIT-10 | Any number of distinguished bases, half exponents | Radians, bits, nepers and every counted thing (`Sample`, your own `Pixel`) are bases of their own, as many in one unit as it needs, and V/√Hz is plain halves: rad/s never becomes Hz, torque never energy. | std_library/ww_si.md#dimensions
@@ -529,3 +533,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-47 | The wire change behind systems of units (a dimension names its system, `MarkerDef::System`): the user-visible side is exact_units UNIT-9.
 - EVO-48 | The wire change behind references of origins (`OriginDef::reference` a `ReferenceDef`, `MarkerDef::Reference`): the user-visible side is STD-108.
 - EVO-49 | The wire change behind a codec's spare codes (`CodecDef::spare`): the user-visible side is STD-109.
+- EVO-51 | The wire change behind `Timed.t` as a device time point (`ww_si` 0.5.0, wire `w5.0`): the user-visible side is STD-110.

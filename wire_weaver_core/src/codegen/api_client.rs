@@ -1058,14 +1058,25 @@ fn handle_stream_fn(
         Some(ty) => ty_def(api_bundle, ty, true, TyPos::Arg).unwrap(),
         None => quote! { () },
     };
+    // a timed batched stream's items come with their own time, the full point of its Tm (CLT-70)
+    let time_ty = match (stream.batched, stream.batch_time_ty()) {
+        (Some(Batching::Timed), Some(tm)) => {
+            Some(ty_def(api_bundle, tm, true, TyPos::Arg).unwrap())
+        }
+        _ => None,
+    };
+    let handle_args = match &time_ty {
+        Some(tm) => quote! { #item_ty, <#tm as wire_weaver_client::ww_si::TimePoint>::Full },
+        None => quote! { #item_ty },
+    };
     let (handle_ty, delivery) = match stream.delivery {
-        Delivery::Plain => (quote! { wire_weaver_client::Stream<#item_ty> }, None),
+        Delivery::Plain => (quote! { wire_weaver_client::Stream<#handle_args> }, None),
         Delivery::Counted => (
-            quote! { wire_weaver_client::PositionedStream<#item_ty> },
+            quote! { wire_weaver_client::PositionedStream<#handle_args> },
             Some(quote! { wire_weaver_client::ww_self::Delivery::Counted }),
         ),
         Delivery::Reliable => (
-            quote! { wire_weaver_client::PositionedStream<#item_ty> },
+            quote! { wire_weaver_client::PositionedStream<#handle_args> },
             Some(quote! { wire_weaver_client::ww_self::Delivery::Reliable }),
         ),
     };
@@ -1090,11 +1101,17 @@ fn handle_stream_fn(
     // a batched stream's events are batches: the handle unpacks them into items (API-41)
     let batched = match stream.batched {
         None => quote! {},
-        Some(Batching::Timed) => {
-            quote! { .batched(wire_weaver_client::unpack_timed::<#item_ty>) }
-        }
+        Some(Batching::Timed) => match &time_ty {
+            Some(tm) => quote! { .batched(wire_weaver_client::unpack_timed::<#item_ty, #tm>()) },
+            None => {
+                let e = format!(
+                    "batched stream {ident}: its model has no Timed<T, Tm> item type, rebuild it with this wire_weaver"
+                );
+                quote! { compile_error!(#e) }
+            }
+        },
         Some(Batching::Untimed) => {
-            quote! { .batched(wire_weaver_client::unpack_untimed::<#item_ty>) }
+            quote! { .batched(wire_weaver_client::unpack_untimed::<#item_ty>()) }
         }
         Some(Batching::SharedClock) => {
             let e = format!("batched stream {ident}: SharedClock is the batching of properties");

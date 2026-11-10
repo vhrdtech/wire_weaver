@@ -168,6 +168,7 @@ fn stream_ser_level(
                 bundle,
                 item.ident.as_str(),
                 stream.ty,
+                stream.batch_time_ty(),
                 batching,
                 no_alloc,
                 is_array,
@@ -549,6 +550,7 @@ fn batched_ser_methods(
     bundle: &CodegenBundle,
     ident: &str,
     ty: &TypeOwned,
+    time_ty: Option<&TypeOwned>,
     batching: Batching,
     no_alloc: bool,
     is_array: bool,
@@ -569,6 +571,13 @@ fn batched_ser_methods(
     let push_many = Ident::new(&format!("{ident}_push_many"), Span::call_site());
     match batching {
         Batching::Timed => {
+            let Some(time_ty) = time_ty else {
+                let e = format!(
+                    "batched stream {ident}: its model has no Timed<T, Tm> item type, rebuild it with this wire_weaver"
+                );
+                return quote! { compile_error!(#e); };
+            };
+            let time_ty = ty_def(bundle, time_ty, !no_alloc, TyPos::Def).unwrap();
             let push_doc = format!(
                 "Put `value`, taken at device time `t`, into the batches of `{ident}`: a copy and two atomic \
                  operations, never an encode or a wait (an interrupt may call it). `poll_streams` sends the \
@@ -576,19 +585,17 @@ fn batched_ser_methods(
             );
             let push_many_doc = format!(
                 "`{ident}_push` of every value of a regularly sampled block (an ADC DMA half-transfer), the first \
-                 taken at `t0`, the next ones `dt` apart: item `i` gets `t0 + i * dt`, computed exactly in `t0`'s \
-                 prefix and number type and wrapping like the device clock (`ww_si::Quantity::steps`). Returns the \
-                 last seal and the items lost on the way; `None`, with nothing pushed, when `dt` is not a whole \
-                 number of `t0`'s prefix (40 µs to a `t0` in ms) or either is a float."
+                 taken at `t0`, the next ones `dt` apart: item `i` gets `t0 + i * dt`, wrapping like the device \
+                 clock (`ww_si::TimePoint::steps`). Returns the last seal and the items lost on the way."
             );
             quote! {
                 #[doc = #push_doc]
                 #[inline]
                 pub fn #push(
                     &self,
-                    to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty>>,
+                    to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty, #time_ty>>,
                     value: #value_ty,
-                    t: ww_stream::Second,
+                    t: #time_ty,
                 ) -> ww_stream::batch::Seal {
                     to.push(&ww_stream::batch::Timed::new(t, value))
                 }
@@ -596,18 +603,18 @@ fn batched_ser_methods(
                 #[doc = #push_many_doc]
                 pub fn #push_many(
                     &self,
-                    to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty>>,
-                    t0: ww_stream::Second,
-                    dt: ww_stream::Second,
+                    to: &mut impl ww_stream::batch::Push<ww_stream::batch::Timed<#value_ty, #time_ty>>,
+                    t0: #time_ty,
+                    dt: ww_stream::batch::TimeStep<#time_ty>,
                     values: impl IntoIterator<Item = #value_ty>,
-                ) -> Option<(ww_stream::batch::Seal, usize)> {
-                    let times = t0.steps(&dt)?;
-                    Some(to.push_many(
+                ) -> (ww_stream::batch::Seal, usize) {
+                    let times = ww_stream::batch::TimePoint::steps(t0, dt);
+                    to.push_many(
                         values
                             .into_iter()
                             .zip(times)
                             .map(|(value, t)| ww_stream::batch::Timed::new(t, value)),
-                    ))
+                    )
                 }
             }
         }

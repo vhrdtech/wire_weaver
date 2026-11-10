@@ -156,6 +156,7 @@
 
 ### 🚀 Features
 
+- `StreamFnRef::batch_time_ty()` (API-61): the time point of a timed batched stream, the second argument of its `Timed<T, Tm>` `batch_item_ty`.
 - `units::codec_of`, `codec_decode` and `codec_encode` run a codec's definition from the model without the `Codec` trait (`CodecDef::decode` / `encode`); `Wrapper::storage_ty` (STD-109).
 - `units::reference_of` (a reference marker's definition), `units::reference_conversion` (why points of two references don't convert: a zero known only at run time, a clock sync, a leap-second table), `ReferenceDefOwned::short_name`, `Display` for `ReferenceDefOwned` and `ReferenceHow`, `From<&exact_units::ReferenceDef>` (STD-108).
 - `ApiBundleOwned` is an `exact_units::UnitTable` (STD-107, CLT-66): the definition of every unit marker the bundle carries, by its `MarkerId`, so an `SIExpr::Ref` a device sends resolves through the bundle alone.

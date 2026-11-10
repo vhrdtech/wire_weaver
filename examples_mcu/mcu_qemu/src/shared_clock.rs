@@ -17,6 +17,7 @@ use super::foc_signals as sig;
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::series::{SeriesPolicy, SeriesStore, write_store_series};
 use wire_weaver::shrink_wrap::{BufWriter, Series};
+use ww_si::origins::DeviceMicros;
 use ww_si::{Ampere, Radian, Ratio, Second, Timed, Volt, Weber};
 
 /// Samples per property per batch.
@@ -70,8 +71,14 @@ pub trait Meter {
     fn measure(&mut self, group: Group, batch: usize, work: &mut dyn FnMut() -> usize);
 }
 
+/// The level's shared clock: a `Second`, as observe sends it.
 fn t(batch: usize, i: usize) -> Second {
     Second::micro(sig::T0_US + (batch * N + i) as u32 * sig::DT_US)
+}
+
+/// The same moment as a `Timed` item's time.
+fn tp(batch: usize, i: usize) -> DeviceMicros<u32> {
+    DeviceMicros::from_raw(sig::T0_US + (batch * N + i) as u32 * sig::DT_US)
 }
 
 /// Builds one `Series`' items and measures their encode by the item walk, in a frame of its own (the items of one
@@ -180,7 +187,7 @@ macro_rules! level {
             for batch in 0..BATCHES {
                 $(
                     one(Group::Timed, batch, |i| {
-                        Timed::new(t(batch, i), $ty::$prefix(sig::$signal[batch * N + i]))
+                        Timed::new(tp(batch, i), $ty::$prefix(sig::$signal[batch * N + i]))
                     }, policy, meter);
                 )*
                 $(
@@ -188,7 +195,7 @@ macro_rules! level {
                 )*
                 one(Group::Clock, batch, |i| t(batch, i), policy, meter);
                 one(Group::Row, batch, |i| {
-                    Timed::new(t(batch, i), FocRow {
+                    Timed::new(tp(batch, i), FocRow {
                         $($name: Some($ty::$prefix(sig::$signal[batch * N + i])),)*
                     })
                 }, policy, meter);

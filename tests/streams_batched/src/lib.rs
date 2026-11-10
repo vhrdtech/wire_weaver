@@ -11,8 +11,9 @@ mod tests {
     use streams_batched_api::{Frame, Sample, SampleError};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::{Cause, Run, StreamEvent};
-    use ww_si::{Second, Timed};
+    use wire_weaver_client::{Cause, ItemTime, Run, StreamEvent};
+    use ww_si::origins::{DeviceMicros, DeviceMillis};
+    use ww_si::{TimeStep, Timed};
     use ww_stream::batch::{Batched, Plain, Scratch, scratch_bytes};
     use ww_stream::store::RamRing;
     use ww_stream::tx::{Counted, Reliable};
@@ -30,6 +31,7 @@ mod tests {
             pub counted_stream: Batched<Counted, Timed<Sample>, N>,
             pub reliable_stream: Batched<Reliable<RamRing<16384>>, Timed<Sample>, N>,
             pub frames_stream: Batched<Counted, Frame, N>,
+            pub slow_stream: Batched<Plain, Timed<Sample, DeviceMillis<u16>>, N>,
             pub gain: i32,
             pub next_value: i32,
             pub stream_sessions: u32,
@@ -42,6 +44,7 @@ mod tests {
                     counted_stream: Batched::new(Counted::new(), DEFAULT_POLICY),
                     reliable_stream: Batched::new(Reliable::new(RamRing::new()), DEFAULT_POLICY),
                     frames_stream: Batched::new(Counted::new(), DEFAULT_POLICY),
+                    slow_stream: Batched::new(Plain::new(), DEFAULT_POLICY),
                     gain: 1,
                     next_value: 0,
                     stream_sessions: 0,
@@ -106,6 +109,44 @@ mod tests {
                 &mut self.frames_stream
             }
 
+            async fn slow(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+                RpcResult::Ready(())
+            }
+
+            async fn close_slow(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+
+            async fn sideband_slow(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                _sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
+                None
+            }
+
+            async fn stream_slow(
+                &mut self,
+            ) -> &mut Batched<Plain, Timed<Sample, DeviceMillis<u16>>, N> {
+                &mut self.slow_stream
+            }
+
+            async fn produce_slow(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                count: u32,
+                t0: DeviceMillis<u16>,
+            ) -> RpcResult<()> {
+                let ser = api_impl::stream_data_ser();
+                let block = (0..count as i32).map(|value| Sample { value });
+                ser.slow_push_many(
+                    &mut self.slow_stream,
+                    t0,
+                    TimeStep::<DeviceMillis<u16>>::new(1),
+                    block,
+                );
+                self.slow_stream.batcher.flush();
+                RpcResult::Ready(())
+            }
+
             async fn produce(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
@@ -115,16 +156,14 @@ mod tests {
                 let ser = api_impl::stream_data_ser();
                 // plain and counted as one block of regularly sampled values (t0 + k * dt, wrapping at 2^32 µs),
                 // reliable and frames item by item
-                let t0 = Second::micro(t0_us);
-                let dt = Second::micro(40u8);
+                let t0 = DeviceMicros::from_raw(t0_us);
+                let dt = TimeStep::<DeviceMicros<u32>>::new(40);
                 let first = self.next_value;
                 let block = (first..first + count as i32).map(|value| Sample { value });
-                ser.plain_push_many(&mut self.plain_stream, t0, dt, block.clone())
-                    .expect("40 µs is a whole number of µs");
-                ser.counted_push_many(&mut self.counted_stream, t0, dt, block)
-                    .expect("40 µs is a whole number of µs");
+                ser.plain_push_many(&mut self.plain_stream, t0, dt, block.clone());
+                ser.counted_push_many(&mut self.counted_stream, t0, dt, block);
                 for k in 0..count {
-                    let t = Second::micro(t0_us.wrapping_add(k * 40));
+                    let t = DeviceMicros::from_raw(t0_us.wrapping_add(k * 40));
                     let value = self.next_value;
                     self.next_value += 1;
                     let sample = Sample {
@@ -237,44 +276,32 @@ mod tests {
             .expect("connect")
     }
 
-    async fn next<T: DeserializeShrinkWrapOwned>(
-        s: &mut wire_weaver_client::PositionedStream<T>,
-    ) -> StreamEvent<T> {
+    async fn next<T: DeserializeShrinkWrapOwned, Tf: ItemTime>(
+        s: &mut wire_weaver_client::PositionedStream<T, Tf>,
+    ) -> StreamEvent<T, Tf> {
         let r = tokio::time::timeout(WAIT, s.recv_event()).await;
         r.expect("an event in time").expect("stream open")
     }
 
     /// Device time of the `k`-th sample from `t0_us`, as the host unwraps it.
-    fn t_of(t0_us: u32, k: u64) -> Option<Second> {
-        Some(Second::micro(t0_us as u64 + k * 40))
+    fn t_of(t0_us: u32, k: u64) -> Option<DeviceMicros<u64>> {
+        Some(DeviceMicros::from_raw(t0_us as u64 + k * 40))
     }
 
-    /// `<name>_push_many` stamps a block `t0 + k * dt` exactly, wrapping like the device clock, and pushes nothing
-    /// when `dt` is not a whole number of `t0`'s prefix.
+    /// `<name>_push_many` stamps a block `t0 + k * dt` exactly, wrapping like the device clock: the step is in the
+    /// type, so it can't be a fraction of `t0`'s.
     #[test]
     fn push_many_stamps_a_block() {
         let ser = server::api_impl::stream_data_ser();
         let mut stream =
             Batched::<Plain, Timed<Sample>, N>::new(Plain::new(), ww_stream::batch::DEFAULT_POLICY);
         let block = (0..3).map(|value| Sample { value });
-        assert_eq!(
-            ser.plain_push_many(
-                &mut stream,
-                Second::milli(5u32),
-                Second::micro(40u8),
-                block.clone()
-            ),
-            None
+        let (_, lost) = ser.plain_push_many(
+            &mut stream,
+            DeviceMicros::from_raw(u32::MAX - 39),
+            TimeStep::<DeviceMicros<u32>>::new(40),
+            block,
         );
-        assert_eq!(stream.batcher.filling(), 0);
-        let (_, lost) = ser
-            .plain_push_many(
-                &mut stream,
-                Second::milli(u32::MAX),
-                Second::milli(2u8),
-                block,
-            )
-            .unwrap();
         assert_eq!((lost, stream.batcher.filling()), (0, 3));
     }
 
@@ -410,9 +437,33 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(batch.len(), 2);
-        assert_eq!(batch[0].t, Some(Second::micro((1u64 << 32) + 900)));
-        assert_eq!(batch[1].t, Some(Second::micro((1u64 << 32) + 940)));
+        assert_eq!(batch[0].t, Some(DeviceMicros::from_raw((1u64 << 32) + 900)));
+        assert_eq!(batch[1].t, Some(DeviceMicros::from_raw((1u64 << 32) + 940)));
         assert_eq!(batch[1].value, Sample { value: 4 });
+    }
+
+    /// `batched(time = DeviceMillis<u16>)` (API-61): the device's u16 ms clock wraps every 65.5 s, the host hands
+    /// out the full point, a `DeviceMillis<u64>`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slow_stream_in_millis() {
+        let device = start("streams_batched/slow");
+        let client = connect(&device).await;
+        let mut slow = client.slow().call().await.unwrap();
+        client
+            .produce_slow(4, DeviceMillis::from_raw(u16::MAX - 1))
+            .call()
+            .await
+            .unwrap();
+        let batch = tokio::time::timeout(WAIT, slow.recv_batch())
+            .await
+            .unwrap()
+            .unwrap();
+        let times: Vec<Option<DeviceMillis<u64>>> = batch.iter().map(|item| item.t).collect();
+        let expected: Vec<_> = (0..4)
+            .map(|k| Some(DeviceMillis::from_raw(u16::MAX as u64 - 1 + k)))
+            .collect();
+        assert_eq!(times, expected);
+        assert_eq!(batch[3].value, Sample { value: 3 });
     }
 
     /// `batched(untimed)`: items without a time column.
@@ -449,6 +500,12 @@ mod tests {
     mod dyn_client {
         use super::*;
         use std::path::Path;
+        use ww_si::Second;
+
+        /// [t_of] as the dynamic client gives it: a `Second` in the point's step.
+        fn dyn_t_of(t0_us: u32, k: u64) -> Option<Second> {
+            Some(Second::micro(t0_us as u64 + k * 40))
+        }
         use std::sync::Arc;
         use wire_weaver_client::ww_numeric::NumericValue as N;
         use wire_weaver_client::ww_self::{
@@ -553,6 +610,40 @@ mod tests {
             assert_eq!(sample_value(&batch[1].value), 4);
         }
 
+        /// A transparent `Point` as a value: its one field, `coord`, the `Fixed` it wraps, and that one's `value`.
+        fn point(n: N) -> ValueOwned {
+            let named = |name: &str, v: ValueOwned| ValueOwned::Struct {
+                fields: FieldsValueOwned::Named(vec![(name.into(), v)]),
+            };
+            named("coord", named("value", num(n)))
+        }
+
+        /// `batched(time = DeviceMillis<u16>)` (API-61) in the dynamic client: the u16 ms point unwrapped across its
+        /// wrap and handed on as a `Second` in ms, see [super::slow_stream_in_millis].
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn slow_stream_in_millis() {
+            let device = start("streams_batched/dyn_slow");
+            let client = connect(&device).await;
+            let cmd = client.cmd();
+            let root = DynResource::root(bundle());
+            let mut slow = root.child("slow").unwrap().stream(cmd).await.unwrap();
+            root.child("produce_slow")
+                .unwrap()
+                .call(cmd, &[num(N::U32(4)), point(N::U16(u16::MAX - 1))])
+                .await
+                .unwrap();
+            let batch = tokio::time::timeout(WAIT, slow.recv_batch())
+                .await
+                .unwrap()
+                .unwrap();
+            let times: Vec<Option<Second>> = batch.iter().map(|item| item.t).collect();
+            let expected: Vec<_> = (0..4)
+                .map(|k| Some(Second::milli(u16::MAX as u64 - 1 + k)))
+                .collect();
+            assert_eq!(times, expected);
+            assert_eq!(sample_value(&batch[3].value), 3);
+        }
+
         /// Counted batched timed stream (`DynPositionedStream`): items with their positions and times across a
         /// batch sealed full and one sealed in part, the device clock wraps mid-stream, see
         /// [super::counted_items_with_their_times].
@@ -594,7 +685,7 @@ mod tests {
                         ..
                     } => {
                         assert_eq!((pos, units, run), (k, 1, Run::Live));
-                        assert_eq!(t, t_of(t0, k), "item {k}");
+                        assert_eq!(t, dyn_t_of(t0, k), "item {k}");
                         assert_eq!(sample_value(&value), k as i32);
                     }
                     ev => panic!("{ev:?}"),
@@ -615,7 +706,7 @@ mod tests {
                 .unwrap();
             assert_eq!((batch.pos, batch.items.len()), (10, 8));
             assert_eq!(sample_value(&batch.items[0].value), 10);
-            assert_eq!(batch.items[7].t, t_of(t0, 17));
+            assert_eq!(batch.items[7].t, dyn_t_of(t0, 17));
             root.child("flush").unwrap().call(cmd, &[]).await.unwrap();
             // a batch taken in part: the rest of it
             assert!(matches!(
@@ -709,7 +800,7 @@ mod tests {
                         ..
                     } => {
                         assert_eq!((pos, units), (k, 1));
-                        assert_eq!(t, t_of(0, k));
+                        assert_eq!(t, dyn_t_of(0, k));
                         assert_eq!(sample_value(&value), 3 * k as i32);
                     }
                     ev => panic!("{i}: {ev:?}"),

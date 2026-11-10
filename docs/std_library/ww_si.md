@@ -267,7 +267,8 @@ let t0 = Second::micro(4_294_967_000u32);
 let times: Vec<Second> = t0.steps(&Second::micro(40u8)).unwrap().take(32).collect();
 ```
 
-A batched stream's generated `<name>_push_many(state, t0, dt, values)` stamps a block of samples this way.
+A batched stream's generated `<name>_push_many(state, t0, dt, values)` stamps a block of samples the same way, on
+the [time point](#which-time-point) of its `Timed` items.
 
 ## Dimensions
 
@@ -378,21 +379,79 @@ be) and counts on from there; `restart()` starts over, for a device whose clock 
 
 ## Timed values
 
-`Timed<T> { t: Second, value: T }` is a value with the time it was taken, `t` a device timestamp as above: a
-sample of a property, an item of a stream (`Timed<Ampere>`). It is a `final_structure` struct of `t` and then
-`value`, the same bytes a `#[derive_shrink_wrap(final_structure)]` struct of those two fields has, so no fields can
-be added to it later. In an API it is used with its argument, `property!(ro current: Timed<Ampere>)`; its definition
-is in the `ww_si` snapshot, so devices leave it out of their introspection data (see
+`Timed<V, Tm = DeviceMicros<u32>> { t: Tm, value: V }` is a value with the time it was taken: a sample of a
+property, an item of a stream (`Timed<Ampere>`). `t` is a [point](points.md) on a time scale, by default
+`DeviceMicros<u32>`: µs since the device booted (origin `DeviceBoot`) in a `u32` that wraps every 71.6 minutes. It is
+a `final_structure` struct of `t` and then `value`, the same bytes a `#[derive_shrink_wrap(final_structure)]` struct
+of those two fields has, so no fields can be added to it later. `t` is the bytes of its storage alone, no prefix and
+no number tag. In an API it is used with its arguments, `property!(ro current: Timed<Ampere>)`; its definition is in
+the `ww_si` snapshot, so devices leave it out of their introspection data (see
 [generic types in an API](../types.md#generic-types-in-an-api)).
 
 ```rust
-use ww_si::{Ampere, Second, Timed};
+use ww_si::{Ampere, Timed, origins::DeviceMicros};
 
-let sample = Timed::new(Second::micro(1_000_000u32), Ampere::milli(-1200i32));
+let sample = Timed::new(DeviceMicros::from_raw(1_000_000u32), Ampere::milli(-1200i32));
+assert_eq!(sample.t.raw(), 1_000_000);
 ```
 
+### Which time point
+
+`Tm` is any `TimePoint`: a `Point<O, Fixed<Second, P, T>>` of a linear origin in seconds, in integer steps `P`
+stored in an integer `T`, without bounds. The step and the storage are fixed by the type, per stream. Pick the one
+that holds the longest silence between two items of a stream, at the device's resolution:
+
+| `Tm`                                               | Wraps after | Longest gap the host bridges |
+|----------------------------------------------------|-------------|------------------------------|
+| `DeviceMillis<u16>`                                | 65.5 s      | 32.7 s                       |
+| `DeviceMicros<u32>` (default)                      | 71.6 min    | 35.8 min                     |
+| `Point<DeviceBoot, Fixed<Second, Pow2<-15>, u32>>` | 36.4 h      | 18.2 h                       |
+| `DeviceMillis<u32>`                                | 49.7 days   | 24.8 days                    |
+| `DeviceMicros<u64>`                                | never       | no unwrapping needed         |
+
+A device that keeps a known time scale sends it the same way: `UnixMicros<u64>` for one that keeps UTC. A device
+whose resolution changes at run time picks one `Tm` fine and wide enough for all of it; a fixed `u32` column in a
+`Series` costs less than a per-item prefix and number tag did. A batched stream picks its `Tm` with
+[`batched(time = ..)`](../api/batching.md).
+
+On the device only the wrapping operations of `TimePoint` are used: `t.wrapping_add(dt)` and `t0.steps(dt)` (`t0`,
+`t0 + dt`, `t0 + 2·dt`, .., wrapping like the clock), with `dt` a `TimeStep<Tm>` (`Fixed<Second, Micro, u32>` for
+the default). `TimePoint::low(full)` takes the low bits of a full reading of the clock. `+` of a `u32` point panics
+in a debug build once the clock wraps.
+
+```rust
+use ww_si::{TimePoint, TimeStep, origins::DeviceMicros};
+
+let t0 = DeviceMicros::from_raw(4_294_967_000u32);
+let dt = TimeStep::<DeviceMicros<u32>>::new(40);
+// the times of 32 samples at 40 µs, the first one taken at t0, wrapping past 2^32 µs
+let times: Vec<DeviceMicros<u32>> = t0.steps(dt).take(32).collect();
+assert_eq!(times[8].raw(), 24);
+```
+
+### The full time on the host
+
+`TimeUnwrapper<Tm>` gets the full point back, `TimePoint::Full` (`DeviceMicros<u64>` for the default): each point is
+taken as the one closest to the previous with the same low bits. It is anchored on a full reading of the same clock
+(`new(now)`, `anchor(now)`), or without one (`default()`) takes the first point as is and counts on from there;
+`restart()` starts over for a device whose clock restarted. Use one per stream. The typed client does this for a
+timed batched stream: its items carry `t: Option<DeviceMicros<u64>>`.
+
+```rust
+use ww_si::{TimeUnwrapper, origins::DeviceMicros};
+
+let now = DeviceMicros::<u64>::from_raw(5_000_000_123); // the device's clock read in full
+let mut unwrapper = TimeUnwrapper::<DeviceMicros<u32>>::new(now);
+let full = unwrapper.unwrap(DeviceMicros::from_raw(705_032_827)).unwrap(); // u32 µs from a stream
+assert_eq!(full, now);
+```
+
+A full `DeviceBoot` point is placed on another scale with `t.against(boot)`, `boot` being where the device booted on
+that scale (a `UnixMicros<u64>`): exact, an offset only, right for a device whose clock was set or steered. A
+device clock that runs at its own rate goes through a clock sync fit first.
+
 In a `Series` (see [series](../serdes/series.md)) `t` is a column like any other: 32 `Timed<Volt>` samples at a
-40 µs clock are 22 bytes.
+40 µs clock are 21 bytes.
 
 ## On the wire and in introspection
 

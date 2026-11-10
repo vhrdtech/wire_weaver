@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e0d35e331b29b9d886082e2265728f960d4810161eb17411493239ee96417470
+// shrink_wrap sha256: 9a1f7c5b3b0630320b01ac229d9ae61ea77641ede6f8921c3e9d69ab43b70886
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -222,7 +222,7 @@
         "16-bit PCM) is this value times 4, left for a client that wants it, not duplicated here.",
     ], ident: "MuLaw", generics: [], fields: Unit, sparse: false, path: Some([
         "codec",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "MuLaw"), shape: MuLaw))))))), crate_idx: 0),
     InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
         "A complex value `re + j·im` in unit `U` and scale `P`, both parts stored as `T`, with the overflow policy `B`. See",
         "the [module](crate::complex) for the design.",

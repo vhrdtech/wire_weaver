@@ -54,8 +54,8 @@ pub use exact_units::{
     QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Reference, ReferenceDef, ReferenceHow,
     Repr, Rounding, SIExpr, SetToOne, Storage, System, SystemDef, SystemRef, TimeCounting,
     TimeScaleDef, TimeZero, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul, UnitNames,
-    UnitTable, UnitZero, UnsignedStorage, base, origin, origins, prefix, quantities, quantity,
-    scale, systems, unit, units,
+    UnitTable, UnitZero, UnsignedStorage, base, codec, origin, origins, prefix, quantities,
+    quantity, scale, systems, unit, units,
 };
 #[cfg(feature = "std")]
 pub use exact_units::{

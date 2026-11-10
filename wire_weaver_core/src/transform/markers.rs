@@ -13,6 +13,7 @@
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
+use exact_units::codec::{CodecDefOwned, CodecShapeOwned};
 use exact_units::{
     BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned,
     Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols, System,
@@ -94,6 +95,7 @@ pub(crate) fn expand_marker_macros(items: &mut Vec<Item>) -> Result<()> {
 fn mark_hand_written(items: &mut [Item]) {
     let mut hand = Vec::new();
     let mut references = Vec::new();
+    let mut codecs = Vec::new();
     for item in items.iter() {
         let Item::Impl(item_impl) = item else {
             continue;
@@ -104,6 +106,17 @@ fn mark_hand_written(items: &mut [Item]) {
         let Some(trait_name) = trait_path.segments.last().map(|s| s.ident.to_string()) else {
             continue;
         };
+        if trait_name == "Codec"
+            && let syn::Type::Path(self_ty) = &*item_impl.self_ty
+            && let Some(name) = self_ty.path.segments.last()
+            && let Some(def) = item_impl.items.iter().find_map(|i| match i {
+                syn::ImplItem::Const(c) if c.ident == "DEF" => Some(c.expr.clone()),
+                _ => None,
+            })
+        {
+            codecs.push((name.ident.clone(), def));
+            continue;
+        }
         if trait_name == "Reference"
             && let syn::Type::Path(self_ty) = &*item_impl.self_ty
             && let Some(name) = self_ty.path.segments.last()
@@ -170,6 +183,49 @@ fn mark_hand_written(items: &mut [Item]) {
                 .attrs
                 .push(syn::parse_quote!(#[#attr(reference, #name, #how)]));
         }
+        if let Item::Struct(item_struct) = item
+            && !item_struct
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident(MARKER_ATTR))
+            && let Some((_, def)) = codecs.iter().find(|(ident, _)| *ident == item_struct.ident)
+        {
+            let attr = Ident::new(MARKER_ATTR, item_struct.ident.span());
+            item_struct
+                .attrs
+                .push(syn::parse_quote!(#[#attr(codec, #def)]));
+        }
+    }
+}
+
+/// The `shape` of an `impl Codec`'s `DEF` (`CodecDef { id: .., shape: CodecShape::MuLaw }`), by the last segment of
+/// its path: the shapes without parameters. `Power`, `Exp` and `Table` have no `Codec` in exact_units yet (LVL-4,
+/// IO-3) and are refused until one exists to check their reading against.
+fn codec_shape(def: &syn::Expr) -> Result<CodecShapeOwned> {
+    let syn::Expr::Struct(s) = def else {
+        bail!("DEF `{}`: CodecDef {{ id, shape }}", quote::quote!(#def));
+    };
+    let Some(shape) = s
+        .fields
+        .iter()
+        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "shape"))
+        .map(|f| &f.expr)
+    else {
+        bail!("DEF `{}`: no `shape: ..`", quote::quote!(#def));
+    };
+    let name = match shape {
+        syn::Expr::Path(p) => p.path.segments.last().map(|s| s.ident.to_string()),
+        _ => None,
+    };
+    match name.as_deref() {
+        Some("MuLaw") => Ok(CodecShapeOwned::MuLaw),
+        Some("ALaw") => Ok(CodecShapeOwned::ALaw),
+        Some("PiecewisePower") => Ok(CodecShapeOwned::PiecewisePower),
+        _ => bail!(
+            "shape `{}`: the walker reads MuLaw, ALaw and PiecewisePower; a shape with parameters (Power, Exp, \
+             Table) waits for its first Codec in exact_units (LVL-4, IO-3)",
+            quote::quote!(#shape)
+        ),
     }
 }
 
@@ -681,6 +737,8 @@ pub(crate) enum MarkerLineDef {
     Quantity(QuantityLine),
     /// An `impl Reference`'s `NAME` and `HOW` constants, as written (STD-108).
     Reference(Box<(syn::Expr, syn::Expr)>),
+    /// An `impl Codec`'s `DEF` constant, as written (LVL-6).
+    Codec(Box<syn::Expr>),
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -697,6 +755,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             "hand" => Ok(MarkerLineDef::Hand(input.parse::<Ident>()?.to_string())),
             "origin" => Ok(MarkerLineDef::Origin(Box::new(input.parse()?))),
             "quantity" => Ok(MarkerLineDef::Quantity(input.parse()?)),
+            "codec" => Ok(MarkerLineDef::Codec(Box::new(input.parse()?))),
             "reference" => {
                 let name = input.parse()?;
                 input.parse::<Token![,]>()?;
@@ -704,7 +763,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             }
             _ => Err(syn::Error::new(
                 kind.span(),
-                "unit, scale, hand, origin, quantity or reference",
+                "unit, scale, hand, origin, quantity, reference or codec",
             )),
         }
     })?;
@@ -956,6 +1015,10 @@ pub(crate) fn marker_def(
                 how: reference_how(&how).with_context(|| format!("reference marker {ident}"))?,
             })
         }
+        MarkerLineDef::Codec(def) => MarkerDefOwned::Codec(CodecDefOwned {
+            id: id(),
+            shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
+        }),
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
@@ -1854,6 +1917,23 @@ mod tests {
                 panic!("{name}: no reference definition in the model");
             };
             assert_eq!(def, ReferenceDefOwned::from(&compiled), "{name}");
+        }
+        // LVL-6: each `impl Codec`, its DEF as compiled
+        {
+            let compiled = <exact_units::codec::MuLaw as exact_units::codec::Codec>::DEF;
+            let name = compiled.id.name;
+            let Some(MarkerDefOwned::Codec(def)) = markers.remove(name) else {
+                panic!("{name}: no codec definition in the model");
+            };
+            // the compiled definition through its own bytes, read back as the model's owned form
+            let mut buf = [0u8; 64];
+            let bytes = shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&compiled, &mut buf).unwrap();
+            let compiled =
+                <CodecDefOwned as shrink_wrap::DeserializeShrinkWrapOwned>::from_ww_bytes_owned(
+                    bytes,
+                )
+                .unwrap();
+            assert_eq!(def, compiled, "{name}");
         }
         // UNIT-10: exactly the `base` lines are `Base`, each declaring the base its id names; `base(Other)` is none
         macro_rules! bases {

@@ -135,6 +135,38 @@ In Rust, `wire_weaver_client::quantity::fixed_of(&ty, &bundle)` reads the type a
 writes into it exactly or returns the error above. `quantity::DynCount` does the same for indices and sequence
 numbers. The C consumer of the [conformance matrix](../serdes/conformance.md) reads a `Fixed` as its `T`.
 
+## Non-linear codes
+
+A `codec::Coded<C, V, T>` is a number given by a non-linear code instead of a linear step: a G.711 μ-law byte, a
+gamma-encoded pixel. On the wire it is its code `T`; the codec `C` is a marker whose definition the model carries
+(`MarkerDef::Codec`, exact_units' `CodecDef`: an id and a shape), so a client decodes and encodes it without the
+`Codec` trait or a generated type (STD-109). Spell out all three arguments in an API, the walker doesn't follow the
+trait's associated types:
+
+```rust
+use ww_si::{Fixed, codec::{Coded, MuLaw}, prefix::Pow2, units::Ratio};
+
+#[ww_api_root]
+trait Line {
+    /// One G.711 μ-law byte: the 14-bit linear sample it means is the `Fixed`
+    property!(rw voice: Coded<MuLaw, Fixed<Ratio, Pow2<-13>, i16>, u8>);
+}
+```
+
+The dynamic client, `ww` and Python read such a value as the `Fixed` it means: the byte 0x80 is the sample 8031.
+Writing a quantity encodes it by the codec, exactly as a write into a `Fixed` is exact: a value between two codes is
+refused, naming the nearest one.
+
+```
+31·2⁻¹³ is no code of exact_units::MuLaw: the nearest is 30·2⁻¹³ (code 240)
+```
+
+Python's `ww.Quantity` has the code it was read as in `code` (128 for 0x80) beside the linear `value`. In Rust,
+`wire_weaver_client::quantity::coded_of(&ty, &bundle)` reads the type as a `CodedType` (the codec's definition, the
+linear `FixedType`, the code's storage), and `ww_self::units::codec_decode` / `codec_encode` run a definition. Only
+μ-law has an algorithm in `exact_units` so far; the walker reads the shapes without parameters (`MuLaw`, `ALaw`,
+`PiecewisePower`), and a codec whose shape has no algorithm yet is shown as its code.
+
 ## serde
 
 With the feature `serde` the numbers are `Serialize` / `Deserialize`, `no_std` and without alloc (STD-94): the same

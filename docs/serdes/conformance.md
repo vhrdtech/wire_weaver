@@ -76,6 +76,25 @@ case 'fixed.numbers', consumer dynamic: encode: bytes differ at byte 0: got 1256
 - `wire_change` (default none): `"EVO-n / reason"`, the escape the [frozen golden bytes guard](#frozen-golden-bytes)
   accepts for a deliberate change to this case's `bytes`, `direction` or `bytes_from`.
 
+## A codec case
+
+A case of a codec's `Coded` type (LVL-6, STD-109) also says what its code means: `decoded` is the stored number of
+the `Fixed` the code decodes to, and `encodes_to` the code that number encodes back to (nearest-even) where it isn't
+the case's own. The derive checks both with the typed `Codec`, the dynamic client with the codec's definition in the
+model (`ww_self::units::codec_decode` / `codec_encode`), Python by the `ww.Quantity` it reads. Both fields are sealed
+like the golden bytes: a change to a codec that moves what a code means fails here.
+
+```json
+{
+  "name": "stdlib.si.coded.mu_law.negative_zero",
+  "type": "coded_mu_law",
+  "value": {"raw": 127},
+  "bytes": "7f",
+  "decoded": 0,
+  "encodes_to": 255
+}
+```
+
 ## A requantize case
 
 The `requantize` list holds conversions instead of bytes (STD-63, [Rounding and overflow](../std_library/rounding.md)): a

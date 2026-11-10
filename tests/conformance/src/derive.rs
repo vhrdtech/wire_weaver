@@ -830,6 +830,13 @@ pub fn table() -> Vec<Typed> {
             ww_si::Fixed::<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>::new(0xDEAD_BEEF),
         ),
         case("stdlib.si.fixed.duty16", ww_si::Duty16::new(0xBEEF)),
+        // LVL-6: G.711 μ-law bytes, each with the linear sample it means in the corpus (`decoded`, crate::codec)
+        case("stdlib.si.coded.mu_law.loudest", MuLawByte::from_raw(0x80)),
+        case("stdlib.si.coded.mu_law.loudest_negative", MuLawByte::from_raw(0x00)),
+        case("stdlib.si.coded.mu_law.zero", MuLawByte::from_raw(0xFF)),
+        case("stdlib.si.coded.mu_law.negative_zero", MuLawByte::from_raw(0x7F)),
+        case("stdlib.si.coded.mu_law.segment_0_top", MuLawByte::from_raw(0xF0)),
+        case("stdlib.si.coded.mu_law.segment_1_bottom", MuLawByte::from_raw(0xEF)),
         case("stdlib.si.fixed.bounded", fixed_bounded(5000)),
         case("stdlib.si.fixed.bounded.rejected", fixed_bounded(1)),
         case("stdlib.si.fixed.f32", fixed_f32(1.5)),
@@ -1001,6 +1008,7 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.quotient", ww_self::MarkerDefOwned::Quotient),
         case("model.marker_def.origin", celsius()),
         case("model.marker_def.origin_time_scale", unix_epoch()),
+        case("model.marker_def.codec", mu_law_def()),
         case(
             "model.marker_def.reference",
             ww_self::MarkerDefOwned::Reference(ww_self::ReferenceDefOwned::from(
@@ -1247,6 +1255,21 @@ fn celsius() -> ww_self::MarkerDefOwned {
         modulus: None,
         step: ww_si::Magnitude::ONE,
         shown: ww_si::Offset::decimal(27315, -2),
+    })
+}
+
+/// A G.711 μ-law byte (LVL-6), as `conformance_api`'s `coded_mu_law` is.
+pub type MuLawByte = ww_si::codec::Coded<
+    ww_si::codec::MuLaw,
+    ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>,
+    u8,
+>;
+
+/// `MuLaw`'s `Codec::DEF` as the model holds it.
+fn mu_law_def() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Codec(ww_si::codec::CodecDefOwned {
+        id: marker_id("exact_units", "MuLaw"),
+        shape: ww_si::codec::CodecShapeOwned::MuLaw,
     })
 }
 

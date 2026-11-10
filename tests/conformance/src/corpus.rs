@@ -102,6 +102,14 @@ pub struct Case {
     /// What the case checks, when the name doesn't say it all.
     #[serde(default)]
     pub note: Option<String>,
+    /// For a case of a codec's `Coded` type (LVL-6): the stored number of the `Fixed` its code means, checked by
+    /// [crate::codec] against the typed `Codec::decode` and against the codec's definition in the model.
+    #[serde(default)]
+    pub decoded: Option<i64>,
+    /// The code `decoded` encodes back to (nearest-even), when not the case's own: the redundant negative zero of
+    /// μ-law encodes to the positive one.
+    #[serde(default)]
+    pub encodes_to: Option<i64>,
     /// A deliberate wire break (TEST-24, `docs/serdes/conformance.md`): `"EVO-n / reason"`. Without it, the frozen
     /// bytes guard fails when this case's `bytes`, `direction` or `bytes_from` differ from what they were at the
     /// merge base with main; with it, the change is accepted, but still needs the matching EVO item and a

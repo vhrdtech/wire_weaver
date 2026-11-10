@@ -7,6 +7,7 @@
 
 ### 🚀 Features
 
+- A `Coded` value (a G.711 μ-law byte, exact_units LVL-6) reads as the `ww.Quantity` it means, with the code in `ww.Quantity.code`; a `ww.Quantity` written into one is encoded exactly (STD-109).
 - `Quantity.system` names the system of units the dimension counts in (exact_units UNIT-9): `"Si"`, `"Gaussian"`, `"Natural"`; `Quantity.dim` of a unit of Gaussian or Natural counts in that system's bases (`{"g": 0.5, "cm": -0.5, "s": -1}` for the gauss).
 - `INib32` (SW-24): converts to and from a plain Python `int`, like `i32`; its numpy column dtype is `int32`.
 - `ww.Quantity(text, unit=None)` makes a quantity to write (EVO-28): `ww.Quantity("0.25 K")`, `ww.Quantity("250 mK")`, `ww.Quantity("1.5", "Ratio")`. Written into an `exact_units::Fixed` it converts exactly into the stored scale or raises `ValueError` before anything is sent, so one script writes the same value to devices whose types store it in other scales.

@@ -40,6 +40,11 @@ mod tests {
     type BoardTemperature = Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>;
     type Heading = Point<Angle<Degree>, Fixed<Degree, Centi, u16>>;
     type ShaftAngle = Point<Shaft, Fixed<Degree, Centi, i32>>;
+    type Voice = ww_si::codec::Coded<
+        ww_si::codec::MuLaw,
+        Fixed<units::Ratio, ww_si::prefix::Pow2<-13>, i16>,
+        u8,
+    >;
     type Uptime = Fixed<units::Second, Micro, u64>;
     type Buffer = Fixed<units::Byte, Kibi, u16>;
     type Delay = Fixed<units::Second, Micro, u32, Range<0, 5000000>>;
@@ -76,6 +81,7 @@ mod tests {
         input: Input,
         sample: Index<Sample, u32>,
         frame: Seq<Frame, u16>,
+        voice: Voice,
     }
 
     /// A pressure sensor input in bar, a unit `ww_si` doesn't have: sent with its dimension and scale.
@@ -126,6 +132,8 @@ mod tests {
             input: Input::try_new(2).unwrap(),
             sample: Index::new(1000),
             frame: Seq::new(41),
+            // the largest positive sample, 8031
+            voice: Voice::from_raw(0x80),
         }
     }
 
@@ -379,6 +387,22 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Window, ()> {
                 GetResult::Value(self.values.lock().unwrap().window)
+            }
+
+            fn set_voice(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Voice,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().voice = value;
+                SetResult::Set
+            }
+
+            fn get_voice(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Voice, ()> {
+                GetResult::Value(self.values.lock().unwrap().voice)
             }
 
             fn set_sense(
@@ -1018,6 +1042,48 @@ mod tests {
         assert!(
             why.contains("index pulse") && why.contains("run time"),
             "{why}"
+        );
+    }
+
+    /// LVL-6: a G.711 μ-law byte through the dynamic client, decoded and encoded by the codec's definition in the
+    /// model (`CodecDef::decode` / `encode`), without the `Codec` trait or a generated type.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn coded_property() {
+        let (device, values) = start("quantities/coded");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let (value, ty) = read(&client, &root, "voice").await;
+        let coded = wire_weaver_client::quantity::coded_of(&ty, bundle).expect("a Coded");
+        assert_eq!(coded.codec.id.name, "MuLaw");
+        let v = DynQuantity::from_value(&value, &ty, bundle).expect("a quantity");
+        assert_eq!(v.value, NumericValue::I16(8031));
+        assert_eq!(
+            v.value,
+            NumericValue::I16(Voice::from_raw(0x80).get().get())
+        );
+        // a value a code means is written as that code: -8031 is 0x00
+        let voice = root.child("voice").unwrap();
+        let loudest_negative = DynQuantity {
+            value: NumericValue::I16(-8031),
+            ..v.clone()
+        };
+        voice
+            .write(
+                client.cmd(),
+                &loudest_negative.to_value(&ty, bundle).unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().voice.raw(), 0x00);
+        // a value between two codes is refused, naming the nearest: 31 lies in the gap after 30
+        let between = DynQuantity {
+            value: NumericValue::I16(31),
+            ..v.clone()
+        };
+        let err = between.to_value(&ty, bundle).unwrap_err();
+        assert_eq!(
+            err,
+            "31·2⁻¹³ is no code of exact_units::MuLaw: the nearest is 30·2⁻¹³ (code 240)"
         );
     }
 

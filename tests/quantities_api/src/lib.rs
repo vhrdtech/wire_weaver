@@ -9,8 +9,9 @@
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
+use ww_si::codec::{Coded, MuLaw};
 use ww_si::origins::{Angle, Celsius};
-use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
+use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Pow2, Product, Quotient, Rational};
 use ww_si::quantities::{Height, Width};
 use ww_si::systems::Gaussian;
 use ww_si::systems::gaussian::{Gauss, quantities::GaussianFluxDensity};
@@ -62,6 +63,8 @@ trait Quantities {
     property!(ro board_temp: Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>);
     /// A heading in 0.01° that wraps at 360°
     property!(ro heading: Point<Angle<Degree>, Fixed<Degree, Centi, u16>>);
+    /// A telephone line's sample, one G.711 μ-law byte: a non-linear code of the 14-bit linear sample (LVL-6)
+    property!(rw voice: Coded<MuLaw, Fixed<Ratio, Pow2<-13>, i16>, u8>);
     /// The shaft's angle in 0.01° from the encoder's index pulse, a reference of this crate known only at run time
     /// (STD-108)
     property!(ro shaft: Point<Shaft, Fixed<Degree, Centi, i32>>);

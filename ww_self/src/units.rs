@@ -22,6 +22,7 @@ use crate::{
     ReferenceDefOwned, ReferenceHow, TimeCounting, TimeScaleDef, TimeZero, TypeOwned, ValueOwned,
 };
 use anyhow::{Context, Result, anyhow, bail};
+use exact_units::codec::{CodecDefOwned, CodecShape, CodecShapeOwned};
 use exact_units::{
     DimOwned, Magnitude, MarkerIdOwned, Offset, QuantityDefOwned, QuantityExpr, QuantityRef,
     SystemDefOwned, UnitDefOwned, UnitTable,
@@ -372,6 +373,7 @@ pub fn def_id(def: &MarkerDefOwned) -> Option<&MarkerIdOwned> {
         MarkerDefOwned::Scale(s) => Some(&s.id),
         MarkerDefOwned::Origin(o) => Some(&o.id),
         MarkerDefOwned::Reference(r) => Some(&r.id),
+        MarkerDefOwned::Codec(c) => Some(&c.id),
         _ => None,
     }
 }
@@ -565,6 +567,69 @@ pub fn reference_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<Reference
     match definition(s, bundle)? {
         MarkerDefOwned::Reference(def) => Ok(def.clone()),
         _ => bail!("{} is not a reference of origins", marker_name(s, bundle)?),
+    }
+}
+
+/// The definition of the codec marker `ty` (the `C` of a `Coded<C, V, T>`, an `impl exact_units::codec::Codec`,
+/// LVL-6): `MuLaw`.
+pub fn codec_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CodecDefOwned> {
+    let (s, _) = marker(ty, bundle)?;
+    match definition(s, bundle)? {
+        MarkerDefOwned::Codec(def) => Ok(def.clone()),
+        _ => bail!("{} is not a codec", marker_name(s, bundle)?),
+    }
+}
+
+/// `def`'s shape as `exact_units` runs it: the same algorithm as the codec's typed `decode` and `encode`.
+fn codec_shape(def: &CodecDefOwned) -> CodecShape<'_> {
+    match &def.shape {
+        CodecShapeOwned::MuLaw => CodecShape::MuLaw,
+        CodecShapeOwned::ALaw => CodecShape::ALaw,
+        CodecShapeOwned::Power { gamma } => CodecShape::Power { gamma: *gamma },
+        CodecShapeOwned::PiecewisePower => CodecShape::PiecewisePower,
+        CodecShapeOwned::Exp { base, offset } => CodecShape::Exp {
+            base: *base,
+            offset: *offset,
+        },
+        CodecShapeOwned::Table(t) => CodecShape::Table(shrink_wrap::RefVec::Slice { slice: t }),
+        CodecShapeOwned::Unknown(d) => CodecShape::Unknown(*d),
+    }
+}
+
+/// The linear number (the stored number of the codec's `Linear`) code `raw` means, by `def`'s shape alone, as
+/// `CodecDef::decode` computes it; an error for a shape with no algorithm in `exact_units` yet, or a `raw` outside
+/// the code's storage.
+pub fn codec_decode(def: &CodecDefOwned, raw: i128) -> Result<i128> {
+    codec_shape(def).decode(raw).ok_or_else(|| {
+        anyhow!(
+            "codec {} can't decode {raw}: {}",
+            def.id.as_id(),
+            no_algorithm(def)
+        )
+    })
+}
+
+/// The code of the linear number `value` by `def`'s shape alone, the nearest by `rounding`, as `CodecDef::encode`
+/// computes it; an error for a shape with no algorithm yet, or a `value` beyond every code.
+pub fn codec_encode(
+    def: &CodecDefOwned,
+    value: i128,
+    rounding: exact_units::Rounding,
+) -> Result<i128> {
+    codec_shape(def).encode(value, rounding).ok_or_else(|| {
+        anyhow!(
+            "codec {} can't encode {value}: {}",
+            def.id.as_id(),
+            no_algorithm(def)
+        )
+    })
+}
+
+fn no_algorithm(def: &CodecDefOwned) -> &'static str {
+    match def.shape {
+        CodecShapeOwned::MuLaw => "out of range",
+        CodecShapeOwned::Unknown(_) => "a shape this reader doesn't know",
+        _ => "exact_units has no algorithm for its shape yet (LVL-4, IO-3)",
     }
 }
 
@@ -841,6 +906,12 @@ pub enum Wrapper<'a> {
         of: &'a TypeOwned,
         storage: &'a TypeOwned,
     },
+    /// `codec::Coded<C, V, T>` (LVL-6): the code `T` of codec `C`, which means a `V` ([codec_of], [codec_decode]).
+    Coded {
+        codec: &'a TypeOwned,
+        value: &'a TypeOwned,
+        storage: &'a TypeOwned,
+    },
 }
 
 impl Wrapper<'_> {
@@ -851,16 +922,28 @@ impl Wrapper<'_> {
             Wrapper::Index { .. } => "Index",
             Wrapper::IndexFrom1 { .. } => "IndexFrom1",
             Wrapper::Seq { .. } => "Seq",
+            Wrapper::Coded { .. } => "Coded",
         }
     }
 
-    /// The `B` argument, `None` for a `Seq`.
+    /// The `B` argument, `None` for a `Seq` and a `Coded` (every code decodes).
     pub fn bounds_ty(&self) -> Option<&TypeOwned> {
         match self {
             Wrapper::Fixed { bounds, .. }
             | Wrapper::Index { bounds, .. }
             | Wrapper::IndexFrom1 { bounds, .. } => Some(bounds),
-            Wrapper::Seq { .. } => None,
+            Wrapper::Seq { .. } | Wrapper::Coded { .. } => None,
+        }
+    }
+
+    /// The `T` argument, the number stored and sent.
+    pub fn storage_ty(&self) -> &TypeOwned {
+        match self {
+            Wrapper::Fixed { storage, .. }
+            | Wrapper::Index { storage, .. }
+            | Wrapper::IndexFrom1 { storage, .. }
+            | Wrapper::Seq { storage, .. }
+            | Wrapper::Coded { storage, .. } => storage,
         }
     }
 }
@@ -883,7 +966,15 @@ pub fn wrapper_of_struct<'a>(
     let TypeOwned::Struct(g) = bundle.get_ty(inst.type_idx.0).ok()?.0 else {
         return None;
     };
-    if g.path.is_some() || bundle.crate_name(g.crate_idx.0).ok()? != "exact_units" {
+    if bundle.crate_name(g.crate_idx.0).ok()? != "exact_units" {
+        return None;
+    }
+    // the wrappers are at exact_units' root, `Coded` in its `codec` module
+    let in_codec = g
+        .path
+        .as_ref()
+        .is_some_and(|p| p.len() == 1 && p[0] == "codec");
+    if g.path.is_some() && !(in_codec && g.ident == "Coded") {
         return None;
     }
     let mut args = inst.args.iter().map(|a| match a {
@@ -910,6 +1001,11 @@ pub fn wrapper_of_struct<'a>(
         },
         "Seq" => Wrapper::Seq {
             of: next()?,
+            storage: next()?,
+        },
+        "Coded" if in_codec => Wrapper::Coded {
+            codec: next()?,
+            value: next()?,
             storage: next()?,
         },
         _ => return None,

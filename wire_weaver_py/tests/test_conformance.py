@@ -45,8 +45,10 @@ def expected(case):
 
 def plain(value):
     """A decoded value in the corpus form: bytes and tuples as lists, a `ww.Quantity` as the struct it is on the wire
-    (prefix and the stored number; a `Fixed` only the stored number)."""
+    (prefix and the stored number; a `Fixed` only the stored number; a `Coded` its code)."""
     if isinstance(value, ww.Quantity):
+        if value.code is not None:
+            return {"raw": value.code}
         if value.fixed:
             return {"value": value.value}
         if value.prefix == "Unknown":
@@ -117,6 +119,9 @@ def attempt(api, case):
             return False, f"decoded bytes that must be rejected: {decoded!r}"
         if not same(plain(decoded), expected(case)):
             return False, f"decode: decoded {decoded!r}, expected {expected(case)!r}"
+        # a codec's code (LVL-6): the linear number it means, as the codec's definition in the model decodes it
+        if "decoded" in case and decoded.value != case["decoded"]:
+            return False, f"decode: the code means {decoded.value!r}, expected {case['decoded']!r}"
         return True, ""
     except Exception as e:  # anything else is a failure of this consumer, with its message
         return False, f"{type(e).__name__}: {e}"

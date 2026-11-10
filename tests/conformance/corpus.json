@@ -8,6 +8,7 @@
     "wire_change: \"EVO-n / reason\", the escape the frozen golden bytes guard (TEST-24) accepts for a deliberate change to bytes, direction or bytes_from, with a matching EVO item and CHANGELOG entry.",
     "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then just conformance-update and review the bytes.",
     "withdrawn: cases removed with the wire feature they covered before it reached a release, by name with \"ID / reason\"; the frozen golden bytes guard (TEST-24) lets a sealed case go only this way, and the name stays taken.",
+    "decoded, encodes_to: for a case of a codec's Coded type (LVL-6), the linear number its code means and, when not its own code, the code that number encodes back to (nearest-even); sealed like bytes.",
     "requantize: a stored number converted to another scale and storage (STD-63): factor is the quotient of the scales (a magnitude value), rounding truncate|floor|ceil|nearest_even|nearest_away, overflow checked|saturate|wrap, result the stored number after it (null: no value). conversion names the typed conversion in tests/conformance/src/requantize.rs."
   ],
   "cases": [
@@ -1230,6 +1231,61 @@
       "note": "Duty16 = Fixed<Ratio, Rational<1, 65535>, u16>: the bytes of its u16 (STD-55)"
     },
     {
+      "name": "stdlib.si.coded.mu_law.loudest",
+      "type": "coded_mu_law",
+      "value": {"raw": 128},
+      "bytes": "80",
+      "decoded": 8031,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "G.711 mu-law byte 0x80, the largest positive 14-bit sample (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law.loudest_negative",
+      "type": "coded_mu_law",
+      "value": {"raw": 0},
+      "bytes": "00",
+      "decoded": -8031,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "G.711 mu-law byte 0x00, the largest negative sample (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law.zero",
+      "type": "coded_mu_law",
+      "value": {"raw": 255},
+      "bytes": "ff",
+      "decoded": 0,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "G.711 mu-law byte 0xFF, zero (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law.negative_zero",
+      "type": "coded_mu_law",
+      "value": {"raw": 127},
+      "bytes": "7f",
+      "decoded": 0,
+      "encodes_to": 255,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "G.711 mu-law byte 0x7F, the standard's redundant negative zero: decodes to 0, which encodes to 0xFF (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law.segment_0_top",
+      "type": "coded_mu_law",
+      "value": {"raw": 240},
+      "bytes": "f0",
+      "decoded": 30,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "G.711 mu-law byte 0xF0, segment 0's top step, 30 (LVL-6)"
+    },
+    {
+      "name": "stdlib.si.coded.mu_law.segment_1_bottom",
+      "type": "coded_mu_law",
+      "value": {"raw": 239},
+      "bytes": "ef",
+      "decoded": 33,
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "G.711 mu-law byte 0xEF, segment 1's bottom step, 33: the standard leaves a gap after 30 (LVL-6)"
+    },
+    {
       "name": "stdlib.si.fixed.bounded",
       "type": "fixed_bounded",
       "value": {"value": 5000},
@@ -1783,6 +1839,14 @@
       "bytes": "e165786163745f756e697473556e697845706f636865786163745f756e6974735365636f6e6473007365636f6e647365636f6e6473807311076165786163745f756e69747353694000000000000001072394a639732055544365786163745f756e697473506f7369785363616c65504f5349582074696d65201000110305292939000000d57f1939078a",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "origin! of the Unix epoch on PosixScale: a time scale counting days of 86400 s from an agreed zero (PT-4, STD-108)"
+    },
+    {
+      "name": "model.marker_def.codec",
+      "type": "marker_def",
+      "value": {"Codec": {"id": {"crate_name": "exact_units", "name": "MuLaw"}, "shape": "MuLaw"}},
+      "bytes": "a365786163745f756e6974734d754c61770015393a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "impl Codec of MuLaw: its id and shape, which a client runs without the trait (LVL-6)"
     },
     {
       "name": "model.marker_def.reference",

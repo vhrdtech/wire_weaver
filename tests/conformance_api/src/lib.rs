@@ -137,6 +137,8 @@ trait Conformance {
     property!(rw fixed_maybe_nan: ww_si::Fixed<ww_si::units::Volt, ww_si::prefix::Milli, f32, ww_si::MaybeNan>);
     // an imperial unit (STD-72): the same i32, lbf·s only in the type
     property!(rw fixed_customary: ww_si::Fixed<ww_si::units::Times<ww_si::units::PoundForce, ww_si::units::Second>, ww_si::prefix::Milli, i32>);
+    // a non-linear code (LVL-6): a G.711 μ-law byte, the bytes of its u8, the codec's definition in the model
+    property!(rw coded_mu_law: ww_si::codec::Coded<ww_si::codec::MuLaw, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>);
     property!(rw magnitude: ww_si::Magnitude);
     // ww_si::Quantity (STD-59): a prefix and a number; binary and Exact prefixes, bounds in the type
     property!(rw quantity_volt: ww_si::Volt);

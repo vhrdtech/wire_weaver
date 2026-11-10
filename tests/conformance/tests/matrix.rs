@@ -170,3 +170,25 @@ fn report() {
         "docs/serdes/conformance_matrix.md is not what the corpus says: just conformance-update"
     );
 }
+
+/// LVL-6: every codec case's code means its `decoded` number, by the typed codec and by the codec's definition in the
+/// model, and that number encodes back to the case's code (or its `encodes_to`).
+#[test]
+fn codec_cases() {
+    let corpus = conformance::corpus::load();
+    let mut failures = vec![];
+    let mut checked = 0;
+    for case in corpus.cases.iter().filter(|c| c.decoded.is_some()) {
+        checked += 1;
+        for (consumer, run) in [
+            ("derive", conformance::codec::derive as fn(&_) -> _),
+            ("dynamic", conformance::codec::dynamic),
+        ] {
+            if let Err(e) = run(case) {
+                failures.push(format!("case '{}', {consumer}: {e}", case.name));
+            }
+        }
+    }
+    assert!(checked > 0, "no codec cases");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}

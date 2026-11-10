@@ -8,6 +8,7 @@
 //! new cases (from the derive) and writes the report, `docs/serdes/conformance_matrix.md`.
 
 pub mod c;
+pub mod codec;
 pub mod corpus;
 pub mod coverage;
 pub mod derive;

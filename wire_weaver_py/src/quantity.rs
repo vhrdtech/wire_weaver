@@ -16,6 +16,8 @@ use wire_weaver_client::ww_self::units::Bound as Bound_;
 #[derive(PartialEq)]
 pub(crate) struct Quantity {
     pub(crate) q: DynQuantity,
+    /// The code a `Coded` value was read as (LVL-6), `None` for any other quantity.
+    pub(crate) code: Option<i128>,
 }
 
 #[pymethods]
@@ -32,7 +34,7 @@ impl Quantity {
             .transpose()
             .map_err(PyValueError::new_err)?;
         let q = parse_quantity(text, unit.as_ref()).map_err(PyValueError::new_err)?;
-        Ok(Quantity { q })
+        Ok(Quantity { q, code: None })
     }
 
     /// The number as stored, in units of `prefix`: `3300` for 3300 mV.
@@ -78,6 +80,14 @@ impl Quantity {
     #[getter]
     fn fixed(&self) -> bool {
         self.q.storage.is_some()
+    }
+
+    /// The code an `exact_units::codec::Coded` value was read as (LVL-6): `128` for the G.711 μ-law byte 0x80, whose
+    /// [value](Self::value) is the linear sample it means, 8031. `None` for any other quantity, and for one written
+    /// by hand: writing a quantity into a `Coded` encodes it by the codec, exactly, or refuses it.
+    #[getter]
+    fn code(&self) -> Option<i128> {
+        self.code
     }
 
     /// The numbers a `Fixed` allows, as stored: `(1, 5000)` for `Range<1, 5000>`, an end `None` when open; `None`
@@ -227,7 +237,7 @@ impl Quantity {
             }
         };
         let q = self.q.convert(&unit).map_err(PyValueError::new_err)?;
-        Ok(Quantity { q })
+        Ok(Quantity { q, code: None })
     }
 
     /// The value in the unit itself, without the prefix: 3.3 for 3300 mV.

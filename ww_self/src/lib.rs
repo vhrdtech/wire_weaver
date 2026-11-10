@@ -821,6 +821,11 @@ pub enum MarkerDef<'i> {
     /// `DeviceMonotonic`, a user's encoder index. An [origin](Self::Origin) carries its reference whole. A reader
     /// from before it gets `Unknown`.
     Reference(ReferenceDef<'i>),
+    /// A non-linear code (an `impl exact_units::codec::Codec`, LVL-6): `MuLaw`, `exact_units`' definition whole, its
+    /// id and [shape](exact_units::codec::CodecShape), from which a client runs the codec's decode and encode
+    /// without the trait (`CodecDef::decode` / `encode`). The `C` of a `Coded<C, V, T>`, whose bytes are those of
+    /// `T`, the code. A reader from before it gets `Unknown`.
+    Codec(exact_units::codec::CodecDef<'i>),
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

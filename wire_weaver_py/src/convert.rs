@@ -31,7 +31,7 @@ use pyo3::types::{
 };
 use shrink_wrap::{INib32, Nibble, UNib32, UVlq32, UVlq64};
 use wire_weaver_client::quantity::{
-    DynQuantity, Prefix, fixed_of, is_any_quantity, stored_number, unit_of,
+    DynQuantity, Prefix, coded_of, fixed_of, is_any_quantity, stored_number, unit_of,
 };
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
@@ -74,8 +74,9 @@ fn to_value_at(
             .to_value(ty, bundle)
             .map_err(PyValueError::new_err);
     }
-    // an exact_units wrapper: a Quantity converts exactly into a Fixed, a number is what it stores (CLT-54)
-    if fixed_of(ty, bundle).is_some()
+    // an exact_units wrapper: a Quantity converts exactly into a Fixed or a codec's code (LVL-6), a number is what
+    // it stores (CLT-54)
+    if (fixed_of(ty, bundle).is_some() || coded_of(ty, bundle).is_some())
         && let Ok(q) = obj.cast::<Quantity>()
     {
         return q
@@ -555,7 +556,20 @@ pub(crate) fn to_py<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let ty = resolve(ty, bundle)?;
     if let Some(q) = DynQuantity::from_value(value, ty, bundle) {
-        return Ok(Bound::new(py, Quantity { q })?.into_any());
+        // a codec's code (LVL-6): the one number of the transparent `Coded`
+        let code = match (coded_of(ty, bundle), value) {
+            (
+                Some(_),
+                ValueOwned::Struct {
+                    fields: FieldsValueOwned::Named(f),
+                },
+            ) => match f.first() {
+                Some((_, ValueOwned::Numeric(n))) => n.to_i128(),
+                _ => None,
+            },
+            _ => None,
+        };
+        return Ok(Bound::new(py, Quantity { q, code })?.into_any());
     }
     Ok(match (value, ty) {
         (_, TypeOwned::MaxLen { ty: inner, .. }) => to_py(py, value, inner, bundle)?,

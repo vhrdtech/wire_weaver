@@ -31,7 +31,8 @@ use ww_self::{
     ApiBundleOwned, FieldsOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned,
     ItemStructOwned, MarkerDefOwned, TypeOwned, ValueOwned,
 };
-use ww_si::exact_units::{BaseSource, MarkerId, MarkerIdOwned, UnitDefOwned};
+use ww_si::exact_units::codec::CodecDefOwned;
+use ww_si::exact_units::{BaseSource, MarkerId, MarkerIdOwned, Rounding, UnitDefOwned};
 use ww_si::tree::{self, Tree};
 use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned, UnitTable};
 pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
@@ -384,6 +385,32 @@ pub fn fixed_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<FixedType> {
     })
 }
 
+/// An `exact_units::codec::Coded<C, V, T>` as introspection data describes it (LVL-6): the codec's definition, which
+/// a client runs without the `Codec` trait, the `Fixed` a code means, and the code's storage.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CodedType {
+    pub codec: CodecDefOwned,
+    pub linear: FixedType,
+    pub storage: NumericBaseType,
+}
+
+/// `ty` as a `Coded`, `None` for any other type or one whose codec, value or storage doesn't resolve.
+pub fn coded_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<CodedType> {
+    let Wrapper::Coded {
+        codec,
+        value,
+        storage,
+    } = wrapper_of(ty, bundle)?
+    else {
+        return None;
+    };
+    Some(CodedType {
+        codec: ww_self::units::codec_of(codec, bundle).ok()?,
+        linear: fixed_of(value, bundle)?,
+        storage: ww_self::units::storage_of(storage, bundle).ok()?,
+    })
+}
+
 /// A value of a `ww_si::Quantity<U>`, a `ww_si::AnyQuantity` or an `exact_units::Fixed<U, P, T, B>`: the prefix and
 /// number the device sent, and the unit.
 #[derive(Clone, Debug, PartialEq)]
@@ -419,6 +446,16 @@ impl DynQuantity {
                 DynUnit::from_si_expr(&q.unit, &units_of(bundle)),
             ));
         }
+        if let Some(coded) = coded_of(ty, bundle) {
+            let raw = wrapped_number(value)?.to_i128()?;
+            let linear = ww_self::units::codec_decode(&coded.codec, raw).ok()?;
+            return Some(DynQuantity {
+                value: ww_self::expr::int_value(linear, &coded.linear.storage.base).ok()?,
+                prefix: coded.linear.prefix,
+                unit: coded.linear.unit,
+                storage: Some(coded.linear.storage),
+            });
+        }
         if let Some(fixed) = fixed_of(ty, bundle) {
             return Some(DynQuantity {
                 prefix: fixed.prefix,
@@ -440,6 +477,40 @@ impl DynQuantity {
     /// its scale and storage: `5 ms` into `Fixed<Second, Micro, u32>` is 5000; `1.5 µs`, a number past `u32` or
     /// outside the bounds is an error naming the type.
     pub fn to_value(&self, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ValueOwned, String> {
+        if let Some(coded) = coded_of(ty, bundle) {
+            let name = type_name(ty, bundle);
+            let linear = self.fixed_number(&coded.linear, &name)?;
+            let Some(linear) = linear.to_i128() else {
+                return Err(format!(
+                    "{self} can't be written into {name}: its code is of a whole number"
+                ));
+            };
+            let code = ww_self::units::codec_encode(&coded.codec, linear, Rounding::NearestEven)
+                .map_err(|e| format!("{self} can't be written into {name}: {e:#}"))?;
+            // exact, as into a `Fixed`: a value between two codes is refused, naming the nearest
+            let back = ww_self::units::codec_decode(&coded.codec, code)
+                .map_err(|e| format!("{self} can't be written into {name}: {e:#}"))?;
+            if back != linear {
+                let nearest = DynQuantity {
+                    value: ww_self::expr::int_value(back, &coded.linear.storage.base)
+                        .map_err(|e| format!("{e:#}"))?,
+                    ..self.clone()
+                };
+                return Err(format!(
+                    "{self} is no code of {}: the nearest is {} (code {code})",
+                    coded.codec.id.as_id(),
+                    DynQuantity {
+                        prefix: coded.linear.prefix.clone(),
+                        unit: coded.linear.unit.clone(),
+                        storage: Some(coded.linear.storage.clone()),
+                        ..nearest
+                    }
+                ));
+            }
+            let code = ww_self::expr::int_value(code, &coded.storage)
+                .map_err(|e| format!("{name}: {e:#}"))?;
+            return wrapper_value(code, ty, bundle);
+        }
         if let Some(fixed) = fixed_of(ty, bundle) {
             let number = self.fixed_number(&fixed, &type_name(ty, bundle))?;
             return wrapper_value(number, ty, bundle);
@@ -991,7 +1062,8 @@ pub fn stored_number(
         Wrapper::Fixed { storage, .. }
         | Wrapper::Index { storage, .. }
         | Wrapper::IndexFrom1 { storage, .. }
-        | Wrapper::Seq { storage, .. } => storage,
+        | Wrapper::Seq { storage, .. }
+        | Wrapper::Coded { storage, .. } => storage,
     };
     let name = type_name(ty, bundle);
     Some((|| {
@@ -1055,7 +1127,7 @@ impl DynCount {
             Wrapper::Index { of, .. } => (CountKind::Index, of),
             Wrapper::IndexFrom1 { of, .. } => (CountKind::IndexFrom1, of),
             Wrapper::Seq { of, .. } => (CountKind::Seq, of),
-            Wrapper::Fixed { .. } => return None,
+            Wrapper::Fixed { .. } | Wrapper::Coded { .. } => return None,
         };
         Some(DynCount {
             kind,

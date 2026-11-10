@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.1.0">
+      <meta name="generator" content="zensical-0.1.1">
     
     
       
@@ -37,7 +37,7 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.4ab2de0c.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.ebb7f775.min.css">
       
         
           
@@ -6174,6 +6174,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../evolution/rules/#the-wire-version">Wire version in Cargo.toml</a></strong>: Every crate declares its wire version one way, in its <code>Cargo.toml</code> next to its crate version; the attribute form is left for test crates that stand for several lines.</li>
 <li><strong><a href="../evolution/multi_line_host/">A host for several wire lines</a></strong>: One host driver carries a generated client per wire line of an API and talks to devices of any of them through one facade, picking the client of the device's line in a single link setup; scripts reach every line through the dynamic client and Python, writing quantities exactly into each line's types.</li>
 <li><strong><a href="../evolution/rules/#several-lines-in-one-crate">Several wire lines in one crate</a></strong>: One API crate holds every wire line still in use, a root per module with its own wire version, and the types the lines share are one Rust type.</li>
+<li><strong><a href="../evolution/multi_line_host/#every-line-in-one-api-crate">The multi-line host on one crate</a></strong>: The worked example of a host for three wire lines uses one API crate: the types the lines share are one Rust type converted once, one client serves a shared sub-trait, firmware built from the older crates still connects, and what each line costs is measured.</li>
 <li><strong><a href="../evolution/multi_line_host/#shared-sub-traits">One client for a shared sub-trait</a></strong>: The lines of one crate that reach the same sub-trait (<code>common::Channel</code>, <code>ww_indication::Indication</code>) by path return one generated client type for it, checked at compile time to be the trait each line has.</li>
 <li><strong><a href="../evolution/multi_line_host/#connecting-once-on-either-line">Fallible client pick</a></strong>: A facade of several wire lines returns an error for a line it has no client of, instead of panicking, though link setup already refused every other line.</li>
 <li><strong><a href="../evolution/multi_line_host/#the-facade">A facade without boilerplate</a></strong>: A host driver for several wire lines lists its operations once and gets an enum over the line clients with a method per operation; each line writes only the bodies, and an operation a line lacks is refused naming what has it.</li>
@@ -6541,7 +6542,7 @@ They are shared, so a tool that knows one of them works with every device that i
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d31f0ffa.min.js"></script>
+      <script src="../assets/javascripts/bundle.3cb411a8.min.js"></script>
       
         <script src="../javascripts/ww_highlight.js"></script>
       

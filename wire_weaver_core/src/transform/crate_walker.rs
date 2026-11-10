@@ -1393,7 +1393,16 @@ impl CrateContext {
     pub(crate) fn version(&self) -> &FullVersionOwned {
         &self.version
     }
+
+    /// A lookup of `name` in this module, for a search through `use` imports to notice one that leads back to where
+    /// it has been: modules whose globs import each other (`use super::*` in a child the parent globs into).
+    pub(crate) fn lookup_key(&self, name: &str) -> LookupKey {
+        (self.version.clone(), self.module_names(), name.to_string())
+    }
 }
+
+/// [CrateContext::lookup_key]: crate, module and name.
+pub(crate) type LookupKey = (FullVersionOwned, Vec<String>, String);
 
 impl Scratch {
     /// Runs `convert` until no crate's features grow during it: a crate reached first from a dependent asking for

@@ -1067,6 +1067,88 @@ mod tests {
         }
     }
 
+    /// A crate of `src/lib.rs` and further modules written into a fresh directory, for a walk to read.
+    fn write_crate(name: &str, files: &[(&str, &str)]) -> std::path::PathBuf {
+        let dir = std::env::temp_dir()
+            .join("ww_core_snapshot_tests")
+            .join(format!("{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n"),
+        )
+        .unwrap();
+        for (file, source) in files {
+            std::fs::write(dir.join("src").join(file), source).unwrap();
+        }
+        dir
+    }
+
+    const IMPORTED_COMMON: &str = "#[ww_trait]\npub trait Channel {\n    fn get() -> Code;\n}\n\n\
+        #[ww_trait]\npub trait Sensor {\n    fn read() -> Code;\n}\n\n\
+        #[derive_shrink_wrap]\npub struct Code(pub u16);\n";
+
+    /// A root names a sub-trait and a type through imports (EVO-42): a trait renamed by `use a::T as R`, a trait and
+    /// a type through a glob. Both lookups end, with "not found", when globs import each other and the name is in
+    /// neither module, and when named imports point at each other, instead of going round.
+    #[test]
+    fn traits_and_types_through_imports() {
+        let lib = "pub mod common;\nuse common::Channel as Chan;\nuse common::*;\n\n\
+            #[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    fn code() -> Code;\n    \
+            ww_impl!(renamed: Chan);\n    ww_impl!(globbed: Sensor);\n}\n";
+        let dir = write_crate(
+            "imports_api",
+            &[("lib.rs", lib), ("common.rs", IMPORTED_COMMON)],
+        );
+        let bundle = load_crate(&dir).unwrap();
+        let debug = format!("{bundle:?}");
+        for name in ["\"Channel\"", "\"Sensor\"", "\"Code\""] {
+            assert!(debug.contains(name), "{name} not in the bundle");
+        }
+
+        // `common` globs the root, the root globs `common`: a name in neither is not found, for a trait and a type
+        let looped = format!("use super::*;\n{IMPORTED_COMMON}");
+        for (missing, what) in [
+            (
+                "    ww_impl!(missing: Nowhere);\n",
+                "Trait Nowhere not found",
+            ),
+            ("    fn nothing() -> Nothing;\n", "Type Nothing not found"),
+        ] {
+            let lib = format!(
+                "pub mod common;\nuse common::*;\n\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n{missing}}}\n"
+            );
+            let dir = write_crate("looped_api", &[("lib.rs", &lib), ("common.rs", &looped)]);
+            let err = format!("{:#}", load_crate(&dir).unwrap_err());
+            assert!(err.contains(what), "{what} not in: {err}");
+        }
+        // named imports that point at each other (not Rust, but the walk runs before rustc says so)
+        for (import, missing, what) in [
+            (
+                "Nowhere",
+                "    ww_impl!(missing: Nowhere);\n",
+                "Trait Nowhere not found",
+            ),
+            (
+                "Nothing",
+                "    fn nothing() -> Nothing;\n",
+                "Type Nothing not found",
+            ),
+        ] {
+            let lib = format!(
+                "pub mod common;\nuse common::{import};\n\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n{missing}}}\n"
+            );
+            let common = format!("pub use super::{import};\n");
+            let dir = write_crate(
+                "named_loop_api",
+                &[("lib.rs", &lib), ("common.rs", &common)],
+            );
+            let err = format!("{:#}", load_crate(&dir).unwrap_err());
+            assert!(err.contains(what), "{what} not in: {err}");
+        }
+    }
+
     /// A [CrateCache] keeps a load only while the files it came from are unchanged: an edit to a module, a module
     /// added and the manifest's version changed are each seen by the next load.
     #[test]

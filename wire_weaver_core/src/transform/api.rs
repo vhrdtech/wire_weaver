@@ -1,5 +1,5 @@
 use super::{
-    crate_walker::{CrateContext, Scratch},
+    crate_walker::{CrateContext, LookupKey, Scratch},
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
     meta::{MetaSite, get_meta},
     moved_from::get_moved_from_attrs,
@@ -13,6 +13,7 @@ use super::{
 use anyhow::{Context, Result, anyhow};
 use proc_macro2::Ident;
 use shrink_wrap::UNib32;
+use std::collections::HashSet;
 use std::ops::Deref;
 use syn::parse::discouraged::AnyDelimiter;
 use syn::parse::{Parse, ParseStream};
@@ -720,12 +721,28 @@ fn find_and_convert_trait(
 
 /// The trait named `name` in `current_crate` and the crate or module it is defined in: defined there, imported by
 /// name (`use super::common::Channel`, `use a::Trait as Renamed`) or through a glob import (looked into last, as Rust
-/// does), as [find_user_item](super::ty) finds a type.
+/// does), as [find_user_item](super::ty) finds a type. A module the search has been in already is not searched again,
+/// so globs that import each other end the search instead of going round.
 fn find_trait(
     name: &str,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<(CrateContext, syn::ItemTrait)> {
+    find_trait_in(name, current_crate, scratch, &mut HashSet::new())
+}
+
+fn find_trait_in(
+    name: &str,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+    visited: &mut HashSet<LookupKey>,
+) -> Result<(CrateContext, syn::ItemTrait)> {
+    if !visited.insert(current_crate.lookup_key(name)) {
+        return Err(
+            anyhow!("Trait {name} not found: its imports lead back here")
+                .context(current_crate.err_context()),
+        );
+    }
     for item in &current_crate.lib_rs_ast.items {
         match item {
             Item::Trait(item_trait) if item_trait.ident == name => {
@@ -736,7 +753,7 @@ fn find_trait(
                     continue;
                 };
                 let def_cx = current_crate.resolve_path(path, scratch)?;
-                return find_trait(&imported.to_string(), &def_cx, scratch);
+                return find_trait_in(&imported.to_string(), &def_cx, scratch, visited);
             }
             _ => {}
         }
@@ -746,11 +763,11 @@ fn find_trait(
             continue;
         };
         for path in use_tree_globs(&item_use.tree) {
-            // a glob into a crate that can't be walked (`std`) or that doesn't have the trait
+            // a glob into a crate that can't be walked (`std`), that doesn't have the trait or was searched already
             let Ok(def_cx) = current_crate.resolve_path(path, scratch) else {
                 continue;
             };
-            if let Ok(found) = find_trait(name, &def_cx, scratch) {
+            if let Ok(found) = find_trait_in(name, &def_cx, scratch, visited) {
                 return Ok(found);
             }
         }

@@ -1,5 +1,5 @@
 use super::{
-    crate_walker::{CrateContext, Scratch, TypeInProgress},
+    crate_walker::{CrateContext, LookupKey, Scratch, TypeInProgress},
     markers::{CrateRefs, marker_def},
     unit_hint::{is_silenced, suggest},
     util::{
@@ -188,12 +188,28 @@ fn convert_segment_in(
 
 /// Definition of the user type named `user_ty` in `current_crate` (a struct, an enum or a type alias),
 /// and the crate or module it is in: defined in `current_crate`, imported by name (`use a::Ty`, `use a::Ty as
-/// Renamed`), or through a glob import (looked into last, as Rust does).
+/// Renamed`), or through a glob import (looked into last, as Rust does). A module the search has been in already is
+/// not searched again, so imports that lead back end the search instead of going round.
 fn find_user_item(
     user_ty: &str,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
 ) -> Result<(CrateContext, Item)> {
+    find_user_item_in(user_ty, current_crate, scratch, &mut HashSet::new())
+}
+
+fn find_user_item_in(
+    user_ty: &str,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+    visited: &mut HashSet<LookupKey>,
+) -> Result<(CrateContext, Item)> {
+    if !visited.insert(current_crate.lookup_key(user_ty)) {
+        return Err(
+            anyhow!("Type {user_ty} not found: its imports lead back here")
+                .context(current_crate.err_context()),
+        );
+    }
     for item in &current_crate.lib_rs_ast.items {
         match item {
             Item::Enum(item_enum) if item_enum.ident == user_ty => {
@@ -210,7 +226,7 @@ fn find_user_item(
                     continue;
                 };
                 let dependent_crate = current_crate.resolve_path(path, scratch)?;
-                return find_user_item(&name.to_string(), &dependent_crate, scratch);
+                return find_user_item_in(&name.to_string(), &dependent_crate, scratch, visited);
             }
             _ => {}
         }
@@ -226,7 +242,7 @@ fn find_user_item(
                 continue;
             };
             if declares_or_imports(&dependent_crate, user_ty) {
-                return find_user_item(user_ty, &dependent_crate, scratch);
+                return find_user_item_in(user_ty, &dependent_crate, scratch, visited);
             }
         }
     }

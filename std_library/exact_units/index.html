@@ -6018,6 +6018,13 @@ ms"</code>). See the book's <a href="https://exact.vhrd.tech/wire/shrink_wrap/#s
 <h2 id="units">Units<a class="headerlink" href="#units" title="Permanent link">&para;</a></h2>
 <p>The unit markers are grouped by cargo feature, each with its own dimension, symbol and exact scale; <code>Per</code>, <code>Times</code>
 and <code>Sqrt</code> build the rest. See the book's <a href="https://exact.vhrd.tech/start/units/">Units and dimensions</a>.</p>
+<p>Beside SI there are two other systems of units behind <code>ww_si</code>'s feature <code>systems</code> (on with <code>std</code>): Gaussian (cm, g, s;
+the gauss, oersted, statcoulomb, erg, dyne) and Natural (ħ = c = 1; the electronvolt for energy, mass and inverse
+length). Their units go into an API like any other, <code>Fixed&lt;Gauss, Milli, i16&gt;</code> is a magnetometer in mG, and values of
+two systems never add or convert by accident: a value crosses into SI only by <code>Fixed::to_system::&lt;Si&gt;()</code> and a
+<code>convert</code> into a unit of SI, with a factor <code>exact_units</code> knows (μ₀ through a constant set where Gaussian needs it).
+See the book's <a href="https://exact.vhrd.tech/maths/systems/">Systems</a> and, for the model, <a href="../units_in_the_model/#systems-of-units">Systems of
+units</a>.</p>
 <p>The wire format is the feature <code>shrink_wrap</code>, on by default through <code>ww_si</code>. Without it <code>exact_units</code> has no
 dependencies and its types are plain Rust (a <code>Dim</code>'s exponents are halves in an <code>i8</code>): code that only checks units at compile
 time builds without the wire format, and the bytes are the same whichever crate turns it on.</p>

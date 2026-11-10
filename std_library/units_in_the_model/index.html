@@ -4092,6 +4092,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#systems-of-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Systems of units
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#origins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5717,6 +5728,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#systems-of-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Systems of units
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#origins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5957,6 +5979,10 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 <td><code>Of</code></td>
 <td><code>units::Of&lt;Q, U&gt;</code>, the unit <code>U</code> measuring the quantity <code>Q</code>; <code>Phase&lt;A&gt;</code> is <code>Of&lt;PhaseAngle, A&gt;</code></td>
 </tr>
+<tr>
+<td><code>System(exact_units::SystemDef)</code></td>
+<td>a system of units other than SI: <code>systems::Gaussian</code>, <code>systems::Natural</code> (<a href="#systems-of-units">below</a>)</td>
+</tr>
 </tbody>
 </table>
 <p>A <code>unit!</code> line ending in <code>base</code> (<code>pub struct Bucket = "bucket", base;</code>) declares a unit and the base it is, so its
@@ -5986,7 +6012,7 @@ plain <code>Unit</code> whose dimension names that base. The walker's test check
 </tr>
 <tr>
 <td><code>dim</code></td>
-<td>its dimension: seven exponents in halves and the distinguished bases (exact_units UNIT-10)</td>
+<td>its dimension: its system's <code>MarkerId</code>, that system's exponents in halves (SI's seven) and the distinguished bases (exact_units UNIT-10, UNIT-9)</td>
 <td>rad·s⁻¹</td>
 </tr>
 <tr>
@@ -5996,7 +6022,7 @@ plain <code>Unit</code> whose dimension names that base. The walker's test check
 </tr>
 <tr>
 <td><code>scale</code></td>
-<td>the exact factor to the coherent SI unit of <code>dim</code>: 1 for a volt, 8 for a byte (in bits)</td>
+<td>the exact factor to the coherent unit of <code>dim</code> in its system: 1 for a volt, 8 for a byte (in bits), 1 for the gauss in Gaussian</td>
 <td>π/30</td>
 </tr>
 <tr>
@@ -6091,6 +6117,74 @@ takes <code>exact_units</code>' conversion rule with the bundle as the table of 
 plain metre, not to a width; <code>Ohm</code> doesn't convert to <code>Per&lt;Volt, Ampere&gt;</code>. <code>ww</code>, Python and the dynamic client show
 and convert a value of <code>Of&lt;Q, U&gt;</code> as one of <code>U</code>, as its <code>UnitExpr</code> is <code>U</code>'s: the quantity is in the type and the
 model, not in a value's unit.</p>
+<h2 id="systems-of-units">Systems of units<a class="headerlink" href="#systems-of-units" title="Permanent link">&para;</a></h2>
+<p>A dimension counts in a system of units (exact_units UNIT-9, the book's <a href="https://exact.vhrd.tech/maths/systems/">Systems</a>):
+SI's seven bases s, m, kg, A, K, mol, cd, Gaussian's six g, cm, s, K, mol, cd (no current of its own), or Natural's
+five eV, A, K, mol, cd (ħ = c = 1). A <code>unit!</code> or <code>quantity!</code> line names a system other than SI before a colon in its
+dimension, and its bases by their symbols:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">systems</span><span class="p">::</span><span class="n">Gaussian</span><span class="p">;</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">systems</span><span class="p">::</span><span class="n">gaussian</span><span class="p">::</span><span class="n">quantities</span><span class="p">::</span><span class="n">GaussianFluxDensity</span><span class="p">;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">unit</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="sd">/// The gamma of magnetic surveys, 10⁻⁵ G</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Gamma</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;γ&quot;</span><span class="w"> </span><span class="p">(</span><span class="n">ascii</span><span class="w"> </span><span class="s">&quot;gamma&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">long</span><span class="w"> </span><span class="s">&quot;gamma&quot;</span><span class="p">),</span><span class="w"> </span><span class="p">[</span><span class="n">Gaussian</span><span class="p">:</span><span class="w"> </span><span class="nc">g</span><span class="w"> </span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">cm</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="n">quantity</span><span class="w"> </span><span class="n">GaussianFluxDensity</span><span class="p">,</span><span class="w"> </span><span class="n">Pow10</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">);</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The walker knows the three systems of <code>exact_units</code> by name (<code>Si</code>, <code>Natural</code>, <code>Gaussian</code>); a crate's own system is
+refused until it can be declared by a line the walker reads. A unit's dimension then names its system by
+<code>MarkerId</code>, and its scale is the factor to that system's coherent unit (the gauss is 1 in Gaussian).</p>
+<p>A system marker's definition is <code>MarkerDef::System(exact_units::SystemDef)</code>, the record <code>System::DEF</code> holds:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Is</th>
+<th><code>Gaussian</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>its <code>MarkerId</code></td>
+<td><code>exact_units::Gaussian</code></td>
+</tr>
+<tr>
+<td><code>bases</code></td>
+<td>the symbols of its true bases, in the order of a dimension's exponents</td>
+<td>g, cm, s, K, mol, cd</td>
+</tr>
+<tr>
+<td><code>set_to_one</code></td>
+<td>the constants it sets to 1, with their exact SI value (data for display)</td>
+<td>none (Natural: ħ, c)</td>
+</tr>
+<tr>
+<td><code>by_dim</code></td>
+<td>per SI base, its image in this system with an exact factor, <code>None</code> where there is none</td>
+<td>1 m = 100 cm, A: <code>None</code></td>
+</tr>
+<tr>
+<td><code>by_quantity</code></td>
+<td>rows by quantity, which win over the rule: an SI quantity, one of this system, the factor</td>
+<td>B, H, E, D, .. (13)</td>
+</tr>
+<tr>
+<td><code>no_rule</code></td>
+<td>SI quantities the rule doesn't bridge</td>
+<td>none (Natural: Hz, Bq)</td>
+</tr>
+</tbody>
+</table>
+<p>As for quantities, a definition names its system only by <code>MarkerId</code>, so a bundle lists the system other than SI a
+unit or quantity counts in: it comes along when a device leaves out what the snapshots know and when a client puts it
+back. SI is never listed: every reader knows it. <code>MarkerDefOwned::system_ref</code> names a marker's system,
+<code>units::system_of</code> and <code>system_type_idx</code> find its definition.</p>
+<p>Two units of different systems never have the same dimension, so <code>factor_to</code> gives none between the gauss and the
+tesla, and the evolution checker finds a unit that moved to another system breaking (<code>another system of units</code>).
+A value crosses between systems only in Rust, by <code>Fixed::to_system</code>, which picks a row or the rule at compile time.
+A dimension without true exponents (a ratio, an angle, a count) belongs to every system and is written as SI's.
+Python's <code>Quantity.system</code> names the system, and <code>Quantity.dim</code> counts in its bases (<code>{"g": 0.5, "cm": -0.5, "s": -1}</code>).</p>
 <h2 id="origins">Origins<a class="headerlink" href="#origins" title="Permanent link">&para;</a></h2>
 <p>The origin of a <a href="../points/"><code>Point&lt;O, F&gt;</code></a> is a marker as well, its definition a <code>MarkerDef::Origin(OriginDef)</code>:</p>
 <table>
@@ -6148,10 +6242,10 @@ model, not in a value's unit.</p>
 <code>exact_units::AmbientPressure</code>), so a pass that renumbers the model's types never has to look inside one. For the
 same reason an origin's unit is a named unit: the walker refuses an <code>origin!</code> over <code>Per&lt;..&gt;</code> or <code>Times&lt;..&gt;</code>, declare
 a unit of that dimension with <code>unit!</code> instead. A crate's own origin is declared with <code>origin!</code> and written out by the walker:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">origin</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="sd">/// The board&#39;s temperature sensor reads 0 at 25 °C</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">BoardTemp</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">above</span><span class="p">:</span><span class="w"> </span><span class="nc">Celsius</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="nc">Offset</span><span class="p">::</span><span class="n">int</span><span class="p">(</span><span class="mi">25</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">origin</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">    </span><span class="sd">/// The board&#39;s temperature sensor reads 0 at 25 °C</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">BoardTemp</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">above</span><span class="p">:</span><span class="w"> </span><span class="nc">Celsius</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="nc">Offset</span><span class="p">::</span><span class="n">int</span><span class="p">(</span><span class="mi">25</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>BoardTemp</code> comes out as unit K, symbol <code>"°C"</code>, offset 298.15 K and <code>shown</code> 273.15 K: the register <code>raw / 256 + 25 °C</code>
 is shown in °C. <code>origins::Angle&lt;U&gt;</code> has no fields of its own: it is a <code>MarkerDef::Angle</code>, and its unit argument says
@@ -6167,13 +6261,14 @@ keeps its signature. <code>MarkerDef</code> keeps its <code>Unknown</code> catch
 know a newer kind of marker treats the struct as a marker it can't convert, instead of refusing the bundle.</p>
 <p>The definitions of <code>exact_units</code>' and <code>ww_si</code>'s markers are in the embedded <a href="../../cli_reference/#ww-api">snapshots</a>:
 a device leaves them out of its introspection data, and the client puts them back.</p>
-<p>The conformance corpus has cases <code>model.marker_def.*</code> and <code>model.item_struct_extra.*</code> (TEST-23), through the derive,
+<p>The conformance corpus has cases <code>model.marker_def.*</code> (<code>model.marker_def.system</code> a small system of three bases) and
+<code>model.item_struct_extra.*</code> (TEST-23), through the derive,
 the dynamic client and Python.</p>
 <h2 id="on-the-device">On the device<a class="headerlink" href="#on-the-device" title="Permanent link">&para;</a></h2>
 <p>No firmware cost in code: markers are zero-size types, and <code>unit!</code> / <code>scale!</code> expand to the same constants a
 hand-written impl has. The introspection data a firmware stores grows only by the definitions of its own crate's
-markers (the definition of <code>my_api::Rpm</code> is 35 bytes, see the case <code>model.marker_def.unit</code>, an origin's about 100,
-see <code>model.marker_def.origin</code>); stdlib markers are left out as skipped definitions.</p>
+markers (the definition of <code>my_api::Rpm</code> is 74 bytes, see the case <code>model.marker_def.unit</code>, an origin's 136, see
+<code>model.marker_def.origin</code>; a <code>Dim</code> carries its system's <code>MarkerId</code>, 14 bytes more for <code>exact_units::Si</code>: <code>stdlib.si.dim.volt</code> went from 6 to 20); stdlib markers are left out as skipped definitions.</p>
 
 
 

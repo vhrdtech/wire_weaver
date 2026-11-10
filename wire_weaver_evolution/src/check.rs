@@ -13,10 +13,10 @@ use ww_version::{VersionOwned, WireVersion};
 
 use crate::recorded::Recorded;
 use crate::snapshot_files::{
-    SNAPSHOTS_DIR, Snapshot, latest_snapshot, read, root_file_name, root_of_file_name,
-    root_snapshots, triplet,
+    CrateFile, SNAPSHOTS_DIR, Snapshot, crate_files, latest_snapshot, read, root_file_name,
+    root_of_file_name, root_snapshots, triplet,
 };
-use crate::{Change, Move, Report, Rule, compare_recorded};
+use crate::{Change, Move, Report, Rule, compare_recorded, own_traits, verify_move};
 
 mod roots;
 
@@ -144,10 +144,11 @@ impl Check {
         };
         // w0, the design line (EVO-41): no snapshot is required, what one shows is information
         let design_line = new.wire.is_some_and(|w| w.is_design_line());
-        let warnings = match design_line && !is_snapshot {
+        let mut warnings = match design_line && !is_snapshot {
             true => design_line_warnings(&self.path, &new)?,
             false => vec![],
         };
+        warnings.extend(unreached_moves(&[&new], &moves));
         if self.require_current && !is_snapshot && self.against.is_none() && !design_line {
             return self.run_current(new, hints, &moves);
         }
@@ -186,7 +187,14 @@ impl Check {
                 }
             }
         };
-        let report = compare_recorded(&old.bundle, &old.recorded, &new, &new_recorded, &moves)?;
+        let report = compare_checked(
+            &dir,
+            &old.bundle,
+            &old.recorded,
+            &new,
+            &new_recorded,
+            &moves,
+        )?;
         Ok(Outcome::Compared(Box::new(Comparison {
             old_path: old.path,
             new_label,
@@ -212,6 +220,7 @@ impl Check {
     ) -> Result<Outcome, String> {
         let dir = self.crate_snapshots_dir();
         let own = source.crate_version(0).map_err(|e| e.to_string())?;
+        let warnings = unreached_moves(&[&source], moves);
         let current = current_snapshot(&dir, &source)?;
         let previous = latest_snapshot(&dir, &source, &own.version, false)?;
         let crate_path = Some(self.path.clone());
@@ -226,11 +235,12 @@ impl Check {
                 previous: previous.map(|s| s.path),
                 hints,
                 design_line: false,
-                warnings: vec![],
+                warnings: warnings.clone(),
                 previous_line: None,
             })));
         };
-        let report = compare_recorded(
+        let report = compare_checked(
+            &dir,
             &current.bundle,
             &current.recorded,
             &source,
@@ -241,7 +251,8 @@ impl Check {
             // the source is checked against the snapshot of its version first, then that snapshot against the previous
             Some(previous) if report.change == Change::None => {
                 // the current snapshot is the source's, with the same `#[moved_from]`
-                let report = compare_recorded(
+                let report = compare_checked(
+                    &dir,
                     &previous.bundle,
                     &previous.recorded,
                     &current.bundle,
@@ -263,7 +274,7 @@ impl Check {
             current_required: true,
             hints,
             design_line: false,
-            warnings: vec![],
+            warnings: warnings.clone(),
             unchanged_since: None,
             root: None,
         })))
@@ -434,7 +445,8 @@ impl Check {
         let Some(previous) = previous else {
             return Ok(None);
         };
-        let report = compare_recorded(
+        let report = compare_checked(
+            &self.crate_snapshots_dir(),
             &previous.bundle,
             &previous.recorded,
             bundle,
@@ -947,6 +959,86 @@ fn not_saved(
         warnings,
     };
     (saved, None)
+}
+
+/// [compare_recorded] of a crate with its `#[moved_from]` (`moves`), each one the comparison couldn't check
+/// ([Report::unverified_moves]) verified against the latest snapshot in `dir` of the line it names: what doesn't hold
+/// goes to [Report::moved_from_errors], one without a snapshot of its line to [Report::warnings].
+pub(crate) fn compare_checked(
+    dir: &Path,
+    old: &ApiBundleOwned,
+    old_recorded: &Recorded,
+    new: &ApiBundleOwned,
+    new_recorded: &Recorded,
+    moves: &[Move],
+) -> Result<Report, String> {
+    let mut report = compare_recorded(old, old_recorded, new, new_recorded, moves)?;
+    if report.unverified_moves.is_empty() {
+        return Ok(report);
+    }
+    let crate_id = &new.crate_version(0).map_err(|e| e.to_string())?.crate_id;
+    // every snapshot of the crate, whole-crate and per root, with its wire version
+    let mut snapshots = vec![];
+    for file in crate_files(dir, crate_id)? {
+        if !matches!(file.kind, CrateFile::Crate | CrateFile::Root { .. }) {
+            continue;
+        }
+        let snapshot = read(&file.path)?;
+        if let Some(wire) = snapshot.bundle.wire {
+            snapshots.push((wire, file.version, snapshot));
+        }
+    }
+    snapshots.sort_by_key(|(wire, version, _)| (wire.line.0, wire.revision.0, *version));
+    for moved in std::mem::take(&mut report.unverified_moves) {
+        let on_line: Vec<_> = snapshots
+            .iter()
+            .rev()
+            .filter(|(wire, ..)| wire.same_line(&moved.wire) && !wire.is_design_line())
+            .collect();
+        // the newest of the line that has the resource named, else the newest, which says it has none
+        let has = |s: &&&(WireVersion, (u32, u32, u32), Snapshot)| {
+            own_traits(&s.2.bundle)
+                .get(moved.from_trait.as_str())
+                .is_some_and(|level| level.items.iter().any(|i| i.ident == moved.from_ident))
+        };
+        let Some((_, _, line)) = on_line.iter().find(has).or(on_line.first()) else {
+            report.warnings.push(format!(
+                "{moved}: not verified, {} has no snapshot of line {}",
+                dir.display(),
+                moved.wire.line.0
+            ));
+            continue;
+        };
+        if let Err(errors) = verify_move(&line.bundle, new, &moved) {
+            for e in errors {
+                report
+                    .moved_from_errors
+                    .push(format!("{e} (as in {})", line.path.display()));
+            }
+        }
+    }
+    Ok(report)
+}
+
+/// A warning for each of `moves` on a resource no bundle of `roots` has: an attribute on a trait no API root
+/// reaches is checked by nothing.
+pub(crate) fn unreached_moves(roots: &[&ApiBundleOwned], moves: &[Move]) -> Vec<String> {
+    moves
+        .iter()
+        .filter(|moved| {
+            !roots.iter().any(|bundle| {
+                own_traits(bundle)
+                    .get(moved.trait_name.as_str())
+                    .is_some_and(|level| level.items.iter().any(|i| i.ident == moved.ident))
+            })
+        })
+        .map(|moved| {
+            format!(
+                "{moved}: no API root reaches {}, so the attribute is not checked",
+                moved.trait_name
+            )
+        })
+        .collect()
 }
 
 /// The `#[moved_from]` (EVO-40) of `bundle`'s own crate among `notes`.

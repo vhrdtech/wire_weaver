@@ -444,15 +444,23 @@ pub trait Health {
 ```
 
 * The place is the trait and the resource name, as the checker writes them (`Thermo::self_test`), and the version is
-  the previous line's (also as a string, `#[moved_from("w2.1", ..)]`).
+  a revision of the line it had that place on (also as a string, `#[moved_from("w2.1", ..)]`).
 * The checker verifies that the resource is exactly the same: it works with the old one both ways, with the same Rust
   signature, max lengths and types (the crate's own by name). It then reports one move, `Thermo::self_test moved to
   Health::self_test`, instead of a removal and an addition. A move breaks Rust code using the old path, so the crate
   takes a breaking bump, as for any line break.
 * A resource that also changed (`uptime` from seconds in a `u32` to milliseconds in a `u64`) is a new resource: the
   attribute is refused, and the old one is reported removed.
-* An attribute naming a place the previous line doesn't have, or a version on the API's own line, fails the check.
-  On later revisions of the new line it is left alone: it was checked when the line began.
+* A resource that moved over several breaks keeps one attribute per earlier line, so the older link needn't be
+  deleted: `#[moved_from(w2.1, Thermo::self_test)]` and `#[moved_from(w1.0, Thermo::check)]`. Two naming one line are
+  refused.
+* Each attribute is checked against the snapshot of the line it names: by the comparison itself for the line
+  compared with, against that line's latest snapshot for an older link of a chain and on every later revision of
+  the new line. One that can't be checked, as its line has no snapshot, is a warning.
+* An attribute that doesn't hold fails the check: one naming a place the line doesn't have, a revision newer than
+  that line's latest snapshot or older than the resource's own `#[since]`, a version on the API's own line, its own
+  place, a place another attribute names too, or a resource still there on the new line (a resource that stayed
+  can't have moved too).
 * A resource of the same name at another place is never taken for the same one by itself: its meaning may have
   changed, as `on()` of a LED and `on()` of a motor. When a line break is first checked, the checker lists each
   resource added with the name of one removed elsewhere as a proposal, suggesting `#[moved_from]` when the signature

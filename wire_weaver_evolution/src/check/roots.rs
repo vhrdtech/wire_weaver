@@ -9,15 +9,15 @@ use ww_self::ApiBundleOwned;
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use super::{
-    Check, Comparison, NoSnapshot, Outcome, SaveStatus, Saved, UnitHint, design_line_warnings, key,
-    own_moves, save_command,
+    Check, Comparison, NoSnapshot, Outcome, SaveStatus, Saved, UnitHint, compare_checked,
+    design_line_warnings, key, own_moves, save_command, unreached_moves,
 };
 use crate::recorded::Recorded;
 use crate::snapshot_files::{
     CrateFile, NamedFile, RootFileName, RootSnapshot, crate_files, read, removed_file_name,
     root_of_file_name, root_snapshots, triplet,
 };
-use crate::{Bump, Change, Move, compare_recorded, own_traits, own_types, suggest};
+use crate::{Bump, Change, Move, own_traits, own_types, suggest};
 use wire_weaver_core::CrateCache;
 
 /// What [Check::run] found for a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37):
@@ -127,6 +127,8 @@ impl Check {
             }
             loaded.push((root.clone(), *wire, bundle));
         }
+        let bundles: Vec<&ApiBundleOwned> = loaded.iter().map(|(_, _, b)| b).collect();
+        warnings.extend(unreached_moves(&bundles, &moves));
         let own = loaded[0]
             .2
             .crate_version(0)
@@ -205,7 +207,8 @@ impl Check {
             ));
         };
         let old = read(against)?;
-        let report = compare_recorded(
+        let report = compare_checked(
+            &self.crate_snapshots_dir(),
             &old.bundle,
             &old.recorded,
             &bundle,
@@ -282,7 +285,8 @@ impl Check {
             // compared as the snapshot of the crate's version, which kept it for this root
             old.bundle.ext_crates[0].version = version.clone();
         }
-        let report = compare_recorded(
+        let report = compare_checked(
+            dir,
             &old.bundle,
             &old.recorded,
             &source,
@@ -324,7 +328,8 @@ impl Check {
             && report.change == Change::None
             && let Some(previous) = older.pop()
         {
-            let report = compare_recorded(
+            let report = compare_checked(
+                dir,
                 &previous.snapshot.bundle,
                 &previous.snapshot.recorded,
                 &old.bundle,
@@ -733,7 +738,8 @@ fn previous_line(
         return Ok(None);
     };
     let old = read(&file.path)?;
-    let report = compare_recorded(
+    let report = compare_checked(
+        dir,
         &old.bundle,
         &old.recorded,
         source,

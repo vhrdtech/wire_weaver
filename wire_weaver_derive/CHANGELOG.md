@@ -17,7 +17,7 @@
 
 ### 🚀 Features
 
-- `#[moved_from(w2.1, Thermo::self_test)]` on a resource (EVO-40) is noted in the rustdoc trait next to `#[since]`, as "Moved from `w2.1, Thermo::self_test`."
+- `#[moved_from(w2.1, Thermo::self_test)]` on a resource (EVO-40) is noted in the rustdoc trait next to `#[since]`, as "Moved from `w2.1, Thermo::self_test`.", every link of a chain
 - `ww_codegen!(dep::Trait for Name, client = "sub_level")` generates one client of a sub-trait reached by path, and `sub_levels = [dep::Trait => path::Name, ..]` on a `std_client` makes its accessors return that client wherever its tree has the trait (CLT-68): one client type for a trait the lines of a crate share, a `ww_stdlib` one or the crate's own (`thermo_api::common::Channel`), checked at compile time to be the same trait. `sub_levels` without a client is an error.
 - `ww_codegen!(api :: wire_v2 :: Thermo for Client, ..)` names an API root in a module of a crate with several roots (EVO-37). `#[ww_api_root]` and `#[ww_trait]` in a module find their own trait from the source file they are in (`proc_macro::Span::local_file`), so two roots both named `Thermo` in `wire_v1` and `wire_v2` each get their own `<TRAIT>_WIRE_VERSION` from the `roots` table.
 - `#[ww_trait]` / `#[ww_api_root]` accept `#[default = ..]` and `#[flatten]` on arguments (EVO-22), strip them from the rustdoc trait and note them in its documentation.

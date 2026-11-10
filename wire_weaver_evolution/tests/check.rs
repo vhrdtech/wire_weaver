@@ -1711,3 +1711,112 @@ fn moved_from_of_a_new_root() {
         ],
     );
 }
+
+/// Line 1, 2 and 3 of a chain: `check` on line 1 becomes `self_test` on line 2, then moves into `Health` on line 3,
+/// which keeps both links.
+const CHAIN_W1: &str = r#"
+#[ww_api_root(wire = "w1.0")]
+pub trait Api {
+    fn configure(rate: u16);
+    fn check() -> bool;
+}
+"#;
+
+const CHAIN_W2: &str = r#"
+#[ww_api_root(wire = "w2.1")]
+pub trait Api {
+    fn configure(rate: u16);
+    #[moved_from(w1.0, Api::check)]
+    fn self_test() -> bool;
+}
+"#;
+
+const CHAIN_W3: &str = r#"
+#[ww_api_root(wire = "w3.0")]
+pub trait Api {
+    fn configure(rate: u16);
+    ww_impl!(health: Health);
+}
+
+#[ww_trait]
+pub trait Health {
+    #[moved_from(w2.1, Api::self_test)]
+    #[moved_from(w1.0, Api::check)]
+    fn self_test() -> bool;
+}
+"#;
+
+/// A chain over two breaks (EVO-40): the link to the line compared with is checked by the comparison, the older one
+/// against the snapshot of its own line, on the first revision of the new line and on every later one; a link that
+/// doesn't hold fails either way, one without a snapshot of its line is a warning.
+#[test]
+fn moved_from_chain_over_two_breaks() {
+    let c = TestCrate::new("moved_from_chain_over_two_breaks");
+    c.write("0.1.0", CHAIN_W1);
+    save_one(c.path(), false);
+    c.write("0.2.0", CHAIN_W2);
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::Saved);
+    c.write("0.3.0", CHAIN_W3);
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    assert!(
+        outcome
+            .to_string()
+            .contains("Api::self_test moved to Health::self_test"),
+        "{outcome}"
+    );
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::Saved);
+
+    // a later revision of line 3: both links are verified against their lines' snapshots
+    c.write("0.3.1", &CHAIN_W3.replace("w3.0", "w3.1"));
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    for (from, to, expected) in [
+        (
+            "(w1.0, Api::check)",
+            "(w1.0, Api::nope)",
+            "w1.0, compared with, has no Api::nope (as in ",
+        ),
+        (
+            "(w2.1, Api::self_test)",
+            "(w2.9, Api::self_test)",
+            "w2.9 is newer than w2.1",
+        ),
+    ] {
+        c.write("0.3.1", &CHAIN_W3.replace("w3.0", "w3.1").replace(from, to));
+        let err = check(c.path(), true).1.unwrap_err();
+        assert!(err.contains(expected), "{expected} not in {err}");
+    }
+    // a line without its snapshot can't be checked: said, not dropped
+    std::fs::remove_file(c.snapshot("test_api_0_1_0.ron")).unwrap();
+    c.write("0.3.1", &CHAIN_W3.replace("w3.0", "w3.1"));
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    assert!(
+        outcome
+            .to_string()
+            .contains("#[moved_from(w1.0, Api::check)] on Health::self_test: not verified, ")
+            && outcome.to_string().contains("has no snapshot of line 1"),
+        "{outcome}"
+    );
+}
+
+/// A `#[moved_from]` on a trait outside the root's tree is still checked: a whole-crate snapshot has every
+/// `#[ww_trait]` of the crate, so nothing is skipped for not being reached from the root.
+#[test]
+fn moved_from_on_a_trait_outside_the_root_tree() {
+    let c = TestCrate::new("moved_from_on_a_trait_outside_the_root_tree");
+    c.write("0.1.0", MOVE_W2).save();
+    let unused = format!(
+        "{MOVE_W3}\n#[ww_trait]\npub trait Unused {{\n    #[moved_from(w2.1, Api::configure)]\n    fn configure(rate: u16);\n}}\n"
+    );
+    c.write("0.2.0", &unused);
+    let err = check(c.path(), true).1.unwrap_err();
+    assert!(
+        err.contains(
+            "#[moved_from(w2.1, Api::configure)] on Unused::configure: Api::configure is still there on the new \
+             version"
+        ),
+        "{err}"
+    );
+}

@@ -255,6 +255,10 @@ pub struct Report {
     /// `#[moved_from]` attributes that name no resource of the old version, one whose signature differs, or a place
     /// on the same line: [Self::check_wire] fails on each.
     pub moved_from_errors: Vec<String>,
+    /// `#[moved_from]` naming another line than the old version's, which this comparison can't check: an earlier
+    /// break of a chain, or the break before the line compared within. [Check] verifies each against
+    /// the snapshot of the line it names ([verify_move]) and empties this; a caller of [compare_moved] does the same.
+    pub unverified_moves: Vec<Move>,
 }
 
 impl Report {
@@ -442,6 +446,29 @@ pub fn compare_moved(
     compare_with(old, new, true, moves)
 }
 
+/// Verifies one `#[moved_from]` of `new` against `line`, a snapshot of the line it names (EVO-40), as
+/// [compare_moved] does for the moves from the old version's line: for those [Report::unverified_moves] lists. The
+/// errors found, each naming the attribute.
+pub fn verify_move(
+    line: &ApiBundleOwned,
+    new: &ApiBundleOwned,
+    moved: &Move,
+) -> Result<(), Vec<String>> {
+    let report = compare_moved(line, new, std::slice::from_ref(moved)).map_err(|e| vec![e])?;
+    let mut errors = report.moved_from_errors;
+    if !report.unverified_moves.is_empty() {
+        let wire = line.wire.map_or("none".to_string(), |w| w.to_string());
+        errors.push(format!(
+            "{moved}: the snapshot given is at wire {wire}, not on line {}",
+            moved.wire.line.0
+        ));
+    }
+    match errors.is_empty() {
+        true => Ok(()),
+        false => Err(errors),
+    }
+}
+
 /// [compare_moved], checking definitions one side left out by their signatures when `signatures`.
 fn compare_with(
     old: &ApiBundleOwned,
@@ -484,6 +511,7 @@ fn compare_with(
         wire_breaks: vec![],
         proposals: vec![],
         moved_from_errors: vec![],
+        unverified_moves: vec![],
     };
     checker.compare_wire();
     checker.compare_traits();
@@ -527,6 +555,7 @@ fn compare_with(
         across_line: checker.across,
         proposals: checker.proposals,
         moved_from_errors: checker.moved_from_errors,
+        unverified_moves: checker.unverified_moves,
     })
 }
 
@@ -619,6 +648,7 @@ struct Checker<'a> {
     wire_breaks: Vec<String>,
     proposals: Vec<String>,
     moved_from_errors: Vec<String>,
+    unverified_moves: Vec<Move>,
 }
 
 impl<'a> Checker<'a> {
@@ -687,70 +717,118 @@ impl<'a> Checker<'a> {
         self.propose(&old_traits, &new_traits);
     }
 
-    /// Checks each `#[moved_from]` on a resource of the new version's own traits (EVO-40): across a break from the
-    /// line it names, the resource it names must be in the old version with exactly the same signature, and is then
-    /// [Self::moved]; a place on the new version's line or a later one is an error, since within a line a resource
-    /// is its position. Moves from an earlier break (another line than the old version's) are left alone.
+    /// Checks each `#[moved_from]` on a resource of the new version's own traits (EVO-40), and reports what doesn't
+    /// hold in [Self::moved_from_errors], never dropping one quietly:
+    ///
+    /// * two naming one place of one line, one naming its own place, a place on the new version's line or a later
+    ///   one (within a line a resource is its position), a place still there on the new version;
+    /// * across a break from the old version's line: the revision named must not be newer than the old version, the
+    ///   resource must be in the old version with exactly the same signature and not added after that revision, and
+    ///   is then [Self::moved];
+    /// * one naming another line than the old version's (an earlier break of a chain, or the break before the line
+    ///   compared within) can't be checked against this old version: [Report::unverified_moves], which
+    ///   [Check] verifies against that line's snapshot.
     fn check_moves(
         &mut self,
         old_traits: &BTreeMap<&str, &'a ApiLevelOwned>,
         new_traits: &BTreeMap<&str, &'a ApiLevelOwned>,
     ) {
+        let item = |traits: &BTreeMap<&str, &'a ApiLevelOwned>, name: &str, ident: &str| {
+            traits
+                .get(name)
+                .and_then(|level| level.items.iter().find(|i| i.ident == ident))
+        };
+        let mut claimed: Vec<&Move> = vec![];
         for moved in self.moves {
-            let Some(new_item) = new_traits
-                .get(moved.trait_name.as_str())
-                .and_then(|level| level.items.iter().find(|i| i.ident == moved.ident))
-            else {
+            let Some(new_item) = item(new_traits, &moved.trait_name, &moved.ident) else {
+                // not in this API root: another root's, or none's, which Check reports
                 continue;
             };
-            let mut error = |e: String| self.moved_from_errors.push(format!("{moved}: {e}"));
-            let Some(new_wire) = self.new_wire else {
-                error(
-                    "the API declares no wire version, and a move is from an earlier wire line"
-                        .into(),
+            let mut errors = vec![];
+            if let Some(other) = claimed
+                .iter()
+                .find(|m| m.wire.same_line(&moved.wire) && m.from_path() == moved.from_path())
+            {
+                errors.push(format!(
+                    "{}::{} names {} of line {} too: one resource can't become two",
+                    other.trait_name,
+                    other.ident,
+                    moved.from_path(),
+                    moved.wire.line.0
+                ));
+            }
+            claimed.push(moved);
+            let own_place = moved.from_trait == moved.trait_name && moved.from_ident == moved.ident;
+            if own_place {
+                errors.push(
+                    "names its own place: across a break a resource at the same place is matched by its path \
+                     anyway, remove the attribute"
+                        .to_string(),
                 );
-                continue;
-            };
-            if moved.wire.line.0 >= new_wire.line.0 {
-                error(format!(
+            }
+            match self.new_wire {
+                None => errors.push(
+                    "the API declares no wire version, and a move is from an earlier wire line".into(),
+                ),
+                Some(new_wire) if moved.wire.line.0 >= new_wire.line.0 => errors.push(format!(
                     "the API is at {new_wire}: within a line a resource is its position, so it can't have moved \
                      there; a move is from an earlier line"
+                )),
+                Some(_) => {}
+            }
+            if !own_place && item(new_traits, &moved.from_trait, &moved.from_ident).is_some() {
+                errors.push(format!(
+                    "{} is still there on the new version: a resource that stayed can't have moved too; remove \
+                     the attribute, or the old resource",
+                    moved.from_path()
                 ));
+            }
+            if !errors.is_empty() {
+                for e in errors {
+                    self.moved_from_errors.push(format!("{moved}: {e}"));
+                }
                 continue;
             }
             let Some(old_wire) = self
                 .old_wire
                 .filter(|old| self.across && old.same_line(&moved.wire))
             else {
+                self.unverified_moves.push(moved.clone());
                 continue;
             };
-            let Some(old_item) = old_traits
-                .get(moved.from_trait.as_str())
-                .and_then(|level| level.items.iter().find(|i| i.ident == moved.from_ident))
-            else {
+            let mut error = |e: String| self.moved_from_errors.push(format!("{moved}: {e}"));
+            if moved.wire > old_wire {
+                error(format!(
+                    "{} is newer than {old_wire}, the version compared with: name a revision {} had",
+                    moved.wire,
+                    moved.from_path()
+                ));
+                continue;
+            }
+            let Some(old_item) = item(old_traits, &moved.from_trait, &moved.from_ident) else {
                 error(format!(
                     "{old_wire}, compared with, has no {}",
                     moved.from_path()
                 ));
                 continue;
             };
-            let from = (moved.from_trait.clone(), moved.from_ident.clone());
-            if from == (moved.trait_name.clone(), moved.ident.clone()) {
-                // its own place: matched by path anyway
+            if let Some(since) = old_item.since.filter(|since| *since > moved.wire) {
+                error(format!(
+                    "{} was added in {since} (#[since]), after {}",
+                    moved.from_path(),
+                    moved.wire
+                ));
                 continue;
             }
-            if let Some((_, (t, i))) = self.moved.iter().find(|(f, _)| *f == from) {
-                let e = format!("{}::{i}'s #[moved_from] names {} too", t, moved.from_path());
-                self.moved_from_errors.push(format!("{moved}: {e}"));
-                continue;
-            }
-            match self.same_signature(old_item, new_item) {
-                Ok(()) => self
-                    .moved
-                    .push((from, (moved.trait_name.clone(), moved.ident.clone()))),
+            let signature = self.same_signature(old_item, new_item);
+            match signature {
+                Ok(()) => self.moved.push((
+                    (moved.from_trait.clone(), moved.from_ident.clone()),
+                    (moved.trait_name.clone(), moved.ident.clone()),
+                )),
                 Err(e) => self.moved_from_errors.push(format!(
-                    "{moved}: not the same signature as {} at {old_wire}, {e}; a resource that changed is a new one, \
-                     without the attribute",
+                    "{moved}: not the same signature as {} at {old_wire}, {e}; a resource that changed is a new \
+                     one, without the attribute",
                     moved.from_path()
                 )),
             }

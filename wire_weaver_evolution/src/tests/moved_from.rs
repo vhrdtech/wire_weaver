@@ -290,10 +290,91 @@ fn moved_from_that_doesnt_hold_is_refused() {
         "{e}"
     );
 
-    // w3.0 -> w3.1: the move from line 2 was checked when line 3 began
+    // w3.0 -> w3.1: a move from line 2 can't be checked against w3.0; it is listed for the snapshot of line 2
+    // (`Check` verifies it there), never dropped
     let next = W3.replace("w3.0", "w3.1");
     let report = compared(W3, &next);
     assert!(!report.across_line);
     assert!(report.moved_from_errors.is_empty(), "{report:#?}");
     assert!(report.breaking.is_empty(), "{report:#?}");
+    assert_eq!(report.unverified_moves.len(), 1, "{report:#?}");
+    assert_eq!(report.unverified_moves[0].from_path(), "Api::self_test");
+    // and `verify_move` checks it against line 2
+    let (w2, _) = load_moved("0.1.0", W2);
+    let (w3_1, moves) = load_moved("0.2.0", &next);
+    assert_eq!(verify_move(&w2, &w3_1, &moves[0]), Ok(()));
+    let (w3_1, moves) = load_moved("0.2.0", &nothing.replace("w3.0", "w3.1"));
+    let e = verify_move(&w2, &w3_1, &moves[0]).unwrap_err();
+    assert!(e[0].contains("has no Api::self_check"), "{e:?}");
+}
+
+/// Every claim is checked, none dropped: an attribute naming its own place, two naming one place, and a place still
+/// there on the new version are each reported (EVO-40).
+#[test]
+fn every_claim_is_reported() {
+    // `self_test` stays at its place and names it; `Health::self_test` claims it too
+    let both = W3.replace(
+        "    ww_impl!(health: Health);\n}",
+        "    ww_impl!(health: Health);\n    #[moved_from(w2.1, Api::self_test)]\n    fn self_test() -> bool;\n}",
+    );
+    let report = compared(W2, &both);
+    let errors = report.moved_from_errors.join("\n");
+    for e in [
+        "#[moved_from(w2.1, Api::self_test)] on Api::self_test: names its own place: across a break a resource at \
+         the same place is matched by its path anyway, remove the attribute",
+        "on Api::self_test: Health::self_test names Api::self_test of line 2 too: one resource can't become two",
+        "on Health::self_test: Api::self_test is still there on the new version: a resource that stayed can't have \
+         moved too; remove the attribute, or the old resource",
+    ] {
+        assert!(errors.contains(e), "{e} not in:\n{errors}");
+    }
+    assert!(report.check_wire().is_err());
+    assert!(!messages(&report).contains("moved to"), "{report:#?}");
+}
+
+/// A move whose source still exists at its old path is refused, saying so, instead of reading the old one as added.
+#[test]
+fn source_still_at_its_old_path() {
+    let stayed = W3.replace(
+        "    ww_impl!(health: Health);\n}",
+        "    ww_impl!(health: Health);\n    fn self_test() -> bool;\n}",
+    );
+    let report = compared(W2, &stayed);
+    assert_eq!(
+        report.moved_from_errors,
+        [
+            "#[moved_from(w2.1, Api::self_test)] on Health::self_test: Api::self_test is still there on the new \
+          version: a resource that stayed can't have moved too; remove the attribute, or the old resource"
+        ]
+    );
+    // the one that stayed is the old one, by its path; the one marked is new
+    let breaking = messages(&report);
+    assert!(!breaking.contains("Api::self_test"), "{breaking}");
+    assert!(!breaking.contains("moved to"), "{breaking}");
+}
+
+/// The revision named is checked too, not only the line: one newer than the old version, or older than the resource's
+/// own `#[since]`, is refused.
+#[test]
+fn revision_named_is_checked() {
+    let newer = W3.replace("(w2.1, Api::self_test)", "(w2.9, Api::self_test)");
+    let e = compared(W2, &newer).check_wire().unwrap_err();
+    assert!(
+        e.contains(
+            "w2.9 is newer than w2.1, the version compared with: name a revision Api::self_test had"
+        ),
+        "{e}"
+    );
+    let since = W2.replace(
+        "    fn self_test() -> bool;",
+        "    #[since = \"w2.1\"]\n    fn self_test() -> bool;",
+    );
+    let before = W3.replace("(w2.1, Api::self_test)", "(w2.0, Api::self_test)");
+    let e = compared(&since, &before).check_wire().unwrap_err();
+    assert!(
+        e.contains("Api::self_test was added in w2.1 (#[since]), after w2.0"),
+        "{e}"
+    );
+    // a revision it had is fine
+    assert_eq!(compared(&since, W3).check_wire(), Ok(()));
 }

@@ -52,35 +52,39 @@ impl std::fmt::Display for MovedFrom {
 const EXPECTED: &str = "expected #[moved_from(w<line>.<revision>, Trait::resource)], e.g. #[moved_from(w2.1, \
                         Thermo::self_test)]";
 
-/// `#[moved_from(..)]` among `attrs` of the resource `ident` of `trait_name`, `None` without one.
-pub(crate) fn get_moved_from_attr(
+/// Every `#[moved_from(..)]` among `attrs` of the resource `ident` of `trait_name`: one per earlier line it was at
+/// another place on (a chain over several breaks keeps its older links), two naming one line refused.
+pub(crate) fn get_moved_from_attrs(
     attrs: &[Attribute],
     crate_id: &str,
     trait_name: &str,
     ident: &str,
-) -> Result<Option<MovedFrom>> {
-    let mut found = attrs.iter().filter(|a| a.path().is_ident("moved_from"));
-    let Some(attr) = found.next() else {
-        return Ok(None);
-    };
+) -> Result<Vec<MovedFrom>> {
     let context = |e: anyhow::Error| e.context(format!("#[moved_from] on {trait_name}::{ident}"));
-    if found.next().is_some() {
-        return Err(context(anyhow!(
-            "more than one #[moved_from]: a resource was at one place on an earlier line"
-        )));
+    let mut found: Vec<MovedFrom> = vec![];
+    for attr in attrs.iter().filter(|a| a.path().is_ident("moved_from")) {
+        let Meta::List(list) = &attr.meta else {
+            return Err(context(anyhow!(EXPECTED)));
+        };
+        let (wire, path) = parse_args(list.tokens.clone()).map_err(context)?;
+        if let Some(other) = found.iter().find(|m| m.wire.same_line(&wire)) {
+            return Err(context(anyhow!(
+                "two on line {}, {} and {}: a resource was at one place on each earlier line",
+                wire.line.0,
+                other.wire,
+                wire
+            )));
+        }
+        found.push(MovedFrom {
+            crate_id: crate_id.to_string(),
+            trait_name: trait_name.to_string(),
+            ident: ident.to_string(),
+            wire,
+            from_trait: path.0,
+            from_ident: path.1,
+        });
     }
-    let Meta::List(list) = &attr.meta else {
-        return Err(context(anyhow!(EXPECTED)));
-    };
-    let (wire, path) = parse_args(list.tokens.clone()).map_err(context)?;
-    Ok(Some(MovedFrom {
-        crate_id: crate_id.to_string(),
-        trait_name: trait_name.to_string(),
-        ident: ident.to_string(),
-        wire,
-        from_trait: path.0,
-        from_ident: path.1,
-    }))
+    Ok(found)
 }
 
 /// `w2.1, Thermo::self_test` (the version also as a string, `"w2.1"`).
@@ -134,7 +138,8 @@ mod tests {
 
     fn parse(attr: TokenStream) -> Result<Option<MovedFrom>> {
         let attrs = syn::parse::Parser::parse2(Attribute::parse_outer, attr).unwrap();
-        get_moved_from_attr(&attrs, "thermo_api", "Health", "self_test")
+        get_moved_from_attrs(&attrs, "thermo_api", "Health", "self_test")
+            .map(|m| m.into_iter().next())
     }
 
     #[test]
@@ -154,6 +159,16 @@ mod tests {
             .unwrap();
         assert_eq!(quoted.wire, WireVersion::new(12, 10));
         assert_eq!(parse(quote!(#[since = "w1.0"])).unwrap(), None);
+        // a chain over two breaks: one per earlier line
+        let attrs = syn::parse::Parser::parse2(
+            Attribute::parse_outer,
+            quote!(#[moved_from(w2.1, Thermo::self_test)] #[moved_from(w1.3, Sensor::check)]),
+        )
+        .unwrap();
+        let chain = get_moved_from_attrs(&attrs, "thermo_api", "Health", "self_test").unwrap();
+        assert_eq!(chain.len(), 2);
+        assert_eq!(chain[1].from_path(), "Sensor::check");
+        assert_eq!(chain[1].wire, WireVersion::new(1, 3));
     }
 
     #[test]
@@ -171,8 +186,8 @@ mod tests {
                 "names no resource",
             ),
             (
-                quote!(#[moved_from(w2.1, Thermo::a)] #[moved_from(w1.0, Api::a)]),
-                "more than one",
+                quote!(#[moved_from(w2.1, Thermo::a)] #[moved_from(w2.0, Api::a)]),
+                "two on line 2, w2.1 and w2.0",
             ),
         ] {
             let e = format!("{:#}", parse(attr.clone()).unwrap_err());

@@ -2,7 +2,7 @@ use super::{
     crate_walker::{CrateContext, Scratch},
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
     meta::{MetaSite, get_meta},
-    moved_from::get_moved_from_attr,
+    moved_from::get_moved_from_attrs,
     ty::{convert_named_def, convert_ty, convert_ty_path, convert_ty_path_segment},
     unit_hint::{is_silenced, suggest},
     util::{
@@ -177,12 +177,12 @@ fn note_moved_from(
         }
         return Ok(());
     };
-    let moved = get_moved_from_attr(attrs, crate_id, &trait_name, &added.ident)
+    let moves = get_moved_from_attrs(attrs, crate_id, &trait_name, &added.ident)
         .context(current_crate.err_context())?;
-    if let Some(moved) = moved
-        && !scratch.moved_from.contains(&moved)
-    {
-        scratch.moved_from.push(moved);
+    for moved in moves {
+        if !scratch.moved_from.contains(&moved) {
+            scratch.moved_from.push(moved);
+        }
     }
     Ok(())
 }

@@ -2114,11 +2114,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   another position being a wire change only, an own type replaced by another (`Sample` by `Batch`) named as such
   instead of compared field by field. A resource added with the name of one removed elsewhere is only proposed
   (`Report::proposals`, `#[moved_from]` suggested when the signature is the same), never matched; an attribute that
-  doesn't hold fails the wire check (`Report::moved_from_errors`). A new line's root in a crate with several is
+  doesn't hold fails the wire check (`Report::moved_from_errors`): a place or revision the line doesn't have, a
+  revision older than the resource's `#[since]`, its own place, a place claimed twice, a source still there. A chain
+  over several breaks keeps one attribute per earlier line; links to another line than the one compared with
+  (`Report::unverified_moves`) are verified by `Check` against that line's latest snapshot (`verify_move`), also on
+  later revisions of the new line, a warning when the line has no snapshot. A new line's root in a crate with several is
   compared with the previous line's root of the same name for its moves (`NoSnapshot::previous_line`). Read from the
   source (`wire_weaver_core::SourceNotes`, `load_crate_with_notes`), not part of the `ww_self` model, so the dynamic
-  client doesn't see it. Docs: `docs/evolution/rules.md#moving-a-resource-to-another-place`; tests
-  `wire_weaver_evolution` `tests::moved_from::*`, `moved_from_is_read_from_the_source`, `moved_from_of_a_new_root`,
+  client doesn't see it. Docs: `docs/evolution/rules.md#moving-a-resource-to-another-place`, `docs/api/traits.md`; tests
+  `wire_weaver_evolution` `tests::moved_from::*`, `moved_from_is_read_from_the_source`, `moved_from_of_a_new_root`, `moved_from_chain_over_two_breaks`,
+  `moved_from_on_a_trait_outside_the_root_tree`,
   `wire_weaver_core` `moved_from_parses`, `tests/thermo` `checker_agrees_on_both_bumps`.
 - 📋 **EVO-42 The multi-line bench on one crate** · `v0.5` — `tests/thermo_api` as one crate of three lines and
   `tests/thermo` on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's

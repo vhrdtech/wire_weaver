@@ -492,19 +492,21 @@ fn since_note(attrs: &[Attribute]) -> Option<String> {
                 None
             }
         });
-    let moved = attrs
+    let moved: Vec<String> = attrs
         .iter()
-        .find(|a| a.path().is_ident("moved_from"))
-        .and_then(|attr| match &attr.meta {
+        .filter(|a| a.path().is_ident("moved_from"))
+        .filter_map(|attr| match &attr.meta {
             Meta::List(list) => Some(format!(
-                "Moved from `{}`.",
+                "`{}`",
                 list.tokens
                     .to_string()
                     .replace(" . ", ".")
                     .replace(" :: ", "::")
             )),
             _ => None,
-        });
+        })
+        .collect();
+    let moved = (!moved.is_empty()).then(|| format!("Moved from {}.", moved.join(", ")));
     match (since, moved) {
         (Some(since), Some(moved)) => Some(format!("{since} {moved}")),
         (since, moved) => since.or(moved),

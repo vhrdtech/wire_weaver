@@ -269,17 +269,21 @@ pub fn gen_server_scaffold(
     )?;
     // where the API's wire version lives (EVO-31, EVO-37): the API crate's Cargo.toml, which the scaffold doesn't
     // write; a root in a module is one of several and takes the `roots` table instead of the crate-level `wire`
+    // w0, the design line (EVO-41): a new API starts there, and leaves it at its first release
+    let design_line = "// w0 is the design line: breaks are accepted, no snapshots are saved and `#[since]` is refused.\n\
+                       // Move to w1.0 at the first release; `ww api save` then keeps the first snapshot.\n";
     if root_modules.is_empty() {
         match api_bundle.wire {
             Some(wire) => writeln!(
                 out,
-                "// Wire version of the API: `{wire}`, `[package.metadata.wire_weaver] wire` in {crate_name}'s Cargo.toml.\n"
+                "// Wire version of the API: `{wire}`, `[package.metadata.wire_weaver] wire` in {crate_name}'s Cargo.toml.\n{}",
+                if wire.is_design_line() { design_line } else { "" }
             )?,
             None => writeln!(
                 out,
                 "// {crate_name} declares no wire version, and link setup decides on it: add to its Cargo.toml\n\
                  // [package.metadata.wire_weaver]\n\
-                 // wire = \"w1.0\"\n"
+                 // wire = \"w0.0\"\n{design_line}"
             )?,
         }
     } else {
@@ -288,14 +292,15 @@ pub fn gen_server_scaffold(
             Some(wire) => writeln!(
                 out,
                 "// Wire version of the API root `{key}`: `{wire}`, `[package.metadata.wire_weaver.roots]` in \
-                 {crate_name}'s Cargo.toml (EVO-37).\n"
+                 {crate_name}'s Cargo.toml (EVO-37).\n{}",
+                if wire.is_design_line() { design_line } else { "" }
             )?,
             None => writeln!(
                 out,
                 "// {crate_name} declares no wire version for the root `{key}`, and link setup decides on it: add \
                  to its Cargo.toml\n\
                  // [package.metadata.wire_weaver.roots]\n\
-                 // \"{key}\" = \"w1.0\"\n"
+                 // \"{key}\" = \"w0.0\"\n{design_line}"
             )?,
         }
     }
@@ -1003,10 +1008,21 @@ mod tests {
             ),
             "{code}"
         );
+        assert!(!code.contains("design line"), "{code}");
+        // a new API starts on w0, the design line (EVO-41)
         bundle.wire = None;
         let code = gen_server_scaffold(&bundle, &config(&[]), &CratePaths::default()).unwrap();
         assert!(
-            code.contains("// [package.metadata.wire_weaver]\n// wire = \"w1.0\"\n"),
+            code.contains(
+                "// [package.metadata.wire_weaver]\n// wire = \"w0.0\"\n// w0 is the design line: breaks are \
+                 accepted, no snapshots are saved and `#[since]` is refused.\n// Move to w1.0 at the first release"
+            ),
+            "{code}"
+        );
+        bundle.wire = Some(ww_version::WireVersion::new(0, 2));
+        let code = gen_server_scaffold(&bundle, &config(&[]), &CratePaths::default()).unwrap();
+        assert!(
+            code.contains("`w0.2`, `[package.metadata.wire_weaver] wire` in properties_api's Cargo.toml.\n// w0 is the design line"),
             "{code}"
         );
     }

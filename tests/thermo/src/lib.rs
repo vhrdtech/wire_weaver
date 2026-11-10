@@ -4,7 +4,7 @@
 //!
 //! - The lines are roots of one API crate, `thermo_api` 4.0.0, one module each (EVO-37); their clients are one module
 //!   each here (`v1.rs`, `v2.rs`, `v3.rs`). What lines share is one type in `thermo_api::common`, converted once
-//!   ([common](mod@common)).
+//!   (`common.rs`).
 //! - [Thermo] is an enum over the three clients, made by `wire_weaver_client::facade!` (CLT-64) from the operations
 //!   below: each line implements its trait in [line](mod@line) for its client; `self_test`, which line 1 lacks, is
 //!   [Error::Unsupported] there.

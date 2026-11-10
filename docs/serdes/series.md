@@ -205,6 +205,45 @@ reach it. A firmware that stays at `z` gets the bit writer's speed back with `sh
 `optimize-speed` from Rust 1.101 or on nightly): since SW-70 it is out of line at `z` by default, 0.75 KB smaller and up to 22 % slower, see
 [Hot paths at opt-level z](code_size.md#hot-paths-at-opt-level-z).
 
+### A prefix per item
+
+A `ww_si` `Quantity` (`Ampere`, `Volt`, `Second`) carries its prefix and number type in every item; a
+`Fixed<Ampere, Milli, i32>` has them in its type. In a `Series` both are a column of their own, a run, so a prefix
+that stays the same over a batch costs about one byte per column on the wire. It costs more in CPU: the item walk
+handles the prefix and the `NumericValue` of every item, and the store writer first checks that every row has the
+same prefix and number type. A prefix that changes mid-batch (an autoranging device) restarts the numeric column
+there, which the wire handles, but the store writer doesn't yet (SW-77): the whole column is rebuilt item by item
+and walked.
+
+One FOC level batch of the motor demo, the same numbers both ways (21 properties in mA, µ and nV as `i32`, n = 32,
+two batches, `DeltaPacked`; `examples_mcu/mcu_qemu`'s `qemu-dyn-prefix-quantity`, `-fixed` and `-auto`, and
+`usb_stm32h725ig`'s `dyn_prefix_cycles`, the H725 warm):
+
+|                                    | bytes per batch | Cortex-M3 instructions, `z` / `3` | STM32H725 cycles, `z` / `3` |
+|------------------------------------|-----------------|-----------------------------------|-----------------------------|
+| 21 x `Series<Quantity>`, item walk | 1 214 / 1 151   | 289 200 / 117 300                 | 350 400 / 125 600           |
+| 21 x `Series<Fixed>`, item walk    | 1 188 / 1 128   | 85 500 / 54 800                   | 98 600 / 66 200             |
+| 21 x `Series<Quantity>`, store     | 1 214 / 1 151   | 66 300 / 34 100                   | 77 000 / 39 500             |
+| 21 x `Series<Fixed>`, store        | 1 188 / 1 128   | 52 000 / 24 500                   | 64 900 / 25 200             |
+| clock: `Series<Second>`, store     | 37              | 3 124 / 1 583                     | 3 552 / 1 739               |
+| clock: `Series<DeviceMicros<u32>>` | 36              | 2 426 / 1 098                     | 2 978 / 1 100               |
+
+From the store, the way `ww_stream`'s batchers and observe cells write a level, a prefix per item costs about 21
+instructions per item on the M3 at `z` (14 at `3`) and 18 cycles on the H725 (21 at `3`): 19 % more cycles at `z`, 57
+% more at `3`. On the M3 at `z` about 60 % of it is the check for one prefix and one number type (SW-78), the rest is
+reading the number out of the `NumericValue` store. By the item walk a `Quantity` takes 2x to 3.5x the CPU of a
+`Fixed`. The bytes differ by 23 to 26 per batch, 2 %. The `Fixed` bin's `.text` is 15.6 KB against 22.3 KB at `z`
+(20.2 KB against 52.1 KB at `3`).
+
+Autoranged (each value at the finest prefix whose number fits an `i16`, so a phase that wraps or a flux through
+zero changes prefix mid-batch: 8 changes in 4 of the 21 columns of the first batch, 2 in 1 of the second), a column
+the store can't take costs 16 700 instructions on the M3 at `z` against 3 300 for one it can, and the first batch
+138 200 cycles on the H725 at `z` against 77 000 for the quantities without changes.
+
+A device that knows its prefixes at build time (most do: an ADC's step, a PWM's resolution) gets the cheaper column
+with `Fixed`, at the same bytes; a `Quantity` is for a unit chosen at run time, and an autoranging one is cheap on
+the wire but, until SW-77, not in CPU.
+
 ## Collecting items on a device: `SeriesStore`
 
 SW-62. A device that sends items in batches keeps them somewhere until the batch is written. `SeriesStore` is that

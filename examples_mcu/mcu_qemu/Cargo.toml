@@ -141,6 +141,27 @@ doctest = false
 bench = false
 
 [[bin]]
+name = "qemu-dyn-prefix-quantity"
+path = "src/bin/dyn_prefix_quantity.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-dyn-prefix-fixed"
+path = "src/bin/dyn_prefix_fixed.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-dyn-prefix-auto"
+path = "src/bin/dyn_prefix_auto.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
 name = "qemu-store-columns"
 path = "src/bin/store_columns.rs"
 test = false

@@ -276,6 +276,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (TEST-25): no case turns off the `Unknown(u32)` catch-all (SW-47) and then feeds an out-of-range discriminant
   (needs hand-written reject bytes, no valid Rust value produces them), and no `Series<T>` (SW-60) case has a
   field marked `#[series(opaque)]`, so its own column form is untested.
+- 📋 **SW-77 Store columns across a prefix change** — `write_store_series` (SW-64) writes nothing when an enum or
+  `Option` tag changes in the rows (a ww_si prefix that autoranges, a number type), and the batch is rebuilt item by
+  item and walked: 5x the instructions of a store column on a Cortex-M3 at `opt-level = "z"` (16.7 k against 3.3 k
+  per column of 32), 4.5x at 3. The wire already has the runs and the restarts; the store writer would write the
+  tag runs from the store's arrays and the numeric column in segments, restarting at each run boundary, the same
+  bytes as the walk. Measured by `examples_mcu/mcu_qemu`'s `qemu-dyn-prefix-auto` and `stm32h725ig-dyn-prefix-cycles`
+  (`docs/serdes/series.md#a-prefix-per-item`); the round trip and conformance case are in
+  (`stdlib.si.timed.series.prefix_change`).
+- 💡 **SW-78 A cheaper one-tag check for store columns** — `SeriesStore::columnar` scans every row of a ww_si
+  quantity's prefix and number-type arrays before a store column is written: 2 x ~200 instructions per column of
+  32 on a Cortex-M3 at `opt-level = "z"`, about 60 % of what a `Quantity` column costs over a `Fixed` one from the
+  store (`docs/serdes/series.md#a-prefix-per-item`). Comparing the arrays a word at a time, or a flag the store
+  keeps as rows are set, would take most of it.
 - 📋 **SW-17 Const / magic type** · `v0.5` — a simple type with a generic parameter that serializes a constant value or
   byte string and checks it on deserialization, failing on a mismatch. For example the `magic` field in
   `ww_self` (a plain `u32` today).

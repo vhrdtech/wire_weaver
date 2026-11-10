@@ -128,6 +128,13 @@ doctest = false
 bench = false
 
 [[bin]]
+name = "stm32h725ig-dyn-prefix-cycles"
+path = "src/bin/dyn_prefix_cycles.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
 name = "stm32h725ig-shared-clock-cycles"
 path = "src/bin/shared_clock_cycles.rs"
 test = false

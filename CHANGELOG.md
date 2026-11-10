@@ -15,6 +15,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The walker parses a dependency's module files only when something looks into them, so a `#[ww_trait]` walk of `ww_pwm` takes about half the time (see the `wire_weaver_core` changelog).
 - `ww api line new` / `retire` start and end a wire line of a multi-root API crate (TOOL-33, see `wire_weaver_cli/CHANGELOG.md`).
 - `ww_si::Timed.t` is a device time point, `Timed<V, Tm = DeviceMicros<u32>>`, unwrapped on the host by `TimeUnwrapper` (STD-110, wire change EVO-51, `ww_si` 0.5.0 on wire `w5.0`); a batched stream picks its time point with `batched(time = ..)` (API-61), typed stream handles carry the time type (CLT-70). See the `ww_si`, `ww_stream`, `wire_weaver_core`, `wire_weaver_client`, `ww_self` and `wire_weaver_py` changelogs.
+- What a ww_si prefix carried per item costs in a `Series`, measured on the motor demo's FOC level against the same numbers as `Fixed` (Cortex-M3 under QEMU, STM32H725): about 2 % more bytes, 19-57 % more cycles from the store, 2-3.5x by the item walk, and a column whose prefix changes mid-batch is walked (SW-77, SW-78). A round trip and the conformance case `stdlib.si.timed.series.prefix_change` cover a prefix that changes mid-batch. See `docs/serdes/series.md#a-prefix-per-item`.
 
 ### Added
 

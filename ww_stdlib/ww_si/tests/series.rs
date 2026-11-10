@@ -107,8 +107,8 @@ fn timed_volt_bytes() {
 #[test]
 fn prefix_changes_mid_batch() {
     use shrink_wrap::series::{
-        CodecPolicy, DeltaPacked, NumericCodec, Predictor, Coder, FloatCodec, RawPlain, SeriesPolicy, SeriesStore,
-        write_store_series,
+        CodecPolicy, Coder, DeltaPacked, FloatCodec, NumericCodec, Predictor, RawPlain,
+        SeriesPolicy, SeriesStore, write_store_series,
     };
     use shrink_wrap::{BufWriter, SerializeShrinkWrap};
     use ww_si::{Timed, origins::DeviceMicros};
@@ -127,7 +127,9 @@ fn prefix_changes_mid_batch() {
 
     fn check<P: SeriesPolicy + Copy>(items: &[Timed<Ampere>], policy: P) -> usize {
         let mut buf = [0u8; 1024];
-        let bytes = Series::with_policy(items, policy).to_ww_bytes(&mut buf).unwrap();
+        let bytes = Series::with_policy(items, policy)
+            .to_ww_bytes(&mut buf)
+            .unwrap();
         within_bound::<Timed<Ampere>>(items.len(), bytes);
         let back = SeriesOwned::<Timed<Ampere>>::from_ww_bytes_owned(bytes).unwrap();
         assert_eq!(back.len(), items.len());
@@ -141,11 +143,15 @@ fn prefix_changes_mid_batch() {
         }
         let mut other = [0u8; 1024];
         let mut wr = BufWriter::new(&mut other);
-        assert!(!write_store_series::<Timed<Ampere>, P, 32>(&mut wr, &store, 0..32, &policy).unwrap());
+        assert!(
+            !write_store_series::<Timed<Ampere>, P, 32>(&mut wr, &store, 0..32, &policy).unwrap()
+        );
         let walked: Vec<_> = (0..32).map(|k| Timed::<Ampere>::get(&store, k)).collect();
         let mut again = [0u8; 1024];
         assert_eq!(
-            Series::with_policy(&walked, policy).to_ww_bytes(&mut again).unwrap(),
+            Series::with_policy(&walked, policy)
+                .to_ww_bytes(&mut again)
+                .unwrap(),
             bytes
         );
         bytes.len()
@@ -160,8 +166,14 @@ fn prefix_changes_mid_batch() {
         ),
     );
     let raw = check(&items, RawPlain);
-    assert_eq!(back_prefixes(&items), [Prefix::Micro, Prefix::Milli, Prefix::Micro]);
-    assert!(smallest <= delta.min(dod) && delta < raw, "{smallest} {delta} {dod} {raw}");
+    assert_eq!(
+        back_prefixes(&items),
+        [Prefix::Micro, Prefix::Milli, Prefix::Micro]
+    );
+    assert!(
+        smallest <= delta.min(dod) && delta < raw,
+        "{smallest} {delta} {dod} {raw}"
+    );
 
     fn back_prefixes(items: &[Timed<Ampere>]) -> Vec<Prefix> {
         let mut runs: Vec<Prefix> = items.iter().map(|t| t.value.prefix).collect();

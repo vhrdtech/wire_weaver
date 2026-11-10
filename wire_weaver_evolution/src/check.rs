@@ -565,8 +565,8 @@ pub enum SaveStatus {
     UpToDate,
     /// Nothing written: the crate or root is on w0, the design line (EVO-41), which keeps no snapshots.
     DesignLine,
-    /// An API root the crate no longer has: its removal is recorded ([removed_file_name]), checked against the
-    /// crate version (EVO-39).
+    /// An API root the crate no longer has: its removal is recorded
+    /// ([removed_file_name](crate::snapshot_files::removed_file_name)), checked against the crate version (EVO-39).
     Removed,
 }
 

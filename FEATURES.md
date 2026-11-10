@@ -2062,7 +2062,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the root's line, a wire bump naming its entry in the table. A changed type or trait several roots reach is named
   once with every root and line it changed on (`SharedChange`), and the crate version must be bumped for the root
   that needs the most. A root's older snapshot stands for a crate version that saved other roots, so a later change
-  needs a new version; `require_current` works per root. A root removed from the table is a breaking crate bump,
+  needs a new version; `require_current` works per root, and a root on w0 (EVO-41) needs no snapshot. A root removed from the table is a breaking crate bump,
   which `ww api save` records in a `.removed` file (`RemovedRoot`, `SaveStatus::Removed`). `--against` takes a root's
   file. All loads of a check share `wire_weaver_core::CrateCache`: a repeated `load_crate` of `tests/thermo_api/w3`
   takes 80 ms instead of 198 ms. A whole-crate snapshot's line that no root continues is not reported as removed.

@@ -4111,6 +4111,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Origins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        References
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5747,6 +5764,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Origins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        References
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5964,6 +5998,10 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 <td>a float <code>Fixed</code> that may hold NaN, the one bound that takes it</td>
 </tr>
 <tr>
+<td><code>Finite</code></td>
+<td>a float <code>Fixed</code> that is never ±∞ nor NaN</td>
+</tr>
+<tr>
 <td><code>Origin(OriginDef { id, unit, symbol, reference, offset, .. })</code></td>
 <td>an origin of a <code>Point</code>: <code>origins::Celsius</code>, a crate's <code>origin!</code></td>
 </tr>
@@ -5982,6 +6020,10 @@ but the walker refuses an API that uses it: a client wouldn't know the unit.</p>
 <tr>
 <td><code>System(exact_units::SystemDef)</code></td>
 <td>a system of units other than SI: <code>systems::Gaussian</code>, <code>systems::Natural</code> (<a href="#systems-of-units">below</a>)</td>
+</tr>
+<tr>
+<td><code>Reference(ReferenceDef { id, name, how })</code></td>
+<td>what an origin is measured from: <code>UnitZero</code>, <code>AmbientPressure</code>, <code>TaiScale</code>, a crate's <code>impl Reference</code> (<a href="#references">below</a>)</td>
 </tr>
 </tbody>
 </table>
@@ -6213,7 +6255,7 @@ Python's <code>Quantity.system</code> names the system, and <code>Quantity.dim</
 </tr>
 <tr>
 <td><code>reference</code></td>
-<td>what <code>offset</code> is measured from, a <code>MarkerId</code>: <code>exact_units::UnitZero</code> for the unit's own zero</td>
+<td>what <code>offset</code> is measured from, a <code>ReferenceDef</code> (below): <code>exact_units::UnitZero</code> for the unit's own zero</td>
 <td><code>UnitZero</code></td>
 </tr>
 <tr>
@@ -6239,7 +6281,7 @@ Python's <code>Quantity.system</code> names the system, and <code>Quantity.dim</
 </tbody>
 </table>
 <p>A definition is flat on purpose: it holds no <code>Type</code> of the model, only values and <code>MarkerId</code>s (gauge pressure's
-<code>exact_units::AmbientPressure</code>), so a pass that renumbers the model's types never has to look inside one. For the
+reference <code>exact_units::AmbientPressure</code> written out whole), so a pass that renumbers the model's types never has to look inside one. For the
 same reason an origin's unit is a named unit: the walker refuses an <code>origin!</code> over <code>Per&lt;..&gt;</code> or <code>Times&lt;..&gt;</code>, declare
 a unit of that dimension with <code>unit!</code> instead. A crate's own origin is declared with <code>origin!</code> and written out by the walker:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">origin</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
@@ -6252,6 +6294,58 @@ is shown in °C. <code>origins::Angle&lt;U&gt;</code> has no fields of its own: 
 the rest. <code>ww_self::units::origin_of(ty, bundle)</code> gives the <code>OriginDef</code> of either, an <code>Angle&lt;Degree&gt;</code> as unit <code>°</code>,
 modulus 360; <code>marker_id_of</code> gives the <code>MarkerId</code> of an origin (or any marker).</p>
 <p>As for units, a hand-written <code>impl Origin</code> compiles but the walker refuses an API that uses it.</p>
+<h3 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h3>
+<p>An origin's <code>reference</code> is the whole <code>exact_units::ReferenceDef</code> (STD-108), so a client can tell whether points of
+two origins convert, and what a conversion would need, without the crate compiled in:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Is</th>
+<th>TAI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>its <code>MarkerId</code></td>
+<td><code>exact_units::TaiScale</code></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>what the zero is, empty for the unit's own zero</td>
+<td><code>"TAI"</code></td>
+</tr>
+<tr>
+<td><code>how</code></td>
+<td><code>Exact</code>, <code>RunTime</code> or <code>TimeScale(TimeScaleDef { counting, zero })</code></td>
+<td><code>TimeScale(EverySecond, Agreed)</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>exact_units</code>' references are <code>UnitZero</code> (<code>Exact</code>), <code>AmbientPressure</code> (<code>RunTime</code>) and the time scales: <code>TaiScale</code>
+(every SI second, an agreed zero; <code>TaiEpoch1958</code>, <code>GpsEpoch</code> and <code>PtpEpoch</code> are origins on it), <code>PosixScale</code> (days of
+86400 s, an agreed zero; <code>UnixEpoch</code>, <code>NtpEpoch</code>) and <code>DeviceMonotonic</code> (every second from a zero known only at run
+time; <code>DeviceBoot</code>). Points of origins on the same reference convert exactly; between references,
+<code>ww_self::units::reference_conversion(from, to)</code> says why not: a zero known only at run time, a device's clock that
+needs a clock sync, or a leap-second table between POSIX time and TAI. The evolution checker gives the same reason
+when an origin moves to another reference.</p>
+<p>A crate declares a reference of its own with an <code>impl Reference</code> beside a unit struct, and the walker reads its
+<code>NAME</code> (a string literal) and <code>HOW</code> as written; the struct gets a <code>MarkerDef::Reference</code> of its own:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="sd">/// The shaft encoder&#39;s index pulse: where it lies is known only at run time</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="cp">#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">IndexPulse</span><span class="p">;</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">impl</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Reference</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">IndexPulse</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">ID</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_si</span><span class="p">::</span><span class="n">MarkerId</span><span class="o">&lt;&#39;</span><span class="nb">static</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">MarkerId</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">crate_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;quantities_api&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;IndexPulse&quot;</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">NAME</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="o">&#39;</span><span class="nb">static</span><span class="w"> </span><span class="kt">str</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;index pulse&quot;</span><span class="p">;</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">HOW</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_si</span><span class="p">::</span><span class="n">ReferenceHow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">ReferenceHow</span><span class="p">::</span><span class="n">RunTime</span><span class="p">;</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">}</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">ww_si</span><span class="p">::</span><span class="n">origin</span><span class="o">!</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Shaft</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">unit</span><span class="p">:</span><span class="w"> </span><span class="nc">Degree</span><span class="p">,</span><span class="w"> </span><span class="n">symbol</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;° from index&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="nc">Offset</span><span class="p">::</span><span class="n">ZERO</span><span class="p">,</span><span class="w"> </span><span class="n">reference</span><span class="p">:</span><span class="w"> </span><span class="nc">IndexPulse</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="p">}</span>
+</span></code></pre></div>
 <h2 id="on-the-wire">On the wire<a class="headerlink" href="#on-the-wire" title="Permanent link">&para;</a></h2>
 <p><code>ItemStruct::extra</code> is an <code>Option&lt;RefBox&lt;ItemStructExtra&gt;&gt;</code>, appended with <code>#[default = None]</code>: a plain struct writes
 the single 0 bit it wrote before, so its bytes and its <a href="../ww_self/#signatures-and-putting-skipped-definitions-back">signature</a>

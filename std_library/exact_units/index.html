@@ -3995,6 +3995,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#non-linear-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Non-linear codes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#serde" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5728,6 +5739,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#non-linear-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Non-linear codes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#serde" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5987,20 +6009,23 @@ plain <code>u64</code>, checked against the storage and the bounds the same way.
 <code>Unbounded</code> included, refuses NaN when a client writes it and when it comes off the wire. ±∞ is a value. A float
 without a literal is written as its type's constant, <code>f32::NAN</code>, <code>f32::INFINITY</code> or <code>-f64::INFINITY</code>, which
 <code>ww explain</code> also prints:</p>
-<p><div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>NaN is no value of Fixed&lt;Volt, Milli, f32, Unbounded&gt;: only a MaybeNan float holds NaN
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>NaN is no value of Fixed&lt;Volt, Milli, f32, Unbounded&gt;: only a MaybeNan float holds NaN
+</span></code></pre></div>
+<p>A <code>Finite</code> float refuses ±∞ too, on the wire and when a client writes it (STD-104):</p>
+<p><div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>inf is no value of exact_units::Fixed&lt;Volt, Milli, f32, Finite&gt;: a Finite float is never ±∞
 </span></code></pre></div>
 <a href="../indices/">Indices and sequence numbers</a> are shown with what they count, <code>#1000 (Sample)</code>,
 <code>#2 (Item, from 1)</code>, <code>seq 41 (Frame)</code>, and take their number, an <code>IndexFrom1</code> refusing 0.</p>
 <p>Python gets a <code>ww.Quantity</code>, as for a <a href="../ww_si/#in-ww-python-and-dynamic-clients"><code>Quantity</code></a>, with the stored
 number and type:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># 1730000000000000 µs</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">u</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">storage</span> <span class="c1"># 1730000000000000, &quot;Micro&quot;, &quot;u64&quot;</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">u</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">fixed</span>    <span class="c1"># &quot;s&quot;, &quot;Second&quot;, True</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">u</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 1730000000.0</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">bounds</span>     <span class="c1"># (1, 5000)</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>  <span class="c1"># 5 ms, stored as 5000</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>       <span class="c1"># as stored: 5000 µs</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;5 ms&quot;</span><span class="p">))</span>  <span class="c1"># made from text, stored as 5000</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># 1730000000000000 µs</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">u</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">storage</span> <span class="c1"># 1730000000000000, &quot;Micro&quot;, &quot;u64&quot;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">u</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">fixed</span>    <span class="c1"># &quot;s&quot;, &quot;Second&quot;, True</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">u</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 1730000000.0</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">bounds</span>     <span class="c1"># (1, 5000)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>  <span class="c1"># 5 ms, stored as 5000</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>       <span class="c1"># as stored: 5000 µs</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ww</span><span class="o">.</span><span class="n">Quantity</span><span class="p">(</span><span class="s2">&quot;5 ms&quot;</span><span class="p">))</span>  <span class="c1"># made from text, stored as 5000</span>
 </span></code></pre></div>
 <p>A write takes a <code>ww.Quantity</code> of a unit of the same dimension, converted exactly, or the stored number; anything
 else is a <code>ValueError</code> with the same text as above. <code>float("nan")</code> into a NaN-free float <code>Fixed</code> is refused the
@@ -6011,6 +6036,30 @@ another scale (<a href="../../evolution/multi_line_host/">a host for several wir
 <code>DynPrefix</code>, <code>Storage { base, bounds }</code>), <code>DynQuantity::from_value</code> reads a value of it, and <code>DynQuantity::to_value</code>
 writes into it exactly or returns the error above. <code>quantity::DynCount</code> does the same for indices and sequence
 numbers. The C consumer of the <a href="../../serdes/conformance/">conformance matrix</a> reads a <code>Fixed</code> as its <code>T</code>.</p>
+<h2 id="non-linear-codes">Non-linear codes<a class="headerlink" href="#non-linear-codes" title="Permanent link">&para;</a></h2>
+<p>A <code>codec::Coded&lt;C, V, T&gt;</code> is a number given by a non-linear code instead of a linear step: a G.711 μ-law byte, a
+gamma-encoded pixel. On the wire it is its code <code>T</code>; the codec <code>C</code> is a marker whose definition the model carries
+(<code>MarkerDef::Codec</code>, exact_units' <code>CodecDef</code>: an id and a shape), so a client decodes and encodes it without the
+<code>Codec</code> trait or a generated type (STD-109). Spell out all three arguments in an API, the walker doesn't follow the
+trait's associated types:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">codec</span><span class="p">::{</span><span class="n">Coded</span><span class="p">,</span><span class="w"> </span><span class="n">MuLaw</span><span class="p">},</span><span class="w"> </span><span class="n">prefix</span><span class="p">::</span><span class="n">Pow2</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Ratio</span><span class="p">};</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">trait</span><span class="w"> </span><span class="n">Line</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="sd">/// One G.711 μ-law byte: the 14-bit linear sample it means is the `Fixed`</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">voice</span><span class="p">:</span><span class="w"> </span><span class="nc">Coded</span><span class="o">&lt;</span><span class="n">MuLaw</span><span class="p">,</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Ratio</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">13</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The dynamic client, <code>ww</code> and Python read such a value as the <code>Fixed</code> it means: the byte 0x80 is the sample 8031.
+Writing a quantity encodes it by the codec, exactly as a write into a <code>Fixed</code> is exact: a value between two codes is
+refused, naming the nearest one.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>31·2⁻¹³ is no code of exact_units::MuLaw: the nearest is 30·2⁻¹³ (code 240)
+</span></code></pre></div>
+<p>Python's <code>ww.Quantity</code> has the code it was read as in <code>code</code> (128 for 0x80) beside the linear <code>value</code>. In Rust,
+<code>wire_weaver_client::quantity::coded_of(&amp;ty, &amp;bundle)</code> reads the type as a <code>CodedType</code> (the codec's definition, the
+linear <code>FixedType</code>, the code's storage), and <code>ww_self::units::codec_decode</code> / <code>codec_encode</code> run a definition. Only
+μ-law has an algorithm in <code>exact_units</code> so far; the walker reads the shapes without parameters (<code>MuLaw</code>, <code>ALaw</code>,
+<code>PiecewisePower</code>), and a codec whose shape has no algorithm yet is shown as its code.</p>
 <h2 id="serde">serde<a class="headerlink" href="#serde" title="Permanent link">&para;</a></h2>
 <p>With the feature <code>serde</code> the numbers are <code>Serialize</code> / <code>Deserialize</code>, <code>no_std</code> and without alloc (STD-94): the same
 rule as the wire, each value as the number it stores, and a field marked <code>with_unit</code> as text in its unit (<code>"1.5

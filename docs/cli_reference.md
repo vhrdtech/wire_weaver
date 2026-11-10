@@ -219,7 +219,9 @@ bumped enough since the previous version's snapshot (`--force` saves anyway), se
 `ww api check <path>` is the [evolution checker](evolution/checker_tool.md): it compares the crate with its latest
 snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,
 compatible position for anything else, doc comments included), naming the rule each breaking change breaks; with
-`--strict` a crate without a snapshot fails too. An API crate runs the same check from its own test, see
+`--strict` a crate without a snapshot fails too. A crate with several API roots is checked root by root, each
+against its own latest snapshot, and `ww api save` records a root removed from the `roots` table ([checking each
+root](evolution/checker_tool.md#checking-each-root)). An API crate runs the same check from its own test, see
 [checking at every commit](evolution/checker_tool.md#checking-at-every-commit). `ww api diff <path>` compares the same versions and
 lists every change, doc comments included, see [listing all changes](evolution/checker_tool.md#listing-all-changes).
 

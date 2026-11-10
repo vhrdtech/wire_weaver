@@ -162,9 +162,10 @@ Each root's wire version is an entry of the `roots` table, by its module path:
   by each line's client with `sub_levels = [..]` ([shared sub-traits](multi_line_host.md#shared-sub-traits), CLT-68).
 * Every root needs an entry once the table exists; a crate-level `wire = ..` stays for a crate with one root and for
   crates whose traits are reached by global paths (`ww_stdlib`).
-* `ww api save` saves a snapshot per root
-  ([several API roots](checker_tool.md#several-api-roots-in-one-crate)). Checks per root are EVO-39: until then
-  `ww api check` refuses a crate with a `roots` table.
+* `ww api save` saves a snapshot per root, and `ww api check` checks each root against its own latest one
+  ([several API roots](checker_tool.md#several-api-roots-in-one-crate), [checking each root](checker_tool.md#checking-each-root)):
+  the crate version is bumped for the root that needs the most, and a root removed from the table is a breaking
+  crate bump, recorded by `ww api save`.
 
 ### Which bump a change needs
 

@@ -2057,9 +2057,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   tests `wire_weaver_evolution` `design_line_*`, `wire_weaver_core` `since_refused_on_the_design_line`,
   `design_line_root_shares_with_a_released_one`, `wire_version_note`, `wire_weaver_client`
   `design_line_checks_the_device_or_refuses`, `any_revision_of_the_line_is_taken`.
-- 📋 **EVO-39 The checker per root** · `v0.5` — each root against its own line's latest snapshot, a changed
-  `common` type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
-  root a breaking crate bump, `#[since]` per line checked, one `load_crate` cache across roots and the CLI.
+- ✅ **EVO-39 The checker per root** · `v0.5` — `ww api check`, `ww api diff` and `Check::run` of a crate with a
+  `roots` table check each root against its own latest snapshot (`RootsOutcome`): the wire version and `#[since]` on
+  the root's line, a wire bump naming its entry in the table. A changed type or trait several roots reach is named
+  once with every root and line it changed on (`SharedChange`), and the crate version must be bumped for the root
+  that needs the most. A root's older snapshot stands for a crate version that saved other roots, so a later change
+  needs a new version; `require_current` works per root. A root removed from the table is a breaking crate bump,
+  which `ww api save` records in a `.removed` file (`RemovedRoot`, `SaveStatus::Removed`). `--against` takes a root's
+  file. All loads of a check share `wire_weaver_core::CrateCache`: a repeated `load_crate` of `tests/thermo_api/w3`
+  takes 80 ms instead of 198 ms. A whole-crate snapshot's line that no root continues is not reported as removed.
+  Docs: `docs/evolution/checker_tool.md#checking-each-root`; tests `wire_weaver_evolution` `checker_per_root`,
+  `removed_root_needs_a_breaking_bump`, `unchanged_roots_snapshot_stands_for_the_saved_version`, `wire_weaver_core`
+  `crate_cache_gives_the_same_bundles`.
 - 📋 **EVO-40 `#[moved_from]`** · `v0.5` — `#[moved_from(w1.4, path::to::item)]` on an item's new place: the
   checker verifies the signature is the same and reports a move. Resources match by position within a line and
   only by `moved_from` across a break; the checker proposes same-name matches on a first break and never adds the

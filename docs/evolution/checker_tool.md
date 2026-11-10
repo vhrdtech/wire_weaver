@@ -271,9 +271,48 @@ wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.w
 * A root with no earlier snapshot is saved unchecked. When the crate has snapshots of older versions, `ww api save`
   warns, naming what it looked for and what is there: a root renamed, or moved to another module or line, matches
   none of them by name (EVO-40).
-* `ww api check` and `Check::run` refuse such a crate for now: checking each root against its line's latest snapshot
-  is EVO-39.
 * A root on w0 gets no snapshot (below).
+
+### Checking each root
+
+`ww api check` and `Check::run` check such a crate root by root (EVO-39): each root from source against its own
+latest snapshot, under its name and wire version. Here `Code` in `common` went from `u16` to `u32`:
+
+```
+$ ww api check tests/multi_root_api
+API root `wire_v1::Thermo` (w1.2)
+multi_root_api 0.1.0 (api_snapshots/multi_root_api_0_1_0.wire_v1.Thermo@w1.2.ron) -> 0.1.0 (source): breaking changes
+  needs: wire w1.2 -> w2.0 or later (a new wire line), crate 0.1.0 -> 0.2.0 or later (breaking position ...)
+  breaking: Channel::read: return type: struct Code: field 0: u32 on the new version, u16 on the old version
+  ...
+API root `wire_v2::Thermo` (w2.1)
+multi_root_api 0.1.0 (api_snapshots/multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron) -> 0.1.0 (source): breaking changes
+  needs: wire w2.1 -> w3.0 or later (a new wire line), crate 0.1.0 -> 0.2.0 or later (breaking position ...)
+  ...
+note: shared `Code` changed on `wire_v1::Thermo` (w1.2), `wire_v2::Thermo` (w2.1)
+crate: 0.2.0 or later, the largest its roots need
+```
+
+* Each root's wire version is checked on its own line, and a wire bump names the root's entry in the `roots` table.
+  `#[since = "w1.2, w2.1"]` on a shared item is checked against each line's revision.
+* A type or trait of the crate that more than one root reaches and that changed is listed once more at the end, with
+  every root and line it changed on.
+* The crate version is one for all roots, so it has to be bumped for the root that needs the most.
+* A root that didn't change keeps an older crate version's snapshot as its latest. Once the crate version has
+  snapshots of other roots, that older snapshot stands for the current version: a change to the root afterwards needs
+  a new version, or a save again while the version isn't released, as for a whole crate.
+* With `require_current` (the evolution test), a root that changed since its latest snapshot needs a file of the
+  current version. A root unchanged since an older version's snapshot needs none.
+* A root the `roots` table no longer lists while it has snapshots is a line leaving the crate, a breaking crate bump
+  ([several lines in one crate](rules.md#several-lines-in-one-crate)). `ww api save` records the removal in
+  `<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.removed`, a one-line text file, and refuses
+  it without the bump. Later versions are not asked again, and the evolution test fails until the removal is recorded.
+* `ww api check --against <file>` takes one root's snapshot file and checks that root. A root's snapshot file checked
+  by itself is compared with the previous snapshot of the same root.
+* `ww api diff` lists each root's differences under its name.
+* All roots are loaded with one cache of the crates read (`wire_weaver_core::CrateCache`), so the dependencies'
+  source is walked once for the whole check.
+* A root on w0 gets no snapshot and needs none: its check is on the design line ([below](#the-design-line-w0)).
 
 ## The design line, w0
 

@@ -6,7 +6,9 @@
 //! goes into the API model. The grammar is the one documented at the macros; a line the macros don't accept is an
 //! error here too. An `origin!` declares one struct, `<attrs> <vis> struct <Name> { <keyed fields> }`; its fields
 //! are kept as they are in `#[ww_marker(origin, ..)]`. A `quantity!` line is `= [kind] <dimension>[, <character>]`
-//! for a root or `: [kind] <Parent>[, <character>]` for a child, kept with its `=` or `:`.
+//! for a root or `: [kind] <Parent>[, <character>]` for a child, kept with its `=` or `:`. A struct with an
+//! `impl exact_units::Reference` beside it (PT-4, STD-108) gets `#[ww_marker(reference, "<NAME>", <HOW>)]`, the
+//! impl's `NAME` and `HOW` constants as written.
 
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
@@ -20,9 +22,12 @@ use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, Item, LitInt, LitStr, Token, Visibility, bracketed, parenthesized};
 use ww_self::units::{
-    marker_id_of, origin_of, quantity_of, scale_of, system_of, unit_of, unit_zero,
+    origin_of, quantity_of, reference_of, scale_of, system_of, unit_of, unit_zero,
 };
-use ww_self::{ApiBundleOwned, MarkerDefOwned, OriginDefOwned, ScaleDefOwned};
+use ww_self::{
+    ApiBundleOwned, MarkerDefOwned, OriginDefOwned, ReferenceDefOwned, ReferenceHow, ScaleDefOwned,
+    TimeCounting, TimeScaleDef, TimeZero,
+};
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
 pub(crate) const MARKER_ATTR: &str = "ww_marker";
@@ -88,6 +93,7 @@ pub(crate) fn expand_marker_macros(items: &mut Vec<Item>) -> Result<()> {
 /// marker is used, instead of leaving it unitless.
 fn mark_hand_written(items: &mut [Item]) {
     let mut hand = Vec::new();
+    let mut references = Vec::new();
     for item in items.iter() {
         let Item::Impl(item_impl) = item else {
             continue;
@@ -98,6 +104,19 @@ fn mark_hand_written(items: &mut [Item]) {
         let Some(trait_name) = trait_path.segments.last().map(|s| s.ident.to_string()) else {
             continue;
         };
+        if trait_name == "Reference"
+            && let syn::Type::Path(self_ty) = &*item_impl.self_ty
+            && let Some(name) = self_ty.path.segments.last()
+        {
+            let konst = |k: &str| {
+                item_impl.items.iter().find_map(|i| match i {
+                    syn::ImplItem::Const(c) if c.ident == k => Some(c.expr.clone()),
+                    _ => None,
+                })
+            };
+            references.push((name.ident.clone(), konst("NAME"), konst("HOW")));
+            continue;
+        }
         let konst = match trait_name.as_str() {
             "Unit" => "DIM",
             "FixedScale" => "SCALE",
@@ -130,6 +149,77 @@ fn mark_hand_written(items: &mut [Item]) {
                 .attrs
                 .push(syn::parse_quote!(#[#attr(hand, #trait_name)]));
         }
+        if let Item::Struct(item_struct) = item
+            && !item_struct
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident(MARKER_ATTR))
+            && let Some((_, name, how)) = references
+                .iter()
+                .find(|(ident, _, _)| *ident == item_struct.ident)
+        {
+            let attr = Ident::new(MARKER_ATTR, item_struct.ident.span());
+            // a missing constant is refused when the marker is used ([MarkerLineDef::Reference])
+            let name = name
+                .clone()
+                .unwrap_or_else(|| syn::parse_quote!(missing_name));
+            let how = how
+                .clone()
+                .unwrap_or_else(|| syn::parse_quote!(missing_how));
+            item_struct
+                .attrs
+                .push(syn::parse_quote!(#[#attr(reference, #name, #how)]));
+        }
+    }
+}
+
+/// `exact_units::ReferenceHow` as an `impl Reference`'s `HOW` writes it: `ReferenceHow::Exact`,
+/// `ReferenceHow::RunTime` or `ReferenceHow::TimeScale(TimeScaleDef { counting: TimeCounting::EverySecond, zero:
+/// TimeZero::Agreed })`, by the last segment of each path.
+fn reference_how(e: &syn::Expr) -> Result<ReferenceHow> {
+    let last = |p: &syn::Path| p.segments.last().map(|s| s.ident.to_string());
+    let field = |s: &syn::ExprStruct, name: &str| -> Result<String> {
+        s.fields
+            .iter()
+            .find(|f| matches!(&f.member, syn::Member::Named(i) if i == name))
+            .and_then(|f| match &f.expr {
+                syn::Expr::Path(p) => last(&p.path),
+                _ => None,
+            })
+            .ok_or_else(|| anyhow!("`{}`: no `{name}: <path>`", quote::quote!(#s)))
+    };
+    match e {
+        syn::Expr::Path(p) => match last(&p.path).as_deref() {
+            Some("Exact") => Ok(ReferenceHow::Exact),
+            Some("RunTime") => Ok(ReferenceHow::RunTime),
+            _ => bail!(
+                "HOW `{}`: Exact, RunTime or TimeScale(..)",
+                quote::quote!(#e)
+            ),
+        },
+        syn::Expr::Call(c)
+            if matches!(&*c.func, syn::Expr::Path(p) if last(&p.path).as_deref() == Some("TimeScale"))
+                && c.args.len() == 1 =>
+        {
+            let syn::Expr::Struct(s) = &c.args[0] else {
+                bail!("`{}`: TimeScale(TimeScaleDef {{ .. }})", quote::quote!(#e));
+            };
+            let counting = match field(s, "counting")?.as_str() {
+                "EverySecond" => TimeCounting::EverySecond,
+                "PosixDays" => TimeCounting::PosixDays,
+                other => bail!("counting `{other}`: EverySecond or PosixDays"),
+            };
+            let zero = match field(s, "zero")?.as_str() {
+                "Agreed" => TimeZero::Agreed,
+                "RunTime" => TimeZero::RunTime,
+                other => bail!("zero `{other}`: Agreed or RunTime"),
+            };
+            Ok(ReferenceHow::TimeScale(TimeScaleDef { counting, zero }))
+        }
+        _ => bail!(
+            "HOW `{}`: Exact, RunTime or TimeScale(..)",
+            quote::quote!(#e)
+        ),
     }
 }
 
@@ -399,7 +489,7 @@ pub(crate) fn origin_def(
             let reference = match reference {
                 Some(r) if !last_ident_is(r, "UnitZero") => {
                     let (ty, bundle) = resolve(r)?;
-                    marker_id_of(&ty, &bundle).context("the origin's reference")?
+                    reference_of(&ty, &bundle).context("the origin's reference")?
                 }
                 _ => unit_zero(),
             };
@@ -589,6 +679,8 @@ pub(crate) enum MarkerLineDef {
     Origin(Box<OriginFields>),
     /// A `quantity!` line.
     Quantity(QuantityLine),
+    /// An `impl Reference`'s `NAME` and `HOW` constants, as written (STD-108).
+    Reference(Box<(syn::Expr, syn::Expr)>),
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -605,9 +697,14 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             "hand" => Ok(MarkerLineDef::Hand(input.parse::<Ident>()?.to_string())),
             "origin" => Ok(MarkerLineDef::Origin(Box::new(input.parse()?))),
             "quantity" => Ok(MarkerLineDef::Quantity(input.parse()?)),
+            "reference" => {
+                let name = input.parse()?;
+                input.parse::<Token![,]>()?;
+                Ok(MarkerLineDef::Reference(Box::new((name, input.parse()?))))
+            }
             _ => Err(syn::Error::new(
                 kind.span(),
-                "unit, scale, hand, origin or quantity",
+                "unit, scale, hand, origin, quantity or reference",
             )),
         }
     })?;
@@ -839,6 +936,24 @@ pub(crate) fn marker_def(
                 dim,
                 is_kind,
                 character,
+            })
+        }
+        MarkerLineDef::Reference(line) => {
+            let (name, how) = *line;
+            let syn::Expr::Lit(syn::ExprLit {
+                lit: syn::Lit::Str(name),
+                ..
+            }) = name
+            else {
+                bail!(
+                    "reference marker {ident}: its `impl Reference` names it with a string literal, \
+                     `const NAME: &'static str = \"..\"`"
+                );
+            };
+            MarkerDefOwned::Reference(ReferenceDefOwned {
+                id: id(),
+                name: name.value(),
+                how: reference_how(&how).with_context(|| format!("reference marker {ident}"))?,
             })
         }
         MarkerLineDef::Hand(trait_name) => bail!(
@@ -1681,7 +1796,11 @@ mod tests {
             };
             assert_unit_def(&def.unit, unit, name);
             assert_eq!(def.symbol, compiled.symbol, "{name}");
-            assert_eq!(def.reference.as_id(), compiled.reference.id, "{name}");
+            assert_eq!(
+                def.reference,
+                ww_self::ReferenceDefOwned::from(&compiled.reference),
+                "{name}"
+            );
             assert_eq!(
                 (def.offset, def.modulus, def.step, def.shown),
                 (
@@ -1721,6 +1840,20 @@ mod tests {
                 panic!("{name}: no system definition in the model");
             };
             assert_eq!(def, SystemDefOwned::try_from(*compiled).unwrap(), "{name}");
+        }
+        // PT-4, STD-108: each `impl Reference`, its NAME and HOW as compiled
+        for compiled in [
+            <exact_units::UnitZero as exact_units::Reference>::DEF,
+            <exact_units::AmbientPressure as exact_units::Reference>::DEF,
+            <origins::TaiScale as exact_units::Reference>::DEF,
+            <origins::PosixScale as exact_units::Reference>::DEF,
+            <origins::DeviceMonotonic as exact_units::Reference>::DEF,
+        ] {
+            let name = compiled.id.name;
+            let Some(MarkerDefOwned::Reference(def)) = markers.remove(name) else {
+                panic!("{name}: no reference definition in the model");
+            };
+            assert_eq!(def, ReferenceDefOwned::from(&compiled), "{name}");
         }
         // UNIT-10: exactly the `base` lines are `Base`, each declaring the base its id names; `base(Other)` is none
         macro_rules! bases {
@@ -2040,6 +2173,69 @@ mod tests {
     }
 
     /// A marker whose definition only rustc knows is an error when used, never a struct without a unit.
+    /// STD-108: an `impl Reference` beside a struct makes it a reference marker, its NAME and HOW read as written.
+    #[test]
+    fn a_reference_impl_is_read() {
+        let items = expand(
+            r#"
+            pub struct IndexPulse;
+            impl exact_units::Reference for IndexPulse {
+                const ID: MarkerId<'static> = MarkerId { crate_name: "my_api", name: "IndexPulse" };
+                const NAME: &'static str = "index pulse";
+                const HOW: ReferenceHow = ReferenceHow::RunTime;
+            }
+            pub struct BoardClock;
+            impl Reference for BoardClock {
+                const ID: MarkerId<'static> = MarkerId { crate_name: "my_api", name: "BoardClock" };
+                const NAME: &'static str = "board clock";
+                const HOW: ReferenceHow = exact_units::ReferenceHow::TimeScale(TimeScaleDef {
+                    counting: TimeCounting::EverySecond,
+                    zero: TimeZero::RunTime,
+                });
+            }
+            pub struct Named;
+            impl Reference for Named {
+                const NAME: &'static str = NAME;
+                const HOW: ReferenceHow = ReferenceHow::Exact;
+            }
+            "#,
+        );
+        let structs: Vec<_> = items
+            .iter()
+            .filter_map(|i| match i {
+                Item::Struct(s) => Some(s),
+                _ => None,
+            })
+            .collect();
+        let def = |i: usize| marker_def(structs[i], "my-api", &mut NoRefs);
+        assert_eq!(
+            def(0).unwrap(),
+            Some(MarkerDefOwned::Reference(ReferenceDefOwned {
+                id: MarkerIdOwned {
+                    crate_name: "my_api".into(),
+                    name: "IndexPulse".into()
+                },
+                name: "index pulse".into(),
+                how: ReferenceHow::RunTime,
+            }))
+        );
+        let Some(MarkerDefOwned::Reference(clock)) = def(1).unwrap() else {
+            panic!("a reference");
+        };
+        assert_eq!(
+            clock.how,
+            ReferenceHow::TimeScale(TimeScaleDef {
+                counting: TimeCounting::EverySecond,
+                zero: TimeZero::RunTime
+            })
+        );
+        let err = def(2).unwrap_err().to_string();
+        assert!(
+            err.contains("Named") && err.contains("string literal"),
+            "{err}"
+        );
+    }
+
     #[test]
     fn a_hand_written_impl_is_an_error_naming_the_marker() {
         let items = expand(

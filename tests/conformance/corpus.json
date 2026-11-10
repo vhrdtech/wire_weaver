@@ -1770,11 +1770,35 @@
     {
       "name": "model.marker_def.origin",
       "type": "marker_def",
-      "value": {"Origin": {"id": {"crate_name": "exact_units", "name": "Celsius"}, "unit": {"id": {"crate_name": "exact_units", "name": "Kelvin"}, "names": {"symbol": "K", "ascii": null, "long": "kelvin", "plural": "kelvins", "aliases": "", "ucum": "K", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}, "symbol": "°C", "reference": {"crate_name": "exact_units", "name": "UnitZero"}, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}}},
-      "bytes": "e165786163745f756e69747343656c7369757365786163745f756e6974734b656c76696e4b006b656c76696e6b656c76696e73804b11076165786163745f756e69747353690000400000000001072394a639c2b04365786163745f756e697473556e69745a65726f40fe80fe43048fb9100200000020fe80fe43048fb910020000093937f739058a",
-      "wire_change": "EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has",
+      "value": {"Origin": {"id": {"crate_name": "exact_units", "name": "Celsius"}, "unit": {"id": {"crate_name": "exact_units", "name": "Kelvin"}, "names": {"symbol": "K", "ascii": null, "long": "kelvin", "plural": "kelvins", "aliases": "", "ucum": "K", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 2}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}, "symbol": "°C", "reference": {"id": {"crate_name": "exact_units", "name": "UnitZero"}, "name": "", "how": "Exact"}, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}}}}},
+      "bytes": "e165786163745f756e69747343656c7369757365786163745f756e6974734b656c76696e4b006b656c76696e6b656c76696e73804b11076165786163745f756e69747353690000400000000001072394a639c2b04365786163745f756e697473556e69745a65726f0010093940fe80fe43048fb9100200000020fe80fe43048fb9100200007a37f739009a",
+      "wire_change": "EVO-48 / exact_units PT-4: an origin carries its reference whole (id, name and how its zero is known) instead of its MarkerId",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "origin! of °C: its id, Kelvin's UnitDef, 273.15 K above the reference exact_units::UnitZero, shown from there, no modulus (INT-13, STD-64, STD-106)"
+    },
+    {
+      "name": "model.marker_def.origin_time_scale",
+      "type": "marker_def",
+      "value": {"Origin": {"id": {"crate_name": "exact_units", "name": "UnixEpoch"}, "unit": {"id": {"crate_name": "exact_units", "name": "Second"}, "names": {"symbol": "s", "ascii": null, "long": "second", "plural": "seconds", "aliases": "", "ucum": "s", "prefixes": "Decimal"}, "dim": {"system": {"crate_name": "exact_units", "name": "Si"}, "exps": [{"halves": 2}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}, {"halves": 0}], "bases": []}, "quantity": null, "scale": {"pow10": 0, "rest": null}, "provenance": "Defined"}, "symbol": "s UTC", "reference": {"id": {"crate_name": "exact_units", "name": "PosixScale"}, "name": "POSIX time", "how": {"TimeScale": {"counting": "PosixDays", "zero": "Agreed"}}}, "offset": {"negative": false, "magnitude": null}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": null}}},
+      "bytes": "e165786163745f756e697473556e697845706f636865786163745f756e6974735365636f6e6473007365636f6e647365636f6e6473807311076165786163745f756e69747353694000000000000001072394a639732055544365786163745f756e697473506f7369785363616c65504f5349582074696d65201000110305292939000000d57f1939078a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "origin! of the Unix epoch on PosixScale: a time scale counting days of 86400 s from an agreed zero (PT-4, STD-108)"
+    },
+    {
+      "name": "model.marker_def.reference",
+      "type": "marker_def",
+      "value": {"Reference": {"id": {"crate_name": "exact_units", "name": "TaiScale"}, "name": "TAI", "how": {"TimeScale": {"counting": "EverySecond", "zero": "Agreed"}}}},
+      "bytes": "9365786163745f756e6974735461695363616c6554414920000011035309396b",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "impl Reference of TaiScale: a time scale counting every SI second from an agreed zero (PT-4, STD-108)"
+    },
+    {
+      "name": "model.marker_def.reference_run_time",
+      "type": "marker_def",
+      "value": {"Reference": {"id": {"crate_name": "exact_units", "name": "AmbientPressure"}, "name": "ambient pressure", "how": "RunTime"}},
+      "bytes": "9365786163745f756e697473416d6269656e745072657373757265616d6269656e7420707265737375726510010a79397d",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "impl Reference of AmbientPressure: a zero known only at run time (PT-4, STD-108)"
     },
     {
       "name": "model.marker_def.angle",

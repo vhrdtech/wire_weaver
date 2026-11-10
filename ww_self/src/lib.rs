@@ -817,6 +817,10 @@ pub enum MarkerDef<'i> {
     /// id ([exact_units::DimOwned::system]), and a bundle lists it as it lists a named quantity; SI is never listed,
     /// every reader knows it. A reader from before it gets `Unknown`.
     System(exact_units::SystemDef<'i>),
+    /// A reference of origins (an `impl exact_units::Reference`, PT-4): `TaiScale`, `PosixScale`,
+    /// `DeviceMonotonic`, a user's encoder index. An [origin](Self::Origin) carries its reference whole. A reader
+    /// from before it gets `Unknown`.
+    Reference(ReferenceDef<'i>),
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.
@@ -847,10 +851,11 @@ pub struct OriginDef<'i> {
     pub unit: exact_units::UnitDef<'i>,
     /// Written after a point's number: `"°C"`.
     pub symbol: &'i str,
-    /// What [Self::offset] is measured from (`exact_units::Reference::ID`): `exact_units::UnitZero` for the unit's
-    /// own zero (0 K, vacuum), else the marker of a zero only known at run time (`exact_units::AmbientPressure` for
-    /// gauge pressure). Points of origins with different references don't convert into each other.
-    pub reference: exact_units::MarkerId<'i>,
+    /// What [Self::offset] is measured from, all of `exact_units::ReferenceDef`: `exact_units::UnitZero` for the
+    /// unit's own zero (0 K, vacuum), a zero only known at run time (`exact_units::AmbientPressure` for gauge
+    /// pressure) or a time scale's (`PosixScale`, `TaiScale`, `DeviceMonotonic`, STD-108). Points of origins with
+    /// different references don't convert into each other at compile time; [ReferenceDef::how] says how they can.
+    pub reference: ReferenceDef<'i>,
     /// Where the origin lies from the reference's zero, in [Self::unit]: 273.15 for °C.
     pub offset: exact_units::Offset,
     /// The period in [Self::unit] for points that wrap (an angle: 360 for degrees), `None` for points that don't.
@@ -860,6 +865,86 @@ pub struct OriginDef<'i> {
     /// Where the shown number's zero lies, from the reference's zero: [Self::offset], or that of the origin it is
     /// declared above (a register `raw / 256 + 25 °C` is shown in °C, from 273.15 K).
     pub shown: exact_units::Offset,
+}
+
+/// What an origin's offset is measured from (STD-108): an `impl exact_units::Reference`, all of
+/// `exact_units::ReferenceDef` as data. Also the definition of the reference's marker struct
+/// ([MarkerDef::Reference]).
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct ReferenceDef<'i> {
+    /// The crate and marker that declare it: `exact_units::Reference::ID`, `exact_units::UnitZero`.
+    pub id: exact_units::MarkerId<'i>,
+    /// What the zero is, empty for the unit's own zero: `"ambient pressure"`, `"TAI"`.
+    pub name: &'i str,
+    /// How its zero is known.
+    pub how: ReferenceHow,
+}
+
+/// How a reference's zero is known, `exact_units::ReferenceHow`. Evolvable: a reader that doesn't know a newer kind
+/// treats the points as convertible to no other reference.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum ReferenceHow {
+    /// A fixed zero of the unit (`UnitZero`): points against it convert at compile time.
+    Exact,
+    /// A zero only known at run time (`AmbientPressure`, an encoder's index pulse): points reach another reference
+    /// only with its value at run time (`Point::against`).
+    RunTime,
+    /// A time scale's zero: points convert exactly within the scale, between scales only as its definition allows.
+    TimeScale(TimeScaleDef),
+}
+
+/// A time scale, `exact_units::TimeScaleDef`: how it counts seconds and how its zero is known.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
+pub struct TimeScaleDef {
+    pub counting: TimeCounting,
+    pub zero: TimeZero,
+}
+
+/// How a time scale counts its seconds, `exact_units::TimeCounting`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum TimeCounting {
+    /// Every SI second: TAI, GPS time, a device's monotonic clock (nominally).
+    EverySecond,
+    /// Every day 86400 s, leap seconds not counted: POSIX time, NTP. To and from TAI only through a leap-second
+    /// table at run time.
+    PosixDays,
+}
+
+/// How a time scale's zero is known, `exact_units::TimeZero`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum TimeZero {
+    /// An agreed moment, the same for everyone: 1958-01-01 TAI, 1970-01-01 UTC.
+    Agreed,
+    /// A moment of one clock (a device's boot), known only at run time: points reach another scale only through a
+    /// clock sync.
+    RunTime,
 }
 
 #[derive_shrink_wrap(

@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use quantities_api::{BoardTemp, DegreePerSecond, Mdps70, Rpm};
+    use quantities_api::{BoardTemp, DegreePerSecond, Mdps70, Rpm, Shaft};
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
@@ -39,6 +39,7 @@ mod tests {
     type Belt = Fixed<Times<Per<Ratio, units::Second>, Meter>, Milli, u16>;
     type BoardTemperature = Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>;
     type Heading = Point<Angle<Degree>, Fixed<Degree, Centi, u16>>;
+    type ShaftAngle = Point<Shaft, Fixed<Degree, Centi, i32>>;
     type Uptime = Fixed<units::Second, Micro, u64>;
     type Buffer = Fixed<units::Byte, Kibi, u16>;
     type Delay = Fixed<units::Second, Micro, u32, Range<0, 5000000>>;
@@ -355,6 +356,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Heading, ()> {
                 GetResult::Value(Heading::from_raw(9000))
+            }
+
+            fn get_shaft(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<ShaftAngle, ()> {
+                GetResult::Value(ShaftAngle::from_raw(-4500))
             }
 
             fn set_window(
@@ -963,7 +971,7 @@ mod tests {
         let (client, root) = connect(&device).await;
         let bundle = root.bundle();
         let mut origins = Vec::new();
-        for name in ["board_temp", "heading"] {
+        for name in ["board_temp", "heading", "shaft"] {
             let (_, ty) = read(&client, &root, name).await;
             let Ok(TypeOwned::Struct(p)) = ty.get_in_line(bundle) else {
                 panic!("Point");
@@ -974,7 +982,7 @@ mod tests {
             };
             origins.push(ww_self::units::origin_of(o, bundle).unwrap());
         }
-        let [board, heading]: [_; 2] = origins.try_into().unwrap();
+        let [board, heading, shaft]: [_; 3] = origins.try_into().unwrap();
         let compiled = <BoardTemp as ww_si::Origin>::DEF;
         assert_eq!(board.symbol, "°C");
         assert_eq!(board.id.as_id(), compiled.id);
@@ -984,7 +992,10 @@ mod tests {
         // shown in °C, from 273.15 K
         assert_eq!(board.shown, ww_si::Offset::decimal(27315, -2));
         assert_eq!(board.modulus, None);
-        assert_eq!(board.reference.as_id(), compiled.reference.id);
+        assert_eq!(
+            board.reference,
+            ww_self::ReferenceDefOwned::from(&compiled.reference)
+        );
         let compiled = <Angle<Degree> as ww_si::Origin>::DEF;
         assert_eq!(heading.modulus, compiled.modulus);
         assert_eq!(heading.modulus, Some(Magnitude::ratio(360, 1)));
@@ -994,6 +1005,20 @@ mod tests {
         );
         assert_eq!(heading.unit.scale, Magnitude::new(1, 180, 0, 0, 1));
         assert_eq!(heading.id.as_id(), compiled.id);
+        // STD-108: a reference of the API's crate, known only at run time, comes whole with the origin
+        let compiled = <Shaft as ww_si::Origin>::DEF;
+        assert_eq!(
+            shaft.reference,
+            ww_self::ReferenceDefOwned::from(&compiled.reference)
+        );
+        assert_eq!(shaft.reference.name, "index pulse");
+        assert_eq!(shaft.reference.how, ww_self::ReferenceHow::RunTime);
+        let why =
+            ww_self::units::reference_conversion(&shaft.reference, &heading.reference).unwrap_err();
+        assert!(
+            why.contains("index pulse") && why.contains("run time"),
+            "{why}"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

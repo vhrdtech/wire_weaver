@@ -13,6 +13,7 @@
 
 ### 🚀 Features
 
+- Re-exports `Reference`, `ReferenceDef`, `ReferenceHow`, `TimeScaleDef`, `TimeCounting`, `TimeZero` and `UnitZero` (exact_units PT-4), so a crate declares a reference of its own through `ww_si` (STD-108).
 - Re-exports exact_units UNIT-9's systems: `System`, `SystemDef`, `SystemRef`, `BaseRule`, `BridgeDef`, `BridgeError`, `SetToOne`, `Crossing` and the `systems` module (`Si`, `Natural`, `Gaussian`, their units and quantities), with `std` their owned forms; a `systems` feature (on with `std`) turns on exact_units' `systems`.
 - Re-exports `Exp`, `Bases`, `BaseExp`, `BaseDef`, `DimWire`, `MAX_TRUE_BASES`, `PrefixPolicy`, `base!`, and with `std` `BaseExpOwned`, `BaseDefOwned`, `DimWireOwned`, `UnitNamesOwned` (exact_units UNIT-10, IO-9).
 * `AnyQuantity::display(&table)` and `compact_in(&table, &mut arena)` (no allocation, a named unit needs no arena), `AnyQuantityOwned::display`, `compact` and `resolve` (STD-107): a value sent beside its API carries the API's units as `Ref`s, 22 bytes for 3300 mV instead of 35. Re-exports `UnitTable`, `UnitDef`, `UnitNames`, `MarkerId`, `CompactError` and, with `std`, `UnitDefOwned`, `MarkerIdOwned`.

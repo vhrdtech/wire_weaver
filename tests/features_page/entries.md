@@ -426,6 +426,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - NUM-20 | Floats that are always finite | A `Finite` bound keeps a float quantity a number: ±∞ and NaN are refused on construction, on the wire and in text, and arithmetic that would leave the finite range gives no value. |
 - NUM-21 | Sorting and hashing floats | A float quantity that can't be NaN is a total order with −0 equal to +0: it sorts, keys a map and has a maximum. |
 - STD-105 | NaN-free floats in clients | A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused. | std_library/exact_units.md
+- STD-108 | Time scales in the model | An origin says what its zero is measured from and how that zero is known (exact, at run time, a time scale), so clients and the evolution check tell why a Unix time and a TAI or device time don't convert. | std_library/units_in_the_model.md#references
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
 - UNIT-7 | A unit is defined once, by its crate | A unit made with `unit!` carries its crate and name, so two crates' `Rpm` are two units that print the same, and its definition is plain data a client can read. | std_library/units_in_the_model.md#identity
 - UNIT-10 | Any number of distinguished bases, half exponents | Radians, bits, nepers and every counted thing (`Sample`, your own `Pixel`) are bases of their own, as many in one unit as it needs, and V/√Hz is plain halves: rad/s never becomes Hz, torque never energy. | std_library/ww_si.md#dimensions
@@ -515,3 +516,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.
 - EVO-45 | The wire change behind quantity specs (a unit names its quantity by id, `MarkerDef::Quantity` and `Of`): the user-visible side is exact_units UNIT-8.
 - EVO-47 | The wire change behind systems of units (a dimension names its system, `MarkerDef::System`): the user-visible side is exact_units UNIT-9.
+- EVO-48 | The wire change behind references of origins (`OriginDef::reference` a `ReferenceDef`, `MarkerDef::Reference`): the user-visible side is STD-108.

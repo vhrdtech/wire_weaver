@@ -62,6 +62,9 @@ trait Quantities {
     property!(ro board_temp: Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>);
     /// A heading in 0.01° that wraps at 360°
     property!(ro heading: Point<Angle<Degree>, Fixed<Degree, Centi, u16>>);
+    /// The shaft's angle in 0.01° from the encoder's index pulse, a reference of this crate known only at run time
+    /// (STD-108)
+    property!(ro shaft: Point<Shaft, Fixed<Degree, Centi, i32>>);
     /// Time since boot in µs: past what an `f64` holds exactly
     property!(rw uptime: Fixed<Second, Micro, u64>);
     /// A buffer's size, in a binary prefix
@@ -97,6 +100,25 @@ trait Quantities {
 ww_si::origin! {
     /// The board's temperature sensor reads 0 at 25 °C
     pub struct BoardTemp { above: Celsius, offset: Offset::int(25) }
+}
+
+/// The shaft encoder's index pulse: where it lies is known only at run time, so angles from it convert to no other
+/// reference without that value (STD-108)
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct IndexPulse;
+
+impl ww_si::Reference for IndexPulse {
+    const ID: ww_si::MarkerId<'static> = ww_si::MarkerId {
+        crate_name: "quantities_api",
+        name: "IndexPulse",
+    };
+    const NAME: &'static str = "index pulse";
+    const HOW: ww_si::ReferenceHow = ww_si::ReferenceHow::RunTime;
+}
+
+ww_si::origin! {
+    /// The shaft's angle from the encoder's index pulse
+    pub struct Shaft { unit: Degree, symbol: "° from index", offset: Offset::ZERO, reference: IndexPulse }
 }
 
 ww_si::unit! {

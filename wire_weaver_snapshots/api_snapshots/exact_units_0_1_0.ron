@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e91765c931fc9b7ac8bf33bd9b0216bee853ea1aae550e3d69e5cdfa6104d040
+// shrink_wrap sha256: e0d35e331b29b9d886082e2265728f960d4810161eb17411493239ee96417470
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -4286,7 +4286,7 @@
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The pressure around the sensor, known only at run time: what gauge pressure is measured against.",
-    ], ident: "AmbientPressure", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    ], ident: "AmbientPressure", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "AmbientPressure"), name: "ambient pressure", how: RunTime))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Points that don\'t wrap.",
     ], ident: "Linear", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4373,7 +4373,7 @@
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The unit\'s own zero: 0 K, 0 Pa (vacuum), the zero of an angle.",
-    ], ident: "UnitZero", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    ], ident: "UnitZero", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact))))))), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "A set of the named prefixes (the SI ones and kibi to tebi), one bit each: [PrefixPolicy::Only].",
     ], ident: "PrefixSet", generics: [], fields: Named([
@@ -7966,7 +7966,7 @@
         "([Point::across], feature `leap_seconds`).",
     ], ident: "TaiScale", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "TaiScale"), name: "TAI", how: TimeScale((counting: EverySecond, zero: Agreed))))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "UTC as POSIX time counts it, every day 86400 s, a leap second not counted: its zero is 1970-01-01 00:00:00",
         "UTC ([UnixEpoch]). `time_t`, `CLOCK_REALTIME`, NTP ([NtpEpoch]) and most log formats count it. A difference",
@@ -7974,7 +7974,7 @@
         "only through a leap-second table at run time ([Point::across], feature `leap_seconds`).",
     ], ident: "PosixScale", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "PosixScale"), name: "POSIX time", how: TimeScale((counting: PosixDays, zero: Agreed))))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A device\'s monotonic clock (a timer since boot): a time scale of its own, whose zero is known only at run time",
         "and differs per device and per boot, and whose rate is its crystal\'s. Its points reach a host\'s scale only",
@@ -7982,7 +7982,7 @@
         "talks to several devices declares a reference per device the same way, so their points can\'t mix.",
     ], ident: "DeviceMonotonic", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "DeviceMonotonic"), name: "device monotonic clock", how: TimeScale((counting: EverySecond, zero: RunTime))))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The Unix epoch, 1970-01-01 00:00:00 UTC, on [PosixScale]: a point from it is a moment in POSIX time, as",
         "`CLOCK_REALTIME`, `time_t`, journald\'s `__REALTIME_TIMESTAMP` and most log formats count it. Every day is",
@@ -7999,7 +7999,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (crate_name: "exact_units", name: "PosixScale"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (id: (crate_name: "exact_units", name: "PosixScale"), name: "POSIX time", how: TimeScale((counting: PosixDays, zero: Agreed))), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "NTP\'s epoch, 1900-01-01 00:00:00 UTC, on [PosixScale]: 2 208 988 800 s before the [UnixEpoch], exactly",
         "(NTP counts every day as 86400 s too, RFC 5905).",
@@ -8013,7 +8013,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (crate_name: "exact_units", name: "PosixScale"), offset: (negative: true, magnitude: Some((pow10: 4, pow2: 10, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s UTC", reference: (id: (crate_name: "exact_units", name: "PosixScale"), name: "POSIX time", how: TimeScale((counting: PosixDays, zero: Agreed))), offset: (negative: true, magnitude: Some((pow10: 4, pow2: 10, primes: [
         (3, 6),
         (37, 2),
         (691, 2),
@@ -8034,7 +8034,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s TAI", reference: (crate_name: "exact_units", name: "TaiScale"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s TAI", reference: (id: (crate_name: "exact_units", name: "TaiScale"), name: "TAI", how: TimeScale((counting: EverySecond, zero: Agreed))), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The GPS epoch, 1980-01-06 00:00:00 GPS time, which is 1980-01-06 00:00:19 TAI: GPS time counts every SI",
         "second and stays 19 s behind TAI, so it is an origin on [TaiScale], 694 656 019 s after",
@@ -8049,7 +8049,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s GPS", reference: (crate_name: "exact_units", name: "TaiScale"), offset: (magnitude: Some((pow10: 0, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s GPS", reference: (id: (crate_name: "exact_units", name: "TaiScale"), name: "TAI", how: TimeScale((counting: EverySecond, zero: Agreed))), offset: (magnitude: Some((pow10: 0, primes: [
         (37, 2),
         (109, 2),
         (172243, 2),
@@ -8071,7 +8071,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s PTP", reference: (crate_name: "exact_units", name: "TaiScale"), offset: (magnitude: Some((pow10: 4, pow2: 10, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s PTP", reference: (id: (crate_name: "exact_units", name: "TaiScale"), name: "TAI", how: TimeScale((counting: EverySecond, zero: Agreed))), offset: (magnitude: Some((pow10: 4, pow2: 10, primes: [
         (3, 10),
         (487, 2),
     ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: 4, pow2: 10, primes: [
@@ -8090,7 +8090,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s since boot", reference: (crate_name: "exact_units", name: "DeviceMonotonic"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "s since boot", reference: (id: (crate_name: "exact_units", name: "DeviceMonotonic"), name: "device monotonic clock", how: TimeScale((counting: EverySecond, zero: RunTime))), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Thermodynamic temperature, from absolute zero: `Point<AbsoluteZero, Fixed<Kelvin, Milli, u32>>` is a",
         "temperature in mK.",
@@ -8104,7 +8104,7 @@
         (halves: 2),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "K", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "K", reference: (id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Degrees Celsius: 0 °C is 273.15 K, a degree is 1 K (SI Brochure 2.3.4).",
     ], ident: "Celsius", generics: [], fields: Unit, sparse: false, path: Some([
@@ -8117,7 +8117,7 @@
         (halves: 2),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "°C", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "°C", reference: (id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact), offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
         (3, 4),
         (607, 2),
     ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: -2, pow2: -2, primes: [
@@ -8137,7 +8137,7 @@
         (halves: 2),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "°R", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (), modulus: None, step: (pow10: 2, pow2: -2, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "°R", reference: (id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact), offset: (), modulus: None, step: (pow10: 2, pow2: -2, primes: [
         (3, -4),
     ]), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -8153,7 +8153,7 @@
         (halves: 2),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "°F", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "°F", reference: (id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact), offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
         (3, -4),
         (43, 2),
         (1069, 2),
@@ -8176,7 +8176,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "Pa", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "Pa", reference: (id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gauge pressure, from the ambient pressure (a tyre, a compressor): converts to [Vacuum] only with the",
         "ambient pressure at run time ([Point::against](crate::Point::against)), never at compile time.",
@@ -8190,7 +8190,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "Pa (gauge)", reference: (crate_name: "exact_units", name: "AmbientPressure"), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "Pa (gauge)", reference: (id: (crate_name: "exact_units", name: "AmbientPressure"), name: "ambient pressure", how: RunTime), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pressure above one standard atmosphere, 101325 Pa (ISO 2533): gauge pressure with its reference stated,",
         "so it converts to [Vacuum] at compile time.",
@@ -8204,7 +8204,7 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "Pa (above 1 atm)", reference: (crate_name: "exact_units", name: "UnitZero"), offset: (magnitude: Some((pow10: 4, pow2: -4, primes: [
+    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined), symbol: "Pa (above 1 atm)", reference: (id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact), offset: (magnitude: Some((pow10: 4, pow2: -4, primes: [
         (3, 2),
         (7, 2),
         (193, 2),

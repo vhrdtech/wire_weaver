@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `exact_units`' snapshot saved again with references in the model (STD-108, EVO-48): `UnitZero`, `AmbientPressure`, `TaiScale`, `PosixScale` and `DeviceMonotonic` carry `MarkerDef::Reference`, and every origin its `ReferenceDef` whole; no other snapshot holds an origin.
 - `exact_units`' snapshot saved again at its landed main 16bf14c (EVO-47), which also holds LVL-6's codecs (`CodecShape`, `CodecDef`); the snapshots that name `ww_si` types are unchanged by it.
 - `ww_si` 0.4.0 (wire `w4.0`) and `ww_adc` 0.3.0 (wire `w3.0`) snapshots are new (EVO-47); every current snapshot that names a `ww_si` type (`ww_can_bus`, `ww_counters`, `ww_firmware_info`, `ww_gpio`, `ww_i2c`, `ww_indication`, `ww_logic_analyzer`, `ww_onewire`, `ww_pwm`, `ww_recorder`, `ww_signal_generator`, `ww_spi`, `ww_timebase`, `ww_uart`) saved again in place against it, as EVO-44 did. `signatures_from_before_marker_definitions`' pinned `ww_timebase::Clock` signature moves with it.
 - Snapshots saved again with exact_units UNIT-9 (EVO-47): `exact_units`' snapshot holds its systems (`MarkerDef::System` for `Si`, `Natural`, `Gaussian`), Natural's and Gaussian's units and quantities, and a `Dim` that names its system; `ww_si` 0.2.0 and 0.3.0 and `ww_adc` 0.1.0 and 0.2.0 carry `SIExpr`'s new signature.

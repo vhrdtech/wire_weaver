@@ -1000,6 +1000,19 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.product", ww_self::MarkerDefOwned::Product),
         case("model.marker_def.quotient", ww_self::MarkerDefOwned::Quotient),
         case("model.marker_def.origin", celsius()),
+        case("model.marker_def.origin_time_scale", unix_epoch()),
+        case(
+            "model.marker_def.reference",
+            ww_self::MarkerDefOwned::Reference(ww_self::ReferenceDefOwned::from(
+                &<ww_si::origins::TaiScale as ww_si::Reference>::DEF,
+            )),
+        ),
+        case(
+            "model.marker_def.reference_run_time",
+            ww_self::MarkerDefOwned::Reference(ww_self::ReferenceDefOwned::from(
+                &<ww_si::exact_units::AmbientPressure as ww_si::Reference>::DEF,
+            )),
+        ),
         case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
         case("model.marker_def.maybe_nan", ww_self::MarkerDefOwned::MaybeNan),
         case("model.marker_def.of", ww_self::MarkerDefOwned::Of),
@@ -1229,11 +1242,28 @@ fn celsius() -> ww_self::MarkerDefOwned {
         id: marker_id("exact_units", "Celsius"),
         unit: unit_def::<ww_si::units::Kelvin>(),
         symbol: "°C".into(),
-        reference: marker_id("exact_units", "UnitZero"),
+        reference: ww_self::units::unit_zero(),
         offset: ww_si::Offset::decimal(27315, -2),
         modulus: None,
         step: ww_si::Magnitude::ONE,
         shown: ww_si::Offset::decimal(27315, -2),
+    })
+}
+
+/// The Unix epoch as `origin!` declares it (PT-4): on `PosixScale`, a time scale that counts days of 86400 s from an
+/// agreed zero.
+fn unix_epoch() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Origin(ww_self::OriginDefOwned {
+        id: marker_id("exact_units", "UnixEpoch"),
+        unit: unit_def::<ww_si::units::Second>(),
+        symbol: "s UTC".into(),
+        reference: ww_self::ReferenceDefOwned::from(
+            &<ww_si::origins::PosixScale as ww_si::Reference>::DEF,
+        ),
+        offset: ww_si::Offset::ZERO,
+        modulus: None,
+        step: ww_si::Magnitude::ONE,
+        shown: ww_si::Offset::ZERO,
     })
 }
 

@@ -1275,9 +1275,21 @@ impl<'a> TypeCheck<'a> {
         } else if w.reference != r.reference {
             let name = |o: &OriginDefOwned| match o.reference == units::unit_zero() {
                 true => "the unit's zero".into(),
-                false => o.reference.as_id().to_string(),
+                false => o.reference.to_string(),
             };
-            Some(format!("another reference ({} vs {})", name(w), name(r)))
+            // the same marker, its HOW changed: the names alone say nothing
+            let why = match units::reference_conversion(&w.reference, &r.reference) {
+                Err(why) if w.reference.id != r.reference.id => format!(": {why}"),
+                _ => format!(
+                    ": how its zero is known differs ({} vs {})",
+                    w.reference.how, r.reference.how
+                ),
+            };
+            Some(format!(
+                "another reference ({} vs {}{why})",
+                name(w),
+                name(r)
+            ))
         } else if w.offset.is_negative() != r.offset.is_negative()
             || si(w.offset.magnitude(), &w.unit.scale) != si(r.offset.magnitude(), &r.unit.scale)
         {

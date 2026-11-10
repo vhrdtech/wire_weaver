@@ -46,6 +46,7 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Quantity(exact_units::QuantityDef)`                           | a quantity of ISO 80000's tree: `quantities::Height`, `Resistance`, a crate's own `quantity!` |
 | `Of`                                                           | `units::Of<Q, U>`, the unit `U` measuring the quantity `Q`; `Phase<A>` is `Of<PhaseAngle, A>` |
 | `System(exact_units::SystemDef)`                               | a system of units other than SI: `systems::Gaussian`, `systems::Natural` ([below](#systems-of-units)) |
+| `Reference(ReferenceDef { id, name, how })`                    | what an origin is measured from: `UnitZero`, `AmbientPressure`, `TaiScale`, a crate's `impl Reference` ([below](#references)) |
 
 A `unit!` line ending in `base` (`pub struct Bucket = "bucket", base;`) declares a unit and the base it is, so its
 marker is a `Base`: the unit whole, as for `Unit`, and the base, exact_units' `BaseDef`, is `{ id: def.id }`, its
@@ -186,14 +187,14 @@ The origin of a [`Point<O, F>`](points.md) is a marker as well, its definition a
 | `id`        | its `MarkerId`                                                                              | `exact_units::Celsius` |
 | `unit`      | the unit of the points' numbers and offsets, a named unit's `UnitDef`                       | K         |
 | `symbol`    | written after a point's number                                                              | `"°C"`    |
-| `reference` | what `offset` is measured from, a `MarkerId`: `exact_units::UnitZero` for the unit's own zero | `UnitZero` |
+| `reference` | what `offset` is measured from, a `ReferenceDef` (below): `exact_units::UnitZero` for the unit's own zero | `UnitZero` |
 | `offset`    | where the origin lies from the reference's zero, an exact `Offset` in `unit`                | 273.15    |
 | `modulus`   | the period for points that wrap, `None` for points that don't                              | `None`    |
 | `step`      | the step the shown number counts, in `unit`                                                 | 1         |
 | `shown`     | where the shown number's zero lies: `offset`, or that of the origin it is declared above    | 273.15    |
 
 A definition is flat on purpose: it holds no `Type` of the model, only values and `MarkerId`s (gauge pressure's
-`exact_units::AmbientPressure`), so a pass that renumbers the model's types never has to look inside one. For the
+reference `exact_units::AmbientPressure` written out whole), so a pass that renumbers the model's types never has to look inside one. For the
 same reason an origin's unit is a named unit: the walker refuses an `origin!` over `Per<..>` or `Times<..>`, declare
 a unit of that dimension with `unit!` instead. A crate's own origin is declared with `origin!` and written out by the walker:
 
@@ -210,6 +211,44 @@ the rest. `ww_self::units::origin_of(ty, bundle)` gives the `OriginDef` of eithe
 modulus 360; `marker_id_of` gives the `MarkerId` of an origin (or any marker).
 
 As for units, a hand-written `impl Origin` compiles but the walker refuses an API that uses it.
+
+### References
+
+An origin's `reference` is the whole `exact_units::ReferenceDef` (STD-108), so a client can tell whether points of
+two origins convert, and what a conversion would need, without the crate compiled in:
+
+| Field  | Is                                                                                   | TAI                       |
+|--------|--------------------------------------------------------------------------------------|---------------------------|
+| `id`   | its `MarkerId`                                                                        | `exact_units::TaiScale`   |
+| `name` | what the zero is, empty for the unit's own zero                                       | `"TAI"`                   |
+| `how`  | `Exact`, `RunTime` or `TimeScale(TimeScaleDef { counting, zero })`                    | `TimeScale(EverySecond, Agreed)` |
+
+`exact_units`' references are `UnitZero` (`Exact`), `AmbientPressure` (`RunTime`) and the time scales: `TaiScale`
+(every SI second, an agreed zero; `TaiEpoch1958`, `GpsEpoch` and `PtpEpoch` are origins on it), `PosixScale` (days of
+86400 s, an agreed zero; `UnixEpoch`, `NtpEpoch`) and `DeviceMonotonic` (every second from a zero known only at run
+time; `DeviceBoot`). Points of origins on the same reference convert exactly; between references,
+`ww_self::units::reference_conversion(from, to)` says why not: a zero known only at run time, a device's clock that
+needs a clock sync, or a leap-second table between POSIX time and TAI. The evolution checker gives the same reason
+when an origin moves to another reference.
+
+A crate declares a reference of its own with an `impl Reference` beside a unit struct, and the walker reads its
+`NAME` (a string literal) and `HOW` as written; the struct gets a `MarkerDef::Reference` of its own:
+
+```rust
+/// The shaft encoder's index pulse: where it lies is known only at run time
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct IndexPulse;
+
+impl ww_si::Reference for IndexPulse {
+    const ID: ww_si::MarkerId<'static> = ww_si::MarkerId { crate_name: "quantities_api", name: "IndexPulse" };
+    const NAME: &'static str = "index pulse";
+    const HOW: ww_si::ReferenceHow = ww_si::ReferenceHow::RunTime;
+}
+
+ww_si::origin! {
+    pub struct Shaft { unit: Degree, symbol: "° from index", offset: Offset::ZERO, reference: IndexPulse }
+}
+```
 
 ## On the wire
 

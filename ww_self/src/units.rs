@@ -18,8 +18,8 @@
 //! definitions as their table.
 
 use crate::{
-    ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
-    ValueOwned,
+    ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned,
+    ReferenceDefOwned, ReferenceHow, TimeCounting, TimeScaleDef, TimeZero, TypeOwned, ValueOwned,
 };
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{
@@ -371,6 +371,7 @@ pub fn def_id(def: &MarkerDefOwned) -> Option<&MarkerIdOwned> {
         MarkerDefOwned::Unit(u) | MarkerDefOwned::Base(u) => Some(&u.id),
         MarkerDefOwned::Scale(s) => Some(&s.id),
         MarkerDefOwned::Origin(o) => Some(&o.id),
+        MarkerDefOwned::Reference(r) => Some(&r.id),
         _ => None,
     }
 }
@@ -439,10 +440,131 @@ impl exact_units::UnitTable for ApiBundleOwned {
 }
 
 /// `exact_units::UnitZero`, the reference of an origin measured from its unit's own zero.
-pub fn unit_zero() -> MarkerIdOwned {
-    MarkerIdOwned {
-        crate_name: "exact_units".into(),
-        name: "UnitZero".into(),
+pub fn unit_zero() -> ReferenceDefOwned {
+    ReferenceDefOwned::from(&<exact_units::UnitZero as exact_units::Reference>::DEF)
+}
+
+impl From<&exact_units::ReferenceDef> for ReferenceDefOwned {
+    fn from(def: &exact_units::ReferenceDef) -> Self {
+        ReferenceDefOwned {
+            id: MarkerIdOwned {
+                crate_name: def.id.crate_name.into(),
+                name: def.id.name.into(),
+            },
+            name: def.name.into(),
+            how: def.how.into(),
+        }
+    }
+}
+
+impl From<exact_units::ReferenceHow> for ReferenceHow {
+    fn from(how: exact_units::ReferenceHow) -> Self {
+        match how {
+            exact_units::ReferenceHow::Exact => ReferenceHow::Exact,
+            exact_units::ReferenceHow::RunTime => ReferenceHow::RunTime,
+            exact_units::ReferenceHow::TimeScale(t) => ReferenceHow::TimeScale(TimeScaleDef {
+                counting: match t.counting {
+                    exact_units::TimeCounting::EverySecond => TimeCounting::EverySecond,
+                    exact_units::TimeCounting::PosixDays => TimeCounting::PosixDays,
+                },
+                zero: match t.zero {
+                    exact_units::TimeZero::Agreed => TimeZero::Agreed,
+                    exact_units::TimeZero::RunTime => TimeZero::RunTime,
+                },
+            }),
+        }
+    }
+}
+
+impl ReferenceDefOwned {
+    /// What the zero is called: [Self::name], or the marker's name when that is empty (`UnitZero`).
+    pub fn short_name(&self) -> &str {
+        match self.name.is_empty() {
+            true => &self.id.name,
+            false => &self.name,
+        }
+    }
+}
+
+impl fmt::Display for ReferenceDefOwned {
+    /// `the unit's zero (exact_units::UnitZero)`, `TAI (exact_units::TaiScale)`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.how == ReferenceHow::Exact && self.name.is_empty() {
+            true => write!(f, "the unit's zero ({})", self.id.as_id()),
+            false => write!(f, "{} ({})", self.name, self.id.as_id()),
+        }
+    }
+}
+
+impl fmt::Display for ReferenceHow {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ReferenceHow::Exact => f.write_str("an exact zero"),
+            ReferenceHow::RunTime => f.write_str("a zero known at run time"),
+            ReferenceHow::TimeScale(t) => write!(
+                f,
+                "a time scale counting {} from {}",
+                match t.counting {
+                    TimeCounting::EverySecond => "every second",
+                    TimeCounting::PosixDays => "days of 86400 s",
+                    TimeCounting::Unknown(_) => "seconds in a way this reader doesn't know",
+                },
+                match t.zero {
+                    TimeZero::Agreed => "an agreed zero",
+                    TimeZero::RunTime => "a zero known at run time",
+                    TimeZero::Unknown(_) => "a zero this reader doesn't know",
+                }
+            ),
+            ReferenceHow::Unknown(_) => f.write_str("a zero this reader doesn't know"),
+        }
+    }
+}
+
+/// How points of an origin on reference `from` reach an origin on reference `to`: `Ok(())` when they convert exactly
+/// (the same reference), else why not, without naming the two again: a zero known only at run time, a device's clock
+/// that needs a clock sync, a leap-second table between POSIX time and TAI (STD-108).
+pub fn reference_conversion(
+    from: &ReferenceDefOwned,
+    to: &ReferenceDefOwned,
+) -> Result<(), String> {
+    if from == to {
+        return Ok(());
+    }
+    let run_time = |r: &ReferenceDefOwned| match r.how {
+        ReferenceHow::RunTime => Some(format!(
+            "the zero of {} is known only at run time",
+            r.short_name()
+        )),
+        ReferenceHow::TimeScale(TimeScaleDef {
+            zero: TimeZero::RunTime,
+            ..
+        }) => Some(format!(
+            "{} is one clock's own: only through a clock sync",
+            r.short_name()
+        )),
+        _ => None,
+    };
+    if let Some(why) = run_time(from).or_else(|| run_time(to)) {
+        return Err(why);
+    }
+    match (from.how, to.how) {
+        (ReferenceHow::TimeScale(a), ReferenceHow::TimeScale(b)) if a.counting != b.counting => {
+            Err(format!(
+                "{} and {} count seconds differently: only through a leap-second table at run time",
+                from.short_name(),
+                to.short_name()
+            ))
+        }
+        _ => Err("no exact conversion between them".into()),
+    }
+}
+
+/// The definition of the reference marker `ty` (an `impl exact_units::Reference`, STD-108).
+pub fn reference_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ReferenceDefOwned> {
+    let (s, _) = marker(ty, bundle)?;
+    match definition(s, bundle)? {
+        MarkerDefOwned::Reference(def) => Ok(def.clone()),
+        _ => bail!("{} is not a reference of origins", marker_name(s, bundle)?),
     }
 }
 

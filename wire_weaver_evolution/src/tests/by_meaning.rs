@@ -429,7 +429,23 @@ fn origins_reference_and_step() {
             "Point<ww_si::origins::Vacuum, Fixed<ww_si::units::Pascal, One, i32>>",
             "Point<ww_si::origins::Gauge, Fixed<ww_si::units::Pascal, One, i32>>",
         ),
-        "another reference (the unit's zero vs exact_units::AmbientPressure)",
+        "another reference (the unit's zero vs ambient pressure (exact_units::AmbientPressure): the zero of \
+         ambient pressure is known only at run time)",
+    );
+    // STD-108: two time scales, the reason says what a conversion would need
+    assert_meaning(
+        &report(
+            "Point<ww_si::origins::UnixEpoch, Fixed<Second, Milli, u64>>",
+            "Point<ww_si::origins::TaiEpoch1958, Fixed<Second, Milli, u64>>",
+        ),
+        "POSIX time and TAI count seconds differently: only through a leap-second table at run time",
+    );
+    assert_meaning(
+        &report(
+            "Point<ww_si::origins::GpsEpoch, Fixed<Second, Milli, u64>>",
+            "Point<ww_si::origins::DeviceBoot, Fixed<Second, Milli, u64>>",
+        ),
+        "device monotonic clock is one clock's own: only through a clock sync",
     );
     // an origin and a temperature in another step: the step is the Fixed's, compared as a scale
     assert_meaning(

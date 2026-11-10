@@ -51,9 +51,10 @@ pub use exact_units::{
     Count, Crossing, DecimalPrefix, Dim, DimWire, Exp, Fixed, FixedScale, MAX_TRUE_BASES,
     MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds, Overflow, Point,
     PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, QuantityDef, QuantityExpr,
-    QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Repr, Rounding, SIExpr, SetToOne,
-    Storage, System, SystemDef, SystemRef, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul,
-    UnitNames, UnitTable, UnsignedStorage, base, origin, origins, prefix, quantities, quantity,
+    QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Reference, ReferenceDef, ReferenceHow,
+    Repr, Rounding, SIExpr, SetToOne, Storage, System, SystemDef, SystemRef, TimeCounting,
+    TimeScaleDef, TimeZero, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul, UnitNames,
+    UnitTable, UnitZero, UnsignedStorage, base, origin, origins, prefix, quantities, quantity,
     scale, systems, unit, units,
 };
 #[cfg(feature = "std")]

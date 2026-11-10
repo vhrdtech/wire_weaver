@@ -1141,8 +1141,12 @@ mod tests {
         let src = "#[ww_api_root] pub trait Api { #[since = \"w1.1\"] fn a(); }";
         let bundle = load_src_with("since_w1", &metadata("w1.1"), src).unwrap();
         assert_eq!(bundle.root.items[0].since, Some(WireVersion::new(1, 1)));
-        let bundle = load_src_with("no_since_w0", &metadata("w0.3"), "#[ww_api_root] pub trait Api { fn a(); }")
-            .unwrap();
+        let bundle = load_src_with(
+            "no_since_w0",
+            &metadata("w0.3"),
+            "#[ww_api_root] pub trait Api { fn a(); }",
+        )
+        .unwrap();
         assert_eq!(bundle.wire, Some(WireVersion::new(0, 3)));
     }
 

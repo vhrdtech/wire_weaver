@@ -81,7 +81,8 @@ wire = "w2.3"
 ```
 
  A wire-compatible addition bumps the revision (`w2.3` -> `w2.4`), a wire break the line
-(`w3.0`). A new API starts at `w1.0`. The `w` is part of the notation everywhere, so a crate version can't be taken
+(`w3.0`). A new API starts at `w0.0`, the [design line](#w0-the-design-line), and its first release at `w1.0`. The
+`w` is part of the notation everywhere, so a crate version can't be taken
 for one: `2.3`, `w2.3.0` and `0.2.0` are refused. The `#[ww_api_root]` trait gets a
 `*_WIRE_VERSION: ww_version::WireVersion` const next to its `*_FULL_GID`. Every crate whose traits or types cross the
 wire declares its wire version the same way, `ww_stdlib` crates too ([crate layers](crate_layers.md)).
@@ -105,6 +106,27 @@ trait is a plain `#[ww_trait]`.
 
 Mark additions with `#[since = "w2.4"]`, the revision that adds them, so that a newer host can report a clean error
 when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
+
+### w0, the design line
+
+Line 0 is for an API still being designed (EVO-41): breaks are accepted without a new line, and nothing is kept that
+would hold the API to its earlier shape. A first release moves it to `w1.0`, and from there every rule above applies.
+
+* `ww api save` keeps no snapshot of a crate or root on `w0.x` and says why. Moving to `w1.0` saves the first one.
+* `ww api check` and the crate's evolution test pass on w0, with `strict` and `require_current` too. Against a
+  snapshot that exists (one kept from before, or `--against`) they list what differs as information and ask for no
+  bump.
+* `#[since]` on w0 is a compile error: revisions mean nothing there. A type shared with released lines of one crate
+  ([several lines](#several-lines-in-one-crate)) keeps their revisions; one naming line 0 is refused.
+* Link setup takes a device of any w0 revision. A client then needs the device's introspection data whenever the
+  API hashes differ: it compares every resource, as on any line, and refuses per call what differs. Without that
+  data it refuses every call into its API with `Error::DesignLineUnchecked`, since a revision tells nothing on w0.
+  Equal hashes need nothing more: the hash is over the device's own introspection bytes.
+* `ww api check` and `ww api save` warn when a crate that can be published (no `publish = false`) has a root on w0:
+  others would build on an API that may still break. Move it to `w1.0` before publishing.
+
+`ww api scaffold` suggests `w0.0` for an API that declares no wire version. Keep devices with a w0 API to the bench:
+any build of it may break any other.
 
 ### Several lines in one crate
 

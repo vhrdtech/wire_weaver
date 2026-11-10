@@ -945,8 +945,14 @@ mod tests {
                 .traits
                 .iter()
                 .find_map(|l| match l {
-                    ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Channel" => {
-                        level.items.iter().find(|i| i.ident == "reset").map(|i| i.since)
+                    ApiLevelLocationOwned::InLine { level, .. }
+                        if level.trait_name == "Channel" =>
+                    {
+                        level
+                            .items
+                            .iter()
+                            .find(|i| i.ident == "reset")
+                            .map(|i| i.since)
                     }
                     _ => None,
                 })
@@ -957,7 +963,10 @@ mod tests {
         assert_eq!(reset_since("wire_v1::Api"), Some(WireVersion::new(1, 2)));
         common("w0.1, w1.2");
         let err = load_root(&dir, "wire_v0::Api").unwrap_err();
-        assert!(format!("{err:#}").contains("on w0, the design line"), "{err:#}");
+        assert!(
+            format!("{err:#}").contains("on w0, the design line"),
+            "{err:#}"
+        );
         assert_eq!(reset_since("wire_v1::Api"), Some(WireVersion::new(1, 2)));
         std::fs::remove_dir_all(&dir).unwrap();
     }

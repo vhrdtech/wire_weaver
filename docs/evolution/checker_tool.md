@@ -273,6 +273,23 @@ wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.w
   none of them by name (EVO-40).
 * `ww api check` and `Check::run` refuse such a crate for now: checking each root against its line's latest snapshot
   is EVO-39.
+* A root on w0 gets no snapshot (below).
+
+## The design line, w0
+
+An API on `w0.x` is still being designed ([w0, the design line](rules.md#w0-the-design-line)): `ww api save` keeps no
+snapshot of it, and `ww api check` passes, also with `--strict` and in the evolution test with `require_current`.
+
+```
+$ ww api save my_device_api
+not saved: w0.2 is the design line, which keeps no snapshots (docs/evolution/rules.md#w0-the-design-line); the first is saved once the API moves to w1.0 at its first release
+```
+
+* Against a snapshot that exists (`--against`, or one kept from before), `ww api check` prints the report as usual,
+  `needs:` saying `wire w0.2 (the design line: no wire bump)`, and passes: what differs is information.
+* A crate that can be published (no `publish = false`) with a root on w0 gets a warning from both commands.
+* Moving the API to `w1.0` makes the next `ww api save` keep its first snapshot, and every check from there on is
+  the one above.
 
 ## Listing all changes
 

@@ -2040,6 +2040,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/evolution/checker_tool.md#several-api-roots-in-one-crate`; tests `wire_weaver_evolution` `snapshots_per_root`,
   `crate_snapshot_is_a_roots_previous_one`, `renamed_root_is_saved_with_a_warning`, `wire_weaver_core`
   `snapshot_per_root`.
+- ✅ **EVO-41 `w0`, the design line** · `v0.5` — a crate or root on `w0.x` accepts breaks without a new line.
+  `ww api save` (`Check::save`) keeps no snapshot of it (`SaveStatus::DesignLine`); `ww api check` passes, also
+  strict and with `require_current`, and lists what differs from a snapshot that exists as information with no bump
+  asked; both warn when such a crate can be published. `#[since]` on w0 is a compile error (a shared type keeps its
+  released lines' revisions). A client whose device's API hash differs compares the device's introspection data
+  and, without it, refuses every call with `Error::DesignLineUnchecked`; equal hashes stay identical, the hash being
+  over the device's own introspection bytes. `ww api scaffold` suggests `w0.0`; moving to `w1.0` saves the first
+  snapshot. Docs: `docs/evolution/rules.md#w0-the-design-line`, `docs/evolution/checker_tool.md#the-design-line-w0`;
+  tests `wire_weaver_evolution` `design_line_*`, `wire_weaver_core` `since_refused_on_the_design_line`,
+  `design_line_root_shares_with_a_released_one`, `wire_version_note`, `wire_weaver_client`
+  `design_line_checks_the_device_or_refuses`, `any_revision_of_the_line_is_taken`.
 - 📋 **EVO-39 The checker per root** · `v0.5` — each root against its own line's latest snapshot, a changed
   `common` type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
   root a breaking crate bump, `#[since]` per line checked, one `load_crate` cache across roots and the CLI.
@@ -2047,9 +2058,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   checker verifies the signature is the same and reports a move. Resources match by position within a line and
   only by `moved_from` across a break; the checker proposes same-name matches on a first break and never adds the
   attribute itself.
-- 📋 **EVO-41 `w0`, the design line** · `v0.5` — a root on `w0` accepts breaks: no snapshots, `ww api check`
-  informs only, `#[since]` refused, a client always compares the device's introspection data. A first release
-  starts at `w1.0`.
 - 📋 **EVO-42 The multi-line bench on one crate** · `v0.5` — `tests/thermo_api` as one crate of three lines and
   `tests/thermo` on the enum facade (CLT-64) and the shared stdlib client (CLT-68), measured against EVO-28's
   baseline; `docs/evolution/multi_line_host.md` rewritten for it.

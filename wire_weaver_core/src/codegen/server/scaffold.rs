@@ -277,7 +277,11 @@ pub fn gen_server_scaffold(
             Some(wire) => writeln!(
                 out,
                 "// Wire version of the API: `{wire}`, `[package.metadata.wire_weaver] wire` in {crate_name}'s Cargo.toml.\n{}",
-                if wire.is_design_line() { design_line } else { "" }
+                if wire.is_design_line() {
+                    design_line
+                } else {
+                    ""
+                }
             )?,
             None => writeln!(
                 out,
@@ -293,7 +297,11 @@ pub fn gen_server_scaffold(
                 out,
                 "// Wire version of the API root `{key}`: `{wire}`, `[package.metadata.wire_weaver.roots]` in \
                  {crate_name}'s Cargo.toml (EVO-37).\n{}",
-                if wire.is_design_line() { design_line } else { "" }
+                if wire.is_design_line() {
+                    design_line
+                } else {
+                    ""
+                }
             )?,
             None => writeln!(
                 out,

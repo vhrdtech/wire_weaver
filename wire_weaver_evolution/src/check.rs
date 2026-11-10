@@ -144,7 +144,7 @@ impl Check {
                     Some(previous) => previous,
                     None => {
                         let own = &new.ext_crates[0];
-                        return Ok(Outcome::NoSnapshot(NoSnapshot {
+                        return Ok(Outcome::NoSnapshot(Box::new(NoSnapshot {
                             crate_id: own.crate_id.clone(),
                             version: own.version.clone(),
                             dir,
@@ -155,7 +155,7 @@ impl Check {
                             hints,
                             design_line,
                             warnings,
-                        }));
+                        })));
                     }
                 }
             }
@@ -183,7 +183,7 @@ impl Check {
         let previous = latest_snapshot(&dir, &source, &own.version, false)?;
         let crate_path = Some(self.path.clone());
         let Some(current) = current else {
-            return Ok(Outcome::NoSnapshot(NoSnapshot {
+            return Ok(Outcome::NoSnapshot(Box::new(NoSnapshot {
                 crate_id: own.crate_id.clone(),
                 version: own.version.clone(),
                 dir,
@@ -194,7 +194,7 @@ impl Check {
                 hints,
                 design_line: false,
                 warnings: vec![],
-            }));
+            })));
         };
         let report = compare_recorded(
             &current.bundle,
@@ -437,7 +437,7 @@ impl Check {
 pub enum Outcome {
     Compared(Box<Comparison>),
     /// Nothing to compare with.
-    NoSnapshot(NoSnapshot),
+    NoSnapshot(Box<NoSnapshot>),
 }
 
 /// Two versions compared.
@@ -570,7 +570,10 @@ impl Comparison {
     fn verdict(&self) -> Result<String, String> {
         let report = &self.report;
         if self.design_line {
-            return Ok(design_line_verdict(report.new_wire, "the differences above are information"));
+            return Ok(design_line_verdict(
+                report.new_wire,
+                "the differences above are information",
+            ));
         }
         let wire = report.check_wire().err().map(|e| {
             format!(

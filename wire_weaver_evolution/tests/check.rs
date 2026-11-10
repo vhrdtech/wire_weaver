@@ -1066,7 +1066,11 @@ fn design_line_keeps_no_snapshots() {
     c.write("0.1.0", &design);
     let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::DesignLine);
-    assert!(saved.warnings.is_empty(), "a test crate: {:?}", saved.warnings);
+    assert!(
+        saved.warnings.is_empty(),
+        "a test crate: {:?}",
+        saved.warnings
+    );
     assert!(!c.path().join(SNAPSHOTS_DIR).exists());
 
     // strict and require_current pass: none is missing
@@ -1111,13 +1115,19 @@ fn design_line_keeps_no_snapshots() {
         );
         has_all(
             &outcome.verdict().unwrap(),
-            &["w0.3 is the design line", "the differences above are information"],
+            &[
+                "w0.3 is the design line",
+                "the differences above are information",
+            ],
         );
     }
     std::fs::remove_dir_all(c.path().join(SNAPSHOTS_DIR)).unwrap();
 
     // the first release: w1.0, and the first snapshot
-    c.write("0.2.0", &design.replace("wire = \"w0.3\"", "wire = \"w1.0\""));
+    c.write(
+        "0.2.0",
+        &design.replace("wire = \"w0.3\"", "wire = \"w1.0\""),
+    );
     assert_eq!(save_one(c.path(), false).status, SaveStatus::Saved);
     assert!(c.snapshot("test_api_0_2_0.ron").exists());
     assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
@@ -1146,9 +1156,17 @@ fn design_line_in_a_publishable_crate_warns() {
     };
     has_all(
         warning,
-        &["test_api can be published", "w0.0, the design line", "move it to w1.0 before publishing"],
+        &[
+            "test_api can be published",
+            "w0.0, the design line",
+            "move it to w1.0 before publishing",
+        ],
     );
-    assert!(outcome.to_string().contains("warning: test_api can be published"));
+    assert!(
+        outcome
+            .to_string()
+            .contains("warning: test_api can be published")
+    );
     let saved = save_one(c.path(), false);
     assert_eq!(saved.status, SaveStatus::DesignLine);
     assert_eq!(saved.warnings.len(), 1, "{:?}", saved.warnings);

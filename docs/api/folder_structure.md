@@ -36,8 +36,11 @@ name = "my_device_api"
 version = "0.1.0"
 
 [package.metadata.wire_weaver]
-wire = "w1.0"
+wire = "w0.0"
 ```
+
+A new API starts on `w0.0`, the [design line](../evolution/rules.md#w0-the-design-line), where breaks are accepted
+and no snapshots are kept; its first release moves to `w1.0`.
 
 What counts as a breaking change for each is in the [evolution rules](../evolution/rules.md); `ww api check` says
 which bumps a change needs. More in [Versioning](versioning.md).

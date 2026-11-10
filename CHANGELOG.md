@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- w0, the design line (EVO-41): a new API starts on `w0.0`, where breaks need no new line, no snapshots are kept, `#[since]` is refused and a client checks the device's introspection data instead of trusting a revision; the first release moves to `w1.0`. See `wire_weaver_evolution/`, `wire_weaver_core/`, `wire_weaver_client/`, `wire_weaver_cli/` and `ww_stdlib/ww_version/` CHANGELOGs.
 - Evolution checker findings on a new wire line (EVO-33): the root's own unchanged traits are not breaks of their own, and every difference of a field is reported, scale and storage together. See `wire_weaver_evolution/CHANGELOG.md`.
 - The C requantize rounds floats exactly, as `exact_units` does since NUM-30: one rounding from the float's bits, not a product in doubles and a cast; new corpus cases at the `f32` edge. See `shrink_wrap/c/` CHANGELOG.
 - The evolution checker derives both bumps (EVO-27): `ww api check` says which wire version (`w2.3` -> `w2.4` for an addition, `w3.0` for a wire break, none for a Rust-only break) and which crate version a change needs, and fails when either is not bumped enough or a `#[since]` is newer than the wire version. See `wire_weaver_evolution/` and `wire_weaver_cli/` CHANGELOGs.

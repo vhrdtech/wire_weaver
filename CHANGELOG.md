@@ -328,6 +328,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   without building the device's struct type by hand. See `ww_self/`, `wire_weaver_client/` and `wire_weaver_py/`
   CHANGELOGs.
 - A `validate` hook can report the refused value and its range (SW-76): `shrink_wrap::refused::Refused`, kept in the caller's slot by a reader made with `with_refusal_slot` and returned by `from_ww_bytes_explained` (`refused` feature, on with `std`), the first refusal of a read also in a latched struct; firmware pays nothing. See `shrink_wrap/CHANGELOG.md`.
+- A shared crate cache that sees edits (EVO-50): `wire_weaver_core::CrateCache` is `Clone`, `Send` and `Sync` and keeps a load only while the files it read are unchanged, so `Check` holds one again (`Check::cache`) and a repeated load of an unchanged crate takes well under a millisecond. See `wire_weaver_core/` and `wire_weaver_evolution/` CHANGELOGs.
 
 ### Changed
 

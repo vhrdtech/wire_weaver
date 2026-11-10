@@ -2,6 +2,7 @@
 //! the crate the walk started from, its source lies under `CARGO_HOME` once Cargo fetched it
 //! (`git/checkouts/<repo>-<hash>/<short rev>/`, `registry/src/<index>/<name>-<version>/`).
 
+use super::stamps;
 use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -248,11 +249,16 @@ impl CargoSources {
     ) -> Result<PathBuf> {
         let src = self.cargo_home()?.join("registry").join("src");
         let prefix = format!("{package}-");
+        // a version fetched later is listed in an index directory
+        stamps::note(&src);
         let newest = fs::read_dir(&src)
             .into_iter()
             .flatten()
             .flatten()
-            .flat_map(|index| fs::read_dir(index.path()).into_iter().flatten().flatten())
+            .flat_map(|index| {
+                stamps::note(&index.path());
+                fs::read_dir(index.path()).into_iter().flatten().flatten()
+            })
             .filter_map(|dir| {
                 let name = dir.file_name();
                 let version = semver::Version::parse(name.to_str()?.strip_prefix(&prefix)?).ok()?;
@@ -280,7 +286,10 @@ impl CargoSources {
         let path = entry_dir
             .ancestors()
             .map(|dir| dir.join("Cargo.lock"))
-            .find(|path| path.exists())
+            .find(|path| {
+                stamps::note_parent(path);
+                path.exists()
+            })
             .ok_or_else(|| {
                 anyhow!(
                     "no Cargo.lock in {} or above it, needed to find git and registry dependencies: run `cargo \
@@ -288,6 +297,7 @@ impl CargoSources {
                     entry_dir.display()
                 )
             })?;
+        stamps::note(&path);
         let contents = fs::read_to_string(&path)
             .with_context(|| format!("Failed to read {}", path.display()))?;
         let mut lock: CargoLock = toml::from_str(&contents)
@@ -336,12 +346,16 @@ impl CargoSources {
     fn registry_dir(&self, locked: &LockedPackage) -> Result<PathBuf> {
         let src = self.cargo_home()?.join("registry").join("src");
         let dir_name = format!("{}-{}", locked.name, locked.version);
+        stamps::note(&src);
         fs::read_dir(&src)
             .into_iter()
             .flatten()
             .flatten()
             .map(|index| index.path().join(&dir_name))
-            .find(|dir| dir.join("Cargo.toml").exists())
+            .find(|dir| {
+                stamps::note_parent(dir);
+                dir.join("Cargo.toml").exists()
+            })
             .ok_or_else(|| {
                 anyhow!(
                     "{} {} not found in {}/*/: run `cargo fetch` first",
@@ -363,6 +377,8 @@ impl CargoSources {
             .unwrap_or_default()
             .trim_end_matches(".git");
         let prefix = format!("{repo}-");
+        // a checkout fetched later is a new directory in these; a checkout itself never changes
+        stamps::note(&checkouts);
         let mut repo_dirs: Vec<PathBuf> = fs::read_dir(&checkouts)
             .into_iter()
             .flatten()
@@ -372,6 +388,7 @@ impl CargoSources {
             .collect();
         repo_dirs.sort();
         for repo_dir in repo_dirs {
+            stamps::note(&repo_dir);
             let mut revs: Vec<PathBuf> = fs::read_dir(&repo_dir)
                 .into_iter()
                 .flatten()
@@ -415,6 +432,7 @@ impl CargoSources {
 fn patched_dir(lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
     let root = lock_path.parent().unwrap_or(Path::new("."));
     let manifest_path = root.join("Cargo.toml");
+    stamps::note(&manifest_path);
     let Ok(contents) = fs::read_to_string(&manifest_path) else {
         return Ok(None);
     };

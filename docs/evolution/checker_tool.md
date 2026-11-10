@@ -314,7 +314,9 @@ crate: 0.2.0 or later, the largest its roots need
   by itself is compared with the previous snapshot of the same root.
 * `ww api diff` lists each root's differences under its name.
 * All roots are loaded with one cache of the crates read (`wire_weaver_core::CrateCache`), so the dependencies'
-  source is walked once for the whole check. Each check reads the source anew.
+  source is walked once for the whole check. The cache keeps a load only while every file it read has the size and
+  modification time it had, so a check after an edit sees it; `Check::cache` shares one cache between checks, also on
+  other threads (EVO-50).
 * A root on w0 gets no snapshot and needs none: its check is on the design line ([below](#the-design-line-w0)).
 
 ## The design line, w0

@@ -5,6 +5,7 @@ use super::cfg::{
 };
 use super::markers::expand_marker_macros;
 use super::meta::{MetaSite, get_meta};
+use super::stamps::{self, Reads};
 use super::util::{UseLeaf, collect_docs, get_wire_attr, use_tree_leaves, use_tree_path_to};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
@@ -13,6 +14,7 @@ use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::{Arc, Weak};
 use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
@@ -468,41 +470,105 @@ pub(crate) struct CachedCrates {
     modules: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Option<Rc<CrateContext>>>,
     local_reexports: HashMap<(FullVersionOwned, Vec<ModSegment>), Rc<[LocalReexport]>>,
     sources: CargoSources,
+    /// The files and directories all of it came from.
+    reads: Reads,
 }
 
-/// The crates a load reads, kept for the next load from the same crate: [load_crate](super::load_crate) and
+/// What a load returns from a crate: its whole snapshot ([load_crate](super::load_crate)) or one API root's
+/// ([load_root](super::load_root)).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum Load {
+    Crate,
+    Root(String),
+}
+
+/// A load's result with the files and directories it came from.
+struct CachedLoad {
+    bundle: ApiBundleOwned,
+    hints: Vec<super::UnitHint>,
+    reads: Reads,
+}
+
+/// The part of a [CrateCache] its clones share, on any thread.
+#[derive(Default)]
+struct SharedLoads {
+    loads: std::sync::RwLock<HashMap<(PathBuf, Load), Arc<CachedLoad>>>,
+    /// Walks run, for tests to tell a load kept from a load walked.
+    #[cfg(test)]
+    pub(crate) walks: std::sync::atomic::AtomicUsize,
+}
+
+/// The walks of the [CrateCache]s used on one thread, by entry crate. Parsed source isn't `Send`, so a thread keeps
+/// its own, for as long as the cache lives.
+struct ThreadWalks {
+    cache: Weak<SharedLoads>,
+    by_entry: HashMap<PathBuf, CachedCrates>,
+}
+
+thread_local! {
+    static THREAD_WALKS: std::cell::RefCell<Vec<ThreadWalks>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The crates a load reads and the bundles it makes, kept for the next load: [load_crate](super::load_crate) and
 /// [load_root](super::load_root) of each API root of a crate walk the same dependencies (ww_si, exact_units), and
 /// `ww api check` and an evolution test load a crate more than once (EVO-39). Reading a crate's source again is what
 /// a walk spends most of its time on.
 ///
-/// The source is taken as it was when first read, so a cache is for one check or command and is dropped with it:
-/// it is not `Clone`, and a source changed while it lives is not seen. It holds parsed source, which isn't `Send`.
-#[derive(Default)]
+/// Everything kept is used only while every file and directory it came from has the size and modification time it
+/// had when read, so a source edited while a cache lives is seen by the next load, and a cache can live as long as a
+/// tool does. Clones share it, also across threads: a bundle loaded on one thread is reused on any; the parsed source
+/// and what a walk learns from it (not `Send`) are reused by the loads on the same thread.
+#[derive(Clone, Default)]
 pub struct CrateCache {
-    by_entry: std::cell::RefCell<HashMap<PathBuf, CachedCrates>>,
+    shared: Arc<SharedLoads>,
 }
 
 impl std::fmt::Debug for CrateCache {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let entries: Vec<_> = self.by_entry.borrow().keys().cloned().collect();
-        f.debug_struct("CrateCache")
-            .field("entries", &entries)
-            .finish()
+        let mut loads: Vec<_> = self
+            .shared
+            .loads
+            .read()
+            .map(|loads| loads.keys().cloned().collect())
+            .unwrap_or_default();
+        loads.sort_by(|a, b| a.0.cmp(&b.0));
+        f.debug_struct("CrateCache").field("loads", &loads).finish()
     }
 }
 
 impl CrateCache {
-    /// Runs `walk` on a [Scratch] that starts with what earlier walks from `crate_path` read, and keeps what it read
-    /// for the next one, also when it fails.
-    pub(crate) fn walk<T>(
+    /// The `load` of the crate at `crate_path`: kept from before while its sources are unchanged, else `walk` on a
+    /// [Scratch] that starts with what earlier walks from `crate_path` on this thread read, keeping what it read for
+    /// the next one, also when it fails.
+    pub(crate) fn walk(
         &self,
         crate_path: &Path,
-        walk: impl FnOnce(&mut Scratch) -> Result<T>,
-    ) -> Result<T> {
+        load: Load,
+        walk: impl FnOnce(&mut Scratch) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)>,
+    ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
+        // inside a proc macro parsed source holds spans valid for one invocation only (parse_rs)
+        if proc_macro::is_available() {
+            return walk(&mut Scratch::default());
+        }
         let key = crate_path
             .canonicalize()
             .unwrap_or_else(|_| crate_path.to_path_buf());
-        let cached = self.by_entry.borrow_mut().remove(&key).unwrap_or_default();
+        let load_key = (key.clone(), load);
+        let kept = self
+            .shared
+            .loads
+            .read()
+            .ok()
+            .and_then(|loads| loads.get(&load_key).cloned());
+        if let Some(kept) = kept
+            && kept.reads.unchanged()
+        {
+            return Ok((kept.bundle.clone(), kept.hints.clone()));
+        }
+        let cached = self
+            .take_thread_walk(&key)
+            .filter(|cached| cached.reads.unchanged())
+            .unwrap_or_default();
         let mut scratch = Scratch {
             crates: cached.crates,
             manifests: cached.manifests,
@@ -512,7 +578,23 @@ impl CrateCache {
             sources: cached.sources,
             ..Default::default()
         };
-        let walked = walk(&mut scratch);
+        #[cfg(test)]
+        self.shared
+            .walks
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let mut reads = cached.reads;
+        let (walked, read) = stamps::record(|| walk(&mut scratch));
+        reads.extend(read);
+        if let Ok((bundle, hints)) = &walked
+            && let Ok(mut loads) = self.shared.loads.write()
+        {
+            let kept = CachedLoad {
+                bundle: bundle.clone(),
+                hints: hints.clone(),
+                reads: reads.clone(),
+            };
+            loads.insert(load_key, Arc::new(kept));
+        }
         let cached = CachedCrates {
             crates: std::mem::take(&mut scratch.crates),
             manifests: std::mem::take(&mut scratch.manifests),
@@ -520,9 +602,45 @@ impl CrateCache {
             modules: std::mem::take(&mut scratch.modules),
             local_reexports: std::mem::take(&mut scratch.local_reexports),
             sources: std::mem::take(&mut scratch.sources),
+            reads,
         };
-        self.by_entry.borrow_mut().insert(key, cached);
+        self.put_thread_walk(key, cached);
         walked
+    }
+
+    /// This thread's walk from `entry` with this cache, taken out while a walk runs; drops what caches no longer
+    /// alive left on this thread.
+    fn take_thread_walk(&self, entry: &Path) -> Option<CachedCrates> {
+        THREAD_WALKS.with(|walks| {
+            let mut walks = walks.borrow_mut();
+            walks.retain(|w| w.cache.strong_count() > 0);
+            walks
+                .iter_mut()
+                .find(|w| w.cache.ptr_eq(&Arc::downgrade(&self.shared)))
+                .and_then(|w| w.by_entry.remove(entry))
+        })
+    }
+
+    /// Walks this cache and its clones ran.
+    #[cfg(test)]
+    pub(crate) fn walks(&self) -> usize {
+        self.shared.walks.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    fn put_thread_walk(&self, entry: PathBuf, cached: CachedCrates) {
+        THREAD_WALKS.with(|walks| {
+            let mut walks = walks.borrow_mut();
+            let cache = Arc::downgrade(&self.shared);
+            match walks.iter_mut().find(|w| w.cache.ptr_eq(&cache)) {
+                Some(w) => {
+                    w.by_entry.insert(entry, cached);
+                }
+                None => walks.push(ThreadWalks {
+                    cache,
+                    by_entry: HashMap::from([(entry, cached)]),
+                }),
+            }
+        })
     }
 }
 
@@ -964,6 +1082,8 @@ impl CrateContext {
             }
             None => {
                 let file_rs = self.mod_dir.join(format!("{name}.rs"));
+                // `name.rs` added or removed changes which file is the module
+                stamps::note_parent(&file_rs);
                 let path = if file_rs.exists() {
                     file_rs
                 } else {
@@ -1263,6 +1383,7 @@ impl ManifestContext {
         //println!("loading manifest for {}", crate_path.display());
         let mut cargo_toml_path = crate_path.to_path_buf();
         cargo_toml_path.push("Cargo.toml");
+        stamps::note(&cargo_toml_path);
         let contents = fs::read_to_string(&cargo_toml_path).context(format!(
             "Failed to read Cargo.toml from {}",
             cargo_toml_path.display()
@@ -1287,6 +1408,7 @@ impl ManifestContext {
                 break;
             }
             let possible_cargo_toml = possible_path.join("Cargo.toml");
+            stamps::note(&possible_path);
             //println!("trying {possible_cargo_toml:?}");
             if possible_cargo_toml.exists() {
                 return scratch.get_or_load_manifest(possible_path);
@@ -1592,6 +1714,7 @@ fn parse_rs(path: &Path) -> Result<File> {
     }
     let meta = fs::metadata(path).context(format!("Failed to read {}", path.display()))?;
     let stamp = (meta.len(), meta.modified().ok());
+    stamps::note_stamp(path, || Some(stamp));
     if let Some(file) = PARSED.with(|p| {
         p.borrow()
             .get(path)
@@ -1609,6 +1732,7 @@ fn parse_rs(path: &Path) -> Result<File> {
 }
 
 fn parse_rs_uncached(path: &Path) -> Result<File> {
+    stamps::note(path);
     let contents =
         fs::read_to_string(path).context(format!("Failed to read {}", path.display()))?;
     let mut file =

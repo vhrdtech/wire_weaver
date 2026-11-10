@@ -42,6 +42,7 @@ pub struct Check {
     strict: bool,
     require_current: bool,
     snapshots_dir: Option<PathBuf>,
+    cache: CrateCache,
 }
 
 /// Environment variable that makes [Check::assert] save the snapshot of the current version first, when set to
@@ -57,6 +58,7 @@ impl Check {
             strict: false,
             require_current: false,
             snapshots_dir: None,
+            cache: CrateCache::default(),
         }
     }
 
@@ -88,6 +90,15 @@ impl Check {
         self
     }
 
+    /// Load the crate with `cache`, shared with other checks: a [save](Self::save) and a [run](Self::run), or checks
+    /// of crates with the same dependencies, walk the dependencies' source once. A cache keeps a load only while
+    /// the files it came from are unchanged, so a run after an edit sees it. Each `Check` has a cache of its own
+    /// otherwise, which its clones share.
+    pub fn cache(mut self, cache: CrateCache) -> Self {
+        self.cache = cache;
+        self
+    }
+
     /// Where the crate's snapshots are.
     fn crate_snapshots_dir(&self) -> PathBuf {
         self.snapshots_dir
@@ -101,14 +112,13 @@ impl Check {
 
     /// Loads both versions and compares them. Whether the version is bumped enough is up to [Outcome::verdict].
     pub fn run(&self) -> Result<Outcome, String> {
-        // one cache for every load of this run, so a crate's roots walk their dependencies once (EVO-39); dropped
-        // with it, so the next run reads the source as it is then
-        let cache = CrateCache::default();
+        // a crate's roots walk their dependencies once (EVO-39), and a run again of an unchanged crate loads nothing
+        let cache = &self.cache;
         let is_snapshot = self.is_snapshot();
         if !is_snapshot {
             let roots = wire_weaver_core::api_roots(&self.path).map_err(|e| format!("{e:#}"))?;
             if !roots.is_empty() {
-                return self.run_roots(&roots, &cache);
+                return self.run_roots(&roots, cache);
             }
         }
         let (new, new_recorded, new_label, dir, hints) = if is_snapshot {
@@ -266,13 +276,13 @@ impl Check {
             ));
         }
         let roots = wire_weaver_core::api_roots(&self.path).map_err(|e| format!("{e:#}"))?;
-        let cache = CrateCache::default();
+        let cache = &self.cache;
         let planned = if roots.is_empty() {
-            vec![self.plan_crate(&cache, force)?]
+            vec![self.plan_crate(cache, force)?]
         } else {
             let mut planned = roots
                 .iter()
-                .map(|(root, wire)| self.plan_root(&cache, root, *wire, force))
+                .map(|(root, wire)| self.plan_root(cache, root, *wire, force))
                 .collect::<Result<Vec<_>, _>>()?;
             let own = planned[0]
                 .0

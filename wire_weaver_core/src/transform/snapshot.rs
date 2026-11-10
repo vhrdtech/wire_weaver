@@ -1,6 +1,6 @@
 use super::{
     api::convert_trait,
-    crate_walker::{CrateCache, CrateContext, Scratch, find_root, get_trait, root_wire},
+    crate_walker::{CrateCache, CrateContext, Load, Scratch, find_root, get_trait, root_wire},
     ty::{convert_named_def, is_phantom_data},
     util::{collect_docs, get_wire_attr, use_tree_globs, use_tree_names, use_tree_path_to},
 };
@@ -57,7 +57,9 @@ impl CrateCache {
         &self,
         crate_path: &Path,
     ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-        self.walk(crate_path, |scratch| load_crate_in(crate_path, scratch))
+        self.walk(crate_path, Load::Crate, |scratch| {
+            load_crate_in(crate_path, scratch)
+        })
     }
 
     /// [load_root] with this cache.
@@ -72,7 +74,7 @@ impl CrateCache {
         crate_path: &Path,
         root: &str,
     ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-        self.walk(crate_path, |scratch| {
+        self.walk(crate_path, Load::Root(root.to_string()), |scratch| {
             load_root_in(crate_path, root, scratch)
         })
     }
@@ -1037,6 +1039,99 @@ mod tests {
             let cached = cache.load_crate_with_hints(&units).unwrap();
             assert_eq!(format!("{cached:?}"), format!("{fresh:?}"));
         }
+    }
+
+    /// A [CrateCache] keeps a load only while the files it came from are unchanged: an edit to a module, a module
+    /// added and the manifest's version changed are each seen by the next load.
+    #[test]
+    fn crate_cache_sees_an_edit() {
+        let dir = std::env::temp_dir()
+            .join("ww_core_snapshot_tests")
+            .join(format!("cache_edit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        let manifest = |version: &str| {
+            std::fs::write(
+                dir.join("Cargo.toml"),
+                format!(
+                    "[package]\nname = \"edit_api\"\nversion = \"{version}\"\nedition = \"2024\"\npublish = false\n"
+                ),
+            )
+            .unwrap();
+        };
+        manifest("0.1.0");
+        std::fs::write(dir.join("src/lib.rs"), "pub mod a;\n").unwrap();
+        std::fs::write(
+            dir.join("src/a.rs"),
+            "#[derive_shrink_wrap] pub struct A { pub one: u8 }",
+        )
+        .unwrap();
+        let cache = CrateCache::default();
+        // the fields of the bundle's types, and the crate's minor version
+        let items = |cache: &CrateCache| {
+            let bundle = cache.load_crate(&dir).unwrap();
+            let debug = format!("{bundle:?}");
+            let names: Vec<&str> = ["one", "two", "three", "four"]
+                .into_iter()
+                .filter(|name| debug.contains(&format!("ident: Some(\"{name}\")")))
+                .collect();
+            (bundle.crate_version(0).unwrap().version.minor.0, names)
+        };
+        assert_eq!(items(&cache), (1, vec!["one"]));
+        assert_eq!(items(&cache), (1, vec!["one"]));
+        assert_eq!(cache.walks(), 1, "the second load is kept");
+
+        std::fs::write(
+            dir.join("src/a.rs"),
+            "#[derive_shrink_wrap] pub struct A { pub one: u8, pub two: u8 }",
+        )
+        .unwrap();
+        assert_eq!(items(&cache).1, ["one", "two"]);
+        std::fs::write(dir.join("src/lib.rs"), "pub mod a;\npub mod b;\n").unwrap();
+        std::fs::create_dir_all(dir.join("src/b")).unwrap();
+        std::fs::write(
+            dir.join("src/b/mod.rs"),
+            "#[derive_shrink_wrap] pub struct B { pub three: u8 }",
+        )
+        .unwrap();
+        assert_eq!(items(&cache).1, ["one", "two", "three"]);
+        // `b.rs` next to `b/mod.rs` is the module now (rustc refuses both; the walker takes `b.rs`)
+        std::fs::write(
+            dir.join("src/b.rs"),
+            "#[derive_shrink_wrap] pub struct B { pub four: u8 }",
+        )
+        .unwrap();
+        assert_eq!(items(&cache).1, ["one", "two", "four"]);
+        manifest("0.2.0");
+        assert_eq!(items(&cache).0, 2);
+        assert_eq!(cache.walks(), 5);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Clones of a [CrateCache] share it, also on other threads: a load kept on one thread is reused on another.
+    #[test]
+    fn crate_cache_is_shared_across_threads() {
+        fn send_sync_clone<T: Send + Sync + Clone>() {}
+        send_sync_clone::<CrateCache>();
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/multi_root_api");
+        let cache = CrateCache::default();
+        let here = cache.load_root(&crate_path, "wire_v1::Thermo").unwrap();
+        let clone = cache.clone();
+        let path = crate_path.clone();
+        let there = std::thread::spawn(move || {
+            let v1 = clone.load_root(&path, "wire_v1::Thermo").unwrap();
+            let v2 = clone.load_root(&path, "wire_v2::Thermo").unwrap();
+            (v1, v2)
+        })
+        .join()
+        .unwrap();
+        assert_eq!(format!("{:?}", there.0), format!("{here:?}"));
+        assert_eq!(
+            format!("{:?}", there.1),
+            format!("{:?}", load_root(&crate_path, "wire_v2::Thermo").unwrap())
+        );
+        // wire_v1 was kept, wire_v2 walked on the other thread
+        assert_eq!(cache.walks(), 2);
     }
 
     /// A crate that isn't a ww API crate (API-60): no traits, its types and unit markers are the snapshot.

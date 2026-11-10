@@ -2,7 +2,9 @@
 
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
-use wire_weaver_evolution::{Change, Check, Outcome, RootsOutcome, Rule, SaveStatus, Saved};
+use wire_weaver_evolution::{
+    Change, Check, CrateCache, Outcome, RootsOutcome, Rule, SaveStatus, Saved,
+};
 
 const API: &str = r#"
 #[ww_api_root(wire = "w1.0")]
@@ -1534,21 +1536,28 @@ fn removal_of_a_root_never_shipped_needs_no_bump() {
     assert!(check_current(c.path()).1.is_ok());
 }
 
-/// A check holds no loaded source: it stays `Send` and `Sync`, and runs again after an edit see the edit (EVO-39).
+/// A check keeps its loads in a cache that sees edits: it stays `Send` and `Sync`, checks given one cache share it,
+/// also on other threads, and runs again after an edit see the edit (EVO-39, EVO-50).
 #[test]
 fn a_check_sees_the_source_as_it_is_now() {
     fn send_sync<T: Send + Sync>(_: &T) {}
     let c = TestCrate::new("check_sees_edits");
     write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
-    Check::new(c.path()).save(false).unwrap();
-    let check = Check::new(c.path()).strict(true);
+    let cache = CrateCache::default();
+    Check::new(c.path())
+        .cache(cache.clone())
+        .save(false)
+        .unwrap();
+    let check = Check::new(c.path()).strict(true).cache(cache);
     send_sync(&check);
     assert!(check.run().unwrap().verdict().is_ok());
     let again = check.clone();
     let mut modules = per_root_modules("");
     modules[1].1 = LINE_1.replace("    fn read_once() -> Code;\n", "");
     write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &modules);
-    let err = again.run().unwrap().verdict().unwrap_err();
+    let err = std::thread::spawn(move || again.run().unwrap().verdict().unwrap_err())
+        .join()
+        .unwrap();
     assert!(err.contains("API root `wire_v1::Api`"), "{err}");
     assert!(check.run().unwrap().verdict().is_err());
 }

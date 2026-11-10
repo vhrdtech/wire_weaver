@@ -7,6 +7,7 @@ mod markers;
 mod meta;
 pub(crate) use crate_walker::WIRE_WEAVER_REEXPORTS;
 mod snapshot;
+mod stamps;
 mod ty;
 mod unit_hint;
 mod util;

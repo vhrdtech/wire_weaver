@@ -2096,11 +2096,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   that needs the most. A root's older snapshot stands for a crate version that saved other roots, so a later change
   needs a new version; `require_current` works per root, and a root on w0 (EVO-41) needs no snapshot. A root removed from the table is a breaking crate bump of the last version that shipped it,
   which `ww api save` records in a `.removed` file (`RemovedRoot`, `SaveStatus::Removed`). `--against` takes a root's
-  file. All loads of one run or save share a `wire_weaver_core::CrateCache` (a `Check` holds none, so it stays `Send`): a repeated `load_crate` of `tests/thermo_api/w3`
+  file. All loads of one run or save share a `wire_weaver_core::CrateCache` (EVO-50): a repeated `load_crate` of `tests/thermo_api/w3`
   takes 80 ms instead of 198 ms. A whole-crate snapshot's line that no root continues is not reported as removed.
   Docs: `docs/evolution/checker_tool.md#checking-each-root`; tests `wire_weaver_evolution` `checker_per_root`,
   `removed_root_needs_a_breaking_bump`, `unchanged_roots_snapshot_stands_for_the_saved_version`, `wire_weaver_core`
   `crate_cache_gives_the_same_bundles`.
+- ✅ **EVO-50 A shared crate cache that sees edits** · `v0.5` — `wire_weaver_core::CrateCache` is `Clone`, `Send` and `Sync`: each load's bundle is kept with the size and modification time of every file and directory its walk read, and used only while all of them are unchanged, so an edit is seen by the next load and a cache can live as long as a tool. Clones share the bundles across threads; parsed source (`syn` trees aren't `Send`) and the walk state built from it stay per thread, also stamp-checked. `Check` holds one again (`Check::cache`). A repeated load of unchanged `tests/quantities_api` takes 0.2 ms instead of 31 ms (release); the first load costs the same. Caching file text was measured and left out: parsing, not reading, is the cost (a cold `quantities_api` load 211 ms, 67 ms with the source already parsed). Tests `wire_weaver_core` `crate_cache_sees_an_edit`, `crate_cache_is_shared_across_threads`, `wire_weaver_evolution` `a_check_sees_the_source_as_it_is_now`.
 - 📋 **EVO-40 `#[moved_from]`** · `v0.5` — `#[moved_from(w1.4, path::to::item)]` on an item's new place: the
   checker verifies the signature is the same and reports a move. Resources match by position within a line and
   only by `moved_from` across a break; the checker proposes same-name matches on a first break and never adds the

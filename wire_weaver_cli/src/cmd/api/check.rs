@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use console::style;
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::triplet;
-use wire_weaver_evolution::{Change, Check, Comparison, Outcome, Report};
+use wire_weaver_evolution::{Change, Check, Comparison, Outcome, Report, RootsOutcome};
 
 pub(crate) fn check(
     path: PathBuf,
@@ -16,15 +16,20 @@ pub(crate) fn check(
         .require_current(require_current)
         .run()
         .map_err(|e| anyhow!(e))?;
-    if let Outcome::Compared(c) = &outcome {
-        print_report(&c.report, &c.old_path, &c.new_label);
+    match &outcome {
+        Outcome::Compared(c) => print_report(&c.report, &c.old_path, &c.new_label),
+        Outcome::Roots(r) => print_roots(r),
+        Outcome::NoSnapshot(_) => {}
     }
     match outcome.verdict() {
         Ok(ok) if matches!(outcome, Outcome::NoSnapshot(_)) => println!("{ok}"),
         Ok(ok) => {
-            if let Outcome::Compared(c) = &outcome
-                && (c.report.change != Change::None || c.design_line)
-            {
+            let changed = match &outcome {
+                Outcome::Compared(c) => c.report.change != Change::None || c.design_line,
+                Outcome::Roots(r) => r.changed(),
+                Outcome::NoSnapshot(_) => false,
+            };
+            if changed {
                 println!("{}", style(ok).green());
             }
         }
@@ -54,14 +59,28 @@ fn print_hints(hints: &[wire_weaver_evolution::UnitHint]) {
     }
 }
 
-/// Old and new versions of a crate to compare, as `ww api check` does; `None` (with a note printed) if there is no
-/// snapshot to compare with.
-pub(crate) fn compared(path: PathBuf, against: Option<PathBuf>) -> Result<Option<Comparison>> {
+/// Old and new versions of a crate to compare, as `ww api check` does, one per API root of a crate with several
+/// (named, EVO-39); empty (with a note printed) if there is no snapshot to compare with.
+pub(crate) fn compared(
+    path: PathBuf,
+    against: Option<PathBuf>,
+) -> Result<Vec<(Option<String>, Comparison)>> {
     match load(path, against)?.run().map_err(|e| anyhow!(e))? {
-        Outcome::Compared(c) => Ok(Some(*c)),
+        Outcome::Compared(c) => Ok(vec![(None, *c)]),
         outcome @ Outcome::NoSnapshot(_) => {
             println!("{}", outcome.verdict().map_err(|e| anyhow!(e))?);
-            Ok(None)
+            Ok(vec![])
+        }
+        Outcome::Roots(roots) => {
+            let mut compared = vec![];
+            for root in roots.roots {
+                let label = format!("API root `{}` ({})", root.root, root.wire);
+                match root.outcome {
+                    Outcome::Compared(c) => compared.push((Some(label), *c)),
+                    outcome => println!("{label}: {outcome}"),
+                }
+            }
+            Ok(compared)
         }
     }
 }
@@ -72,6 +91,54 @@ fn load(path: PathBuf, against: Option<PathBuf>) -> Result<Check> {
         Some(against) => check.against(against),
         None => check,
     })
+}
+
+/// Print each API root's report under its name, then the removed roots, the shared items that changed and the
+/// crate version all of it needs (EVO-39).
+fn print_roots(roots: &RootsOutcome) {
+    for root in &roots.roots {
+        println!(
+            "{} {}",
+            style(format!("API root `{}`", root.root)).bold(),
+            style(format!("({})", root.wire)).dim()
+        );
+        match &root.outcome {
+            Outcome::Compared(c) => print_report(&c.report, &c.old_path, &c.new_label),
+            outcome => println!("  {outcome}"),
+        }
+    }
+    for removed in &roots.removed {
+        match &removed.recorded {
+            Some(record) => println!(
+                "{} `{}`: recorded in {}",
+                style("removed API root").bold(),
+                removed.root,
+                record.display()
+            ),
+            None => println!(
+                "{} `{}`: last snapshot {}, wire {}, needs crate {} or later",
+                style("removed API root").red(),
+                removed.root,
+                removed.last.display(),
+                removed.wire,
+                removed
+                    .required()
+                    .map_or("(no bump)".to_string(), |v| triplet(&v))
+            ),
+        }
+    }
+    for shared in &roots.shared {
+        println!("{} {shared}", style("note:").cyan());
+    }
+    if roots.changed()
+        && let Some(min) = roots.minimal_version()
+    {
+        println!(
+            "{} {} or later, the largest its roots need",
+            style("crate:").bold(),
+            triplet(&min)
+        );
+    }
 }
 
 /// Print what changed between a snapshot and a newer version.

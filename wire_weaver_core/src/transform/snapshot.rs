@@ -1,6 +1,6 @@
 use super::{
     api::convert_trait,
-    crate_walker::{CrateContext, CrateCache, Scratch, find_root, get_trait, root_wire},
+    crate_walker::{CrateCache, CrateContext, Scratch, find_root, get_trait, root_wire},
     ty::{convert_named_def, is_phantom_data},
     util::{collect_docs, get_wire_attr, use_tree_globs, use_tree_names, use_tree_path_to},
 };
@@ -72,7 +72,9 @@ impl CrateCache {
         crate_path: &Path,
         root: &str,
     ) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
-        self.walk(crate_path, |scratch| load_root_in(crate_path, root, scratch))
+        self.walk(crate_path, |scratch| {
+            load_root_in(crate_path, root, scratch)
+        })
     }
 }
 

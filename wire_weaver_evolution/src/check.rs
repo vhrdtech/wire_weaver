@@ -5,7 +5,8 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub use wire_weaver_core::UnitHint;
+pub use roots::{RemovedRoot, RootOutcome, RootsOutcome, SharedChange};
+pub use wire_weaver_core::{CrateCache, UnitHint};
 use ww_self::{ApiBundleOwned, snapshot};
 use ww_version::{VersionOwned, WireVersion};
 
@@ -15,6 +16,8 @@ use crate::snapshot_files::{
     root_snapshots, triplet,
 };
 use crate::{Change, Report, compare_recorded};
+
+mod roots;
 
 /// Checks a crate, or a snapshot file, against an earlier snapshot.
 ///
@@ -39,6 +42,7 @@ pub struct Check {
     strict: bool,
     require_current: bool,
     snapshots_dir: Option<PathBuf>,
+    cache: CrateCache,
 }
 
 /// Environment variable that makes [Check::assert] save the snapshot of the current version first, when set to
@@ -54,7 +58,17 @@ impl Check {
             strict: false,
             require_current: false,
             snapshots_dir: None,
+            cache: CrateCache::default(),
         }
+    }
+
+    /// Load the crate with this cache, shared with other checks of the same crate: a crate with several API roots
+    /// walks its dependencies once for all of them (EVO-39). Each `Check` has a cache of its own otherwise, kept by
+    /// its clones, used by [run](Self::run) and [save](Self::save) alike. The source is taken as it was when first
+    /// read: a `Check` doesn't see changes made to it afterwards.
+    pub fn cache(mut self, cache: CrateCache) -> Self {
+        self.cache = cache;
+        self
     }
 
     /// Compare with this snapshot file instead of the newest fitting one.
@@ -99,17 +113,11 @@ impl Check {
     /// Loads both versions and compares them. Whether the version is bumped enough is up to [Outcome::verdict].
     pub fn run(&self) -> Result<Outcome, String> {
         let is_snapshot = self.is_snapshot();
-        if !is_snapshot
-            && !wire_weaver_core::api_roots(&self.path)
-                .map_err(|e| format!("{e:#}"))?
-                .is_empty()
-        {
-            // TODO(EVO-39): each root against its own line's latest snapshot
-            return Err(format!(
-                "{} has several API roots (`[package.metadata.wire_weaver.roots]`): checking them per root is not there \
-                 yet (EVO-39); `ww api save` saves and checks each root's snapshot",
-                self.path.display()
-            ));
+        if !is_snapshot {
+            let roots = wire_weaver_core::api_roots(&self.path).map_err(|e| format!("{e:#}"))?;
+            if !roots.is_empty() {
+                return self.run_roots(&roots);
+            }
         }
         let (new, new_recorded, new_label, dir, hints) = if is_snapshot {
             let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
@@ -122,7 +130,9 @@ impl Check {
                 vec![],
             )
         } else {
-            let (new, hints) = wire_weaver_core::load_crate_with_hints(&self.path)
+            let (new, hints) = self
+                .cache
+                .load_crate_with_hints(&self.path)
                 .map_err(|e| format!("{e:#}"))?;
             let dir = self.crate_snapshots_dir();
             (new, Recorded::default(), "source".to_string(), dir, hints)
@@ -140,7 +150,17 @@ impl Check {
             Some(against) => read(against)?,
             None => {
                 let version = &new.crate_version(0).map_err(|e| e.to_string())?.version;
-                match latest_snapshot(&dir, &new, version, !is_snapshot)? {
+                let previous = match is_snapshot.then(|| self.root_file()).flatten() {
+                    // a root's snapshot file, compared with the previous one of the same root
+                    Some(name) => {
+                        root_snapshots(&dir, &name.crate_id, &name.root, name.wire.line.0)?
+                            .into_iter()
+                            .rfind(|s| key(&s.version) < key(version))
+                            .map(|s| s.snapshot)
+                    }
+                    None => latest_snapshot(&dir, &new, version, !is_snapshot)?,
+                };
+                match previous {
                     Some(previous) => previous,
                     None => {
                         let own = &new.ext_crates[0];
@@ -172,6 +192,8 @@ impl Check {
             hints,
             design_line,
             warnings,
+            unchanged_since: None,
+            root: None,
         })))
     }
 
@@ -227,6 +249,8 @@ impl Check {
             hints,
             design_line: false,
             warnings: vec![],
+            unchanged_since: None,
+            root: None,
         })))
     }
 
@@ -254,10 +278,18 @@ impl Check {
         let planned = if roots.is_empty() {
             vec![self.plan_crate(force)?]
         } else {
-            roots
+            let mut planned = roots
                 .iter()
                 .map(|(root, wire)| self.plan_root(root, *wire, force))
-                .collect::<Result<Vec<_>, _>>()?
+                .collect::<Result<Vec<_>, _>>()?;
+            let own = planned[0]
+                .0
+                .bundle
+                .crate_version(0)
+                .map_err(|e| e.to_string())?
+                .clone();
+            planned.extend(self.plan_removed(&roots, &own, force)?);
+            planned
         };
         let mut saved = vec![];
         for (one, contents) in planned {
@@ -274,7 +306,10 @@ impl Check {
 
     /// The snapshot of the whole crate at its version, and the text to write, `None` when it is up to date.
     fn plan_crate(&self, force: bool) -> Result<(Saved, Option<String>), String> {
-        let bundle = wire_weaver_core::load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
+        let bundle = self
+            .cache
+            .load_crate(&self.path)
+            .map_err(|e| format!("{e:#}"))?;
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
         let dir = self.crate_snapshots_dir();
         let path = dir.join(format!("{}.ron", own.filename_friendly()));
@@ -300,7 +335,10 @@ impl Check {
         wire: WireVersion,
         force: bool,
     ) -> Result<(Saved, Option<String>), String> {
-        let bundle = wire_weaver_core::load_root(&self.path, root).map_err(|e| format!("{e:#}"))?;
+        let bundle = self
+            .cache
+            .load_root(&self.path, root)
+            .map_err(|e| format!("{e:#}"))?;
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?.clone();
         let version = own.version.clone();
         let dir = self.crate_snapshots_dir();
@@ -438,6 +476,8 @@ pub enum Outcome {
     Compared(Box<Comparison>),
     /// Nothing to compare with.
     NoSnapshot(Box<NoSnapshot>),
+    /// A crate with several API roots (EVO-39): each root against its own latest snapshot.
+    Roots(Box<RootsOutcome>),
 }
 
 /// Two versions compared.
@@ -465,6 +505,11 @@ pub struct Comparison {
     pub design_line: bool,
     /// What looked wrong but doesn't change the verdict: a crate that can be published with its root on w0.
     pub warnings: Vec<String>,
+    /// An API root's snapshot saved by this older crate version, compared as the snapshot of the crate's version:
+    /// that version saved other roots, so this one was unchanged in it (EVO-39). `None` otherwise.
+    pub unchanged_since: Option<VersionOwned>,
+    /// The API root compared (`wire_v2::Thermo`), of a crate with several; `None` for a whole crate.
+    pub root: Option<String>,
 }
 
 /// No snapshot of the crate at or before its version.
@@ -520,6 +565,9 @@ pub enum SaveStatus {
     UpToDate,
     /// Nothing written: the crate or root is on w0, the design line (EVO-41), which keeps no snapshots.
     DesignLine,
+    /// An API root the crate no longer has: its removal is recorded ([removed_file_name]), checked against the
+    /// crate version (EVO-39).
+    Removed,
 }
 
 impl fmt::Display for SaveStatus {
@@ -530,6 +578,7 @@ impl fmt::Display for SaveStatus {
             SaveStatus::Reformatted => "reformatted",
             SaveStatus::UpToDate => "up to date",
             SaveStatus::DesignLine => "not saved, w0 is the design line",
+            SaveStatus::Removed => "removed",
         })
     }
 }
@@ -546,6 +595,7 @@ impl Outcome {
         match self {
             Outcome::Compared(c) => c.verdict(),
             Outcome::NoSnapshot(n) => n.verdict(),
+            Outcome::Roots(r) => r.verdict(),
         }
     }
 
@@ -554,6 +604,7 @@ impl Outcome {
         match self {
             Outcome::Compared(c) => &c.hints,
             Outcome::NoSnapshot(n) => &n.hints,
+            Outcome::Roots(r) => &r.hints,
         }
     }
 
@@ -562,6 +613,7 @@ impl Outcome {
         match self {
             Outcome::Compared(c) => &c.warnings,
             Outcome::NoSnapshot(n) => &n.warnings,
+            Outcome::Roots(r) => &r.warnings,
         }
     }
 }
@@ -578,7 +630,10 @@ impl Comparison {
         let wire = report.check_wire().err().map(|e| {
             format!(
                 "{e}.\n{} (docs/evolution/rules.md#the-wire-version).",
-                capitalized(&wire_hint(report, self.crate_path.as_deref()))
+                capitalized(&wire_hint_at(
+                    report,
+                    &wire_declared_at(self.crate_path.as_deref(), self.root.as_deref())
+                ))
             )
         });
         let version = self.version_verdict();
@@ -599,7 +654,16 @@ impl Comparison {
             if self.current_required {
                 return Err(msg + &self.current_hint());
             }
-            if same_version {
+            if let Some(since) = &self.unchanged_since {
+                msg.push_str(&format!(
+                    "\n{} {} has snapshots, saved with this root unchanged since {} ({}), so it is released and never \
+                     changes: a change needs a new version.",
+                    report.new.crate_id,
+                    triplet(&report.new.version),
+                    triplet(since),
+                    self.old_path.display()
+                ));
+            } else if same_version {
                 msg.push_str(&format!(
                     "\n{} {} has a snapshot ({}), so it is released and never changes: a change needs a new version.",
                     report.new.crate_id,
@@ -636,10 +700,16 @@ impl Comparison {
         };
         if self.new_label == "source" {
             format!(
-                "\nThe source differs from {}, the snapshot of {version}.\nIf {version} is not released yet, save \
+                "\nThe source differs from {}, the snapshot of {version}{}.\nIf {version} is not released yet, save \
                  it again with {}. A released version's snapshot never changes: bump `version` in {cargo_toml} \
                  instead (docs/evolution/rules.md#your-apis-version) and save the new version's snapshot.",
                 self.old_path.display(),
+                self.unchanged_since
+                    .as_ref()
+                    .map_or(String::new(), |since| format!(
+                        " (unchanged since {}, so no file of its own)",
+                        triplet(since)
+                    )),
                 save_command(self.crate_path.as_deref())
             )
         } else {
@@ -654,12 +724,8 @@ impl Comparison {
     }
 }
 
-/// What to change for [Report::check_wire]: the wire version to declare, and where it is declared.
-fn wire_hint(report: &Report, crate_path: Option<&Path>) -> String {
-    wire_hint_at(report, &wire_declared_at(crate_path, None))
-}
-
-/// [wire_hint] with the place the wire version is declared at, [wire_declared_at].
+/// What to change for [Report::check_wire]: the wire version to declare, and where it is declared, `at`
+/// ([wire_declared_at]).
 fn wire_hint_at(report: &Report, at: &str) -> String {
     match (report.minimal_wire(), report.new_wire) {
         (Some(min), Some(new)) if new < min => {
@@ -960,6 +1026,7 @@ impl fmt::Display for Outcome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Outcome::Compared(c) => c.fmt(f),
+            Outcome::Roots(r) => r.fmt(f),
             Outcome::NoSnapshot(n) => {
                 write!(
                     f,

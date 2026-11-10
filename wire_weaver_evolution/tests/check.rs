@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
-use wire_weaver_evolution::{Change, Check, Outcome, Rule, SaveStatus, Saved};
+use wire_weaver_evolution::{Change, Check, Outcome, RootsOutcome, Rule, SaveStatus, Saved};
 
 const API: &str = r#"
 #[ww_api_root(wire = "w1.0")]
@@ -881,9 +881,13 @@ fn snapshots_per_root() {
     let again = Check::new(c.path()).save(false).unwrap();
     assert!(again.iter().all(|s| s.status == SaveStatus::UpToDate));
     assert!(again.iter().all(|s| s.warnings.is_empty()), "{again:?}");
-    // the whole crate is checked per root in EVO-39
-    let err = Check::new(c.path()).run().unwrap_err();
-    assert!(err.contains("EVO-39"), "{err}");
+    // each root is checked against its own snapshot (EVO-39)
+    let (outcome, verdict) = check(c.path(), true);
+    assert_eq!(
+        verdict.unwrap(),
+        "`wire_v1::Api`: no changes; `wire_v2::Api`: no changes",
+        "{outcome}"
+    );
 
     // line 2 gets a method: a new revision of its line and a compatible crate bump; line 1 is unchanged and keeps
     // the file 0.1.0 saved
@@ -1195,4 +1199,265 @@ fn design_line_root_gets_no_snapshot_of_its_own() {
         ]
     );
     assert!(!c.snapshot("test_api_0_1_0.wire_v2.Api@w0.0.ron").exists());
+    // checked per root (EVO-39): the w0 root needs no snapshot, and breaks on it are information
+    let (outcome, verdict) = check_current(c.path());
+    let ok = verdict.unwrap_or_else(|e| panic!("{outcome}\n{e}"));
+    has_all(
+        &ok,
+        &[
+            "`wire_v1::Api`: no changes",
+            "`wire_v2::Api`: w0 is the design line",
+        ],
+    );
+    let checked = roots_of(&outcome);
+    assert!(matches!(&checked.roots[1].outcome, Outcome::NoSnapshot(n) if n.design_line));
+    let line_2b = LINE_2.replace("    fn read_once(average: u8) -> Code;\n", "");
+    let modules = [
+        ("common", COMMON),
+        ("wire_v1", LINE_1),
+        ("wire_v2", &line_2b),
+    ];
+    c.write_roots("0.1.0", &roots, &modules);
+    assert!(check_current(c.path()).1.is_ok());
+}
+
+/// The roots of a crate with several, as [Check::run] found them.
+fn roots_of(outcome: &Outcome) -> &RootsOutcome {
+    match outcome {
+        Outcome::Roots(roots) => roots,
+        other => panic!("not checked per root: {other}"),
+    }
+}
+
+/// The modules of [checker_per_root]'s crate, line 1's and line 2's root with `extra` added to the shared `Channel`.
+fn per_root_modules(common_extra: &str) -> Vec<(&'static str, String)> {
+    let common = COMMON.replace(
+        "    fn read() -> Code;\n",
+        &format!("    fn read() -> Code;\n{common_extra}"),
+    );
+    vec![
+        ("common", common),
+        ("wire_v1", LINE_1.to_string()),
+        ("wire_v2", LINE_2.to_string()),
+    ]
+}
+
+fn write_per_root(c: &TestCrate, version: &str, wires: [&str; 2], modules: &[(&str, String)]) {
+    let roots = [("wire_v1::Api", wires[0]), ("wire_v2::Api", wires[1])];
+    let modules: Vec<(&str, &str)> = modules.iter().map(|(n, s)| (*n, s.as_str())).collect();
+    c.write_roots(version, &roots, &modules);
+}
+
+/// A crate with several roots is checked per root (EVO-39): each against its own latest snapshot, `#[since]` and the
+/// wire version on each line, a shared type that changed named with every root it changed on, the crate version
+/// the largest any root needs.
+#[test]
+fn checker_per_root() {
+    let c = TestCrate::new("checker_per_root");
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    let (outcome, verdict) = check_current(c.path());
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    assert_eq!(roots_of(&outcome).roots.len(), 2);
+
+    // a method of the shared sub-trait, with a revision per line: a new revision of each, a compatible crate bump
+    let reset = "    #[since = \"w1.1, w2.1\"]\n    fn reset();\n";
+    write_per_root(&c, "0.1.1", ["w1.1", "w2.0"], &per_root_modules(reset));
+    let (outcome, verdict) = check(c.path(), true);
+    let err = verdict.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "API root `wire_v2::Api` (w2.0): test_api wire w2.0 -> w2.0 has",
+            "Channel::reset has #[since = \"w2.1\"], newer than the API's wire version w2.0",
+            "`\"wire_v2::Api\"` of `[package.metadata.wire_weaver.roots]`",
+        ],
+    );
+    assert!(!err.contains("wire_v1::Api"), "{err}");
+    let roots = roots_of(&outcome);
+    assert_eq!(roots.shared.len(), 1, "{outcome}");
+    assert_eq!(
+        roots.shared[0].to_string(),
+        "shared `Channel` changed on `wire_v1::Api` (w1.1), `wire_v2::Api` (w2.0)"
+    );
+    // the `#[since]` of each line is checked against that line's revision
+    let early = "    #[since = \"w1.0, w2.1\"]\n    fn reset();\n";
+    write_per_root(&c, "0.1.1", ["w1.1", "w2.1"], &per_root_modules(early));
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_ok(), "{verdict:?}");
+    let text = outcome.to_string();
+    let line_2 = text.find("API root `wire_v2::Api`").unwrap();
+    let warning = text
+        .find("warning: Channel::reset is added with #[since = \"w1.0\"], expected #[since = \"w1.1\"]")
+        .unwrap_or_else(|| panic!("{text}"));
+    assert!(warning < line_2, "under line 1:\n{text}");
+    assert!(!text[line_2..].contains("warning"), "{text}");
+    write_per_root(&c, "0.1.1", ["w1.1", "w2.1"], &per_root_modules(reset));
+    let (outcome, verdict) = check(c.path(), true);
+    assert_eq!(
+        verdict.unwrap(),
+        "`wire_v1::Api`: version is bumped enough; `wire_v2::Api`: version is bumped enough",
+        "{outcome}"
+    );
+    assert_eq!(
+        roots_of(&outcome)
+            .minimal_version()
+            .map(|v| wire_weaver_evolution::snapshot_files::triplet(&v)),
+        Some("0.1.1".to_string())
+    );
+
+    // a shared type changed on the wire: both lines need a new one, the crate a breaking bump, the largest
+    let wider = per_root_modules(reset)
+        .into_iter()
+        .map(|(n, s)| {
+            (
+                n,
+                s.replace("pub struct Code(pub u16);", "pub struct Code(pub u32);"),
+            )
+        })
+        .collect::<Vec<_>>();
+    write_per_root(&c, "0.1.2", ["w1.1", "w2.1"], &wider);
+    let (outcome, verdict) = check(c.path(), true);
+    let err = verdict.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "API root `wire_v1::Api` (w1.1)",
+            "API root `wire_v2::Api` (w2.1)",
+            "0.2.0 or later",
+            "w2.0 or later",
+            "w3.0 or later",
+        ],
+    );
+    let text = outcome.to_string();
+    has_all(
+        &text,
+        &[
+            "shared `Code` changed on `wire_v1::Api` (w1.1), `wire_v2::Api` (w2.1)",
+            "crate: 0.2.0 or later, the largest its roots need",
+        ],
+    );
+}
+
+/// A root that was saved before and that the crate no longer lists is a line leaving the crate: a breaking crate
+/// bump, recorded by [Check::save] so the next version isn't asked again (EVO-39).
+#[test]
+fn removed_root_needs_a_breaking_bump() {
+    let c = TestCrate::new("removed_root");
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    let only_2 = |version: &str| {
+        c.write_roots(
+            version,
+            &[("wire_v2::Api", "w2.0")],
+            &[("common", COMMON), ("wire_v2", LINE_2)],
+        );
+    };
+    only_2("0.1.1");
+    let err = check(c.path(), false).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "API root `wire_v1::Api` is removed (its last snapshot is",
+            "test_api_0_1_0.wire_v1.Api@w1.0.ron",
+            "test_api 0.1.0 -> 0.2.0 or later",
+        ],
+    );
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    assert!(err.contains("Not saved: bump `version`"), "{err}");
+
+    only_2("0.2.0");
+    let (outcome, verdict) = check(c.path(), false);
+    assert_eq!(
+        verdict.unwrap(),
+        "`wire_v2::Api`: no changes; `wire_v1::Api`: removed, version is bumped enough",
+        "{outcome}"
+    );
+    // the evolution test wants it recorded
+    let err = check_current(c.path()).1.unwrap_err();
+    assert!(err.contains("the removal is not recorded"), "{err}");
+    let saved = Check::new(c.path()).save(false).unwrap();
+    let removed = saved
+        .iter()
+        .find(|s| s.status == SaveStatus::Removed)
+        .unwrap_or_else(|| panic!("{saved:?}"));
+    assert_eq!(removed.root.as_deref(), Some("wire_v1::Api"));
+    let record = c.snapshot("test_api_0_2_0.wire_v1.Api@w1.0.removed");
+    assert_eq!(removed.path, record);
+    let text = std::fs::read_to_string(&record).unwrap();
+    assert!(text.contains("API root wire_v1::Api removed"), "{text}");
+    let (outcome, verdict) = check_current(c.path());
+    assert!(verdict.is_ok(), "{outcome}\n{verdict:?}");
+    // recorded once: the next version is not asked again, and saving again writes nothing
+    only_2("0.2.1");
+    assert!(check(c.path(), false).1.is_ok());
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert!(
+        saved.iter().all(|s| s.status == SaveStatus::UpToDate),
+        "{saved:?}"
+    );
+}
+
+/// A root whose latest snapshot is older than the crate version, which saved other roots: that snapshot stands for
+/// the crate's version, so a change to the root after the save needs a new version, as for a whole crate (EVO-39).
+#[test]
+fn unchanged_roots_snapshot_stands_for_the_saved_version() {
+    let c = TestCrate::new("stands_for");
+    write_per_root(&c, "0.1.0", ["w1.0", "w2.0"], &per_root_modules(""));
+    Check::new(c.path()).save(false).unwrap();
+    // 0.1.1 changes only line 2, and is saved
+    let mut modules = per_root_modules("");
+    modules[2].1 = LINE_2.replace(
+        "Channel);\n",
+        "Channel);\n    #[since = \"w2.1\"]\n    fn stop();\n",
+    );
+    write_per_root(&c, "0.1.1", ["w1.0", "w2.1"], &modules);
+    Check::new(c.path()).save(false).unwrap();
+    assert!(check_current(c.path()).1.is_ok());
+    // then line 1 gets a doc comment without a new version
+    modules[1].1 = LINE_1.replace("#[ww_api_root]", "/// Line 1.\n#[ww_api_root]");
+    write_per_root(&c, "0.1.1", ["w1.0", "w2.1"], &modules);
+    let err = check(c.path(), false).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "API root `wire_v1::Api` (w1.0)",
+            "test_api 0.1.1 has snapshots, saved with this root unchanged since 0.1.0",
+            "test_api_0_1_0.wire_v1.Api@w1.0.ron",
+        ],
+    );
+    let err = check_current(c.path()).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "The source differs from",
+            "(unchanged since 0.1.0, so no file of its own)",
+        ],
+    );
+    // a root's snapshot file is compared with the previous one of the same root, `--against` takes a root's file
+    let v2 = c.snapshot("test_api_0_1_1.wire_v2.Api@w2.1.ron");
+    let outcome = Check::new(&v2).run().unwrap();
+    let Outcome::Compared(compared) = &outcome else {
+        panic!("{outcome}");
+    };
+    assert_eq!(
+        compared.old_path,
+        c.snapshot("test_api_0_1_0.wire_v2.Api@w2.0.ron")
+    );
+    assert_eq!(compared.report.change, Change::Compatible);
+    let outcome = Check::new(c.path()).against(&v2).run().unwrap();
+    let roots = roots_of(&outcome);
+    assert_eq!(roots.roots.len(), 1);
+    assert_eq!(roots.roots[0].root, "wire_v2::Api");
+    let err = Check::new(c.path())
+        .against(
+            c.snapshot("test_api_0_1_0.wire_v1.Api@w1.0.ron")
+                .with_extension("x"),
+        )
+        .run()
+        .unwrap_err();
+    assert!(
+        err.contains("compare one of them with a snapshot of that root"),
+        "{err}"
+    );
 }

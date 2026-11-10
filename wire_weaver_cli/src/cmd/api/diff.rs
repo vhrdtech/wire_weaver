@@ -3,12 +3,20 @@ use anyhow::{Result, anyhow};
 use console::style;
 use std::path::PathBuf;
 use wire_weaver_evolution::snapshot_files::triplet;
-use wire_weaver_evolution::{self as evolution, Change, Difference};
+use wire_weaver_evolution::{self as evolution, Change, Comparison, Difference};
 
 pub(crate) fn diff(path: PathBuf, against: Option<PathBuf>) -> Result<()> {
-    let Some(versions) = compared(path, against)? else {
-        return Ok(());
-    };
+    // one per API root of a crate with several (EVO-39)
+    for (root, versions) in compared(path, against)? {
+        if let Some(root) = root {
+            println!("{}", style(root).bold());
+        }
+        print_diff(&versions)?;
+    }
+    Ok(())
+}
+
+fn print_diff(versions: &Comparison) -> Result<()> {
     let differences = evolution::diff(&versions.old, &versions.new).map_err(|e| anyhow!(e))?;
     let report = &versions.report;
     println!(

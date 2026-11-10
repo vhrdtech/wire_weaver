@@ -65,8 +65,8 @@ pub mod snapshot_files;
 
 #[cfg(feature = "source")]
 pub use check::{
-    Check, Comparison, NoSnapshot, Outcome, SAVE_ENV, SaveStatus, Saved, UnitHint,
-    missing_test_warning,
+    Check, Comparison, CrateCache, NoSnapshot, Outcome, RemovedRoot, RootOutcome, RootsOutcome,
+    SAVE_ENV, SaveStatus, Saved, SharedChange, UnitHint, missing_test_warning,
 };
 pub use compat::RootCause;
 pub use diff::{Difference, diff};

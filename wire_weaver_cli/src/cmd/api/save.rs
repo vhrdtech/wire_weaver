@@ -54,6 +54,15 @@ pub(crate) fn save(
             );
             continue;
         }
+        if saved.status == SaveStatus::Removed {
+            // a root the `roots` table no longer lists (EVO-39)
+            println!(
+                "{root}{}, recorded in {}",
+                style(saved.status).green(),
+                saved.path.display()
+            );
+            continue;
+        }
         if saved.status == SaveStatus::UpToDate {
             println!("{root}{} is up to date", saved.path.display());
             continue;

@@ -63,6 +63,14 @@ pub fn latest_snapshot(
         if path.extension().is_none_or(|ext| ext != "ron") {
             continue;
         }
+        // a root's own file is not a snapshot of the whole crate
+        if path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| root_of_file_name(n).is_some())
+        {
+            continue;
+        }
         let snapshot = read(&path)?;
         let snapshot_version = snapshot
             .bundle
@@ -137,6 +145,98 @@ pub fn root_of_file_name(file_name: &str) -> Option<RootFileName> {
         root: root.replace('.', "::"),
         wire,
     })
+}
+
+/// File name that records the removal of the API root `root` from a crate with several (EVO-39): written by
+/// `ww api save` in the crate version that removed it, `wire` the root's last wire version,
+/// `multi_root_api_0_2_0.wire_v1.Thermo@w1.2.removed`. Not a snapshot: it holds one line saying what was removed.
+pub fn removed_file_name(version: &FullVersionOwned, root: &str, wire: WireVersion) -> String {
+    let name = root_file_name(version, root, wire);
+    format!("{}.removed", name.strip_suffix(".ron").unwrap_or(&name))
+}
+
+/// The crate version, root and last wire version a removal record is named after ([removed_file_name]); `None`
+/// for any other file.
+pub fn root_of_removed_file_name(file_name: &str) -> Option<RootFileName> {
+    let stem = file_name.strip_suffix(".removed")?;
+    root_of_file_name(&format!("{stem}.ron"))
+}
+
+/// What a file in a crate's snapshot directory is, by its name ([crate_files]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CrateFile {
+    /// A whole-crate snapshot, `<crate>_0_1_0.ron`.
+    Crate,
+    /// A snapshot of one API root ([root_file_name]).
+    Root { root: String, wire: WireVersion },
+    /// The record of an API root's removal ([removed_file_name]).
+    Removed { root: String, wire: WireVersion },
+}
+
+/// A file of a crate's snapshot directory, by its name ([crate_files]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NamedFile {
+    pub path: PathBuf,
+    /// The crate version, `(major, minor, patch)`.
+    pub version: (u32, u32, u32),
+    pub kind: CrateFile,
+}
+
+/// The files of crate `crate_id` in `dir`, by name only, oldest crate version first. Empty when `dir` doesn't exist.
+pub fn crate_files(dir: &Path, crate_id: &str) -> Result<Vec<NamedFile>, String> {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Err(e) => return Err(format!("reading {}: {e}", dir.display())),
+    };
+    let mut files = vec![];
+    for entry in entries {
+        let path = entry
+            .map_err(|e| format!("reading {}: {e}", dir.display()))?
+            .path();
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        let named = if let Some(name) = root_of_file_name(file_name) {
+            let file = CrateFile::Root {
+                root: name.root,
+                wire: name.wire,
+            };
+            Some((name.crate_id, name.version, file))
+        } else if let Some(name) = root_of_removed_file_name(file_name) {
+            let file = CrateFile::Removed {
+                root: name.root,
+                wire: name.wire,
+            };
+            Some((name.crate_id, name.version, file))
+        } else {
+            crate_of_file_name(file_name).map(|(id, version)| (id, version, CrateFile::Crate))
+        };
+        if let Some((id, version, kind)) = named
+            && id == crate_id
+        {
+            files.push(NamedFile {
+                path,
+                version,
+                kind,
+            });
+        }
+    }
+    files.sort_by(|a, b| (a.version, &a.path).cmp(&(b.version, &b.path)));
+    Ok(files)
+}
+
+/// The crate and version of a whole-crate snapshot's name, `<crate>_0_1_0.ron`.
+fn crate_of_file_name(file_name: &str) -> Option<(String, (u32, u32, u32))> {
+    let stem = file_name.strip_suffix(".ron")?;
+    let mut parts = stem.rsplitn(4, '_');
+    let patch = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let major = parts.next()?.parse().ok()?;
+    let crate_id = parts
+        .next()
+        .filter(|id| !id.is_empty() && !id.contains('.'))?;
+    Some((crate_id.to_string(), (major, minor, patch)))
 }
 
 /// An earlier snapshot of an API root, with the wire and crate versions it was saved at.
@@ -273,6 +373,19 @@ mod tests {
         );
         let nested = root_file_name(&version, "lines::v3::Api", wire);
         assert_eq!(root_of_file_name(&nested).unwrap().root, "lines::v3::Api");
+        let removed = removed_file_name(&version, "wire_v2::Thermo", wire);
+        assert_eq!(removed, "thermo_api_0_12_3.wire_v2.Thermo@w2.1.removed");
+        assert_eq!(
+            root_of_removed_file_name(&removed),
+            root_of_file_name(&name)
+        );
+        assert_eq!(root_of_file_name(&removed), None);
+        assert_eq!(root_of_removed_file_name(&name), None);
+        assert_eq!(
+            crate_of_file_name("thermo_api_0_12_3.ron"),
+            Some(("thermo_api".into(), (0, 12, 3)))
+        );
+        assert_eq!(crate_of_file_name(&name), None);
         for other in [
             "thermo_api_0_1_0.ron",
             "thermo_api_0_1_0@w2.1.ron",

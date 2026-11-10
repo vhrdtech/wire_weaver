@@ -503,13 +503,15 @@ impl CrateCache {
             .canonicalize()
             .unwrap_or_else(|_| crate_path.to_path_buf());
         let cached = self.by_entry.borrow_mut().remove(&key).unwrap_or_default();
-        let mut scratch = Scratch::default();
-        scratch.crates = cached.crates;
-        scratch.manifests = cached.manifests;
-        scratch.public_paths = cached.public_paths;
-        scratch.modules = cached.modules;
-        scratch.local_reexports = cached.local_reexports;
-        scratch.sources = cached.sources;
+        let mut scratch = Scratch {
+            crates: cached.crates,
+            manifests: cached.manifests,
+            public_paths: cached.public_paths,
+            modules: cached.modules,
+            local_reexports: cached.local_reexports,
+            sources: cached.sources,
+            ..Default::default()
+        };
         let walked = walk(&mut scratch);
         let cached = CachedCrates {
             crates: std::mem::take(&mut scratch.crates),

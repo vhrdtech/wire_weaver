@@ -41,6 +41,18 @@ pub enum Difference {
     },
 }
 
+impl Difference {
+    /// Where the difference is: `Api::led_on`, `Code: field 0`, `trait Channel`.
+    pub fn path(&self) -> &str {
+        match self {
+            Difference::Added { path, .. }
+            | Difference::Removed { path, .. }
+            | Difference::Changed { path, .. }
+            | Difference::Docs { path, .. } => path,
+        }
+    }
+}
+
 /// All differences between an old version of a crate and a new one, in the order of traits, resources, types and
 /// dependencies. Both are crate bundles, as loaded by `wire_weaver_core::load_crate` and saved by `ww api save`.
 ///

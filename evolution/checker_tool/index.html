@@ -6209,7 +6209,9 @@ latest snapshot, under its name and wire version. Here <code>Code</code> in <cod
   by itself is compared with the previous snapshot of the same root.</li>
 <li><code>ww api diff</code> lists each root's differences under its name.</li>
 <li>All roots are loaded with one cache of the crates read (<code>wire_weaver_core::CrateCache</code>), so the dependencies'
-  source is walked once for the whole check. Each check reads the source anew.</li>
+  source is walked once for the whole check. The cache keeps a load only while every file it read has the size and
+  modification time it had, so a check after an edit sees it; <code>Check::cache</code> shares one cache between checks, also on
+  other threads (EVO-50).</li>
 <li>A root on w0 gets no snapshot and needs none: its check is on the design line (<a href="#the-design-line-w0">below</a>).</li>
 </ul>
 <h2 id="the-design-line-w0">The design line, w0<a class="headerlink" href="#the-design-line-w0" title="Permanent link">&para;</a></h2>

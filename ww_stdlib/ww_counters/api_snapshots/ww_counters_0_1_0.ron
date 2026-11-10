@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2d01f029aaac01469b91f8cbc96ba6db638a8d0fd22e0b7643074fa08de04299
+// shrink_wrap sha256: e9dd5497473f7cb5d05e2f669b946008447678554be0090998c8328bf649bf9a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -135,14 +135,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        110,
-        231,
-        112,
-        5,
-        126,
-        194,
-        52,
-        206,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One word\'s new value.",
@@ -216,10 +216,10 @@
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 4, revision: 0)),
+    Some((line: 5, revision: 0)),
 ]))

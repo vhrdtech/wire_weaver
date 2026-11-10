@@ -1,6 +1,6 @@
 // ww_gpio 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a1e13e49063c3173176ef00beb5d776b43ffe62a2b78b0ee218343dc1f8e0578
+// shrink_wrap sha256: 3fc97dbc81d333d29d56a4d1346f70f220ba1fdedc57a66c3357761276a96758
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "GPIO control and remote bridging API: banks of pins (`Bank`), each with individually addressable pins (`Pin`)",
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
@@ -166,14 +166,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        110,
-        231,
-        112,
-        5,
-        126,
-        194,
-        52,
-        206,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported IO levels, modes, custom modes, etc.",
@@ -343,10 +343,10 @@
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 4, revision: 0)),
+    Some((line: 5, revision: 0)),
 ]))

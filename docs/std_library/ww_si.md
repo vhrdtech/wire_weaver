@@ -129,7 +129,7 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 
 ```toml
 # firmware with voltages and timestamps, stored as u16, u32 and f32
-ww_si = { version = "0.4", default-features = false, features = ["time", "electrical", "u16", "u32", "f32"] }
+ww_si = { version = "0.5", default-features = false, features = ["time", "electrical", "u16", "u32", "f32"] }
 ```
 
 The bytes on the wire are the same for every feature set.

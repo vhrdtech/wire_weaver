@@ -1,6 +1,6 @@
 [package]
 name = "ww_si"
-version = "0.4.0"
+version = "0.5.0"
 authors.workspace = true
 description = "Statically and dynamically typed SI values"
 edition.workspace = true
@@ -9,7 +9,7 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
-wire = "w4.0"
+wire = "w5.0"
 
 [features]
 default = ["std"]

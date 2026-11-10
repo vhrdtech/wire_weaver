@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `ww_si` 0.5.0 (wire `w5.0`) snapshot is new (EVO-51); every current snapshot that names a `ww_si` type (`ww_adc`, `ww_can_bus`, `ww_counters`, `ww_firmware_info`, `ww_gpio`, `ww_i2c`, `ww_indication`, `ww_logic_analyzer`, `ww_onewire`, `ww_pwm`, `ww_recorder`, `ww_signal_generator`, `ww_spi`, `ww_timebase`, `ww_uart`) saved again in place against it, as EVO-47 did. `signatures_from_before_marker_definitions`' pinned `ww_timebase::Clock` signature moves with it.
 - `exact_units`' snapshot saved again at 4abc92b (EVO-49): `MuLaw`'s `MarkerDef::Codec` has `spare: []`, `MuLawSingleZero` is new with `0x7F` spare, and the type `CodeSpan` (two `i128`) is described. RON reads and writes `i128` (`ron`'s `integer128`).
 - `exact_units`' snapshot saved again with references in the model (STD-108, EVO-48): `UnitZero`, `AmbientPressure`, `TaiScale`, `PosixScale` and `DeviceMonotonic` carry `MarkerDef::Reference`, and every origin its `ReferenceDef` whole; no other snapshot holds an origin.
 - `exact_units`' snapshot saved again at its landed main 16bf14c (EVO-47), which also holds LVL-6's codecs (`CodecShape`, `CodecDef`); the snapshots that name `ww_si` types are unchanged by it.

@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c9a8de22e09fa7a57b162541c9c630fe1df0d25f22d7ed0248624c544862256b
+// shrink_wrap sha256: e25aadac20f3e9858666298adb9a188d0dd53c125f7032723b91e74fbe507122
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -100,14 +100,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        110,
-        231,
-        112,
-        5,
-        126,
-        194,
-        52,
-        206,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One operation of a `Spi::transaction`.",
@@ -579,10 +579,10 @@
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 4, revision: 0)),
+    Some((line: 5, revision: 0)),
 ]))

@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9f494dbbf111d0d92c71d07bfa91cecebf8ec346aac9cd8480daa7b47e9378a9
+// shrink_wrap sha256: 3ebd153350baa3f39e7ba794acd2a7c8db3b0abba8cdfd414800e4d260dac1fc
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -75,14 +75,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        110,
-        231,
-        112,
-        5,
-        126,
-        194,
-        52,
-        206,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One addressed (or skip-ROM) transaction: reset, select, write, read, optional strong pull-up.",
@@ -312,11 +312,11 @@
 ], ext_crates: [
     (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 4, revision: 0)),
+    Some((line: 5, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

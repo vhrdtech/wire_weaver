@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7b4e84ebadafc8d797d2ec88ce8f17c372dcdad2e1db6bab0b8c3a93fe7948d4
+// shrink_wrap sha256: f2a832d4dad690f72cd12cb3f985a1d03f2100111b05a932a98c24f57b0d2f90
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -69,24 +69,24 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        110,
-        231,
-        112,
-        5,
-        126,
-        194,
-        52,
-        206,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "RateLimit", signature: [
-        187,
-        205,
-        126,
-        183,
-        180,
-        27,
-        100,
+        182,
+        148,
+        87,
+        247,
+        165,
         163,
+        105,
+        1,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a pattern generator offers, see `PatternGenerator::capabilities`.",
@@ -547,14 +547,14 @@
 ], ext_crates: [
     (crate_id: "ww_signal_generator", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_adc", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 4, revision: 0)),
+    Some((line: 5, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 3, revision: 0)),

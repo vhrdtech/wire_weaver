@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 3f9c7ba90cc023f6951255a5013afec51aba6d5a3396dd81d46e31dd22be55bb
+// shrink_wrap sha256: 2d8402bcad809858c92558cb1b5c7a9ca87af1a1d6603996b374c35243db5b13
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -76,14 +76,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        110,
-        231,
-        112,
-        5,
-        126,
-        194,
-        52,
-        206,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
@@ -128,11 +128,11 @@
 ], ext_crates: [
     (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
     None,
-    Some((line: 4, revision: 0)),
+    Some((line: 5, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

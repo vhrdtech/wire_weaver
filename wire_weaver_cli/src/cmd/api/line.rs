@@ -29,7 +29,7 @@ pub enum LineCommand {
     },
     /// Remove a wire line no device runs any more
     ///
-    /// Takes the root out of `roots`, `pub mod` out of `src/lib.rs` and deletes its module file (git keeps it). That
+    /// Takes the root out of `roots`, `pub mod` out of `src/lib.rs` and deletes its module file, which has to be tracked and unchanged in git (`--force` skips that check). That
     /// is a breaking crate bump, made in `Cargo.toml` unless the version is already high enough or `--no-bump` is
     /// given. Run `ww api save` afterwards to record the removal.
     Retire {
@@ -43,6 +43,10 @@ pub enum LineCommand {
         /// Leave the crate version alone
         #[arg(long)]
         no_bump: bool,
+
+        /// Delete the module file even when git doesn't track it or it has changes
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -53,7 +57,8 @@ pub(crate) fn line(cmd: LineCommand) -> Result<()> {
             path,
             root,
             no_bump,
-        } => retire(&path, &root, no_bump),
+            force,
+        } => retire(&path, &root, no_bump, force),
     }
 }
 
@@ -238,7 +243,38 @@ fn new(path: &Path, from: Option<&str>, module: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn retire(path: &Path, root: &str, no_bump: bool) -> Result<()> {
+/// Refuses a file git can't bring back: not tracked, or changed since the last commit (or no git at all).
+fn check_recoverable(file: &Path) -> Result<()> {
+    let dir = file.parent().unwrap_or(Path::new("."));
+    let name = file.file_name().unwrap_or_default();
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .arg("--")
+            .arg(name)
+            .current_dir(dir)
+            .output()
+    };
+    let refuse = |why: &str| {
+        Err(anyhow!(
+            "{} {why}, deleting it would lose it: commit it first, or pass --force",
+            file.display()
+        ))
+    };
+    let tracked = git(&["ls-files", "--error-unmatch"]);
+    match tracked {
+        Err(_) => return refuse("can't be checked, git is not available"),
+        Ok(o) if !o.status.success() => return refuse("is not tracked by git"),
+        Ok(_) => {}
+    }
+    let status = git(&["status", "--porcelain"]).context("running git status")?;
+    if !status.status.success() || !status.stdout.is_empty() {
+        return refuse("has uncommitted changes");
+    }
+    Ok(())
+}
+
+fn retire(path: &Path, root: &str, no_bump: bool, force: bool) -> Result<()> {
     let roots = roots_of(path)?;
     let key = resolve_root(&roots, root)?;
     if roots.len() == 1 {
@@ -263,6 +299,9 @@ fn retire(path: &Path, root: &str, no_bump: bool) -> Result<()> {
     } else {
         Some(module_file(path, module)?)
     };
+    if let (Some(file), false) = (&file, force) {
+        check_recoverable(file)?;
+    }
 
     // the removal is a breaking bump of the last version that shipped the root
     let package = &doc["package"];
@@ -400,7 +439,38 @@ mod tests {
             "",
         )
         .unwrap();
-        retire(&dir, "wire_v1", false).unwrap();
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .args(["-c", "user.name=t", "-c", "user.email=t@t"])
+                .args(args)
+                .current_dir(&dir)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?}: {out:?}");
+        };
+        git(&["init", "-q"]);
+        // untracked: refused, nothing changed
+        let err = retire(&dir, "wire_v1", false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("not tracked"), "{err}");
+        assert!(dir.join("src/wire_v1.rs").exists());
+        git(&["add", "-A"]);
+        git(&["commit", "-qm", "x"]);
+        // modified: refused
+        std::fs::write(dir.join("src/wire_v1.rs"), "// edited\n").unwrap();
+        let err = retire(&dir, "wire_v1", false, false)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("uncommitted changes"), "{err}");
+        assert!(dir.join("src/wire_v1.rs").exists());
+        assert!(
+            std::fs::read_to_string(dir.join("Cargo.toml"))
+                .unwrap()
+                .contains("wire_v1::Thermo")
+        );
+        git(&["commit", "-qam", "y"]);
+        retire(&dir, "wire_v1", false, false).unwrap();
         assert!(!dir.join("src/wire_v1.rs").exists());
         let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
         assert!(manifest.contains("version = \"0.2.0\""), "{manifest}");

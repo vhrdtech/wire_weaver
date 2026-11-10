@@ -9,6 +9,7 @@
 
 ### 🐛 Fixes
 
+- `ClockSync::devices` could still list a device just closed (SRV-31): `device_closed` stops its steering task with `JoinHandle::abort`, which only cancels the task at its next `.await`, so a publish already in flight (the status watch ticks every few ms) could insert a fresh entry right after the close removed it. Each steering task now carries the generation it was started with and checks it, under the same lock as the insert, before publishing; a superseded task's publish is a no-op instead of resurrecting the entry. Found by `clock_sync::the_hub_steers_and_keeps_the_device_open` flaking under CPU load.
 - A tunnel fronts the device with the device's wire version (EVO-25): a generated client on another wire line is refused by the hub as by the device itself, a dynamic one connects.
 - Reads and builds `Observe` requests with their body as a `RefBox` / `Box` (SRV-54, `ww_client_server`'s breaking change); merged observe requests are the same bytes as before.
 - `Adopt::prepare` takes `wire_weaver_client::adopt::HandoverOwned` (the link residual and the medium residual, CLT-44): the medium residual's kind must be the device key's medium, and its bytes are checked by that medium before the slot is kept.

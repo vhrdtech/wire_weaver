@@ -415,6 +415,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `MultiWrite` are dispatched as calls and writes (they ran as reads), each index answered on its own like in
   `MultiRead`.
 - `exact_units` pinned by `rev` in the root `[workspace.dependencies]` (e89f64e, the commit `Cargo.lock` already had): a repo that takes wire_weaver by path (usb_io_fw, vb135_fdcan_iso_usb_fw, typec_dongle) resolved `exact_units` HEAD with its own lock file and broke on `ww_si` re-exports.
+- The ww hub's `ClockSync::devices` could briefly list a device just closed (SRV-31): a steering task's publish, already in flight when the device closed, could resurrect the entry its close had just removed. See `ww_hub/CHANGELOG.md`.
 
 ## [0.5.0] - 2026-10-15
 

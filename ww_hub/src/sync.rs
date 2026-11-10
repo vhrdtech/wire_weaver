@@ -39,6 +39,11 @@ pub(crate) struct Steering {
     pub(crate) linger: Option<Duration>,
     entries: BTreeMap<String, SyncEntryOwned>,
     tasks: BTreeMap<String, JoinHandle<()>>,
+    /// The current task's generation per key: a task started by [start] publishes to `entries` only while its own
+    /// generation still matches, so one running past its [stop] (abort is cooperative, not immediate) can't
+    /// resurrect an entry [stop] already removed.
+    generation: BTreeMap<String, u64>,
+    next_generation: u64,
     /// Bumped on every change of the settings: the tasks look again
     changed: watch::Sender<u64>,
 }
@@ -52,6 +57,8 @@ impl Steering {
             linger,
             entries: BTreeMap::new(),
             tasks: BTreeMap::new(),
+            generation: BTreeMap::new(),
+            next_generation: 0,
             changed: watch::channel(0).0,
         }
     }
@@ -109,19 +116,35 @@ pub(crate) fn start(
     device: Arc<Device>,
     tx: &mpsc::UnboundedSender<ToDevice>,
 ) {
-    let task = tokio::spawn(run(hub.clone(), key.to_string(), device, tx.downgrade()));
+    let generation = {
+        let mut steering = hub.steering.lock().unwrap();
+        steering.next_generation += 1;
+        let generation = steering.next_generation;
+        steering.generation.insert(key.to_string(), generation);
+        steering
+            .entries
+            .insert(key.to_string(), entry(key, SyncPhaseOwned::Starting));
+        generation
+    };
+    let task = tokio::spawn(run(
+        hub.clone(),
+        key.to_string(),
+        device,
+        tx.downgrade(),
+        generation,
+    ));
     let mut steering = hub.steering.lock().unwrap();
-    steering
-        .entries
-        .insert(key.to_string(), entry(key, SyncPhaseOwned::Starting));
     if let Some(old) = steering.tasks.insert(key.to_string(), task) {
         old.abort();
     }
 }
 
-/// The device `key` was closed: its sync stops (the device goes on in holdover), its entry goes.
+/// The device `key` was closed: its sync stops (the device goes on in holdover), its entry goes. `abort` only asks
+/// the task to end at its next `.await`, so its generation goes with the entry here: a publish already in flight on
+/// another thread finds its generation stale and drops instead of resurrecting the entry.
 pub(crate) fn stop(hub: &Hub, key: &str) {
     let mut steering = hub.steering.lock().unwrap();
+    steering.generation.remove(key);
     if let Some(task) = steering.tasks.remove(key) {
         task.abort();
     }
@@ -133,17 +156,19 @@ async fn run(
     key: String,
     device: Arc<Device>,
     tx: mpsc::WeakUnboundedSender<ToDevice>,
+    generation: u64,
 ) {
     let publish = |phase: SyncPhaseOwned, status: Option<&Status>| {
         let mut e = entry(&key, phase);
         if let Some(s) = status {
             fill(&mut e, s);
         }
-        hub.steering
-            .lock()
-            .unwrap()
-            .entries
-            .insert(key.clone(), e.clone());
+        let mut steering = hub.steering.lock().unwrap();
+        if steering.generation.get(&key) != Some(&generation) {
+            return;
+        }
+        steering.entries.insert(key.clone(), e.clone());
+        drop(steering);
         let _ = hub.sync_stats.send(e);
     };
     // the device's linger depends on whether it is steered: its task looks again
@@ -244,7 +269,13 @@ async fn run(
                     };
                     let mut e = entry(&key, phase);
                     fill(&mut e, &status.borrow_and_update());
-                    hub.steering.lock().unwrap().entries.insert(key.clone(), e.clone());
+                    {
+                        let mut steering = hub.steering.lock().unwrap();
+                        if steering.generation.get(&key) != Some(&generation) {
+                            return;
+                        }
+                        steering.entries.insert(key.clone(), e.clone());
+                    }
                     if last_sent.elapsed() >= STATS_EVERY {
                         last_sent = Instant::now();
                         let _ = hub.sync_stats.send(e);

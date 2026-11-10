@@ -8135,7 +8135,7 @@ observing), SRV-46 (peer identity).
   (<code>donguru_api</code> and <code>b135_api</code> had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. <code>docs/evolution/checker_tool.md#a-missing-test-warning-tool-31</code>.</li>
 <li>✅ <strong>TOOL-33 <code>ww api line new</code> / <code>retire</code></strong> — copies <code>wire_vN.rs</code> to <code>wire_vN+1.rs</code> at <code>w(N+1).0</code> with its
-  <code>roots</code> entry, and removes a line once no device runs it, with the breaking crate bump (EVO-37). <code>wire_weaver_cli</code> <code>cmd::api::line</code>: top-level single-file modules only (a
+  <code>roots</code> entry, and retires a line once no device runs it, keeping its module behind a Cargo feature unless <code>--delete</code>, with the breaking crate bump (EVO-37). <code>wire_weaver_cli</code> <code>cmd::api::line</code>: top-level single-file modules only (a
   <code>src/&lt;mod&gt;/mod.rs</code> root is refused with a message), the bump is made in <code>Cargo.toml</code> unless <code>--no-bump</code>, a
   workspace-inherited version is reported, not edited. Test <code>new_then_retire</code> on a copy of <code>tests/multi_root_api</code>.
   <code>docs/cli_reference.md#ww-api</code>.</li>

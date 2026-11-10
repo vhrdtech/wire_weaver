@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9b3f0f1fa81a3a4d0c740b8c57d976d10261de15cf5e25453ea9aff4a85dae1a
+// shrink_wrap sha256: e91765c931fc9b7ac8bf33bd9b0216bee853ea1aae550e3d69e5cdfa6104d040
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -43,6 +43,186 @@
     "Run-time quantities (a prefix and a number type chosen per value) are `ww_si`\'s `Quantity` and `AnyQuantity`,",
     "built on this crate.",
 ], crate_idx: 0, trait_name: "exact_units", items: [], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Who a marker is: the crate that declares it, as Rust names it (`CARGO_CRATE_NAME`: `exact_units`, `my_api`), and",
+        "the marker\'s name (`Rpm`). Every marker kind has one: a unit ([UnitDef]), an origin ([OriginDef](crate::OriginDef)),",
+        "a scale ([ScaleDef](crate::ScaleDef)), a [Reference](crate::Reference).",
+        "",
+        "Two crates\' `Rpm` are two units, which print the same. The name is the marker\'s own, not its module path: a",
+        "marker stays the same unit when it moves between modules of its crate, so a crate has one marker of a kind per name.",
+    ], ident: "MarkerId", generics: [], fields: Named([
+        (ident: Some("crate_name"), default: None, since: None, ty: String, docs: [
+            "The crate that declares the marker: `exact_units`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("name"), default: None, since: None, ty: String, docs: [
+            "The marker\'s name: `Volt`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "The powers of the symbols in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in neper",
+        "(`ln10/20`) `ln10 = 2`, an oersted in A/m (`10⁻⁴/μ₀`) `mu0 = -2`. Treated as independent symbols, like the primes,",
+        "so they cancel exactly: `(T/μ₀)·μ₀` is `T`.",
+        "",
+        "π, ln 2 and ln 10 are mathematics: their value is known, and a factor with them converts by a named rounding. μ₀",
+        "(the magnetic constant) and G (the Newtonian constant of gravitation) are measured since the 2019 SI: a factor with",
+        "either left in it has no value until a named, versioned set gives one ([resolve](Magnitude::resolve)). ε₀ =",
+        "1/(μ₀c²), Z₀ = μ₀c and α = μ₀e²c/(2h) are expressions over μ₀ with the exact c, e and h, not symbols of their own.",
+    ], ident: "Symbols", generics: [], fields: Named([
+        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of π.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of ln 2.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of ln 10.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("mu0"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of μ₀, the magnetic constant (measured).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("g"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of G, the Newtonian constant of gravitation (measured).",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
+    ], ident: "PrimePower", generics: [], fields: Named([
+        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+            "The prime: 3, 7, 11, ..",
+        ], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice its exponent.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
+    ], ident: "MagnitudeRest", generics: [], fields: Named([
+        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of 2.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("symbols"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
+            "π, ln 2, ln 10, μ₀ and G, `None` when all their exponents are 0.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(16), ty: Option(some_ty: OutOfLine(type_idx: 2))), docs: [
+            "Primes other than 2 and 5, ascending, used slots first.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "An exact positive factor: `10^a · 2^b · π^c · ln2^d · ln10^e · μ₀^f · G^g · ∏ pᵢ^kᵢ` over primes `pᵢ` other than 2",
+        "and 5, every exponent a whole or half number (`√2`, `10^(3/2)` for √(kHz), `√μ₀`). `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit duty,",
+        "`3⁻¹ · 5⁻¹ · 17⁻¹ · 257⁻¹`), `π/180` (°), the pound\'s `0.45359237` (`7 · 11 · 97 · 6073 · 10⁻⁸`), `ln10/20` (a",
+        "decibel in neper), `10⁻⁴/μ₀` (an oersted in A/m). Never an `f64`, so every client reproduces a value bit-exactly, and a scale fixed in a type",
+        "([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
+        "",
+        "Closed under multiplication and division: a product only fails when it needs more than [MAX_FACTORS] primes or",
+        "an exponent leaves ±63½, and then at compile time in a `const` (a panic at run time; the `checked_` forms say",
+        "`None`), never by rounding.",
+        "",
+        "Always canonical, so equal magnitudes are equal field by field: 2 and 5 only in `pow10` / `pow2` (`5 = 10 · 2⁻¹`),",
+        "the other primes sorted with exponents that aren\'t 0, and `rest` / `symbols` left out when they are 1. Plain",
+        "`const` data without lifetimes, so a `&\'static Magnitude` can be held at run time; [Fixed](crate::Fixed) uses it",
+        "only at compile time.",
+        "",
+        "On the wire every exponent is twice the exponent as an `i8`, the primes as [UNib32]: `pow10` alone is 9 bits",
+        "(Milli `fa 00`), the rest behind an option bit, its symbols behind one more, an empty prime slot one bit.",
+        "`self_describing`: the bytes end by themselves, so a magnitude can be the field of an enum variant",
+        "([Prefix](crate::Prefix)\'s `Exact`).",
+    ], ident: "Magnitude", generics: [], fields: Named([
+        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of 10.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 3)), docs: [
+            "Everything but the power of 10, `None` when it is 1.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "What a [Codec] computes, as data: the family of algorithm, with its parameters where it has any. Every shape",
+        "here is exact (a table or an integer formula) or names where it isn\'t yet, never a float standing in for it.",
+    ], ident: "CodecShape", generics: [], variants: [
+        (docs: [
+            "ITU-T G.711 μ-law: 8 segments of 16 steps, doubling in size. [MuLaw] is the worked [Codec].",
+        ], ident: "MuLaw", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "ITU-T G.711 A-law: as μ-law\'s segments, the even ones linear. No [Codec] in this crate yet (LVL-4).",
+        ], ident: "ALaw", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "A gamma curve, `v\' = v^gamma`: sRGB\'s shape away from its linear segment near zero. No [Codec] in this",
+            "crate yet (LVL-4); `gamma` is exact, never an `f64` standing in for it.",
+        ], ident: "Power", fields: Named([
+            (ident: Some("gamma"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The exponent.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A gamma curve with a linear segment near zero (sRGB, L*): [Power](CodecShape::Power) plus the segment\'s own",
+            "slope and breakpoint, not yet named here. No [Codec] in this crate yet (LVL-4).",
+        ], ident: "PiecewisePower", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "An exponential curve, `base^(v + offset)` (BLE illuminance\'s log scale). No [Codec] in this crate yet (LVL-4).",
+        ], ident: "Exp", fields: Named([
+            (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The base.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "Added before raising to `base`.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 4, since: None),
+        (docs: [
+            "The linear value of every code, ascending by raw code: IEEE 11073 SFLOAT\'s shape, where the codes outside a",
+            "formula (NaN, ±∞, \"not at this resolution\") are the common case. No [Codec] in this crate yet (IO-3).",
+        ], ident: "Table", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Vec(NumericAny(Base(I128))), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 5, since: None),
+    ], path: Some([
+        "codec",
+    ]), instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Where a [Codec]\'s algorithm is found, as data a client without the trait can run: an id ([MarkerId], as",
+        "[UnitDef](crate::UnitDef)\'s is) and a [CodecShape]. [Codec::DEF] carries one for every codec in this crate.",
+        "",
+        "On the wire (feature `shrink_wrap`): WireWeaver\'s `MarkerDef::Codec` is where a schema holds one; its walker,",
+        "`ww_self`, `ww_si` and the conformance corpus are their own, separate landing (filed, not done here).",
+    ], ident: "CodecDef", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "The crate and marker that declare it.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "What it computes.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A value given by a [Codec]\'s code instead of a linear step: the bytes of `C::Raw`, nothing more (`size_of` is",
+        "`C::Raw`\'s). [get](Self::get) decodes, which never refuses; [try_new](Self::try_new) encodes, which refuses only",
+        "a `Linear` beyond every code\'s range.",
+        "",
+        "`V` is `C::Linear` and `T` is `C::Raw`, both spelled out (as [Niched](crate::niche::Niched)\'s `V` and `T` are) so",
+        "a `Coded` reads the value it holds and the bytes it is without following the trait: a G.711 μ-law byte is",
+        "`Coded<MuLaw, Fixed<Ratio, Pow2<-13>, i16>>`.",
+    ], ident: "Coded", generics: [
+        (ident: "C", kind: Type),
+        (ident: "V", kind: Type),
+        (ident: "T", kind: Type),
+    ], fields: Named([
+        (ident: Some("raw"), default: None, since: None, ty: Param(2), docs: [
+            "The code, as stored and sent.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "ITU-T G.711 μ-law: 8 segments of 16 steps each, the step doubling every segment (2, 4, 8, .., 256), encoded in",
+        "one byte. [decode](Codec::decode) is onto but not one-to-one (`0xFF` and `0x7F` both mean 0, the standard\'s",
+        "\"double zero\"), and two adjacent segments leave a gap a few steps wide at the boundary (segment 0\'s 16 steps of",
+        "2 reach 30, segment 1\'s 16 steps of 4 start at 33): both are the standard\'s own shape, not a bug here.",
+        "",
+        "[Linear](Codec::Linear) is `Fixed<Ratio, Pow2<-13>, i16>`, the 14-bit linear sample (13 magnitude bits and a",
+        "sign, the standard\'s native domain): the widely used 16-bit variant (BIAS 0x84, as telephony software converts",
+        "16-bit PCM) is this value times 4, left for a client that wants it, not duplicated here.",
+    ], ident: "MuLaw", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
         "A complex value `re + j·im` in unit `U` and scale `P`, both parts stored as `T`, with the overflow policy `B`. See",
         "the [module](crate::complex) for the design.",
@@ -938,21 +1118,6 @@
         ], ident: "Vector", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "Who a marker is: the crate that declares it, as Rust names it (`CARGO_CRATE_NAME`: `exact_units`, `my_api`), and",
-        "the marker\'s name (`Rpm`). Every marker kind has one: a unit ([UnitDef]), an origin ([OriginDef](crate::OriginDef)),",
-        "a scale ([ScaleDef](crate::ScaleDef)), a [Reference](crate::Reference).",
-        "",
-        "Two crates\' `Rpm` are two units, which print the same. The name is the marker\'s own, not its module path: a",
-        "marker stays the same unit when it moves between modules of its crate, so a crate has one marker of a kind per name.",
-    ], ident: "MarkerId", generics: [], fields: Named([
-        (ident: Some("crate_name"), default: None, since: None, ty: String, docs: [
-            "The crate that declares the marker: `exact_units`.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("name"), default: None, since: None, ty: String, docs: [
-            "The marker\'s name: `Volt`.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A quantity named by another record: by its definition in `const` data (a unit\'s quantity, a quantity\'s parent,",
         "so a walk needs no table), or by its [MarkerId] where it was read from data, resolved through a",
         "[UnitTable]. On the wire always its id: an API model lists every quantity it names.",
@@ -992,10 +1157,10 @@
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A distinguished base and its exponent in a [Dim]: `Sample` to the 1st power in `Sample/s`.",
     ], ident: "BaseExp", generics: [], fields: Named([
-        (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [
+        (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The base, by the crate and the marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 75), docs: [
+        (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 83), docs: [
             "Its exponent.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1019,13 +1184,13 @@
         "[with_list](Self::with_list), a unit type\'s `DIM`, a wire read, [tree::dim](crate::tree::dim)), so the walks",
         "below never meet one that doesn\'t.",
     ], ident: "Dim", generics: [], fields: Named([
-        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 74), docs: [
+        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
             "The system the exponents count in.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 75)), docs: [
+        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 83)), docs: [
             "The exponents of the system\'s true bases: SI\'s s, m, kg, A, K, mol, cd.",
         ], slot: None, series_opaque: false),
-        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 76)), docs: [
+        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 84)), docs: [
             "The distinguished bases.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1037,108 +1202,31 @@
         "Its English name is its marker\'s name split at the capitals: `PathLength` is \"path length\" ([name](Self::name)).",
         "Its system is its dimension\'s.",
     ], ident: "QuantityDef", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("parent"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 73)), docs: [
+        (ident: Some("parent"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 81)), docs: [
             "The quantity it is a kind of: length for height, `None` for a root.",
         ], slot: None, series_opaque: false),
-        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 77), docs: [
+        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 85), docs: [
             "Its dimension, its parent\'s for a child.",
         ], slot: None, series_opaque: false),
         (ident: Some("is_kind"), default: None, since: None, ty: Bool, docs: [
             "A kind of its own: it doesn\'t convert to its parent or to its dimension\'s other quantities, only by a named",
             "step. A root without it is its dimension\'s open root, the quantity [Derived](QuantityExpr::Derived) means.",
         ], slot: None, series_opaque: false),
-        (ident: Some("character"), default: None, since: None, ty: OutOfLine(type_idx: 71), docs: [
+        (ident: Some("character"), default: None, since: None, ty: OutOfLine(type_idx: 80), docs: [
             "A number, a complex number or a vector.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "The powers of the symbols in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in neper",
-        "(`ln10/20`) `ln10 = 2`, an oersted in A/m (`10⁻⁴/μ₀`) `mu0 = -2`. Treated as independent symbols, like the primes,",
-        "so they cancel exactly: `(T/μ₀)·μ₀` is `T`.",
-        "",
-        "π, ln 2 and ln 10 are mathematics: their value is known, and a factor with them converts by a named rounding. μ₀",
-        "(the magnetic constant) and G (the Newtonian constant of gravitation) are measured since the 2019 SI: a factor with",
-        "either left in it has no value until a named, versioned set gives one ([resolve](Magnitude::resolve)). ε₀ =",
-        "1/(μ₀c²), Z₀ = μ₀c and α = μ₀e²c/(2h) are expressions over μ₀ with the exact c, e and h, not symbols of their own.",
-    ], ident: "Symbols", generics: [], fields: Named([
-        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of π.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of ln 2.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of ln 10.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("mu0"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of μ₀, the magnetic constant (measured).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("g"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of G, the Newtonian constant of gravitation (measured).",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
-    ], ident: "PrimePower", generics: [], fields: Named([
-        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
-            "The prime: 3, 7, 11, ..",
-        ], slot: None, series_opaque: false),
-        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice its exponent.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
-    ], ident: "MagnitudeRest", generics: [], fields: Named([
-        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of 2.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("symbols"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 79)), docs: [
-            "π, ln 2, ln 10, μ₀ and G, `None` when all their exponents are 0.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(16), ty: Option(some_ty: OutOfLine(type_idx: 80))), docs: [
-            "Primes other than 2 and 5, ascending, used slots first.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "An exact positive factor: `10^a · 2^b · π^c · ln2^d · ln10^e · μ₀^f · G^g · ∏ pᵢ^kᵢ` over primes `pᵢ` other than 2",
-        "and 5, every exponent a whole or half number (`√2`, `10^(3/2)` for √(kHz), `√μ₀`). `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit duty,",
-        "`3⁻¹ · 5⁻¹ · 17⁻¹ · 257⁻¹`), `π/180` (°), the pound\'s `0.45359237` (`7 · 11 · 97 · 6073 · 10⁻⁸`), `ln10/20` (a",
-        "decibel in neper), `10⁻⁴/μ₀` (an oersted in A/m). Never an `f64`, so every client reproduces a value bit-exactly, and a scale fixed in a type",
-        "([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
-        "",
-        "Closed under multiplication and division: a product only fails when it needs more than [MAX_FACTORS] primes or",
-        "an exponent leaves ±63½, and then at compile time in a `const` (a panic at run time; the `checked_` forms say",
-        "`None`), never by rounding.",
-        "",
-        "Always canonical, so equal magnitudes are equal field by field: 2 and 5 only in `pow10` / `pow2` (`5 = 10 · 2⁻¹`),",
-        "the other primes sorted with exponents that aren\'t 0, and `rest` / `symbols` left out when they are 1. Plain",
-        "`const` data without lifetimes, so a `&\'static Magnitude` can be held at run time; [Fixed](crate::Fixed) uses it",
-        "only at compile time.",
-        "",
-        "On the wire every exponent is twice the exponent as an `i8`, the primes as [UNib32]: `pow10` alone is 9 bits",
-        "(Milli `fa 00`), the rest behind an option bit, its symbols behind one more, an empty prime slot one bit.",
-        "`self_describing`: the bytes end by themselves, so a magnitude can be the field of an enum variant",
-        "([Prefix](crate::Prefix)\'s `Exact`).",
-    ], ident: "Magnitude", generics: [], fields: Named([
-        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of 10.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 81)), docs: [
-            "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How one SI base maps into another system: 1 of the SI base unit is `factor` times the product of the system\'s",
         "bases to `exps`. In Natural 1 kg is c²/e eV (`exps` eV¹); in Gaussian 1 m is 100 cm.",
     ], ident: "BaseRule", generics: [], fields: Named([
-        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 75)), docs: [
+        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 83)), docs: [
             "The exponents of the system\'s true bases, in the order of [SystemDef::bases].",
         ], slot: None, series_opaque: false),
-        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
+        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "The exact factor.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1146,13 +1234,13 @@
         "A row of a system\'s table by quantity: 1 coherent unit of the quantity `here` (of this system) is `factor` times",
         "the coherent SI unit of `si`. Gaussian\'s B: 1 G is 10⁻⁴·√(μ₀/(4π·10⁻⁷)) T.",
     ], ident: "BridgeDef", generics: [], fields: Named([
-        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 73), docs: [
+        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 81), docs: [
             "The SI quantity.",
         ], slot: None, series_opaque: false),
-        (ident: Some("here"), default: None, since: None, ty: OutOfLine(type_idx: 73), docs: [
+        (ident: Some("here"), default: None, since: None, ty: OutOfLine(type_idx: 81), docs: [
             "The quantity of this system.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
+        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "The exact factor, μ₀ as a symbol where the row needs it.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1163,7 +1251,7 @@
         (ident: Some("symbol"), default: None, since: None, ty: String, docs: [
             "How it is written: `ħ`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
+        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "Its value in coherent SI units, exact: ħ is h/(2π) J·s.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1172,24 +1260,24 @@
         "quantity that bridge it to SI. [System::DEF] holds one per marker, and the same record is a system\'s definition",
         "in an API model.",
     ], ident: "SystemDef", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
         (ident: Some("bases"), default: None, since: None, ty: Vec(String), docs: [
             "The symbols of its true bases, in the order of a [Dim]\'s exponents: SI\'s `s m kg A K mol cd`, Natural\'s",
             "`eV A K mol cd`, Gaussian\'s `g cm s K mol cd`. At most [MAX_TRUE_BASES].",
         ], slot: None, series_opaque: false),
-        (ident: Some("set_to_one"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 85)), docs: [
+        (ident: Some("set_to_one"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 89)), docs: [
             "What it sets to 1: Natural\'s ħ and c.",
         ], slot: None, series_opaque: false),
-        (ident: Some("by_dim"), default: None, since: None, ty: Vec(Option(some_ty: OutOfLine(type_idx: 83))), docs: [
+        (ident: Some("by_dim"), default: None, since: None, ty: Vec(Option(some_ty: OutOfLine(type_idx: 87))), docs: [
             "One entry per SI base (s, m, kg, A, K, mol, cd): its image here, `None` where it has none (the ampere in",
             "Gaussian). Empty for SI itself.",
         ], slot: None, series_opaque: false),
-        (ident: Some("by_quantity"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 84)), docs: [
+        (ident: Some("by_quantity"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 88)), docs: [
             "The rows by quantity, which win over the rule.",
         ], slot: None, series_opaque: false),
-        (ident: Some("no_rule"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 73)), docs: [
+        (ident: Some("no_rule"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 81)), docs: [
             "SI quantities the rule doesn\'t bridge: Natural\'s frequency, activity and symbol rate.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -3677,13 +3765,13 @@
         "back the same. A dimension without true exponents (a ratio, an angle) belongs to every system and is written as",
         "SI\'s; a reader refuses it under another system.",
     ], ident: "DimWire", generics: [], fields: Named([
-        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 74), docs: [
+        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
             "The system the exponents count in.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 75)), docs: [
+        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 83)), docs: [
             "The exponents of the system\'s true bases: SI\'s s, m, kg, A, K, mol, cd.",
         ], slot: None, series_opaque: false),
-        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 76)), docs: [
+        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 84)), docs: [
             "The distinguished bases.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -3696,7 +3784,7 @@
         "Values with a base convert only to values with the same base to the same power: rad/s is not Hz, a byte count is",
         "not a ratio; [Dim::strip] drops a base on purpose, for an export or a formula like v = ωr.",
     ], ident: "BaseDef", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4230,7 +4318,7 @@
         (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [
             "Below the reference; never for zero.",
         ], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 82)), docs: [
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4312,7 +4400,7 @@
         (docs: [
             "These prefixes only: `mmHg` takes milli and nothing else.",
         ], ident: "Only", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 307), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 311), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -4343,7 +4431,7 @@
             "The unit\'s code in UCUM (`\"Ohm\"`, `\"m/s2\"`, `\"By\"`), `None` where it has none or none is recorded: such a unit",
             "isn\'t written in [Notation::Ucum](crate::Notation::Ucum).",
         ], slot: None, series_opaque: false),
-        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 308), docs: [
+        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 312), docs: [
             "Which prefixes the unit takes in text: `km` is a kilometre, but `min` is no milli-inch.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4381,23 +4469,23 @@
         "The scale is a [Magnitude](crate::Magnitude), always: a unit has no offset (°C is the origin",
         "[Celsius](crate::origins::Celsius) of kelvins) and no float factor.",
     ], ident: "UnitDef", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 309), docs: [
+        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 313), docs: [
             "How it is written.",
         ], slot: None, series_opaque: false),
-        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 77), docs: [
+        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 85), docs: [
             "Its dimension.",
         ], slot: None, series_opaque: false),
-        (ident: Some("quantity"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 73)), docs: [
+        (ident: Some("quantity"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 81)), docs: [
             "The quantity it measures by default ([Ohm](crate::units::Ohm) a resistance, [Becquerel](crate::units::Becquerel)",
             "an activity), `None` for its dimension\'s quantity ([QuantityExpr::Derived]). On the wire by id.",
         ], slot: None, series_opaque: false),
-        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "The exact factor to coherent SI: ° is π/180 rad, eV 1.602176634·10⁻¹⁹ J.",
         ], slot: None, series_opaque: false),
-        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 310), docs: [
+        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 314), docs: [
             "Whether the scale is the unit\'s definition or a value a source prints.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4425,35 +4513,35 @@
         (docs: [
             "A named unit, described in full: one no table at hand lists, or a tree that reads alone.",
         ], ident: "Def", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 311), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 315), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "A named unit a table lists, by its identity: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
         ], ident: "Ref", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 72), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 312)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 312)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 316)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 316)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 312)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 312)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 316)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 316)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 312)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 316)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 312)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 316)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

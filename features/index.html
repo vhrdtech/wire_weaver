@@ -7506,9 +7506,15 @@ observing), SRV-46 (peer identity).
   already key their cached files by the bundle's hash, so a revision-only wire bump gets its own cache entry
   without any change. Test
   <code>wire_weaver_client</code> <code>compat::tests::resolve_api_match_refuses_a_hello_wire_that_differs_from_the_bundles</code>.
-- 💡 <strong>CLT-62 Fallible <code>WwClient::from_cmd</code></strong> — a facade of several wire lines (EVO-28) picks its client in
-  <code>from_cmd</code>, which can't fail, so a line it has no client of is <code>unreachable!</code>, sound only because link setup
-  refused that device first. A <code>try_from_cmd</code> returning an error would say so in the types.
+- ✅ <strong>CLT-62 Fallible <code>WwClient::try_from_cmd</code></strong> · <code>v0.5</code> — <code>try_from_cmd(cmd) -&gt; Result&lt;Self, Error&gt;</code> is now
+  <code>WwClient</code>'s required method, <code>from_cmd</code> a provided one that unwraps it with a panic, sound to call only where
+  <code>try_from_cmd</code> can't answer <code>Err</code> (a client of one wire line). Every <code>impl WwClient</code> writes <code>try_from_cmd</code>
+  instead of <code>from_cmd</code> now (every generated-pattern client's body is <code>Ok(Self { cmd })</code>); a facade of several wire
+  lines (EVO-28) returns the new <code>Error::NoClientForLine</code> for a line it has no client of (tests/thermo's <code>Thermo</code>),
+  rather than <code>unreachable!</code> — link setup still refuses any other line first, so this only catches a bug in the
+  facade's own set of clients. <code>PreparedConnection::connect</code> and <code>connect_blocking</code> call <code>try_from_cmd</code>, so that bug
+  now surfaces as a connect error, not a panic. Tests <code>wire_weaver_client</code> <code>ww_client_tests::*</code> (both defaults,
+  direct).
 - 💡 <strong>CLT-63 Reconnect into another wire line</strong> — a facade of several lines (EVO-28) picks its client once, in
   <code>from_cmd</code>. A device that comes back on another line (a DFU to new firmware) keeps the client chosen at the first
   connect; nothing tests what happens then. The reconnect should choose the line again, or end the session with an

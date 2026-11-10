@@ -29,9 +29,11 @@ pub enum LineCommand {
     },
     /// Remove a wire line no device runs any more
     ///
-    /// Takes the root out of `roots`, `pub mod` out of `src/lib.rs` and deletes its module file, which has to be tracked and unchanged in git (`--force` skips that check). That
-    /// is a breaking crate bump, made in `Cargo.toml` unless the version is already high enough or `--no-bump` is
-    /// given. Run `ww api save` afterwards to record the removal.
+    /// Takes the root out of `roots` and puts its `pub mod` in `src/lib.rs` behind `#[cfg(feature = "wire_v1")]`, a
+    /// feature added to `Cargo.toml` that nothing enables, so the module stays in the source but is not built. With
+    /// `--delete` the module file is removed instead; it has to be tracked and unchanged in git (`--force` skips that
+    /// check). That is a breaking crate bump, made in `Cargo.toml` unless the version is already high enough or
+    /// `--no-bump` is given. Run `ww api save` afterwards to record the removal.
     Retire {
         /// Path to the API crate
         #[arg(value_hint = clap::ValueHint::DirPath)]
@@ -44,8 +46,12 @@ pub enum LineCommand {
         #[arg(long)]
         no_bump: bool,
 
-        /// Delete the module file even when git doesn't track it or it has changes
+        /// Delete the module file instead of keeping it behind a Cargo feature
         #[arg(long)]
+        delete: bool,
+
+        /// With --delete: delete the module file even when git doesn't track it or it has changes
+        #[arg(long, requires = "delete")]
         force: bool,
     },
 }
@@ -57,8 +63,9 @@ pub(crate) fn line(cmd: LineCommand) -> Result<()> {
             path,
             root,
             no_bump,
+            delete,
             force,
-        } => retire(&path, &root, no_bump, force),
+        } => retire(&path, &root, no_bump, delete, force),
     }
 }
 
@@ -181,6 +188,32 @@ fn remove_mod(lib: &str, module: &str) -> Result<String> {
     Ok(lines.join("\n") + if lib.ends_with('\n') { "\n" } else { "" })
 }
 
+/// `src/lib.rs` with `mod <module>;` under `#[cfg(feature = "<feature>")]`, in the same visibility.
+fn gate_mod(lib: &str, module: &str, feature: &str) -> Result<String> {
+    let (at, prefix) = find_mod_line(lib, module)
+        .ok_or_else(|| anyhow!("`mod {module};` not found in src/lib.rs, gate it by hand"))?;
+    let indent = &prefix[..prefix.len() - prefix.trim_start().len()];
+    let mut lines: Vec<&str> = lib.lines().collect();
+    let attr = format!("{indent}#[cfg(feature = \"{feature}\")]");
+    lines.insert(at, &attr);
+    Ok(lines.join("\n") + if lib.ends_with('\n') { "\n" } else { "" })
+}
+
+/// Adds `<feature> = []` to `[features]`, creating the table when the crate has none.
+fn add_feature(doc: &mut DocumentMut, feature: &str) -> Result<()> {
+    if doc.get("features").is_none() {
+        doc["features"] = Item::Table(Table::new());
+    }
+    let features = doc["features"]
+        .as_table_mut()
+        .ok_or_else(|| anyhow!("`[features]` is not a table"))?;
+    if features.contains_key(feature) {
+        bail!("Cargo.toml has a feature `{feature}` already, rename or remove it");
+    }
+    features.insert(feature, value(toml_edit::Array::new()));
+    Ok(())
+}
+
 fn new(path: &Path, from: Option<&str>, module: Option<&str>) -> Result<()> {
     let roots = roots_of(path)?;
     let source = match from {
@@ -274,7 +307,7 @@ fn check_recoverable(file: &Path) -> Result<()> {
     Ok(())
 }
 
-fn retire(path: &Path, root: &str, no_bump: bool, force: bool) -> Result<()> {
+fn retire(path: &Path, root: &str, no_bump: bool, delete: bool, force: bool) -> Result<()> {
     let roots = roots_of(path)?;
     let key = resolve_root(&roots, root)?;
     if roots.len() == 1 {
@@ -289,17 +322,25 @@ fn retire(path: &Path, root: &str, no_bump: bool, force: bool) -> Result<()> {
     roots_table(&mut doc)?.remove(&key);
 
     let lib_path = lib_rs(path)?;
+    // kept: the module stays behind a feature nothing enables; deleted: gone from lib.rs and disk
     let lib = if module_shared {
         None
-    } else {
+    } else if delete {
         Some(remove_mod(&std::fs::read_to_string(&lib_path)?, module)?)
+    } else {
+        add_feature(&mut doc, module)?;
+        Some(gate_mod(
+            &std::fs::read_to_string(&lib_path)?,
+            module,
+            module,
+        )?)
     };
     let file = if module_shared {
         None
     } else {
         Some(module_file(path, module)?)
     };
-    if let (Some(file), false) = (&file, force) {
+    if let (Some(file), true, false) = (&file, delete, force) {
         check_recoverable(file)?;
     }
 
@@ -344,13 +385,27 @@ fn retire(path: &Path, root: &str, no_bump: bool, force: bool) -> Result<()> {
     if let Some(lib) = lib {
         std::fs::write(&lib_path, lib)?;
     }
-    if let Some(file) = &file {
-        std::fs::remove_file(file).with_context(|| format!("removing {}", file.display()))?;
+    match (&file, delete) {
+        (Some(file), true) => {
+            std::fs::remove_file(file).with_context(|| format!("removing {}", file.display()))?;
+            println!("{key} retired: {bump_note}");
+            println!(
+                "next: fix what still uses the module, then `ww api save` records the removal ({module}.rs is in git if needed)"
+            );
+        }
+        (Some(_), false) => {
+            println!("{key} retired: {bump_note}");
+            println!(
+                "{module}.rs is kept behind the Cargo feature `{module}` (nothing enables it); next: fix what still uses the module, then `ww api save` records the removal"
+            );
+        }
+        (None, _) => {
+            println!("{key} retired: {bump_note}");
+            println!(
+                "next: `{module}` still holds other roots and stays; `ww api save` records the removal"
+            );
+        }
     }
-    println!("{key} retired: {bump_note}");
-    println!(
-        "next: fix what still uses the module, then `ww api save` records the removal ({module}.rs is in git if needed)"
-    );
     Ok(())
 }
 
@@ -379,6 +434,11 @@ mod tests {
             "#![no_std]\n\npub mod common;\npub mod wire_v2;\npub mod wire_v3;\n"
         );
         assert!(add_mod(lib, "nope", "x").is_err());
+        let gated = gate_mod(lib, "wire_v1", "wire_v1").unwrap();
+        assert_eq!(
+            gated,
+            "#![no_std]\n\npub mod common;\n#[cfg(feature = \"wire_v1\")]\npub mod wire_v1;\npub mod wire_v2;\n"
+        );
     }
 
     #[test]
@@ -408,7 +468,34 @@ mod tests {
         }
     }
 
-    /// `tests/multi_root_api` copied: a new line, then the retirement of the oldest with a saved snapshot.
+    /// Retiring keeps the module behind a feature nothing enables; the crate still loads and lists one root less.
+    #[test]
+    fn retire_keeps_module_behind_feature() {
+        let dir = std::env::temp_dir().join(format!("ww_line_keep_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/multi_root_api");
+        copy_dir(&source.join("src"), &dir.join("src"));
+        let manifest = std::fs::read_to_string(source.join("Cargo.toml")).unwrap();
+        std::fs::write(dir.join("Cargo.toml"), manifest).unwrap();
+
+        retire(&dir, "wire_v1", false, false, false).unwrap();
+        assert!(dir.join("src/wire_v1.rs").exists(), "the file stays");
+        let lib = std::fs::read_to_string(dir.join("src/lib.rs")).unwrap();
+        assert!(
+            lib.contains("#[cfg(feature = \"wire_v1\")]\npub mod wire_v1;"),
+            "{lib}"
+        );
+        let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
+        assert!(manifest.contains("wire_v1 = []"), "{manifest}");
+        assert!(!manifest.contains("wire_v1::Thermo"));
+        // enabling the feature is not part of the default set
+        assert!(!manifest.contains("default = [\"std\", \"wire_v1\"]"));
+        let roots = wire_weaver_core::api_roots(&dir).unwrap();
+        assert_eq!(roots.keys().collect::<Vec<_>>(), ["wire_v2::Thermo"]);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `tests/multi_root_api` copied: a new line, then the deletion of the oldest with a saved snapshot.
     #[test]
     fn new_then_retire() {
         let dir = std::env::temp_dir().join(format!("ww_line_test_{}", std::process::id()));
@@ -450,7 +537,7 @@ mod tests {
         };
         git(&["init", "-q"]);
         // untracked: refused, nothing changed
-        let err = retire(&dir, "wire_v1", false, false)
+        let err = retire(&dir, "wire_v1", false, true, false)
             .unwrap_err()
             .to_string();
         assert!(err.contains("not tracked"), "{err}");
@@ -459,7 +546,7 @@ mod tests {
         git(&["commit", "-qm", "x"]);
         // modified: refused
         std::fs::write(dir.join("src/wire_v1.rs"), "// edited\n").unwrap();
-        let err = retire(&dir, "wire_v1", false, false)
+        let err = retire(&dir, "wire_v1", false, true, false)
             .unwrap_err()
             .to_string();
         assert!(err.contains("uncommitted changes"), "{err}");
@@ -470,7 +557,7 @@ mod tests {
                 .contains("wire_v1::Thermo")
         );
         git(&["commit", "-qam", "y"]);
-        retire(&dir, "wire_v1", false, false).unwrap();
+        retire(&dir, "wire_v1", false, true, false).unwrap();
         assert!(!dir.join("src/wire_v1.rs").exists());
         let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap();
         assert!(manifest.contains("version = \"0.2.0\""), "{manifest}");

@@ -2289,7 +2289,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
   hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning-tool-31`.
 - ✅ **TOOL-33 `ww api line new` / `retire`** — copies `wire_vN.rs` to `wire_vN+1.rs` at `w(N+1).0` with its
-  `roots` entry, and removes a line once no device runs it, with the breaking crate bump (EVO-37). `wire_weaver_cli` `cmd::api::line`: top-level single-file modules only (a
+  `roots` entry, and retires a line once no device runs it, keeping its module behind a Cargo feature unless `--delete`, with the breaking crate bump (EVO-37). `wire_weaver_cli` `cmd::api::line`: top-level single-file modules only (a
   `src/<mod>/mod.rs` root is refused with a message), the bump is made in `Cargo.toml` unless `--no-bump`, a
   workspace-inherited version is reported, not edited. Test `new_then_retire` on a copy of `tests/multi_root_api`.
   `docs/cli_reference.md#ww-api`.

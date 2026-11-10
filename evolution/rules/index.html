@@ -6368,9 +6368,10 @@ the lines share unchanged in a module of their own (EVO-37, <code>tests/multi_ro
   by each line's client with <code>sub_levels = [..]</code> (<a href="../multi_line_host/#shared-sub-traits">shared sub-traits</a>, CLT-68).</li>
 <li>Every root needs an entry once the table exists; a crate-level <code>wire = ..</code> stays for a crate with one root and for
   crates whose traits are reached by global paths (<code>ww_stdlib</code>).</li>
-<li><code>ww api save</code> saves a snapshot per root
-  (<a href="../checker_tool/#several-api-roots-in-one-crate">several API roots</a>). Checks per root are EVO-39: until then
-  <code>ww api check</code> refuses a crate with a <code>roots</code> table.</li>
+<li><code>ww api save</code> saves a snapshot per root, and <code>ww api check</code> checks each root against its own latest one
+  (<a href="../checker_tool/#several-api-roots-in-one-crate">several API roots</a>, <a href="../checker_tool/#checking-each-root">checking each root</a>):
+  the crate version is bumped for the root that needs the most, and a root removed from the table is a breaking
+  crate bump, recorded by <code>ww api save</code>.</li>
 </ul>
 <h3 id="which-bump-a-change-needs">Which bump a change needs<a class="headerlink" href="#which-bump-a-change-needs" title="Permanent link">&para;</a></h3>
 <p>The wire version and the crate version are bumped apart, each for what it describes: the wire version for what

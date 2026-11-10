@@ -7903,9 +7903,18 @@ observing), SRV-46 (peer identity).
   tests <code>wire_weaver_evolution</code> <code>design_line_*</code>, <code>wire_weaver_core</code> <code>since_refused_on_the_design_line</code>,
   <code>design_line_root_shares_with_a_released_one</code>, <code>wire_version_note</code>, <code>wire_weaver_client</code>
   <code>design_line_checks_the_device_or_refuses</code>, <code>any_revision_of_the_line_is_taken</code>.</li>
-<li>📋 <strong>EVO-39 The checker per root</strong> · <code>v0.5</code> — each root against its own line's latest snapshot, a changed
-  <code>common</code> type reported per root and line it reaches, the crate's Rust bump the largest of its roots', a removed
-  root a breaking crate bump, <code>#[since]</code> per line checked, one <code>load_crate</code> cache across roots and the CLI.</li>
+<li>✅ <strong>EVO-39 The checker per root</strong> · <code>v0.5</code> — <code>ww api check</code>, <code>ww api diff</code> and <code>Check::run</code> of a crate with a
+  <code>roots</code> table check each root against its own latest snapshot (<code>RootsOutcome</code>): the wire version and <code>#[since]</code> on
+  the root's line, a wire bump naming its entry in the table. A changed type or trait several roots reach is named
+  once with every root and line it changed on (<code>SharedChange</code>), and the crate version must be bumped for the root
+  that needs the most. A root's older snapshot stands for a crate version that saved other roots, so a later change
+  needs a new version; <code>require_current</code> works per root, and a root on w0 (EVO-41) needs no snapshot. A root removed from the table is a breaking crate bump of the last version that shipped it,
+  which <code>ww api save</code> records in a <code>.removed</code> file (<code>RemovedRoot</code>, <code>SaveStatus::Removed</code>). <code>--against</code> takes a root's
+  file. All loads of one run or save share a <code>wire_weaver_core::CrateCache</code> (a <code>Check</code> holds none, so it stays <code>Send</code>): a repeated <code>load_crate</code> of <code>tests/thermo_api/w3</code>
+  takes 80 ms instead of 198 ms. A whole-crate snapshot's line that no root continues is not reported as removed.
+  Docs: <code>docs/evolution/checker_tool.md#checking-each-root</code>; tests <code>wire_weaver_evolution</code> <code>checker_per_root</code>,
+  <code>removed_root_needs_a_breaking_bump</code>, <code>unchanged_roots_snapshot_stands_for_the_saved_version</code>, <code>wire_weaver_core</code>
+  <code>crate_cache_gives_the_same_bundles</code>.</li>
 <li>📋 <strong>EVO-40 <code>#[moved_from]</code></strong> · <code>v0.5</code> — <code>#[moved_from(w1.4, path::to::item)]</code> on an item's new place: the
   checker verifies the signature is the same and reports a move. Resources match by position within a line and
   only by <code>moved_from</code> across a break; the checker proposes same-name matches on a first break and never adds the

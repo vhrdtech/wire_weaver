@@ -6167,10 +6167,9 @@ with <code>client = "sub_level"</code>, and let each line's client return it (CL
   line's tree has the trait, flat or as an array, at any depth, the accessor (<code>indication()</code>, <code>probe().channel()</code>,
   <code>aux(i)</code>) returns the shared client and no per-line client is generated for it. Code over the trait is written
   once: <code>async fn blink(i: IndicationClient&lt;'_&gt;)</code> takes it from any line.</li>
-<li>Under a resource array (<code>aux[i]</code>), the accessor returns <code>ChannelClient&lt;'_, false&gt;</code>: a level under an array can't
-  be observed yet (SRV-18), so, as on a client of its own, it has no <code>observe(cfg)</code> and its <code>+observe</code> properties'
-  <code>observe_&lt;name&gt;()</code> is the plain stream. Elsewhere it is <code>ChannelClient&lt;'_&gt;</code> (<code>OBSERVE = true</code>). Code taking both
-  is generic over it: <code>async fn read&lt;const O: bool&gt;(c: ChannelClient&lt;'_, O&gt;)</code>.</li>
+<li>Under a resource array (<code>aux[i]</code>) the accessor returns the same <code>ChannelClient&lt;'_&gt;</code>: an element of an array is
+  observed by its own path (<a href="../../api/observing/#levels-under-resource-arrays">API-63</a>), so the observe methods are
+  the same everywhere.</li>
 <li>The calls go by path, as every other call of the line: nothing changes on the device, and global trait paths are
   not needed. A <code>trait_client</code> can't take <code>sub_levels</code>, its paths start at its own trait.</li>
 <li>A <code>const</code> assert in each accessor checks that the line has the trait the shared client was generated from: the

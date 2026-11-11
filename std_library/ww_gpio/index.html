@@ -6057,9 +6057,9 @@ precise timing is a <a href="../ww_signal_generator/">signal generator</a> (driv
 (sampling).</p>
 <h3 id="observing-a-pin-level-planned">Observing a pin level (planned)<a class="headerlink" href="#observing-a-pin-level-planned" title="Permanent link">&para;</a></h3>
 <p>A <code>property!(ro+observe level: Level)</code> on <code>Pin</code>, at one of its reserved indices 4..=6, would let a host watch slow
-inputs without opening the <code>event</code> stream of every pin. It waits for array index bounds (API-29): <code>Pin</code> sits in the
-<code>Bank::pin[]</code> array, and <a href="../../api/observing/#the-device-side">observed properties</a> under a resource array aren't
-supported yet (STD-31).</p>
+inputs without opening the <code>event</code> stream of every pin. <code>Pin</code> sits in the <code>Bank::pin[]</code> array, where
+<a href="../../api/observing/#levels-under-resource-arrays">observed properties</a> are marked changed through the server; a pin's
+change is seen in an interrupt, so it waits for marks of an element from another task (SRV-59, STD-31).</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>Level</code> - <code>Low</code> / <code>High</code>, <code>sized</code>, 1 bit on the wire.</li>

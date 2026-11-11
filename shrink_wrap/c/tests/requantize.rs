@@ -20,6 +20,7 @@ fn rounding() -> impl Strategy<Value = Rounding> {
         Just(Rounding::Ceil),
         Just(Rounding::NearestEven),
         Just(Rounding::NearestAway),
+        Just(Rounding::NearestCeil),
     ]
 }
 
@@ -188,6 +189,7 @@ fn edge_values() {
         Rounding::Ceil,
         Rounding::NearestEven,
         Rounding::NearestAway,
+        Rounding::NearestCeil,
     ];
     let os = [Overflow::Checked, Overflow::Saturate, Overflow::Wrap];
     let mut storages = vec![StorageKind::F32, StorageKind::F64];

@@ -185,6 +185,8 @@ static bool round_up(sw_rounding r, bool neg, bool rem, bool above, bool tie, bo
         return !neg && rem;
     case SW_ROUND_NEAREST_AWAY:
         return above || tie;
+    case SW_ROUND_NEAREST_CEIL:
+        return above || (tie && !neg);
     case SW_ROUND_NEAREST_EVEN:
     default:
         return above || (tie && q_odd);

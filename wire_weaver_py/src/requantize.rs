@@ -111,6 +111,7 @@ fn magnitude(factor: &Bound<'_, PyAny>) -> PyResult<Magnitude> {
                 ln10: field(i, "ln10")?.extract()?,
                 mu0: field(i, "mu0")?.extract()?,
                 g: field(i, "g")?.extract()?,
+                m_u: field(i, "m_u")?.extract()?,
             };
         }
         for f in field(rest, "factors")?.try_iter()? {

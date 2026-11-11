@@ -580,24 +580,39 @@ pub fn codec_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CodecDefOwned
     }
 }
 
-/// `def` as `exact_units` runs it: the same algorithm and spare codes as the codec's typed `decode` and `encode`.
+/// `def` as `exact_units` runs it: the same algorithm and spare codes as the codec's typed `decode` and `encode`,
+/// which read neither `nominal` nor `curve`, so this leaves `curve` out rather than converting its borrowed
+/// [CurveDef](exact_units::codec::curve::CurveDef) data for no reader.
 fn codec_def(def: &CodecDefOwned) -> CodecDef<'_> {
     let shape = match &def.shape {
         CodecShapeOwned::MuLaw => CodecShape::MuLaw,
         CodecShapeOwned::ALaw => CodecShape::ALaw,
-        CodecShapeOwned::Power { gamma } => CodecShape::Power { gamma: *gamma },
-        CodecShapeOwned::PiecewisePower => CodecShape::PiecewisePower,
-        CodecShapeOwned::Exp { base, offset } => CodecShape::Exp {
-            base: *base,
-            offset: *offset,
-        },
         CodecShapeOwned::Table(t) => CodecShape::Table(shrink_wrap::RefVec::Slice { slice: t }),
+        CodecShapeOwned::Offset { zero } => CodecShape::Offset { zero: *zero },
+        CodecShapeOwned::MantissaExponent {
+            radix,
+            exponents,
+            mantissas,
+            mantissa_offset,
+            exponent_zero,
+            exponent_step,
+        } => CodecShape::MantissaExponent {
+            radix: *radix,
+            exponents: *exponents,
+            mantissas: shrink_wrap::RefVec::Slice { slice: mantissas },
+            mantissa_offset: *mantissa_offset,
+            exponent_zero: *exponent_zero,
+            exponent_step: *exponent_step,
+        },
         CodecShapeOwned::Unknown(d) => CodecShape::Unknown(*d),
     };
     CodecDef {
         id: def.id.as_id(),
         shape,
         spare: shrink_wrap::RefVec::Slice { slice: &def.spare },
+        codes: def.codes,
+        nominal: def.nominal,
+        curve: None,
     }
 }
 

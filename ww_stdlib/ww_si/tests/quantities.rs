@@ -189,7 +189,8 @@ fn units_and_dimensions() {
     // `Feet100` is in ALL only with exact_units' `customary`, which another workspace crate turns on in a workspace run
     let customary = usize::from(ww_si::units::by_name("Feet100").is_some());
     // EnergyDensity, Entropy, DampingRatio and QualityFactor are `Of` aliases since UNIT-8, not units of their own
-    assert_eq!(ww_si::units::ALL.len(), 127 + customary);
+    // exact_units at c132f58 (UNIT-6, UNIT-19): 20 more units, the new counted markers and bit/s, B/s rates
+    assert_eq!(ww_si::units::ALL.len(), 147 + customary);
 }
 
 #[test]

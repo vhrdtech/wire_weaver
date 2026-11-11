@@ -8,7 +8,7 @@
   number shown in its own origin (`"25.5 °C"`, `25.5`), not the `Fixed`'s raw unit through `coord`; code reading
   `value["coord"]` for such a property now gets the `Quantity` directly.
 - `Quantity.dim` comes from the new `Dim` (exact_units UNIT-10): the seven SI exponents and every distinguished base, `rad` and `bit` by those names and any other (`Sample`, `Neper`, a crate's own) by its marker's name; a half exponent is a float (`{"kg": 1, "m": 2, "s": -2.5, "A": -1}` for V/√Hz).
-- `ww.requantize` reads a factor's dict with `symbols` (was `irrational`) holding `pi`, `ln2`, `ln10`, `mu0` and `g` (exact_units NUM-10); a factor with μ₀ or G left in it converts nothing.
+- `ww.requantize` reads a factor's dict with `symbols` (was `irrational`) holding `pi`, `ln2`, `ln10`, `mu0`, `g` and `m_u` (exact_units NUM-10, NUM-32); a factor with μ₀, G or m_u left in it converts nothing.
 
 ### 🚀 Features
 

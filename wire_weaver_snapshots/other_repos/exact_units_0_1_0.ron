@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 86a96797b02df2c68057eb34c73efb169af92076416246694640508b530de177
+// shrink_wrap sha256: 231b9b8ea86600e844473bcba2644649607035e7fe423665b268c5fc07b34851
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -249,7 +249,7 @@
         "16-bit PCM) is this value times 4, left for a client that wants it, not duplicated here.",
     ], ident: "MuLaw", generics: [], fields: Unit, sparse: false, path: Some([
         "codec",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "MuLaw"), shape: MuLaw, spare: []))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "MuLaw"), shape: MuLaw, spare: [], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "G.711 μ-law with one zero, `0xFF`: the negative zero `0x7F` is [spare](CodecDef::spare), free for a niche",
         "(`Niched<Coded<MuLawSingleZero>, Null<0x7F>>`, an `Option` in one byte). Every other code decodes and encodes as",
@@ -264,7 +264,7 @@
         "codec",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "MuLawSingleZero"), shape: MuLaw, spare: [
         (low: 127, high: 127),
-    ]))))))), crate_idx: 0),
+    ], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
     InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
         "A complex value `re + j·im` in unit `U` and scale `P`, both parts stored as `T`, with the overflow policy `B`. See",
         "the [module](crate::complex) for the design.",

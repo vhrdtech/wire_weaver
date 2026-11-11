@@ -120,6 +120,7 @@ pub fn c_rounding(r: Rounding) -> &'static str {
         Rounding::Ceil => "SW_ROUND_CEIL",
         Rounding::NearestEven => "SW_ROUND_NEAREST_EVEN",
         Rounding::NearestAway => "SW_ROUND_NEAREST_AWAY",
+        Rounding::NearestCeil => "SW_ROUND_NEAREST_CEIL",
     }
 }
 
@@ -167,6 +168,7 @@ impl CRequantizer {
             Rounding::Ceil => 2,
             Rounding::NearestEven => 3,
             Rounding::NearestAway => 4,
+            Rounding::NearestCeil => 5,
         };
         let overflow = match o {
             Overflow::Checked => 0,

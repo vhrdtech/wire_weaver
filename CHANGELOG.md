@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- exact_units taken up to c132f58 (UNIT-19 bit/s and B/s rates, UNIT-6 counted markers, NUM-32 the atomic mass constant, a codec's `codes`/`nominal`/`curve`, wire change EVO-55): the walker reads the new `CodecDef` shape and the `m_u` magnitude symbol, and a hardcoded stand-in for `exact_units::Fraction` (a macro-generated struct) so `CodecDef::curve` resolves; `shrink_wrap`'s C requantizer gains `Rounding::NearestCeil`. See the `ww_self`, `wire_weaver_core`, `ww_si`, `wire_weaver_py` and `shrink_wrap/c` changelogs.
 - `ww api check` runs on `ww_client_server`: the walker skips `shrink_wrap`'s nightly gate and reads `UVlq32Backfill` as a `UVlq32` (see the `wire_weaver_core` changelog).
 - The multi-line bench on one API crate (EVO-42): `tests/thermo_api` 4.0.0 holds wire lines 1 to 3 as roots (`wire_v1`, `wire_v2`, `wire_v3`) with what they share in `common`, back in the workspace; the driver `tests/thermo` uses the enum facade and one shared `ww_indication` client. Found on the way: a sub-level trait named through a `use` (`wire_weaver_core`) and two roots' same-named traits taken as one shared trait (`wire_weaver_evolution`). See those changelogs.
 - The walker parses a dependency's module files only when something looks into them, so a `#[ww_trait]` walk of `ww_pwm` takes about half the time (see the `wire_weaver_core` changelog).

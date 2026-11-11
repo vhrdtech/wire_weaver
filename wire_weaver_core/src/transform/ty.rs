@@ -247,6 +247,9 @@ fn find_user_item_in(
             }
         }
     }
+    if let Some(item) = macro_shaped_item(current_crate, user_ty) {
+        return Ok((current_crate.clone(), item));
+    }
     Err(anyhow!("Type {user_ty} not found").context(current_crate.err_context()))
 }
 
@@ -430,6 +433,28 @@ const WIRE_SHAPES: [(&str, &str, &str); 3] = [
     ("exact_units", "QuantityRef", "MarkerId"),
     ("exact_units", "SystemRef", "MarkerId"),
 ];
+
+/// A type the walker can't find as written, by crate and name, with the struct the walker reads instead: declared
+/// through a `macro_rules!` that expands to the struct (`exact_units::Fraction`, through its `fraction!`), so
+/// nothing of that shape exists in the source text for the walker to re-parse. The fields and directives are
+/// copied from the macro's body (`exact_units/src/exact/fraction.rs`), kept in step by hand until exact_units gives
+/// `Fraction` a literal shape struct of its own ([WIRE_SHAPES] style).
+const MACRO_SHAPED: [(&str, &str, &str); 1] = [(
+    "exact_units",
+    "Fraction",
+    "#[derive_shrink_wrap(borrowed, owned(feature = \"std\"), final_structure)] \
+     pub struct Fraction { pub neg: bool, pub num: u128, pub den: u128, pub exp: i32 }",
+)];
+
+/// [MACRO_SHAPED]'s struct for `user_ty` of `current_crate`, parsed once on demand.
+fn macro_shaped_item(current_crate: &CrateContext, user_ty: &str) -> Option<Item> {
+    let (_, _, src) = MACRO_SHAPED
+        .iter()
+        .find(|(krate, ty, _)| *krate == current_crate.crate_name() && *ty == user_ty)?;
+    Some(Item::Struct(
+        syn::parse_str(src).expect("MACRO_SHAPED entry is valid Rust"),
+    ))
+}
 
 /// The shape struct of `ty_name` of `def_cx` in [WIRE_SHAPES], with the module that defines it.
 fn wire_shape(

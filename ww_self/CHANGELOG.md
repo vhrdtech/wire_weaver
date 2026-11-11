@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `CodecDef` has `codes` (every code its `Raw` holds) and `nominal` (exact_units NUM-8, LVL-10), and `CodecShape`'s parameterless `Power`/`PiecewisePower`/`Exp` are gone, replaced by `Offset { zero }` and `MantissaExponent { .. }` (wire change EVO-55): a `MarkerDef::Codec`'s bytes change again. `units::codec_def` leaves the new `curve` out (`decode`/`encode`/`is_spare` don't read it); a struct literal of `CodecDefOwned` adds `codes`, `nominal: None` and `curve: None` (or the real values, once something reads `curve`).
 - A codec's spare codes (exact_units codec-niche, EVO-49): `CodecDef` has `spare`, the codes that mean no value (`CodeSpan { low, high }`), so a `MarkerDef::Codec`'s bytes change. `units::codec_decode` answers `Result<Option<i128>>`, `None` for a spare code as `CodecDef::decode` does; callers that took the number add a `?` or match the `None`. New `units::codec_is_spare`. `units::check_wrapper` refuses a spare code in a `Coded` on decode and encode: `127 is a spare code of MuLawSingleZero, no value (..)`.
 - `MarkerDef::Finite` is appended (exact_units NUM-20, STD-104), and `units::NumBounds` has a `finite` field: refuses ±∞ on decode and encode, with its own message. Struct literals of `NumBounds` add `finite: false` (or `..Default::default()`).
 - `MarkerDef::Codec(exact_units::codec::CodecDef)` is appended (LVL-6, STD-109), and `units::Wrapper` has a `Coded { codec, value, storage }` variant: a `match` over `Wrapper` adds it.

@@ -5,7 +5,7 @@ level: advanced
 # Rounding and overflow at run time
 
 `Fixed::to` converts only when the result is exact. Where losing part of a step is the intent, the conversion
-names how it rounds (`Rounding`: `Truncate`, `Floor`, `Ceil`, `NearestEven`, `NearestAway`) and what it does when
+names how it rounds (`Rounding`: `Truncate`, `Floor`, `Ceil`, `NearestEven`, `NearestAway`, `NearestCeil`) and what it does when
 the result doesn't fit (`Overflow`: `Checked`, `Saturate`, `Wrap`), or carries the overflow policy in its bounds
 type `B` (`Unbounded`, `Saturating`, `Wrapping`). See the book's
 [Rounding](https://exact.vhrd.tech/maths/rounding/) and [Overflow](https://exact.vhrd.tech/maths/overflow/), and

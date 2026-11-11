@@ -199,8 +199,8 @@ fn mark_hand_written(items: &mut [Item]) {
 }
 
 /// The `shape` of an `impl Codec`'s `DEF` (`CodecDef { id: .., shape: CodecShape::MuLaw }`), by the last segment of
-/// its path: the shapes without parameters. `Power`, `Exp` and `Table` have no `Codec` in exact_units yet (LVL-4,
-/// IO-3) and are refused until one exists to check their reading against.
+/// its path: the shapes without parameters. A shape with parameters (`Table`, `Offset`, `MantissaExponent`) waits
+/// for the walker to read its fields.
 fn codec_shape(def: &syn::Expr) -> Result<CodecShapeOwned> {
     let syn::Expr::Struct(s) = def else {
         bail!("DEF `{}`: CodecDef {{ id, shape }}", quote::quote!(#def));
@@ -220,10 +220,9 @@ fn codec_shape(def: &syn::Expr) -> Result<CodecShapeOwned> {
     match name.as_deref() {
         Some("MuLaw") => Ok(CodecShapeOwned::MuLaw),
         Some("ALaw") => Ok(CodecShapeOwned::ALaw),
-        Some("PiecewisePower") => Ok(CodecShapeOwned::PiecewisePower),
         _ => bail!(
-            "shape `{}`: the walker reads MuLaw, ALaw and PiecewisePower; a shape with parameters (Power, Exp, \
-             Table) waits for its first Codec in exact_units (LVL-4, IO-3)",
+            "shape `{}`: the walker reads MuLaw and ALaw; a shape with parameters (Table, Offset, \
+             MantissaExponent) waits for the walker to read its fields",
             quote::quote!(#shape)
         ),
     }
@@ -285,9 +284,121 @@ fn codec_spare(def: &syn::Expr) -> Result<Vec<CodeSpan>> {
         .collect()
 }
 
-/// A `CodeSpan::one(code)` or `CodeSpan { low, high }`.
+/// The `codes` of an `impl Codec`'s `DEF`: every code its `Raw` holds, as `exact_units` writes it,
+/// `CodeSpan::all::<Raw>()`.
+fn codec_codes(def: &syn::Expr) -> Result<CodeSpan> {
+    let syn::Expr::Struct(s) = def else {
+        bail!(
+            "DEF `{}`: CodecDef {{ id, shape, spare, codes }}",
+            quote::quote!(#def)
+        );
+    };
+    let Some(codes) = s
+        .fields
+        .iter()
+        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "codes"))
+        .map(|f| &f.expr)
+    else {
+        bail!("DEF `{}`: no `codes: ..`", quote::quote!(#def));
+    };
+    let span = code_span(codes).with_context(|| format!("codes `{}`", quote::quote!(#codes)))?;
+    if span.low > span.high {
+        bail!(
+            "codes `{}`: its low code is above its high code",
+            quote::quote!(#codes)
+        );
+    }
+    Ok(span)
+}
+
+/// The `nominal` of an `impl Codec`'s `DEF`: `None`, or `Some(CodeSpan ..)` as [codec_codes] reads a `CodeSpan`.
+fn codec_nominal(def: &syn::Expr) -> Result<Option<CodeSpan>> {
+    let syn::Expr::Struct(s) = def else {
+        bail!(
+            "DEF `{}`: CodecDef {{ id, shape, spare, codes, nominal }}",
+            quote::quote!(#def)
+        );
+    };
+    let Some(nominal) = s
+        .fields
+        .iter()
+        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "nominal"))
+        .map(|f| &f.expr)
+    else {
+        bail!("DEF `{}`: no `nominal: ..`", quote::quote!(#def));
+    };
+    match nominal {
+        syn::Expr::Path(p) if p.path.is_ident("None") => Ok(None),
+        syn::Expr::Call(c)
+            if c.args.len() == 1
+                && matches!(&*c.func, syn::Expr::Path(p) if p.path.is_ident("Some")) =>
+        {
+            Ok(Some(code_span(&c.args[0]).with_context(|| {
+                format!("nominal `{}`", quote::quote!(#nominal))
+            })?))
+        }
+        _ => bail!(
+            "nominal `{}`: None or Some(CodeSpan ..)",
+            quote::quote!(#nominal)
+        ),
+    }
+}
+
+/// The `curve` of an `impl Codec`'s `DEF`: `None`, the only form the walker reads so far (a transfer curve waits
+/// for the walker to read its segments).
+fn codec_curve(def: &syn::Expr) -> Result<()> {
+    let syn::Expr::Struct(s) = def else {
+        bail!(
+            "DEF `{}`: CodecDef {{ id, shape, spare, codes, nominal, curve }}",
+            quote::quote!(#def)
+        );
+    };
+    let Some(curve) = s
+        .fields
+        .iter()
+        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "curve"))
+        .map(|f| &f.expr)
+    else {
+        bail!("DEF `{}`: no `curve: ..`", quote::quote!(#def));
+    };
+    match curve {
+        syn::Expr::Path(p) if p.path.is_ident("None") => Ok(()),
+        _ => bail!(
+            "curve `{}`: the walker reads `None`; a transfer curve waits for the walker to read its segments",
+            quote::quote!(#curve)
+        ),
+    }
+}
+
+/// A `CodeSpan::one(code)`, `CodeSpan { low, high }` or `CodeSpan::all::<T>()` for an integer `T`.
 fn code_span(e: &syn::Expr) -> Result<CodeSpan> {
     match e {
+        syn::Expr::Call(c)
+            if c.args.is_empty()
+                && matches!(&*c.func, syn::Expr::Path(p)
+                    if p.path.segments.len() >= 2
+                        && p.path.segments[p.path.segments.len() - 2].ident == "CodeSpan"
+                        && p.path.segments[p.path.segments.len() - 1].ident == "all") =>
+        {
+            let syn::Expr::Path(p) = &*c.func else {
+                unreachable!()
+            };
+            let args = match &p.path.segments.last().unwrap().arguments {
+                syn::PathArguments::AngleBracketed(a) => &a.args,
+                _ => bail!("CodeSpan::all::<T>(): no `T`"),
+            };
+            let Some(syn::GenericArgument::Type(syn::Type::Path(t))) = args.first() else {
+                bail!("CodeSpan::all::<T>(): no `T`");
+            };
+            let Some(ty) = t.path.segments.last().map(|s| s.ident.to_string()) else {
+                bail!("CodeSpan::all::<T>(): no `T`");
+            };
+            all_of(&ty).ok_or_else(|| {
+                anyhow!(
+                    "CodeSpan::all::<{ty}>(): the walker knows u8, u16, u32, u64, i8, i16, i32, i64"
+                )
+            })
+        }
         syn::Expr::Call(c)
             if c.args.len() == 1
                 && matches!(&*c.func, syn::Expr::Path(p)
@@ -315,8 +426,24 @@ fn code_span(e: &syn::Expr) -> Result<CodeSpan> {
                 high: field("high")?,
             })
         }
-        _ => bail!("not CodeSpan::one(code) or CodeSpan {{ low, high }}"),
+        _ => bail!("not CodeSpan::one(code), CodeSpan {{ low, high }} or CodeSpan::all::<T>()"),
     }
+}
+
+/// `CodeSpan::all::<T>()` for the integer storages the walker knows, `T::MIN..=T::MAX` as `i128`.
+fn all_of(ty: &str) -> Option<CodeSpan> {
+    let (low, high) = match ty {
+        "u8" => (u8::MIN.into(), u8::MAX.into()),
+        "u16" => (u16::MIN.into(), u16::MAX.into()),
+        "u32" => (u32::MIN.into(), u32::MAX.into()),
+        "u64" => (u64::MIN.into(), u64::MAX.into()),
+        "i8" => (i8::MIN.into(), i8::MAX.into()),
+        "i16" => (i16::MIN.into(), i16::MAX.into()),
+        "i32" => (i32::MIN.into(), i32::MAX.into()),
+        "i64" => (i64::MIN.into(), i64::MAX.into()),
+        _ => return None,
+    };
+    Some(CodeSpan { low, high })
 }
 
 /// `exact_units::ReferenceHow` as an `impl Reference`'s `HOW` writes it: `ReferenceHow::Exact`,
@@ -975,6 +1102,7 @@ pub(crate) fn marker_def(
                     ln10: 0,
                     mu0_x2: 0,
                     g_x2: 0,
+                    m_u_x2: 0,
                 })
                 .with_context(|| format!("unit marker {ident}"))?,
                 UnitScaleLine::Exact(m) => {
@@ -1028,6 +1156,7 @@ pub(crate) fn marker_def(
                     ln10: 0,
                     mu0_x2: 0,
                     g_x2: 0,
+                    m_u_x2: 0,
                 },
                 ScaleFactorLine::Pow2(e) => MagnitudeLine {
                     num: 1,
@@ -1039,6 +1168,7 @@ pub(crate) fn marker_def(
                     ln10: 0,
                     mu0_x2: 0,
                     g_x2: 0,
+                    m_u_x2: 0,
                 },
                 ScaleFactorLine::Exact(m) => m.clone(),
             };
@@ -1105,11 +1235,17 @@ pub(crate) fn marker_def(
                 how: reference_how(&how).with_context(|| format!("reference marker {ident}"))?,
             })
         }
-        MarkerLineDef::Codec(def) => MarkerDefOwned::Codec(CodecDefOwned {
-            id: id(),
-            shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
-            spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
-        }),
+        MarkerLineDef::Codec(def) => {
+            codec_curve(&def).with_context(|| format!("codec marker {ident}"))?;
+            MarkerDefOwned::Codec(CodecDefOwned {
+                id: id(),
+                shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
+                spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
+                codes: codec_codes(&def).with_context(|| format!("codec marker {ident}"))?,
+                nominal: codec_nominal(&def).with_context(|| format!("codec marker {ident}"))?,
+                curve: None,
+            })
+        }
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
@@ -1138,6 +1274,7 @@ fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
             ln10: x2(m.ln10)?,
             mu0: m.mu0_x2,
             g: m.g_x2,
+            m_u: m.m_u_x2,
         },
         [],
     )
@@ -1398,8 +1535,8 @@ pub(crate) enum UnitScaleLine {
     Exact(MagnitudeLine),
 }
 
-/// `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e, mu0 f, g h`: the measured constants μ₀ and G stay symbols
-/// (exact_units NUM-10), their exponent whole or a half (`mu0 1 / 2`).
+/// `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e, mu0 f, g h, m_u i`: the measured constants μ₀, G and m_u stay
+/// symbols (exact_units NUM-10, NUM-32), their exponent whole or a half (`mu0 1 / 2`).
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MagnitudeLine {
     pub(crate) num: u64,
@@ -1413,6 +1550,8 @@ pub(crate) struct MagnitudeLine {
     pub(crate) mu0_x2: i8,
     /// Twice the exponent of G.
     pub(crate) g_x2: i8,
+    /// Twice the exponent of m_u, the atomic mass constant.
+    pub(crate) m_u_x2: i8,
 }
 
 /// `"<symbol>", <factor>[, prefix <Prefix>]` of a `scale!` line.
@@ -1745,6 +1884,7 @@ impl Parse for MagnitudeLine {
             ln10: 0,
             mu0_x2: 0,
             g_x2: 0,
+            m_u_x2: 0,
         };
         let mut next = 0;
         while input.peek(Token![,]) {
@@ -1753,12 +1893,12 @@ impl Parse for MagnitudeLine {
                 break;
             }
             let name: Ident = input.parse()?;
-            let order = ["pow10", "pow2", "pi", "ln2", "ln10", "mu0", "g"];
+            let order = ["pow10", "pow2", "pi", "ln2", "ln10", "mu0", "g", "m_u"];
             let Some(pos) = order.iter().position(|o| name == o).filter(|p| *p >= next) else {
                 return Err(syn::Error::new(
                     name.span(),
-                    "after `num / den` come `pow10 e`, `pow2 e`, `pi e`, `ln2 e`, `ln10 e`, `mu0 e`, `g e`, each at \
-                     most once and in this order",
+                    "after `num / den` come `pow10 e`, `pow2 e`, `pi e`, `ln2 e`, `ln10 e`, `mu0 e`, `g e`, `m_u e`, \
+                     each at most once and in this order",
                 ));
             };
             next = pos + 1;
@@ -1770,7 +1910,8 @@ impl Parse for MagnitudeLine {
                 3 => m.ln2 = e,
                 4 => m.ln10 = e,
                 5 => m.mu0_x2 = symbol_x2(input, e)?,
-                _ => m.g_x2 = symbol_x2(input, e)?,
+                6 => m.g_x2 = symbol_x2(input, e)?,
+                _ => m.m_u_x2 = symbol_x2(input, e)?,
             }
         }
         Ok(m)
@@ -2218,6 +2359,7 @@ mod tests {
                     ln10: 0,
                     mu0_x2: 0,
                     g_x2: 0,
+                    m_u_x2: 0,
                 }),
                 provenance: None,
             }

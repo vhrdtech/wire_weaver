@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- exact_units at c132f58: `TimePoint::wrapping_add`'s `time_point!` macro named its own inherent `Point::wrapping_add` by its full self type, ambiguous since exact_units' new `Scaled<U, u8>`/`<U, u16>`/`<U, u32>` also have one (no behavior change).
+
 ### ⚠️ Breaking
 
 - `Timed<V, Tm = DeviceMicros<u32>>` (STD-110, wire change EVO-51): `t` is a time point (`Tm`, a `Point` on a time scale, by default µs since the device booted in a `u32` that wraps every 71.6 minutes) instead of a `Second`; on the wire the bytes of its storage alone, no prefix and no number tag. Write `Timed::new(DeviceMicros::from_raw(t_us), value)` where it was `Timed::new(Second::micro(t_us), value)`; a device that changed prefix or storage at run time picks one `Tm` that holds its longest silence (`DeviceMillis<u32>`, `DeviceMicros<u64>`). `Timed<Ampere>`'s store is 11 bytes per item (12 before) with number types up to 32 bits, 32 `Timed<Volt>` at a regular clock 21 bytes in a `Series` (22).

@@ -1355,6 +1355,9 @@ fn mu_law_def() -> ww_self::MarkerDefOwned {
         id: marker_id("exact_units", "MuLaw"),
         shape: ww_si::codec::CodecShapeOwned::MuLaw,
         spare: vec![],
+        codes: ww_si::codec::CodeSpan::all::<u8>(),
+        nominal: None,
+        curve: None,
     })
 }
 
@@ -1364,6 +1367,9 @@ fn mu_law_single_zero_def() -> ww_self::MarkerDefOwned {
         id: marker_id("exact_units", "MuLawSingleZero"),
         shape: ww_si::codec::CodecShapeOwned::MuLaw,
         spare: vec![ww_si::codec::CodeSpan::one(0x7F)],
+        codes: ww_si::codec::CodeSpan::all::<u8>(),
+        nominal: None,
+        curve: None,
     })
 }
 

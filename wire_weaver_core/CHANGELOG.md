@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- exact_units at c132f58 (UNIT-19, UNIT-6, wire change EVO-55): the codec marker walker (`markers::codec_shape`) reads `MuLaw` and `ALaw` (`PiecewisePower` is gone upstream, replaced by `CodecDef::curve`); a `CodecDef { .. }` DEF also names its `codes` (`CodeSpan::all::<T>()` for `u8`/`u16`/`u32`/`u64`/`i8`/`i16`/`i32`/`i64`, `CodeSpan::one(..)` or `CodeSpan { low, high }`) and `nominal` (`None` or `Some(CodeSpan ..)`); `curve` reads only as `None` so far (a transfer curve waits for the walker to read its segments). The `unit!`/`scale!` magnitude grammar gains the `m_u` keyword (exact_units NUM-32's atomic mass constant, needed to read exact_units' own `Dalton` unit). The type walker reads `exact_units::Fraction` (a `macro_rules!`-generated struct with no literal shape in its source, reached through `CodecDef::curve`) as a hardcoded stand-in (`ty::MACRO_SHAPED`, `WIRE_SHAPES`' style but for a type with no real shape struct to point at), its fields copied by hand from the `fraction!` macro body; kept in step until exact_units gives `Fraction` one.
 - TOOL-22's unit-suffix hint (P2401#11nov-0946): a hint printed once per crate load instead of once per feature-set
   build or type reference (`Scratch::unit_hints` cleared on a discarded feature-growth retry, deduped once more at
   `SourceNotes` build time); `write_kib_s` and the other `_kib_s`/`_mib_s`/`_gib_s`/`_bytes_s`/`_bits_s` names read as

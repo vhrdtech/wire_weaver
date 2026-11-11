@@ -30,7 +30,9 @@ typedef enum {
     /** To the nearest, a tie to the even neighbour: 2.5 is 2, 3.5 is 4. */
     SW_ROUND_NEAREST_EVEN = 3,
     /** To the nearest, a tie away from zero: 2.5 is 3, -2.5 is -3. */
-    SW_ROUND_NEAREST_AWAY = 4
+    SW_ROUND_NEAREST_AWAY = 4,
+    /** To the nearest, a tie toward +infinity: 2.5 is 3, -2.5 is -2. */
+    SW_ROUND_NEAREST_CEIL = 5
 } sw_rounding;
 
 /** What happens to a result the target storage can't hold, exact_units::Overflow. */

@@ -121,8 +121,9 @@ macro_rules! time_point {
 
             #[inline(always)]
             fn wrapping_add(self, dt: Fixed<Second, P, $t>) -> Self {
-                // the inherent one: a linear, unbounded point wraps at the edge of its storage
-                Point::wrapping_add(self, dt)
+                // named by its full self type: exact_units also has an inherent wrapping_add on
+                // Point<_, Scaled<_, $t>>, ambiguous with this one when $t is inferred alone
+                Point::<O, Fixed<Second, P, $t>>::wrapping_add(self, dt)
             }
         }
     )*};

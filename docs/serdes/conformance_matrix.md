@@ -428,28 +428,32 @@ Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each 
 - `stdlib.si.dim.count.rejected`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.root`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.magnitude.kibi`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
-- `stdlib.si.magnitude.degree`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.duty16`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null.
+- `stdlib.si.magnitude.degree`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32); before it, EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
 - `stdlib.si.magnitude.sqrt2`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
-- `stdlib.si.magnitude.decibel_in_neper`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
-- `stdlib.si.magnitude.pound`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.decibel_in_neper`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32); before it, EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.magnitude.pound`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32); before it, EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
 - `stdlib.si.magnitude.rejected`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.offset.celsius`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null.
 - `stdlib.si.offset.minus_forty`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots.
+- `stdlib.si.offset.fahrenheit`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null.
 - `stdlib.si.si_expr.volt`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
-- `stdlib.si.si_expr.pound_force`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
+- `stdlib.si.si_expr.pound_force`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null; before it, EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.si_expr.sqrt`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
-- `stdlib.si.si_expr.decibel_loss_per_hundred_metres`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
+- `stdlib.si.si_expr.decibel_loss_per_hundred_metres`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32); before it, EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.any_quantity.def`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.si_expr.rejected`: EVO-36 / Ref is variant 1, Sqrt moved up to 5: 6 is the first unknown variant.
-- `model.marker_def.unit`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
-- `model.marker_def.unit_conventional`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
+- `model.marker_def.unit`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32); before it, EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
+- `model.marker_def.unit_conventional`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null; before it, EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `model.marker_def.unit_kind`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `model.marker_def.base`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
-- `model.marker_def.scale`: EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
+- `model.marker_def.scale`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null; before it, EVO-43 / Magnitude's Irrational becomes Symbols with mu0 and g (exact_units NUM-10), and MAX_FACTORS 16 gives 4 more prime slots; before it, EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.product`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.quotient`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
-- `model.marker_def.origin`: EVO-48 / exact_units PT-4: an origin carries its reference whole (id, name and how its zero is known) instead of its MarkerId.
-- `model.marker_def.codec`: EVO-49 / exact_units codec-niche: CodecDef gains spare, the codes that mean no value, appended after shape.
+- `model.marker_def.origin`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32), its count shifting the prime-factor encoding even where symbols is null; before it, EVO-48 / exact_units PT-4: an origin carries its reference whole (id, name and how its zero is known) instead of its MarkerId.
+- `model.marker_def.codec`: EVO-55 / exact_units at c132f58: CodecDef gains codes and nominal, appended after spare, and curve after nominal.
+- `model.marker_def.codec.spare`: EVO-55 / exact_units at c132f58: CodecDef gains codes and nominal, appended after spare, and curve after nominal.
 - `model.marker_def.maybe_nan`: EVO-35 / a unit's definition is exact_units' UnitDef with its identity (crate and marker); origins and scales carry ids (UNIT-7, STD-106).
 - `model.marker_def.quantity`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `model.marker_def.quantity_kind`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
-- `model.item_struct_extra.marker`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
+- `model.item_struct_extra.marker`: EVO-55 / exact_units at c132f58: Symbols gains m_u (NUM-32); before it, EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.

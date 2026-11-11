@@ -6715,6 +6715,7 @@ dependencies = [
  "ww_gpio",
  "ww_i2c",
  "ww_si",
+ "ww_spi",
 ]
 
 [[package]]

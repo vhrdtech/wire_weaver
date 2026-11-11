@@ -13,13 +13,14 @@ wire = "w2.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_gpio/std", "ww_i2c/std", "ww_si/std"]
+std = ["wire_weaver/std", "ww_gpio/std", "ww_i2c/std", "ww_si/std", "ww_spi/std"]
 defmt = [
     "dep:defmt",
     "wire_weaver/defmt",
     "ww_gpio/defmt",
     "ww_i2c/defmt",
     "ww_si/defmt",
+    "ww_spi/defmt",
 ]
 
 [dependencies]
@@ -33,3 +34,4 @@ ww_si = { workspace = true, default-features = false, features = [
     "information",
     "counting",
 ] }
+ww_spi = { workspace = true, default-features = false }

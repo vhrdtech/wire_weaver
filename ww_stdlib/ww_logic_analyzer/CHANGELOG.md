@@ -24,11 +24,13 @@
   `CaptureActual::samples`, `CaptureStatus::Done::samples`, `SampleRange::count`, `RawChunk::samples`).
   `LaCapabilities::memory` is a `Bytes<u32>`; `RawLayout::width` is a `Fixed<Bit, One, u8>`;
   `TriggerCapabilities::max_stages`/`max_conditions` are `Count<Item, u8>`; `TriggerStage::SpiFirstByte::mode` is a
-  new `SpiMode` enum instead of a bare `0..=3` `u8` (its own copy of `ww_spi::SpiMode`'s CPOL/CPHA numbering: that
-  type doesn't derive `defmt::Format`, needed here since `TriggerStage` does, so a dependency on `ww_spi` for one
-  enum isn't worth it). All transparent wrappers or same-size enums, so the bytes stay the same; `ww_si` gains the
-  `information` and `counting` features it was missing for a standalone build (it built only through feature
-  unification with another crate before).
+  `ww_spi::SpiMode` instead of a bare `0..=3` `u8`. All transparent wrappers or same-size enums, so the bytes stay
+  the same; `ww_si` gains the `information` and `counting` features it was missing for a standalone build (it
+  built only through feature unification with another crate before).
+- Depends on `ww_spi` now, for `SpiMode`. **Blocked**: `ww_spi::SpiMode` doesn't derive `defmt::Format`, which
+  `TriggerStage`'s `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))` needs once it holds one; until
+  `ww_spi` adds that derive (su-spi is on it), this crate's `--all-features` build, `cargo doc` and clippy are
+  red. `TODO(su-spi)` next to the `use` in `src/lib.rs`.
 
 ### 🚀 Features
 

@@ -1,6 +1,6 @@
 // thermo_api 4.0.0: API root wire_v2::Thermo at wire w2.1 and what it reaches, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4cf5245f1c46dfdf13cae9b733beaba7da2d41ea132cc379cfea89adedf5f6fc
+// shrink_wrap sha256: ce532dc077bbe1acc3ca183073300120d503d97df0c9bd5ff720fb0c15f2a4ab
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The API of the multi-line bench (EVO-28, EVO-42), a small temperature logger, with every wire line still in use in",
     "one crate: [wire_v1] at w1.2, [wire_v2] at w2.1 and [wire_v3] at w3.0, one API root each, their wire versions in",
@@ -275,14 +275,14 @@
         ], optional: None, meta: None),
     ], compact_id: None, meta: None), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, trait_name: "Indication", signature: [
-        225,
-        177,
-        151,
-        247,
-        54,
-        31,
-        115,
-        166,
+        195,
+        233,
+        201,
+        157,
+        41,
+        111,
+        78,
+        216,
     ]),
     InLine(level: (docs: [], crate_idx: 0, trait_name: "Thermo", items: [
         (id: 0, kind: Method(args: [

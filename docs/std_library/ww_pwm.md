@@ -39,7 +39,7 @@ pub trait Pwm {
 #[ww_trait]
 pub trait PwmChannel {
     fn set_output(output: PwmOutput) -> Result<PwmActual, PwmError>;
-    fn set_duty(duty: u16) -> Result<u16, PwmError>;
+    fn set_duty(duty: Duty16) -> Result<Duty16, PwmError>;
     fn stop(idle_high: bool) -> Result<(), PwmError>;
     fn state() -> PwmState;
 }
@@ -89,20 +89,21 @@ pub trait PwmCaptureChannel {
 
 ## Types
 
-* `PwmOutput` - what to set: `freq: Hertz`, `duty: u16` (0..=65535 = 0..100 %), `inverted: bool`, `phase_correct:
-  bool` (center-aligned instead of edge-aligned counting).
-* `PwmActual` - what was actually set: `freq: Hertz`, `duty: u16`.
+* `PwmOutput` - what to set: `freq: Hertz`, `duty: Duty16` (`exact_units`' "0..=65535 = 0..100 %" alias),
+  `inverted: bool`, `phase_correct: bool` (center-aligned instead of edge-aligned counting).
+* `PwmActual` - what was actually set: `freq: Hertz`, `duty: Duty16`.
 * `PwmState` - `Idle` or `Output(PwmActual)`; `unib32` discriminant.
 * `PwmCapabilities<'i>` - `channels: MaxLen<RefVec<'i, PwmChannelInfo<'i>>, MAX_CHANNELS>`, `min_freq` / `max_freq:
-  Hertz`, `duty_bits: u8` (the hardware's duty resolution).
-* `PwmChannelInfo<'i>` - `name: MaxLen<&'i str, MAX_NAME_LEN>`, `group: u8` (channels sharing a timer share this),
-  `capture: bool` (also reachable through `PwmCapture`, at the same index).
+  Hertz`, `duty_bits: Fixed<Bit, One, u8>` (the hardware's duty resolution; kept its name since the `Duty16` fields
+  already read as "duty").
+* `PwmChannelInfo<'i>` - `name: MaxLen<&'i str, MAX_NAME_LEN>`, `group: TimerGroup` (a `u8` newtype; channels
+  sharing a timer share this), `capture: bool` (also reachable through `PwmCapture`, at the same index).
 * `CaptureConfig` - `mode: CaptureMode`, `gate: Second` (the measurement window, or how long `PulseWidth` waits for
   one pulse to start).
 * `CaptureMode` - `Off`, `Frequency`, `DutyCycle`, `PulseWidth`, `EdgeCount`; `sized`, `unib32` discriminant.
 * `CaptureSample` - `t: Second` (end of the window), `value: CaptureValue`.
-* `CaptureValue` - `Frequency(Hertz)`, `DutyCycle(u16)`, `PulseWidth(Second)`, `EdgeCount(u32)`; the variant always
-  matches `CaptureConfig::mode`. `unib32` discriminant.
+* `CaptureValue` - `Frequency(Hertz)`, `DutyCycle(Duty16)`, `PulseWidth(Second)`, `EdgeCount(u32)`; the variant
+  always matches `CaptureConfig::mode`. `unib32` discriminant.
 * `PwmError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `SharedTimer`; unsized
   (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 

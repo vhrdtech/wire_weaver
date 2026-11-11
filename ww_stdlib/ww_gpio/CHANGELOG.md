@@ -2,6 +2,13 @@
 
 ### ⚠️ Breaking
 
+- Wire line `w2.0` (EVO-64): `BankConfig::io_level`, `BankCapabilities::io_levels` / `io_level_min` / `io_level_max`
+  are `IoLevel` (`Fixed<Volt, Milli, u16>`, new alias) instead of `Quantity<Volt>` (AGENTS.md "Numbers are typed").
+  Same decision as `ww_i2c` / `ww_spi` / `ww_uart` / `ww_onewire`'s `io_level`.
+- `Mode::Custom`, `Pull::Custom`, `Speed::Custom` and `IoPinEvent::Custom` carry `Index<CustomMode | CustomPull |
+  CustomSpeed | CustomEvent, u8>` (new counted markers of this crate) instead of a bare `u8`; `IoPinEnabledEvents::
+  custom` is `RefVec<Index<CustomEvent, u8>>`. Wire-compatible (`Index` is exactly its `u8` on the wire).
+
 - `Error` is `GpioError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`,
   `InvalidArgument`, `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`;
   the `Unsupported*` variants are `Common(Unsupported)`, `NotImplemented`, `CustomU8`, `CustomU32` are gone,

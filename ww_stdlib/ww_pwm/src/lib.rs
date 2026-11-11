@@ -41,7 +41,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Hertz, Prefix, Second};
+pub use ww_si::prefix::One;
+pub use ww_si::{Duty16, Fixed, Hertz, Prefix, Second, units};
 
 /// Most channels a device lists, in [PwmCapabilities::channels] and `PwmCapture`'s own `channel[]`.
 pub const MAX_CHANNELS: usize = 32;
@@ -69,10 +70,10 @@ pub trait PwmChannel {
     #[errors(Common(InvalidArgument, InUse, NoPower, Refused), SharedTimer)]
     fn set_output(output: PwmOutput) -> Result<PwmActual, PwmError<'i>>;
 
-    /// Changes only the duty (0..=65535 = 0..100 %), keeping the frequency; returns the duty actually set.
+    /// Changes only the duty, keeping the frequency; returns the duty actually set.
     /// `WrongState`: the channel is idle, `PwmChannel::set_output` first.
     #[errors(Common(WrongState, InvalidArgument))]
-    fn set_duty(duty: u16) -> Result<u16, PwmError<'i>>;
+    fn set_duty(duty: Duty16) -> Result<Duty16, PwmError<'i>>;
 
     /// Stops the output, leaving the pin high or low.
     #[errors(Common(InUse, Refused))]
@@ -121,8 +122,7 @@ pub trait PwmCaptureChannel {
 )]
 pub struct PwmOutput {
     pub freq: Hertz,
-    /// 0..=65535 = 0..100 %.
-    pub duty: u16,
+    pub duty: Duty16,
     /// Active level inverted: idle low instead of high, or the reverse.
     pub inverted: bool,
     /// Symmetric (center-aligned) counting instead of edge-aligned; usually halves the usable frequency range for
@@ -139,8 +139,7 @@ pub struct PwmOutput {
 )]
 pub struct PwmActual {
     pub freq: Hertz,
-    /// 0..=65535 = 0..100 %.
-    pub duty: u16,
+    pub duty: Duty16,
 }
 
 /// The channel's output, see `PwmChannel::state`.
@@ -217,8 +216,7 @@ pub struct CaptureSample {
 )]
 pub enum CaptureValue {
     Frequency(Hertz),
-    /// 0..=65535 = 0..100 %.
-    DutyCycle(u16),
+    DutyCycle(Duty16),
     PulseWidth(Second),
     EdgeCount(u32),
 }
@@ -236,8 +234,8 @@ pub struct PwmCapabilities<'i> {
     pub min_freq: Hertz,
     /// Highest frequency any channel can be set to.
     pub max_freq: Hertz,
-    /// Duty resolution of the hardware: `set_duty`'s 0..=65535 range is rounded to this many bits.
-    pub duty_bits: u8,
+    /// Duty resolution of the hardware: a `Duty16` is rounded to this many bits.
+    pub duty_bits: Fixed<units::Bit, One, u8>,
 }
 
 /// One PWM channel, see [PwmCapabilities::channels].
@@ -250,10 +248,20 @@ pub struct PwmChannelInfo<'i> {
     /// For the user: "TIM1_CH1", "servo", "fan".
     pub name: MaxLen<&'i str, MAX_NAME_LEN>,
     /// Channels with the same group share a timer and so a frequency, see the crate docs.
-    pub group: u8,
+    pub group: TimerGroup,
     /// This channel is also in `PwmCapture`, at the same index.
     pub capture: bool,
 }
+
+/// Id of a shared timer, see [PwmChannelInfo::group]: same bytes as its `u8` (DER-18).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
+pub struct TimerGroup(pub u8);
 
 /// Errors of every trait in this crate: the common ones first, then what is specific to PWM. Each method lists the
 /// variants it returns.

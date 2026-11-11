@@ -1,9 +1,10 @@
-use crate::Error;
 use crate::ww::{BankClient, GpioClient};
+use crate::{Error, PinIndex};
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client::{Attachment, PositionedStream};
 use ww_gpio::{
-    BankCapabilitiesOwned, BankConfig, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull, Volt,
+    BankCapabilitiesOwned, BankConfig, IoLevel, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode,
+    Pull,
 };
 
 /// GPIO configured as Push-Pull output.
@@ -35,7 +36,7 @@ pub struct FlexBlocking {
     rising_enabled: bool,
     falling_enabled: bool,
     mode: Option<Mode>,
-    index: u32,
+    index: PinIndex,
 }
 
 pub struct BankBlocking {
@@ -69,7 +70,7 @@ impl FlexBlocking {
             rising_enabled: false,
             falling_enabled: false,
             mode: None,
-            index,
+            index: PinIndex::new(index),
         })
     }
 
@@ -153,7 +154,7 @@ impl FlexBlocking {
     }
 
     /// Returns the GPIO index that this output is using.
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> PinIndex {
         self.index
     }
 
@@ -328,7 +329,7 @@ impl PushPullOutputBlocking {
     }
 
     /// Returns GPIO index that this output is using.
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> PinIndex {
         self.flex.index()
     }
 }
@@ -345,7 +346,7 @@ impl InputBlocking {
     }
 
     /// Returns GPIO index that this output is using.
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> PinIndex {
         self.flex.index()
     }
 
@@ -382,7 +383,7 @@ impl OpenDrainOutputBlocking {
     }
 
     /// Returns GPIO index that this output is using.
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> PinIndex {
         self.flex.index()
     }
 }
@@ -431,7 +432,7 @@ impl BankBlocking {
 
     /// Sets the IO level of every pin of the bank, if supported by hardware, and returns the level in effect
     /// (`None` on a bank without level control).
-    pub fn set_io_level(&mut self, level: Volt) -> Result<Option<Volt>, Error> {
+    pub fn set_io_level(&mut self, level: IoLevel) -> Result<Option<IoLevel>, Error> {
         let actual = self
             .bank
             .configure(BankConfig {
@@ -442,7 +443,7 @@ impl BankBlocking {
     }
 
     /// IO level of the bank now (`None` on a bank without level control): a `configure` that changes nothing.
-    pub fn io_level(&mut self) -> Result<Option<Volt>, Error> {
+    pub fn io_level(&mut self) -> Result<Option<IoLevel>, Error> {
         let actual = self
             .bank
             .configure(BankConfig { io_level: None })
@@ -454,17 +455,17 @@ impl BankBlocking {
     /// The intended use is to immediately call one of the into_ methods to save on one remote call.
     ///
     /// Returns [Error::Usage] if `pin_idx` is not one of [Self::available_pins].
-    pub fn pin(&self, pin_idx: u32) -> Result<FlexBlocking, Error> {
+    pub fn pin(&self, pin_idx: PinIndex) -> Result<FlexBlocking, Error> {
         self.check_idx(pin_idx)?;
-        FlexBlocking::new_ignore_mode(self.bank.pin(pin_idx).attachment())
+        FlexBlocking::new_ignore_mode(self.bank.pin(pin_idx.get()).attachment())
     }
 
     /// Get pin at `pin_idx` as a [FlexBlocking] and send a request to get its mode right away.
     ///
     /// Returns [Error::Usage] if `pin_idx` is not one of [Self::available_pins].
-    pub fn pin_get_mode(&self, pin_idx: u32) -> Result<FlexBlocking, Error> {
+    pub fn pin_get_mode(&self, pin_idx: PinIndex) -> Result<FlexBlocking, Error> {
         self.check_idx(pin_idx)?;
-        FlexBlocking::new_get_mode(self.bank.pin(pin_idx).attachment())
+        FlexBlocking::new_get_mode(self.bank.pin(pin_idx.get()).attachment())
     }
 
     /// Get all available pins on this bank as [FlexBlocking], assuming unknown mode.
@@ -475,8 +476,8 @@ impl BankBlocking {
             .collect()
     }
 
-    fn check_idx(&self, pin_idx: u32) -> Result<(), Error> {
-        if !self.available_pins.contains(pin_idx) {
+    fn check_idx(&self, pin_idx: PinIndex) -> Result<(), Error> {
+        if !self.available_pins.contains(pin_idx.get()) {
             return Err(Error::Usage(format!(
                 "Pin index {pin_idx} is not valid for this bank"
             )));

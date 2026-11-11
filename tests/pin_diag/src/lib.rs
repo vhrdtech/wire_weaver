@@ -7,7 +7,8 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_pin_diag::{
-        Drive, InternedOwned, Level, PinDiagErrorOwned, Point, PointCaps, PointState, Pull,
+        Drive, Index, InternedOwned, Level, PinDiagErrorOwned, Point, PointCaps, PointState, Pull,
+        TestPoint,
     };
 
     const ALL: PointCaps = PointCaps {
@@ -130,9 +131,10 @@ mod tests {
             fn pins_set(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                point: u16,
+                point: Index<TestPoint, u16>,
                 state: PointState,
             ) -> RpcResult<Result<(), PinDiagError<'_>>> {
+                let point = point.get();
                 let Some(p) = self.points.get(point as usize) else {
                     return Ready(Err(PinDiagError::NoSuchPoint));
                 };
@@ -182,8 +184,9 @@ mod tests {
             fn pins_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                point: u16,
+                point: Index<TestPoint, u16>,
             ) -> RpcResult<Result<Level, PinDiagError<'_>>> {
+                let point = point.get();
                 match self.points.get(point as usize) {
                     None => Ready(Err(PinDiagError::NoSuchPoint)),
                     Some(p) if !p.caps.read => Ready(Err(PinDiagError::NotCapable)),
@@ -301,32 +304,32 @@ mod tests {
         let (_device, client) = start("pin_diag/probe").await;
         let pins = client.pins();
         // P2 has an external pull-up: high even against the internal pull-down
-        pins.set(P2, input(Pull::Down)).call().await.unwrap();
-        assert_eq!(pins.read(P2).call().await.unwrap(), Level::High);
+        pins.set(Index::new(P2), input(Pull::Down)).call().await.unwrap();
+        assert_eq!(pins.read(Index::new(P2)).call().await.unwrap(), Level::High);
         // P0 floats: it follows the internal pull
-        pins.set(P0, input(Pull::Up)).call().await.unwrap();
-        assert_eq!(pins.read(P0).call().await.unwrap(), Level::High);
-        pins.set(P0, input(Pull::Down)).call().await.unwrap();
-        pins.set(P1, input(Pull::Down)).call().await.unwrap();
-        assert_eq!(pins.read(P0).call().await.unwrap(), Level::Low);
+        pins.set(Index::new(P0), input(Pull::Up)).call().await.unwrap();
+        assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::High);
+        pins.set(Index::new(P0), input(Pull::Down)).call().await.unwrap();
+        pins.set(Index::new(P1), input(Pull::Down)).call().await.unwrap();
+        assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::Low);
 
         // P1 driven high: P0, on the same net, follows: a short
-        pins.set(P1, output(Level::High, Drive::Normal))
+        pins.set(Index::new(P1), output(Level::High, Drive::Normal))
             .call()
             .await
             .unwrap();
-        assert_eq!(pins.read(P1).call().await.unwrap(), Level::High);
-        assert_eq!(pins.read(P0).call().await.unwrap(), Level::High);
+        assert_eq!(pins.read(Index::new(P1)).call().await.unwrap(), Level::High);
+        assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::High);
         // ... and P0 driving low weakly loses to it: read back while driving shows the short
-        pins.set(P0, output(Level::Low, Drive::Weak))
+        pins.set(Index::new(P0), output(Level::Low, Drive::Weak))
             .call()
             .await
             .unwrap();
-        assert_eq!(pins.read(P0).call().await.unwrap(), Level::High);
+        assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::High);
 
         // release: everything back, P0 floats low again
         pins.release_all().call().await.unwrap();
-        assert_eq!(pins.read(P0).call().await.unwrap(), Level::Low);
+        assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::Low);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -335,32 +338,32 @@ mod tests {
         let pins = client.pins();
 
         assert_eq!(
-            device_error(pins.read(99).call().await),
+            device_error(pins.read(Index::new(99)).call().await),
             PinDiagErrorOwned::NoSuchPoint
         );
         // input only, and a shift register output that can't be read
         let r = pins
-            .set(DET, output(Level::Low, Drive::Normal))
+            .set(Index::new(DET), output(Level::Low, Drive::Normal))
             .call()
             .await;
         assert_eq!(device_error(r), PinDiagErrorOwned::NotCapable);
         assert_eq!(
-            device_error(pins.read(EX0).call().await),
+            device_error(pins.read(Index::new(EX0)).call().await),
             PinDiagErrorOwned::NotCapable
         );
         // held by a function
-        let r = pins.set(LED, input(Pull::None)).call().await;
+        let r = pins.set(Index::new(LED), input(Pull::None)).call().await;
         assert!(matches!(
             device_error(r),
             PinDiagErrorOwned::Common(CommonErrorOwned::InUse { .. })
         ));
         // the board's rule: EX0 and EX1 never both high; off first, then the other one is fine
-        pins.set(EX0, output(Level::High, Drive::Normal))
+        pins.set(Index::new(EX0), output(Level::High, Drive::Normal))
             .call()
             .await
             .unwrap();
         let r = pins
-            .set(EX1, output(Level::High, Drive::Normal))
+            .set(Index::new(EX1), output(Level::High, Drive::Normal))
             .call()
             .await;
         let err = device_error(r);
@@ -374,11 +377,11 @@ mod tests {
             err.to_string(),
             "The board's rules forbid this now: one source at a time"
         );
-        pins.set(EX0, output(Level::Low, Drive::Normal))
+        pins.set(Index::new(EX0), output(Level::Low, Drive::Normal))
             .call()
             .await
             .unwrap();
-        pins.set(EX1, output(Level::High, Drive::Normal))
+        pins.set(Index::new(EX1), output(Level::High, Drive::Normal))
             .call()
             .await
             .unwrap();

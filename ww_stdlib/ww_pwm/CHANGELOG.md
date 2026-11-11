@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+- `PwmChannel::set_duty`, `PwmOutput::duty`, `PwmActual::duty` and `CaptureValue::DutyCycle` are `Duty16`
+  (`exact_units`' "0..=65535 = 0..100 %" alias) instead of a bare `u16` (AGENTS.md "Numbers are typed").
+  `PwmCapabilities::duty_bits` is `Fixed<Bit, One, u8>` (kept its name: the `Duty16` fields already read as "duty").
+  `PwmChannelInfo::group` is a new `TimerGroup(u8)` newtype instead of a bare `u8`. Wire-compatible (`Duty16` and
+  `Fixed` are exactly their `u16` / `u8` on the wire, and `TimerGroup` is `transparent`).
+
 - `PwmError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`, `InvalidArgument`,
   `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`; `SharedTimer` stays.
   It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`PwmErrorOwned` on

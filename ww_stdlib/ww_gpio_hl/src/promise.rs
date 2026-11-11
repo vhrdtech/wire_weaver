@@ -1,5 +1,5 @@
-use crate::Error;
 use crate::ww::BankClient;
+use crate::{Error, PinIndex};
 use std::sync::Arc;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client::Attachment;
@@ -8,7 +8,7 @@ use ww_gpio::{Level, Mode, Pull, Speed};
 
 pub struct BankPromise {
     bank: BankClient,
-    valid_pin_indices: Option<Arc<Vec<u32>>>,
+    valid_pin_indices: Option<Arc<Vec<PinIndex>>>,
     valid_pin_indices_promise: Promise<ValidIndicesOwned>,
     bank_name: Option<String>,
     bank_name_promise: Promise<String>,
@@ -33,7 +33,7 @@ impl BankPromise {
 
     pub fn new_hint(
         attachment: Attachment,
-        valid_pin_indices: Option<Arc<Vec<u32>>>,
+        valid_pin_indices: Option<Arc<Vec<PinIndex>>>,
         bank_name: Option<String>,
     ) -> Result<BankPromise, Error> {
         let bank = BankClient::new(attachment)?;
@@ -54,7 +54,8 @@ impl BankPromise {
     pub fn sync_poll(&mut self) {
         self.valid_pin_indices_promise.sync_poll();
         if let Some(valid_pin_indices) = self.valid_pin_indices_promise.take_ready() {
-            self.valid_pin_indices = Some(Arc::new(valid_pin_indices.iter().collect()));
+            self.valid_pin_indices =
+                Some(Arc::new(valid_pin_indices.iter().map(PinIndex::new).collect()));
         }
         self.bank_name_promise.sync_poll();
         if let Some(bank_name) = self.bank_name_promise.take_ready() {
@@ -62,7 +63,7 @@ impl BankPromise {
         }
     }
 
-    pub fn pin_indices(&self) -> Option<&[u32]> {
+    pub fn pin_indices(&self) -> Option<&[PinIndex]> {
         self.valid_pin_indices.as_ref().map(|v| v.as_slice())
     }
 
@@ -73,24 +74,24 @@ impl BankPromise {
         self.valid_pin_indices_promise = self.bank.pin_valid_indices().read_promise("");
     }
 
-    pub fn pin_ref(&self, pin_idx: u32) -> Result<FlexPromiseRef<'_>, Error> {
+    pub fn pin_ref(&self, pin_idx: PinIndex) -> Result<FlexPromiseRef<'_>, Error> {
         self.check_idx(pin_idx)?;
         Ok(FlexPromiseRef {
             bank: &self.bank,
-            pin_idx,
+            pin_idx: pin_idx.get(),
         })
     }
 
-    pub fn pin(&self, pin_idx: u32) -> Result<FlexPromise, Error> {
+    pub fn pin(&self, pin_idx: PinIndex) -> Result<FlexPromise, Error> {
         self.check_idx(pin_idx)?;
-        Ok(FlexPromise::new(self.bank.clone(), pin_idx))
+        Ok(FlexPromise::new(self.bank.clone(), pin_idx.get()))
     }
 
     pub fn all_pins(&self) -> Vec<FlexPromise> {
         self.pin_indices()
             .unwrap_or(&[])
             .iter()
-            .map(|&pin_idx| FlexPromise::new(self.bank.clone(), pin_idx))
+            .map(|&pin_idx| FlexPromise::new(self.bank.clone(), pin_idx.get()))
             .collect()
     }
 
@@ -105,7 +106,7 @@ impl BankPromise {
         self.bank_name_promise = self.bank.name().call_promise("");
     }
 
-    fn check_idx(&self, pin_idx: u32) -> Result<(), Error> {
+    fn check_idx(&self, pin_idx: PinIndex) -> Result<(), Error> {
         let Some(pin_indices) = self.pin_indices() else {
             return Err(Error::Usage(
                 "Cannot get a pin before valid pin indices are received".into(),

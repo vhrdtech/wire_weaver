@@ -8,15 +8,16 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_gpio::{
-        BankCapabilities, BankConfig, GpioError, GpioErrorOwned, IoPinEnabledEvents, IoPinEvent,
-        Level, Mode, PinCapabilities, Pull, Speed, Volt,
+        BankCapabilities, BankConfig, GpioError, GpioErrorOwned, IoLevel, IoPinEnabledEvents,
+        IoPinEvent, Level, Mode, PinCapabilities, Pull, Speed,
     };
+    use ww_si::Index;
     use ww_stream::tx::Counted;
 
     /// One bank of the mock device, named like a real MCU port.
     struct BankModel {
         name: &'static str,
-        reference_voltage: Volt,
+        reference_voltage: IoLevel,
         pins: Vec<PinModel>,
     }
 
@@ -50,12 +51,12 @@ mod tests {
         vec![
             BankModel {
                 name: "PA",
-                reference_voltage: ww_si::Volt::milli(3300u16),
+                reference_voltage: IoLevel::new(3300),
                 pins: vec![PinModel::default(); 4],
             },
             BankModel {
                 name: "PB",
-                reference_voltage: ww_si::Volt::milli(1800u16),
+                reference_voltage: IoLevel::new(1800),
                 pins: vec![PinModel::default(); 2],
             },
         ]
@@ -154,18 +155,7 @@ mod tests {
             ) -> RpcResult<BankCapabilities<'_>> {
                 Ready(BankCapabilities {
                     io_levels: MaxLen::new(RefVec::Slice {
-                        slice: &const {
-                            [
-                                ww_si::Volt::from_parts(
-                                    ww_si::Prefix::Milli,
-                                    ww_si::ww_numeric::NumericValue::U16(3300),
-                                ),
-                                ww_si::Volt::from_parts(
-                                    ww_si::Prefix::Milli,
-                                    ww_si::ww_numeric::NumericValue::U16(1800),
-                                ),
-                            ]
-                        },
+                        slice: &const { [IoLevel::new(3300), IoLevel::new(1800)] },
                     })
                     .unwrap(),
                     io_level_min: None,
@@ -189,7 +179,7 @@ mod tests {
                 let bank = index_chain[0].0 as usize;
                 let mut banks = self.banks.lock().unwrap();
                 if let Some(level) = config.io_level {
-                    let supported = [ww_si::Volt::milli(3300u16), ww_si::Volt::milli(1800u16)];
+                    let supported = [IoLevel::new(3300), IoLevel::new(1800)];
                     if !supported.contains(&level) {
                         return Ready(Err(CommonError::Unsupported.into()));
                     }
@@ -501,22 +491,22 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.io_level, Some(ww_si::Volt::milli(3300u16)));
+        assert_eq!(actual.io_level, Some(IoLevel::new(3300)));
 
         let actual = client
             .bank(0)
             .configure(BankConfig {
-                io_level: Some(ww_si::Volt::milli(1800u16)),
+                io_level: Some(IoLevel::new(1800)),
             })
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.io_level, Some(ww_si::Volt::milli(1800u32)));
+        assert_eq!(actual.io_level, Some(IoLevel::new(1800)));
 
         let err = client
             .bank(0)
             .configure(BankConfig {
-                io_level: Some(ww_si::Volt::base(5u8)),
+                io_level: Some(IoLevel::new(5000)),
             })
             .call()
             .await
@@ -590,7 +580,7 @@ mod tests {
             .event(ww_gpio::IoPinEnabledEventsOwned {
                 rising: true,
                 falling: false,
-                custom: vec![3],
+                custom: vec![Index::new(3)],
             })
             .call()
             .await

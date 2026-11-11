@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 40de97a09df601af12819c5ce28c194b12408a022adc2388325273fcffd930e4
+// shrink_wrap sha256: 8ce363ccb786c103b1879f2c0a273fb12fb0ffcebbdfbfaa77f33a4961599114
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -78,6 +78,36 @@
         170,
         244,
     ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Ratio", signature: [
+        66,
+        50,
+        211,
+        244,
+        48,
+        152,
+        238,
+        114,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Rational", signature: [
+        127,
+        194,
+        90,
+        137,
+        121,
+        61,
+        162,
+        200,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",
     ], ident: "PwmOutput", generics: [], fields: Named([
@@ -85,9 +115,15 @@
             Type(OutOfLine(type_idx: 0)),
             Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
-            "0..=65535 = 0..100 %.",
-        ], slot: None, series_opaque: false),
+        (ident: Some("duty"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(Instance(type_idx: 4, args: [
+                Const(Numeric(U64(1))),
+                Const(Numeric(U64(65535))),
+            ])),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 1)),
+        ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("inverted"), default: None, since: None, ty: Bool, docs: [
             "Active level inverted: idle low instead of high, or the reverse.",
         ], slot: None, series_opaque: false),
@@ -103,9 +139,15 @@
             Type(OutOfLine(type_idx: 0)),
             Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("duty"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
-            "0..=65535 = 0..100 %.",
-        ], slot: None, series_opaque: false),
+        (ident: Some("duty"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(Instance(type_idx: 4, args: [
+                Const(Numeric(U64(1))),
+                Const(Numeric(U64(65535))),
+            ])),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 1)),
+        ]), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
@@ -124,7 +166,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "The other channel of the group runs at another frequency.",
@@ -139,26 +181,51 @@
         (docs: [
             "Running, with what was actually set.",
         ], ident: "Output", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "Id of a shared timer, see [PwmChannelInfo::group]: same bytes as its `u8` (DER-18).",
+    ], ident: "TimerGroup", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One PWM channel, see [PwmCapabilities::channels].",
     ], ident: "PwmChannelInfo", generics: [], fields: Named([
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "For the user: \"TIM1_CH1\", \"servo\", \"fan\".",
         ], slot: None, series_opaque: false),
-        (ident: Some("group"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+        (ident: Some("group"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [
             "Channels with the same group share a timer and so a frequency, see the crate docs.",
         ], slot: None, series_opaque: false),
         (ident: Some("capture"), default: None, since: None, ty: Bool, docs: [
             "This channel is also in `PwmCapture`, at the same index.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Bit", signature: [
+        227,
+        114,
+        220,
+        13,
+        173,
+        33,
+        72,
+        80,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s PWM offers, see `Pwm::capabilities`.",
     ], ident: "PwmCapabilities", generics: [], fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 8))), docs: [
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 12))), docs: [
             "Channel `n` of every method is `channels[n]`.",
         ], slot: None, series_opaque: false),
         (ident: Some("min_freq"), default: None, since: None, ty: Instance(type_idx: 2, args: [
@@ -173,8 +240,13 @@
         ]), docs: [
             "Highest frequency any channel can be set to.",
         ], slot: None, series_opaque: false),
-        (ident: Some("duty_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Duty resolution of the hardware: `set_duty`\'s 0..=65535 range is rounded to this many bits.",
+        (ident: Some("duty_bits"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 13)),
+            Type(OutOfLine(type_idx: 14)),
+            Type(NumericAny(Base(U8))),
+            Type(OutOfLine(type_idx: 1)),
+        ]), docs: [
+            "Duty resolution of the hardware: a `Duty16` is rounded to this many bits.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
@@ -209,9 +281,9 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.",
     ], ident: "CaptureConfig", generics: [], fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
         (ident: Some("gate"), default: None, since: None, ty: Instance(type_idx: 2, args: [
-            Type(OutOfLine(type_idx: 11)),
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Measurement window: for [CaptureMode::Frequency], [CaptureMode::DutyCycle] and [CaptureMode::EdgeCount], how",
@@ -228,14 +300,20 @@
                 Type(OutOfLine(type_idx: 1)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
-        (docs: [
-            "0..=65535 = 0..100 %.",
-        ], ident: "DutyCycle", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
+        (docs: [], ident: "DutyCycle", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 5, args: [
+                Type(OutOfLine(type_idx: 3)),
+                Type(Instance(type_idx: 4, args: [
+                    Const(Numeric(U64(1))),
+                    Const(Numeric(U64(65535))),
+                ])),
+                Type(NumericAny(Base(U16))),
+                Type(OutOfLine(type_idx: 1)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [], ident: "PulseWidth", fields: Unnamed([
             (ident: None, default: None, since: None, ty: Instance(type_idx: 2, args: [
-                Type(OutOfLine(type_idx: 11)),
+                Type(OutOfLine(type_idx: 17)),
                 Type(OutOfLine(type_idx: 1)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
@@ -247,20 +325,20 @@
         "One measurement with its time, see `PwmCaptureChannel::read_capture`.",
     ], ident: "CaptureSample", generics: [], fields: Named([
         (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 2, args: [
-            Type(OutOfLine(type_idx: 11)),
+            Type(OutOfLine(type_idx: 17)),
             Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "End of the measurement window.",
         ], slot: None, series_opaque: false),
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One PWM output, see [PwmCapabilities::channels] for its group and whether it also captures.",
     ], crate_idx: 0, trait_name: "PwmChannel", items: [
         (id: 0, kind: Method(args: [
-            (ident: "output", ty: OutOfLine(type_idx: 3), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+            (ident: "output", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "InUse",
@@ -275,19 +353,35 @@
             "at a different frequency.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "duty", ty: NumericAny(Base(U16)), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U16)), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+            (ident: "duty", ty: Instance(type_idx: 5, args: [
+                Type(OutOfLine(type_idx: 3)),
+                Type(Instance(type_idx: 4, args: [
+                    Const(Numeric(U64(1))),
+                    Const(Numeric(U64(65535))),
+                ])),
+                Type(NumericAny(Base(U16))),
+                Type(OutOfLine(type_idx: 1)),
+            ]), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(Instance(type_idx: 4, args: [
+                Const(Numeric(U64(1))),
+                Const(Numeric(U64(65535))),
+            ])),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 1)),
+        ]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
                 "InvalidArgument",
             ])),
         ])), multiplicity: Flat, since: None, ident: "set_duty", docs: [
-            "Changes only the duty (0..=65535 = 0..100 %), keeping the frequency; returns the duty actually set.",
+            "Changes only the duty, keeping the frequency; returns the duty actually set.",
             "`WrongState`: the channel is idle, `PwmChannel::set_output` first.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "idle_high", ty: Bool, default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
                 "Refused",
@@ -295,7 +389,7 @@
         ])), multiplicity: Flat, since: None, ident: "stop", docs: [
             "Stops the output, leaving the pin high or low.",
         ], optional: None, meta: None),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [
             "The current output, or [PwmState::Idle] if stopped.",
         ], optional: None, meta: None),
     ], compact_id: Some(49), meta: None), crate_idx: 0),
@@ -305,16 +399,16 @@
         (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
             "One PWM output per channel; channel `n` is `channels[n]` of `Pwm::capabilities`.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their groups and the frequency and duty range.",
         ], optional: None, meta: None),
     ], compact_id: Some(48), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "One capture input, measuring over successive `gate` windows: streamed, or polled.",
     ], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 19), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 18), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
@@ -328,8 +422,8 @@
             "[CaptureMode::Off].",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 18), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
@@ -341,7 +435,7 @@
             "actually set (the nearest gate the hardware can do).",
             "`Unsupported`: this mode isn\'t available on this channel; `InvalidArgument`: gate out of range.",
         ], optional: None, meta: None),
-        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+        (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 20), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
             ])),

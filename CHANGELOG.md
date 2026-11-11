@@ -26,6 +26,13 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The evolution checker compares a dependency's type changed without a version bump (an unpublished `ww_error` 0.1.0) by its two definitions, so a same-bytes change no longer reads as a wire break in every crate that embeds it (EVO-67). See the `wire_weaver_core` and `wire_weaver_evolution` changelogs.
 - The generated C readers of `fixed_layout` and `head_tail` types take a view checked against the buffer's length, so C parsing untrusted bytes can't read past them (SW-79, breaking for C users of those headers; see `shrink_wrap/CHANGELOG.md`).
 - `ww_firmware_info`, `ww_user_info` and `ww_counters` type their bare numbers (the stdlib units survey): boot counts as `Count<units::Boot, u32>`, a device's name/notes length caps as bounded `Fixed<units::Byte, ..>` (wire change EVO-60, `ww_user_info` on wire `w2.0`), and `cnt` buffer sizes and word offsets as `Count<units::Word, ..>` / `Index<units::Word, ..>`. See the `ww_firmware_info`, `ww_user_info` and `ww_counters` changelogs.
+- `ww_gpio`, `ww_gpio_hl`, `ww_pwm` and `ww_pin_diag` typed numbers (AGENTS.md "Numbers are typed"): `ww_gpio`'s
+  `io_level` is `IoLevel` (`Fixed<Volt, Milli, u16>`, wire change EVO-64, new wire line `w2.0`) and its `Custom`
+  mode/pull/speed/event payloads are `Index` of a new counted marker each; `ww_gpio_hl`'s pin indices are
+  `PinIndex` (`ww_si::Index<ww_si::units::Pin, u32>`) and its `io_level` follows `ww_gpio`'s; `ww_pwm`'s duty
+  fields are `Duty16`, `duty_bits` is `Fixed<Bit, One, u8>` and `PwmChannelInfo::group` is a new `TimerGroup(u8)`;
+  `ww_pin_diag`'s point id is `Index<TestPoint, u16>`. Every change but `ww_gpio`'s `io_level` is wire-compatible.
+  See the `ww_gpio`, `ww_gpio_hl`, `ww_pwm` and `ww_pin_diag` CHANGELOGs.
 
 ### Added
 

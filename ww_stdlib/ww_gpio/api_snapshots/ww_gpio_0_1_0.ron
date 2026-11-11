@@ -1,6 +1,6 @@
 // ww_gpio 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 3fc97dbc81d333d29d56a4d1346f70f220ba1fdedc57a66c3357761276a96758
+// shrink_wrap sha256: 4e029995720183857cf8d2522d49afc3686006d4b931397c834a51919f0a2832
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "GPIO control and remote bridging API: banks of pins (`Bank`), each with individually addressable pins (`Pin`)",
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
@@ -9,12 +9,84 @@
     (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Bank", docs: [], optional: None, meta: None),
     (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Pin", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A device-specific mode listed in [BankCapabilities::custom_mode], the id [Mode::Custom] carries.",
+    ], ident: "CustomMode", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "ww_gpio", name: "CustomMode"), names: (symbol: "custom mode", ascii: None, long: "custom mode", plural: "custom modes", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "ww_gpio", name: "CustomMode"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A device-specific pull listed in [BankCapabilities::custom_pull], the id [Pull::Custom] carries.",
+    ], ident: "CustomPull", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "ww_gpio", name: "CustomPull"), names: (symbol: "custom pull", ascii: None, long: "custom pull", plural: "custom pulls", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "ww_gpio", name: "CustomPull"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A device-specific drive strength listed in [BankCapabilities::custom_speed], the id [Speed::Custom] carries.",
+    ], ident: "CustomSpeed", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "ww_gpio", name: "CustomSpeed"), names: (symbol: "custom speed", ascii: None, long: "custom speed", plural: "custom speeds", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "ww_gpio", name: "CustomSpeed"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A device-specific event source enabled in [IoPinEnabledEvents::custom], the id [IoPinEvent::Custom] carries.",
+    ], ident: "CustomEvent", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "ww_gpio", name: "CustomEvent"), names: (symbol: "custom event", ascii: None, long: "custom event", plural: "custom events", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "ww_gpio", name: "CustomEvent"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Digital output level - High and Low.",
     ], ident: "Level", generics: [], variants: [
         (docs: [], ident: "Low", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "High", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Event sources of an IO pin (interrupts) to report on the `Pin::event` stream, its argument.",
     ], ident: "IoPinEnabledEvents", generics: [], fields: Named([
@@ -24,11 +96,15 @@
         (ident: Some("falling"), default: None, since: None, ty: Bool, docs: [
             "Report `IoPinEvent::FallingEdge`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
+        (ident: Some("custom"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(NumericAny(Base(U8))),
+            Type(OutOfLine(type_idx: 5)),
+        ])), docs: [
             "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -45,7 +121,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "The pins of this bank share one mode, and another pin is in a different one.",
@@ -64,7 +140,11 @@
         (docs: [
             "Device-specific event source not covered above.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 3)),
+                Type(NumericAny(Base(U8))),
+                Type(OutOfLine(type_idx: 5)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
@@ -88,7 +168,11 @@
         (docs: [
             "Device-specific mode not covered above, e.g. an alternate function.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(NumericAny(Base(U8))),
+                Type(OutOfLine(type_idx: 5)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
@@ -106,7 +190,11 @@
         (docs: [
             "Device-specific pull configuration not covered above.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(U8))),
+                Type(OutOfLine(type_idx: 5)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
@@ -123,19 +211,23 @@
         (docs: [
             "Device-specific drive strength not covered above.",
         ], ident: "Custom", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 2)),
+                Type(NumericAny(Base(U8))),
+                Type(OutOfLine(type_idx: 5)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What one pin can do, see `Pin::capabilities`.",
     ], ident: "PinCapabilities", generics: [], fields: Named([
-        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 5))), docs: [
+        (ident: Some("modes"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 11))), docs: [
             "Modes the pin can be switched to with `Pin::set_mode`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 6))), docs: [
+        (ident: Some("pulls"), default: None, since: None, ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 12))), docs: [
             "Pull configurations the pin\'s `pull` property accepts.",
         ], slot: None, series_opaque: false),
-        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: Fixed(5), ty: Vec(OutOfLine(type_idx: 7))), docs: [
+        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: Fixed(5), ty: Vec(OutOfLine(type_idx: 13))), docs: [
             "Drive strengths the pin\'s `speed` property accepts.",
         ], slot: None, series_opaque: false),
         (ident: Some("events"), default: None, since: None, ty: Bool, docs: [
@@ -145,7 +237,7 @@
             "Name printed on the board or in the datasheet: \"IO4\", \"PB5\".",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "units::Volt", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
         150,
         173,
         63,
@@ -155,45 +247,51 @@
         101,
         149,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
-        55,
-        18,
-        202,
-        102,
-        156,
-        182,
-        138,
-        5,
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Milli", signature: [
+        191,
+        83,
+        117,
+        121,
+        253,
+        181,
+        168,
+        53,
     ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        134,
-        214,
-        73,
-        153,
-        74,
-        156,
-        170,
-        244,
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported IO levels, modes, custom modes, etc.",
     ], ident: "BankCapabilities", generics: [], fields: Named([
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 11, args: [
-            Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 17, args: [
+            Type(OutOfLine(type_idx: 15)),
+            Type(OutOfLine(type_idx: 16)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 5)),
         ]))), docs: [
             "Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no",
             "level control.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
-            Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 17, args: [
+            Type(OutOfLine(type_idx: 15)),
+            Type(OutOfLine(type_idx: 16)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 5)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the bank has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
-            Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 17, args: [
+            Type(OutOfLine(type_idx: 15)),
+            Type(OutOfLine(type_idx: 16)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 5)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the bank has one.",
         ], slot: None, series_opaque: false),
@@ -223,9 +321,11 @@
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "BankConfig", generics: [], fields: Named([
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
-            Type(OutOfLine(type_idx: 9)),
-            Type(OutOfLine(type_idx: 10)),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 17, args: [
+            Type(OutOfLine(type_idx: 15)),
+            Type(OutOfLine(type_idx: 16)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 5)),
         ])), docs: [
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
@@ -238,7 +338,7 @@
         "Commonly used operations are defined first, to get more compact resource paths.",
     ], crate_idx: 0, trait_name: "Pin", items: [
         (id: 0, kind: Method(args: [
-            (ident: "level", ty: OutOfLine(type_idx: 0), default: None, flatten: false),
+            (ident: "level", ty: OutOfLine(type_idx: 4), default: None, flatten: false),
         ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "set_output_level", docs: [
             "0. Set the output level.",
             "",
@@ -247,20 +347,20 @@
         (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "toggle", docs: [
             "1. Toggle the output level.",
         ], optional: None, meta: None),
-        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "output_level", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4)), errors: None), multiplicity: Flat, since: None, ident: "output_level", docs: [
             "2. Get output level.",
             "",
             "If the pin is currently configured as input, this level should be read from an output register, not input one.",
         ], optional: None, meta: None),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "input_level", docs: [
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4)), errors: None), multiplicity: Flat, since: None, ident: "input_level", docs: [
             "3. Get the input level.",
             "",
             "Note that when a pin is configured as output, input buffer might be disabled, resulting in incorrect input level reported.",
             "If this is the case, current output level must be returned.",
         ], optional: None, meta: None),
-        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Counted, args: [
-            (ident: "enabled", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+        (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 10), delivery: Counted, args: [
+            (ident: "enabled", ty: OutOfLine(type_idx: 7), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
@@ -271,9 +371,9 @@
             "`Unsupported` if a requested source (edge or custom) isn\'t available on this pin.",
         ], optional: None, meta: None),
         (id: 8, kind: Method(args: [
-            (ident: "mode", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
-            (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0)), default: Some("None"), flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "mode", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+            (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 4)), default: Some("None"), flatten: false),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InUse",
@@ -287,10 +387,10 @@
             "`Unsupported` if the pin can\'t be switched to the requested mode, `DifferentModes` if the bank\'s pins share one",
             "mode and this one differs.",
         ], optional: None, meta: None),
-        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
+        (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Get current mode.",
         ], optional: None, meta: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 12), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 9)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
@@ -298,7 +398,7 @@
             "Pull resistors selection.",
             "`Unsupported` if the pin doesn\'t support the requested pull (`set` only).",
         ], optional: None, meta: None),
-        (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 11, kind: Property(ty: OutOfLine(type_idx: 13), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 9)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
@@ -306,7 +406,7 @@
             "Drive strength selection.",
             "`Unsupported` if the pin doesn\'t support the requested drive strength (`set` only).",
         ], optional: None, meta: None),
-        (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 14)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",
         ], optional: None, meta: None),
     ], compact_id: Some(33), meta: None), crate_idx: 0),
@@ -320,12 +420,12 @@
             "* Range - useful when a device has sequentially marked IOs (e.g., IO expander)",
             "* List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)",
         ], optional: None, meta: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 18)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
         ], optional: None, meta: None),
         (id: 9, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 19), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 19), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "Refused",
@@ -341,12 +441,10 @@
     ], compact_id: Some(32), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     None,
-    Some((line: 5, revision: 0)),
+    Some((line: 1, revision: 0)),
 ]))

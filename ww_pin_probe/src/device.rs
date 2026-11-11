@@ -4,7 +4,7 @@ use crate::{Level, PinError, Pins, Point, PointState};
 use anyhow::{Result, anyhow, bail};
 use std::path::PathBuf;
 use wire_weaver_client::{CallError, Commander, DynClient};
-use ww_pin_diag::{InternedOwned, PinDiagErrorOwned, PointOwned};
+use ww_pin_diag::{Index, InternedOwned, PinDiagErrorOwned, PointOwned, TestPoint};
 use ww_report::clients::FirmwareInfoClient;
 use ww_report::path::{TraitAt, find_all_traits};
 
@@ -109,7 +109,7 @@ fn failed_or_refused(e: CallError<PinDiagErrorOwned>) -> PinError {
 impl Pins for DevicePins {
     async fn set(&mut self, point: u16, state: PointState) -> Result<(), PinError> {
         self.client
-            .set(point, state)
+            .set(Index::<TestPoint, u16>::new(point), state)
             .call()
             .await
             .map_err(failed_or_refused)
@@ -117,7 +117,7 @@ impl Pins for DevicePins {
 
     async fn read(&mut self, point: u16) -> Result<Level, PinError> {
         self.client
-            .read(point)
+            .read(Index::<TestPoint, u16>::new(point))
             .call()
             .await
             .map_err(failed_or_refused)

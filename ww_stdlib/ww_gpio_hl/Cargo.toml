@@ -18,3 +18,4 @@ thiserror.workspace = true
 wire_weaver = { workspace = true }
 wire_weaver_client.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["counting"] }

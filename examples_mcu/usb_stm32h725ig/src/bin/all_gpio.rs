@@ -16,7 +16,7 @@ use stm32_metapac::gpio::vals::{Idr, Moder, Odr, Ospeedr, Ot, Pupdr};
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode,
+    BankCapabilities, BankConfig, GpioError, Index, IoLevel, IoPinEnabledEvents, Level, Mode,
     PinCapabilities, Pull, Speed,
 };
 use ww_stream::tx::Counted;
@@ -217,7 +217,7 @@ impl ServerState {
     ) -> RpcResult<BankCapabilities<'_>> {
         Ready(BankCapabilities {
             io_levels: MaxLen::new_unchecked(RefVec::Slice {
-                slice: &const { [ww_si::Volt::from_f32(3.3)] },
+                slice: &const { [IoLevel::new(3300)] },
             }),
             io_level_min: None,
             io_level_max: None,
@@ -411,7 +411,7 @@ impl ServerState {
                     Mode::PushPullOutput
                 }
             }
-            Moder::ALTERNATE => Mode::Custom(0),
+            Moder::ALTERNATE => Mode::Custom(Index::new(0)),
             Moder::ANALOG => Mode::Analog,
         };
         Ready(mode)
@@ -449,7 +449,7 @@ impl ServerState {
             Pupdr::FLOATING => Pull::None,
             Pupdr::PULL_UP => Pull::Up,
             Pupdr::PULL_DOWN => Pull::Down,
-            Pupdr::_RESERVED_3 => Pull::Custom(3),
+            Pupdr::_RESERVED_3 => Pull::Custom(Index::new(3)),
         };
         Value(pull)
     }

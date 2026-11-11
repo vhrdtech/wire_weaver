@@ -7,7 +7,8 @@ level: basic
 Part of the [IO trait family](io_family.md). `ww_gpio` is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
 reading input levels, configuring pin mode / pull / drive strength, and
 observing edge events as a stream. It is
-`no_std` by default and depends only on `wire_weaver` and `ww_si` (for the `Volt` IO level).
+`no_std` by default and depends only on `wire_weaver` and `ww_si` (for `IoLevel`, the IO level in mV, and the
+counted indices of the `Custom` variants below).
 
 Add it to a device API crate with:
 
@@ -112,23 +113,27 @@ change is seen in an interrupt, so it waits for marks of an element from another
 
 * `Level` - `Low` / `High`, `sized`, 1 bit on the wire.
 * `Mode` - `PushPullOutput`, `OpenDrainOutput`, `Input`, `HighZ` (like `Input` but may disable the input buffer to
-  save power), `Analog`, `Custom(u8)`; `sized`, 1 nibble.
-* `Pull` - `None`, `Up`, `Down`, `Custom(u8)`; `sized`, 2 bits.
-* `Speed` - `Slow`, `Medium`, `Fast`, `VeryFast`, `Custom(u8)`; `sized`, 1 nibble.
-* `IoPinEvent` - `RisingEdge`, `FallingEdge`, `Custom(u8)`; `sized`, 2 bits.
+  save power), `Analog`, `Custom(Index<CustomMode, u8>)`; `sized`, 1 nibble.
+* `Pull` - `None`, `Up`, `Down`, `Custom(Index<CustomPull, u8>)`; `sized`, 2 bits.
+* `Speed` - `Slow`, `Medium`, `Fast`, `VeryFast`, `Custom(Index<CustomSpeed, u8>)`; `sized`, 1 nibble.
+* `IoPinEvent` - `RisingEdge`, `FallingEdge`, `Custom(Index<CustomEvent, u8>)`; `sized`, 2 bits.
 * `GpioError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `DifferentModes`; unsized
   (`unib32` discriminant), evolvable, `Display` from the doc lines. Each method lists the variants it returns
   (`#[errors]`).
-* `IoPinEnabledEvents<'i>` - which sources the `event` stream reports, its argument: `rising: bool`, `falling: bool`, and a
-  `custom: RefVec<'i, u8>` list of custom source indices.
+* `IoPinEnabledEvents<'i>` - which sources the `event` stream reports, its argument: `rising: bool`, `falling: bool`,
+  and a `custom: RefVec<'i, Index<CustomEvent, u8>>` list of custom source indices.
 * `PinCapabilities<'i>` - what one pin supports: `modes: MaxLen<RefVec<'i, Mode>, 8>`,
   `pulls: MaxLen<RefVec<'i, Pull>, 4>`, `speeds: MaxLen<RefVec<'i, Speed>, 5>`, `events: bool` (the `event` stream
   works on this pin), `name: MaxLen<&'i str, 16>` (e.g. `"IO4"`, `"PB5"`).
-* `BankConfig` - `io_level: Option<Volt>`; the argument and the answer of `Bank::configure`.
-* `BankCapabilities<'i>` - what a bank supports: `io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`,
-  `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply), `push_pull` / `open_drain` / `input` /
+* `BankConfig` - `io_level: Option<IoLevel>`; the argument and the answer of `Bank::configure`. `IoLevel` is
+  `Fixed<Volt, Milli, u16>`, the bank's IO level in mV.
+* `BankCapabilities<'i>` - what a bank supports: `io_levels: MaxLen<RefVec<'i, IoLevel>, MAX_IO_LEVELS>`,
+  `io_level_min` / `io_level_max: Option<IoLevel>` (an adjustable supply), `push_pull` / `open_drain` / `input` /
   `individually_configurable_pins: bool`, and `custom_mode` / `custom_pull` / `custom_speed: RefVec<'i, &'i str>`
-  describing any `Custom(u8)` variants.
+  describing any `Custom` variant, indexed by `CustomMode` / `CustomPull` / `CustomSpeed`.
+
+`CustomMode`, `CustomPull`, `CustomSpeed` and `CustomEvent` are counted markers of this crate (`ww_si::unit!`),
+so an `Index<CustomMode, u8>` and a plain `u8` are the same byte, only the model says what it counts.
 
 `Level` and `Mode` also carry small helpers: `Level::is_high()` / `is_low()`, `Mode::is_driving()` (true for
 `PushPullOutput` and `OpenDrainOutput`).

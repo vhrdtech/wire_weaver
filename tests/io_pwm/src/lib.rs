@@ -8,8 +8,9 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_pwm::{
-        CaptureConfig, CaptureMode, CaptureSample, CaptureValue, Hertz, PwmActual, PwmCapabilities,
-        PwmChannelInfo, PwmError, PwmErrorOwned, PwmOutput, PwmState, Second,
+        CaptureConfig, CaptureMode, CaptureSample, CaptureValue, Duty16, Fixed, Hertz, One,
+        PwmActual, PwmCapabilities, PwmChannelInfo, PwmError, PwmErrorOwned, PwmOutput, PwmState,
+        Second, TimerGroup, units,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
@@ -102,12 +103,12 @@ mod tests {
                 const CHANNELS: [PwmChannelInfo<'static>; 2] = [
                     PwmChannelInfo {
                         name: MaxLen::new_unchecked("ch0"),
-                        group: 0,
+                        group: TimerGroup(0),
                         capture: true,
                     },
                     PwmChannelInfo {
                         name: MaxLen::new_unchecked("ch1"),
-                        group: 0,
+                        group: TimerGroup(0),
                         capture: false,
                     },
                 ];
@@ -115,7 +116,7 @@ mod tests {
                     channels: MaxLen::new(RefVec::Slice { slice: &CHANNELS }).unwrap(),
                     min_freq: MIN_FREQ,
                     max_freq: MAX_FREQ,
-                    duty_bits: 16,
+                    duty_bits: Fixed::<units::Bit, One, u8>::new(16),
                 })
             }
 
@@ -138,8 +139,8 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 index_chain: [UNib32; 1],
-                duty: u16,
-            ) -> RpcResult<Result<u16, PwmError<'_>>> {
+                duty: Duty16,
+            ) -> RpcResult<Result<Duty16, PwmError<'_>>> {
                 let idx = index_chain[0].0 as usize;
                 let mut m = self.m.lock().unwrap();
                 match &mut m.channels[idx] {
@@ -328,7 +329,7 @@ mod tests {
         assert!(caps.channels[0].capture);
         assert_eq!(caps.channels[1].name.as_str(), "ch1");
         assert!(!caps.channels[1].capture);
-        assert_eq!(caps.duty_bits, 16);
+        assert_eq!(caps.duty_bits, Fixed::<units::Bit, One, u8>::new(16));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -340,12 +341,12 @@ mod tests {
 
         let output = PwmOutput {
             freq: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(10)),
-            duty: 32768,
+            duty: Duty16::new(32768),
             inverted: false,
             phase_correct: false,
         };
         let actual = channel.set_output(output).call().await.unwrap();
-        assert_eq!(actual.duty, 32768);
+        assert_eq!(actual.duty, Duty16::new(32768));
         let stored = m.lock().unwrap().channels[0].unwrap();
         assert_eq!(stored.duty, actual.duty);
         assert!(hz_eq(stored.freq, actual.freq));
@@ -359,9 +360,9 @@ mod tests {
             other => panic!("expected Output, got {other:?}"),
         }
 
-        let duty = channel.set_duty(1000).call().await.unwrap();
-        assert_eq!(duty, 1000);
-        assert_eq!(m.lock().unwrap().channels[0].unwrap().duty, 1000);
+        let duty = channel.set_duty(Duty16::new(1000)).call().await.unwrap();
+        assert_eq!(duty, Duty16::new(1000));
+        assert_eq!(m.lock().unwrap().channels[0].unwrap().duty, Duty16::new(1000));
 
         channel.stop(true).call().await.unwrap();
         assert!(m.lock().unwrap().channels[0].is_none());
@@ -375,7 +376,7 @@ mod tests {
         let client = connect(&device).await;
         let pwm = client.pwm();
         let channel = pwm.channel(1);
-        let err = channel.set_duty(100).call().await;
+        let err = channel.set_duty(Duty16::new(100)).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
             Some(PwmErrorOwned::Common(CommonErrorOwned::WrongState { .. }))
@@ -458,7 +459,7 @@ mod tests {
 
         let sample = CaptureSample {
             t: Second::from_parts(Prefix::Milli, NumericValue::U32(1)),
-            value: CaptureValue::DutyCycle(12345),
+            value: CaptureValue::DutyCycle(Duty16::new(12345)),
         };
         m.lock().unwrap().measured.push((0, sample));
         // any request lets the mock's event loop send it

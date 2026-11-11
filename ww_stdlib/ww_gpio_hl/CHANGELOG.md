@@ -2,6 +2,12 @@
 
 ### ⚠️ Breaking
 
+- `Flex::index` / `FlexBlocking::index`, `Bank::pin` / `pin_get_mode` (blocking and async) and `BankPromise::pin` /
+  `pin_ref` / `pin_indices` take or return `PinIndex` (`ww_si::Index<ww_si::units::Pin, u32>`, new alias) instead of
+  a bare `u32` (AGENTS.md "Numbers are typed"). `BankPromise::new_hint`'s `valid_pin_indices` is `Arc<Vec<PinIndex>>`.
+- `Bank::set_io_level` / `io_level` (blocking and async) take or return `ww_gpio::IoLevel` instead of `ww_gpio::Volt`
+  (removed), following `ww_gpio`'s `io_level` change.
+
 - `Error::Gpio` holds `ww_gpio::GpioErrorOwned` (the `CommonError`-based error of `ww_gpio`, STD-16) instead of
   `ww_gpio::Error`; `FlexPromise::set_mode_promise()` returns `&Promise<(), CallError<GpioErrorOwned>>`.
 - `BankBlocking::reference_voltage` / `set_reference_voltage` are `io_level` / `set_io_level`, on `ww_gpio`'s

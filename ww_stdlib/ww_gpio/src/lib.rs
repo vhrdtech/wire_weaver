@@ -4,10 +4,25 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::Volt;
+pub use ww_si::prefix::Milli;
+pub use ww_si::{Fixed, Index, units};
 
 /// Most discrete IO levels a bank lists in [BankCapabilities::io_levels].
 pub const MAX_IO_LEVELS: usize = 8;
+
+/// A bank's IO level, in mV: [BankConfig::io_level], [BankCapabilities::io_levels], `io_level_min` / `io_level_max`.
+pub type IoLevel = Fixed<units::Volt, Milli, u16>;
+
+ww_si::unit! {
+    /// A device-specific mode listed in [BankCapabilities::custom_mode], the id [Mode::Custom] carries.
+    pub struct CustomMode = "custom mode" (long "custom mode"), base;
+    /// A device-specific pull listed in [BankCapabilities::custom_pull], the id [Pull::Custom] carries.
+    pub struct CustomPull = "custom pull" (long "custom pull"), base;
+    /// A device-specific drive strength listed in [BankCapabilities::custom_speed], the id [Speed::Custom] carries.
+    pub struct CustomSpeed = "custom speed" (long "custom speed"), base;
+    /// A device-specific event source enabled in [IoPinEnabledEvents::custom], the id [IoPinEvent::Custom] carries.
+    pub struct CustomEvent = "custom event" (long "custom event"), base;
+}
 
 /// A bank of related IO pins.
 /// Every pin of a bank uses the same IO level, adjustable on hardware with level translators ([BankConfig]).
@@ -148,7 +163,7 @@ pub enum Mode {
     /// Analog mode, e.g. for an ADC or DAC channel sharing the pin.
     Analog,
     /// Device-specific mode not covered above, e.g. an alternate function.
-    Custom(u8),
+    Custom(Index<CustomMode, u8>),
 }
 
 /// Errors of `Bank` and `Pin`: the common ones first (unsupported mode, pull, speed, event or IO level; in use; no
@@ -185,7 +200,7 @@ pub enum Pull {
     /// Internal pull-down resistor enabled.
     Down,
     /// Device-specific pull configuration not covered above.
-    Custom(u8),
+    Custom(Index<CustomPull, u8>),
 }
 
 /// IO pin drive strength configuration
@@ -205,7 +220,7 @@ pub enum Speed {
     /// Fastest slew rate, most EMI, highest achievable toggle frequency.
     VeryFast,
     /// Device-specific drive strength not covered above.
-    Custom(u8),
+    Custom(Index<CustomSpeed, u8>),
 }
 
 /// IO pin asynchronous event (interrupt reason), sent on the `Pin::event` stream; when it happened is in the event's
@@ -224,7 +239,7 @@ pub enum IoPinEvent {
     /// The pin's input went from high to low.
     FallingEdge,
     /// Device-specific event source not covered above.
-    Custom(u8),
+    Custom(Index<CustomEvent, u8>),
 }
 
 /// Event sources of an IO pin (interrupts) to report on the `Pin::event` stream, its argument.
@@ -239,7 +254,7 @@ pub struct IoPinEnabledEvents<'i> {
     /// Report `IoPinEvent::FallingEdge`.
     pub falling: bool,
     /// Indices of device-specific sources to report as `IoPinEvent::Custom`.
-    pub custom: RefVec<'i, u8>,
+    pub custom: RefVec<'i, Index<CustomEvent, u8>>,
     // TODO: add GPIO filter configuration
 }
 
@@ -254,7 +269,7 @@ pub struct IoPinEnabledEvents<'i> {
 pub struct BankConfig {
     /// IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`
     /// leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.
-    pub io_level: Option<Volt>,
+    pub io_level: Option<IoLevel>,
 }
 
 /// GPIO bank capabilities: supported IO levels, modes, custom modes, etc.
@@ -266,11 +281,11 @@ pub struct BankConfig {
 pub struct BankCapabilities<'i> {
     /// Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no
     /// level control.
-    pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
+    pub io_levels: MaxLen<RefVec<'i, IoLevel>, MAX_IO_LEVELS>,
     /// Lowest IO level of an adjustable supply, if the bank has one.
-    pub io_level_min: Option<Volt>,
+    pub io_level_min: Option<IoLevel>,
     /// Highest IO level of an adjustable supply, if the bank has one.
-    pub io_level_max: Option<Volt>,
+    pub io_level_max: Option<IoLevel>,
 
     /// At least one pin of the bank supports `Mode::PushPullOutput`.
     pub push_pull: bool,

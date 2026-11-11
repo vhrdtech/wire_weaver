@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `PinDiag::set` and `read`'s `point` is `Index<TestPoint, u16>` (new counted marker of this crate, not named `Point`:
+  that is the struct describing one entry of `POINTS`) instead of a bare `u16` (AGENTS.md "Numbers are typed").
+  Wire-compatible (`Index` is exactly its `u16` on the wire).
+
 ### 🚀 Features
 
 - `PinDiag` is `#[claim(exclusive)]` (SRV-34): a client can claim pin diagnostics through the hub. Wire compatible, only the introspection data changes.

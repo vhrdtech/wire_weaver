@@ -17,13 +17,14 @@
 //! `embedded_hal::digital` (`OutputPin`, `InputPin`, ...) is synchronous, so it is implemented by the
 //! [blocking](crate::blocking) flavor: a blocking call inside an async task would stall it.
 
-use crate::Error;
 use crate::ww::{BankClient, GpioClient};
+use crate::{Error, PinIndex};
 use embedded_hal::digital::ErrorType;
 use wire_weaver::ValidIndicesOwned;
 use wire_weaver_client::{Attachment, Priority, Second, StreamEvent};
 use ww_gpio::{
-    BankCapabilitiesOwned, BankConfig, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode, Pull, Volt,
+    BankCapabilitiesOwned, BankConfig, IoLevel, IoPinEnabledEventsOwned, IoPinEvent, Level, Mode,
+    Pull,
 };
 
 /// GPIO configured as Push-Pull output.
@@ -52,7 +53,7 @@ pub struct OpenDrainOutput {
 pub struct Flex {
     io: GpioClient,
     mode: Option<Mode>,
-    index: u32,
+    index: PinIndex,
     last_edge_time: Option<Second>,
 }
 
@@ -94,7 +95,7 @@ impl Flex {
         Ok(Flex {
             io,
             mode: None,
-            index,
+            index: PinIndex::new(index),
             last_edge_time: None,
         })
     }
@@ -186,7 +187,7 @@ impl Flex {
     }
 
     /// Returns the GPIO index that this pin is using.
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> PinIndex {
         self.index
     }
 
@@ -501,7 +502,7 @@ impl Bank {
 
     /// Sets the IO level of every pin of the bank, if supported by hardware, and returns the level in effect
     /// (`None` on a bank without level control).
-    pub async fn set_io_level(&mut self, level: Volt) -> Result<Option<Volt>, Error> {
+    pub async fn set_io_level(&mut self, level: IoLevel) -> Result<Option<IoLevel>, Error> {
         let actual = self
             .bank
             .configure(BankConfig {
@@ -513,7 +514,7 @@ impl Bank {
     }
 
     /// IO level of the bank now (`None` on a bank without level control): a `configure` that changes nothing.
-    pub async fn io_level(&mut self) -> Result<Option<Volt>, Error> {
+    pub async fn io_level(&mut self) -> Result<Option<IoLevel>, Error> {
         let actual = self
             .bank
             .configure(BankConfig { io_level: None })
@@ -526,17 +527,17 @@ impl Bank {
     /// The intended use is to immediately call one of the into_ methods to save on one remote call.
     ///
     /// Returns [Error::Usage] if `pin_idx` is not one of [Self::available_pins].
-    pub fn pin(&self, pin_idx: u32) -> Result<Flex, Error> {
+    pub fn pin(&self, pin_idx: PinIndex) -> Result<Flex, Error> {
         self.check_idx(pin_idx)?;
-        Flex::new_ignore_mode(self.bank.pin(pin_idx).attachment())
+        Flex::new_ignore_mode(self.bank.pin(pin_idx.get()).attachment())
     }
 
     /// Get pin at `pin_idx` as a [Flex] and send a request to get its mode right away.
     ///
     /// Returns [Error::Usage] if `pin_idx` is not one of [Self::available_pins].
-    pub async fn pin_get_mode(&self, pin_idx: u32) -> Result<Flex, Error> {
+    pub async fn pin_get_mode(&self, pin_idx: PinIndex) -> Result<Flex, Error> {
         self.check_idx(pin_idx)?;
-        Flex::new_get_mode(self.bank.pin(pin_idx).attachment()).await
+        Flex::new_get_mode(self.bank.pin(pin_idx.get()).attachment()).await
     }
 
     /// Get all available pins on this bank as [Flex], assuming unknown mode.
@@ -547,8 +548,8 @@ impl Bank {
             .collect()
     }
 
-    fn check_idx(&self, pin_idx: u32) -> Result<(), Error> {
-        if !self.available_pins.contains(pin_idx) {
+    fn check_idx(&self, pin_idx: PinIndex) -> Result<(), Error> {
+        if !self.available_pins.contains(pin_idx.get()) {
             return Err(Error::Usage(format!(
                 "Pin index {pin_idx} is not valid for this bank"
             )));

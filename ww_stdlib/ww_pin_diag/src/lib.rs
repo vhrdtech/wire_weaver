@@ -22,6 +22,13 @@ pub use ww_gpio::{Level, Pull};
 pub use ww_interned::Interned;
 #[cfg(feature = "std")]
 pub use ww_interned::InternedOwned;
+pub use ww_si::Index;
+
+ww_si::unit! {
+    /// A point of [PinDiag::POINTS], the id [PinDiag::set] and [PinDiag::read] take; not named `Point`, the struct
+    /// that describes one (one entry of that list).
+    pub struct TestPoint = "point" (long "point"), base;
+}
 
 /// Raw access to a board's digital points, see the [crate](crate) documentation.
 #[ww_trait]
@@ -34,12 +41,12 @@ pub trait PinDiag {
     /// until [PinDiag::release_all]. Refused when the point can't do that at all, a function holds it, or the
     /// board's rules forbid it in the current state of the other points.
     #[errors(NoSuchPoint, NotCapable, Refused, Common(InUse))]
-    fn set(point: u16, state: PointState) -> Result<(), PinDiagError<'i>>;
+    fn set(point: Index<TestPoint, u16>, state: PointState) -> Result<(), PinDiagError<'i>>;
 
     /// Level on the point's pad, also while it drives: a point driving high that reads low is shorted to something
     /// stronger.
     #[errors(NoSuchPoint, NotCapable)]
-    fn read(point: u16) -> Result<Level, PinDiagError<'i>>;
+    fn read(point: Index<TestPoint, u16>) -> Result<Level, PinDiagError<'i>>;
 
     /// Every point set since the last release goes back to the firmware's safe state and to its function.
     fn release_all();

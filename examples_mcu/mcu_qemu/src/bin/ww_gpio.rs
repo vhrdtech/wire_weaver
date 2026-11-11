@@ -10,8 +10,8 @@ use wire_weaver::prelude::*;
 use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
 use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode, PinCapabilities,
-    Pull, Speed,
+    BankCapabilities, BankConfig, GpioError, IoLevel, IoPinEnabledEvents, Level, Mode,
+    PinCapabilities, Pull, Speed,
 };
 use ww_stream::tx::Counted;
 
@@ -64,7 +64,7 @@ impl ServerState {
     ) -> RpcResult<BankCapabilities<'_>> {
         let cap = BankCapabilities {
             io_levels: MaxLen::new_unchecked(RefVec::Slice {
-                slice: &const { [ww_si::Volt::from_f32(3.3)] },
+                slice: &const { [IoLevel::new(3300)] },
             }),
             io_level_min: None,
             io_level_max: None,

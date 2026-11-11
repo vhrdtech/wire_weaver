@@ -12,8 +12,8 @@ expander output. It is one generic trait, so one host tool tests any board that 
 #[ww_trait]
 pub trait PinDiag {
     const POINTS: RefVec<'i, Point<'i>>;
-    fn set(point: u16, state: PointState) -> Result<(), PinDiagError<'i>>;
-    fn read(point: u16) -> Result<Level, PinDiagError<'i>>;
+    fn set(point: Index<TestPoint, u16>, state: PointState) -> Result<(), PinDiagError<'i>>;
+    fn read(point: Index<TestPoint, u16>) -> Result<Level, PinDiagError<'i>>;
     fn release_all();
 }
 
@@ -28,7 +28,9 @@ pub enum PointState {
 A *point* is anything digital the firmware lets a test touch: an MCU pin, an output of a shift register, a pin of an
 I/O expander. `POINTS` lists them, each with a `name` ("GPIO2", "EX13", as on the schematic), a `group` ("mcu",
 "chain") and `caps`: whether it can be read, pulled up or down, drive low or high, and whether it has a weaker drive.
-A point's index in the list is its id in `set` and `read`. `POINTS` is a [`const` item](../api/properties.md#const-items);
+A point's index in the list is its id in `set` and `read`, `Index<TestPoint, u16>` (`TestPoint` a counted marker of
+this crate, not named `Point`: that is the struct above describing one entry of `POINTS`). `POINTS` is a
+[`const` item](../api/properties.md#const-items);
 a server built from a table provides it as a `fn` (`const_model = "POINTS=fn"`, `fn pins_points(&self)` for
 `pins: PinDiag`).
 

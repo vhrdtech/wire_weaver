@@ -4,6 +4,9 @@ pub mod promise;
 mod ww;
 pub use ww_gpio;
 
+/// A pin's position in its bank: `Bank::pin`, `Flex::index`, `BankPromise::pin_indices`.
+pub type PinIndex = ww_si::Index<ww_si::units::Pin, u32>;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("client error: '{:?}'", .0)]

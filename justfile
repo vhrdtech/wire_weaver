@@ -265,7 +265,10 @@ save-snapshots *args:
     target/debug/ww api save ww_stdlib/ww_si --dep exact_units --snapshots-dir wire_weaver_snapshots/other_repos {{ args }}
     rm -rf wire_weaver_snapshots/api_snapshots
     mkdir -p wire_weaver_snapshots/api_snapshots
-    cp ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron wire_weaver_snapshots/other_repos/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_snapshots/api_snapshots/
+    # ww_client_server keeps its own api_snapshots/ for tests/stdlib_evolution, not embedded here either
+    for f in ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron wire_weaver_snapshots/other_repos/*.ron ww_stdlib/*/api_snapshots/*.ron; do \
+        [ "$(basename "$(dirname "$(dirname "$f")")")" = ww_client_server ] || cp "$f" wire_weaver_snapshots/api_snapshots/; \
+    done
 
 pre-commit:
     cargo sort -w -g

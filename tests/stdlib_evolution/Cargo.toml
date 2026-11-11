@@ -1,0 +1,12 @@
+[package]
+name = "stdlib_evolution"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Checks every ww_stdlib crate against its api_snapshots/ (TOOL-31): one test per crate, kept out of each crate's own Cargo.toml so a narrow feature-set test of theirs (ww_si, ww_numeric) never unifies with wire_weaver_evolution's own wide feature needs."
+
+[dev-dependencies]
+wire_weaver_evolution = { workspace = true, features = ["source"] }

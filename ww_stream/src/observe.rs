@@ -871,7 +871,9 @@ impl<const N: usize, const D: usize> ElementTable<[Slot; N], D> {
     }
 
     /// `K` tables [new](Self::new) in place, for an `ObserveState` built in a `static`.
-    pub fn init_all<const K: usize>(slot: &mut core::mem::MaybeUninit<[Self; K]>) -> &mut [Self; K] {
+    pub fn init_all<const K: usize>(
+        slot: &mut core::mem::MaybeUninit<[Self; K]>,
+    ) -> &mut [Self; K] {
         // every field is written below: a new one fails to compile here until it is
         let _ = |e: Self| {
             let ElementTable {

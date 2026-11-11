@@ -38,7 +38,10 @@ mod tests {
                 ValidIndices::range_u32(0..3)
             }
 
-            async fn get_volume(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+            async fn get_volume(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<u8, ()> {
                 GetResult::Value(7)
             }
 
@@ -355,7 +358,11 @@ mod tests {
         assert_eq!(value(&mut five).await, "five");
         assert_eq!(value(&mut nine).await, "nine");
 
-        b.client.set_title(9, "nine again".into()).call().await.unwrap();
+        b.client
+            .set_title(9, "nine again".into())
+            .call()
+            .await
+            .unwrap();
         assert_eq!(value(&mut nine).await, "nine again");
         b.barrier().await;
         assert!(five.try_recv().unwrap().is_none());
@@ -427,13 +434,14 @@ mod tests {
         assert_eq!(recv(&mut five).await, ObserveEvent::Ended);
         let closed = tokio::time::timeout(WAIT, five.recv_event()).await.unwrap();
         assert!(matches!(closed, Err(StreamError::Closed)), "{closed:?}");
-        let e = five
-            .configure(Default::default())
-            .await
-            .expect_err("ended");
+        let e = five.configure(Default::default()).await.expect_err("ended");
         assert!(matches!(e, Error::User(_)), "{e:?}");
         // the other element goes on
-        b.client.set_title(9, "still here".into()).call().await.unwrap();
+        b.client
+            .set_title(9, "still here".into())
+            .call()
+            .await
+            .unwrap();
         assert_eq!(value(&mut nine).await, "still here");
 
         // gone: its index isn't valid
@@ -461,7 +469,11 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(value(&mut five).await, "new 5");
-        b.client.set_title(5, "five again".into()).call().await.unwrap();
+        b.client
+            .set_title(5, "five again".into())
+            .call()
+            .await
+            .unwrap();
         assert_eq!(value(&mut five).await, "five again");
     }
 
@@ -610,7 +622,10 @@ mod tests {
             .observe(&b.client.cmd, BTreeMap::from([(0, on_change(MS))]))
             .await
             .unwrap();
-        let first = tokio::time::timeout(WAIT, observer.recv()).await.unwrap().unwrap();
+        let first = tokio::time::timeout(WAIT, observer.recv())
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(
             first.values,
             [("title".to_string(), ValueOwned::String("nine".into()))]

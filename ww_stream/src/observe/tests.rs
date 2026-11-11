@@ -1109,16 +1109,38 @@ fn element_tables_are_taken_and_freed() {
     let c = [UNib32(3), UNib32(0)];
 
     let ia = element_for(&mut tables, &a).unwrap();
-    apply(&mut tables[ia].table, &DESC, &[entry(1, on_change(100))], false, None).unwrap();
+    apply(
+        &mut tables[ia].table,
+        &DESC,
+        &[entry(1, on_change(100))],
+        false,
+        None,
+    )
+    .unwrap();
     tables[ia].settle();
     assert_eq!(tables[ia].state(), ElementState::Observed);
-    assert_eq!(element_for(&mut tables, &a), Some(ia), "the same element, the same table");
+    assert_eq!(
+        element_for(&mut tables, &a),
+        Some(ia),
+        "the same element, the same table"
+    );
 
     let ib = element_for(&mut tables, &b).unwrap();
     assert_ne!(ia, ib);
-    apply(&mut tables[ib].table, &DESC, &[entry(3, on_change(100))], false, None).unwrap();
+    apply(
+        &mut tables[ib].table,
+        &DESC,
+        &[entry(3, on_change(100))],
+        false,
+        None,
+    )
+    .unwrap();
     tables[ib].settle();
-    assert_eq!(element_for(&mut tables, &c), None, "both observe other elements");
+    assert_eq!(
+        element_for(&mut tables, &c),
+        None,
+        "both observe other elements"
+    );
 
     // a request that turns everything off frees the table
     apply(&mut tables[ia].table, &DESC, &[], false, None).unwrap();
@@ -1128,7 +1150,10 @@ fn element_tables_are_taken_and_freed() {
     let ic = element_for(&mut tables, &c).unwrap();
     assert_eq!(ic, ia);
     assert_eq!(tables[ic].chain(), &c);
-    assert!(!tables[ic].table.is_active(), "a taken table starts with nothing observed");
+    assert!(
+        !tables[ic].table.is_active(),
+        "a taken table starts with nothing observed"
+    );
 }
 
 /// A change marks its element only; removing an element ends it and everything under it, the others stay.
@@ -1142,7 +1167,14 @@ fn element_marks_and_ends() {
     ];
     for chain in &chains {
         let i = element_for(&mut tables, chain).unwrap();
-        apply(&mut tables[i].table, &DESC, &[entry(1, on_change(100))], false, None).unwrap();
+        apply(
+            &mut tables[i].table,
+            &DESC,
+            &[entry(1, on_change(100))],
+            false,
+            None,
+        )
+        .unwrap();
         tables[i].settle();
         // sent once right away
         poll(&mut tables[i].table, &DESC, 0, |_| 2);
@@ -1159,9 +1191,18 @@ fn element_marks_and_ends() {
     let states: Vec<ElementState> = tables.iter().map(|e| e.state()).collect();
     assert_eq!(
         states,
-        [ElementState::Ended, ElementState::Ended, ElementState::Observed]
+        [
+            ElementState::Ended,
+            ElementState::Ended,
+            ElementState::Observed
+        ]
     );
-    assert!(tables.iter().take(2).all(|e| e.budget() == 0 && e.is_active()));
+    assert!(
+        tables
+            .iter()
+            .take(2)
+            .all(|e| e.budget() == 0 && e.is_active())
+    );
     // a change of an ended element marks nothing
     mark_element_changed(&mut tables, &chains[0], 0);
     assert!(!tables[0].table.is_active());
@@ -1180,6 +1221,10 @@ fn element_marks_and_ends() {
 fn element_tables_init_in_place() {
     let mut slot = core::mem::MaybeUninit::<[ElementTable<[Slot; 3], 1>; 4]>::uninit();
     let tables = ElementTable::init_all(&mut slot);
-    assert!(tables.iter().all(|e| e.state() == ElementState::Free && !e.table.is_active()));
+    assert!(
+        tables
+            .iter()
+            .all(|e| e.state() == ElementState::Free && !e.table.is_active())
+    );
     assert!(element_for(tables, &[UNib32(3)]).is_some());
 }

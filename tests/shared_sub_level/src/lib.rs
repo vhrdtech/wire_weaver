@@ -483,6 +483,8 @@ mod tests {
 
         let bank: BankClient<'_> = shared.bank(0);
         let _: PreparedObserve<_, u8> = bank.observe_level(on_change(Duration::from_millis(1)));
-        let _: PreparedObserve<_, u8> = own.bank(0).observe_level(on_change(Duration::from_millis(1)));
+        let _: PreparedObserve<_, u8> = own
+            .bank(0)
+            .observe_level(on_change(Duration::from_millis(1)));
     }
 }

@@ -145,7 +145,8 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 omit: args.ext.omit.clone(),
                 observe_batch: (args.ext.observe_batch != 0).then_some(args.ext.observe_batch),
                 observe_outbox: (args.ext.observe_outbox != 0).then_some(args.ext.observe_outbox),
-                observe_elements: (args.ext.observe_elements != 0).then_some(args.ext.observe_elements),
+                observe_elements: (args.ext.observe_elements != 0)
+                    .then_some(args.ext.observe_elements),
                 observe_cells: args
                     .ext
                     .observe_cells

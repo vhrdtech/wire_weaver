@@ -104,14 +104,12 @@ impl Level {
     /// The level's path with the indices of the element in `chain` (`[UNib32]` of its depth) (API-63).
     fn path_expr(&self, chain: &TokenStream) -> TokenStream {
         let holes = self.elements.as_ref().map_or(&[][..], |e| &e.holes[..]);
-        let parts = self
-            .path
-            .iter()
-            .enumerate()
-            .map(|(at, id)| match holes.iter().position(|h| *h == at) {
+        let parts = self.path.iter().enumerate().map(|(at, id)| {
+            match holes.iter().position(|h| *h == at) {
                 Some(i) => quote! { #chain[#i] },
                 None => quote! { UNib32(#id) },
-            });
+            }
+        });
         quote! { [#(#parts),*] }
     }
 
@@ -221,7 +219,9 @@ impl Observe {
         observe.arrays.retain(|a| {
             levels.iter().any(|l| {
                 !l.props.is_empty()
-                    && l.elements.as_ref().is_some_and(|e| e.arrays.contains(&a.name))
+                    && l.elements
+                        .as_ref()
+                        .is_some_and(|e| e.arrays.contains(&a.name))
             })
         });
         observe
@@ -407,7 +407,11 @@ impl Observe {
         let mut next = 0;
         self.tables()
             .map(|l| {
-                let n = if l.elements.is_some() { self.elements } else { 1 };
+                let n = if l.elements.is_some() {
+                    self.elements
+                } else {
+                    1
+                };
                 let range = (next, next + n - 1);
                 next += n;
                 range

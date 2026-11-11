@@ -51,7 +51,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
+use ww_si::prefix::{Milli, One};
+use ww_si::units::{self, Per};
 pub use ww_si::{Baud, Hertz, Ohm, Second};
+use ww_si::{Fixed, Index, Overflow, Prefix, Range, Rounding};
 
 /// Largest data of a [Frame], in bytes (CAN FD).
 pub const MAX_DATA_LEN: usize = 64;
@@ -73,6 +76,30 @@ pub const MAX_NAME_LEN: usize = 32;
 
 /// Most triggers of one `CanTimeTriggered::set_schedule`.
 pub const MAX_TRIGGERS: usize = 64;
+
+/// A filter element: its place in [FilterConfig::filters] (0-255, [MAX_FILTERS] of them).
+pub type FilterIndex = Index<units::Filter, UNib32, Range<0, 255>>;
+
+/// A dedicated receive or transmit buffer of the controller (`Can::rx_buffer`, `Can::tx_buffer`), from 0.
+pub type BufferIndex = Index<units::Buffer, u16>;
+
+/// A receive FIFO of the controller, from 0 ([Capabilities::rx_fifos] of them).
+pub type FifoIndex = Index<units::Fifo, u8>;
+
+/// Clock periods of the controller ([Capabilities::clock]) per time quantum: the bit timing prescaler.
+pub type Prescaler = Fixed<Per<units::Cycle, units::TimeQuantum>, One, u16>;
+
+/// A share in tenths of a percent, 0-1000 (875 = 87.5 %): bus load and sample point.
+pub type Share = Fixed<units::Ratio, Milli, u16, Range<0, 1000>>;
+
+/// Marker of a frame to send ([TxFrame::marker]), handed back in its [TxEvent]; the host picks the numbers.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    derive(Copy, Clone, Debug, PartialEq, Eq, Hash)
+)]
+pub struct TxMarker(pub UNib32);
 
 /// One CAN controller with its transceiver: configure it, receive on `rx`, send on the `tx` credit sink, watch its
 /// [Status].
@@ -133,7 +160,7 @@ pub trait Can {
     /// Drops every frame queued for sending, including those already handed to the controller and not yet on the
     /// bus; answers how many were dropped. Each one is reported on `tx_events` as [TxOutcome::Aborted].
     #[optional]
-    fn tx_abort() -> u32;
+    fn tx_abort() -> Fixed<units::Frame, One, u32>;
 
     /// When each sent frame went on the bus, or why it didn't: one event per frame of `tx` (and of `tx_buffer`),
     /// with its [TxFrame::marker] and the time it waited in the queue. A counted stream, unit: frame; the head's
@@ -192,7 +219,7 @@ pub trait Can {
     /// streaming every frame. `InvalidArgument` for an index past [Capabilities::rx_buffers].
     #[optional(rx_buffers)]
     #[errors(Common(InvalidArgument))]
-    fn rx_buffer(index: u16) -> Result<Option<BufferedFrame<'i>>, CanError<'i>>;
+    fn rx_buffer(index: BufferIndex) -> Result<Option<BufferedFrame<'i>>, CanError<'i>>;
 
     /// Dedicated transmit buffer `index`: `frame` with no `period` is sent once now, with a `period` every
     /// `period` by the device until the buffer is written again; `None` clears the buffer (stops a cyclic frame,
@@ -204,7 +231,7 @@ pub trait Can {
     #[optional(tx_buffers)]
     #[errors(Common(Unsupported, InvalidArgument, WrongState), BusOff)]
     fn tx_buffer(
-        index: u16,
+        index: BufferIndex,
         frame: Option<TxFrame<'i>>,
         period: Option<Second>,
     ) -> Result<(), CanError<'i>>;
@@ -403,9 +430,9 @@ impl Frame<'_> {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct RxFrame<'i> {
     pub frame: Frame<'i>,
-    /// Index of the filter element that accepted it (into [FilterConfig::filters]); `None` when it was accepted as
+    /// The filter element that accepted it (into [FilterConfig::filters]); `None` when it was accepted as
     /// non-matching, or the device has no filters.
-    pub filter: Option<UNib32>,
+    pub filter: Option<FilterIndex>,
 }
 
 /// A frame to send, see `Can::tx` and `Can::tx_buffer`.
@@ -414,7 +441,7 @@ pub struct TxFrame<'i> {
     pub frame: Frame<'i>,
     /// Comes back in the frame's [TxEvent], so a host matches events to the frames it sent; `None` when it doesn't
     /// need to (a device may then skip the event).
-    pub marker: Option<UNib32>,
+    pub marker: Option<TxMarker>,
 }
 
 /// A frame of a dedicated receive buffer, see `Can::rx_buffer`.
@@ -429,7 +456,7 @@ pub struct BufferedFrame<'i> {
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct TxEvent {
     /// [TxFrame::marker] of the frame.
-    pub marker: Option<UNib32>,
+    pub marker: Option<TxMarker>,
     pub id: CanId,
     pub outcome: TxOutcome,
     /// How long the frame waited from the device accepting it to its start of frame on the bus (queue, arbitration
@@ -531,8 +558,12 @@ pub enum Direction {
 pub struct Status {
     pub state: ErrorState,
     /// Transmit error counter.
+    // ISO 11898-1 fault confinement counters as the controller reads them: points (+8 per error, -1 per frame sent),
+    // not a count of errors
+    #[no_unit_hint]
     pub tec: u8,
     /// Receive error counter (some controllers stop at 127 and only flag error passive above).
+    #[no_unit_hint]
     pub rec: u8,
     /// Last protocol error in the arbitration phase (or of a classic frame), if any since the last read.
     pub last_error: Option<ProtocolError>,
@@ -572,16 +603,17 @@ pub struct ProtocolStatus {
     pub status: Status,
     pub activity: Activity,
     /// The controller's error logging counter (errors since the last read, saturating), if it has one.
-    pub error_log: Option<u8>,
+    pub error_log: Option<Fixed<units::Event, One, u8>>,
     /// Flags of the last received FD frame, if one came since the last read.
     pub last_fd_frame: Option<FdFrameFlags>,
     /// A protocol exception happened since the last read.
     pub protocol_exception: bool,
-    /// Transceiver delay the controller measured, in minimum time quanta (clock periods), with TDC on.
-    pub tdc_value: Option<u8>,
+    /// Transceiver delay the controller measured, in minimum time quanta (clock periods of [Capabilities::clock]),
+    /// with TDC on.
+    pub tdc_value: Option<Fixed<units::Cycle, One, u8>>,
     /// Corrected and uncorrected bit errors of the message memory (ECC / parity) since the last read, where the
     /// controller detects them.
-    pub memory_errors: Option<u16>,
+    pub memory_errors: Option<Fixed<units::Event, One, u16>>,
 }
 
 /// What the controller is doing on the bus.
@@ -619,13 +651,13 @@ pub struct FdFrameFlags {
 pub struct BusLoad {
     /// Length of the measurement window.
     pub window: Second,
-    /// Busy time of the bus in the window, in tenths of a percent (frames with their stuff bits, error and overload
-    /// frames, interframe space not counted).
-    pub load: u16,
+    /// Busy time of the bus in the window (frames with their stuff bits, error and overload frames, interframe space
+    /// not counted).
+    pub load: Share,
     /// Frames seen on the bus in the window, sent and received.
-    pub frames: u32,
+    pub frames: Fixed<units::Frame, One, u32>,
     /// Error frames in the window.
-    pub errors: u32,
+    pub errors: Fixed<units::Frame, One, u32>,
 }
 
 /// Everything a controller is configured with, see `Can::configure`: what is asked for going in, what was set
@@ -684,8 +716,8 @@ pub enum Timing {
     /// A bit rate and sample point, the device picks the segments.
     Rate {
         rate: Baud,
-        /// Sample point in tenths of a percent of the bit (875 = 87.5 %).
-        sample_point: u16,
+        /// Sample point, a share of the bit (875 ‰ = 87.5 %).
+        sample_point: Share,
     },
     /// Segments in time quanta of `prescaler / Capabilities::clock`.
     Segments(BitTiming),
@@ -710,31 +742,32 @@ impl Timing {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct BitTiming {
-    pub prescaler: u16,
-    pub seg1: u16,
-    pub seg2: u8,
+    pub prescaler: Prescaler,
+    pub seg1: Fixed<units::TimeQuantum, One, u16>,
+    pub seg2: Fixed<units::TimeQuantum, One, u8>,
     /// Synchronization jump width.
-    pub sjw: u8,
+    pub sjw: Fixed<units::TimeQuantum, One, u8>,
 }
 
 impl BitTiming {
     /// Time quanta per bit.
-    pub fn quanta(&self) -> u32 {
-        1 + self.seg1 as u32 + self.seg2 as u32
+    pub fn quanta(&self) -> Fixed<units::TimeQuantum, One, u32> {
+        Fixed::new(1 + self.seg1.get() as u32 + self.seg2.get() as u32)
     }
 
-    /// Bit rate at controller clock `clock_hz` ([Capabilities::clock]), in bit/s; `None` for a zero prescaler.
-    pub fn bit_rate(&self, clock_hz: u32) -> Option<u32> {
-        let div = self.prescaler as u32 * self.quanta();
-        if div == 0 {
-            return None;
-        }
-        Some(clock_hz / div)
+    /// Bit rate at controller clock `clock` ([Capabilities::clock]), rounded down to a whole bit/s; `None` for a
+    /// zero prescaler or a clock of 2³² Hz and above.
+    pub fn bit_rate(&self, clock: Hertz) -> Option<Fixed<units::Baud, One, u32>> {
+        let clock: u32 = clock.to_in(Prefix::Unit, Rounding::Truncate, Overflow::Checked)?;
+        let div = (self.prescaler.get() as u32).checked_mul(self.quanta().get())?;
+        clock.checked_div(div).map(Fixed::new)
     }
 
-    /// Sample point in tenths of a percent of the bit.
-    pub fn sample_point(&self) -> u16 {
-        ((1 + self.seg1 as u32) * 1000 / self.quanta()) as u16
+    /// Sample point, a share of the bit.
+    pub fn sample_point(&self) -> Share {
+        let sp = (1 + self.seg1.get() as u32) * 1000 / self.quanta().get();
+        // seg2 >= 0, so the sample point is at most the whole bit
+        Share::try_new(sp as u16).unwrap_or(Share::try_new(1000).unwrap())
     }
 }
 
@@ -765,11 +798,11 @@ pub enum Tdc {
     Off,
     /// The device measures the delay and sets the offset at the data sample point.
     Auto,
-    /// Secondary sample point at the measured delay plus `offset`, in minimum time quanta (clock periods);
-    /// `filter`: shortest delay accepted as measured.
+    /// Secondary sample point at the measured delay plus `offset`, in minimum time quanta (clock periods of
+    /// [Capabilities::clock]); `filter`: shortest delay accepted as measured.
     Manual {
-        offset: u8,
-        filter: Option<u8>,
+        offset: Fixed<units::Cycle, One, u8>,
+        filter: Option<Fixed<units::Cycle, One, u8>>,
     },
 }
 
@@ -842,18 +875,19 @@ pub enum RxOverflow {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct MemoryLayout {
-    pub standard_filters: u16,
-    pub extended_filters: u16,
-    /// Elements of each receive FIFO, FIFO 0 first (0: not used).
-    pub rx_fifos: [u16; 2],
-    pub rx_buffers: u16,
-    pub tx_buffers: u16,
-    /// Elements of the transmit FIFO / queue.
-    pub tx_queue: u16,
-    pub tx_events: u16,
-    /// Data bytes an element holds (8, 12, 16, 20, 24, 32, 48 or 64); frames with more are cut (and flagged by the
+    pub standard_filters: Fixed<units::Filter, One, u16>,
+    pub extended_filters: Fixed<units::Filter, One, u16>,
+    /// Frames each receive FIFO holds, FIFO 0 first (0: not used).
+    pub rx_fifos: [Fixed<units::Frame, One, u16>; 2],
+    pub rx_buffers: Fixed<units::Buffer, One, u16>,
+    pub tx_buffers: Fixed<units::Buffer, One, u16>,
+    /// Frames the transmit FIFO / queue holds.
+    pub tx_queue: Fixed<units::Frame, One, u16>,
+    /// Events the TX event FIFO holds.
+    pub tx_events: Fixed<units::Event, One, u16>,
+    /// Data an element holds (8, 12, 16, 20, 24, 32, 48 or 64 bytes); frames with more are cut (and flagged by the
     /// controller).
-    pub element_data: u8,
+    pub element_data: Fixed<units::Byte, One, u8, Range<8, 64>>,
 }
 
 /// Acceptance filters, see `Can::set_filters`.
@@ -906,9 +940,12 @@ pub enum FilterMatch {
 pub enum FilterAction {
     /// Into receive FIFO `fifo` (0 when the controller has one), and from there on `rx`; `high_priority` makes the
     /// device pass it on ahead of other frames (M_CAN high priority message).
-    Fifo { fifo: u8, high_priority: bool },
+    Fifo {
+        fifo: FifoIndex,
+        high_priority: bool,
+    },
     /// Into dedicated receive buffer `index`, read with `Can::rx_buffer`; not sent on `rx`.
-    Buffer(u16),
+    Buffer(BufferIndex),
     /// Dropped.
     Reject,
 }
@@ -923,7 +960,7 @@ pub enum FilterAction {
 pub enum NonMatching {
     /// Into receive FIFO `fifo`.
     Accept {
-        fifo: u8,
+        fifo: FifoIndex,
     },
     Reject,
 }
@@ -1035,11 +1072,13 @@ pub enum CanError<'i> {
     #[common]
     Common(CommonError<'i>),
     /// More filters than the controller has ({max} of this kind).
-    OutOfFilters { max: u16 },
+    OutOfFilters { max: Fixed<units::Filter, One, u16> },
     /// Not possible while the controller is bus-off.
     BusOff,
-    /// Doesn't fit the controller's memory ({available} elements left).
-    OutOfMemory { available: u32 },
+    /// Doesn't fit the controller's memory ({available} left).
+    OutOfMemory {
+        available: Fixed<units::Item, One, u32>,
+    },
 }
 
 /// Limits of one phase's [BitTiming] (as SocketCAN's `can_bittiming_const`).
@@ -1049,13 +1088,13 @@ pub enum CanError<'i> {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct TimingLimits {
-    pub prescaler_min: u16,
-    pub prescaler_max: u16,
-    pub seg1_min: u16,
-    pub seg1_max: u16,
-    pub seg2_min: u8,
-    pub seg2_max: u8,
-    pub sjw_max: u8,
+    pub prescaler_min: Prescaler,
+    pub prescaler_max: Prescaler,
+    pub seg1_min: Fixed<units::TimeQuantum, One, u16>,
+    pub seg1_max: Fixed<units::TimeQuantum, One, u16>,
+    pub seg2_min: Fixed<units::TimeQuantum, One, u8>,
+    pub seg2_max: Fixed<units::TimeQuantum, One, u8>,
+    pub sjw_max: Fixed<units::TimeQuantum, One, u8>,
 }
 
 /// How the device timestamps frames, see [Capabilities::timestamps].
@@ -1093,10 +1132,10 @@ pub enum TimestampPoint {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct Performance {
-    /// Frames per second received and passed on without loss, at any frame length.
-    pub min_frames_per_second: Option<u32>,
-    /// Data bytes per second passed on without loss.
-    pub min_bytes_per_second: Option<u32>,
+    /// Frames received and passed on without loss, at any frame length.
+    pub min_frame_rate: Option<Fixed<Per<units::Frame, units::Second>, One, u32>>,
+    /// Data passed on without loss.
+    pub min_data_rate: Option<Fixed<Per<units::Byte, units::Second>, One, u32>>,
     /// The figures hold whatever else the device does (dedicated DMA, a core of its own).
     pub independent_of_system: bool,
 }
@@ -1149,25 +1188,25 @@ pub struct Capabilities<'i> {
     /// How frames are timestamped; `None`: the heads carry no time.
     pub timestamps: Option<TimestampInfo>,
     /// Receive FIFOs ([FilterAction::Fifo] indices).
-    pub rx_fifos: u8,
+    pub rx_fifos: Fixed<units::Fifo, One, u8>,
     /// Frames the receive FIFOs hold together.
-    pub rx_fifo_depth: u16,
+    pub rx_fifo_depth: Fixed<units::Frame, One, u16>,
     /// Frames the transmit queue holds (the credit of `tx` is its size in bytes).
-    pub tx_queue_depth: u16,
+    pub tx_queue_depth: Fixed<units::Frame, One, u16>,
     /// Dedicated transmit buffers (`Can::tx_buffer`).
-    pub tx_buffers: u16,
+    pub tx_buffers: Fixed<units::Buffer, One, u16>,
     /// Dedicated receive buffers (`Can::rx_buffer`).
-    pub rx_buffers: u16,
+    pub rx_buffers: Fixed<units::Buffer, One, u16>,
     /// Filter elements for standard IDs.
-    pub standard_filters: u16,
+    pub standard_filters: Fixed<units::Filter, One, u16>,
     /// Filter elements for extended IDs.
-    pub extended_filters: u16,
+    pub extended_filters: Fixed<units::Filter, One, u16>,
     /// [FilterMatch::Mask] is supported.
     pub filter_mask: bool,
     /// [FilterMatch::Range] is supported.
     pub filter_range: bool,
-    /// Message memory for `Can::set_layout`, in 32-bit words; `None`: fixed layout.
-    pub memory: Option<u32>,
+    /// Message memory for `Can::set_layout`; `None`: fixed layout.
+    pub memory: Option<Fixed<units::Word, One, u32>>,
     /// [TransceiverMode]s `Can::set_transceiver` can switch to.
     pub transceiver_modes: TransceiverModes,
     /// Terminator values `Can::set_termination` can switch in; empty without a switchable terminator.
@@ -1195,8 +1234,8 @@ pub struct TransceiverModes {
     derive(Copy, Clone, Debug, PartialEq)
 )]
 pub struct GroupClock {
-    /// Index into [GroupCapabilities::clock_sources].
-    pub source: u8,
+    /// Its place in [GroupCapabilities::clock_sources].
+    pub source: Index<units::Item, u8>,
     /// Frequency the controllers get (after the group's divider).
     pub frequency: Hertz,
 }
@@ -1229,13 +1268,13 @@ pub struct ClockSource<'i> {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct GroupCapabilities<'i> {
     /// Controllers in `interface[]`.
-    pub interfaces: u8,
+    pub interfaces: Fixed<units::Item, One, u8>,
     /// Clock sources `CanGroup::set_clock` chooses from; empty when the clock is fixed.
     pub clock_sources: MaxLen<RefVec<'i, ClockSource<'i>>, MAX_CLOCK_SOURCES>,
     /// The clock `CanGroup::enable` uses without `set_clock`.
     pub default_clock: GroupClock,
-    /// Message memory shared by the controllers, in 32-bit words; `None` when each has its own.
-    pub shared_memory: Option<u32>,
+    /// Message memory shared by the controllers; `None` when each has its own.
+    pub shared_memory: Option<Fixed<units::Word, One, u32>>,
 }
 
 /// Time-triggered configuration of a controller, see `CanTimeTriggered::configure_tt`.
@@ -1251,12 +1290,17 @@ pub struct TtConfig {
     /// ID of the reference message that starts every basic cycle.
     pub reference_id: CanId,
     /// Basic cycles in a matrix cycle: 1, 2, 4, 8, 16, 32 or 64.
-    pub matrix_cycles: u8,
+    pub matrix_cycles: Fixed<units::Cycle, One, u8, Range<1, 64>>,
     /// Time unit ratio: one network time unit (NTU) is `ntu_numerator / ntu_denominator` local clock periods
     /// (M_CAN `TURCF`); level 2 adjusts it to the master's clock.
+    // the controller's TURCF register fields as they are
+    #[no_unit_hint]
     pub ntu_numerator: u32,
+    #[no_unit_hint]
     pub ntu_denominator: u16,
     /// Application watchdog limit in 256 NTU steps; `None` disables it.
+    // TTOCF.AWL as the controller takes it
+    #[no_unit_hint]
     pub watchdog: Option<u8>,
 }
 
@@ -1285,7 +1329,7 @@ pub enum TtRole {
     /// Time slave only.
     Slave,
     /// Potential time master with `priority` (0 highest, 0-7, the three lowest bits of the reference ID).
-    Master { priority: u8 },
+    Master { priority: U3 },
 }
 
 /// One trigger of a time-triggered schedule, see `CanTimeTriggered::set_schedule`.
@@ -1295,11 +1339,11 @@ pub enum TtRole {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct Trigger {
-    /// Time mark within the basic cycle, in cycle time units.
-    pub time_mark: u16,
+    /// Time mark within the basic cycle, in network time units (NTU, [TtConfig]) from its start.
+    pub time_mark: Index<units::Tick, u16>,
     /// Basic cycles it fires in: every `repeat`-th (1, 2, 4, .., 64) starting at cycle `offset`.
-    pub repeat: u8,
-    pub offset: u8,
+    pub repeat: Fixed<units::Cycle, One, u8, Range<1, 64>>,
+    pub offset: Index<units::Cycle, u8, Range<0, 63>>,
     pub kind: TriggerKind,
 }
 
@@ -1314,13 +1358,13 @@ pub enum TriggerKind {
     /// Sends the reference message (time master).
     TxReference,
     /// Sends dedicated TX buffer `buffer` alone in its window.
-    TxExclusive { buffer: u16 },
+    TxExclusive { buffer: BufferIndex },
     /// Starts a merged arbitrating window with TX buffer `buffer`.
-    TxArbitratingStart { buffer: u16 },
+    TxArbitratingStart { buffer: BufferIndex },
     /// Ends a merged arbitrating window.
     TxArbitratingEnd,
     /// Checks that the frame of filter `filter` was received in the cycle.
-    RxCheck { filter: u16 },
+    RxCheck { filter: FilterIndex },
     /// Watches for a missing reference message.
     Watch,
     /// Ends the schedule of the cycle.
@@ -1338,9 +1382,28 @@ pub struct TtStatus {
     /// This controller is the current time master.
     pub is_master: bool,
     /// Basic cycle within the matrix cycle.
-    pub cycle: u8,
-    /// ISO 11898-4 error level: 0 no error, 1 warning, 2 error, 3 severe error.
-    pub error_level: u8,
+    pub cycle: Index<units::Cycle, u8, Range<0, 63>>,
+    pub error_level: TtErrorLevel,
+}
+
+/// ISO 11898-4 error level of time-triggered operation (M_CAN `TTOST.EL`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    sized,
+    ww_repr = u2,
+    no_future_version
+)]
+pub enum TtErrorLevel {
+    /// S0: no error.
+    None,
+    /// S1: warning, only the notification of the application.
+    Warning,
+    /// S2: error, transmissions in exclusive windows stop.
+    Error,
+    /// S3: severe error, all transmissions stop.
+    Severe,
 }
 
 /// Synchronisation state of time-triggered operation.
@@ -1390,23 +1453,37 @@ pub struct XlFrame<'i> {
     /// Priority ID (11 bits), arbitrated like a standard ID.
     pub priority: U11,
     /// Virtual CAN network ID; `None` when not used.
-    pub vcid: Option<u8>,
+    pub vcid: Option<VcId>,
     /// SDU type: what the data carries (CiA 611-1).
+    // a protocol code, not a number
+    #[no_unit_hint]
     pub sdt: u8,
     /// Simple extended content: CADH (CiA 613-2) present.
     pub sec: bool,
     /// Acceptance field (32 bits).
+    // a protocol field the receivers' filters match, not a number
+    #[no_unit_hint]
     pub af: u32,
     /// 1-2048 bytes.
     pub data: MaxLen<RefVec<'i, u8>, MAX_XL_DATA_LEN>,
 }
+
+/// Virtual CAN network ID of an [XlFrame] (8 bits, ISO 11898-1:2024).
+#[cfg(feature = "xl")]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    derive(Copy, Clone, Debug, PartialEq, Eq, Hash)
+)]
+pub struct VcId(pub u8);
 
 /// An XL frame to send, with a marker for `Can::tx_events`.
 #[cfg(feature = "xl")]
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct XlTxFrame<'i> {
     pub frame: XlFrame<'i>,
-    pub marker: Option<UNib32>,
+    pub marker: Option<TxMarker>,
 }
 
 /// XL data phase settings, see `CanXl::configure_xl`.
@@ -1435,7 +1512,48 @@ pub struct XlConfig {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct XlPwm {
-    pub short: u8,
-    pub long: u8,
-    pub offset: u8,
+    pub short: Fixed<units::Cycle, One, u8>,
+    pub long: Fixed<units::Cycle, One, u8>,
+    pub offset: Fixed<units::Cycle, One, u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bytes<T: SerializeShrinkWrap>(v: &T) -> Vec<u8> {
+        let mut buf = [0u8; 64];
+        v.to_ww_bytes(&mut buf).unwrap().to_vec()
+    }
+
+    /// The newtypes and typed numbers are the bytes of their plain number (DER-18, DER-20).
+    #[test]
+    fn typed_numbers_are_their_plain_bytes() {
+        assert_eq!(bytes(&TxMarker(UNib32(69))), bytes(&UNib32(69)));
+        assert_eq!(bytes(&Some(TxMarker(UNib32(5)))), bytes(&Some(UNib32(5))));
+        assert_eq!(
+            bytes(&FilterIndex::try_new(UNib32(200)).unwrap()),
+            bytes(&UNib32(200))
+        );
+        assert_eq!(bytes(&Share::try_new(875).unwrap()), bytes(&875u16));
+        assert_eq!(bytes(&Prescaler::new(3)), bytes(&3u16));
+        #[cfg(feature = "xl")]
+        assert_eq!(bytes(&VcId(0xA5)), bytes(&0xA5u8));
+    }
+
+    #[test]
+    fn bit_timing_helpers() {
+        let bt = BitTiming {
+            prescaler: Prescaler::new(1),
+            seg1: Fixed::new(139),
+            seg2: Fixed::new(20),
+            sjw: Fixed::new(20),
+        };
+        assert_eq!(bt.quanta().get(), 160);
+        assert_eq!(
+            bt.bit_rate(Hertz::mega(80u8)).map(|r| r.get()),
+            Some(500_000)
+        );
+        assert_eq!(bt.sample_point().get(), 875);
+    }
 }

@@ -416,6 +416,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[IO family](std_library/io_family.md)**: GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. <span class="ww-status">in progress</span>
 - **[GPIO](std_library/ww_gpio.md)**: Pins and banks: levels, modes, pulls and edge events.
 - **[CAN bus](std_library/ww_can_bus.md)**: From a simple bridge to a bus debugger.
+- **[Typed CAN numbers](std_library/ww_can_bus.md#configuration)**: Bit timing in time quanta, load in ‰, buffer, FIFO and filter positions as indices: the CAN traits say what each number means.
 - **[Logs](std_library/ww_log.md)**: `defmt` logs over a reliable stream, including what was logged before the host connected. <span class="ww-status">hardware check open</span>
 - **[Indicators](std_library/ww_indication.md)**: LEDs off, essential or normal, and a blink to find a unit on the bench.
 - **[Indicators in phase](std_library/ww_indication.md#animations-in-phase-std-50)**: Devices with a shared clock breathe and blink together, aligned to UTC, with nothing to configure. <span class="ww-status">hardware check open</span>

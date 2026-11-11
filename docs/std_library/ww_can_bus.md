@@ -53,7 +53,7 @@ ww_codegen!(
 ```rust
 let mut rx = node.can().rx().call().await?;
 let mut tx = node.can().tx().await?;
-tx.send_owned(TxFrameOwned { frame, marker: Some(UNib32(1)) }).await?;
+tx.send_owned(TxFrameOwned { frame, marker: Some(TxMarker(UNib32(1))) }).await?;
 while let Ok(event) = rx.recv_event().await {
     if let StreamEvent::Item { t, value, .. } = event {
         println!("{t:?} {:?} {:02x?}", value.frame.id, value.frame.data);
@@ -79,16 +79,19 @@ pub struct CanConfig {
 }
 
 pub enum Timing {
-    Rate { rate: Baud, sample_point: u16 }, // sample point in tenths of a percent
-    Segments(BitTiming),                    // prescaler, seg1, seg2, sjw in time quanta
+    Rate { rate: Baud, sample_point: Share }, // sample point in ‰ of the bit, 0-1000
+    Segments(BitTiming),                      // prescaler (clock periods per quantum), seg1, seg2, sjw in time quanta
 }
 ```
 
 A host asks for a bit rate and sample point, or for exact segments; `configure` always answers with segments, so the
 host sees what the controller runs at. `BitTiming` counts like SocketCAN and the M_CAN `NBTP` register: a bit is
 `1 + seg1 + seg2` quanta of `prescaler` clock periods, sampled after `1 + seg1`, so
-`BitTiming::bit_rate(clock_hz)` and `BitTiming::sample_point()` follow from the answer and
-`Capabilities::clock`. `Capabilities::nominal` / `data` give the segment limits (as SocketCAN's
+`BitTiming::bit_rate(clock)` and `BitTiming::sample_point()` follow from the answer and
+`Capabilities::clock`. The numbers are typed (exact_units through `ww_si`): segments are
+`Fixed<units::TimeQuantum, One, _>`, the prescaler a `Prescaler` (clock cycles per time quantum), TDC offsets and
+the measured delay `Fixed<units::Cycle, One, u8>` (clock periods), a sample point or bus load a `Share` (‰, bounded
+to 0-1000), each the same bytes as its number. `Capabilities::nominal` / `data` give the segment limits (as SocketCAN's
 `can_bittiming_const`), for a host that computes timings itself.
 
 `Tdc::Auto` leaves the transceiver delay compensation to the device (offset at the data sample point), and the answer
@@ -101,9 +104,9 @@ let actual = node
     .can()
     .configure(CanConfig {
         mode: Mode::Normal,
-        nominal: Timing::Rate { rate: Baud::kilo(500u16), sample_point: 875 },
+        nominal: Timing::Rate { rate: Baud::kilo(500u16), sample_point: Share::try_new(875)? },
         fd: Some(FdConfig {
-            data: Timing::Rate { rate: Baud::mega(2u8), sample_point: 750 },
+            data: Timing::Rate { rate: Baud::mega(2u8), sample_point: Share::try_new(750)? },
             tdc: Tdc::Auto,
             iso: true,
         }),
@@ -128,8 +131,9 @@ pub struct Frame<'i> {
 `CanId::standard(0x123)` and `CanId::extended(0x18FF_0001)` build an ID (`None` when out of range).
 `FrameKind::DataLongDlc` is a classic frame with 8 bytes and a DLC of 9-15 on the wire, for bus debuggers.
 
-A received frame is an `RxFrame { frame, filter }`, `filter` being the index of the filter element that accepted it
-(`None` without filters or for non-matching frames). A frame to send is a `TxFrame { frame, marker }`: the marker
+A received frame is an `RxFrame { frame, filter }`, `filter` being the `FilterIndex` of the filter element that
+accepted it (`None` without filters or for non-matching frames). A frame to send is a `TxFrame { frame, marker }`:
+the `TxMarker`
 comes back in the frame's `TxEvent`, so a host matches events to what it sent (M_CAN's message marker, MCP2518FD's
 sequence number, gs_usb's echo ID). On the wire a classic standard frame with 8 bytes takes 12 bytes as an
 `RxFrame` or `TxFrame`, a 64-byte FD frame with a marker 69.

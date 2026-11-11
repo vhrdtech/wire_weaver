@@ -8,12 +8,13 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_can_bus::{
-        BitTiming, CanConfig, CanError, CanErrorOwned, CanId, Capabilities, ClockSource,
-        ErrorState, FdConfig, FrameKind, GroupCapabilities, GroupClock, GroupState, Mode, Options,
-        Performance, RxOverflow, Status, Tdc, Timing, TimingLimits, Trigger, TriggerKind, TtConfig,
-        TtLevel, TtRole, TtStatus, TtSync, TxOrder, XlConfig,
+        BitTiming, BufferIndex, CanConfig, CanError, CanErrorOwned, CanId, Capabilities,
+        ClockSource, ErrorState, FdConfig, FilterIndex, FrameKind, GroupCapabilities, GroupClock,
+        GroupState, Mode, Options, Performance, RxOverflow, Share, Status, Tdc, Timing,
+        TimingLimits, Trigger, TriggerKind, TtConfig, TtErrorLevel, TtLevel, TtRole, TtStatus,
+        TtSync, TxMarker, TxOrder, VcId, XlConfig,
     };
-    use ww_si::{Baud, Hertz, Second};
+    use ww_si::{Baud, Fixed, Hertz, Index, Second};
 
     /// Clock sources of the mock: an 80 MHz PLL output and a 25 MHz crystal, divided by 1..=30 (FDCAN `CKDIV`).
     const SOURCES: [(&str, u32); 2] = [("PLL1Q", 80_000_000), ("HSE", 25_000_000)];
@@ -54,7 +55,7 @@ mod tests {
         fn default() -> Self {
             Model {
                 clock: GroupClock {
-                    source: 0,
+                    source: Index::new(0),
                     frequency: Hertz::mega(80u8),
                 },
                 enabled: false,
@@ -97,12 +98,12 @@ mod tests {
                 let quanta = clock / prescaler as u32 / rate;
                 (quanta * prescaler as u32 * rate == clock && (8..=385).contains(&quanta)).then(
                     || {
-                        let sample = (quanta * sample_point as u32 + 500) / 1000;
+                        let sample = (quanta * sample_point.get() as u32 + 500) / 1000;
                         Timing::Segments(BitTiming {
-                            prescaler,
-                            seg1: (sample - 1) as u16,
-                            seg2: (quanta - sample) as u8,
-                            sjw: 1,
+                            prescaler: Fixed::new(prescaler),
+                            seg1: Fixed::new((sample - 1) as u16),
+                            seg2: Fixed::new((quanta - sample) as u8),
+                            sjw: Fixed::new(1),
                         })
                     },
                 )
@@ -112,13 +113,13 @@ mod tests {
 
     fn timing_limits() -> TimingLimits {
         TimingLimits {
-            prescaler_min: 1,
-            prescaler_max: 512,
-            seg1_min: 2,
-            seg1_max: 256,
-            seg2_min: 1,
-            seg2_max: 128,
-            sjw_max: 128,
+            prescaler_min: Fixed::new(1),
+            prescaler_max: Fixed::new(512),
+            seg1_min: Fixed::new(2),
+            seg1_max: Fixed::new(256),
+            seg2_min: Fixed::new(1),
+            seg2_max: Fixed::new(128),
+            sjw_max: Fixed::new(128),
         }
     }
 
@@ -244,10 +245,10 @@ mod tests {
                         .into_boxed_slice(),
                 );
                 Ready(GroupCapabilities {
-                    interfaces: 2,
+                    interfaces: Fixed::new(2),
                     clock_sources: MaxLen::new(RefVec::Slice { slice: sources }).unwrap(),
                     default_clock: Model::default().clock,
-                    shared_memory: Some(2560),
+                    shared_memory: Some(Fixed::new(2560)),
                 })
             }
 
@@ -293,7 +294,7 @@ mod tests {
                 if m.enabled {
                     return Ready(Err(wrong_state("enabled")));
                 }
-                let Some((_, source_hz)) = SOURCES.get(clock.source as usize) else {
+                let Some((_, source_hz)) = SOURCES.get(clock.source.get() as usize) else {
                     return Ready(Err(CommonError::Unsupported.into()));
                 };
                 // the nearest divider not above the frequency asked for
@@ -310,8 +311,8 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<Performance> {
                 Ready(Performance {
-                    min_frames_per_second: Some(20_000),
-                    min_bytes_per_second: Some(500_000),
+                    min_frame_rate: Some(Fixed::new(20_000)),
+                    min_data_rate: Some(Fixed::new(500_000)),
                     independent_of_system: true,
                 })
             }
@@ -345,13 +346,13 @@ mod tests {
                     long_dlc: false,
                     auto_recovery: true,
                     timestamps: None,
-                    rx_fifos: 2,
-                    rx_fifo_depth: 64,
-                    tx_queue_depth: 32,
-                    tx_buffers: 0,
-                    rx_buffers: 0,
-                    standard_filters: 0,
-                    extended_filters: 0,
+                    rx_fifos: Fixed::new(2),
+                    rx_fifo_depth: Fixed::new(64),
+                    tx_queue_depth: Fixed::new(32),
+                    tx_buffers: Fixed::new(0),
+                    rx_buffers: Fixed::new(0),
+                    standard_filters: Fixed::new(0),
+                    extended_filters: Fixed::new(0),
                     filter_mask: false,
                     filter_range: false,
                     memory: None,
@@ -497,7 +498,7 @@ mod tests {
                     return Ready(Err(wrong_state("not in Mode::Config")));
                 }
                 if let Some(tt) = config
-                    && !tt.matrix_cycles.is_power_of_two()
+                    && !tt.matrix_cycles.get().is_power_of_two()
                 {
                     return Ready(Err(invalid("matrix_cycles")));
                 }
@@ -514,7 +515,9 @@ mod tests {
                 let list: Vec<Trigger> = triggers.iter().map(|t| t.unwrap()).collect();
                 // trigger memory of the mock: 8 elements
                 if list.len() > 8 {
-                    return Ready(Err(CanError::OutOfMemory { available: 8 }));
+                    return Ready(Err(CanError::OutOfMemory {
+                        available: Fixed::new(8),
+                    }));
                 }
                 if !list.is_sorted_by_key(|t| t.time_mark) {
                     return Ready(Err(invalid("unsorted")));
@@ -539,8 +542,8 @@ mod tests {
                     },
                     is_master: running
                         && matches!(c.tt.map(|t| t.role), Some(TtRole::Master { .. })),
-                    cycle: 0,
-                    error_level: 0,
+                    cycle: Index::try_new(0).unwrap(),
+                    error_level: TtErrorLevel::None,
                 })
             }
 
@@ -707,7 +710,7 @@ mod tests {
     fn rate(kbit: u16, sample_point: u16) -> Timing {
         Timing::Rate {
             rate: Baud::kilo(kbit),
-            sample_point,
+            sample_point: Share::try_new(sample_point).unwrap(),
         }
     }
 
@@ -768,7 +771,7 @@ mod tests {
         let mut state = client.can().observe_group_state().await.unwrap();
 
         let caps = client.can().group_capabilities().call().await.unwrap();
-        assert_eq!(caps.interfaces, 2);
+        assert_eq!(caps.interfaces, Fixed::new(2));
         assert_eq!(caps.clock_sources.len(), 2);
         assert_eq!(caps.clock_sources[1].name.as_str(), "HSE");
         assert_eq!(
@@ -789,7 +792,7 @@ mod tests {
         let clock = client
             .can()
             .set_clock(GroupClock {
-                source: 0,
+                source: Index::new(0),
                 frequency: Hertz::mega(40u8),
             })
             .call()
@@ -826,7 +829,7 @@ mod tests {
             .await
             .unwrap();
         // 40 MHz / 500 kbit/s = 80 quanta
-        assert_eq!(actual.nominal.segments().unwrap().quanta(), 80);
+        assert_eq!(actual.nominal.segments().unwrap().quanta(), Fixed::new(80));
         // the group stays clocked while a controller runs
         assert!(is_wrong_state(client.can().disable().call().await));
         client
@@ -841,7 +844,7 @@ mod tests {
         assert_eq!(state.recv().await.unwrap(), GroupState::Disabled);
 
         let perf = client.can().performance().call().await.unwrap();
-        assert_eq!(perf.min_frames_per_second, Some(20_000));
+        assert_eq!(perf.min_frame_rate, Some(Fixed::new(20_000)));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -906,9 +909,11 @@ mod tests {
         client.can().enable().call().await.unwrap();
         let tt = TtConfig {
             level: TtLevel::Level1,
-            role: TtRole::Master { priority: 0 },
+            role: TtRole::Master {
+                priority: U3::new(0).unwrap(),
+            },
             reference_id: CanId::standard(0x080).unwrap(),
-            matrix_cycles: 4,
+            matrix_cycles: Fixed::try_new(4).unwrap(),
             ntu_numerator: 0x10000,
             ntu_denominator: 0x1000,
             watchdog: None,
@@ -932,16 +937,26 @@ mod tests {
                 .unwrap(),
             Some(tt)
         );
-        let trigger = |time_mark, kind| Trigger {
-            time_mark,
-            repeat: 1,
-            offset: 0,
+        let trigger = |time_mark: u16, kind| Trigger {
+            time_mark: Index::new(time_mark),
+            repeat: Fixed::try_new(1).unwrap(),
+            offset: Index::try_new(0).unwrap(),
             kind,
         };
         let schedule = vec![
             trigger(0, TriggerKind::TxReference),
-            trigger(100, TriggerKind::TxExclusive { buffer: 0 }),
-            trigger(200, TriggerKind::RxCheck { filter: 1 }),
+            trigger(
+                100,
+                TriggerKind::TxExclusive {
+                    buffer: BufferIndex::new(0),
+                },
+            ),
+            trigger(
+                200,
+                TriggerKind::RxCheck {
+                    filter: FilterIndex::try_new(UNib32(1)).unwrap(),
+                },
+            ),
             trigger(900, TriggerKind::EndOfList),
         ];
         client
@@ -958,7 +973,7 @@ mod tests {
             .await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(CanErrorOwned::OutOfMemory { available: 8 })
+            Some(CanErrorOwned::OutOfMemory { available }) if *available == Fixed::new(8)
         ));
 
         client
@@ -1033,7 +1048,7 @@ mod tests {
             .unwrap()
             .unwrap();
         // 80 MHz / 10 Mbit/s = 8 quanta
-        assert_eq!(actual.data.segments().unwrap().quanta(), 8);
+        assert_eq!(actual.data.segments().unwrap().quanta(), Fixed::new(8));
 
         let mut rx = client.can_xl(0).rx_xl().call().await.unwrap();
         let mut tx = client.can_xl(0).tx_xl().await.unwrap();
@@ -1041,13 +1056,13 @@ mod tests {
         tx.send_owned(ww_can_bus::XlTxFrameOwned {
             frame: ww_can_bus::XlFrameOwned {
                 priority: U11::new(0x123).unwrap(),
-                vcid: Some(7),
+                vcid: Some(VcId(7)),
                 sdt: 0x05,
                 sec: false,
                 af: 0xCAFE,
                 data: MaxLen::new(data.clone()).unwrap(),
             },
-            marker: Some(UNib32(1)),
+            marker: Some(TxMarker(UNib32(1))),
         })
         .await
         .unwrap();

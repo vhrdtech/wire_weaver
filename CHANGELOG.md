@@ -34,6 +34,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `ww_pin_diag`'s point id is `Index<TestPoint, u16>`. Every change but `ww_gpio`'s `io_level` is wire-compatible.
   See the `ww_gpio`, `ww_gpio_hl`, `ww_pwm` and `ww_pin_diag` CHANGELOGs.
 - `ww_adc`, wire-compatible: channel indices, converter resolution, capture/stream byte counts and sample-set counts are typed (`ww_si::Index`/`Count`/`Fixed`/`Bytes`) instead of bare integers (AGENTS.md "Numbers are typed"). See `ww_stdlib/ww_adc/CHANGELOG.md`.
+- `ww_can_bus` says what its numbers mean (STD-114, wire change EVO-62, wire `w2.0`): time quanta, clock periods, ‰ shares, counted frames, buffers, filters and FIFOs, buffer, FIFO and filter indices, rates per second, `TxMarker`, `VcId` and `TtErrorLevel` instead of bare integers. See `ww_stdlib/ww_can_bus/CHANGELOG.md`.
 
 ### Added
 

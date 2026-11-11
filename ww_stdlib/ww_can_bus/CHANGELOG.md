@@ -2,6 +2,18 @@
 
 ### ⚠️ Breaking
 
+- Typed numbers (STD-114, wire change EVO-62, wire `w1.0` -> `w2.0`): the bare integers of the CAN traits are exact_units types through `ww_si`, each the same bytes as its number unless named below. Users build them with `Fixed::new(n)` / `Index::new(n)` (`try_new` where bounded) and read them with `.get()`:
+    - `BitTiming::prescaler` and `TimingLimits::prescaler_min` / `_max` are `Prescaler` (`Fixed<Per<Cycle, TimeQuantum>, One, u16>`); `seg1`, `seg2`, `sjw` and their limits `Fixed<units::TimeQuantum, One, _>`.
+    - `Tdc::Manual::offset` and `filter`, `ProtocolStatus::tdc_value` and `XlPwm::short` / `long` / `offset` are `Fixed<units::Cycle, One, u8>` (clock periods).
+    - `BusLoad::load` and `Timing::Rate::sample_point` are `Share` (`Fixed<Ratio, Milli, u16, Range<0, 1000>>`, newly bounded); `BusLoad::frames` / `errors` and `tx_abort()`'s answer are `Fixed<units::Frame, One, u32>`.
+    - `rx_buffer` / `tx_buffer` take a `BufferIndex`; `FilterAction::Buffer`, `TriggerKind::TxExclusive` / `TxArbitratingStart::buffer` are `BufferIndex`; `FilterAction::Fifo::fifo` and `NonMatching::Accept::fifo` are `FifoIndex`; `RxFrame::filter` and `TriggerKind::RxCheck::filter` are both `FilterIndex` (`Index<units::Filter, UNib32, Range<0, 255>>`; `RxCheck::filter` was a `u16`, a wire break).
+    - Counts in `MemoryLayout`, `Capabilities`, `ProtocolStatus` (`error_log`, `memory_errors`), `GroupCapabilities::interfaces` and `CanError::OutOfFilters::max` / `OutOfMemory::available` are counted `Fixed`s (frames, buffers, filters, FIFOs, events, items); `MemoryLayout::element_data` is `Fixed<units::Byte, One, u8, Range<8, 64>>` (newly bounded); `Capabilities::memory` and `GroupCapabilities::shared_memory` are `Fixed<units::Word, One, u32>`; `GroupClock::source` is `Index<units::Item, u8>`.
+    - `Performance::min_frames_per_second` / `min_bytes_per_second` are `min_frame_rate: Fixed<Per<Frame, Second>, One, u32>` / `min_data_rate: Fixed<Per<Byte, Second>, One, u32>`.
+    - TTCAN: `TtConfig::matrix_cycles` and `Trigger::repeat` are `Fixed<units::Cycle, One, u8, Range<1, 64>>`, `Trigger::offset` and `TtStatus::cycle` `Index<units::Cycle, u8, Range<0, 63>>` (newly bounded), `Trigger::time_mark` `Index<units::Tick, u16>` (NTU); `TtStatus::error_level` is the new enum `TtErrorLevel` (`None`, `Warning`, `Error`, `Severe`) instead of a `u8`, and `TtRole::Master::priority` a `U3` instead of a `u8` (wire breaks).
+    - `TxFrame::marker`, `TxEvent::marker` and `XlTxFrame::marker` are `Option<TxMarker>` (`TxMarker(pub UNib32)`), `XlFrame::vcid` is `Option<VcId>` (`VcId(pub u8)`), both `transparent`: the bytes of their number (unit test `typed_numbers_are_their_plain_bytes`).
+    - `BitTiming::bit_rate(clock: Hertz) -> Option<Fixed<units::Baud, One, u32>>` takes `Capabilities::clock` as it is (was `clock_hz: u32 -> Option<u32>`); `quanta()` answers `Fixed<units::TimeQuantum, One, u32>`, `sample_point()` a `Share`.
+    - Raw protocol fields stay plain, marked `#[no_unit_hint]`: `Status::tec` / `rec`, `TtConfig::ntu_numerator` / `ntu_denominator` / `watchdog`, `XlFrame::sdt` / `af`.
+    - `ww_si` features `dimensionless`, `information` and `counting` are on besides `time` and `electrical`.
 - Reworked to the stdlib idioms (STD-29): `Can` is one controller with its transceiver, `CanGroup` the controllers
   that share clock, power and message RAM (`ww_impl!(interface[]: Can)` instead of `CANBusInterfaceGroup` /
   `CANBusInterface`). `CanGroup` has `group_capabilities()`, `enable() -> GroupClock`, `disable()`, the observable

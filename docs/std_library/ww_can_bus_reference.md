@@ -23,7 +23,7 @@ pub trait Can {
 
     #[optional] fn set_mode(mode: Mode) -> Result<Mode, CanError<'i>>;
     #[optional] fn recover() -> Result<(), CanError<'i>>;
-    #[optional] fn tx_abort() -> u32;
+    #[optional] fn tx_abort() -> Fixed<units::Frame, One, u32>;
     #[optional] #[counted] stream!(tx_events: TxEvent);
     #[optional] #[counted] stream!(bus_errors: BusError);
     #[optional] fn protocol_status() -> ProtocolStatus;
@@ -32,8 +32,8 @@ pub trait Can {
         -> Result<Option<CanConfig>, CanError<'i>>;
     #[optional(filters)] fn set_filters(filters: FilterConfig<'i>) -> Result<(), CanError<'i>>;
     #[optional] fn set_layout(layout: MemoryLayout) -> Result<MemoryLayout, CanError<'i>>;
-    #[optional(rx_buffers)] fn rx_buffer(index: u16) -> Result<Option<BufferedFrame<'i>>, CanError<'i>>;
-    #[optional(tx_buffers)] fn tx_buffer(index: u16, frame: Option<TxFrame<'i>>, period: Option<Second>)
+    #[optional(rx_buffers)] fn rx_buffer(index: BufferIndex) -> Result<Option<BufferedFrame<'i>>, CanError<'i>>;
+    #[optional(tx_buffers)] fn tx_buffer(index: BufferIndex, frame: Option<TxFrame<'i>>, period: Option<Second>)
         -> Result<(), CanError<'i>>;
     #[optional(transceiver)] fn set_transceiver(mode: TransceiverMode) -> Result<TransceiverMode, CanError<'i>>;
     #[optional(transceiver)] property!(ro transceiver_state: TransceiverState);
@@ -165,7 +165,7 @@ messages of at least 2.1 KiB.
 ```rust
 let can = dev.can().interface(0);
 can.set_mode(Mode::Config).call().await?;
-can.set_layout(MemoryLayout { standard_filters: 64, ..layout }).call().await?;
+can.set_layout(MemoryLayout { standard_filters: Fixed::new(64), ..layout }).call().await?;
 can.set_filters(filters).call().await?;
 can.set_mode(Mode::ListenOnly).call().await?;
 let ps = can.protocol_status().call().await?;
@@ -195,22 +195,22 @@ shorted, dominant timeout, over temperature) as they appear.
 ```rust
 node.can().set_filters(FilterConfigOwned {
     filters: MaxLen::new(vec![
-        Filter { matching: FilterMatch::Exact(CanId::standard(0x100).unwrap()), action: FilterAction::Buffer(2) },
+        Filter { matching: FilterMatch::Exact(CanId::standard(0x100).unwrap()), action: FilterAction::Buffer(Index::new(2)) },
         Filter {
             matching: FilterMatch::Range { from: CanId::standard(0x200).unwrap(), to: CanId::standard(0x20F).unwrap() },
-            action: FilterAction::Fifo { fifo: 0, high_priority: false },
+            action: FilterAction::Fifo { fifo: Index::new(0), high_priority: false },
         },
     ])?,
     non_matching_standard: NonMatching::Reject,
-    non_matching_extended: NonMatching::Accept { fifo: 1 },
+    non_matching_extended: NonMatching::Accept { fifo: Index::new(1) },
     reject_remote: false,
 }).call().await?;
-let latest = node.can().rx_buffer(2).call().await?; // the last 0x100 frame, if one came
+let latest = node.can().rx_buffer(Index::new(2)).call().await?; // the last 0x100 frame, if one came
 ```
 
 The first matching filter wins. A device maps the list to its hardware (filter banks, elements, masks) and answers
 `OutOfFilters` or `Unsupported` (a range on a mask-only controller) when it can't. On controllers with a
-configurable message memory (`Capabilities::memory`, in 32-bit words), `set_layout` sets how many filters, FIFO and
+configurable message memory (`Capabilities::memory`, in 32-bit words: `Fixed<units::Word, One, u32>`), `set_layout` sets how many filters, FIFO and
 buffer elements and TX events it holds and how many data bytes an element takes; controllers of a group share the
 memory, so a layout that doesn't fit next to the others is `OutOfMemory`. `tx_buffer(index, Some(frame),
 Some(period))` makes the device send a frame cyclically (a heartbeat) until the buffer is written again or cleared
@@ -232,4 +232,4 @@ message ID, the matrix cycle length and the network time unit; the controller mu
 `Mode::Off`. The schedule is a sorted list of triggers (time mark, cycle repeat and offset, and what to do: send
 the reference message, send a TX buffer exclusively or in a merged arbitrating window, check a reception, watch,
 end of list), bounded by the trigger memory (`OutOfMemory`). `tt_status` reports synchronization, master role, the
-basic cycle and the error level.
+basic cycle and the error level (`TtErrorLevel`: none, warning, error, severe).

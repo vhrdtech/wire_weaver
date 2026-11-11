@@ -397,6 +397,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md
 - STD-5 | GPIO | Pins and banks: levels, modes, pulls and edge events. | std_library/ww_gpio.md
 - STD-29 | CAN bus | From a simple bridge to a bus debugger. | std_library/ww_can_bus.md
+- STD-114 | Typed CAN numbers | Bit timing in time quanta, load in ‰, buffer, FIFO and filter positions as indices: the CAN traits say what each number means. | std_library/ww_can_bus.md#configuration
 - STD-26 | Logs | `defmt` logs over a reliable stream, including what was logged before the host connected. | std_library/ww_log.md
 - STD-28 | Indicators | LEDs off, essential or normal, and a blink to find a unit on the bench. | std_library/ww_indication.md
 - STD-50 | Indicators in phase | Devices with a shared clock breathe and blink together, aligned to UTC, with nothing to configure. | std_library/ww_indication.md#animations-in-phase-std-50
@@ -540,6 +541,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-48 | The wire change behind references of origins (`OriginDef::reference` a `ReferenceDef`, `MarkerDef::Reference`): the user-visible side is STD-108.
 - EVO-49 | The wire change behind a codec's spare codes (`CodecDef::spare`): the user-visible side is STD-109.
 - EVO-51 | The wire change behind `Timed.t` as a device time point (`ww_si` 0.5.0, wire `w5.0`): the user-visible side is STD-110.
+- EVO-62 | The wire change behind typed CAN numbers (`ww_can_bus` wire `w2.0`): the user-visible side is STD-114.
 - EVO-55 | The wire change behind exact_units at c132f58 (`CodecDef`'s `codes`/`nominal`/`curve`, `Symbols`' `m_u`): the user-visible side is STD-109 (codec) and the Magnitude conformance cases it touches.
 - EVO-60 | The wire change behind `ww_user_info`'s bounded `NameMax` / `NotesMax` caps: the user-visible side is `docs/std_library/ww_user_info.md`.
 - NUM-31, NUM-32, NUM-33, NUM-34, NUM-35, NUM-42, UNIT-6, UNIT-12, UNIT-14, UNIT-19, PT-8, LVL-8, LVL-9, LVL-10, LVL-12, LVL-13, IO-16 | exact_units features landed between the previous and this session's `cargo update -p exact_units` (f2051438 to c132f587); not used by wire_weaver yet.

@@ -13,17 +13,24 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_can_bus::{
-        Activity, BitTiming, BusError, BusLevel, BusLoad, CanConfig, CanError, CanErrorOwned,
-        CanId, Capabilities, Direction, ErrorState, FdConfig, Filter, FilterAction, FilterMatch,
-        FrameKind, MemoryLayout, Mode, NonMatching, Ohm, Options, Phase, ProtocolError,
-        ProtocolStatus, RxOverflow, Status, Tdc, Termination, Timing, TimingLimits,
-        TransceiverFault, TransceiverMode, TransceiverModes, TransceiverState, TxOrder, TxOutcome,
-        TxPin,
+        Activity, BitTiming, BufferIndex, BusError, BusLevel, BusLoad, CanConfig, CanError,
+        CanErrorOwned, CanId, Capabilities, Direction, ErrorState, FdConfig, FifoIndex, Filter,
+        FilterAction, FilterIndex, FilterMatch, FrameKind, MemoryLayout, Mode, NonMatching, Ohm,
+        Options, Phase, ProtocolError, ProtocolStatus, RxOverflow, Share, Status, Tdc, Termination,
+        Timing, TimingLimits, TransceiverFault, TransceiverMode, TransceiverModes,
+        TransceiverState, TxMarker, TxOrder, TxOutcome, TxPin,
     };
-    use ww_si::{Baud, Hertz, Second};
+    use ww_si::prefix::One;
+    use ww_si::units;
+    use ww_si::{Baud, Fixed, Hertz, Second};
 
     /// Controller clock of the mock: 80 MHz, as an STM32H7 FDCAN kernel clock.
     const CLOCK_HZ: u32 = 80_000_000;
+
+    /// [CLOCK_HZ] as the [Hertz] `BitTiming::bit_rate` takes.
+    fn clock_hz() -> Hertz {
+        Hertz::base(CLOCK_HZ)
+    }
 
     /// A frame as the mock keeps it.
     #[derive(Clone, Debug, PartialEq)]
@@ -81,28 +88,28 @@ mod tests {
 
     /// Words a layout takes: filters 1 / 2 words, RX / TX elements 2 header words + data, TX events 2 words.
     fn layout_words(l: &MemoryLayout) -> u32 {
-        let element = 2 + l.element_data as u32 / 4;
-        l.standard_filters as u32
-            + 2 * l.extended_filters as u32
+        let element = 2 + l.element_data.get() as u32 / 4;
+        l.standard_filters.get() as u32
+            + 2 * l.extended_filters.get() as u32
             + element
-                * (l.rx_fifos[0] as u32
-                    + l.rx_fifos[1] as u32
-                    + l.rx_buffers as u32
-                    + l.tx_buffers as u32
-                    + l.tx_queue as u32)
-            + 2 * l.tx_events as u32
+                * (l.rx_fifos[0].get() as u32
+                    + l.rx_fifos[1].get() as u32
+                    + l.rx_buffers.get() as u32
+                    + l.tx_buffers.get() as u32
+                    + l.tx_queue.get() as u32)
+            + 2 * l.tx_events.get() as u32
     }
 
     fn default_layout() -> MemoryLayout {
         MemoryLayout {
-            standard_filters: 3,
-            extended_filters: 2,
-            rx_fifos: [32, 32],
-            rx_buffers: 4,
-            tx_buffers: 4,
-            tx_queue: 32,
-            tx_events: 32,
-            element_data: 64,
+            standard_filters: Fixed::new(3),
+            extended_filters: Fixed::new(2),
+            rx_fifos: [Fixed::new(32), Fixed::new(32)],
+            rx_buffers: Fixed::new(4),
+            tx_buffers: Fixed::new(4),
+            tx_queue: Fixed::new(32),
+            tx_events: Fixed::new(32),
+            element_data: Fixed::try_new(64).unwrap(),
         }
     }
 
@@ -110,10 +117,10 @@ mod tests {
         CanConfig {
             mode: Mode::Off,
             nominal: Timing::Segments(BitTiming {
-                prescaler: 1,
-                seg1: 63,
-                seg2: 16,
-                sjw: 16,
+                prescaler: Fixed::new(1),
+                seg1: Fixed::new(63),
+                seg2: Fixed::new(16),
+                sjw: Fixed::new(16),
             }),
             fd: None,
             options: Options {
@@ -155,7 +162,7 @@ mod tests {
                     mode: TransceiverMode::Normal,
                     fault: None,
                 },
-                bus_timing: segments_for(Baud::kilo(250u16), 875).unwrap(),
+                bus_timing: segments_for(Baud::kilo(250u16), Share::try_new(875).unwrap()).unwrap(),
                 before_sleep: Mode::Off,
             }
         }
@@ -188,7 +195,7 @@ mod tests {
                     FilterAction::Fifo { .. } => {
                         self.pending.push(Pending::Rx(frame, Some(i as u32)))
                     }
-                    FilterAction::Buffer(b) => self.rx_buffers[b as usize] = Some(frame),
+                    FilterAction::Buffer(b) => self.rx_buffers[b.get() as usize] = Some(frame),
                     _ => {}
                 },
                 None => {
@@ -238,13 +245,13 @@ mod tests {
 
     fn timing_limits() -> TimingLimits {
         TimingLimits {
-            prescaler_min: 1,
-            prescaler_max: 512,
-            seg1_min: 2,
-            seg1_max: 256,
-            seg2_min: 1,
-            seg2_max: 128,
-            sjw_max: 128,
+            prescaler_min: Fixed::new(1),
+            prescaler_max: Fixed::new(512),
+            seg1_min: Fixed::new(2),
+            seg1_max: Fixed::new(256),
+            seg2_min: Fixed::new(1),
+            seg2_max: Fixed::new(128),
+            sjw_max: Fixed::new(128),
         }
     }
 
@@ -255,10 +262,10 @@ mod tests {
             clock: Hertz::mega(80u8),
             nominal: timing_limits(),
             data: full.then(|| TimingLimits {
-                prescaler_max: 32,
-                seg1_max: 32,
-                seg2_max: 16,
-                sjw_max: 16,
+                prescaler_max: Fixed::new(32),
+                seg1_max: Fixed::new(32),
+                seg2_max: Fixed::new(16),
+                sjw_max: Fixed::new(16),
                 ..timing_limits()
             }),
             tdc: full,
@@ -283,16 +290,16 @@ mod tests {
                 resolution: Second::micro(1u8),
                 point: ww_can_bus::TimestampPoint::StartOfFrame,
             }),
-            rx_fifos: if full { 2 } else { 1 },
-            rx_fifo_depth: 64,
-            tx_queue_depth: 32,
-            tx_buffers: if full { 4 } else { 0 },
-            rx_buffers: if full { 4 } else { 0 },
-            standard_filters: if full { 3 } else { 0 },
-            extended_filters: if full { 2 } else { 0 },
+            rx_fifos: if full { Fixed::new(2) } else { Fixed::new(1) },
+            rx_fifo_depth: Fixed::new(64),
+            tx_queue_depth: Fixed::new(32),
+            tx_buffers: if full { Fixed::new(4) } else { Fixed::new(0) },
+            rx_buffers: if full { Fixed::new(4) } else { Fixed::new(0) },
+            standard_filters: if full { Fixed::new(3) } else { Fixed::new(0) },
+            extended_filters: if full { Fixed::new(2) } else { Fixed::new(0) },
             filter_mask: full,
             filter_range: full,
-            memory: full.then_some(RAM_WORDS),
+            memory: full.then_some(Fixed::new(RAM_WORDS)),
             transceiver_modes: TransceiverModes {
                 standby: full,
                 silent: false,
@@ -304,8 +311,8 @@ mod tests {
             .unwrap(),
             // the full node's figure is its group's
             performance: (!full).then_some(ww_can_bus::Performance {
-                min_frames_per_second: Some(8000),
-                min_bytes_per_second: None,
+                min_frame_rate: Some(Fixed::new(8000)),
+                min_data_rate: None,
                 independent_of_system: false,
             }),
         }
@@ -313,7 +320,7 @@ mod tests {
 
     /// Picks segments for a bit rate and sample point: a prescaler of 1 or 2, segments within 0.5 % of the sample
     /// point. `None` when no such setting gives the rate exactly.
-    fn segments_for(rate: Baud, sample_point: u16) -> Option<BitTiming> {
+    fn segments_for(rate: Baud, sample_point: Share) -> Option<BitTiming> {
         let rate = rate.to_in::<u32>(
             ww_si::Prefix::Unit,
             ww_si::Rounding::Truncate,
@@ -324,12 +331,12 @@ mod tests {
             if quanta * prescaler as u32 * rate != CLOCK_HZ || !(8..=385).contains(&quanta) {
                 continue;
             }
-            let sample = (quanta * sample_point as u32 + 500) / 1000;
+            let sample = (quanta * sample_point.get() as u32 + 500) / 1000;
             let bt = BitTiming {
-                prescaler,
-                seg1: (sample - 1) as u16,
-                seg2: (quanta - sample) as u8,
-                sjw: (quanta - sample).min(128) as u8,
+                prescaler: Fixed::new(prescaler),
+                seg1: Fixed::new((sample - 1) as u16),
+                seg2: Fixed::new((quanta - sample) as u8),
+                sjw: Fixed::new((quanta - sample).min(128) as u8),
             };
             return Some(bt);
         }
@@ -376,7 +383,9 @@ mod tests {
                     Tdc::Auto => {
                         let data = resolve(fd.data)?.segments_or_default();
                         Tdc::Manual {
-                            offset: (data.prescaler as u32 * (1 + data.seg1 as u32)) as u8,
+                            offset: Fixed::new(
+                                (data.prescaler.get() as u32 * (1 + data.seg1.get() as u32)) as u8,
+                            ),
                             filter: None,
                         }
                     }
@@ -400,10 +409,10 @@ mod tests {
     impl SegmentsOrDefault for Timing {
         fn segments_or_default(&self) -> BitTiming {
             self.segments().unwrap_or(BitTiming {
-                prescaler: 1,
-                seg1: 1,
-                seg2: 1,
-                sjw: 1,
+                prescaler: Fixed::new(1),
+                seg1: Fixed::new(1),
+                seg2: Fixed::new(1),
+                sjw: Fixed::new(1),
             })
         }
     }
@@ -450,14 +459,14 @@ mod tests {
                                     kind: f.kind,
                                     data: MaxLen::new(RefVec::new_bytes(&f.data)).unwrap(),
                                 },
-                                filter: filter.map(UNib32),
+                                filter: filter.map(|i| FilterIndex::try_new(UNib32(i)).unwrap()),
                             };
                             ser.can()
                                 .rx_send_blocking(&mut self.can_rx_stream, &frame, 1, t, out)
                         }
                         Pending::TxEvent(marker, id, outcome) => {
                             let ev = ww_can_bus::TxEvent {
-                                marker: marker.map(UNib32),
+                                marker: marker.map(|m| TxMarker(UNib32(m))),
                                 id,
                                 outcome,
                                 // the mock's frames wait 120 µs in its queue
@@ -588,7 +597,7 @@ mod tests {
                 self.m
                     .lock()
                     .unwrap()
-                    .send(frame, value.marker.map(|m| m.0));
+                    .send(frame, value.marker.map(|m| m.0.0));
                 let len = self.can_tx_credit.last_item_len();
                 self.can_tx_credit.free(len);
             }
@@ -631,11 +640,11 @@ mod tests {
                     } else {
                         Activity::Idle
                     },
-                    error_log: Some(status.last_error.is_some() as u8),
+                    error_log: Some(Fixed::new(status.last_error.is_some() as u8)),
                     last_fd_frame: None,
                     protocol_exception: false,
-                    tdc_value: m.config.fd.map(|_| 5),
-                    memory_errors: Some(0),
+                    tdc_value: m.config.fd.map(|_| Fixed::new(5)),
+                    memory_errors: Some(Fixed::new(0)),
                 })
             }
 
@@ -646,9 +655,9 @@ mod tests {
                 let frames = self.m.lock().unwrap().sent.len() as u32;
                 Value(BusLoad {
                     window: Second::milli(100u8),
-                    load: 0,
-                    frames,
-                    errors: 0,
+                    load: Share::try_new(0).unwrap(),
+                    frames: Fixed::new(frames),
+                    errors: Fixed::new(0),
                 })
             }
 
@@ -675,8 +684,8 @@ mod tests {
                     };
                     // frames come in without errors only at the bus's bit rate and close to its sample point
                     if let Some(bt) = segments
-                        && bt.bit_rate(CLOCK_HZ) == bus.bit_rate(CLOCK_HZ)
-                        && bt.sample_point().abs_diff(bus.sample_point()) <= 50
+                        && bt.bit_rate(clock_hz()) == bus.bit_rate(clock_hz())
+                        && bt.sample_point().get().abs_diff(bus.sample_point().get()) <= 50
                     {
                         m.config = CanConfig {
                             mode: Mode::ListenOnly,
@@ -703,7 +712,7 @@ mod tests {
                     }
                     .into()));
                 }
-                if ![8, 12, 16, 20, 24, 32, 48, 64].contains(&layout.element_data) {
+                if ![8, 12, 16, 20, 24, 32, 48, 64].contains(&layout.element_data.get()) {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
                         reason: MaxLen::new_unchecked("element_data"),
@@ -713,7 +722,7 @@ mod tests {
                 let words = layout_words(&layout);
                 if words > RAM_WORDS {
                     return Ready(Err(CanError::OutOfMemory {
-                        available: RAM_WORDS,
+                        available: Fixed::new(RAM_WORDS),
                     }));
                 }
                 // off the bus for it and back, unless already in configuration mode
@@ -760,14 +769,14 @@ mod tests {
             fn can_tx_abort(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<u32> {
+            ) -> RpcResult<Fixed<units::Frame, One, u32>> {
                 let mut m = self.m.lock().unwrap();
                 let queued = std::mem::take(&mut m.queued);
                 for (f, marker) in &queued {
                     m.pending
                         .push(Pending::TxEvent(*marker, f.id, TxOutcome::Aborted));
                 }
-                Ready(queued.len() as u32)
+                Ready(Fixed::new(queued.len() as u32))
             }
 
             fn stream_can_tx_events(&mut self) -> &mut Counted {
@@ -795,20 +804,20 @@ mod tests {
                 let n_ext = list.iter().filter(ext).count() as u16;
                 let n_std = list.len() as u16 - n_ext;
                 // as many as the memory layout holds
-                if n_std > layout.standard_filters {
+                if n_std > layout.standard_filters.get() {
                     return Ready(Err(CanError::OutOfFilters {
                         max: layout.standard_filters,
                     }));
                 }
-                if n_ext > layout.extended_filters {
+                if n_ext > layout.extended_filters.get() {
                     return Ready(Err(CanError::OutOfFilters {
                         max: layout.extended_filters,
                     }));
                 }
                 for f in &list {
                     let bad = match f.action {
-                        FilterAction::Fifo { fifo, .. } => fifo >= caps.rx_fifos,
-                        FilterAction::Buffer(n) => n >= caps.rx_buffers,
+                        FilterAction::Fifo { fifo, .. } => fifo.get() >= caps.rx_fifos.get(),
+                        FilterAction::Buffer(n) => n.get() >= caps.rx_buffers.get(),
                         _ => false,
                     };
                     if bad {
@@ -831,11 +840,11 @@ mod tests {
             fn can_rx_buffer(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: u16,
+                index: BufferIndex,
             ) -> RpcResult<Result<Option<ww_can_bus::BufferedFrame<'_>>, CanError<'_>>>
             {
                 let mut m = self.m.lock().unwrap();
-                let Some(slot) = m.rx_buffers.get_mut(index as usize) else {
+                let Some(slot) = m.rx_buffers.get_mut(index.get() as usize) else {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
                         reason: MaxLen::new_unchecked(""),
@@ -860,12 +869,12 @@ mod tests {
             fn can_tx_buffer(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: u16,
+                index: BufferIndex,
                 frame: Option<ww_can_bus::TxFrame<'_>>,
                 period: Option<Second>,
             ) -> RpcResult<Result<(), CanError<'_>>> {
                 let mut m = self.m.lock().unwrap();
-                if index >= capabilities(true).tx_buffers {
+                if index.get() >= capabilities(true).tx_buffers.get() {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
                         reason: MaxLen::new_unchecked("no such buffer"),
@@ -886,10 +895,10 @@ mod tests {
                     kind: f.frame.kind,
                     data: f.frame.data.as_slice().to_vec(),
                 });
-                m.tx_buffers.push((index, f.clone(), period));
+                m.tx_buffers.push((index.get(), f.clone(), period));
                 // sent once now; a cyclic one too, then again every period (not simulated)
                 if let (Some(f), Some(tx)) = (f, frame) {
-                    m.send(f, tx.marker.map(|m| m.0));
+                    m.send(f, tx.marker.map(|m| m.0.0));
                 }
                 Ready(Ok(()))
             }
@@ -1207,7 +1216,7 @@ mod tests {
                 kind: frame.kind,
                 data: MaxLen::new(frame.data.clone()).unwrap(),
             },
-            marker: marker.map(UNib32),
+            marker: marker.map(|m| TxMarker(UNib32(m))),
         }
     }
 
@@ -1222,7 +1231,7 @@ mod tests {
 
     const RATE_500K: fn() -> Timing = || Timing::Rate {
         rate: Baud::kilo(500u16),
-        sample_point: 875,
+        sample_point: Share::try_new(875).unwrap(),
     };
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1239,7 +1248,7 @@ mod tests {
         let fd = FdConfig {
             data: Timing::Rate {
                 rate: Baud::mega(2u8),
-                sample_point: 750,
+                sample_point: Share::try_new(750).unwrap(),
             },
             tdc: Tdc::Auto,
             iso: true,
@@ -1253,17 +1262,17 @@ mod tests {
         let nominal = actual.nominal.segments().expect("answered as segments");
         assert_eq!(
             (nominal.prescaler, nominal.seg1, nominal.seg2),
-            (1, 139, 20)
+            (Fixed::new(1), Fixed::new(139), Fixed::new(20))
         );
-        assert_eq!(nominal.bit_rate(CLOCK_HZ), Some(500_000));
-        assert_eq!(nominal.sample_point(), 875);
+        assert_eq!(nominal.bit_rate(clock_hz()), Some(Fixed::new(500_000)));
+        assert_eq!(nominal.sample_point(), Share::try_new(875).unwrap());
         let data = actual.fd.unwrap().data.segments().unwrap();
-        assert_eq!(data.bit_rate(CLOCK_HZ), Some(2_000_000));
+        assert_eq!(data.bit_rate(clock_hz()), Some(Fixed::new(2_000_000)));
         // TDC auto: the offset at the data sample point, in clock periods
         assert_eq!(
             actual.fd.unwrap().tdc,
             Tdc::Manual {
-                offset: 30,
+                offset: Fixed::new(30),
                 filter: None
             }
         );
@@ -1277,7 +1286,7 @@ mod tests {
             .configure(loopback(
                 Timing::Rate {
                     rate: Baud::base(333_333u32),
-                    sample_point: 875,
+                    sample_point: Share::try_new(875).unwrap(),
                 },
                 None,
             ))
@@ -1307,7 +1316,7 @@ mod tests {
         let fd = FdConfig {
             data: Timing::Rate {
                 rate: Baud::mega(4u8),
-                sample_point: 800,
+                sample_point: Share::try_new(800).unwrap(),
             },
             tdc: Tdc::Off,
             iso: true,
@@ -1364,7 +1373,7 @@ mod tests {
                 ev => panic!("{ev:?}"),
             }
             let ev = events.recv().await.unwrap();
-            assert_eq!(ev.marker, Some(UNib32(100 + i as u32)));
+            assert_eq!(ev.marker, Some(TxMarker(UNib32(100 + i as u32))));
             assert_eq!(ev.id, f.id);
             assert_eq!(ev.outcome, TxOutcome::Sent);
             // measured on the device
@@ -1384,7 +1393,7 @@ mod tests {
         let ev = events.recv().await.unwrap();
         assert_eq!(
             (ev.marker, ev.outcome),
-            (Some(UNib32(7)), TxOutcome::Rejected)
+            (Some(TxMarker(UNib32(7))), TxOutcome::Rejected)
         );
 
         // frames held in the queue are aborted
@@ -1393,13 +1402,13 @@ mod tests {
         tx.send_owned(tx_frame(&frames[0], Some(9))).await.unwrap();
         tx.flush().await.unwrap();
         eventually(&m, |m| m.queued.len() == 2).await;
-        assert_eq!(client.can().tx_abort().call().await.unwrap(), 2);
+        assert_eq!(client.can().tx_abort().call().await.unwrap(), Fixed::new(2));
         client.can().config().call().await.unwrap();
         for marker in [8, 9] {
             let ev = events.recv().await.unwrap();
             assert_eq!(
                 (ev.marker, ev.outcome),
-                (Some(UNib32(marker)), TxOutcome::Aborted)
+                (Some(TxMarker(UNib32(marker))), TxOutcome::Aborted)
             );
         }
     }
@@ -1420,12 +1429,17 @@ mod tests {
         let config = |filters: Vec<Filter>| ww_can_bus::FilterConfigOwned {
             filters: MaxLen::new(filters).unwrap(),
             non_matching_standard: NonMatching::Reject,
-            non_matching_extended: NonMatching::Accept { fifo: 1 },
+            non_matching_extended: NonMatching::Accept {
+                fifo: FifoIndex::new(1),
+            },
             reject_remote: false,
         };
         let filters = vec![
             // 0x100 only into dedicated buffer 2
-            filter(FilterMatch::Exact(std(0x100)), FilterAction::Buffer(2)),
+            filter(
+                FilterMatch::Exact(std(0x100)),
+                FilterAction::Buffer(BufferIndex::new(2)),
+            ),
             // 0x200..=0x20F to FIFO 0
             filter(
                 FilterMatch::Range {
@@ -1433,7 +1447,7 @@ mod tests {
                     to: std(0x20F),
                 },
                 FilterAction::Fifo {
-                    fifo: 0,
+                    fifo: FifoIndex::new(0),
                     high_priority: false,
                 },
             ),
@@ -1458,14 +1472,14 @@ mod tests {
         too_many.push(filter(
             FilterMatch::Exact(std(1)),
             FilterAction::Fifo {
-                fifo: 0,
+                fifo: FifoIndex::new(0),
                 high_priority: false,
             },
         ));
         let r = client.can().set_filters(config(too_many)).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(CanErrorOwned::OutOfFilters { max: 3 })
+            Some(CanErrorOwned::OutOfFilters { max }) if *max == Fixed::new(3)
         ));
         // no FIFO 2 on this controller
         let r = client
@@ -1473,7 +1487,7 @@ mod tests {
             .set_filters(config(vec![filter(
                 FilterMatch::Exact(std(1)),
                 FilterAction::Fifo {
-                    fifo: 2,
+                    fifo: FifoIndex::new(2),
                     high_priority: false,
                 },
             )]))
@@ -1508,17 +1522,33 @@ mod tests {
 
         // 0x205 by filter 1, the extended frame as non-matching; the rest is in the buffer or dropped
         let a = rx.recv().await.unwrap();
-        assert_eq!((a.frame.id, a.filter), (std(0x205), Some(UNib32(1))));
+        assert_eq!(
+            (a.frame.id, a.filter),
+            (std(0x205), Some(FilterIndex::try_new(UNib32(1)).unwrap()))
+        );
         let b = rx.recv().await.unwrap();
         assert_eq!((b.frame.id, b.filter), (ext.id, None));
 
-        let buffered = client.can().rx_buffer(2).call().await.unwrap();
+        let buffered = client
+            .can()
+            .rx_buffer(BufferIndex::new(2))
+            .call()
+            .await
+            .unwrap();
         let buffered = buffered.expect("0x100 went into buffer 2");
         assert_eq!(buffered.frame.id, std(0x100));
         assert!(buffered.time.is_some());
         // read once
-        assert!(client.can().rx_buffer(2).call().await.unwrap().is_none());
-        let r = client.can().rx_buffer(9).call().await;
+        assert!(
+            client
+                .can()
+                .rx_buffer(BufferIndex::new(2))
+                .call()
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let r = client.can().rx_buffer(BufferIndex::new(9)).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
             Some(CanErrorOwned::Common(
@@ -1578,7 +1608,11 @@ mod tests {
         // a dedicated TX buffer can't send while bus-off
         let r = client
             .can()
-            .tx_buffer(0, Some(tx_frame(&MockFrame::std(1, &[]), None)), None)
+            .tx_buffer(
+                BufferIndex::new(0),
+                Some(tx_frame(&MockFrame::std(1, &[]), None)),
+                None,
+            )
             .call()
             .await;
         assert!(matches!(
@@ -1607,18 +1641,31 @@ mod tests {
         let heartbeat = MockFrame::std(0x701, &[5]);
         client
             .can()
-            .tx_buffer(1, Some(tx_frame(&heartbeat, Some(1))), Some(period))
+            .tx_buffer(
+                BufferIndex::new(1),
+                Some(tx_frame(&heartbeat, Some(1))),
+                Some(period),
+            )
             .call()
             .await
             .unwrap();
-        client.can().tx_buffer(1, None, None).call().await.unwrap();
+        client
+            .can()
+            .tx_buffer(BufferIndex::new(1), None, None)
+            .call()
+            .await
+            .unwrap();
         {
             let m = m.lock().unwrap();
             assert_eq!(m.tx_buffers[0], (1, Some(heartbeat.clone()), Some(period)));
             assert_eq!(m.tx_buffers[1], (1, None, None));
             assert_eq!(m.sent, vec![heartbeat]);
         }
-        let r = client.can().tx_buffer(4, None, None).call().await;
+        let r = client
+            .can()
+            .tx_buffer(BufferIndex::new(4), None, None)
+            .call()
+            .await;
         assert!(matches!(
             r.unwrap_err().device(),
             Some(CanErrorOwned::Common(
@@ -1701,19 +1748,17 @@ mod tests {
             ErrorState::Stopped
         );
         let big = MemoryLayout {
-            rx_fifos: [64, 64],
-            tx_buffers: 32,
+            rx_fifos: [Fixed::new(64), Fixed::new(64)],
+            tx_buffers: Fixed::new(32),
             ..default_layout()
         };
         let r = client.can().set_layout(big).call().await;
         assert!(matches!(
             r.unwrap_err().device(),
-            Some(CanErrorOwned::OutOfMemory {
-                available: RAM_WORDS
-            })
+            Some(CanErrorOwned::OutOfMemory { available }) if *available == Fixed::new(RAM_WORDS)
         ));
         let more_filters = MemoryLayout {
-            standard_filters: 8,
+            standard_filters: Fixed::new(8),
             ..default_layout()
         };
         assert_eq!(
@@ -1725,7 +1770,7 @@ mod tests {
             .map(|i| Filter {
                 matching: FilterMatch::Exact(CanId::standard(0x100 + i).unwrap()),
                 action: FilterAction::Fifo {
-                    fifo: 0,
+                    fifo: FifoIndex::new(0),
                     high_priority: i == 0,
                 },
             })
@@ -1751,8 +1796,8 @@ mod tests {
             let config = client.can().config().call().await.unwrap();
             assert_eq!(config.mode, mode);
             assert_eq!(
-                config.nominal.segments().unwrap().bit_rate(CLOCK_HZ),
-                Some(500_000)
+                config.nominal.segments().unwrap().bit_rate(clock_hz()),
+                Some(Fixed::new(500_000))
             );
         }
 
@@ -1760,7 +1805,7 @@ mod tests {
         m.lock().unwrap().status.last_error = Some(ProtocolError::Bit0);
         let ps = client.can().protocol_status().call().await.unwrap();
         assert_eq!(ps.status.last_error, Some(ProtocolError::Bit0));
-        assert_eq!(ps.error_log, Some(1));
+        assert_eq!(ps.error_log, Some(Fixed::new(1)));
         assert_eq!(ps.activity, Activity::Idle);
         assert_eq!(ps.tdc_value, None, "no FD, no TDC");
         let ps = client.can().protocol_status().call().await.unwrap();
@@ -1773,9 +1818,9 @@ mod tests {
         let (device, m) = start_full("io_can/detect");
         let client = connect(&device).await;
 
-        let rate = |kbit: u16, sample_point| Timing::Rate {
+        let rate = |kbit: u16, sample_point: u16| Timing::Rate {
             rate: Baud::kilo(kbit),
-            sample_point,
+            sample_point: Share::try_new(sample_point).unwrap(),
         };
         let candidates = |list: Vec<Timing>| MaxLen::new(list).unwrap();
         let per = Second::milli(200u8);
@@ -1797,8 +1842,8 @@ mod tests {
             .expect("250 kbit/s found");
         assert_eq!(found.mode, Mode::ListenOnly);
         assert_eq!(
-            found.nominal.segments().unwrap().bit_rate(CLOCK_HZ),
-            Some(250_000)
+            found.nominal.segments().unwrap().bit_rate(clock_hz()),
+            Some(Fixed::new(250_000))
         );
         assert_eq!(client.can().config().call().await.unwrap(), found);
         let none = client
@@ -1823,9 +1868,9 @@ mod tests {
         let mut load = client.can().observe_bus_load().await.unwrap();
         let measured = BusLoad {
             window: Second::milli(100u8),
-            load: 347,
-            frames: 120,
-            errors: 1,
+            load: Share::try_new(347).unwrap(),
+            frames: Fixed::new(120),
+            errors: Fixed::new(1),
         };
         m.lock().unwrap().pending.push(Pending::BusLoad(measured));
         client.can().config().call().await.unwrap();
@@ -1969,7 +2014,12 @@ mod tests {
         ));
         assert!(not_here(&client.can().tx_abort().call().await.unwrap_err()));
         assert!(unimplemented(
-            client.can().rx_buffer(0).call().await.unwrap_err()
+            client
+                .can()
+                .rx_buffer(BufferIndex::new(0))
+                .call()
+                .await
+                .unwrap_err()
         ));
         assert!(not_here(
             &client.can().read_termination().read().await.unwrap_err()

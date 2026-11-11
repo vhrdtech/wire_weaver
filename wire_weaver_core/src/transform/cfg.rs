@@ -262,9 +262,16 @@ fn read_by_derive(attr: &Attribute) -> bool {
     READ.iter().any(|name| attr.path().is_ident(name))
 }
 
-/// Attributes the walker never reads: their predicate doesn't need to be known.
+/// Attributes the walker never reads: their predicate doesn't need to be known. `feature` is the crate-level
+/// `#![feature(..)]` of a nightly gate (shrink_wrap's `#![cfg_attr(shrink_wrap_optimize_gate, ..)]`); it and the
+/// code generation hints change no type.
 fn not_read_by_walker(attr: &Attribute) -> bool {
     const IGNORED: &[&str] = &[
+        "feature",
+        "optimize",
+        "cold",
+        "track_caller",
+        "target_feature",
         "derive",
         "allow",
         "warn",
@@ -441,6 +448,14 @@ mod tests {
             off.contains("pub enum E { # [since = \"0.2\"] A (# [flag] u8) }"),
             "{off}"
         );
+
+        // a nightly gate on the crate changes no type, whatever its custom cfg
+        let gated = expand(
+            "#![cfg_attr(sw_gate, feature(optimize_attribute))] #[cfg_attr(sw_gate, optimize(speed))] const C: u8 = 1;",
+            &[],
+        )
+        .unwrap();
+        assert_eq!(gated, "const C : u8 = 1 ;");
 
         let err = expand(
             "#[cfg_attr(target_os = \"none\", derive_shrink_wrap(sized))] struct T;",

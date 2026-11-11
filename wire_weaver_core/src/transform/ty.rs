@@ -140,7 +140,8 @@ fn convert_segment_in(
         "i128" => Ok(numeric_base(NumericBaseType::I128)),
         "UNib32" | "unib32" => Ok(numeric_base(NumericBaseType::UNib32)),
         "INib32" | "inib32" => Ok(numeric_base(NumericBaseType::INib32)),
-        "UVlq32" | "uvlq32" => Ok(numeric_base(NumericBaseType::UVlq32)),
+        // a `UVlq32` on the wire, written padded to its 5 bytes and read back by `UVlq32` too
+        "UVlq32" | "uvlq32" | "UVlq32Backfill" => Ok(numeric_base(NumericBaseType::UVlq32)),
         "UVlq64" | "uvlq64" => Ok(numeric_base(NumericBaseType::UVlq64)),
         "UN" | "un" => Ok(numeric_base(NumericBaseType::UN)),
         "IN" | "in" => Ok(numeric_base(NumericBaseType::IN)),
@@ -1745,6 +1746,17 @@ mod alias_tests {
                 "enum ub4 test_api::Reading {Offset(ub4), Count{n: ub12}}",
             ]
         );
+    }
+
+    #[test]
+    fn backfill_is_uvlq32_on_the_wire() {
+        let bundle = load(
+            "backfill",
+            "fn a(r: Req);",
+            "pub struct Req { seq: UVlq32Backfill, n: UVlq32 }",
+        )
+        .unwrap();
+        assert_eq!(args(&bundle), ["struct test_api::Req {seq: uvlq32, n: uvlq32}"]);
     }
 
     #[test]

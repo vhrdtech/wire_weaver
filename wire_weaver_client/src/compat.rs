@@ -1074,7 +1074,7 @@ pub(crate) mod tests {
         };
         assert_eq!(
             client.crate_wire(board(&client)),
-            Some(WireVersion::new(1, 2))
+            Some(WireVersion::new(2, 0))
         );
         assert_eq!(client.wire, Some(WireVersion::new(1, 0)));
         let ApiItemKindOwned::Trait { .. } = &client.root.items[0].kind else {

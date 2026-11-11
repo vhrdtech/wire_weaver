@@ -16,6 +16,7 @@ use cortex_m_rt::{ExceptionFrame, entry, exception};
 use cortex_m_semihosting::{debug, hio};
 use ww_bus_slave::{I2cSlave, ReadByte, SpiSlave};
 use ww_i2c::{I2cAddress, I2cSlaveAnswers, I2cSlaveConfig, I2cSlaveUnderrun};
+use ww_si::{Fixed, Index};
 use ww_spi::{BitOrder, SpiMode, SpiRegisters, SpiRwBit, SpiSlaveAnswers, SpiSlaveConfig};
 
 const BYTES: usize = 64;
@@ -94,17 +95,19 @@ fn main() -> ! {
     let spi_config = |answers| SpiSlaveConfig {
         mode: SpiMode::Mode0,
         bit_order: BitOrder::MsbFirst,
-        word_bits: 8,
+        word: Fixed::new(8),
         io_level: None,
         answers,
     };
     spi_regs
         .configure(&spi_config(SpiSlaveAnswers::Registers(SpiRegisters {
-            addr_bytes: 1,
-            rw: SpiRwBit::SetIsRead { bit: 7 },
-            dummy_bytes: 0,
+            addr: Fixed::new(1),
+            rw: SpiRwBit::SetIsRead {
+                bit: Index::try_new(7).unwrap(),
+            },
+            dummy: Fixed::new(0),
             idle: 0,
-            len: 256,
+            len: Fixed::new(256),
         })))
         .unwrap();
     spi_queue

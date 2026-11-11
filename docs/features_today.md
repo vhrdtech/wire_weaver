@@ -489,6 +489,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Indices and sequence numbers](std_library/indices.md)**: A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap.
 - **[Quantities without wide integers](std_library/ww_si.md#conversions-and-comparisons)**: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.
 - **[Exact conversions without floats](std_library/ww_si.md#conversions-and-comparisons)**: A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device.
+- **[Typed numbers in `ww_stdlib`](std_library/ww_spi.md)**: Word sizes, byte and bit counts, offsets and counted things are their own types instead of a bare integer, crate by crate (`ww_spi` so far); a run-time-fixed value like an IO level moves from `Quantity` to `Fixed`. <span class="ww-status">in progress</span>
 - **[ADC](std_library/ww_adc.md)**: Single reads, sample streams and triggered captures.
 - **[PWM](std_library/ww_pwm.md)**: Outputs and input capture.
 - **[Device time](std_library/ww_timebase.md)**: A clock with sync to a shared time source.

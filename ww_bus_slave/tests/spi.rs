@@ -1,7 +1,7 @@
 //! Every policy of the SPI slave engine, driven byte by byte as a firmware's interrupt handler would.
 
 use ww_bus_slave::{ConfigError, MapError, SpiSlave};
-use ww_si::{Overflow, Prefix, Rounding, Second};
+use ww_si::{Fixed, Index, Overflow, Prefix, Rounding, Second};
 use ww_spi::{BitOrder, SpiMode, SpiRegisters, SpiRwBit, SpiSlaveAnswers, SpiSlaveConfig};
 
 type Slave = SpiSlave<64, 32, 3, 8, 8, 16>;
@@ -32,7 +32,7 @@ fn frames(s: &mut Slave) -> Vec<Frame> {
             truncated: f.truncated,
             overrun: f.overrun,
             underrun: f.underrun,
-            addr: f.addr,
+            addr: f.addr.map(Index::get),
             mosi: f.mosi.as_slice().to_vec(),
             miso: f.miso.as_slice().to_vec(),
         });
@@ -45,7 +45,7 @@ fn config(answers: SpiSlaveAnswers) -> SpiSlaveConfig {
     SpiSlaveConfig {
         mode: SpiMode::Mode0,
         bit_order: BitOrder::MsbFirst,
-        word_bits: 8,
+        word: Fixed::new(8),
         io_level: None,
         answers,
     }
@@ -59,11 +59,11 @@ fn slave(answers: SpiSlaveAnswers) -> Slave {
 
 fn regs(addr_bytes: u8, rw: SpiRwBit, dummy_bytes: u8, len: u32) -> Slave {
     slave(SpiSlaveAnswers::Registers(SpiRegisters {
-        addr_bytes,
+        addr: Fixed::new(addr_bytes),
         rw,
-        dummy_bytes,
+        dummy: Fixed::new(dummy_bytes),
         idle: 0xEE,
-        len,
+        len: Fixed::new(len),
     }))
 }
 
@@ -184,7 +184,14 @@ fn queue_answer_picked_at_preload_and_rewind() {
 #[test]
 fn registers_read_and_write_with_rw_bit() {
     // a typical sensor: bit 7 set reads, 7-bit address
-    let mut s = regs(1, SpiRwBit::SetIsRead { bit: 7 }, 0, 64);
+    let mut s = regs(
+        1,
+        SpiRwBit::SetIsRead {
+            bit: Index::try_new(7).unwrap(),
+        },
+        0,
+        64,
+    );
     s.map_write(0x10, &[1, 2, 3]).unwrap();
     assert_eq!(frame(&mut s, &[0x90, 0, 0, 0]), vec![0xEE, 1, 2, 3]);
     // write frame: data stored, idle sent
@@ -195,7 +202,14 @@ fn registers_read_and_write_with_rw_bit() {
     assert_eq!(f[1].addr, Some(0x20));
     assert_eq!(f[1].mosi, vec![0x20, 9, 8]);
     // clear is read
-    let mut s = regs(1, SpiRwBit::ClearIsRead { bit: 0 }, 0, 64);
+    let mut s = regs(
+        1,
+        SpiRwBit::ClearIsRead {
+            bit: Index::try_new(0).unwrap(),
+        },
+        0,
+        64,
+    );
     s.map_write(2, &[5]).unwrap();
     // 0x02: bit 0 clear, read address 2
     assert_eq!(frame(&mut s, &[0x02, 0]), vec![0xEE, 5]);
@@ -305,16 +319,16 @@ fn config_errors_and_off() {
     assert!(s.peek_event().is_none());
     let bad = |answers, word_bits| {
         let mut c = config(answers);
-        c.word_bits = word_bits;
+        c.word = Fixed::new(word_bits);
         Slave::new().configure(&c)
     };
     let r = |addr_bytes, rw, len| {
         SpiSlaveAnswers::Registers(SpiRegisters {
-            addr_bytes,
+            addr: Fixed::new(addr_bytes),
             rw,
-            dummy_bytes: 0,
+            dummy: Fixed::new(0),
             idle: 0,
-            len,
+            len: Fixed::new(len),
         })
     };
     let q = SpiSlaveAnswers::Queue {
@@ -330,12 +344,18 @@ fn config_errors_and_off() {
         bad(r(1, SpiRwBit::ReadOnly, 65), 8),
         Err(ConfigError::BufferTooBig)
     );
+    // a `bit` above 7 is refused by the wire decoder now (Index<Bit, u8, Range<0, 7>>), before configure runs
     assert!(matches!(
-        bad(r(1, SpiRwBit::SetIsRead { bit: 8 }, 8), 8),
-        Err(ConfigError::InvalidArgument(_))
-    ));
-    assert!(matches!(
-        bad(r(0, SpiRwBit::SetIsRead { bit: 7 }, 8), 8),
+        bad(
+            r(
+                0,
+                SpiRwBit::SetIsRead {
+                    bit: Index::try_new(7).unwrap()
+                },
+                8
+            ),
+            8
+        ),
         Err(ConfigError::InvalidArgument(_))
     ));
     let no_queue = SpiSlave::<8, 0, 0, 0, 1, 1>::new().configure(&config(q));

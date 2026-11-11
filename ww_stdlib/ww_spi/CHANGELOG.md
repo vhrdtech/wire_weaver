@@ -2,6 +2,23 @@
 
 ### ⚠️ Breaking
 
+- Typed numbers (STD-56), wire line `w2.0` (EVO-57): `word_bits` of `SpiConfig`, `SpiMonitorConfig` and
+  `SpiSlaveConfig` is `word: Fixed<Bit, One, u8>`; `SpiCapabilities::min_word_bits` / `max_word_bits` are
+  `min_word` / `max_word`, the same type. `SpiRegisters::addr_bytes` / `dummy_bytes` are `addr` / `dummy`,
+  `SpiSlaveCapabilities::max_addr_bytes` is `max_addr`, all `Bytes<u8>`; `SpiRegisters::len`,
+  `SpiCapabilities::max_len`, `SpiSlaveCapabilities::map_len` and `SpiOp::Read`'s length are `Bytes<u16/u32>`.
+  `Spi::slave_map_write` / `slave_map_read`'s `offset` and `SpiSlaveFrame::addr` are `Index<Byte, u32>`;
+  `Spi::slave_clear_answers`'s return and `SpiSlaveCapabilities::queue_len` are `Count<Item, u32>`. Every one of
+  these keeps the same bytes (`T` to a transparent wrapper of `T`), so only the renames break the wire for a
+  device without `#[since]` tracking (none listed as in use): still bumped with the line below, since they land in
+  the same change.
+- `SpiRwBit::SetIsRead` / `ClearIsRead`'s `bit` is `Index<Bit, u8, Range<0, 7>>` instead of a plain `u8`: the bound
+  (0..=7, the first address byte's bits) is now part of the wire contract and checked on decode, before a handler
+  runs.
+- `SpiConfig` / `SpiMonitorConfig` / `SpiSlaveConfig`'s `io_level` and `SpiCapabilities::io_levels` /
+  `io_level_min` / `io_level_max` are `Fixed<Volt, Milli, u16>` instead of `ww_si::Quantity<Volt>`: a device's IO
+  level never changes unit or number type at run time, so `Fixed` sends only the number, not a prefix and number
+  type with every value too.
 - `SpiRole::Slave` and `SpiCapabilities::slave` are removed (STD-35): slave mode is the new `slave` group of `Spi`
   (below), opened with `Spi::slave_frames`; whether a device has it is in its introspection and
   `Spi::slave_capabilities`.
@@ -21,6 +38,8 @@
 
 ### 🚀 Features
 
+- `SpiMode` derives `defmt::Format` under the `defmt` feature (requested by `ww_logic_analyzer` to embed it in its
+  own defmt-deriving types): no wire change, introspection data unaffected.
 - `Spi` is `#[claim(exclusive)]` (SRV-34): a client can claim a controller through the hub. Wire compatible, only the introspection data changes.
 - Slave mode (STD-35): an `#[optional(slave)]` group in `Spi` (`omit = ["spi.slave"]` without it).
   `slave_frames(SpiSlaveConfig)` is a counted stream function: opening it makes the device a slave, and it reports

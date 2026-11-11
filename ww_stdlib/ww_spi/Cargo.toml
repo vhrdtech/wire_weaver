@@ -9,7 +9,7 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
-wire = "w1.0"
+wire = "w2.0"
 
 [features]
 default = ["std"]
@@ -19,4 +19,4 @@ defmt = ["dep:defmt", "wire_weaver/defmt", "ww_si/defmt"]
 [dependencies]
 defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true, default-features = false }
-ww_si = { workspace = true, default-features = false, features = ["time", "electrical"] }
+ww_si = { workspace = true, default-features = false, features = ["time", "electrical", "information", "counting"] }

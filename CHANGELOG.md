@@ -50,6 +50,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - exact_units taken up to d6a7256; `ww_si` turns on its `fields`, `radiometric` and `nuclear` unit groups (see the `ww_si` changelog).
 - Run-time scales in APIs (STD-116): `ww_si::RunScale`, `Scaled<U, T>` and `Ticks<T>` (exact_units NUM-42) walk into the model and have conformance cases; the dynamic client shows them as structs until CLT-71. See the `ww_si` changelog.
 - Conformance cases for exact_units' `Fraction` with its exponent (NUM-33) and for `Magnitude`'s `m_u` and primes past `u32` (NUM-32); docs on a `Fraction`'s wire form in `docs/std_library/exact_units.md`.
+- `ww_spi` typed numbers (STD-56): word size, byte lengths, register offsets and counts are `exact_units::Fixed`
+  / `Bytes` / `Index` / `Count` instead of bare integers, `SpiRwBit::SetIsRead`/`ClearIsRead`'s bit gets its
+  `Range<0, 7>` bound, and `io_level` moves from `ww_si::Quantity<Volt>` to `Fixed<Volt, Milli, u16>`; wire line
+  `w2.0` (EVO-57). See the `ww_spi` CHANGELOG.
 
 ### Added
 

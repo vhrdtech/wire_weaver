@@ -9,18 +9,19 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_numeric::NumericValue;
-    use ww_si::{Index, Prefix, Second, Volt};
+    use ww_si::{Fixed, Index, Prefix, Second};
     use ww_spi::{
-        BitOrder, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiErrorOwned, SpiFrame, SpiMode,
-        SpiMonitorConfig, SpiOp, SpiRole, SpiSlaveAnswers, SpiSlaveConfig,
+        BitOrder, Byte, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiErrorOwned, SpiFrame,
+        SpiMode, SpiMonitorConfig, SpiOp, SpiRole, SpiSlaveAnswers, SpiSlaveConfig, Volt,
     };
     use ww_stream::tx::Counted;
 
     /// Smaller than [ww_spi::SPI_MAX], so a too-long transfer can be tested without building a 512-byte buffer.
     const MAX_LEN: usize = 64;
 
-    fn volt(value: f32) -> Volt {
-        Volt::from_parts(Prefix::Unit, NumericValue::F32(value))
+    /// `mv` millivolts, as `SpiConfig::io_level` now sends it (`Fixed<Volt, Milli, u16>`, no more `Quantity`).
+    fn volt(mv: u16) -> Fixed<Volt, ww_si::prefix::Milli, u16> {
+        Fixed::new(mv)
     }
 
     fn second(prefix: Prefix, value: u32) -> Second {
@@ -131,7 +132,7 @@ mod tests {
                         SpiOp::Write(_) => {}
                         // the mock peripheral has nothing to say: reads come back as 0xA5
                         SpiOp::Read(len) => {
-                            read_bytes.extend(std::iter::repeat_n(0xA5u8, len as usize))
+                            read_bytes.extend(std::iter::repeat_n(0xA5u8, len.get() as usize))
                         }
                         SpiOp::Transfer(data) => {
                             read_bytes.extend_from_slice(data.into_inner().as_slice())
@@ -165,18 +166,17 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<SpiCapabilities<'_>> {
-                const IO_LEVELS: [Volt; 1] =
-                    [Volt::from_parts(Prefix::Unit, NumericValue::F32(3.3))];
+                const IO_LEVELS: [Fixed<Volt, ww_si::prefix::Milli, u16>; 1] = [Fixed::new(3300)];
                 Ready(SpiCapabilities {
                     min_freq: ww_si::Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
                     max_freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(10)),
-                    min_word_bits: 8,
-                    max_word_bits: 8,
+                    min_word: Fixed::new(8),
+                    max_word: Fixed::new(8),
                     master: true,
                     io_levels: MaxLen::new(RefVec::Slice { slice: &IO_LEVELS }).unwrap(),
                     io_level_min: None,
                     io_level_max: None,
-                    max_len: MAX_LEN as u32,
+                    max_len: Fixed::new(MAX_LEN as u32),
                 })
             }
 
@@ -185,17 +185,17 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiConfig,
             ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
-                if config.word_bits != 8 {
+                if config.word.get() != 8 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: Index::new(0),
-                        reason: MaxLen::new_unchecked("word_bits"),
+                        reason: MaxLen::new_unchecked("word"),
                     }
                     .into()));
                 }
                 // this mock's only IO level is 3.3 V, and that is what it runs at
                 let io_level = match config.io_level {
-                    None => volt(3.3),
-                    Some(level) if level == volt(3.3) => level,
+                    None => volt(3300),
+                    Some(level) if level == volt(3300) => level,
                     Some(_) => return Ready(Err(CommonError::Unsupported.into())),
                 };
                 let actual = SpiConfig {
@@ -225,7 +225,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiMonitorConfig,
             ) -> RpcResult<Result<(), SpiError<'_>>> {
-                if config.word_bits != 8 {
+                if config.word.get() != 8 {
                     return Ready(Err(CommonError::Unsupported.into()));
                 }
                 self.data.lock().unwrap().monitor_config = Some(config);
@@ -339,7 +339,7 @@ mod tests {
             freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(1)),
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
-            word_bits: 8,
+            word: Fixed::new(8),
             cs,
             io_level: None,
         }
@@ -352,7 +352,7 @@ mod tests {
 
         let caps = client.spi().capabilities().call().await.unwrap();
         assert!(caps.master);
-        assert_eq!(caps.max_len, MAX_LEN as u32);
+        assert_eq!(caps.max_len.get(), MAX_LEN as u32);
 
         let actual = client
             .spi()
@@ -367,7 +367,7 @@ mod tests {
         let slave = SpiSlaveConfig {
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
-            word_bits: 8,
+            word: Fixed::new(8),
             io_level: None,
             answers: SpiSlaveAnswers::Queue {
                 idle: 0xFF,
@@ -433,7 +433,7 @@ mod tests {
 
         let ops = vec![
             ww_spi::SpiOpOwned::Write(MaxLen::new(vec![1u8, 2]).unwrap()),
-            ww_spi::SpiOpOwned::Read(2),
+            ww_spi::SpiOpOwned::Read(Fixed::new(2)),
             ww_spi::SpiOpOwned::Transfer(MaxLen::new(vec![5u8, 6]).unwrap()),
             ww_spi::SpiOpOwned::Delay(second(Prefix::Milli, 1)),
         ];
@@ -488,10 +488,10 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.io_level, Some(volt(3.3)));
+        assert_eq!(actual.io_level, Some(volt(3300)));
 
         let at_5v = SpiConfig {
-            io_level: Some(volt(5.0)),
+            io_level: Some(volt(5000)),
             ..configured_master(CsMode::Auto)
         };
         let err = client.spi().configure(at_5v).call().await;
@@ -500,17 +500,17 @@ mod tests {
             Some(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))
         ));
         let configured = data.lock().unwrap().configured.unwrap();
-        assert_eq!(configured.io_level, Some(volt(3.3)));
+        assert_eq!(configured.io_level, Some(volt(3300)));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn monitor_frames_stream() {
         let (device, data) = start("io_spi/monitor");
         let client = connect(&device).await;
-        let config = |word_bits| SpiMonitorConfig {
+        let config = |word| SpiMonitorConfig {
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
-            word_bits,
+            word: Fixed::new(word),
             io_level: None,
         };
         let r = client.spi().monitor(config(9)).call().await.unwrap();
@@ -656,13 +656,13 @@ mod tests {
                 Ready(SpiCapabilities {
                     min_freq: ww_si::Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
                     max_freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(10)),
-                    min_word_bits: 8,
-                    max_word_bits: 8,
+                    min_word: Fixed::new(8),
+                    max_word: Fixed::new(8),
                     master: false,
                     io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
                     io_level_min: None,
                     io_level_max: None,
-                    max_len: ww_spi::SPI_MAX as u32,
+                    max_len: Fixed::new(ww_spi::SPI_MAX as u32),
                 })
             }
 
@@ -695,9 +695,9 @@ mod tests {
             ) -> RpcResult<SpiSlaveCapabilities> {
                 Ready(SpiSlaveCapabilities {
                     max_freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(10)),
-                    queue_len: Q as u32,
-                    map_len: MAP as u32,
-                    max_addr_bytes: 4,
+                    queue_len: Fixed::new(Q as u32),
+                    map_len: Fixed::new(MAP as u32),
+                    max_addr: Fixed::new(4),
                     map_max_freq: Some(ww_si::Hertz::from_parts(
                         Prefix::Mega,
                         NumericValue::U32(1),
@@ -724,12 +724,12 @@ mod tests {
             fn spi_slave_map_write(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                offset: u32,
+                offset: Index<Byte, u32>,
                 data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
             ) -> RpcResult<Result<(), SpiError<'_>>> {
                 Ready(
                     self.engine
-                        .map_write(offset, data.as_slice())
+                        .map_write(offset.get(), data.as_slice())
                         .map_err(Into::into),
                 )
             }
@@ -737,15 +737,18 @@ mod tests {
             fn spi_slave_map_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                offset: u32,
-                len: u16,
+                offset: Index<Byte, u32>,
+                len: Fixed<Byte, ww_si::prefix::One, u16>,
             ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
             {
-                let len = len as usize;
+                let len = len.get() as usize;
                 if len > self.map_scratch.len() {
                     return Ready(Err(SpiError::BufferTooBig));
                 }
-                match self.engine.map_read(offset, &mut self.map_scratch[..len]) {
+                match self
+                    .engine
+                    .map_read(offset.get(), &mut self.map_scratch[..len])
+                {
                     Ok(()) => Ready(Ok(
                         MaxLen::new(RefVec::new_bytes(&self.map_scratch[..len])).unwrap()
                     )),
@@ -756,8 +759,8 @@ mod tests {
             fn spi_slave_clear_answers(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<u32> {
-                Ready(self.engine.clear_answers())
+            ) -> RpcResult<Fixed<ww_spi::Item, ww_si::prefix::One, u32>> {
+                Ready(Fixed::new(self.engine.clear_answers()))
             }
 
             fn credit_spi_slave_answers(&mut self) -> &mut SinkCredit {
@@ -910,14 +913,14 @@ mod tests {
         SpiSlaveConfig {
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
-            word_bits: 8,
+            word: Fixed::new(8),
             io_level: None,
             answers: SpiSlaveAnswers::Registers(ww_spi::SpiRegisters {
-                addr_bytes,
+                addr: Fixed::new(addr_bytes),
                 rw,
-                dummy_bytes,
+                dummy: Fixed::new(dummy_bytes),
                 idle,
-                len,
+                len: Fixed::new(len),
             }),
         }
     }
@@ -926,7 +929,7 @@ mod tests {
         SpiSlaveConfig {
             mode: SpiMode::Mode0,
             bit_order: BitOrder::MsbFirst,
-            word_bits: 8,
+            word: Fixed::new(8),
             io_level: None,
             answers: SpiSlaveAnswers::Queue { idle, repeat_last },
         }
@@ -961,7 +964,9 @@ mod tests {
             .spi()
             .slave_frames(registers_config(
                 1,
-                ww_spi::SpiRwBit::SetIsRead { bit: 7 },
+                ww_spi::SpiRwBit::SetIsRead {
+                    bit: Index::try_new(7).unwrap(),
+                },
                 0,
                 64,
                 0xEE,
@@ -973,7 +978,7 @@ mod tests {
 
         client
             .spi()
-            .slave_map_write(0x10, MaxLen::new(vec![1u8, 2, 3]).unwrap())
+            .slave_map_write(0x10.into(), MaxLen::new(vec![1u8, 2, 3]).unwrap())
             .call()
             .await
             .unwrap();
@@ -985,15 +990,20 @@ mod tests {
         );
         // bit 7 clear: a write at 0x20
         assert_eq!(frame(&mut client, &[0x20, 9, 8]).await, vec![0xEE; 3]);
-        let map = client.spi().slave_map_read(0x20, 2).call().await.unwrap();
+        let map = client
+            .spi()
+            .slave_map_read(0x20.into(), 2.into())
+            .call()
+            .await
+            .unwrap();
         assert_eq!(map.as_slice(), &[9, 8]);
 
         client.spi_slave_pump().call().await.unwrap();
         let f = frames.recv().await.unwrap();
-        assert_eq!(f.addr, Some(0x10));
+        assert_eq!(f.addr, Some(Index::new(0x10)));
         assert_eq!(f.mosi.as_slice(), &[0x90, 0, 0, 0]);
         let f = frames.recv().await.unwrap();
-        assert_eq!(f.addr, Some(0x20));
+        assert_eq!(f.addr, Some(Index::new(0x20)));
         assert_eq!(f.mosi.as_slice(), &[0x20, 9, 8]);
     }
 
@@ -1010,7 +1020,7 @@ mod tests {
             .unwrap();
         client
             .spi()
-            .slave_map_write(0, MaxLen::new(vec![1u8, 1]).unwrap())
+            .slave_map_write(0.into(), MaxLen::new(vec![1u8, 1]).unwrap())
             .call()
             .await
             .unwrap();
@@ -1029,7 +1039,7 @@ mod tests {
         );
         client
             .spi()
-            .slave_map_write(0, MaxLen::new(vec![2u8, 2]).unwrap())
+            .slave_map_write(0.into(), MaxLen::new(vec![2u8, 2]).unwrap())
             .call()
             .await
             .unwrap();
@@ -1054,7 +1064,12 @@ mod tests {
             SpiBusResult::Done
         );
 
-        let map = client.spi().slave_map_read(0, 2).call().await.unwrap();
+        let map = client
+            .spi()
+            .slave_map_read(0.into(), 2.into())
+            .call()
+            .await
+            .unwrap();
         assert_eq!(map.as_slice(), &[2, 2]);
     }
 
@@ -1151,7 +1166,7 @@ mod tests {
             SpiBusResult::Byte(0)
         );
         let dropped = client.spi().slave_clear_answers().call().await.unwrap();
-        assert_eq!(dropped, 2);
+        assert_eq!(dropped.get(), 2);
         assert_eq!(
             bus(&mut client, SpiBusOp::CsAsserted).await,
             SpiBusResult::Done

@@ -470,6 +470,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - NUM-5 | Indices and sequence numbers | A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap. | std_library/indices.md
 - STD-43 | Quantities without wide integers | On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked. | std_library/ww_si.md#conversions-and-comparisons
 - STD-102 | Exact conversions without floats | A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device. | std_library/ww_si.md#conversions-and-comparisons
+- STD-56 | Typed numbers in `ww_stdlib` | Word sizes, byte and bit counts, offsets and counted things are their own types instead of a bare integer, crate by crate (`ww_spi` so far); a run-time-fixed value like an IO level moves from `Quantity` to `Fixed`. | std_library/ww_spi.md
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
 - STD-19 | PWM | Outputs and input capture. | std_library/ww_pwm.md
 - STD-17 | Device time | A clock with sync to a shared time source. | std_library/ww_timebase.md
@@ -555,5 +556,6 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-61 | The wire change behind `ww_onewire`'s new wire line (`SearchState::last_discrepancy`'s added `1..=64` bound): the user-visible side is STD-113.
 - EVO-65 | The wire change behind `ww_dfu`'s typed numbers (wire `w2.0`): ids and versions as newtypes, a security counter apart from the release version, `resume_from` split; the user-visible side is STD-12.
 - EVO-58 | The wire change behind the typed, bounded calendar fields of `ww_date_time` (wire `w2.0`): the user-visible side is STD-4, see [ww_date_time](std_library/ww_date_time.md).
+- EVO-57 | The wire change behind `ww_spi`'s typed numbers (word size, byte lengths, register offsets, `io_level` as `Fixed`): the user-visible side is STD-56.
 - NUM-31, NUM-32, NUM-33, NUM-34, NUM-35, NUM-42, UNIT-6, UNIT-12, UNIT-14, UNIT-19, PT-8, LVL-8, LVL-9, LVL-10, LVL-12, LVL-13, IO-16 | exact_units features landed between the previous and this session's `cargo update -p exact_units` (f2051438 to c132f587); not used by wire_weaver yet.
 - NUM-40, NUM-41, CPX-7 | exact_units features landed with the take-up from c132f58 to 58cc839: exact_units' own, no wire_weaver side yet.

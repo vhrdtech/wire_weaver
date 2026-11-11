@@ -5,7 +5,7 @@ use crate::queue::{AnswerQueue, QueueError};
 use crate::{ConfigError, Ring, Slot, record_byte};
 use wire_weaver::shrink_wrap::{MaxLen, RefVec};
 use ww_si::Second;
-use ww_spi::{SPI_MAX, SpiRwBit, SpiSlaveAnswers, SpiSlaveConfig, SpiSlaveFrame};
+use ww_spi::{Byte, Index, SPI_MAX, SpiRwBit, SpiSlaveAnswers, SpiSlaveConfig, SpiSlaveFrame};
 
 #[derive(Copy, Clone)]
 enum Mode {
@@ -165,7 +165,7 @@ impl<
     /// with wider ones splits them into bytes, most significant first, and says so in its capabilities. Mode, bit
     /// order and `io_level` are the peripheral's.
     pub fn configure(&mut self, config: &SpiSlaveConfig) -> Result<(), ConfigError> {
-        if config.word_bits != 8 {
+        if config.word.get() != 8 {
             return Err(ConfigError::Unsupported);
         }
         let mode = match config.answers {
@@ -176,34 +176,35 @@ impl<
                 Mode::Queue { idle, repeat_last }
             }
             SpiSlaveAnswers::Registers(r) => {
-                if MAP == 0 || r.addr_bytes > 4 {
+                let addr_bytes = r.addr.get();
+                let dummy_bytes = r.dummy.get();
+                let len = r.len.get();
+                if MAP == 0 || addr_bytes > 4 {
                     return Err(ConfigError::Unsupported);
                 }
-                if r.len as usize > MAP {
+                if len as usize > MAP {
                     return Err(ConfigError::BufferTooBig);
                 }
-                if r.len == 0 {
+                if len == 0 {
                     return Err(ConfigError::InvalidArgument("register map len is 0"));
                 }
+                // the wire bound (0..=7, Q4) already refuses a wider bit before the handler runs
                 let (rw_mask, set_is_read) = match r.rw {
                     SpiRwBit::ReadOnly => (0, true),
-                    SpiRwBit::SetIsRead { bit } | SpiRwBit::ClearIsRead { bit } if bit > 7 => {
-                        return Err(ConfigError::InvalidArgument("rw bit above 7"));
-                    }
-                    SpiRwBit::SetIsRead { bit } => (1 << bit, true),
-                    SpiRwBit::ClearIsRead { bit } => (1 << bit, false),
+                    SpiRwBit::SetIsRead { bit } => (1 << bit.get(), true),
+                    SpiRwBit::ClearIsRead { bit } => (1 << bit.get(), false),
                     SpiRwBit::Unknown(_) => return Err(ConfigError::Unsupported),
                 };
-                if rw_mask != 0 && r.addr_bytes == 0 {
+                if rw_mask != 0 && addr_bytes == 0 {
                     return Err(ConfigError::InvalidArgument("rw bit without address bytes"));
                 }
                 Mode::Registers {
-                    addr_bytes: r.addr_bytes,
+                    addr_bytes,
                     rw_mask,
                     set_is_read,
-                    dummy_bytes: r.dummy_bytes,
+                    dummy_bytes,
                     idle: r.idle,
-                    len: r.len,
+                    len,
                 }
             }
             SpiSlaveAnswers::Unknown(_) => return Err(ConfigError::Unsupported),
@@ -290,7 +291,7 @@ impl<
             truncated: r.mosi_count as usize > REC,
             overrun: r.overrun,
             underrun: r.underrun,
-            addr: r.addr,
+            addr: r.addr.map(Index::<Byte, u32>::new),
             mosi: MaxLen::new_unchecked(RefVec::new_bytes(&r.mosi[..mosi])),
             miso: MaxLen::new_unchecked(RefVec::new_bytes(&r.miso[..miso])),
         };

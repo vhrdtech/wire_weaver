@@ -7,13 +7,13 @@ level: basic
 Part of the [IO trait family](io_family.md). `ww_spi` is a global WireWeaver trait for talking to the SPI devices
 on a bus remotely: full-duplex transfers, transactions with CS held across several operations, plain writes,
 watching a bus without taking part, and standing in for a chip on another master's bus ([slave mode](#slave-mode)). It is `no_std` by default and depends only on `wire_weaver` and `ww_si` (for
-the `Hertz`, `Second` and `Volt` quantity types).
+the `Hertz` and `Second` quantity types, and the `Fixed`/`Bytes`/`Index`/`Count` typed numbers below).
 
 Add it to a device API crate with:
 
 ```toml
 [dependencies]
-ww_spi = "0.1"
+ww_spi = "0.2"
 ```
 
 ## Traits
@@ -89,14 +89,14 @@ pub trait Spi {
     #[stream(SpiSlaveFrame<'i>, counted)]
     fn slave_frames(config: SpiSlaveConfig) -> Result<(), SpiError<'i>>;
     #[optional(slave)]
-    fn slave_map_write(offset: u32, data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError<'i>>;
+    fn slave_map_write(offset: Index<Byte, u32>, data: MaxLen<RefVec<'i, u8>, SPI_MAX>) -> Result<(), SpiError<'i>>;
     #[optional(slave)]
-    fn slave_map_read(offset: u32, len: u16) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
+    fn slave_map_read(offset: Index<Byte, u32>, len: Bytes<u16>) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
     #[optional(slave)]
     #[credit]
     sink!(slave_answers: MaxLen<RefVec<'i, u8>, SPI_MAX>);
     #[optional(slave)]
-    fn slave_clear_answers() -> u32;
+    fn slave_clear_answers() -> Count<Item, u32>;
 }
 ```
 
@@ -114,10 +114,10 @@ goes active. `answers` picks where it comes from:
   answer that comes during a frame waits for the next one. A device with a TX FIFO loads a frame's first bytes
   before CS goes active, so "queued in time" means there by the time it loads them. This fits protocols where the master sends a command,
   waits, and reads the answer in a frame of its own, or polls until it is there.
-* `SpiSlaveAnswers::Registers(SpiRegisters { addr_bytes, rw, dummy_bytes, idle, len })` - a register map on the
-  device, filled and read back with `slave_map_write` / `slave_map_read`. The first `addr_bytes` bytes of a frame are
-  the address (big-endian), `rw` (`ReadOnly`, `SetIsRead { bit }`, `ClearIsRead { bit }`) says from a bit of the
-  first byte whether the frame reads or writes, `dummy_bytes` are clocked between address and data of a read frame (a write frame has none). The device has
+* `SpiSlaveAnswers::Registers(SpiRegisters { addr, rw, dummy, idle, len })` - a register map on the
+  device, filled and read back with `slave_map_write` / `slave_map_read`. The first `addr` bytes of a frame are
+  the address (big-endian), `rw` (`ReadOnly`, `SetIsRead { bit }`, `ClearIsRead { bit }`, `bit` a 0-7 `Index`) says from a bit of the
+  first byte whether the frame reads or writes, `dummy` bytes are clocked between address and data of a read frame (a write frame has none). The device has
   to turn the address around into data within a bit time or the dummy bytes, so this works up to
   `SpiSlaveCapabilities::map_max_freq` without dummy bytes, and each dummy byte gives it 8 more bit times. A host
   update takes effect between two frames.
@@ -127,29 +127,31 @@ address and `map_max_freq` (`None`: no register map).
 
 ## Types
 
-* `SpiConfig` - `role: SpiRole`, `freq: Hertz`, `mode: SpiMode`, `bit_order: BitOrder`, `word_bits: u8`,
-  `cs: CsMode`, `io_level: Option<Volt>`; the argument and the answer of `Spi::configure`.
-* `SpiMonitorConfig` - `mode`, `bit_order`, `word_bits`, `io_level`: the subset of `SpiConfig` a monitor needs to
+* `SpiConfig` - `role: SpiRole`, `freq: Hertz`, `mode: SpiMode`, `bit_order: BitOrder`, `word: Fixed<Bit, One, u8>`,
+  `cs: CsMode`, `io_level: Option<Fixed<Volt, Milli, u16>>`; the argument and the answer of `Spi::configure`.
+* `SpiMonitorConfig` - `mode`, `bit_order`, `word`, `io_level`: the subset of `SpiConfig` a monitor needs to
   decode frames, the argument of `Spi::monitor`.
 * `SpiRole` - `Disabled`, `Master`. Slave mode is `slave_frames`, not a role.
-* `SpiSlaveConfig` - `mode`, `bit_order`, `word_bits`, `io_level`, `answers: SpiSlaveAnswers`.
+* `SpiSlaveConfig` - `mode`, `bit_order`, `word`, `io_level`, `answers: SpiSlaveAnswers`.
 * `SpiSlaveAnswers` - `Queue { idle: u8, repeat_last: bool }` or `Registers(SpiRegisters)`, see
   [slave mode](#slave-mode).
-* `SpiRegisters` - `addr_bytes: u8`, `rw: SpiRwBit`, `dummy_bytes: u8`, `idle: u8`, `len: u32`.
-* `SpiRwBit` - `ReadOnly`, `SetIsRead { bit: u8 }`, `ClearIsRead { bit: u8 }`.
+* `SpiRegisters` - `addr: Bytes<u8>`, `rw: SpiRwBit`, `dummy: Bytes<u8>`, `idle: u8`, `len: Bytes<u32>`.
+* `SpiRwBit` - `ReadOnly`, `SetIsRead { bit: Index<Bit, u8, Range<0, 7>> }`, `ClearIsRead { bit: Index<Bit, u8, Range<0, 7>> }`.
 * `SpiSlaveFrame<'i>` - `end: Second`, `truncated`, `overrun` (the device lost MOSI bytes), `underrun` (no answer was
-  queued), `addr: Option<u32>`, `mosi` / `miso`.
-* `SpiSlaveCapabilities` - `max_freq: Hertz`, `queue_len`, `map_len`, `max_addr_bytes`, `map_max_freq: Option<Hertz>`.
+  queued), `addr: Option<Index<Byte, u32>>`, `mosi` / `miso`.
+* `SpiSlaveCapabilities` - `max_freq: Hertz`, `queue_len: Count<Item, u32>`, `map_len: Bytes<u32>`, `max_addr:
+  Bytes<u8>`, `map_max_freq: Option<Hertz>`.
 * `SpiMode` - `Mode0`..`Mode3`, the usual CPOL/CPHA numbering; `sized`, 2 bits.
 * `BitOrder` - `MsbFirst`, `LsbFirst`; `sized`, 1 bit.
 * `CsMode` - `Auto` (asserted per transfer/transaction, released after), `Manual` (only `Spi::set_cs`), `None` (not
   driven by this device).
-* `SpiOp<'i>` - one operation of a `Spi::transaction`: `Write`, `Read(u16)`, `Transfer`, `Delay(Second)`.
+* `SpiOp<'i>` - one operation of a `Spi::transaction`: `Write`, `Read(Bytes<u16>)`, `Transfer`, `Delay(Second)`.
 * `SpiFrame<'i>` - one frame seen by `Spi::monitor`: `end: Second` (CS released; asserted is the head's time),
   `truncated`, `mosi` / `miso: MaxLen<RefVec<'i, u8>, SPI_MAX>`.
-* `SpiCapabilities<'i>` - `min_freq` / `max_freq: Hertz`, `min_word_bits` / `max_word_bits: u8`, `master:
-  bool`, `io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>`
-  (an adjustable supply), `max_len: u32` (largest transfer this device does, at most `SPI_MAX`).
+* `SpiCapabilities<'i>` - `min_freq` / `max_freq: Hertz`, `min_word` / `max_word: Fixed<Bit, One, u8>`, `master:
+  bool`, `io_levels: MaxLen<RefVec<'i, Fixed<Volt, Milli, u16>>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max:
+  Option<Fixed<Volt, Milli, u16>>` (an adjustable supply), `max_len: Bytes<u32>` (largest transfer this device
+  does, at most `SPI_MAX`).
 * `SpiError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `BufferTooBig`; unsized
   (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 

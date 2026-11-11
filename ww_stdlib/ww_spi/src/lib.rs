@@ -53,7 +53,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Hertz, Second, Volt};
+pub use ww_si::prefix::{Milli, One};
+pub use ww_si::units::{Bit, Byte, Item, Volt};
+pub use ww_si::{Bytes, Count, Fixed, Hertz, Index, Range, Second};
 
 /// Largest data of one `Spi::transfer` or `Spi::write`, and of the reads of one `Spi::transaction` concatenated,
 /// in bytes.
@@ -99,7 +101,7 @@ pub trait Spi {
 
     /// Configures the bus and returns what was actually set: the frequency the hardware settled on (the nearest it
     /// can do, never above the one asked for) and the IO level in effect. [SpiRole::Disabled] releases the pins.
-    /// `InUse` while `Spi::slave_frames` or `Spi::monitor` is open, `Unsupported` for a `word_bits`, a [CsMode] or an
+    /// `InUse` while `Spi::slave_frames` or `Spi::monitor` is open, `Unsupported` for a `word`, a [CsMode] or an
     /// IO level the adapter doesn't have, `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when
     /// e.g. the bus already sits at a higher voltage than `io_level`.
     #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
@@ -115,7 +117,7 @@ pub trait Spi {
     /// device dropped.
     ///
     /// Optional: an adapter without monitoring hardware leaves it out (`omit = ["spi.monitor"]`), and a host sees
-    /// that in the device's introspection. `Unsupported` for a `word_bits` the monitor can't decode.
+    /// that in the device's introspection. `Unsupported` for a `word` the monitor can't decode.
     #[optional]
     #[errors(Common(InUse, Unsupported, Refused))]
     #[stream(SpiFrame<'i>, counted)]
@@ -130,7 +132,7 @@ pub trait Spi {
     /// frame; the head's time is when CS was asserted, and the host learns exactly how many frames the device
     /// dropped.
     ///
-    /// `InUse` while the bus is a master or monitor, `Unsupported` for a source, `word_bits` or address width the
+    /// `InUse` while the bus is a master or monitor, `Unsupported` for a source, `word` or address width the
     /// device can't do ([SpiSlaveCapabilities]), `BufferTooBig` for a register map larger than
     /// [SpiSlaveCapabilities::map_len].
     #[optional(slave)]
@@ -147,7 +149,7 @@ pub trait Spi {
     #[optional(slave)]
     #[errors(BufferTooBig)]
     fn slave_map_write(
-        offset: u32,
+        offset: Index<Byte, u32>,
         data: MaxLen<RefVec<'i, u8>, SPI_MAX>,
     ) -> Result<(), SpiError<'i>>;
 
@@ -157,8 +159,8 @@ pub trait Spi {
     #[optional(slave)]
     #[errors(BufferTooBig)]
     fn slave_map_read(
-        offset: u32,
-        len: u16,
+        offset: Index<Byte, u32>,
+        len: Bytes<u16>,
     ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
 
     /// Answers for [SpiSlaveAnswers::Queue], one item per frame, in order. A frame shorter than its answer leaves
@@ -175,7 +177,7 @@ pub trait Spi {
 
     /// Drops every queued answer and returns how many there were.
     #[optional(slave)]
-    fn slave_clear_answers() -> u32;
+    fn slave_clear_answers() -> Count<Item, u32>;
 }
 
 /// Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set
@@ -188,11 +190,11 @@ pub struct SpiConfig {
     pub mode: SpiMode,
     pub bit_order: BitOrder,
     /// Bits per word; words above 8 bits travel as 2 bytes, little-endian.
-    pub word_bits: u8,
+    pub word: Fixed<Bit, One, u8>,
     pub cs: CsMode,
     /// Voltage of the lines on adapters with level translators ([SpiCapabilities::io_levels]); `None` leaves it as
     /// it is going in (the only choice on a device without them), and is the answer of a device without them.
-    pub io_level: Option<Volt>,
+    pub io_level: Option<Fixed<Volt, Milli, u16>>,
 }
 
 /// Bus settings for `Spi::monitor`: everything needed to decode frames correctly, without the
@@ -201,9 +203,9 @@ pub struct SpiConfig {
 pub struct SpiMonitorConfig {
     pub mode: SpiMode,
     pub bit_order: BitOrder,
-    pub word_bits: u8,
+    pub word: Fixed<Bit, One, u8>,
     /// Input threshold level, as [SpiConfig::io_level].
-    pub io_level: Option<Volt>,
+    pub io_level: Option<Fixed<Volt, Milli, u16>>,
 }
 
 /// Bus role, set with `Spi::configure`. Slave mode is `Spi::slave_frames`, not a role here.
@@ -223,6 +225,7 @@ pub enum SpiRole {
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
     derive(Copy, Clone, Debug, PartialEq, Eq),
     sized,
     ww_repr = u2
@@ -273,7 +276,7 @@ pub enum SpiOp<'i> {
     /// Write these bytes, ignoring what comes back.
     Write(MaxLen<RefVec<'i, u8>, SPI_MAX>),
     /// Read this many bytes.
-    Read(u16),
+    Read(Bytes<u16>),
     /// Full duplex: write these bytes, keep what comes back.
     Transfer(MaxLen<RefVec<'i, u8>, SPI_MAX>),
     /// Wait, without touching the lines; CS stays asserted.
@@ -298,17 +301,17 @@ pub struct SpiFrame<'i> {
 pub struct SpiCapabilities<'i> {
     pub min_freq: Hertz,
     pub max_freq: Hertz,
-    pub min_word_bits: u8,
-    pub max_word_bits: u8,
+    pub min_word: Fixed<Bit, One, u8>,
+    pub max_word: Fixed<Bit, One, u8>,
     pub master: bool,
     /// Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.
-    pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
+    pub io_levels: MaxLen<RefVec<'i, Fixed<Volt, Milli, u16>>, MAX_IO_LEVELS>,
     /// Lowest IO level of an adjustable supply, if the adapter has one.
-    pub io_level_min: Option<Volt>,
+    pub io_level_min: Option<Fixed<Volt, Milli, u16>>,
     /// Highest IO level of an adjustable supply, if the adapter has one.
-    pub io_level_max: Option<Volt>,
+    pub io_level_max: Option<Fixed<Volt, Milli, u16>>,
     /// Largest transfer this device does, at most [SPI_MAX].
-    pub max_len: u32,
+    pub max_len: Bytes<u32>,
 }
 
 /// Slave mode, see `Spi::slave_frames`.
@@ -320,10 +323,10 @@ pub struct SpiCapabilities<'i> {
 pub struct SpiSlaveConfig {
     pub mode: SpiMode,
     pub bit_order: BitOrder,
-    /// As in [SpiConfig::word_bits].
-    pub word_bits: u8,
+    /// As in [SpiConfig::word].
+    pub word: Fixed<Bit, One, u8>,
     /// As in [SpiConfig::io_level].
-    pub io_level: Option<Volt>,
+    pub io_level: Option<Fixed<Volt, Milli, u16>>,
     /// What this device sends on MISO.
     pub answers: SpiSlaveAnswers,
 }
@@ -351,19 +354,19 @@ pub enum SpiSlaveAnswers {
     derive(Copy, Clone, Debug, PartialEq)
 )]
 pub struct SpiRegisters {
-    /// Address bytes at the start of each frame (big-endian), without the bits of `rw`. This device sends `idle`
-    /// while they come in.
-    pub addr_bytes: u8,
+    /// Width of the address at the start of each frame (big-endian), without the bits of `rw`. This device sends
+    /// `idle` while they come in.
+    pub addr: Bytes<u8>,
     /// Which frames read and which write.
     pub rw: SpiRwBit,
     /// Bytes the master clocks between the address and the data of a read frame, giving this device time to fetch
     /// it; it sends `idle` meanwhile. A write frame has none (its data follows the address right away). More of them
     /// allow a faster clock, see [SpiSlaveCapabilities::map_max_freq].
-    pub dummy_bytes: u8,
+    pub dummy: Bytes<u8>,
     /// Sent while there is no data: during the address and dummy bytes, in a write frame, and past the map's end.
     pub idle: u8,
     /// Size of the map in use, in bytes (at most [SpiSlaveCapabilities::map_len]); the address wraps at it.
-    pub len: u32,
+    pub len: Bytes<u32>,
 }
 
 /// How a register frame says whether it reads or writes, see [SpiRegisters::rw].
@@ -376,10 +379,10 @@ pub struct SpiRegisters {
 pub enum SpiRwBit {
     /// Every frame reads; the master can't write the map.
     ReadOnly,
-    /// Bit `bit` (0-7) of the first address byte: set reads, clear writes (bit 7 in most sensors).
-    SetIsRead { bit: u8 },
+    /// Bit `bit` of the first address byte: set reads, clear writes (bit 7 in most sensors).
+    SetIsRead { bit: Index<Bit, u8, Range<0, 7>> },
     /// Bit `bit` of the first address byte: clear reads, set writes.
-    ClearIsRead { bit: u8 },
+    ClearIsRead { bit: Index<Bit, u8, Range<0, 7>> },
 }
 
 /// One frame of `Spi::slave_frames`: from CS asserted to released.
@@ -395,7 +398,7 @@ pub struct SpiSlaveFrame<'i> {
     /// answer with `repeat_last`).
     pub underrun: bool,
     /// [SpiSlaveAnswers::Registers]: the address of the frame.
-    pub addr: Option<u32>,
+    pub addr: Option<Index<Byte, u32>>,
     /// What the master sent.
     pub mosi: MaxLen<RefVec<'i, u8>, SPI_MAX>,
     /// What this device sent.
@@ -408,11 +411,11 @@ pub struct SpiSlaveCapabilities {
     /// Fastest SCK the slave takes with the answer queue.
     pub max_freq: Hertz,
     /// Answers the queue holds, 0 if there is none ([SpiSlaveAnswers::Queue] unsupported).
-    pub queue_len: u32,
-    /// Size of the register map in bytes, 0 if there is none ([SpiSlaveAnswers::Registers] unsupported).
-    pub map_len: u32,
-    /// Widest address, in bytes.
-    pub max_addr_bytes: u8,
+    pub queue_len: Count<Item, u32>,
+    /// Size of the register map, 0 if there is none ([SpiSlaveAnswers::Registers] unsupported).
+    pub map_len: Bytes<u32>,
+    /// Widest address.
+    pub max_addr: Bytes<u8>,
     /// Fastest SCK at which register reads come out right without dummy bytes; each dummy byte gives the device
     /// 8 more bit times.
     pub map_max_freq: Option<Hertz>,

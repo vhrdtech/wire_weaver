@@ -2332,6 +2332,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_self` tests `signature::tests`, `conformance` test `signatures`).
 - ✅ **EVO-65 `ww_dfu` typed numbers on the wire** · `v0.5` — `ww_dfu` on a new wire line, `w2.0` (P2401 stdlib units survey): step indices and counts are `Index<Step, u32>` / `Count<Step, u32>`, chunks `Index`/`Count<Chunk, u16>`, erase blocks `Index<Block, u16>` / `Count<Block, u16>`, byte offsets in a chunk or a plan `Index<Byte, u32>`, sizes `Bytes<u32>`, all the same bytes. The breaks: `NodeInfo`'s `product_id`, `app_version` and `version_floor` become `app: Option<ImageInfo>` (`ProductId`, `ImageVersion`, and the image's new `security_counter`) and `security_floor: SecurityCounter`, as chunky checks the floor against the security counter, not the version; `geometry_id` is `geometry: GeometryId`; `LastResult::version` is `Option<ImageVersion>`; `Session::resume_from` is split into `resume_step` and `resume_byte`; `StageLimits::max_piece` is `Fixed<Byte, One, u16, Range<1, 1024>>` (a `u16`, bounded), `in_flight` `Fixed<Request, One, u8, Range<1, 255>>`; `ack_every` and `plan_area` are `Niched<.., Null<0>>`. Tests `ww_dfu` (bytes of every wrapper, the bounds, the niches), `tests/dfu`, `tests/dfu_scenarios` (transcripts again). No device or host uses the format.
 - ✅ **EVO-58 Typed, bounded calendar fields of `ww_date_time`** · `v0.5` — the wire change of `ww_date_time` (wire line `w1.0` -> `w2.0`): `NaiveDate::month` and `day` are `IndexFrom1<Month, U4, Range<1, 12>>` and `IndexFrom1<Day, U5, Range<1, 31>>`, `NaiveTime::secs` is `Fixed<Second, One, U17, Range<0, 86_399>>` and `frac` `Option<Fixed<Second, Nano, U31, Range<0, 1_999_999_999>>>`, `OtherTimezone::FixedOffset::secs` is `Fixed<Second, One, I18, Range<-86_399, 86_399>>`. The bytes are the same, the new bounds are checked on decode (`SubtypeOutOfRange`), so a bound added is a break. Types embedding `DateTime` (`ww_board_info`, `ww_firmware_info`, `ww_timebase`) move to a new wire line with it. No device or host uses the format.
+- ✅ **EVO-57 `ww_spi` typed numbers on the wire** · `v0.5` — the wire change of STD-56 for `ww_spi`: word size,
+  byte lengths, register offsets and counts move from a bare integer to `exact_units::Fixed` / `Bytes` / `Index` /
+  `Count` (same bytes, Rust-only break besides the renames); `SpiRwBit::SetIsRead`/`ClearIsRead`'s `bit` gets a
+  `Range<0, 7>` bound and `io_level` moves from `ww_si::Quantity<Volt>` to `Fixed<Volt, Milli, u16>` (both narrow
+  or change what is sent, a real wire break); `ww_spi` was never published, so its 0.1.0 snapshot was saved again
+  in place on a new wire line, `w2.0`. No device or host uses the format (`~/git/tpm/area/ops/in-use.md`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
@@ -3003,9 +3009,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   id, and its `cnt` format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
   be behind (STD-25): bring the firmware's `cnt` and build id up to what the tool needs, or make the tool say which
   format it got and what is missing instead of failing.
-- 📋 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
+- 🚧 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
   `ring_capacity_bytes: u64`, `queue_len: u32` and about 80 more across `ww_stdlib`, `ww_link`, `ww_stream`,
-  `ww_client_server` and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.
+  `ww_client_server` and the host crates: same bytes, a Rust-API break per crate; a bound, a counted unit or a
+  `Quantity` moved to `Fixed` needs a new wire line too (tpm's `stdlib-units-survey` design note, "Decisions, 11
+  Nov 2026": better design wins over wire compatibility). STD-55 is built, so this is no longer on hold. `ww_spi`
+  done (EVO-57); the rest of `ww_stdlib` is tracked per crate under P2401 ^v0.5 +stdlib.
 - 📋 **STD-77 Runtime scale parts and reference values** · `v0.5` — what device standards do at run time, without a
   refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
   (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec `*_SF` scale-factor register), and a

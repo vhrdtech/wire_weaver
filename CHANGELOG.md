@@ -45,6 +45,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - exact_units taken up to 109f3cf (counted markers Month, Interface, Retry and Request, UNIT-6; `defmt::Format` for `Niched`, `Null` and `Clipped`), in every Cargo.lock that has it; `ww_dfu`'s `StageLimits::in_flight` counts `Request`s. See the `wire_weaver_snapshots` changelog.
 - `ww_dfu` on wire `w2.0` with typed numbers (EVO-65): steps, chunks, erase blocks and byte offsets as `Index`/`Count`/`Bytes`, ids and versions as newtypes, the anti-rollback floor a `SecurityCounter` apart from the release `ImageVersion`, `resume_from` split in two. The dfu transcripts decode generic types (`ww_self::generics::prepare`). See the `ww_dfu` and `wire_weaver_cli` changelogs.
 - `ww_date_time` calendar fields are typed with their bounds (month and day as `IndexFrom1`, seconds and nanoseconds as `Fixed`, EVO-58, wire line `w2.0`): see the `ww_date_time` changelog.
+- Generic parameter defaults that name another parameter's associated type work in APIs (API-65): `Niched<V, N>` without its storage, `T = <V as RawValue>::Raw`, resolved through exact_units' `impl RawValue` (see the `wire_weaver_core` changelog).
 
 ### Added
 

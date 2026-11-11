@@ -269,6 +269,14 @@ Arguments can be types, integer and `bool` literals, `const` items of the crate,
 (`struct Outer<const N: usize> { window: Window<N> }`), or left to the parameter's default. How a generic type may
 change is in the [evolution rules](evolution/rules.md#generic-types).
 
+A default may name another parameter's associated type (API-65): exact_units' `Niched<V, N, T = <V as
+RawValue>::Raw>` is used as `Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<0xFF>>`, and the model has the same
+`Niched<.., u8>` as when `u8` is written out. The walker finds the `impl RawValue for Fixed<U, P, T, B>` in the
+trait's crate or the type's and takes its `type Raw = T` with the arguments of the use; the shorthand `V::Raw` is
+read through `V`'s trait bounds. Such a default needs a concrete argument: in a generic definition of your own,
+`struct Wrap<V> { n: Niched<V, Null<0>> }` is refused, as the impl isn't known before `Wrap` is used, so write `T`
+out there.
+
 ### Type aliases
 
 A `type` alias stands for what it names, in every API position (API-45):

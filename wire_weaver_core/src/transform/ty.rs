@@ -1,6 +1,7 @@
 use super::{
     crate_walker::{CrateContext, LookupKey, Scratch, TypeInProgress},
     markers::{CrateRefs, generic_codec_error, is_generic_codec, marker_def},
+    projection::{Projection, param_bounds},
     unit_hint::{is_silenced, suggest},
     util::{
         Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
@@ -71,6 +72,10 @@ pub(crate) fn convert_ty_path(
     let Some((last, leading)) = segments.split_last() else {
         return Err(anyhow!("Empty type path"));
     };
+    // `<V as RawValue>::Raw`, `V::Raw`: the associated type of the impl the type has
+    if let Some(projection) = Projection::of(ty_path, scratch) {
+        return projection.resolve(current_crate, scratch);
+    }
     // a parameter of the type alias being converted, stands for the argument it was given
     if leading.is_empty()
         && ty_path.qself.is_none()
@@ -191,7 +196,7 @@ fn convert_segment_in(
 /// and the crate or module it is in: defined in `current_crate`, imported by name (`use a::Ty`, `use a::Ty as
 /// Renamed`), or through a glob import (looked into last, as Rust does). A module the search has been in already is
 /// not searched again, so imports that lead back end the search instead of going round.
-fn find_user_item(
+pub(super) fn find_user_item(
     user_ty: &str,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
@@ -220,6 +225,10 @@ fn find_user_item_in(
                 return Ok((current_crate.clone(), item.clone()));
             }
             Item::Type(item_type) if item_type.ident == user_ty => {
+                return Ok((current_crate.clone(), item.clone()));
+            }
+            // types and traits share a namespace: a projection looks a trait up the same way
+            Item::Trait(item_trait) if item_trait.ident == user_ty => {
                 return Ok((current_crate.clone(), item.clone()));
             }
             Item::Use(item_use) => {
@@ -269,9 +278,10 @@ fn convert_user_ty(
             return convert_alias(segment, def_cx, item_type, current_crate, scratch);
         }
         _ => {
-            return Err(anyhow!(
-                "{segment:?} is not a struct, an enum or a type alias"
-            ));
+            return Err(
+                anyhow!("{} is not a struct, an enum or a type alias", segment.ident)
+                    .context(def_cx.err_context()),
+            );
         }
     };
     if let Item::Struct(item_struct) = item
@@ -280,7 +290,15 @@ fn convert_user_ty(
         return Err(generic_codec_error(ident).context(def_cx.err_context()));
     }
     let params = convert_generic_params(ident, generics, def_cx, scratch)?;
-    let args = convert_generic_args(segment, ident, &params, def_cx, current_crate, scratch)?;
+    let args = convert_generic_args(
+        segment,
+        ident,
+        generics,
+        &params,
+        def_cx,
+        current_crate,
+        scratch,
+    )?;
     let params: Vec<_> = params.into_iter().map(|(p, _)| p).collect();
     let ty = convert_def(def_cx, item, params, scratch)?;
     if args.is_empty() {
@@ -306,7 +324,15 @@ fn convert_alias(
 ) -> Result<TypeOwned> {
     let ident = &item_type.ident;
     let params = convert_generic_params(ident, &item_type.generics, def_cx, scratch)?;
-    let args = convert_generic_args(segment, ident, &params, def_cx, current_crate, scratch)?;
+    let args = convert_generic_args(
+        segment,
+        ident,
+        &item_type.generics,
+        &params,
+        def_cx,
+        current_crate,
+        scratch,
+    )?;
     let alias_args = params
         .into_iter()
         .zip(args)
@@ -315,7 +341,10 @@ fn convert_alias(
     // the right-hand side is written in the alias' crate: the caller's parameters are not in scope there
     let saved_alias_args = std::mem::replace(&mut scratch.alias_args, alias_args);
     let saved_scope = std::mem::take(&mut scratch.generic_scope);
+    let saved_bounds =
+        std::mem::replace(&mut scratch.trait_bounds, param_bounds(&item_type.generics));
     let ty = convert_ty(&item_type.ty, def_cx, scratch);
+    scratch.trait_bounds = saved_bounds;
     scratch.generic_scope = saved_scope;
     scratch.alias_args = saved_alias_args;
     ty.with_context(|| format!("type alias {ident}"))
@@ -378,6 +407,7 @@ fn convert_def(
     });
     let saved_scope = std::mem::replace(&mut scratch.generic_scope, params);
     let saved_alias_args = std::mem::take(&mut scratch.alias_args);
+    let saved_bounds = std::mem::take(&mut scratch.trait_bounds);
     let own_attrs = match item {
         Item::Enum(item_enum) => &item_enum.attrs,
         Item::Struct(item_struct) => &item_struct.attrs,
@@ -402,6 +432,7 @@ fn convert_def(
         },
         Err(e) => Err(e),
     };
+    scratch.trait_bounds = saved_bounds;
     scratch.alias_args = saved_alias_args;
     scratch.generic_scope = saved_scope;
     let in_progress = scratch
@@ -586,10 +617,12 @@ fn convert_const_param_ty(ty: &Type) -> Option<TypeOwned> {
 }
 
 /// Arguments of `segment` for the parameters of `ident`: types and const values converted in `current_crate` with
-/// the current generic scope, missing trailing ones from the parameters' defaults (converted in `def_cx`).
+/// the current generic scope, missing trailing ones from the parameters' defaults (converted in `def_cx`, each
+/// parameter before it standing for its argument: `T = <V as RawValue>::Raw` of `Niched<V, N, T>`).
 fn convert_generic_args(
     segment: &PathSegment,
     ident: &syn::Ident,
+    generics: &syn::Generics,
     params: &[(GenericParamOwned, Option<ParamDefault>)],
     def_cx: &CrateContext,
     current_crate: &CrateContext,
@@ -612,15 +645,23 @@ fn convert_generic_args(
             written.len()
         )));
     }
-    let mut args = Vec::with_capacity(params.len());
+    let mut args: Vec<GenericArgOwned> = Vec::with_capacity(params.len());
     for (idx, (param, default)) in params.iter().enumerate() {
         let arg = match (written.get(idx), default) {
             (Some(arg), _) => convert_generic_arg(arg, param, current_crate, scratch)
                 .map_err(|e| e.context(format!("argument {} of {ident}", param.ident)))?,
             (None, Some(default)) => {
-                // the default is written in the definition's crate, where the caller's parameters are not in scope
+                // the default is written in the definition's crate, where the caller's parameters are not in scope;
+                // the definition's parameters before it are, as the arguments already found for them
+                let before = params
+                    .iter()
+                    .zip(&args)
+                    .map(|((param, _), arg)| (param.ident.clone(), arg.clone()))
+                    .collect();
                 let saved = std::mem::take(&mut scratch.generic_scope);
-                let saved_alias_args = std::mem::take(&mut scratch.alias_args);
+                let saved_alias_args = std::mem::replace(&mut scratch.alias_args, before);
+                let saved_bounds =
+                    std::mem::replace(&mut scratch.trait_bounds, param_bounds(generics));
                 let arg = match default {
                     ParamDefault::Type(ty) => {
                         convert_ty(ty, def_cx, scratch).map(GenericArgOwned::Type)
@@ -629,6 +670,7 @@ fn convert_generic_args(
                         convert_const_arg(expr, param, def_cx, scratch).map(GenericArgOwned::Const)
                     }
                 };
+                scratch.trait_bounds = saved_bounds;
                 scratch.alias_args = saved_alias_args;
                 scratch.generic_scope = saved;
                 arg.map_err(|e| e.context(format!("default of {} of {ident}", param.ident)))?
@@ -729,13 +771,13 @@ fn convert_const_arg(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-enum ConstValue {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) enum ConstValue {
     Bool(bool),
     Int(i128),
 }
 
-fn const_expr_value(expr: &Expr, current_crate: &CrateContext) -> Option<ConstValue> {
+pub(super) fn const_expr_value(expr: &Expr, current_crate: &CrateContext) -> Option<ConstValue> {
     match expr {
         Expr::Lit(lit) => match &lit.lit {
             Lit::Int(lit_int) => lit_int.base10_parse().ok().map(ConstValue::Int),
@@ -793,7 +835,10 @@ fn numeric_value(base: &NumericBaseType, v: i128) -> Result<NumericValue> {
 }
 
 /// Index and definition of the parameter `name` of the generic definition being converted.
-fn scope_param<'s>(scratch: &'s Scratch, name: &str) -> Option<(u32, &'s GenericParamOwned)> {
+pub(super) fn scope_param<'s>(
+    scratch: &'s Scratch,
+    name: &str,
+) -> Option<(u32, &'s GenericParamOwned)> {
     scratch
         .generic_scope
         .iter()
@@ -803,7 +848,7 @@ fn scope_param<'s>(scratch: &'s Scratch, name: &str) -> Option<(u32, &'s Generic
 }
 
 /// Argument a parameter of the type alias being converted stands for.
-fn alias_arg<'s>(scratch: &'s Scratch, name: &str) -> Option<&'s GenericArgOwned> {
+pub(super) fn alias_arg<'s>(scratch: &'s Scratch, name: &str) -> Option<&'s GenericArgOwned> {
     scratch
         .alias_args
         .iter()
@@ -851,6 +896,7 @@ fn declares_or_imports(cx: &CrateContext, name: &str) -> bool {
         Item::Enum(item_enum) => item_enum.ident == name,
         Item::Struct(item_struct) => item_struct.ident == name,
         Item::Type(item_type) => item_type.ident == name,
+        Item::Trait(item_trait) => item_trait.ident == name,
         Item::Use(item_use) => use_tree_path_to(&item_use.tree, name).is_some(),
         _ => false,
     })
@@ -1555,7 +1601,7 @@ fn get_default_attr(
 }
 
 #[cfg(test)]
-pub(super) mod recursive_tests {
+pub(in crate::transform) mod recursive_tests {
     use std::path::PathBuf;
     use ww_self::{ApiBundleOwned, TypeLocationOwned, TypeOwned};
 

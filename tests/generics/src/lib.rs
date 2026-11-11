@@ -17,7 +17,8 @@ mod tests {
         ValueOwned,
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
-    use ww_si::{Ampere, Prefix, Timed};
+    use ww_si::exact_units::niche::{Niched, Null};
+    use ww_si::{Ampere, Fixed, Prefix, Range, Timed, prefix::One, units::Ratio};
 
     #[derive(Default)]
     struct SharedTestData {
@@ -26,7 +27,11 @@ mod tests {
         voltage: Option<Volt>,
         timed_voltage: Option<Timed<Volt>>,
         sample: Option<Sample<u8>>,
+        niched: Option<Niched8>,
     }
+
+    /// A ratio with 0xFF as its niche, `T` left to `<V as RawValue>::Raw` (API-65)
+    type Niched8 = Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<0xFF>>;
 
     mod server {
         use super::*;
@@ -174,6 +179,33 @@ mod tests {
                     Some(v) => GetResult::Value(v),
                     None => GetResult::GetError(()),
                 }
+            }
+
+            fn set_niched(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Niched8,
+            ) -> SetResult<()> {
+                self.data.lock().unwrap().niched = Some(value);
+                SetResult::Set
+            }
+
+            fn get_niched(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Niched8, ()> {
+                match self.data.lock().unwrap().niched {
+                    Some(v) => GetResult::Value(v),
+                    None => GetResult::GetError(()),
+                }
+            }
+
+            fn niched_spelled(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                n: Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<0xFF>, u8>,
+            ) -> RpcResult<Niched8> {
+                Ready(n)
             }
 
             fn close_readings(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
@@ -382,8 +414,8 @@ mod tests {
         assert_eq!(
             defs,
             [
-                "Fixed", "Outer", "Pair", "Point", "Quantity", "Quantity", "Reading", "Tagged",
-                "Timed", "Window"
+                "Fixed", "Niched", "Null", "Outer", "Pair", "Point", "Quantity", "Quantity",
+                "Range", "Reading", "Tagged", "Timed", "Window"
             ]
         );
         let (arg, ret) = method_types(&bundle, 0);
@@ -459,6 +491,20 @@ mod tests {
             ApiItemKindOwned::Method { args, .. } => args[0].ty.clone(),
             _ => panic!("property or method"),
         }
+    }
+
+    /// API-65: `Niched<V, N>` takes `T` from `<V as RawValue>::Raw`, found in exact_units' `impl RawValue for
+    /// Fixed` (in its `niche` module): the same type in the model as `T` written out, `u8` on the wire.
+    #[test]
+    fn default_through_an_associated_type() {
+        let bundle = bundle();
+        let (spelled, left_out) = method_types(&bundle, 11);
+        assert_eq!(spelled, left_out);
+        assert_eq!(item_ty(&bundle, 10), left_out);
+        assert_eq!(
+            left_out.human_name(false, &bundle).unwrap(),
+            "Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<255>, u8>"
+        );
     }
 
     #[test]
@@ -592,6 +638,18 @@ mod tests {
             value.ser_shrink_wrap_dyn(ty, &bundle).unwrap(),
             outer().to_ww_bytes_owned().unwrap()
         );
+
+        // API-65: `Niched` with its storage from the default, read dynamically: the derived bytes, one u8
+        let niched = Niched8::from(Some(Fixed::try_new(42).unwrap()));
+        data.lock().unwrap().niched = Some(niched);
+        let value = root.child("niched").unwrap().read(cmd).await.unwrap();
+        assert_eq!(value, named(vec![("raw", num(NumericValue::U8(42)))]));
+        let ApiItemKindOwned::Property { ty, .. } = &bundle.get_item(&[10]).unwrap().kind else {
+            panic!("property");
+        };
+        let bytes = niched.to_ww_bytes_owned().unwrap();
+        assert_eq!(bytes, [42]);
+        assert_eq!(value.ser_shrink_wrap_dyn(ty, &bundle).unwrap(), bytes);
 
         // Timed<Ampere> from the snapshot definitions
         let latest_value = named(vec![

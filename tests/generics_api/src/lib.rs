@@ -1,12 +1,15 @@
 //! Generic user types in an API (API-43): type and const parameters, generic enums, a lifetime next to a parameter,
 //! a const parameter passed on, and `ww_si::Timed<T>` from a snapshot, as method arguments and return values,
 //! properties and stream items. Type aliases (API-45), plain and generic, as a method argument and return value, a
-//! property and inside `Timed`, named like its unit marker in a module (ww_si 0.2 layout, API-46).
+//! property and inside `Timed`, named like its unit marker in a module (ww_si 0.2 layout, API-46). A parameter
+//! default through an associated type (API-65): exact_units' `Niched<V, N, T = <V as RawValue>::Raw>` with `T`
+//! left out and written out.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
 use wire_weaver::prelude::*;
-use ww_si::{Ampere, Timed};
+use ww_si::exact_units::niche::{Niched, Null};
+use ww_si::{Ampere, Fixed, Range, Timed, prefix::One, units::Ratio};
 
 #[ww_api_root]
 trait Generics {
@@ -24,6 +27,12 @@ trait Generics {
     property!(rw voltage: Volt);
     property!(rw timed_voltage: Timed<Volt>);
     property!(rw sample: Sample<u8>);
+    /// A ratio with 0xFF as its niche, the storage left to the default
+    property!(rw niched: Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<0xFF>>);
+    /// The same value back, the storage written out
+    fn niched_spelled(
+        n: Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<0xFF>, u8>,
+    ) -> Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<0xFF>>;
 }
 
 /// A value of the unit `U`, a stand-in for `ww_si::Quantity<U>`: the unit is only in the type (`PhantomData`, DER-15)

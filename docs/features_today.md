@@ -109,6 +109,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Shared traits](api/traits.md)**: `impl Gpio`, `impl Uart` from the standard library, so common tools work with your device.
 - **[Constants](api/properties.md#const-items)**: `const NAME: T;` items, read once per connection and cached.
 - **[Generic types](types.md#generic-types-in-an-api)**: `Timed<Ampere>`, `Window<4>` and your own generic structs and enums anywhere in an API, also in the dynamic client and Python.
+- **[Defaults through associated types](types.md#generic-types-in-an-api)**: `Niched<V, N>` with its storage left to `<V as RawValue>::Raw`: parameter defaults that name another parameter's associated type work in an API.
 - **[Type aliases](types.md#type-aliases)**: `type Volt = Quantity<VoltUnit>` and generic aliases anywhere in an API; tools show what they name.
 - **[Dependencies from anywhere](api/traits.md#reusing-traits-from-other-crates)**: An API crate can take traits and types from git and crates.io crates, not only from a path next to it.
 - **[Types from other crates](types.md#types-from-crates-that-arent-api-crates)**: An API can use types of a crate that isn't built on WireWeaver, also one with `shrink_wrap` optional behind a feature, or one the server only reaches through a re-export.

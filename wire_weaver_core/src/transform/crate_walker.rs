@@ -1,7 +1,7 @@
 use super::api::{compact_trait_id, convert_api_items};
 use super::cargo_source::{CargoSources, DepSpec, Dependent};
 use super::cfg::{
-    DepRequest, Features, all_features, dep_requests, enabled_features, expand_cfg_attrs,
+    DepRequest, Features, all_features, dep_requests, enabled_features, eval, expand_cfg_attrs,
 };
 use super::macro_cache::{MacroLoad, load_in_macro};
 use super::markers::expand_marker_macros;
@@ -498,6 +498,38 @@ pub(crate) struct Scratch {
     pub(crate) root: Option<(FullVersionOwned, Option<WireVersion>)>,
     /// Module of every trait converted, by crate and trait name ([CratePaths::trait_module]).
     pub(crate) trait_modules: BTreeMap<(String, String), Vec<String>>,
+    /// Trait bounds of the parameters in scope where a projection's shorthand `V::Assoc` may be written (a
+    /// parameter default, an associated type of an impl): each parameter with the traits it is bound by, as written.
+    pub(crate) trait_bounds: Vec<(String, Vec<syn::Path>)>,
+    /// Every `impl Trait for Ty` of a crate ([CrateContext::trait_impls]), by crate: indexed when a projection first
+    /// looks into the crate.
+    trait_impls: HashMap<FullVersionOwned, Rc<[TraitImpl]>>,
+}
+
+/// Whether no `#[cfg(..)]` of `attrs` is known to be false for a crate built with `features`.
+fn cfg_holds(attrs: &[syn::Attribute], features: &Features) -> bool {
+    attrs.iter().filter(|a| a.path().is_ident("cfg")).all(|a| {
+        a.parse_args::<syn::Meta>()
+            .ok()
+            .and_then(|predicate| eval(&predicate, features).ok().flatten())
+            != Some(false)
+    })
+}
+
+/// An `impl Trait for Ty` of a crate: the module it is in and its position there.
+#[derive(Clone)]
+pub(crate) struct TraitImpl {
+    pub(crate) cx: Rc<CrateContext>,
+    idx: usize,
+}
+
+impl TraitImpl {
+    pub(crate) fn item(&self) -> &syn::ItemImpl {
+        match &self.cx.lib_rs_ast.items[self.idx] {
+            Item::Impl(item_impl) => item_impl,
+            _ => unreachable!("internal: a trait impl index points at an impl"),
+        }
+    }
 }
 
 /// What a walk ([Scratch]) learns about crates that the next walk from the same crate can reuse: the crates and
@@ -686,6 +718,11 @@ impl CrateCache {
 }
 
 impl Scratch {
+    /// The crate root of `version`, when the walk has loaded it.
+    pub(crate) fn loaded_crate(&self, version: &FullVersionOwned) -> Option<Rc<CrateContext>> {
+        self.crates.get(version).cloned()
+    }
+
     /// Note the module `trait_name` is defined in. The API model names a trait by its crate and name, so two traits
     /// of one name in two modules of a crate can't both be in one API.
     pub(crate) fn note_trait_module(&mut self, cx: &CrateContext, trait_name: &str) -> Result<()> {
@@ -918,6 +955,7 @@ impl CrateContext {
                 scratch.modules.retain(|(v, _, _), _| v != &version);
                 scratch.public_paths.retain(|(v, _, _), _| v != &version);
                 scratch.local_reexports.retain(|(v, _), _| v != &version);
+                scratch.trait_impls.remove(&version);
                 scratch.features_grew = true;
                 features
             }
@@ -1082,6 +1120,61 @@ impl CrateContext {
             })?;
         }
         Ok(cx)
+    }
+
+    /// Every `impl Trait for Ty` in the crate this module is in, in any module, for a projection
+    /// `<Ty as Trait>::Assoc`: the orphan rule puts the impl in the trait's crate or the type's, anywhere in it
+    /// (`impl RawValue for Fixed` is in exact_units' `niche`, not next to `Fixed`). Walks every module of the crate
+    /// once and keeps the index; items and modules whose `#[cfg(..)]` is known false are left out, and so is a
+    /// module whose file isn't there (a `#[path]` one, a platform's).
+    pub(crate) fn trait_impls(&self, scratch: &mut Scratch) -> Result<Rc<[TraitImpl]>> {
+        if let Some(impls) = scratch.trait_impls.get(&self.version) {
+            return Ok(impls.clone());
+        }
+        let mut impls = vec![];
+        let mut modules = vec![self.crate_root(scratch)?];
+        while let Some(cx) = modules.pop() {
+            for (idx, item) in cx.lib_rs_ast.items.iter().enumerate() {
+                match item {
+                    Item::Impl(item_impl)
+                        if item_impl.trait_.is_some()
+                            && cfg_holds(&item_impl.attrs, &cx.features) =>
+                    {
+                        impls.push(TraitImpl {
+                            cx: cx.clone(),
+                            idx,
+                        });
+                    }
+                    Item::Mod(item_mod)
+                        if cfg_holds(&item_mod.attrs, &cx.features)
+                            && cx.module_source_exists(item_mod) =>
+                    {
+                        if let Some(module) = cx.module(&item_mod.ident.to_string(), scratch)? {
+                            modules.push(module);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let impls: Rc<[TraitImpl]> = impls.into();
+        scratch
+            .trait_impls
+            .insert(self.version.clone(), impls.clone());
+        Ok(impls)
+    }
+
+    /// Whether the child module `item_mod` is in-line or has its file where [Self::parse_module] looks for it.
+    fn module_source_exists(&self, item_mod: &syn::ItemMod) -> bool {
+        if item_mod.content.is_some() {
+            return true;
+        }
+        if item_mod.attrs.iter().any(|a| a.path().is_ident("path")) {
+            return false;
+        }
+        let name = item_mod.ident.to_string();
+        self.mod_dir.join(format!("{name}.rs")).is_file()
+            || self.mod_dir.join(&name).join("mod.rs").is_file()
     }
 
     /// Whether `name` is a child module of this crate or module.
@@ -1424,6 +1517,7 @@ impl Scratch {
             self.recursive_types.clear();
             self.generic_scope.clear();
             self.alias_args.clear();
+            self.trait_bounds.clear();
             // TOOL-22: a discarded run (features grew) walked the same source and found the same hints again
             self.unit_hints.clear();
         }

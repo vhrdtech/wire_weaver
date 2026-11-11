@@ -9,17 +9,18 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
-wire = "w1.0"
+wire = "w2.0"
 
 [features]
 default = ["std", "chrono"]
-std = ["shrink_wrap/std"]
-defmt = ["dep:defmt", "shrink_wrap/defmt"]
+std = ["shrink_wrap/std", "exact_units/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt", "exact_units/defmt"]
 chrono = ["dep:chrono"]
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, optional = true }
 defmt = { workspace = true, optional = true }
+exact_units = { workspace = true, features = ["shrink_wrap", "time", "counting"] }
 shrink_wrap.workspace = true
 
 [dev-dependencies]

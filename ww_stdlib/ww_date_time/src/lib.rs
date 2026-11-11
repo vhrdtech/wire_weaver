@@ -3,10 +3,19 @@
 #[cfg(feature = "chrono")]
 use chrono::{Datelike, FixedOffset, NaiveDateTime, Timelike, Utc};
 use core::fmt::{Debug, Formatter};
+use exact_units::prefix::{Nano, One};
+use exact_units::units::{Day, Month, Second};
+use exact_units::{Fixed, IndexFrom1, Range};
 use shrink_wrap::prelude::*;
 
 #[cfg(feature = "chrono")]
 pub use chrono;
+
+type OffsetSecs = Fixed<Second, One, I18, Range<-86_399, 86_399>>;
+type MonthNumber = IndexFrom1<Month, U4, Range<1, 12>>;
+type DayNumber = IndexFrom1<Day, U5, Range<1, 31>>;
+type DaySecs = Fixed<Second, One, U17, Range<0, 86_399>>;
+type Nanos = Fixed<Second, Nano, U31, Range<0, 1_999_999_999>>;
 
 /// ISO 8601 combined date and time with optional time zone and optional nanoseconds.
 /// Year is stored as UNib32 shifted by 2025.
@@ -57,8 +66,8 @@ pub enum Timezone {
 pub enum OtherTimezone {
     Naive,
     FixedOffset {
-        // #[subtype(Offset, valid(-86_399..=86_399))]
-        secs: I18,
+        /// Offset east of UTC, `-86_399..=86_399` s.
+        secs: OffsetSecs,
     },
 }
 
@@ -78,11 +87,11 @@ pub struct NaiveDate {
     /// -262_142 <= year <= 262_141
     pub year: Year,
 
-    // #[subtype(Month, valid(1..=12))]
-    pub month: U4,
+    /// 1 for January.
+    pub month: MonthNumber,
 
-    // #[subtype(Day, valid(1..=31))]
-    pub day: U5,
+    /// Day of the month, 1 the first. 29 to 31 are not checked against the month.
+    pub day: DayNumber,
 }
 
 /// Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 20 bits (bit 19 is the sign), so that it
@@ -110,15 +119,13 @@ pub struct Year {
     self_describing
 )]
 pub struct NaiveTime {
-    pub secs: U17,
+    /// Seconds since midnight.
+    pub secs: DaySecs,
 
-    /// < 1B for sec 0..=58, <2B for sec 59
-    /// TODO: checked subtype when implemented
-    pub frac: Option<U31>,
+    /// Nanoseconds: < 1B for sec 0..=58, < 2B for sec 59 (a leap second). The type holds `0..=1_999_999_999`,
+    /// `NaiveTime::from_hms_opt` also checks the second.
+    pub frac: Option<Nanos>,
 }
-
-// #[subtype(valid(0..=86399))]
-// pub struct Secs(U17);
 
 impl DateTime {
     pub const fn from_ymd_hms_utc_opt(
@@ -170,8 +177,8 @@ impl NaiveDate {
         }
         Some(NaiveDate {
             year: Year::new_unchecked(year),
-            month: U4::new(month).unwrap(),
-            day: U5::new(day).unwrap(),
+            month: MonthNumber::bounded(U4::new(month).unwrap()),
+            day: DayNumber::bounded(U5::new(day).unwrap()),
         })
     }
 }
@@ -238,12 +245,12 @@ impl NaiveTime {
         }
         let secs = (hour as u32) * 3600 + (minute as u32) * 60 + second as u32;
         let frac = if nano != 0 {
-            Some(U31::new(nano).unwrap())
+            Some(Nanos::bounded(U31::new(nano).unwrap()))
         } else {
             None
         };
         Some(NaiveTime {
-            secs: U17::new(secs).unwrap(),
+            secs: DaySecs::bounded(U17::new(secs).unwrap()),
             frac,
         })
     }
@@ -265,21 +272,22 @@ impl Debug for NaiveDate {
             f,
             "{}-M{}-D{}",
             self.year.year(),
-            self.month.value(),
-            self.day.value()
+            self.month.get().value(),
+            self.day.get().value()
         )
     }
 }
 
 impl Debug for NaiveTime {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        let sec = self.secs.value() % 60;
-        let mins = self.secs.value() / 60;
+        let secs = self.secs.get().value();
+        let sec = secs % 60;
+        let mins = secs / 60;
         let min = mins % 60;
         let hour = mins / 60;
         write!(f, "{hour}:{min}:{sec}")?;
         if let Some(nano) = &self.frac {
-            write!(f, ".{}", nano.value())?;
+            write!(f, ".{}", nano.get().value())?;
         }
         Ok(())
     }
@@ -333,7 +341,7 @@ impl From<chrono::DateTime<FixedOffset>> for DateTime {
             date: value.date_naive().into(),
             time: value.time().into(),
             timezone: Timezone::Other(OtherTimezone::FixedOffset {
-                secs: I18::new(offset).unwrap(),
+                secs: OffsetSecs::bounded(I18::new(offset).unwrap()),
             }),
         }
     }
@@ -344,8 +352,8 @@ impl From<chrono::NaiveDate> for NaiveDate {
     fn from(date: chrono::NaiveDate) -> Self {
         NaiveDate {
             year: Year::new_unchecked(date.year()),
-            month: U4::new(date.month() as u8).unwrap(),
-            day: U5::new(date.day() as u8).unwrap(),
+            month: MonthNumber::bounded(U4::new(date.month() as u8).unwrap()),
+            day: DayNumber::bounded(U5::new(date.day() as u8).unwrap()),
         }
     }
 }
@@ -355,8 +363,8 @@ impl From<NaiveDate> for chrono::NaiveDate {
     fn from(value: NaiveDate) -> Self {
         chrono::NaiveDate::from_ymd_opt(
             value.year.year(),
-            value.month.value() as u32,
-            value.day.value() as u32,
+            value.month.get().value() as u32,
+            value.day.get().value() as u32,
         )
         .unwrap()
     }
@@ -368,10 +376,10 @@ impl From<chrono::NaiveTime> for NaiveTime {
         let frac = if time.nanosecond() == 0 {
             None
         } else {
-            Some(U31::new(time.nanosecond()).unwrap())
+            Some(Nanos::bounded(U31::new(time.nanosecond()).unwrap()))
         };
         NaiveTime {
-            secs: U17::new(time.num_seconds_from_midnight()).unwrap(),
+            secs: DaySecs::bounded(U17::new(time.num_seconds_from_midnight()).unwrap()),
             frac,
         }
     }
@@ -381,8 +389,8 @@ impl From<chrono::NaiveTime> for NaiveTime {
 impl From<NaiveTime> for chrono::NaiveTime {
     fn from(value: NaiveTime) -> Self {
         chrono::NaiveTime::from_num_seconds_from_midnight_opt(
-            value.secs.value(),
-            value.frac.map(|f| f.value()).unwrap_or(0),
+            value.secs.get().value(),
+            value.frac.map(|f| f.get().value()).unwrap_or(0),
         )
         .unwrap()
     }
@@ -423,6 +431,26 @@ mod tests {
     }
 
     #[test]
+    fn calendar_fields_out_of_range_fail_to_decode() {
+        let date = |bytes: &[u8]| NaiveDate::from_ww_bytes(bytes);
+        // year 2025 (nibble 0), month, day: 0000 mmmm dddd d000
+        assert!(date(&[0x01, 0x08]).is_ok()); // January 1st
+        assert!(date(&[0x0C, 0x08]).is_ok()); // December
+        assert!(date(&[0x0D, 0x08]).is_err()); // month 13
+        assert!(date(&[0x00, 0x08]).is_err()); // month 0
+        assert!(date(&[0x01, 0x00]).is_err()); // day 0
+        assert!(date(&[0x01, 0xF8]).is_ok()); // day 31
+        assert!(NaiveDate::from_ymd_opt(2025, 13, 1).is_none());
+        assert!(NaiveDate::from_ymd_opt(2025, 1, 32).is_none());
+        assert!(DaySecs::try_new(U17::new(86_400).unwrap()).is_err());
+        assert!(DaySecs::try_new(U17::new(86_399).unwrap()).is_ok());
+        assert!(Nanos::try_new(U31::new(2_000_000_000).unwrap()).is_err());
+        assert!(Nanos::try_new(U31::new(1_999_999_999).unwrap()).is_ok());
+        assert!(OffsetSecs::try_new(I18::new(86_400).unwrap()).is_err());
+        assert!(OffsetSecs::try_new(I18::new(-86_399).unwrap()).is_ok());
+    }
+
+    #[test]
     fn sanity_check() {
         const _: () = assert!(
             matches!(
@@ -452,11 +480,11 @@ mod tests {
         let dt = DateTime {
             date: NaiveDate {
                 year: Year::new(2025).unwrap(),
-                month: U4::new(5).unwrap(),
-                day: U5::new(30).unwrap(),
+                month: MonthNumber::bounded(U4::new(5).unwrap()),
+                day: DayNumber::bounded(U5::new(30).unwrap()),
             },
             time: NaiveTime {
-                secs: U17::new(58_800).unwrap(),
+                secs: DaySecs::bounded(U17::new(58_800).unwrap()),
                 frac: None,
             },
             timezone: Timezone::UTC,

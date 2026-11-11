@@ -219,12 +219,12 @@ async fn firmware(client: &FirmwareInfoClient) -> Part<Firmware> {
 }
 
 fn date_time(dt: &ww_firmware_info::DateTime) -> String {
-    let secs = dt.time.secs.value();
+    let secs = dt.time.secs.get().value();
     format!(
         "{:04}-{:02}-{:02} {:02}:{:02}",
         dt.date.year.year(),
-        dt.date.month.value(),
-        dt.date.day.value(),
+        dt.date.month.get().value(),
+        dt.date.day.get().value(),
         secs / 3600,
         secs / 60 % 60
     )

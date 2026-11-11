@@ -19,16 +19,17 @@ ww_date_time = "0.1"
 ## Types
 
 * `DateTime` - `date: NaiveDate`, `time: NaiveTime`, `timezone: Timezone`; `self_describing`.
-* `NaiveDate` - an ISO 8601 calendar date without timezone: `year: Year`, `month: U4` (1-12), `day: U5` (1-31);
-  `self_describing`.
+* `NaiveDate` - an ISO 8601 calendar date without timezone: `year: Year`, `month: IndexFrom1<Month, U4, Range<1, 12>>`,
+  `day: IndexFrom1<Day, U5, Range<1, 31>>` (not checked against the month); `self_describing`.
 * `Year` - a signed year, `-262_142..=262_141`, stored as a `UNib32` shifted by 2025 so that years close to now take
   the fewest nibbles; a year before 2025 is masked into the low 19 bits instead, so it always costs the same extra
   nibbles regardless of how far back it is (see [sizes](#sizes-on-the-wire) below). `Year::new` constructs one
   (bounds-checked), `Year::year()` reads it back as `i32`.
-* `NaiveTime` - an ISO 8601 time without timezone: `secs: U17` (seconds since midnight, 0-86399), `frac: Option<U31>`
-  (sub-second part in nanoseconds, omitted entirely when zero); `self_describing`.
+* `NaiveTime` - an ISO 8601 time without timezone: `secs: Fixed<Second, One, U17, Range<0, 86_399>>` (seconds since
+  midnight), `frac: Option<Fixed<Second, Nano, U31, Range<0, 1_999_999_999>>>` (sub-second part in nanoseconds, omitted
+  entirely when zero; 1 to 2 billion only in a leap second, which `NaiveTime::from_hms_opt` checks); `self_describing`.
 * `Timezone` - `UTC` (preferred, costs only 1 bit) or `Other(OtherTimezone)`; `self_describing`, `ww_repr = u1`.
-* `OtherTimezone` - `Naive` (no timezone information at all) or `FixedOffset { secs: I18 }` (offset from UTC in
+* `OtherTimezone` - `Naive` (no timezone information at all) or `FixedOffset { secs: Fixed<Second, One, I18, Range<-86_399, 86_399>> }` (offset from UTC in
   seconds); `self_describing`, `ww_repr = u3` leaves room to add up to 6 more kinds later without breaking
   compatibility.
 

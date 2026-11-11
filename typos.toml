@@ -2,7 +2,8 @@
 
 [files]
 # generated hex dumps of the ww_dfu scenario tests
-extend-exclude = ["tests/dfu_scenarios/transcripts/"]
+# superseded definitions are named by their signature in hex (EVO-68)
+extend-exclude = ["tests/dfu_scenarios/transcripts/", "**/api_snapshots/superseded/"]
 
 [default.extend-identifiers]
 # the building-automation protocol (its engineering-unit codes, STD-71)

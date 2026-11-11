@@ -10,8 +10,9 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{Prefix, Second};
     use ww_timebase::{
-        ClockError, ClockErrorOwned, ClockInfo, DateTime, SteerPoint, SteerPointOwned, Steerer,
-        SteererOwned, SyncConfig, SyncFormat, SyncSource, SyncState, SyncStatus, TimeMapPoint,
+        ClockError, ClockErrorOwned, ClockInfo, DateTime, InstanceId, Micros, Ppb, SteerPoint,
+        SteerPointOwned, Steerer, SteererOwned, SyncConfig, SyncFormat, SyncSource, SyncState,
+        SyncStatus, TimeMapPoint, UnixMicros,
     };
 
     /// The mock follows one steerer while its points come this often (bedrock boards: 3 s).
@@ -77,7 +78,7 @@ mod tests {
                     last_lock: None,
                     source: None,
                     error: None,
-                    slew_us: None,
+                    slew: None,
                     steerer: None,
                     noted: None,
                 },
@@ -193,7 +194,7 @@ mod tests {
                             last_lock: None,
                             source: None,
                             error: None,
-                            slew_us: None,
+                            slew: None,
                             steerer: None,
                             noted: None,
                         };
@@ -215,7 +216,7 @@ mod tests {
                             last_lock: Some(local),
                             source: None,
                             error: None,
-                            slew_us: None,
+                            slew: None,
                             steerer: None,
                             noted: None,
                         };
@@ -237,7 +238,7 @@ mod tests {
                             last_lock: None,
                             source: None,
                             error: None,
-                            slew_us: None,
+                            slew: None,
                             steerer: None,
                             noted: None,
                         };
@@ -263,7 +264,7 @@ mod tests {
                                 format: SyncFormat::IrigB,
                             }),
                             error: None,
-                            slew_us: None,
+                            slew: None,
                             steerer: None,
                             noted: None,
                         };
@@ -358,7 +359,7 @@ mod tests {
                     return Ready(Ok(line_locked.then_some(line)));
                 }
                 // one steerer at a time: another one's points are noted while the followed one's keep coming
-                let id = point.steerer.as_ref().map_or(0, |s| s.id);
+                let id = point.steerer.as_ref().map_or(0, |s| s.id.0);
                 let now = Instant::now();
                 if let Some((followed, _, at)) = &self.followed
                     && *followed != id
@@ -378,8 +379,8 @@ mod tests {
                     offset: None,
                     last_lock: Some(point.local),
                     source: Some(SyncSource::Host),
-                    error: Some(micros(point.error_us)),
-                    slew_us: Some(0),
+                    error: Some(micros(point.error.get())),
+                    slew: Some(Micros::new(0)),
                     steerer: None,
                     noted: None,
                 };
@@ -388,7 +389,7 @@ mod tests {
                     cx,
                     &TimeMapPoint {
                         local: point.local,
-                        shared: micros(point.shared_us as u32),
+                        shared: micros(point.shared.raw() as u32),
                         state: SyncState::Locked,
                         source: Some(SyncSource::Host),
                     },
@@ -440,13 +441,13 @@ mod tests {
             fn clock_shared_now(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<Option<u64>> {
+            ) -> RpcResult<Option<UnixMicros<u64>>> {
                 let Some(p) = self.m.lock().unwrap().steer.clone() else {
                     return Ready(None);
                 };
                 let dl = as_micros(&self.elapsed()).wrapping_sub(as_micros(&p.local)) as f64;
-                let shared = p.shared_us as f64 + dl * (1.0 + p.rate_ppb as f64 * 1e-9);
-                Ready(Some(shared.round() as u64))
+                let shared = p.shared.raw() as f64 + dl * (1.0 + p.rate.get() as f64 * 1e-9);
+                Ready(Some(UnixMicros::from_raw(shared.round() as u64)))
             }
         }
 
@@ -687,7 +688,7 @@ mod tests {
         let client = connect(&device).await;
         let named = |id: u64, program: &str| ww_clock_sync::Options {
             steerer: Some(SteererOwned {
-                id,
+                id: InstanceId(id),
                 host: "bench".into(),
                 program: program.into(),
                 pid: id as u32,
@@ -763,7 +764,7 @@ mod tests {
             .steerer
             .expect("the device names its steerer");
         assert_eq!(steerer.pid, std::process::id());
-        assert_ne!(steerer.id, 0);
+        assert_ne!(steerer.id.0, 0);
 
         // paused: no steer points, the device coasts
         steering.set_paused(true);
@@ -902,9 +903,9 @@ mod tests {
             .unwrap();
         let point = SteerPointOwned {
             local: micros(LOCAL_START),
-            shared_us: 1_700_000_000_000_000,
-            rate_ppb: 0,
-            error_us: 100,
+            shared: UnixMicros::from_raw(1_700_000_000_000_000),
+            rate: Ppb::new(0),
+            error: Micros::new(100),
             steerer: None,
         };
         let source = client.clock().steer(point.clone()).call().await.unwrap();
@@ -938,9 +939,9 @@ mod tests {
         assert_eq!(client.clock().sources().call().await.unwrap(), None);
         let point = SteerPointOwned {
             local: micros(LOCAL_START),
-            shared_us: 1_700_000_000_000_000,
-            rate_ppb: 0,
-            error_us: 100,
+            shared: UnixMicros::from_raw(1_700_000_000_000_000),
+            rate: Ppb::new(0),
+            error: Micros::new(100),
             steerer: None,
         };
         let irig = SyncSource::Line {

@@ -89,7 +89,7 @@ impl DeviceTime {
 
     /// The steer point for `fit` at device time `local` (ns): `local` rounded down to the device's prefix, and the
     /// shared time of exactly that value. The fit is over the host's monotonic clock, `utc_offset` (ns, from
-    /// [HostClock::utc_offset](super::HostClock::utc_offset)) turns it into UTC; `error_us` is the host's estimate
+    /// [HostClock::utc_offset](super::HostClock::utc_offset)) turns it into UTC; `error` is the host's estimate
     /// of its error ([Fit::error_us]).
     pub fn steer_point(
         &self,
@@ -104,9 +104,9 @@ impl DeviceTime {
             u64::try_from(shared.div_euclid(1000)).map_err(|_| DeviceTimeError::NotATime)?;
         Ok(SteerPointOwned {
             local: self.units_to_device(units)?,
-            shared_us,
-            rate_ppb: fit.rate_ppb(),
-            error_us: fit.error_us(),
+            shared: ww_timebase::UnixMicros::from_raw(shared_us),
+            rate: ww_timebase::Ppb::new(fit.rate_ppb()),
+            error: ww_timebase::Micros::new(fit.error_us()),
             steerer: None,
         })
     }
@@ -186,8 +186,8 @@ mod tests {
         // 32-bit µs again, wrapped as the device's own clock: 1.234 µs is cut to 1 µs, shared of exactly that
         assert_eq!(p.local, Second::micro(500_001u32));
         let shared_ns = ns as i128 + 1000 + 1_000_000_000 + utc;
-        assert_eq!(p.shared_us as i128, shared_ns / 1000);
-        assert_eq!(p.rate_ppb, 0);
+        assert_eq!(p.shared.raw() as i128, shared_ns / 1000);
+        assert_eq!(p.rate.get(), 0);
         // a different storage is refused
         assert_eq!(
             dt.to_ns(&Second::micro(5u64)),
@@ -217,8 +217,8 @@ mod tests {
         };
         let p = dt.steer_point(&fit, 7_000, 0).unwrap();
         assert_eq!(p.local, Second::micro(7u64));
-        assert_eq!(p.shared_us, 1_000_000_000);
-        assert_eq!(p.rate_ppb, -1000);
+        assert_eq!(p.shared.raw(), 1_000_000_000);
+        assert_eq!(p.rate.get(), -1000);
         // before the Unix epoch: refused
         assert!(dt.steer_point(&fit, 7_000, -2_000_000_000_000).is_err());
     }

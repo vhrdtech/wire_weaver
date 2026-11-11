@@ -2,6 +2,15 @@
 
 ### ⚠️ Breaking
 
+- Typed numbers (P2401#11nov-0947g): `Clock::shared_now` and `SteerPoint::shared_us: u64` are
+  `Option<UnixMicros<u64>>` / `UnixMicros<u64>`, renamed `shared`; `SteerPoint::rate_ppb: i32` is `Ppb<i32>`,
+  renamed `rate`; `SteerPoint::error_us: u32` is `Micros<u32>`, renamed `error`; `SyncStatus::slew_us: Option<i32>`
+  is `Option<Micros<i32>>`, renamed `slew`; `Steerer::id: u64` is the new `InstanceId(u64)` (`#[no_unit_hint]`
+  reasons no longer apply: these are `ww_si::Fixed`/`Point` now, not plain numbers). Wire-compatible: `Fixed` and
+  `Point` are exactly their `T` on the wire, so every field keeps its bytes; only Rust call sites change
+  (`point.shared.raw()`, `Ppb::new(n)`, `.get()`, `InstanceId(id)`). `ww_si` gains the `dimensionless` feature
+  (for `Ppb`).
+
 - `SteerPoint<'i>` and `SyncStatus<'i>` carry a lifetime and are no longer `Copy` (SRV-31): they hold a
   `Steerer<'i>` now. Hosts use `SteerPointOwned` / `SyncStatusOwned` (the generated client takes and returns those),
   devices return `SyncStatus { steerer: None, noted: None, .. }` until they track steerers. Wire-compatible: the new

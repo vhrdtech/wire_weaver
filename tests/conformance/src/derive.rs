@@ -1121,7 +1121,7 @@ pub fn table() -> Vec<Typed> {
                 last_lock: None,
                 source: None,
                 error: None,
-                slew_us: None,
+                slew: None,
                 steerer: None,
                 noted: None,
             }
@@ -1133,7 +1133,7 @@ pub fn table() -> Vec<Typed> {
                 last_lock: Some(micros(5)),
                 source: Some(ww_timebase::SyncSource::Host),
                 error: Some(micros(300)),
-                slew_us: Some(-12),
+                slew: Some(ww_timebase::Micros::new(-12)),
                 steerer: Some(steerer(0x0102_0304_0506_0708, "pc1", "ww hub", 4711)),
                 noted: Some(steerer(2, "lab", "app", 7)),
             }
@@ -1399,7 +1399,7 @@ fn micros(value: u32) -> ww_si::Second {
 
 fn steerer(id: u64, host: &str, program: &str, pid: u32) -> ww_timebase::SteererOwned {
     ww_timebase::SteererOwned {
-        id,
+        id: ww_timebase::InstanceId(id),
         host: host.into(),
         program: program.into(),
         pid,
@@ -1409,9 +1409,9 @@ fn steerer(id: u64, host: &str, program: &str, pid: u32) -> ww_timebase::Steerer
 fn steer_point(steerer: Option<ww_timebase::SteererOwned>) -> ww_timebase::SteerPointOwned {
     ww_timebase::SteerPointOwned {
         local: micros(1_000_000),
-        shared_us: 1_700_000_000_000_000,
-        rate_ppb: -9_900_990,
-        error_us: 250,
+        shared: ww_timebase::UnixMicros::from_raw(1_700_000_000_000_000),
+        rate: ww_timebase::Ppb::new(-9_900_990),
+        error: ww_timebase::Micros::new(250),
         steerer,
     }
 }

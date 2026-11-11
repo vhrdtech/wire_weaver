@@ -122,7 +122,7 @@ mod server {
                 last_lock: None,
                 source: locked.then_some(SyncSource::Host),
                 error: None,
-                slew_us: None,
+                slew: None,
                 steerer: self.steerer.as_ref().map(|s| Steerer {
                     id: s.id,
                     host: &s.host,
@@ -164,14 +164,14 @@ mod server {
         fn clock_shared_now(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-        ) -> RpcResult<Option<u64>> {
+        ) -> RpcResult<Option<ww_timebase::UnixMicros<u64>>> {
             let Some(p) = self.clock.lock().unwrap().point.clone() else {
                 return Ready(None);
             };
             let dl = self.now_us().wrapping_sub(as_micros(&p.local)) as f64;
-            Ready(Some(
-                (p.shared_us as f64 + dl * (1.0 + p.rate_ppb as f64 * 1e-9)) as u64,
-            ))
+            Ready(Some(ww_timebase::UnixMicros::from_raw(
+                (p.shared.raw() as f64 + dl * (1.0 + p.rate.get() as f64 * 1e-9)) as u64,
+            )))
         }
 
         fn clock_set_sources(

@@ -303,7 +303,7 @@ impl Fit {
         self.local as f64 + (shared - self.shared) / self.slope
     }
 
-    /// The fit's own error estimate in µs, as `SteerPoint::error_us` has it: half the shortest round trip (where in
+    /// The fit's own error estimate in µs, as `SteerPoint::error` has it: half the shortest round trip (where in
     /// it the device read its clock is unknown) plus twice the scatter of the samples, rounded up.
     pub fn error_us(&self) -> u32 {
         ((self.min_rtt as f64 / 2.0 + 2.0 * self.residual_rms) / 1000.0)
@@ -329,7 +329,7 @@ impl Fit {
         )
     }
 
-    /// Shared rate minus local rate in parts per billion, as `SteerPoint::rate_ppb` has it.
+    /// Shared rate minus local rate in parts per billion, as `SteerPoint::rate` has it.
     pub fn rate_ppb(&self) -> i32 {
         ((self.slope - 1.0) * 1e9)
             .round()

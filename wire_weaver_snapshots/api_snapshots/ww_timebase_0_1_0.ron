@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b81cd3df97fb3ee60eeddf13d3b86d235f4cd422501605d51dc9af0e976df866
+// shrink_wrap sha256: 1b0aeffd3b2cec1d89323cb7199c133948182bce7aeaf7cfc6e4edd53fb7e3da
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -172,10 +172,35 @@
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Micro", signature: [
+        241,
+        93,
+        175,
+        168,
+        3,
+        248,
+        67,
+        208,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "What a device tells steerers apart by, see `Steerer::id`: random per steering program, never 0.",
+    ], ident: "InstanceId", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Who steers a device\'s clock (SRV-31): a program on a host, see `SteerPoint::steerer` and `SyncStatus::steerer`.",
     ], ident: "Steerer", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [
             "What the device tells steerers apart by: random per steering program (the instance id of its WireWeaver",
             "client, `ww_link::ClientMeta::instance_id`), never 0.",
         ], slot: None, series_opaque: false),
@@ -218,18 +243,22 @@
             "Estimated bound of the shared clock\'s error against UTC: the source\'s own error, the offset still to slew",
             "in and what holdover adds since. `None` when the device can\'t tell.",
         ], slot: None, series_opaque: false),
-        (ident: Some("slew_us"), default: Some(Bool(false)), since: None, ty: Option(some_ty: NumericAny(Base(I32))), docs: [
-            "Offset still to slew in, µs: where the source puts shared time minus where the shared clock is now",
-            "(positive: it runs fast until it caught up). 0 once it has; `None` from devices that don\'t tell (built",
-            "before this field, or not slewing in software). A plain `i32`, as `SteerPoint::shared_us` is a plain",
-            "number: a device without signed numbers in `ww_numeric` sends it too.",
+        (ident: Some("slew"), default: Some(Bool(false)), since: None, ty: Option(some_ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 11)),
+            Type(NumericAny(Base(I32))),
+            Type(OutOfLine(type_idx: 1)),
+        ])), docs: [
+            "Offset still to slew in: where the source puts shared time minus where the shared clock is now (positive:",
+            "it runs fast until it caught up). 0 once it has; `None` from devices that don\'t tell (built before this",
+            "field, or not slewing in software).",
         ], slot: None, series_opaque: false),
-        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
+        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 14)), docs: [
             "The host whose steer points the shared clock follows (source `Host`) or last followed (`Holdover`), as its",
             "points named it; `None` for points that name nobody (hosts built before this field), while no host steers,",
             "and from devices that don\'t tell (SRV-31).",
         ], slot: None, series_opaque: false),
-        (ident: Some("noted"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
+        (ident: Some("noted"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 14)), docs: [
             "Another host that sent steer points while `steerer` was followed: only noted, not followed (the latest one",
             "within the last few seconds). `None` without one, and from devices that don\'t tell.",
         ], slot: None, series_opaque: false),
@@ -244,14 +273,54 @@
         133,
         56,
     ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "origins::UnixEpoch", signature: [
+        162,
+        207,
+        238,
+        216,
+        235,
+        163,
+        126,
+        236,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Point", signature: [
+        100,
+        149,
+        175,
+        132,
+        90,
+        100,
+        223,
+        109,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Ratio", signature: [
+        66,
+        50,
+        211,
+        244,
+        48,
+        152,
+        238,
+        114,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Nano", signature: [
+        98,
+        36,
+        26,
+        47,
+        24,
+        44,
+        57,
+        96,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A host\'s fit of a device\'s clock, see `Clock::steer`: the device\'s local time `local` is the shared time",
-        "`shared_us`, and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative:",
-        "slower, as for a device clock that runs fast).",
+        "`shared`, and shared time runs `rate` parts per billion faster than local time from there on (negative: slower,",
+        "as for a device clock that runs fast).",
         "",
-        "`shared_us` is a plain `u64`, not a [Second]: shared time is UTC and needs all 64 bits, and a `Second` in a",
-        "`U64` would make a device without 64-bit numbers (`ww_numeric`\'s `u64` feature, 8 more bytes in every",
-        "`NumericValue`) enable them for this one field.",
+        "`shared` and `rate` are [Fixed](ww_si::Fixed) types ([UnixMicros]`<u64>`, [Ppb]`<i32>`): exactly their `T` on",
+        "the wire, so a device without 64-bit or signed numbers in `ww_numeric` sends them too, unlike a [Second]",
+        "(a [Quantity](ww_si::Quantity)), which would make it enable them for this one field.",
     ], ident: "SteerPoint", generics: [], fields: Named([
         (ident: Some("local"), default: None, since: None, ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
@@ -259,18 +328,36 @@
         ]), docs: [
             "Device time at the point, in the prefix and storage of `Clock::now()` (a `U32` wraps as `now()` does).",
         ], slot: None, series_opaque: false),
-        (ident: Some("shared_us"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
-            "Shared time at `local`: µs since the Unix epoch, UTC.",
+        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 18, args: [
+            Type(OutOfLine(type_idx: 17)),
+            Type(Instance(type_idx: 12, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 11)),
+                Type(NumericAny(Base(U64))),
+                Type(OutOfLine(type_idx: 1)),
+            ])),
+        ]), docs: [
+            "Shared time at `local`: UTC.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rate_ppb"), default: None, since: None, ty: NumericAny(Base(I32)), docs: [
-            "Shared rate minus local rate, in parts per billion: shared time advances `1 + rate_ppb * 1e-9` s per",
-            "local second. An HSI clock 1 % fast is about `-9_900_990`.",
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 20)),
+            Type(NumericAny(Base(I32))),
+            Type(OutOfLine(type_idx: 1)),
+        ]), docs: [
+            "Shared rate minus local rate: shared time advances `1 + rate * 1e-9` s per local second. An HSI clock 1 %",
+            "fast is about `Ppb(-9_900_990)`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("error_us"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
-            "The host\'s estimate of how far `shared_us` may be off, in µs: half the shortest round trip and the",
-            "scatter of its samples. Not counting how far the host\'s own wall clock is from UTC.",
+        (ident: Some("error"), default: None, since: None, ty: Instance(type_idx: 12, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 11)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 1)),
+        ]), docs: [
+            "The host\'s estimate of how far `shared` may be off: half the shortest round trip and the scatter of its",
+            "samples. Not counting how far the host\'s own wall clock is from UTC.",
         ], slot: None, series_opaque: false),
-        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
+        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 14)), docs: [
             "Who sends the point (SRV-31). A device follows one steerer at a time: the one it follows keeps it while its",
             "points come, another one\'s points are only noted (`SyncStatus::noted`) and taken once the followed one has",
             "been quiet for the device\'s holdover time (bedrock boards: 3 s). Points without one (`None`, hosts built",
@@ -323,12 +410,12 @@
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
             "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
         ], optional: None, meta: None),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
             "Current sync state, with the source followed, its estimated error and the offset and local time of the",
             "last lock, when known.",
         ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
+            (ident: "t", ty: OutOfLine(type_idx: 16), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -338,7 +425,7 @@
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
         ], optional: None, meta: None),
         (id: 7, kind: Method(args: [
-            (ident: "point", ty: OutOfLine(type_idx: 14), default: None, flatten: false),
+            (ident: "point", ty: OutOfLine(type_idx: 21), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 6)), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -346,7 +433,7 @@
         ])), multiplicity: Flat, since: None, ident: "steer", docs: [
             "A host\'s fit of this device\'s clock (STD-49), sent about once a second. The device follows it when it has",
             "nothing better and `Host` is allowed (see `set_sources`): its shared clock becomes",
-            "`shared(t) = point.shared_us + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for local time `t` (slewed",
+            "`shared(t) = point.shared + (t - point.local) * (1 + point.rate * 1e-9)` for local time `t` (slewed",
             "there from where it was, not stepped), `sync_status` and `time_map` say source `Host`, `Acquiring` until the",
             "device is within its lock tolerance of the points and `Locked` from then on (see [SyncState]), and",
             "`Holdover` when the points stop coming. A device locked to a better source (a sync line), or one whose source",
@@ -360,9 +447,17 @@
             "against its monotonic clock and adds the wall clock\'s offset when it sends, so a step of its wall clock",
             "moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).",
         ], optional: Some((group: Some("host_sync"))), meta: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: NumericAny(Base(U64)))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
-            "The device\'s shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a",
-            "host compares with its own clock to see how well the device follows (the residual offset).",
+        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 18, args: [
+            Type(OutOfLine(type_idx: 17)),
+            Type(Instance(type_idx: 12, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 11)),
+                Type(NumericAny(Base(U64))),
+                Type(OutOfLine(type_idx: 1)),
+            ])),
+        ]))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
+            "The device\'s shared time now (UTC); `None` while the clock runs free. What a host compares with its own",
+            "clock to see how well the device follows (the residual offset).",
         ], optional: Some((group: Some("host_sync"))), meta: None),
         (id: 9, kind: Method(args: [
             (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 6)))), default: Some("None"), flatten: false),

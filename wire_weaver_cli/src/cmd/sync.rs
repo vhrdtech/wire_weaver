@@ -139,7 +139,7 @@ impl From<&Status> for View {
             error_us: device
                 .and_then(|d| d.error)
                 .map(|e| e.to_f64_in(Prefix::Micro) as i64),
-            slew_us: device.and_then(|d| d.slew_us),
+            slew_us: device.and_then(|d| d.slew).map(|v| v.get()),
             samples: s.samples,
             error: s.error.clone(),
             steerer: device.and_then(|d| d.steerer.clone()),
@@ -946,13 +946,13 @@ mod tests {
             slew_us: Some(-48_000),
             check_rtt: Some(1_400_000),
             steerer: Some(SteererOwned {
-                id: 1,
+                id: ww_timebase::InstanceId(1),
                 host: "lab-pc".into(),
                 program: "ww hub".into(),
                 pid: 4711,
             }),
             noted: Some(SteererOwned {
-                id: 2,
+                id: ww_timebase::InstanceId(2),
                 host: "lab-pc".into(),
                 program: "app".into(),
                 pid: 7,

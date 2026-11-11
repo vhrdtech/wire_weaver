@@ -6,7 +6,7 @@ use crate::event_loop::commander::WeakCommander;
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use ww_timebase::{SteererOwned, SyncSource, SyncState, SyncStatusOwned};
+use ww_timebase::{InstanceId, SteererOwned, SyncSource, SyncState, SyncStatusOwned};
 
 /// Client of `ww_timebase::Clock` wherever the device implements it (a global trait path, API-20).
 pub struct ClockClient {
@@ -92,7 +92,7 @@ pub fn steerer(meta: Option<&crate::ClientMeta>) -> SteererOwned {
     let meta = meta.cloned().unwrap_or_default();
     let resolved = meta.resolve();
     SteererOwned {
-        id: meta.instance_id(),
+        id: InstanceId(meta.instance_id()),
         host: resolved.host,
         program: resolved.program,
         pid: resolved.pid,
@@ -377,7 +377,7 @@ async fn check(client: &mut ClockClient, host: &HostClock, status: &mut Status) 
     match shared {
         Ok(Some(us)) => {
             let mid = (sent + (received - sent) / 2) as i128 + host.utc_offset();
-            status.residual = Some((us as i128 * 1000 - mid) as i64);
+            status.residual = Some((us.raw() as i128 * 1000 - mid) as i64);
             status.check_rtt = Some(received - sent);
         }
         Ok(None) => status.residual = None,

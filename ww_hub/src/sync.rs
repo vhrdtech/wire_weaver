@@ -338,7 +338,7 @@ fn fill(e: &mut SyncEntryOwned, s: &Status) {
         err.to_f64_in(ww_si::Prefix::Micro)
             .clamp(0.0, u32::MAX as f64) as u32
     });
-    e.slew_us = device.and_then(|d| d.slew_us);
+    e.slew_us = device.and_then(|d| d.slew).map(|v| v.get());
     e.samples = s.samples as u32;
     e.steers = s.steers;
     e.restarts = s.restarts;

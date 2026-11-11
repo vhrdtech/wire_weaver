@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
     let named = |id: u64, program: &str| Options {
         steerer: Some(SteererOwned {
-            id,
+            id: ww_timebase::InstanceId(id),
             host: "bench".into(),
             program: program.into(),
             pid: std::process::id(),
@@ -123,7 +123,10 @@ fn device_line(s: &Status) -> String {
         return "no status yet".into();
     };
     let who = |st: &Option<SteererOwned>| match st {
-        Some(st) => format!("{} ({:#x}, {}, pid {})", st.program, st.id, st.host, st.pid),
+        Some(st) => format!(
+            "{} ({:#x}, {}, pid {})",
+            st.program, st.id.0, st.host, st.pid
+        ),
         None => "-".into(),
     };
     format!(

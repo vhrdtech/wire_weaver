@@ -11,7 +11,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use tracing::{debug, info};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelLocationOwned, ApiLevelOwned};
-use ww_timebase::SteererOwned;
+use ww_timebase::{InstanceId, SteererOwned};
 
 use super::sync::{Conn, first_reading, run};
 use super::{Options, RateCache, Status, steerer};
@@ -182,7 +182,7 @@ async fn steer(weak: WeakCommander, start: Start, senders: Senders, paused: watc
     let steerer = match (options.steerer.take(), meta) {
         (Some(s), _) => s,
         (None, Some(m)) if m.instance_id != 0 => SteererOwned {
-            id: m.instance_id,
+            id: InstanceId(m.instance_id),
             host: m.host,
             program: m.program,
             pid: m.pid,

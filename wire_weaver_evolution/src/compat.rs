@@ -999,14 +999,12 @@ impl<'a> TypeCheck<'a> {
             }
             _ => None,
         };
-        let (side, other, name, other_bundle, other_ty) = match (
-            unknown(self.writer, w),
-            unknown(self.reader, r),
-        ) {
-            (Some(name), None) => (self.writer_name, self.reader_name, name, self.reader, r),
-            (None, Some(name)) => (self.reader_name, self.writer_name, name, self.writer, w),
-            _ => return None,
-        };
+        let (side, other, name, other_bundle, other_ty) =
+            match (unknown(self.writer, w), unknown(self.reader, r)) {
+                (Some(name), None) => (self.writer_name, self.reader_name, name, self.reader, r),
+                (None, Some(name)) => (self.reader_name, self.writer_name, name, self.writer, w),
+                _ => return None,
+            };
         Some(format!(
             "no definition of the type {name} that the {side} uses: it was left out by its signature, and no known \
              snapshot holds that definition, so it can't be compared with the {other}'s {}. Likely that crate \
@@ -2007,9 +2005,7 @@ fn wrapper<'b, 'c: 'b>(
                     return Ok(Some(Wrapper {
                         name: s.ident.clone(),
                         def: def_name(bundle, type_idx.0).map(|(c, n)| (c, n.into_owned())),
-                        field: Cow::Borrowed(
-                            &s.transparent_field().map_err(|e| e.to_string())?.ty,
-                        ),
+                        field: Cow::Borrowed(&s.transparent_field().map_err(|e| e.to_string())?.ty),
                         bounds: vec![],
                         bundle: snapshot,
                     }));

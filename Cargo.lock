@@ -6960,6 +6960,7 @@ dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
  "ww_error",
+ "ww_si",
 ]
 
 [[package]]

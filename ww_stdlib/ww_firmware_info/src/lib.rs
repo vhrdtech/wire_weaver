@@ -56,6 +56,7 @@
 use wire_weaver::prelude::*;
 pub use ww_date_time::DateTime;
 pub use ww_si::Second;
+pub use ww_si::{Count, units::Boot};
 pub use ww_version::Version;
 #[cfg(feature = "std")]
 pub use ww_version::VersionOwned;
@@ -101,7 +102,7 @@ pub trait LastReset {
     fn last_reset() -> ResetRecord<'i>;
 
     /// Boots since the boot counter was cleared. With the cause it tells a reset loop from a single crash.
-    fn boot_count() -> u32;
+    fn boot_count() -> Count<Boot, u32>;
 
     /// Forget the crash record and zero the boot counter, after the host saved them.
     fn clear();

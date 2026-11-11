@@ -16,6 +16,10 @@
 - `ResetRecord::boots_since_crash` (STD-27, never published): boots since the crash data was saved, 0 = the last
   reset was the crash. Servers fill it; hosts use it to tell a fresh crash from an old one kept across resets.
 
+- `LastReset::boot_count` and `ResetRecord::boots_since_crash` are `Count<units::Boot, u32>` instead of a bare `u32`
+  (never published): a boot counter, not a plain number. Same bytes on the wire, no wire bump; read the number back
+  with `.get()`.
+
 ### 🚀 Features
 
 - `firmware_summary!()` evaluates at compile time: `const FIRMWARE_FIRMWARE: FirmwareSummary<'static> =

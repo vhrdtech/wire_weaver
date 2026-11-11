@@ -7,7 +7,7 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver_client::CallError;
-    use ww_user_info::{UserInfoCaps, UserInfoError};
+    use ww_user_info::{Bytes, NameMax, NotesMax, UserInfoCaps, UserInfoError};
 
     /// Flash of the mock: what survives a power cycle, and how often it was written.
     #[derive(Default)]
@@ -42,7 +42,9 @@ mod tests {
                 field: impl Fn(&mut Storage) -> &mut String,
             ) -> SetResult<UserInfoError<'static>> {
                 if value.len() > max {
-                    return SetError(UserInfoError::TooLong { max: max as u16 });
+                    return SetError(UserInfoError::TooLong {
+                        max: Bytes::new(max as u16),
+                    });
                 }
                 let mut st = self.storage.lock().unwrap();
                 if st.busy {
@@ -100,8 +102,8 @@ mod tests {
         impl api_impl::UserInfoTestConsts for Server {
             fn user_capabilities(&self) -> UserInfoCaps {
                 UserInfoCaps {
-                    name_max: self.name_max,
-                    notes_max: 256,
+                    name_max: NameMax::bounded(self.name_max),
+                    notes_max: NotesMax::bounded(256),
                     persistent: true,
                 }
             }
@@ -190,7 +192,7 @@ mod tests {
         let client = connect(&device).await;
         let caps = client.user().read_CAPABILITIES().read().await.unwrap();
         assert_eq!(
-            (caps.name_max, caps.notes_max, caps.persistent),
+            (caps.name_max.get(), caps.notes_max.get(), caps.persistent),
             (16, 256, true)
         );
 
@@ -228,10 +230,10 @@ mod tests {
             .await;
         assert!(
             matches!(
-                r,
+                &r,
                 Err(CallError::Device(
-                    ww_user_info::UserInfoErrorOwned::TooLong { max: 8 }
-                ))
+                    ww_user_info::UserInfoErrorOwned::TooLong { max }
+                )) if max.get() == 8
             ),
             "{r:?}"
         );

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use wire_weaver_client::CallError;
 use ww_counters::host::{CountersDevice, WwSource};
-use ww_counters::{CounterBuffer, CountersInfoOwned};
+use ww_counters::{CounterBuffer, CountersInfoOwned, Index, Word};
 
 /// The calls `WwSource` makes, blocking: run from `spawn_blocking`.
 pub struct BlockingCounters(pub Arc<Mutex<CountersClient>>);
@@ -24,7 +24,7 @@ fn call_error<E: std::fmt::Debug>(e: CallError<E>) -> anyhow::Error {
 }
 
 impl CountersDevice for BlockingCounters {
-    fn read(&mut self, buffer: CounterBuffer, offset: u16) -> Result<Vec<u32>> {
+    fn read(&mut self, buffer: CounterBuffer, offset: Index<Word, u16>) -> Result<Vec<u32>> {
         let page = self
             .0
             .blocking_lock()

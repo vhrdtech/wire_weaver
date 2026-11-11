@@ -7,7 +7,8 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_firmware_info::{
-        BuildProfile, CortexMFault, Fault, GitInfo, ResetCause, ResetRecord, RiscVFault, Version,
+        Boot, BuildProfile, CortexMFault, Count, Fault, GitInfo, ResetCause, ResetRecord,
+        RiscVFault, Version,
     };
 
     const COMMIT: [u8; 20] = [
@@ -50,15 +51,15 @@ mod tests {
                     fault: crash.as_ref().map(|c| c.fault.clone()),
                     stack: MaxLen::new_unchecked(RefVec::Slice { slice: &STACK }),
                     message: MaxLen::new_unchecked(if crash.is_some() { "HardFault" } else { "" }),
-                    boots_since_crash: 0,
+                    boots_since_crash: Count::new(0),
                 })
             }
 
             fn reset_boot_count(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<u32> {
-                Ready(*self.boots.lock().unwrap())
+            ) -> RpcResult<Count<Boot, u32>> {
+                Ready(Count::new(*self.boots.lock().unwrap()))
             }
 
             fn reset_clear(
@@ -256,7 +257,7 @@ mod tests {
         assert!(r.fault.is_none());
         assert_eq!(r.build_id.as_slice(), BUILD_ID);
         assert_eq!(r.stack.as_slice(), STACK);
-        assert_eq!(client.reset().boot_count().call().await.unwrap(), 3);
+        assert_eq!(client.reset().boot_count().call().await.unwrap().get(), 3);
     }
 
     async fn fault_roundtrip(path: &str, fault: Fault) {
@@ -270,7 +271,7 @@ mod tests {
 
         client.reset().clear().call().await.unwrap();
         assert!(crash.lock().unwrap().is_none());
-        assert_eq!(client.reset().boot_count().call().await.unwrap(), 0);
+        assert_eq!(client.reset().boot_count().call().await.unwrap().get(), 0);
         let r = client.reset().last_reset().call().await.unwrap();
         assert!(r.fault.is_none());
     }

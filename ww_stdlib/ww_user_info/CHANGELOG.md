@@ -7,6 +7,11 @@
   (`name_max`, `notes_max`, `persistent`); a write is saved before the call answers and only when the value changed.
   The crate has `std` and `defmt` features now.
 
+- `UserInfoCaps::name_max` and `notes_max` are `NameMax` / `NotesMax` (`Fixed<units::Byte, One, u16, Range<0, 32>>` /
+  `Range<0, 256>>`) instead of a bare `u16`, bounded to what any device can declare; build one with
+  `NameMax::bounded(n)` / `NotesMax::bounded(n)`. `UserInfoError::TooLong::max` is `Bytes<u16>` (unbounded: a device's
+  own cap). Wire break (new wire line `w2.0`, EVO-60, never published): a bound is part of the contract.
+
 ### 🚀 Features
 
 - the `name` and `notes` properties list their errors with `#[errors(..)]` (API-32), now that stream functions and

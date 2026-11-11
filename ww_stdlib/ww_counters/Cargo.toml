@@ -24,4 +24,4 @@ cnt_core = { workspace = true, optional = true }
 defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_error = { workspace = true, default-features = false }
-ww_si = { workspace = true, features = ["time"] }
+ww_si = { workspace = true, features = ["time", "information", "counting"] }

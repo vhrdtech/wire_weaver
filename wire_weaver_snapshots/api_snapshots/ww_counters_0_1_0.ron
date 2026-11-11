@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e9dd5497473f7cb5d05e2f669b946008447678554be0090998c8328bf649bf9a
+// shrink_wrap sha256: 922a7e8d588fea27b9e1934a4d10f6879a59ad723311c9fd5e47fa383e760897
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -35,11 +35,11 @@
     "    &mut self,",
     "    _cx: &mut Context<\'_, impl BlockingEventOut>,",
     "    buffer: CounterBuffer,",
-    "    offset: u16,",
+    "    offset: Index<Word, u16>,",
     ") -> RpcResult<Result<MaxLen<RefVec<\'_, UVlq32>, MAX_WORDS>, CountersError<\'_>>> {",
     "    RpcResult::Ready(match buffer {",
     "        CounterBuffer::Ram => {",
-    "            read_words(cnt::counters_ram_buffer(), cnt::ram_used_words(), offset, &mut self.scratch)",
+    "            read_words(cnt::counters_ram_buffer(), cnt::ram_used_words(), offset.get(), &mut self.scratch)",
     "        }",
     "        CounterBuffer::Backup => Err(CountersError::unsupported()),",
     "    })",
@@ -58,13 +58,63 @@
 ], crate_idx: 0, trait_name: "ww_counters", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Word", signature: [
+        218,
+        56,
+        171,
+        196,
+        73,
+        36,
+        204,
+        134,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Size and use of one counter buffer, in 32-bit words.",
     ], ident: "BufferInfo", generics: [], fields: Named([
-        (ident: Some("used_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+        (ident: Some("used_words"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Words taken by counters (`cnt::ram_used_words()`), fixed at link time: what a host reads.",
         ], slot: None, series_opaque: false),
-        (ident: Some("capacity_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+        (ident: Some("capacity_words"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Size of the buffer.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -74,10 +124,10 @@
         (ident: Some("format"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "`cnt` format version (`cnt::SIGNATURE_VERSION`, in `_CNT_SIGNATURE`; 2 today): how the host reads the words.",
         ], slot: None, series_opaque: false),
-        (ident: Some("ram"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+        (ident: Some("ram"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "The RAM buffer.",
         ], slot: None, series_opaque: false),
-        (ident: Some("backup"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 0)), docs: [
+        (ident: Some("backup"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
             "The backup buffer, `None` when the firmware has none (`CNT_BKP_BUFFER_SIZE_WORDS` is 0).",
         ], slot: None, series_opaque: false),
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
@@ -95,7 +145,17 @@
             "`_CNT_BKP_BUFFER`, in memory that survives a reset (backup SRAM).",
         ], ident: "Backup", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -111,10 +171,10 @@
         (docs: [
             "Common error",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         167,
         149,
         168,
@@ -123,16 +183,6 @@
         17,
         20,
         62,
-    ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
-        55,
-        18,
-        202,
-        102,
-        156,
-        182,
-        138,
-        5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
         134,
@@ -147,7 +197,11 @@
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One word\'s new value.",
     ], ident: "WordChange", generics: [], fields: Named([
-        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+        (ident: Some("index"), default: None, since: None, ty: Instance(type_idx: 7, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(NumericAny(Base(UNib32))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Word index in the buffer.",
         ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
@@ -155,8 +209,8 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Counter words that changed, see [Counters::watch].",
     ], ident: "CounterChanges", generics: [], fields: Named([
-        (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
-        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 8))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
+        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 12))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
@@ -167,13 +221,17 @@
         "[CountersError]: `Common(Unsupported)` for the backup buffer on a device without one, `Common(InvalidArgument)`",
         "for an offset past the used words.",
     ], crate_idx: 0, trait_name: "Counters", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 5), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
             "Buffers, their size and use, the `cnt` format version and the build id: all fixed at link time.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "buffer", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
-            (ident: "offset", ty: NumericAny(Base(U16)), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(UVlq32)))), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "buffer", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
+            (ident: "offset", ty: Instance(type_idx: 7, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(NumericAny(Base(U16))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(UVlq32)))), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
@@ -184,23 +242,23 @@
             "calls, or within one if an interrupt carries into its high word; the host reads such a counter again).",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "buffer", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+            (ident: "buffer", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
         ])), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Zero a buffer.",
         ], optional: None, meta: None),
-        (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 9), delivery: Counted, args: [
-            (ident: "period", ty: Instance(type_idx: 7, args: [
-                Type(OutOfLine(type_idx: 5)),
-                Type(OutOfLine(type_idx: 6)),
+        (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 13), delivery: Counted, args: [
+            (ident: "period", ty: Instance(type_idx: 11, args: [
+                Type(OutOfLine(type_idx: 10)),
+                Type(OutOfLine(type_idx: 2)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 7, args: [
-            Type(OutOfLine(type_idx: 5)),
-            Type(OutOfLine(type_idx: 6)),
-        ]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 11, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 2)),
+        ]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "Busy",
@@ -214,12 +272,12 @@
     ], compact_id: Some(13), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
     None,
+    Some((line: 1, revision: 0)),
     Some((line: 5, revision: 0)),
 ]))

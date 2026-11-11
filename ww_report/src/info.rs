@@ -329,7 +329,7 @@ async fn last_reset(client: &LastResetClient) -> Part<LastReset> {
         Part::NotImplemented => return Part::NotImplemented,
         Part::Error(e) => return Part::Error(e),
     };
-    let boot_count = Part::from_result(client.boot_count().call().await);
+    let boot_count = Part::from_result(client.boot_count().call().await.map(|c| c.get()));
     let (fault, fault_addresses) = match &record.fault {
         Some(Fault::CortexM(c)) => (
             Some(format!(
@@ -357,7 +357,7 @@ async fn last_reset(client: &LastResetClient) -> Part<LastReset> {
         fault_addresses,
         stack: record.stack.as_slice().to_vec(),
         message: record.message.to_string(),
-        boots_since_crash: record.boots_since_crash,
+        boots_since_crash: record.boots_since_crash.get(),
         boot_count,
     })
 }

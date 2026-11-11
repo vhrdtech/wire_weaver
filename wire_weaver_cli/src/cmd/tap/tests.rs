@@ -114,8 +114,8 @@ mod server {
 
     impl api_impl::TapDemoConsts for Server {
         const USER_CAPABILITIES: UserInfoCaps = UserInfoCaps {
-            name_max: 32,
-            notes_max: 0,
+            name_max: ww_user_info::NameMax::bounded(32),
+            notes_max: ww_user_info::NotesMax::bounded(0),
             persistent: false,
         };
     }

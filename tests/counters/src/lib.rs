@@ -14,7 +14,7 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_counters::host::{CountersDevice, WwSource};
-    use ww_counters::{CounterBuffer, CountersInfoOwned};
+    use ww_counters::{CounterBuffer, CountersInfoOwned, Index, Word};
 
     /// Words the test firmware's counters take: RAM 7 of 16, BKP 4 of 8 (`CNT_*_BUFFER_SIZE_WORDS` of the fixture).
     const RAM_USED: usize = 7;
@@ -46,7 +46,8 @@ mod tests {
         use tests_common::TestProcessEvents;
         use wire_weaver::BlockingEventOut;
         use ww_counters::{
-            BufferInfo, CountersError, CountersInfo, MAX_WORDS, read_words, reset_words,
+            BufferInfo, CountersError, CountersInfo, Index, MAX_WORDS, Word, read_words,
+            reset_words,
         };
 
         pub struct Server {
@@ -67,7 +68,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 buffer: CounterBuffer,
-                offset: u16,
+                offset: Index<Word, u16>,
             ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, 64>, CountersError<'_>>> {
                 let buffers = self.buffers.clone();
                 let (words, used) = match buffer {
@@ -77,7 +78,7 @@ mod tests {
                         None => return RpcResult::Ready(Err(CountersError::unsupported())),
                     },
                 };
-                RpcResult::Ready(read_words(words, used, offset, &mut self.scratch))
+                RpcResult::Ready(read_words(words, used, offset.get(), &mut self.scratch))
             }
 
             fn counters_reset(
@@ -170,7 +171,11 @@ mod tests {
     struct Device(StdClient);
 
     impl CountersDevice for Device {
-        fn read(&mut self, buffer: CounterBuffer, offset: u16) -> anyhow::Result<Vec<u32>> {
+        fn read(
+            &mut self,
+            buffer: CounterBuffer,
+            offset: Index<Word, u16>,
+        ) -> anyhow::Result<Vec<u32>> {
             let page = self
                 .0
                 .counters()
@@ -251,9 +256,12 @@ mod tests {
         let (device, _) = start("counters/info", id.clone(), RAM_USED, true);
         let (_, info) = connect(&device).await;
         assert_eq!(info.format, 2);
-        assert_eq!((info.ram.used_words, info.ram.capacity_words), (7, 16));
+        assert_eq!(
+            (info.ram.used_words.get(), info.ram.capacity_words.get()),
+            (7, 16)
+        );
         let bkp = info.backup.unwrap();
-        assert_eq!((bkp.used_words, bkp.capacity_words), (4, 8));
+        assert_eq!((bkp.used_words.get(), bkp.capacity_words.get()), (4, 8));
         assert_eq!(info.build_id.as_slice(), id);
     }
 

@@ -16,12 +16,12 @@ mod tests {
     use wire_weaver_client::{ClientConfig, DynClient};
     use ww_board_info::{BoardSummary, RevisionSource};
     use ww_counters::{
-        BufferInfo, CounterBuffer, CountersInfo, MAX_WORDS, read_words, reset_words,
+        BufferInfo, CounterBuffer, CountersInfo, Index, MAX_WORDS, Word, read_words, reset_words,
     };
     use ww_defmt_logger::DefmtLogger;
     use ww_firmware_info::{
-        BuildProfile, CortexMFault, Fault, FirmwareSummary, GitInfo, ResetCause, ResetRecord,
-        Version,
+        Boot, BuildProfile, CortexMFault, Count, Fault, FirmwareSummary, GitInfo, ResetCause,
+        ResetRecord, Version,
     };
     use ww_report::clients::Contract;
     use ww_report::crash::Source;
@@ -30,7 +30,7 @@ mod tests {
     use ww_stream::store::{FullPolicy, RamRing};
     use ww_stream::tx::{Counted, Reliable};
     use ww_uid::{UidKind, UidSource, UniqueId};
-    use ww_user_info::{UserInfoCaps, UserInfoError};
+    use ww_user_info::{NameMax, NotesMax, UserInfoCaps, UserInfoError};
 
     const SAMPLE: u16 = 1;
     const COMMIT: [u8; 20] = [0xa1; 20];
@@ -155,7 +155,7 @@ mod tests {
                 _cx: &mut Context<'_, impl EventOut>,
             ) -> RpcResult<ResetRecord<'_>> {
                 RpcResult::Ready(ResetRecord {
-                    boots_since_crash: 2,
+                    boots_since_crash: Count::new(2),
                     cause: ResetCause::Panic,
                     build_id: MaxLen::new_unchecked(RefVec::new_bytes(&self.build_id)),
                     uptime: Some(ww_si::Second::milli(2500u32)),
@@ -180,8 +180,8 @@ mod tests {
             async fn reset_boot_count(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-            ) -> RpcResult<u32> {
-                RpcResult::Ready(3)
+            ) -> RpcResult<Count<Boot, u32>> {
+                RpcResult::Ready(Count::new(3))
             }
 
             async fn reset_clear(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
@@ -235,7 +235,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 buffer: CounterBuffer,
-                offset: u16,
+                offset: Index<Word, u16>,
             ) -> RpcResult<
                 Result<MaxLen<RefVec<'_, UVlq32>, MAX_WORDS>, ww_counters::CountersError<'_>>,
             > {
@@ -243,7 +243,7 @@ mod tests {
                     CounterBuffer::Ram => (&self.ram[..], RAM_USED),
                     CounterBuffer::Backup => (&self.bkp[..], BKP_USED),
                 };
-                RpcResult::Ready(read_words(words, used, offset, &mut self.scratch))
+                RpcResult::Ready(read_words(words, used, offset.get(), &mut self.scratch))
             }
 
             async fn counters_reset(
@@ -345,8 +345,8 @@ mod tests {
             }
 
             const USER_CAPABILITIES: UserInfoCaps = UserInfoCaps {
-                name_max: 32,
-                notes_max: 256,
+                name_max: NameMax::bounded(32),
+                notes_max: NotesMax::bounded(256),
                 persistent: true,
             };
 

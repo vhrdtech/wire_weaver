@@ -4,7 +4,7 @@
 //! The calls themselves go through a client the host generates for [Counters](crate::Counters) (with its API, or as
 //! a global trait client like `ww counters` does), wrapped in [CountersDevice].
 
-use crate::{CounterBuffer, CountersInfoOwned};
+use crate::{CounterBuffer, CountersInfoOwned, Index, Word};
 use anyhow::{anyhow, bail};
 use cnt_core::{Counters, Source, Storage};
 use std::path::Path;
@@ -13,7 +13,8 @@ use std::path::Path;
 /// `blocking_call()`.
 pub trait CountersDevice {
     /// [Counters::read](crate::Counters::read): words of `buffer` from `offset`, empty past the used words.
-    fn read(&mut self, buffer: CounterBuffer, offset: u16) -> anyhow::Result<Vec<u32>>;
+    fn read(&mut self, buffer: CounterBuffer, offset: Index<Word, u16>)
+    -> anyhow::Result<Vec<u32>>;
     /// [Counters::reset](crate::Counters::reset).
     fn reset(&mut self, buffer: CounterBuffer) -> anyhow::Result<()>;
 }
@@ -65,12 +66,12 @@ impl<D: CountersDevice> WwSource<D> {
                 }
                 continue;
             };
-            if elf.used_words() > u64::from(buffer.used_words) {
+            if elf.used_words() > u64::from(buffer.used_words.get()) {
                 bail!(
                     "{} uses {} {storage} words, the device {}: other firmware",
                     elf_path.display(),
                     elf.used_words(),
-                    buffer.used_words
+                    buffer.used_words.get()
                 );
             }
         }
@@ -92,7 +93,7 @@ impl<D: CountersDevice> Source for WwSource<D> {
             let at = offset + done as u64;
             let at = u16::try_from(at)
                 .map_err(|_| anyhow!("word {at} is past what Counters::read reaches"))?;
-            let page = self.device.read(buffer(storage), at)?;
+            let page = self.device.read(buffer(storage), Index::new(at))?;
             if page.is_empty() {
                 bail!(
                     "The device has {} {storage} words in use, {} needed",

@@ -2275,6 +2275,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   same-bytes change of `ww_error::CommonError` is compatible in every crate embedding it, not a wire break each
   (`docs/evolution/checker_tool.md#a-dependency-changed-without-a-version-bump-evo-67`; `wire_weaver_evolution`
   tests `tests::in_place`).
+- ✅ **EVO-60 `ww_user_info` caps bounded on the wire** · `v0.5` — the ww_stdlib units survey's Q4: `UserInfoCaps::name_max` and `notes_max` carry their device-wide ceiling as a bound (`NameMax` / `NotesMax`, `Fixed<units::Byte, One, u16, Range<0, 32>>` / `Range<0, 256>>`) instead of a plain `u16`; `ww_user_info` on a new wire line, `w2.0`. No device or host uses the format.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

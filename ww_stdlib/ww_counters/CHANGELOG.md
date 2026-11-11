@@ -11,6 +11,10 @@
   types, units and severities are only in the ELF. A device serves `INFO` from a `fn` (`const_model = "INFO=fn"`).
 - `CounterValue`, `CountersKind`, `CountersFilter` got `Unknown(u32)` from `derive_shrink_wrap` (SW-47) before
   they were removed.
+- `BufferInfo::used_words` and `capacity_words` are `Count<units::Word, u16>` instead of a bare `u16`;
+  `Counters::read`'s `offset` and `WordChange::index` are `Index<units::Word, u16 | UNib32>`.
+  `host::CountersDevice::read`'s `offset` follows suit. Same bytes on the wire, no wire bump; read the number back
+  with `.get()`.
 
 ### 🚀 Features
 

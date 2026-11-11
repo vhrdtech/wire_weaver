@@ -1,7 +1,7 @@
 //! Records of [LastReset](crate::LastReset).
 
 use wire_weaver::prelude::*;
-use ww_si::Second;
+use ww_si::{Count, Second, units::Boot};
 
 /// Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).
 #[derive_shrink_wrap(
@@ -26,7 +26,7 @@ pub struct ResetRecord<'i> {
     /// Boots since the crash data was saved: 0 when the last reset was the crash itself, 1 after one normal reset,
     /// and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how
     /// old it is. 0 when there is no crash data.
-    pub boots_since_crash: u32,
+    pub boots_since_crash: Count<Boot, u32>,
 }
 
 /// Cause of a reset.

@@ -4,7 +4,7 @@
 
 use dispatch_golden_api::GuardedError;
 use wire_weaver::prelude::*;
-use ww_user_info::{UserInfoCaps, UserInfoError};
+use ww_user_info::{NameMax, NotesMax, UserInfoCaps, UserInfoError};
 
 #[derive(Default)]
 pub struct Server {
@@ -174,8 +174,8 @@ impl Server {
 impl api_impl::DispatchGoldenTestConsts for Server {
     const LIMIT: u16 = 1000;
     const INFO_CAPABILITIES: UserInfoCaps = UserInfoCaps {
-        name_max: 32,
-        notes_max: 256,
+        name_max: NameMax::bounded(32),
+        notes_max: NotesMax::bounded(256),
         persistent: false,
     };
 }

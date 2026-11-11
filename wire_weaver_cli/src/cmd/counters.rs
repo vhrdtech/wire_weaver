@@ -179,8 +179,8 @@ fn print_info(info: &ww_counters::CountersInfoOwned, counters: &Counters) {
             Some(b) => println!(
                 "{} {} of {} words used, {elf_counters} counters",
                 style(format!("{storage} buffer")).dim(),
-                b.used_words,
-                b.capacity_words
+                b.used_words.get(),
+                b.capacity_words.get()
             ),
             None => println!(
                 "{} {}",

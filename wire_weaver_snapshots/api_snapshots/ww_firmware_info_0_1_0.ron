@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1589b462756572b70e95e8d96256bcfb63ca202fd183b1b9526402deb6873008
+// shrink_wrap sha256: daeb8b751228e7cfa83e7d6c33dfeb8e4fc935830559c4a863c624c6c6c71dd4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -251,6 +251,36 @@
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 3, type_name: "units::Boot", signature: [
+        232,
+        104,
+        24,
+        12,
+        22,
+        178,
+        196,
+        116,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "prefix::One", signature: [
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "Fixed", signature: [
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).",
     ], ident: "ResetRecord", generics: [], fields: Named([
@@ -276,7 +306,12 @@
         (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: Fixed(128), ty: String), docs: [
             "Panic message or fault text, cut at the bound.",
         ], slot: None, series_opaque: false),
-        (ident: Some("boots_since_crash"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+        (ident: Some("boots_since_crash"), default: None, since: None, ty: Instance(type_idx: 14, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 13)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 7)),
+        ]), docs: [
             "Boots since the crash data was saved: 0 when the last reset was the crash itself, 1 after one normal reset,",
             "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
             "old it is. 0 when there is no crash data.",
@@ -306,10 +341,15 @@
         "Capturing the record is firmware infrastructure (a fault or panic handler writing into RAM that survives a",
         "reset); this trait only reports it.",
     ], crate_idx: 0, trait_name: "LastReset", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
             "Cause of the last reset and, after a crash, the record saved before it.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(Instance(type_idx: 14, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 13)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 7)),
+        ])), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
             "Boots since the boot counter was cleared. With the cause it tells a reset loop from a single crash.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "clear", docs: [

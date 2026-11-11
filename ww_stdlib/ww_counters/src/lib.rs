@@ -32,11 +32,11 @@
 //!     &mut self,
 //!     _cx: &mut Context<'_, impl BlockingEventOut>,
 //!     buffer: CounterBuffer,
-//!     offset: u16,
+//!     offset: Index<Word, u16>,
 //! ) -> RpcResult<Result<MaxLen<RefVec<'_, UVlq32>, MAX_WORDS>, CountersError<'_>>> {
 //!     RpcResult::Ready(match buffer {
 //!         CounterBuffer::Ram => {
-//!             read_words(cnt::counters_ram_buffer(), cnt::ram_used_words(), offset, &mut self.scratch)
+//!             read_words(cnt::counters_ram_buffer(), cnt::ram_used_words(), offset.get(), &mut self.scratch)
 //!         }
 //!         CounterBuffer::Backup => Err(CountersError::unsupported()),
 //!     })
@@ -60,6 +60,7 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use wire_weaver::prelude::*;
 use ww_error::CommonError;
 pub use ww_si::Second;
+pub use ww_si::{Count, Index, units::Word};
 
 /// Most words one [Counters::read] returns.
 pub const MAX_WORDS: usize = 64;
@@ -83,7 +84,7 @@ pub trait Counters {
     #[errors(Common(InvalidArgument, Unsupported))]
     fn read(
         buffer: CounterBuffer,
-        offset: u16,
+        offset: Index<Word, u16>,
     ) -> Result<MaxLen<RefVec<'i, UVlq32>, MAX_WORDS>, CountersError<'i>>;
 
     /// Zero a buffer.
@@ -144,9 +145,9 @@ pub struct CountersInfo<'i> {
 )]
 pub struct BufferInfo {
     /// Words taken by counters (`cnt::ram_used_words()`), fixed at link time: what a host reads.
-    pub used_words: u16,
+    pub used_words: Count<Word, u16>,
     /// Size of the buffer.
-    pub capacity_words: u16,
+    pub capacity_words: Count<Word, u16>,
 }
 
 /// Counter words that changed, see [Counters::watch].
@@ -166,7 +167,7 @@ pub struct CounterChanges<'i> {
 )]
 pub struct WordChange {
     /// Word index in the buffer.
-    pub index: UNib32,
+    pub index: Index<Word, UNib32>,
     pub value: UVlq32,
 }
 
@@ -196,8 +197,8 @@ impl BufferInfo {
     /// A buffer of `cnt` (`cnt::counters_ram_buffer()`) with `used` words in use (`cnt::ram_used_words()`).
     pub fn new(used: usize, buffer: &[AtomicU32]) -> Self {
         BufferInfo {
-            used_words: used.min(u16::MAX as usize) as u16,
-            capacity_words: buffer.len().min(u16::MAX as usize) as u16,
+            used_words: Count::new(used.min(u16::MAX as usize) as u16),
+            capacity_words: Count::new(buffer.len().min(u16::MAX as usize) as u16),
         }
     }
 }

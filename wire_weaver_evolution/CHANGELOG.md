@@ -6,7 +6,7 @@
 - `Saved` has a new public field `superseded: Vec<superseded::Superseded>`, the definitions a refresh in place replaced and kept (EVO-68): a `Saved { .. }` literal adds it.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `FirmwareInfo`, `LastReset`, `UserInfo` and
   `Counters` follow the stdlib units survey's typed numbers in `ww_firmware_info`, `ww_user_info` and `ww_counters`
-  (P2401#11nov-0947e), as they did for `ww_timebase::Clock` (P2401#11nov-0947g).
+  (P2401#11nov-0947e), as they did for `ww_timebase::Clock` (P2401#11nov-0947g), and `FirmwareInfo`, `BoardInfo` and `Clock` follow `ww_date_time` `w2.0` (EVO-58).
 - `compare_recorded` takes a sixth argument, `definitions: &[&ApiBundleOwned]` (EVO-67): bundles with other crates' definitions in-line, `wire_weaver_core::SourceNotes::definitions` of a side loaded from source, `&[]` for none. `compat::Bounds` has a new public field `definitions`, so a `Bounds { .. }` literal needs it (`..Bounds::default()` covers it); `TypeCheck::definitions` sets the same.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `CommonError`, `BoardInfo`, `Counters`, `Indication`, `PinDiag`, `Clock`, `UserInfo` and `LogDefmt` follow `ww_error::CommonError::InvalidArgument::arg` becoming `ww_si::Index<units::Argument, u8>` (same bytes, P2401#11nov-0947), as they did for EVO-51.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `Clock`, `LastReset`, `Counters` and `Indication` follow `ww_si` 0.5.0 (EVO-51), as they did for EVO-47.

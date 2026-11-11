@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `SourceNotes` has a new public field `definitions`, the walked bundle before other crates' traits and types were left out of it, for the evolution checker to find a dependency's definition that no embedded snapshot holds (EVO-67). It no longer derives `Default`, `PartialEq` and `Eq` (`ApiBundleOwned` has none of them); a `SourceNotes { .. }` literal needs the field.
+
 ### 🐛 Fixes
 
 - The codec walker reads every `CodecShape` (`markers::codec_shape`): `Table(def_list(&X))`, `Offset { zero }` and `MantissaExponent { radix, exponents, mantissas, mantissa_offset, exponent_zero, exponent_step }` besides `MuLaw` and `ALaw`. A table a `DEF` names (`def_list(&X)`, for `spare` too) is the array literal of a `const X` of the codec's module, numbers are literals, negated, parenthesised or `+`, `-`, `*` and `<<` of them, checked in `i128`; the walker evaluates no `const` code, and a computed table is refused naming it. Every whole-crate walk of exact_units failed on `CanFdDlc` before (`ww api save --dep exact_units`, `just save-snapshots`). A generic `impl<..> Codec` (`exact_units::codec::Transfer<Q, C>`, a definition per instance) gives its struct no definition, and an API using an instance is refused with an error naming it and STD-112. `exact_units_definitions_match_the_compiled_consts` checks every codec and every counted base against the compiled ones (dev-dependency features `levels`, `nuclear`).

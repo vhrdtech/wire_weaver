@@ -400,18 +400,23 @@ impl Report {
 /// (saved by a wire_weaver from before the field) is left out on both, so that upgrading wire_weaver alone never
 /// shows up as a change (EVO-13). [Recorded::default] for a bundle loaded from source, which has every field.
 ///
-/// `moves` are the new version's `#[moved_from]` attributes (EVO-40), see [compare_moved].
+/// `moves` are the new version's `#[moved_from]` attributes (EVO-40), see [compare_moved]. `definitions` are bundles
+/// with other crates' definitions in-line (`wire_weaver_core::SourceNotes::definitions` of a side loaded from source):
+/// a definition one side left out by a signature that no embedded snapshot holds is looked up there, and one crate
+/// version defined differently on each side (changed without a version bump) is compared by its two definitions
+/// (EVO-67). `&[]` for none.
 pub fn compare_recorded(
     old: &ApiBundleOwned,
     old_recorded: &Recorded,
     new: &ApiBundleOwned,
     new_recorded: &Recorded,
     moves: &[Move],
+    definitions: &[&ApiBundleOwned],
 ) -> Result<Report, String> {
     let mut unrecorded = old_recorded.unrecorded();
     unrecorded.extend(new_recorded.unrecorded());
     if unrecorded.is_empty() {
-        return compare_moved(old, new, moves);
+        return compare_with(old, new, true, moves, definitions);
     }
     let old = Recorded::leave_out(old, &unrecorded)?;
     let new = Recorded::leave_out(new, &unrecorded)?;
@@ -419,7 +424,7 @@ pub fn compare_recorded(
     let signatures = unrecorded
         .iter()
         .all(|u| !ww_self::signature::includes(&u.owner, &u.field));
-    let mut report = compare_with(&old, &new, signatures, moves)?;
+    let mut report = compare_with(&old, &new, signatures, moves, definitions)?;
     report.unrecorded = unrecorded.into_iter().collect();
     Ok(report)
 }
@@ -427,7 +432,7 @@ pub fn compare_recorded(
 /// Compare an old version of a crate with a new one. Both are crate bundles, as loaded by
 /// `wire_weaver_core::load_crate` and saved by `ww api save`.
 pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, String> {
-    compare_with(old, new, true, &[])
+    compare_with(old, new, true, &[], &[])
 }
 
 /// [compare] with the new version's `#[moved_from]` attributes (EVO-40), which `wire_weaver_core` reads from the
@@ -443,7 +448,7 @@ pub fn compare_moved(
     new: &ApiBundleOwned,
     moves: &[Move],
 ) -> Result<Report, String> {
-    compare_with(old, new, true, moves)
+    compare_with(old, new, true, moves, &[])
 }
 
 /// Verifies one `#[moved_from]` of `new` against `line`, a snapshot of the line it names (EVO-40), as
@@ -475,6 +480,7 @@ fn compare_with(
     new: &ApiBundleOwned,
     signatures: bool,
     moves: &[Move],
+    definitions: &[&ApiBundleOwned],
 ) -> Result<Report, String> {
     let (Some(old_version), Some(new_version)) = (old.ext_crates.first(), new.ext_crates.first())
     else {
@@ -513,6 +519,7 @@ fn compare_with(
         moved_from_errors: vec![],
         unverified_moves: vec![],
         missing: vec![],
+        definitions,
     };
     checker.compare_wire();
     checker.compare_traits();
@@ -652,6 +659,8 @@ struct Checker<'a> {
     across: bool,
     /// `#[moved_from]` of the new version.
     moves: &'a [Move],
+    /// Where definitions left out by a signature no embedded snapshot holds are looked up, see [compare_recorded].
+    definitions: &'a [&'a ApiBundleOwned],
     /// The moves verified, from the old place (trait, name) to the new one.
     moved: Vec<((String, String), (String, String))>,
     /// Across a break, resources removed and added (trait, name), for [Report::proposals].
@@ -862,6 +871,7 @@ impl<'a> Checker<'a> {
             strict_writer: Some(self.old),
             skip_signatures: !self.signatures,
             own_types_by_name: true,
+            definitions: self.definitions,
             ..Bounds::default()
         };
         compare_items(
@@ -1070,6 +1080,7 @@ impl<'a> Checker<'a> {
             strict_writer: Some(self.old),
             skip_signatures: !self.signatures,
             own_types_by_name: self.across,
+            definitions: self.definitions,
             ..Bounds::default()
         };
         let result = compare_items(
@@ -1221,9 +1232,11 @@ impl<'a> Checker<'a> {
             // written by the old version and read by the new one, and the other way around
             let mut old_to_new = TypeCheck::new(self.old, self.new, OLD, NEW)
                 .strict_bounds(true)
-                .compare_signatures(self.signatures);
-            let mut new_to_old =
-                TypeCheck::new(self.new, self.old, NEW, OLD).compare_signatures(self.signatures);
+                .compare_signatures(self.signatures)
+                .definitions(self.definitions);
+            let mut new_to_old = TypeCheck::new(self.new, self.old, NEW, OLD)
+                .compare_signatures(self.signatures)
+                .definitions(self.definitions);
             let result = old_to_new
                 .check(old_ty, new_ty)
                 .and_then(|_| new_to_old.check(new_ty, old_ty));
@@ -1641,6 +1654,7 @@ mod tests {
     mod both_bumps;
     mod by_meaning;
     mod foreign_wrapper;
+    mod in_place;
     mod moved_from;
     mod root_cause;
     mod transparent;
@@ -1674,6 +1688,15 @@ mod tests {
     }
 
     fn load_uncached(version: &str, lib_rs: &str, dependencies: &str) -> ApiBundleOwned {
+        load_with_notes(version, lib_rs, dependencies).0
+    }
+
+    /// [load_with], not cached, with what the load noted besides the bundle (the other crates' definitions).
+    fn load_with_notes(
+        version: &str,
+        lib_rs: &str,
+        dependencies: &str,
+    ) -> (ApiBundleOwned, wire_weaver_core::SourceNotes) {
         // under the workspace, so the walker finds its Cargo.lock and [patch]es for git dependencies (exact_units)
         let dir: PathBuf = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../target/ww_evolution_tests")
@@ -1692,9 +1715,34 @@ mod tests {
         .unwrap();
         let lib_rs = format!("use wire_weaver::prelude::*;\n\n{lib_rs}");
         std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
-        let bundle = wire_weaver_core::load_crate(&dir).unwrap();
+        let loaded = wire_weaver_core::load_crate_with_notes(&dir).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();
-        bundle
+        loaded
+    }
+
+    /// Another crate, `name` 0.1.0 with `lib_rs`, written under the workspace (a directory per content, kept for the
+    /// API crates that depend on it): the `[dependencies]` line naming it, and its snapshot as `ww api save` saves it.
+    fn dep_crate(name: &str, lib_rs: &str) -> (String, ApiBundleOwned) {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        lib_rs.hash(&mut hasher);
+        let dir: PathBuf = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/ww_evolution_tests")
+            .join(format!(
+                "{name}-{}-{:?}-{:x}",
+                std::process::id(),
+                std::thread::current().id(),
+                hasher.finish()
+            ));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n"),
+        )
+        .unwrap();
+        std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
+        let snapshot = wire_weaver_core::load_crate(&dir).unwrap();
+        (format!("{name} = {{ path = {dir:?} }}\n"), snapshot)
     }
 
     /// `src` with its API root at wire version `wire` instead of `w1.0`.

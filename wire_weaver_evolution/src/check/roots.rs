@@ -105,6 +105,7 @@ impl Check {
         let mut warnings = vec![];
         let mut moves = vec![];
         let mut modules = BTreeMap::new();
+        let mut definitions = vec![];
         for (root, wire) in roots {
             let (bundle, notes) = cache
                 .load_root_with_notes(&self.path, root)
@@ -127,9 +128,12 @@ impl Check {
                 }
             }
             modules.insert(root.clone(), notes.trait_modules);
+            definitions.push(notes.definitions);
             loaded.push((root.clone(), *wire, bundle));
         }
         let bundles: Vec<&ApiBundleOwned> = loaded.iter().map(|(_, _, b)| b).collect();
+        // what every root's walk saw of other crates
+        let definitions: Vec<&ApiBundleOwned> = definitions.iter().collect();
         warnings.extend(unreached_moves(&bundles, &moves));
         let own = loaded[0]
             .2
@@ -151,7 +155,7 @@ impl Check {
         if let Some(against) = &self.against {
             outcome
                 .roots
-                .push(self.against_root(against, loaded, &own, &moves)?);
+                .push(self.against_root(against, loaded, &own, &moves, &definitions)?);
             return Ok(Outcome::Roots(Box::new(outcome)));
         }
         // what each root reaches, w0 roots and roots without a snapshot too, by path in the crate: two roots may
@@ -172,7 +176,15 @@ impl Check {
         let saved_at_current = files.iter().any(|f| f.version == key(&own.version));
         for (root, wire, bundle) in loaded {
             let all = root_snapshots(&dir, &own.crate_id, &root, wire.line.0)?;
-            let one = self.root_outcome(&root, bundle, all, saved_at_current, &dir, &moves)?;
+            let one = self.root_outcome(
+                &root,
+                bundle,
+                all,
+                saved_at_current,
+                &dir,
+                &moves,
+                &definitions,
+            )?;
             outcome.roots.push(RootOutcome {
                 root,
                 wire,
@@ -191,6 +203,7 @@ impl Check {
         loaded: Vec<(String, WireVersion, ApiBundleOwned)>,
         own: &FullVersionOwned,
         moves: &[Move],
+        definitions: &[&ApiBundleOwned],
     ) -> Result<RootOutcome, String> {
         let Some(name) = against
             .file_name()
@@ -223,6 +236,7 @@ impl Check {
             &bundle,
             &Recorded::default(),
             moves,
+            definitions,
         )?;
         let outcome = Outcome::Compared(Box::new(Comparison {
             old_path: old.path,
@@ -256,6 +270,7 @@ impl Check {
         saved_at_current: bool,
         dir: &Path,
         moves: &[Move],
+        definitions: &[&ApiBundleOwned],
     ) -> Result<Outcome, String> {
         let own = source.crate_version(0).map_err(|e| e.to_string())?.clone();
         let version = own.version.clone();
@@ -271,7 +286,7 @@ impl Check {
         let Some(latest) = older.pop() else {
             let previous_line = match design_line {
                 true => None,
-                false => previous_line(dir, root, &source, moves)?,
+                false => previous_line(dir, root, &source, moves, definitions)?,
             };
             return Ok(Outcome::NoSnapshot(Box::new(NoSnapshot {
                 crate_id: own.crate_id,
@@ -301,6 +316,7 @@ impl Check {
             &source,
             &Recorded::default(),
             moves,
+            definitions,
         )?;
         let compared = |old: super::Snapshot,
                         new_label: String,
@@ -344,6 +360,7 @@ impl Check {
                 &old.bundle,
                 &old.recorded,
                 moves,
+                definitions,
             )?;
             let label = old.path.display().to_string();
             return Ok(compared(previous.snapshot, label, old.bundle, report, None));
@@ -755,6 +772,7 @@ fn previous_line(
     root: &str,
     source: &ApiBundleOwned,
     moves: &[Move],
+    definitions: &[&ApiBundleOwned],
 ) -> Result<Option<(PathBuf, Box<crate::Report>)>, String> {
     let (Some(wire), Ok(own)) = (source.wire, source.crate_version(0)) else {
         return Ok(None);
@@ -786,6 +804,7 @@ fn previous_line(
         source,
         &Recorded::default(),
         moves,
+        definitions,
     )?;
     Ok(Some((file.path.clone(), Box::new(report))))
 }

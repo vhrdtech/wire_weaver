@@ -122,7 +122,7 @@ impl Check {
                 return self.run_roots(&roots, cache);
             }
         }
-        let (new, new_recorded, new_label, dir, hints, moves) = if is_snapshot {
+        let (new, new_recorded, new_label, dir, hints, moves, definitions) = if is_snapshot {
             let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
             let new = read(&self.path)?;
             (
@@ -132,6 +132,7 @@ impl Check {
                 dir,
                 vec![],
                 vec![],
+                None,
             )
         } else {
             let (new, notes) = cache
@@ -140,8 +141,18 @@ impl Check {
             let dir = self.crate_snapshots_dir();
             let moves = own_moves(&new, &notes);
             let label = "source".to_string();
-            (new, Recorded::default(), label, dir, notes.hints, moves)
+            let definitions = Some(notes.definitions);
+            (
+                new,
+                Recorded::default(),
+                label,
+                dir,
+                notes.hints,
+                moves,
+                definitions,
+            )
         };
+        let definitions: Vec<&ApiBundleOwned> = definitions.iter().collect();
         // w0, the design line (EVO-41): no snapshot is required, what one shows is information
         let design_line = new.wire.is_some_and(|w| w.is_design_line());
         let mut warnings = match design_line && !is_snapshot {
@@ -150,7 +161,7 @@ impl Check {
         };
         warnings.extend(unreached_moves(&[&new], &moves));
         if self.require_current && !is_snapshot && self.against.is_none() && !design_line {
-            return self.run_current(new, hints, &moves);
+            return self.run_current(new, hints, &moves, &definitions);
         }
         let old = match &self.against {
             Some(against) => read(against)?,
@@ -194,6 +205,7 @@ impl Check {
             &new,
             &new_recorded,
             &moves,
+            &definitions,
         )?;
         Ok(Outcome::Compared(Box::new(Comparison {
             old_path: old.path,
@@ -217,6 +229,7 @@ impl Check {
         source: ApiBundleOwned,
         hints: Vec<UnitHint>,
         moves: &[Move],
+        definitions: &[&ApiBundleOwned],
     ) -> Result<Outcome, String> {
         let dir = self.crate_snapshots_dir();
         let own = source.crate_version(0).map_err(|e| e.to_string())?;
@@ -246,6 +259,7 @@ impl Check {
             &source,
             &Recorded::default(),
             moves,
+            definitions,
         )?;
         let (old, new_label, new, report) = match previous {
             // the source is checked against the snapshot of its version first, then that snapshot against the previous
@@ -258,6 +272,7 @@ impl Check {
                     &current.bundle,
                     &current.recorded,
                     moves,
+                    definitions,
                 )?;
                 let label = current.path.display().to_string();
                 (previous, label, current.bundle, report)
@@ -352,7 +367,14 @@ impl Check {
         // RON and fails when it differs, which proves the round trip lossless
         let contents = wire_weaver_snapshots::render_ron(&bundle)?;
         let previous = latest_snapshot(&dir, &bundle, &own.version, false)?;
-        let previous = self.check_bump(previous, &bundle, &moves, None, force)?;
+        let previous = self.check_bump(
+            previous,
+            &bundle,
+            &moves,
+            &[&notes.definitions],
+            None,
+            force,
+        )?;
         let status = existing_status(&path, &bundle, &contents)?;
         Ok(planned(path, status, previous, bundle, None, contents))
     }
@@ -406,7 +428,14 @@ impl Check {
                 wire,
             )?);
         }
-        let previous = self.check_bump(previous, &bundle, &moves, Some(root), force)?;
+        let previous = self.check_bump(
+            previous,
+            &bundle,
+            &moves,
+            &[&notes.definitions],
+            Some(root),
+            force,
+        )?;
         let unchanged = previous
             .as_ref()
             .is_some_and(|(_, report)| report.change == Change::None);
@@ -439,6 +468,7 @@ impl Check {
         previous: Option<Snapshot>,
         bundle: &ApiBundleOwned,
         moves: &[Move],
+        definitions: &[&ApiBundleOwned],
         root: Option<&str>,
         force: bool,
     ) -> Result<Option<(PathBuf, Report)>, String> {
@@ -452,6 +482,7 @@ impl Check {
             bundle,
             &Recorded::default(),
             moves,
+            definitions,
         )?;
         let of = root.map_or(String::new(), |root| format!("API root `{root}`: "));
         if let Err(e) = report.check_version()
@@ -963,7 +994,8 @@ fn not_saved(
 
 /// [compare_recorded] of a crate with its `#[moved_from]` (`moves`), each one the comparison couldn't check
 /// ([Report::unverified_moves]) verified against the latest snapshot in `dir` of the line it names: what doesn't hold
-/// goes to [Report::moved_from_errors], one without a snapshot of its line to [Report::warnings].
+/// goes to [Report::moved_from_errors], one without a snapshot of its line to [Report::warnings]. `definitions` as for
+/// [compare_recorded], those of the source a side was loaded from.
 pub(crate) fn compare_checked(
     dir: &Path,
     old: &ApiBundleOwned,
@@ -971,8 +1003,9 @@ pub(crate) fn compare_checked(
     new: &ApiBundleOwned,
     new_recorded: &Recorded,
     moves: &[Move],
+    definitions: &[&ApiBundleOwned],
 ) -> Result<Report, String> {
-    let mut report = compare_recorded(old, old_recorded, new, new_recorded, moves)?;
+    let mut report = compare_recorded(old, old_recorded, new, new_recorded, moves, definitions)?;
     if report.unverified_moves.is_empty() {
         return Ok(report);
     }
@@ -1070,6 +1103,8 @@ fn existing_status(
                         &old.recorded,
                         bundle,
                         &Recorded::default(),
+                        &[],
+                        // any other signature of a dependency is another snapshot
                         &[],
                     )
                     .is_ok_and(|r| r.change == Change::None)

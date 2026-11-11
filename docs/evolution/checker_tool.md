@@ -126,6 +126,19 @@ A group forms only once a cause reaches two or more items; a single broken item 
 line, with its own rule and bump. Grouping is naming, not a verdict of its own: every grouped item still carries its
 own [`Rule`](#what-is-checked) and counts toward the same required bump as it would alone.
 
+## A dependency changed without a version bump (EVO-67)
+
+A snapshot names another crate's trait or type by its crate version and a signature of its definition, and leaves
+the definition out. A crate version that is not published yet can change without a bump (`ww_error` 0.1.0's
+`CommonError` gaining a typed index), and then the snapshot of a crate that uses it names one signature while the
+source names another. The checker looks both definitions up: the snapshot's in the snapshots built into it, the
+source's in what the walk of the source saw. When it finds both, it compares them as any two versions of a type, so
+`arg: u8` -> `arg: Index<Argument, u8>` is `u8 -> Index<Argument, u8, Unbounded>, same bytes` in every crate that
+embeds the type, and a change of the bytes is a break named at the field. A definition found nowhere (a snapshot
+saved against a revision of the dependency that no snapshot holds any more) is still reported by its two
+signatures. Either way the snapshot of the checking crate's current version differs from its source: save it again
+while the version is not published (`just save-snapshots` for `ww_stdlib`).
+
 ## Checking at every commit
 
 The checker is a library, `wire_weaver_evolution`, which parses the crate from source like `ww api check` does and

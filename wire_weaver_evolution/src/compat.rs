@@ -55,6 +55,9 @@ pub struct Bounds<'a> {
     pub own_types_by_name: bool,
     /// Generic definitions one side has and the other doesn't, see [TypeCheck::missing].
     pub missing: Vec<String>,
+    /// Where definitions left out by a signature no embedded snapshot holds are looked up, see
+    /// [TypeCheck::definitions].
+    pub definitions: &'a [&'a ApiBundleOwned],
 }
 
 /// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
@@ -137,11 +140,13 @@ pub fn compare_items<'a>(
     let mut to_device = TypeCheck::new(client, device, client_name, device_name)
         .strict_bounds(strict(client))
         .compare_signatures(!bounds.skip_signatures)
-        .own_types_by_name(bounds.own_types_by_name);
+        .own_types_by_name(bounds.own_types_by_name)
+        .definitions(bounds.definitions);
     let mut to_client = TypeCheck::new(device, client, device_name, client_name)
         .strict_bounds(strict(device))
         .compare_signatures(!bounds.skip_signatures)
-        .own_types_by_name(bounds.own_types_by_name);
+        .own_types_by_name(bounds.own_types_by_name)
+        .definitions(bounds.definitions);
     let result = compare_kinds(
         (client, client_item, client_name),
         (device, device_item, device_name),
@@ -640,6 +645,8 @@ pub struct TypeCheck<'a> {
     compare_signatures: bool,
     /// See [Self::own_types_by_name].
     own_types_by_name: bool,
+    /// See [Self::definitions].
+    definitions: &'a [&'a ApiBundleOwned],
 }
 
 /// Type with out-of-line references resolved.
@@ -675,6 +682,7 @@ impl<'a> TypeCheck<'a> {
             compare_signatures: true,
             own_types_by_name: false,
             missing: vec![],
+            definitions: &[],
         }
     }
 
@@ -830,12 +838,26 @@ impl<'a> TypeCheck<'a> {
                 if !self.compare_signatures {
                     return Ok(());
                 }
+                let (w_signature, r_signature) =
+                    (signature(self.writer, w_ty), signature(self.reader, r_ty));
+                // one crate version defined differently on each side (changed without a version bump, a version
+                // not published): compared by the two definitions when both are known (EVO-67)
+                if let (Some(w_signature), Some(r_signature)) = (&w_signature, &r_signature)
+                    && w.0 == r.0
+                    && w_signature != r_signature
+                    && let Some((wb, wd)) = self.definition(self.writer, w_ty, &w, w_signature)
+                    && let Some((rb, rd)) = self.definition(self.reader, r_ty, &r, r_signature)
+                {
+                    return self
+                        .with_bundle(0, wb, |c| c.with_bundle(1, rb, |c| c.check(wd, rd)))
+                        .inspect_err(|_| self.note_root("type", &w));
+                }
                 return check_same_definition(
                     "type",
                     (&w, self.writer_name),
                     (&r, self.reader_name),
-                    signature(self.writer, w_ty),
-                    signature(self.reader, r_ty),
+                    w_signature,
+                    r_signature,
                 )
                 .inspect_err(|_| self.note_root("type", &w));
             }
@@ -1463,6 +1485,36 @@ impl<'a> TypeCheck<'a> {
                 .iter()
                 .any(|(r_name, r_unit)| r_name == name && r_unit != w_unit)
         })
+    }
+
+    /// The definition of `ty` (`identity` with `signature`) of `bundle` and the bundle it is in: in-line in `bundle`,
+    /// or for one left out, the definition with that signature in the embedded snapshot of its crate version or in
+    /// [Self::definitions].
+    fn definition(
+        &self,
+        bundle: &'a ApiBundleOwned,
+        ty: &TypeOwned,
+        identity: &Identity,
+        signature: &[u8],
+    ) -> Option<(&'a ApiBundleOwned, &'a TypeOwned)> {
+        let TypeOwned::OutOfLine { type_idx } = ty else {
+            return None;
+        };
+        match bundle.types.get(type_idx.0 as usize)? {
+            TypeLocationOwned::InLine { ty, .. } => Some((bundle, ty)),
+            TypeLocationOwned::SkippedFullVersion { .. } => known(identity.0)
+                .into_iter()
+                .chain(self.definitions.iter().copied())
+                .find_map(|candidate| defined_in(candidate, identity, signature)),
+        }
+    }
+
+    /// Bundles with other crates' definitions in-line, where one left out by a signature no embedded snapshot holds
+    /// is looked up: a crate version changed without a version bump, the definitions of the source it was walked from
+    /// (`wire_weaver_core::SourceNotes::definitions`, EVO-67).
+    pub fn definitions(mut self, definitions: &'a [&'a ApiBundleOwned]) -> Self {
+        self.definitions = definitions;
+        self
     }
 
     /// `f` with the writer's (`side` 0) or the reader's (1) bundle replaced by `bundle`: for a type that refers to
@@ -2122,6 +2174,28 @@ fn is_ww_si(krate: &str, qualified_name: &str, name: &str) -> bool {
 fn is_fixed(krate: &str, qualified_name: &str) -> bool {
     (krate == "exact_units" || krate == "ww_si")
         && qualified_name.rsplit("::").next() == Some("Fixed")
+}
+
+/// The in-line definition of the type `identity` with `signature` in `bundle`, and `bundle`.
+fn defined_in<'b>(
+    bundle: &'b ApiBundleOwned,
+    identity: &Identity,
+    signature: &[u8],
+) -> Option<(&'b ApiBundleOwned, &'b TypeOwned)> {
+    bundle
+        .types
+        .iter()
+        .enumerate()
+        .find_map(|(idx, location)| match location {
+            TypeLocationOwned::InLine { ty, .. }
+                if user_type_identity(bundle, ty)
+                    .is_some_and(|(v, name)| v == identity.0 && name == identity.1)
+                    && type_signature(bundle, idx as u32).as_deref() == Some(signature) =>
+            {
+                Some((bundle, ty))
+            }
+            _ => None,
+        })
 }
 
 /// The embedded snapshot of a crate version, see [wire_weaver_snapshots::get]; in tests, also one a test added with

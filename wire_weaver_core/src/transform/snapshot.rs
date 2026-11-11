@@ -43,7 +43,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
 
 /// What a load found in the source besides the bundle, not part of the API model: for `ww api check` to show and
 /// the evolution checker to use.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct SourceNotes {
     /// Unit-suffix hints (TOOL-22).
     pub hints: Vec<super::UnitHint>,
@@ -54,6 +54,11 @@ pub struct SourceNotes {
     /// bundles whether it is one trait (`common::Channel`) or two (`wire_v1::Channel`, EVO-42). One load never has two
     /// traits of one name (the walker refuses them). Types carry their path in the model (API-46).
     pub trait_modules: BTreeMap<(String, String), Vec<String>>,
+    /// The walked bundle before other crates' traits and types were left out of it: their definitions as the
+    /// source has them, every one in-line. The bundle names a left-out definition by its crate version, name and
+    /// signature, which an embedded snapshot may hold under another signature when that crate changed without a
+    /// version bump (a version not published); the checker finds this side's definition here (EVO-67).
+    pub definitions: ApiBundleOwned,
 }
 
 /// [load_crate], also returning what else the source says ([SourceNotes]).
@@ -290,11 +295,9 @@ fn snapshot_bundle(
     wire: Option<WireVersion>,
     keep_own_types: bool,
 ) -> Result<(ApiBundleOwned, SourceNotes)> {
-    let notes = SourceNotes {
-        hints: dedup_hints(std::mem::take(&mut scratch.unit_hints)),
-        moved_from: std::mem::take(&mut scratch.moved_from),
-        trait_modules: scratch.trait_modules.clone(),
-    };
+    let hints = dedup_hints(std::mem::take(&mut scratch.unit_hints));
+    let moved_from = std::mem::take(&mut scratch.moved_from);
+    let trait_modules = scratch.trait_modules.clone();
     let scratch = std::mem::take(&mut scratch.root_bundle);
     let ext_wire = scratch.ext_wire(wire);
     let mut bundle = ApiBundleOwned {
@@ -314,6 +317,12 @@ fn snapshot_bundle(
         root_omitted: None,
         wire,
         ext_wire,
+    };
+    let notes = SourceNotes {
+        hints,
+        moved_from,
+        trait_modules,
+        definitions: bundle.clone(),
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, keep_own_types);

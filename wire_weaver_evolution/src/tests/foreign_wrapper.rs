@@ -20,26 +20,8 @@ const DEP: &str = r#"
     pub struct Timeout(pub Ticks);
 "#;
 
-/// The other crate, `lease_dep 0.1.0`, written with `lib_rs` under the workspace: the `[dependencies]` line of the
-/// API crate, and the crate's snapshot as `ww api save` would save it.
 fn dep(lib_rs: &str) -> (String, ApiBundleOwned) {
-    let dir: PathBuf = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../target/ww_evolution_tests")
-        .join(format!(
-            "lease_dep-{}-{:?}-{:x}",
-            std::process::id(),
-            std::thread::current().id(),
-            lib_rs.len()
-        ));
-    std::fs::create_dir_all(dir.join("src")).unwrap();
-    std::fs::write(
-        dir.join("Cargo.toml"),
-        "[package]\nname = \"lease_dep\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n",
-    )
-    .unwrap();
-    std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
-    let snapshot = wire_weaver_core::load_crate(&dir).unwrap();
-    (format!("lease_dep = {{ path = {:?} }}\n", dir), snapshot)
+    dep_crate("lease_dep", lib_rs)
 }
 
 /// An API using `lease` for a method argument, a method's return, a read-only property and a struct field, and

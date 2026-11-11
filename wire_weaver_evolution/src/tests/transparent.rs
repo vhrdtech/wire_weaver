@@ -294,12 +294,14 @@ fn snapshot_ron_round_trip() {
         "{:?}",
         recorded.unrecorded()
     );
-    let report = compare_recorded(&read, &recorded, &source, &Recorded::default(), &[]).unwrap();
+    let report =
+        compare_recorded(&read, &recorded, &source, &Recorded::default(), &[], &[]).unwrap();
     assert_eq!(report.change, Change::None, "{report:#?}");
     // and the compatible change from a plain field, against the saved snapshot
     let plain = load("0.1.0", &same("u64"));
     let (plain, recorded) =
         Recorded::parse(&wire_weaver_snapshots::render_ron(&plain).unwrap()).unwrap();
-    let report = compare_recorded(&plain, &recorded, &source, &Recorded::default(), &[]).unwrap();
+    let report =
+        compare_recorded(&plain, &recorded, &source, &Recorded::default(), &[], &[]).unwrap();
     assert_eq!(report.change, Change::Compatible, "{report:#?}");
 }

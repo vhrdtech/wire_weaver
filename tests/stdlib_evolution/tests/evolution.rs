@@ -7,233 +7,180 @@
 //! evolution <crate>` saves that crate's current version's snapshot (`ww api save ww_stdlib/<crate>` does the
 //! same).
 
+use std::path::Path;
+use wire_weaver_evolution::Check;
+
+fn check(name: &str) {
+    Check::new(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../ww_stdlib")
+            .join(name),
+    )
+    .require_current(true)
+    .assert();
+}
+
 #[test]
 fn ww_adc() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_adc"))
-        .require_current(true)
-        .assert();
+    check("ww_adc");
 }
 
 #[test]
 fn ww_block() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_block"))
-        .require_current(true)
-        .assert();
+    check("ww_block");
 }
 
 #[test]
 fn ww_board_info() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_board_info"))
-        .require_current(true)
-        .assert();
+    check("ww_board_info");
 }
 
 #[test]
 fn ww_can_bus() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_can_bus"))
-        .require_current(true)
-        .assert();
+    check("ww_can_bus");
 }
 
 #[test]
 fn ww_client_server() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_client_server"))
-        .require_current(true)
-        .assert();
+    check("ww_client_server");
 }
 
 #[test]
 fn ww_counters() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_counters"))
-        .require_current(true)
-        .assert();
+    check("ww_counters");
 }
 
 #[test]
 fn ww_date_time() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_date_time"))
-        .require_current(true)
-        .assert();
+    check("ww_date_time");
 }
 
 #[test]
 fn ww_dfu() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_dfu"))
-        .require_current(true)
-        .assert();
+    check("ww_dfu");
 }
 
 #[test]
 fn ww_error() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_error"))
-        .require_current(true)
-        .assert();
+    check("ww_error");
 }
 
 #[test]
 fn ww_firmware_info() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_firmware_info"))
-        .require_current(true)
-        .assert();
+    check("ww_firmware_info");
 }
 
 #[test]
 fn ww_gpio() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_gpio"))
-        .require_current(true)
-        .assert();
+    check("ww_gpio");
 }
 
 #[test]
 fn ww_gpio_hl() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_gpio_hl"))
-        .require_current(true)
-        .assert();
+    check("ww_gpio_hl");
 }
 
 #[test]
 fn ww_i2c() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_i2c"))
-        .require_current(true)
-        .assert();
+    check("ww_i2c");
 }
 
 #[test]
 fn ww_i2c_hl() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_i2c_hl"))
-        .require_current(true)
-        .assert();
+    check("ww_i2c_hl");
 }
 
 #[test]
 fn ww_indication() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_indication"))
-        .require_current(true)
-        .assert();
+    check("ww_indication");
 }
 
 #[test]
 fn ww_interned() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_interned"))
-        .require_current(true)
-        .assert();
+    check("ww_interned");
 }
 
 #[test]
 fn ww_log() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_log"))
-        .require_current(true)
-        .assert();
+    check("ww_log");
 }
 
 #[test]
 fn ww_logic_analyzer() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_logic_analyzer"))
-        .require_current(true)
-        .assert();
+    check("ww_logic_analyzer");
 }
 
 #[test]
 fn ww_memory() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_memory"))
-        .require_current(true)
-        .assert();
+    check("ww_memory");
 }
 
 #[test]
 fn ww_numeric() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_numeric"))
-        .require_current(true)
-        .assert();
+    check("ww_numeric");
 }
 
 #[test]
 fn ww_onewire() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_onewire"))
-        .require_current(true)
-        .assert();
+    check("ww_onewire");
 }
 
 #[test]
 fn ww_pin_diag() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_pin_diag"))
-        .require_current(true)
-        .assert();
+    check("ww_pin_diag");
 }
 
 #[test]
 fn ww_pwm() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_pwm"))
-        .require_current(true)
-        .assert();
+    check("ww_pwm");
 }
 
 #[test]
 fn ww_recorder() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_recorder"))
-        .require_current(true)
-        .assert();
+    check("ww_recorder");
 }
 
 #[test]
 fn ww_sd() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_sd"))
-        .require_current(true)
-        .assert();
+    check("ww_sd");
 }
 
 #[test]
 fn ww_si() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_si"))
-        .require_current(true)
-        .assert();
+    check("ww_si");
 }
 
 #[test]
 fn ww_signal_generator() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_signal_generator"))
-        .require_current(true)
-        .assert();
+    check("ww_signal_generator");
 }
 
 #[test]
 fn ww_spi() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_spi"))
-        .require_current(true)
-        .assert();
+    check("ww_spi");
 }
 
 #[test]
 fn ww_timebase() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_timebase"))
-        .require_current(true)
-        .assert();
+    check("ww_timebase");
 }
 
 #[test]
 fn ww_uart() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_uart"))
-        .require_current(true)
-        .assert();
+    check("ww_uart");
 }
 
 #[test]
 fn ww_uid() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_uid"))
-        .require_current(true)
-        .assert();
+    check("ww_uid");
 }
 
 #[test]
 fn ww_user_info() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_user_info"))
-        .require_current(true)
-        .assert();
+    check("ww_user_info");
 }
 
 #[test]
 fn ww_version() {
-    wire_weaver_evolution::Check::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../ww_stdlib/ww_version"))
-        .require_current(true)
-        .assert();
+    check("ww_version");
 }

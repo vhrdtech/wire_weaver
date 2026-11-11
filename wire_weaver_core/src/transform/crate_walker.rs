@@ -1424,6 +1424,8 @@ impl Scratch {
             self.recursive_types.clear();
             self.generic_scope.clear();
             self.alias_args.clear();
+            // TOOL-22: a discarded run (features grew) walked the same source and found the same hints again
+            self.unit_hints.clear();
         }
     }
 

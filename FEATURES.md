@@ -2325,11 +2325,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     timed out while the hub scanned.
 - ✅ **TOOL-22 Hint for plain fields that carry a unit** — `ww api check` and the walker `ww api scaffold` uses
   note a plain integer field, method argument or property whose name ends in a known unit suffix (`_us`, `_ms`,
-  `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`) with the `exact_units::Fixed<U, P, T>` it
-  could become instead (`wire_weaver_core::transform::unit_hint`, `Scratch::unit_hints`): a note, never an error,
-  printed on `ww api check` and on `ww api scaffold`'s stderr, never affecting the verdict or the generated code.
-  Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming arguments
-  (`#[no_unit_hint(a, b)]`) on a trait method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item.
+  `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`, `_mb`) with the `exact_units::Fixed<U, P, T>`
+  it could become instead (`wire_weaver_core::transform::unit_hint`, `Scratch::unit_hints`): a note, never an
+  error, printed on `ww api check` and on `ww api scaffold`'s stderr, never affecting the verdict or the generated
+  code. Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming
+  arguments (`#[no_unit_hint(a, b)]`) on a trait method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item.
+  Gaps closed (P2401#11nov-0946): a hint printed once per feature build or type reference (deduped, once per crate
+  load, `Scratch::walk` and `snapshot::dedup_hints`); `write_kib_s` read as `Second` instead of a per-second rate
+  (`_kib_s`/`_mib_s`/`_gib_s`/`_bytes_s`/`_bits_s` read as `Fixed<Per<U, Second>, ..>`, the ambiguous `_per_s`
+  suppressed rather than guessed); `shrink_wrap`'s `UVlq32`/`UVlq32Backfill`/`UVlq64`/`UNib32`/`INib32` and one
+  level of `Option<..>` now recognized alongside the plain integers; a field named after the unit alone or as its
+  prefix (`bytes`, `bytes_written`); `rw_mb_min`/`_max`/`_default` compound suffixes; and a small doc-comment
+  fallback ("in bytes", "in bits", "in tenths of a percent") when the name gives no hint, a narrow slice of
+  TOOL-23's bigger doc-comment reading. Still misses most of ww_can_bus's items (counted units with no shared
+  marker yet, Q3) and `ww_client_server`'s walker-fails-first crate (TOOL-22b).
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
 - ✅ **TOOL-31 Warning for an API crate without an evolution test** — `ww api check` and `ww api save` print a
   `warning:` when the crate directory has no `tests/evolution.rs` calling `wire_weaver_evolution::Check` (checked
@@ -2448,7 +2457,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TOOL-23 Doc-comment / sentinel / bounds hints for `ww api check`** — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest `Bounds`/niche forms too, not only the name suffix. Needs STD-64, STD-66
-  and INT-13 landed first; tested on the scout's repos.
+  and INT-13 landed first; tested on the scout's repos. TOOL-22 already reads two plain phrases ("in bytes", "in
+  tenths of a percent") as a narrow fallback when the name gives no hint; this item is the general reader (ranges,
+  sentinels, more phrasings).
 - 📋 **TOOL-13 `Some(None)` in Python values** — Python (and the conformance corpus, which uses its form) writes
   `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case

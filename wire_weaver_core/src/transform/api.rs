@@ -352,6 +352,7 @@ fn convert_api_item_fn(
                 &format!("{}::{arg_name}", item_fn.sig.ident),
                 &arg_name,
                 &pat_type.ty,
+                &collect_docs(&pat_type.attrs),
             )
         {
             scratch.unit_hints.push(hint);
@@ -598,7 +599,12 @@ fn convert_api_item_property(
         .context(current_crate.err_context())?;
     let property_name = args.resource_name.to_string();
     if !is_silenced(&item_macro.attrs, &property_name)
-        && let Some(hint) = suggest(&property_name, &property_name, &args.ty)
+        && let Some(hint) = suggest(
+            &property_name,
+            &property_name,
+            &args.ty,
+            &collect_docs(&item_macro.attrs),
+        )
     {
         scratch.unit_hints.push(hint);
     }

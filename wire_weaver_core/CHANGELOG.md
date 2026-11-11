@@ -1,5 +1,16 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- TOOL-22's unit-suffix hint (P2401#11nov-0946): a hint printed once per crate load instead of once per feature-set
+  build or type reference (`Scratch::unit_hints` cleared on a discarded feature-growth retry, deduped once more at
+  `SourceNotes` build time); `write_kib_s` and the other `_kib_s`/`_mib_s`/`_gib_s`/`_bytes_s`/`_bits_s` names read as
+  a per-second rate (`Fixed<Per<Unit, Second>, ..>`) instead of plain seconds, the ambiguous `_per_s` suppressed
+  instead of guessed; `shrink_wrap`'s `UVlq32`/`UVlq32Backfill`/`UVlq64`/`UNib32`/`INib32` and one level of
+  `Option<..>` recognized alongside the plain integers; a field named after the unit alone or as its prefix
+  (`bytes`, `bytes_written`); `_mb` and the compound `_mb_min`/`_mb_max`/`_mb_default` suffixes; and a doc-comment
+  fallback for "in bytes", "in bits" and "in tenths of a percent" when the name gives no hint.
+
 ### ⚠️ Breaking
 
 - A timed batched stream's generated `<name>_push(to, value, t)` takes `t: Tm`, the stream's time point (`DeviceMicros<u32>` by default, STD-110), and `<name>_push_many(to, t0, dt, values)` takes `t0: Tm`, `dt: ww_si::TimeStep<Tm>` and returns `(Seal, usize)` (the last seal and the items lost), no `Option` any more: the step is in the type. The scaffold prints `Timed<Item, Tm>`. Generated clients name `PositionedStream<T, <Tm as TimePoint>::Full>` (and `Stream`) for a timed batched stream, so its items carry `t: Option<DeviceMicros<u64>>` (CLT-70).

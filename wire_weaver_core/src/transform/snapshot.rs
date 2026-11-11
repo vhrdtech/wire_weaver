@@ -269,6 +269,18 @@ pub fn root_of_crate_snapshot(bundle: &ApiBundleOwned, trait_name: &str) -> Opti
     Some(root)
 }
 
+/// `hints`, kept in their first order, each only once: a type reached from more than one API item is converted once
+/// per reference, so the same hint would otherwise be pushed once per reference too.
+fn dedup_hints(hints: Vec<super::UnitHint>) -> Vec<super::UnitHint> {
+    let mut deduped = Vec::with_capacity(hints.len());
+    for hint in hints {
+        if !deduped.contains(&hint) {
+            deduped.push(hint);
+        }
+    }
+    deduped
+}
+
 /// The bundle of a snapshot from what [load_crate] or [load_root] walked: other crates' traits and types skipped,
 /// what nothing uses dropped (except this crate's own types with `keep_own_types`).
 fn snapshot_bundle(
@@ -279,7 +291,7 @@ fn snapshot_bundle(
     keep_own_types: bool,
 ) -> Result<(ApiBundleOwned, SourceNotes)> {
     let notes = SourceNotes {
-        hints: std::mem::take(&mut scratch.unit_hints),
+        hints: dedup_hints(std::mem::take(&mut scratch.unit_hints)),
         moved_from: std::mem::take(&mut scratch.moved_from),
         trait_modules: scratch.trait_modules.clone(),
     };

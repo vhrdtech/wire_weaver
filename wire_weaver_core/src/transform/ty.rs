@@ -1101,7 +1101,12 @@ fn convert_fields(
                 if let Some(ident) = &f.ident {
                     let name = ident.to_string();
                     if !is_silenced(&f.attrs, &name)
-                        && let Some(hint) = suggest(&format!("{item_path}::{name}"), &name, &f.ty)
+                        && let Some(hint) = suggest(
+                            &format!("{item_path}::{name}"),
+                            &name,
+                            &f.ty,
+                            &collect_docs(&f.attrs),
+                        )
                     {
                         scratch.unit_hints.push(hint);
                     }

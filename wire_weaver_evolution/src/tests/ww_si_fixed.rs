@@ -314,3 +314,57 @@ fn exact_scales_of_the_same_value_are_compatible() {
         Change::Compatible
     );
 }
+
+/// A generic definition one side left out by a signature that no known snapshot holds (a snapshot saved against
+/// another revision of an unpublished exact_units), compared with the other side's prepared type: the comparison
+/// fails, naming the definition. It used to give a verdict instead, reading `IndexFrom1<Item, u8, Range<1, 4>>`'s
+/// bound as `Unbounded` and its field as an unknown instance (`tests/thermo_api`'s snapshots after EVO-55).
+#[test]
+fn a_missing_generic_definition_is_an_error_naming_it() {
+    let dep = {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
+        format!(
+            "ww_si = {{ path = {:?}, features = [\"counting\"] }}\n",
+            path.canonicalize().unwrap()
+        )
+    };
+    let src = r#"
+        use ww_si::{IndexFrom1, Range};
+        use ww_si::units::Item;
+
+        #[ww_api_root(wire = "w1.0")]
+        pub trait Api {
+            fn select(input: IndexFrom1<Item, u8, Range<1, 4>>);
+        }
+    "#;
+    let snapshot = load_with("0.1.0", src, &dep);
+    // the definition left out by the signature a known snapshot has: compared by what it is
+    let report = compare(&snapshot, &snapshot).unwrap();
+    assert_eq!(report.change, Change::None, "{report:#?}");
+
+    // the same snapshot saved against another revision: IndexFrom1's definition is known nowhere here
+    let mut stale = snapshot.clone();
+    let mut found = false;
+    for location in &mut stale.types {
+        if let TypeLocationOwned::SkippedFullVersion {
+            type_name,
+            signature,
+            ..
+        } = location
+            && type_name == "IndexFrom1"
+        {
+            *signature = vec![0xA5; signature.len()];
+            found = true;
+        }
+    }
+    assert!(found, "IndexFrom1 is not left out of the snapshot");
+    for (old, new) in [(&stale, &snapshot), (&snapshot, &stale)] {
+        let err = compare(old, new).unwrap_err();
+        assert!(
+            err.contains("no definition of the generic type exact_units::IndexFrom1 0.1.0")
+                && err.contains("a5a5a5a5"),
+            "{err}"
+        );
+        assert!(!err.contains("Unbounded"), "{err}");
+    }
+}

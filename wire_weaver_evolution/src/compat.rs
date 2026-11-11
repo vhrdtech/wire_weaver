@@ -53,6 +53,8 @@ pub struct Bounds<'a> {
     pub skip_signatures: bool,
     /// The crate's own structs and enums are the same type only by name, see [TypeCheck::own_types_by_name].
     pub own_types_by_name: bool,
+    /// Generic definitions one side has and the other doesn't, see [TypeCheck::missing].
+    pub missing: Vec<String>,
 }
 
 /// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
@@ -151,6 +153,8 @@ pub fn compare_items<'a>(
     bounds.rule = bounds.rule.or(to_device.rule).or(to_client.rule);
     bounds.unwrapped.append(&mut to_device.unwrapped);
     bounds.unwrapped.append(&mut to_client.unwrapped);
+    bounds.missing.append(&mut to_device.missing);
+    bounds.missing.append(&mut to_client.missing);
     bounds.root = bounds
         .root
         .take()
@@ -596,6 +600,10 @@ const MAX_CHECK_DEPTH: usize = 4 * ww_self::generics::MAX_DEPTH;
 
 /// Checks that a value written as one type can be read as the other.
 pub struct TypeCheck<'a> {
+    /// Generic definitions that one side uses and has no definition of, while the other side has one: the two can't
+    /// be compared, which is an error of the whole comparison, never a verdict (a placeholder compared with the real
+    /// type would read its bounds as `Unbounded` and its fields as unknown). Each names the type.
+    pub missing: Vec<String>,
     writer: &'a ApiBundleOwned,
     reader: &'a ApiBundleOwned,
     writer_name: &'static str,
@@ -666,6 +674,7 @@ impl<'a> TypeCheck<'a> {
             noun: "field",
             compare_signatures: true,
             own_types_by_name: false,
+            missing: vec![],
         }
     }
 
@@ -765,6 +774,11 @@ impl<'a> TypeCheck<'a> {
     }
 
     fn check_inner(&mut self, w: &TypeOwned, r: &TypeOwned) -> Result<(), String> {
+        // before the wrappers: a placeholder on one side is no plain number to compare with the other's wrapper
+        if let Some(missing) = self.missing_definition(w, r) {
+            self.missing.push(missing.clone());
+            return Err(missing);
+        }
         if let Some(result) = self.check_wrappers(w, r) {
             return result;
         }
@@ -923,6 +937,63 @@ impl<'a> TypeCheck<'a> {
                 self.reader_name
             )),
         }
+    }
+
+    /// An instance of a generic definition one side doesn't have (left out of a snapshot by a signature that no
+    /// known snapshot holds a definition of), compared with the other side's type, whose definition is known: what
+    /// can't be compared, naming the definition. Without it, the instance is no wrapper [wrapper] knows, so its
+    /// bounds would read as `Unbounded` and its field as unknown, a wrong verdict. Two instances neither side has a
+    /// definition of are compared by identity and signature instead ([Self::check_instances]).
+    fn missing_definition(&self, w: &TypeOwned, r: &TypeOwned) -> Option<String> {
+        // in-line, or left out of a snapshot by a signature a known snapshot has, is compared by what it is
+        let unknown = |bundle: &'a ApiBundleOwned, ty: &TypeOwned| match ty {
+            TypeOwned::Instance { type_idx, .. } if type_def(bundle, type_idx.0).is_none() => {
+                Some(type_idx.0)
+            }
+            _ => None,
+        };
+        let (side, bundle, type_idx) = match (unknown(self.writer, w), unknown(self.reader, r)) {
+            (None, None) | (Some(_), Some(_)) => return None,
+            (Some(idx), None) => (self.writer_name, self.writer, idx),
+            (None, Some(idx)) => (self.reader_name, self.reader, idx),
+        };
+        let other = if side == self.writer_name {
+            self.reader_name
+        } else {
+            self.writer_name
+        };
+        let name = match bundle.types.get(type_idx as usize) {
+            Some(TypeLocationOwned::SkippedFullVersion {
+                crate_idx,
+                type_name,
+                signature,
+            }) => match bundle.crate_version(crate_idx.0) {
+                Ok(v) => format!(
+                    "{}::{type_name} {}.{}.{} (signature {})",
+                    v.crate_id,
+                    v.version.major.0,
+                    v.version.minor.0,
+                    v.version.patch.0,
+                    hex(signature)
+                ),
+                Err(_) => type_name.clone(),
+            },
+            _ => def_name(bundle, type_idx)
+                .map(|(krate, name)| format!("{krate}::{name}"))
+                .unwrap_or_else(|| format!("generic type #{type_idx}")),
+        };
+        let (other_bundle, other_ty) = if side == self.writer_name {
+            (self.reader, r)
+        } else {
+            (self.writer, w)
+        };
+        Some(format!(
+            "no definition of the generic type {name} that the {side} uses: it was left out by its signature, and \
+             neither version nor the known snapshots hold that definition, so it can't be compared with the {other}'s \
+             {}. Likely the {side} was saved against another revision of that crate version (one not published, \
+             changed without a version bump): save the {side}'s snapshot again if its version is not released",
+            type_name(other_bundle, other_ty)
+        ))
     }
 
     /// Instances of generic definitions that are not known: the same definition, the same arguments.

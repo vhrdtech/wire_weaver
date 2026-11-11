@@ -512,11 +512,24 @@ fn compare_with(
         proposals: vec![],
         moved_from_errors: vec![],
         unverified_moves: vec![],
+        missing: vec![],
     };
     checker.compare_wire();
     checker.compare_traits();
     checker.compare_types();
     checker.compare_dependency_wires();
+    // a definition one side lacks makes the whole comparison impossible, never a breaking change of its own
+    if !checker.missing.is_empty() {
+        checker.missing.sort();
+        checker.missing.dedup();
+        return Err(format!(
+            "{} {} can't be compared with {}: {}",
+            old_version.crate_id,
+            display(&old_version.version),
+            display(&new_version.version),
+            checker.missing.join("; ")
+        ));
+    }
     let since_too_new = checker.since_not_newer();
 
     let change = if !checker.breaking.is_empty() {
@@ -649,6 +662,9 @@ struct Checker<'a> {
     proposals: Vec<String>,
     moved_from_errors: Vec<String>,
     unverified_moves: Vec<Move>,
+    /// Generic definitions one side uses and has no definition of ([compat::TypeCheck::missing]): the versions
+    /// can't be compared.
+    missing: Vec<String>,
 }
 
 impl<'a> Checker<'a> {
@@ -1068,6 +1084,10 @@ impl<'a> Checker<'a> {
                 &mut bounds,
             )
         });
+        if !bounds.missing.is_empty() {
+            self.missing.append(&mut bounds.missing);
+            return;
+        }
         if let Err(e) = result {
             let rule = match bounds.rule {
                 Some(rule) => rule,
@@ -1207,6 +1227,11 @@ impl<'a> Checker<'a> {
             let result = old_to_new
                 .check(old_ty, new_ty)
                 .and_then(|_| new_to_old.check(new_ty, old_ty));
+            if !old_to_new.missing.is_empty() || !new_to_old.missing.is_empty() {
+                self.missing.append(&mut old_to_new.missing);
+                self.missing.append(&mut new_to_old.missing);
+                continue;
+            }
             if let Err(e) = result {
                 let rule = match old_to_new.rule.or(new_to_old.rule) {
                     Some(rule) => rule,

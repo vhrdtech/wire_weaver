@@ -539,3 +539,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-51 | The wire change behind `Timed.t` as a device time point (`ww_si` 0.5.0, wire `w5.0`): the user-visible side is STD-110.
 - EVO-55 | The wire change behind exact_units at c132f58 (`CodecDef`'s `codes`/`nominal`/`curve`, `Symbols`' `m_u`): the user-visible side is STD-109 (codec) and the Magnitude conformance cases it touches.
 - NUM-31, NUM-32, NUM-33, NUM-34, NUM-35, NUM-42, UNIT-6, UNIT-12, UNIT-14, UNIT-19, PT-8, LVL-8, LVL-9, LVL-10, LVL-12, LVL-13, IO-16 | exact_units features landed between the previous and this session's `cargo update -p exact_units` (f2051438 to c132f587); not used by wire_weaver yet.
+- NUM-40, NUM-41, CPX-7 | exact_units features landed with the take-up from c132f58 to 58cc839: exact_units' own, no wire_weaver side yet.

@@ -170,9 +170,13 @@ refused, naming the nearest one.
 Python's `ww.Quantity` has the code it was read as in `code` (128 for 0x80) beside the linear `value`. In Rust,
 `wire_weaver_client::quantity::coded_of(&ty, &bundle)` reads the type as a `CodedType` (the codec's definition, the
 linear `FixedType`, the code's storage), and `ww_self::units::codec_decode` / `codec_encode` run a definition. The
-walker reads the shapes without parameters (`MuLaw`, `ALaw`); a shape with parameters (`Table`, `Offset`,
-`MantissaExponent`) waits for the walker to read its fields, and a codec whose shape has no algorithm yet (`ALaw`)
-is shown as its code.
+walker reads every shape from the codec's source: `MuLaw`, `ALaw`, `Table` (CAN FD's data length code),
+`Offset` (video's narrow-range quantizers) and `MantissaExponent` (the streams' scales). A table the definition
+names is the array literal of a `const` in the codec's module, and its numbers are literals or `+`, `-`, `*` and
+`<<` of them: the walker evaluates no `const` code, so a table computed in one is refused, naming it. A codec whose
+shape has no algorithm yet (`ALaw`) is shown as its code. A generic codec, whose definition is one per instance
+(`exact_units::codec::Transfer<Q, C>`, a quantizer with a transfer curve), can't be used in an API yet: the walker
+refuses it, naming STD-112.
 
 A codec may name spare codes, codes that mean no value (`CodecDef::spare`, a list of `CodeSpan { low, high }`):
 `MuLawSingleZero` is μ-law with 0x7F spare, where `MuLaw` reads it as a second zero. A spare code read from the

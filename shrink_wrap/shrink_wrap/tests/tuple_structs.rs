@@ -384,7 +384,7 @@ fn c_names() {
     <Ht as HeadTail>::write_c_ht("", &mut c).unwrap();
     for line in [
         "#define PX__2_OFFSET 2u",
-        "static inline uint16_t px__2(const uint8_t *p) { return sw_fixed_u16(p + 2u); }",
+        "static inline uint16_t px__2(px_view_t v) { return sw_fixed_u16(v.p + 2u); }",
         "#define HT__1_FLAG_BIT_OFFSET 8u",
         "    const uint8_t *_2; /* the bytes, not 0-terminated */",
     ] {

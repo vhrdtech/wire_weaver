@@ -9,8 +9,8 @@ mod tests {
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
     use ww_onewire::{
-        OneWireConfig, OneWireError, OneWireErrorOwned, OneWireSpeed, OneWireTransactionOwned,
-        RomId, SearchState,
+        Bytes, FamilyCode, Index, IndexFrom1, OneWireConfig, OneWireError, OneWireErrorOwned,
+        OneWireSpeed, OneWireTransactionOwned, RomId, SearchState,
     };
 
     /// Family code used by every simulated device in these tests.
@@ -145,7 +145,7 @@ mod tests {
                     return Ready(Err(OneWireError::NoPresence));
                 }
                 let write = t.write.as_slice();
-                let read_len = t.read_len as usize;
+                let read_len = t.read_len.get() as usize;
                 if write.len() + read_len > ww_onewire::OW_MAX {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
@@ -184,28 +184,26 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 from: Option<SearchState>,
-                family: Option<u8>,
+                family: Option<FamilyCode>,
             ) -> RpcResult<Result<ww_onewire::SearchPage<'_>, OneWireError<'_>>> {
                 let bus = self.bus.read().unwrap();
                 if bus.roms.is_empty() {
                     return Ready(Err(OneWireError::NoPresence));
                 }
                 let (last_discrepancy, last_rom) = match from {
-                    Some(s) => (s.last_discrepancy, Some(s.last_rom.bytes)),
+                    Some(s) => (s.last_discrepancy.get(), Some(s.last_rom.bytes)),
                     None => (0, None),
                 };
-                let result = do_search(&bus.roms, last_discrepancy, last_rom, family);
+                let result = do_search(&bus.roms, last_discrepancy, last_rom, family.map(|f| f.0));
                 drop(bus);
                 match result {
                     Some((rom, new_last_discrepancy)) => {
-                        let next = if new_last_discrepancy == 0 {
-                            None
-                        } else {
-                            Some(SearchState {
+                        let next = IndexFrom1::try_new(new_last_discrepancy).ok().map(
+                            |last_discrepancy| SearchState {
                                 last_rom: rom,
-                                last_discrepancy: new_last_discrepancy,
-                            })
-                        };
+                                last_discrepancy,
+                            },
+                        );
                         Ready(Ok(ww_onewire::SearchPage {
                             roms: MaxLen::new(RefVec::Slice {
                                 slice: Box::leak(vec![rom].into_boxed_slice()),
@@ -242,7 +240,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: OneWireConfig,
             ) -> RpcResult<Result<OneWireConfig, OneWireError<'_>>> {
-                if config.pin > 1 {
+                if config.pin.get() > 1 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
                         reason: MaxLen::new_unchecked(""),
@@ -392,7 +390,7 @@ mod tests {
             .transaction(OneWireTransactionOwned {
                 rom: Some(ROM_A),
                 write: MaxLen::new(vec![0x44]).unwrap(),
-                read_len: 1,
+                read_len: Bytes::new(1),
                 strong_pullup: None,
             })
             .call()
@@ -405,7 +403,7 @@ mod tests {
             .transaction(OneWireTransactionOwned {
                 rom: Some(ROM_B),
                 write: MaxLen::new(vec![]).unwrap(),
-                read_len: 0,
+                read_len: Bytes::new(0),
                 strong_pullup: None,
             })
             .call()
@@ -446,7 +444,11 @@ mod tests {
         let mut found = Vec::new();
         let mut from = None;
         loop {
-            let page = onewire.search(from, Some(FAMILY_A)).call().await.unwrap();
+            let page = onewire
+                .search(from, Some(FamilyCode(FAMILY_A)))
+                .call()
+                .await
+                .unwrap();
             found.extend(page.roms.iter().copied());
             match page.next {
                 Some(next) => from = Some(next),
@@ -482,21 +484,21 @@ mod tests {
         let actual = onewire
             .configure(OneWireConfig {
                 enabled: true,
-                pin: 1,
+                pin: Index::new(1),
                 speed: OneWireSpeed::Overdrive,
                 io_level: None,
             })
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.pin, 1);
+        assert_eq!(actual.pin.get(), 1);
         assert_eq!(actual.io_level, None);
-        assert_eq!(bus.read().unwrap().configured.unwrap().pin, 1);
+        assert_eq!(bus.read().unwrap().configured.unwrap().pin.get(), 1);
 
         let err = onewire
             .configure(OneWireConfig {
                 enabled: true,
-                pin: 7,
+                pin: Index::new(7),
                 speed: OneWireSpeed::Standard,
                 io_level: None,
             })
@@ -521,7 +523,7 @@ mod tests {
             .transaction(OneWireTransactionOwned {
                 rom: None,
                 write: MaxLen::new(vec![0xF0]).unwrap(),
-                read_len: 0,
+                read_len: Bytes::new(0),
                 strong_pullup: None,
             })
             .call()

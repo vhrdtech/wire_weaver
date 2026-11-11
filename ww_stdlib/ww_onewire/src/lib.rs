@@ -44,7 +44,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Second, Volt};
+use ww_si::units::Pin;
+pub use ww_si::{Bytes, Index, IndexFrom1, Range, Second, Volt};
 
 /// Largest write or read of one transaction, in bytes.
 pub const OW_MAX: usize = 256;
@@ -89,7 +90,7 @@ pub trait OneWire {
     )]
     fn search(
         from: Option<SearchState>,
-        family: Option<u8>,
+        family: Option<FamilyCode>,
     ) -> Result<SearchPage<'i>, OneWireError<'i>>;
 
     /// What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.
@@ -124,15 +125,30 @@ pub struct RomId {
     pub bytes: [u8; 8],
 }
 
+/// A 1-Wire family code, [RomId]'s first byte: the device type (`0x28` for a DS18B20, `0x10` for a DS18S20).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
+pub struct FamilyCode(pub u8);
+
 /// One addressed (or skip-ROM) transaction: reset, select, write, read, optional strong pull-up.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
 pub struct OneWireTransaction<'i> {
     /// `None` = skip ROM (one device on the bus).
     pub rom: Option<RomId>,
     pub write: MaxLen<RefVec<'i, u8>, OW_MAX>,
-    pub read_len: u16,
+    pub read_len: Bytes<u16>,
     /// Drive the bus high this long after the last byte (parasite-powered parts converting or writing).
     pub strong_pullup: Option<Second>,
+}
+
+ww_si::unit! {
+    /// A bit position in the classic Dallas/Maxim ROM search tree, counted from 1 (the first bit sent);
+    /// `IndexFrom1<RomBit, u8, Range<1, 64>>` is one of them.
+    pub struct RomBit = "rbit" (long "ROM bit" plural "ROM bits"), base;
 }
 
 /// Where a paged `OneWire::search` left off: the classic Dallas/Maxim search state, carried from one page to the
@@ -141,9 +157,9 @@ pub struct OneWireTransaction<'i> {
 pub struct SearchState {
     /// The last ROM id found, continuing the tree walk from the bit after it.
     pub last_rom: RomId,
-    /// Bit position (1-64, counting from the first bit sent) of the last fork where the search took the 0-branch
-    /// while a 1-branch was still open; the next page explores that 1-branch first.
-    pub last_discrepancy: u8,
+    /// Bit position of the last fork where the search took the 0-branch while a 1-branch was still open; the next
+    /// page explores that 1-branch first.
+    pub last_discrepancy: IndexFrom1<RomBit, u8, Range<1, 64>>,
 }
 
 /// One page of `OneWire::search` results.
@@ -171,7 +187,7 @@ pub struct Triplet {
 pub struct OneWireConfig {
     pub enabled: bool,
     /// Index into [OneWireCapabilities::pins].
-    pub pin: u8,
+    pub pin: Index<Pin, u8>,
     pub speed: OneWireSpeed,
     /// Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as
     /// it is going in (the only choice on a device without them), and is the answer of a device without them.

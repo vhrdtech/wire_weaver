@@ -36,7 +36,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Baud, Second, Volt};
+use ww_si::Fixed;
+use ww_si::prefix::One;
+use ww_si::units::{Bit, Char};
+pub use ww_si::{Baud, Bytes, Count, Second, Volt};
 
 /// Largest item of the `tx` sink, in bytes.
 pub const UART_TX_MAX: usize = 256;
@@ -92,7 +95,7 @@ pub trait Uart {
     fn send_break(duration: Second) -> Result<(), UartError<'i>>;
 
     /// Bytes queued for sending and not sent yet.
-    fn tx_pending() -> u32;
+    fn tx_pending() -> Bytes<u32>;
 
     /// Both lines of a serial link between two other devices, received without driving them: what both
     /// directions carry, in the order it arrived, decoded with `config`; each chunk says which line it came from.
@@ -175,7 +178,7 @@ pub struct UartConfig {
     pub io_level: Option<Volt>,
     /// Idle time on RX that ends a chunk, in character times (`frame_bits / baud` each): a gap longer than this ends
     /// the chunk, a shorter one doesn't. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.
-    pub idle_chars: u8,
+    pub idle_chars: Count<Char, u8>,
 }
 
 /// Line settings of the watched link, the argument and the answer of `Uart::monitor`.
@@ -192,25 +195,29 @@ pub struct MonitorConfig {
     /// Input threshold level, as [UartConfig::io_level].
     pub io_level: Option<Volt>,
     /// Idle time on either line that ends a chunk of that line, as [UartConfig::idle_chars].
-    pub idle_chars: u8,
+    pub idle_chars: Count<Char, u8>,
 }
 
 impl UartConfig {
     /// Bits of one character on the line: start + data + parity + stop; `None` for a setting from a newer version of
     /// this crate. A character takes `frame_bits / baud_rate` seconds.
-    pub fn frame_bits(&self) -> Option<u32> {
+    pub fn frame_bits(&self) -> Option<Fixed<Bit, One, u32>> {
         frame_bits(self.data_bits, self.parity, self.stop_bits)
     }
 }
 
 impl MonitorConfig {
     /// Bits of one character of the watched link, as [UartConfig::frame_bits].
-    pub fn frame_bits(&self) -> Option<u32> {
+    pub fn frame_bits(&self) -> Option<Fixed<Bit, One, u32>> {
         frame_bits(self.data_bits, self.parity, self.stop_bits)
     }
 }
 
-fn frame_bits(data_bits: DataBits, parity: Parity, stop_bits: StopBits) -> Option<u32> {
+fn frame_bits(
+    data_bits: DataBits,
+    parity: Parity,
+    stop_bits: StopBits,
+) -> Option<Fixed<Bit, One, u32>> {
     let data = match data_bits {
         DataBits::Five => 5,
         DataBits::Six => 6,
@@ -228,7 +235,7 @@ fn frame_bits(data_bits: DataBits, parity: Parity, stop_bits: StopBits) -> Optio
         StopBits::Stop1 => 1,
         StopBits::Stop2 => 2,
     };
-    Some(1 + data + parity + stop)
+    Some(Fixed::new(1 + data + parity + stop))
 }
 
 #[derive_shrink_wrap(
@@ -352,7 +359,7 @@ pub struct Capabilities<'i> {
     /// Whether [UartConfig::prevent_back_feed] is supported.
     pub back_feed_detector: bool,
     /// Device receive buffer, in bytes.
-    pub rx_buffer: u32,
+    pub rx_buffer: Bytes<u32>,
     /// Device transmit buffer, in bytes (the credit of the `tx` sink).
-    pub tx_buffer: u32,
+    pub tx_buffer: Bytes<u32>,
 }

@@ -35,6 +35,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   See the `ww_gpio`, `ww_gpio_hl`, `ww_pwm` and `ww_pin_diag` CHANGELOGs.
 - `ww_adc`, wire-compatible: channel indices, converter resolution, capture/stream byte counts and sample-set counts are typed (`ww_si::Index`/`Count`/`Fixed`/`Bytes`) instead of bare integers (AGENTS.md "Numbers are typed"). See `ww_stdlib/ww_adc/CHANGELOG.md`.
 - `ww_can_bus` says what its numbers mean (STD-114, wire change EVO-62, wire `w2.0`): time quanta, clock periods, ‰ shares, counted frames, buffers, filters and FIFOs, buffer, FIFO and filter indices, rates per second, `TxMarker`, `VcId` and `TtErrorLevel` instead of bare integers. See `ww_stdlib/ww_can_bus/CHANGELOG.md`.
+- `ww_onewire` and `ww_uart` numbers are typed instead of bare integers (STD-113): a family code, byte counts, a
+  pin index and a ROM search bit position in `ww_onewire` (on a new wire line, `w2.0`, EVO-61: the search
+  bit position's added `1..=64` bound is the break), byte counts and an idle character count in `ww_uart` (same
+  wire). See the `ww_onewire` and `ww_uart` changelogs.
 
 ### Added
 

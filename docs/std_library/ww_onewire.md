@@ -40,7 +40,7 @@ pub trait OneWire {
 
     fn reset() -> Result<bool, OneWireError>;
 
-    fn search(from: Option<SearchState>, family: Option<u8>) -> Result<SearchPage<'i>, OneWireError>;
+    fn search(from: Option<SearchState>, family: Option<FamilyCode>) -> Result<SearchPage<'i>, OneWireError>;
 
     fn capabilities() -> OneWireCapabilities<'i>;
 
@@ -55,7 +55,7 @@ pub trait OneWire {
 * `reset` - reset pulse on its own; `true` when a device answered with a presence pulse (not an error - an empty
   bus is a normal `false`).
 * `search` - paged ROM search: start with `from: None`, continue with each page's `next` until it comes back
-  `None`. `family`, when given, only returns ids whose first byte matches.
+  `None`. `family`, when given, only returns ids whose first byte matches it.
 * `capabilities` - pins the bus can be put on, IO levels, and whether overdrive / strong pull-up are supported.
 * `configure` - puts the bus on one of `capabilities().pins` at a given speed and IO level (`io_level: None` leaves
   it as it is), or disables it; answers with what was actually set, as the `configure` of the other IO crates does.
@@ -72,16 +72,18 @@ the transaction's last byte; `OneWireCapabilities::strong_pullup` says whether i
 ## Types
 
 * `RomId` - `bytes: [u8; 8]`: family code, 48-bit serial, CRC8, most to least significant.
+* `FamilyCode` - `RomId`'s first byte, `pub u8`: a newtype, exactly its `u8` on the wire (`transparent`).
 * `OneWireTransaction<'i>` - `rom: Option<RomId>` (`None` = skip ROM), `write: MaxLen<RefVec<'i, u8>, OW_MAX>`,
-  `read_len: u16`, `strong_pullup: Option<Second>`.
-* `SearchState` - where a paged `search` left off: `last_rom: RomId`, `last_discrepancy: u8` (the classic
-  Dallas/Maxim search state, carried from one page to the next).
+  `read_len: Bytes<u16>`, `strong_pullup: Option<Second>`.
+* `SearchState` - where a paged `search` left off: `last_rom: RomId`, `last_discrepancy:
+  IndexFrom1<RomBit, u8, Range<1, 64>>` (the classic Dallas/Maxim search state, carried from one page to the next;
+  `RomBit` is a counted marker of this crate, declared with `unit!`).
 * `SearchPage<'i>` - `roms: MaxLen<RefVec<'i, RomId>, MAX_ROMS>`, `next: Option<SearchState>` (`None` when all
   devices were found).
 * `Triplet` - one `triplet` step's result: `id_bit`, `cmp_bit` (both set when every remaining device agrees on this
   bit, both clear at a fork), `direction` (the bit this step actually drove onto the bus).
-* `OneWireConfig` - `enabled: bool`, `pin: u8` (index into `OneWireCapabilities::pins`), `speed: OneWireSpeed`,
-  `io_level: Option<Volt>`; the argument and the answer of `configure`.
+* `OneWireConfig` - `enabled: bool`, `pin: Index<Pin, u8>` (index into `OneWireCapabilities::pins`, `Pin` a counted
+  marker of `ww_si`), `speed: OneWireSpeed`, `io_level: Option<Volt>`; the argument and the answer of `configure`.
 * `OneWireSpeed` - `Standard` / `Overdrive`; `sized`, 1 bit.
 * `OneWireCapabilities<'i>` - `pins: MaxLen<RefVec<'i, MaxLen<&'i str, 16>>, MAX_PINS>` (by name), `io_levels:
   MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>`, `overdrive: bool`,

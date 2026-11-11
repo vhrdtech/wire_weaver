@@ -32,7 +32,7 @@ use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbT
 use ww_client_server::StreamSideband;
 use ww_stream::sink::SinkCredit;
 use ww_stream::tx::Counted;
-use ww_uart::{Baud, Capabilities, RxChunk, UartConfig};
+use ww_uart::{Baud, Bytes, Capabilities, RxChunk, UartConfig};
 
 bind_interrupts!(struct Irqs {
     OTG_HS => usb::InterruptHandler<USB_OTG_HS>;
@@ -235,8 +235,8 @@ impl ServerState {
             high_z_mode: false,
             test_mode: false,
             back_feed_detector: false,
-            rx_buffer: RX_BUF_SIZE as u32,
-            tx_buffer: TX_BUF_SIZE as u32,
+            rx_buffer: Bytes::new(RX_BUF_SIZE as u32),
+            tx_buffer: Bytes::new(TX_BUF_SIZE as u32),
         };
         Ready(cap)
     }
@@ -273,7 +273,7 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
         _index: [UNib32; 1],
-    ) -> RpcResult<u32> {
+    ) -> RpcResult<Bytes<u32>> {
         ww_unimplemented!()
     }
 }

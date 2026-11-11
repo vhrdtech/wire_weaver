@@ -8,6 +8,14 @@
 
 ### ⚠️ Breaking
 
+- Numbers (STD-113) are typed instead of bare integers (AGENTS.md "Numbers are typed"), same wire
+  (`ww api check` sees every change below as wire-compatible, same bytes, so the wire stays `w1.0`; Rust code
+  constructing these fields with a bare integer needs the matching typed value). `tx_pending()`,
+  `Capabilities::rx_buffer` / `tx_buffer: u32` are `ww_si::Bytes<u32>`; `UartConfig::idle_chars` and
+  `MonitorConfig::idle_chars: u8` are `ww_si::Count<ww_si::units::Char, u8>`; `UartConfig::frame_bits()` /
+  `MonitorConfig::frame_bits()` return `Option<ww_si::Fixed<ww_si::units::Bit, ww_si::prefix::One, u32>>` instead of
+  `Option<u32>` (Rust-only, not on the wire). `send_break`'s duration and `io_level` stay `Quantity` for now (P2401
+  Q2, a separate cross-cutting change).
 - Received chunks end on line idle (STD-13): `UartConfig::idle_chars: u8` and `MonitorConfig::idle_chars` set how
   many idle character times end a chunk (`IDLE_CHARS_DEFAULT` = 2; 0 is taken as 1), and `configure` / `monitor`
   answer what the receiver set, so each chunk is one back-to-back burst. `RxChunk::end` is `Option<Second>`: devices

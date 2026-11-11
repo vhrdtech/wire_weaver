@@ -12,8 +12,8 @@ mod tests {
     use ww_stream::codec::Compressed;
     use ww_stream::tx::Counted;
     use ww_uart::{
-        Baud, Capabilities, DataBits, Mode, MonitorChunk, MonitorConfig, MonitorLine, Parity, Pin,
-        RxChunk, StopBits, UartConfig, UartError, UartErrorOwned,
+        Baud, Bytes, Capabilities, Count, DataBits, Mode, MonitorChunk, MonitorConfig, MonitorLine,
+        Parity, Pin, RxChunk, StopBits, UartConfig, UartError, UartErrorOwned,
     };
 
     /// The rx stream compresses for hosts that decode it (API-55), as a firmware with a fast UART would.
@@ -71,7 +71,7 @@ mod tests {
                     mode: Mode::Asynchronous,
                     prevent_back_feed: false,
                     io_level: Some(ww_si::Volt::milli(3300u16)),
-                    idle_chars: ww_uart::IDLE_CHARS_DEFAULT,
+                    idle_chars: Count::new(ww_uart::IDLE_CHARS_DEFAULT),
                 },
                 pin_levels: vec![],
                 send_break_calls: vec![],
@@ -112,8 +112,8 @@ mod tests {
             high_z_mode: true,
             test_mode: true,
             back_feed_detector: true,
-            rx_buffer: 1024,
-            tx_buffer: ww_uart::UART_TX_MAX as u32,
+            rx_buffer: Bytes::new(1024),
+            tx_buffer: Bytes::new(ww_uart::UART_TX_MAX as u32),
         }
     }
 
@@ -240,7 +240,7 @@ mod tests {
                 let mut m = self.m.lock().unwrap();
                 let io_level = config.io_level.or(m.config.io_level);
                 // the divider of this mock hits every rate exactly, its idle timer counts whole characters
-                let idle_chars = config.idle_chars.max(1);
+                let idle_chars = Count::new(config.idle_chars.get().max(1));
                 m.config = UartConfig {
                     io_level,
                     idle_chars,
@@ -278,8 +278,8 @@ mod tests {
             fn uart_tx_pending(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<u32> {
-                Ready(self.uart_tx_credit.buffered())
+            ) -> RpcResult<Bytes<u32>> {
+                Ready(Bytes::new(self.uart_tx_credit.buffered()))
             }
 
             fn uart_monitor(
@@ -420,7 +420,7 @@ mod tests {
             mode: Mode::HardwareFlowControl,
             prevent_back_feed: true,
             io_level: None,
-            idle_chars: 0,
+            idle_chars: Count::new(0),
         };
         let actual = client
             .uart()
@@ -432,9 +432,9 @@ mod tests {
         assert_eq!(actual.io_level, Some(ww_si::Volt::milli(3300u16)));
         assert_eq!(actual.baud_rate, Baud::base(9600u16));
         // 0 idle characters is taken as 1
-        assert_eq!(actual.idle_chars, 1);
+        assert_eq!(actual.idle_chars.get(), 1);
         // start + 7 data + parity + 2 stop
-        assert_eq!(actual.frame_bits(), Some(11));
+        assert_eq!(actual.frame_bits(), Some(ww_si::Fixed::new(11)));
         assert!(matches!(actual.mode, Mode::HardwareFlowControl));
         assert!(matches!(m.lock().unwrap().config.parity, Parity::Even));
 
@@ -491,7 +491,7 @@ mod tests {
         assert_eq!(m.lock().unwrap().send_break_calls.len(), 1);
 
         let pending = client.uart().tx_pending().call().await.unwrap();
-        assert_eq!(pending, 0);
+        assert_eq!(pending.get(), 0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -517,7 +517,7 @@ mod tests {
         // any request lets the mock's event loop send them
         client.uart().tx_pending().call().await.unwrap();
         let config = m.lock().unwrap().config.clone();
-        let char_time_us = config.frame_bits().unwrap() as i128 * 1_000_000
+        let char_time_us = config.frame_bits().unwrap().get() as i128 * 1_000_000
             / config
                 .baud_rate
                 .to_in::<i128>(
@@ -652,7 +652,7 @@ mod tests {
             parity: Parity::None,
             stop_bits: StopBits::Stop1,
             io_level: None,
-            idle_chars: ww_uart::IDLE_CHARS_DEFAULT,
+            idle_chars: Count::new(ww_uart::IDLE_CHARS_DEFAULT),
         };
         let r = client
             .uart()

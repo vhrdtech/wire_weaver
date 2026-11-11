@@ -40,7 +40,7 @@ pub trait Uart {
 
     fn set_pin_level(pin: Pin, is_high: bool) -> Result<(), Error>;
     fn send_break(duration: Second) -> Result<(), Error>;
-    fn tx_pending() -> u32;
+    fn tx_pending() -> Bytes<u32>;
 
     #[optional]
     #[stream(MonitorChunk<'i>, counted)]
@@ -107,7 +107,7 @@ On the client the head's time is the `t` of `StreamEvent::Item` (`rx.recv_event(
 
 ```rust
 let actual = client.uart().configure(config).call().await??;
-let char_time = actual.frame_bits().unwrap() as f64 / actual.baud_rate.to_f64();
+let char_time = actual.frame_bits().unwrap().get() as f64 / actual.baud_rate.to_f64();
 let mut rx = client.uart().rx().call().await?;
 loop {
     match rx.recv_event().await? {
@@ -151,14 +151,15 @@ frames by 3.5 character times, which 2 still splits). A protocol with its own ru
 * `MonitorChunk<'i>` - `line: MonitorLine` (`A` or `B`, 1 bit), `chunk: RxChunk<'i>`.
 * `RxFlags` - `parity_error`, `framing_error`, `overrun`, `break_detected`, seen while receiving a chunk.
 * `UartConfig` - `baud_rate: Baud`, `data_bits`, `parity`, `stop_bits`, `mode`, `prevent_back_feed: bool`,
-  `io_level: Option<Volt>`, `idle_chars: u8` (idle character times that end a chunk); the argument and the answer
-  of `configure`. `frame_bits()` is the bits of one character on the line (start + data + parity + stop).
+  `io_level: Option<Volt>`, `idle_chars: Count<Char, u8>` (idle character times that end a chunk); the argument and
+  the answer of `configure`. `frame_bits()` is the bits of one character on the line (start + data + parity + stop),
+  as `Option<Fixed<Bit, One, u32>>` (`None` for a setting from a newer crate version).
 * `MonitorConfig` - `baud_rate`, `data_bits`, `parity`, `stop_bits`, `io_level`, `idle_chars` of the link `Uart::monitor`
   watches; the argument and the answer of `monitor`.
 * `Capabilities<'i>` - `min_baud_rate` / `max_baud_rate: Baud`, `io_levels: MaxLen<RefVec<'i, Volt>,
   MAX_IO_LEVELS>`, `io_level_min` / `io_level_max: Option<Volt>` (an adjustable supply),
   `hw_flow_control` / `sw_flow_control` / `high_z_mode` / `test_mode` /
-  `back_feed_detector: bool`, `rx_buffer` / `tx_buffer: u32` (device receive and transmit buffer sizes, in bytes).
+  `back_feed_detector: bool`, `rx_buffer` / `tx_buffer: Bytes<u32>` (device receive and transmit buffer sizes).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")`, so owned (`*Owned`)
 variants are available by enabling the crate's `std` feature; the plain configuration enums (`Mode`,

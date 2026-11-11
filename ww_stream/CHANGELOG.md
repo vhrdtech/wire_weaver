@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `observe::ElementTable<S, D>` (API-63): the observe table of one element of a trait level under resource arrays, with its index chain and `ElementState` (`Free`, `Observed`, `Ended`); `new` / `init_all` in place, `settle`, `release`, `budget`. `observe::element_for` takes the table observing an element or a free one, `mark_element_changed` marks a property of one element, `end_elements` ends the elements under a removed one, `observe::Element` reaches a table of any size by its number.
 - `codec::Compressed::init(slot, codec)`: sets a compressed counted stream up in place, its codec through `codec` (`|c| ww_lz4::Encoder::init(c, keep)`), so the codec's buffers take RAM only instead of an initializer in flash as with `ConstStaticCell::new(Compressed::new(..))`.
 - `codec` (API-55): compressed counted streams. `codec::CountedState` is what generated code needs of a counted stream's state (`Counted` implements it, without a codec); `codec::Compressed<C>` wraps a `Counted` with an `codec::ItemCodec`, takes the codec out of the host's `StreamCodecs` offer at open and resume, and marks `HeadExt::codec_restart` at open, resume, after an unsent event and every `restart_every` bytes (`DEFAULT_RESTART_EVERY`, 32 KiB). Feature `lz4`: `ItemCodec` for `ww_lz4::Encoder`.
 - `SinkTx::resending()`: items are waiting to be sent again.

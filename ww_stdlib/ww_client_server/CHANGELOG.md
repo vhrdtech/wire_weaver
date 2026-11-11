@@ -119,6 +119,7 @@ Wire-incompatible with 0.1.0.
 
 ### 🐛 Fixes
 
+- `err_seq::OBSERVE_ARRAY` (57) names what it means since API-63: every element table of a level under resource arrays observes another element (`Site::name`: "observe request: no free table for the array element").
 * `MultiIndex::iter()` over a `Range` or `Mask32` panicked with `todo!()` (CLT-15), on a device that's host
   input: a `Range` yields `start..end` (none when `start >= end`), a `Mask32` its set bits, lowest first.
 * `RequestKind::discriminants()` of `MultiWrite` is `Value`: it is answered with a value per index, like

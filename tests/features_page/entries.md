@@ -118,6 +118,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-38 | Observing properties | Ask a device to send changes on change or periodically, within a byte budget. | api/observing.md
 - API-39 | Observing every sample | A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python. | api/observing.md#every-sample-batched
 - API-49 | One clock per observed level | The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU. | api/observing.md#every-sample-batched
+- API-63 | Observing elements of resource arrays | Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers. | api/observing.md#levels-under-resource-arrays
 - API-50 | Observe cells | Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire. | api/observing.md#cells-sampling-from-an-interrupt
 - API-52 | A cheaper observe poll | The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes. | articles/series.md#cpu-and-flash-on-a-microcontroller
 - API-41 | Batched streams | A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python. | api/batching.md

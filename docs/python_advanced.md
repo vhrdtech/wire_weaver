@@ -115,5 +115,4 @@ q = ww.Requantizer({"pow10": -4, "rest": None}, "i8", "floor", "saturate")
 
 - `f16`, `UN`/`IN` and LEB128 numbers.
 - Typed (non-integer) array indices, property write errors (not decoded, same as generated clients).
-- Observing a level inside a resource array ([Limits](api/observing.md#the-host-side)).
 - asyncio: calls block the calling thread (with the GIL released).

@@ -3,6 +3,7 @@
 ### ⚠️ Breaking
 
 - `quantity::DynPrefix::Exact`'s `magnitude` is a `Box<Magnitude>`: exact_units' `Magnitude` grew to over 200 bytes (its `Fraction`, NUM-33), which made every `DynPrefix` that large, the common `Si` one too. Code that builds the variant by hand wraps it in `Box::new`; `DynPrefix::new` and `DynPrefix::magnitude()` are unchanged.
+- `ObserveEvent` has a new variant `Ended` (API-63): a `match` over it needs an arm.
 - Typed stream handles carry the item time's type (CLT-70): `BatchItem<T, Tf = Second>`, `Batch<T, Tf>`, `StreamEvent<T, Tf>`, `Stream<T, Tf>` and `PositionedStream<T, Tf>` with `t: Option<Tf>`; a timed batched stream's handle is `PositionedStream<T, <Tm as TimePoint>::Full>`, so a default one gives `t: Option<DeviceMicros<u64>>`, unwrapped by `ww_si::TimeUnwrapper`. Code naming these types for a timed batched stream adds the parameter; untimed and observe streams keep `Second`. `Unpack<T, Tf>` is a trait object (`Send + Sync`), `unpack_timed::<T, Tm>()` and `unpack_untimed::<T>()` return it boxed, `PositionedStream::batched` takes it, `Commander::prepare_stream_resume<T, Tf>` names the time type. The dynamic client hands a time point on as a `Second` `U64` in the point's step.
 - New `Error::ReconnectedOnAnotherLine { device, old_wire, new_wire }` (CLT-63): `Commander::reconnect` used to refuse any reconnect whose device reports another API than before with the generic `IncompatibleResource`; it now names both wire lines when the device came back on another one it also speaks (a DFU to new firmware, caught only past link setup, which already refuses any other line). The hub-supervised reconnect (CLT-40) gives up with the same message. An exhaustive `match` on `Error` adds the variant.
 - A `Coded` read with a spare code of its codec (exact_units codec-niche, EVO-49) is refused, naming the code and the codec; `DynQuantity::from_value` gives `None` for one. A model saved before has no `spare` in its codec definitions (`MarkerDef::Codec`'s bytes changed).
@@ -107,6 +108,7 @@
 
 ### 🚀 Features
 
+- Observers of an element of a resource array (API-63) end when the device removes it: a `StreamSideband::Close` at an observed level's path gives its observers `ObserveEvent::Ended`, then `StreamError::Closed`; `configure` on them fails, and observing the path again starts a new level. The dynamic client observes an element by its path (`DynResource::index`).
 - `ItemTime` (CLT-70): what an item's time can be (`Second`, a full `TimePoint`), and `ww_si` re-exported for generated code.
 - `Commander::reconnect_as<T: WwClient>` (CLT-63): like `Commander::reconnect`, but on a device that comes back on
   another wire line this connection also speaks (a DFU to new firmware, EVO-28), picks `T`'s client of that line

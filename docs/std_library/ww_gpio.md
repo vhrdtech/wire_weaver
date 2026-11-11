@@ -104,9 +104,9 @@ precise timing is a [signal generator](ww_signal_generator.md) (driving) or a [l
 ### Observing a pin level (planned)
 
 A `property!(ro+observe level: Level)` on `Pin`, at one of its reserved indices 4..=6, would let a host watch slow
-inputs without opening the `event` stream of every pin. It waits for array index bounds (API-29): `Pin` sits in the
-`Bank::pin[]` array, and [observed properties](../api/observing.md#the-device-side) under a resource array aren't
-supported yet (STD-31).
+inputs without opening the `event` stream of every pin. `Pin` sits in the `Bank::pin[]` array, where
+[observed properties](../api/observing.md#levels-under-resource-arrays) are marked changed through the server; a pin's
+change is seen in an interrupt, so it waits for marks of an element from another task (SRV-59, STD-31).
 
 ## Types
 

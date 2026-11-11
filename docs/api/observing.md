@@ -145,10 +145,9 @@ whether to send timestamps.
   the wire), wrapping every ~71.6 minutes; the host unwraps it into a `U64` per level, by the same rule as stream
   times ([timestamps](stream_reliability.md#timestamps)). Only sent when
   `ObserveLimits::timestamps` is set.
-- **Limits**: a level inside a resource array can't be observed yet (`OperationNotSupported`, the bound of its
-  indices isn't known yet, [API-29](arrays.md)); nor can a `+observe` property that is itself an array or
-  `#[optional]`. Observing stays set while the link is down; `ObserveState::reset()` (e.g. on a fresh connection)
-  stops it all.
+- **Limits**: a `+observe` property that is itself an array or `#[optional]` can't be observed. A level inside a
+  resource array is observed per element, see [Levels under resource arrays](#levels-under-resource-arrays).
+  Observing stays set while the link is down; `ObserveState::reset()` (e.g. on a fresh connection) stops it all.
 
 ### The server loop
 
@@ -242,8 +241,82 @@ mode.configure(MotorObserve::default().mode(periodic(100 * ms))).await?;
   that's down for good ends them.
 - **Old devices**: a device whose API model predates `ww_client_server` 0.2 can't observe; `.subscribe()` fails
   with `Error::Unsupported`.
-- **Limits**: like the device side, a level inside a resource array has no `observe()` yet. Absolute paths only -
-  a trait client (`client = "trait_client"`) observes once it has a base path (`attachment()`).
+- **Limits**: absolute paths only - a trait client (`client = "trait_client"`) observes once it has a base path
+  (`attachment()`).
+
+## Levels under resource arrays
+
+A trait level reached through a [resource array](arrays.md) is observed per element (API-63): each element is a
+level of its own, with its own path, settings, budget and updates. A host observing `browsers(2)` gets the updates
+of element 2 only, however many elements other hosts or observers watch.
+
+```rust
+#[ww_api_root]
+trait MediaBox {
+    ww_impl!(browsers[]: Browser);
+    ww_impl!(media: Media);
+}
+
+#[ww_trait]
+trait Browser {
+    property!(ro+observe state: BrowserState);
+    ww_impl!(playback: Playback);
+}
+
+#[ww_trait]
+trait Media {
+    ww_impl!(players[]: Player); // players come and go
+}
+
+#[ww_trait]
+trait Player {
+    ww_impl!(playback: Playback); // the same trait under two arrays
+}
+
+#[ww_trait]
+trait Playback {
+    property!(ro+observe title: &'i str);
+}
+```
+
+On the host nothing is new: an element's client has `observe(cfg)` and `observe_<name>(mode)` like any level.
+
+```rust
+let mut slot = device.browsers(2).observe_state(on_change(ms)).subscribe().await?;
+let mut title = device.media().players(9).playback().observe_title(on_change(ms)).subscribe().await?;
+loop {
+    match title.recv_event().await {
+        Ok(ObserveEvent::Update(u)) => { /* u.value */ }
+        Ok(ObserveEvent::Ended) => break, // player 9 is gone
+        Ok(_) => {}
+        Err(_) => break,
+    }
+}
+```
+
+On the device each such level keeps a fixed number of element tables instead of one table:
+`[ElementTable<[Slot; N], D>; K]` in `ObserveState` (`ww_stream::observe::ElementTable`), `D` the indices on the way
+to the level, `K` set with `ww_codegen!(.., observe_elements = K)` (4 when left out). That is how many elements of
+the level hosts observe at the same time, whatever their indices; the array's length doesn't matter.
+
+- **Observe**: the element's indices are checked with the arrays' `valid_indices_*` handlers, as for any request to
+  it (`BadIndex`). The element takes the table already observing it, or a free one; with all `K` in use for other
+  elements the request fails with `OperationNotSupported` at error site 57 (`OBSERVE_ARRAY`). A request that turns
+  everything off, the last host observer gone, frees the table.
+- **Changes**: `mark_changed_<name>(index_chain)` on the server marks the property of one element, the chain as its
+  handlers get it (`self.mark_changed_media_players_playback_title([UNib32(9)])`); a host's write marks its element
+  (SRV-57). An element's properties have no bit in `ObserveSignal` yet (SRV-59): mark them through the server.
+- **Elements come and go**: when one is removed, `element_removed_<array>(index_chain)` ends what hosts observe of
+  it and of every level under it (`element_removed_browsers([UNib32(2)])` ends `browsers[2]` and
+  `browsers[2].playback`). The next `poll_properties` tells each host with a `StreamSideband::Close` event at the
+  level's path and frees the table; the host's observers get `ObserveEvent::Ended`, then `StreamError::Closed`, and
+  `configure` fails. Observing the index again later starts anew, once `valid_indices` has it.
+- **Updates** carry the element's path (`[0, 2, 2]` for `browsers[2].playback`) and are written by the same loop as
+  every other level: `poll_properties` counts each element table as a level of its own.
+- **Not yet**: `Samples` mode of `+batched` properties under an array (API-64), refused with `ModeNotSupported`.
+
+The dynamic client reaches an element by name and index, `DynResource::root(bundle).child("media")?.child("players")?
+.index(9)?.child("playback")?.observe(..)`.
 
 ## Every sample (`+batched`)
 

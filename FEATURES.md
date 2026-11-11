@@ -645,6 +645,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `EventKind::PropertyUpdate` per level carrying any subset of its properties (SW-55). Only `+observe` properties
   can be observed. Protocol `ww_client_server::observe` (`docs/std_library/ww_client_server.md`), device side SRV-18,
   host side CLT-28 (`docs/api/observing.md`, `tests/observe`).
+- ✅ **API-63 Observing levels under resource arrays** · `v0.5.x` — a trait level reached through resource arrays
+  (`browsers[i].state`, `media.players[j].playback.title`) is observed per element, by the element's own path: a
+  client observing `browsers(2)` gets the updates of element 2 only. Device: a fixed pool of element tables per such
+  level (`ww_stream::observe::ElementTable`, `observe_elements = K` in `ww_codegen!`, default 4), taken by the first
+  `Observe` of an element and freed when it turns everything off; the index is checked with the array's
+  `valid_indices` (`BadIndex`), a level with all tables in use answers `OperationNotSupported` at `OBSERVE_ARRAY`;
+  `mark_changed_<name>(index_chain)` per element, SRV-57's mark on a host write too; elements come and go:
+  `element_removed_<array>(index_chain)` ends what hosts observe of an element and under it, told to them with a
+  `StreamSideband::Close` at the level's path. Host: `observe(cfg)` and `observe_<name>(mode)` on element clients,
+  shared sub-level clients without their `const OBSERVE` (CLT-68), observers end with `ObserveEvent::Ended`, then
+  `Closed`; the dynamic client too. No wire change. Not yet: SRV-59 (marks from other tasks), API-64 (samples).
+  `docs/api/observing.md#levels-under-resource-arrays`, `tests/observe_arrays`, `ww_stream/src/observe/tests.rs`.
+- 📋 **API-64 Every sample of an element of a resource array** — `+batched` properties of a level under resource
+  arrays are observed in the other modes; `Samples` is refused with `ModeNotSupported`, as a level's batcher, outbox
+  and sampler are one per level, not per element (API-63). Needs a sampler that takes the element's chain and a
+  batcher per element table.
 - 💡 **API-37 Const values in the introspection blob** — a codegen option putting the values of `const` items into
   the device's introspection data, so `ww info` gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.
@@ -813,9 +829,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   fields might be a good ergonomic: users see the names through IDE lookup instead of guessing array indices.
 - 📋 **API-29 Bounds of resource array indices** · `v0.5.x` — `stream!(adc[8]: u16)` or `motor[1..=4]`, checked by the
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
-  strings inside a resource's type are bounded with `MaxLen` (SW-19). With a bound, observed properties (SRV-18) can
-  get a table per array element: until then a trait level in a resource array can't be observed
-  (STD-31 `ww_gpio` pin level waits for it).
+  strings inside a resource's type are bounded with `MaxLen` (SW-19). Observed levels under an array have a pool of
+  element tables (API-63) and don't need the bound; with it, a firmware could size the pool to the array.
 - 🚧 **API-30 Counted and reliable streams** · `v0.5` — counted streams put a head in every event (flags and a
   length-coded 64-bit `pos` in units the device names when it sends, the event's `units`, `lost`, optional device time
   `t`), so drops on the device, link losses and duplicates are reported exactly and item types carry no `seq` /
@@ -912,8 +927,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   granted budget, earliest deadline first, at most one update per level per call, the rest slips and counts as
   missed; properties have a reserved share of the link (`ObserveLimits::total_budget`) next to stored streams.
   `Observe` is untrusted input: validated in full before anything changes, clamped, bounded work, refused per
-  entry. Levels under a resource array answer `OperationNotSupported` until their bound is known (API-29), `+observe`
-  properties in an array or `#[optional]` aren't observable yet. `ww_stream::observe`,
+  entry. Levels under a resource array have a table per observed element (API-63); `+observe` properties in an array
+  or `#[optional]` aren't observable yet. `ww_stream::observe`,
   `docs/api/observing.md#the-device-side`; tests `tests/observe` (fake clock, real host event loop),
   `ww_stream/src/observe/tests.rs`.
 - ✅ **SRV-20 deferred-nested-levels Deferred return helpers on nested levels** — `<prefix>_<method>_send_return`,
@@ -1294,6 +1309,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   passed about 4 runs in 5 while its simulated firmware had to call it). A refused write marks nothing; `ww api
   scaffold`'s setter stub says so. Test `tests/observe` `host_write_marks_get_set_changed`.
 
+- 📋 **SRV-59 Marking an element's change from another task** — `ObserveSignal` (SRV-25) has a bit per observable
+  property of the flat levels; a property of a level under resource arrays (API-63) is marked on the server,
+  `mark_changed_<name>(index_chain)`, so an interrupt or another task can't mark it without the server state. Needs a
+  lock-free mark that names the element (a small queue of chains, or a bit per element table the server hands out).
 - 💡 **SRV-58 A server at an earlier revision of its root** — `ww_codegen!(.., server = true, revision = "w1.0")` would
   build firmware of an earlier revision from the current root: the resources added after it (`#[since]`) left out of
   dispatch and of the bundle, the bundle's and the hello's wire that revision. Mostly for tests: a host driver's
@@ -1348,7 +1367,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `<Trait>Observe` typed settings and what was granted, `<Trait>Latest` latest-value cache with receive times;
   subscriptions sent again by `resume_streams()` after a reconnect; `Error::Unsupported` for a device whose API model
   predates API-38 (`wire_weaver_client::observe`, `docs/api/observing.md#the-host-side`, `tests/observe`,
-  `observe_e2e_tests`). Not yet: levels under a resource array.
+  `observe_e2e_tests`). Levels under resource arrays per element (API-63).
 - ✅ **CLT-29 `Series<T>` in introspection and dynamic clients** · `v0.5.x` — `ww_self::Type::Series` (and
   `Field::series_opaque` for `#[series(opaque)]` fields) in the API model, emitted by codegen; a dynamic decoder in
   `ww_self` reads a `Series` column by column from the type tree alone (`ValueOwned::des_shrink_wrap_dyn` gives the
@@ -2777,8 +2796,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/ww_signal_generator.md`; mock-server test pair still open (STD-13).
 - ⛔ **STD-31 Observable `ww_gpio` pin level** · `v0.5.x` — `property!(ro+observe level: Level)` on `Pin` at one of its
   reserved indices 4..=6, so a host sees input changes without opening the `event` stream of every pin (slow inputs,
-  a dashboard). Blocked on API-29 array-index-bounds: `Pin` sits in `Bank::pin[]` (and banks usually in an array
-  too), and levels under a resource array can't be observed until their bound is known (SRV-18).
+  a dashboard). `Pin` sits in `Bank::pin[]` (and banks usually in an array too): levels there are observable per
+  element since API-63, but a pin's change is seen in an interrupt, so it is blocked on SRV-59
+  element-marks-from-tasks.
 - 🚧 **STD-34 `ww_recorder`** · `v0.5.x` — control a recorder over WireWeaver: `Recorder` (status, card facts,
   two-step prepare/format with a token, recordings, markers, `sync`, settings with the flush thresholds, counters,
   optional `refresh_usb`) and `Track[]` (info, enable, durability, compression, counters). For the SD card log store

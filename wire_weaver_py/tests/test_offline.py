@@ -245,6 +245,8 @@ def test_observable_properties():
         "current": "u32",
         "position": "u32",
     }
+    # an element of a resource array is observed by its own path (API-63)
+    assert api.bank[0].observable_properties() == {"level": "u8"}
 
 
 def test_generic_types():

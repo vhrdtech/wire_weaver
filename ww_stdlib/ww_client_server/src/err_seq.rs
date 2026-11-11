@@ -148,7 +148,8 @@ pub const OBSERVE_MALFORMED: u32 = 54;
 pub const OBSERVE_REFUSED: u32 = 55;
 /// Observe request: the answer didn't fit.
 pub const OBSERVE_SER: u32 = 56;
-/// Observe request: a level under a resource array can't be observed yet (API-29).
+/// Observe request: every element table of a level under resource arrays observes another element (API-63,
+/// `observe_elements = K`); a firmware from before API-63 sent it for any level under a resource array.
 pub const OBSERVE_ARRAY: u32 = 57;
 /// Observe request: the path is no level with observable properties, or the server has none at all (any path).
 pub const OBSERVE_PATH: u32 = 58;
@@ -234,7 +235,7 @@ impl Site {
             OBSERVE_MALFORMED => "observe request: entry doesn't decode",
             OBSERVE_REFUSED => "observe request: not observable",
             OBSERVE_SER => "observe request: answer too big",
-            OBSERVE_ARRAY => "observe request: level in a resource array",
+            OBSERVE_ARRAY => "observe request: no free table for the array element",
             OBSERVE_PATH => "observe request: no observable level there",
             INTROSPECT => "introspection: event not sent",
             REPLY_OVER_LIMIT => "answer longer than the link's message limit",

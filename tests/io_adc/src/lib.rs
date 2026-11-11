@@ -26,7 +26,7 @@ mod tests {
     }
 
     struct StoredStreamConfig {
-        channels: Vec<u8>,
+        channels: Vec<Index<Channel, u8>>,
         format: SampleFormat,
     }
 
@@ -41,7 +41,7 @@ mod tests {
 
     struct CaptureSim {
         /// Sets of the capture currently armed, triggered or done, for [CaptureStatus::Done].
-        sets: u32,
+        sets: Count<Scan, u32>,
         status: CaptureStatus,
         data: Vec<u8>,
         /// How many times `capture_status` was polled since the capture armed with a non-`Now` trigger; advances
@@ -52,7 +52,7 @@ mod tests {
     impl Default for CaptureSim {
         fn default() -> Self {
             CaptureSim {
-                sets: 0,
+                sets: Count::new(0),
                 status: CaptureStatus::Idle,
                 data: Vec::new(),
                 polls_since_armed: 0,
@@ -73,7 +73,7 @@ mod tests {
                     prefix: Prefix::Milli,
                     min: NumericValue::F32(0.0),
                     max: NumericValue::F32(3300.0),
-                    bits: 12,
+                    bits: Fixed::new(12),
                     calibrated: true,
                     raw_to_value: Some(Linear {
                         scale: 3300.0 / 4095.0,
@@ -88,7 +88,7 @@ mod tests {
                     prefix: Prefix::Unit,
                     min: NumericValue::F32(233.15),
                     max: NumericValue::F32(398.15),
-                    bits: 12,
+                    bits: Fixed::new(12),
                     calibrated: false,
                     raw_to_value: None,
                 },
@@ -132,12 +132,12 @@ mod tests {
             fn adc_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                channel: u8,
+                channel: Index<Channel, u8>,
             ) -> RpcResult<Result<Reading, AdcError<'_>>> {
                 if self.busy() {
                     return Ready(Err(CommonError::Busy.into()));
                 }
-                let Some(ch) = self.channels.get(channel as usize) else {
+                let Some(ch) = self.channels.get(channel.get() as usize) else {
                     return Ready(Err(AdcError::NoSuchChannel));
                 };
                 let (raw, value) = if ch.calibrated {
@@ -173,12 +173,17 @@ mod tests {
                 if self.busy() {
                     return Ready(Err(CommonError::Busy.into()));
                 }
-                for &ch in config.channels.as_slice() {
-                    if ch as usize >= self.channels.len() {
+                let channels: Vec<Index<Channel, u8>> = config
+                    .channels
+                    .iter()
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap();
+                for ch in &channels {
+                    if ch.get() as usize >= self.channels.len() {
                         return Ready(Err(AdcError::NoSuchChannel));
                     }
                 }
-                if config.channels.len() as u8 > self.channels.len() as u8 {
+                if channels.len() as u8 > self.channels.len() as u8 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
                         reason: MaxLen::new_unchecked(""),
@@ -196,7 +201,7 @@ mod tests {
                     rate: Hertz::from_parts(Prefix::Unit, NumericValue::U32(capped)),
                 };
                 self.stream.config = Some(StoredStreamConfig {
-                    channels: config.channels.as_slice().to_vec(),
+                    channels,
                     format: config.format,
                 });
                 self.stream.running = true;
@@ -248,7 +253,7 @@ mod tests {
             ) -> RpcResult<StreamCapabilities<'_>> {
                 Ready(StreamCapabilities {
                     max_total_rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(500)),
-                    max_channels: self.channels.len() as u8,
+                    max_channels: Count::new(self.channels.len() as u8),
                     formats: MaxLen::new(RefVec::Slice {
                         slice: &[SampleFormat::U8, SampleFormat::U16],
                     })
@@ -262,7 +267,7 @@ mod tests {
             ) -> RpcResult<CaptureCapabilities<'_>> {
                 Ready(CaptureCapabilities {
                     max_total_rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(500)),
-                    max_bytes: 4096,
+                    max_bytes: Bytes::new(4096),
                     simultaneous: true,
                     level_trigger: true,
                     external_trigger: true,
@@ -281,8 +286,9 @@ mod tests {
                 if self.stream.running {
                     return Ready(Err(CommonError::Busy.into()));
                 }
-                for &ch in config.channels.as_slice() {
-                    if ch as usize >= self.channels.len() {
+                for ch in config.channels.iter() {
+                    let ch = ch.unwrap();
+                    if ch.get() as usize >= self.channels.len() {
                         return Ready(Err(AdcError::NoSuchChannel));
                     }
                 }
@@ -290,7 +296,7 @@ mod tests {
                     return Ready(Err(CommonError::Unsupported.into()));
                 }
                 let per_set = sample_bytes(config.format) * config.channels.len();
-                let bytes = per_set * config.sets as usize;
+                let bytes = per_set * config.sets.get() as usize;
                 if bytes > 4096 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
@@ -301,7 +307,7 @@ mod tests {
                 let data: Vec<u8> = (0..bytes).map(|i| (i * 7) as u8).collect();
                 let actual = CaptureActual {
                     rate: config.rate,
-                    bytes: bytes as u32,
+                    bytes: Bytes::new(bytes as u32),
                 };
                 let t_first = self.now();
                 let trigger = config.trigger;
@@ -345,8 +351,8 @@ mod tests {
             fn adc_capture_capture_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                offset: u32,
-                len: u16,
+                offset: Index<Byte, u32>,
+                len: Bytes<u16>,
             ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, MAX_CAPTURE_READ_LEN>, AdcError<'_>>>
             {
                 if !matches!(self.capture.status, CaptureStatus::Done { .. }) {
@@ -355,8 +361,8 @@ mod tests {
                     }
                     .into()));
                 }
-                let start = offset as usize;
-                let end = start + len as usize;
+                let start = offset.get() as usize;
+                let end = start + len.get() as usize;
                 let Some(slice) = self.capture.data.get(start..end) else {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
@@ -486,12 +492,12 @@ mod tests {
         let temp = channels.next().unwrap();
         assert_eq!(temp.unit.to_string(), "K");
 
-        let reading = adc.read(0).call().await.unwrap();
+        let reading = adc.read(Index::new(0)).call().await.unwrap();
         let expected = 2048.0 * 3300.0 / 4095.0;
         assert!(matches!(reading.value, NumericValue::F32(v) if (v - expected).abs() < 0.01));
 
         assert_eq!(
-            adc.read(9).call().await.unwrap_err().device(),
+            adc.read(Index::new(9)).call().await.unwrap_err().device(),
             Some(&AdcErrorOwned::NoSuchChannel)
         );
     }
@@ -503,10 +509,10 @@ mod tests {
         let adc_stream = client.adc_stream();
 
         let caps = adc_stream.stream_capabilities().call().await.unwrap();
-        assert_eq!(caps.max_channels, 2);
+        assert_eq!(caps.max_channels.get(), 2);
 
         let config = |format| StreamConfigOwned {
-            channels: MaxLen::new(vec![0, 1]).unwrap(),
+            channels: MaxLen::new(vec![Index::new(0), Index::new(1)]).unwrap(),
             rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(1000)),
             format,
             flush_interval: None,
@@ -532,7 +538,13 @@ mod tests {
         assert_eq!(actual.rate.value, NumericValue::U32(500_000));
         // sampling runs: single readings are refused
         assert_eq!(
-            client.adc().read(0).call().await.unwrap_err().device(),
+            client
+                .adc()
+                .read(Index::new(0))
+                .call()
+                .await
+                .unwrap_err()
+                .device(),
             Some(&AdcErrorOwned::Common(CommonErrorOwned::Busy))
         );
 
@@ -554,7 +566,7 @@ mod tests {
 
         samples.close().await.unwrap();
         // adc is free again once the stream stops
-        assert!(client.adc().read(0).call().await.is_ok());
+        assert!(client.adc().read(Index::new(0)).call().await.is_ok());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -568,27 +580,31 @@ mod tests {
 
         let actual = adc_capture
             .capture(CaptureConfigOwned {
-                channels: MaxLen::new(vec![0]).unwrap(),
+                channels: MaxLen::new(vec![Index::new(0)]).unwrap(),
                 rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
-                sets: 4,
-                pre_trigger: 0,
+                sets: Count::new(4),
+                pre_trigger: Count::new(0),
                 trigger: Trigger::Now,
                 format: SampleFormat::U8,
             })
             .call()
             .await
             .unwrap();
-        assert_eq!(actual.bytes, 4);
+        assert_eq!(actual.bytes.get(), 4);
 
         let status = adc_capture.capture_status().call().await.unwrap();
-        assert!(matches!(status, CaptureStatus::Done { sets: 4, .. }));
+        assert!(matches!(status, CaptureStatus::Done { sets, .. } if sets.get() == 4));
 
-        let data = adc_capture.capture_read(0, 4).call().await.unwrap();
+        let data = adc_capture
+            .capture_read(Index::new(0), Bytes::new(4))
+            .call()
+            .await
+            .unwrap();
         assert_eq!(data.as_slice(), &[0, 7, 14, 21]);
 
         assert!(matches!(
             adc_capture
-                .capture_read(2, 10)
+                .capture_read(Index::new(2), Bytes::new(10))
                 .call()
                 .await
                 .unwrap_err()
@@ -601,7 +617,7 @@ mod tests {
         adc_capture.capture_abort().call().await.unwrap();
         assert!(matches!(
             adc_capture
-                .capture_read(0, 1)
+                .capture_read(Index::new(0), Bytes::new(1))
                 .call()
                 .await
                 .unwrap_err()
@@ -618,12 +634,12 @@ mod tests {
 
         adc_capture
             .capture(CaptureConfigOwned {
-                channels: MaxLen::new(vec![0]).unwrap(),
+                channels: MaxLen::new(vec![Index::new(0)]).unwrap(),
                 rate: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
-                sets: 2,
-                pre_trigger: 0,
+                sets: Count::new(2),
+                pre_trigger: Count::new(0),
                 trigger: Trigger::Rising {
-                    channel: 0,
+                    channel: Index::new(0),
                     level: NumericValue::F32(1500.0),
                 },
                 format: SampleFormat::U8,
@@ -649,7 +665,7 @@ mod tests {
         let adc_stream = client.adc_stream();
         adc_stream
             .samples(StreamConfigOwned {
-                channels: MaxLen::new(vec![0]).unwrap(),
+                channels: MaxLen::new(vec![Index::new(0)]).unwrap(),
                 rate: Hertz::from_parts(Prefix::Unit, NumericValue::U32(10)),
                 format: SampleFormat::U8,
                 flush_interval: None,

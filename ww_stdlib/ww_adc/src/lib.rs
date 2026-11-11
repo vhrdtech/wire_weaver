@@ -57,7 +57,11 @@ use wire_weaver::prelude::*;
 pub use ww_numeric::NumericValue;
 #[cfg(feature = "std")]
 pub use ww_si::SIExprOwned;
-pub use ww_si::{Hertz, Prefix, SIExpr, Second};
+pub use ww_si::{
+    Bytes, Count, Fixed, Hertz, Index, Prefix, SIExpr, Second,
+    prefix::One,
+    units::{Bit, Byte, Channel, Scan},
+};
 
 /// Most channels a device lists, and most channels in one stream or capture.
 pub const MAX_CHANNELS: usize = 32;
@@ -81,7 +85,7 @@ pub trait Adc {
     /// `Busy`: the ADC runs a stream or capture that can't be interrupted; `NoPower`: inputs behind an unpowered
     /// buffer.
     #[errors(Common(Busy, NoPower, Timeout), NoSuchChannel)]
-    fn read(channel: u8) -> Result<Reading, AdcError<'i>>;
+    fn read(channel: Index<Channel, u8>) -> Result<Reading, AdcError<'i>>;
 
     /// The channels, their units and ranges.
     fn capabilities() -> AdcCapabilities<'i>;
@@ -131,8 +135,8 @@ pub trait AdcCapture {
     /// `WrongState`: no finished capture; `InvalidArgument`: outside the data.
     #[errors(Common(WrongState, InvalidArgument))]
     fn capture_read(
-        offset: u32,
-        len: u16,
+        offset: Index<Byte, u32>,
+        len: Bytes<u16>,
     ) -> Result<MaxLen<RefVec<'i, u8>, MAX_CAPTURE_READ_LEN>, AdcError<'i>>;
 
     /// Stops an armed or running capture and drops its data.
@@ -187,7 +191,7 @@ pub struct ChannelInfo<'i> {
     /// Highest value the channel can show.
     pub max: NumericValue,
     /// Converter resolution.
-    pub bits: u8,
+    pub bits: Fixed<Bit, One, u8>,
     /// Whether readings are calibrated for this unit (per-device factors) or nominal only.
     pub calibrated: bool,
     /// How raw samples of streams and captures turn into values; `None` if they don't linearly.
@@ -238,7 +242,7 @@ pub struct StreamCapabilities<'i> {
     /// Highest sample rate of all channels together (samples, not sets, per second), alone on the link.
     pub max_total_rate: Hertz,
     /// Most channels in one stream.
-    pub max_channels: u8,
+    pub max_channels: Count<Channel, u8>,
     pub formats: MaxLen<RefVec<'i, SampleFormat>, MAX_FORMATS>,
 }
 
@@ -250,7 +254,7 @@ pub struct StreamCapabilities<'i> {
 )]
 pub struct StreamConfig<'i> {
     /// Channel indices, in the order samples are interleaved.
-    pub channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>,
+    pub channels: MaxLen<RefVec<'i, Index<Channel, u8>>, MAX_CHANNELS>,
     /// Sample sets per second.
     pub rate: Hertz,
     pub format: SampleFormat,
@@ -292,7 +296,7 @@ pub struct CaptureCapabilities<'i> {
     /// Highest sample rate of all channels together (samples per second).
     pub max_total_rate: Hertz,
     /// Capture memory in bytes.
-    pub max_bytes: u32,
+    pub max_bytes: Bytes<u32>,
     /// Whether the channels of one sample set are sampled at the same instant (simultaneous sampling ADCs, or
     /// several ADCs triggered together).
     pub simultaneous: bool,
@@ -310,13 +314,13 @@ pub struct CaptureCapabilities<'i> {
 )]
 pub struct CaptureConfig<'i> {
     /// Channel indices, in the order samples are interleaved.
-    pub channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>,
+    pub channels: MaxLen<RefVec<'i, Index<Channel, u8>>, MAX_CHANNELS>,
     /// Sample sets per second.
     pub rate: Hertz,
     /// Sample sets to keep in total, `pre_trigger` included.
-    pub sets: u32,
+    pub sets: Count<Scan, u32>,
     /// Sample sets to keep from before the trigger.
-    pub pre_trigger: u32,
+    pub pre_trigger: Count<Scan, u32>,
     pub trigger: Trigger,
     pub format: SampleFormat,
 }
@@ -333,9 +337,15 @@ pub enum Trigger {
     /// Right away.
     Now,
     /// When `channel` rises through `level` (in the channel's unit and prefix).
-    Rising { channel: u8, level: NumericValue },
+    Rising {
+        channel: Index<Channel, u8>,
+        level: NumericValue,
+    },
     /// When `channel` falls through `level`.
-    Falling { channel: u8, level: NumericValue },
+    Falling {
+        channel: Index<Channel, u8>,
+        level: NumericValue,
+    },
     /// On the device's external trigger input, or another device's trigger.
     External,
 }
@@ -351,7 +361,7 @@ pub struct CaptureActual {
     /// Sample sets per second.
     pub rate: Hertz,
     /// Size of the data once done, for `AdcCapture::capture_read`.
-    pub bytes: u32,
+    pub bytes: Bytes<u32>,
 }
 
 /// Where a capture stands, see `AdcCapture::capture_status`.
@@ -373,7 +383,7 @@ pub enum CaptureStatus {
     Done {
         t_first: Second,
         t_trigger: Option<Second>,
-        sets: u32,
+        sets: Count<Scan, u32>,
     },
 }
 

@@ -2,6 +2,24 @@
 
 ### ⚠️ Breaking
 
+- Wire-compatible (`w3.0` unchanged): channel indices, converter resolution, capture/stream byte and
+  capture-read offset counts, and sample-set counts are typed instead of bare integers (AGENTS.md "Numbers are typed",
+  P2401#11nov-0948c). Every change is a transparent wrapper of the same bytes, so no wire line moves; only the Rust
+  types change. `ww_adc_0_3_0.ron` (never published) saved again in place.
+  - `Adc::read`'s `channel`, `Trigger::Rising`/`Falling::channel`, `StreamConfig::channels`,
+    `CaptureConfig::channels`: `u8` -> `ww_si::Index<ww_si::units::Channel, u8>`.
+    `StreamCapabilities::max_channels`: `u8` -> `ww_si::Count<ww_si::units::Channel, u8>`.
+  - `ChannelInfo::bits`: `u8` -> `ww_si::Fixed<ww_si::units::Bit, ww_si::prefix::One, u8>`.
+  - `CaptureCapabilities::max_bytes`, `CaptureActual::bytes`: `u32` -> `ww_si::Bytes<u32>`.
+  - `AdcCapture::capture_read`'s `offset`: `u32` -> `ww_si::Index<ww_si::units::Byte, u32>`; `len`: `u16` ->
+    `ww_si::Bytes<u16>`.
+  - `CaptureConfig::sets`, `pre_trigger`, `CaptureStatus::Done::sets`: `u32` -> `ww_si::Count<ww_si::units::Scan,
+    u32>` (one set is one reading of every channel, exact_units' `Scan`).
+  - `ww_adc` re-exports `Bytes`, `Count`, `Fixed`, `Index`, `ww_si::prefix::One` and `ww_si::units::{Bit, Byte,
+    Channel, Scan}` for these.
+  - `ww_si` dependency gains the `information` and `counting` feature groups.
+  - `Reading::raw` stays a plain `u32` (the converter's raw code before calibration, run-time only: `FullScale`
+    needs the reference and bit width at compile time).
 - Version 0.3.0 on a new wire line, `w3.0` (EVO-47): `ChannelInfo::unit`'s `SIExpr` carries exact_units UNIT-9's `Dim` with its system's id, which `ww api check` against the 0.2.0 snapshot from before UNIT-9 finds as a wire break. `ww_adc_0_3_0.ron` is new; `ww_adc_0_2_0.ron` and `ww_adc_0_1_0.ron` keep their in-place save (their `SIExpr` signature).
 - `exact_units` at UNIT-9 (EVO-47): `ChannelInfo::unit`'s `SIExpr` carries a `Dim` that starts with its system's id; `ww_adc_0_2_0.ron` (never published) and `ww_adc_0_1_0.ron` (its `SIExpr` signature) saved again in place.
 - Version 0.2.0 on a new wire line, `w2.0` (EVO-44): `ChannelInfo::unit`'s `SIExpr` carries exact_units' new `Dim` and `UnitNames`. `ww_adc_0_1_0.ron` was saved again in place (its `SIExpr` signature); `ww_adc_0_2_0.ron` is new.

@@ -25,12 +25,12 @@
 //!   channel of the configuration's channel list. Sub-byte words are packed starting at bit 0 of a byte (sample 0
 //!   in the lowest bits), multi-byte words are little-endian. What a DMA from a GPIO port produces.
 //! - [Encoding::Transitions], [TransitionsChunk]: per channel, its level at the start and the sample indices where
-//!   it toggles, as a `Series<u32>` (SW-60, its numeric column picks delta of delta for a clock). A steady clock
-//!   costs a few bytes per chunk, a quiet channel almost nothing, so the edge rate limits a stream, not the sample
-//!   rate.
+//!   it toggles, as a `Series<Index<Sample, u32>>` (SW-60, its numeric column picks delta of delta for a clock). A
+//!   steady clock costs a few bytes per chunk, a quiet channel almost nothing, so the edge rate limits a stream, not
+//!   the sample rate.
 //!
-//! Sample indices are `u32` counted from a capture's first sample, or from the start of a stream (where they wrap
-//! and the host unwraps them).
+//! Sample indices are [Index]`<Sample, u32>` counted from a capture's first sample, or from the start of a stream
+//! (where they wrap and the host unwraps them).
 //!
 //! # Time
 //!
@@ -47,7 +47,9 @@
 use wire_weaver::prelude::*;
 pub use ww_gpio::Level;
 pub use ww_i2c::I2cAddress;
-pub use ww_si::{Baud, Hertz, Second, Volt};
+pub use ww_si::prefix::One;
+pub use ww_si::units::{Bit, Channel, Item, Pin, Sample};
+pub use ww_si::{Baud, Bytes, Count, Fixed, Hertz, Index, Second, Volt};
 
 /// Most channels a device lists, and most channels in one capture or stream.
 pub const MAX_CHANNELS: usize = 32;
@@ -58,13 +60,14 @@ pub const MAX_NAME_LEN: usize = 32;
 /// Largest raw data of one [RawChunk], in bytes; the worst case of a [TransitionsChunk] (128 edges) fits as well.
 pub const MAX_READ_LEN: usize = 768;
 
-/// Most edges of one [TransitionsChunk]: 128 indices take at most 610 bytes (`Series::<u32>::max_bytes(128)`), so a
-/// chunk fits a reply.
+/// Most edges of one [TransitionsChunk]: 128 indices take at most 610 bytes (`Series::<Index<Sample, u32>>::max_bytes(128)`,
+/// the same bytes as `u32`, [Index] being transparent), so a chunk fits a reply.
 pub const MAX_EDGES: usize = 128;
 
 // the worst case of a chunk's edges fits a reply
-const _: () =
-    assert!(matches!(Series::<'static, u32>::max_bytes(MAX_EDGES), Some(n) if n <= MAX_READ_LEN));
+const _: () = assert!(
+    matches!(Series::<'static, Index<Sample, u32>>::max_bytes(MAX_EDGES), Some(n) if n <= MAX_READ_LEN)
+);
 
 /// Most trigger stages of one [Trigger::Stages].
 pub const MAX_STAGES: usize = 8;
@@ -111,7 +114,10 @@ pub trait LogicAnalyzer {
     /// `WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn't
     /// give transitions.
     #[errors(Common(WrongState, InvalidArgument, Unsupported), NoSuchChannel)]
-    fn read_transitions(channel: u8, from: u32) -> Result<TransitionsChunk<'i>, LaError<'i>>;
+    fn read_transitions(
+        channel: Index<Channel, u8>,
+        from: Index<Sample, u32>,
+    ) -> Result<TransitionsChunk<'i>, LaError<'i>>;
 
     /// Stops an armed or running capture and drops its data.
     fn abort();
@@ -149,8 +155,8 @@ pub struct LaCapabilities<'i> {
     pub channels: MaxLen<RefVec<'i, ChannelInfo<'i>>, MAX_CHANNELS>,
     /// Highest sample rate per channel count, ascending by count.
     pub rates: MaxLen<RefVec<'i, RateLimit>, MAX_RATE_LIMITS>,
-    /// Capture memory in bytes.
-    pub memory: u32,
+    /// Capture memory.
+    pub memory: Bytes<u32>,
     /// How captures are kept in RAM.
     pub storage: Encoding,
     /// Encodings the read methods give (either storage can be read in either encoding the device lists).
@@ -169,7 +175,7 @@ pub struct ChannelInfo<'i> {
     /// For the user: "D0", "CLK", "PA5".
     pub name: MaxLen<&'i str, MAX_NAME_LEN>,
     /// The same pin's index in the device's `ww_gpio::Bank`, if it has one.
-    pub gpio_pin: Option<u8>,
+    pub gpio_pin: Option<Index<Pin, u8>>,
     /// Range of [CaptureConfig::threshold], if the threshold is adjustable.
     pub threshold: Option<VoltRange>,
 }
@@ -194,7 +200,7 @@ pub struct VoltRange {
     derive(Debug, Clone, Copy)
 )]
 pub struct RateLimit {
-    pub channels: u8,
+    pub channels: Count<Channel, u8>,
     pub max_rate: Hertz,
 }
 
@@ -207,9 +213,9 @@ pub struct RateLimit {
 )]
 pub struct TriggerCapabilities {
     /// Most stages of [Trigger::Stages] (0: no stages, only [Trigger::Now] and maybe [Trigger::External]).
-    pub max_stages: u8,
+    pub max_stages: Count<Item, u8>,
     /// Most conditions of one [TriggerStage::Pattern].
-    pub max_conditions: u8,
+    pub max_conditions: Count<Item, u8>,
     /// [Condition::Rising], [Condition::Falling], [Condition::AnyEdge] work (levels always do).
     pub edges: bool,
     pub uart_byte: bool,
@@ -229,13 +235,13 @@ pub struct TriggerCapabilities {
 )]
 pub struct CaptureConfig<'i> {
     /// Channel numbers ([LaCapabilities::channels]), in the bit order of raw words.
-    pub channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>,
+    pub channels: MaxLen<RefVec<'i, Index<Channel, u8>>, MAX_CHANNELS>,
     /// Samples per second.
     pub rate: Hertz,
     /// Samples to keep in total, `pre_trigger` included.
-    pub samples: u32,
+    pub samples: Count<Sample, u32>,
     /// Samples to keep from before the trigger.
-    pub pre_trigger: u32,
+    pub pre_trigger: Count<Sample, u32>,
     pub trigger: Trigger<'i>,
     /// Input threshold where it is adjustable ([ChannelInfo::threshold]); `None` leaves it.
     pub threshold: Option<Volt>,
@@ -254,7 +260,7 @@ pub struct CaptureActual {
     /// Samples per second.
     pub rate: Hertz,
     /// Samples the capture will hold at most (the memory may hold fewer than asked at this channel count).
-    pub samples: u32,
+    pub samples: Count<Sample, u32>,
     /// Layout of [RawChunk::data].
     pub layout: RawLayout,
 }
@@ -289,7 +295,7 @@ pub enum TriggerStage<'i> {
     /// A UART frame (8 data bits, LSB first, idle high) on `channel` at `baud` whose data matches `value` under
     /// `mask`; met at the stop bit.
     UartByte {
-        channel: u8,
+        channel: Index<Channel, u8>,
         baud: Baud,
         value: u8,
         mask: u8,
@@ -297,22 +303,44 @@ pub enum TriggerStage<'i> {
     /// An I2C address byte on `scl` / `sda` matching `address`, of a read (`Some(true)`), a write (`Some(false)`)
     /// or either (`None`); met at the ACK bit.
     I2cAddress {
-        scl: u8,
-        sda: u8,
+        scl: Index<Channel, u8>,
+        sda: Index<Channel, u8>,
         address: I2cAddress,
         read: Option<bool>,
     },
-    /// The first byte on `data` (MOSI or MISO) after `cs` goes low, clocked by `sck` in SPI mode `mode` (0..=3),
-    /// matching `value` under `mask`; met at its last bit.
+    /// The first byte on `data` (MOSI or MISO) after `cs` goes low, clocked by `sck` in SPI `mode`, matching `value`
+    /// under `mask`; met at its last bit.
     SpiFirstByte {
-        cs: u8,
-        sck: u8,
-        data: u8,
-        mode: u8,
+        cs: Index<Channel, u8>,
+        sck: Index<Channel, u8>,
+        data: Index<Channel, u8>,
+        mode: SpiMode,
         msb_first: bool,
         value: u8,
         mask: u8,
     },
+}
+
+/// Clock polarity and phase (CPOL/CPHA), the usual SPI mode numbering. `ww_spi::SpiMode` says the same thing for a
+/// device's own SPI bus; this crate keeps its own copy (`ww_spi::SpiMode` doesn't derive `defmt::Format`, needed
+/// here since [TriggerStage] does) rather than a dependency on `ww_spi` for one enum.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    sized,
+    ww_repr = u2
+)]
+pub enum SpiMode {
+    /// CPOL = 0, CPHA = 0.
+    Mode0,
+    /// CPOL = 0, CPHA = 1.
+    Mode1,
+    /// CPOL = 1, CPHA = 0.
+    Mode2,
+    /// CPOL = 1, CPHA = 1.
+    Mode3,
 }
 
 /// `channel` (an index into [CaptureConfig::channels]) meets `when`.
@@ -323,7 +351,7 @@ pub enum TriggerStage<'i> {
     derive(Debug, Clone, Copy, PartialEq, Eq)
 )]
 pub struct ChannelCondition {
-    pub channel: u8,
+    pub channel: Index<Channel, u8>,
     pub when: Condition,
 }
 
@@ -377,8 +405,8 @@ pub enum CaptureStatus {
     /// [Trigger::Now]). `samples` may be fewer than asked when transition storage filled up.
     Done {
         t_first: Second,
-        trigger_at: Option<u32>,
-        samples: u32,
+        trigger_at: Option<Index<Sample, u32>>,
+        samples: Count<Sample, u32>,
     },
 }
 
@@ -390,8 +418,8 @@ pub enum CaptureStatus {
     derive(Debug, Clone, Copy, PartialEq, Eq)
 )]
 pub struct SampleRange {
-    pub first: u32,
-    pub count: u32,
+    pub first: Index<Sample, u32>,
+    pub count: Count<Sample, u32>,
 }
 
 /// The two encodings, see the crate docs.
@@ -417,7 +445,7 @@ pub enum Encoding {
     derive(Debug, Clone, Copy, PartialEq, Eq)
 )]
 pub struct RawLayout {
-    pub width: u8,
+    pub width: Fixed<Bit, One, u8>,
 }
 
 /// A run of raw samples, see [Encoding::Raw].
@@ -428,8 +456,8 @@ pub struct RawLayout {
 )]
 pub struct RawChunk<'i> {
     /// Index of the first sample.
-    pub first: u32,
-    pub samples: u32,
+    pub first: Index<Sample, u32>,
+    pub samples: Count<Sample, u32>,
     /// `samples` words as in [RawLayout].
     pub data: MaxLen<RefVec<'i, u8>, MAX_READ_LEN>,
 }
@@ -442,14 +470,14 @@ pub struct RawChunk<'i> {
 )]
 pub struct TransitionsChunk<'i> {
     /// Index into the configuration's channel list.
-    pub channel: u8,
+    pub channel: Index<Channel, u8>,
     /// Level at sample `from`.
     pub level: Level,
-    pub from: u32,
+    pub from: Index<Sample, u32>,
     /// No more edges before this sample; the next chunk of this channel starts here.
-    pub scanned_to: u32,
+    pub scanned_to: Index<Sample, u32>,
     /// Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].
-    pub edges: Series<'i, u32>,
+    pub edges: Series<'i, Index<Sample, u32>>,
 }
 
 /// One item of the `LogicStream::data` stream.
@@ -485,7 +513,7 @@ pub struct StreamCapabilities<'i> {
 )]
 pub struct StreamConfig<'i> {
     /// Channel numbers ([LaCapabilities::channels]), in the bit order of raw words.
-    pub channels: MaxLen<RefVec<'i, u8>, MAX_CHANNELS>,
+    pub channels: MaxLen<RefVec<'i, Index<Channel, u8>>, MAX_CHANNELS>,
     /// Samples per second.
     pub rate: Hertz,
     pub encoding: Encoding,

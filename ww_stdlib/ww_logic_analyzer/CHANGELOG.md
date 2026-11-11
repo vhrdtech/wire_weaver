@@ -13,6 +13,22 @@
   hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 - `TriggerStage::UartByte::baud` is a `ww_si::Baud` instead of a `u32` (STD-13).
+- Wire line `w2.0` (EVO-59): every channel number is an `Index<Channel, u8>` (`read_transitions`,
+  `TriggerStage::UartByte::channel`, `I2cAddress::scl`/`sda`, `SpiFirstByte::cs`/`sck`/`data`,
+  `ChannelCondition::channel`, `TransitionsChunk::channel`, `CaptureConfig::channels`, `StreamConfig::channels`,
+  `RefVec<u8>` -> `RefVec<Index<Channel, u8>>`); `RateLimit::channels` is a `Count<Channel, u8>`;
+  `ChannelInfo::gpio_pin` is an `Option<Index<Pin, u8>>`. Every sample position is an `Index<Sample, u32>`
+  (`read_transitions`'s `from`, `CaptureStatus::Done::trigger_at`, `SampleRange::first`, `RawChunk::first`,
+  `TransitionsChunk::from`/`scanned_to`, and `TransitionsChunk::edges`'s `Series<u32>` -> `Series<Index<Sample,
+  u32>>`, same bytes); every sample amount is a `Count<Sample, u32>` (`CaptureConfig::samples`/`pre_trigger`,
+  `CaptureActual::samples`, `CaptureStatus::Done::samples`, `SampleRange::count`, `RawChunk::samples`).
+  `LaCapabilities::memory` is a `Bytes<u32>`; `RawLayout::width` is a `Fixed<Bit, One, u8>`;
+  `TriggerCapabilities::max_stages`/`max_conditions` are `Count<Item, u8>`; `TriggerStage::SpiFirstByte::mode` is a
+  new `SpiMode` enum instead of a bare `0..=3` `u8` (its own copy of `ww_spi::SpiMode`'s CPOL/CPHA numbering: that
+  type doesn't derive `defmt::Format`, needed here since `TriggerStage` does, so a dependency on `ww_spi` for one
+  enum isn't worth it). All transparent wrappers or same-size enums, so the bytes stay the same; `ww_si` gains the
+  `information` and `counting` features it was missing for a standalone build (it built only through feature
+  unification with another crate before).
 
 ### 🚀 Features
 

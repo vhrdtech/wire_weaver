@@ -27,4 +27,9 @@ defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true, default-features = false }
 ww_gpio = { workspace = true, default-features = false }
 ww_i2c = { workspace = true, default-features = false }
-ww_si = { workspace = true, default-features = false, features = ["time", "electrical"] }
+ww_si = { workspace = true, default-features = false, features = [
+    "time",
+    "electrical",
+    "information",
+    "counting",
+] }

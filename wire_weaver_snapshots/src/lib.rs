@@ -179,7 +179,9 @@ mod tests {
     /// `NumericValue` signature that `Quantity` carries, hence `Second`'s; and with `ww_si` moving to 0.3.0 and a
     /// new wire line, w3.0, for exact_units' new `Dim` and `UnitNames` (UNIT-10, IO-9, EVO-44), which `Second` now
     /// names; and with `ww_si` moving to 0.4.0 and wire w4.0 for exact_units' systems of units (UNIT-9, EVO-47); and
-    /// with `ww_si` moving to 0.5.0 and wire w5.0 for `Timed.t` as a device point (STD-110, EVO-51).
+    /// with `ww_si` moving to 0.5.0 and wire w5.0 for `Timed.t` as a device point (STD-110, EVO-51); and with
+    /// `Clock::shared_now` returning `Option<UnixMicros<u64>>` instead of `Option<u64>` (typed numbers for shared
+    /// time, rate, error and slew, P2401#11nov-0947g).
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -213,7 +215,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0x64, 0x86, 0x5e, 0x43, 0x9c, 0xfc, 0xc3, 0x66]);
+        assert_eq!(signature, [0xf5, 0xa7, 0xa6, 0x7c, 0x63, 0xa9, 0xed, 0x88]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

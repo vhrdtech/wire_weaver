@@ -362,7 +362,10 @@ mod tests {
 
         let duty = channel.set_duty(Duty16::new(1000)).call().await.unwrap();
         assert_eq!(duty, Duty16::new(1000));
-        assert_eq!(m.lock().unwrap().channels[0].unwrap().duty, Duty16::new(1000));
+        assert_eq!(
+            m.lock().unwrap().channels[0].unwrap().duty,
+            Duty16::new(1000)
+        );
 
         channel.stop(true).call().await.unwrap();
         assert!(m.lock().unwrap().channels[0].is_none());

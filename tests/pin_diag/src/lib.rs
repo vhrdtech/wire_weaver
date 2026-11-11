@@ -304,13 +304,25 @@ mod tests {
         let (_device, client) = start("pin_diag/probe").await;
         let pins = client.pins();
         // P2 has an external pull-up: high even against the internal pull-down
-        pins.set(Index::new(P2), input(Pull::Down)).call().await.unwrap();
+        pins.set(Index::new(P2), input(Pull::Down))
+            .call()
+            .await
+            .unwrap();
         assert_eq!(pins.read(Index::new(P2)).call().await.unwrap(), Level::High);
         // P0 floats: it follows the internal pull
-        pins.set(Index::new(P0), input(Pull::Up)).call().await.unwrap();
+        pins.set(Index::new(P0), input(Pull::Up))
+            .call()
+            .await
+            .unwrap();
         assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::High);
-        pins.set(Index::new(P0), input(Pull::Down)).call().await.unwrap();
-        pins.set(Index::new(P1), input(Pull::Down)).call().await.unwrap();
+        pins.set(Index::new(P0), input(Pull::Down))
+            .call()
+            .await
+            .unwrap();
+        pins.set(Index::new(P1), input(Pull::Down))
+            .call()
+            .await
+            .unwrap();
         assert_eq!(pins.read(Index::new(P0)).call().await.unwrap(), Level::Low);
 
         // P1 driven high: P0, on the same net, follows: a short

@@ -54,8 +54,9 @@ impl BankPromise {
     pub fn sync_poll(&mut self) {
         self.valid_pin_indices_promise.sync_poll();
         if let Some(valid_pin_indices) = self.valid_pin_indices_promise.take_ready() {
-            self.valid_pin_indices =
-                Some(Arc::new(valid_pin_indices.iter().map(PinIndex::new).collect()));
+            self.valid_pin_indices = Some(Arc::new(
+                valid_pin_indices.iter().map(PinIndex::new).collect(),
+            ));
         }
         self.bank_name_promise.sync_poll();
         if let Some(bank_name) = self.bank_name_promise.take_ready() {

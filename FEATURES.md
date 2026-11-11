@@ -2282,7 +2282,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the source's in `wire_weaver_core::SourceNotes::definitions`, passed by `Check` to `compare_recorded`), so a
   same-bytes change of `ww_error::CommonError` is compatible in every crate embedding it, not a wire break each
   (`docs/evolution/checker_tool.md#a-dependency-changed-without-a-version-bump-evo-67`; `wire_weaver_evolution`
-  tests `tests::in_place`).
+  tests `tests::in_place`). The fallback originally covered only a plain (non-generic) skipped type's
+  `TypeCheck::check`; a *generic* one (an `Instance`, `exact_units::IndexFrom1`-like) went through
+  `missing_definition` and `check_instances` instead, neither of which tried `TypeCheck::definitions` before
+  giving up — so a doc-only change to a dependency's generic type (`ww_self::signature` hashes "with docs") still
+  broke every snapshot skipping it, even though `TypeCheck::check`'s own plain-type case was already fixed. Both
+  now have the same fallback (`tests::in_place::generic_doc_only_change_in_place_is_compatible`,
+  `generic_breaking_change_in_place_is_breaking_at_the_field`): STD-111's session hit this with
+  `exact_units::IndexFrom1` gaining a doc example, breaking `tests/thermo_api`'s frozen snapshots across its
+  whole 1.0.0-4.0.0 history. This fix alone wasn't enough to let those files revert — nothing resolves an old,
+  frozen snapshot's signature once the embedded one moves past it — until EVO-69 (landed separately, on
+  master) split the signature into a shape part and a docs part: with it, the doc-only case doesn't even need
+  this fallback, the shape signature already matches through the embedded snapshot alone, and the eight
+  `tests/thermo_api` files are back to their originally-released bytes.
 - ✅ **EVO-60 `ww_user_info` caps bounded on the wire** · `v0.5` — the ww_stdlib units survey's Q4: `UserInfoCaps::name_max` and `notes_max` carry their device-wide ceiling as a bound (`NameMax` / `NotesMax`, `Fixed<units::Byte, One, u16, Range<0, 32>>` / `Range<0, 256>>`) instead of a plain `u16`; `ww_user_info` on a new wire line, `w2.0`. No device or host uses the format.
 - ✅ **EVO-62 `ww_can_bus` on wire `w2.0`** · `v0.5` — the wire change of STD-114: new `Range` bounds (load and sample point 0-1000, element data 8-64 bytes, TTCAN matrix cycles and repeat 1-64, cycle offset and cycle 0-63, filter index 0-255), `TriggerKind::RxCheck::filter` from `u16` to the `UNib32` of `RxFrame::filter`, `TtStatus::error_level` from `u8` to the enum `TtErrorLevel` (2 bits), `TtRole::Master::priority` from `u8` to `U3`; every other change wraps the same number. The crate was never published, so its 0.1.0 snapshot was saved again in place on `w2.0`.
 - ✅ **EVO-61 `ww_onewire` on a new wire line** · `v0.5` — the wire change of STD-113: `SearchState::last_discrepancy`

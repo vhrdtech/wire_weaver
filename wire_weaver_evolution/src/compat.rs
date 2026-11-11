@@ -15,7 +15,7 @@ use std::collections::HashSet;
 use std::fmt;
 
 use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance, UnitDefOwned};
-use shrink_wrap::ElementSize;
+use shrink_wrap::{ElementSize, UNib32};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::definition_cache::Kind;
 use ww_self::signature;
@@ -1240,15 +1240,41 @@ impl<'a> TypeCheck<'a> {
         }
     }
 
+    /// Whether `type_idx`'s definition (an `Instance`'s generic template) is found, in-line or skipped: the
+    /// embedded snapshot of its crate version, or [Self::definitions] (EVO-67 — a dependency changed in place,
+    /// without a version bump, so the two sides disagree on its signature; the side that doesn't match the
+    /// embedded snapshot can still be resolved from the source it was walked from).
+    fn generic_def_known(&self, bundle: &'a ApiBundleOwned, type_idx: u32) -> bool {
+        match bundle.types.get(type_idx as usize) {
+            Some(TypeLocationOwned::InLine { .. }) => true,
+            Some(TypeLocationOwned::SkippedFullVersion {
+                crate_idx,
+                type_name,
+                signature,
+            }) => {
+                let Ok(version) = bundle.crate_version(crate_idx.0) else {
+                    return false;
+                };
+                let identity: Identity<'a> = (version, Cow::Borrowed(type_name.as_str()));
+                known(version)
+                    .into_iter()
+                    .chain(self.definitions.iter().copied())
+                    .any(|candidate| defined_in(candidate, &identity, signature).is_some())
+            }
+            None => false,
+        }
+    }
+
     /// An instance of a generic definition one side doesn't have (left out of a snapshot by a signature that no
     /// known snapshot holds a definition of), compared with the other side's type, whose definition is known: what
     /// can't be compared, naming the definition. Without it, the instance is no wrapper [wrapper] knows, so its
     /// bounds would read as `Unbounded` and its field as unknown, a wrong verdict. Two instances neither side has a
     /// definition of are compared by identity and signature instead ([Self::check_instances]).
     fn missing_definition(&self, w: &TypeOwned, r: &TypeOwned) -> Option<String> {
-        // in-line, or left out of a snapshot by a signature a known snapshot has, is compared by what it is
+        // in-line, or left out of a snapshot by a signature a known snapshot or self.definitions has, is
+        // compared by what it is
         let unknown = |bundle: &'a ApiBundleOwned, ty: &TypeOwned| match ty {
-            TypeOwned::Instance { type_idx, .. } if type_def(bundle, type_idx.0).is_none() => {
+            TypeOwned::Instance { type_idx, .. } if !self.generic_def_known(bundle, type_idx.0) => {
                 Some(type_idx.0)
             }
             _ => None,
@@ -1336,14 +1362,49 @@ impl<'a> TypeCheck<'a> {
         check_same_origin("type", (&w, self.writer), (&r, self.reader))
             .inspect_err(|_| self.note_root("type", &w))?;
         if self.compare_signatures {
-            check_same_definition(
-                "type",
-                (&w, self.writer_name),
-                (&r, self.reader_name),
+            let (w_signature, r_signature) = (
                 type_signature(self.writer, wi),
                 type_signature(self.reader, ri),
-            )
-            .inspect_err(|_| self.note_root("type", &w))?;
+            );
+            // same crate version, signatures differ (changed without a version bump, a version not published,
+            // EVO-67): compared by the two definitions when both are known, instead of requiring equal
+            // signatures, the same fallback `Checker::check`'s plain `resolve()` path has for a non-generic
+            // skipped type. `wd`/`rd` are the generic definitions themselves (`IndexFrom1<Of, T, B>`); the
+            // instantiated arguments (`wa`/`ra`) are still checked below either way.
+            let evo_67 = match (&w_signature, &r_signature) {
+                (Some(w_sig), Some(r_sig)) if w.0 == r.0 && w_sig != r_sig => Some((
+                    self.definition(
+                        self.writer,
+                        &TypeOwned::OutOfLine {
+                            type_idx: UNib32(wi),
+                        },
+                        &w,
+                        w_sig,
+                    ),
+                    self.definition(
+                        self.reader,
+                        &TypeOwned::OutOfLine {
+                            type_idx: UNib32(ri),
+                        },
+                        &r,
+                        r_sig,
+                    ),
+                )),
+                _ => None,
+            };
+            match evo_67 {
+                Some((Some((wb, wd)), Some((rb, rd)))) => self
+                    .with_bundle(0, wb, |c| c.with_bundle(1, rb, |c| c.check(wd, rd)))
+                    .inspect_err(|_| self.note_root("type", &w))?,
+                _ => check_same_definition(
+                    "type",
+                    (&w, self.writer_name),
+                    (&r, self.reader_name),
+                    w_signature,
+                    r_signature,
+                )
+                .inspect_err(|_| self.note_root("type", &w))?,
+            }
         }
         if wa.len() != ra.len() {
             return Err(format!(

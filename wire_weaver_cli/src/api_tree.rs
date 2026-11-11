@@ -691,7 +691,9 @@ mod tests {
             "├─ 6 fn double(v: Quantity<Volt>) -> Quantity<Volt>\n",
             "├─ 7 rw property voltage: Quantity<Volt>\n",
             "├─ 8 rw property timed_voltage: Timed<Quantity<Volt>, Point<DeviceBoot, Fixed<Second, Micro, u32, Unbounded>>>\n",
-            "└─ 9 rw property sample: Pair<Window<2>, Reading<u8>>\n",
+            "├─ 9 rw property sample: Pair<Window<2>, Reading<u8>>\n",
+            // API-65: `Niched<V, N>` with its storage from `<V as RawValue>::Raw`
+            "├─ 10 rw property niched: Niched<Fixed<Ratio, One, u8, Range<0, 100>>, Null<255>, u8>\n",
         ] {
             assert!(tree.contains(line), "{tree}");
         }

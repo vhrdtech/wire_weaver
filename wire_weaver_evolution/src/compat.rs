@@ -572,7 +572,7 @@ fn hex(bytes: &[u8]) -> String {
 fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
     match bundle.traits.get(trait_idx as usize)? {
         ApiLevelLocationOwned::InLine { .. } => {
-            signature::trait_signature(bundle, trait_idx, &|v| wire_weaver_snapshots::get(v)).ok()
+            signature::trait_signature(bundle, trait_idx, &|v| known(v)).ok()
         }
         ApiLevelLocationOwned::SkippedFullVersion { signature, .. }
         | ApiLevelLocationOwned::SkippedCompactVersion { signature, .. } => {
@@ -586,7 +586,7 @@ fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
 fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { .. } => {
-            signature::type_signature(bundle, type_idx, &|v| wire_weaver_snapshots::get(v)).ok()
+            signature::type_signature(bundle, type_idx, &|v| known(v)).ok()
         }
         TypeLocationOwned::SkippedFullVersion { signature, .. } => {
             (!signature.is_empty()).then(|| signature.clone())
@@ -815,6 +815,10 @@ impl<'a> TypeCheck<'a> {
                 };
                 let (Some(w), Some(r)) = (identity(self.writer, w), identity(self.reader, r))
                 else {
+                    if let Some(missing) = self.missing_skipped_definition(w_ty, r_ty) {
+                        self.missing.push(missing.clone());
+                        return Err(missing);
+                    }
                     return Err("type definition is not available on one side".into());
                 };
                 check_same_origin("type", (&w, self.writer), (&r, self.reader))
@@ -962,26 +966,9 @@ impl<'a> TypeCheck<'a> {
         } else {
             self.writer_name
         };
-        let name = match bundle.types.get(type_idx as usize) {
-            Some(TypeLocationOwned::SkippedFullVersion {
-                crate_idx,
-                type_name,
-                signature,
-            }) => match bundle.crate_version(crate_idx.0) {
-                Ok(v) => format!(
-                    "{}::{type_name} {}.{}.{} (signature {})",
-                    v.crate_id,
-                    v.version.major.0,
-                    v.version.minor.0,
-                    v.version.patch.0,
-                    hex(signature)
-                ),
-                Err(_) => type_name.clone(),
-            },
-            _ => def_name(bundle, type_idx)
-                .map(|(krate, name)| format!("{krate}::{name}"))
-                .unwrap_or_else(|| format!("generic type #{type_idx}")),
-        };
+        let name = skipped_name(bundle, type_idx)
+            .or_else(|| def_name(bundle, type_idx).map(|(krate, name)| format!("{krate}::{name}")))
+            .unwrap_or_else(|| format!("generic type #{type_idx}"));
         let (other_bundle, other_ty) = if side == self.writer_name {
             (self.reader, r)
         } else {
@@ -992,6 +979,40 @@ impl<'a> TypeCheck<'a> {
              neither version nor the known snapshots hold that definition, so it can't be compared with the {other}'s \
              {}. Likely the {side} was saved against another revision of that crate version (one not published, \
              changed without a version bump): save the {side}'s snapshot again if its version is not released",
+            type_name(other_bundle, other_ty)
+        ))
+    }
+
+    /// A type one side left out by its signature, that no embedded snapshot has a definition of, compared with a
+    /// type of the other side that is no named struct or enum (`ww_block::Lease` from a snapshot saved before it was
+    /// added, against the `u32` it replaced): what can't be compared, naming the definition. `None` when `w` and `r`
+    /// are not such a pair.
+    fn missing_skipped_definition(&self, w: &TypeOwned, r: &TypeOwned) -> Option<String> {
+        let unknown = |bundle: &ApiBundleOwned, ty: &TypeOwned| match ty {
+            TypeOwned::OutOfLine { type_idx }
+                if matches!(
+                    bundle.types.get(type_idx.0 as usize),
+                    Some(TypeLocationOwned::SkippedFullVersion { .. })
+                ) && skipped_def(bundle, type_idx.0).is_none() =>
+            {
+                skipped_name(bundle, type_idx.0)
+            }
+            _ => None,
+        };
+        let (side, other, name, other_bundle, other_ty) = match (
+            unknown(self.writer, w),
+            unknown(self.reader, r),
+        ) {
+            (Some(name), None) => (self.writer_name, self.reader_name, name, self.reader, r),
+            (None, Some(name)) => (self.reader_name, self.writer_name, name, self.writer, w),
+            _ => return None,
+        };
+        Some(format!(
+            "no definition of the type {name} that the {side} uses: it was left out by its signature, and no known \
+             snapshot holds that definition, so it can't be compared with the {other}'s {}. Likely that crate \
+             version's snapshot and the {side} come from different revisions of it (a version not published, changed \
+             without a version bump): save the snapshot that is out of date again if its version is not released \
+             (`ww api save`, `just save-snapshots` for ww_stdlib)",
             type_name(other_bundle, other_ty)
         ))
     }
@@ -1446,6 +1467,31 @@ impl<'a> TypeCheck<'a> {
         })
     }
 
+    /// `f` with the writer's (`side` 0) or the reader's (1) bundle replaced by `bundle`: for a type that refers to
+    /// another bundle's types, the field of a wrapper whose definition is in another crate's snapshot.
+    fn with_bundle<T>(
+        &mut self,
+        side: usize,
+        bundle: &'a ApiBundleOwned,
+        f: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        let own = [self.writer, self.reader][side];
+        if std::ptr::eq(own, bundle) {
+            return f(self);
+        }
+        let swap = |c: &mut Self, bundle: &'a ApiBundleOwned, defs: OnceCell<ApiBundleOwned>| {
+            match side {
+                0 => c.writer = bundle,
+                _ => c.reader = bundle,
+            }
+            std::mem::replace(&mut c.defs[side], defs)
+        };
+        let own_defs = swap(self, bundle, OnceCell::new());
+        let result = f(self);
+        swap(self, own, own_defs);
+        result
+    }
+
     /// The writer's (`side` 0) or the reader's (1) bundle with every skipped definition in-line, made once.
     fn defs(&self, side: usize) -> &ApiBundleOwned {
         let bundle = [self.writer, self.reader][side];
@@ -1456,7 +1502,7 @@ impl<'a> TypeCheck<'a> {
         {
             true => self.defs[side].get_or_init(|| {
                 let mut inlined = bundle.clone();
-                wire_weaver_snapshots::inline_skipped(&mut inlined);
+                ww_self::inline::inline_skipped(&mut inlined, &|v| known(v));
                 inlined
             }),
             false => bundle,
@@ -1606,7 +1652,9 @@ impl<'a> TypeCheck<'a> {
                         self.quantity_to_fixed(w_wrapper.name, type_name(reader, r))
                     ));
                 }
-                if let Err(e) = self.check(&w_wrapper.field, r) {
+                if let Err(e) =
+                    self.with_bundle(0, w_wrapper.bundle, |c| c.check(&w_wrapper.field, r))
+                {
                     return Some(Err(format!("{}: {e}", w_wrapper.name)));
                 }
                 (w_wrapper.name, type_name(reader, r))
@@ -1635,7 +1683,9 @@ impl<'a> TypeCheck<'a> {
                         self.quantity_to_fixed(type_name(writer, w), r_wrapper.name)
                     ));
                 }
-                if let Err(e) = self.check(w, &r_wrapper.field) {
+                if let Err(e) =
+                    self.with_bundle(1, r_wrapper.bundle, |c| c.check(w, &r_wrapper.field))
+                {
                     return Some(Err(format!("{}: {e}", r_wrapper.name)));
                 }
                 (type_name(writer, w), r_wrapper.name)
@@ -1884,18 +1934,21 @@ fn resolve<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Result<Resolved
 }
 
 /// A `transparent` struct (DER-18) as one side of a check.
-struct Wrapper<'b> {
+struct Wrapper<'b, 'c> {
     /// Its name with the arguments, `Fixed<Second, Micro, u64, Unbounded>`.
     name: String,
     /// Crate and qualified name of its definition, the generic one for an instance.
     def: Option<(String, String)>,
     /// The type of its one field, the arguments filled in.
     field: Cow<'b, TypeOwned>,
+    /// The bundle [Self::field] refers to: the side's own, or for a definition another crate's snapshot holds (a
+    /// wrapper left out of the side's bundle, `ww_block::Lease` in `ww_sd`), that snapshot.
+    bundle: &'c ApiBundleOwned,
     /// Bounds among its marker arguments (`B` of `ww_si::Fixed`).
     bounds: Vec<Bound>,
 }
 
-impl Wrapper<'_> {
+impl Wrapper<'_, '_> {
     fn is_fixed(&self) -> bool {
         self.def
             .as_ref()
@@ -1904,10 +1957,10 @@ impl Wrapper<'_> {
 }
 
 /// `ty` as a transparent wrapper, `None` when it is not one (or its definition is not known here).
-fn wrapper<'b>(
-    bundle: &'b ApiBundleOwned,
+fn wrapper<'b, 'c: 'b>(
+    bundle: &'c ApiBundleOwned,
     ty: &'b TypeOwned,
-) -> Result<Option<Wrapper<'b>>, String> {
+) -> Result<Option<Wrapper<'b, 'c>>, String> {
     let field_of = |s: &ItemStructOwned| -> Result<TypeOwned, String> {
         Ok(s.transparent_field().map_err(|e| e.to_string())?.ty.clone())
     };
@@ -1941,10 +1994,30 @@ fn wrapper<'b>(
             def: def_name(bundle, type_idx.0).map(|(c, n)| (c, n.into_owned())),
             bounds: bounds_of(bundle, def, args),
             name,
+            bundle,
         }));
     }
-    let ResolvedTy::Ty(TypeOwned::Struct(s)) = resolve(bundle, ty)? else {
-        return Ok(None);
+    let (bundle, s) = match (ty, resolve(bundle, ty)?) {
+        (_, ResolvedTy::Ty(TypeOwned::Struct(s))) => (bundle, s),
+        // left out by the snapshot of another crate that defines it (EVO-15): its definition is in that snapshot,
+        // its field refers to that snapshot's types
+        (TypeOwned::OutOfLine { type_idx }, ResolvedTy::Skipped(_)) => {
+            match skipped_def(bundle, type_idx.0) {
+                Some((snapshot, TypeOwned::Struct(s))) if s.is_transparent() => {
+                    return Ok(Some(Wrapper {
+                        name: s.ident.clone(),
+                        def: def_name(bundle, type_idx.0).map(|(c, n)| (c, n.into_owned())),
+                        field: Cow::Borrowed(
+                            &s.transparent_field().map_err(|e| e.to_string())?.ty,
+                        ),
+                        bounds: vec![],
+                        bundle: snapshot,
+                    }));
+                }
+                _ => return Ok(None),
+            }
+        }
+        _ => return Ok(None),
     };
     if !s.is_transparent() {
         return Ok(None);
@@ -1972,6 +2045,7 @@ fn wrapper<'b>(
         def,
         field,
         bounds,
+        bundle,
     }))
 }
 
@@ -1981,6 +2055,29 @@ fn ty_of_struct<'b>(bundle: &'b ApiBundleOwned, ty: &'b TypeOwned) -> &'b TypeOw
         Ok(ResolvedTy::Ty(ty)) => ty,
         _ => ty,
     }
+}
+
+/// A skipped type as a message names it: `ww_block::Lease 0.1.0 (signature 0a1b..)`. `None` for an in-line type.
+fn skipped_name(bundle: &ApiBundleOwned, type_idx: u32) -> Option<String> {
+    let TypeLocationOwned::SkippedFullVersion {
+        crate_idx,
+        type_name,
+        signature,
+    } = bundle.types.get(type_idx as usize)?
+    else {
+        return None;
+    };
+    Some(match bundle.crate_version(crate_idx.0) {
+        Ok(v) => format!(
+            "{}::{type_name} {}.{}.{} (signature {})",
+            v.crate_id,
+            v.version.major.0,
+            v.version.minor.0,
+            v.version.patch.0,
+            hex(signature)
+        ),
+        Err(_) => type_name.clone(),
+    })
 }
 
 /// Crate and qualified name of the type at `type_idx`, in-line or skipped.
@@ -2031,18 +2128,69 @@ fn is_fixed(krate: &str, qualified_name: &str) -> bool {
         && qualified_name.rsplit("::").next() == Some("Fixed")
 }
 
+/// The embedded snapshot of a crate version, see [wire_weaver_snapshots::get]; in tests, also one a test added with
+/// `tests::add_known` (a crate of the test's own, which no embedded snapshot can be).
+fn known(version: &FullVersionOwned) -> Option<&'static ApiBundleOwned> {
+    #[cfg(test)]
+    if let Some(snapshot) = tests::known(version) {
+        return Some(snapshot);
+    }
+    wire_weaver_snapshots::get(version)
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static KNOWN: RefCell<Vec<&'static ApiBundleOwned>> = const { RefCell::new(vec![]) };
+    }
+
+    /// Makes `snapshot` known to the checker on this thread as an embedded one of its crate version.
+    pub(crate) fn add_known(snapshot: ApiBundleOwned) {
+        let snapshot: &'static ApiBundleOwned = Box::leak(Box::new(snapshot));
+        KNOWN.with(|known| known.borrow_mut().push(snapshot));
+    }
+
+    pub(super) fn known(version: &FullVersionOwned) -> Option<&'static ApiBundleOwned> {
+        KNOWN.with(|known| {
+            known
+                .borrow()
+                .iter()
+                .find(|snapshot| snapshot.ext_crates.first() == Some(version))
+                .copied()
+        })
+    }
+}
+
 /// The definition of type `type_idx`: in-line, or for a skipped one (a `ww_si` type in an API) the definition with the
 /// same name and signature in the embedded snapshots of its crate. Field types of a definition from a snapshot refer
 /// to that snapshot, only its own parameters can be read here.
 fn type_def(bundle: &ApiBundleOwned, type_idx: u32) -> Option<&TypeOwned> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { ty, .. } => Some(ty),
+        TypeLocationOwned::SkippedFullVersion { .. } => {
+            skipped_def(bundle, type_idx).map(|(_, ty)| ty)
+        }
+    }
+}
+
+/// The definition of the skipped type `type_idx` from the embedded snapshot of its crate (see [type_def]), with that
+/// snapshot: the bundle the definition's own field types refer to. `None` for an in-line type, or a definition no
+/// embedded snapshot has.
+fn skipped_def(
+    bundle: &ApiBundleOwned,
+    type_idx: u32,
+) -> Option<(&'static ApiBundleOwned, &'static TypeOwned)> {
+    match bundle.types.get(type_idx as usize)? {
+        TypeLocationOwned::InLine { .. } => None,
         TypeLocationOwned::SkippedFullVersion {
             crate_idx,
             type_name,
             signature: expected,
         } => {
-            let snapshot = wire_weaver_snapshots::get(bundle.crate_version(crate_idx.0).ok()?)?;
+            let snapshot = known(bundle.crate_version(crate_idx.0).ok()?)?;
             snapshot
                 .types
                 .iter()
@@ -2055,7 +2203,7 @@ fn type_def(bundle: &ApiBundleOwned, type_idx: u32) -> Option<&TypeOwned> {
                                 || type_signature(snapshot, idx as u32).as_ref()
                                     == Some(expected)) =>
                     {
-                        Some(ty)
+                        Some((snapshot, ty))
                     }
                     _ => None,
                 })

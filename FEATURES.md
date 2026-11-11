@@ -2002,9 +2002,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Rule::Meaning`): any type parameter no field uses is a marker compared by name; a bound narrowed or widened is
   breaking for the side it refuses (`Rule::Bound`, compared by value); `Quantity` → `Fixed` is breaking with a hint
   that it is the intended move. A skipped `ww_si` definition is read from the embedded snapshot, also on prepared
-  bundles (the client at connect time)
+  bundles (the client at connect time), and so is a wrapper of any crate with an embedded snapshot (`ww_block::Lease`
+  in `ww_sd`); one that no snapshot holds is an error naming it
   (`docs/evolution/rules.md#transparent-wrappers-units-and-scales`, `#bounds`; `wire_weaver_evolution` tests
-  `tests::transparent`, `tests::ww_si_fixed`).
+  `tests::transparent`, `tests::ww_si_fixed`, `tests::foreign_wrapper`).
 - ✅ **EVO-22 Arguments that evolve** · `v0.5` — the arguments of a method or stream function are the fields of
   an `Unsized` args struct, and evolve as its fields do: a trailing argument with a default is wire-compatible
   both ways (`Option`, `Vec`, `String` have `None` / empty without an attribute, any other type `#[default =

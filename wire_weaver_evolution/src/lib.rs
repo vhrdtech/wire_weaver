@@ -1640,6 +1640,7 @@ mod tests {
     mod args;
     mod both_bumps;
     mod by_meaning;
+    mod foreign_wrapper;
     mod moved_from;
     mod root_cause;
     mod transparent;

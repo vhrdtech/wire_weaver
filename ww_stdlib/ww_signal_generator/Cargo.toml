@@ -27,4 +27,4 @@ defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true, default-features = false }
 ww_adc = { workspace = true, default-features = false }
 ww_logic_analyzer = { workspace = true, default-features = false }
-ww_si = { workspace = true, default-features = false }
+ww_si = { workspace = true, default-features = false, features = ["time", "electrical"] }

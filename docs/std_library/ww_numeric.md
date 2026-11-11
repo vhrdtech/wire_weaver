@@ -15,9 +15,9 @@ quantity, so the API fixes the unit and each device picks the number type (a `u1
 
 ```toml
 # host: std enables every number type
-ww_numeric = "0.2"
+ww_numeric = "0.3"
 # firmware: 8 bytes per value, no 64 or 128-bit code
-ww_numeric = { version = "0.2", default-features = false, features = ["u16", "f32"] }
+ww_numeric = { version = "0.3", default-features = false, features = ["u16", "f32"] }
 ```
 
 Features: `nibble`, `u16`, `u32`, `unib32`, `u64`, `i32`, `f32`, `un`, `in`, `u128`, `i8`, `i16`, `i64`, `i128`,
@@ -47,8 +47,9 @@ integer variant, `unsigned_bits()` the width at which an unsigned counter wraps 
 
 `to_integer()` gives the exact value of an integer variant as an `Integer`: a sign and a magnitude in the narrowest
 unsigned type that holds every enabled number type (`Magnitude`: `u32` with types up to 32 bits, `u64` with `u64` /
-`i64` / `uvlq64`, `u128` with `u128` / `i128`). It compares and scales by powers of ten exactly across number types
-(`cmp_pow10`, `checked_scale_pow10`, `exact_scale_pow10`), adds and multiplies with overflow checks, and goes back
-into any number type with `NumericBaseType::from_integer` or wrapping with `NumericValue::wrapping_add`. On a
-firmware with 32-bit numbers this is all `u32` code, where `to_i128()` would bring 128-bit arithmetic: `ww_si`'s
-comparisons and conversions are built on it.
+`i64` / `uvlq64`, `u128` with `u128` / `i128`). It compares exactly across number types (`Ord`), adds, subtracts
+and multiplies with overflow checks (`checked_add`, `checked_sub`, `checked_mul`), and goes back into any number
+type with `NumericBaseType::from_integer` (`from_integer_saturating`, `from_integer_wrapping`) or wrapping with
+`NumericValue::wrapping_add`. On a firmware with 32-bit numbers this is all `u32` code, where `to_i128()` would
+bring 128-bit arithmetic. Scaling by a prefix is not here: `ww_si`'s comparisons and conversions take the sign and
+magnitude from `to_integer()` and scale them with exact_units' kernel.

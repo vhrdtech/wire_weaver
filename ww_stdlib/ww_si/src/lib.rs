@@ -73,7 +73,9 @@ pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};
 #[cfg(feature = "time")]
 pub use exact_units::{Days, Hours, Hz, Micros, Millis, Minutes, Nanos, Secs};
 #[cfg(feature = "dimensionless")]
-pub use exact_units::{Duty16, Percent, Permille, Ppb};
+pub use exact_units::{Duty16, Percent, Permille, Ppb, Ppm, Q15, Q31, UQ16_16};
+#[cfg(feature = "angle")]
+pub use exact_units::{Bam16, Bam32, PhaseBam16, PhaseBam32};
 #[cfg(feature = "counting")]
 pub use exact_units::{Index, IndexFrom1, Seq};
 

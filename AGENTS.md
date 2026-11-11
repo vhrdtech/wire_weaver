@@ -48,8 +48,10 @@ only with a reason: a raw protocol field (a register, a wire-format byte) or a t
   the handler runs and clients refuse it before sending.
 - **Counted things** (`Sample`, `Frame`, `Packet`, `Item`, ...) are units. An API declares its own unit with
   `unit!`, step with `scale!` and a register formula's zero with `origin!` (`tests/quantities_api/src/lib.rs`).
-- **Not yet**: instants with a named epoch (Unix, GPS; exact_units PT-3 instants-named-epochs) don't exist, so a
-  wall-clock timestamp is `Micros<u64>` with the epoch in its doc comment; the C consumer reads a `Fixed` as its
+- **Wall-clock time**: a Unix timestamp is a point, `ww_si::origins::UnixMicros<u64>` (`UnixSecs`, `UnixMillis`,
+  `UnixNanos`; origin `UnixEpoch`), a device's own clock `DeviceMicros<u32>` (`DeviceBoot`).
+- **Not yet**: GPS, TAI and leap-second-aware instants (exact_units PT-3 instants-named-epochs) don't exist, so such
+  a timestamp is a Unix point with the time scale in its doc comment; the C consumer reads a `Fixed` as its
   `T` but has gaps for `Point`/`Index`/`Seq` (API-26); `serde` forms are exact_units IO-5. Sentinel codes next to
   `Bounds` landed in exact_units (`NUM-8`): `Option<Fixed<..>>` is no longer the only way to mark a niche value.
 - `ww api check` and `ww api scaffold` print a hint for a plain integer whose name ends in a unit suffix (TOOL-22);

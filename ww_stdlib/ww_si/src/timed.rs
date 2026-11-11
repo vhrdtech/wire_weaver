@@ -121,7 +121,8 @@ macro_rules! time_point {
 
             #[inline(always)]
             fn wrapping_add(self, dt: Fixed<Second, P, $t>) -> Self {
-                Point::from_raw(self.raw().wrapping_add(dt.get()))
+                // the inherent one: a linear, unbounded point wraps at the edge of its storage
+                Point::wrapping_add(self, dt)
             }
         }
     )*};

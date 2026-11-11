@@ -15,6 +15,7 @@
 
 ### 🚀 Features
 
+- Re-exports `Bam16`, `Bam32`, `PhaseBam16`, `PhaseBam32` (feature `angle`) and `Ppm`, `Q15`, `Q31`, `UQ16_16` (feature `dimensionless`) from exact_units, so an API names them as `ww_si::..` like the other aliases.
 - `TimePoint` (STD-110): what a `Timed`'s time can be, any `Point<O, Fixed<Second, P, T>>` of a linear origin in integer storage; `Full` (the same point in 64 bits), `BITS`, `low`, `wrapping_add`, `steps` (the times of a regularly sampled block, wrapping like the clock). `TimeStep<Tm>` names its step type. `TimeUnwrapper<Tm>` and `TimeOverflow` (feature `time`): the full point back on the host from narrow storage (`new(now)`, `default()`, `anchor`, `restart`, `last`, `unwrap`); `Unwrapper` (dynamic, `Second`) shares its core. Re-exports `Linear`.
 - Re-exports `Finite` (exact_units NUM-20, STD-104).
 - Re-exports `exact_units::codec` (`Coded`, `Codec`, `CodecDef`, `MuLaw`) for APIs with non-linear codes (STD-109).

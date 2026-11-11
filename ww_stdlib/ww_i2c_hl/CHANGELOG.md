@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- Follows `ww_i2c`'s typed numbers (P2401#11nov-0948g): `I2cLimits` stays plain `u16` for `embedded-hal`, so only
+  `From<&I2cCapabilitiesOwned>` and `plan.rs`'s internal `Plan::Read` / `I2cOpOwned::Read` conversions change.
+
 ### 🚀 Features
 
 - New crate (STD-76): `I2cMaster` implements `embedded_hal::i2c::I2c` and `embedded_hal_async::i2c::I2c` (7-bit and

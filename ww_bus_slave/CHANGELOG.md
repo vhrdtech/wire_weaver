@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- Follows `ww_i2c`'s typed numbers (P2401#11nov-0948g): `I2cSlave::configure` reads `pointer_bytes` / `len` /
+  `page` through `.get()`, `peek_event`'s `I2cSlaveTransfer` wraps `pointer` / `filled` back into their wire
+  types. The engine's own `map_write` / `map_read` / `clear_answers` stay plain `u32`.
+
 ### 🚀 Features
 
 - New crate (SRV-26): the device side of the `ww_i2c` / `ww_spi` slave modes (STD-35), no_std, sans-IO, no alloc. `I2cSlave` and `SpiSlave` are built in place in a `static` (`const fn new`, sizes as const parameters) and driven by byte-level hooks from the firmware's interrupt handler, with the task side configuring them, updating the map, queuing answers and draining events.

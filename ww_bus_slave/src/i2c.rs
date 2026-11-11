@@ -6,7 +6,7 @@ use crate::{ConfigError, Ring, Slot, record_byte};
 use wire_weaver::shrink_wrap::{MaxLen, RefVec};
 use ww_i2c::{
     I2cRecordKind, I2cSlaveAnswers, I2cSlaveConfig, I2cSlaveEvent, I2cSlaveTransfer,
-    I2cSlaveUnderrun, MAX_RECORD_LEN,
+    I2cSlaveUnderrun, Index, MAX_RECORD_LEN,
 };
 use ww_si::{Overflow, Prefix, Rounding, Second};
 
@@ -214,6 +214,9 @@ impl<
                 page,
                 read_only,
             } => {
+                let pointer_bytes = pointer_bytes.get();
+                let len = len.get();
+                let page = page.map(|p| p.get());
                 if MAP == 0 || pointer_bytes > 4 {
                     return Err(ConfigError::Unsupported);
                 }
@@ -351,9 +354,9 @@ impl<
                 end: Second::micro(r.end),
                 read: r.read,
                 kind,
-                pointer: r.pointer,
+                pointer: r.pointer.map(Index::new),
                 bytes: MaxLen::new_unchecked(RefVec::new_bytes(&r.bytes[..kept])),
-                filled: r.filled,
+                filled: r.filled.into(),
                 stretched: r.stretched.map(Second::micro),
             };
             return Some((Second::micro(r.start), I2cSlaveEvent::Transfer(transfer)));

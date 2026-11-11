@@ -96,7 +96,7 @@ pub(crate) fn plan(operations: &[Operation<'_>], limits: &I2cLimits) -> Result<P
                     .into_iter()
                     .map(|m| match m {
                         Merged::Write(w) => I2cOpOwned::Write(MaxLen::new_unchecked(w)),
-                        Merged::Read(n) => I2cOpOwned::Read(n as u16),
+                        Merged::Read(n) => I2cOpOwned::Read((n as u16).into()),
                     })
                     .collect(),
             )
@@ -113,7 +113,7 @@ impl Plan {
             Plan::Transaction(ops) => ops
                 .iter()
                 .map(|op| match op {
-                    I2cOpOwned::Read(n) => *n as usize,
+                    I2cOpOwned::Read(n) => n.get() as usize,
                     _ => 0,
                 })
                 .sum(),
@@ -192,7 +192,7 @@ mod tests {
                 &l
             )
             .unwrap(),
-            Plan::Transaction(vec![write(&[1, 2, 3]), I2cOpOwned::Read(2)])
+            Plan::Transaction(vec![write(&[1, 2, 3]), I2cOpOwned::Read(2.into())])
         );
     }
 
@@ -210,7 +210,11 @@ mod tests {
         ];
         assert_eq!(
             plan(&ops, &l).unwrap(),
-            Plan::Transaction(vec![write(&[1, 2, 3]), I2cOpOwned::Read(3), write(&[4])])
+            Plan::Transaction(vec![
+                write(&[1, 2, 3]),
+                I2cOpOwned::Read(3.into()),
+                write(&[4])
+            ])
         );
         // two writes become one, so a register write split in the driver is still one write
         assert_eq!(

@@ -79,7 +79,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
-pub use ww_si::{Hertz, Second, Volt};
+pub use ww_si::units::{Byte, Cycle, Item};
+pub use ww_si::{Bytes, Count, Hertz, Index, Second, Volt};
 
 /// Largest data of one `I2c::i2c_write`, in bytes.
 pub const MAX_WRITE_LEN: usize = 512;
@@ -114,6 +115,13 @@ pub const MAX_IO_LEVELS: usize = 8;
 
 /// Most discrete SCL frequencies a device lists in [I2cCapabilities::speeds].
 pub const MAX_SPEEDS: usize = 8;
+
+ww_si::unit! {
+    /// An operation's position in an `I2c::i2c_transaction`: `0` for `I2c::i2c_write` and a plain
+    /// `I2c::i2c_read`, `0`/`1` for the write/read part of a repeated-start read, the index into `ops` for
+    /// `i2c_transaction`. See [I2cError::Nack]'s `op`.
+    pub struct Op = "op" (long "operation" plural "operations"), base;
+}
 
 /// An I2C master: configure the bus, write, read and scan, see the bus lines and free a stuck bus.
 ///
@@ -181,7 +189,7 @@ pub trait I2c {
     fn i2c_read(
         addr: I2cAddress,
         kind: I2cReadKind<'i>,
-        len: u16,
+        len: Bytes<u16>,
         delay_after: Option<Second>,
     ) -> Result<I2cReadEnvelope<'i>, I2cError<'i>>;
 
@@ -194,7 +202,7 @@ pub trait I2c {
         ClockStretch,
         BusStuck
     )]
-    fn i2c_scan() -> Result<MaxLen<RefVec<'i, u8>, MAX_SCAN>, I2cError<'i>>;
+    fn i2c_scan() -> Result<MaxLen<RefVec<'i, I2cAddress>, MAX_SCAN>, I2cError<'i>>;
 
     /// Several operations to one address in one transaction: a start, then for each operation the address with its
     /// direction bit and the operation's bytes, a repeated start before every operation after the first, and one
@@ -234,7 +242,7 @@ pub trait I2c {
     /// bus that is off while disabled). The only way a device frees the bus: it never does so silently before a
     /// transfer.
     #[errors(Common(Unsupported, WrongState, NoPower))]
-    fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
+    fn i2c_wiggle_clock(count: Count<Cycle, u8>) -> Result<I2cLinesState, I2cError<'i>>;
 
     /// Switches the adapter's own pull-up resistors on SCL and SDA. `Unsupported` without switchable pull-ups (see
     /// [I2cCapabilities::pullups]), `Refused` when e.g. the pull-ups would feed a bus that sits at another voltage.
@@ -272,7 +280,7 @@ pub trait I2c {
     #[optional(slave)]
     #[errors(BufferTooBig)]
     fn slave_map_write(
-        offset: u32,
+        offset: Index<Byte, u32>,
         data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
     ) -> Result<(), I2cError<'i>>;
 
@@ -283,8 +291,8 @@ pub trait I2c {
     #[optional(slave)]
     #[errors(BufferTooBig)]
     fn slave_map_read(
-        offset: u32,
-        len: u16,
+        offset: Index<Byte, u32>,
+        len: Bytes<u16>,
     ) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError<'i>>;
 
     /// Answers for [I2cSlaveAnswers::Queue], one item per read transaction of the master, in order. A master that
@@ -297,7 +305,7 @@ pub trait I2c {
 
     /// Drops every queued answer (after the master gave up on a request, say) and returns how many there were.
     #[optional(slave)]
-    fn slave_clear_answers() -> u32;
+    fn slave_clear_answers() -> Count<Item, u32>;
 }
 
 /// Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for
@@ -321,20 +329,31 @@ pub trait I2cWatch {
     /// `InvalidArgument` for a period below the device's minimum or a mask or match rule not as long as the read,
     /// `BufferTooBig` for a read longer than this device watches, `WrongState` while not a master.
     #[errors(Common(InvalidArgument, WrongState), OutOfWatchSlots, BufferTooBig)]
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<u32, I2cError<'i>>;
+    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<WatchSlot, I2cError<'i>>;
 
     /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported. Errors as
     /// `I2cWatch::watch_add`.
     #[errors(Common(InvalidArgument, WrongState), InvalidWatchSlot, BufferTooBig)]
-    fn watch_modify(slot: u32, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
+    fn watch_modify(slot: WatchSlot, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
 
     /// Removes a watch.
     #[errors(InvalidWatchSlot)]
-    fn watch_remove(slot: u32) -> Result<(), I2cError<'i>>;
+    fn watch_remove(slot: WatchSlot) -> Result<(), I2cError<'i>>;
 
     /// Slots in use.
-    fn watch_list() -> MaxLen<RefVec<'i, u32>, MAX_WATCHES>;
+    fn watch_list() -> MaxLen<RefVec<'i, WatchSlot>, MAX_WATCHES>;
 }
+
+/// A watch's slot, returned by `I2cWatch::watch_add` and used by `watch_modify`, `watch_remove`, `watch_list` and
+/// [I2cWatchEvent::slot].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Eq, Copy, Clone)
+)]
+pub struct WatchSlot(pub u32);
 
 /// What `I2cWatch` can do.
 #[derive_shrink_wrap(
@@ -345,9 +364,9 @@ pub trait I2cWatch {
 )]
 pub struct I2cWatchCapabilities {
     /// Watches held at once, at most [MAX_WATCHES].
-    pub max_watches: u32,
+    pub max_watches: Count<Item, u32>,
     /// Longest read of one watch, at most [MAX_WATCH_LEN].
-    pub max_len: u16,
+    pub max_len: Bytes<u16>,
     /// Shortest period of one watch.
     pub min_period: Second,
 }
@@ -363,7 +382,7 @@ pub struct I2cWatchConfig<'i> {
     /// Plain read, or a register read (write the register address, repeated start, read).
     pub kind: I2cReadKind<'i>,
     /// Bytes to read, at most [MAX_WATCH_LEN].
-    pub len: u16,
+    pub len: Bytes<u16>,
     /// How often to read.
     pub period: Second,
     /// When to send a result.
@@ -413,7 +432,7 @@ pub struct I2cMatchByte {
     derive(Debug, Clone)
 )]
 pub struct I2cWatchEvent<'i> {
-    pub slot: u32,
+    pub slot: WatchSlot,
     pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError<'i>>,
 }
 
@@ -528,7 +547,7 @@ pub enum I2cOp<'i> {
     /// Write these bytes; none is an address-only write where [I2cCapabilities::zero_length_write] says so.
     Write(MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>),
     /// Read this many bytes.
-    Read(u16),
+    Read(Bytes<u16>),
 }
 
 /// When a transfer started (start condition) and ended (stop condition), in device time.
@@ -597,7 +616,7 @@ pub struct I2cRecord<'i> {
     pub kind: I2cRecordKind,
     /// The first byte on the bus that was not acknowledged: `Some(0)` the address, `Some(n)` the n-th data byte
     /// (`bytes[n - 1]`); the same count as [I2cError::Nack]'s `at`.
-    pub nack_at: Option<u16>,
+    pub nack_at: Option<Index<Byte, u16>>,
     /// Data bytes, without the address.
     pub bytes: MaxLen<RefVec<'i, u8>, MAX_RECORD_LEN>,
 }
@@ -656,13 +675,13 @@ pub struct I2cCapabilities<'i> {
     pub stretch_timeout: Option<I2cTimeRange>,
 
     /// Largest write this device takes, at most [MAX_WRITE_LEN].
-    pub max_write_len: u16,
+    pub max_write_len: Bytes<u16>,
     /// Largest read this device does, at most [MAX_READ_LEN].
-    pub max_read_len: u16,
+    pub max_read_len: Bytes<u16>,
     /// Longest write part of an [I2cReadKind::RepeatedStart] read this device takes, at most [MAX_WRITE_READ_LEN].
-    pub max_write_read_len: u16,
+    pub max_write_read_len: Bytes<u16>,
     /// Most operations of one `I2c::i2c_transaction` this device takes, at most [MAX_OPS].
-    pub max_ops: u16,
+    pub max_ops: Count<Op, u16>,
 
     /// 10-bit addresses work.
     pub ten_bit_addresses: bool,
@@ -716,9 +735,9 @@ pub enum I2cSlaveAnswers {
     /// first `len` bytes of the map); with `page`, writes wrap within their page of that many bytes, as in an
     /// EEPROM. With `read_only` the master's data bytes are acknowledged but not stored (they are still reported).
     Registers {
-        pointer_bytes: u8,
-        len: u32,
-        page: Option<u16>,
+        pointer_bytes: Bytes<u8>,
+        len: Bytes<u32>,
+        page: Option<Bytes<u16>>,
         read_only: bool,
     },
     /// The answer queue (`I2c::slave_answers`): each master read takes the next answer; `empty` says what happens
@@ -778,12 +797,12 @@ pub struct I2cSlaveTransfer<'i> {
     /// with a repeated start.
     pub kind: I2cRecordKind,
     /// [I2cSlaveAnswers::Registers]: the pointer at the first data byte (after the pointer bytes of a write).
-    pub pointer: Option<u32>,
+    pub pointer: Option<Index<Byte, u32>>,
     /// The data bytes: what the master wrote (pointer bytes included), or what this device sent.
     pub bytes: MaxLen<RefVec<'i, u8>, MAX_RECORD_LEN>,
     /// Bytes of a read sent as the fill byte because no answer was there (or came too late); 0 when all came from
     /// an answer or the map.
-    pub filled: u16,
+    pub filled: Bytes<u16>,
     /// How long this device held SCL low in the transaction, waiting for an answer or for room; `None` if it
     /// didn't.
     pub stretched: Option<Second>,
@@ -798,11 +817,11 @@ pub struct I2cSlaveTransfer<'i> {
 )]
 pub struct I2cSlaveCapabilities {
     /// Size of the register map in bytes, 0 if there is none ([I2cSlaveAnswers::Registers] unsupported).
-    pub map_len: u32,
+    pub map_len: Bytes<u32>,
     /// Widest register pointer, in bytes.
-    pub max_pointer_bytes: u8,
+    pub max_pointer_bytes: Bytes<u8>,
     /// Answers the queue holds, 0 if there is none ([I2cSlaveAnswers::Queue] unsupported).
-    pub queue_len: u32,
+    pub queue_len: Count<Item, u32>,
     /// Longest [I2cSlaveUnderrun::Stretch], `None` if the device can't stretch while it waits for the host.
     pub max_stretch: Option<Second>,
     /// [I2cSlaveUnderrun::Nack] works.
@@ -834,7 +853,10 @@ pub enum I2cError<'i> {
     /// byte (`data[n - 1]`, so `n - 1` bytes went through), `None` when the controller can't tell. A slave only refuses data on writes: in a read it is the master that doesn't
     /// acknowledge the last byte, which is no error.
     #[display("not acknowledged: operation {op}, byte {at:?} (0: the address)")]
-    Nack { op: u8, at: Option<u16> },
+    Nack {
+        op: Index<Op, u8>,
+        at: Option<Index<Byte, u16>>,
+    },
     /// Arbitration lost to another master.
     Arbitration,
     /// Bus error: a start or stop where it doesn't belong.
@@ -884,6 +906,38 @@ mod tests {
         assert_eq!(I2cAddress::from_ww_bytes(bytes).unwrap(), addr);
     }
 
+    /// `transparent` (DER-18): a watch's slot costs exactly the plain `u32` it replaces, no extra length byte.
+    #[test]
+    fn watch_slot_is_exactly_a_plain_u32_on_the_wire() {
+        let mut buf = [0u8; 8];
+        let slot_bytes = WatchSlot(7).to_ww_bytes(&mut buf).unwrap();
+        let mut buf2 = [0u8; 8];
+        let plain_bytes = 7u32.to_ww_bytes(&mut buf2).unwrap();
+        assert_eq!(slot_bytes, plain_bytes);
+    }
+
+    /// `i2c_scan` returns `RefVec<I2cAddress>` instead of a bare `RefVec<u8>`: since every element it finds is the
+    /// one-byte `Seven` variant, the bytes are exactly the same (AGENTS.md: checked, not hand-derived).
+    #[test]
+    fn scan_addresses_cost_the_same_bytes_as_plain_u8() {
+        let addrs = [
+            I2cAddress::seven(0x50).unwrap(),
+            I2cAddress::seven(0x60).unwrap(),
+        ];
+        let mut buf = [0u8; 8];
+        let as_addresses = RefVec::Slice { slice: &addrs }
+            .to_ww_bytes(&mut buf)
+            .unwrap();
+
+        let as_u8: [u8; 2] = [0x50, 0x60];
+        let mut buf2 = [0u8; 8];
+        let as_plain = RefVec::Slice { slice: &as_u8 }
+            .to_ww_bytes(&mut buf2)
+            .unwrap();
+
+        assert_eq!(as_addresses, as_plain);
+    }
+
     /// A match rule costs two bytes per byte read, no size marker per element.
     #[test]
     fn match_byte_is_two_bytes_on_the_wire() {
@@ -919,8 +973,14 @@ mod tests {
     #[test]
     fn new_errors_round_trip_and_display() {
         for e in [
-            I2cError::Nack { op: 2, at: Some(5) },
-            I2cError::Nack { op: 0, at: None },
+            I2cError::Nack {
+                op: Index::new(2),
+                at: Some(Index::new(5)),
+            },
+            I2cError::Nack {
+                op: Index::new(0),
+                at: None,
+            },
             I2cError::ClockStretch,
             I2cError::BusStuck {
                 scl_low: false,
@@ -931,8 +991,12 @@ mod tests {
             assert_eq!(I2cError::from_ww_bytes(&b).unwrap(), e);
         }
         assert_eq!(
-            I2cError::Nack { op: 1, at: Some(0) }.to_string(),
-            "not acknowledged: operation 1, byte Some(0) (0: the address)"
+            I2cError::Nack {
+                op: Index::new(1),
+                at: Some(Index::new(0)),
+            }
+            .to_string(),
+            "not acknowledged: operation 1, byte Some(Index<Byte>(0 u16)) (0: the address)"
         );
         assert_eq!(
             I2cError::BusStuck {
@@ -976,10 +1040,10 @@ mod tests {
                 min: Second::milli(1u8),
                 max: Second::base(1u8),
             }),
-            max_write_len: 256,
-            max_read_len: 256,
-            max_write_read_len: 4,
-            max_ops: 8,
+            max_write_len: Bytes::new(256),
+            max_read_len: Bytes::new(256),
+            max_write_read_len: Bytes::new(4),
+            max_ops: Count::new(8),
             ten_bit_addresses: true,
             zero_length_write: false,
             bus_recovery: true,
@@ -994,10 +1058,10 @@ mod tests {
         assert_eq!(back.stretch_timeout, caps.stretch_timeout);
         assert_eq!(
             (
-                back.max_write_len,
-                back.max_read_len,
-                back.max_write_read_len,
-                back.max_ops
+                back.max_write_len.get(),
+                back.max_read_len.get(),
+                back.max_write_read_len.get(),
+                back.max_ops.get()
             ),
             (256, 256, 4, 8)
         );

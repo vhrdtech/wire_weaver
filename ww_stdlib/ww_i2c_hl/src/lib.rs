@@ -89,10 +89,10 @@ impl From<&I2cCapabilitiesOwned> for I2cLimits {
     fn from(caps: &I2cCapabilitiesOwned) -> Self {
         let wire = I2cLimits::default();
         I2cLimits {
-            max_write_len: caps.max_write_len.min(wire.max_write_len),
-            max_read_len: caps.max_read_len.min(wire.max_read_len),
-            max_write_read_len: caps.max_write_read_len.min(wire.max_write_read_len),
-            max_ops: caps.max_ops.min(wire.max_ops),
+            max_write_len: caps.max_write_len.get().min(wire.max_write_len),
+            max_read_len: caps.max_read_len.get().min(wire.max_read_len),
+            max_write_read_len: caps.max_write_read_len.get().min(wire.max_write_read_len),
+            max_ops: caps.max_ops.get().min(wire.max_ops),
         }
     }
 }
@@ -145,11 +145,13 @@ impl embedded_hal::i2c::Error for Error {
     fn kind(&self) -> ErrorKind {
         match self {
             Error::I2c(e) => match e {
-                I2cErrorOwned::Nack { at, .. } => ErrorKind::NoAcknowledge(match at {
-                    Some(0) => NoAcknowledgeSource::Address,
-                    Some(_) => NoAcknowledgeSource::Data,
-                    None => NoAcknowledgeSource::Unknown,
-                }),
+                I2cErrorOwned::Nack { at, .. } => {
+                    ErrorKind::NoAcknowledge(match at.map(|a| a.get()) {
+                        Some(0) => NoAcknowledgeSource::Address,
+                        Some(_) => NoAcknowledgeSource::Data,
+                        None => NoAcknowledgeSource::Unknown,
+                    })
+                }
                 I2cErrorOwned::Arbitration => ErrorKind::ArbitrationLoss,
                 I2cErrorOwned::Bus | I2cErrorOwned::BusStuck { .. } => ErrorKind::Bus,
                 I2cErrorOwned::Overrun => ErrorKind::Overrun,
@@ -270,7 +272,7 @@ impl I2cMaster {
             ),
             Plan::Read(len) => {
                 let r = c
-                    .i2c_read(addr, I2cReadKindOwned::Plain, len, None)
+                    .i2c_read(addr, I2cReadKindOwned::Plain, len.into(), None)
                     .call()
                     .await?;
                 (r.duration, r.data.into_inner())
@@ -279,7 +281,7 @@ impl I2cMaster {
                 let kind = I2cReadKindOwned::RepeatedStart {
                     write: MaxLen::new_unchecked(write),
                 };
-                let r = c.i2c_read(addr, kind, read, None).call().await?;
+                let r = c.i2c_read(addr, kind, read.into(), None).call().await?;
                 (r.duration, r.data.into_inner())
             }
             Plan::Transaction(ops) => {
@@ -313,7 +315,7 @@ impl I2cMaster {
             ),
             Plan::Read(len) => {
                 let r = c
-                    .i2c_read(addr, I2cReadKindOwned::Plain, len, None)
+                    .i2c_read(addr, I2cReadKindOwned::Plain, len.into(), None)
                     .blocking_call()?;
                 (r.duration, r.data.into_inner())
             }
@@ -321,7 +323,7 @@ impl I2cMaster {
                 let kind = I2cReadKindOwned::RepeatedStart {
                     write: MaxLen::new_unchecked(write),
                 };
-                let r = c.i2c_read(addr, kind, read, None).blocking_call()?;
+                let r = c.i2c_read(addr, kind, read.into(), None).blocking_call()?;
                 (r.duration, r.data.into_inner())
             }
             Plan::Transaction(ops) => {

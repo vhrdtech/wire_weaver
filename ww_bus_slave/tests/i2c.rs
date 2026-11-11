@@ -38,9 +38,9 @@ fn events(s: &mut Slave) -> Vec<Ev> {
                 end: us(tr.end),
                 read: tr.read,
                 kind: tr.kind,
-                pointer: tr.pointer,
+                pointer: tr.pointer.map(|p| p.get()),
                 bytes: tr.bytes.as_slice().to_vec(),
-                filled: tr.filled,
+                filled: tr.filled.get(),
                 stretched: tr.stretched.map(us),
             },
             I2cSlaveEvent::Unknown(_) => panic!(),
@@ -72,9 +72,9 @@ fn config(answers: I2cSlaveAnswers) -> I2cSlaveConfig {
 fn registers(pointer_bytes: u8, len: u32, page: Option<u16>, read_only: bool) -> Slave {
     let mut s = Slave::new();
     s.configure(&config(I2cSlaveAnswers::Registers {
-        pointer_bytes,
-        len,
-        page,
+        pointer_bytes: pointer_bytes.into(),
+        len: len.into(),
+        page: page.map(Into::into),
         read_only,
     }))
     .unwrap();
@@ -488,10 +488,10 @@ fn off_and_config_errors() {
     assert!(!s.address(false, 0));
     assert!(!s.acks_address());
     let bad = |answers| Slave::new().configure(&config(answers));
-    let regs = |pointer_bytes, len, page| I2cSlaveAnswers::Registers {
-        pointer_bytes,
-        len,
-        page,
+    let regs = |pointer_bytes: u8, len: u32, page: Option<u16>| I2cSlaveAnswers::Registers {
+        pointer_bytes: pointer_bytes.into(),
+        len: len.into(),
+        page: page.map(Into::into),
         read_only: false,
     };
     assert_eq!(bad(regs(5, 8, None)), Err(ConfigError::Unsupported));

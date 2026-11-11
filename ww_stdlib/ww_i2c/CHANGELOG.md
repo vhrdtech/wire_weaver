@@ -4,6 +4,29 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
+- Typed numbers (AGENTS.md, P2401#11nov-0948g): byte lengths, offsets, the operation index and watch slots are no
+  longer bare integers. Wire-compatible (transparent wrappers of the same `T`), Rust-breaking only.
+    - Byte lengths and sizes are `ww_si::Bytes<T>`: `I2c::i2c_read`'s `len`, `I2cOp::Read`, `I2cWatchConfig::len`,
+      `I2cWatchCapabilities::max_len`, `I2cSlaveTransfer::filled`, `I2cCapabilities::max_write_len` /
+      `max_read_len` / `max_write_read_len`, `I2cSlaveCapabilities::map_len` / `max_pointer_bytes`,
+      `I2cSlaveAnswers::Registers`'s `pointer_bytes` / `len` / `page`.
+    - Byte offsets are `ww_si::Index<ww_si::units::Byte, T>`: `I2c::slave_map_write` / `slave_map_read`'s `offset`,
+      `I2cSlaveTransfer::pointer`, `I2cError::Nack::at`, `I2cRecord::nack_at` (`Some(Index::new(0))` is still the
+      address byte).
+    - `I2cError::Nack::op` is `Index<Op, u8>` and `I2cCapabilities::max_ops` is `Count<Op, u16>`: `Op`, a new
+      marker of this crate (`ww_si::unit!`, a distinguished base), counts the operations of one
+      `I2c::i2c_transaction` the same way `I2cError::Nack`'s doc already described them.
+    - Counts are `ww_si::Count<T, ..>`: `I2c::i2c_wiggle_clock`'s `count` is `Count<Cycle, u8>`,
+      `I2cWatch::slave_clear_answers` and `I2cWatchCapabilities::max_watches` / `I2cSlaveCapabilities::queue_len`
+      are `Count<Item, u32>`.
+    - `I2cWatch::watch_add` returns a new `WatchSlot(u32)` (`transparent`, same bytes as the old bare `u32`),
+      taken by `watch_modify`, `watch_remove`, listed by `watch_list` and named by `I2cWatchEvent::slot`.
+    - `I2c::i2c_scan` returns `RefVec<I2cAddress>` instead of `RefVec<u8>`: every address it finds is the
+      one-byte `Seven` variant, so the bytes are unchanged (checked by a conformance-style test, not assumed).
+    - `ww_i2c_hl::I2cMaster`, `I2cLimits` and `Error` adapt: `I2cLimits` stays plain `u16` for `embedded-hal`
+      (`From<&I2cCapabilitiesOwned>` now reads the typed fields with `.get()`).
+    - Needs `ww_si` features `information` and `counting` (added to this crate's `Cargo.toml`).
+
 - Master errors and limits (STD-52), breaking on the wire and in Rust (nothing released or deployed yet):
     - `I2cError::Nack` is `Nack { op: u8, at: Option<u16> }`: which operation (`0` for `i2c_write` and a plain read,
       `0`/`1` for the write/read part of a `RepeatedStart` read, the index into `ops` for `i2c_transaction`), and

@@ -846,6 +846,15 @@ pub enum MarkerDef<'i> {
     /// `exact_units::Finite` (NUM-20): a float `Fixed` that is neither ±∞ nor NaN, every finite float. A reader from
     /// before it gets `Unknown`.
     Finite,
+    /// A transfer curve (an `impl exact_units::codec::Curve`, LVL-6): `video::Pq`, `video::Hlg`, `exact_units`'
+    /// definition whole, its light's unit and scale, domain and exact segments. The `C` of a
+    /// [Transfer](Self::Transfer); a client computes the light a code means from it (`CurveDef::decode_exact` /
+    /// `decode_f64`). A reader from before it gets `Unknown`.
+    Curve(exact_units::codec::CurveDef<'i>),
+    /// `exact_units::codec::Transfer<Q, C>` (STD-112): the codec `Q` with the transfer curve `C` above it. Its
+    /// definition is one per instance, `Q`'s [codec](Self::Codec) with `curve` set to `C`'s [curve](Self::Curve),
+    /// which a client puts together from the two arguments. A reader from before it gets `Unknown`.
+    Transfer,
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

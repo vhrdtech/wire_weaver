@@ -412,6 +412,19 @@ pub fn coded_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<CodedType> {
     })
 }
 
+impl CodedType {
+    /// The light code `raw` means through the codec's transfer curve (STD-112): a `Coded<Transfer<Narrow10, Pq>, ..>`
+    /// code's display luminance in cd/m², exactly where it is a rational and by the curve's float edge. `None` for a
+    /// codec without a curve, a spare code, a code outside the curve's domain, or a linear scale that is no exact
+    /// rational step.
+    pub fn light(&self, raw: i128) -> Option<ww_self::units::Light> {
+        let step = ww_si::exact_units::Fraction::from_magnitude(&self.linear.prefix.magnitude()?)?;
+        ww_self::units::codec_light(&self.codec, raw, step)
+            .ok()
+            .flatten()
+    }
+}
+
 /// `ty` as a `Point<O, F>` (CLT-65): `O`'s definition and `F`, `None` for any other type or an origin that doesn't
 /// resolve (a hand-written marker, or a bundle older than INT-13).
 pub fn point_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<(OriginDefOwned, TypeOwned)> {

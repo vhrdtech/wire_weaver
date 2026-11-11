@@ -9,7 +9,8 @@
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
-use ww_si::codec::{Coded, MuLaw};
+use ww_si::codec::video::{Narrow10, NarrowSignal10, Pq};
+use ww_si::codec::{Coded, MuLaw, Transfer};
 use ww_si::origins::{Angle, Celsius};
 use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Pow2, Product, Quotient, Rational};
 use ww_si::quantities::{Height, Width};
@@ -66,6 +67,9 @@ trait Quantities {
     property!(ro heading: Point<Angle<Degree>, Fixed<Degree, Centi, u16>>);
     /// A telephone line's sample, one G.711 μ-law byte: a non-linear code of the 14-bit linear sample (LVL-6)
     property!(rw voice: Coded<MuLaw, Fixed<Ratio, Pow2<-13>, i16>, u8>);
+    /// A pixel's luma, a 10-bit narrow-range PQ code: the code's signal E′ is `Narrow10`'s, the display light it
+    /// means is the PQ transfer curve's (STD-112)
+    property!(rw luma: Coded<Transfer<Narrow10, Pq>, NarrowSignal10, u16>);
     /// The shaft's angle in 0.01° from the encoder's index pulse, a reference of this crate known only at run time
     /// (STD-108)
     property!(ro shaft: Point<Shaft, Fixed<Degree, Centi, i32>>);

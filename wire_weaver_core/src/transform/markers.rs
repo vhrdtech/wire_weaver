@@ -10,17 +10,16 @@
 //! `impl exact_units::Reference` beside it (PT-4, STD-108) gets `#[ww_marker(reference, "<NAME>", <HOW>)]`, the
 //! impl's `NAME` and `HOW` constants as written.
 
+mod curve;
+
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::codec::{
-    CodeSpan, CodecDefOwned, CodecShapeOwned, CurveDefOwned, CurveForm, ExpBase, Referred, Segment,
-};
+use exact_units::codec::{CodeSpan, CodecDefOwned, CodecShapeOwned, CurveDefOwned};
 use exact_units::{
-    BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, Fraction, MAX_TRUE_BASES, Magnitude,
-    MarkerIdOwned, Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned,
-    Symbols, System, SystemDef, SystemDefOwned, UnitDefOwned, UnitNames, UnitNamesOwned,
-    systems::Si,
+    BaseExpOwned, Character, DimOwned, DimWireOwned, Exp, MAX_TRUE_BASES, Magnitude, MarkerIdOwned,
+    Offset, Prefix, PrefixPolicy, PrefixSet, ProvenanceOwned, QuantityDefOwned, Symbols, System,
+    SystemDef, SystemDefOwned, UnitDefOwned, UnitNames, UnitNamesOwned, systems::Si,
 };
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
@@ -100,6 +99,8 @@ fn mark_hand_written(items: &mut [Item]) {
     let mut references = Vec::new();
     let mut codecs = Vec::new();
     let mut generic_codecs = Vec::new();
+    let mut curves = Vec::new();
+    let scope = curve::ConstScope::of(items);
     // `const X: [T; N] = [..];` of this module: a codec's `DEF` names its tables by them (`def_list(&X)`)
     let tables: Vec<(Ident, syn::Expr)> = items
         .iter()
@@ -121,7 +122,7 @@ fn mark_hand_written(items: &mut [Item]) {
             continue;
         };
         // `impl<Q, C> Codec for Transfer<Q, C>`: its `DEF` is one per instance (`..Q::DEF`), no definition of the
-        // struct, refused where an API uses it (STD-112)
+        // struct; exact_units' own `Transfer` is a built-in marker (STD-112), any other refused where an API uses it
         if trait_name == "Codec"
             && !item_impl.generics.params.is_empty()
             && let syn::Type::Path(self_ty) = &*item_impl.self_ty
@@ -140,7 +141,31 @@ fn mark_hand_written(items: &mut [Item]) {
         {
             let mut def = def;
             inline_tables(&mut def, &tables);
+            // a curve of its own, `curve: Some(Pq::DEF)`, read as an `impl Curve`'s `DEF` is
+            if let syn::Expr::Struct(s) = &mut def
+                && let Some(f) = s
+                    .fields
+                    .iter_mut()
+                    .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "curve"))
+            {
+                scope.inline(&mut f.expr, &name.ident);
+            }
             codecs.push((name.ident.clone(), def));
+            continue;
+        }
+        // `impl Curve for Pq { const DEF: CurveDef<'static> = Pq::DEF; }`, the constants it names put in (STD-112)
+        if trait_name == "Curve"
+            && item_impl.generics.params.is_empty()
+            && let syn::Type::Path(self_ty) = &*item_impl.self_ty
+            && let Some(name) = self_ty.path.segments.last()
+            && let Some(def) = item_impl.items.iter().find_map(|i| match i {
+                syn::ImplItem::Const(c) if c.ident == "DEF" => Some(c.expr.clone()),
+                _ => None,
+            })
+        {
+            let mut def = def;
+            scope.inline(&mut def, &name.ident);
+            curves.push((name.ident.clone(), def));
             continue;
         }
         if trait_name == "Reference"
@@ -220,6 +245,18 @@ fn mark_hand_written(items: &mut [Item]) {
             item_struct
                 .attrs
                 .push(syn::parse_quote!(#[#attr(codec, #def)]));
+        }
+        if let Item::Struct(item_struct) = item
+            && !item_struct
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident(MARKER_ATTR))
+            && let Some((_, def)) = curves.iter().find(|(ident, _)| *ident == item_struct.ident)
+        {
+            let attr = Ident::new(MARKER_ATTR, item_struct.ident.span());
+            item_struct
+                .attrs
+                .push(syn::parse_quote!(#[#attr(curve, #def)]));
         }
         if let Item::Struct(item_struct) = item
             && !item_struct
@@ -446,9 +483,8 @@ fn codec_nominal(def: &syn::Expr) -> Result<Option<CodeSpan>> {
     }
 }
 
-/// The `curve` of an `impl Codec`'s `DEF`: `None`, or `Some(CurveDef { id, referred, unit, scale, low, high,
-/// segments })`, every `Segment`'s `CurveForm` (`Affine`, `Power`, `Exp`, `RationalPower`) and `ExpBase` (`E`,
-/// `Exactly`) a literal, every number a [fraction_lit].
+/// The `curve` of an `impl Codec`'s `DEF`: `None`, or `Some(CurveDef { .. })` with its constants put in, read as
+/// an `impl Curve`'s `DEF` is ([curve::curve_def]).
 fn codec_curve(def: &syn::Expr) -> Result<Option<CurveDefOwned>> {
     let syn::Expr::Struct(s) = def else {
         bail!(
@@ -463,206 +499,15 @@ fn codec_curve(def: &syn::Expr) -> Result<Option<CurveDefOwned>> {
             if c.args.len() == 1
                 && matches!(&*c.func, syn::Expr::Path(p) if p.path.is_ident("Some")) =>
         {
-            curve_def_lit(&c.args[0])
-                .with_context(|| format!("curve `{}`", quote::quote!(#curve)))
-                .map(Some)
+            Ok(Some(curve::curve_def(&c.args[0]).with_context(|| {
+                format!("curve `{}`", quote::quote!(#curve))
+            })?))
         }
         _ => bail!(
             "curve `{}`: None or Some(CurveDef {{ .. }})",
             quote::quote!(#curve)
         ),
     }
-}
-
-/// A `CurveDef { id, referred, unit, scale, low, high, segments }` literal, `segments` a `def_list(&[Segment, ..])`
-/// (or a same-module table [def_list_items] already inlined).
-fn curve_def_lit(e: &syn::Expr) -> Result<CurveDefOwned> {
-    let syn::Expr::Struct(s) = e else {
-        bail!(
-            "`{}` is not CurveDef {{ id, referred, unit, scale, low, high, segments }}",
-            quote::quote!(#e)
-        );
-    };
-    let id = marker_id_lit(field(s, "id")?)?;
-    let referred = referred_lit(field(s, "referred")?)?;
-    let unit = marker_id_lit(field(s, "unit")?)?;
-    let scale = fraction_lit(field(s, "scale")?)?;
-    let low = fraction_lit(field(s, "low")?)?;
-    let high = fraction_lit(field(s, "high")?)?;
-    let segments = def_list_items(field(s, "segments")?)?
-        .map(segment_lit)
-        .collect::<Result<Vec<_>>>()?;
-    Ok(CurveDefOwned {
-        id,
-        referred,
-        unit,
-        scale,
-        low,
-        high,
-        segments,
-    })
-}
-
-/// A `Segment { from, form }` literal.
-fn segment_lit(e: &syn::Expr) -> Result<Segment> {
-    let syn::Expr::Struct(s) = e else {
-        bail!("`{}` is not Segment {{ from, form }}", quote::quote!(#e));
-    };
-    let from = fraction_lit(field(s, "from")?)?;
-    let form = curve_form_lit(field(s, "form")?)?;
-    Ok(Segment { from, form })
-}
-
-/// One `CurveForm` variant literal: `Affine { gain, offset }`, `Power { gain, scale, shift, exponent, offset }`,
-/// `Exp { gain, base, scale, shift, offset }` or `RationalPower { m1, m2, c1, c2, c3 }`, every parameter a
-/// [fraction_lit].
-fn curve_form_lit(e: &syn::Expr) -> Result<CurveForm> {
-    let syn::Expr::Struct(s) = e else {
-        bail!(
-            "`{}` is not a CurveForm variant (Affine, Power, Exp or RationalPower)",
-            quote::quote!(#e)
-        );
-    };
-    let frac = |name: &str| -> Result<Fraction> { fraction_lit(field(s, name)?) };
-    let last = |path: &syn::Path| path.segments.last().map(|s| s.ident.to_string());
-    match last(&s.path).as_deref() {
-        Some("Affine") => Ok(CurveForm::Affine {
-            gain: frac("gain")?,
-            offset: frac("offset")?,
-        }),
-        Some("Power") => Ok(CurveForm::Power {
-            gain: frac("gain")?,
-            scale: frac("scale")?,
-            shift: frac("shift")?,
-            exponent: frac("exponent")?,
-            offset: frac("offset")?,
-        }),
-        Some("Exp") => Ok(CurveForm::Exp {
-            gain: frac("gain")?,
-            base: exp_base_lit(field(s, "base")?)?,
-            scale: frac("scale")?,
-            shift: frac("shift")?,
-            offset: frac("offset")?,
-        }),
-        Some("RationalPower") => Ok(CurveForm::RationalPower {
-            m1: frac("m1")?,
-            m2: frac("m2")?,
-            c1: frac("c1")?,
-            c2: frac("c2")?,
-            c3: frac("c3")?,
-        }),
-        _ => bail!(
-            "`{}` is not a CurveForm variant (Affine, Power, Exp or RationalPower)",
-            quote::quote!(#e)
-        ),
-    }
-}
-
-/// `ExpBase::E` or `ExpBase::Exactly(<fraction>)`.
-fn exp_base_lit(e: &syn::Expr) -> Result<ExpBase> {
-    match e {
-        syn::Expr::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == "E") => {
-            Ok(ExpBase::E)
-        }
-        syn::Expr::Call(c)
-            if c.args.len() == 1
-                && matches!(&*c.func, syn::Expr::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == "Exactly")) =>
-        {
-            Ok(ExpBase::Exactly(fraction_lit(&c.args[0])?))
-        }
-        _ => bail!(
-            "`{}` is not ExpBase::E or ExpBase::Exactly(..)",
-            quote::quote!(#e)
-        ),
-    }
-}
-
-/// `Referred::Scene` or `Referred::Display`, by the last segment of its path.
-fn referred_lit(e: &syn::Expr) -> Result<Referred> {
-    let syn::Expr::Path(p) = e else {
-        bail!(
-            "`{}` is not Referred::Scene or Referred::Display",
-            quote::quote!(#e)
-        );
-    };
-    match p
-        .path
-        .segments
-        .last()
-        .map(|s| s.ident.to_string())
-        .as_deref()
-    {
-        Some("Scene") => Ok(Referred::Scene),
-        Some("Display") => Ok(Referred::Display),
-        _ => bail!(
-            "`{}` is not Referred::Scene or Referred::Display",
-            quote::quote!(#e)
-        ),
-    }
-}
-
-/// A `Fraction` literal: `Fraction::ZERO`, `Fraction::ONE`, `Fraction::int(n)` or `Fraction::new(num, den)`, every
-/// number an [int_expr].
-fn fraction_lit(e: &syn::Expr) -> Result<Fraction> {
-    let call_name = |c: &syn::ExprCall| match &*c.func {
-        syn::Expr::Path(p) => p.path.segments.last().map(|s| s.ident.to_string()),
-        _ => None,
-    };
-    let not_a_fraction = || -> anyhow::Error {
-        anyhow!(
-            "`{}` is not Fraction::ZERO, Fraction::ONE, Fraction::int(n) or Fraction::new(num, den)",
-            quote::quote!(#e)
-        )
-    };
-    match e {
-        syn::Expr::Path(p) => match p
-            .path
-            .segments
-            .last()
-            .map(|s| s.ident.to_string())
-            .as_deref()
-        {
-            Some("ZERO") => Ok(Fraction::ZERO),
-            Some("ONE") => Ok(Fraction::ONE),
-            _ => Err(not_a_fraction()),
-        },
-        syn::Expr::Call(c) => match (call_name(c).as_deref(), c.args.len()) {
-            (Some("int"), 1) => Ok(Fraction::int(int_expr(&c.args[0])?)),
-            (Some("new"), 2) => {
-                let den = u128::try_from(int_expr(&c.args[1])?)
-                    .map_err(|_| anyhow!("Fraction::new(.., den): den doesn't fit a u128"))?;
-                Ok(Fraction::new(int_expr(&c.args[0])?, den))
-            }
-            _ => Err(not_a_fraction()),
-        },
-        _ => Err(not_a_fraction()),
-    }
-}
-
-/// A `MarkerId { crate_name: "..", name: ".." }` literal, both string literals.
-fn marker_id_lit(e: &syn::Expr) -> Result<MarkerIdOwned> {
-    let syn::Expr::Struct(s) = e else {
-        bail!(
-            "`{}` is not MarkerId {{ crate_name, name }}",
-            quote::quote!(#e)
-        );
-    };
-    let str_field = |name: &str| -> Result<String> {
-        match field(s, name)? {
-            syn::Expr::Lit(syn::ExprLit {
-                lit: syn::Lit::Str(lit),
-                ..
-            }) => Ok(lit.value()),
-            other => bail!(
-                "MarkerId {{ .. }}: `{name}` is `{}`, not a string literal",
-                quote::quote!(#other)
-            ),
-        }
-    };
-    Ok(MarkerIdOwned {
-        crate_name: str_field("crate_name")?,
-        name: str_field("name")?,
-    })
 }
 
 /// A `CodeSpan::one(code)`, `CodeSpan { low, high }` or `CodeSpan::all::<T>()` for an integer `T`.
@@ -1286,8 +1131,11 @@ pub(crate) enum MarkerLineDef {
     Reference(Box<(syn::Expr, syn::Expr)>),
     /// An `impl Codec`'s `DEF` constant, as written (LVL-6).
     Codec(Box<syn::Expr>),
-    /// A generic `impl<..> Codec`, whose `DEF` is one per instance (`Transfer<Q, C>`): no definition of the struct
-    /// alone, an instance an API uses is refused ([generic_codec_error], STD-112).
+    /// An `impl Curve`'s `DEF` constant, the constants of its module it names put in (STD-112).
+    Curve(Box<syn::Expr>),
+    /// A generic `impl<..> Codec`, whose `DEF` is one per instance: no definition of the struct alone. `exact_units`'
+    /// own `Transfer<Q, C>` is a [built-in](is_built_in) marker (STD-112); an instance of any other an API uses is
+    /// refused ([generic_codec_error]).
     GenericCodec,
 }
 
@@ -1296,13 +1144,13 @@ pub(crate) fn is_generic_codec(attrs: &[Attribute]) -> bool {
     matches!(marker_line(attrs), Ok(Some(MarkerLineDef::GenericCodec)))
 }
 
-/// The error for an instance of the generic codec `ident` used in an API: its definition is one per instance,
-/// which the API model can't hold yet.
+/// The error for an instance of the generic codec `ident` used in an API: its definition is one per instance, put
+/// together by code the walker doesn't run.
 pub(crate) fn generic_codec_error(ident: &syn::Ident) -> anyhow::Error {
     anyhow!(
         "{ident}<..> is a generic codec: its `impl<..> Codec` gives a definition per instance (`CodecDef {{ .., \
-         ..Q::DEF }}`), which the API model can't hold yet (STD-112 generic-codec-markers); use a codec with \
-         a fixed definition"
+         ..Q::DEF }}`), which the walker can't read; use exact_units' `codec::Transfer<Q, C>` for a codec with a \
+         transfer curve, or a codec with a fixed definition"
     )
 }
 
@@ -1324,6 +1172,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             "origin" => Ok(MarkerLineDef::Origin(Box::new(input.parse()?))),
             "quantity" => Ok(MarkerLineDef::Quantity(input.parse()?)),
             "codec" => Ok(MarkerLineDef::Codec(Box::new(input.parse()?))),
+            "curve" => Ok(MarkerLineDef::Curve(Box::new(input.parse()?))),
             "reference" => {
                 let name = input.parse()?;
                 input.parse::<Token![,]>()?;
@@ -1331,7 +1180,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             }
             _ => Err(syn::Error::new(
                 kind.span(),
-                "unit, scale, hand, origin, quantity, reference, codec or generic_codec",
+                "unit, scale, hand, origin, quantity, reference, codec, curve or generic_codec",
             )),
         }
     })?;
@@ -1339,7 +1188,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
 }
 
 /// `exact_units`' own generic markers, whose meaning is fixed by their name and generic arguments.
-static BUILT_IN: [(&str, MarkerDefOwned); 20] = [
+static BUILT_IN: [(&str, MarkerDefOwned); 21] = [
     ("Per", MarkerDefOwned::Per),
     ("Times", MarkerDefOwned::Times),
     ("Sqrt", MarkerDefOwned::Sqrt),
@@ -1360,7 +1209,13 @@ static BUILT_IN: [(&str, MarkerDefOwned); 20] = [
     ("Of", MarkerDefOwned::Of),
     ("MaybeNan", MarkerDefOwned::MaybeNan),
     ("Finite", MarkerDefOwned::Finite),
+    ("Transfer", MarkerDefOwned::Transfer),
 ];
+
+/// Whether `ident` of crate `crate_name` is one of `exact_units`' own generic markers ([BUILT_IN]).
+pub(crate) fn is_built_in(crate_name: &str, ident: &Ident) -> bool {
+    crate_name.replace('-', "_") == EXACT_UNITS && BUILT_IN.iter().any(|(name, _)| ident == name)
+}
 
 /// Resolves what a marker line names elsewhere, as types of the crate it is declared in.
 pub(crate) trait MarkerRefs {
@@ -1586,14 +1441,28 @@ pub(crate) fn marker_def(
                 how: reference_how(&how).with_context(|| format!("reference marker {ident}"))?,
             })
         }
-        MarkerLineDef::Codec(def) => MarkerDefOwned::Codec(CodecDefOwned {
-            id: id(),
-            shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
-            spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
-            codes: codec_codes(&def).with_context(|| format!("codec marker {ident}"))?,
-            nominal: codec_nominal(&def).with_context(|| format!("codec marker {ident}"))?,
-            curve: codec_curve(&def).with_context(|| format!("codec marker {ident}"))?,
-        }),
+        MarkerLineDef::Codec(def) => {
+            let curve = codec_curve(&def).with_context(|| format!("codec marker {ident}"))?;
+            MarkerDefOwned::Codec(CodecDefOwned {
+                id: id(),
+                shape: codec_shape(&def).with_context(|| format!("codec marker {ident}"))?,
+                spare: codec_spare(&def).with_context(|| format!("codec marker {ident}"))?,
+                codes: codec_codes(&def).with_context(|| format!("codec marker {ident}"))?,
+                nominal: codec_nominal(&def).with_context(|| format!("codec marker {ident}"))?,
+                curve,
+            })
+        }
+        MarkerLineDef::Curve(def) => {
+            let def = curve::curve_def(&def).with_context(|| format!("curve marker {ident}"))?;
+            if def.id != id() {
+                bail!(
+                    "curve marker {ident}: its DEF names it {}::{}",
+                    def.id.crate_name,
+                    def.id.name
+                );
+            }
+            MarkerDefOwned::Curve(def)
+        }
         // the struct alone, a generic definition: no marker of its own, an instance is refused in `convert_user_ty`
         MarkerLineDef::GenericCodec => return Ok(None),
         MarkerLineDef::Hand(trait_name) => bail!(
@@ -2307,7 +2176,8 @@ fn parse_i8(input: ParseStream) -> syn::Result<i8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use exact_units::{FixedScale, Origin, origins, prefix};
+    use exact_units::codec::{CurveForm, ExpBase, Referred, Segment};
+    use exact_units::{FixedScale, Fraction, Origin, origins, prefix};
     use shrink_wrap::SerializeShrinkWrapOwned;
     use std::collections::BTreeMap;
     use ww_self::{TypeLocationOwned, TypeOwned};
@@ -2532,6 +2402,25 @@ mod tests {
             let bytes = shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&compiled, &mut buf).unwrap();
             let compiled =
                 <CodecDefOwned as shrink_wrap::DeserializeShrinkWrapOwned>::from_ww_bytes_owned(
+                    bytes,
+                )
+                .unwrap();
+            assert_eq!(def, compiled, "{name}");
+        }
+        // STD-112: each `impl Curve`, its DEF as compiled, the constants and Fraction arithmetic it names run
+        for compiled in [
+            <exact_units::codec::video::Pq as exact_units::codec::Curve>::DEF,
+            <exact_units::codec::video::Hlg as exact_units::codec::Curve>::DEF,
+            <exact_units::codec::video::Bt709 as exact_units::codec::Curve>::DEF,
+        ] {
+            let name = compiled.id.name;
+            let Some(MarkerDefOwned::Curve(def)) = markers.remove(name) else {
+                panic!("{name}: no curve definition in the model");
+            };
+            let mut buf = [0u8; 1024];
+            let bytes = shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&compiled, &mut buf).unwrap();
+            let compiled =
+                <CurveDefOwned as shrink_wrap::DeserializeShrinkWrapOwned>::from_ww_bytes_owned(
                     bytes,
                 )
                 .unwrap();
@@ -3103,6 +2992,76 @@ mod tests {
         }
     }
 
+    /// STD-112: a user crate's `impl Curve`, written as exact_units writes its own: the `DEF` of an inherent impl
+    /// naming `Self::` constants, a module's form constant, `Fraction`'s checked arithmetic through an unwrap
+    /// helper. A call of anything else, and an id that isn't the marker's, are refused naming them.
+    #[test]
+    fn curve_definitions_from_source() {
+        let curve = |a: &str, id: &str| {
+            format!(
+                "pub struct Gamma;\n\
+                 const fn known(f: Option<Fraction>) -> Fraction {{ match f {{ Some(f) => f, None => panic!(\"no\") }} }}\n\
+                 const TOE: CurveForm = CurveForm::Affine {{ gain: Gamma::SLOPE, offset: Fraction::ZERO }};\n\
+                 impl Gamma {{\n\
+                     pub const A: Fraction = {a};\n\
+                     pub const SLOPE: Fraction = known(Self::A.checked_mul_int(4));\n\
+                     pub const DEF: CurveDef<'static> = CurveDef {{\n\
+                         id: MarkerId {{ crate_name: \"c\", name: \"{id}\" }}, referred: Referred::Scene,\n\
+                         unit: MarkerId {{ crate_name: \"exact_units\", name: \"Ratio\" }}, scale: Fraction::ONE,\n\
+                         low: Fraction::ZERO, high: Fraction::ONE,\n\
+                         segments: def_list(&[Segment {{ from: Fraction::ZERO, form: TOE }}, Segment {{\n\
+                             from: Fraction::new(1, 2),\n\
+                             form: CurveForm::Power {{ gain: Fraction::ONE, scale: Fraction::int(2), \
+                                 shift: known(Fraction::ONE.checked_sub(Self::A)), exponent: Fraction::new(5, 2), \
+                                 offset: Fraction::ZERO }} }}]),\n\
+                     }};\n\
+                 }}\n\
+                 impl Curve for Gamma {{ type Light = Ratio; const DEF: CurveDef<'static> = Self::DEF; }}\n"
+            )
+        };
+        let def_of = |src: &str| {
+            let items = expand(src);
+            let Some(Item::Struct(s)) = items.iter().find(|i| matches!(i, Item::Struct(_))) else {
+                panic!("no struct");
+            };
+            marker_def(s, "c", &mut NoRefs)
+        };
+        let Some(MarkerDefOwned::Curve(def)) =
+            def_of(&curve("Fraction::new(1, 8)", "Gamma")).unwrap()
+        else {
+            panic!("no curve");
+        };
+        let f = |n, d| exact_units::Fraction::new(n, d);
+        assert_eq!(def.segments.len(), 2);
+        assert_eq!(
+            def.segments[0].form,
+            exact_units::codec::CurveForm::Affine {
+                gain: f(1, 2),
+                offset: f(0, 1)
+            }
+        );
+        assert_eq!(
+            def.segments[1].form,
+            exact_units::codec::CurveForm::Power {
+                gain: f(1, 1),
+                scale: f(2, 1),
+                shift: f(7, 8),
+                exponent: f(5, 2),
+                offset: f(0, 1),
+            }
+        );
+        assert_eq!(def.segments[1].from, f(1, 2));
+        // a call the walker doesn't run, named
+        let err = format!("{:#}", def_of(&curve("one_eighth()", "Gamma")).unwrap_err());
+        assert!(err.contains("one_eighth"), "{err}");
+        // an id naming another marker
+        let err = format!(
+            "{:#}",
+            def_of(&curve("Fraction::new(1, 8)", "Other")).unwrap_err()
+        );
+        assert!(err.contains("names it c::Other"), "{err}");
+    }
+
     /// LVL-6: a codec's spare codes as exact_units writes them, one code or a span; a span upside down is refused.
     #[test]
     fn codec_spare_forms() {
@@ -3136,8 +3095,8 @@ mod tests {
 
     /// A codec's `curve`: `None`, or `Some(CurveDef { .. })` with one segment of every `CurveForm` (`Affine`,
     /// `Power` with its `scale`, `Exp` with both kinds of `ExpBase`, `RationalPower`), every number a `Fraction`
-    /// literal (STD-111). No concrete `Codec` in exact_units sets `curve: Some(..)` yet (`Transfer<Q, C>`, the one
-    /// that does, is the generic codec STD-112 leaves uncollected), so this is the only check of the reading.
+    /// literal (STD-111). No concrete `Codec` in exact_units sets `curve: Some(..)`: `Transfer<Q, C>` gets its curve
+    /// from its `C` argument (STD-112), so this is the only check of a codec's own curve.
     #[test]
     fn codec_curve_forms() {
         let def_of = |src: &str| -> syn::Expr {

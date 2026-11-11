@@ -1933,6 +1933,7 @@ version = "0.1.0"
 source = "git+https://github.com/romixlab/exact_units#b12d9bb3555011d61fdc4fe2a1db8ebe38464bfa"
 dependencies = [
  "defmt 1.1.1",
+ "libm",
  "serde",
  "shrink_wrap",
 ]

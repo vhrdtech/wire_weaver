@@ -6,7 +6,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use wire_weaver_client::quantity::{DynQuantity, DynUnit, parse_quantity};
-use wire_weaver_client::ww_self::units::Bound as Bound_;
+use wire_weaver_client::ww_self::units::{Bound as Bound_, Light};
 
 /// A value with a unit, as the device sent it: `value` in units of `prefix`, `str()` is `3300 mV`, `float()` the
 /// value in the unit itself (3.3), `to_si()` in coherent SI. Read from a `ww_si::Quantity`, an `AnyQuantity` or an
@@ -19,6 +19,8 @@ pub(crate) struct Quantity {
     pub(crate) q: DynQuantity,
     /// The code a `Coded` value was read as (LVL-6), `None` for any other quantity.
     pub(crate) code: Option<i128>,
+    /// The light a `Coded` value's code means through its codec's transfer curve (STD-112), `None` without one.
+    pub(crate) light: Option<Light>,
 }
 
 #[pymethods]
@@ -35,7 +37,11 @@ impl Quantity {
             .transpose()
             .map_err(PyValueError::new_err)?;
         let q = parse_quantity(text, unit.as_ref()).map_err(PyValueError::new_err)?;
-        Ok(Quantity { q, code: None })
+        Ok(Quantity {
+            q,
+            code: None,
+            light: None,
+        })
     }
 
     /// The number as stored, in units of `prefix`: `3300` for 3300 mV.
@@ -89,6 +95,42 @@ impl Quantity {
     #[getter]
     fn code(&self) -> Option<i128> {
         self.code
+    }
+
+    /// The light the [code](Self::code) means through its codec's transfer curve (STD-112), in
+    /// [light_unit](Self::light_unit), as a float: the display luminance in cd/m² of a 10-bit PQ code
+    /// (`Coded<Transfer<Narrow10, Pq>, ..>`), 10000.0 for code 940. The curve's float edge, each `pow` rounded;
+    /// [light_exact](Self::light_exact) is the exact value where there is one. `None` for a codec without a curve
+    /// and for a code outside the curve's domain (below black).
+    #[getter]
+    fn light(&self) -> Option<f64> {
+        self.light.as_ref().map(|l| l.approx)
+    }
+
+    /// The light exactly, a `fractions.Fraction`, where it is a rational: PQ's code 64 (0) and 940 (10000), every
+    /// code of BT.709's toe; `None` where the light is irrational or there is no curve.
+    #[getter]
+    fn light_exact<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let Some(f) = self.light.as_ref().and_then(|l| l.exact) else {
+            return Ok(None);
+        };
+        // ±num/den · 10^exp, whole: Python's integers hold every Fraction exactly
+        let (num, den) = f.mantissa();
+        let fraction = py.import("fractions")?.getattr("Fraction")?;
+        let mut value = fraction
+            .call1((num, den))?
+            .mul(fraction.call1((10,))?.pow(f.exp10(), py.None())?)?;
+        if f.is_negative() {
+            value = value.neg()?;
+        }
+        Ok(Some(value))
+    }
+
+    /// The unit of the [light](Self::light), its marker's name: `"Nit"` for PQ, `"Ratio"` for a relative scene light;
+    /// `None` without a curve.
+    #[getter]
+    fn light_unit(&self) -> Option<String> {
+        self.light.as_ref().map(|l| l.unit.name.clone())
     }
 
     /// The numbers a `Fixed` allows, as stored: `(1, 5000)` for `Range<1, 5000>`, an end `None` when open; `None`
@@ -247,7 +289,11 @@ impl Quantity {
             }
         };
         let q = self.q.convert(&unit).map_err(PyValueError::new_err)?;
-        Ok(Quantity { q, code: None })
+        Ok(Quantity {
+            q,
+            code: None,
+            light: None,
+        })
     }
 
     /// The value in the unit itself, without the prefix: 3.3 for 3300 mV; for a point ([Self::origin] set), the

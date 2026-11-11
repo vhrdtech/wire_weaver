@@ -22,7 +22,7 @@ use crate::{
     ReferenceDefOwned, ReferenceHow, TimeCounting, TimeScaleDef, TimeZero, TypeOwned, ValueOwned,
 };
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::codec::{CodecDef, CodecDefOwned, CodecShape, CodecShapeOwned};
+use exact_units::codec::{CodecDef, CodecDefOwned, CodecShape, CodecShapeOwned, CurveDefOwned};
 use exact_units::{
     DimOwned, Magnitude, MarkerIdOwned, Offset, QuantityDefOwned, QuantityExpr, QuantityRef,
     SystemDefOwned, UnitDefOwned, UnitTable,
@@ -571,12 +571,45 @@ pub fn reference_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<Reference
 }
 
 /// The definition of the codec marker `ty` (the `C` of a `Coded<C, V, T>`, an `impl exact_units::codec::Codec`,
-/// LVL-6): `MuLaw`.
+/// LVL-6): `MuLaw`. An instance of `exact_units::codec::Transfer<Q, C>` (STD-112) is `Q`'s definition with its
+/// `curve` set to `C`'s ([curve_of]), as `Transfer`'s `DEF` puts them together.
 pub fn codec_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CodecDefOwned> {
-    let (s, _) = marker(ty, bundle)?;
+    let (s, args) = marker(ty, bundle)?;
     match definition(s, bundle)? {
         MarkerDefOwned::Codec(def) => Ok(def.clone()),
+        MarkerDefOwned::Transfer => {
+            let (Some(GenericArgOwned::Type(q)), Some(GenericArgOwned::Type(c))) =
+                (args.first(), args.get(1))
+            else {
+                bail!("{} without its codec and curve arguments", s.ident);
+            };
+            let mut def = codec_of(q, bundle).context("the codec of a Transfer")?;
+            if !matches!(def.shape, CodecShapeOwned::Offset { .. }) {
+                bail!(
+                    "Transfer over {}: a Transfer's codec is an Offset codec",
+                    def.id.as_id()
+                );
+            }
+            if def.curve.is_some() {
+                bail!(
+                    "Transfer over {}: the codec has a curve of its own",
+                    def.id.as_id()
+                );
+            }
+            def.curve = Some(curve_of(c, bundle).context("the curve of a Transfer")?);
+            Ok(def)
+        }
         _ => bail!("{} is not a codec", marker_name(s, bundle)?),
+    }
+}
+
+/// The definition of the transfer curve marker `ty` (the `C` of a `Transfer<Q, C>`, an
+/// `impl exact_units::codec::Curve`): `video::Pq`.
+pub fn curve_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CurveDefOwned> {
+    let (s, _) = marker(ty, bundle)?;
+    match definition(s, bundle)? {
+        MarkerDefOwned::Curve(def) => Ok(def.clone()),
+        _ => bail!("{} is not a transfer curve", marker_name(s, bundle)?),
     }
 }
 
@@ -614,6 +647,61 @@ fn codec_def(def: &CodecDefOwned) -> CodecDef<'_> {
         nominal: def.nominal,
         curve: None,
     }
+}
+
+/// The light a code of a codec with a transfer curve means (STD-112, `exact_units::codec::Transfer<Q, C>`): in the
+/// curve's [unit](Self::unit), exactly where it is a rational, and by the curve's float edge.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Light {
+    /// The unit of the light, by its marker: `exact_units::Nit` for PQ, `exact_units::Ratio` for a relative light.
+    pub unit: MarkerIdOwned,
+    /// Scene or display light.
+    pub referred: exact_units::codec::Referred,
+    /// The light exactly, `None` where it is no rational (PQ between black and white) or `exact_units` can't
+    /// compute it exactly: `CurveDef::decode_exact`, never a near value.
+    pub exact: Option<exact_units::Fraction>,
+    /// The light in `f64`, the float edge (`CurveDef::decode_f64`): each `pow` and `exp` rounded.
+    pub approx: f64,
+}
+
+/// The light code `raw` of `def` means through its transfer curve, `None` for a codec without one, a spare code or
+/// a code outside the curve's domain (footroom below black). `step` is the signal of one step of the codec's linear
+/// number, the scale of the `V` of its `Coded<C, V, T>` (1/876 for `Narrow10`'s `NarrowSignal10`): the signal is
+/// the linear number times it, as `Transfer`'s quantizer computes it.
+pub fn codec_light(
+    def: &CodecDefOwned,
+    raw: i128,
+    step: exact_units::Fraction,
+) -> Result<Option<Light>> {
+    let Some(curve) = &def.curve else {
+        return Ok(None);
+    };
+    let Some(linear) = codec_decode(def, raw)? else {
+        return Ok(None);
+    };
+    let signal = exact_units::Fraction::int(linear)
+        .checked_mul(step)
+        .ok_or_else(|| anyhow!("the signal of code {raw} overflows"))?;
+    let borrowed = exact_units::codec::CurveDef {
+        id: curve.id.as_id(),
+        referred: curve.referred,
+        unit: curve.unit.as_id(),
+        scale: curve.scale,
+        low: curve.low,
+        high: curve.high,
+        segments: shrink_wrap::RefVec::Slice {
+            slice: &curve.segments,
+        },
+    };
+    let Some(approx) = borrowed.decode_f64(signal.to_f64()) else {
+        return Ok(None);
+    };
+    Ok(Some(Light {
+        unit: curve.unit.clone(),
+        referred: curve.referred,
+        exact: borrowed.decode_exact(signal),
+        approx,
+    }))
 }
 
 /// Whether `raw` is one of `def`'s spare codes, a code that means no value (`CodecDef::is_spare`): refused on a

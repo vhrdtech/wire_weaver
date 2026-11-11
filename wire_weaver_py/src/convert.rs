@@ -569,7 +569,8 @@ pub(crate) fn to_py<'py>(
     let ty = resolve(ty, bundle)?;
     if let Some(q) = DynQuantity::from_value(value, ty, bundle) {
         // a codec's code (LVL-6): the one number of the transparent `Coded`
-        let code = match (coded_of(ty, bundle), value) {
+        let coded = coded_of(ty, bundle);
+        let code = match (&coded, value) {
             (
                 Some(_),
                 ValueOwned::Struct {
@@ -581,7 +582,8 @@ pub(crate) fn to_py<'py>(
             },
             _ => None,
         };
-        return Ok(Bound::new(py, Quantity { q, code })?.into_any());
+        let light = coded.zip(code).and_then(|(c, raw)| c.light(raw));
+        return Ok(Bound::new(py, Quantity { q, code, light })?.into_any());
     }
     Ok(match (value, ty) {
         (_, TypeOwned::MaxLen { ty: inner, .. }) => to_py(py, value, inner, bundle)?,

@@ -47,11 +47,14 @@ pub struct LenientCase {
     pub bytes_from: Option<String>,
     #[serde(default)]
     pub wire_change: Option<String>,
-    /// A codec case's linear value and the code it encodes to (LVL-6): as sealed as the bytes.
+    /// A codec case's linear value and the code it encodes to (LVL-6), and the light it means through a transfer
+    /// curve (STD-112): as sealed as the bytes.
     #[serde(default)]
     pub decoded: Option<i64>,
     #[serde(default)]
     pub encodes_to: Option<i64>,
+    #[serde(default)]
+    pub light: Option<i64>,
 }
 
 /// A corpus read from a past commit. `cases` is required (unlike [`LenientCase`]'s own fields): a JSON object
@@ -228,14 +231,14 @@ pub fn check(old: &LenientCorpus, now: &Corpus, sha: &str) -> Vec<String> {
                 was.name, was.direction, is.direction
             ));
         }
-        if (is.decoded, is.encodes_to) != (was.decoded, was.encodes_to) {
+        if (is.decoded, is.encodes_to, is.light) != (was.decoded, was.encodes_to, was.light) {
             failures.push(format!(
-                "case '{}': decoded or encodes_to changed since {sha} (baseline): old {:?}, new {:?}. A codec's \
-                 code means what it meant once in; mark it \"wire_change\": \"EVO-n / reason\" (new or changed) \
-                 if this is deliberate",
+                "case '{}': decoded, encodes_to or light changed since {sha} (baseline): old {:?}, new {:?}. A \
+                 codec's code means what it meant once in; mark it \"wire_change\": \"EVO-n / reason\" (new or \
+                 changed) if this is deliberate",
                 was.name,
-                (was.decoded, was.encodes_to),
-                (is.decoded, is.encodes_to)
+                (was.decoded, was.encodes_to, was.light),
+                (is.decoded, is.encodes_to, is.light)
             ));
         }
         if is.bytes_from != was.bytes_from {
@@ -316,6 +319,7 @@ mod tests {
             wire_change: wire_change.map(String::from),
             decoded: None,
             encodes_to: None,
+            light: None,
         }
     }
 
@@ -332,6 +336,7 @@ mod tests {
             wire_change: wire_change.map(String::from),
             decoded: None,
             encodes_to: None,
+            light: None,
         }
     }
 

@@ -174,9 +174,47 @@ walker reads every shape from the codec's source: `MuLaw`, `ALaw`, `Table` (CAN 
 `Offset` (video's narrow-range quantizers) and `MantissaExponent` (the streams' scales). A table the definition
 names is the array literal of a `const` in the codec's module, and its numbers are literals or `+`, `-`, `*` and
 `<<` of them: the walker evaluates no `const` code, so a table computed in one is refused, naming it. A codec whose
-shape has no algorithm yet (`ALaw`) is shown as its code. A generic codec, whose definition is one per instance
-(`exact_units::codec::Transfer<Q, C>`, a quantizer with a transfer curve), can't be used in an API yet: the walker
-refuses it, naming STD-112.
+shape has no algorithm yet (`ALaw`) is shown as its code.
+
+### Transfer curves
+
+A video code has two layers: a quantizer takes the signal E′ to a code, and a transfer curve says what light E′
+means. `codec::Transfer<Q, C>` puts them together, the quantizer `Q` (an `Offset` codec such as
+`video::Narrow10`) with the curve `C` (an `impl Curve`: `video::Pq`, `video::Hlg`, `video::Bt709`) above it
+(STD-112). On the wire it is still `Q`'s code; `Coded<Transfer<Narrow10, Pq>, ..>` is a 10-bit PQ pixel in two
+bytes:
+
+```rust
+use ww_si::codec::{Coded, Transfer, video::{Narrow10, NarrowSignal10, Pq}};
+
+#[ww_api_root]
+trait Display {
+    /// A pixel's luma: the signal E′ is `Narrow10`'s, the light it means is PQ's
+    property!(rw luma: Coded<Transfer<Narrow10, Pq>, NarrowSignal10, u16>);
+}
+```
+
+`Transfer` is generic, so its definition is one per instance. The model holds three markers: `Transfer` itself
+(`MarkerDef::Transfer`, the variant alone), the quantizer's codec (`MarkerDef::Codec`) and the curve
+(`MarkerDef::Curve`, exact_units' `CurveDef`: the light's unit and scale, the signal's domain and the exact
+segments). `ww_self::units::codec_of` puts an instance together as `Transfer`'s `DEF` does, `Q`'s definition with
+`curve` set to `C`'s, so the client reads the code as `Q`'s signal: code 940 is E′ = 876/876.
+
+The light a code means comes from the curve. In Rust, `CodedType::light(raw)` (and `ww_self::units::codec_light`)
+gives a `Light`: the unit by its marker (`Nit` for PQ), scene or display light, the exact value where it is a
+rational, and the curve's float edge. PQ's code 940 is exactly 10 000 cd/m² and 64 exactly 0; every code between
+has an irrational light, only the float edge (`exact` is `None`). A code outside the curve's domain (footroom below
+black) has no light. Python's `ww.Quantity` has `light` (the float), `light_exact` (a `fractions.Fraction`, or
+`None`) and `light_unit` (`"Nit"`). Writing goes through the signal: a quantity is written as its exact code, as
+any `Coded` is.
+
+The walker reads a curve from its source, `impl Curve for Pq { const DEF: CurveDef<'static> = Pq::DEF; }`: the
+constants the definition names (`Pq::M1`, a module's `const PQ_FORM: CurveForm = ..`, `Self::` in an inherent
+`impl`) are put in, and `Fraction`'s checked arithmetic (`Hlg::A.checked_div_int(3)`, through an unwrap helper
+of the module such as `known(..)`) runs with exact_units' own `Fraction`, exactly as the compiled `DEF` computes
+it. Any other call is refused, naming it. A generic `impl<..> Codec` of another crate, whose definition is put
+together by code the walker doesn't run, is refused where an API uses it; `Transfer` is the one generic codec the
+model knows.
 
 The numbers of a curve above a codec (`CodecDef::curve`, its segments' gains, offsets and exponents) are
 `exact_units::Fraction`s, `±num/den · 10^exp` with `exp` the value's power of 5: one canonical form per value, so

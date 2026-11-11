@@ -1126,9 +1126,10 @@ mod tests {
         dir
     }
 
-    /// A generic `impl<Q, C> Codec` (exact_units' `Transfer<Q, C>`) gives a definition per instance, which the API
-    /// model can't hold yet (STD-112): the crate declaring it walks, an API that uses an instance is refused with an
-    /// error naming the codec and the item, never a struct with no codec behind it.
+    /// A generic `impl<Q, C> Codec` of a crate other than exact_units gives a definition per instance, put together
+    /// by code the walker doesn't run: the crate declaring it walks, an API that uses an instance is refused with an
+    /// error naming the codec and the item, never a struct with no codec behind it. exact_units' own `Transfer<Q, C>`
+    /// is a built-in marker (STD-112).
     #[test]
     fn a_generic_codec_is_refused_where_an_api_uses_it() {
         let codec = "#[derive_shrink_wrap]\npub struct Code(pub u16);\n\n\
@@ -1147,7 +1148,8 @@ mod tests {
         let dir = write_crate("generic_codec_used_api", &[("lib.rs", &used)]);
         let err = format!("{:#}", load_crate(&dir).unwrap_err());
         assert!(
-            err.contains("Transfer<..> is a generic codec") && err.contains("STD-112"),
+            err.contains("Transfer<..> is a generic codec")
+                && err.contains("codec::Transfer<Q, C>"),
             "{err}"
         );
     }

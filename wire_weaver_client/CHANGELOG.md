@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `quantity::CodedType::light(raw)` (STD-112): the light a code means through its codec's transfer curve, a `ww_self::units::Light` (exact where it is a rational, the float edge). `coded_of` reads a `Coded<Transfer<Q, C>, ..>` (a 10-bit PQ pixel), its `codec` `Q`'s definition with `curve` set; `DynQuantity` reads and writes it as `Q`'s signal.
+
 ### ⚠️ Breaking
 
 - `tap::What` gains `BadBody`, `Stats` gains `blocks_bad`: a coded body that doesn't decode is reported (STD-129).

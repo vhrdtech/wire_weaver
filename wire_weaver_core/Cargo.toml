@@ -27,7 +27,7 @@ ron.workspace = true
 semver.workspace = true
 serde = { workspace = true, features = ["std"] }
 shrink_wrap.workspace = true
-syn = { workspace = true }
+syn = { workspace = true, features = ["visit-mut"] }
 toml.workspace = true
 wire_weaver_snapshots.workspace = true
 ww_global.workspace = true

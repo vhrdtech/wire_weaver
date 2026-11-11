@@ -45,6 +45,11 @@ mod tests {
         Fixed<units::Ratio, ww_si::prefix::Pow2<-13>, i16>,
         u8,
     >;
+    type Luma = ww_si::codec::Coded<
+        ww_si::codec::Transfer<ww_si::codec::video::Narrow10, ww_si::codec::video::Pq>,
+        ww_si::codec::video::NarrowSignal10,
+        u16,
+    >;
     type Uptime = Fixed<units::Second, Micro, u64>;
     type Buffer = Fixed<units::Byte, Kibi, u16>;
     type Delay = Fixed<units::Second, Micro, u32, Range<0, 5000000>>;
@@ -87,6 +92,7 @@ mod tests {
         sample: Index<Sample, u32>,
         frame: Seq<Frame, u16>,
         voice: Voice,
+        luma: Luma,
     }
 
     /// A pressure sensor input in bar, a unit `ww_si` doesn't have: sent with its dimension and scale.
@@ -139,6 +145,8 @@ mod tests {
             frame: Seq::new(41),
             // the largest positive sample, 8031
             voice: Voice::from_raw(0x80),
+            // nominal white, 10 000 cd/m² exactly
+            luma: Luma::try_from_raw(940).unwrap(),
         }
     }
 
@@ -408,6 +416,22 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Voice, ()> {
                 GetResult::Value(self.values.lock().unwrap().voice)
+            }
+
+            fn set_luma(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Luma,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().luma = value;
+                SetResult::Set
+            }
+
+            fn get_luma(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Luma, ()> {
+                GetResult::Value(self.values.lock().unwrap().luma)
             }
 
             fn set_sense(
@@ -1174,6 +1198,50 @@ mod tests {
             err,
             "31·2⁻¹³ is no code of exact_units::MuLaw: the nearest is 30·2⁻¹³ (code 240)"
         );
+    }
+
+    /// STD-112: a `Coded<Transfer<Narrow10, Pq>, ..>` is read as `Narrow10`'s signal, its codec put together from
+    /// the instance's two markers with PQ as its curve, and the light a code means is PQ's: exact at black and
+    /// white, the float edge between them as the typed code computes it. A signal is written as its exact code.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transfer_curve_property() {
+        let (device, values) = start("quantities/transfer");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let (value, ty) = read(&client, &root, "luma").await;
+        let coded = wire_weaver_client::quantity::coded_of(&ty, bundle).expect("a Coded");
+        assert_eq!(coded.codec.id.name, "Narrow10");
+        let curve = coded.codec.curve.as_ref().expect("a curve");
+        assert_eq!(curve.id.name, "Pq");
+        assert_eq!(curve.unit.name, "Nit");
+        // the signal: code 940 is E′ = 876/876
+        let v = DynQuantity::from_value(&value, &ty, bundle).expect("a quantity");
+        assert_eq!(v.value, NumericValue::I16(876));
+        let white = coded.light(940).expect("a light");
+        assert_eq!(white.exact, Some(ww_si::exact_units::Fraction::int(10_000)));
+        assert_eq!(white.approx, 10_000.0);
+        let black = coded.light(64).expect("a light");
+        assert_eq!(black.exact, Some(ww_si::exact_units::Fraction::ZERO));
+        // between them the light is irrational: the float edge alone, the typed code's own
+        for raw in [65, 512, 939] {
+            let light = coded.light(raw).expect("a light");
+            assert_eq!(light.exact, None, "{raw}");
+            let typed = Luma::try_from_raw(raw as u16).unwrap().light_f64().unwrap();
+            assert_eq!(light.approx, typed.get(), "{raw}");
+        }
+        // footroom below black is outside PQ's domain, a spare code no value at all
+        assert_eq!(coded.light(63), None);
+        assert_eq!(coded.light(0), None);
+        // a signal is written as its exact code: E′ = 448/876 is code 512
+        let luma = root.child("luma").unwrap();
+        let mid = DynQuantity {
+            value: NumericValue::I16(448),
+            ..v.clone()
+        };
+        luma.write(client.cmd(), &mid.to_value(&ty, bundle).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().luma.raw(), 512);
     }
 
     /// CLT-65: a `Point` is read as a `DynQuantity` shown in its own origin, not its `Fixed`'s raw unit.

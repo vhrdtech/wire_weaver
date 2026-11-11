@@ -905,6 +905,11 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.coded.mu_law.negative_zero", MuLawByte::from_raw(0x7F)),
         case("stdlib.si.coded.mu_law.segment_0_top", MuLawByte::from_raw(0xF0)),
         case("stdlib.si.coded.mu_law.segment_1_bottom", MuLawByte::from_raw(0xEF)),
+        // STD-112: 10-bit PQ codes, each with its signal (`decoded`) and, where it is a rational, its light in cd/m²
+        // (`light`), checked by the typed code, the model's codec and curve, and Python
+        case("stdlib.si.coded.pq.black", pq(64)),
+        case("stdlib.si.coded.pq.white", pq(940)),
+        case("stdlib.si.coded.pq.mid", pq(512)),
         // 0x7F spare: refused as a code, the niche of a `Niched` (exact_units' codec-niche)
         case(
             "stdlib.si.coded.mu_law_single_zero.zero",
@@ -1200,6 +1205,8 @@ pub fn table() -> Vec<Typed> {
         case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
         case("model.marker_def.maybe_nan", ww_self::MarkerDefOwned::MaybeNan),
         case("model.marker_def.finite", ww_self::MarkerDefOwned::Finite),
+        case("model.marker_def.curve", pq_def()),
+        case("model.marker_def.transfer", ww_self::MarkerDefOwned::Transfer),
         case("model.marker_def.of", ww_self::MarkerDefOwned::Of),
         case(
             "model.marker_def.quantity",
@@ -1521,6 +1528,31 @@ pub type SingleZeroByte = ww_si::codec::Coded<
 /// `SingleZeroByte` or its spare code 0x7F as the niche, as `conformance_api`'s `niched_mu_law` is.
 pub type NichedMuLaw =
     ww_si::exact_units::niche::Niched<SingleZeroByte, ww_si::exact_units::niche::Null<0x7F>, u8>;
+
+/// A 10-bit narrow-range PQ code (STD-112), as `conformance_api`'s `coded_pq` is.
+pub type PqCode = ww_si::codec::Coded<
+    ww_si::codec::Transfer<ww_si::codec::video::Narrow10, ww_si::codec::video::Pq>,
+    ww_si::codec::video::NarrowSignal10,
+    u16,
+>;
+
+fn pq(raw: u16) -> PqCode {
+    PqCode::try_from_raw(raw).unwrap()
+}
+
+/// PQ's `Curve::DEF` as the model holds it, through its own bytes.
+fn pq_def() -> ww_self::MarkerDefOwned {
+    let compiled = <ww_si::codec::video::Pq as ww_si::codec::Curve>::DEF;
+    let mut buf = [0u8; 1024];
+    let bytes =
+        wire_weaver::shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&compiled, &mut buf).unwrap();
+    ww_self::MarkerDefOwned::Curve(
+        <ww_si::codec::CurveDefOwned as wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned>::from_ww_bytes_owned(
+            bytes,
+        )
+        .unwrap(),
+    )
+}
 
 fn single_zero(raw: u8) -> SingleZeroByte {
     SingleZeroByte::try_from_raw(raw).unwrap()

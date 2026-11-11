@@ -1,6 +1,6 @@
 use super::{
     crate_walker::{CrateContext, LookupKey, Scratch, TypeInProgress},
-    markers::{CrateRefs, generic_codec_error, is_generic_codec, marker_def},
+    markers::{CrateRefs, generic_codec_error, is_built_in, is_generic_codec, marker_def},
     projection::{Projection, param_bounds},
     unit_hint::{is_silenced, suggest, unreasoned_silence},
     util::{
@@ -286,6 +286,7 @@ fn convert_user_ty(
     };
     if let Item::Struct(item_struct) = item
         && is_generic_codec(&item_struct.attrs)
+        && !is_built_in(def_cx.crate_name(), ident)
     {
         return Err(generic_codec_error(ident).context(def_cx.err_context()));
     }

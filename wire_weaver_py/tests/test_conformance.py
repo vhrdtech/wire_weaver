@@ -125,6 +125,9 @@ def attempt(api, case):
         # a codec's code (LVL-6): the linear number it means, as the codec's definition in the model decodes it
         if "decoded" in case and decoded.value != case["decoded"]:
             return False, f"decode: the code means {decoded.value!r}, expected {case['decoded']!r}"
+        # a codec with a transfer curve (STD-112): the light its code means, exactly where it is a rational
+        if "decoded" in case and decoded.light_exact != case.get("light"):
+            return False, f"decode: the code means the light {decoded.light_exact!r}, expected {case.get('light')!r}"
         return True, ""
     except Exception as e:  # anything else is a failure of this consumer, with its message
         return False, f"{type(e).__name__}: {e}"

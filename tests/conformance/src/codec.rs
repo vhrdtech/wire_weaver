@@ -2,22 +2,40 @@
 //! where it isn't the case's own, the code that number encodes back to (`encodes_to`). The derive runs the typed
 //! `Codec`; the dynamic client has only the codec's definition in the model and runs `CodecDef::decode` / `encode`
 //! through `ww_self::units`. A change to a codec's algorithm that moves a code's meaning fails here, as a moved wire
-//! byte fails the cases' golden bytes.
+//! byte fails the cases' golden bytes. A codec with a transfer curve (STD-112) also checks the light its code means,
+//! where the case gives it (`light`): the typed `light_exact`, and the model's curve through `units::codec_light`.
 
 use crate::corpus::Case;
 use crate::dynamic::{bundle, property_ty};
 use ww_si::Fixed;
-use ww_si::codec::{Codec, MuLaw, MuLawSingleZero};
-use ww_si::exact_units::Rounding;
+use ww_si::codec::video::{Narrow10, Pq};
+use ww_si::codec::{Codec, Coded, MuLaw, MuLawSingleZero, Transfer};
+use ww_si::exact_units::{Fraction, Rounding};
 
 /// The code of a codec case: its golden bytes, little-endian.
 fn code(case: &Case) -> Result<i128, String> {
     let bytes = case.golden();
     match bytes.as_slice() {
         [b] => Ok(i128::from(*b)),
+        [lo, hi] => Ok(i128::from(u16::from_le_bytes([*lo, *hi]))),
         _ => Err(format!(
-            "a code of {} bytes: only u8 codes so far",
+            "a code of {} bytes: only u8 and u16 codes so far",
             bytes.len()
+        )),
+    }
+}
+
+/// The light a case expects its code to mean, exactly: `None` for an irrational one.
+fn light(case: &Case) -> Option<Fraction> {
+    case.light.map(|l| Fraction::int(l.into()))
+}
+
+fn check_light(got: Option<Fraction>, case: &Case) -> Result<(), String> {
+    match got == light(case) {
+        true => Ok(()),
+        false => Err(format!(
+            "means the light {got:?}, expected {:?}",
+            light(case)
         )),
     }
 }
@@ -53,6 +71,23 @@ pub fn derive(case: &Case) -> Result<(), String> {
     match case.ty.as_str() {
         "coded_mu_law" => typed::<MuLaw>(code, decoded, encodes_to),
         "coded_mu_law_single_zero" => typed::<MuLawSingleZero>(code, decoded, encodes_to),
+        "coded_pq" => {
+            let raw = u16::try_from(code).map_err(|_| format!("{code} is no u16"))?;
+            let pq = Coded::<Transfer<Narrow10, Pq>>::try_from_raw(raw)
+                .map_err(|_| format!("{code} is a spare code"))?;
+            let value = i16::try_from(decoded).map_err(|_| format!("{decoded} is no i16"))?;
+            let back = Coded::<Transfer<Narrow10, Pq>>::try_new(
+                ww_si::codec::video::NarrowSignal10::try_new(value)
+                    .map_err(|_| format!("{decoded} is out of bounds"))?,
+                Rounding::NearestEven,
+            )
+            .map_err(|_| format!("{decoded} doesn't encode"))?;
+            check(
+                (i128::from(pq.get().get()), i128::from(back.raw())),
+                (decoded, encodes_to),
+            )?;
+            check_light(pq.light_exact().map(|l| l.get()), case)
+        }
         other => Err(format!("no typed codec for property '{other}'")),
     }
 }
@@ -81,7 +116,7 @@ pub fn dynamic(case: &Case) -> Result<(), String> {
         return Ok(());
     };
     let ty = property_ty(&case.ty).ok_or_else(|| format!("no property '{}'", case.ty))?;
-    let Some(ww_self::units::Wrapper::Coded { codec, .. }) =
+    let Some(ww_self::units::Wrapper::Coded { codec, value, .. }) =
         ww_self::units::wrapper_of(ty, bundle())
     else {
         return Err(format!("'{}' is no Coded in the model", case.ty));
@@ -92,5 +127,20 @@ pub fn dynamic(case: &Case) -> Result<(), String> {
         .ok_or_else(|| format!("{code} is a spare code of {}", def.id.name))?;
     let back = ww_self::units::codec_encode(&def, decoded, Rounding::NearestEven)
         .map_err(|e| format!("{e:#}"))?;
-    check((linear, back), (decoded, encodes_to))
+    check((linear, back), (decoded, encodes_to))?;
+    if def.curve.is_none() {
+        return Ok(());
+    }
+    // the signal of one step of the linear number: the scale of the `V` the code means
+    let Some(ww_self::units::Wrapper::Fixed { scale, .. }) =
+        ww_self::units::wrapper_of(value, bundle())
+    else {
+        return Err(format!("the value of '{}' is no Fixed", case.ty));
+    };
+    let step = ww_self::units::scale_of(scale, bundle())
+        .ok()
+        .and_then(|m| Fraction::from_magnitude(&m))
+        .ok_or_else(|| format!("the scale of '{}' is no rational step", case.ty))?;
+    let light = ww_self::units::codec_light(&def, code, step).map_err(|e| format!("{e:#}"))?;
+    check_light(light.and_then(|l| l.exact), case)
 }

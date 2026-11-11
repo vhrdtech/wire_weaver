@@ -144,6 +144,9 @@ trait Conformance {
     // the same μ-law with 0x7F spare (a code that means no value, refused on decode), and that code as a niche
     property!(rw coded_mu_law_single_zero: ww_si::codec::Coded<ww_si::codec::MuLawSingleZero, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>);
     property!(rw niched_mu_law: ww_si::exact_units::niche::Niched<ww_si::codec::Coded<ww_si::codec::MuLawSingleZero, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>, ww_si::exact_units::niche::Null<0x7F>, u8>);
+    // a codec with a transfer curve (STD-112): a 10-bit narrow-range PQ code, the bytes of its u16; the model holds
+    // the generic Transfer and its two markers, Narrow10's codec and PQ's curve
+    property!(rw coded_pq: ww_si::codec::Coded<ww_si::codec::Transfer<ww_si::codec::video::Narrow10, ww_si::codec::video::Pq>, ww_si::codec::video::NarrowSignal10, u16>);
     property!(rw magnitude: ww_si::Magnitude);
     // an exact number, `±num/den · 10^exp` in one canonical form (exact_units NUM-33): the numbers of a codec's curve
     property!(rw fraction: ww_si::exact_units::Fraction);

@@ -134,6 +134,11 @@ pub struct Case {
     /// μ-law encodes to the positive one.
     #[serde(default)]
     pub encodes_to: Option<i64>,
+    /// For a case of a codec with a transfer curve (STD-112): the light its code means, in the curve's unit, where it
+    /// is an integer (PQ's black and white); checked against the typed `light_exact` and the model's curve. A case
+    /// without it means a light that is no rational.
+    #[serde(default)]
+    pub light: Option<i64>,
     /// A deliberate wire break (TEST-24, `docs/serdes/conformance.md`): `"EVO-n / reason"`. Without it, the frozen
     /// bytes guard fails when this case's `bytes`, `direction` or `bytes_from` differ from what they were at the
     /// merge base with main; with it, the change is accepted, but still needs the matching EVO item and a

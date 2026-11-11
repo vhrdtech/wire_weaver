@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 231b9b8ea86600e844473bcba2644649607035e7fe423665b268c5fc07b34851
+// shrink_wrap sha256: f58fef6d0be7d55477a35952a44d0fff3678335b4c9cd1ac6c1879a2d464ada7
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -36,7 +36,8 @@
     "",
     "`no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`\'s),",
     "`std` every unit group and with `shrink_wrap` the owned forms of the wire types, `defmt` their `defmt::Format`,",
-    "`serde` their serde, `libm` the run-time dB without `std`. Unit groups are cargo features (`time`, `electrical`,",
+    "`serde` their serde, `libm` the run-time dB without `std`, `bignum` an `Exact` of any size (`BigFraction`, with",
+    "`alloc`). Unit groups are cargo features (`time`, `electrical`,",
     "`mechanical`, `angle`, `thermal`, `chemical`, `photometric`, `radiometric`, `radiation`, `fields`, `dimensionless`,",
     "`information`, `counting`, `levels`, `quantities` for all).",
     "",
@@ -58,83 +59,6 @@
             "The marker\'s name: `Volt`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "The powers of the symbols in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in neper",
-        "(`ln10/20`) `ln10 = 2`, an oersted in A/m (`10⁻⁴/μ₀`) `mu0 = -2`. Treated as independent symbols, like the primes,",
-        "so they cancel exactly: `(T/μ₀)·μ₀` is `T`.",
-        "",
-        "π, ln 2 and ln 10 are mathematics: their value is known, and a factor with them converts by a named rounding. μ₀",
-        "(the magnetic constant) and G (the Newtonian constant of gravitation) are measured since the 2019 SI: a factor with",
-        "either left in it has no value until a named, versioned set gives one ([resolve](Magnitude::resolve)). ε₀ =",
-        "1/(μ₀c²), Z₀ = μ₀c and α = μ₀e²c/(2h) are expressions over μ₀ with the exact c, e and h, not symbols of their own.",
-    ], ident: "Symbols", generics: [], fields: Named([
-        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of π.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of ln 2.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of ln 10.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("mu0"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of μ₀, the magnetic constant (measured).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("g"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of G, the Newtonian constant of gravitation (measured).",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
-    ], ident: "PrimePower", generics: [], fields: Named([
-        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
-            "The prime: 3, 7, 11, ..",
-        ], slot: None, series_opaque: false),
-        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice its exponent.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
-    ], ident: "MagnitudeRest", generics: [], fields: Named([
-        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of 2.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("symbols"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
-            "π, ln 2, ln 10, μ₀ and G, `None` when all their exponents are 0.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(16), ty: Option(some_ty: OutOfLine(type_idx: 2))), docs: [
-            "Primes other than 2 and 5, ascending, used slots first.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
-        "An exact positive factor: `10^a · 2^b · π^c · ln2^d · ln10^e · μ₀^f · G^g · ∏ pᵢ^kᵢ` over primes `pᵢ` other than 2",
-        "and 5, every exponent a whole or half number (`√2`, `10^(3/2)` for √(kHz), `√μ₀`). `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit duty,",
-        "`3⁻¹ · 5⁻¹ · 17⁻¹ · 257⁻¹`), `π/180` (°), the pound\'s `0.45359237` (`7 · 11 · 97 · 6073 · 10⁻⁸`), `ln10/20` (a",
-        "decibel in neper), `10⁻⁴/μ₀` (an oersted in A/m). Never an `f64`, so every client reproduces a value bit-exactly, and a scale fixed in a type",
-        "([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
-        "",
-        "Closed under multiplication and division: a product only fails when it needs more than [MAX_FACTORS] primes or",
-        "an exponent leaves ±63½, and then at compile time in a `const` (a panic at run time; the `checked_` forms say",
-        "`None`), never by rounding.",
-        "",
-        "Always canonical, so equal magnitudes are equal field by field: 2 and 5 only in `pow10` / `pow2` (`5 = 10 · 2⁻¹`),",
-        "the other primes sorted with exponents that aren\'t 0, and `rest` / `symbols` left out when they are 1. Plain",
-        "`const` data without lifetimes, so a `&\'static Magnitude` can be held at run time; [Fixed](crate::Fixed) uses it",
-        "only at compile time.",
-        "",
-        "On the wire every exponent is twice the exponent as an `i8`, the primes as [UNib32]: `pow10` alone is 9 bits",
-        "(Milli `fa 00`), the rest behind an option bit, its symbols behind one more, an empty prime slot one bit.",
-        "`self_describing`: the bytes end by themselves, so a magnitude can be the field of an enum variant",
-        "([Prefix](crate::Prefix)\'s `Exact`).",
-    ], ident: "Magnitude", generics: [], fields: Named([
-        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
-            "Twice the exponent of 10.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 3)), docs: [
-            "Everything but the power of 10, `None` when it is 1.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a [Codec] computes, as data: the family of algorithm, with its parameters where it has any. Every shape",
         "here is exact (a table or an integer formula) or names where it isn\'t yet, never a float standing in for it.",
@@ -146,33 +70,53 @@
             "ITU-T G.711 A-law: as μ-law\'s segments, the even ones linear. No [Codec] in this crate yet (LVL-4).",
         ], ident: "ALaw", fields: Unit, discriminant: 1, since: None),
         (docs: [
-            "A gamma curve, `v\' = v^gamma`: sRGB\'s shape away from its linear segment near zero. No [Codec] in this",
-            "crate yet (LVL-4); `gamma` is exact, never an `f64` standing in for it.",
-        ], ident: "Power", fields: Named([
-            (ident: Some("gamma"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
-                "The exponent.",
-            ], slot: None, series_opaque: false),
-        ]), discriminant: 2, since: None),
-        (docs: [
-            "A gamma curve with a linear segment near zero (sRGB, L*): [Power](CodecShape::Power) plus the segment\'s own",
-            "slope and breakpoint, not yet named here. No [Codec] in this crate yet (LVL-4).",
-        ], ident: "PiecewisePower", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "An exponential curve, `base^(v + offset)` (BLE illuminance\'s log scale). No [Codec] in this crate yet (LVL-4).",
-        ], ident: "Exp", fields: Named([
-            (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
-                "The base.",
-            ], slot: None, series_opaque: false),
-            (ident: Some("offset"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
-                "Added before raising to `base`.",
-            ], slot: None, series_opaque: false),
-        ]), discriminant: 4, since: None),
-        (docs: [
-            "The linear value of every code, ascending by raw code: IEEE 11073 SFLOAT\'s shape, where the codes outside a",
-            "formula (NaN, ±∞, \"not at this resolution\") are the common case. No [Codec] in this crate yet (IO-3).",
+            "The linear value of every code, by raw code from 0: entry `i` is what code `i` means, a code past the end",
+            "means no value. Decoding looks the code up; encoding takes the code of the value, or the one a named",
+            "[Rounding] picks among the codes that aren\'t spare (the lowest code where two mean the same value). The",
+            "entries need not be ascending. [CanFdDlc] is the worked [Codec]; IEEE 11073 SFLOAT (IO-3), whose codes",
+            "outside a formula (NaN, ±∞, \"not at this resolution\") are the common case, is the next.",
         ], ident: "Table", fields: Unnamed([
             (ident: None, default: None, since: None, ty: Vec(NumericAny(Base(I128))), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 5, since: None),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A code that is the `Linear`\'s raw value plus a fixed `zero`: the `Linear` is `code − zero`, its scale in the",
+            "`Linear`\'s own [Fixed] (`Rational<1, 219>`). Affine, so exact both ways, and encoding needs no rounding.",
+            "Video\'s narrow-range quantization is the case ([Narrow8](video::Narrow8): E′ = (D − 16)/219, ITU-R BT.709-6",
+            "Part 2 item 3.4), where codes past the nominal range are values and the timing references are spare.",
+        ], ident: "Offset", fields: Named([
+            (ident: Some("zero"), default: None, since: None, ty: NumericAny(Base(I128)), docs: [
+                "The code of the `Linear`\'s zero (16 for 8-bit narrow-range Y′, 128 for C′B and C′R).",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+        (docs: [
+            "A mantissa times a power of two, both read from the code: `code = e · radix + m`, `0 <= m < radix`, the",
+            "`Linear`\'s raw value `mantissa(m) · 2^(exponent_zero + exponent_step · e)` for `e < exponents`, where",
+            "`mantissa(m)` is `mantissas[m]` or, with no table, `m + mantissa_offset`. A code past the last exponent, or",
+            "whose power is below 2⁰ (the `Linear`\'s scale takes the least one), means no value. Exact both ways; encoding",
+            "takes the code of the value, or the one a named [Rounding] picks (the lowest code where two mean the same",
+            "value). The streams\' scales are the cases: ITU-T T.800\'s quantization step, 5 + 11 bits with an implicit",
+            "leading 1 (eq. E-3, [J2kStepSize]), H.265\'s `levelScale[qP % 6] << (qP / 6)` (eq. 8-309, [HevcLevelScale])",
+            "and the HRD\'s `(value_minus1 + 1) · 2^(6 + scale)` (H.264 eq. E-81, [HrdBitRate]).",
+        ], ident: "MantissaExponent", fields: Named([
+            (ident: Some("radix"), default: None, since: None, ty: NumericAny(Base(I128)), docs: [
+                "The count of mantissa codes per exponent: 2¹¹ for 11 bits of mantissa, 6 for a QP.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("exponents"), default: None, since: None, ty: NumericAny(Base(I128)), docs: [
+                "The count of exponent codes, from 0.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("mantissas"), default: None, since: None, ty: Vec(NumericAny(Base(I128))), docs: [
+                "The mantissa of each mantissa code, `radix` of them; empty for `m + mantissa_offset`.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("mantissa_offset"), default: None, since: None, ty: NumericAny(Base(I128)), docs: [
+                "What a mantissa code adds with no table: 2¹¹ for an implicit leading 1, 1 for a `value_minus1`.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("exponent_zero"), default: None, since: None, ty: NumericAny(Base(I128)), docs: [
+                "The power of two of exponent code 0.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("exponent_step"), default: None, since: None, ty: NumericAny(Base(I128)), docs: [
+                "What each exponent code adds to the power: 1, or −1 where a larger code is a finer step.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 4, since: None),
     ], path: Some([
         "codec",
     ]), instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
@@ -189,6 +133,159 @@
     ]), sparse: false, path: Some([
         "codec",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Which function of its standard a curve is, so the light side is never read as the other kind: an inverse OETF",
+        "gives the light a camera saw, an EOTF the light a display sends, and the two differ (BT.709\'s inverse OETF is",
+        "not BT.1886\'s EOTF).",
+    ], ident: "Referred", generics: [], variants: [
+        (docs: [
+            "Scene light, relative: the curve is an inverse OETF (HLG, BT.709).",
+        ], ident: "Scene", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Display light: the curve is an EOTF (PQ, BT.1886).",
+        ], ident: "Display", fields: Unit, discriminant: 1, since: None),
+    ], path: Some([
+        "codec",
+    ]), instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "Fraction", generics: [], fields: Named([
+        (ident: Some("neg"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
+        (ident: Some("num"), default: None, since: None, ty: NumericAny(Base(U128)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("den"), default: None, since: None, ty: NumericAny(Base(U128)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "The base of an [Exp](CurveForm::Exp) form.",
+    ], ident: "ExpBase", generics: [], variants: [
+        (docs: [
+            "Euler\'s number: exact only where the exponent is 0.",
+        ], ident: "E", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A positive rational: exact where its power is a rational (an integer exponent always).",
+        ], ident: "Exactly", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: Some([
+        "codec",
+    ]), instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "One formula of a curve, in its decode direction (signal `x` to light `y`), every parameter exact.",
+    ], ident: "CurveForm", generics: [], variants: [
+        (docs: [
+            "`y = gain·x + offset`: exact on every rational (sRGB\'s and BT.709\'s toe).",
+        ], ident: "Affine", fields: Named([
+            (ident: Some("gain"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The slope.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The value at `x = 0`.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "`y = gain·max(scale·x + shift, 0)^exponent + offset`: exact where `scale·x + shift` is a rational\'s q-th",
+            "power, the exponent being p/q. The base carries its own scale, so a divisor inside the power stays rational:",
+            "BT.709\'s `((V + 0.099)/1.099)^(20/9)` is scale 1/1.099 and shift 0.099/1.099 (a gain outside would be",
+            "1.099^(−20/9), irrational); sRGB\'s `((V + 0.055)/1.055)^(12/5)` likewise, HLG\'s lower half `E′²/3` scale 1.",
+        ], ident: "Power", fields: Named([
+            (ident: Some("gain"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The factor of the power.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The factor of `x` in the base.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("shift"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "Added to `scale·x` in the base.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("exponent"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The exponent, a rational.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "Added after.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "`y = gain·base^(scale·(x − shift)) + offset`: exact for [ExpBase::E] only where the exponent is 0, for a",
+            "rational base where the power is rational (HLG\'s upper half, a log-coded illuminance).",
+        ], ident: "Exp", fields: Named([
+            (ident: Some("gain"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The factor of the power.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+                "The base.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "The factor of `x − shift` in the exponent.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("shift"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "Taken from `x` in the exponent.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "Added after.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "PQ\'s EOTF as ITU-R BT.2100 writes it: `y = (max(x^(1/m2) − c1, 0) / (c2 − c3·x^(1/m2)))^(1/m1)`. Exact where",
+            "`x^(1/m2)` and then the quotient\'s `1/m1` power are rationals: `x = 0` and `x = 1`.",
+        ], ident: "RationalPower", fields: Named([
+            (ident: Some("m1"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "m₁, the exponent of the inverse\'s inner power.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("m2"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "m₂, the exponent of the inverse\'s outer power.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("c1"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "c₁.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("c2"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "c₂.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("c3"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+                "c₃.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+    ], path: Some([
+        "codec",
+    ]), instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A piece of a curve: its [form](Self::form) from signal [from](Self::from) (inclusive) up to the next segment\'s",
+        "`from`, or to the end of the curve\'s domain.",
+    ], ident: "Segment", generics: [], fields: Named([
+        (ident: Some("from"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "The lowest signal this segment\'s form applies to.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("form"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
+            "What it computes there.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A [Curve] as data: which function it is, the light\'s unit and scale, the domain of the signal and the segments.",
+        "What a dynamic client runs, and what [CodecDef::curve](super::CodecDef::curve) names over a quantizer.",
+    ], ident: "CurveDef", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "The crate and marker that declare it.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("referred"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Scene or display light.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "The unit of the light, by its marker: `exact_units::Nit` for PQ.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "The light, in [unit](Self::unit), that a form\'s `y = 1` is: 10 000 for PQ (cd/m²), 1 for a relative light.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("low"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "The lowest signal the curve takes.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("high"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "The highest signal the curve takes.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("segments"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 7)), docs: [
+            "The pieces, ascending by [from](Segment::from), the first from [low](Self::low).",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Where a [Codec]\'s algorithm is found, as data a client without the trait can run: an id ([MarkerId], as",
         "[UnitDef](crate::UnitDef)\'s is) and a [CodecShape]. [Codec::DEF] carries one for every codec in this crate.",
@@ -199,12 +296,24 @@
         (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "What it computes.",
         ], slot: None, series_opaque: false),
-        (ident: Some("spare"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 6)), docs: [
+        (ident: Some("spare"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 2)), docs: [
             "The codes that mean no value: free for a [Niched](niche::Niched) to claim, refused by",
             "[Coded::try_from_raw] and [Codec::decode]. Empty for a codec whose every code is a value ([MuLaw]).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("codes"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
+            "Every code the `Raw` holds, spare or not: `0..=255` for a `u8`. [encode](Self::encode) never gives a code",
+            "outside it and [decode](Self::decode) refuses one; checked against `Raw` at compile time.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("nominal"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
+            "The codes of the nominal range, where a codec has one: video\'s black to white (16..=235 for 8-bit narrow",
+            "Y′). Codes outside it are still values (a signal\'s undershoot and overshoot); a client clips or warns there.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("curve"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+            "The transfer curve above the code, where the value the code gives is a signal for one: PQ over a 10-bit",
+            "quantizer. `None` for a code whose value is the meaning itself.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "codec",
@@ -265,6 +374,469 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "MuLawSingleZero"), shape: MuLaw, spare: [
         (low: 127, high: 127),
     ], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The data lengths of a CAN FD frame, in bytes: 0..=8, 12, 16, 20, 24, 32, 48 and 64, the lengths its 4-bit",
+        "[data length code](CanFdDlc) can say (ISO 11898-1:2015; checked against ST RM0468 Rev 3, §61.4.1, Table 503). A",
+        "[ValueSet] for",
+        "[OneOf]: `Fixed<Byte, One, u8, OneOf<CanFdLengths>>` is a payload length that a frame can carry,",
+        "and nothing else.",
+    ], ident: "CanFdLengths", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The data length code (DLC) of a CAN FD frame: 4 bits that say how many data bytes follow, 0..=8 as themselves and",
+        "9..=15 as 12, 16, 20, 24, 32, 48 and 64 bytes. ISO 11898-1:2015 defines the coding; the table is checked against",
+        "ST\'s RM0468 Rev 3 (STM32H72x/73x reference manual), §61.4.1, Table 503 \"DLC coding in FDCAN\", p. 2510, and Linux\'s",
+        "`can_fd_dlc2len` (`drivers/net/can/dev/length.c`) has the same. The first [CodecShape::Table] codec: its [DEF](Codec::DEF)",
+        "carries the table for a client that has only the data. The typed path works in `u8` on the one table of 16",
+        "bytes that is also [CanFdLengths]: a code\'s length is its entry, a length\'s code is its position (a binary",
+        "search), so a firmware pays what a table written by hand costs. `tests/props/can_fd.rs` checks both paths",
+        "agree on every code and every length, by every rounding.",
+        "",
+        "- [Raw](Codec::Raw) is `u8`, the field as a controller\'s register or a byte of a frame holds it: codes",
+        "  16..=255 are [spare](CodecDef::spare), no DLC, refused by [Coded::try_from_raw] and free for a niche.",
+        "- [Linear](Codec::Linear) is `Fixed<Byte, One, u8, OneOf<CanFdLengths>>`: every value of it has its code, so",
+        "  [encode](Codec::encode) is exact whatever [Rounding] it is given, and a length between two of the set",
+        "  (13 bytes) is no `Linear` at all: [try_new](crate::Fixed::try_new) refuses it, and",
+        "  [try_new_rounded](crate::Fixed::try_new_rounded) with [Rounding::Ceil] names the step up to 16, the frame",
+        "  the 13 bytes are sent in (padded).",
+        "",
+        "Only for an FD frame: a classic CAN frame reads the codes 9..=15 as 8 bytes, a different codec.",
+        "",
+        "```",
+        "use exact_units::codec::{CanFdDlc, CanFdLengths, Coded};",
+        "use exact_units::{Fixed, OneOf, Rounding, prefix::One, units::Byte};",
+        "",
+        "type Len = Fixed<Byte, One, u8, OneOf<CanFdLengths>>;",
+        "",
+        "// DLC 9 is 12 bytes, exactly",
+        "let dlc = Coded::<CanFdDlc>::try_from_raw(9).unwrap();",
+        "assert_eq!(dlc.get().get(), 12);",
+        "",
+        "// 13 bytes is no FD length: refused, or rounded up by a rounding the code names",
+        "assert_eq!(Len::try_new(13).unwrap_err().to_string(), \"13 B is out of {0..=8, 12, 16, 20, 24, 32, 48, 64} B (Byte, u8)\");",
+        "let len = Len::try_new_rounded(13, Rounding::Ceil).unwrap();",
+        "assert_eq!(len.get(), 16);",
+        "assert_eq!(Coded::<CanFdDlc>::try_new(len, Rounding::Ceil).map(Coded::raw), Ok(10));",
+        "",
+        "// 16 and above is no DLC",
+        "assert!(Coded::<CanFdDlc>::try_from_raw(16).is_err());",
+        "```",
+    ], ident: "CanFdDlc", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "CanFdDlc"), shape: Table([
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        12,
+        16,
+        20,
+        24,
+        32,
+        48,
+        64,
+    ]), spare: [
+        (low: 16, high: 255),
+    ], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The Y′C′BC′R matrix of a standard, as data: its id and `K_R`, `K_B` (`K_G` is derived, [k_g](Self::k_g)).",
+    ], ident: "MatrixDef", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "The crate and marker that declare it.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("k_r"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "The weight of R′ in Y′.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("k_b"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "The weight of B′ in Y′.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "codec",
+        "matrix",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "ITU-R BT.601\'s Y′C′BC′R matrix (625- and 525-line): `K_R = 0.299`, `K_B = 0.114` (so `K_G = 0.587`).",
+    ], ident: "Bt601", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "matrix",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "ITU-R BT.709\'s Y′C′BC′R matrix (HD): `K_R = 0.2126`, `K_B = 0.0722` (so `K_G = 0.7152`). Named `Bt709Matrix`,",
+        "not `Bt709`, which is [BT.709\'s inverse OETF](super::video::Bt709).",
+    ], ident: "Bt709Matrix", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "matrix",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "ITU-R BT.2020\'s Y′C′BC′R matrix (UHD, wide colour gamut): `K_R = 0.2627`, `K_B = 0.0593` (so `K_G = 0.6780`).",
+    ], ident: "Bt2020", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "matrix",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "H.265\'s `levelScale` (8.6.3): `levelScale[qP % 6] << (qP / 6)`, the factor of eq. 8-309 that the QP gives, with",
+        "levelScale = {40, 45, 51, 57, 64, 72}. The code is qP, 0 to 99 (51 plus QpBdOffset, which is 48 at 16 bits);",
+        "100 and up are spare. The factor doubles exactly every 6 steps of qP, and between them rises by the table\'s",
+        "ratios, 45/40 = 1.125, 51/45 = 1.133…: never 2^(1/6), which no equation of H.265 or H.264 contains.",
+        "",
+        "```",
+        "use exact_units::codec::{Codec, HevcLevelScale};",
+        "",
+        "let at = |qp| HevcLevelScale::decode(qp).map(|v| v.get());",
+        "assert_eq!(at(20), Some(51 << 3));",
+        "assert_eq!(at(26), Some(51 << 4)); // twice qP 20\'s",
+        "assert_eq!(at(100), None);",
+        "```",
+    ], ident: "HevcLevelScale", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "HevcLevelScale"), shape: MantissaExponent(radix: 6, exponents: 17, mantissas: [
+        40,
+        45,
+        51,
+        57,
+        64,
+        72,
+    ], mantissa_offset: 0, exponent_zero: 0, exponent_step: 1), spare: [
+        (low: 100, high: 255),
+    ], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "JPEG 2000\'s quantization step size of a sub-band (ITU-T T.800 E.1.1.1, eq. E-3), Δb = 2^(Rb − εb)·(1 + μb/2¹¹),",
+        "from its 16 bits in a QCD or QCC marker (Table A.30): the exponent εb in the high 5 bits, the mantissa μb in the",
+        "low 11, the leading 1 implied. Rb, the sub-band\'s nominal dynamic range (eq. E-4), comes from the bit depth and",
+        "the sub-band\'s gain, not from these bits, so the `Linear` is Δb / 2^Rb, from 2⁻³¹ (εb = 31, μb = 0) to just under",
+        "2 (εb = 0, μb = 2047), in steps of 2⁻⁴²: exact, every code a different value.",
+        "",
+        "```",
+        "use exact_units::codec::{Codec, J2kStepSize};",
+        "use exact_units::{Exact, Rounding, units::Ratio};",
+        "",
+        "// εb = 8, μb = 1024: (1 + 1/2) · 2⁻⁸ = 3/512 of 2^Rb",
+        "let raw = (8 << 11) | 1024;",
+        "let step = J2kStepSize::decode(raw).unwrap();",
+        "assert_eq!(Exact::from_fixed(step), Exact::<Ratio>::checked_new(3, 512));",
+        "assert_eq!(J2kStepSize::encode(step, Rounding::NearestEven), Some(raw));",
+        "// a step between two codes: the one a named rounding picks",
+        "let between = step.checked_add(exact_units::Fixed::new(1)).unwrap();",
+        "assert_eq!(J2kStepSize::encode(between, Rounding::Floor), Some(raw));",
+        "assert_eq!(J2kStepSize::encode(between, Rounding::Ceil), Some(raw + 1));",
+        "```",
+    ], ident: "J2kStepSize", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "J2kStepSize"), shape: MantissaExponent(radix: 2048, exponents: 32, mantissas: [], mantissa_offset: 2048, exponent_zero: 31, exponent_step: -1), spare: [], codes: (low: 0, high: 65535), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The HRD\'s maximum input bit rate of a CPB, BitRate = (bit_rate_value_minus1 + 1) · 2^(6 + bit_rate_scale) bit/s",
+        "(H.264 E.2.2, eq. E-81; H.265 E.3.3, eq. E-87). The two fields sit apart in the stream (`bit_rate_scale` in 4",
+        "bits, `bit_rate_value_minus1` as an Exp-Golomb code); the code is both in one `u64`, `bit_rate_scale << 32 |",
+        "bit_rate_value_minus1`. Up to 2³² · 2²¹ bit/s, which a `u32` doesn\'t hold. A rate has more than one code where a",
+        "mantissa is even (2 · 2⁶ is 1 · 2⁷): encoding gives the lowest.",
+        "",
+        "```",
+        "use exact_units::codec::{Codec, HrdBitRate};",
+        "use exact_units::Rounding;",
+        "",
+        "// value_minus1 = 15 624, scale = 4: 16 Mbit/s",
+        "let rate = HrdBitRate::decode((4 << 32) | 15_624).unwrap();",
+        "assert_eq!(rate.get(), 16_000_000);",
+        "// the same rate at scale 0 is 250 000 · 2⁶: encoding gives that, the lowest code",
+        "assert_eq!(HrdBitRate::encode(rate, Rounding::NearestEven), Some(249_999));",
+        "// value_minus1 = 2³² − 1 is not allowed",
+        "assert_eq!(HrdBitRate::decode(0xFFFF_FFFF), None);",
+        "```",
+    ], ident: "HrdBitRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "HrdBitRate"), shape: MantissaExponent(radix: 4294967296, exponents: 16, mantissas: [], mantissa_offset: 1, exponent_zero: 6, exponent_step: 1), spare: [
+        (low: 4294967295, high: 4294967295),
+        (low: 8589934591, high: 8589934591),
+        (low: 12884901887, high: 12884901887),
+        (low: 17179869183, high: 17179869183),
+        (low: 21474836479, high: 21474836479),
+        (low: 25769803775, high: 25769803775),
+        (low: 30064771071, high: 30064771071),
+        (low: 34359738367, high: 34359738367),
+        (low: 38654705663, high: 38654705663),
+        (low: 42949672959, high: 42949672959),
+        (low: 47244640255, high: 47244640255),
+        (low: 51539607551, high: 51539607551),
+        (low: 55834574847, high: 55834574847),
+        (low: 60129542143, high: 60129542143),
+        (low: 64424509439, high: 64424509439),
+        (low: 68719476735, high: 68719476735),
+        (low: 68719476736, high: 18446744073709551615),
+    ], codes: (low: 0, high: 18446744073709551615), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The HRD\'s CPB size, CpbSize = (cpb_size_value_minus1 + 1) · 2^(4 + cpb_size_scale) bit (H.264 E.2.2, eq. E-82;",
+        "H.265 E.3.3, eq. E-88): [HrdBitRate]\'s shape at 2⁴, the code `cpb_size_scale << 32 | cpb_size_value_minus1`.",
+    ], ident: "HrdCpbSize", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "HrdCpbSize"), shape: MantissaExponent(radix: 4294967296, exponents: 16, mantissas: [], mantissa_offset: 1, exponent_zero: 4, exponent_step: 1), spare: [
+        (low: 4294967295, high: 4294967295),
+        (low: 8589934591, high: 8589934591),
+        (low: 12884901887, high: 12884901887),
+        (low: 17179869183, high: 17179869183),
+        (low: 21474836479, high: 21474836479),
+        (low: 25769803775, high: 25769803775),
+        (low: 30064771071, high: 30064771071),
+        (low: 34359738367, high: 34359738367),
+        (low: 38654705663, high: 38654705663),
+        (low: 42949672959, high: 42949672959),
+        (low: 47244640255, high: 47244640255),
+        (low: 51539607551, high: 51539607551),
+        (low: 55834574847, high: 55834574847),
+        (low: 60129542143, high: 60129542143),
+        (low: 64424509439, high: 64424509439),
+        (low: 68719476735, high: 68719476735),
+        (low: 68719476736, high: 18446744073709551615),
+    ], codes: (low: 0, high: 18446744073709551615), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The quantizer `Q` with the transfer curve `C` above it: the code and the signal are `Q`\'s, the light the code",
+        "means is `C`\'s. `Coded<Transfer<Narrow10, Pq>>` is a 10-bit PQ code: two bytes, [get](Coded::get) the exact",
+        "signal E′, [light_exact](Coded::light_exact) the light where it is exact, [light_f64](Coded::light_f64) the",
+        "float edge by its name. Its [DEF](Codec::DEF) is `Q`\'s with [curve](CodecDef::curve) set, so a schema says",
+        "\"PQ over narrow 10-bit\" as data.",
+        "",
+        "`Q` must be a [CodecShape::Offset] codec (a compile error otherwise) whose `Linear` has a rational step.",
+    ], ident: "Transfer", generics: [
+        (ident: "Q", kind: Type),
+        (ident: "C", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "codec",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The narrow-range quantizer of a Y′, R′, G′ or B′ component on 8 bits, `D = 219·E′ + 16` (ITU-R BT.709-6 Part 2",
+        "item 3.4; black 16 and nominal peak 235 in item 4.6): codes 1..=254 are video data, [NarrowSignal8]; 0 and 255",
+        "are the timing references (item 4.7), [spare](CodecDef::spare). Exact both ways: every `Linear` has its code, so",
+        "[encode](Codec::encode) ignores its [Rounding]. The rounding of the standard\'s INT is the step before, from a",
+        "real E′ to a `Linear` (`NarrowSignal8::try_new_rounded`): [Rounding::NearestCeil], a tie toward +∞, which",
+        "commutes with the offset, gives INT\'s code (and BT.2100\'s Round\'s) for every E′.",
+        "",
+        "\"Limited range\" in some software. Full range (BT.2100-3 Table 9, on 10 and 12 bits only, `D = Round((2ⁿ −",
+        "1)·E′)`, no reserved codes) is a different codec, not this one.",
+    ], ident: "Narrow8", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "Narrow8"), shape: Offset(zero: 16), spare: [
+        (low: 0, high: 0),
+        (low: 255, high: 255),
+    ], codes: (low: 0, high: 255), nominal: Some((low: 16, high: 235)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The narrow-range quantizer of a C′B or C′R component on 8 bits, `D = 224·E′ + 128` (ITU-R BT.709-6 Part 2 item",
+        "3.4): codes 1..=254 are video data, [NarrowChromaSignal8], 16 and 240 the nominal extremes (item 4.6); 0 and 255",
+        "are the timing references, [spare](CodecDef::spare). Exact both ways, as [Narrow8].",
+    ], ident: "NarrowChroma8", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "NarrowChroma8"), shape: Offset(zero: 128), spare: [
+        (low: 0, high: 0),
+        (low: 255, high: 255),
+    ], codes: (low: 0, high: 255), nominal: Some((low: 16, high: 240)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The narrow-range quantizer of a Y′, R′, G′ or B′ component on 10 bits, `D = (219·E′ + 16)·4 = 876·E′ + 64`",
+        "(ITU-R BT.709-6 Part 2 item 3.4, BT.2100-3 Table 9): codes 4..=1019 are video data, [NarrowSignal10]; 0..=3 and",
+        "1020..=1023 are the timing references (item 4.7) and every `u16` above 1023 is no 10-bit code, all",
+        "[spare](CodecDef::spare). The code layer of [Pq]. Exact both ways, as [Narrow8].",
+    ], ident: "Narrow10", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "Narrow10"), shape: Offset(zero: 64), spare: [
+        (low: 0, high: 3),
+        (low: 1020, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 64, high: 940)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The narrow-range quantizer of a C′B or C′R component on 10 bits, `D = (224·E′ + 128)·4 = 896·E′ + 512` (ITU-R",
+        "BT.709-6 Part 2 item 3.4, BT.2100-3 Table 9): codes 4..=1019 are video data, [NarrowChromaSignal10], 64 and 960",
+        "the nominal extremes (item 4.6); 0..=3, 1020..=1023 and every `u16` above 1023 are [spare](CodecDef::spare).",
+    ], ident: "NarrowChroma10", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "NarrowChroma10"), shape: Offset(zero: 512), spare: [
+        (low: 0, high: 3),
+        (low: 1020, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 64, high: 960)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The narrow-range quantizer of a Y′, R′, G′ or B′ component on 12 bits, `D = (219·E′ + 16)·16 = 3504·E′ + 256`",
+        "(BT.2100-3 Table 9): codes 16..=4079 are video data, [NarrowSignal12]; 0..=15, 4080..=4095 and every `u16` above",
+        "4095 are [spare](CodecDef::spare). Exact both ways, as [Narrow8].",
+    ], ident: "Narrow12", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "Narrow12"), shape: Offset(zero: 256), spare: [
+        (low: 0, high: 15),
+        (low: 4080, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 256, high: 3760)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The narrow-range quantizer of a C′B or C′R component on 12 bits, `D = (224·E′ + 128)·16 = 3584·E′ + 2048`",
+        "(BT.2100-3 Table 9): codes 16..=4079 are video data, [NarrowChromaSignal12], 256 and 3840 the nominal extremes;",
+        "0..=15, 4080..=4095 and every `u16` above 4095 are [spare](CodecDef::spare).",
+    ], ident: "NarrowChroma12", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "NarrowChroma12"), shape: Offset(zero: 2048), spare: [
+        (low: 0, high: 15),
+        (low: 4080, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 256, high: 3840)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The full-range quantizer of a Y′, R′, G′ or B′ component on 10 bits, `D = (2¹⁰ − 1)·E′ = 1023·E′` (BT.2100-3",
+        "Table 9): no reserved codes, every code 0..=1023 is video data, [FullSignal10]. \"Full range\" in some software;",
+        "not [Narrow10], which reserves the timing references. Exact both ways, as [Narrow8].",
+    ], ident: "Full10", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "Full10"), shape: Offset(zero: 0), spare: [
+        (low: 1024, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 0, high: 1023)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The full-range quantizer of a C′B or C′R component on 10 bits, `D = 1023·E′ + 512` (BT.2100-3 Table 9): no",
+        "reserved codes, every code 0..=1023 is video data, [FullChromaSignal10]; the nominal extremes are 1 (E′ = −½,",
+        "BT.2100-3\'s Round of −511.5) and 1023 (E′ = ½).",
+    ], ident: "FullChroma10", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "FullChroma10"), shape: Offset(zero: 512), spare: [
+        (low: 1024, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 1, high: 1023)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The full-range quantizer of a Y′, R′, G′ or B′ component on 12 bits, `D = (2¹² − 1)·E′ = 4095·E′` (BT.2100-3",
+        "Table 9): no reserved codes, every code 0..=4095 is video data, [FullSignal12]. Exact both ways, as [Narrow8].",
+    ], ident: "Full12", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "Full12"), shape: Offset(zero: 0), spare: [
+        (low: 4096, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 0, high: 4095)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The full-range quantizer of a C′B or C′R component on 12 bits, `D = 4095·E′ + 2048` (BT.2100-3 Table 9): no",
+        "reserved codes, every code 0..=4095 is video data, [FullChromaSignal12]; the nominal extremes are 1 (the",
+        "nearest code to E′ = −½) and 4095 (E′ = 2047/4095, the nearest to ½).",
+    ], ident: "FullChroma12", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "FullChroma12"), shape: Offset(zero: 2048), spare: [
+        (low: 4096, high: 65535),
+    ], codes: (low: 0, high: 65535), nominal: Some((low: 1, high: 4095)), curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The PQ transfer curve, the perceptual quantizer of high-dynamic-range video: ITU-R BT.2100-3 Table 4 (first",
+        "SMPTE ST 2084:2014). Its EOTF takes the non-linear signal E′ (0..=1) to a display luminance",
+        "`F_D = 10 000·Y cd/m²`:",
+        "",
+        "`Y = (max(E′^(1/m₂) − c₁, 0) / (c₂ − c₃·E′^(1/m₂)))^(1/m₁)`, and its inverse `E′ = ((c₁ + c₂·Y^m₁) / (1 + c₃·Y^m₁))^m₂`.",
+        "",
+        "What is exact:",
+        "",
+        "- The five constants, exact rationals as the standard writes them ([M1](Self::M1) .. [C3](Self::C3)). All five",
+        "  are dyadic, so an `f64` holds each exactly too.",
+        "- The ends. `c₁ = c₃ − c₂ + 1` exactly (checked at compile time), so E′ = 1 is Y = 1, 10 000 cd/m², both ways.",
+        "  E′ = 0 is 0 cd/m², but not the other way: the inverse at Y = 0 is `c₁^m₂` ≈ 7.3·10⁻⁷, and the EOTF\'s",
+        "  `max(.., 0)` takes every E′ in `0..=c₁^m₂` to black. The curve is flat there, by the standard\'s own shape; on",
+        "  10 bits it is a thousandth of a code, so code 64 is black both ways.",
+        "- The code layer: a 10-bit PQ code is [Narrow10]\'s (or a full-range quantizer\'s), exact.",
+        "",
+        "What isn\'t: every other value. `E′^(1/m₂)` with `1/m₂ = 32/2523` is rational only where E′ is a rational\'s",
+        "2523rd power, and a narrow-range code\'s E′ = (D − 64)/876 is that only for D = 64 and 940. So every code but",
+        "those two means an irrational luminance: no exact `Linear` exists, and PQ is no [Codec]. Its decode and encode",
+        "are a float edge that says so in its name ([eotf_f64](Self::eotf_f64), [to_nits_f64](Self::to_nits_f64),",
+        "[from_nits_f64](Self::from_nits_f64)), with feature `libm` (core has no `pow`), and [Curve::KIND] is",
+        "[CurveKind::Float](super::CurveKind::Float).",
+    ], ident: "Pq", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The HLG transfer curve, hybrid log-gamma, the scene-referred curve of high-dynamic-range video: ITU-R BT.2100-3",
+        "Table 5 (first ARIB STD-B67). Its OETF takes a relative scene light E (0..=1) to the signal E′ (0..=1):",
+        "",
+        "`E′ = √(3E)` for `E ≤ 1/12`, `E′ = a·ln(12E − b) + c` above, with `a = 0.17883277`, `b = 1 − 4a` and",
+        "`c = 0.5 − a·ln(4a)`.",
+        "",
+        "[DEF](Self::DEF) is its inverse, signal to scene light, as every curve here is written: `E = E′²/3` for",
+        "`E′ ≤ ½`, `E = (exp((E′ − c)/a) + b)/12` above. `exp((E′ − c)/a)` is `4a·exp((E′ − ½)/a)`, so c, a",
+        "transcendental number, is absorbed into the exponent\'s shift and every parameter is an exact [Fraction].",
+        "",
+        "What is exact:",
+        "",
+        "- **The lower half, both ways.** `E′²/3` is rational at every rational E′: a 10-bit narrow-range code up to",
+        "  502 (E′ = ½) decodes to `(D − 64)²/(3·876²)` exactly. The encode is exact too, though E′ = √(3E) is",
+        "  irrational for almost every E: [CurveDef::encode_exact] decides the code by comparing the light with the",
+        "  exact lights of codes and of half-codes, never by taking a root.",
+        "- **The joint.** E′ = ½ is E = 1/12 by both halves, exactly (checked at compile time): `a/3 + b/12 = 1/12`",
+        "  because b = 1 − 4a.",
+        "- **The constants.** [A](Self::A) and [B](Self::B) are the standard\'s decimals, exact.",
+        "",
+        "What isn\'t: the upper half above E′ = ½. `exp` of a non-zero rational is irrational, so every code from 503 to",
+        "940 means an irrational light; [decode_exact](CurveDef::decode_exact) answers `None` there and the float edge,",
+        "`_f64` (feature `libm`), is the way. [Curve::KIND] is [CurveKind::Float](super::CurveKind::Float). With a",
+        "rounded to 8 decimals the ends don\'t quite meet: E′ = 1 is E ≈ 1.000000027, and E = 1 is E′ ≈ 0.999999995,",
+        "both well inside code 940.",
+        "",
+        "The light is relative scene light, [Ratio], 1 at the camera\'s peak: the OOTF that turns it into display light",
+        "(a system gamma by the display\'s peak luminance, mixing the three components) is not a curve of one component",
+        "and is not here.",
+        "",
+        "```",
+        "use exact_units::codec::{Coded, Domain, EncodeError, Transfer};",
+        "use exact_units::codec::video::{Hlg, Narrow10};",
+        "use exact_units::units::Ratio;",
+        "use exact_units::{Exact, Fraction, Rounding};",
+        "",
+        "type HlgCode = Coded<Transfer<Narrow10, Hlg>>;",
+        "let code = |k| HlgCode::try_from_raw(k).unwrap();",
+        "// code 502 is E\' = 1/2, scene light 1/12, exactly",
+        "assert_eq!(code(502).light_exact(), Some(Exact::<Ratio>::of(Fraction::new(1, 12))));",
+        "// code 300 is E\' = 236/876: (236/876)^2/3, exactly",
+        "assert_eq!(code(300).light_exact(), Some(Exact::<Ratio>::of(Fraction::new(236 * 236, 3 * 876 * 876))));",
+        "// the upper half is no rational",
+        "assert_eq!(code(700).light_exact(), None);",
+        "// a scene light of 1/50 is code 279 (E\' = sqrt(0.06) = 0.2449.., 876 E\' + 64 = 278.58..), decided exactly",
+        "let light = Exact::<Ratio>::of(Fraction::new(1, 50));",
+        "assert_eq!(HlgCode::from_light_exact(light, Rounding::NearestAway, Domain::Signal).map(Coded::raw), Ok(279));",
+        "// above 1/12 the exact encode can\'t decide, and says so",
+        "let bright = Exact::<Ratio>::of(Fraction::new(1, 2));",
+        "assert_eq!(HlgCode::from_light_exact(bright, Rounding::NearestAway, Domain::Signal).map(Coded::raw), Err(EncodeError::NotExact));",
+        "```",
+    ], ident: "Hlg", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "BT.709\'s inverse OETF (ITU-R BT.709-6 Part 2 item 1.2): the scene light a camera\'s signal V′ means, `E =",
+        "V′/4.5` below V′ = 0.081, `E = ((V′ + 0.099)/1.099)^(20/9)` at and above it. 0.081 is the decode direction\'s own",
+        "breakpoint (decision 3: \"one breakpoint per segment, the decode\'s\"); the commonly quoted light-side one, E =",
+        "0.018, doesn\'t correspond exactly (`1.099·0.018^0.45 − 0.099 ≈ 0.081248`, a sixth decimal past 0.081), the",
+        "standard\'s own rounding of two independently printed numbers, as sRGB\'s two breakpoints disagree too.",
+        "",
+        "The power segment is [CurveForm::Power] with the divisor inside the base, `scale = 1000/1099` and `shift =",
+        "99/1099` (`(V′ + 0.099)/1.099 = scale·V′ + shift`, both exact): a `gain` outside the power would have to be",
+        "`1.099^(−20/9)`, irrational, and a `Fraction` cannot hold that. [Light](Curve::Light) is",
+        "[Ratio]: a scene light is relative, no physical unit ([Referred::Scene]).",
+        "",
+        "Exact at both ends (the doctest below): V′ = 0 gives E = 0 (the toe); V′ = 1 gives E = 1, since `((1 +",
+        "0.099)/1.099)^(20/9) = 1^(20/9) = 1`. [CurveKind::Float](super::CurveKind::Float) like every curve with a",
+        "non-integer power: almost no other V′ is a rational\'s 9th power.",
+        "",
+        "```",
+        "# #[cfg(feature = \"photometric\")] {",
+        "use exact_units::codec::{Coded, Transfer, video::{Bt709, Narrow8}};",
+        "use exact_units::Fraction;",
+        "",
+        "type Code = Coded<Transfer<Narrow8, Bt709>>;",
+        "",
+        "// code 16 is black, V\' = 0: E = 0, exactly",
+        "let black = Code::of(Coded::<Narrow8>::try_from_raw(16).unwrap());",
+        "assert_eq!(black.light_exact().map(|e| e.get()), Some(Fraction::ZERO));",
+        "// code 235 is nominal white, V\' = 1: E = 1, exactly",
+        "let white = Code::of(Coded::<Narrow8>::try_from_raw(235).unwrap());",
+        "assert_eq!(white.light_exact().map(|e| e.get()), Some(Fraction::ONE));",
+        "# }",
+        "```",
+    ], ident: "Bt709", generics: [], fields: Unit, sparse: false, path: Some([
+        "codec",
+        "video",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
         "A complex value `re + j·im` in unit `U` and scale `P`, both parts stored as `T`, with the overflow policy `B`. See",
         "the [module](crate::complex) for the design.",
@@ -282,21 +854,41 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The CODATA 2018 recommended values (Tiesinga et al., Rev. Mod. Phys. 93, 025010, 2021):",
-        "μ₀ = 1.256 637 062 12(19)·10⁻⁶ N/A², G = 6.674 30(15)·10⁻¹¹ m³/(kg·s²).",
+        "The CODATA 2018 recommended values (Tiesinga et al., Rev. Mod. Phys. 93, 025010, 2021), Table XXXI:",
+        "",
+        "| constant | value |",
+        "|---|---|",
+        "| μ₀ | 1.256 637 062 12(19)·10⁻⁶ N/A² |",
+        "| G | 6.674 30(15)·10⁻¹¹ m³/(kg·s²) |",
+        "| m_u | 1.660 539 066 60(50)·10⁻²⁷ kg |",
+        "| m_e | 9.109 383 7015(28)·10⁻³¹ kg |",
+        "| m_p | 1.672 621 923 69(51)·10⁻²⁷ kg |",
+        "| A_r(e) | 5.485 799 090 65(16)·10⁻⁴ |",
+        "| A_r(p) | 1.007 276 466 621(53) |",
+        "",
+        "The atomic mass evaluation AME2020 and NUBASE2020 use this edition\'s m_u.",
     ], ident: "Codata2018", generics: [], fields: Unit, sparse: false, path: Some([
         "constants",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The CODATA 2022 recommended values (Mohr et al., Rev. Mod. Phys. 97, 025002, 2025):",
-        "μ₀ = 1.256 637 061 27(20)·10⁻⁶ N/A², G = 6.674 30(15)·10⁻¹¹ m³/(kg·s²).",
+        "The CODATA 2022 recommended values (Mohr et al., Rev. Mod. Phys. 97, 025002, 2025), Table XXXIII:",
+        "",
+        "| constant | value |",
+        "|---|---|",
+        "| μ₀ | 1.256 637 061 27(20)·10⁻⁶ N/A² |",
+        "| G | 6.674 30(15)·10⁻¹¹ m³/(kg·s²) |",
+        "| m_u | 1.660 539 068 92(52)·10⁻²⁷ kg |",
+        "| m_e | 9.109 383 7139(28)·10⁻³¹ kg |",
+        "| m_p | 1.672 621 925 95(52)·10⁻²⁷ kg |",
+        "| A_r(e) | 5.485 799 090 441(97)·10⁻⁴ |",
+        "| A_r(p) | 1.007 276 466 5789(83) |",
     ], ident: "Codata2022", generics: [], fields: Unit, sparse: false, path: Some([
         "constants",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The convention of the 1948 definition of the ampere, in force until the 2019 SI: μ₀ = 4π·10⁻⁷ N/A² exactly, with",
-        "no uncertainty. What Gaussian tables and older datasheets assume; an opt-in, never a default. It gives no G, so a",
-        "factor that needs G doesn\'t resolve with it.",
+        "no uncertainty. What Gaussian tables and older datasheets assume; an opt-in, never a default. It gives no G and no",
+        "masses, so a factor that needs G or m_u doesn\'t resolve with it.",
         "",
         "```compile_fail",
         "use exact_units::Magnitude;",
@@ -334,6 +926,55 @@
     ], fields: Unnamed([]), sparse: false, path: Some([
         "decibel",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The aperture labels of Exif\'s Table 55 (Annex C), f/1 to f/32 by whole stops: code `i` is the label of Av `i`.",
+        "[Codec::decode] is the exact Av of a label, [Codec::encode] the label a named [Rounding] picks for an Av between",
+        "two (a tie to the even code: f/1, f/2, f/4, ...). Av below 0 or past 10 is no label here.",
+    ], ident: "ApertureLabel", generics: [], fields: Unit, sparse: false, path: Some([
+        "exposure",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "ApertureLabel"), shape: Table([
+        0,
+        6,
+        12,
+        18,
+        24,
+        30,
+        36,
+        42,
+        48,
+        54,
+        60,
+    ]), spare: [
+        (low: 11, high: 255),
+    ], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The shutter-speed labels of Exif\'s Table 55 (Annex C), \"30\" (Tv −5) to \"1/2000\" (Tv 11) by whole stops: code",
+        "`i` is the label of Tv `i − 5`. The labels are round numbers, not the values: \"30\" is 32 s, \"15\" 16 s, \"1/15\"",
+        "1/16 s, \"1/125\" 1/128 s. [Codec::decode] is the exact Tv of a label, [Codec::encode] the label a named",
+        "[Rounding] picks for a Tv between two (a tie to the even code).",
+    ], ident: "ShutterLabel", generics: [], fields: Unit, sparse: false, path: Some([
+        "exposure",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Codec((id: (crate_name: "exact_units", name: "ShutterLabel"), shape: Table([
+        -30,
+        -24,
+        -18,
+        -12,
+        -6,
+        0,
+        6,
+        12,
+        18,
+        24,
+        30,
+        36,
+        42,
+        48,
+        54,
+        60,
+        66,
+    ]), spare: [
+        (low: 17, high: 255),
+    ], codes: (low: 0, high: 255), nominal: None, curve: None))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "No rounding: the literal is a stored value, or a compile error names the two around it.",
     ], ident: "Unrounded", generics: [], fields: Unit, sparse: false, path: Some([
@@ -760,7 +1401,7 @@
         (halves: 0),
     ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Absorbed dose, D (ISO 80000-10), [Gray](crate::units::Gray)\'s.",
+        "Absorbed dose, D (ISO 80000-10): energy imparted per mass, [Gray](crate::units::Gray)\'s.",
     ], ident: "AbsorbedDose", generics: [], fields: Unit, sparse: false, path: Some([
         "quantities",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "AbsorbedDose"), parent: None, dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
@@ -773,7 +1414,26 @@
         (halves: 0),
     ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Dose equivalent, H: an absorbed dose weighted by its radiation, [Sievert](crate::units::Sievert)\'s.",
+        "Kerma, K (ISO 80000-10): kinetic energy released per mass, energy transferred to charged particles. The SI",
+        "gives it the gray as absorbed dose has (SI Brochure, 9th ed., table 4), but it is not an absorbed dose:",
+        "`Of<Kerma, Gray>`, a kind under [AbsorbedDose] so that the gray measures it. Under charged-particle",
+        "equilibrium a kerma is taken as an absorbed dose by the named step `as_quantity::<AbsorbedDose>()`.",
+    ], ident: "Kerma", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "Kerma"), parent: Some((crate_name: "exact_units", name: "AbsorbedDose")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Dose equivalent, H = Q·D at a point, Q the ICRU\'s quality factor of linear energy transfer (CIPM 2002,",
+        "Recommendation 2; SI Brochure, 9th ed., table 4): [Sievert](crate::units::Sievert)\'s. Not ICRP\'s",
+        "[EquivalentDose] or [EffectiveDose], which share the sievert as kinds under it: none of them converts or adds",
+        "to another, `as_quantity` through this one is the only crossing.",
     ], ident: "DoseEquivalent", generics: [], fields: Unit, sparse: false, path: Some([
         "quantities",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "DoseEquivalent"), parent: None, dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
@@ -781,6 +1441,213 @@
         (halves: 4),
         (halves: 0),
         (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Ambient dose equivalent, H*(10) (ICRU Report 51; ICRP Publication 103, Table B.5): the dose equivalent at 10 mm",
+        "depth in the ICRU sphere in an expanded and aligned field, what an area monitor reads. A kind under",
+        "[DoseEquivalent]: `as_quantity` crosses, and it neither converts nor adds to Hp(10).",
+    ], ident: "AmbientDoseEquivalent10", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "AmbientDoseEquivalent10"), parent: Some((crate_name: "exact_units", name: "DoseEquivalent")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Personal dose equivalent, Hp(10) (ICRU Report 51; ICRP Publication 103, Table B.5): the dose equivalent in soft",
+        "tissue 10 mm below a point on the body, what a personal dosimeter reads for the effective dose.",
+    ], ident: "PersonalDoseEquivalent10", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "PersonalDoseEquivalent10"), parent: Some((crate_name: "exact_units", name: "DoseEquivalent")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Personal dose equivalent, Hp(0.07) (ICRU Report 51; ICRP Publication 103, Table B.5): at 0.07 mm depth, for the",
+        "dose to the skin, hands and feet.",
+    ], ident: "PersonalDoseEquivalent0_07", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "PersonalDoseEquivalent0_07"), parent: Some((crate_name: "exact_units", name: "DoseEquivalent")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Equivalent dose, H_T = Σ w_R·D_T,R (ICRP Publication 103, Eq. 4.2): the mean absorbed dose in a tissue or",
+        "organ, weighted by radiation weighting factors. Not a [DoseEquivalent], which is a point value weighted by",
+        "Q, but a kind under it, so the sievert measures it: `Of<EquivalentDose, Sievert>`.",
+    ], ident: "EquivalentDose", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "EquivalentDose"), parent: Some((crate_name: "exact_units", name: "DoseEquivalent")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Effective dose, E = Σ w_T·H_T (ICRP Publication 103, glossary): the tissue-weighted sum of equivalent doses",
+        "over the whole body of a Reference Person, a protection quantity: `Of<EffectiveDose, Sievert>`.",
+    ], ident: "EffectiveDose", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "EffectiveDose"), parent: Some((crate_name: "exact_units", name: "DoseEquivalent")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Absorbed dose rate, Ḋ: [GrayPerSecond](crate::units::GrayPerSecond)\'s. Each dose has a rate of its own",
+        "kind, so Gy/s doesn\'t convert to Sv/h.",
+    ], ident: "AbsorbedDoseRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "AbsorbedDoseRate"), parent: None, dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Kerma rate, K\u{307}: an air kerma rate in `Of<KermaRate, GrayPerSecond>`.",
+    ], ident: "KermaRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "KermaRate"), parent: Some((crate_name: "exact_units", name: "AbsorbedDoseRate")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Dose equivalent rate, Ḣ: [SievertPerHour](crate::units::SievertPerHour)\'s.",
+    ], ident: "DoseEquivalentRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "DoseEquivalentRate"), parent: None, dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Ambient dose equivalent rate, Ḣ*(10): a survey meter\'s or a Geiger counter\'s µSv/h,",
+        "`Of<AmbientDoseEquivalentRate10, SievertPerHour>`.",
+    ], ident: "AmbientDoseEquivalentRate10", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "AmbientDoseEquivalentRate10"), parent: Some((crate_name: "exact_units", name: "DoseEquivalentRate")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Personal dose equivalent rate, Ḣp(10): an electronic personal dosimeter\'s rate.",
+    ], ident: "PersonalDoseEquivalentRate10", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "PersonalDoseEquivalentRate10"), parent: Some((crate_name: "exact_units", name: "DoseEquivalentRate")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Personal dose equivalent rate, Ḣp(0.07).",
+    ], ident: "PersonalDoseEquivalentRate0_07", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "PersonalDoseEquivalentRate0_07"), parent: Some((crate_name: "exact_units", name: "DoseEquivalentRate")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Equivalent dose rate, Ḣ_T.",
+    ], ident: "EquivalentDoseRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "EquivalentDoseRate"), parent: Some((crate_name: "exact_units", name: "DoseEquivalentRate")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Effective dose rate, Ė.",
+    ], ident: "EffectiveDoseRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "EffectiveDoseRate"), parent: Some((crate_name: "exact_units", name: "DoseEquivalentRate")), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -6),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Linear energy transfer, L (ISO 80000-10): energy a charged particle loses per length of its track, in keV/µm.",
+        "A kind of its own, not a force, though both are J/m.",
+    ], ident: "LinearEnergyTransfer", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "LinearEnergyTransfer"), parent: None, dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 2),
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), is_kind: true, character: Scalar))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Exposure, X (ISO 80000-10): ionizing radiation\'s charge liberated per mass of dry air,",
+        "[CoulombPerKilogram](crate::units::CoulombPerKilogram)\'s and the röntgen\'s. A kind of its own, not a",
+        "specific charge, though both are C/kg.",
+    ], ident: "Exposure", generics: [], fields: Unit, sparse: false, path: Some([
+        "quantities",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Quantity((id: (crate_name: "exact_units", name: "Exposure"), parent: None, dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 2),
+        (halves: 0),
+        (halves: -2),
+        (halves: 2),
         (halves: 0),
         (halves: 0),
         (halves: 0),
@@ -1202,7 +2069,7 @@
         (ident: Some("base"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The base, by the crate and the marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 85), docs: [
+        (ident: Some("exp"), default: None, since: None, ty: OutOfLine(type_idx: 129), docs: [
             "Its exponent.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1226,13 +2093,13 @@
         "[with_list](Self::with_list), a unit type\'s `DIM`, a wire read, [tree::dim](crate::tree::dim)), so the walks",
         "below never meet one that doesn\'t.",
     ], ident: "Dim", generics: [], fields: Named([
-        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 84), docs: [
+        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 128), docs: [
             "The system the exponents count in.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 85)), docs: [
+        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 129)), docs: [
             "The exponents of the system\'s true bases: SI\'s s, m, kg, A, K, mol, cd.",
         ], slot: None, series_opaque: false),
-        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 86)), docs: [
+        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 130)), docs: [
             "The distinguished bases.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1247,28 +2114,125 @@
         (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("parent"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 83)), docs: [
+        (ident: Some("parent"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 127)), docs: [
             "The quantity it is a kind of: length for height, `None` for a root.",
         ], slot: None, series_opaque: false),
-        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 87), docs: [
+        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 131), docs: [
             "Its dimension, its parent\'s for a child.",
         ], slot: None, series_opaque: false),
         (ident: Some("is_kind"), default: None, since: None, ty: Bool, docs: [
             "A kind of its own: it doesn\'t convert to its parent or to its dimension\'s other quantities, only by a named",
             "step. A root without it is its dimension\'s open root, the quantity [Derived](QuantityExpr::Derived) means.",
         ], slot: None, series_opaque: false),
-        (ident: Some("character"), default: None, since: None, ty: OutOfLine(type_idx: 82), docs: [
+        (ident: Some("character"), default: None, since: None, ty: OutOfLine(type_idx: 126), docs: [
             "A number, a complex number or a vector.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The radiation weighting factors of ICRP Publication 103 (2007), *The 2007 Recommendations of the International",
+        "Commission on Radiological Protection*, Ann. ICRP 37(2-4): Table 2 (the French edition\'s Tableau 4.1, again as",
+        "Tableau B.4), for an equivalent dose H_T = Σ w_R·D_T,R. All values are for the radiation incident on the body or,",
+        "for an internal source, emitted by the radionuclide.",
+    ], ident: "Icrp103", generics: [], fields: Unit, sparse: false, path: Some([
+        "radiation",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The radiation weighting factors of ICRP Publication 60 (1991), *1990 Recommendations of the International",
+        "Commission on Radiological Protection*, as ICRP Publication 103 reprints them (Table B.3), and the quality factor",
+        "Q(L) it defined, which ICRP 103 keeps (Eq. B.4.2). Many regulations still cite these.",
+    ], ident: "Icrp60", generics: [], fields: Unit, sparse: false, path: Some([
+        "radiation",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "The powers of the symbols in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in neper",
+        "(`ln10/20`) `ln10 = 2`, an oersted in A/m (`10⁻⁴/μ₀`) `mu0 = -2`. Treated as independent symbols, like the primes,",
+        "so they cancel exactly: `(T/μ₀)·μ₀` is `T`.",
+        "",
+        "π, ln 2 and ln 10 are mathematics: their value is known, and a factor with them converts by a named rounding. μ₀",
+        "(the magnetic constant), G (the Newtonian constant of gravitation) and m_u (the atomic mass constant, the dalton in",
+        "kg) are measured since the 2019 SI: a factor with one left in it has no value until a named, versioned set gives",
+        "one ([resolve](Magnitude::resolve)). ε₀ = 1/(μ₀c²), Z₀ = μ₀c and α = μ₀e²c/(2h) are expressions over μ₀ with the",
+        "exact c, e and h, the molar mass constant M_u = N_A·m_u one over m_u: not symbols of their own.",
+    ], ident: "Symbols", generics: [], fields: Named([
+        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of π.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of ln 2.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of ln 10.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("mu0"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of μ₀, the magnetic constant (measured).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("g"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of G, the Newtonian constant of gravitation (measured).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("m_u"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of m_u, the atomic mass constant (measured): 1 Da = 1 u = m_u.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
+    ], ident: "PrimePower", generics: [], fields: Named([
+        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+            "The prime: 3, 7, 11, .. up to the largest below 2⁶⁴, so a measured value printed with up to 19 digits always",
+            "factors (CODATA 2022\'s proton mass in kg has 33452438519, its A_r(e) 5485799090441).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice its exponent.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
+    ], ident: "MagnitudeRest", generics: [], fields: Named([
+        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of 2.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("symbols"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 135)), docs: [
+            "π, ln 2, ln 10, μ₀, G and m_u, `None` when all their exponents are 0.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(16), ty: Option(some_ty: OutOfLine(type_idx: 136))), docs: [
+            "Primes other than 2 and 5, ascending, used slots first.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
+        "An exact positive factor: `10^a · 2^b · π^c · ln2^d · ln10^e · μ₀^f · G^g · ∏ pᵢ^kᵢ` over primes `pᵢ` other than 2",
+        "and 5, every exponent a whole or half number (`√2`, `10^(3/2)` for √(kHz), `√μ₀`). `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit duty,",
+        "`3⁻¹ · 5⁻¹ · 17⁻¹ · 257⁻¹`), `π/180` (°), the pound\'s `0.45359237` (`7 · 11 · 97 · 6073 · 10⁻⁸`), `ln10/20` (a",
+        "decibel in neper), `10⁻⁴/μ₀` (an oersted in A/m). Never an `f64`, so every client reproduces a value bit-exactly, and a scale fixed in a type",
+        "([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
+        "",
+        "Closed under multiplication and division: a product only fails when it needs more than [MAX_FACTORS] primes or",
+        "an exponent leaves ±63½, and then at compile time in a `const` (a panic at run time; the `checked_` forms say",
+        "`None`), never by rounding.",
+        "",
+        "Always canonical, so equal magnitudes are equal field by field: 2 and 5 only in `pow10` / `pow2` (`5 = 10 · 2⁻¹`),",
+        "the other primes sorted with exponents that aren\'t 0, and `rest` / `symbols` left out when they are 1. Plain",
+        "`const` data without lifetimes, so a `&\'static Magnitude` can be held at run time; [Fixed](crate::Fixed) uses it",
+        "only at compile time.",
+        "",
+        "On the wire every exponent is twice the exponent as an `i8`, the primes as [UVlq64]: `pow10` alone is 9 bits",
+        "(Milli `fa 00`), the rest behind an option bit, its symbols behind one more, an empty prime slot one bit.",
+        "`self_describing`: the bytes end by themselves, so a magnitude can be the field of an enum variant",
+        "([Prefix](crate::Prefix)\'s `Exact`).",
+    ], ident: "Magnitude", generics: [], fields: Named([
+        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of 10.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 137)), docs: [
+            "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How one SI base maps into another system: 1 of the SI base unit is `factor` times the product of the system\'s",
         "bases to `exps`. In Natural 1 kg is c²/e eV (`exps` eV¹); in Gaussian 1 m is 100 cm.",
     ], ident: "BaseRule", generics: [], fields: Named([
-        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 85)), docs: [
+        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 129)), docs: [
             "The exponents of the system\'s true bases, in the order of [SystemDef::bases].",
         ], slot: None, series_opaque: false),
-        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 138), docs: [
             "The exact factor.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1276,13 +2240,13 @@
         "A row of a system\'s table by quantity: 1 coherent unit of the quantity `here` (of this system) is `factor` times",
         "the coherent SI unit of `si`. Gaussian\'s B: 1 G is 10⁻⁴·√(μ₀/(4π·10⁻⁷)) T.",
     ], ident: "BridgeDef", generics: [], fields: Named([
-        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 83), docs: [
+        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 127), docs: [
             "The SI quantity.",
         ], slot: None, series_opaque: false),
-        (ident: Some("here"), default: None, since: None, ty: OutOfLine(type_idx: 83), docs: [
+        (ident: Some("here"), default: None, since: None, ty: OutOfLine(type_idx: 127), docs: [
             "The quantity of this system.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+        (ident: Some("factor"), default: None, since: None, ty: OutOfLine(type_idx: 138), docs: [
             "The exact factor, μ₀ as a symbol where the row needs it.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1293,7 +2257,7 @@
         (ident: Some("symbol"), default: None, since: None, ty: String, docs: [
             "How it is written: `ħ`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+        (ident: Some("si"), default: None, since: None, ty: OutOfLine(type_idx: 138), docs: [
             "Its value in coherent SI units, exact: ħ is h/(2π) J·s.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1309,17 +2273,17 @@
             "The symbols of its true bases, in the order of a [Dim]\'s exponents: SI\'s `s m kg A K mol cd`, Natural\'s",
             "`eV A K mol cd`, Gaussian\'s `g cm s K mol cd`. At most [MAX_TRUE_BASES].",
         ], slot: None, series_opaque: false),
-        (ident: Some("set_to_one"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 91)), docs: [
+        (ident: Some("set_to_one"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 141)), docs: [
             "What it sets to 1: Natural\'s ħ and c.",
         ], slot: None, series_opaque: false),
-        (ident: Some("by_dim"), default: None, since: None, ty: Vec(Option(some_ty: OutOfLine(type_idx: 89))), docs: [
+        (ident: Some("by_dim"), default: None, since: None, ty: Vec(Option(some_ty: OutOfLine(type_idx: 139))), docs: [
             "One entry per SI base (s, m, kg, A, K, mol, cd): its image here, `None` where it has none (the ampere in",
             "Gaussian). Empty for SI itself.",
         ], slot: None, series_opaque: false),
-        (ident: Some("by_quantity"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 90)), docs: [
+        (ident: Some("by_quantity"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 140)), docs: [
             "The rows by quantity, which win over the rule.",
         ], slot: None, series_opaque: false),
-        (ident: Some("no_rule"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 83)), docs: [
+        (ident: Some("no_rule"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 127)), docs: [
             "SI quantities the rule doesn\'t bridge: Natural\'s frequency, activity and symbol rate.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -2864,6 +3828,23 @@
         (base: (crate_name: "exact_units", name: "Neper"), exp: (halves: 2)),
     ]), quantity: None, scale: (pow10: 0, pow2: -2, ln10: 2), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A level in stops ((ln 2)/2 [Neper], exactly): log2 of a power ratio, the factor of 2 in light of photography,",
+        "2·log2 of a root-power one. Exif\'s APEX values (CIPA DC-008 Annex C: Av, Tv, Bv, Sv, Ev) are levels in it. Not",
+        "the octave of a frequency interval, whose ratio is of no power: a stop of a light ratio is 3.0103 [Decibel].",
+    ], ident: "Stop", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Stop"), names: (symbol: "stop", ascii: None, long: "stop", plural: "stops", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Neper"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0, pow2: -2, ln2: 2), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A loss in nepers, Np: a [Neper] level signed as a loss, positive for a decay, as attenuation coefficients and",
         "datasheets write it. A base of its own, so a loss doesn\'t convert to a gain: `as_gain` negates. Written",
         "`Loss<Neper>` ([Loss]).",
@@ -3303,7 +4284,8 @@
     ], bases: []), quantity: Some((crate_name: "exact_units", name: "Activity")), scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Absorbed dose in grays, Gy (m²·s⁻², J/kg), an [AbsorbedDose](crate::quantities::AbsorbedDose): not a dose",
-        "equivalent in [Sievert], which weights it by the radiation.",
+        "in [Sievert], which weights it by the radiation, and not a kerma, which the SI also gives the gray",
+        "([Kerma](crate::quantities::Kerma), `Of<Kerma, Gray>`).",
     ], ident: "Gray", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Gray"), names: (symbol: "Gy", ascii: None, long: "gray", plural: "grays", aliases: "", ucum: Some("Gy"), prefixes: Decimal), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
@@ -3316,8 +4298,9 @@
         (halves: 0),
     ], bases: []), quantity: Some((crate_name: "exact_units", name: "AbsorbedDose")), scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Equivalent dose in sieverts, Sv (m²·s⁻², J/kg), a [DoseEquivalent](crate::quantities::DoseEquivalent): not an",
-        "absorbed dose in [Gray].",
+        "Dose equivalent in sieverts, Sv (m²·s⁻², J/kg): the SI\'s [DoseEquivalent](crate::quantities::DoseEquivalent),",
+        "H = Q·D (CIPM 2002, Recommendation 2). ICRP\'s equivalent dose H_T and effective dose E share the sievert and",
+        "are [EquivalentDose] and [EffectiveDose]. Not an absorbed dose in [Gray].",
     ], ident: "Sievert", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Sievert"), names: (symbol: "Sv", ascii: None, long: "sievert", plural: "sieverts", aliases: "", ucum: Some("Sv"), prefixes: Decimal), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
@@ -3349,10 +4332,31 @@
         (12043, 2),
     ]), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Exposure to X and γ rays in coulombs per kilogram, C/kg (kg⁻¹·s·A, SI Brochure, 9th ed., table 6).",
-    ], ident: "Exposure", generics: [], fields: Unit, sparse: false, path: Some([
+        "Linear energy transfer in kiloelectronvolts per micrometre, keV/µm (1.602176634·10⁻¹⁰ J/m exactly), a",
+        "[LinearEnergyTransfer](crate::quantities::LinearEnergyTransfer), not a force: the L of the quality factor",
+        "Q(L) ([radiation](crate::radiation)).",
+    ], ident: "KiloElectronVoltPerMicrometer", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Exposure"), names: (symbol: "C/kg", ascii: None, long: "coulomb per kilogram", plural: "coulombs per kilogram", aliases: "", ucum: Some("C/kg"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KiloElectronVoltPerMicrometer"), names: (symbol: "keV/µm", ascii: Some("keV/um"), long: "kiloelectronvolt per micrometre", plural: "kiloelectronvolts per micrometre", aliases: "", ucum: Some("keV/um"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 2),
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "LinearEnergyTransfer")), scale: (pow10: -38, pow2: 2, primes: [
+        (3, 4),
+        (19, 2),
+        (389, 2),
+        (12043, 2),
+    ]), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Exposure to X and γ rays in coulombs per kilogram, C/kg (kg⁻¹·s·A, SI Brochure, 9th ed., table 6), an",
+        "[Exposure](crate::quantities::Exposure): not a specific charge, though both are C/kg.",
+    ], ident: "CoulombPerKilogram", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CoulombPerKilogram"), names: (symbol: "C/kg", ascii: None, long: "coulomb per kilogram", plural: "coulombs per kilogram", aliases: "", ucum: Some("C/kg"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 2),
         (halves: 0),
         (halves: -2),
@@ -3360,12 +4364,13 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "Exposure")), scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Absorbed dose rate in grays per second, Gy/s (m²·s⁻³, SI Brochure, 9th ed., table 6).",
-    ], ident: "AbsorbedDoseRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "Absorbed dose rate in grays per second, Gy/s (m²·s⁻³, SI Brochure, 9th ed., table 6), an",
+        "[AbsorbedDoseRate](crate::quantities::AbsorbedDoseRate): not a dose equivalent rate in [SievertPerHour].",
+    ], ident: "GrayPerSecond", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "AbsorbedDoseRate"), names: (symbol: "Gy/s", ascii: None, long: "gray per second", plural: "grays per second", aliases: "", ucum: Some("Gy/s"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "GrayPerSecond"), names: (symbol: "Gy/s", ascii: None, long: "gray per second", plural: "grays per second", aliases: "", ucum: Some("Gy/s"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -6),
         (halves: 4),
         (halves: 0),
@@ -3373,10 +4378,11 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "AbsorbedDoseRate")), scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Equivalent dose rate in sieverts per hour, Sv/h (1/3600 Sv/s): a dosimeter\'s µSv/h is",
-        "`Fixed<SievertPerHour, Micro, T>`.",
+        "Dose equivalent rate in sieverts per hour, Sv/h (1/3600 Sv/s), a",
+        "[DoseEquivalentRate](crate::quantities::DoseEquivalentRate): a dosimeter\'s µSv/h is",
+        "`Fixed<SievertPerHour, Micro, T>`. Not an absorbed dose rate in [GrayPerSecond].",
     ], ident: "SievertPerHour", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "SievertPerHour"), names: (symbol: "Sv/h", ascii: None, long: "sievert per hour", plural: "sieverts per hour", aliases: "", ucum: Some("Sv/h"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
@@ -3387,9 +4393,165 @@
         (halves: 0),
         (halves: 0),
         (halves: 0),
-    ], bases: []), quantity: None, scale: (pow10: -4, pow2: -4, primes: [
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "DoseEquivalentRate")), scale: (pow10: -4, pow2: -4, primes: [
         (3, -4),
     ]), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The dalton (unified atomic mass unit), Da, 1 Da = 1 u = m_u: one twelfth of a ¹²C atom\'s mass (SI Brochure,",
+        "9th ed., table 8, note). m_u is measured (NUM-32), so its scale keeps the symbol, and a value comes only",
+        "from a named set of constants, `convert_with`. No `quantity` line, as [Gram]\'s kg has none: both share",
+        "their dimension\'s own quantity, so the dimension matches with no step, but a plain `convert` to a gram still",
+        "doesn\'t compile, as the factor is no fraction without the set.",
+    ], ident: "Dalton", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Dalton"), names: (symbol: "Da", ascii: None, long: "dalton", plural: "daltons", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0, m_u: 2), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Area in barns, b (10⁻²⁸ m², SI Brochure, 9th ed., table 8): a nuclear cross section.",
+    ], ident: "Barn", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Barn"), names: (symbol: "b", ascii: None, long: "barn", plural: "barns", aliases: "", ucum: Some("bn"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: -56), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Activity in curies, Ci (3.7·10¹⁰ Bq exactly; 12th CGPM, 1964, Resolution 7; SI Brochure, 9th ed., appendix 1),",
+        "an [Activity](crate::quantities::Activity): not a frequency in [Hertz].",
+    ], ident: "Curie", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Curie"), names: (symbol: "Ci", ascii: None, long: "curie", plural: "curies", aliases: "", ucum: Some("Ci"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "Activity")), scale: (pow10: 18, primes: [
+        (37, 2),
+    ]), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Absorbed dose in rads, rd (0.01 Gy; NIST SP 811, Appendix B; NIST HB 44, Appendix C), an",
+        "[AbsorbedDose](crate::quantities::AbsorbedDose): the symbol is \"rd\", not \"rad\", which is the radian\'s",
+        "([Radian]). `customary`\'s rod, [RodInternational], shares \"rd\": with both features on, q! refuses the",
+        "symbol, naming both.",
+    ], ident: "Rad", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Rad"), names: (symbol: "rd", ascii: None, long: "rad", plural: "rads", aliases: "", ucum: Some("RAD"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "AbsorbedDose")), scale: (pow10: -4), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Dose equivalent in rems, rem (0.01 Sv; NIST SP 811, Appendix B; NIST HB 44, Appendix C): the SI\'s dose",
+        "equivalent H = Q·D, a bare [Sievert]\'s quantity, [DoseEquivalent](crate::quantities::DoseEquivalent), not",
+        "ICRP\'s [EquivalentDose] or [EffectiveDose].",
+    ], ident: "Rem", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Rem"), names: (symbol: "rem", ascii: None, long: "rem", plural: "rems", aliases: "", ucum: Some("REM"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: -4),
+        (halves: 4),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "DoseEquivalent")), scale: (pow10: -4), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Exposure in röntgens, R (2.58·10⁻⁴ C/kg exactly, SI Brochure, 9th ed., table 8), an",
+        "[Exposure](crate::quantities::Exposure): not an absorbed dose or a dose equivalent, though all three were once",
+        "confused.",
+    ], ident: "Roentgen", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Roentgen"), names: (symbol: "R", ascii: None, long: "roentgen", plural: "roentgens", aliases: "", ucum: Some("R"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 2),
+        (halves: 0),
+        (halves: -2),
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: Some((crate_name: "exact_units", name: "Exposure")), scale: (pow10: -12, pow2: 2, primes: [
+        (3, 2),
+        (43, 2),
+    ]), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The Julian year, a (365.25 d, 31 557 600 s exactly; IAU): the astronomical year, what \"a\", \"ka\", \"Ma\" and",
+        "\"Ga\" mean in the literature. Not a calendar year: [GregorianYear] is the civil calendar\'s, 365.2425 d, and",
+        "[TropicalYearNubase2020] is NUBASE2020\'s own value for half-lives, 365.2422 d. A bare \"year\" is refused",
+        "(rule 5): each of the three has its own name, and q! refuses even the bare symbol \"a\", naming this and",
+        "[GregorianYear], since the two share its stem; write the type, `q!(5 JulianYear)`.",
+    ], ident: "JulianYear", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "JulianYear"), names: (symbol: "a", ascii: None, long: "year (Julian)", plural: "years (Julian)", aliases: "", ucum: Some("a_j"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: 4, pow2: 6, primes: [
+        (3, 8),
+        (487, 2),
+    ]), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The Gregorian calendar year, \"a (Gregorian)\" (365.2425 d, 31 556 952 s exactly): the civil calendar\'s mean",
+        "year over its 400-year leap cycle, apart from the astronomical [JulianYear] and NUBASE2020\'s",
+        "[TropicalYearNubase2020]. q! takes it only as a type or a quoted string, `q!(5 \"a (Gregorian)\")`: the",
+        "symbol\'s own stem, \"a\", is [JulianYear]\'s too, so q! refuses it bare.",
+    ], ident: "GregorianYear", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "GregorianYear"), names: (symbol: "a (Gregorian)", ascii: None, long: "year (Gregorian)", plural: "years (Gregorian)", aliases: "", ucum: Some("a_g"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0, pow2: 6, primes: [
+        (3, 12),
+        (7, 2),
+        (773, 2),
+    ]), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "NUBASE2020\'s year, \"y (NUBASE2020)\" (365.2422 d, 31 556 926.08 s; Kondev et al., Chinese Phys. C 45, 030001,",
+        "2021, §2.3): the tropical year as NUBASE2020 adopts it for half-lives, measured, not defined, so its scale",
+        "carries the source: not the astronomical [JulianYear] or the civil [GregorianYear]. NUBASE2020 itself prints",
+        "\"= 31 556 926 s\" beside it, 0.08 s short of 365.2422 d; this unit takes the day count. q! refuses the bare",
+        "stem \"y\" too (no other reading needs it, but a qualified symbol picks no bare default): write the type,",
+        "`q!(5 TropicalYearNubase2020)`, or the quoted symbol, `q!(5 \"y (NUBASE2020)\")`.",
+    ], ident: "TropicalYearNubase2020", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TropicalYearNubase2020"), names: (symbol: "y (NUBASE2020)", ascii: None, long: "year (NUBASE2020)", plural: "years (NUBASE2020)", aliases: "", ucum: Some("a_t"), prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 2),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: -4, pow2: 12, primes: [
+        (3, 8),
+        (608737, 2),
+    ]), provenance: Conventional(source: "NUBASE2020", year: 2021)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A fraction: a duty cycle, a probability, a scale factor, an efficiency (dimensionless, 1). 0.5 is half, not a",
         "level in decibels. Written with `%`, `‰`, `ppm`, `ppb` for `Centi`, `Milli`, `Micro`, `Nano`.",
@@ -3418,7 +4580,7 @@
         "```",
     ], ident: "Ratio", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Ratio"), names: (symbol: "", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: Decimal), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Ratio"), names: (symbol: "", ascii: None, long: "ratio", plural: "ratios", aliases: "", ucum: None, prefixes: Decimal), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 0),
@@ -3427,6 +4589,63 @@
         (halves: 0),
         (halves: 0),
     ], bases: []), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The number ln 2 as a unit, dimensionless: `Exact<Ln2>::int(3)` is exactly 3·ln 2. A decay constant λ = ln 2/T½ is",
+        "an `Exact<Times<Ln2, Per<Ratio, Second>>>` holding 1/T½, so ln 2 stays exact in the type and `ln 2 · a + b` (two",
+        "different units) doesn\'t compile. `convert` between an `Ln2` unit and a [Ratio] one doesn\'t compile, as the factor ln 2 is no fraction.",
+        "",
+        "```",
+        "use exact_units::{Exact, units::{Ln2, Ratio, Second}};",
+        "",
+        "// λ = ln 2 / T½ for T½ = 4 s: 1/4 of ln 2 per second",
+        "let t_half = Exact::<Second>::int(4);",
+        "let lambda = (Exact::<Ln2>::int(1) / t_half).unwrap();",
+        "assert_eq!(lambda.get(), Exact::<Ratio>::new(1, 4).get());",
+        "// a whole number of ln 2 per whole number of ln 2 is a plain ratio",
+        "assert_eq!(",
+        "    (Exact::<Ln2>::int(3) / Exact::<Ln2>::int(2)).unwrap().convert::<Ratio>(),",
+        "    Some(Exact::new(3, 2)),",
+        ");",
+        "```",
+        "",
+        "Adding a multiple of ln 2 to a plain number has no exact form, and neither does the conversion, so neither compiles:",
+        "",
+        "```compile_fail",
+        "use exact_units::{Exact, units::{Ln2, Ratio}};",
+        "",
+        "let _ = Exact::<Ln2>::int(1) + Exact::<Ratio>::int(1);",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Exact, units::{Ln2, Ratio}};",
+        "",
+        "let _ = Exact::<Ln2>::int(1).convert::<Ratio>();",
+        "```",
+    ], ident: "Ln2", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Ln2"), names: (symbol: "ln 2", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0, ln2: 2), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The number ln 10 as a unit, dimensionless: the same as [Ln2] for a natural log of ten, as in a level in nepers",
+        "from one in bels.",
+    ], ident: "Ln10", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Ln10"), names: (symbol: "ln 10", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: []), quantity: None, scale: (pow10: 0, ln10: 2), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Information in bits, bit: the base of information, so a size never mixes with a [Ratio] or a count of things.",
     ], ident: "Bit", generics: [], fields: Unit, sparse: false, path: Some([
@@ -3520,7 +4739,7 @@
         (base: (crate_name: "exact_units", name: "Bit"), exp: (halves: 2)),
     ]), quantity: None, scale: (pow10: 0, pow2: 12), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A count of things, item: a queue\'s length, a number of filters, channels, presses, repeats, steps.",
+        "A count of things, item: a queue\'s length, presses, repeats, where no marker below names what is counted.",
     ], ident: "Item", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Item"), names: (symbol: "item", ascii: None, long: "item", plural: "items", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
@@ -3730,6 +4949,248 @@
         (base: (crate_name: "exact_units", name: "Code"), exp: (halves: 2)),
     ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of events, event: occurrences counted as such, errors, stalls, overruns, retries.",
+    ], ident: "Event", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Event"), names: (symbol: "event", ascii: None, long: "event", plural: "events", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Event"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of pulses, pulse: of an encoder, a flow meter, a pulse output.",
+    ], ident: "Pulse", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Pulse"), names: (symbol: "pulse", ascii: None, long: "pulse", plural: "pulses", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Pulse"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of ticks, tick: of a timer or an OS tick, time only with its rate (`Per<Tick, Second>`).",
+    ], ident: "Tick", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Tick"), names: (symbol: "tick", ascii: None, long: "tick", plural: "ticks", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Tick"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of channels, channel: of an ADC, a DAC, a logic analyzer, a signal generator; `Index<Channel, u8>` is",
+        "one of them.",
+    ], ident: "Channel", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Channel"), names: (symbol: "channel", ascii: None, long: "channel", plural: "channels", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Channel"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of pins, pin: of a GPIO port or a chip; `Index<Pin, u8>` is one of them.",
+    ], ident: "Pin", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Pin"), names: (symbol: "pin", ascii: None, long: "pin", plural: "pins", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Pin"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of steps, step: of a plan, a procedure, an update; a stepper motor\'s steps.",
+    ], ident: "Step", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Step"), names: (symbol: "step", ascii: None, long: "step", plural: "steps", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Step"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of segments, segment: of a ring buffer, a log, a file, a route.",
+    ], ident: "Segment", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Segment"), names: (symbol: "segment", ascii: None, long: "segment", plural: "segments", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Segment"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of sessions, session: of a recorder, a connection, a login.",
+    ], ident: "Session", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Session"), names: (symbol: "session", ascii: None, long: "session", plural: "sessions", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Session"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of boots, boot: a device\'s starts, a boot counter.",
+    ], ident: "Boot", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Boot"), names: (symbol: "boot", ascii: None, long: "boot", plural: "boots", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Boot"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of operations, op: of a bus transaction (an I2C write then read is two), a batch.",
+    ], ident: "Operation", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Operation"), names: (symbol: "op", ascii: None, long: "operation", plural: "operations", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Operation"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of arguments, arg: of a call or a command; `Index<Argument, u8>` names the one an error is about.",
+    ], ident: "Argument", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Argument"), names: (symbol: "arg", ascii: None, long: "argument", plural: "arguments", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Argument"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of filters, filter: a CAN controller\'s acceptance filters, a packet filter\'s rules.",
+    ], ident: "Filter", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Filter"), names: (symbol: "filter", ascii: None, long: "filter", plural: "filters", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Filter"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of FIFOs, fifo: a peripheral\'s receive or transmit queues.",
+    ], ident: "Fifo", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Fifo"), names: (symbol: "fifo", ascii: None, long: "fifo", plural: "fifos", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Fifo"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of buffers, buffer: a peripheral\'s dedicated message buffers, a pool\'s.",
+    ], ident: "Buffer", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Buffer"), names: (symbol: "buffer", ascii: None, long: "buffer", plural: "buffers", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Buffer"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of time quanta, tq: a CAN bit\'s segments, a bit time\'s unit, time only with the quantum\'s length",
+        "(`Per<Cycle, TimeQuantum>` clock cycles each).",
+    ], ident: "TimeQuantum", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "TimeQuantum"), names: (symbol: "tq", ascii: None, long: "time quantum", plural: "time quanta", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "TimeQuantum"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of scans, scan: one reading of every channel of a multi-channel converter, a sample of each.",
+    ], ident: "Scan", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Scan"), names: (symbol: "scan", ascii: None, long: "scan", plural: "scans", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Scan"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`A / B`, a unit outside the named list: `Per<Torque, AngularVelocity>` is N·m/(rad/s). Not normalized,",
         "`Per<Meter, Second>` is not [Speed] (convert with `to_si_f64` / `from_f32`).",
         "",
@@ -3807,13 +5268,13 @@
         "back the same. A dimension without true exponents (a ratio, an angle) belongs to every system and is written as",
         "SI\'s; a reader refuses it under another system.",
     ], ident: "DimWire", generics: [], fields: Named([
-        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 84), docs: [
+        (ident: Some("system"), default: None, since: None, ty: OutOfLine(type_idx: 128), docs: [
             "The system the exponents count in.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 85)), docs: [
+        (ident: Some("exps"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 129)), docs: [
             "The exponents of the system\'s true bases: SI\'s s, m, kg, A, K, mol, cd.",
         ], slot: None, series_opaque: false),
-        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 86)), docs: [
+        (ident: Some("bases"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 130)), docs: [
             "The distinguished bases.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -3833,6 +5294,9 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A wire shape that isn\'t canonical: another count of exponents, bases unsorted, repeated or with an exponent of 0.",
     ], ident: "NotCanonical", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A [BigFraction] that no [Fraction] holds: [TryFrom].",
+    ], ident: "NotAFraction", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Every finite float, neither ±∞ nor NaN: a float (`f32`, `f64`) that must stay a number. [Unbounded] keeps ±∞ (the",
         "VSWR of a total reflection, an `f32` that overflows), `Finite` says the value can\'t be one. The ends are `T::MIN`",
@@ -3955,6 +5419,55 @@
         "let _ = v + v > v; // a MaybeNan has no `>`: gt_or, or not_nan first",
         "```",
     ], ident: "MaybeNan", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(MaybeNan))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One of the values of a [ValueSet] `S`, for an integer storage (those of [bounded](super::Fixed::bounded)): a",
+        "length that comes in fixed steps (CAN FD\'s 0..=8, 12, 16, 20, 24, 32, 48 and 64 bytes,",
+        "[CanFdLengths](crate::codec::CanFdLengths)), a clock divider, a packet size. [try_new](super::Fixed::try_new),",
+        "[bounded](super::Fixed::bounded), a `fixed!` constant, serde and the wire refuse every other value, and",
+        "[OutOfRange] lists the set: `13 B is out of {0..=8, 12, 16, 20, 24, 32, 48, 64} B (Byte, u8)`. The check, and",
+        "[try_new_rounded](super::Fixed::try_new_rounded), compare in the storage itself: no wider integer on the way.",
+        "",
+        "[Bounds::MIN] and [Bounds::MAX] are the set\'s first and last value, so what proves from them alone (a conversion",
+        "[into_rounded](super::Fixed::into_rounded) proves, a [Niched](crate::niche::Niched)\'s room) sees the whole range",
+        "between, never less. `saturating_*` is a compile error: a sum can stop at an end of a range, but a value in a gap",
+        "has no end to stop at without a rounding. `checked_*` is the way, `None` for a sum in a gap.",
+        "",
+        "[try_new_rounded](super::Fixed::try_new_rounded) names a [Rounding](super::Rounding) into the set:",
+        "",
+        "```",
+        "use exact_units::{Fixed, OneOf, Rounding, ValueSet, prefix::One, units::Ratio};",
+        "",
+        "#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]",
+        "struct Steps;",
+        "",
+        "impl ValueSet<u8> for Steps {",
+        "    const VALUES: &\'static [u8] = &[1, 2, 4, 8];",
+        "}",
+        "",
+        "type Div = Fixed<Ratio, One, u8, OneOf<Steps>>;",
+        "assert!(Div::try_new(5).is_err());",
+        "assert_eq!(Div::try_new_rounded(5, Rounding::Ceil).map(Div::get), Some(8));",
+        "assert_eq!(Div::try_new_rounded(5, Rounding::NearestEven).map(Div::get), Some(4));",
+        "assert_eq!(Div::try_new_rounded(6, Rounding::NearestEven).map(Div::get), Some(4)); // 4 is at position 2",
+        "assert_eq!(Div::try_new_rounded(9, Rounding::Ceil), None);",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Fixed, OneOf, ValueSet, prefix::One, units::Ratio};",
+        "",
+        "#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]",
+        "struct Steps;",
+        "",
+        "impl ValueSet<u8> for Steps {",
+        "    const VALUES: &\'static [u8] = &[1, 2, 4, 8];",
+        "}",
+        "",
+        "type Div = Fixed<Ratio, One, u8, OneOf<Steps>>;",
+        "let _ = Div::bounded(2).saturating_add(Div::bounded(4)); // 6 is in a gap: checked_add",
+        "```",
+    ], ident: "OneOf", generics: [
+        (ident: "S", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value outside its [Bounds], or one that doesn\'t fit the storage. A [Fixed](super::Fixed) refuses with",
         "[OutOfRange], which holds the value and names the range, and `?` turns into this.",
@@ -4271,13 +5784,13 @@
         "four channels). On the wire exactly the `T`.",
         "",
         "```",
-        "use exact_units::{Index, IndexFrom1, Range, units::Item};",
+        "use exact_units::{Index, IndexFrom1, Range, units};",
         "",
-        "type Channel = IndexFrom1<Item, u8, Range<1, 4>>;",
+        "type Channel = IndexFrom1<units::Channel, u8, Range<1, 4>>;",
         "let ch = Channel::try_new(3).unwrap();",
         "assert_eq!(ch.to_string(), \"3\");",
         "assert_eq!(ch.to_index(), Index::new(2));",
-        "assert_eq!(Channel::from_index(Index::<Item, u8>::new(0)), Some(Channel::try_new(1).unwrap()));",
+        "assert_eq!(Channel::from_index(Index::<units::Channel, u8>::new(0)), Some(Channel::try_new(1).unwrap()));",
         "assert!(Channel::try_new(0).is_err());",
         "assert!(Channel::try_new(5).is_err());",
         "```",
@@ -4361,7 +5874,7 @@
         (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [
             "Below the reference; never for zero.",
         ], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 138)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4417,6 +5930,85 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The unit\'s own zero: 0 K, 0 Pa (vacuum), the zero of an angle.",
     ], ident: "UnitZero", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact))))))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "An exact positive scale known at run time: `num / den · 2^pow2`, `num` and `den` odd and coprime `u32`s, `pow2`",
+        "within ±127. One form per value, so `==` and `Ord` are those of the value: `RunScale::ratio(2002, 120_000)` is",
+        "`RunScale::ratio(1001, 60_000)`.",
+        "",
+        "Every time base of H.264, H.265, AV1 and MP4 is a pair of `u32` fields and fits. The power of two holds the",
+        "base-2 mantissa-exponent forms of the codecs without a refusal: T.800\'s step 2^(Rb − εb)·(1 + μb/2¹¹) down to",
+        "2^−42, H.264\'s HRD 2^(6 + bit_rate_scale). A value that has no such form (a numerator past `u32` after its",
+        "factors of two are taken out, 0) is refused at construction, never rounded.",
+        "",
+        "```",
+        "use exact_units::RunScale;",
+        "",
+        "// H.264 E.2.1\'s example: num_units_in_tick 1001, time_scale 60 000",
+        "let tc = RunScale::ratio(1001, 60_000).unwrap();",
+        "assert_eq!(tc, RunScale::ratio(2002, 120_000).unwrap());",
+        "assert_eq!(tc.to_ratio(), Some((1001, 60_000)));",
+        "// a frame is two ticks in H.264 (Table E-6)",
+        "let frame = tc.checked_mul(RunScale::int(2).unwrap()).unwrap();",
+        "assert_eq!(frame.to_string(), \"1001/30000\");",
+        "assert!(frame > tc);",
+        "assert_eq!(RunScale::ratio(1, 0), None);",
+        "// T.800\'s step 2^(Rb − εb)·(1 + μb/2¹¹) with Rb = 8, εb = 31, μb = 1",
+        "let step = RunScale::new(2049, 1, 8 - 31 - 11).unwrap();",
+        "assert_eq!(step.parts(), (2049, 1, -34));",
+        "assert_eq!(step.to_ratio(), Some((2049, 1 << 34)));",
+        "// past u64 the power of two is written apart",
+        "assert_eq!(RunScale::new(3, 1, -100).unwrap().to_string(), \"3·2⁻¹⁰⁰\");",
+        "```",
+        "",
+        "On the wire (`final_structure`): `num` and `den` as `u32`, `pow2` as `i8`; a form that isn\'t the canonical one",
+        "(an even or zero part, a common factor, an exponent of −128) doesn\'t decode, so a value has one encoding.",
+    ], ident: "RunScale", generics: [], fields: Named([
+        (ident: Some("num"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The odd numerator, coprime to `den`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("den"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The odd denominator.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "The exponent of 2, within ±127.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A number at an exact scale known only at run time: `value · scale` in units of `U`. The unit is a type, the scale",
+        "a [RunScale] beside the number, `T` a primitive integer. `Ticks<u64>` is a count at a stream\'s own time base.",
+        "",
+        "Conversions to and from [Fixed] and between scales are exact or `None`, or round by a named [Rounding]. Two",
+        "values compare by their exact value, at any two scales: 3 at 1/25 s is 6 at 1/50 s. Arithmetic is at one scale:",
+        "[checked_add](Self::checked_add) refuses two different scales, never rescales one behind the caller\'s back.",
+        "",
+        "```",
+        "# #[cfg(feature = \"time\")] {",
+        "use exact_units::{Fixed, Rounding, RunScale, Ticks, prefix::Rational, units::Second};",
+        "",
+        "// an MP4 track\'s timescale of 15360, read from the file",
+        "let base = RunScale::ratio(1, 15_360).unwrap();",
+        "let pts = Ticks::<u64>::new(15_360 * 10 + 512, base);",
+        "// to a 90 kHz clock: 512/15360 s is 3000 ticks, exact",
+        "assert_eq!(pts.to_fixed::<Rational<1, 90_000>, u64>(), Some(Fixed::new(903_000)));",
+        "// to milliseconds it isn\'t whole: refused, or rounded by name",
+        "assert_eq!(pts.to_fixed::<exact_units::prefix::Milli, u32>(), None);",
+        "assert_eq!(pts.to_fixed_rounded::<exact_units::prefix::Milli, u32>(Rounding::Floor), Some(Fixed::new(10_033)));",
+        "assert_eq!(pts.to_string(), \"154112·1/15360 s\");",
+        "# }",
+        "```",
+        "",
+        "On the wire (`final_structure`): the value as `T` is, then its [RunScale].",
+    ], ident: "Scaled", generics: [
+        (ident: "U", kind: Type),
+        (ident: "T", kind: Type),
+    ], fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: Param(1), docs: [
+            "The number of steps.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 394), docs: [
+            "The step.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "A set of the named prefixes (the SI ones and kibi to tebi), one bit each: [PrefixPolicy::Only].",
     ], ident: "PrefixSet", generics: [], fields: Named([
@@ -4443,7 +6035,7 @@
         (docs: [
             "These prefixes only: `mmHg` takes milli and nothing else.",
         ], ident: "Only", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 313), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 396), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -4474,7 +6066,7 @@
             "The unit\'s code in UCUM (`\"Ohm\"`, `\"m/s2\"`, `\"By\"`), `None` where it has none or none is recorded: such a unit",
             "isn\'t written in [Notation::Ucum](crate::Notation::Ucum).",
         ], slot: None, series_opaque: false),
-        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 314), docs: [
+        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 397), docs: [
             "Which prefixes the unit takes in text: `km` is a kilometre, but `min` is no milli-inch.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4515,20 +6107,20 @@
         (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 315), docs: [
+        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 398), docs: [
             "How it is written.",
         ], slot: None, series_opaque: false),
-        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 87), docs: [
+        (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 131), docs: [
             "Its dimension.",
         ], slot: None, series_opaque: false),
-        (ident: Some("quantity"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 83)), docs: [
+        (ident: Some("quantity"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 127)), docs: [
             "The quantity it measures by default ([Ohm](crate::units::Ohm) a resistance, [Becquerel](crate::units::Becquerel)",
             "an activity), `None` for its dimension\'s quantity ([QuantityExpr::Derived]). On the wire by id.",
         ], slot: None, series_opaque: false),
-        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 138), docs: [
             "The exact factor to coherent SI: ° is π/180 rad, eV 1.602176634·10⁻¹⁹ J.",
         ], slot: None, series_opaque: false),
-        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 316), docs: [
+        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 399), docs: [
             "Whether the scale is the unit\'s definition or a value a source prints.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -4556,7 +6148,7 @@
         (docs: [
             "A named unit, described in full: one no table at hand lists, or a tree that reads alone.",
         ], ident: "Def", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 317), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 400), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "A named unit a table lists, by its identity: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
@@ -4566,25 +6158,25 @@
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 318)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 318)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 318)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 318)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 318)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 318)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
@@ -4713,7 +6305,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Inch", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Inch"), names: (symbol: "in", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Inch"), names: (symbol: "in", ascii: None, long: "inch", plural: "inches", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 2),
         (halves: 0),
@@ -4753,7 +6345,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Yard", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Yard"), names: (symbol: "yd", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Yard"), names: (symbol: "yd", ascii: None, long: "yard", plural: "yards", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 2),
         (halves: 0),
@@ -4794,7 +6386,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Thou", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Thou"), names: (symbol: "thou", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Thou"), names: (symbol: "thou", ascii: None, long: "thou", plural: "thou", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 2),
         (halves: 0),
@@ -4811,7 +6403,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Microinch", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Microinch"), names: (symbol: "µin", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Microinch"), names: (symbol: "µin", ascii: None, long: "microinch", plural: "microinches", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 2),
         (halves: 0),
@@ -4828,7 +6420,7 @@
         "- NIST HB 44 App. C: §5 Tables of equivalents, Units of length",
     ], ident: "Hand", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Hand"), names: (symbol: "hh", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Hand"), names: (symbol: "hh", ascii: None, long: "hand", plural: "hands", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 2),
         (halves: 0),
@@ -5433,7 +7025,7 @@
         "- UK WMA 1985: Sch. 1 Pt VI (supplementary and other units)",
     ], ident: "Rood", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Rood"), names: (symbol: "ro", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Rood"), names: (symbol: "ro", ascii: None, long: "rood", plural: "roods", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 4),
         (halves: 0),
@@ -5453,7 +7045,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "CircularMil", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CircularMil"), names: (symbol: "cmil", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CircularMil"), names: (symbol: "cmil", ascii: None, long: "circular mil", plural: "circular mils", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 4),
         (halves: 0),
@@ -6321,7 +7913,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Grain", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Grain"), names: (symbol: "gr", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Grain"), names: (symbol: "gr", ascii: None, long: "grain", plural: "grains", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 2),
@@ -6407,7 +7999,7 @@
         "- NIST HB 44 App. C: §3 Notes on British units of measurement",
     ], ident: "Stone", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Stone"), names: (symbol: "st", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Stone"), names: (symbol: "st", ascii: None, long: "stone", plural: "stones", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 2),
@@ -6448,7 +8040,7 @@
         "- UK WMA 1985: Sch. 1 Pt VI (supplementary and other units)",
     ], ident: "Cental", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Cental"), names: (symbol: "ctl", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Cental"), names: (symbol: "ctl", ascii: None, long: "cental", plural: "centals", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 2),
@@ -6512,7 +8104,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "TonShort", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonShort"), names: (symbol: "tn", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonShort"), names: (symbol: "tn", ascii: None, long: "short ton", plural: "short tons", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 2),
@@ -6589,7 +8181,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Pennyweight", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Pennyweight"), names: (symbol: "dwt", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Pennyweight"), names: (symbol: "dwt", ascii: None, long: "pennyweight", plural: "pennyweights", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 2),
@@ -6737,7 +8329,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Slug", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Slug"), names: (symbol: "slug", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Slug"), names: (symbol: "slug", ascii: None, long: "slug", plural: "slugs", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 2),
@@ -6763,7 +8355,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "PoundForce", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "PoundForce"), names: (symbol: "lbf", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "PoundForce"), names: (symbol: "lbf", ascii: None, long: "pound-force", plural: "pounds-force", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 2),
         (halves: 2),
@@ -6786,7 +8378,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "OunceForce", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "OunceForce"), names: (symbol: "ozf", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "OunceForce"), names: (symbol: "ozf", ascii: None, long: "ounce-force", plural: "ounces-force", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 2),
         (halves: 2),
@@ -6807,7 +8399,7 @@
         "- NIST SP 811: B.8 row label: kip (1 kip = 1000 lbf)",
     ], ident: "Kip", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Kip"), names: (symbol: "kip", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Kip"), names: (symbol: "kip", ascii: None, long: "kip", plural: "kips", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 2),
         (halves: 2),
@@ -6828,7 +8420,7 @@
         "- NIST SP 811: B.8 row label: ton-force (2000 lbf)",
     ], ident: "TonForceShort", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonForceShort"), names: (symbol: "tnf", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonForceShort"), names: (symbol: "tnf", ascii: None, long: "short ton-force", plural: "short tons-force", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 2),
         (halves: 2),
@@ -6850,7 +8442,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Poundal", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Poundal"), names: (symbol: "pdl", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Poundal"), names: (symbol: "pdl", ascii: None, long: "poundal", plural: "poundals", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 2),
         (halves: 2),
@@ -6873,7 +8465,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "KilogramForce", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KilogramForce"), names: (symbol: "kgf", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KilogramForce"), names: (symbol: "kgf", ascii: None, long: "kilogram-force", plural: "kilograms-force", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 2),
         (halves: 2),
@@ -6891,7 +8483,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Psi", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Psi"), names: (symbol: "psi", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Psi"), names: (symbol: "psi", ascii: None, long: "pound-force per square inch", plural: "pounds-force per square inch", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: -2),
         (halves: 2),
@@ -6913,7 +8505,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Ksi", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Ksi"), names: (symbol: "ksi", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Ksi"), names: (symbol: "ksi", ascii: None, long: "kip per square inch", plural: "kips per square inch", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: -2),
         (halves: 2),
@@ -6935,7 +8527,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Psf", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Psf"), names: (symbol: "psf", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Psf"), names: (symbol: "psf", ascii: None, long: "pound-force per square foot", plural: "pounds-force per square foot", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: -2),
         (halves: 2),
@@ -7047,7 +8639,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Torr", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Torr"), names: (symbol: "Torr", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Torr"), names: (symbol: "Torr", ascii: None, long: "torr", plural: "torr", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: -2),
         (halves: 2),
@@ -7218,7 +8810,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "AtmosphereStandard", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "AtmosphereStandard"), names: (symbol: "atm", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "AtmosphereStandard"), names: (symbol: "atm", ascii: None, long: "standard atmosphere", plural: "standard atmospheres", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: -2),
         (halves: 2),
@@ -7238,7 +8830,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "AtmosphereTechnical", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "AtmosphereTechnical"), names: (symbol: "at", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "AtmosphereTechnical"), names: (symbol: "at", ascii: None, long: "technical atmosphere", plural: "technical atmospheres", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: -2),
         (halves: 2),
@@ -7303,7 +8895,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "BtuIt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "BtuIt"), names: (symbol: "Btu_IT", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "BtuIt"), names: (symbol: "Btu_IT", ascii: None, long: "IT British thermal unit", plural: "IT British thermal units", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7325,7 +8917,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "BtuTh", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "BtuTh"), names: (symbol: "Btu_th", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "BtuTh"), names: (symbol: "Btu_th", ascii: None, long: "thermochemical British thermal unit", plural: "thermochemical British thermal units", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7347,7 +8939,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "BtuMean", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "BtuMean"), names: (symbol: "Btu_mean", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "BtuMean"), names: (symbol: "Btu_mean", ascii: None, long: "mean British thermal unit", plural: "mean British thermal units", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7421,7 +9013,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "CalorieIt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieIt"), names: (symbol: "cal_IT", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieIt"), names: (symbol: "cal_IT", ascii: None, long: "IT calorie", plural: "IT calories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7440,7 +9032,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "CalorieTh", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieTh"), names: (symbol: "cal_th", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieTh"), names: (symbol: "cal_th", ascii: None, long: "thermochemical calorie", plural: "thermochemical calories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7457,7 +9049,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "CalorieMean", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieMean"), names: (symbol: "cal_mean", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieMean"), names: (symbol: "cal_mean", ascii: None, long: "mean calorie", plural: "mean calories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7512,7 +9104,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "KilocalorieIt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KilocalorieIt"), names: (symbol: "kcal_IT", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KilocalorieIt"), names: (symbol: "kcal_IT", ascii: None, long: "IT kilocalorie", plural: "IT kilocalories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7531,7 +9123,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "KilocalorieTh", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KilocalorieTh"), names: (symbol: "kcal_th", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "KilocalorieTh"), names: (symbol: "kcal_th", ascii: None, long: "thermochemical kilocalorie", plural: "thermochemical kilocalories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7548,7 +9140,7 @@
         "- NIST SP 811: B.8 footnote 11 and row calorie_IT, kilogram (nutrition)",
     ], ident: "CalorieFoodIt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieFoodIt"), names: (symbol: "Cal_IT", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieFoodIt"), names: (symbol: "Cal_IT", ascii: None, long: "IT food calorie", plural: "IT food calories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7566,7 +9158,7 @@
         "- NIST SP 811: B.8 footnote 11 and row calorie_th, kilogram (nutrition)",
     ], ident: "CalorieFoodTh", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieFoodTh"), names: (symbol: "Cal_th", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "CalorieFoodTh"), names: (symbol: "Cal_th", ascii: None, long: "thermochemical food calorie", plural: "thermochemical food calories", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7622,7 +9214,7 @@
         "- NIST SP 811: B.8 row label: quad (10¹⁵ Btu_IT)",
     ], ident: "Quad", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Quad"), names: (symbol: "quad", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Quad"), names: (symbol: "quad", ascii: None, long: "quad", plural: "quads", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7644,7 +9236,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "TonOfTnt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonOfTnt"), names: (symbol: "tTNT", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonOfTnt"), names: (symbol: "tTNT", ascii: None, long: "ton of TNT", plural: "tons of TNT", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -4),
         (halves: 4),
         (halves: 2),
@@ -7803,7 +9395,7 @@
         "- NIST SP 811: B.8 row label: ton of refrigeration (12 000 Btu_IT/h)",
     ], ident: "TonOfRefrigeration", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonOfRefrigeration"), names: (symbol: "TR", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "TonOfRefrigeration"), names: (symbol: "TR", ascii: None, long: "ton of refrigeration", plural: "tons of refrigeration", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -6),
         (halves: 4),
         (halves: 2),
@@ -7825,7 +9417,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "MilePerHour", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "MilePerHour"), names: (symbol: "mph", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "MilePerHour"), names: (symbol: "mph", ascii: None, long: "mile per hour", plural: "miles per hour", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -2),
         (halves: 2),
         (halves: 0),
@@ -7843,7 +9435,7 @@
         "- SI Brochure 8: Table 8: 1 kn = (1852/3600) m/s",
     ], ident: "Knot", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Knot"), names: (symbol: "kn", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Knot"), names: (symbol: "kn", ascii: None, long: "knot", plural: "knots", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: -2),
         (halves: 2),
         (halves: 0),
@@ -7897,7 +9489,7 @@
         "- SI Brochure 8: Table 6: 1° = (π/180) rad, 1′ = (1/60)°, 1″ = (1/60)′",
     ], ident: "Arcminute", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Arcminute"), names: (symbol: "′", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Arcminute"), names: (symbol: "′", ascii: None, long: "arcminute", plural: "arcminutes", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 0),
@@ -7916,7 +9508,7 @@
         "- SI Brochure 8: Table 6: 1° = (π/180) rad, 1′ = (1/60)°, 1″ = (1/60)′",
     ], ident: "Arcsecond", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Arcsecond"), names: (symbol: "″", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Arcsecond"), names: (symbol: "″", ascii: None, long: "arcsecond", plural: "arcseconds", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 0),
@@ -7935,7 +9527,7 @@
         "- NIST SP 811: B.8 rows gon: 9.0 E-01 degree (bold)",
     ], ident: "Gon", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Gon"), names: (symbol: "gon", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "Gon"), names: (symbol: "gon", ascii: None, long: "gon", plural: "gons", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 0),
@@ -7988,7 +9580,7 @@
         "- Unsourced: 1/6300 turn: no primary source fetched",
     ], ident: "StreckSwedish", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "StreckSwedish"), names: (symbol: "streck", ascii: None, long: "", plural: "", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((id: (crate_name: "exact_units", name: "StreckSwedish"), names: (symbol: "streck", ascii: None, long: "Swedish streck", plural: "Swedish streck", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
         (halves: 0),
         (halves: 0),
         (halves: 0),

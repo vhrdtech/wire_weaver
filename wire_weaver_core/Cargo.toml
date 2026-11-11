@@ -36,5 +36,6 @@ ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
-# the parity test of every unit! line against the compiled consts covers the customary units too
-exact_units = { workspace = true, features = ["customary"] }
+# the parity test of every unit! line and every codec against the compiled consts covers the customary and
+# nuclear units and the exposure codecs too
+exact_units = { workspace = true, features = ["customary", "levels", "nuclear"] }

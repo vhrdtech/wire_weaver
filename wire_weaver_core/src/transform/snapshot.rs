@@ -1093,6 +1093,32 @@ mod tests {
         dir
     }
 
+    /// A generic `impl<Q, C> Codec` (exact_units' `Transfer<Q, C>`) gives a definition per instance, which the API
+    /// model can't hold yet (STD-112): the crate declaring it walks, an API that uses an instance is refused with an
+    /// error naming the codec and the item, never a struct with no codec behind it.
+    #[test]
+    fn a_generic_codec_is_refused_where_an_api_uses_it() {
+        let codec = "#[derive_shrink_wrap]\npub struct Code(pub u16);\n\n\
+            #[derive_shrink_wrap]\npub struct Transfer<Q, C> {\n    pub q: Q,\n    pub c: C,\n}\n\n\
+            impl<Q: Codec, C: Curve> Codec for Transfer<Q, C> {\n    \
+            const DEF: CodecDef<'static> = CodecDef {\n        curve: Some(C::DEF),\n        ..Q::DEF\n    };\n}\n";
+        let unused = format!(
+            "{codec}\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n    fn code() -> Code;\n}}\n"
+        );
+        let dir = write_crate("generic_codec_unused_api", &[("lib.rs", &unused)]);
+        load_crate(&dir).unwrap();
+
+        let used = format!(
+            "{codec}\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n    fn code() -> Transfer<Code, Code>;\n}}\n"
+        );
+        let dir = write_crate("generic_codec_used_api", &[("lib.rs", &used)]);
+        let err = format!("{:#}", load_crate(&dir).unwrap_err());
+        assert!(
+            err.contains("Transfer<..> is a generic codec") && err.contains("STD-112"),
+            "{err}"
+        );
+    }
+
     const IMPORTED_COMMON: &str = "#[ww_trait]\npub trait Channel {\n    fn get() -> Code;\n}\n\n\
         #[ww_trait]\npub trait Sensor {\n    fn read() -> Code;\n}\n\n\
         #[derive_shrink_wrap]\npub struct Code(pub u16);\n";

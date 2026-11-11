@@ -1,6 +1,6 @@
 use super::{
     crate_walker::{CrateContext, LookupKey, Scratch, TypeInProgress},
-    markers::{CrateRefs, marker_def},
+    markers::{CrateRefs, generic_codec_error, is_generic_codec, marker_def},
     unit_hint::{is_silenced, suggest},
     util::{
         Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
@@ -274,6 +274,11 @@ fn convert_user_ty(
             ));
         }
     };
+    if let Item::Struct(item_struct) = item
+        && is_generic_codec(&item_struct.attrs)
+    {
+        return Err(generic_codec_error(ident).context(def_cx.err_context()));
+    }
     let params = convert_generic_params(ident, generics, def_cx, scratch)?;
     let args = convert_generic_args(segment, ident, &params, def_cx, current_crate, scratch)?;
     let params: Vec<_> = params.into_iter().map(|(p, _)| p).collect();

@@ -96,6 +96,17 @@ fn mark_hand_written(items: &mut [Item]) {
     let mut hand = Vec::new();
     let mut references = Vec::new();
     let mut codecs = Vec::new();
+    let mut generic_codecs = Vec::new();
+    // `const X: [T; N] = [..];` of this module: a codec's `DEF` names its tables by them (`def_list(&X)`)
+    let tables: Vec<(Ident, syn::Expr)> = items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Const(c) if matches!(&*c.expr, syn::Expr::Array(_)) => {
+                Some((c.ident.clone(), (*c.expr).clone()))
+            }
+            _ => None,
+        })
+        .collect();
     for item in items.iter() {
         let Item::Impl(item_impl) = item else {
             continue;
@@ -106,6 +117,16 @@ fn mark_hand_written(items: &mut [Item]) {
         let Some(trait_name) = trait_path.segments.last().map(|s| s.ident.to_string()) else {
             continue;
         };
+        // `impl<Q, C> Codec for Transfer<Q, C>`: its `DEF` is one per instance (`..Q::DEF`), no definition of the
+        // struct, refused where an API uses it (STD-112)
+        if trait_name == "Codec"
+            && !item_impl.generics.params.is_empty()
+            && let syn::Type::Path(self_ty) = &*item_impl.self_ty
+            && let Some(name) = self_ty.path.segments.last()
+        {
+            generic_codecs.push(name.ident.clone());
+            continue;
+        }
         if trait_name == "Codec"
             && let syn::Type::Path(self_ty) = &*item_impl.self_ty
             && let Some(name) = self_ty.path.segments.last()
@@ -114,6 +135,8 @@ fn mark_hand_written(items: &mut [Item]) {
                 _ => None,
             })
         {
+            let mut def = def;
+            inline_tables(&mut def, &tables);
             codecs.push((name.ident.clone(), def));
             continue;
         }
@@ -195,42 +218,136 @@ fn mark_hand_written(items: &mut [Item]) {
                 .attrs
                 .push(syn::parse_quote!(#[#attr(codec, #def)]));
         }
+        if let Item::Struct(item_struct) = item
+            && !item_struct
+                .attrs
+                .iter()
+                .any(|a| a.path().is_ident(MARKER_ATTR))
+            && generic_codecs.contains(&item_struct.ident)
+        {
+            let attr = Ident::new(MARKER_ATTR, item_struct.ident.span());
+            item_struct
+                .attrs
+                .push(syn::parse_quote!(#[#attr(generic_codec)]));
+        }
     }
 }
 
-/// The `shape` of an `impl Codec`'s `DEF` (`CodecDef { id: .., shape: CodecShape::MuLaw }`), by the last segment of
-/// its path: the shapes without parameters. A shape with parameters (`Table`, `Offset`, `MantissaExponent`) waits
-/// for the walker to read its fields.
+/// Replaces each table a codec's `DEF` names, `def_list(&X)` with `X` a `const X: [T; N] = [..]` of the same module,
+/// by its literal, so the `DEF` reads alone once it is a `#[ww_marker(codec, ..)]`: the walker evaluates no `const`
+/// code, and a table computed by one stays a name that [def_list_items] refuses.
+fn inline_tables(e: &mut syn::Expr, tables: &[(Ident, syn::Expr)]) {
+    match e {
+        syn::Expr::Path(p) => {
+            if let Some(ident) = p.path.get_ident()
+                && let Some((_, table)) = tables.iter().find(|(name, _)| name == ident)
+            {
+                *e = table.clone();
+            }
+        }
+        syn::Expr::Reference(r) => inline_tables(&mut r.expr, tables),
+        syn::Expr::Call(c) => c.args.iter_mut().for_each(|a| inline_tables(a, tables)),
+        syn::Expr::Struct(s) => s
+            .fields
+            .iter_mut()
+            .for_each(|f| inline_tables(&mut f.expr, tables)),
+        _ => {}
+    }
+}
+
+/// The field `name` of a `DEF`'s struct expression (`CodecDef { .. }`, `CodecShape::Offset { .. }`).
+fn field<'a>(s: &'a syn::ExprStruct, name: &str) -> Result<&'a syn::Expr> {
+    s.fields
+        .iter()
+        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == name))
+        .map(|f| &f.expr)
+        .ok_or_else(|| anyhow!("`{}`: no `{name}: ..`", quote::quote!(#s)))
+}
+
+/// The elements of a list as `exact_units` writes one in a `DEF`: `def_list(&[..])`, the slice `&[..]` alone, or
+/// either naming a table of the same module that [inline_tables] put in.
+fn def_list_items(e: &syn::Expr) -> Result<impl Iterator<Item = &syn::Expr>> {
+    let list = match e {
+        syn::Expr::Call(c)
+            if c.args.len() == 1
+                && matches!(&*c.func, syn::Expr::Path(p)
+                    if p.path.segments.last().is_some_and(|s| s.ident == "def_list")) =>
+        {
+            &c.args[0]
+        }
+        other => other,
+    };
+    let syn::Expr::Reference(r) = list else {
+        bail!("`{}`: def_list(&[..])", quote::quote!(#e));
+    };
+    match &*r.expr {
+        syn::Expr::Array(a) => Ok(a.elems.iter()),
+        syn::Expr::Path(p) => bail!(
+            "`{}`: `{}` is no `const` array literal of the codec's module; the walker evaluates no `const` code, \
+             so a table is written out",
+            quote::quote!(#e),
+            quote::quote!(#p)
+        ),
+        _ => bail!("`{}`: def_list(&[..])", quote::quote!(#e)),
+    }
+}
+
+/// The `shape` of an `impl Codec`'s `DEF`: `CodecShape::MuLaw`, `ALaw`, `Table(def_list(&[..]))`, `Offset { zero }`
+/// or `MantissaExponent { radix, exponents, mantissas, mantissa_offset, exponent_zero, exponent_step }`, each number
+/// an integer expression [int_expr] reads.
 fn codec_shape(def: &syn::Expr) -> Result<CodecShapeOwned> {
     let syn::Expr::Struct(s) = def else {
         bail!("DEF `{}`: CodecDef {{ id, shape }}", quote::quote!(#def));
     };
-    let Some(shape) = s
-        .fields
-        .iter()
-        .find(|f| matches!(&f.member, syn::Member::Named(i) if i == "shape"))
-        .map(|f| &f.expr)
-    else {
-        bail!("DEF `{}`: no `shape: ..`", quote::quote!(#def));
+    let shape = field(s, "shape").with_context(|| format!("DEF `{}`", quote::quote!(#def)))?;
+    let last = |path: &syn::Path| path.segments.last().map(|s| s.ident.to_string());
+    let read = || -> Result<CodecShapeOwned> {
+        match shape {
+            syn::Expr::Path(p) => match last(&p.path).as_deref() {
+                Some("MuLaw") => Ok(CodecShapeOwned::MuLaw),
+                Some("ALaw") => Ok(CodecShapeOwned::ALaw),
+                _ => bail!("not a CodecShape"),
+            },
+            syn::Expr::Call(c)
+                if c.args.len() == 1
+                    && matches!(&*c.func, syn::Expr::Path(p) if last(&p.path).as_deref() == Some("Table")) =>
+            {
+                let table = def_list_items(&c.args[0])?
+                    .map(int_expr)
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(CodecShapeOwned::Table(table))
+            }
+            syn::Expr::Struct(f) => match last(&f.path).as_deref() {
+                Some("Offset") => Ok(CodecShapeOwned::Offset {
+                    zero: int_expr(field(f, "zero")?)?,
+                }),
+                Some("MantissaExponent") => Ok(CodecShapeOwned::MantissaExponent {
+                    radix: int_expr(field(f, "radix")?)?,
+                    exponents: int_expr(field(f, "exponents")?)?,
+                    mantissas: def_list_items(field(f, "mantissas")?)?
+                        .map(int_expr)
+                        .collect::<Result<Vec<_>>>()?,
+                    mantissa_offset: int_expr(field(f, "mantissa_offset")?)?,
+                    exponent_zero: int_expr(field(f, "exponent_zero")?)?,
+                    exponent_step: int_expr(field(f, "exponent_step")?)?,
+                }),
+                _ => bail!("not a CodecShape"),
+            },
+            _ => bail!("not a CodecShape"),
+        }
     };
-    let name = match shape {
-        syn::Expr::Path(p) => p.path.segments.last().map(|s| s.ident.to_string()),
-        _ => None,
-    };
-    match name.as_deref() {
-        Some("MuLaw") => Ok(CodecShapeOwned::MuLaw),
-        Some("ALaw") => Ok(CodecShapeOwned::ALaw),
-        _ => bail!(
-            "shape `{}`: the walker reads MuLaw and ALaw; a shape with parameters (Table, Offset, \
-             MantissaExponent) waits for the walker to read its fields",
+    read().with_context(|| {
+        format!(
+            "shape `{}`: the walker reads MuLaw, ALaw, Table(def_list(&[..])), Offset {{ zero }} and \
+             MantissaExponent {{ .. }}",
             quote::quote!(#shape)
-        ),
-    }
+        )
+    })
 }
 
 /// The `spare` codes of an `impl Codec`'s `DEF`, as `exact_units` writes them: `def_list(&[])`,
-/// `def_list(&[CodeSpan::one(0x7F)])` or `def_list(&[CodeSpan { low: 0x07FE, high: 0x0802 }])`, each code an integer
-/// literal. Checked as `Coded::SPARE` checks them: every span ascending.
+/// `def_list(&[CodeSpan::one(0x7F)])`, `def_list(&[CodeSpan { low: 0x07FE, high: 0x0802 }])` or a same-module table
+/// of them, each code an integer [int_expr] reads. Checked as `Coded::SPARE` checks them: every span ascending.
 fn codec_spare(def: &syn::Expr) -> Result<Vec<CodeSpan>> {
     let syn::Expr::Struct(s) = def else {
         bail!(
@@ -246,31 +363,8 @@ fn codec_spare(def: &syn::Expr) -> Result<Vec<CodeSpan>> {
     else {
         bail!("DEF `{}`: no `spare: ..`", quote::quote!(#def));
     };
-    // `def_list(&[..])`, or the slice alone
-    let list = match spare {
-        syn::Expr::Call(c)
-            if c.args.len() == 1
-                && matches!(&*c.func, syn::Expr::Path(p)
-                    if p.path.segments.last().is_some_and(|s| s.ident == "def_list")) =>
-        {
-            &c.args[0]
-        }
-        other => other,
-    };
-    let syn::Expr::Reference(r) = list else {
-        bail!(
-            "spare `{}`: def_list(&[CodeSpan, ..])",
-            quote::quote!(#spare)
-        );
-    };
-    let syn::Expr::Array(a) = &*r.expr else {
-        bail!(
-            "spare `{}`: def_list(&[CodeSpan, ..])",
-            quote::quote!(#spare)
-        );
-    };
-    a.elems
-        .iter()
+    def_list_items(spare)
+        .with_context(|| format!("spare `{}`: def_list(&[CodeSpan, ..])", quote::quote!(#spare)))?
         .map(|e| {
             let span = code_span(e).with_context(|| format!("spare `{}`", quote::quote!(#e)))?;
             if span.low > span.high {
@@ -406,7 +500,7 @@ fn code_span(e: &syn::Expr) -> Result<CodeSpan> {
                         && p.path.segments[p.path.segments.len() - 2].ident == "CodeSpan"
                         && p.path.segments[p.path.segments.len() - 1].ident == "one") =>
         {
-            Ok(CodeSpan::one(int_lit(&c.args[0])?))
+            Ok(CodeSpan::one(int_expr(&c.args[0])?))
         }
         syn::Expr::Struct(s)
             if s.path
@@ -418,7 +512,7 @@ fn code_span(e: &syn::Expr) -> Result<CodeSpan> {
                 s.fields
                     .iter()
                     .find(|f| matches!(&f.member, syn::Member::Named(i) if i == name))
-                    .map(|f| int_lit(&f.expr))
+                    .map(|f| int_expr(&f.expr))
                     .unwrap_or_else(|| bail!("no `{name}: ..`"))
             };
             Ok(CodeSpan {
@@ -925,6 +1019,41 @@ fn const_call<'a>(e: &'a syn::Expr, ty: &str) -> Result<(String, Vec<&'a syn::Ex
     Ok((path.segments[n - 1].ident.to_string(), args))
 }
 
+/// An integer as a `DEF` writes one: a literal, negated, in parentheses, or `+`, `-`, `*` and `<<` of such
+/// (`1 << 11`), in `i128` and checked, the arithmetic `const` items use for their numbers. Nothing else: a name or
+/// a call is refused, the walker evaluates no `const` code.
+fn int_expr(e: &syn::Expr) -> Result<i128> {
+    match e {
+        syn::Expr::Paren(p) => int_expr(&p.expr),
+        syn::Expr::Group(g) => int_expr(&g.expr),
+        syn::Expr::Unary(syn::ExprUnary {
+            op: syn::UnOp::Neg(_),
+            expr,
+            ..
+        }) => int_expr(expr)?
+            .checked_neg()
+            .ok_or_else(|| anyhow!("`{}` overflows i128", quote::quote!(#e))),
+        syn::Expr::Binary(b) => {
+            let (l, r) = (int_expr(&b.left)?, int_expr(&b.right)?);
+            match b.op {
+                syn::BinOp::Add(_) => l.checked_add(r),
+                syn::BinOp::Sub(_) => l.checked_sub(r),
+                syn::BinOp::Mul(_) => l.checked_mul(r),
+                // checked_shl refuses only a shift past the width: a bit shifted out is refused by shifting back
+                syn::BinOp::Shl(_) => u32::try_from(r)
+                    .ok()
+                    .and_then(|r| l.checked_shl(r).filter(|v| v >> r == l)),
+                _ => bail!(
+                    "`{}`: the walker reads +, -, * and << of integers",
+                    quote::quote!(#e)
+                ),
+            }
+            .ok_or_else(|| anyhow!("`{}` overflows i128", quote::quote!(#e)))
+        }
+        _ => int_lit(e),
+    }
+}
+
 /// An integer literal, possibly negated.
 fn int_lit(e: &syn::Expr) -> Result<i128> {
     match e {
@@ -956,6 +1085,24 @@ pub(crate) enum MarkerLineDef {
     Reference(Box<(syn::Expr, syn::Expr)>),
     /// An `impl Codec`'s `DEF` constant, as written (LVL-6).
     Codec(Box<syn::Expr>),
+    /// A generic `impl<..> Codec`, whose `DEF` is one per instance (`Transfer<Q, C>`): no definition of the struct
+    /// alone, an instance an API uses is refused ([generic_codec_error], STD-112).
+    GenericCodec,
+}
+
+/// Whether `attrs` mark a generic codec ([MarkerLineDef::GenericCodec]).
+pub(crate) fn is_generic_codec(attrs: &[Attribute]) -> bool {
+    matches!(marker_line(attrs), Ok(Some(MarkerLineDef::GenericCodec)))
+}
+
+/// The error for an instance of the generic codec `ident` used in an API: its definition is one per instance,
+/// which the API model can't hold yet.
+pub(crate) fn generic_codec_error(ident: &syn::Ident) -> anyhow::Error {
+    anyhow!(
+        "{ident}<..> is a generic codec: its `impl<..> Codec` gives a definition per instance (`CodecDef {{ .., \
+         ..Q::DEF }}`), which the API model can't hold yet (STD-112 generic-codec-markers); use a codec with \
+         a fixed definition"
+    )
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -965,6 +1112,9 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
     };
     let def = attr.parse_args_with(|input: ParseStream| {
         let kind: Ident = input.parse()?;
+        if kind == "generic_codec" {
+            return Ok(MarkerLineDef::GenericCodec);
+        }
         input.parse::<Token![,]>()?;
         match kind.to_string().as_str() {
             "unit" => Ok(MarkerLineDef::Unit(Box::new(input.parse()?))),
@@ -980,7 +1130,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             }
             _ => Err(syn::Error::new(
                 kind.span(),
-                "unit, scale, hand, origin, quantity, reference or codec",
+                "unit, scale, hand, origin, quantity, reference, codec or generic_codec",
             )),
         }
     })?;
@@ -1246,6 +1396,8 @@ pub(crate) fn marker_def(
                 curve: None,
             })
         }
+        // the struct alone, a generic definition: no marker of its own, an instance is refused in `convert_user_ty`
+        MarkerLineDef::GenericCodec => return Ok(None),
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
@@ -2154,13 +2306,31 @@ mod tests {
         for compiled in [
             <exact_units::codec::MuLaw as exact_units::codec::Codec>::DEF,
             <exact_units::codec::MuLawSingleZero as exact_units::codec::Codec>::DEF,
+            // the shapes with parameters, their tables written out in the codec's module
+            <exact_units::codec::CanFdDlc as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::J2kStepSize as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::HevcLevelScale as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::HrdBitRate as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::HrdCpbSize as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::Narrow8 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::NarrowChroma8 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::Narrow10 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::NarrowChroma10 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::Narrow12 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::NarrowChroma12 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::Full10 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::FullChroma10 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::Full12 as exact_units::codec::Codec>::DEF,
+            <exact_units::codec::video::FullChroma12 as exact_units::codec::Codec>::DEF,
+            <exact_units::exposure::ApertureLabel as exact_units::codec::Codec>::DEF,
+            <exact_units::exposure::ShutterLabel as exact_units::codec::Codec>::DEF,
         ] {
             let name = compiled.id.name;
             let Some(MarkerDefOwned::Codec(def)) = markers.remove(name) else {
                 panic!("{name}: no codec definition in the model");
             };
             // the compiled definition through its own bytes, read back as the model's owned form
-            let mut buf = [0u8; 128];
+            let mut buf = [0u8; 1024];
             let bytes = shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&compiled, &mut buf).unwrap();
             let compiled =
                 <CodecDefOwned as shrink_wrap::DeserializeShrinkWrapOwned>::from_ww_bytes_owned(
@@ -2179,6 +2349,7 @@ mod tests {
         walked_bases.sort();
         let mut compiled_bases = bases!(
             Radian Neper NeperLoss Bit Item Sample Frame Packet Line Row Record Entry Cycle Block Sector Chunk Char Code
+            Argument Boot Buffer Channel Event Fifo Filter Operation Pin Pulse Scan Segment Session Step Tick TimeQuantum
         );
         compiled_bases.sort_by_key(|(name, _)| *name);
         assert_eq!(
@@ -2627,6 +2798,88 @@ mod tests {
         ] {
             let mut file = syn::parse_file(src).unwrap();
             assert!(expand_marker_macros(&mut file.items).is_err(), "{src}");
+        }
+    }
+
+    /// A codec's shape with parameters, as exact_units writes them: a `Table` of a same-module `const` array, an
+    /// `Offset`, a `MantissaExponent` with `<<` and negative numbers. A table computed by `const` code stays a name,
+    /// refused with what to do; so is a number the walker would have to evaluate.
+    #[test]
+    fn codec_shapes_with_parameters() {
+        let def_of = |src: &str| -> syn::Expr {
+            let items = expand(src);
+            let Some(Item::Struct(s)) = items.iter().find(|i| matches!(i, Item::Struct(_))) else {
+                panic!("no struct");
+            };
+            match marker_line(&s.attrs).unwrap() {
+                Some(MarkerLineDef::Codec(def)) => *def,
+                _ => panic!("no codec marker"),
+            }
+        };
+        let codec = |table: &str, shape: &str| {
+            format!(
+                "pub struct C;\n{table}\nimpl Codec for C {{ const DEF: CodecDef<'static> = CodecDef {{ \
+                 id: MarkerId {{ crate_name: \"c\", name: \"C\" }}, shape: {shape}, \
+                 spare: def_list(&SPARE), codes: CodeSpan::all::<u8>(), nominal: None, curve: None }}; }}\n\
+                 const SPARE: [CodeSpan; 2] = [CodeSpan::one(0x1_FFFF), CodeSpan {{ low: 16 << 32, high: (1 << 40) - 1 }}];"
+            )
+        };
+        let def = def_of(&codec(
+            "const TABLE: [i128; 4] = [0, -6, 12, 64];",
+            "CodecShape::Table(def_list(&TABLE))",
+        ));
+        assert_eq!(
+            codec_shape(&def).unwrap(),
+            CodecShapeOwned::Table(vec![0, -6, 12, 64])
+        );
+        assert_eq!(
+            codec_spare(&def).unwrap(),
+            vec![
+                CodeSpan::one(0x1_FFFF),
+                CodeSpan {
+                    low: 16 << 32,
+                    high: (1 << 40) - 1
+                }
+            ]
+        );
+        let def = def_of(&codec("", "CodecShape::Offset { zero: 2048 }"));
+        assert_eq!(
+            codec_shape(&def).unwrap(),
+            CodecShapeOwned::Offset { zero: 2048 }
+        );
+        let def = def_of(&codec(
+            "const LEVEL: [i128; 2] = [40, 45];",
+            "CodecShape::MantissaExponent { radix: 1 << 11, exponents: (32), mantissas: def_list(&LEVEL), \
+             mantissa_offset: 2 * 1024 + 0, exponent_zero: 31, exponent_step: -1 }",
+        ));
+        assert_eq!(
+            codec_shape(&def).unwrap(),
+            CodecShapeOwned::MantissaExponent {
+                radix: 2048,
+                exponents: 32,
+                mantissas: vec![40, 45],
+                mantissa_offset: 2048,
+                exponent_zero: 31,
+                exponent_step: -1,
+            }
+        );
+        // a table computed by const code is no literal: named, with what to do
+        let def = def_of(&codec(
+            "const TABLE: [i128; 2] = { let t = [0; 2]; t };",
+            "CodecShape::Table(def_list(&TABLE))",
+        ));
+        let err = format!("{:#}", codec_shape(&def).unwrap_err());
+        assert!(err.contains("TABLE") && err.contains("written out"), "{err}");
+        // numbers the walker would have to evaluate, or that overflow
+        for shape in [
+            "CodecShape::Offset { zero: ZERO }",
+            "CodecShape::Offset { zero: f(1) }",
+            "CodecShape::Offset { zero: 1 << 200 }",
+            "CodecShape::Offset { zero: 1 << 127 }",
+            "CodecShape::Offset { zero: 7 / 2 }",
+            "CodecShape::Gamma { g: 2 }",
+        ] {
+            assert!(codec_shape(&def_of(&codec("", shape))).is_err(), "{shape}");
         }
     }
 

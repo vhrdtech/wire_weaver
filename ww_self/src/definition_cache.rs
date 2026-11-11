@@ -44,6 +44,19 @@ pub fn default_dir() -> Option<PathBuf> {
     )
 }
 
+/// The file name of the entry of a definition: `ww_error_0_1_0-type-CommonError-<signature>.ww`. Superseded
+/// definitions kept next to a crate's snapshots (EVO-68) use the same names.
+pub fn file_name(kind: Kind, version: &FullVersionOwned, name: &str, signature: &[u8]) -> String {
+    let signature: String = signature.iter().map(|b| format!("{b:02x}")).collect();
+    // `units::Volt` (API-46) as `units.Volt`, `:` is not allowed in file names everywhere
+    let name = name.replace("::", ".");
+    format!(
+        "{}-{}-{name}-{signature}.ww",
+        version.filename_friendly(),
+        kind.name()
+    )
+}
+
 fn file_path(
     dir: &Path,
     kind: Kind,
@@ -51,14 +64,7 @@ fn file_path(
     name: &str,
     signature: &[u8],
 ) -> PathBuf {
-    let signature: String = signature.iter().map(|b| format!("{b:02x}")).collect();
-    // `units::Volt` (API-46) as `units.Volt`, `:` is not allowed in file names everywhere
-    let name = name.replace("::", ".");
-    dir.join(format!(
-        "{}-{}-{name}-{signature}.ww",
-        version.filename_friendly(),
-        kind.name()
-    ))
+    dir.join(file_name(kind, version, name, signature))
 }
 
 /// Store the canonical bytes of a definition, under their signature. An existing entry is left as is.
@@ -96,14 +102,18 @@ pub fn load(
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(anyhow!("reading {}: {e}", path.display())),
     };
-    if signature_of(&bytes) != signature {
-        return Err(anyhow!(
-            "{} doesn't match its signature, delete it",
-            path.display()
-        ));
+    decode(kind, name, signature, &bytes)
+        .map(Some)
+        .map_err(|e| anyhow!("{}: {e}", path.display()))
+}
+
+/// The canonical bundle of an entry's bytes, checked to hash to `signature` and to hold the `kind` named `name` as
+/// its first trait or type.
+pub fn decode(kind: Kind, name: &str, signature: &[u8], bytes: &[u8]) -> Result<ApiBundleOwned> {
+    if signature_of(bytes) != signature {
+        return Err(anyhow!("doesn't match its signature, delete it"));
     }
-    let bundle = ApiBundleOwned::from_ww_bytes_owned(&bytes)
-        .map_err(|e| anyhow!("reading {}: {e:?}", path.display()))?;
+    let bundle = ApiBundleOwned::from_ww_bytes_owned(bytes).map_err(|e| anyhow!("{e:?}"))?;
     let found = match kind {
         Kind::Trait => matches!(
             bundle.traits.first(),
@@ -120,11 +130,7 @@ pub fn load(
         }
     };
     if !found {
-        return Err(anyhow!(
-            "{} doesn't hold {} {name}",
-            path.display(),
-            kind.name()
-        ));
+        return Err(anyhow!("doesn't hold {} {name}", kind.name()));
     }
-    Ok(Some(bundle))
+    Ok(bundle)
 }

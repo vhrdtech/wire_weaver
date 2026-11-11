@@ -157,6 +157,7 @@
 
 ### 🚀 Features
 
+- `inline::inline_skipped_by_signature` puts skipped definitions back with any lookup by signature (`inline::BySignature`), not only the definition cache in a directory, for the superseded definitions of embedded snapshots (EVO-68). `definition_cache::file_name` and `definition_cache::decode` give an entry's file name and read its bytes, checked against the signature, without a directory.
 - `StreamFnRef::batch_time_ty()` (API-61): the time point of a timed batched stream, the second argument of its `Timed<T, Tm>` `batch_item_ty`.
 - `units::codec_of`, `codec_decode` and `codec_encode` run a codec's definition from the model without the `Codec` trait (`CodecDef::decode` / `encode`); `Wrapper::storage_ty` (STD-109).
 - `units::reference_of` (a reference marker's definition), `units::reference_conversion` (why points of two references don't convert: a zero known only at run time, a clock sync, a leap-second table), `ReferenceDefOwned::short_name`, `Display` for `ReferenceDefOwned` and `ReferenceHow`, `From<&exact_units::ReferenceDef>` (STD-108).

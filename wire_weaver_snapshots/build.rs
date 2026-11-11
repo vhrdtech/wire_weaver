@@ -2,7 +2,8 @@
 //! save-snapshots`) as shrink_wrap bytes, see `ww_self::snapshot`. The RON text is read here only: each file is
 //! encoded, the result must hash to the SHA-256 `ww api save` wrote in the file's header (or the build fails), and the
 //! library embeds the bytes
-//! and never parses RON.
+//! and never parses RON. The definitions an in-place refresh of a snapshot replaced, `api_snapshots/superseded/*.ww`
+//! (EVO-68), are embedded as they are: canonical bytes, checked against the signature in their name when read.
 
 use std::fmt::Write;
 use std::path::PathBuf;
@@ -55,4 +56,30 @@ fn main() {
     }
     out.push(']');
     fs::write(out_dir.join("api_snapshots.rs"), out).unwrap();
+
+    let superseded_dir = dir.join("superseded");
+    // a missing path would rerun this on every build; creating it changes `api_snapshots/`, which is watched
+    if superseded_dir.exists() {
+        println!("cargo:rerun-if-changed={}", superseded_dir.display());
+    }
+    let mut paths: Vec<_> = match fs::read_dir(&superseded_dir) {
+        Ok(entries) => entries
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "ww"))
+            .collect(),
+        Err(_) => vec![],
+    };
+    paths.sort();
+    let mut out = String::from("&[\n");
+    for path in paths {
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        writeln!(
+            out,
+            "    ({file_name:?}, include_bytes!({:?})),",
+            path.display()
+        )
+        .unwrap();
+    }
+    out.push(']');
+    fs::write(out_dir.join("superseded.rs"), out).unwrap();
 }

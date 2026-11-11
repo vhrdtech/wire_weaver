@@ -40,6 +40,7 @@
 
 ### 🚀 Features
 
+- Superseded definitions (EVO-68): `api_snapshots/superseded/*.ww`, the definitions in-place refreshes of snapshots replaced, kept by `ww api save` and copied by `just save-snapshots`, are embedded, and `superseded(kind, version, name, signature)` finds one by its signature (`superseded_files()` lists them). `inline_skipped` and `inline_skipped_or_cached` look a definition the snapshot has under another signature up there, before the definition cache. `signatures_from_before_marker_definitions` takes a pinned signature that a refresh kept as known.
 - `exact_units`' snapshot marks `Finite` with `MarkerDef::Finite` (STD-104).
 - `exact_units`' snapshot holds `MuLaw`'s codec definition (`MarkerDef::Codec`, STD-109).
 - `render_root_ron` renders the snapshot of one API root of a crate with several (EVO-38), with the root and its wire version in the header. The build script embeds whole-crate snapshots only and skips per-root files (`api_0_1_0.wire_v2.Thermo@w2.1.ron`), which only evolution checks read.

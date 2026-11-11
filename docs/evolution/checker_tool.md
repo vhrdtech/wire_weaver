@@ -139,6 +139,28 @@ saved against a revision of the dependency that no snapshot holds any more) is s
 signatures. Either way the snapshot of the checking crate's current version differs from its source: save it again
 while the version is not published (`just save-snapshots` for `ww_stdlib`).
 
+### Superseded definitions (EVO-68)
+
+Saving the dependency again refreshes its snapshot in place, and the definition the other snapshots name by the old
+signature would then be gone: an API line frozen in a snapshot of its own (`thermo_api`'s `wire_v1::Thermo`) and a
+device built before still name it. So `ww api save` keeps each definition of the crate's own whose signature a
+refresh in place changes, in `api_snapshots/superseded/`, one file per definition:
+
+```text
+ww_stdlib/ww_error/api_snapshots/superseded/ww_error_0_1_0-type-CommonError-bb2c2d7eb9d06d70.ww
+ww_stdlib/ww_indication/api_snapshots/superseded/ww_indication_0_1_0-trait-Indication-e1b197f7361f73a6.ww
+```
+
+A trait or type whose own source didn't change is kept too when its signature did: `Indication`'s method returns a
+`CommonError`. A file holds the same bytes the [definition cache](../std_library/ww_self.md#the-definition-cache) keeps for a device's
+definitions: the definition and everything it refers to, in-line, which its signature is the hash of, so a file
+that was changed fails to load. `just save-snapshots` copies them into `wire_weaver_snapshots`, which builds them in
+next to the snapshots, and the checker finds a definition by its signature there when the snapshot of its crate
+version has another one: a trait changed in place is then compared resource by resource, a type field by field, as
+above. A client putting a device's definitions back finds them the same way. Commit the files with the refreshed
+snapshots. The old definitions of the other crates it refers to must be known when the refresh runs (the snapshots
+built into `ww`, or what an earlier refresh kept): otherwise `ww api save` warns that the definition can't be kept.
+
 ## Checking at every commit
 
 The checker is a library, `wire_weaver_evolution`, which parses the crate from source like `ww api check` does and

@@ -437,6 +437,7 @@ impl Check {
                 bundle: read(&removed.last)?.bundle,
                 root: Some(removed.root),
                 warnings: vec![],
+                superseded: vec![],
             };
             planned.push((saved, Some(contents)));
         }

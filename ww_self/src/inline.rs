@@ -3,8 +3,10 @@
 //!
 //! Each definition is only put back if its [signature](crate::signature) matches the one stored in the skipped
 //! location. A definition whose signature the snapshot doesn't have (a build from another revision of a crate that
-//! is not published yet) can still be found by signature in the [definition cache](crate::definition_cache). Indices differ from a bundle that had everything in-line from the start: definitions put back replace
-//! the skipped locations in place, and the ones they refer to are appended.
+//! is not published yet) can still be found by signature in the [definition cache](crate::definition_cache), or with
+//! any other [BySignature] lookup (the superseded definitions of an embedded snapshot, EVO-68). Indices differ from a
+//! bundle that had everything in-line from the start: definitions put back replace the skipped locations in place,
+//! and the ones they refer to are appended.
 
 use crate::definition_cache::{self, Kind};
 use crate::signature::{Resolve, no_resolve, trait_signature, type_signature};
@@ -103,6 +105,30 @@ pub fn inline_skipped_or_cached<'a>(
     resolve: Resolve<'a, '_>,
     cache_dir: Option<&Path>,
 ) -> Inlined {
+    match cache_dir {
+        Some(dir) => inline_skipped_by_signature(
+            bundle,
+            resolve,
+            Some(&|kind, version, name, signature| {
+                definition_cache::load(dir, kind, version, name, signature)
+            }),
+        ),
+        None => inline_skipped_by_signature(bundle, resolve, None),
+    }
+}
+
+/// Looks up the canonical bundle of a definition by kind, crate version, name and signature, as
+/// [definition_cache::load] does: `Ok(None)` when it has none.
+pub type BySignature<'f> =
+    &'f dyn Fn(Kind, &FullVersionOwned, &str, &[u8]) -> Result<Option<ApiBundleOwned>>;
+
+/// Same as [inline_skipped], a definition that `resolve` doesn't find with the same signature is looked up with
+/// `by_signature` ([Inlined::from_cache] lists those).
+pub fn inline_skipped_by_signature<'a>(
+    bundle: &mut ApiBundleOwned,
+    resolve: Resolve<'a, '_>,
+    by_signature: Option<BySignature<'_>>,
+) -> Inlined {
     let mut from_cache = vec![];
     let mut not_inlined = vec![];
     let mut failed_types = HashSet::new();
@@ -118,7 +144,7 @@ pub fn inline_skipped_or_cached<'a>(
                 continue;
             }
             let name = type_name.clone();
-            match inline_type(bundle, idx, resolve, cache_dir) {
+            match inline_type(bundle, idx, resolve, by_signature) {
                 Ok(cached) => {
                     progress = true;
                     from_cache.extend(cached);
@@ -143,7 +169,7 @@ pub fn inline_skipped_or_cached<'a>(
                 continue;
             }
             let name = trait_name.clone();
-            match inline_trait(bundle, idx, resolve, cache_dir) {
+            match inline_trait(bundle, idx, resolve, by_signature) {
                 Ok(cached) => {
                     progress = true;
                     from_cache.extend(cached);
@@ -190,7 +216,7 @@ fn inline_type<'a>(
     bundle: &mut ApiBundleOwned,
     idx: usize,
     resolve: Resolve<'a, '_>,
-    cache_dir: Option<&Path>,
+    by_signature: Option<BySignature<'_>>,
 ) -> Result<Option<FromCache>> {
     let TypeLocationOwned::SkippedFullVersion {
         crate_idx,
@@ -212,7 +238,7 @@ fn inline_type<'a>(
     };
     if let Some((src, src_idx, found_signature)) = found {
         let found_signature = found_signature?;
-        if found_signature == signature || cache_dir.is_none() {
+        if found_signature == signature || by_signature.is_none() {
             check_signature(&signature, &found_signature)?;
             let mut location = src.types[src_idx as usize].clone();
             let mut import = Import::new(bundle, src, resolve);
@@ -230,11 +256,10 @@ fn inline_type<'a>(
         ),
         None => anyhow!("definition not found"),
     };
-    let Some(dir) = cache_dir else {
+    let Some(by_signature) = by_signature else {
         return Err(not_found());
     };
-    let Some(src) = definition_cache::load(dir, Kind::Type, &version, &type_name, &signature)?
-    else {
+    let Some(src) = by_signature(Kind::Type, &version, &type_name, &signature)? else {
         return Err(not_found());
     };
     let mut location = src.types[0].clone();
@@ -255,7 +280,7 @@ fn inline_trait<'a>(
     bundle: &mut ApiBundleOwned,
     idx: usize,
     resolve: Resolve<'a, '_>,
-    cache_dir: Option<&Path>,
+    by_signature: Option<BySignature<'_>>,
 ) -> Result<Option<FromCache>> {
     let ApiLevelLocationOwned::SkippedFullVersion {
         crate_idx,
@@ -277,7 +302,7 @@ fn inline_trait<'a>(
     };
     if let Some((src, src_idx, found_signature)) = found {
         let found_signature = found_signature?;
-        if found_signature == signature || cache_dir.is_none() {
+        if found_signature == signature || by_signature.is_none() {
             check_signature(&signature, &found_signature)?;
             let mut location = src.traits[src_idx as usize].clone();
             let mut import = Import::new(bundle, src, resolve);
@@ -295,11 +320,10 @@ fn inline_trait<'a>(
         ),
         None => anyhow!("definition not found"),
     };
-    let Some(dir) = cache_dir else {
+    let Some(by_signature) = by_signature else {
         return Err(not_found());
     };
-    let Some(src) = definition_cache::load(dir, Kind::Trait, &version, &trait_name, &signature)?
-    else {
+    let Some(src) = by_signature(Kind::Trait, &version, &trait_name, &signature)? else {
         return Err(not_found());
     };
     let mut location = src.traits[0].clone();

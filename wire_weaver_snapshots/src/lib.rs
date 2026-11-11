@@ -4,16 +4,29 @@
 //! codegen leaves them out of the introspection data a device sends, and a client puts them back with
 //! [inline_skipped]. Snapshots are saved by `ww api save` into each crate's `api_snapshots/` and copied into
 //! `wire_weaver_snapshots/api_snapshots/` by `just save-snapshots`.
+//!
+//! A crate version not published yet can change, and its snapshot is then refreshed in place. Another crate's
+//! snapshot, or a device built before, still names the definitions it had by their old signatures: `ww api save` keeps
+//! each one the refresh replaced in `api_snapshots/superseded/`, and [superseded] finds it by signature (EVO-68).
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use ww_self::ApiBundleOwned;
+use ww_self::definition_cache::{self, Kind};
 use ww_self::inline::NotInlined;
 use ww_self::snapshot;
 use ww_version::FullVersionOwned;
 
 /// (file name of the RON source, shrink_wrap bytes), encoded by the build script from `api_snapshots/*.ron`.
 const EMBEDDED: &[(&str, &[u8])] = include!(concat!(env!("OUT_DIR"), "/api_snapshots.rs"));
+
+/// (file name, canonical bytes) of the definitions in-place refreshes of snapshots replaced, as
+/// [definition_cache::file_name] names them, from `api_snapshots/superseded/*.ww`.
+const SUPERSEDED: &[(&str, &[u8])] = include!(concat!(env!("OUT_DIR"), "/superseded.rs"));
+
+/// Decoded superseded definitions, one slot per [SUPERSEDED] entry.
+static SUPERSEDED_DECODED: [OnceLock<ApiBundleOwned>; SUPERSEDED.len()] =
+    [const { OnceLock::new() }; SUPERSEDED.len()];
 
 /// Decoded snapshots, one slot per [EMBEDDED] entry, filled on first use of that entry.
 static DECODED: [OnceLock<ApiBundleOwned>; EMBEDDED.len()] =
@@ -52,6 +65,29 @@ fn decoded(index: usize) -> &'static ApiBundleOwned {
         );
         bundle
     })
+}
+
+/// The canonical bundle (the definition first, everything it refers to in-line) of the trait or type `name` of the
+/// crate `version` with `signature`, kept when the snapshot of that version was refreshed in place and the definition
+/// changed (EVO-68). `None` when no refresh replaced it: the snapshot's own definition is found with [get].
+pub fn superseded(
+    kind: Kind,
+    version: &FullVersionOwned,
+    name: &str,
+    signature: &[u8],
+) -> Option<&'static ApiBundleOwned> {
+    let file_name = definition_cache::file_name(kind, version, name, signature);
+    let index = SUPERSEDED.iter().position(|(n, _)| *n == file_name)?;
+    Some(SUPERSEDED_DECODED[index].get_or_init(|| {
+        // all of them are checked to decode by a test
+        definition_cache::decode(kind, name, signature, SUPERSEDED[index].1)
+            .unwrap_or_else(|e| panic!("embedded superseded definition {file_name}: {e:#}"))
+    }))
+}
+
+/// File names of the embedded superseded definitions, see [superseded].
+pub fn superseded_files() -> impl Iterator<Item = &'static str> {
+    SUPERSEDED.iter().map(|(name, _)| *name)
 }
 
 /// File names and contents of the snapshots as `ww api save` wrote them (the RON the embedded bytes were made
@@ -107,19 +143,33 @@ fn render_with_header(bundle: &ApiBundleOwned, header: String) -> Result<String,
 }
 
 /// Put definitions of skipped traits and types known from snapshots back into a bundle, see
-/// [ww_self::inline::inline_skipped]. Returns the ones that are left skipped.
+/// [ww_self::inline::inline_skipped]. Returns the ones that are left skipped. A definition the snapshot of its crate
+/// version has under another signature is looked up in the [superseded] ones.
 pub fn inline_skipped(bundle: &mut ApiBundleOwned) -> Vec<NotInlined> {
-    ww_self::inline::inline_skipped(bundle, &|version| get(version))
+    inline_skipped_or_cached(bundle, None).not_inlined
 }
 
 /// Same as [inline_skipped], a definition that the snapshots don't have under its signature (a build from another
-/// revision of a crate that is not published yet) is looked up in the definition cache in `cache_dir`, see
-/// [ww_self::definition_cache].
+/// revision of a crate that is not published yet) and that is not [superseded] is looked up in the definition cache in
+/// `cache_dir`, see [ww_self::definition_cache].
 pub fn inline_skipped_or_cached(
     bundle: &mut ApiBundleOwned,
     cache_dir: Option<&std::path::Path>,
 ) -> ww_self::inline::Inlined {
-    ww_self::inline::inline_skipped_or_cached(bundle, &|version| get(version), cache_dir)
+    let by_signature = |kind, version: &FullVersionOwned, name: &str, signature: &[u8]| {
+        if let Some(found) = superseded(kind, version, name, signature) {
+            return Ok(Some(found.clone()));
+        }
+        match cache_dir {
+            Some(dir) => definition_cache::load(dir, kind, version, name, signature),
+            None => Ok(None),
+        }
+    };
+    ww_self::inline::inline_skipped_by_signature(
+        bundle,
+        &|version| get(version),
+        Some(&by_signature),
+    )
 }
 
 #[cfg(test)]
@@ -139,6 +189,86 @@ mod tests {
         for (version, bundle) in all() {
             assert!(std::ptr::eq(get(version).unwrap(), *bundle), "{version:?}");
         }
+    }
+
+    /// Every superseded definition decodes, matches the signature in its name and is of a crate version with an
+    /// embedded snapshot, which has another definition of it (or none) (EVO-68).
+    #[test]
+    fn superseded_definitions_load() {
+        use ww_self::signature::{trait_signature, type_signature};
+        for file_name in superseded_files() {
+            let (bundle, kind, name, signature) = parse_superseded(file_name);
+            let version = bundle.crate_version(0).unwrap();
+            assert_eq!(
+                definition_cache::file_name(kind, version, &name, &signature),
+                file_name
+            );
+            let found = superseded(kind, version, &name, &signature).unwrap();
+            assert!(std::ptr::eq(
+                found,
+                superseded(kind, version, &name, &signature).unwrap()
+            ));
+            let snapshot =
+                get(version).unwrap_or_else(|| panic!("{file_name}: no snapshot of its version"));
+            let resolve = |v: &FullVersionOwned| get(v);
+            let current = match kind {
+                Kind::Trait => (0..snapshot.traits.len() as u32).find_map(|idx| {
+                    match &snapshot.traits[idx as usize] {
+                        ww_self::ApiLevelLocationOwned::InLine { level, .. }
+                            if level.trait_name == name =>
+                        {
+                            Some(trait_signature(snapshot, idx, &resolve).unwrap())
+                        }
+                        _ => None,
+                    }
+                }),
+                Kind::Type => (0..snapshot.types.len() as u32).find_map(|idx| {
+                    match &snapshot.types[idx as usize] {
+                        ww_self::TypeLocationOwned::InLine {
+                            ty: ww_self::TypeOwned::Struct(s),
+                            ..
+                        } if s.qualified_name() == name => {
+                            Some(type_signature(snapshot, idx, &resolve).unwrap())
+                        }
+                        ww_self::TypeLocationOwned::InLine {
+                            ty: ww_self::TypeOwned::Enum(e),
+                            ..
+                        } if e.qualified_name() == name => {
+                            Some(type_signature(snapshot, idx, &resolve).unwrap())
+                        }
+                        _ => None,
+                    }
+                }),
+            };
+            assert_ne!(
+                current,
+                Some(signature),
+                "{file_name}: the snapshot has it, it is not superseded"
+            );
+        }
+    }
+
+    /// The bundle, kind, name and signature of the superseded definition `file_name`, from its bytes.
+    fn parse_superseded(file_name: &str) -> (&'static ApiBundleOwned, Kind, String, Vec<u8>) {
+        let bytes = SUPERSEDED.iter().find(|(n, _)| *n == file_name).unwrap().1;
+        let signature = ww_self::signature::signature_of(bytes);
+        let kind = match file_name.contains("-trait-") {
+            true => Kind::Trait,
+            false => Kind::Type,
+        };
+        let name = file_name
+            .rsplit_once('-')
+            .and_then(|(rest, _)| rest.split_once(&format!("-{}-", kind.name())))
+            .map(|(_, name)| name.replace('.', "::"))
+            .unwrap();
+        let bundle = definition_cache::decode(kind, &name, &signature, bytes).unwrap();
+        let version = bundle.crate_version(0).unwrap().clone();
+        (
+            superseded(kind, &version, &name, &signature).unwrap(),
+            kind,
+            name,
+            signature,
+        )
     }
 
     /// `files()` renders the same snapshot `ww api save` wrote: same header and hash, and the saved text and the
@@ -181,7 +311,8 @@ mod tests {
     /// names; and with `ww_si` moving to 0.4.0 and wire w4.0 for exact_units' systems of units (UNIT-9, EVO-47); and
     /// with `ww_si` moving to 0.5.0 and wire w5.0 for `Timed.t` as a device point (STD-110, EVO-51); and with
     /// `Clock::shared_now` returning `Option<UnixMicros<u64>>` instead of `Option<u64>` (typed numbers for shared
-    /// time, rate, error and slew, P2401#11nov-0947g).
+    /// time, rate, error and slew, P2401#11nov-0947g). Since EVO-68 a refresh in place keeps the definition it
+    /// replaces, which keeps a pinned signature known.
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -206,7 +337,13 @@ mod tests {
             })
             .unwrap();
         let signature = type_signature(date_time, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0x1d, 0x27, 0xf8, 0x6f, 0xf9, 0xee, 0x85, 0x38]);
+        stays_known(
+            Kind::Type,
+            date_time,
+            "DateTime",
+            &signature,
+            [0x1d, 0x27, 0xf8, 0x6f, 0xf9, 0xee, 0x85, 0x38],
+        );
 
         let timebase = snapshot_of("ww_timebase");
         let idx = timebase
@@ -215,7 +352,30 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0xf5, 0xa7, 0xa6, 0x7c, 0x63, 0xa9, 0xed, 0x88]);
+        stays_known(
+            Kind::Trait,
+            timebase,
+            "Clock",
+            &signature,
+            [0xf5, 0xa7, 0xa6, 0x7c, 0x63, 0xa9, 0xed, 0x88],
+        );
+    }
+
+    /// The definition with the signature `pinned` is the snapshot's own (`signature`), or one an in-place refresh of
+    /// the snapshot replaced and kept (EVO-68): a device naming it is still understood.
+    fn stays_known(
+        kind: Kind,
+        snapshot: &ApiBundleOwned,
+        name: &str,
+        signature: &[u8],
+        pinned: [u8; 8],
+    ) {
+        let version = snapshot.crate_version(0).unwrap();
+        assert!(
+            signature == pinned || superseded(kind, version, name, &pinned).is_some(),
+            "{} {name}: {signature:02x?}, and no superseded definition with {pinned:02x?}",
+            kind.name()
+        );
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

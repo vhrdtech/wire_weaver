@@ -73,6 +73,15 @@ pub(crate) fn save(
             saved.path.display(),
             crate::api_tree::summary(&saved.bundle)
         );
+        // what other snapshots and devices still name by its old signature (EVO-68)
+        for kept in &saved.superseded {
+            println!(
+                "{root}kept the {} {} it replaced in {}",
+                kept.kind.name(),
+                kept.name,
+                kept.path.display()
+            );
+        }
     }
     Ok(())
 }

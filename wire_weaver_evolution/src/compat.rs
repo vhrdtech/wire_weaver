@@ -17,13 +17,15 @@ use std::fmt;
 use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance, UnitDefOwned};
 use shrink_wrap::ElementSize;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
+use ww_self::definition_cache::Kind;
 use ww_self::signature;
 use ww_self::units::{self, CanonicalUnit, QuantityExprOwned};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
-    FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
-    GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned, Length, MarkerDefOwned,
-    OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+    ArgumentOwned, Delivery, FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned,
+    GenericParamKindOwned, GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned,
+    Length, MarkerDefOwned, OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned,
+    ValueOwned, VariantOwned,
 };
 use ww_version::{FullVersionOwned, WireVersion};
 
@@ -322,12 +324,44 @@ fn compare_kinds<'a>(
             if to_device.compare_signatures
                 && (skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0))
             {
+                let (signature, device_signature) = (
+                    trait_signature(client, trait_idx.0),
+                    trait_signature(device, device_trait_idx.0),
+                );
+                // one crate version defined differently on each side (changed without a version bump, a version
+                // not published): compared by the two definitions when both are known (EVO-67, EVO-68)
+                if let (Some(signature), Some(device_signature)) = (&signature, &device_signature)
+                    && identity.0 == device_identity.0
+                    && signature != device_signature
+                    && let Some((client, level)) = trait_definition(
+                        client,
+                        trait_idx.0,
+                        &identity,
+                        signature,
+                        to_device.definitions,
+                    )
+                    && let Some((device, device_level)) = trait_definition(
+                        device,
+                        device_trait_idx.0,
+                        &device_identity,
+                        device_signature,
+                        to_device.definitions,
+                    )
+                {
+                    return compare_trait_definitions(
+                        (client, level, client_name),
+                        (device, device_level, device_name),
+                        (to_device, to_client),
+                    )
+                    .map_err(|e| format!("trait {}: {e}", identity.1))
+                    .inspect_err(|_| to_device.note_root("trait", &identity));
+                }
                 check_same_definition(
                     "trait",
                     (&identity, client_name),
                     (&device_identity, device_name),
-                    trait_signature(client, trait_idx.0),
-                    trait_signature(device, device_trait_idx.0),
+                    signature,
+                    device_signature,
                 )
                 .inspect_err(|_| to_device.note_root("trait", &identity))?;
             }
@@ -339,6 +373,97 @@ fn compare_kinds<'a>(
                 kind_name(device_kind)
             ));
         }
+    }
+    Ok(())
+}
+
+/// The definition of the trait `trait_idx` (`identity` with `signature`) of `bundle` and the bundle it is in: in-line
+/// in `bundle`, or for one left out, the definition with that signature in the embedded snapshot of its crate version,
+/// in `definitions` (the source's, EVO-67) or among the superseded ones (EVO-68).
+fn trait_definition<'a>(
+    bundle: &'a ApiBundleOwned,
+    trait_idx: u32,
+    identity: &Identity,
+    signature: &[u8],
+    definitions: &'a [&'a ApiBundleOwned],
+) -> Option<(&'a ApiBundleOwned, &'a ApiLevelOwned)> {
+    let in_line = |bundle: &'a ApiBundleOwned, idx: usize| match bundle.traits.get(idx)? {
+        ApiLevelLocationOwned::InLine { level, .. } => Some((bundle, level)),
+        _ => None,
+    };
+    if let found @ Some(_) = in_line(bundle, trait_idx as usize) {
+        return found;
+    }
+    let defined_in = |candidate: &'a ApiBundleOwned| {
+        (0..candidate.traits.len()).find_map(|idx| {
+            let found = in_line(candidate, idx)?;
+            (trait_identity(candidate, idx as u32)
+                .is_some_and(|(v, name)| v == identity.0 && name == identity.1)
+                && trait_signature(candidate, idx as u32).as_deref() == Some(signature))
+            .then_some(found)
+        })
+    };
+    known(identity.0)
+        .into_iter()
+        .chain(definitions.iter().copied())
+        .find_map(defined_in)
+        .or_else(|| {
+            in_line(
+                superseded(Kind::Trait, identity.0, &identity.1, signature)?,
+                0,
+            )
+        })
+}
+
+/// Two definitions of one trait of one crate version (changed in place, EVO-67): each resource of one compared with
+/// the one at its position in the other. A resource only on the old side (the strict writer, see [Bounds]) is
+/// removed, one only on the new side added, which is compatible; without an old side only the resources on both are
+/// compared.
+fn compare_trait_definitions<'a>(
+    (client, level, client_name): (&'a ApiBundleOwned, &'a ApiLevelOwned, &'static str),
+    (device, device_level, device_name): (&'a ApiBundleOwned, &'a ApiLevelOwned, &'static str),
+    (to_device, to_client): (&mut TypeCheck<'a>, &mut TypeCheck<'a>),
+) -> Result<(), String> {
+    let (client_old, device_old) = (to_device.strict_bounds, to_client.strict_bounds);
+    for item in &level.items {
+        let Some(device_item) = device_level.items.iter().find(|i| i.id == item.id) else {
+            if client_old {
+                return Err(format!("{} removed", item.ident));
+            }
+            continue;
+        };
+        if item.ident != device_item.ident {
+            return Err(format!(
+                "resource {} is {} on the {client_name}, {} on the {device_name}",
+                item.id.0, item.ident, device_item.ident
+            ));
+        }
+        if item.is_array() != device_item.is_array() {
+            return Err(format!("{}: an array on one side only", item.ident));
+        }
+        to_device
+            .with_bundle(0, client, |to_device| {
+                to_device.with_bundle(1, device, |to_device| {
+                    to_client.with_bundle(0, device, |to_client| {
+                        to_client.with_bundle(1, client, |to_client| {
+                            compare_kinds(
+                                (client, item, client_name),
+                                (device, device_item, device_name),
+                                (to_device, to_client),
+                            )
+                        })
+                    })
+                })
+            })
+            .map_err(|e| format!("{}: {e}", item.ident))?;
+    }
+    if device_old
+        && let Some(removed) = device_level
+            .items
+            .iter()
+            .find(|d| level.items.iter().all(|i| i.id != d.id))
+    {
+        return Err(format!("{} removed", removed.ident));
     }
     Ok(())
 }
@@ -1505,7 +1630,15 @@ impl<'a> TypeCheck<'a> {
             TypeLocationOwned::SkippedFullVersion { .. } => known(identity.0)
                 .into_iter()
                 .chain(self.definitions.iter().copied())
-                .find_map(|candidate| defined_in(candidate, identity, signature)),
+                .find_map(|candidate| defined_in(candidate, identity, signature))
+                .or_else(|| {
+                    // replaced by an in-place refresh of its snapshot (EVO-68)
+                    let found = superseded(Kind::Type, identity.0, &identity.1, signature)?;
+                    match found.types.first()? {
+                        TypeLocationOwned::InLine { ty, .. } => Some((found, ty)),
+                        TypeLocationOwned::SkippedFullVersion { .. } => None,
+                    }
+                }),
         }
     }
 
@@ -1552,7 +1685,7 @@ impl<'a> TypeCheck<'a> {
         {
             true => self.defs[side].get_or_init(|| {
                 let mut inlined = bundle.clone();
-                ww_self::inline::inline_skipped(&mut inlined, &|v| known(v));
+                inline_known(&mut inlined);
                 inlined
             }),
             false => bundle,
@@ -2208,6 +2341,29 @@ fn known(version: &FullVersionOwned) -> Option<&'static ApiBundleOwned> {
     wire_weaver_snapshots::get(version)
 }
 
+/// The canonical bundle of a definition a snapshot refreshed in place replaced, found by its signature (EVO-68), see
+/// [wire_weaver_snapshots::superseded]; in tests, also one a test added with `tests::add_superseded`.
+fn superseded(
+    kind: Kind,
+    version: &FullVersionOwned,
+    name: &str,
+    signature: &[u8],
+) -> Option<&'static ApiBundleOwned> {
+    #[cfg(test)]
+    if let Some(found) = tests::superseded(kind, version, name, signature) {
+        return Some(found);
+    }
+    wire_weaver_snapshots::superseded(kind, version, name, signature)
+}
+
+/// `bundle` with its skipped definitions put back from the embedded snapshots, or the superseded ones by signature.
+pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) {
+    let by_signature = |kind, version: &FullVersionOwned, name: &str, signature: &[u8]| {
+        Ok(superseded(kind, version, name, signature).cloned())
+    };
+    ww_self::inline::inline_skipped_by_signature(bundle, &|v| known(v), Some(&by_signature));
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
@@ -2230,6 +2386,40 @@ pub(crate) mod tests {
                 .iter()
                 .find(|snapshot| snapshot.ext_crates.first() == Some(version))
                 .copied()
+        })
+    }
+
+    thread_local! {
+        static SUPERSEDED: RefCell<Vec<(String, &'static ApiBundleOwned)>> = const { RefCell::new(vec![]) };
+    }
+
+    /// Makes the canonical `bytes` of a definition known to the checker on this thread as a superseded one of an
+    /// embedded snapshot (EVO-68).
+    pub(crate) fn add_superseded(kind: Kind, name: &str, bytes: &[u8]) {
+        let signature = signature::signature_of(bytes);
+        let bundle = ww_self::definition_cache::decode(kind, name, &signature, bytes).unwrap();
+        let file_name = ww_self::definition_cache::file_name(
+            kind,
+            bundle.crate_version(0).unwrap(),
+            name,
+            &signature,
+        );
+        let bundle: &'static ApiBundleOwned = Box::leak(Box::new(bundle));
+        SUPERSEDED.with(|s| s.borrow_mut().push((file_name, bundle)));
+    }
+
+    pub(super) fn superseded(
+        kind: Kind,
+        version: &FullVersionOwned,
+        name: &str,
+        signature: &[u8],
+    ) -> Option<&'static ApiBundleOwned> {
+        let file_name = ww_self::definition_cache::file_name(kind, version, name, signature);
+        SUPERSEDED.with(|s| {
+            s.borrow()
+                .iter()
+                .find(|(n, _)| *n == file_name)
+                .map(|(_, b)| *b)
         })
     }
 }
@@ -2260,23 +2450,33 @@ fn skipped_def(
             type_name,
             signature: expected,
         } => {
-            let snapshot = known(bundle.crate_version(crate_idx.0).ok()?)?;
-            snapshot
-                .types
-                .iter()
-                .enumerate()
-                .find_map(|(idx, location)| match location {
-                    TypeLocationOwned::InLine { ty, .. }
-                        if user_type_identity(snapshot, ty)
-                            .is_some_and(|(_, name)| name == type_name.as_str())
-                            && (expected.is_empty()
-                                || type_signature(snapshot, idx as u32).as_ref()
-                                    == Some(expected)) =>
-                    {
-                        Some((snapshot, ty))
-                    }
-                    _ => None,
-                })
+            let version = bundle.crate_version(crate_idx.0).ok()?;
+            let in_snapshot = known(version).and_then(|snapshot| {
+                snapshot
+                    .types
+                    .iter()
+                    .enumerate()
+                    .find_map(|(idx, location)| match location {
+                        TypeLocationOwned::InLine { ty, .. }
+                            if user_type_identity(snapshot, ty)
+                                .is_some_and(|(_, name)| name == type_name.as_str())
+                                && (expected.is_empty()
+                                    || type_signature(snapshot, idx as u32).as_ref()
+                                        == Some(expected)) =>
+                        {
+                            Some((snapshot, ty))
+                        }
+                        _ => None,
+                    })
+            });
+            // replaced by an in-place refresh of the snapshot (EVO-68)
+            in_snapshot.or_else(|| {
+                let found = superseded(Kind::Type, version, type_name, expected)?;
+                match found.types.first()? {
+                    TypeLocationOwned::InLine { ty, .. } => Some((found, ty)),
+                    TypeLocationOwned::SkippedFullVersion { .. } => None,
+                }
+            })
         }
     }
 }

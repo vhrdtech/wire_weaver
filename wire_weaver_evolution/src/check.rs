@@ -16,6 +16,7 @@ use crate::snapshot_files::{
     CrateFile, SNAPSHOTS_DIR, Snapshot, crate_files, latest_snapshot, read, root_file_name,
     root_of_file_name, root_snapshots, triplet,
 };
+use crate::superseded::{self, Superseded};
 use crate::{Change, Move, Report, Rule, compare_recorded, own_traits, verify_move};
 
 mod roots;
@@ -341,6 +342,12 @@ impl Check {
                 fs::write(&one.path, contents)
                     .map_err(|e| format!("writing {}: {e}", one.path.display()))?;
             }
+            for kept in &one.superseded {
+                let dir = kept.path.parent().unwrap_or(Path::new("."));
+                fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+                fs::write(&kept.path, &kept.bytes)
+                    .map_err(|e| format!("writing {}: {e}", kept.path.display()))?;
+            }
             saved.push(one);
         }
         Ok(saved)
@@ -376,7 +383,25 @@ impl Check {
             force,
         )?;
         let status = existing_status(&path, &bundle, &contents)?;
-        Ok(planned(path, status, previous, bundle, None, contents))
+        // a refresh in place keeps the definitions it replaces (EVO-68)
+        let (superseded, warnings) = match status {
+            SaveStatus::Refreshed | SaveStatus::Reformatted => match read(&path) {
+                Ok(old) => superseded::superseded(
+                    &dir.join(superseded::SUPERSEDED_DIR),
+                    &old.bundle,
+                    &notes.definitions,
+                ),
+                Err(_) => (vec![], vec![]),
+            },
+            _ => (vec![], vec![]),
+        };
+        let (mut saved, contents) = planned(path, status, previous, bundle, None, contents);
+        saved.superseded = superseded
+            .into_iter()
+            .filter(|kept| !kept.path.exists())
+            .collect();
+        saved.warnings.extend(warnings);
+        Ok((saved, contents))
     }
 
     /// The snapshot of the API root `root` (`wire_v2::Thermo`) at its wire version `wire`, and the text to write,
@@ -619,6 +644,8 @@ pub struct Saved {
     /// What looked wrong but didn't stop the save: an API root saved without an earlier snapshot to check it
     /// against, while the crate has other snapshots.
     pub warnings: Vec<String>,
+    /// The definitions of the crate's own that a refresh in place replaced, kept by their old signatures (EVO-68).
+    pub superseded: Vec<Superseded>,
 }
 
 /// Whether [Check::save] wrote the snapshot.
@@ -988,6 +1015,7 @@ fn not_saved(
         bundle,
         root,
         warnings,
+        superseded: vec![],
     };
     (saved, None)
 }
@@ -1139,6 +1167,7 @@ fn planned(
         bundle,
         root,
         warnings: vec![],
+        superseded: vec![],
     };
     (saved, write)
 }

@@ -312,6 +312,7 @@ round, and tell you before a release when a change would break that.
 - **[Evolution rules](evolution/rules.md)**: What you can change in types and APIs, and which version to bump.
 - **[Evolution checker](evolution/checker_tool.md)**: `ww api check` and `ww api diff` say whether a change is compatible.
 - **[A dependency changed in place](evolution/checker_tool.md#a-dependency-changed-without-a-version-bump-evo-67)**: A same-bytes change of a dependency's type under the same, unpublished version is compared by its two definitions, not reported as a break in every crate that embeds it.
+- **[Superseded definitions](evolution/checker_tool.md#superseded-definitions-evo-68)**: A snapshot refreshed in place keeps the definitions it replaced, so frozen API lines and older devices that name them by signature are still compared by the evolution rules.
 - **[One cause, not many breaks](evolution/checker_tool.md#several-broken-items-one-cause-evo-21)**: Several broken traits or types caused by the one dependency that changed are reported together, naming it once.
 - **[Arguments that evolve](api/methods.md#arguments-that-evolve)**: Add trailing arguments with a default, or turn arguments into one `#[flatten]` struct, without breaking the wire.
 - **[Frozen hello](transport/ww_link.md#the-frozen-hello)**: Link setup opens with a few fixed bytes that name each layer's generation, so a host and a device that can't talk say which side to update instead of timing out.

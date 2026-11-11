@@ -269,6 +269,11 @@ save-snapshots *args:
     for f in ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron wire_weaver_snapshots/other_repos/*.ron ww_stdlib/*/api_snapshots/*.ron; do \
         [ "$(basename "$(dirname "$(dirname "$f")")")" = ww_client_server ] || cp "$f" wire_weaver_snapshots/api_snapshots/; \
     done
+    # definitions that refreshes in place replaced, found by their old signatures (EVO-68)
+    mkdir -p wire_weaver_snapshots/api_snapshots/superseded
+    for f in ww_global/api_snapshots/superseded/*.ww ww_tap/api_snapshots/superseded/*.ww wire_weaver_snapshots/other_repos/superseded/*.ww ww_stdlib/*/api_snapshots/superseded/*.ww; do \
+        [ ! -e "$f" ] || [ "$(basename "$(dirname "$(dirname "$(dirname "$f")")")")" = ww_client_server ] || cp "$f" wire_weaver_snapshots/api_snapshots/superseded/; \
+    done
 
 pre-commit:
     cargo sort -w -g

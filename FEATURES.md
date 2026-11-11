@@ -2283,6 +2283,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `pin`; all of `ww_uart`'s) is a transparent wrapper or an unbounded `Fixed`/`Index`/`Count`, same bytes, no wire
   bump. `ww_onewire_0_1_0.ron` is saved again in place (never published). No device or host uses the
   format.
+- ✅ **EVO-68 Superseded definitions** · `v0.5` — EVO-67 for a dependency's trait, and after its snapshot was
+  refreshed in place: `ww api save` keeps each own definition whose signature a refresh in place changes, in the
+  definition cache's format (`api_snapshots/superseded/<crate>_<version>-<kind>-<name>-<signature>.ww`,
+  `wire_weaver_evolution::superseded`), `just save-snapshots` copies them into `wire_weaver_snapshots`, which embeds
+  them (`wire_weaver_snapshots::superseded`, also used by `inline_skipped` and `inline_skipped_or_cached`), and the
+  checker finds a definition by signature there and compares a trait changed in place resource by resource. Found by
+  `tests/thermo_api`'s frozen line snapshots, which name `ww_indication::Indication` by a signature that changed
+  with `ww_error::CommonError` (same bytes): they read as needing a new wire line once both snapshots were refreshed
+  (`docs/evolution/checker_tool.md#superseded-definitions-evo-68`; `wire_weaver_evolution` tests
+  `tests::superseded`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

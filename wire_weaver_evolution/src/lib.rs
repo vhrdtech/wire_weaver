@@ -62,6 +62,7 @@ mod layout;
 pub mod recorded;
 mod rule;
 pub mod snapshot_files;
+pub mod superseded;
 
 #[cfg(feature = "source")]
 pub use check::{
@@ -1657,6 +1658,7 @@ mod tests {
     mod in_place;
     mod moved_from;
     mod root_cause;
+    mod superseded;
     mod transparent;
     mod wire_lines;
     mod ww_si_fixed;
@@ -1723,9 +1725,20 @@ mod tests {
     /// Another crate, `name` 0.1.0 with `lib_rs`, written under the workspace (a directory per content, kept for the
     /// API crates that depend on it): the `[dependencies]` line naming it, and its snapshot as `ww api save` saves it.
     fn dep_crate(name: &str, lib_rs: &str) -> (String, ApiBundleOwned) {
+        let (line, snapshot, _) = dep_crate_with(name, lib_rs, "");
+        (line, snapshot)
+    }
+
+    /// [dep_crate] with `dependencies`, lines of its `[dependencies]` section, and what its load noted besides the
+    /// snapshot (the other crates' definitions).
+    fn dep_crate_with(
+        name: &str,
+        lib_rs: &str,
+        dependencies: &str,
+    ) -> (String, ApiBundleOwned, wire_weaver_core::SourceNotes) {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        lib_rs.hash(&mut hasher);
+        (lib_rs, dependencies).hash(&mut hasher);
         let dir: PathBuf = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../target/ww_evolution_tests")
             .join(format!(
@@ -1737,12 +1750,14 @@ mod tests {
         std::fs::create_dir_all(dir.join("src")).unwrap();
         std::fs::write(
             dir.join("Cargo.toml"),
-            format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n"),
+            format!(
+                "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n[dependencies]\n{dependencies}"
+            ),
         )
         .unwrap();
         std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
-        let snapshot = wire_weaver_core::load_crate(&dir).unwrap();
-        (format!("{name} = {{ path = {dir:?} }}\n"), snapshot)
+        let (snapshot, notes) = wire_weaver_core::load_crate_with_notes(&dir).unwrap();
+        (format!("{name} = {{ path = {dir:?} }}\n"), snapshot, notes)
     }
 
     /// `src` with its API root at wire version `wire` instead of `w1.0`.

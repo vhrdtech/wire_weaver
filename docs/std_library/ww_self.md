@@ -130,6 +130,13 @@ both signatures, the likely cause and the fix: rebuild (reflash) both sides from
 device's firmware once on the host's machine so that its definitions get into the cache. Entries are a few hundred
 bytes each and are never changed; deleting the directory only loses the ability to talk to such devices.
 
+The embedded snapshots keep such definitions too (EVO-68): when `ww api save` refreshes the snapshot of a version not
+published in place, each definition of the crate's own whose signature changes is kept in the same format, in
+`api_snapshots/superseded/`, and `wire_weaver_snapshots::superseded` finds it by signature. A host looks there before
+the cache (`inline_skipped_or_cached`), so a device built before the refresh is understood on any machine;
+`ww_self::inline::inline_skipped_by_signature` takes any such lookup. See
+[superseded definitions](../evolution/checker_tool.md#superseded-definitions-evo-68).
+
 ## Visiting the model
 
 `ww_self::visit::Visit` (read-only) and `ww_self::visit_mut::VisitMut` (mutable) are exhaustive visitor traits

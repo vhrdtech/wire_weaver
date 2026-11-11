@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww api save` keeps the definitions a refresh in place replaces in `api_snapshots/superseded/` and lists them (`kept the trait Indication it replaced in ..`), so snapshots and devices naming them by their old signature are still checked (EVO-68).
 - `ww api check` across a wire break (EVO-40): resources matched by path and `#[moved_from]`, a move reported as one, `proposal:` lines for a resource added with the name of one removed elsewhere, and for a new line's root in a crate with several, the moves and proposals against the line before.
 - `ww api line new` and `ww api line retire` (TOOL-33): start the next wire line of a crate with several API roots (copy the module, `pub mod`, `roots` entry at `w(N+1).0`), or remove one no device runs any more with its breaking crate bump (EVO-37). `retire` keeps the module behind a new Cargo feature `retired_<module>` (`#[cfg(feature = "retired_wire_v1")] pub mod wire_v1;`, feature `retired_wire_v1 = []` with a comment saying when and why that nothing enables); `--delete` removes the file instead, and refuses one git doesn't track or that has uncommitted changes, unless `--force`.
 - w0, the design line (EVO-41): `ww api save` saves no snapshot of a crate or root on `w0.x` and says why, `ww api check` shows what differs from a snapshot as information with no bump asked, and both warn when such a crate can be published.

@@ -25,14 +25,14 @@ pub const MAX_TRANSFER: usize = 4096;
 #[ww_trait]
 pub trait BlockDevice {
     fn geometry() -> Result<Geometry<'i>, BlockError<'i>>;
-    fn read(lba: u64, count: u16) -> Result<MaxLen<RefVec<'i, u8>, MAX_TRANSFER>, BlockError<'i>>;
-    fn crc(lba: u64, count: u32) -> Result<u32, BlockError<'i>>;
+    fn read(lba: Index<Block, u64>, count: Count<Block, u16>) -> Result<MaxLen<RefVec<'i, u8>, MAX_TRANSFER>, BlockError<'i>>;
+    fn crc(lba: Index<Block, u64>, count: Count<Block, u32>) -> Result<u32, BlockError<'i>>;
 
-    fn claim(lease_s: u16) -> Result<u32, BlockError<'i>>;
-    fn release(lease: u32) -> Result<(), BlockError<'i>>;
-    fn write(lease: u32, lba: u64, data: MaxLen<RefVec<'i, u8>, MAX_TRANSFER>, crc: u32)
+    fn claim(lease: Secs<u16>) -> Result<Lease, BlockError<'i>>;
+    fn release(lease: Lease) -> Result<(), BlockError<'i>>;
+    fn write(lease: Lease, lba: Index<Block, u64>, data: MaxLen<RefVec<'i, u8>, MAX_TRANSFER>, crc: u32)
         -> Result<(), BlockError<'i>>;
-    fn erase(lease: u32, lba: u64, count: u32) -> Result<(), BlockError<'i>>;
+    fn erase(lease: Lease, lba: Index<Block, u64>, count: Count<Block, u32>) -> Result<(), BlockError<'i>>;
 
     #[optional(bulk)]
     #[credit]
@@ -42,9 +42,13 @@ pub trait BlockDevice {
     stream!(written: RunAck);
     #[optional(bulk)]
     #[stream(ReadRun<'i>, counted)]
-    fn read_runs(lba: u64, count: u64) -> Result<(), BlockError<'i>>;
+    fn read_runs(lba: Index<Block, u64>, count: Count<Block, u64>) -> Result<(), BlockError<'i>>;
 }
 ```
+
+`lba`, block counts and sizes are `ww_si` typed numbers (`Index<Block, u64>`, `Count<Block, T>`, `Bytes<T>`): the unit is
+in the type, not the field name, and the same bytes as the plain integers they replace. `Lease` (a newtype of `u32`)
+is `ww_sd`'s dependency too, for its commands that need the same lease.
 
 ## Geometry
 
@@ -60,7 +64,7 @@ pub trait BlockDevice {
 | `erased` | what erased blocks read as: `Zeros`, `Ones` or `Unspecified` |
 | `erase_before_write` | NOR flash: a block must be erased before it is written again |
 | `read_only` | write-protected: `claim` answers `ReadOnly` |
-| `medium_id` | changes when another medium is inserted, so a host notices a swap between calls |
+| `medium_id` | a `MediumId`, changes when another medium is inserted, so a host notices a swap between calls |
 | `name` | product name (the card's CID, a flash's part), may be empty |
 
 `max_blocks` is what a host sizes its calls by. A device with 1 KiB messages takes one 512-byte block per call, one
@@ -98,16 +102,16 @@ ww_block = { version = "0.1", features = ["crc-table-256"] }
 A write can destroy what the card's own user (a recorder logging to it) keeps there, so writes are only done under a
 **lease**:
 
-1. `claim(lease_s)` stops the card's user first (a recorder syncs and unmounts its log) and returns the lease, a
-   `u32`. It may take a while to answer. One lease at a time: `Common(Busy)` while another is held.
+1. `claim(lease)` stops the card's user first (a recorder syncs and unmounts its log) and returns the lease, a
+   `Lease`. It may take a while to answer. One lease at a time: `Common(Busy)` while another is held.
 2. `write(lease, lba, data, crc)` writes whole blocks, `erase(lease, lba, count)` erases a range (CMD38 on an SD
    card, a sector erase on flash, a discard on eMMC). `write` checks `crc` (the CRC-32 of `data`) before anything is
    written and answers `BadCrc` otherwise; it answers once the blocks are on the medium.
 3. `release(lease)` gives the card back, and its user mounts it again and finds what the host wrote.
 
-Every call carrying the lease renews it. After `lease_s` seconds without one, or when the medium is removed, the
-lease lapses and the card goes back to its user; a call with it then answers `BadLease`. A host that crashed mid-job
-leaves the device working again after `lease_s`.
+Every call carrying the lease renews it. After the seconds given to `claim` without one, or when the medium is
+removed, the lease lapses and the card goes back to its user; a call with it then answers `BadLease`. A host that
+crashed mid-job leaves the device working again after that time.
 
 There is no writing beside a running user (e.g. outside the extent a recorder uses): a PC that wants to change
 files on a live card does it through the card's USB mass storage view, if the device has one.

@@ -9,8 +9,8 @@
 //! - **Reads are free**: [BlockDevice::read], [BlockDevice::crc] and the bulk [BlockDevice::read_runs] work at any
 //!   time, also while the device writes the card itself (it serialises the bus).
 //! - **Writes need a lease**: [BlockDevice::claim] stops the card's own user first (a recorder syncs and unmounts
-//!   its log), and every write and erase carries the lease it returned. One lease at a time, it lapses after
-//!   `lease_s` seconds without a call, [BlockDevice::release] gives the card back.
+//!   its log), and every write and erase carries the [Lease] it returned. One lease at a time, it lapses after the
+//!   seconds given without a call, [BlockDevice::release] gives the card back.
 //! - **Bulk** (`#[optional(bulk)]`): runs of blocks on the [BlockDevice::write_runs] credit sink, acknowledged on
 //!   [BlockDevice::written], and a whole range read on the [BlockDevice::read_runs] stream, for slow links and long
 //!   jobs. A device without it leaves the group out (`omit = ["card.bulk"]`).
@@ -25,6 +25,8 @@
 
 use wire_weaver::prelude::*;
 use ww_error::CommonError;
+use ww_si::units::Block;
+use ww_si::{Bytes, Count, Index, Secs};
 
 /// Most bytes one [BlockDevice::read], [BlockDevice::write] or bulk run carries: 8 blocks of 512 bytes, or one
 /// 4 KiB flash sector. A device with smaller messages or buffers takes less, see [Geometry::max_blocks].
@@ -50,27 +52,30 @@ pub trait BlockDevice {
     ///
     /// `OutOfRange` past the last block, `Common(InvalidArgument)` for more than [Geometry::max_blocks].
     #[errors(Common(Busy, InvalidArgument), NoMedium, OutOfRange, ReadFailed)]
-    fn read(lba: u64, count: u16) -> Result<MaxLen<RefVec<'i, u8>, MAX_TRANSFER>, BlockError<'i>>;
+    fn read(
+        lba: Index<Block, u64>,
+        count: Count<Block, u16>,
+    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_TRANSFER>, BlockError<'i>>;
 
     /// CRC-32 (see [crc32]) of `count` blocks from `lba`, computed on the device: the host checks what it wrote
     /// without reading it back over a slow link. Takes as long as reading the blocks.
     #[errors(Common(Busy), NoMedium, OutOfRange, ReadFailed)]
-    fn crc(lba: u64, count: u32) -> Result<u32, BlockError<'i>>;
+    fn crc(lba: Index<Block, u64>, count: Count<Block, u32>) -> Result<u32, BlockError<'i>>;
 
-    /// Takes the card for writing and returns a lease. Stops the card's own user first (a recorder syncs and
+    /// Takes the card for writing and returns a [Lease]. Stops the card's own user first (a recorder syncs and
     /// unmounts its log), so it may take a while to answer. Every write and erase carries the lease, and each such
-    /// call renews it; after `lease_s` seconds without one, or when the medium is removed, it lapses and the card
+    /// call renews it; after `lease` seconds without one, or when the medium is removed, it lapses and the card
     /// goes back to its user. One lease at a time.
     ///
     /// `Common(Busy)` while another lease is held, `Common(Refused)` when this link may not write the card (the
     /// firmware's choice), `ReadOnly` for a read-only medium.
     #[errors(Common(Busy, Refused, InvalidArgument), NoMedium, ReadOnly)]
-    fn claim(lease_s: u16) -> Result<u32, BlockError<'i>>;
+    fn claim(lease: Secs<u16>) -> Result<Lease, BlockError<'i>>;
 
     /// Gives the card back: its user mounts it again (and finds what the host wrote). `BadLease` for a lease that
     /// lapsed or is not the current one.
     #[errors(BadLease)]
-    fn release(lease: u32) -> Result<(), BlockError<'i>>;
+    fn release(lease: Lease) -> Result<(), BlockError<'i>>;
 
     /// Writes whole blocks at `lba`, at most [Geometry::max_blocks]. `crc` is the CRC-32 ([crc32]) of `data`, checked
     /// before anything is written. Answers when the blocks are on the medium.
@@ -86,8 +91,8 @@ pub trait BlockDevice {
         WriteFailed
     )]
     fn write(
-        lease: u32,
-        lba: u64,
+        lease: Lease,
+        lba: Index<Block, u64>,
         data: MaxLen<RefVec<'i, u8>, MAX_TRANSFER>,
         crc: u32,
     ) -> Result<(), BlockError<'i>>;
@@ -96,7 +101,11 @@ pub trait BlockDevice {
     /// erase units ([Geometry::erase_blocks]) where it can; afterwards the blocks read as [Geometry::erased].
     /// Takes as long as the medium needs.
     #[errors(NoMedium, OutOfRange, BadLease, WriteFailed)]
-    fn erase(lease: u32, lba: u64, count: u32) -> Result<(), BlockError<'i>>;
+    fn erase(
+        lease: Lease,
+        lba: Index<Block, u64>,
+        count: Count<Block, u32>,
+    ) -> Result<(), BlockError<'i>>;
 
     /// Bulk write: runs of blocks, each with the lease from [BlockDevice::claim], acknowledged one by one on
     /// [BlockDevice::written] once on the medium (or refused). Credit-based (API-28): the host never sends more
@@ -116,7 +125,7 @@ pub trait BlockDevice {
     #[optional(bulk)]
     #[errors(Common(Busy), NoMedium, OutOfRange)]
     #[stream(ReadRun<'i>, counted)]
-    fn read_runs(lba: u64, count: u64) -> Result<(), BlockError<'i>>;
+    fn read_runs(lba: Index<Block, u64>, count: Count<Block, u64>) -> Result<(), BlockError<'i>>;
 }
 
 /// The medium, see [BlockDevice::geometry].
@@ -124,17 +133,17 @@ pub trait BlockDevice {
 pub struct Geometry<'i> {
     pub kind: MediumKind,
     /// Bytes per block: 512 for SD cards and eMMC, the program unit (or the sector) for flash.
-    pub block_size: u32,
+    pub block_size: Bytes<u32>,
     /// Blocks on the medium; the last LBA is one less.
-    pub block_count: u64,
+    pub block_count: Count<Block, u64>,
     /// Most blocks one [BlockDevice::read], [BlockDevice::write] or bulk run carries on this device, at most
     /// [MAX_TRANSFER] bytes: what fits its message size and buffers (1 on a device with 1 KiB messages).
-    pub max_blocks: u16,
+    pub max_blocks: Count<Block, u16>,
     /// Blocks in an erase unit: the allocation unit (AU) of an SD card, the sector of a NOR flash. Erases and large
     /// writes are fastest in whole, aligned units.
-    pub erase_blocks: u32,
+    pub erase_blocks: Count<Block, u32>,
     /// The write size that measured fastest, in blocks, `None` when not measured.
-    pub best_write_blocks: Option<u32>,
+    pub best_write_blocks: Option<Count<Block, u32>>,
     /// What erased blocks read as.
     pub erased: Erased,
     /// The medium must be erased before a block can be written again (NOR flash): a write to a block that isn't
@@ -144,11 +153,33 @@ pub struct Geometry<'i> {
     /// `ReadOnly`.
     pub read_only: bool,
     /// Changes when another medium is inserted (from the card's CID, or a counter): a host notices a swap between
-    /// calls. 0 if the device can't tell.
-    pub medium_id: u64,
+    /// calls.
+    pub medium_id: MediumId,
     /// Product name of the medium (CID of a card, JEDEC part of a flash), empty if unknown.
     pub name: MaxLen<&'i str, MAX_NAME>,
 }
+
+/// A write lease from [BlockDevice::claim], carried by every write and erase, and by `ww_sd`'s commands that change
+/// the card. The same bytes as the `u32` it was.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash)
+)]
+pub struct Lease(pub u32);
+
+/// Changes when another medium is inserted, see [Geometry::medium_id]. `0` when the device can't tell (from the
+/// card's CID, or a counter).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash)
+)]
+pub struct MediumId(pub u64);
 
 /// Kind of medium, see [Geometry::kind].
 ///
@@ -193,8 +224,8 @@ pub enum Erased {
 /// One run of [BlockDevice::write_runs]: whole blocks at `lba`, as [BlockDevice::write] takes them.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct WriteRun<'i> {
-    pub lease: u32,
-    pub lba: u64,
+    pub lease: Lease,
+    pub lba: Index<Block, u64>,
     /// CRC-32 ([crc32]) of `data`, checked before anything is written.
     pub crc: u32,
     pub data: MaxLen<RefVec<'i, u8>, MAX_TRANSFER>,
@@ -203,7 +234,7 @@ pub struct WriteRun<'i> {
 /// One run of [BlockDevice::read_runs]: the blocks from `lba`.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct ReadRun<'i> {
-    pub lba: u64,
+    pub lba: Index<Block, u64>,
     pub data: MaxLen<RefVec<'i, u8>, MAX_TRANSFER>,
 }
 
@@ -216,8 +247,8 @@ pub struct ReadRun<'i> {
 )]
 pub struct RunAck {
     /// The run's first block and its length in blocks.
-    pub lba: u64,
-    pub count: u32,
+    pub lba: Index<Block, u64>,
+    pub count: Count<Block, u32>,
     pub status: RunStatus,
 }
 
@@ -361,12 +392,32 @@ mod tests {
         }
     }
 
+    /// `transparent` (DER-18): `Lease` and `MediumId` are exactly their `u32`/`u64` on the wire, same bytes as the
+    /// plain integer they replace.
+    #[test]
+    fn lease_and_medium_id_are_transparent() {
+        let mut buf_a = [0u8; 8];
+        let mut buf_b = [0u8; 8];
+        assert_eq!(
+            Lease(0x1234_5678).to_ww_bytes(&mut buf_a).unwrap(),
+            0x1234_5678u32.to_ww_bytes(&mut buf_b).unwrap()
+        );
+        let mut buf_a = [0u8; 8];
+        let mut buf_b = [0u8; 8];
+        assert_eq!(
+            MediumId(0x1234_5678_9abc_def0)
+                .to_ww_bytes(&mut buf_a)
+                .unwrap(),
+            0x1234_5678_9abc_def0u64.to_ww_bytes(&mut buf_b).unwrap()
+        );
+    }
+
     #[test]
     fn write_run_round_trip() {
         let data = [0x5au8; 1024];
         let run = WriteRun {
-            lease: 7,
-            lba: 1 << 33,
+            lease: Lease(7),
+            lba: Index::new(1 << 33),
             crc: crc32(&data),
             data: MaxLen::new(RefVec::new_bytes(&data)).unwrap(),
         };
@@ -380,8 +431,8 @@ mod tests {
     #[test]
     fn ack_is_small() {
         let ack = RunAck {
-            lba: 2048,
-            count: 8,
+            lba: Index::new(2048),
+            count: Count::new(8),
             status: RunStatus::Written,
         };
         let mut buf = [0u8; 32];

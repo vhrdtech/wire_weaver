@@ -458,6 +458,7 @@ dependencies = [
  "ww_block",
  "ww_client_server",
  "ww_sd",
+ "ww_si",
  "ww_stream",
 ]
 
@@ -6413,6 +6414,7 @@ dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
  "ww_error",
+ "ww_si",
 ]
 
 [[package]]
@@ -6823,7 +6825,9 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_block",
  "ww_error",
+ "ww_si",
 ]
 
 [[package]]

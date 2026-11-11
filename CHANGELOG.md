@@ -39,6 +39,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   pin index and a ROM search bit position in `ww_onewire` (on a new wire line, `w2.0`, EVO-61: the search
   bit position's added `1..=64` bound is the break), byte counts and an idle character count in `ww_uart` (same
   wire). See the `ww_onewire` and `ww_uart` changelogs.
+- `ww_block` and `ww_sd`'s numbers are `ww_si` typed numbers instead of bare integers (P2401#11nov-0947b): `lba` and block counts `Index<Block, _>` / `Count<Block, _>`, sizes `Bytes`, `ww_block`'s write lease a `Lease` newtype (`ww_sd` depends on `ww_block` for it) taken as `Secs<u16>` by `claim`, `ww_sd`'s clocks `Fixed<Hertz, Kilo, u32>`, its times `Micros`/`Millis`, and its RCA an `Rca` newtype. Wire-compatible, both crates still unreleased. See the `ww_block` and `ww_sd` CHANGELOGs.
 
 ### Added
 

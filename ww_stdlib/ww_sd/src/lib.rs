@@ -24,7 +24,11 @@
 //! Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.
 
 use wire_weaver::prelude::*;
+use ww_block::Lease;
 use ww_error::CommonError;
+use ww_si::prefix::Kilo;
+use ww_si::units::{self, Block, Item};
+use ww_si::{Bytes, Count, Fixed, Micros, Millis};
 
 /// Most bytes of a raw command's data phase, either direction: 8 blocks of 512 bytes.
 pub const MAX_DATA: usize = 4096;
@@ -64,8 +68,8 @@ pub trait SdCard {
     /// a bus width or clock the controller can't do.
     #[errors(Common(Busy, Unsupported), NoCard, BadLease)]
     fn reinit(
-        lease: u32,
-        max_clock_khz: u32,
+        lease: Lease,
+        max_clock: Fixed<units::Hertz, Kilo, u32>,
         bus_width: BusWidth,
     ) -> Result<InitReport<'i>, SdError<'i>>;
 
@@ -82,7 +86,7 @@ pub trait SdCard {
         BadLease,
         Restricted
     )]
-    fn command(lease: Option<u32>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError<'i>>;
+    fn command(lease: Option<Lease>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError<'i>>;
 }
 
 /// What the host controller can do, see [SdCard::capabilities].
@@ -96,8 +100,8 @@ pub struct Capabilities {
     pub interface: Interface,
     /// The widest bus.
     pub max_bus_width: BusWidth,
-    /// Highest card clock in kHz.
-    pub max_clock_khz: u32,
+    /// Highest card clock.
+    pub max_clock: Fixed<units::Hertz, Kilo, u32>,
     /// 1.8 V signalling and the UHS-I modes.
     pub uhs: bool,
     /// Built with `raw-sd-unrestricted`: CMD42 and CMD27 go through (with a lease).
@@ -180,8 +184,8 @@ pub enum CardKind {
 )]
 pub struct BusState {
     pub width: BusWidth,
-    /// Card clock in kHz as set (the nearest the divider gives).
-    pub clock_khz: u32,
+    /// Card clock as set (the nearest the divider gives).
+    pub clock: Fixed<units::Hertz, Kilo, u32>,
     pub speed: SpeedMode,
     /// Signalling at 1.8 V (UHS-I) instead of 3.3 V.
     pub low_voltage: bool,
@@ -207,6 +211,16 @@ pub enum SpeedMode {
     Ddr50,
 }
 
+/// The relative card address assigned at CMD3, see [SdRegisters::rca]. 0 in SPI mode.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    transparent,
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Clone, Copy, Debug, PartialEq, Eq, Hash)
+)]
+pub struct Rca(pub u16);
+
 /// The card's registers, raw, see [SdCard::registers]. All MSB first, as the card sends them; the CRC7 byte at the
 /// end of CID and CSD is as the controller delivered it (often zero).
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
@@ -218,7 +232,7 @@ pub struct SdRegisters<'i> {
     /// Operating conditions (ACMD41's answer).
     pub ocr: u32,
     /// Relative card address (CMD3), 0 in SPI mode.
-    pub rca: u16,
+    pub rca: Rca,
     /// SD configuration (ACMD51), `None` if it couldn't be read.
     pub scr: Option<[u8; 8]>,
     /// SD Status (ACMD13, 64 bytes), `None` if it couldn't be read.
@@ -232,8 +246,8 @@ pub struct InitReport<'i> {
     pub steps: MaxLen<RefVec<'i, InitStep>, MAX_INIT_STEPS>,
     /// The state it ended in; `bus` is `None` when the card didn't come up.
     pub state: CardState,
-    /// Microseconds for the whole sequence.
-    pub total_us: u32,
+    /// Time for the whole sequence.
+    pub total: Micros<u32>,
 }
 
 /// One step of an [InitReport]: a command and what the card answered last.
@@ -252,9 +266,10 @@ pub struct InitStep {
     pub response: u32,
     pub outcome: Outcome,
     /// How often it was sent (ACMD41 polls until the card is ready).
-    pub repeats: u16,
-    /// Microseconds over all repeats.
-    pub us: u32,
+    // TODO(eu-markers-2): Item is a stand-in; ask for a shared retry/repeat counted marker if one lands.
+    pub repeats: Count<Item, u16>,
+    /// Time over all repeats.
+    pub time: Micros<u32>,
 }
 
 /// A raw command, see [SdCard::command].
@@ -267,8 +282,8 @@ pub struct RawCommand<'i> {
     pub app: bool,
     pub response: ResponseType,
     pub data: DataPhase<'i>,
-    /// How long to wait for the response, the data and the end of busy, in ms; `None`: the driver's default.
-    pub timeout_ms: Option<u32>,
+    /// How long to wait for the response, the data and the end of busy; `None`: the driver's default.
+    pub timeout: Option<Millis<u32>>,
 }
 
 /// The response a command expects, see [RawCommand::response]. The controller needs it to receive the response.
@@ -301,12 +316,12 @@ pub enum DataPhase<'i> {
     None,
     /// Read `blocks` blocks of `block_len` bytes (e.g. 64 for ACMD13 and CMD6, 8 for ACMD51, 512 for CMD17).
     Read {
-        block_len: u16,
-        blocks: u16,
+        block_len: Bytes<u16>,
+        blocks: Count<Block, u16>,
     },
     /// Write `data` in blocks of `block_len` bytes.
     Write {
-        block_len: u16,
+        block_len: Bytes<u16>,
         data: MaxLen<RefVec<'i, u8>, MAX_DATA>,
     },
 }
@@ -415,11 +430,11 @@ impl CardStatus {
 )]
 pub struct Timing {
     /// To the end of the response, `None` without one.
-    pub response_us: Option<u32>,
+    pub response: Option<Micros<u32>>,
     /// To the end of the data phase, `None` without one.
-    pub data_us: Option<u32>,
+    pub data: Option<Micros<u32>>,
     /// To the end of busy (R1b, writes, erases), `None` when the card wasn't busy.
-    pub busy_us: Option<u32>,
+    pub busy: Option<Micros<u32>>,
 }
 
 /// What a raw command needs, see [RawCommand::access] and the crate docs.
@@ -525,7 +540,7 @@ mod tests {
             app,
             response: ResponseType::R1,
             data: DataPhase::None,
-            timeout_ms: None,
+            timeout: None,
         }
     }
 
@@ -585,13 +600,24 @@ mod tests {
             app: false,
             response: ResponseType::R1,
             data: DataPhase::Write {
-                block_len: 512,
+                block_len: Bytes::new(512),
                 data: MaxLen::new(RefVec::new_bytes(&data)).unwrap(),
             },
-            timeout_ms: Some(250),
+            timeout: Some(Millis::new(250)),
         };
         let mut buf = [0u8; 600];
         let bytes = c.to_ww_bytes(&mut buf).unwrap();
         assert_eq!(RawCommand::from_ww_bytes(bytes).unwrap(), c);
+    }
+
+    /// `transparent` (DER-18): `Rca` is exactly its `u16` on the wire, same bytes as the plain integer it replaces.
+    #[test]
+    fn rca_is_transparent() {
+        let mut buf_a = [0u8; 4];
+        let mut buf_b = [0u8; 4];
+        assert_eq!(
+            Rca(0xaaaa).to_ww_bytes(&mut buf_a).unwrap(),
+            0xaaaau16.to_ww_bytes(&mut buf_b).unwrap()
+        );
     }
 }

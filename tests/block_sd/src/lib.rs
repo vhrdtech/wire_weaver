@@ -9,13 +9,16 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_block::{
-        BlockError, BlockErrorOwned, Erased, Geometry, MediumKind, ReadRun, RunAck, RunStatus,
-        WriteRunOwned, crc32,
+        BlockError, BlockErrorOwned, Erased, Geometry, Lease, MediumId, MediumKind, ReadRun,
+        RunAck, RunStatus, WriteRunOwned, crc32,
     };
     use ww_sd::{
         Access, BusState, BusWidth, CardKind, CardState, CardStatus, DataPhaseOwned, InitStep,
         Interface, Outcome, RawCommandOwned, ResponseType, SdError, SdErrorOwned, SpeedMode,
     };
+    use ww_si::prefix::Kilo;
+    use ww_si::units::{Block, Hertz};
+    use ww_si::{Bytes, Count, Fixed, Index, Micros, Secs};
     use ww_stream::tx::Counted;
 
     const BLOCK: usize = 512;
@@ -30,7 +33,8 @@ mod tests {
         commands: Vec<(bool, u8)>,
     }
 
-    struct Lease {
+    /// The device's own bookkeeping for the lease it handed out (not a wire type, unlike `ww_block::Lease`).
+    struct HeldLease {
         id: u32,
         lease_s: u16,
         last: Instant,
@@ -44,7 +48,7 @@ mod tests {
         pub struct Server {
             pub m: Arc<Mutex<Shared>>,
             pub card: Vec<u8>,
-            pub lease: Option<Lease>,
+            pub lease: Option<HeldLease>,
             pub next_lease: u32,
             /// Range of the open `read_runs` stream still to send.
             pub read_left: Option<(u64, u64)>,
@@ -99,7 +103,7 @@ mod tests {
                 };
                 let at = lba as usize * BLOCK;
                 let run = ReadRun {
-                    lba,
+                    lba: Index::new(lba),
                     data: MaxLen::new(RefVec::new_bytes(&self.card[at..at + BLOCK])).unwrap(),
                 };
                 api_impl::stream_data_ser()
@@ -119,15 +123,15 @@ mod tests {
             ) -> RpcResult<Result<Geometry<'_>, BlockError<'_>>> {
                 Ready(Ok(Geometry {
                     kind: MediumKind::SdCard,
-                    block_size: BLOCK as u32,
-                    block_count: BLOCKS,
-                    max_blocks: 1,
-                    erase_blocks: 16,
+                    block_size: Bytes::new(BLOCK as u32),
+                    block_count: Count::new(BLOCKS),
+                    max_blocks: Count::new(1),
+                    erase_blocks: Count::new(16),
                     best_write_blocks: None,
                     erased: Erased::Zeros,
                     erase_before_write: false,
                     read_only: false,
-                    medium_id: 0x1234,
+                    medium_id: MediumId(0x1234),
                     name: MaxLen::new_unchecked("MOCK1"),
                 }))
             }
@@ -135,9 +139,10 @@ mod tests {
             fn card_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lba: u64,
-                count: u16,
+                lba: Index<Block, u64>,
+                count: Count<Block, u16>,
             ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, 4096>, BlockError<'_>>> {
+                let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count as u64) {
                     return Ready(Err(BlockError::OutOfRange));
                 }
@@ -156,9 +161,10 @@ mod tests {
             fn card_crc(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lba: u64,
-                count: u32,
+                lba: Index<Block, u64>,
+                count: Count<Block, u32>,
             ) -> RpcResult<Result<u32, BlockError<'_>>> {
+                let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count as u64) {
                     return Ready(Err(BlockError::OutOfRange));
                 }
@@ -169,8 +175,9 @@ mod tests {
             fn card_claim(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lease_s: u16,
-            ) -> RpcResult<Result<u32, BlockError<'_>>> {
+                lease: Secs<u16>,
+            ) -> RpcResult<Result<Lease, BlockError<'_>>> {
+                let lease_s = lease.get();
                 if self
                     .lease
                     .as_ref()
@@ -181,20 +188,20 @@ mod tests {
                 // stops the card's user before handing out the lease
                 self.m.lock().unwrap().user_running = false;
                 self.next_lease = self.next_lease.wrapping_add(1);
-                self.lease = Some(Lease {
+                self.lease = Some(HeldLease {
                     id: self.next_lease,
                     lease_s,
                     last: Instant::now(),
                 });
-                Ready(Ok(self.next_lease))
+                Ready(Ok(Lease(self.next_lease)))
             }
 
             fn card_release(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lease: u32,
+                lease: Lease,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
-                if !self.lease_ok(lease) {
+                if !self.lease_ok(lease.0) {
                     return Ready(Err(BlockError::BadLease));
                 }
                 self.lease = None;
@@ -205,13 +212,13 @@ mod tests {
             fn card_write(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lease: u32,
-                lba: u64,
+                lease: Lease,
+                lba: Index<Block, u64>,
                 data: MaxLen<RefVec<'_, u8>, 4096>,
                 crc: u32,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
                 let data = data.as_slice().to_vec();
-                Ready(match self.write_blocks(lease, lba, &data, crc) {
+                Ready(match self.write_blocks(lease.0, lba.get(), &data, crc) {
                     RunStatus::Written => Ok(()),
                     RunStatus::OutOfRange => Err(BlockError::OutOfRange),
                     RunStatus::BadLease => Err(BlockError::BadLease),
@@ -227,14 +234,15 @@ mod tests {
             fn card_erase(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lease: u32,
-                lba: u64,
-                count: u32,
+                lease: Lease,
+                lba: Index<Block, u64>,
+                count: Count<Block, u32>,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
+                let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count as u64) {
                     return Ready(Err(BlockError::OutOfRange));
                 }
-                if !self.lease_ok(lease) {
+                if !self.lease_ok(lease.0) {
                     return Ready(Err(BlockError::BadLease));
                 }
                 let at = lba as usize * BLOCK;
@@ -260,12 +268,12 @@ mod tests {
                 value: ww_block::WriteRun<'_>,
             ) {
                 let data = value.data.as_slice().to_vec();
-                let status = self.write_blocks(value.lease, value.lba, &data, value.crc);
+                let status = self.write_blocks(value.lease.0, value.lba.get(), &data, value.crc);
                 let len = self.write_runs_credit.last_item_len();
                 self.write_runs_credit.free(len);
                 let ack = RunAck {
                     lba: value.lba,
-                    count: (data.len() / BLOCK) as u32,
+                    count: Count::new((data.len() / BLOCK) as u32),
                     status,
                 };
                 let _ = api_impl::stream_data_ser().card().written_send_blocking(
@@ -293,9 +301,10 @@ mod tests {
             fn card_read_runs(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lba: u64,
-                count: u64,
+                lba: Index<Block, u64>,
+                count: Count<Block, u64>,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
+                let (lba, count) = (lba.get(), count.get());
                 if !range_ok(lba, count) {
                     return Ready(Err(BlockError::OutOfRange));
                 }
@@ -325,7 +334,7 @@ mod tests {
                 Ready(ww_sd::Capabilities {
                     interface: Interface::Sd,
                     max_bus_width: BusWidth::Four,
-                    max_clock_khz: 50_000,
+                    max_clock: Fixed::new(50_000),
                     uhs: false,
                     unrestricted: ww_sd::UNRESTRICTED,
                 })
@@ -363,7 +372,7 @@ mod tests {
                     cid,
                     csd: [0x40; 16],
                     ocr: 0xc0ff_8000,
-                    rca: 0xaaaa,
+                    rca: ww_sd::Rca(0xaaaa),
                     scr: Some([0x02, 0x35, 0x80, 0, 0, 0, 0, 0]),
                     ssr: None,
                 }))
@@ -372,11 +381,11 @@ mod tests {
             fn sd_reinit(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lease: u32,
-                _max_clock_khz: u32,
+                lease: Lease,
+                _max_clock: Fixed<Hertz, Kilo, u32>,
                 _bus_width: BusWidth,
             ) -> RpcResult<Result<ww_sd::InitReport<'_>, SdError<'_>>> {
-                if !self.lease_ok(lease) {
+                if !self.lease_ok(lease.0) {
                     return Ready(Err(SdError::BadLease));
                 }
                 const STEPS: [InitStep; 3] = [
@@ -387,17 +396,17 @@ mod tests {
                 Ready(Ok(ww_sd::InitReport {
                     steps: MaxLen::new(RefVec::Slice { slice: &STEPS }).unwrap(),
                     state: card_state(true),
-                    total_us: 250_000,
+                    total: Micros::new(250_000),
                 }))
             }
 
             fn sd_command(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lease: Option<u32>,
+                lease: Option<Lease>,
                 cmd: ww_sd::RawCommand<'_>,
             ) -> RpcResult<Result<ww_sd::RawResponse<'_>, SdError<'_>>> {
-                let lease_ok = lease.is_some_and(|l| self.lease_ok(l));
+                let lease_ok = lease.is_some_and(|l| self.lease_ok(l.0));
                 if let Err(e) = ww_sd::check_access(&cmd, lease_ok) {
                     return Ready(Err(e));
                 }
@@ -431,9 +440,9 @@ mod tests {
                     status,
                     data: MaxLen::new(RefVec::new_bytes(&self.sd_data)).unwrap(),
                     timing: ww_sd::Timing {
-                        response_us: status.map(|_| 3),
-                        data_us: (cmd.index == 17).then_some(120),
-                        busy_us: None,
+                        response: status.map(|_| Micros::new(3)),
+                        data: (cmd.index == 17).then_some(Micros::new(120)),
+                        busy: None,
                     },
                 }))
             }
@@ -446,8 +455,8 @@ mod tests {
                 arg,
                 response,
                 outcome: Outcome::Ok,
-                repeats,
-                us: 100 * repeats as u32,
+                repeats: Count::new(repeats),
+                time: Micros::new(100 * repeats as u32),
             }
         }
 
@@ -457,7 +466,7 @@ mod tests {
                 kind: Some(CardKind::Sdhc),
                 bus: Some(BusState {
                     width: BusWidth::Four,
-                    clock_khz: 25_000,
+                    clock: Fixed::new(25_000),
                     speed: SpeedMode::DefaultSpeed,
                     low_voltage: false,
                 }),
@@ -573,22 +582,53 @@ mod tests {
         let client = connect(&device).await;
 
         let g = client.card().geometry().call().await.unwrap();
-        assert_eq!((g.block_size, g.block_count), (512, BLOCKS));
+        assert_eq!((g.block_size.get(), g.block_count.get()), (512, BLOCKS));
         assert_eq!(g.name.as_str(), "MOCK1");
 
         // reads are free
-        let mut data = client.card().read(3, 1).call().await.unwrap().into_inner();
-        data.extend(client.card().read(4, 1).call().await.unwrap().into_inner());
+        let mut data = client
+            .card()
+            .read(Index::new(3), Count::new(1))
+            .call()
+            .await
+            .unwrap()
+            .into_inner();
+        data.extend(
+            client
+                .card()
+                .read(Index::new(4), Count::new(1))
+                .call()
+                .await
+                .unwrap()
+                .into_inner(),
+        );
         assert!(data[..BLOCK].iter().all(|&b| b == 3) && data[BLOCK..].iter().all(|&b| b == 4));
         // the CRC over both blocks, computed on the device
-        let crc = client.card().crc(3, 2).call().await.unwrap();
+        let crc = client
+            .card()
+            .crc(Index::new(3), Count::new(2))
+            .call()
+            .await
+            .unwrap();
         assert_eq!(crc, crc32(&data));
         assert!(matches!(
-            block_error(client.card().read(3, 2).call().await),
+            block_error(
+                client
+                    .card()
+                    .read(Index::new(3), Count::new(2))
+                    .call()
+                    .await
+            ),
             BlockErrorOwned::Common(CommonErrorOwned::InvalidArgument { .. })
         ));
         assert_eq!(
-            block_error(client.card().read(64, 1).call().await),
+            block_error(
+                client
+                    .card()
+                    .read(Index::new(64), Count::new(1))
+                    .call()
+                    .await
+            ),
             BlockErrorOwned::OutOfRange
         );
 
@@ -596,17 +636,22 @@ mod tests {
         let new = vec![0xa5u8; BLOCK];
         let r = client
             .card()
-            .write(1, 10, MaxLen::new(new.clone()).unwrap(), crc32(&new))
+            .write(
+                Lease(1),
+                Index::new(10),
+                MaxLen::new(new.clone()).unwrap(),
+                crc32(&new),
+            )
             .call()
             .await;
         assert_eq!(block_error(r), BlockErrorOwned::BadLease);
 
         // claiming stops the card's user, one lease at a time
         assert!(m.lock().unwrap().user_running);
-        let lease = client.card().claim(10).call().await.unwrap();
+        let lease = client.card().claim(Secs::new(10)).call().await.unwrap();
         assert!(!m.lock().unwrap().user_running);
         assert!(matches!(
-            block_error(client.card().claim(10).call().await),
+            block_error(client.card().claim(Secs::new(10)).call().await),
             BlockErrorOwned::Common(CommonErrorOwned::Busy)
         ));
 
@@ -615,7 +660,7 @@ mod tests {
             .card()
             .write(
                 lease,
-                10,
+                Index::new(10),
                 MaxLen::new(new.clone()).unwrap(),
                 crc32(&new) ^ 1,
             )
@@ -625,7 +670,7 @@ mod tests {
         assert!(
             client
                 .card()
-                .read(10, 1)
+                .read(Index::new(10), Count::new(1))
                 .call()
                 .await
                 .unwrap()
@@ -635,17 +680,35 @@ mod tests {
 
         client
             .card()
-            .write(lease, 10, MaxLen::new(new.clone()).unwrap(), crc32(&new))
+            .write(
+                lease,
+                Index::new(10),
+                MaxLen::new(new.clone()).unwrap(),
+                crc32(&new),
+            )
             .call()
             .await
             .unwrap();
-        assert_eq!(client.card().crc(10, 1).call().await.unwrap(), crc32(&new));
+        assert_eq!(
+            client
+                .card()
+                .crc(Index::new(10), Count::new(1))
+                .call()
+                .await
+                .unwrap(),
+            crc32(&new)
+        );
 
-        client.card().erase(lease, 10, 1).call().await.unwrap();
+        client
+            .card()
+            .erase(lease, Index::new(10), Count::new(1))
+            .call()
+            .await
+            .unwrap();
         assert!(
             client
                 .card()
-                .read(10, 1)
+                .read(Index::new(10), Count::new(1))
                 .call()
                 .await
                 .unwrap()
@@ -665,7 +728,7 @@ mod tests {
     async fn block_bulk_write_and_read() {
         let (device, _m) = start("block_sd/bulk");
         let client = connect(&device).await;
-        let lease = client.card().claim(10).call().await.unwrap();
+        let lease = client.card().claim(Secs::new(10)).call().await.unwrap();
 
         let mut written = client.card().written().call().await.unwrap();
         let mut runs = client.card().write_runs().await.unwrap();
@@ -674,7 +737,7 @@ mod tests {
             let crc = crc32(&data) ^ (!crc_ok as u32);
             WriteRunOwned {
                 lease,
-                lba,
+                lba: Index::new(lba),
                 crc,
                 data: MaxLen::new(data).unwrap(),
             }
@@ -689,13 +752,16 @@ mod tests {
             (64, RunStatus::OutOfRange),
         ] {
             let ack = written.recv().await.unwrap();
-            assert_eq!((ack.lba, ack.count, ack.status), (lba, 1, status));
+            assert_eq!(
+                (ack.lba.get(), ack.count.get(), ack.status),
+                (lba, 1, status)
+            );
         }
 
         // read 3 blocks back as runs on the stream, one block each
         let (_, mut read) = client
             .card()
-            .read_runs(20, 3)
+            .read_runs(Index::new(20), Count::new(3))
             .call()
             .await
             .unwrap()
@@ -705,7 +771,7 @@ mod tests {
             // any request lets the mock's event loop send the next run
             client.card().geometry().call().await.unwrap();
             let ReadRunOwned { lba, data } = read.recv().await.unwrap();
-            assert_eq!(lba, 20 + (got.len() / BLOCK) as u64);
+            assert_eq!(lba.get(), 20 + (got.len() / BLOCK) as u64);
             got.extend_from_slice(&data);
         }
         assert!(got[..BLOCK].iter().all(|&b| b == 0x11));
@@ -724,7 +790,7 @@ mod tests {
             app: false,
             response: ResponseType::R1,
             data,
-            timeout_ms: None,
+            timeout: None,
         }
     }
 
@@ -767,8 +833,8 @@ mod tests {
                     17,
                     7,
                     DataPhaseOwned::Read {
-                        block_len: 512,
-                        blocks: 1,
+                        block_len: Bytes::new(512),
+                        blocks: Count::new(1),
                     },
                 ),
             )
@@ -776,7 +842,7 @@ mod tests {
             .await
             .unwrap();
         assert!(r.data.iter().all(|&b| b == 7) && r.data.len() == BLOCK);
-        assert_eq!(r.timing.data_us, Some(120));
+        assert_eq!(r.timing.data, Some(Micros::new(120)));
 
         // erase and reinit need the lease of `ww_block`
         let erase = raw(38, 0, DataPhaseOwned::None);
@@ -786,10 +852,16 @@ mod tests {
             SdErrorOwned::BadLease
         );
         assert_eq!(
-            sd_error(client.sd().reinit(1, 25_000, BusWidth::Four).call().await),
+            sd_error(
+                client
+                    .sd()
+                    .reinit(Lease(1), Fixed::new(25_000), BusWidth::Four)
+                    .call()
+                    .await
+            ),
             SdErrorOwned::BadLease
         );
-        let lease = client.card().claim(10).call().await.unwrap();
+        let lease = client.card().claim(Secs::new(10)).call().await.unwrap();
         assert!(client.sd().state().call().await.unwrap().leased);
         let r = client
             .sd()
@@ -802,12 +874,15 @@ mod tests {
         assert!(r.status.is_none() && r.response.is_empty());
         let report = client
             .sd()
-            .reinit(lease, 25_000, BusWidth::Four)
+            .reinit(lease, Fixed::new(25_000), BusWidth::Four)
             .call()
             .await
             .unwrap();
         assert_eq!(report.steps.len(), 3);
-        assert_eq!((report.steps[2].index, report.steps[2].repeats), (41, 12));
+        assert_eq!(
+            (report.steps[2].index, report.steps[2].repeats.get()),
+            (41, 12)
+        );
 
         let sent = m.lock().unwrap().commands.clone();
         assert_eq!(sent, [(false, 13), (false, 17), (false, 38)]);
@@ -817,7 +892,7 @@ mod tests {
             42,
             0,
             DataPhaseOwned::Write {
-                block_len: 1,
+                block_len: Bytes::new(1),
                 data: MaxLen::new(vec![0x08]).unwrap(),
             },
         );
@@ -835,7 +910,9 @@ mod tests {
 mod lean {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_block::{BlockError, Erased, Geometry, MediumKind};
+    use ww_block::{BlockError, Erased, Geometry, Lease, MediumId, MediumKind};
+    use ww_si::units::Block;
+    use ww_si::{Bytes, Count, Index, Secs};
 
     mod server {
         use super::*;
@@ -852,15 +929,15 @@ mod lean {
             ) -> RpcResult<Result<Geometry<'_>, BlockError<'_>>> {
                 Ready(Ok(Geometry {
                     kind: MediumKind::NorFlash,
-                    block_size: 512,
-                    block_count: 1,
-                    max_blocks: 1,
-                    erase_blocks: 8,
+                    block_size: Bytes::new(512),
+                    block_count: Count::new(1),
+                    max_blocks: Count::new(1),
+                    erase_blocks: Count::new(8),
                     best_write_blocks: None,
                     erased: Erased::Ones,
                     erase_before_write: true,
                     read_only: true,
-                    medium_id: 0,
+                    medium_id: MediumId(0),
                     name: MaxLen::new_unchecked(""),
                 }))
             }
@@ -868,10 +945,10 @@ mod lean {
             fn card_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                lba: u64,
-                count: u16,
+                lba: Index<Block, u64>,
+                count: Count<Block, u16>,
             ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, 4096>, BlockError<'_>>> {
-                if lba != 0 || count != 1 {
+                if lba.get() != 0 || count.get() != 1 {
                     return Ready(Err(BlockError::OutOfRange));
                 }
                 Ready(Ok(MaxLen::new(RefVec::new_bytes(&self.card)).unwrap()))
@@ -880,8 +957,8 @@ mod lean {
             fn card_crc(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _lba: u64,
-                _count: u32,
+                _lba: Index<Block, u64>,
+                _count: Count<Block, u32>,
             ) -> RpcResult<Result<u32, BlockError<'_>>> {
                 Ready(Ok(ww_block::crc32(&self.card)))
             }
@@ -889,15 +966,15 @@ mod lean {
             fn card_claim(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _lease_s: u16,
-            ) -> RpcResult<Result<u32, BlockError<'_>>> {
+                _lease: Secs<u16>,
+            ) -> RpcResult<Result<Lease, BlockError<'_>>> {
                 Ready(Err(BlockError::ReadOnly))
             }
 
             fn card_release(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _lease: u32,
+                _lease: Lease,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
                 Ready(Err(BlockError::BadLease))
             }
@@ -905,8 +982,8 @@ mod lean {
             fn card_write(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _lease: u32,
-                _lba: u64,
+                _lease: Lease,
+                _lba: Index<Block, u64>,
                 _data: MaxLen<RefVec<'_, u8>, 4096>,
                 _crc: u32,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
@@ -916,9 +993,9 @@ mod lean {
             fn card_erase(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _lease: u32,
-                _lba: u64,
-                _count: u32,
+                _lease: Lease,
+                _lba: Index<Block, u64>,
+                _count: Count<Block, u32>,
             ) -> RpcResult<Result<(), BlockError<'_>>> {
                 Ready(Err(BlockError::BadLease))
             }
@@ -991,18 +1068,39 @@ mod lean {
 
         let g = client.card().geometry().call().await.unwrap();
         assert!(g.read_only && g.erase_before_write);
-        let data = client.card().read(0, 1).call().await.unwrap();
+        let data = client
+            .card()
+            .read(Index::new(0), Count::new(1))
+            .call()
+            .await
+            .unwrap();
         assert_eq!(
-            client.card().crc(0, 1).call().await.unwrap(),
+            client
+                .card()
+                .crc(Index::new(0), Count::new(1))
+                .call()
+                .await
+                .unwrap(),
             ww_block::crc32(&data)
         );
         assert!(matches!(
-            client.card().claim(5).call().await.unwrap_err().device(),
+            client
+                .card()
+                .claim(Secs::new(5))
+                .call()
+                .await
+                .unwrap_err()
+                .device(),
             Some(ww_block::BlockErrorOwned::ReadOnly)
         ));
 
         // the bulk group isn't there: the device's introspection says so, the call fails without a round trip
-        match client.card().read_runs(0, 1).call().await {
+        match client
+            .card()
+            .read_runs(Index::new(0), Count::new(1))
+            .call()
+            .await
+        {
             Err(e) => assert!(e.is_unimplemented(), "{e:?}"),
             Ok(_) => panic!("read_runs is left out"),
         }

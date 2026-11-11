@@ -24,10 +24,13 @@ pub trait SdCard {
     fn state() -> CardState;
     stream!(detect: bool);
     fn registers() -> Result<SdRegisters<'i>, SdError<'i>>;
-    fn reinit(lease: u32, max_clock_khz: u32, bus_width: BusWidth) -> Result<InitReport<'i>, SdError<'i>>;
-    fn command(lease: Option<u32>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError<'i>>;
+    fn reinit(lease: Lease, max_clock: Fixed<Hertz, Kilo, u32>, bus_width: BusWidth) -> Result<InitReport<'i>, SdError<'i>>;
+    fn command(lease: Option<Lease>, cmd: RawCommand<'i>) -> Result<RawResponse<'i>, SdError<'i>>;
 }
 ```
+
+`Lease` is `ww_block`'s (the same lease `BlockDevice::claim` hands out), and `max_clock` is a `ww_si` typed number
+(`Fixed<Hertz, Kilo, u32>`), the same bytes as the plain `u32` kHz it replaces.
 
 ## State and registers
 
@@ -43,7 +46,7 @@ pub trait SdCard {
 
 ## Init with a report
 
-`reinit(lease, max_clock_khz, bus_width)` runs the init sequence again (CMD0, CMD8, ACMD41, CMD2, CMD3, ..., then bus
+`reinit(lease, max_clock, bus_width)` runs the init sequence again (CMD0, CMD8, ACMD41, CMD2, CMD3, ..., then bus
 width and speed up to the limits given) and answers an `InitReport`: each step's command, argument, the first 32 bits
 of its response, its `Outcome`, how often it was sent (ACMD41 polls while the card is busy) and how long it took, then
 the state it ended in and the total time. A card that doesn't come up is not an error: the report says where it
@@ -90,8 +93,8 @@ A card in SPI mode answers with R1-based responses of its own, and some commands
 - `Outcome::Other { code }`: 0x01-0x0f a read answered with this data error token (bit 0 error, 1 CC error, 2 card
   ECC failed, 3 out of range), 0x10 written data refused with a write error, 0x11 a byte that is no data response
   token, 0x12 the bus driver failed.
-- `registers().rca` is 0, and an `InitStep`'s `response` holds the OCR (R3) or the CMD8 echo (R7) where the command
-  has one, else R1 in bits 7:0 and R2's second byte in bits 15:8.
+- `registers().rca` is `Rca(0)`, and an `InitStep`'s `response` holds the OCR (R3) or the CMD8 echo (R7) where the
+  command has one, else R1 in bits 7:0 and R2's second byte in bits 15:8.
 
 ### What a command needs
 
@@ -113,7 +116,7 @@ says so in `Capabilities::unrestricted`. `ww_sd::check_access(&cmd, lease_ok)` i
 fn sd_command(
     &mut self,
     _cx: &mut Context<'_, impl BlockingEventOut>,
-    lease: Option<u32>,
+    lease: Option<ww_block::Lease>,
     cmd: ww_sd::RawCommand<'_>,
 ) -> RpcResult<Result<ww_sd::RawResponse<'_>, ww_sd::SdError<'_>>> {
     let lease_ok = lease.is_some_and(|l| self.lease_ok(l));

@@ -1,6 +1,6 @@
 // ww_error 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ce39375c7ecf85a1671de455076171839b4b58abc4ddbe36e18b9d7b7691e9c9
+// shrink_wrap sha256: 7785bc8db5423e6611beb380df74767f756f3b4fab454eba5195e2cbdb553763
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Errors every WireWeaver API can return (STD-16).",
     "",
@@ -38,6 +38,36 @@
     "Tools (the ww CLI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same",
     "for every API. Strings are bounded and may be empty: a device that saves flash sends `\"\"`.",
 ], crate_idx: 0, trait_name: "ww_error", items: [], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Argument", signature: [
+        75,
+        100,
+        52,
+        134,
+        220,
+        8,
+        100,
+        63,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
+    ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors every crate can return, recognised by tools by this type.",
         "",
@@ -51,7 +81,11 @@
         (docs: [
             "Argument number {arg} is invalid: {reason}.",
         ], ident: "InvalidArgument", fields: Named([
-            (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            (ident: Some("arg"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(NumericAny(Base(U8))),
+                Type(OutOfLine(type_idx: 1)),
+            ]), docs: [
                 "Position of the argument, starting at 0.",
             ], slot: None, series_opaque: false),
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
@@ -90,6 +124,8 @@
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
+    None,
 ]))

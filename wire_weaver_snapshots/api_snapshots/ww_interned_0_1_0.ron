@@ -1,6 +1,6 @@
 // ww_interned 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: fe391d4825b42214f2ec41b145105ffb6470679dcc14e30168764f6b431f66da
+// shrink_wrap sha256: 2a7973ca232f2391f0391b31b8e70a1c8fc5c8d3158c62f0e2610d5f7fe688ab
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Strings a device sends as a small number instead of text (STD-48).",
     "",
@@ -12,13 +12,50 @@
     "",
     "How a firmware builds its table is open (see the docs page): the type only fixes what travels.",
 ], crate_idx: 0, trait_name: "ww_interned", items: [], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of strings in a firmware\'s string table, string: [Interned::Id]\'s own base, named by this crate.",
+    ], ident: "InternedStr", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "ww_interned", name: "InternedStr"), names: (symbol: "istr", ascii: None, long: "interned string", plural: "interned strings", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "ww_interned", name: "InternedStr"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
+    ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A string sent as an index into the firmware\'s string table, or as text.",
     ], ident: "Interned", generics: [], variants: [
         (docs: [
             "Index into the string table of the firmware\'s ELF.",
         ], ident: "Id", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 1)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "The text itself, from a device without a string table.",
@@ -28,6 +65,8 @@
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
+    None,
 ]))

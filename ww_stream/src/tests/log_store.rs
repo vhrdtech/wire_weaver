@@ -7,6 +7,7 @@ use crate::store::log::{
 use crate::store::{FullPolicy, PushError, StreamStore};
 use crate::{HeadExt, StreamHead};
 use wire_weaver::shrink_wrap::UVlq32;
+use ww_si::Index;
 
 type Store<M> = LogStore<M, 512>;
 
@@ -113,7 +114,7 @@ where
 fn with_epoch(mut ev: Ev, epoch: u32) -> Ev {
     ev.head.ext = Some(HeadExt {
         codec_restart: false,
-        clock_epoch: Some(UVlq32(epoch)),
+        clock_epoch: Some(Index::new(UVlq32(epoch))),
     });
     ev
 }
@@ -707,7 +708,7 @@ fn s5_reboot_keeps_session_marks_epoch() {
     assert_eq!(got, stored);
     let epochs: Vec<(u64, u32)> = got
         .iter()
-        .filter_map(|e| Some((e.head.pos, e.head.ext?.clock_epoch?.0)))
+        .filter_map(|e| Some((e.head.pos, e.head.ext?.clock_epoch?.get().0)))
         .collect();
     assert_eq!(epochs.len(), 3);
     assert_eq!(epochs.iter().map(|e| e.1).collect::<Vec<_>>(), [1, 2, 3]);
@@ -716,7 +717,7 @@ fn s5_reboot_keeps_session_marks_epoch() {
     let mut ev = g.event();
     ev.head.ext = Some(HeadExt {
         codec_restart: false,
-        clock_epoch: Some(UVlq32(99)),
+        clock_epoch: Some(Index::new(UVlq32(99))),
     });
     push(&mut s, &ev).unwrap();
     assert_eq!(read(&mut s, ev.head.pos), Some(ev));

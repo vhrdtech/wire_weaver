@@ -197,7 +197,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                 };
             }
             if let Some(budget) = cfg.budget {
-                text += &format!("; budget {} B/s", budget.0);
+                text += &format!("; budget {} B/s", budget.get().0);
             }
             b.text(
                 2,
@@ -356,9 +356,13 @@ pub fn explain_reply<'r>(
             let mut text = observe_text(&entries, &names);
             for r in granted.refused.iter() {
                 let r = r?;
-                text += &format!("; {} refused: {:?}", name_of(&names, r.index.0), r.reason);
+                text += &format!(
+                    "; {} refused: {:?}",
+                    name_of(&names, r.index.get().0),
+                    r.reason
+                );
             }
-            text += &format!("; budget {} B/s", granted.budget.0);
+            text += &format!("; budget {} B/s", granted.budget.get().0);
             let text = text.trim_start_matches("; ").to_string();
             let front = b.range_of(slice)?;
             b.text(3, "granted", "ObserveGranted", front, text);
@@ -785,7 +789,13 @@ fn name_of(names: &[(u32, String)], index: u32) -> String {
 fn observe_text(entries: &[ObserveEntry], names: &[(u32, String)]) -> String {
     entries
         .iter()
-        .map(|e| format!("{}: {}", name_of(names, e.index.0), mode_text(&e.mode)))
+        .map(|e| {
+            format!(
+                "{}: {}",
+                name_of(names, e.index.get().0),
+                mode_text(&e.mode)
+            )
+        })
         .collect::<Vec<_>>()
         .join("; ")
 }
@@ -793,25 +803,21 @@ fn observe_text(entries: &[ObserveEntry], names: &[(u32, String)]) -> String {
 fn mode_text(mode: &ObserveMode) -> String {
     match mode {
         ObserveMode::Off => "off".into(),
-        ObserveMode::OnChange { min_us } if min_us.0 == 0 => "on change".into(),
-        ObserveMode::OnChange { min_us } => format!("on change (min {})", us(min_us.0)),
-        ObserveMode::Periodic { every_us } => format!("every {}", us(every_us.0)),
-        ObserveMode::OnChangeOrBeat { min_us, max_us } => format!(
+        ObserveMode::OnChange { min } if min.get().0 == 0 => "on change".into(),
+        ObserveMode::OnChange { min } => format!("on change (min {})", us(min.get().0)),
+        ObserveMode::Periodic { every } => format!("every {}", us(every.get().0)),
+        ObserveMode::OnChangeOrBeat { min, max } => format!(
             "on change (min {}), beat every {}",
-            us(min_us.0),
-            us(max_us.0)
+            us(min.get().0),
+            us(max.get().0)
         ),
-        ObserveMode::Samples {
-            every_us,
-            max_age_us,
-        } if every_us.0 == 0 => format!("every sample (batches up to {})", us(max_age_us.0)),
-        ObserveMode::Samples {
-            every_us,
-            max_age_us,
-        } => format!(
+        ObserveMode::Samples { every, max_age } if every.get().0 == 0 => {
+            format!("every sample (batches up to {})", us(max_age.get().0))
+        }
+        ObserveMode::Samples { every, max_age } => format!(
             "a sample every {} (batches up to {})",
-            us(every_us.0),
-            us(max_age_us.0)
+            us(every.get().0),
+            us(max_age.get().0)
         ),
         other => format!("{other:?}"),
     }

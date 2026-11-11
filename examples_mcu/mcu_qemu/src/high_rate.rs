@@ -21,8 +21,8 @@ use core::hint::black_box;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use ww_client_server::observe::{ObserveEntry, ObserveMode, ObserveRequest};
-use ww_client_server::{PathKind, Request, RequestKind};
-use ww_si::{Ampere, Second, Volt};
+use ww_client_server::{PathKind, Request, RequestKind, ResourceIndex};
+use ww_si::{Ampere, Micros, Second, Volt};
 use ww_stream::batch::{DEFAULT_POLICY, Scratch, scratch_bytes};
 use ww_stream::observe::ObserveLimits;
 
@@ -341,10 +341,10 @@ fn raw_batch(ring: &RawRing, run: Run, buf: &mut [u8]) -> usize {
 /// The `Observe` request of a host asking for every sample of the level's `n` properties.
 fn observe_request(buf: &mut [u8], n: usize) -> &[u8] {
     let entries: [ObserveEntry; 3] = core::array::from_fn(|k| ObserveEntry {
-        index: UNib32(k as u32),
+        index: ResourceIndex::new(UNib32(k as u32)),
         mode: ObserveMode::Samples {
-            every_us: UNib32(0),
-            max_age_us: UNib32(1_000_000),
+            every: Micros::new(UNib32(0)),
+            max_age: Micros::new(UNib32(1_000_000)),
         },
     });
     let observe_cfg = ObserveRequest {

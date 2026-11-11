@@ -12,7 +12,8 @@ use wire_weaver::shrink_wrap::{
     BufWriterOwned, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned,
     tail_bytes::TailBytesOwned,
 };
-use ww_si::Second;
+use ww_si::units::Boot;
+use ww_si::{Bytes, Index, Micros, Second};
 
 /// Per-event head of a counted or reliable stream ([EventKind::StreamItem](crate::EventKind::StreamItem)): where the
 /// event's data sits in the stream, how much the device dropped right before it and when it was made.
@@ -73,8 +74,9 @@ impl StreamHead {
     derive(Debug, Clone, Copy, PartialEq, Eq, Default)
 )]
 pub struct HeadExt {
-    /// The device's clock restarted (a reboot) before this event: timestamps from here on belong to this epoch.
-    pub clock_epoch: Option<UVlq32>,
+    /// The device's clock restarted (a reboot) before this event: timestamps from here on belong to this epoch,
+    /// the device's boot number as its store counts them.
+    pub clock_epoch: Option<Index<Boot, UVlq32>>,
     /// Compressed streams (API-55): the codec starts over at this event, which references nothing sent before it.
     /// The host decodes from here on; events after a gap it can't explain wait for the next such event.
     #[default = false]
@@ -119,7 +121,7 @@ pub enum StreamCodec {
     /// Each event's data is one LZ4 block (the LZ4 block format, no frame) that may copy from up to `history` bytes
     /// of the items decoded before it, back to the last [HeadExt::codec_restart]. An item that doesn't compress is a
     /// block of literals only.
-    Lz4 { history: UVlq32 },
+    Lz4 { history: Bytes<UVlq32> },
 }
 
 /// A point in a stream: a position in a session. The host keeps one per open stream and passes it back to resume
@@ -161,10 +163,10 @@ pub struct StreamOpened<'i> {
     /// Credit sinks (API-34): the device's buffer in bytes, the largest grant it can give, so a host that resumes
     /// (whose first grant is the buffer minus what the device still holds) knows which items can ever fit; `None`
     /// for streams.
-    pub capacity: Option<UVlq32>,
-    /// Batched streams (API-41): the most a batch waits on the device before it is sent, in µs, granted for the
-    /// `max_age_us` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn't batched.
-    pub max_age_us: Option<UNib32>,
+    pub capacity: Option<Bytes<UVlq32>>,
+    /// Batched streams (API-41): the most a batch waits on the device before it is sent, granted for the
+    /// `max_age` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn't batched.
+    pub max_age: Option<Micros<UNib32>>,
     /// Compressed streams (API-55): the codec the device took out of the host's offer, `None` for events sent as
     /// they are (no offer, or a stream that doesn't compress).
     pub codec: Option<StreamCodec>,
@@ -173,7 +175,7 @@ pub struct StreamOpened<'i> {
 }
 
 impl StreamOpened<'_> {
-    /// With the `max_age_us` a batched stream granted (API-41).
+    /// With the `max_age` a batched stream granted (API-41).
     /// The answer of a stream without a session (a plain stream): every field zero or `None`.
     pub const fn closed() -> StreamOpened<'static> {
         StreamOpened {
@@ -182,14 +184,14 @@ impl StreamOpened<'_> {
             live_from: UVlq64(0),
             resume_from: None,
             capacity: None,
-            max_age_us: None,
+            max_age: None,
             codec: None,
             result: TailBytes(&[]),
         }
     }
 
-    pub fn with_max_age_us(mut self, max_age_us: Option<u32>) -> Self {
-        self.max_age_us = max_age_us.map(UNib32);
+    pub fn with_max_age(mut self, max_age: Option<Micros<UNib32>>) -> Self {
+        self.max_age = max_age;
         self
     }
 
@@ -200,8 +202,8 @@ impl StreamOpened<'_> {
     }
 
     /// With the buffer of a credit sink (API-34).
-    pub fn with_capacity(mut self, capacity: Option<u32>) -> Self {
-        self.capacity = capacity.map(UVlq32);
+    pub fn with_capacity(mut self, capacity: Option<Bytes<UVlq32>>) -> Self {
+        self.capacity = capacity;
         self
     }
 
@@ -215,7 +217,7 @@ impl StreamOpened<'_> {
         wr.write(&self.live_from)?;
         wr.write(&self.resume_from)?;
         wr.write(&self.capacity)?;
-        wr.write(&self.max_age_us)?;
+        wr.write(&self.max_age)?;
         wr.write(&self.codec)?;
         wr.align_byte();
         Ok(())
@@ -312,7 +314,7 @@ pub struct StreamStatus {
     pub oldest: Option<UVlq64>,
     pub newest: Option<UVlq64>,
     /// Bytes sent and not acknowledged yet (reliable streams).
-    pub in_flight: UVlq64,
+    pub in_flight: Bytes<UVlq64>,
     /// What the store holds, `None` without one (plain and counted streams).
     pub store: Option<StoreStatus>,
 }
@@ -325,9 +327,9 @@ pub struct StreamStatus {
 )]
 pub struct StoreStatus {
     /// Bytes in use, including the store's own overhead.
-    pub used_bytes: UVlq64,
+    pub used: Bytes<UVlq64>,
     /// Bytes the store can hold.
-    pub capacity_bytes: UVlq64,
+    pub capacity: Bytes<UVlq64>,
     /// Survives a reboot (a log on SD or flash), not just a reconnect.
     pub persistent: bool,
     /// Units the store forgot to make room (drop oldest) in this session.
@@ -633,7 +635,7 @@ mod tests {
             lost: Some(1),
             t: Some(MICROS),
             ext: Some(HeadExt {
-                clock_epoch: Some(UVlq32(3)),
+                clock_epoch: Some(Index::new(UVlq32(3))),
                 ..HeadExt::default()
             }),
         };
@@ -671,7 +673,7 @@ mod tests {
         .unwrap()
         .to_vec();
         let ext = HeadExt::from_ww_bytes(&old).unwrap();
-        assert_eq!(ext.clock_epoch, Some(UVlq32(3)));
+        assert_eq!(ext.clock_epoch, Some(Index::new(UVlq32(3))));
         assert!(!ext.codec_restart);
     }
 
@@ -683,7 +685,7 @@ mod tests {
         let b = offer.to_ww_bytes(&mut buf).unwrap().to_vec();
         assert_eq!(StreamCodecs::from_ww_bytes(&b).unwrap(), offer);
         let codec = StreamCodec::Lz4 {
-            history: UVlq32(4096),
+            history: Bytes::new(UVlq32(4096)),
         };
         let b = codec.to_ww_bytes(&mut buf).unwrap().to_vec();
         assert_eq!(StreamCodec::from_ww_bytes(&b).unwrap(), codec);
@@ -764,7 +766,7 @@ mod tests {
             oldest: UVlq64(0),
             live_from: UVlq64(1000),
             resume_from: Some(UVlq64(10)),
-            max_age_us: None,
+            max_age: None,
             capacity: None,
             codec: None,
             result: TailBytes(&[0xaa]),
@@ -842,10 +844,10 @@ mod tests {
             oldest: UVlq64(1),
             live_from: UVlq64(300),
             resume_from: Some(UVlq64(2)),
-            max_age_us: Some(UNib32(20_000)),
+            max_age: Some(Micros::new(UNib32(20_000))),
             capacity: None,
             codec: Some(StreamCodec::Lz4 {
-                history: UVlq32(4096),
+                history: Bytes::new(UVlq32(4096)),
             }),
             result: TailBytes(&result_bytes),
         };
@@ -870,10 +872,10 @@ mod tests {
             next: UVlq64(10),
             oldest: None,
             newest: Some(UVlq64(9)),
-            in_flight: UVlq64(0),
+            in_flight: Bytes::new(UVlq64(0)),
             store: Some(StoreStatus {
-                used_bytes: UVlq64(5),
-                capacity_bytes: UVlq64(4096),
+                used: Bytes::new(UVlq64(5)),
+                capacity: Bytes::new(UVlq64(4096)),
                 persistent: false,
                 dropped_units: UVlq64(0),
             }),
@@ -888,7 +890,7 @@ mod tests {
         let ack = StreamSideband::Ack {
             have: UVlq64(1 << 40),
             backfill: Some(UVlq64(5)),
-            grant: UVlq32(4 << 20),
+            grant: Bytes::new(UVlq32(4 << 20)),
         };
         let mut buf = [0u8; 32];
         let b = ack.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -901,7 +903,7 @@ mod tests {
         assert_eq!(StreamSideband::from_ww_bytes(&b).unwrap(), q);
         let r = StreamSideband::Resend {
             from: UVlq64(u64::MAX),
-            grant: UVlq32(1),
+            grant: Bytes::new(UVlq32(1)),
         };
         let b = r.to_ww_bytes(&mut buf).unwrap().to_vec();
         assert_eq!(StreamSideband::from_ww_bytes(&b).unwrap(), r);

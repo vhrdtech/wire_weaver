@@ -1,5 +1,6 @@
 use super::*;
 use wire_weaver::shrink_wrap::RefVec;
+use ww_client_server::observe::Budget;
 
 const DESC: LevelDesc<'static> = LevelDesc {
     item_count: 6,
@@ -33,20 +34,20 @@ const LIMITS: ObserveLimits = ObserveLimits {
 
 fn entry(index: u32, mode: ObserveMode) -> ObserveEntry {
     ObserveEntry {
-        index: UNib32(index),
+        index: ResourceIndex::new(UNib32(index)),
         mode,
     }
 }
 
 fn periodic(every_us: u32) -> ObserveMode {
     ObserveMode::Periodic {
-        every_us: UNib32(every_us),
+        every: Micros::new(UNib32(every_us)),
     }
 }
 
 fn on_change(min_us: u32) -> ObserveMode {
     ObserveMode::OnChange {
-        min_us: UNib32(min_us),
+        min: Micros::new(UNib32(min_us)),
     }
 }
 
@@ -60,10 +61,10 @@ fn apply(
     let req = ObserveRequest {
         entries: RefVec::Slice { slice: entries },
         patch,
-        budget: budget.map(UNib32),
+        budget: budget.map(|b| Budget::new(UNib32(b))),
     };
     let mut refused = [ObserveRefused {
-        index: UNib32(0),
+        index: ResourceIndex::new(UNib32(0)),
         reason: ObserveRefusal::NoSuchIndex,
     }; 4];
     let len = table.apply(&req, desc, &LIMITS, 0, &mut refused)?;
@@ -123,7 +124,10 @@ fn refusals() {
         None,
     )
     .unwrap();
-    let reasons: Vec<_> = refused.iter().map(|r| (r.index.0, r.reason)).collect();
+    let reasons: Vec<_> = refused
+        .iter()
+        .map(|r| (r.index.get().0, r.reason))
+        .collect();
     assert_eq!(
         reasons,
         [
@@ -164,8 +168,8 @@ fn clamps() {
             entry(
                 4,
                 ObserveMode::OnChangeOrBeat {
-                    min_us: UNib32(1000),
-                    max_us: UNib32(10),
+                    min: Micros::new(UNib32(1000)),
+                    max: Micros::new(UNib32(10)),
                 },
             ),
         ],
@@ -181,8 +185,8 @@ fn clamps() {
             entry(
                 4,
                 ObserveMode::OnChangeOrBeat {
-                    min_us: UNib32(1000),
-                    max_us: UNib32(1000),
+                    min: Micros::new(UNib32(1000)),
+                    max: Micros::new(UNib32(1000)),
                 }
             ),
         ]
@@ -192,7 +196,7 @@ fn clamps() {
     let req = ObserveRequest {
         entries: RefVec::Slice { slice: &[] },
         patch: true,
-        budget: Some(UNib32(10_000)),
+        budget: Some(Budget::new(UNib32(10_000))),
     };
     t.apply(&req, &DESC, &LIMITS, 12_000, &mut []).unwrap();
     assert_eq!(t.budget(), 3_000);
@@ -503,8 +507,8 @@ fn malformed_entries_change_nothing() {
 
 fn samples(every_us: u32, max_age_us: u32) -> ObserveMode {
     ObserveMode::Samples {
-        every_us: UNib32(every_us),
-        max_age_us: UNib32(max_age_us),
+        every: Micros::new(UNib32(every_us)),
+        max_age: Micros::new(UNib32(max_age_us)),
     }
 }
 
@@ -529,11 +533,11 @@ fn samples_mode_validated_and_clamped() {
         refused,
         [
             ObserveRefused {
-                index: UNib32(1),
+                index: ResourceIndex::new(UNib32(1)),
                 reason: ObserveRefusal::ModeNotSupported
             },
             ObserveRefused {
-                index: UNib32(4),
+                index: ResourceIndex::new(UNib32(4)),
                 reason: ObserveRefusal::ModeNotSupported
             }
         ]
@@ -702,7 +706,7 @@ fn samples_settings_are_shared_by_the_level() {
             entry(
                 4,
                 ObserveMode::Periodic {
-                    every_us: UNib32(1_000),
+                    every: Micros::new(UNib32(1_000)),
                 },
             ),
         ],
@@ -718,7 +722,7 @@ fn samples_settings_are_shared_by_the_level() {
             entry(
                 4,
                 ObserveMode::Periodic {
-                    every_us: UNib32(1_000)
+                    every: Micros::new(UNib32(1_000))
                 }
             ),
         ]
@@ -881,8 +885,8 @@ fn next_wake_sends_what_polling_does() {
             &[entry(
                 2,
                 ObserveMode::OnChangeOrBeat {
-                    min_us: UNib32(2_000),
-                    max_us: UNib32(20_000),
+                    min: Micros::new(UNib32(2_000)),
+                    max: Micros::new(UNib32(20_000)),
                 },
             )],
             10_000,

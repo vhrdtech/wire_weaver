@@ -15,11 +15,10 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
-use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::adopt::{HandoverOwned, LinkResidualOwned};
 use wire_weaver_client::internal::{Adopted, Command, ForwardSink, Forwarded};
 use wire_weaver_client::ww_client_server::observe::{
-    ObserveEntry, ObserveMode, ObserveRequestOwned,
+    Budget, ObserveEntry, ObserveMode, ObserveRequestOwned,
 };
 use wire_weaver_client::ww_client_server::{Priority, Request, RequestKindOwned, StreamSideband};
 use wire_weaver_client::ww_self::ApiBundleOwned;
@@ -425,7 +424,7 @@ struct Stream {
 struct Level {
     /// Per client: settings by resource index, with when they were set (the later setting of a property wins)
     entries: BTreeMap<u32, BTreeMap<u32, (u64, ObserveEntry)>>,
-    budgets: BTreeMap<u32, Option<UNib32>>,
+    budgets: BTreeMap<u32, Option<Budget>>,
 }
 
 impl Level {
@@ -436,9 +435,9 @@ impl Level {
         }
         for e in &cfg.entries {
             if matches!(e.mode, ObserveMode::Off) {
-                own.remove(&e.index.0);
+                own.remove(&e.index.get().0);
             } else {
-                own.insert(e.index.0, (stamp, *e));
+                own.insert(e.index.get().0, (stamp, *e));
             }
         }
         if own.is_empty() {
@@ -470,13 +469,7 @@ impl Level {
         ObserveRequestOwned {
             entries: merged.into_values().map(|(_, e)| e).collect(),
             patch: false,
-            budget: self
-                .budgets
-                .values()
-                .flatten()
-                .map(|b| b.0)
-                .max()
-                .map(UNib32),
+            budget: self.budgets.values().flatten().copied().max(),
         }
     }
 
@@ -1268,10 +1261,13 @@ impl State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wire_weaver::shrink_wrap::UNib32;
+    use wire_weaver_client::ww_client_server::ResourceIndex;
+    use wire_weaver_client::ww_client_server::ww_si::Micros;
 
     fn entry(index: u32, mode: ObserveMode) -> ObserveEntry {
         ObserveEntry {
-            index: UNib32(index),
+            index: ResourceIndex::new(UNib32(index)),
             mode,
         }
     }
@@ -1280,7 +1276,7 @@ mod tests {
         ObserveRequestOwned {
             entries,
             patch,
-            budget: budget.map(UNib32),
+            budget: budget.map(|b| Budget::new(UNib32(b))),
         }
     }
 
@@ -1289,9 +1285,11 @@ mod tests {
     #[test]
     fn observe_merged() {
         let periodic = |us| ObserveMode::Periodic {
-            every_us: UNib32(us),
+            every: Micros::new(UNib32(us)),
         };
-        let on_change = ObserveMode::OnChange { min_us: UNib32(0) };
+        let on_change = ObserveMode::OnChange {
+            min: Micros::new(UNib32(0)),
+        };
         let mut level = Level::default();
         level.apply(
             1,
@@ -1321,12 +1319,12 @@ mod tests {
             ]
         );
         assert!(!m.patch);
-        assert_eq!(m.budget, Some(UNib32(100)));
+        assert_eq!(m.budget, Some(Budget::new(UNib32(100))));
 
         // client 1 patches its property 2 again: later, so it wins
         level.apply(1, &cfg(vec![entry(2, on_change)], true, Some(300)), 3);
         assert_eq!(level.merged().entries[1], entry(2, on_change));
-        assert_eq!(level.merged().budget, Some(UNib32(300)));
+        assert_eq!(level.merged().budget, Some(Budget::new(UNib32(300))));
 
         assert!(level.remove(1));
         assert_eq!(

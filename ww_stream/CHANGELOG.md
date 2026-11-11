@@ -33,6 +33,8 @@
 
 ### ⚠️ Breaking
 
+- Follows `ww_client_server`'s typed numbers (STD-115): the wire types it builds and reads (observe periods, budgets, resource indices, byte grants, store sizes, clock epochs) are typed; its own API (`ObserveLimits`, `Batched::with_max_age`, `SinkCredit`, the stores) keeps its plain µs and byte counts, so a firmware's settings are unchanged. Code that matched `ObserveMode` or `StoreStatus` fields by hand renames them (`min`, `every`, `max`, `max_age`, `used`, `capacity`).
+
 - `batch` re-exports `TimePoint` and `TimeStep` next to `Timed`, whose `t` is a time point now (`ww_si` STD-110, wire change EVO-51): a `Batched<_, Timed<T>, N>` holds `Timed<T, DeviceMicros<u32>>` items.
 - `StreamSideband::ResendFrom` is `Resend` (API-34, `ww_client_server`): `tx::Reliable` and `rx::Receiver` take and send it under the new name, same fields.
 

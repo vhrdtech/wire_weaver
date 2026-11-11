@@ -13,9 +13,12 @@ use wire_weaver::shrink_wrap::{
     SerializeShrinkWrapOwned, UNib32, UVlq32,
 };
 use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
-use ww_client_server::observe::{ObserveEntry, ObserveGranted, ObserveMode, ObserveRefused};
+use ww_client_server::observe::{
+    Budget, ObserveEntry, ObserveGranted, ObserveMode, ObserveRefused,
+};
 use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind};
 use ww_device::{LinkConfig, LinkEvent};
+use ww_si::Count;
 use ww_version::{
     ApiHashPair, CompactVersion, FullVersion, FullVersionOwned, GlobalTypeId, Version, VersionOwned,
 };
@@ -115,7 +118,7 @@ impl WireWeaverAsyncApiBackend for Dev {
             refused: RefVec::Slice {
                 slice: &[] as &[ObserveRefused],
             },
-            budget: cfg.budget.unwrap_or(UNib32(1_000)),
+            budget: cfg.budget.unwrap_or(Budget::new(UNib32(1_000))),
         };
         let mut buf = [0u8; 128];
         let granted = granted.to_ww_bytes(&mut buf)?;
@@ -142,7 +145,7 @@ fn update_event(data: &LevelData) -> Vec<u8> {
         result: Ok(EventKind::PropertyUpdate {
             path: RefVec::Slice { slice: &path },
             t: None,
-            missed: Some(UNib32(2)),
+            missed: Some(Count::new(UNib32(2))),
             sample_times: None,
             data: TailBytes(&data),
         }),

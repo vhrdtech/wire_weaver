@@ -7,17 +7,17 @@
 //! are named by their resource index within the level, the same numbers as in the introspection data and in request
 //! paths. Only properties declared with `+observe` can be observed.
 //!
-//! Periods are in microseconds (`40` is 25 kHz, `1_000_000` once a second). The device clamps every setting to
+//! Periods are `Micros<UNib32>` (`40` µs is 25 kHz, `1_000_000` µs once a second), the budget in bytes per second. The device clamps every setting to
 //! what it can do and to the level's byte budget, and tells the host the result.
 //!
 //! **Every sample (API-39).** A property declared `+observe+batched` can also be observed in
-//! [ObserveMode::Samples]: the device keeps every sample it takes of it (or one per `every_us`) and sends them in
-//! batches, at most `max_age_us` old. Its slot in the level's update is a [Batched]: [Batched::One] with the other
+//! [ObserveMode::Samples]: the device keeps every sample it takes of it (or one per `every`) and sends them in
+//! batches, at most `max_age` old. Its slot in the level's update is a [Batched]: [Batched::One] with the other
 //! modes (the update's `t` is its time, as for any property), [Batched::Samples] with `Samples`. The samples of a
 //! level share one clock: one `sample()` call on the device is one row, so an update carries their times once, in
 //! the level's `sample_times` slot (a `Series<Second>` past the level's last resource index), and every
-//! `Batched::Samples` of the update has one item per time. A level's `Samples` entries share `every_us` and
-//! `max_age_us` (the finest and the shortest asked for), the grant tells.
+//! `Batched::Samples` of the update has one item per time. A level's `Samples` entries share `every` and
+//! `max_age` (the finest and the shortest asked for), the grant tells.
 
 use core::fmt::Debug;
 use wire_weaver::prelude::*;
@@ -31,7 +31,13 @@ use wire_weaver::shrink_wrap::{
 use wire_weaver::shrink_wrap::{
     BufWriterOwned, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned,
 };
-use ww_si::Second;
+use ww_si::units::BytePerSecond;
+use ww_si::{Fixed, Micros, Second, prefix::One};
+
+use crate::ResourceIndex;
+
+/// A level's byte budget: bytes per second its updates may take on the link.
+pub type Budget = Fixed<BytePerSecond, One, UNib32>;
 
 /// How one property is observed.
 ///
@@ -46,22 +52,25 @@ use ww_si::Second;
 pub enum ObserveMode {
     /// Not sent.
     Off,
-    /// Sent when the value changes, at most once every `min_us`.
-    OnChange { min_us: UNib32 },
-    /// Sent every `every_us`, changed or not.
-    Periodic { every_us: UNib32 },
-    /// Sent when the value changes, at most once every `min_us`, and at least once every `max_us` even when it
-    /// doesn't (a heartbeat, so the host knows the value is still current).
-    OnChangeOrBeat { min_us: UNib32, max_us: UNib32 },
-    /// Every sample the device takes (`every_us = 0`), or the first one in each `every_us`, sent in batches that
-    /// are at most `max_age_us` old (API-39): the host's choice of latency against overhead. Only properties
+    /// Sent when the value changes, at most once every `min`.
+    OnChange { min: Micros<UNib32> },
+    /// Sent every `every`, changed or not.
+    Periodic { every: Micros<UNib32> },
+    /// Sent when the value changes, at most once every `min`, and at least once every `max` even when it doesn't
+    /// (a heartbeat, so the host knows the value is still current).
+    OnChangeOrBeat {
+        min: Micros<UNib32>,
+        max: Micros<UNib32>,
+    },
+    /// Every sample the device takes (`every` 0), or the first one in each `every`, sent in batches that are at
+    /// most `max_age` old (API-39): the host's choice of latency against overhead. Only properties
     /// declared `+observe+batched` take it, on a device that takes samples of them ([ObserveRefusal::ModeNotSupported]
     /// otherwise, also from a firmware built with `observe_samples = false`); their samples come in
     /// [Batched::Samples] slots. The `Samples` entries of a level share one setting: the device grants each of them
-    /// the smallest `every_us` and the smallest `max_age_us` of them all.
+    /// the smallest `every` and the smallest `max_age` of them all.
     Samples {
-        every_us: UNib32,
-        max_age_us: UNib32,
+        every: Micros<UNib32>,
+        max_age: Micros<UNib32>,
     },
 }
 
@@ -73,7 +82,7 @@ pub enum ObserveMode {
 )]
 pub struct ObserveEntry {
     /// Resource index of the property within its trait level.
-    pub index: UNib32,
+    pub index: ResourceIndex,
     pub mode: ObserveMode,
 }
 
@@ -87,7 +96,7 @@ pub struct ObserveRequest<'i> {
     pub patch: bool,
     /// Bytes per second the level's updates may take on the link (events as sent, with their headers); `None`
     /// leaves it to the device.
-    pub budget: Option<UNib32>,
+    pub budget: Option<Budget>,
 }
 
 #[cfg(feature = "std")]
@@ -111,7 +120,7 @@ pub struct ObserveGranted<'i> {
     /// Entries of the request that were not applied, and why.
     pub refused: RefVec<'i, ObserveRefused>,
     /// Bytes per second the level's updates may take, as granted.
-    pub budget: UNib32,
+    pub budget: Budget,
 }
 
 /// An entry of an [ObserveRequest] the device did not apply.
@@ -121,7 +130,7 @@ pub struct ObserveGranted<'i> {
     derive(Debug, Clone, Copy, PartialEq, Eq)
 )]
 pub struct ObserveRefused {
-    pub index: UNib32,
+    pub index: ResourceIndex,
     pub reason: ObserveRefusal,
 }
 
@@ -396,8 +405,8 @@ mod tests {
     use crate::{Event, EventKind, PathKind, Request, RequestKind};
     use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
     use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, UVlq32, UVlq32Backfill};
-    use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
+    use ww_si::{Count, Prefix};
 
     const MICROS: Second = Second::from_parts(Prefix::Micro, NumericValue::U32(0x1234_5678));
 
@@ -405,16 +414,16 @@ mod tests {
     fn request_round_trip() {
         let entries = [
             ObserveEntry {
-                index: UNib32(0),
+                index: ResourceIndex::new(UNib32(0)),
                 mode: ObserveMode::Periodic {
-                    every_us: UNib32(40),
+                    every: Micros::new(UNib32(40)),
                 },
             },
             ObserveEntry {
-                index: UNib32(3),
+                index: ResourceIndex::new(UNib32(3)),
                 mode: ObserveMode::OnChangeOrBeat {
-                    min_us: UNib32(1_000),
-                    max_us: UNib32(1_000_000),
+                    min: Micros::new(UNib32(1_000)),
+                    max: Micros::new(UNib32(1_000_000)),
                 },
             },
         ];
@@ -422,7 +431,7 @@ mod tests {
         let cfg = ObserveRequest {
             entries: RefVec::Slice { slice: &entries },
             patch: false,
-            budget: Some(UNib32(20_000)),
+            budget: Some(Budget::new(UNib32(20_000))),
         };
         let req = Request {
             seq: UVlq32Backfill(5),
@@ -442,7 +451,7 @@ mod tests {
         let back_entries: Vec<_> = cfg.entries.iter().map(|e| e.unwrap()).collect();
         assert_eq!(back_entries, entries);
         assert!(!cfg.patch);
-        assert_eq!(cfg.budget, Some(UNib32(20_000)));
+        assert_eq!(cfg.budget, Some(Budget::new(UNib32(20_000))));
         // 5 of them are the seq placeholder, sent as 1 (Request::set_seq)
         assert_eq!(b.len(), 26, "{b:02x?}");
         // the bytes of the body as a plain `ObserveRequest`, from before it became a `RefBox` (SRV-54)
@@ -459,26 +468,26 @@ mod tests {
     #[test]
     fn granted_round_trip() {
         let entries = [ObserveEntry {
-            index: UNib32(2),
+            index: ResourceIndex::new(UNib32(2)),
             mode: ObserveMode::OnChange {
-                min_us: UNib32(100),
+                min: Micros::new(UNib32(100)),
             },
         }];
         let refused = [ObserveRefused {
-            index: UNib32(7),
+            index: ResourceIndex::new(UNib32(7)),
             reason: ObserveRefusal::NotObservable,
         }];
         let granted = ObserveGranted {
             entries: RefVec::Slice { slice: &entries },
             refused: RefVec::Slice { slice: &refused },
-            budget: UNib32(1000),
+            budget: Budget::new(UNib32(1000)),
         };
         let mut buf = [0u8; 64];
         let b = granted.to_ww_bytes(&mut buf).unwrap().to_vec();
         let back = ObserveGranted::from_ww_bytes(&b).unwrap();
         assert_eq!(back.entries.iter().next().unwrap().unwrap(), entries[0]);
         assert_eq!(back.refused.iter().next().unwrap().unwrap(), refused[0]);
-        assert_eq!(back.budget, UNib32(1000));
+        assert_eq!(back.budget, Budget::new(UNib32(1000)));
     }
 
     #[test]
@@ -514,7 +523,7 @@ mod tests {
                 result: Ok(EventKind::PropertyUpdate {
                     path: RefVec::Slice { slice: &path },
                     t,
-                    missed: Some(UNib32(3)),
+                    missed: Some(Count::new(UNib32(3))),
                     sample_times,
                     data: TailBytes(&data),
                 }),
@@ -549,7 +558,7 @@ mod tests {
             };
             assert_eq!(p.iter().next().unwrap().unwrap(), UNib32(2));
             assert_eq!(back_t.is_some(), t.is_some());
-            assert_eq!(missed, Some(UNib32(3)));
+            assert_eq!(missed, Some(Count::new(UNib32(3))));
             assert_eq!(
                 sample_times.map(|s| s.iter().collect::<Vec<_>>()),
                 has_times.then(|| times.clone())
@@ -574,8 +583,8 @@ mod tests {
     #[test]
     fn samples_mode_round_trip() {
         let mode = ObserveMode::Samples {
-            every_us: UNib32(0),
-            max_age_us: UNib32(20_000),
+            every: Micros::new(UNib32(0)),
+            max_age: Micros::new(UNib32(20_000)),
         };
         let mut buf = [0u8; 16];
         let b = mode.to_ww_bytes(&mut buf).unwrap().to_vec();

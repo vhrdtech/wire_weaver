@@ -1214,7 +1214,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                 return wr.finish_and_take();
             }
             if let Some(resource_id) = *in_each_array_id {
-                path_arr[path_len + 1] = resource_id;
+                path_arr[path_len + 1] = resource_id.get();
             }
             let multi_args = match &request.kind {
                 RequestKind::MultiCall { multi_args, .. } => Some(multi_args),
@@ -2410,11 +2410,14 @@ fn handle_stream_fn(
     let grant = maybe_quote(
         batched,
         quote! {
-            let granted = #state.grant_max_age(max_age_us.as_ref().map(|a| a.0));
+            let granted = #state.grant_max_age(max_age.as_ref().map(|a| a.get().0));
         },
     );
-    let with_granted = maybe_quote(batched, quote! { .with_max_age_us(Some(granted)) });
-    let max_age_arg = maybe_quote(batched, quote! { max_age_us, });
+    let with_granted = maybe_quote(
+        batched,
+        quote! { .with_max_age(Some(ww_client_server::ww_si::Micros::new(wire_weaver::shrink_wrap::UNib32(granted)))) },
+    );
+    let max_age_arg = maybe_quote(batched, quote! { max_age, });
     // a counted stream's state is anything `ww_stream::codec::CountedState`: `Counted`, or `Compressed` that takes
     // a codec out of the host's offer (API-55)
     let codec_counted = delivery == Delivery::Counted && !batched;
@@ -2451,7 +2454,7 @@ fn handle_stream_fn(
             live_from: wire_weaver::shrink_wrap::UVlq64(0),
             resume_from: None,
             capacity: None,
-            max_age_us: None,
+            max_age: None,
             codec: None,
             result: TailBytes(&[]),
         }
@@ -2888,7 +2891,7 @@ fn handle_stream(
                     let es_status = item_err_seq("sink", "STATUS");
                     (
                         quote! {
-                            let opened = opened.to_wire(&[]).with_capacity(Some(capacity));
+                            let opened = opened.to_wire(&[]).with_capacity(Some(ww_client_server::ww_si::Bytes::new(wire_weaver::shrink_wrap::UVlq32(capacity))));
                             ww_client_server::dispatch::reply_opened(wr, d, &opened, &())
                         },
                         quote! { ww_client_server::dispatch::reply_value(wr, d, &status, #es_status) },
@@ -2897,7 +2900,7 @@ fn handle_stream(
                     (
                         quote! {
                             #ev_kind_builder_open
-                            __ww_try!(wr, d, opened.to_wire(&[]).with_capacity(Some(capacity)).ser_head(wr), #es_opened, ResponseSerFailed);
+                            __ww_try!(wr, d, opened.to_wire(&[]).with_capacity(Some(ww_client_server::ww_si::Bytes::new(wire_weaver::shrink_wrap::UVlq32(capacity)))).ser_head(wr), #es_opened, ResponseSerFailed);
                             WrAction::WrittenOk
                         },
                         quote! {

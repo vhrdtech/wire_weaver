@@ -5,6 +5,7 @@ use crate::{Opened, StreamCursor};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
 use ww_client_server::stream::{StoreStatus, StreamStatus};
+use ww_si::Bytes;
 
 /// Flow control state of one credit sink on the device, the receiver.
 ///
@@ -425,10 +426,10 @@ impl SinkCredit {
             next: UVlq64(self.have),
             oldest: None,
             newest: None,
-            in_flight: UVlq64(0),
+            in_flight: Bytes::new(UVlq64(0)),
             store: Some(StoreStatus {
-                used_bytes: UVlq64(self.buffered() as u64),
-                capacity_bytes: UVlq64(self.capacity as u64),
+                used: Bytes::new(UVlq64(self.buffered() as u64)),
+                capacity: Bytes::new(UVlq64(self.capacity as u64)),
                 persistent: false,
                 dropped_units: UVlq64(0),
             }),
@@ -450,7 +451,7 @@ impl SinkCredit {
         StreamSideband::Ack {
             have: UVlq64(wire_pos(self.have) as u64),
             backfill: None,
-            grant: UVlq32(self.grant()),
+            grant: Bytes::new(UVlq32(self.grant())),
         }
     }
 
@@ -459,7 +460,7 @@ impl SinkCredit {
         self.owed = false;
         StreamSideband::Resend {
             from: UVlq64(wire_pos(self.have) as u64),
-            grant: UVlq32(self.grant()),
+            grant: Bytes::new(UVlq32(self.grant())),
         }
     }
 }

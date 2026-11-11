@@ -9,6 +9,7 @@ use crate::tx::{Counted, Pushed, Reliable};
 use crate::{Opened, Run, StreamCursor, StreamHead};
 use std::collections::VecDeque;
 use ww_client_server::StreamSideband;
+use ww_si::Bytes;
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Faults {
@@ -849,7 +850,7 @@ fn reliable_resend_from_every_position_inside_a_batch() {
             let from = 3 + k;
             let resend = StreamSideband::Resend {
                 from: UVlq64(from),
-                grant: UVlq32(10_000),
+                grant: Bytes::new(UVlq32(10_000)),
             };
             block_on(dev.on_sideband(&resend, 0)).unwrap();
             // not an acknowledgement: everything stays until an Ack passes it

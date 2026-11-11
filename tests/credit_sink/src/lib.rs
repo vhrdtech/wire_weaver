@@ -858,8 +858,8 @@ mod tests {
         assert_eq!(status.next.0, 100);
         let store = status.store.unwrap();
         // nothing drained yet
-        assert_eq!(store.used_bytes.0, 100);
-        assert_eq!(store.capacity_bytes.0, 256);
+        assert_eq!(store.used.get().0, 100);
+        assert_eq!(store.capacity.get().0, 256);
         plan.close().await.unwrap();
         let status = client.plan_status().read().await.unwrap();
         assert!(!status.open);

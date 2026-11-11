@@ -14,5 +14,7 @@ std = ["wire_weaver/std", "ww_si/std"]
 [dependencies]
 wire_weaver.workspace = true
 ww_global.workspace = true
-# timestamps in stream heads: Second { Micro, U32 }; a host unwraps them into U64 (ww_si host, part of std)
-ww_si = { workspace = true, features = ["time", "u32"] }
+# timestamps in stream heads: Second { Micro, U32 }; a host unwraps them into U64 (ww_si host, part of std).
+# Periods are Micros, byte grants and budgets Bytes and BytePerSecond, missed sends Count<Event>, clock epochs
+# Index<Boot>, resource indices Index<Resource>: types only, nothing linked that isn't used
+ww_si = { workspace = true, features = ["time", "u32", "information", "counting"] }

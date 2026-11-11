@@ -14,12 +14,13 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver::shrink_wrap::UVlq32Backfill;
     use wire_weaver_client::internal::Command;
+    use ww_client_server::ResourceIndex;
     use ww_client_server::observe::{
-        Batched, ObserveEntry, ObserveGranted, ObserveMode, ObserveRefusal, ObserveRefused,
+        Batched, Budget, ObserveEntry, ObserveGranted, ObserveMode, ObserveRefusal, ObserveRefused,
         ObserveRequest,
     };
     use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind};
-    use ww_si::Second;
+    use ww_si::{Micros, Second};
     use ww_stream::batch::{Scratch, scratch_bytes};
     use ww_stream::observe::ObserveLimits;
 
@@ -526,7 +527,7 @@ mod tests {
                             path: path.iter().map(|p| p.unwrap().0).collect(),
                             t: t.map(us),
                             sample_times: sample_times.map(|s| s.iter().map(us).collect()),
-                            missed: missed.map_or(0, |m| m.0),
+                            missed: missed.map_or(0, |m| m.get().0),
                             data: data.0.to_vec(),
                         });
                     }
@@ -551,7 +552,7 @@ mod tests {
             let observe_cfg = ObserveRequest {
                 entries: RefVec::Slice { slice: entries },
                 patch: false,
-                budget: budget.map(UNib32),
+                budget: budget.map(|b| Budget::new(UNib32(b))),
             };
             let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
             let req = Request {
@@ -629,15 +630,15 @@ mod tests {
 
     fn entry(index: u32, mode: ObserveMode) -> ObserveEntry {
         ObserveEntry {
-            index: UNib32(index),
+            index: ResourceIndex::new(UNib32(index)),
             mode,
         }
     }
 
     fn samples(every_us: u32, max_age_us: u32) -> ObserveMode {
         ObserveMode::Samples {
-            every_us: UNib32(every_us),
-            max_age_us: UNib32(max_age_us),
+            every: Micros::new(UNib32(every_us)),
+            max_age: Micros::new(UNib32(max_age_us)),
         }
     }
 
@@ -890,7 +891,7 @@ mod tests {
                     else {
                         continue;
                     };
-                    *missed += m.map_or(0, |m| m.0);
+                    *missed += m.map_or(0, |m| m.get().0);
                     let u = ObserveBatchedUpdate::from_ww_bytes(data.0).unwrap();
                     if let Some(Batched::Samples(s)) = u.current {
                         let times = sample_times.expect("sample_times");
@@ -985,14 +986,14 @@ mod tests {
                 entry(
                     CURRENT,
                     ObserveMode::Periodic {
-                        every_us: UNib32(2_000),
+                        every: Micros::new(UNib32(2_000)),
                     },
                 ),
                 entry(READING, samples(0, 1_000)),
                 entry(
                     MODE,
                     ObserveMode::OnChange {
-                        min_us: UNib32(100),
+                        min: Micros::new(UNib32(100)),
                     },
                 ),
             ],
@@ -1065,7 +1066,7 @@ mod tests {
         assert_eq!(
             refused,
             [ObserveRefused {
-                index: UNib32(MODE),
+                index: ResourceIndex::new(UNib32(MODE)),
                 reason: ObserveRefusal::ModeNotSupported
             }]
         );
@@ -1652,7 +1653,7 @@ mod tests {
     async fn no_samples_refuses_the_mode_and_serves_the_rest() {
         let mut b = Bench::start(Variant::NoSamples, "observe_batched/refused", 512).await;
         let periodic = ObserveMode::Periodic {
-            every_us: UNib32(1_000),
+            every: Micros::new(UNib32(1_000)),
         };
         let (granted, refused) = b
             .observe(
@@ -1664,7 +1665,7 @@ mod tests {
         assert_eq!(
             refused,
             [ObserveRefused {
-                index: UNib32(CURRENT),
+                index: ResourceIndex::new(UNib32(CURRENT)),
                 reason: ObserveRefusal::ModeNotSupported
             }]
         );
@@ -1712,7 +1713,7 @@ mod tests {
                     .clone(),
             );
             let periodic = ObserveMode::Periodic {
-                every_us: UNib32(1_000),
+                every: Micros::new(UNib32(1_000)),
             };
             b.observe(
                 &[],
@@ -1807,7 +1808,7 @@ mod tests {
         let refused: Vec<_> = granted
             .refused
             .iter()
-            .map(|r| (r.index.0, r.reason))
+            .map(|r| (r.index.get().0, r.reason))
             .collect();
         assert_eq!(
             refused,

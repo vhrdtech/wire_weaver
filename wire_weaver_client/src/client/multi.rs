@@ -24,7 +24,7 @@ use wire_weaver::shrink_wrap::{
     either_any_vec::EitherAnyVec,
 };
 use ww_client_server::{
-    ErrorOwned, MultiArgsOwned, MultiIndexOwned, PathKindOwned, RequestKindOwned,
+    ErrorOwned, MultiArgsOwned, MultiIndexOwned, PathKindOwned, RequestKindOwned, ResourceIndex,
 };
 
 use crate::{Error, event_loop::commander::TransportCommander};
@@ -65,7 +65,7 @@ pub trait WritePath {
 }
 
 /// `(prefix, varying values in `paths` order, trailing id)`, see [split_common].
-type PathShape = (Vec<UNib32>, Vec<UNib32>, Option<UNib32>);
+type PathShape = (Vec<UNib32>, Vec<UNib32>, Option<ResourceIndex>);
 
 /// Finds the one path element where `paths` (same length, at least 2 entries) diverge: every one up to there must
 /// agree (the common prefix, sent as the request's own path), and at most one more after it must also agree for
@@ -112,7 +112,7 @@ pub(crate) fn split_common(paths: &[Vec<UNib32>]) -> Result<PathShape, Error> {
                     ));
                 }
             }
-            Some(id)
+            Some(ResourceIndex::new(id))
         }
         _ => {
             return Err(Error::MultiReq(
@@ -187,7 +187,7 @@ fn call_outputs<C: CallPath>(call: &C, items: Vec<Result<C::Item, ErrorOwned>>) 
 type MaterializeResult<L> = (
     TransportCommander,
     Vec<UNib32>,
-    Option<UNib32>,
+    Option<ResourceIndex>,
     Vec<Vec<u8>>,
     L,
 );

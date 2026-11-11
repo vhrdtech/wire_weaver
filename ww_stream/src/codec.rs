@@ -252,7 +252,7 @@ impl<C: ItemCodec> CountedState for Compressed<C> {
 impl<const HASH: usize, const BUF: usize> ItemCodec for ww_lz4::Encoder<HASH, BUF> {
     fn answer(&self, offer: &StreamCodecs) -> Option<StreamCodec> {
         offer.lz4.then_some(StreamCodec::Lz4 {
-            history: wire_weaver::shrink_wrap::UVlq32(Self::HISTORY as u32),
+            history: ww_si::Bytes::new(wire_weaver::shrink_wrap::UVlq32(Self::HISTORY as u32)),
         })
     }
 

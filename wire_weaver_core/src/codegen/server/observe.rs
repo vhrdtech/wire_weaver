@@ -1832,12 +1832,12 @@ impl Observe {
                             return Err(Error::new(#es_refused, ErrorKind::BadIndex));
                         }
                     };
-                    let mut entries = [ObserveEntry { index: UNib32(0), mode: ObserveMode::Off }; #n];
+                    let mut entries = [ObserveEntry { index: ww_client_server::ResourceIndex::new(UNib32(0)), mode: ObserveMode::Off }; #n];
                     let len = table.granted(&DESC, &mut entries);
                     let granted = ObserveGranted {
                         entries: wire_weaver::shrink_wrap::RefVec::Slice { slice: &entries[..len] },
                         refused: wire_weaver::shrink_wrap::RefVec::Slice { slice: &refused[..refused_len] },
-                        budget: UNib32(table.budget()),
+                        budget: ww_client_server::observe::Budget::new(UNib32(table.budget())),
                     };
                     if granted.ser_shrink_wrap(wr).is_err() {
                         *table = before;
@@ -1861,7 +1861,7 @@ impl Observe {
                 use ww_client_server::observe::{ObserveEntry, ObserveGranted, ObserveMode, ObserveRefusal, ObserveRefused};
                 // more refused entries than this fail the request as a whole
                 const REFUSED_MAX: usize = 16;
-                let mut refused = [ObserveRefused { index: UNib32(0), reason: ObserveRefusal::NoSuchIndex }; REFUSED_MAX];
+                let mut refused = [ObserveRefused { index: ww_client_server::ResourceIndex::new(UNib32(0)), reason: ObserveRefusal::NoSuchIndex }; REFUSED_MAX];
                 let event_kind_builder = EventKindBuilder::new(wr).map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
                 let empty_level: Option<u32> = match path {
                     #(#empty)*
@@ -1880,7 +1880,7 @@ impl Observe {
                     let granted = ObserveGranted {
                         entries: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] },
                         refused: wire_weaver::shrink_wrap::RefVec::Slice { slice: &refused[..refused_len] },
-                        budget: UNib32(0),
+                        budget: ww_client_server::observe::Budget::new(UNib32(0)),
                     };
                     if granted.ser_shrink_wrap(wr).is_err() {
                         return Err(Error::new(#es_ser, ErrorKind::ResponseSerFailed));

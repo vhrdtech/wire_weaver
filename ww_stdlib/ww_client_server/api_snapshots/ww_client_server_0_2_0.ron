@@ -1,7 +1,79 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1dbc83c78f3bac7a8236cd73a9b54439773f1a93df6675b0006b8d75816e7e76
+// shrink_wrap sha256: 923e5a538b54620da009f03382ac35910e5f7bf2cc6aa7126de92732a268e111
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Micro", signature: [
+        181,
+        57,
+        150,
+        228,
+        89,
+        60,
+        233,
+        200,
+        241,
+        93,
+        175,
+        168,
+        3,
+        248,
+        67,
+        208,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        226,
+        246,
+        240,
+        210,
+        111,
+        5,
+        156,
+        197,
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "How one property is observed.",
         "",
@@ -12,57 +84,188 @@
             "Not sent.",
         ], ident: "Off", fields: Unit, discriminant: 0, since: None),
         (docs: [
-            "Sent when the value changes, at most once every `min_us`.",
+            "Sent when the value changes, at most once every `min`.",
         ], ident: "OnChange", fields: Named([
-            (ident: Some("min_us"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("min"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
-            "Sent every `every_us`, changed or not.",
+            "Sent every `every`, changed or not.",
         ], ident: "Periodic", fields: Named([
-            (ident: Some("every_us"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("every"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
-            "Sent when the value changes, at most once every `min_us`, and at least once every `max_us` even when it",
-            "doesn\'t (a heartbeat, so the host knows the value is still current).",
+            "Sent when the value changes, at most once every `min`, and at least once every `max` even when it doesn\'t",
+            "(a heartbeat, so the host knows the value is still current).",
         ], ident: "OnChangeOrBeat", fields: Named([
-            (ident: Some("min_us"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("max_us"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("min"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
+            (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
-            "Every sample the device takes (`every_us = 0`), or the first one in each `every_us`, sent in batches that",
-            "are at most `max_age_us` old (API-39): the host\'s choice of latency against overhead. Only properties",
+            "Every sample the device takes (`every` 0), or the first one in each `every`, sent in batches that are at",
+            "most `max_age` old (API-39): the host\'s choice of latency against overhead. Only properties",
             "declared `+observe+batched` take it, on a device that takes samples of them ([ObserveRefusal::ModeNotSupported]",
             "otherwise, also from a firmware built with `observe_samples = false`); their samples come in",
             "[Batched::Samples] slots. The `Samples` entries of a level share one setting: the device grants each of them",
-            "the smallest `every_us` and the smallest `max_age_us` of them all.",
+            "the smallest `every` and the smallest `max_age` of them all.",
         ], ident: "Samples", fields: Named([
-            (ident: Some("every_us"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("max_age_us"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("every"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
+            (ident: Some("max_age"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: Some([
         "observe",
     ]), instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of resources, resource: the methods, properties, streams and traits of one trait level, numbered",
+        "by their resource index (the numbers of request paths and the introspection data);",
+        "`Index<Resource, UNib32>` is one of them.",
+    ], ident: "Resource", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "ww_client_server", name: "Resource"), names: (symbol: "resource", ascii: None, long: "resource", plural: "resources", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "ww_client_server", name: "Resource"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        231,
+        47,
+        207,
+        207,
+        169,
+        31,
+        27,
+        75,
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One property of a level and how it is (to be) observed.",
     ], ident: "ObserveEntry", generics: [], fields: Named([
-        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+        (ident: Some("index"), default: None, since: None, ty: Instance(type_idx: 6, args: [
+            Type(OutOfLine(type_idx: 5)),
+            Type(NumericAny(Base(UNib32))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Resource index of the property within its trait level.",
         ], slot: None, series_opaque: false),
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Byte", signature: [
+        105,
+        217,
+        147,
+        154,
+        78,
+        99,
+        229,
+        193,
+        135,
+        230,
+        195,
+        148,
+        5,
+        194,
+        37,
+        123,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Per", signature: [
+        37,
+        241,
+        130,
+        252,
+        39,
+        241,
+        235,
+        233,
+        116,
+        41,
+        87,
+        129,
+        31,
+        48,
+        21,
+        183,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+        52,
+        174,
+        110,
+        134,
+        44,
+        217,
+        128,
+        133,
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Body of [RequestKind::Observe](crate::RequestKind::Observe), sent to a trait level\'s path.",
     ], ident: "ObserveRequest", generics: [], fields: Named([
-        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 1)), docs: [
+        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 7)), docs: [
             "Settings per property, at most one entry per index.",
         ], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: Bool, docs: [
             "`true`: properties not listed keep their current setting. `false`: properties not listed are `Off`, so",
             "`entries: [], patch: false` stops observing the whole level.",
         ], slot: None, series_opaque: false),
-        (ident: Some("budget"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
+        (ident: Some("budget"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(Instance(type_idx: 9, args: [
+                Type(OutOfLine(type_idx: 8)),
+                Type(OutOfLine(type_idx: 0)),
+            ])),
+            Type(OutOfLine(type_idx: 10)),
+            Type(NumericAny(Base(UNib32))),
+            Type(OutOfLine(type_idx: 2)),
+        ])), docs: [
             "Bytes per second the level\'s updates may take on the link (events as sent, with their headers); `None`",
             "leaves it to the device.",
         ], slot: None, series_opaque: false),
@@ -91,8 +294,12 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An entry of an [ObserveRequest] the device did not apply.",
     ], ident: "ObserveRefused", generics: [], fields: Named([
-        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("reason"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+        (ident: Some("index"), default: None, since: None, ty: Instance(type_idx: 6, args: [
+            Type(OutOfLine(type_idx: 5)),
+            Type(NumericAny(Base(UNib32))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [], slot: None, series_opaque: false),
+        (ident: Some("reason"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
@@ -100,24 +307,55 @@
         "Answer to [RequestKind::Observe](crate::RequestKind::Observe), in an",
         "[EventKind::Value](crate::EventKind::Value): the level\'s settings as the device applies them now.",
     ], ident: "ObserveGranted", generics: [], fields: Named([
-        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 1)), docs: [
+        (ident: Some("entries"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 7)), docs: [
             "Every property of the level that is observed now (not `Off`), with its period clamped to what the device can",
             "do, in index order.",
         ], slot: None, series_opaque: false),
-        (ident: Some("refused"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 4)), docs: [
+        (ident: Some("refused"), default: None, since: None, ty: Vec(OutOfLine(type_idx: 13)), docs: [
             "Entries of the request that were not applied, and why.",
         ], slot: None, series_opaque: false),
-        (ident: Some("budget"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+        (ident: Some("budget"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(Instance(type_idx: 9, args: [
+                Type(OutOfLine(type_idx: 8)),
+                Type(OutOfLine(type_idx: 0)),
+            ])),
+            Type(OutOfLine(type_idx: 10)),
+            Type(NumericAny(Base(UNib32))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Bytes per second the level\'s updates may take, as granted.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "observe",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Boot", signature: [
+        189,
+        35,
+        159,
+        217,
+        111,
+        77,
+        130,
+        203,
+        232,
+        104,
+        24,
+        12,
+        22,
+        178,
+        196,
+        116,
+    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Rare markers of a [StreamHead], evolvable: fields can be appended later.",
     ], ident: "HeadExt", generics: [], fields: Named([
-        (ident: Some("clock_epoch"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UVlq32))), docs: [
-            "The device\'s clock restarted (a reboot) before this event: timestamps from here on belong to this epoch.",
+        (ident: Some("clock_epoch"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
+            Type(OutOfLine(type_idx: 15)),
+            Type(NumericAny(Base(UVlq32))),
+            Type(OutOfLine(type_idx: 2)),
+        ])), docs: [
+            "The device\'s clock restarted (a reboot) before this event: timestamps from here on belong to this epoch,",
+            "the device\'s boot number as its store counts them.",
         ], slot: None, series_opaque: false),
         (ident: Some("codec_restart"), default: Some(Bool(false)), since: None, ty: Bool, docs: [
             "Compressed streams (API-55): the codec starts over at this event, which references nothing sent before it.",
@@ -150,7 +388,12 @@
             "of the items decoded before it, back to the last [HeadExt::codec_restart]. An item that doesn\'t compress is a",
             "block of literals only.",
         ], ident: "Lz4", fields: Named([
-            (ident: Some("history"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("history"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 8)),
+                Type(OutOfLine(type_idx: 10)),
+                Type(NumericAny(Base(UVlq32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
     ], path: Some([
         "stream",
@@ -171,7 +414,15 @@
     ]), sparse: false, path: Some([
         "stream",
     ]), instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "tail_bytes::TailBytes", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "tail_bytes::TailBytes", signature: [
+        147,
+        245,
+        120,
+        22,
+        68,
+        46,
+        190,
+        136,
         177,
         237,
         12,
@@ -203,20 +454,30 @@
         (ident: Some("resume_from"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UVlq64))), docs: [
             "Where the backfill run starts, `None` when there is no backfill.",
         ], slot: None, series_opaque: false),
-        (ident: Some("capacity"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UVlq32))), docs: [
+        (ident: Some("capacity"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 8)),
+            Type(OutOfLine(type_idx: 10)),
+            Type(NumericAny(Base(UVlq32))),
+            Type(OutOfLine(type_idx: 2)),
+        ])), docs: [
             "Credit sinks (API-34): the device\'s buffer in bytes, the largest grant it can give, so a host that resumes",
             "(whose first grant is the buffer minus what the device still holds) knows which items can ever fit; `None`",
             "for streams.",
         ], slot: None, series_opaque: false),
-        (ident: Some("max_age_us"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
-            "Batched streams (API-41): the most a batch waits on the device before it is sent, in µs, granted for the",
-            "`max_age_us` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn\'t batched.",
+        (ident: Some("max_age"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
+            Type(NumericAny(Base(UNib32))),
+            Type(OutOfLine(type_idx: 2)),
+        ])), docs: [
+            "Batched streams (API-41): the most a batch waits on the device before it is sent, granted for the",
+            "`max_age` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn\'t batched.",
         ], slot: None, series_opaque: false),
-        (ident: Some("codec"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+        (ident: Some("codec"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 18)), docs: [
             "Compressed streams (API-55): the codec the device took out of the host\'s offer, `None` for events sent as",
             "they are (no offer, or a stream that doesn\'t compress).",
         ], slot: None, series_opaque: false),
-        (ident: Some("result"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("result"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
             "Serialized result of the stream function (its `Result<T, E>`), empty for `stream!`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
@@ -225,10 +486,20 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Store part of a [StreamStatus].",
     ], ident: "StoreStatus", generics: [], fields: Named([
-        (ident: Some("used_bytes"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+        (ident: Some("used"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 8)),
+            Type(OutOfLine(type_idx: 10)),
+            Type(NumericAny(Base(UVlq64))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Bytes in use, including the store\'s own overhead.",
         ], slot: None, series_opaque: false),
-        (ident: Some("capacity_bytes"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+        (ident: Some("capacity"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 8)),
+            Type(OutOfLine(type_idx: 10)),
+            Type(NumericAny(Base(UVlq64))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Bytes the store can hold.",
         ], slot: None, series_opaque: false),
         (ident: Some("persistent"), default: None, since: None, ty: Bool, docs: [
@@ -258,16 +529,29 @@
             "Oldest and newest positions kept in the store, `None` when it is empty or there is no store.",
         ], slot: None, series_opaque: false),
         (ident: Some("newest"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UVlq64))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("in_flight"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+        (ident: Some("in_flight"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 8)),
+            Type(OutOfLine(type_idx: 10)),
+            Type(NumericAny(Base(UVlq64))),
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
             "Bytes sent and not acknowledged yet (reliable streams).",
         ], slot: None, series_opaque: false),
-        (ident: Some("store"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 12)), docs: [
+        (ident: Some("store"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 22)), docs: [
             "What the store holds, `None` without one (plain and counted streams).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "stream",
     ]), instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CompactVersion", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CompactVersion", signature: [
+        50,
+        74,
+        22,
+        142,
+        34,
+        241,
+        185,
+        230,
         32,
         77,
         77,
@@ -277,7 +561,15 @@
         115,
         71,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "FullVersion", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "FullVersion", signature: [
+        115,
+        6,
+        16,
+        37,
+        53,
+        78,
+        161,
+        245,
         189,
         68,
         8,
@@ -313,7 +605,7 @@
             "Request is for a trait implemented anywhere in the API tree, through a global unique ID (manually assigned for",
             "common traits, one per trait).",
         ], ident: "GlobalCompact", fields: Named([
-            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [
+            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
                 "CompactVersion consists of 3 UNib32\'s, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.",
             ], slot: None, series_opaque: false),
             (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
@@ -325,7 +617,7 @@
             "can be used as is) and the trait\'s name in that crate.",
             "This kind of request is the biggest, because full crate name is used.",
         ], ident: "GlobalFull", fields: Named([
-            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 15), docs: [], slot: None, series_opaque: false),
+            (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
             (ident: Some("trait_name"), default: None, since: None, ty: String, docs: [
                 "Name of the trait in the `gid` crate, a crate can define several.",
             ], slot: None, series_opaque: false),
@@ -406,7 +698,7 @@
             "If a stream is a sequence of bytes, can be used to delimit frames",
         ], ident: "FrameSync", fields: Unit, discriminant: 2, since: None),
         (docs: [
-            "Can be used to indicate total size of the upcoming stream updates",
+            "Can be used to indicate total size of the upcoming stream updates, in a unit the stream\'s users agree on",
         ], ident: "SizeHint", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
@@ -422,14 +714,24 @@
         ], ident: "Ack", fields: Named([
             (ident: Some("backfill"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UVlq64))), docs: [], slot: None, series_opaque: false),
             (ident: Some("have"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("grant"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("grant"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 8)),
+                Type(OutOfLine(type_idx: 10)),
+                Type(NumericAny(Base(UVlq32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
         (docs: [
             "Reliable streams, receiver to sender: units from `from` on are missing (in whichever run `from` falls), send",
             "again from there (go-back-N), with up to `grant` bytes in flight.",
         ], ident: "Resend", fields: Named([
             (ident: Some("from"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("grant"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("grant"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 8)),
+                Type(OutOfLine(type_idx: 10)),
+                Type(NumericAny(Base(UVlq32))),
+                Type(OutOfLine(type_idx: 2)),
+            ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
         (docs: [
             "Reliable streams, sender to receiver: \"I have sent up to `sent` (live run) and `backfill` (backfill run),",
@@ -447,20 +749,24 @@
             "Call a method with provided arguments.",
             "Expected to get [EventKind::Value], unless request ID is 0.",
         ], ident: "Call", fields: Named([
-            (ident: Some("args"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            (ident: Some("args"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
                 "Arguments are put into a struct and serialized using ShrinkWrap to obtain this byte array.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "Call the same method over an array of traits or several methods in one request.",
         ], ident: "MultiCall", fields: Named([
-            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
+            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
                 "List of resources to call",
             ], slot: None, series_opaque: false),
-            (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
-                "Some when calling the same method on an array of traits",
+            (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
+                "Some when calling the same method on an array of traits: its resource index in each trait",
             ], slot: None, series_opaque: false),
-            (ident: Some("multi_args"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
+            (ident: Some("multi_args"), default: None, since: None, ty: OutOfLine(type_idx: 28), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "Read a property.",
@@ -469,34 +775,42 @@
         (docs: [
             "Read the same property over an array of traits or several properties in one request.",
         ], ident: "MultiRead", fields: Named([
-            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
+            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
                 "List of properties to read from",
             ], slot: None, series_opaque: false),
-            (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
-                "Some when reading the same property on an array of traits",
+            (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
+                "Some when reading the same property on an array of traits: its resource index in each trait",
             ], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "Write property or stream down. Property value is serialized fully into a byte array using ShrinkWrap.",
             "Objects of a stream are also serialized in full and sent as one unit.",
         ], ident: "Write", fields: Named([
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "Write multiple properties or streams in one request.",
         ], ident: "MultiWrite", fields: Named([
-            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
+            (ident: Some("multi_idx"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
                 "List of resources to write to",
             ], slot: None, series_opaque: false),
-            (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
-                "Some when addressing the same resource on an array of traits",
+            (ident: Some("in_each_array_id"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
+                "Some when addressing the same resource on an array of traits: its resource index in each trait",
             ], slot: None, series_opaque: false),
-            (ident: Some("multi_data"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
+            (ident: Some("multi_data"), default: None, since: None, ty: OutOfLine(type_idx: 28), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
         (docs: [
             "Stream sideband channel (open, close, frame sync, etc.). Optional to use.",
         ], ident: "StreamSideband", fields: Named([
-            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
+            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
         (docs: [
             "Send serialized AST describing a resource and all related types, see `ww_self` for format.",
@@ -507,19 +821,24 @@
             "`resume` with the arguments the session was opened with. Answered with [EventKind::Value] holding",
             "[stream::StreamOpened].",
         ], ident: "StreamOpen", fields: Named([
-            (ident: Some("resume"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
+            (ident: Some("resume"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 19)), docs: [
                 "Resume from this point instead of starting a new session.",
             ], slot: None, series_opaque: false),
-            (ident: Some("max_age_us"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
-                "Batched streams (API-41): how old a batch may get on the device before it is sent, in µs, the host\'s",
-                "latency choice; `None` takes the device\'s default. The device clamps it and answers with what it",
-                "granted ([stream::StreamOpened::max_age_us]). Ignored by streams that aren\'t batched.",
+            (ident: Some("max_age"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
+                "Batched streams (API-41): how old a batch may get on the device before it is sent, the host\'s latency",
+                "choice; `None` takes the device\'s default. The device clamps it and answers with what it granted",
+                "([stream::StreamOpened::max_age]). Ignored by streams that aren\'t batched.",
             ], slot: None, series_opaque: false),
-            (ident: Some("codecs"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
+            (ident: Some("codecs"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 17)), docs: [
                 "Compressed streams (API-55): the codecs this host decodes; `None` (an older host) or an empty offer gets",
                 "the events as they are. The device answers the one it took in [stream::StreamOpened::codec].",
             ], slot: None, series_opaque: false),
-            (ident: Some("args"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            (ident: Some("args"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
                 "Arguments of the stream function, serialized like [RequestKind::Call] arguments.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 8, since: None),
@@ -531,7 +850,7 @@
             "`cfg` is decoded when it is read ([RefBox::read]), the same bytes as a plain [ObserveRequest]: a server that",
             "observes nothing never links its decoder (SRV-54).",
         ], ident: "Observe", fields: Named([
-            (ident: Some("cfg"), default: None, since: None, ty: Box(OutOfLine(type_idx: 2)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("cfg"), default: None, since: None, ty: Box(OutOfLine(type_idx: 11)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 9, since: None),
         (docs: [
             "Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,",
@@ -546,7 +865,7 @@
             (ident: Some("pos"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [
                 "Position of the item\'s first unit, modulo 2^28.",
             ], slot: None, series_opaque: false),
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 10, since: None),
         (docs: [
             "[RequestKind::SinkWrite] of an item with `units` units other than 1, which the host names (a byte sink: the",
@@ -554,7 +873,7 @@
         ], ident: "SinkWriteUnits", fields: Named([
             (ident: Some("units"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
             (ident: Some("pos"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 11, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -579,34 +898,22 @@
             "scale: `4` ([Priority::NORMAL](wire_weaver::Priority::NORMAL)) by default, `8` and up are flushed at once",
             "instead of waiting for the link\'s accumulation window.",
         ], slot: None, series_opaque: false),
-        (ident: Some("path_kind"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
+        (ident: Some("path_kind"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [
             "Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.",
         ], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 30), docs: [
             "Action being requested",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
-    ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "Unbounded", signature: [
-        55,
-        18,
-        202,
-        102,
-        156,
-        182,
-        138,
-        5,
-    ]),
     SkippedFullVersion(crate_idx: 4, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
         134,
         214,
         73,
@@ -634,18 +941,36 @@
         (ident: Some("lost"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U64))), docs: [
             "Units the device dropped right before this event; `pos` counts them.",
         ], slot: None, series_opaque: false),
-        (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 24, args: [
-            Type(OutOfLine(type_idx: 22)),
-            Type(OutOfLine(type_idx: 23)),
+        (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 32, args: [
+            Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Device time of the event\'s first unit (`ww_timebase` clock).",
         ], slot: None, series_opaque: false),
-        (ident: Some("ext"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+        (ident: Some("ext"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 16)), docs: [
             "Rare markers.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: Some([
         "stream",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Event", signature: [
+        169,
+        57,
+        121,
+        59,
+        44,
+        103,
+        241,
+        143,
+        231,
+        145,
+        31,
+        42,
+        185,
+        242,
+        195,
+        223,
+    ]),
     InLine(ty: Enum((size: UnsizedFinalStructure, repr: Nibble, crate_idx: 0, docs: [
         "Asynchronous event, sent back from server to client, as a response to a Request or on stream or properties updates.",
     ], ident: "EventKind", generics: [], variants: [
@@ -653,7 +978,7 @@
             "Sent in response to [RequestKind::Call] or [RequestKind::Read] and to the multi requests (see [MultiIndex]),",
             "unless request ID is 0.",
         ], ident: "Value", fields: Named([
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
                 "Serialized return value of a method.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
@@ -666,7 +991,7 @@
             (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
                 "When subscribing through trait interface, this path is used later to match stream updates to an original request.",
             ], slot: None, series_opaque: false),
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
                 "Stream data can be a whole frame or a chunk of a byte stream.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
@@ -676,7 +1001,7 @@
             (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
                 "When subscribing through trait interface, this path is used later to match stream updates to an original request.",
             ], slot: None, series_opaque: false),
-            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
+            (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "An event of a counted or reliable stream (API-30): the head says where its data sits in the stream, what",
@@ -685,8 +1010,8 @@
             (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
                 "Same as in [EventKind::StreamData].",
             ], slot: None, series_opaque: false),
-            (ident: Some("head"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [], slot: None, series_opaque: false),
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            (ident: Some("head"), default: None, since: None, ty: OutOfLine(type_idx: 33), docs: [], slot: None, series_opaque: false),
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
                 "The serialized item.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
@@ -696,23 +1021,28 @@
             (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
                 "Path of the trait level, as in its [RequestKind::Observe].",
             ], slot: None, series_opaque: false),
-            (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 24, args: [
-                Type(OutOfLine(type_idx: 22)),
-                Type(OutOfLine(type_idx: 23)),
+            (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 32, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 2)),
             ])), docs: [
                 "When the values were taken, on the device\'s clock.",
             ], slot: None, series_opaque: false),
-            (ident: Some("missed"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
+            (ident: Some("missed"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 34)),
+                Type(OutOfLine(type_idx: 10)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "Sends of this level\'s properties that were due but did not fit the budget since the previous update.",
             ], slot: None, series_opaque: false),
-            (ident: Some("sample_times"), default: None, since: None, ty: Option(some_ty: Series(Instance(type_idx: 24, args: [
-                Type(OutOfLine(type_idx: 22)),
-                Type(OutOfLine(type_idx: 23)),
+            (ident: Some("sample_times"), default: None, since: None, ty: Option(some_ty: Series(Instance(type_idx: 32, args: [
+                Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 2)),
             ]))), docs: [
                 "When the samples in the update\'s `Batched::Samples` slots were taken (API-39, `+batched` properties):",
                 "one time per sample, every `Samples` slot has as many. `None` without samples.",
             ], slot: None, series_opaque: false),
-            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+            (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
                 "The level\'s properties: an `OptionAnyVec` with one slot per resource index, the properties sent this",
                 "time present.",
             ], slot: None, series_opaque: false),
@@ -784,7 +1114,7 @@
             "Which site of the generated server raised it: with the firmware build, the request\'s path and the kind it",
             "pinpoints one place, see [err_seq] for the numbering (SRV-22).",
         ], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 36), docs: [
             "Actual error kind.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -796,20 +1126,20 @@
             "0 for stream data updates.",
             "Serialized as 1 byte if <= 127, 2 bytes if <= 16383, etc.",
         ], slot: None, series_opaque: false),
-        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: OutOfLine(type_idx: 26), err_ty: OutOfLine(type_idx: 28)), docs: [
+        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: OutOfLine(type_idx: 35), err_ty: OutOfLine(type_idx: 37)), docs: [
             "Request can be wrong or unsupported, in which case an error is sent back.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_client_server", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "shrink_wrap", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: None, ext_wire: Some([
     None,
     None,
-    Some((line: 1, revision: 0)),
     None,
+    Some((line: 1, revision: 0)),
     Some((line: 5, revision: 0)),
 ]))

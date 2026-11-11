@@ -370,7 +370,7 @@ with `SMALLEST`, which already wrote each regular clock almost for free, it stil
 
 Two things follow. One batcher per level seals the level's properties together: `control` went from 238 updates/s,
 sealed out of step property by property, to 48. And a level's `Samples` entries share one grid and one age: they get
-the finest `every_us` and the shortest `max_age_us` any of them asked for, and the grant says so. A property that
+the finest `every` and the shortest `max_age` any of them asked for, and the grant says so. A property that
 needs its own sample times belongs in its own trait level; levels are the rate tiers.
 
 ### A few properties of a level
@@ -523,7 +523,7 @@ the update's framing, the outbox and the poll's own code the rest. [API-52](../f
 polls (the FOC poll lost half, see above): this bench's 4 KB outbox always had room for a batch's worst case, so its
 batches were never measured. SW-68 took 13 to 15 % off them on the H725 (17 % at `"z"`), and what is left is about
 as much codec as framing around it: less framing per column would move it next. So today a device observes a few values at every period up to a few
-hundred kHz, and above that decimates (`every_us`, a grid in whole µs) or sends raw over a fast link.
+hundred kHz, and above that decimates (`every`, a grid in whole µs) or sends raw over a fast link.
 
 
 Flash for the encoder is 15.0 KB on a Cortex-M3 with `DeltaPacked` (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
@@ -545,7 +545,7 @@ encoding than the CPU has.
   batch inside its byte budget, and a string has no bound, so `batched` on such a type is a compile error. Observe
   cells need a fixed-size cell per value, which a string doesn't have either. A fixed-size array (`[u8; 16]`) has
   both, at a column per byte. Planned for text and frames: see [Ahead](#ahead).
-- **The CPU can't keep up.** Check the table above; decimate (`every_us`) or observe fewer properties.
+- **The CPU can't keep up.** Check the table above; decimate (`every`) or observe fewer properties.
 
 ### Compared with raw globals
 

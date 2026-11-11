@@ -34,7 +34,9 @@ use wire_weaver::prelude::{DeserializeShrinkWrap, UNib32};
 use wire_weaver::shrink_wrap::BufReader;
 use wire_weaver::shrink_wrap::either_any_vec::EitherAnyVec;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use ww_client_server::{ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, RequestKindOwned};
+use ww_client_server::{
+    ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, RequestKindOwned, ResourceIndex,
+};
 use ww_numeric::NumericValue;
 use ww_self::errors::{error_list_contains, error_value_name, fmt_error_list};
 use ww_self::{
@@ -856,7 +858,7 @@ impl DynResource {
     fn array_child(
         &self,
         child: Option<&str>,
-    ) -> Result<(Option<UNib32>, &ApiItemKindOwned), Error> {
+    ) -> Result<(Option<ResourceIndex>, &ApiItemKindOwned), Error> {
         if !matches!(self.node, Node::Array) {
             return Err(self.not_a("array"));
         }
@@ -883,12 +885,15 @@ impl DynResource {
                             names.join(", ")
                         ))
                     })?;
-                Ok((Some(found.id), &found.kind))
+                Ok((Some(ResourceIndex::new(found.id)), &found.kind))
             }
         }
     }
 
-    fn array_property(&self, child: Option<&str>) -> Result<(Option<UNib32>, &TypeOwned), Error> {
+    fn array_property(
+        &self,
+        child: Option<&str>,
+    ) -> Result<(Option<ResourceIndex>, &TypeOwned), Error> {
         let (id, kind) = self.array_child(child)?;
         match kind {
             ApiItemKindOwned::Property { ty, .. } => Ok((id, ty)),
@@ -900,7 +905,7 @@ impl DynResource {
     fn array_method(
         &self,
         child: Option<&str>,
-    ) -> Result<(Option<UNib32>, &[ArgumentOwned], Option<&TypeOwned>), Error> {
+    ) -> Result<(Option<ResourceIndex>, &[ArgumentOwned], Option<&TypeOwned>), Error> {
         let (id, kind) = self.array_child(child)?;
         match kind {
             ApiItemKindOwned::Method {

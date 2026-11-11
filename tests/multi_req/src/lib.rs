@@ -294,7 +294,8 @@ mod tests {
     fn read(multi_idx: MultiIndexOwned, in_each_array_id: Option<u32>) -> RequestKindOwned {
         RequestKindOwned::MultiRead {
             multi_idx,
-            in_each_array_id: in_each_array_id.map(UNib32),
+            in_each_array_id: in_each_array_id
+                .map(|id| ww_client_server::ResourceIndex::new(UNib32(id))),
         }
     }
 
@@ -305,7 +306,8 @@ mod tests {
     ) -> RequestKindOwned {
         RequestKindOwned::MultiCall {
             multi_idx,
-            in_each_array_id: in_each_array_id.map(UNib32),
+            in_each_array_id: in_each_array_id
+                .map(|id| ww_client_server::ResourceIndex::new(UNib32(id))),
             multi_args,
         }
     }
@@ -317,7 +319,8 @@ mod tests {
     ) -> RequestKindOwned {
         RequestKindOwned::MultiWrite {
             multi_idx,
-            in_each_array_id: in_each_array_id.map(UNib32),
+            in_each_array_id: in_each_array_id
+                .map(|id| ww_client_server::ResourceIndex::new(UNib32(id))),
             multi_data,
         }
     }

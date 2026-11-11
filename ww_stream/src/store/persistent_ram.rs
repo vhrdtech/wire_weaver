@@ -368,7 +368,7 @@ impl<const N: usize> StreamStore for PersistentRamRing<'_, N> {
         let mut head = *head;
         if self.epoch_pending && head.ext.is_none_or(|e| e.clock_epoch.is_none()) {
             let mut ext = head.ext.unwrap_or_default();
-            ext.clock_epoch = Some(UVlq32(self.epoch));
+            ext.clock_epoch = Some(ww_si::Index::new(UVlq32(self.epoch)));
             head.ext = Some(ext);
         }
         let slots = &mut self.area.slots;

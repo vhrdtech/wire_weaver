@@ -1,6 +1,7 @@
 use crate::tx::Counted;
 use crate::{HeadExt, Opened, ResumeError, StreamCursor};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
+use ww_si::Index;
 
 fn cursor(session: u32, pos: u64) -> StreamCursor {
     StreamCursor {
@@ -91,7 +92,7 @@ fn ext_goes_into_the_next_head_once() {
     c.open(1);
     let ext = HeadExt {
         codec_restart: false,
-        clock_epoch: Some(UVlq32(2)),
+        clock_epoch: Some(Index::new(UVlq32(2))),
     };
     c.set_ext(ext);
     let h = c.head(1, None).unwrap();

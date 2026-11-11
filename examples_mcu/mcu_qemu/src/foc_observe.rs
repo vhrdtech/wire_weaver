@@ -20,8 +20,8 @@ use core::hint::black_box;
 use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use ww_client_server::observe::{ObserveEntry, ObserveMode, ObserveRequest};
-use ww_client_server::{PathKind, Request, RequestKind};
-use ww_si::{Ampere, Radian, Ratio, Second, Volt, Weber};
+use ww_client_server::{PathKind, Request, RequestKind, ResourceIndex};
+use ww_si::{Ampere, Micros, Radian, Ratio, Second, Volt, Weber};
 use ww_stream::batch::{DEFAULT_POLICY, Scratch, scratch_bytes};
 use ww_stream::observe::ObserveLimits;
 
@@ -345,10 +345,10 @@ fn sample_cells(w: &mut cells::api_impl::RootWriter<'_, RING>, i: usize) -> bool
 /// The `Observe` request of a host asking for every sample of the level's first `n` properties.
 fn observe_request(buf: &mut [u8], n: usize) -> &[u8] {
     let entries: [ObserveEntry; 21] = core::array::from_fn(|k| ObserveEntry {
-        index: UNib32(k as u32),
+        index: ResourceIndex::new(UNib32(k as u32)),
         mode: ObserveMode::Samples {
-            every_us: UNib32(0),
-            max_age_us: UNib32(1_000_000),
+            every: Micros::new(UNib32(0)),
+            max_age: Micros::new(UNib32(1_000_000)),
         },
     });
     let observe_cfg = ObserveRequest {

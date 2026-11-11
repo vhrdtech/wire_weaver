@@ -647,7 +647,7 @@ impl<T> Sink<T> {
             Err(_) => return Err(Error::EventLoopNotRunning.into()),
         };
         let opened = StreamOpened::from_ww_bytes(&bytes).map_err(Error::from)?;
-        let capacity = opened.capacity.map(|c| c.0);
+        let capacity = opened.capacity.map(|c| c.get().0);
         let opened = Opened::from_wire(&opened);
         let now = credit.now_ms();
         match credit.tx.opened(&opened, capacity, now) {

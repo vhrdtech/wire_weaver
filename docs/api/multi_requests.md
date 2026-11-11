@@ -47,7 +47,7 @@ just once for the feature - `multi_req = true` is an opt-in for this reason, not
 | `Range(a..b)` | `a..b`, ascending; `a >= b` is an empty list, not an error |
 | `Mask32(bits)` | bit `i` set selects index `i`, so up to 32 indices in one request |
 
-`in_each_array_id: Option<UNib32>` is one more path element, the same for every index, right after the varying one
+`in_each_array_id: Option<ResourceIndex>` (`Index<Resource, UNib32>`, the bytes of a `UNib32`) is one more path element, the same for every index, right after the varying one
 - e.g. `pin[]` selected by `multi_idx`, then `set_level` inside each selected pin. The request's own path is the
 common prefix shared by every index (everything before the varying element).
 

@@ -32,6 +32,7 @@ use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::{PathKind, PathKindOwned, Priority, RequestKindOwned, StreamSideband};
+use ww_si::Micros;
 use ww_stream::StreamCursor;
 use ww_version::{CompactVersion, VersionOwned};
 
@@ -787,7 +788,7 @@ impl Commander {
                 kind: RequestKindOwned::StreamOpen {
                     codecs,
                     resume: Some(cursor),
-                    max_age_us: max_age_us.map(UNib32),
+                    max_age: max_age_us.map(|us| Micros::new(UNib32(us))),
                     args: TailBytesOwned(vec![]),
                 },
             }
@@ -1777,7 +1778,7 @@ impl TransportCommander {
             kind: RequestKindOwned::StreamOpen {
                 codecs: None,
                 resume: Some(cursor),
-                max_age_us: None,
+                max_age: None,
                 args: TailBytesOwned(vec![]),
             },
         };

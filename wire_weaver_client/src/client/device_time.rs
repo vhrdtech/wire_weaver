@@ -112,7 +112,7 @@ mod tests {
         // the device rebooted: its clock counts from 0 again
         time.on_head(Some(&HeadExt {
             codec_restart: false,
-            clock_epoch: Some(UVlq32(2)),
+            clock_epoch: Some(ww_si::Index::new(UVlq32(2))),
         }));
         assert_eq!(full(time.unwrap(Second::micro(7u32))), (Prefix::Micro, 7));
         time.unwrap(Second::micro(u32::MAX));

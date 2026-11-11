@@ -14,6 +14,7 @@ use wire_weaver::shrink_wrap::{
 };
 use ww_client_server::stream::StreamOpenedOwned;
 use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
+use ww_si::Micros;
 use ww_stream::{Opened, StreamCursor};
 
 use crate::client::batch::{ItemTime, Unpack, Unpacker};
@@ -382,7 +383,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             kind: RequestKindOwned::StreamOpen {
                 codecs: codec_offer(self.delivery, self.compression),
                 resume: self.resume,
-                max_age_us: self.max_age_us.map(UNib32),
+                max_age: self.max_age_us.map(|us| Micros::new(UNib32(us))),
                 args: TailBytesOwned(self.args.clone()),
             },
         }

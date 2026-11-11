@@ -95,7 +95,7 @@ closing should call `.batcher.flush()` to send a half-full batch rather than wai
 
 Opening a batched stream is like opening any other (`client.readings().call()`, etc.), plus `.max_age(duration)`
 to pick the latency: the device clamps it to its own bounds and answers with what it granted
-(`StreamOpened::max_age_us` on the wire). Items come one at a time exactly as from an unbatched stream -
+(`StreamOpened::max_age` on the wire). Items come one at a time exactly as from an unbatched stream -
 `recv_event()`/`recv()`, each with its own `t` (or none, untimed) and its own position, as if it had been sent on
 its own - or `recv_batch()` gives a whole batch at once (`pos`, `items`, oldest first). The dynamic
 client (`DynStreamOpen`, no generated code needed) and `wire_weaver_py`'s `recv_batch()` (numpy columns, via
@@ -204,10 +204,10 @@ with a time column per property, and 36 % fewer bytes (1 251 B against 1 965 B):
 | 5 properties at 25 kHz ("FOC subset 5") | 125 000 | ~27 M | ~48 M (9% of the core) | a fast M4F, comfortably an M7 |
 | all 21 FOC properties at 25 kHz | 525 000 | ~112 M | ~199 M (37% of the core) | a fast M7 next to the control loop; no smaller part |
 
-So on a small MCU, observe or stream a handful of properties at a few kHz, or decimate (`every_us` for observe);
+So on a small MCU, observe or stream a handful of properties at a few kHz, or decimate (`every` for observe);
 the full FOC rate above takes a fast M7, else it is for the simulator and the host
 ([motor demo](#the-motor-demo-measured)). A device sampling faster than its CPU can encode needs a floor on the rate
-it accepts (`every_us`/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
+it accepts (`every`/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
 the budget.
 
 ### Observe cells, measured

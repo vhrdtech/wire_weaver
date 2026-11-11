@@ -12,7 +12,9 @@ use dispatch_golden_api::CHANNEL_FULL_GID;
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::UVlq32Backfill;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
-use ww_client_server::{MultiArgs, MultiIndex, PathKind, Priority, Request, RequestKind};
+use ww_client_server::{
+    MultiArgs, MultiIndex, PathKind, Priority, Request, RequestKind, ResourceIndex,
+};
 use ww_user_info::{USER_INFO_COMPACT_GID, USER_INFO_FULL_GID};
 
 /// Arguments of `with_args(a, b)`, in declaration order: a method's arguments are a struct of its own.
@@ -94,7 +96,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
             absolute(&[UNib32(8)]),
             RequestKind::StreamOpen {
                 resume: None,
-                max_age_us: None,
+                max_age: None,
                 codecs: None,
                 args: TailBytes(&[]),
             },
@@ -177,7 +179,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
                 multi_idx: MultiIndex::List(RefVec::Slice {
                     slice: &[UNib32(0), UNib32(1)],
                 }),
-                in_each_array_id: Some(UNib32(0)),
+                in_each_array_id: Some(ResourceIndex::new(UNib32(0))),
                 multi_args: MultiArgs::Same(RefVec::Slice { slice: &[] }),
             },
         ),
@@ -188,7 +190,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
                 multi_idx: MultiIndex::List(RefVec::Slice {
                     slice: &[UNib32(0), UNib32(1)],
                 }),
-                in_each_array_id: Some(UNib32(1)),
+                in_each_array_id: Some(ResourceIndex::new(UNib32(1))),
             },
         ),
         _ => panic!("no request builder for case '{name}' step {step}"),

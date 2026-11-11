@@ -310,8 +310,8 @@ impl SinkTx {
     /// Sideband event from the device.
     pub fn on_sideband(&mut self, sideband: &StreamSideband, now_ms: u64) -> SinkSideband {
         let (have, grant, is_resend) = match *sideband {
-            StreamSideband::Ack { have, grant, .. } => (have.0, grant.0, false),
-            StreamSideband::Resend { from, grant } => (from.0, grant.0, true),
+            StreamSideband::Ack { have, grant, .. } => (have.0, grant.get().0, false),
+            StreamSideband::Resend { from, grant } => (from.0, grant.get().0, true),
             StreamSideband::Close => {
                 return if self.session.is_some() {
                     self.link_lost();

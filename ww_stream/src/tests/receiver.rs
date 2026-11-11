@@ -2,6 +2,7 @@ use crate::rx::{AckMode, Cause, Delivery, Gap, Receiver, Verdict};
 use crate::{Opened, Run, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
+use ww_si::Bytes;
 
 fn head(pos: u64, units: u64, lost: u64) -> StreamHead {
     StreamHead {
@@ -84,7 +85,7 @@ fn reliable_gap_asks_once_and_again_after_timeout() {
         Some(StreamSideband::Ack {
             have: UVlq64(0),
             backfill: None,
-            grant: UVlq32(1000)
+            grant: Bytes::new(UVlq32(1000))
         })
     );
     assert_eq!(rx.poll(1), None);
@@ -94,7 +95,7 @@ fn reliable_gap_asks_once_and_again_after_timeout() {
     assert_eq!(rx.on_item(&head(12, 4, 0)), Verdict::OutOfOrder);
     let resend = Some(StreamSideband::Resend {
         from: UVlq64(4),
-        grant: UVlq32(1000),
+        grant: Bytes::new(UVlq32(1000)),
     });
     assert_eq!(rx.poll(10), resend);
     assert_eq!(rx.poll(20), None);
@@ -113,7 +114,7 @@ fn reliable_gap_asks_once_and_again_after_timeout() {
         Some(StreamSideband::Ack {
             have: UVlq64(8),
             backfill: None,
-            grant: UVlq32(1000)
+            grant: Bytes::new(UVlq32(1000))
         })
     );
     // within the ack interval: wait

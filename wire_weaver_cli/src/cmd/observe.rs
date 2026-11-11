@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::{ObserveMode, ObserveRefused};
+use wire_weaver_client::ww_client_server::ww_si::Micros;
 use wire_weaver_client::ww_self::TypeOwned;
 use wire_weaver_client::{DynClient, DynResource, seconds};
 
@@ -35,10 +36,10 @@ fn refusals(props: &[(u32, String, TypeOwned)], refused: &[ObserveRefused]) -> V
     refused
         .iter()
         .map(|r| {
-            let name = props.iter().find(|(index, ..)| *index == r.index.0);
+            let name = props.iter().find(|(index, ..)| *index == r.index.get().0);
             match name {
                 Some((_, name, _)) => format!("{}: {:?}", escape(name), r.reason),
-                None => format!("#{}: {:?}", r.index.0, r.reason),
+                None => format!("#{}: {:?}", r.index.get().0, r.reason),
             }
         })
         .collect()
@@ -76,10 +77,10 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
             .join(", "),
     );
     let mode = match args.rate {
-        Some(ms) => ObserveMode::Periodic {
-            every_us: micros(ms),
+        Some(ms) => ObserveMode::Periodic { every: micros(ms) },
+        None => ObserveMode::OnChange {
+            min: Micros::new(UNib32(0)),
         },
-        None => ObserveMode::OnChange { min_us: UNib32(0) },
     };
     let batched = level.batched_properties()?;
     if args.samples.is_some() && batched.is_empty() {
@@ -94,8 +95,8 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
             Some(ms) if batched.contains(index) => (
                 *index,
                 ObserveMode::Samples {
-                    every_us: UNib32(0),
-                    max_age_us: micros(ms),
+                    every: Micros::new(UNib32(0)),
+                    max_age: micros(ms),
                 },
             ),
             _ => (*index, mode),
@@ -171,8 +172,8 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
     }
 }
 
-fn micros(ms: u64) -> UNib32 {
-    UNib32(ms.saturating_mul(1000).min(u32::MAX as u64) as u32)
+fn micros(ms: u64) -> Micros<UNib32> {
+    Micros::new(UNib32(ms.saturating_mul(1000).min(u32::MAX as u64) as u32))
 }
 
 #[cfg(test)]
@@ -182,11 +183,13 @@ mod tests {
     use wire_weaver_client::ww_self::TypeOwned;
 
     /// A refused entry is named by its property, and by its index when the level doesn't list it.
+    use wire_weaver_client::ww_client_server::ResourceIndex;
+
     #[test]
     fn refusals_name_the_property() {
         let props = vec![(1, "reading".to_string(), TypeOwned::Bool)];
         let refused = |index| ObserveRefused {
-            index: UNib32(index),
+            index: ResourceIndex::new(UNib32(index)),
             reason: ObserveRefusal::ModeNotSupported,
         };
         assert_eq!(

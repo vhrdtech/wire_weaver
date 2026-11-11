@@ -167,7 +167,9 @@ fn big_positions_and_full_heads() {
         t: Some(t),
         ext: Some(crate::HeadExt {
             codec_restart: false,
-            clock_epoch: Some(wire_weaver::shrink_wrap::UVlq32(u32::MAX)),
+            clock_epoch: Some(ww_si::Index::new(wire_weaver::shrink_wrap::UVlq32(
+                u32::MAX,
+            ))),
         }),
     };
     block_on(ring.push(&h, &[1, 2, 3])).unwrap();

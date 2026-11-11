@@ -15,10 +15,12 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver::shrink_wrap::UVlq32Backfill;
     use wire_weaver_client::internal::Command;
+    use ww_client_server::observe::Budget;
     use ww_client_server::observe::{
         ObserveEntry, ObserveGranted, ObserveMode, ObserveRefusal, ObserveRefused, ObserveRequest,
     };
-    use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind};
+    use ww_client_server::ww_si::Micros;
+    use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind, ResourceIndex};
     use ww_stream::observe::ObserveLimits;
 
     /// Resource indices of the API
@@ -490,7 +492,7 @@ mod tests {
                         _ = updates_tx.send(Update {
                             path: path.iter().map(|p| p.unwrap().0).collect(),
                             t,
-                            missed: missed.map_or(0, |m| m.0),
+                            missed: missed.map_or(0, |m| m.get().0),
                             data: data.0.to_vec(),
                             len: bytes.len(),
                         });
@@ -519,7 +521,7 @@ mod tests {
             let observe_cfg = ObserveRequest {
                 entries: RefVec::Slice { slice: entries },
                 patch,
-                budget: budget.map(UNib32),
+                budget: budget.map(|b| Budget::new(UNib32(b))),
             };
             let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
             let req = Request {
@@ -539,7 +541,7 @@ mod tests {
                 (
                     granted.entries.iter().map(|e| e.unwrap()).collect(),
                     granted.refused.iter().map(|e| e.unwrap()).collect(),
-                    granted.budget.0,
+                    granted.budget.get().0,
                 )
             })
         }
@@ -630,18 +632,18 @@ mod tests {
 
     fn periodic(index: u32, every_us: u32) -> ObserveEntry {
         ObserveEntry {
-            index: UNib32(index),
+            index: ResourceIndex::new(UNib32(index)),
             mode: ObserveMode::Periodic {
-                every_us: UNib32(every_us),
+                every: Micros::new(UNib32(every_us)),
             },
         }
     }
 
     fn on_change(index: u32, min_us: u32) -> ObserveEntry {
         ObserveEntry {
-            index: UNib32(index),
+            index: ResourceIndex::new(UNib32(index)),
             mode: ObserveMode::OnChange {
-                min_us: UNib32(min_us),
+                min: Micros::new(UNib32(min_us)),
             },
         }
     }
@@ -935,7 +937,7 @@ mod tests {
                     on_change(99, 1_000),
                     on_change(TEMP, 5_000),
                     ObserveEntry {
-                        index: UNib32(LABEL),
+                        index: ResourceIndex::new(UNib32(LABEL)),
                         mode: ObserveMode::Unknown(9),
                     },
                 ],
@@ -945,7 +947,10 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(granted, [on_change(TEMP, 1_000)]);
-        let reasons: Vec<_> = refused.iter().map(|r| (r.index.0, r.reason)).collect();
+        let reasons: Vec<_> = refused
+            .iter()
+            .map(|r| (r.index.get().0, r.reason))
+            .collect();
         assert_eq!(
             reasons,
             [
@@ -1092,7 +1097,7 @@ mod tests {
                 ],
             },
             patch: false,
-            budget: Some(UNib32(1_000_000_000)),
+            budget: Some(Budget::new(UNib32(1_000_000_000))),
         };
         let path = [UNib32(MOTOR)];
         let req = Request {
@@ -1264,7 +1269,7 @@ mod tests {
             device_settings(&b, &[]).await,
             [
                 ObserveEntry {
-                    index: UNib32(TEMP),
+                    index: ResourceIndex::new(UNib32(TEMP)),
                     mode: on_change_or_beat(10 * MS, 50 * MS)
                 },
                 on_change(MODE, 1_000)
@@ -1426,13 +1431,13 @@ mod tests {
             (
                 SPEED,
                 ObserveMode::Periodic {
-                    every_us: UNib32(10_000),
+                    every: Micros::new(UNib32(10_000)),
                 },
             ),
             (
                 POSITION,
                 ObserveMode::Periodic {
-                    every_us: UNib32(20_000),
+                    every: Micros::new(UNib32(20_000)),
                 },
             ),
         ]);

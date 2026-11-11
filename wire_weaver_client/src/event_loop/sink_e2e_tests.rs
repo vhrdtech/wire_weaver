@@ -16,6 +16,7 @@ use ww_client_server::{
     Event, EventKind, PathKind, PathKindOwned, Request, RequestKind, StreamSideband,
 };
 use ww_device::{LinkConfig, LinkEvent};
+use ww_si::Bytes;
 use ww_stream::StreamCursor;
 use ww_stream::sink::SinkCredit;
 use ww_version::{
@@ -96,7 +97,7 @@ impl WireWeaverAsyncApiBackend for Dev {
                 let mut buf = [0u8; 64];
                 let opened = opened
                     .to_wire(&[])
-                    .with_capacity(Some(self.credit.capacity()))
+                    .with_capacity(Some(Bytes::new(UVlq32(self.credit.capacity()))))
                     .to_ww_bytes(&mut buf)?;
                 return Event {
                     seq: UVlq32(request.seq.0),

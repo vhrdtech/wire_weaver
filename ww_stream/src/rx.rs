@@ -10,6 +10,7 @@
 use crate::{Opened, Run, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
+use ww_si::Bytes;
 
 /// Kind of stream the receiver is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -692,7 +693,7 @@ impl Receiver {
                 self.stats.resend_requests += 1;
                 return Some(StreamSideband::Resend {
                     from: UVlq64(resend.from),
-                    grant,
+                    grant: Bytes::new(grant),
                 });
             }
         }
@@ -723,7 +724,7 @@ impl Receiver {
         Some(StreamSideband::Ack {
             have: UVlq64(self.live.acked),
             backfill: backfill.map(UVlq64),
-            grant,
+            grant: Bytes::new(grant),
         })
     }
 }

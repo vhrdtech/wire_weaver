@@ -40,10 +40,10 @@ Per property, one of:
 | Mode | Sent |
 |---|---|
 | `Off` | never |
-| `OnChange { min_us }` | on a change, at most once every `min_us` |
-| `Periodic { every_us }` | every `every_us`, on a fixed grid, changed or not |
-| `OnChangeOrBeat { min_us, max_us }` | on a change (at most every `min_us`), and at least every `max_us` even without one |
-| `Samples { every_us, max_age_us }` | every sample the device takes (or the first in each `every_us`), in batches at most `max_age_us` old; `+batched` properties only, see [Every sample](#every-sample-batched) |
+| `OnChange { min }` | on a change, at most once every `min` |
+| `Periodic { every }` | every `every`, on a fixed grid, changed or not |
+| `OnChangeOrBeat { min, max }` | on a change (at most every `min`), and at least every `max` even without one |
+| `Samples { every, max_age }` | every sample the device takes (or the first in each `every`), in batches at most `max_age` old; `+batched` properties only, see [Every sample](#every-sample-batched) |
 
 A property that starts being observed is always sent once right away, so the host has a value to start from.
 Periods and `min`/`max` are in microseconds (`UNib32`), evolvable: a mode a device doesn't know (sent by a newer
@@ -395,7 +395,7 @@ let observe: &'static mut State = State::init(STATE.uninit(), ObserveLimits::DEF
   default 32), a row being one `sample()` call's time and values, kept column by column: the sampler fills one
   store while the event loop encodes the other. RAM is 2 x N x (the time and every value): for 21 FOC currents and
   voltages at N = 32 about 8.4 KB. A batch is sealed when it is full, when its worst case reaches what fits one
-  update, or when it is as old as `max_age_us`. A burst of more than two batches between two `poll_properties`
+  update, or when it is as old as `max_age`. A burst of more than two batches between two `poll_properties`
   calls loses rows: a sample of each observed property per row, counted in the next update's `missed`.
 - **Outbox**: a sealed batch is encoded into the level's outbox (`observe_outbox = N` bytes, default 4096) as one
   unit, the time column and the column of each property in `Samples` mode, and sent from there whole, in one
@@ -406,11 +406,11 @@ let observe: &'static mut State = State::init(STATE.uninit(), ObserveLimits::DEF
   plain properties has it as before. Rows carry every value of the level, so a property switched into `Samples`
   also gets the rows not sent yet, each at its time; one switched out leaves the waiting batches.
 - **Limits**: `Samples` is refused for a property without `+batched`, and on a firmware
-  [that takes no samples](#a-firmware-that-takes-no-samples) (`ModeNotSupported`); `max_age_us` is
-  clamped to `ObserveLimits::samples_max_age_us` (1 ms to 10 s by default); `every_us` decimates on the device's
-  grid (the first sample in each `every_us`), 0 is every sample, and is raised to
+  [that takes no samples](#a-firmware-that-takes-no-samples) (`ModeNotSupported`); `max_age` is
+  clamped to `ObserveLimits::samples_max_age_us` (1 ms to 10 s by default); `every` decimates on the device's
+  grid (the first sample in each `every`), 0 is every sample, and is raised to
   `ObserveLimits::samples_min_every_us` (0, every sample, by default). The `Samples` entries of a level share one
-  grid and one age, so they get the finest `every_us` and the shortest `max_age_us` any of them asked for: the
+  grid and one age, so they get the finest `every` and the shortest `max_age` any of them asked for: the
   grant says so, a host that asked for less gets more. Every sample taken is encoded, also when
   the budget then drops its batch, so on an MCU set that floor from the table [below](#which-rates-fit-an-mcu):
   without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
@@ -556,7 +556,7 @@ prints one line per sample, and Python gets them per update or as numpy columns
 `sample()` itself is a few loads and stores; the cost is encoding, and it scales with how many properties and how
 fast they're sampled - see [Batching: which rates fit an MCU](batching.md#which-rates-fit-an-mcu) for the measured
 instructions/cycles-per-sample table (Cortex-M3/M4F/M7) and what it means for a real device. So on an MCU observe
-a few properties at a few kHz, or decimate (`every_us`); full-rate observing of a whole control loop is for the
+a few properties at a few kHz, or decimate (`every`); full-rate observing of a whole control loop is for the
 simulator and the host ([motor demo](../examples/motor_demo.md)), where it costs about 1 MB/s of link with integer
 storage.
 

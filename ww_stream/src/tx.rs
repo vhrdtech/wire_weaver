@@ -15,7 +15,7 @@ use crate::{HeadExt, Opened, ResumeError, Run, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
 use ww_client_server::stream::{StoreStatus, StreamStatus};
-use ww_si::Second;
+use ww_si::{Bytes, Second};
 
 /// Sender of a counted stream: positions, `lost`, sessions. No store, nothing resent.
 ///
@@ -175,7 +175,7 @@ impl Counted {
             next: UVlq64(self.next),
             oldest: None,
             newest: None,
-            in_flight: UVlq64(0),
+            in_flight: Bytes::new(UVlq64(0)),
             store: None,
         }
     }
@@ -761,7 +761,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                     }
                     _ => {}
                 }
-                self.grant = grant.0 as u64;
+                self.grant = grant.get().0 as u64;
             }
             StreamSideband::Resend { from, grant } => {
                 self.last_heard_ms = now_ms;
@@ -791,7 +791,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                         self.live.next = self.live.flight.rewind(from).max(self.live.acked);
                     }
                 }
-                self.grant = grant.0 as u64;
+                self.grant = grant.get().0 as u64;
             }
             _ => return Ok(()),
         }
@@ -893,10 +893,10 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
             next: UVlq64(self.next),
             oldest: state.oldest.map(UVlq64),
             newest: state.newest.map(UVlq64),
-            in_flight: UVlq64(self.in_flight()),
+            in_flight: Bytes::new(UVlq64(self.in_flight())),
             store: Some(StoreStatus {
-                used_bytes: UVlq64(state.used_bytes),
-                capacity_bytes: UVlq64(state.capacity_bytes),
+                used: Bytes::new(UVlq64(state.used_bytes)),
+                capacity: Bytes::new(UVlq64(state.capacity_bytes)),
                 persistent: state.persistent,
                 dropped_units: UVlq64(state.dropped_units),
             }),

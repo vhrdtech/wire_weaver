@@ -32,22 +32,21 @@ use wire_weaver::shrink_wrap::{
     DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned, UNib32, UVlq32Backfill,
 };
 pub use ww_client_server::observe::{BatchedOwned, ObserveMode, ObserveRefusal, ObserveRefused};
-use ww_client_server::observe::{ObserveEntry, ObserveGrantedOwned, ObserveRequestOwned};
-use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
+use ww_client_server::observe::{Budget, ObserveEntry, ObserveGrantedOwned, ObserveRequestOwned};
+use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned, ResourceIndex};
+use ww_si::Micros;
 pub use ww_si::Second;
 use ww_version::ImageFacts;
 
 /// `ObserveMode::OnChange`: sent when the value changes, at most once every `min`.
 pub fn on_change(min: Duration) -> ObserveMode {
-    ObserveMode::OnChange {
-        min_us: micros(min),
-    }
+    ObserveMode::OnChange { min: micros(min) }
 }
 
 /// `ObserveMode::Periodic`: sent every `every`, changed or not.
 pub fn periodic(every: Duration) -> ObserveMode {
     ObserveMode::Periodic {
-        every_us: micros(every),
+        every: micros(every),
     }
 }
 
@@ -55,8 +54,8 @@ pub fn periodic(every: Duration) -> ObserveMode {
 /// `max`.
 pub fn on_change_or_beat(min: Duration, max: Duration) -> ObserveMode {
     ObserveMode::OnChangeOrBeat {
-        min_us: micros(min),
-        max_us: micros(max),
+        min: micros(min),
+        max: micros(max),
     }
 }
 
@@ -64,8 +63,8 @@ pub fn on_change_or_beat(min: Duration, max: Duration) -> ObserveMode {
 /// most `max_age` old.
 pub fn samples(max_age: Duration) -> ObserveMode {
     ObserveMode::Samples {
-        every_us: UNib32(0),
-        max_age_us: micros(max_age),
+        every: Micros::new(UNib32(0)),
+        max_age: micros(max_age),
     }
 }
 
@@ -73,13 +72,13 @@ pub fn samples(max_age: Duration) -> ObserveMode {
 /// old.
 pub fn samples_every(every: Duration, max_age: Duration) -> ObserveMode {
     ObserveMode::Samples {
-        every_us: micros(every),
-        max_age_us: micros(max_age),
+        every: micros(every),
+        max_age: micros(max_age),
     }
 }
 
-fn micros(d: Duration) -> UNib32 {
-    UNib32(d.as_micros().min(u32::MAX as u128) as u32)
+fn micros(d: Duration) -> Micros<UNib32> {
+    Micros::new(UNib32(d.as_micros().min(u32::MAX as u128) as u32))
 }
 
 /// Data of a level's `PropertyUpdate`: the generated `<Trait>Update`, with its latest-value cache and its
@@ -141,9 +140,9 @@ impl ObserveConfig {
 /// On-change interval and period of a mode
 fn mode_parts(mode: ObserveMode) -> (Option<u32>, Option<u32>) {
     match mode {
-        ObserveMode::OnChange { min_us } => (Some(min_us.0), None),
-        ObserveMode::Periodic { every_us } => (None, Some(every_us.0)),
-        ObserveMode::OnChangeOrBeat { min_us, max_us } => (Some(min_us.0), Some(max_us.0)),
+        ObserveMode::OnChange { min } => (Some(min.get().0), None),
+        ObserveMode::Periodic { every } => (None, Some(every.get().0)),
+        ObserveMode::OnChangeOrBeat { min, max } => (Some(min.get().0), Some(max.get().0)),
         ObserveMode::Samples { .. } | ObserveMode::Off | ObserveMode::Unknown(_) => (None, None),
     }
 }
@@ -152,10 +151,10 @@ fn mode_parts(mode: ObserveMode) -> (Option<u32>, Option<u32>) {
 /// observer to get its values in time.
 fn mode_latency(mode: ObserveMode) -> Option<u32> {
     match mode {
-        ObserveMode::OnChange { min_us } => Some(min_us.0),
-        ObserveMode::Periodic { every_us } => Some(every_us.0),
-        ObserveMode::OnChangeOrBeat { min_us, .. } => Some(min_us.0),
-        ObserveMode::Samples { max_age_us, .. } => Some(max_age_us.0),
+        ObserveMode::OnChange { min } => Some(min.get().0),
+        ObserveMode::Periodic { every } => Some(every.get().0),
+        ObserveMode::OnChangeOrBeat { min, .. } => Some(min.get().0),
+        ObserveMode::Samples { max_age, .. } => Some(max_age.get().0),
         ObserveMode::Off | ObserveMode::Unknown(_) => None,
     }
 }
@@ -179,29 +178,39 @@ fn merge_modes(a: ObserveMode, b: ObserveMode) -> ObserveMode {
     match (a, b) {
         (
             ObserveMode::Samples {
-                every_us: ea,
-                max_age_us: aa,
+                every: ea,
+                max_age: aa,
             },
             ObserveMode::Samples {
-                every_us: eb,
-                max_age_us: ab,
+                every: eb,
+                max_age: ab,
             },
         ) => {
             return ObserveMode::Samples {
-                every_us: UNib32(ea.0.min(eb.0)),
-                max_age_us: UNib32(aa.0.min(ab.0)),
+                every: ea.min(eb),
+                max_age: aa.min(ab),
             };
         }
-        (ObserveMode::Samples { every_us, .. }, other)
-        | (other, ObserveMode::Samples { every_us, .. }) => {
+        (
+            ObserveMode::Samples {
+                every: every_us, ..
+            },
+            other,
+        )
+        | (
+            other,
+            ObserveMode::Samples {
+                every: every_us, ..
+            },
+        ) => {
             let max_age = min(mode_latency(a), mode_latency(b)).unwrap_or(u32::MAX);
             let every = match other {
-                ObserveMode::Periodic { every_us: p } => every_us.0.min(p.0),
-                _ => every_us.0,
+                ObserveMode::Periodic { every: p } => every_us.get().0.min(p.get().0),
+                _ => every_us.get().0,
             };
             return ObserveMode::Samples {
-                every_us: UNib32(every),
-                max_age_us: UNib32(max_age),
+                every: Micros::new(UNib32(every)),
+                max_age: Micros::new(UNib32(max_age)),
             };
         }
         _ => {}
@@ -209,17 +218,19 @@ fn merge_modes(a: ObserveMode, b: ObserveMode) -> ObserveMode {
     let (ca, pa) = mode_parts(a);
     let (cb, pb) = mode_parts(b);
     match (min(ca, cb), min(pa, pb)) {
-        (Some(c), None) => ObserveMode::OnChange { min_us: UNib32(c) },
+        (Some(c), None) => ObserveMode::OnChange {
+            min: Micros::new(UNib32(c)),
+        },
         (None, Some(p)) => ObserveMode::Periodic {
-            every_us: UNib32(p),
+            every: Micros::new(UNib32(p)),
         },
         // sent at least every p anyway
         (Some(c), Some(p)) if c >= p => ObserveMode::Periodic {
-            every_us: UNib32(p),
+            every: Micros::new(UNib32(p)),
         },
         (Some(c), Some(p)) => ObserveMode::OnChangeOrBeat {
-            min_us: UNib32(c),
-            max_us: UNib32(p),
+            min: Micros::new(UNib32(c)),
+            max: Micros::new(UNib32(p)),
         },
         (None, None) => ObserveMode::Off,
     }
@@ -682,7 +693,7 @@ fn request_bytes(path: &[UNib32], cfg: &ObserveConfig) -> Result<Vec<u8>, Error>
         .entries
         .iter()
         .map(|(&index, &mode)| ObserveEntry {
-            index: UNib32(index),
+            index: ResourceIndex::new(UNib32(index)),
             mode,
         })
         .collect();
@@ -696,7 +707,7 @@ fn request_bytes(path: &[UNib32], cfg: &ObserveConfig) -> Result<Vec<u8>, Error>
             cfg: Box::new(ObserveRequestOwned {
                 entries,
                 patch: false,
-                budget: cfg.budget.map(UNib32),
+                budget: cfg.budget.map(|b| Budget::new(UNib32(b))),
             }),
         },
     };
@@ -708,11 +719,11 @@ fn parse_granted<C: LevelConfig>(bytes: &[u8]) -> Result<Granted<C>, Error> {
     let entries = granted
         .entries
         .iter()
-        .map(|e| (e.index.0, e.mode))
+        .map(|e| (e.index.get().0, e.mode))
         .collect();
     Ok(Granted {
         modes: C::from_entries(&entries),
-        budget: granted.budget.0,
+        budget: granted.budget.get().0,
         refused: granted.refused,
     })
 }

@@ -8,6 +8,7 @@ use std::vec::Vec;
 use wire_weaver::shrink_wrap::{Error, UVlq32, UVlq64};
 use ww_client_server::stream::{StreamCodec, StreamCodecs};
 use ww_lz4::{Decoder, Encoder};
+use ww_si::Bytes;
 
 type Enc = Encoder<1024, 4096>;
 
@@ -70,7 +71,7 @@ fn round_trip_with_history() {
     assert_eq!(
         codec,
         Some(StreamCodec::Lz4 {
-            history: UVlq32(4095)
+            history: Bytes::new(UVlq32(4095))
         })
     );
     let mut dec = Decoder::new();

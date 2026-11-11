@@ -10,8 +10,24 @@ pub mod observe;
 pub mod stream;
 pub mod util;
 
+/// Units of this protocol that no other crate needs.
+pub mod units {
+    ww_si::unit! {
+        /// A count of resources, resource: the methods, properties, streams and traits of one trait level, numbered
+        /// by their resource index (the numbers of request paths and the introspection data);
+        /// `Index<Resource, UNib32>` is one of them.
+        pub struct Resource = "resource" (long "resource"), base;
+    }
+}
+
+/// Resource index within a trait level, see [units::Resource].
+pub type ResourceIndex = ww_si::Index<units::Resource, UNib32>;
+
 pub use wire_weaver::Priority;
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
+/// The units of this protocol's numbers (periods, byte grants, budgets), for code that builds them, generated code
+/// too.
+pub use ww_si;
 use ww_version::{CompactVersion, FullVersion};
 
 use observe::ObserveRequest;
@@ -121,8 +137,8 @@ pub enum RequestKind<'i> {
     MultiCall {
         /// List of resources to call
         multi_idx: MultiIndex<'i>,
-        /// Some when calling the same method on an array of traits
-        in_each_array_id: Option<UNib32>,
+        /// Some when calling the same method on an array of traits: its resource index in each trait
+        in_each_array_id: Option<ResourceIndex>,
         multi_args: MultiArgs<'i>,
     },
 
@@ -133,8 +149,8 @@ pub enum RequestKind<'i> {
     MultiRead {
         /// List of properties to read from
         multi_idx: MultiIndex<'i>,
-        /// Some when reading the same property on an array of traits
-        in_each_array_id: Option<UNib32>,
+        /// Some when reading the same property on an array of traits: its resource index in each trait
+        in_each_array_id: Option<ResourceIndex>,
     },
 
     /// Write property or stream down. Property value is serialized fully into a byte array using ShrinkWrap.
@@ -144,8 +160,8 @@ pub enum RequestKind<'i> {
     MultiWrite {
         /// List of resources to write to
         multi_idx: MultiIndex<'i>,
-        /// Some when addressing the same resource on an array of traits
-        in_each_array_id: Option<UNib32>,
+        /// Some when addressing the same resource on an array of traits: its resource index in each trait
+        in_each_array_id: Option<ResourceIndex>,
         multi_data: MultiArgs<'i>,
     },
 
@@ -164,10 +180,10 @@ pub enum RequestKind<'i> {
     StreamOpen {
         /// Resume from this point instead of starting a new session.
         resume: Option<StreamCursor>,
-        /// Batched streams (API-41): how old a batch may get on the device before it is sent, in µs, the host's
-        /// latency choice; `None` takes the device's default. The device clamps it and answers with what it
-        /// granted ([stream::StreamOpened::max_age_us]). Ignored by streams that aren't batched.
-        max_age_us: Option<UNib32>,
+        /// Batched streams (API-41): how old a batch may get on the device before it is sent, the host's latency
+        /// choice; `None` takes the device's default. The device clamps it and answers with what it granted
+        /// ([stream::StreamOpened::max_age]). Ignored by streams that aren't batched.
+        max_age: Option<ww_si::Micros<UNib32>>,
         /// Compressed streams (API-55): the codecs this host decodes; `None` (an older host) or an empty offer gets
         /// the events as they are. The device answers the one it took in [stream::StreamOpened::codec].
         codecs: Option<StreamCodecs>,
@@ -325,7 +341,7 @@ pub enum EventKind<'i> {
         /// When the values were taken, on the device's clock.
         t: Option<ww_si::Second>,
         /// Sends of this level's properties that were due but did not fit the budget since the previous update.
-        missed: Option<UNib32>,
+        missed: Option<ww_si::Count<ww_si::units::Event, UNib32>>,
         /// When the samples in the update's `Batched::Samples` slots were taken (API-39, `+batched` properties):
         /// one time per sample, every `Samples` slot has as many. `None` without samples.
         sample_times: Option<wire_weaver::shrink_wrap::series::Series<'i, ww_si::Second>>,
@@ -352,7 +368,7 @@ pub enum StreamSideband {
     Close,
     /// If a stream is a sequence of bytes, can be used to delimit frames
     FrameSync,
-    /// Can be used to indicate total size of the upcoming stream updates
+    /// Can be used to indicate total size of the upcoming stream updates, in a unit the stream's users agree on
     SizeHint(UNib32),
     /// User event, can be used to indicate errors or other data
     User(UNib32),
@@ -363,11 +379,14 @@ pub enum StreamSideband {
     Ack {
         backfill: Option<UVlq64>,
         have: UVlq64,
-        grant: UVlq32,
+        grant: ww_si::Bytes<UVlq32>,
     },
     /// Reliable streams, receiver to sender: units from `from` on are missing (in whichever run `from` falls), send
     /// again from there (go-back-N), with up to `grant` bytes in flight.
-    Resend { from: UVlq64, grant: UVlq32 },
+    Resend {
+        from: UVlq64,
+        grant: ww_si::Bytes<UVlq32>,
+    },
     /// Reliable streams, sender to receiver: "I have sent up to `sent` (live run) and `backfill` (backfill run),
     /// where are you?" when out of credit or nothing was heard for a while; answered with [StreamSideband::Ack] or
     /// [StreamSideband::Resend].
@@ -724,12 +743,12 @@ impl RequestKind<'_> {
             RequestKind::Introspect => RequestKindOwned::Introspect,
             RequestKind::StreamOpen {
                 resume,
-                max_age_us,
+                max_age,
                 codecs,
                 args,
             } => RequestKindOwned::StreamOpen {
                 resume: *resume,
-                max_age_us: *max_age_us,
+                max_age: *max_age,
                 codecs: *codecs,
                 args: args.make_owned(),
             },
@@ -903,7 +922,7 @@ mod tests {
         let ack = |have: u64, grant: u32| StreamSideband::Ack {
             have: UVlq64(have),
             backfill: None,
-            grant: UVlq32(grant),
+            grant: ww_si::Bytes::new(UVlq32(grant)),
         };
         assert_eq!(bytes(&ack(0, 4096)), [0x50, 0x00, 0xa0, 0x00]);
         assert_eq!(bytes(&ack((1 << 28) - 1, 4096)).len(), 7);
@@ -914,7 +933,7 @@ mod tests {
         assert_eq!(bytes(&query), [0x70, 0x82, 0x2c]);
         let resend = StreamSideband::Resend {
             from: UVlq64(5),
-            grant: UVlq32(7),
+            grant: ww_si::Bytes::new(UVlq32(7)),
         };
         assert_eq!(bytes(&resend), [0x60, 0x05, 0x07]);
     }
@@ -928,12 +947,12 @@ mod tests {
                 oldest: UVlq64(1000),
                 live_from: UVlq64(1000),
                 resume_from: None,
-                max_age_us: None,
+                max_age: None,
                 capacity: None,
                 codec: None,
                 result: TailBytes(&[]),
             }
-            .with_capacity(capacity)
+            .with_capacity(capacity.map(|c| ww_si::Bytes::new(UVlq32(c))))
         };
         // streams pay nothing for it: its flag shares the byte of the other flags
         assert_eq!(bytes(&opened(None)), [1, 0x87, 0x68, 0x87, 0x68, 0x00]);
@@ -944,7 +963,7 @@ mod tests {
         let b = bytes(&opened(Some(4096)));
         assert_eq!(
             StreamOpened::from_ww_bytes(&b).unwrap().capacity,
-            Some(UVlq32(4096))
+            Some(ww_si::Bytes::new(UVlq32(4096)))
         );
     }
 }

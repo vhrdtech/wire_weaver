@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use wire_weaver_client::observe::ObserveMode;
+use wire_weaver_client::ww_client_server::ww_si::Micros;
 use wire_weaver_client::ww_self::{TypeOwned, ValueOwned};
 use wire_weaver_client::{BatchItem, DynObserved, DynObserver, DynResource, seconds};
 
@@ -38,7 +39,14 @@ fn parse_cfg(
     let entries = match cfg {
         None => props
             .iter()
-            .map(|(index, ..)| (*index, ObserveMode::OnChange { min_us: UNib32(0) }))
+            .map(|(index, ..)| {
+                (
+                    *index,
+                    ObserveMode::OnChange {
+                        min: Micros::new(UNib32(0)),
+                    },
+                )
+            })
             .collect(),
         Some(cfg) => {
             let mut entries = BTreeMap::new();
@@ -55,7 +63,9 @@ fn parse_cfg(
                         ))
                     })?;
                 let mode = if v.is_none() {
-                    ObserveMode::OnChange { min_us: UNib32(0) }
+                    ObserveMode::OnChange {
+                        min: Micros::new(UNib32(0)),
+                    }
                 } else if let Ok(samples) = v.cast::<PyDict>() {
                     let ms = |key: &str| -> PyResult<f64> {
                         Ok(match samples.get_item(key)? {
@@ -69,12 +79,12 @@ fn parse_cfg(
                         )));
                     }
                     ObserveMode::Samples {
-                        every_us: micros(ms("every")?),
-                        max_age_us: micros(ms("samples")?),
+                        every: micros(ms("every")?),
+                        max_age: micros(ms("samples")?),
                     }
                 } else {
                     ObserveMode::Periodic {
-                        every_us: micros(v.extract()?),
+                        every: micros(v.extract()?),
                     }
                 };
                 entries.insert(index, mode);
@@ -85,8 +95,8 @@ fn parse_cfg(
     Ok((props, entries))
 }
 
-fn micros(ms: f64) -> UNib32 {
-    UNib32((ms * 1_000.0).clamp(0.0, u32::MAX as f64) as u32)
+fn micros(ms: f64) -> Micros<UNib32> {
+    Micros::new(UNib32((ms * 1_000.0).clamp(0.0, u32::MAX as f64) as u32))
 }
 
 /// Observer of a trait level's `+observe` properties (TOOL-11), from [crate::tree::Node::observe]. Iterate it (or
@@ -306,8 +316,9 @@ impl Observer {
             .refused
             .iter()
             .map(|r| {
-                let name = props.iter().find(|(index, ..)| *index == r.index.0);
-                let name = name.map_or_else(|| format!("#{}", r.index.0), |(_, n, _)| n.clone());
+                let name = props.iter().find(|(index, ..)| *index == r.index.get().0);
+                let name =
+                    name.map_or_else(|| format!("#{}", r.index.get().0), |(_, n, _)| n.clone());
                 (name, format!("{:?}", r.reason))
             })
             .collect()

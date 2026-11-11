@@ -87,10 +87,12 @@ declared with `+observe` can be observed. See [Observing properties](../api/obse
 built on this protocol and the full wire-format picture; this section is the raw types.
 
 * `ObserveRequest<'i>` - body of `RequestKind::Observe`: `entries` (an `ObserveEntry { index, mode }` per
-  property), `patch` (`true`: properties not listed keep their setting; `false`: they are `Off`) and `budget`
-  (bytes per second the level's updates may take on the link, `None` leaves it to the device).
-* `ObserveMode` - `Off`, `OnChange { min_us }` (on a change, at most every `min_us`), `Periodic { every_us }`,
-  `OnChangeOrBeat { min_us, max_us }` (on a change, and at least every `max_us`). Periods are in microseconds.
+  property, `index` a `ResourceIndex`, `Index<Resource, UNib32>`), `patch` (`true`: properties not listed keep their
+  setting; `false`: they are `Off`) and `budget` (an `observe::Budget`, `Fixed<BytePerSecond, One, UNib32>`: bytes
+  per second the level's updates may take on the link, `None` leaves it to the device).
+* `ObserveMode` - `Off`, `OnChange { min }` (on a change, at most every `min`), `Periodic { every }`,
+  `OnChangeOrBeat { min, max }` (on a change, and at least every `max`), `Samples { every, max_age }`. Periods are
+  `Micros<UNib32>`, the same bytes as the plain `UNib32` microseconds they were.
   Evolvable: a mode from a newer host reads as `Unknown(_)` and is refused.
 * `ObserveGranted<'i>` - the answer, in an `EventKind::Value`: every property observed now with its mode as
   clamped by the device, the `refused` entries with an `ObserveRefusal` (`NoSuchIndex`, `NotObservable`,

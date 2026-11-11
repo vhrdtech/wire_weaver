@@ -430,7 +430,7 @@ impl Decoder {
                             "{}: opened at {}, buffer of {} bytes",
                             res.name,
                             o.live_from.0,
-                            o.capacity.map_or(0, |c| c.0)
+                            o.capacity.map_or(0, |c| c.get().0)
                         )
                     }
                     _ => "()".into(),
@@ -480,7 +480,8 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
             grant,
         } => format!(
             "ack: have {} units, may send {} more bytes",
-            have.0, grant.0
+            have.0,
+            grant.get().0
         ),
         Query {
             sent,
@@ -489,7 +490,8 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
         Resend { from, grant } => {
             format!(
                 "resend from unit {}, may send {} more bytes",
-                from.0, grant.0
+                from.0,
+                grant.get().0
             )
         }
         other => format!("{other:?}"),

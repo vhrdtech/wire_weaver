@@ -64,8 +64,8 @@ pub struct Opened {
 }
 
 impl Opened {
-    /// The wire form, with the stream function's serialized result (no `max_age_us`: a batched stream adds it,
-    /// see [StreamOpened::with_max_age_us]; no `capacity`: a credit sink adds it, see [StreamOpened::with_capacity]).
+    /// The wire form, with the stream function's serialized result (no `max_age`: a batched stream adds it,
+    /// see [StreamOpened::with_max_age]; no `capacity`: a credit sink adds it, see [StreamOpened::with_capacity]).
     pub fn to_wire<'i>(&self, result: &'i [u8]) -> StreamOpened<'i> {
         use wire_weaver::shrink_wrap::{UVlq32, UVlq64, tail_bytes::TailBytes};
         StreamOpened {
@@ -73,7 +73,7 @@ impl Opened {
             oldest: UVlq64(self.oldest),
             live_from: UVlq64(self.live_from),
             resume_from: self.resume_from.map(UVlq64),
-            max_age_us: None,
+            max_age: None,
             capacity: None,
             codec: None,
             result: TailBytes(result),

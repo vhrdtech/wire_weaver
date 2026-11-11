@@ -17,8 +17,8 @@ use wire_weaver_client::ww_self::{
 };
 use wire_weaver_client::{ClientConfig, DynClient, DynResource};
 use ww_client_server::observe::ObserveMode;
-use ww_si::Prefix;
 use ww_si::ww_numeric::NumericValue;
+use ww_si::{Micros, Prefix};
 
 struct Device {
     client: DynClient,
@@ -282,7 +282,7 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
             [(
                 index,
                 ObserveMode::OnChange {
-                    min_us: 0u32.into(),
+                    min: Micros::new(0u32.into()),
                 },
             )]
             .into(),

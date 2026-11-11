@@ -528,7 +528,7 @@ impl RxDispatcher {
                             crate::event_loop::core::now(),
                             t,
                             sample_times.map(|times| times.iter().collect()),
-                            missed.map_or(0, |m| m.0),
+                            missed.map_or(0, |m| m.get().0),
                             data.as_slice(),
                         ),
                         None => trace!("property update for {path:?}, nobody observes"),

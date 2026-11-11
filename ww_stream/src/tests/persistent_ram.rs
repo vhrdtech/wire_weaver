@@ -10,6 +10,7 @@ use crate::store::{
 use crate::tx::{Pushed, Reliable};
 use crate::{Run, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
+use ww_si::Index;
 
 const N: usize = 512;
 
@@ -42,7 +43,7 @@ fn reset_copy<const M: usize>(area: &RamArea<M>) -> Box<RamArea<M>> {
 }
 
 fn epoch_of(head: &StreamHead) -> Option<u32> {
-    head.ext.and_then(|e| e.clock_epoch).map(|e| e.0)
+    head.ext.and_then(|e| e.clock_epoch).map(|e| e.get().0)
 }
 
 #[test]
@@ -106,7 +107,7 @@ fn survives_a_soft_reset() {
     let mut h = head(32, 1);
     h.ext = Some(crate::HeadExt {
         codec_restart: false,
-        clock_epoch: Some(UVlq32(99)),
+        clock_epoch: Some(Index::new(UVlq32(99))),
     });
     block_on(store.push(&h, b"x")).unwrap();
     let (_, events) = contents(&mut store);

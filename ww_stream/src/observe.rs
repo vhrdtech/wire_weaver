@@ -43,9 +43,11 @@
 use portable_atomic::{AtomicU32, Ordering};
 use wire_weaver::shrink_wrap::option_any_vec::OptionAnyVecWriter;
 use wire_weaver::shrink_wrap::{Error as ShrinkWrapError, SerializeShrinkWrap, UNib32};
+use ww_client_server::ResourceIndex;
 use ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRefusal, ObserveRefused, ObserveRequest,
 };
+use ww_si::Micros;
 
 /// Smallest capacity of a level's token bucket in bytes, so that a level with a small budget can still send an
 /// update of a few properties at once.
@@ -161,31 +163,28 @@ impl Mode {
         let floor = limits.min_period_us.max(1);
         Some(match mode {
             ObserveMode::Off => Mode::Off,
-            ObserveMode::OnChange { min_us } => Mode::OnChange {
-                min: min_us.0.max(floor),
+            ObserveMode::OnChange { min } => Mode::OnChange {
+                min: min.get().0.max(floor),
             },
-            ObserveMode::Periodic { every_us } => Mode::Periodic {
-                every: every_us.0.max(floor),
+            ObserveMode::Periodic { every } => Mode::Periodic {
+                every: every.get().0.max(floor),
             },
-            ObserveMode::OnChangeOrBeat { min_us, max_us } => {
-                let min = min_us.0.max(floor);
+            ObserveMode::OnChangeOrBeat { min, max } => {
+                let min = min.get().0.max(floor);
                 Mode::OnChangeOrBeat {
                     min,
-                    max: max_us.0.max(min),
+                    max: max.get().0.max(min),
                 }
             }
             ObserveMode::Samples { .. } if !batched => return None,
-            ObserveMode::Samples {
-                every_us,
-                max_age_us,
-            } => {
+            ObserveMode::Samples { every, max_age } => {
                 let (lo, hi) = limits.samples_max_age_us;
                 let lo = lo.max(1);
                 Mode::Samples {
                     // 0 is every sample; decimating never sends more than that, so the device's floor is all
                     // there is to check
-                    every: every_us.0.max(limits.samples_min_every_us),
-                    max_age: max_age_us.0.clamp(lo, hi.max(lo)),
+                    every: every.get().0.max(limits.samples_min_every_us),
+                    max_age: max_age.get().0.clamp(lo, hi.max(lo)),
                 }
             }
             ObserveMode::Unknown(_) => return None,
@@ -195,19 +194,17 @@ impl Mode {
     fn to_wire(self) -> ObserveMode {
         match self {
             Mode::Off => ObserveMode::Off,
-            Mode::OnChange { min } => ObserveMode::OnChange {
-                min_us: UNib32(min),
-            },
+            Mode::OnChange { min } => ObserveMode::OnChange { min: period(min) },
             Mode::Periodic { every } => ObserveMode::Periodic {
-                every_us: UNib32(every),
+                every: period(every),
             },
             Mode::OnChangeOrBeat { min, max } => ObserveMode::OnChangeOrBeat {
-                min_us: UNib32(min),
-                max_us: UNib32(max),
+                min: period(min),
+                max: period(max),
             },
             Mode::Samples { every, max_age } => ObserveMode::Samples {
-                every_us: UNib32(every),
-                max_age_us: UNib32(max_age),
+                every: period(every),
+                max_age: period(max_age),
             },
         }
     }
@@ -426,7 +423,7 @@ impl ObserveTable {
         // once right away, so a host asking again gets fresh values
         let was_active = self.is_active();
         for entry in req.entries.iter().flatten() {
-            let Some(k) = desc.slot_of(entry.index.0) else {
+            let Some(k) = desc.slot_of(entry.index.get().0) else {
                 continue;
             };
             let Some(slot) = self.slots.get_mut(k) else {
@@ -469,7 +466,7 @@ impl ObserveTable {
         }
         self.active = self.slots.iter().any(|s| s.mode != Mode::Off);
         if self.is_active() {
-            let wanted = req.budget.map_or(limits.default_budget, |b| b.0);
+            let wanted = req.budget.map_or(limits.default_budget, |b| b.get().0);
             self.budget = wanted
                 .min(limits.max_level_budget)
                 .min(limits.total_budget.saturating_sub(others_budget));
@@ -499,8 +496,8 @@ impl ObserveTable {
         let mut refused_len = 0;
         for entry in req.entries.iter() {
             let entry = entry.map_err(ObserveError::Malformed)?;
-            let reason = match desc.slot_of(entry.index.0) {
-                None if entry.index.0 >= desc.item_count => Some(ObserveRefusal::NoSuchIndex),
+            let reason = match desc.slot_of(entry.index.get().0) {
+                None if entry.index.get().0 >= desc.item_count => Some(ObserveRefusal::NoSuchIndex),
                 None => Some(ObserveRefusal::NotObservable),
                 Some(k) => match self.slots.get_mut(k) {
                     None => Some(ObserveRefusal::NotObservable),
@@ -539,7 +536,7 @@ impl ObserveTable {
                 break;
             };
             *entry = ObserveEntry {
-                index: UNib32(index),
+                index: ResourceIndex::new(UNib32(index)),
                 mode: slot.mode.to_wire(),
             };
             len += 1;
@@ -812,6 +809,12 @@ impl ObserveTable {
             }
         }
     }
+}
+
+/// A period of the wire from the µs the slots keep.
+#[inline(always)]
+const fn period(us: u32) -> Micros<UNib32> {
+    Micros::new(UNib32(us))
 }
 
 fn capacity(budget: u32) -> i64 {

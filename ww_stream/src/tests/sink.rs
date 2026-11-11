@@ -8,6 +8,7 @@ use crate::sink::{
 use crate::{Opened, StreamCursor};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
+use ww_si::Bytes;
 
 const M: u64 = POS_MODULUS as u64;
 
@@ -22,14 +23,14 @@ fn ack(have: u64, grant: u32) -> StreamSideband {
     StreamSideband::Ack {
         have: UVlq64(wire_pos(have) as u64),
         backfill: None,
-        grant: UVlq32(grant),
+        grant: Bytes::new(UVlq32(grant)),
     }
 }
 
 fn resend(from: u64, grant: u32) -> StreamSideband {
     StreamSideband::Resend {
         from: UVlq64(wire_pos(from) as u64),
-        grant: UVlq32(grant),
+        grant: Bytes::new(UVlq32(grant)),
     }
 }
 
@@ -199,7 +200,7 @@ fn status() {
     assert_eq!(s.next, UVlq64(3));
     let store = s.store.unwrap();
     assert_eq!(
-        (store.used_bytes.0, store.capacity_bytes.0, store.persistent),
+        (store.used.get().0, store.capacity.get().0, store.persistent),
         (10, 64, false)
     );
 }

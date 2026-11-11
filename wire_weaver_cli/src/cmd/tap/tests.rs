@@ -6,6 +6,7 @@ use super::*;
 use crate::util::resolve;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::ObserveMode;
+use wire_weaver_client::ww_client_server::ww_si::Micros;
 use wire_weaver_client::ww_numeric::NumericValue;
 use wire_weaver_client::ww_self::ValueOwned;
 use wire_weaver_client::{ClientConfig, DynResource};
@@ -492,7 +493,14 @@ async fn observe_requests_replies_and_updates_are_decoded() {
         assert_eq!(names, ["load", "state"]);
         let entries = props
             .iter()
-            .map(|(i, ..)| (*i, ObserveMode::OnChange { min_us: UNib32(0) }))
+            .map(|(i, ..)| {
+                (
+                    *i,
+                    ObserveMode::OnChange {
+                        min: Micros::new(UNib32(0)),
+                    },
+                )
+            })
             .collect();
         let mut observer = level.observe(client.cmd(), entries).await.unwrap();
         // the first update has both properties, later ones only what changed
@@ -625,7 +633,13 @@ async fn sigterm_finishes_the_capture_file() {
     });
     let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
     let level = resolve(root, "").unwrap();
-    let entries = [(3, ObserveMode::OnChange { min_us: UNib32(0) })].into();
+    let entries = [(
+        3,
+        ObserveMode::OnChange {
+            min: Micros::new(UNib32(0)),
+        },
+    )]
+    .into();
     let mut observer = level.observe(client.cmd(), entries).await.unwrap();
     let ended = crate::util::guard(Some(stop), async {
         loop {

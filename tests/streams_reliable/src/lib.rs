@@ -380,7 +380,7 @@ mod tests {
         assert_eq!(status.session, Some(UVlq32(1)));
         assert_eq!(status.next, UVlq64(1201));
         let store = status.store.expect("a reliable stream has a store");
-        assert_eq!(store.capacity_bytes, UVlq64(16384));
+        assert_eq!(store.capacity, ww_si::Bytes::new(UVlq64(16384)));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

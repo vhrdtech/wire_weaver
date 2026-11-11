@@ -5,6 +5,7 @@ use crate::tx::{Pushed, Reliable};
 use crate::{HeadExt, Opened, ResumeError, Run, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
 use ww_client_server::StreamSideband;
+use ww_si::{Bytes, Index};
 
 type Dev<const N: usize> = Reliable<RamRing<N>, 4>;
 
@@ -28,14 +29,14 @@ fn ack(have: u64, backfill: Option<u64>, grant: u32) -> StreamSideband {
     StreamSideband::Ack {
         have: UVlq64(have),
         backfill: backfill.map(UVlq64),
-        grant: UVlq32(grant),
+        grant: Bytes::new(UVlq32(grant)),
     }
 }
 
 fn resend(from: u64, grant: u32) -> StreamSideband {
     StreamSideband::Resend {
         from: UVlq64(from),
-        grant: UVlq32(grant),
+        grant: Bytes::new(UVlq32(grant)),
     }
 }
 
@@ -228,7 +229,7 @@ fn producer_lost_and_ext() {
     dev.lost(10);
     let ext = HeadExt {
         codec_restart: false,
-        clock_epoch: Some(UVlq32(1)),
+        clock_epoch: Some(Index::new(UVlq32(1))),
     };
     dev.set_ext(ext);
     push(&mut dev, 1, 1);

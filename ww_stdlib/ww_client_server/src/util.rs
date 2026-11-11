@@ -214,7 +214,7 @@ mod tests {
             StreamSideband::Ack {
                 backfill: Some(UVlq64(5)),
                 have: UVlq64(70_000),
-                grant: UVlq32(512),
+                grant: ww_si::Bytes::new(UVlq32(512)),
             },
         ];
         for seq in SEQS {

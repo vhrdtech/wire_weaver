@@ -8174,11 +8174,20 @@ observing), SRV-46 (peer identity).
     timed out while the hub scanned.</li>
 <li>✅ <strong>TOOL-22 Hint for plain fields that carry a unit</strong> — <code>ww api check</code> and the walker <code>ww api scaffold</code> uses
   note a plain integer field, method argument or property whose name ends in a known unit suffix (<code>_us</code>, <code>_ms</code>,
-  <code>_ns</code>, <code>_s</code>, <code>_hz</code>, <code>_khz</code>, <code>_ppb</code>, <code>_ppm</code>, <code>_bytes</code>, <code>_bits</code>, <code>_kib</code>) with the <code>exact_units::Fixed&lt;U, P, T&gt;</code> it
-  could become instead (<code>wire_weaver_core::transform::unit_hint</code>, <code>Scratch::unit_hints</code>): a note, never an error,
-  printed on <code>ww api check</code> and on <code>ww api scaffold</code>'s stderr, never affecting the verdict or the generated code.
-  Silenced per item with <code>#[no_unit_hint]</code>: bare on a struct/enum field, bare (every argument) or naming arguments
-  (<code>#[no_unit_hint(a, b)]</code>) on a trait method, bare on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item.
+  <code>_ns</code>, <code>_s</code>, <code>_hz</code>, <code>_khz</code>, <code>_ppb</code>, <code>_ppm</code>, <code>_bytes</code>, <code>_bits</code>, <code>_kib</code>, ambiguous <code>_kb</code>/<code>_mb</code>/<code>_gb</code> named as both decimal and binary) with the <code>exact_units::Fixed&lt;U, P, T&gt;</code>
+  it could become instead (<code>wire_weaver_core::transform::unit_hint</code>, <code>Scratch::unit_hints</code>): a note, never an
+  error, printed on <code>ww api check</code> and on <code>ww api scaffold</code>'s stderr, never affecting the verdict or the generated
+  code. Silenced per item with <code>#[no_unit_hint]</code>: bare on a struct/enum field, bare (every argument) or naming
+  arguments (<code>#[no_unit_hint(a, b)]</code>) on a trait method, bare on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item.
+  Gaps closed (P2401#11nov-0946): a hint printed once per feature build or type reference (deduped, once per crate
+  load, <code>Scratch::walk</code> and <code>snapshot::dedup_hints</code>); <code>write_kib_s</code> read as <code>Second</code> instead of a per-second rate
+  (<code>_kib_s</code>/<code>_mib_s</code>/<code>_gib_s</code>/<code>_bytes_s</code>/<code>_bits_s</code> read as <code>Fixed&lt;Per&lt;U, Second&gt;, ..&gt;</code>, the ambiguous <code>_per_s</code>
+  suppressed rather than guessed); <code>shrink_wrap</code>'s <code>UVlq32</code>/<code>UVlq32Backfill</code>/<code>UVlq64</code>/<code>UNib32</code>/<code>INib32</code> and one
+  level of <code>Option&lt;..&gt;</code> now recognized alongside the plain integers; a field named after the unit alone or as its
+  prefix (<code>bytes</code>, <code>bytes_written</code>); <code>rw_mb_min</code>/<code>_max</code>/<code>_default</code> compound suffixes (hinted as both <code>Mega</code> and <code>Mebi</code>: check the source of the number); and a small doc-comment
+  fallback ("in bytes", "in bits", "in tenths of a percent") when the name gives no hint, a narrow slice of
+  TOOL-23's bigger doc-comment reading. Still misses most of ww_can_bus's items (counted units with no shared
+  marker yet, Q3) and <code>ww_client_server</code>'s walker-fails-first crate (TOOL-22b).
   <code>docs/evolution/checker_tool.md#unit-suffix-hints-tool-22</code>.</li>
 <li>✅ <strong>TOOL-31 Warning for an API crate without an evolution test</strong> — <code>ww api check</code> and <code>ww api save</code> print a
   <code>warning:</code> when the crate directory has no <code>tests/evolution.rs</code> calling <code>wire_weaver_evolution::Check</code> (checked
@@ -8297,7 +8306,9 @@ observing), SRV-46 (peer identity).
 <li>📋 <strong>TOOL-23 Doc-comment / sentinel / bounds hints for <code>ww api check</code></strong> — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest <code>Bounds</code>/niche forms too, not only the name suffix. Needs STD-64, STD-66
-  and INT-13 landed first; tested on the scout's repos.</li>
+  and INT-13 landed first; tested on the scout's repos. TOOL-22 already reads two plain phrases ("in bytes", "in
+  tenths of a percent") as a narrow fallback when the name gives no hint; this item is the general reader (ranges,
+  sentinels, more phrasings).</li>
 <li>📋 <strong>TOOL-13 <code>Some(None)</code> in Python values</strong> — Python (and the conformance corpus, which uses its form) writes
   <code>None</code> for both <code>None</code> and <code>Some(None)</code> of an <code>Option&lt;Option&lt;T&gt;&gt;</code>, so the inner <code>None</code> can't be written or told
   apart when read. Needs a marker for a present <code>None</code> (e.g. <code>ww.Some(None)</code>). Conformance case

@@ -262,6 +262,7 @@ impl Check {
     /// One root from source (`source`) against `all` its snapshots ([root_snapshots]). `saved_at_current`: the
     /// crate's version has snapshots saved already, so a root whose latest snapshot is older was saved unchanged by
     /// it, and that snapshot stands for the crate's version.
+    #[allow(clippy::too_many_arguments)]
     fn root_outcome(
         &self,
         root: &str,

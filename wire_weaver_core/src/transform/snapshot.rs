@@ -1648,6 +1648,7 @@ mod tests {
         let embedded = wire_weaver_snapshots::files();
         let copies = root.join("wire_weaver_snapshots").join("api_snapshots");
         let mut saved_count = 0;
+        let mut superseded_count = 0;
         for (snapshots_dir, crate_path) in crate_paths {
             let bundle = load_crate(&crate_path).unwrap();
             let file_name = format!("{}.ron", bundle.ext_crates[0].filename_friendly());
@@ -1661,33 +1662,117 @@ mod tests {
                 ron::to_string(&bundle).unwrap(),
                 "{file_name} is out of date, {hint}"
             );
-            for entry in std::fs::read_dir(&snapshots_dir).unwrap() {
-                let path = entry.unwrap().path();
-                let file_name = path.file_name().unwrap().to_str().unwrap();
-                let (_, rendered) = embedded
-                    .iter()
-                    .find(|(name, _)| *name == file_name)
-                    .unwrap_or_else(|| panic!("{file_name} is not embedded, {hint}"));
-                // only the bytes are embedded (files() renders the text from them): the copy in
-                // wire_weaver_snapshots is the saved file, and the embedded bytes are the ones it hashes to
-                let text = std::fs::read_to_string(&path).unwrap();
-                assert_eq!(
-                    std::fs::read_to_string(copies.join(file_name)).unwrap(),
-                    text,
-                    "copy of {file_name} in wire_weaver_snapshots differs, {hint}"
-                );
-                assert_eq!(
-                    ww_self::snapshot::saved_hash(rendered),
-                    ww_self::snapshot::saved_hash(&text),
-                    "embedded {file_name} differs, {hint}"
-                );
-                saved_count += 1;
-            }
+            let (saved, superseded) = check_copies(
+                &snapshots_dir,
+                &copies,
+                embedded,
+                &wire_weaver_snapshots::superseded_files().collect::<Vec<_>>(),
+                hint,
+            );
+            saved_count += saved;
+            superseded_count += superseded;
         }
         assert_eq!(
             saved_count,
             embedded.len(),
             "stale snapshots are embedded, {hint}"
+        );
+        assert_eq!(
+            superseded_count,
+            wire_weaver_snapshots::superseded_files().count(),
+            "stale superseded definitions are embedded, {hint}"
+        );
+    }
+
+    /// Checks every file of `snapshots_dir` against its copy in `copies` and the embedded snapshots (`embedded`, file
+    /// name and rendered text) or, in its `superseded/` directory (EVO-68), the embedded superseded definitions
+    /// (`superseded`, file names): the number of snapshots and of superseded definitions checked.
+    fn check_copies(
+        snapshots_dir: &Path,
+        copies: &Path,
+        embedded: &[(&str, &str)],
+        superseded: &[&str],
+        hint: &str,
+    ) -> (usize, usize) {
+        let (mut saved_count, mut superseded_count) = (0, 0);
+        for entry in std::fs::read_dir(snapshots_dir).unwrap() {
+            let path = entry.unwrap().path();
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+            // the definitions refreshes in place replaced: copied and embedded as they are
+            if path.is_dir() {
+                for kept in std::fs::read_dir(&path).unwrap() {
+                    let kept = kept.unwrap().path();
+                    let name = kept.file_name().unwrap().to_str().unwrap();
+                    assert!(
+                        superseded.contains(&name),
+                        "{file_name}/{name} is not embedded, {hint}"
+                    );
+                    assert!(
+                        std::fs::read(copies.join(file_name).join(name)).ok()
+                            == Some(std::fs::read(&kept).unwrap()),
+                        "copy of {file_name}/{name} in wire_weaver_snapshots differs, {hint}"
+                    );
+                    superseded_count += 1;
+                }
+                continue;
+            }
+            let (_, rendered) = embedded
+                .iter()
+                .find(|(name, _)| *name == file_name)
+                .unwrap_or_else(|| panic!("{file_name} is not embedded, {hint}"));
+            // only the bytes are embedded (files() renders the text from them): the copy in
+            // wire_weaver_snapshots is the saved file, and the embedded bytes are the ones it hashes to
+            let text = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(copies.join(file_name)).unwrap(),
+                text,
+                "copy of {file_name} in wire_weaver_snapshots differs, {hint}"
+            );
+            assert_eq!(
+                ww_self::snapshot::saved_hash(rendered),
+                ww_self::snapshot::saved_hash(&text),
+                "embedded {file_name} differs, {hint}"
+            );
+            saved_count += 1;
+        }
+        (saved_count, superseded_count)
+    }
+
+    /// A crate's `api_snapshots/` with a `superseded/` directory (EVO-68) is checked file by file, the directory
+    /// against the embedded superseded definitions, not looked up as a snapshot named `superseded`.
+    #[test]
+    fn superseded_directory_is_checked_as_superseded_definitions() {
+        let base = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/ww_core_tests")
+            .join(format!("superseded-{}", std::process::id()));
+        let text = "// a\n// b\n// sha256: 00\n()";
+        for dir in [base.join("own"), base.join("copies")] {
+            std::fs::create_dir_all(dir.join("superseded")).unwrap();
+            std::fs::write(dir.join("dep_0_1_0.ron"), text).unwrap();
+            std::fs::write(dir.join("superseded/dep_0_1_0-type-E-00.ww"), [1, 2]).unwrap();
+        }
+        let counts = check_copies(
+            &base.join("own"),
+            &base.join("copies"),
+            &[("dep_0_1_0.ron", text)],
+            &["dep_0_1_0-type-E-00.ww"],
+            "",
+        );
+        std::fs::write(base.join("copies/superseded/dep_0_1_0-type-E-00.ww"), [3]).unwrap();
+        let changed = std::panic::catch_unwind(|| {
+            check_copies(
+                &base.join("own"),
+                &base.join("copies"),
+                &[("dep_0_1_0.ron", text)],
+                &["dep_0_1_0-type-E-00.ww"],
+                "",
+            )
+        });
+        std::fs::remove_dir_all(&base).unwrap();
+        assert_eq!(counts, (1, 1));
+        assert!(
+            changed.is_err(),
+            "a changed copy of a superseded definition is found"
         );
     }
 }

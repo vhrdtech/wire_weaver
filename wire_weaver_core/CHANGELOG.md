@@ -8,7 +8,7 @@
   a per-second rate (`Fixed<Per<Unit, Second>, ..>`) instead of plain seconds, the ambiguous `_per_s` suppressed
   instead of guessed; `shrink_wrap`'s `UVlq32`/`UVlq32Backfill`/`UVlq64`/`UNib32`/`INib32` and one level of
   `Option<..>` recognized alongside the plain integers; a field named after the unit alone or as its prefix
-  (`bytes`, `bytes_written`); `_mb` and the compound `_mb_min`/`_mb_max`/`_mb_default` suffixes; and a doc-comment
+  (`bytes`, `bytes_written`); `_kb`/`_mb`/`_gb` and the compound `_mb_min`/`_mb_max`/`_mb_default` forms, the hint naming both the decimal (`Mega`) and binary (`Mebi`) choice since `MB` is ambiguous (`_mib` stays binary); and a doc-comment
   fallback for "in bytes", "in bits" and "in tenths of a percent" when the name gives no hint.
 
 ### ⚠️ Breaking

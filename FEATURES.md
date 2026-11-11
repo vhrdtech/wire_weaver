@@ -2325,7 +2325,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     timed out while the hub scanned.
 - ✅ **TOOL-22 Hint for plain fields that carry a unit** — `ww api check` and the walker `ww api scaffold` uses
   note a plain integer field, method argument or property whose name ends in a known unit suffix (`_us`, `_ms`,
-  `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`, `_mb`) with the `exact_units::Fixed<U, P, T>`
+  `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`, ambiguous `_kb`/`_mb`/`_gb` named as both decimal and binary) with the `exact_units::Fixed<U, P, T>`
   it could become instead (`wire_weaver_core::transform::unit_hint`, `Scratch::unit_hints`): a note, never an
   error, printed on `ww api check` and on `ww api scaffold`'s stderr, never affecting the verdict or the generated
   code. Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming
@@ -2335,7 +2335,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`_kib_s`/`_mib_s`/`_gib_s`/`_bytes_s`/`_bits_s` read as `Fixed<Per<U, Second>, ..>`, the ambiguous `_per_s`
   suppressed rather than guessed); `shrink_wrap`'s `UVlq32`/`UVlq32Backfill`/`UVlq64`/`UNib32`/`INib32` and one
   level of `Option<..>` now recognized alongside the plain integers; a field named after the unit alone or as its
-  prefix (`bytes`, `bytes_written`); `rw_mb_min`/`_max`/`_default` compound suffixes; and a small doc-comment
+  prefix (`bytes`, `bytes_written`); `rw_mb_min`/`_max`/`_default` compound suffixes (hinted as both `Mega` and `Mebi`: check the source of the number); and a small doc-comment
   fallback ("in bytes", "in bits", "in tenths of a percent") when the name gives no hint, a narrow slice of
   TOOL-23's bigger doc-comment reading. Still misses most of ww_can_bus's items (counted units with no shared
   marker yet, Q3) and `ww_client_server`'s walker-fails-first crate (TOOL-22b).

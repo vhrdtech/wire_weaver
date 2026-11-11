@@ -1,5 +1,5 @@
 //! TOOL-22: a plain integer field, argument or property whose name ends in a known unit suffix (`_us`, `_ms`,
-//! `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`, `_mb`, ...), is named after a unit alone
+//! `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`, ambiguous `_kb`/`_mb`/`_gb`, ...), is named after a unit alone
 //! (`bytes`, `bits`), reads as a per-second rate (`_kib_s`, `_b_s`, ...) or whose doc comment says what it counts
 //! ("in bytes", "in tenths of a percent") notes the `exact_units::Fixed<U, P, T>` it could become: a note, never an
 //! error, found by [suggest] while the crate walker (`load_crate`/`load`) runs, and silenced per item with
@@ -43,10 +43,6 @@ fn name_of(item: &str) -> &str {
 const SUFFIXES: &[(&str, &str, &str, Option<&str>)] = &[
     ("_khz", "Hertz", "Kilo", None),
     ("_kib", "Byte", "Kibi", None),
-    ("_mb_default", "Byte", "Mebi", None),
-    ("_mb_min", "Byte", "Mebi", None),
-    ("_mb_max", "Byte", "Mebi", None),
-    ("_mb", "Byte", "Mebi", Some("Mebibytes")),
     ("_bytes", "Byte", "One", Some("Bytes")),
     ("_bits", "Bit", "One", None),
     ("_ppb", "Ratio", "Nano", Some("Ppb")),
@@ -67,6 +63,24 @@ const RATE_SUFFIXES: &[(&str, &str, &str)] = &[
     ("_bytes_s", "Byte", "One"),
     ("_b_s", "Byte", "One"),
     ("_bits_s", "Bit", "One"),
+];
+
+/// `(suffix, decimal prefix, binary prefix)`: a size whose `_kb`/`_mb`/`_gb` is ambiguous (SD cards, flash parts and
+/// most datasheets mean 10^3/10^6/10^9, Windows-style tools 2^10/2^20/2^30), so the hint names both and says to check
+/// the source of the number. Compound qualifier forms (`_mb_min`, `_mb_max`, `_mb_default`) first.
+const AMBIGUOUS_SIZE_SUFFIXES: &[(&str, &str, &str)] = &[
+    ("_kb_default", "Kilo", "Kibi"),
+    ("_kb_min", "Kilo", "Kibi"),
+    ("_kb_max", "Kilo", "Kibi"),
+    ("_kb", "Kilo", "Kibi"),
+    ("_mb_default", "Mega", "Mebi"),
+    ("_mb_min", "Mega", "Mebi"),
+    ("_mb_max", "Mega", "Mebi"),
+    ("_mb", "Mega", "Mebi"),
+    ("_gb_default", "Giga", "Gibi"),
+    ("_gb_min", "Giga", "Gibi"),
+    ("_gb_max", "Giga", "Gibi"),
+    ("_gb", "Giga", "Gibi"),
 ];
 
 /// A suffix read as a rate whose counted unit isn't known from the name alone: recognized so it isn't misread as
@@ -127,6 +141,20 @@ fn suggest_from_name(item: &str, name: &str, shape: &Shape) -> Option<UnitHint> 
         let renamed = name.strip_suffix(suffix).filter(|s| !s.is_empty())?;
         let per_unit = format!("Per<{unit}, Second>");
         return Some(build_hint(item, renamed, shape, &per_unit, prefix, None));
+    }
+    if let Some((suffix, decimal, binary)) = AMBIGUOUS_SIZE_SUFFIXES
+        .iter()
+        .find(|(suffix, ..)| name.ends_with(suffix))
+    {
+        let renamed = name.strip_suffix(suffix).filter(|s| !s.is_empty())?;
+        let mut hint = build_hint(item, renamed, shape, "Byte", decimal, None);
+        let binary_hint = build_hint(item, renamed, shape, "Byte", binary, None);
+        hint.suggestion = format!(
+            "{} or {} (decimal or binary: `MB` is 10^6 in SD cards, flash parts and most datasheets, 2^20 in \
+             Windows-style tools; check the source of the number)",
+            hint.suggestion, binary_hint.suggestion
+        );
+        return Some(hint);
     }
     if let Some((suffix, unit, prefix, alias)) =
         SUFFIXES.iter().find(|(suffix, ..)| name.ends_with(suffix))
@@ -370,7 +398,22 @@ mod tests {
         let ty: Type = parse_quote!(u32);
         let hint = suggest("FormatOffer::rw_mb_max", "rw_mb_max", &ty, &[]).unwrap();
         assert_eq!(hint.renamed, "rw");
+        assert!(hint.suggestion.contains("Fixed<Byte, Mega, u32>"));
         assert!(hint.suggestion.contains("Fixed<Byte, Mebi, u32>"));
+        assert!(hint.suggestion.contains("check the source"));
+    }
+
+    #[test]
+    fn kb_and_gb_name_both_choices_and_mib_stays_binary() {
+        let ty: Type = parse_quote!(u32);
+        let hint = suggest("S::page_kb", "page_kb", &ty, &[]).unwrap();
+        assert!(hint.suggestion.contains("Fixed<Byte, Kilo, u32>"));
+        assert!(hint.suggestion.contains("Fixed<Byte, Kibi, u32>"));
+        let hint = suggest("S::card_gb", "card_gb", &ty, &[]).unwrap();
+        assert!(hint.suggestion.contains("Fixed<Byte, Giga, u32>"));
+        assert!(hint.suggestion.contains("Fixed<Byte, Gibi, u32>"));
+        let hint = suggest("S::write_mib_s", "write_mib_s", &ty, &[]).unwrap();
+        assert!(!hint.suggestion.contains("Mega"));
     }
 
     #[test]

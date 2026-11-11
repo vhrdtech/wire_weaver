@@ -379,14 +379,14 @@ pub trait Status {
         let wanted = device.ext_crates[idx].clone();
         assert_eq!(
             wire_weaver_snapshots::get(&wanted).and_then(|s| s.wire),
-            Some(WireVersion::new(1, 2))
+            Some(WireVersion::new(2, 0))
         );
         device.ext_crates[idx].version = VersionOwned::new(0, 4, 0);
-        device.set_crate_wire(idx as u32, Some(WireVersion::new(1, 3)));
+        device.set_crate_wire(idx as u32, Some(WireVersion::new(2, 1)));
         let found = find_trait(&device, &wanted, "BoardInfo");
         assert_eq!(found, Some(vec![UNib32(1)]));
 
-        device.set_crate_wire(idx as u32, Some(WireVersion::new(2, 0)));
+        device.set_crate_wire(idx as u32, Some(WireVersion::new(3, 0)));
         assert_eq!(find_trait(&device, &wanted, "BoardInfo"), None);
         // without the device's wire version, the crate versions decide: 0.4.0 is not 0.3.0
         device.set_crate_wire(idx as u32, None);

@@ -364,7 +364,12 @@ fn codec_spare(def: &syn::Expr) -> Result<Vec<CodeSpan>> {
         bail!("DEF `{}`: no `spare: ..`", quote::quote!(#def));
     };
     def_list_items(spare)
-        .with_context(|| format!("spare `{}`: def_list(&[CodeSpan, ..])", quote::quote!(#spare)))?
+        .with_context(|| {
+            format!(
+                "spare `{}`: def_list(&[CodeSpan, ..])",
+                quote::quote!(#spare)
+            )
+        })?
         .map(|e| {
             let span = code_span(e).with_context(|| format!("spare `{}`", quote::quote!(#e)))?;
             if span.low > span.high {
@@ -2869,7 +2874,10 @@ mod tests {
             "CodecShape::Table(def_list(&TABLE))",
         ));
         let err = format!("{:#}", codec_shape(&def).unwrap_err());
-        assert!(err.contains("TABLE") && err.contains("written out"), "{err}");
+        assert!(
+            err.contains("TABLE") && err.contains("written out"),
+            "{err}"
+        );
         // numbers the walker would have to evaluate, or that overflow
         for shape in [
             "CodecShape::Offset { zero: ZERO }",

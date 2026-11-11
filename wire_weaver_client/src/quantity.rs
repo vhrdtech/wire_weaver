@@ -256,10 +256,11 @@ impl fmt::Display for DynUnit {
 #[derive(Clone, Debug, PartialEq)]
 pub enum DynPrefix {
     Si(Prefix),
-    /// Written before the unit's symbol; empty for a factor shown as such (`3·2⁻¹⁵`).
+    /// Written before the unit's symbol; empty for a factor shown as such (`3·2⁻¹⁵`). The magnitude is boxed: it is
+    /// a few hundred bytes, which every `DynPrefix` would carry otherwise, the common [Si](Self::Si) one too.
     Exact {
         symbol: String,
-        magnitude: Magnitude,
+        magnitude: Box<Magnitude>,
     },
 }
 
@@ -272,7 +273,7 @@ impl DynPrefix {
             Some(p) => DynPrefix::Si(p),
             None => DynPrefix::Exact {
                 symbol: symbol.into(),
-                magnitude,
+                magnitude: Box::new(magnitude),
             },
         }
     }
@@ -281,7 +282,7 @@ impl DynPrefix {
     pub fn magnitude(&self) -> Option<Magnitude> {
         match self {
             DynPrefix::Si(p) => p.magnitude(),
-            DynPrefix::Exact { magnitude, .. } => Some(*magnitude),
+            DynPrefix::Exact { magnitude, .. } => Some(**magnitude),
         }
     }
 

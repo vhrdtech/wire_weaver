@@ -6057,9 +6057,14 @@ refused, naming the nearest one.</p>
 </span></code></pre></div>
 <p>Python's <code>ww.Quantity</code> has the code it was read as in <code>code</code> (128 for 0x80) beside the linear <code>value</code>. In Rust,
 <code>wire_weaver_client::quantity::coded_of(&amp;ty, &amp;bundle)</code> reads the type as a <code>CodedType</code> (the codec's definition, the
-linear <code>FixedType</code>, the code's storage), and <code>ww_self::units::codec_decode</code> / <code>codec_encode</code> run a definition. Only
-μ-law has an algorithm in <code>exact_units</code> so far; the walker reads the shapes without parameters (<code>MuLaw</code>, <code>ALaw</code>,
-<code>PiecewisePower</code>), and a codec whose shape has no algorithm yet is shown as its code.</p>
+linear <code>FixedType</code>, the code's storage), and <code>ww_self::units::codec_decode</code> / <code>codec_encode</code> run a definition. The
+walker reads every shape from the codec's source: <code>MuLaw</code>, <code>ALaw</code>, <code>Table</code> (CAN FD's data length code),
+<code>Offset</code> (video's narrow-range quantizers) and <code>MantissaExponent</code> (the streams' scales). A table the definition
+names is the array literal of a <code>const</code> in the codec's module, and its numbers are literals or <code>+</code>, <code>-</code>, <code>*</code> and
+<code>&lt;&lt;</code> of them: the walker evaluates no <code>const</code> code, so a table computed in one is refused, naming it. A codec whose
+shape has no algorithm yet (<code>ALaw</code>) is shown as its code. A generic codec, whose definition is one per instance
+(<code>exact_units::codec::Transfer&lt;Q, C&gt;</code>, a quantizer with a transfer curve), can't be used in an API yet: the walker
+refuses it, naming STD-112.</p>
 <p>A codec may name spare codes, codes that mean no value (<code>CodecDef::spare</code>, a list of <code>CodeSpan { low, high }</code>):
 <code>MuLawSingleZero</code> is μ-law with 0x7F spare, where <code>MuLaw</code> reads it as a second zero. A spare code read from the
 wire is refused, by the typed <code>Coded</code> and by every client from the definition in the model, with the code named:</p>

@@ -5749,7 +5749,7 @@
 
 <h1 id="rounding-and-overflow-at-run-time">Rounding and overflow at run time<a class="headerlink" href="#rounding-and-overflow-at-run-time" title="Permanent link">&para;</a></h1>
 <p><code>Fixed::to</code> converts only when the result is exact. Where losing part of a step is the intent, the conversion
-names how it rounds (<code>Rounding</code>: <code>Truncate</code>, <code>Floor</code>, <code>Ceil</code>, <code>NearestEven</code>, <code>NearestAway</code>) and what it does when
+names how it rounds (<code>Rounding</code>: <code>Truncate</code>, <code>Floor</code>, <code>Ceil</code>, <code>NearestEven</code>, <code>NearestAway</code>, <code>NearestCeil</code>) and what it does when
 the result doesn't fit (<code>Overflow</code>: <code>Checked</code>, <code>Saturate</code>, <code>Wrap</code>), or carries the overflow policy in its bounds
 type <code>B</code> (<code>Unbounded</code>, <code>Saturating</code>, <code>Wrapping</code>). See the book's
 <a href="https://exact.vhrd.tech/maths/rounding/">Rounding</a> and <a href="https://exact.vhrd.tech/maths/overflow/">Overflow</a>, and

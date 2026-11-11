@@ -928,92 +928,337 @@ fn len_expr(layout: &Layout, access: Access, cp: &CratePath) -> TokenStream {
     quote! { #head + #tail }
 }
 
-/// `writeln!` calls emitting the C defines and readers of a layout; `c_name` is the snake name of the struct or
-/// variant.
-fn c_fields(ty_ident: &Ident, prefix: &str, c_name: &str, layout: &Layout) -> Vec<TokenStream> {
-    let mut out = Vec::new();
+/// A `writeln!` of the C text `template` (literal braces), where `${name}` is replaced by the Rust expression of
+/// that name in `args`; `${pre}` is the prefix and `${up}` the prefix in upper case (in scope as `prefix`, `up`).
+pub(crate) fn c_line(template: &str, args: &[(&str, TokenStream)]) -> TokenStream {
+    let mut fmt = String::new();
+    let mut used: Vec<String> = Vec::new();
+    let mut chars = template.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '{' => fmt.push_str("{{"),
+            '}' => fmt.push_str("}}"),
+            '$' if chars.peek() == Some(&'{') => {
+                chars.next();
+                let name: String = chars.by_ref().take_while(|c| *c != '}').collect();
+                fmt.push('{');
+                fmt.push_str(&name);
+                fmt.push('}');
+                if !used.contains(&name) {
+                    used.push(name);
+                }
+            }
+            c => fmt.push(c),
+        }
+    }
+    let named = used.iter().map(|n| {
+        let id = format_ident!("{}", n);
+        let v = match n.as_str() {
+            "pre" => quote! { prefix },
+            "up" => quote! { up },
+            _ => args
+                .iter()
+                .find(|(a, _)| a == n)
+                .unwrap_or_else(|| panic!("no C template argument {n}"))
+                .1
+                .clone(),
+        };
+        quote! { #id = #v }
+    });
+    let fmt = lit_str(&fmt);
+    quote! { ::core::writeln!(out, #fmt #(, #named)*)?; }
+}
+
+/// The C name of a nested fixed-layout or head_tail type, a Rust expression.
+pub(crate) fn c_name_of(ty: &TokenStream, cp: &CratePath) -> TokenStream {
+    let ht = cp.item(quote! { head_tail::HeadTail });
+    quote! { <#ty as #ht<'static>>::C_NAME }
+}
+
+/// The C view type of a value of fixed layout (`${pre}{c_name}_view_t`) and the function that makes it from a
+/// buffer and its length, checking both; `what` names the value in the comments.
+fn c_view_typedef(c_name: &str, what: &str, made_by: &str) -> TokenStream {
+    c_line(
+        &format!(
+            "/* a checked view of {what}: made by ${{pre}}{made_by}(), the only way to read one; len bytes at p */\n\
+             typedef struct {{ const uint8_t *p; size_t len; }} ${{pre}}{c_name}_view_t;"
+        ),
+        &[],
+    )
+}
+
+/// `name` with its English indefinite article, for the comments of the C text.
+pub(crate) fn article(name: &str) -> String {
+    match name.chars().next() {
+        Some('A' | 'E' | 'I' | 'O' | 'U') => format!("an {name}"),
+        _ => format!("a {name}"),
+    }
+}
+
+/// C statements checking the layout's bytes at `buf` (`len` of them) and setting `n` to the value's length:
+/// the head, every nested value (an enum tag in one may be unknown) and the variable last field. `return -1` on
+/// a short or malformed value.
+fn c_check(layout: &Layout, ind: &str, cp: &CratePath) -> Vec<TokenStream> {
+    let line = |t: &str, args: &[(&str, TokenStream)]| {
+        let t: Vec<String> = t.lines().map(|l| format!("{ind}{l}")).collect();
+        c_line(&t.join("\n"), args)
+    };
+    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
+    let mut out = vec![line(
+        "    n = ${head}u;\n    if (len < n) { return -1; }",
+        &[("head", layout.head_len.clone())],
+    )];
+    let flag_of = |name: &str| {
+        layout.placed.iter().find_map(|p| match (&p.kind, &p.at) {
+            (Kind::Flag(t), At::Bit(off)) if unraw(t) == name => Some(off.clone()),
+            _ => None,
+        })
+    };
+    // a payload at `off`: its length, or its check when it is a nested type
+    let payload = |kind: &Kind, off: &TokenStream, ind: &str| -> TokenStream {
+        match kind {
+            Kind::Nested(ty) => line(
+                &format!(
+                    "{ind}{{ ${{pre}}${{n}}_view_t nv; if (${{pre}}${{n}}_view(buf + ${{off}}u, len - ${{off}}u, &nv) != 0) {{ return -1; }} n = ${{off}}u + nv.len; }}"
+                ),
+                &[("n", c_name_of(ty, cp)), ("off", off.clone())],
+            ),
+            other => line(
+                &format!("{ind}n = ${{off}}u + ${{len}}u;\n{ind}if (len < n) {{ return -1; }}"),
+                &[("off", off.clone()), ("len", payload_max(other, cp))],
+            ),
+        }
+    };
     for p in &layout.placed {
-        out.extend(c_field(ty_ident, prefix, c_name, &p.item.name, &p.kind));
+        let last = layout.tail && is_last(layout, p);
+        match (&p.kind, &p.at) {
+            (Kind::Nested(_), At::Byte(off)) if last => out.push(payload(&p.kind, off, "    ")),
+            (Kind::Nested(ty), At::Byte(off)) => out.push(line(
+                "    { ${pre}${n}_view_t nv; if (${pre}${n}_view(buf + ${off}u, ${len}u, &nv) != 0) { return -1; } }",
+                &[
+                    ("n", c_name_of(ty, cp)),
+                    ("off", off.clone()),
+                    ("len", quote! { <#ty as #fixed>::ENCODED_LEN }),
+                ],
+            )),
+            (Kind::Option(pl), At::Byte(off)) => {
+                let flag = flag_of(&p.item.name).expect("an Option has a flag");
+                out.push(line("    if (sw_fixed_bits(buf, ${flag}u, 1u) != 0u) {", &[("flag", flag)]));
+                out.push(payload(pl, off, "        "));
+                out.push(line("    }", &[]));
+            }
+            (Kind::Result(ok, err), At::Byte(off)) => {
+                let flag = flag_of(&p.item.name).expect("a Result has a flag");
+                out.push(line("    if (sw_fixed_bits(buf, ${flag}u, 1u) != 0u) {", &[("flag", flag)]));
+                out.push(payload(ok, off, "        "));
+                out.push(line("    } else {", &[]));
+                out.push(payload(err, off, "        "));
+                out.push(line("    }", &[]));
+            }
+            _ => {}
+        }
     }
     out
 }
 
+/// `writeln!` calls emitting the C defines and readers of a layout; `c_name` is the snake name of the struct or
+/// variant, `view` the C name of the view the readers take.
+fn c_fields(
+    ty_ident: &Ident,
+    prefix: &str,
+    c_name: &str,
+    view: &str,
+    layout: &Layout,
+    cp: &CratePath,
+) -> Vec<TokenStream> {
+    let mut out = Vec::new();
+    let param = format!("${{pre}}{view}_view_t v");
+    for p in &layout.placed {
+        let flag = match &p.kind {
+            Kind::Option(_) | Kind::Result(..) => {
+                layout.placed.iter().find_map(|f| match (&f.kind, &f.at) {
+                    (Kind::Flag(t), At::Bit(off)) if unraw(t) == p.item.name => Some(off.clone()),
+                    _ => None,
+                })
+            }
+            _ => None,
+        };
+        let last = layout.tail && is_last(layout, p);
+        out.extend(c_field(
+            ty_ident,
+            prefix,
+            c_name,
+            &CView {
+                param: &param,
+                p: "v.p",
+                len: "v.len",
+            },
+            &p.item.name,
+            &p.kind,
+            CExtra { last, flag },
+            cp,
+        ));
+    }
+    out
+}
+
+/// How a C reader takes its view: the parameter (C template text) and the expression of the pointer.
+pub(crate) struct CView<'a> {
+    pub(crate) param: &'a str,
+    pub(crate) p: &'a str,
+    pub(crate) len: &'a str,
+}
+
+/// What a C reader needs to know beyond the field: whether it is the variable last field of a fixed layout (its
+/// length is the rest of the view) and, for an Option or Result, the bit offset of its flag.
+#[derive(Default)]
+pub(crate) struct CExtra {
+    pub(crate) last: bool,
+    pub(crate) flag: Option<TokenStream>,
+}
+
 /// The C defines and reader of the field `name` (`kind`), from the consts `{prefix}{NAME}_OFFSET` (or
-/// `_BIT_OFFSET`) of `ty_ident`; `c_name` is the snake name of the struct or variant.
+/// `_BIT_OFFSET`) of `ty_ident`; `c_name` is the snake name of the struct or variant. Readers take a checked
+/// view (`view`) and stay in its bytes: an index past an array reads 0, a payload its flag doesn't select is an
+/// `int` reader that returns -1.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn c_field(
     ty_ident: &Ident,
     prefix: &str,
     c_name: &str,
+    view: &CView,
     name: &str,
     kind: &Kind,
+    extra: CExtra,
+    cp: &CratePath,
 ) -> Vec<TokenStream> {
+    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
     let upper = c_name.to_uppercase();
+    let fu = name.to_uppercase();
+    let func = format!("${{pre}}{c_name}_{name}");
+    let (param, vp, vlen) = (view.param, view.p, view.len);
     let mut out = Vec::new();
-    {
-        let fu = name.to_uppercase();
-        let func = format!("{c_name}_{name}");
-        match kind {
-            Kind::Bits(..) | Kind::Flag(_) => {
-                let n = match kind {
-                    Kind::Bits(n, _) => *n,
-                    _ => 1,
-                };
-                let off_const = format_ident!("{prefix}{fu}_BIT_OFFSET");
-                let define = lit_str(&format!("#define {{}}{upper}_{fu}_BIT_OFFSET {{}}u"));
-                let define_n = lit_str(&format!("#define {{}}{upper}_{fu}_BITS {n}u"));
-                let signed = matches!(kind, Kind::Bits(_, Bits::Signed(_)));
-                let text = if signed {
-                    format!(
-                        "static inline int32_t {{}}{func}(const uint8_t *p) {{{{ return sw_fixed_sbits(p, {{}}u, {n}u); }}}}"
-                    )
-                } else {
-                    format!(
-                        "static inline uint32_t {{}}{func}(const uint8_t *p) {{{{ return sw_fixed_bits(p, {{}}u, {n}u); }}}}"
-                    )
-                };
-                let text = lit_str(&text);
-                out.push(quote! {
-                    ::core::writeln!(out, #define, up, #ty_ident::#off_const)?;
-                    ::core::writeln!(out, #define_n, up)?;
-                    ::core::writeln!(out, #text, prefix, #ty_ident::#off_const)?;
-                });
-            }
-            kind => {
-                let off_const = format_ident!("{prefix}{fu}_OFFSET");
-                let define = lit_str(&format!("#define {{}}{upper}_{fu}_OFFSET {{}}u"));
-                out.push(quote! { ::core::writeln!(out, #define, up, #ty_ident::#off_const)?; });
-                let payloads: Vec<(String, &Kind)> = match kind {
-                    Kind::Option(p) => vec![(func.clone(), p)],
-                    Kind::Result(o, e) => {
-                        vec![(format!("{func}_ok"), o), (format!("{func}_err"), e)]
-                    }
-                    other => vec![(func.clone(), other)],
-                };
-                for (func, kind) in payloads {
-                    let text = match kind {
+    match kind {
+        Kind::Bits(..) | Kind::Flag(_) => {
+            let n = match kind {
+                Kind::Bits(n, _) => *n,
+                _ => 1,
+            };
+            let off = format_ident!("{prefix}{fu}_BIT_OFFSET");
+            let (ty, load) = if matches!(kind, Kind::Bits(_, Bits::Signed(_))) {
+                ("int32_t", "sw_fixed_sbits")
+            } else {
+                ("uint32_t", "sw_fixed_bits")
+            };
+            out.push(c_line(
+                &format!(
+                    "#define ${{up}}{upper}_{fu}_BIT_OFFSET ${{off}}u\n#define ${{up}}{upper}_{fu}_BITS {n}u\n\
+                     static inline {ty} {func}({param}) {{ return {load}({vp}, ${{off}}u, {n}u); }}"
+                ),
+                &[("off", quote! { #ty_ident::#off })],
+            ));
+        }
+        kind => {
+            let off_ident = format_ident!("{prefix}{fu}_OFFSET");
+            let off = quote! { #ty_ident::#off_ident };
+            out.push(c_line(
+                &format!("#define ${{up}}{upper}_{fu}_OFFSET ${{off}}u"),
+                &[("off", off.clone())],
+            ));
+            let payloads: Vec<(String, &Kind, Option<&str>)> = match kind {
+                Kind::Option(p) => vec![(func.clone(), p, Some("!= 0u"))],
+                Kind::Result(o, e) => vec![
+                    (format!("{func}_ok"), o, Some("!= 0u")),
+                    (format!("{func}_err"), e, Some("== 0u")),
+                ],
+                other => vec![(func.clone(), other, None)],
+            };
+            for (func, kind, present) in payloads {
+                let mut args = vec![("off", off.clone())];
+                let text = match present {
+                    None => match kind {
                         Kind::Prim(p) => format!(
-                            "static inline {} {{}}{func}(const uint8_t *p) {{{{ return {}; }}}}",
+                            "static inline {} {func}({param}) {{ return {}; }}",
                             p.c_ty(),
-                            p.c_load("p + {}u")
+                            p.c_load(&format!("{vp} + ${{off}}u"))
                         ),
-                        Kind::Array(_, Prim::U8) | Kind::Nested(_) => format!(
-                            "static inline const uint8_t *{{}}{func}(const uint8_t *p) {{{{ return p + {{}}u; }}}}"
-                        ),
-                        Kind::Array(_, p) => format!(
-                            "static inline {} {{}}{func}(const uint8_t *p, size_t i) {{{{ return {}; }}}}",
-                            p.c_ty(),
-                            p.c_load(&format!("p + {{}}u + {}u * i", p.bytes()))
-                        ),
+                        Kind::Array(_, Prim::U8) => {
+                            format!(
+                                "static inline const uint8_t *{func}({param}) {{ return {vp} + ${{off}}u; }}"
+                            )
+                        }
+                        Kind::Array(len, p) => {
+                            args.push(("count", quote! { (#len) }));
+                            format!(
+                                "/* item i, 0 past the end */\nstatic inline {} {func}({param}, size_t i) {{\n    \
+                                 if (i >= ${{count}}u) {{ return 0; }}\n    return {};\n}}",
+                                p.c_ty(),
+                                p.c_load(&format!("{vp} + ${{off}}u + {}u * i", p.bytes()))
+                            )
+                        }
+                        Kind::Nested(ty) => {
+                            args.push(("n", c_name_of(ty, cp)));
+                            let len = if extra.last {
+                                format!("{vlen} - ${{off}}u")
+                            } else {
+                                args.push(("len", quote! { <#ty as #fixed>::ENCODED_LEN }));
+                                "${len}u".to_string()
+                            };
+                            format!(
+                                "static inline ${{pre}}${{n}}_view_t {func}({param}) {{\n    ${{pre}}${{n}}_view_t r;\n    \
+                                 r.p = {vp} + ${{off}}u;\n    r.len = {len};\n    return r;\n}}"
+                            )
+                        }
                         _ => unreachable!("payloads are byte-aligned"),
-                    };
-                    let text = lit_str(&text);
-                    out.push(
-                        quote! { ::core::writeln!(out, #text, prefix, #ty_ident::#off_const)?; },
-                    );
-                    if let Kind::Array(len, _) = kind {
-                        let define = lit_str(&format!("#define {{}}{upper}_{fu}_COUNT {{}}u"));
-                        out.push(quote! { ::core::writeln!(out, #define, up, #len)?; });
+                    },
+                    Some(present) => {
+                        args.push((
+                            "flag",
+                            extra.flag.clone().expect("a flag for an Option or Result"),
+                        ));
+                        let open = format!("SW_NODISCARD static inline int {func}({param}");
+                        let absent = format!("sw_fixed_bits({vp}, ${{flag}}u, 1u) {present}");
+                        let absent = format!("!({absent})");
+                        match kind {
+                            Kind::Prim(p) => format!(
+                                "/* sets *out and returns 0, or returns -1 (*out 0) when the flag says it is not there */\n{open}, {} *out) {{\n    \
+                                 if ({absent}) {{ *out = 0; return -1; }}\n    *out = {};\n    return 0;\n}}",
+                                p.c_ty(),
+                                p.c_load(&format!("{vp} + ${{off}}u"))
+                            ),
+                            Kind::Array(_, Prim::U8) => format!(
+                                "/* sets *out and returns 0, or returns -1 (*out NULL) when the flag says it is not there */\n{open}, const uint8_t **out) {{\n    \
+                                 if ({absent}) {{ *out = NULL; return -1; }}\n    *out = {vp} + ${{off}}u;\n    return 0;\n}}"
+                            ),
+                            Kind::Array(len, p) => {
+                                args.push(("count", quote! { (#len) }));
+                                format!(
+                                    "/* sets *out to item i and returns 0, or returns -1 (*out 0) when the flag says it is not there or i is past the end */\n\
+                                     {open}, size_t i, {} *out) {{\n    \
+                                     if ({absent} || i >= ${{count}}u) {{ *out = 0; return -1; }}\n    *out = {};\n    return 0;\n}}",
+                                    p.c_ty(),
+                                    p.c_load(&format!("{vp} + ${{off}}u + {}u * i", p.bytes()))
+                                )
+                            }
+                            Kind::Nested(ty) => {
+                                args.push(("n", c_name_of(ty, cp)));
+                                format!(
+                                    "/* sets *out to its view and returns 0, or returns -1 (*out empty) when the flag says it is not there */\n\
+                                     {open}, ${{pre}}${{n}}_view_t *out) {{\n    \
+                                     if ({absent}) {{ out->p = NULL; out->len = 0u; return -1; }}\n    \
+                                     out->p = {vp} + ${{off}}u;\n    out->len = {vlen} - ${{off}}u;\n    return 0;\n}}"
+                                )
+                            }
+                            _ => unreachable!("payloads are byte-aligned"),
+                        }
                     }
+                };
+                out.push(c_line(&text, &args));
+                if let Kind::Array(len, _) = kind {
+                    out.push(c_line(
+                        &format!("#define ${{up}}{upper}_{fu}_COUNT ${{count}}u"),
+                        &[("count", quote! { (#len) })],
+                    ));
                 }
             }
         }
@@ -1124,10 +1369,40 @@ pub(crate) fn fixed_struct(
 
     let c_name = snake(&ident.to_string());
     let c_upper = c_name.to_uppercase();
-    let c_head = lit_str(&format!("\n/* {ident}: {{}} to {{}} bytes */"));
-    let c_len = lit_str(&format!("#define {{}}{c_upper}_LEN {{}}u"));
-    let c_min = lit_str(&format!("#define {{}}{c_upper}_MIN_LEN {{}}u"));
-    let c_fields = c_fields(ident, "", &c_name, &layout);
+    let mut c_text = vec![
+        c_line(
+            &format!(
+                "\n/* {ident}: ${{min}} to ${{max}} bytes */\n#define ${{up}}{c_upper}_LEN ${{max}}u\n\
+                 #define ${{up}}{c_upper}_MIN_LEN ${{min}}u"
+            ),
+            &[
+                ("min", quote! { #ident::MIN_LEN }),
+                ("max", quote! { #ident::ENCODED_LEN }),
+            ],
+        ),
+        c_view_typedef(
+            &c_name,
+            &article(&ident.to_string()),
+            &format!("{c_name}_view"),
+        ),
+        c_line(
+            &format!(
+                "/* checks that the len bytes at buf start with {} and makes *v its view (v->len: its length); \
+                 0, or -1 (*v empty) when they are too short or malformed */\n\
+                 SW_NODISCARD static inline int ${{pre}}{c_name}_view(const uint8_t *buf, size_t len, \
+                 ${{pre}}{c_name}_view_t *v) {{\n    size_t n;\n    v->p = NULL;\n    v->len = 0u;\n    \
+                 if (buf == NULL) {{ return -1; }}",
+                article(&ident.to_string())
+            ),
+            &[],
+        ),
+    ];
+    c_text.extend(c_check(&layout, "", cp));
+    c_text.push(c_line(
+        "    v->p = buf;\n    v->len = n;\n    return 0;\n}",
+        &[],
+    ));
+    c_text.extend(c_fields(ident, "", &c_name, &c_name, &layout, cp));
     let doc_len = lit_str(&format!(
         " Longest encoding of `{ident}` in bytes: the buffer that holds every value. One value takes \
          [fixed_len](Self::fixed_len) bytes, the same unless the last field has a variable length."
@@ -1196,10 +1471,7 @@ pub(crate) fn fixed_struct(
 
             fn write_c(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {
                 let up = #upper_ty(prefix);
-                ::core::writeln!(out, #c_head, #ident::MIN_LEN, #ident::ENCODED_LEN)?;
-                ::core::writeln!(out, #c_len, up, #ident::ENCODED_LEN)?;
-                ::core::writeln!(out, #c_min, up, #ident::MIN_LEN)?;
-                #(#c_fields)*
+                #(#c_text)*
                 Ok(())
             }
         }
@@ -1312,16 +1584,41 @@ pub(crate) fn fixed_enum(
     let mut read_arms = Vec::new();
     let mut write_arms = Vec::new();
     let mut len_arms = Vec::new();
-    let mut c_text = Vec::new();
-    let mut c_len_cases = Vec::new();
-    let tag_tl = lit_str(&format!("#define {{}}{c_upper}_TAG_LEN {{}}u"));
-    c_text.push(quote! { ::core::writeln!(out, #tag_tl, up, #tag_len)?; });
-    let tag_fn = lit_str(&format!(
-        "static inline {} {{}}{c_name}_tag(const uint8_t *p) {{{{ return {}; }}}}",
-        tag_prim.c_ty(),
-        tag_prim.c_load("p")
-    ));
-    c_text.push(quote! { ::core::writeln!(out, #tag_fn, prefix)?; });
+    let mut c_text = vec![
+        c_line(
+            &format!(
+                "\n/* {ident}: a {tag_len}-byte tag, then the fields of its variant */\n\
+                 #define ${{up}}{c_upper}_TAG_LEN {tag_len}u"
+            ),
+            &[],
+        ),
+        c_view_typedef(
+            &c_name,
+            &article(&ident.to_string()),
+            &format!("{c_name}_view"),
+        ),
+        c_line(
+            &format!(
+                "static inline {} ${{pre}}{c_name}_tag(${{pre}}{c_name}_view_t v) {{ return {}; }}",
+                tag_prim.c_ty(),
+                tag_prim.c_load("v.p")
+            ),
+            &[],
+        ),
+        c_line(
+            &format!(
+                "/* checks that the len bytes at buf start with {} of a known tag and makes *v its view \
+                 (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */\n\
+                 SW_NODISCARD static inline int ${{pre}}{c_name}_view(const uint8_t *buf, size_t len, \
+                 ${{pre}}{c_name}_view_t *v) {{\n    size_t n;\n    v->p = NULL;\n    v->len = 0u;\n    \
+                 if (buf == NULL || len < {tag_len}u) {{ return -1; }}\n    switch ({}) {{",
+                article(&ident.to_string()),
+                tag_prim.c_load("buf")
+            ),
+            &[],
+        ),
+    ];
+    let mut c_variants = Vec::new();
 
     for (v, layout) in &layouts {
         let vs = snake(&v.ident.to_string());
@@ -1440,31 +1737,42 @@ pub(crate) fn fixed_enum(
         });
         len_arms.push(quote! { #pattern => #len, });
 
-        let c_tag = lit_str(&format!("#define {{}}{c_upper}_{vu} {{}}u"));
-        let c_len = lit_str(&format!("#define {{}}{c_upper}_{vu}_LEN {{}}u"));
-        c_text.push(quote! {
-            ::core::writeln!(out, #c_tag, up, #ident::#tag_name)?;
-            ::core::writeln!(out, #c_len, up, #ident::#len_name)?;
-        });
-        c_text.extend(c_fields(
-            ident,
-            &format!("{vu}_"),
-            &format!("{c_name}_{vs}"),
-            layout,
+        c_variants.push(c_line(
+            &format!("#define ${{up}}{c_upper}_{vu} ${{tag}}u\n#define ${{up}}{c_upper}_{vu}_LEN ${{len}}u"),
+            &[("tag", quote! { #ident::#tag_name }), ("len", quote! { #ident::#len_name })],
         ));
-        let case = lit_str("    case {}u: return {}u;");
-        c_len_cases
-            .push(quote! { ::core::writeln!(out, #case, #ident::#tag_name, #ident::#head_name)?; });
+        if !layout.placed.is_empty() {
+            let vc = format!("{c_name}_{vs}");
+            c_variants.push(c_view_typedef(
+                &vc,
+                &article(&format!("{ident}::{}", v.ident)),
+                &format!("{c_name}_as_{vs}"),
+            ));
+            c_variants.push(c_line(
+                &format!(
+                    "/* makes *out the view of v's {} variant and returns 0, or returns -1 (*out empty) for another tag */\n\
+                     SW_NODISCARD static inline int ${{pre}}{c_name}_as_{vs}(${{pre}}{c_name}_view_t v, \
+                     ${{pre}}{vc}_view_t *out) {{\n    if (${{pre}}{c_name}_tag(v) != ${{tag}}u) {{ out->p = NULL; \
+                     out->len = 0u; return -1; }}\n    out->p = v.p;\n    out->len = v.len;\n    return 0;\n}}",
+                    v.ident
+                ),
+                &[("tag", quote! { #ident::#tag_name })],
+            ));
+            c_variants.extend(c_fields(ident, &format!("{vu}_"), &vc, &vc, layout, cp));
+        }
+        c_text.push(c_line(
+            "    case ${tag}u:",
+            &[("tag", quote! { #ident::#tag_name })],
+        ));
+        c_text.extend(c_check(layout, "    ", cp));
+        c_text.push(c_line("        break;", &[]));
     }
 
-    let c_head = lit_str(&format!(
-        "\n/* {ident}: a {tag_len}-byte tag, then the fields of its variant */"
+    c_text.push(c_line(
+        "    default:\n        return -1;\n    }\n    v->p = buf;\n    v->len = n;\n    return 0;\n}",
+        &[],
     ));
-    let c_len_fn = lit_str(&format!(
-        "/* length of the value with this tag before a variable last field (the whole value when there is none), \
-         0 for an unknown tag */\nstatic inline size_t {{}}{c_name}_len(uint32_t tag) {{{{\n    switch (tag) {{{{"
-    ));
-    let c_len_end = lit_str("    default: return 0u;\n    }}\n}}");
+    c_text.extend(c_variants);
     let first_max = &max_names[0];
     let rest_max = &max_names[1..];
     let first_min = &min_names[0];
@@ -1548,11 +1856,7 @@ pub(crate) fn fixed_enum(
 
             fn write_c(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {
                 let up = #upper_ty(prefix);
-                ::core::writeln!(out, #c_head)?;
                 #(#c_text)*
-                ::core::writeln!(out, #c_len_fn, prefix)?;
-                #(#c_len_cases)*
-                ::core::writeln!(out, #c_len_end)?;
                 Ok(())
             }
         }

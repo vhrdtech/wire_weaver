@@ -63,6 +63,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-12 | Writing in place | Builders that write a value straight into the output buffer, and patching a field after the rest is written. | serdes/showcase.md
 - SW-44, SW-45 | Fixed layouts | Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header. | serdes/layouts.md#fixed_layout-fields-at-fixed-offsets
 - SW-46, SW-52, SW-54 | Fixed head, sequential tail | `head_tail`, a format of its own for small firmware, with views that read fields on demand and a writer per enum variant. | serdes/layouts.md#head_tail-a-fixed-head-and-a-sequential-tail
+- SW-79 | Checked C views | The generated C readers take a view made from the buffer and its length, so C code can't read a field past the end of the bytes it was given. | c.md#generated-readers
 - SW-43 | `shrink_wrap` in C | A C99 reader and writer of the same format, no `malloc`. | c.md
 
 ## Nomicon

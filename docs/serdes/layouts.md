@@ -47,8 +47,9 @@ What gets generated:
 - `from_fixed(&[u8])` and `to_fixed(&mut [u8])`: loads and stores (shifts and masks for bit fields) at those
   offsets, without a `BufReader` or `BufWriter`. The bytes are those of `ser_shrink_wrap`. A short buffer is an
   error, never a panic.
-- The `FixedLayout` trait, whose `write_c` prints the C reader of the type: a define per offset and a
-  `static inline` reader per field (`shrink_wrap::fixed_layout::write_c_header` writes a whole header).
+- The `FixedLayout` trait, whose `write_c` prints the C reader of the type: a define per offset, a checked view made
+  from the buffer and its length, and a `static inline` reader per field that takes the view
+  (`shrink_wrap::fixed_layout::write_c_header` writes a whole header, see [ShrinkWrap in C](../c.md#generated-readers)).
 
 On a Cortex-M0, decoding a header of eight integers takes 276 bytes of code this way and 484 through `BufReader`; a
 bit-packed sample 276 instead of 652 ([code size](code_size.md#fixed-layout-fast-path)).
@@ -124,9 +125,9 @@ let n = utx.to_head_tail(&mut buf)?;
 
 It is one type with one format: a `head_tail` type has no `SerializeShrinkWrap` / `DeserializeShrinkWrap` (and no
 owned version), so it can't be a field of an ordinary `shrink_wrap` type or a WireWeaver API argument.
-`write_c_ht` prints the C reader: head defines and readers as for `fixed_layout`, and per type a `<name>_tail_t` and
-a `<name>_tail()` that walks the tail and points at each variable part (`shrink_wrap::head_tail::write_c_header`
-writes a whole header).
+`write_c_ht` prints the C reader: head defines as for `fixed_layout`, and per type a checked view, `<name>_view()`,
+that walks the tail and keeps each variable part, with a reader per field (`shrink_wrap::head_tail::write_c_header`
+writes a whole header, see [ShrinkWrap in C](../c.md#generated-readers)).
 
 ### Views and writers
 

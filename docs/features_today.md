@@ -66,6 +66,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Writing in place](serdes/showcase.md)**: Builders that write a value straight into the output buffer, and patching a field after the rest is written.
 - **[Fixed layouts](serdes/layouts.md#fixed_layout-fields-at-fixed-offsets)**: Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header.
 - **[Fixed head, sequential tail](serdes/layouts.md#head_tail-a-fixed-head-and-a-sequential-tail)**: `head_tail`, a format of its own for small firmware, with views that read fields on demand and a writer per enum variant.
+- **[Checked C views](c.md#generated-readers)**: The generated C readers take a view made from the buffer and its length, so C code can't read a field past the end of the bytes it was given.
 - **[`shrink_wrap` in C](c.md)**: A C99 reader and writer of the same format, no `malloc`.
 
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>

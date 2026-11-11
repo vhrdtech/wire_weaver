@@ -4,8 +4,9 @@
 //!   through `shrink_wrap_c`'s FFI, the calls chosen from the type in the API model (as generated C would make
 //!   them);
 //! * a `fixed_layout` type (SW-44, SW-45): the generated C reader (`FixedLayout::write_c`), compiled with `cc`
-//!   and run on the golden bytes, every field compared with the case's value;
-//! * a `head_tail` type (SW-46): its generated C reader and tail walker, the same way.
+//!   and run on the golden bytes: its checked view (SW-79) made from exactly them and refused on every shorter
+//!   prefix, every field compared with the case's value;
+//! * a `head_tail` type (SW-46): its generated C view and tail walker, the same way.
 //!
 //! The requantize cases (STD-63) run through `sw_requantize()` (`shrink_wrap/c/sw_requantize.c`, CLT-54) in one
 //! generated program: [requantize].
@@ -294,7 +295,7 @@ fn run_generated() -> HashMap<String, crate::DecodeResult> {
             head_tail_checks(&case.ty, fields, &case.value, golden.len(), &mut checks)
         } else {
             let ty = property_ty(&case.ty).expect("fixed types are in the API model");
-            fixed_checks(ty, &case.value, "p", Some(golden.len()), &mut checks)
+            fixed_top_checks(ty, &case.value, golden.len(), &mut checks)
         };
         if let Err(e) = result {
             panic!("case '{}': no C checks for it: {e}", case.name);
@@ -308,6 +309,9 @@ fn run_generated() -> HashMap<String, crate::DecodeResult> {
         for (pre, check) in checks {
             if !pre.is_empty() {
                 let _ = writeln!(program, "    {pre}");
+            }
+            if check.is_empty() {
+                continue;
             }
             let _ = writeln!(
                 program,
@@ -414,13 +418,76 @@ fn literal(j: &J, base: &B) -> Result<String, String> {
     })
 }
 
-/// Checks of a fixed-layout value `j` of type `ty` at C pointer `p`: `(statement before, condition)` pairs;
-/// `len` is the golden length for the top-level value.
+/// A fresh C variable name, for the views and outputs of the checks.
+fn fresh(what: &str) -> String {
+    static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    format!(
+        "{what}{}",
+        N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}
+
+/// The C type of a number read through an out parameter.
+fn c_num_ty(base: &B) -> Result<&'static str, String> {
+    Ok(match base {
+        B::U8 => "uint8_t",
+        B::U16 => "uint16_t",
+        B::U32 => "uint32_t",
+        B::U64 => "uint64_t",
+        B::I8 => "int8_t",
+        B::I16 => "int16_t",
+        B::I32 => "int32_t",
+        B::I64 => "int64_t",
+        B::F32 => "float",
+        B::F64 => "double",
+        other => return Err(format!("no C out type for {other:?}")),
+    })
+}
+
+/// The C name of a struct or enum of the model.
+fn c_name_of(ty: &TypeOwned) -> Result<String, String> {
+    match ty.get_in_line(bundle()).map_err(|e| format!("{e:#}"))? {
+        TypeOwned::Struct(s) => Ok(format!("{PREFIX}{}", snake(&s.ident))),
+        TypeOwned::Enum(e) => Ok(format!("{PREFIX}{}", snake(&e.ident))),
+        other => Err(format!("{other:?} has no C view")),
+    }
+}
+
+/// Checks of a top-level fixed-layout value `j` of type `ty` in the golden bytes at `p` (`len` of them): its view is
+/// made with that length and with no shorter one (SW-79), then [fixed_checks] on it.
+fn fixed_top_checks(
+    ty: &TypeOwned,
+    j: &J,
+    len: usize,
+    out: &mut Vec<(String, String)>,
+) -> Result<(), String> {
+    let c = c_name_of(ty)?;
+    let v = fresh("v");
+    out.push((
+        format!("{c}_view_t {v}; int {v}_made = {c}_view(p, {len}u, &{v});"),
+        format!("{v}_made == 0 && {v}.p == p && {v}.len == {len}u"),
+    ));
+    out.push((
+        format!(
+            "int {v}_short = 1; for (size_t cut = 0; cut < {len}u; cut++) {{ {c}_view_t s; \
+             if ({c}_view(p, cut, &s) != -1 || s.p != NULL) {{ {v}_short = 0; }} }}"
+        ),
+        format!("{v}_short && {c}_view(NULL, {len}u, &{v}) == -1"),
+    ));
+    // the view again: the NULL check emptied it
+    out.push((
+        format!("{v}_made = {c}_view(p, {len}u, &{v});"),
+        format!("{v}_made == 0"),
+    ));
+    fixed_checks(ty, j, &v, out)
+}
+
+/// Checks of a fixed-layout value `j` of type `ty` whose checked view is the C expression `v`: `(statement
+/// before, condition)` pairs.
 fn fixed_checks(
     ty: &TypeOwned,
     j: &J,
-    p: &str,
-    len: Option<usize>,
+    v: &str,
     out: &mut Vec<(String, String)>,
 ) -> Result<(), String> {
     let ty = ty.get_in_line(bundle()).map_err(|e| format!("{e:#}"))?;
@@ -431,20 +498,10 @@ fn fixed_checks(
                 return Err("named fields expected".into());
             };
             let o = j.as_object().ok_or("an object expected")?;
-            let mut variable = false;
             for f in fields.iter().filter(|f| !f.is_flag()) {
                 let name = f.ident.as_deref().unwrap_or_default();
-                let v = o.get(name).ok_or_else(|| format!("field {name} missing"))?;
-                let acc = format!("{c}_{name}");
-                variable |= field_checks(&f.ty, v, &acc, p, out)?;
-            }
-            if let Some(len) = len {
-                let macro_ = format!("{}_LEN", c.to_uppercase());
-                if variable {
-                    out.push((String::new(), format!("{macro_} >= {len}u")));
-                } else {
-                    out.push((String::new(), format!("{macro_} == {len}u")));
-                }
+                let val = o.get(name).ok_or_else(|| format!("field {name} missing"))?;
+                field_checks(&f.ty, val, &format!("{c}_{name}"), v, out)?;
             }
         }
         TypeOwned::Enum(e) => {
@@ -465,17 +522,19 @@ fn fixed_checks(
             let vc = snake(&variant);
             out.push((
                 String::new(),
-                format!("{c}_tag({p}) == {}_{}", c.to_uppercase(), vc.to_uppercase()),
+                format!("{c}_tag({v}) == {}_{}", c.to_uppercase(), vc.to_uppercase()),
             ));
-            if let Some(len) = len {
-                out.push((String::new(), format!("{c}_len({c}_tag({p})) == {len}u")));
-            }
             if let (Some(payload), FieldsOwned::Named(fields)) = (payload, &def.fields) {
+                let vv = fresh("vv");
+                out.push((
+                    format!("{c}_{vc}_view_t {vv}; int {vv}_as = {c}_as_{vc}({v}, &{vv});"),
+                    format!("{vv}_as == 0"),
+                ));
                 let o = payload.as_object().ok_or("variant fields expected")?;
                 for f in fields.iter().filter(|f| !f.is_flag()) {
                     let name = f.ident.as_deref().unwrap_or_default();
-                    let v = o.get(name).ok_or_else(|| format!("field {name} missing"))?;
-                    field_checks(&f.ty, v, &format!("{c}_{vc}_{name}"), p, out)?;
+                    let val = o.get(name).ok_or_else(|| format!("field {name} missing"))?;
+                    field_checks(&f.ty, val, &format!("{c}_{vc}_{name}"), &vv, out)?;
                 }
             }
         }
@@ -484,68 +543,93 @@ fn fixed_checks(
     Ok(())
 }
 
-/// Checks of one field read with accessor `acc` (the generated `<type>_<field>`); `true` for a variable one.
+/// Checks of one field read with accessor `acc` (the generated `<type>_<field>`) from the view `v`.
 fn field_checks(
     ty: &TypeOwned,
-    v: &J,
+    val: &J,
     acc: &str,
-    p: &str,
+    v: &str,
     out: &mut Vec<(String, String)>,
-) -> Result<bool, String> {
+) -> Result<(), String> {
     let ty = ty.get_in_line(bundle()).map_err(|e| format!("{e:#}"))?;
     match ty {
         TypeOwned::Bool => {
-            let b = v.as_bool().ok_or("a bool expected")?;
-            out.push((String::new(), format!("{acc}({p}) == {}u", b as u8)));
+            let b = val.as_bool().ok_or("a bool expected")?;
+            out.push((String::new(), format!("{acc}({v}) == {}u", b as u8)));
         }
         TypeOwned::NumericAny(NumericAnyTypeOwned::Base(base)) => {
             out.push((
                 String::new(),
-                format!("{acc}({p}) == {}", literal(v, base)?),
+                format!("{acc}({v}) == {}", literal(val, base)?),
             ));
         }
         TypeOwned::Array { ty: inner, .. } => {
-            let items = v.as_array().ok_or("a list expected")?;
+            let items = val.as_array().ok_or("a list expected")?;
             let base = base_of(inner.get_in_line(bundle()).map_err(|e| format!("{e:#}"))?)
                 .ok_or("arrays of numbers only")?;
             for (i, item) in items.iter().enumerate() {
                 let read = if *base == B::U8 {
-                    format!("{acc}({p})[{i}]")
+                    format!("{acc}({v})[{i}]")
                 } else {
-                    format!("{acc}({p}, {i}u)")
+                    format!("{acc}({v}, {i}u)")
                 };
                 out.push((String::new(), format!("{read} == {}", literal(item, base)?)));
             }
+            if *base != B::U8 {
+                // an index past the end reads 0
+                out.push((String::new(), format!("{acc}({v}, {}u) == 0", items.len())));
+            }
         }
         TypeOwned::Struct(_) | TypeOwned::Enum(_) => {
-            fixed_checks(ty, v, &format!("{acc}({p})"), None, out)?;
+            fixed_checks(ty, val, &format!("{acc}({v})"), out)?;
         }
         TypeOwned::Option { some_ty } => {
             out.push((
                 String::new(),
-                format!("{acc}_flag({p}) == {}u", !v.is_null() as u8),
+                format!("{acc}_flag({v}) == {}u", !val.is_null() as u8),
             ));
-            if !v.is_null() {
-                let some = some_ty
-                    .get_in_line(bundle())
-                    .map_err(|e| format!("{e:#}"))?;
-                match base_of(some) {
-                    // a number payload is read by the field's accessor
-                    Some(base) => out.push((
+            let some = some_ty
+                .get_in_line(bundle())
+                .map_err(|e| format!("{e:#}"))?;
+            let o = fresh("o");
+            match base_of(some) {
+                Some(base) => {
+                    let cty = c_num_ty(base)?;
+                    out.push((
+                        format!("{cty} {o}; int {o}_got = {acc}({v}, &{o});"),
                         String::new(),
-                        format!("{acc}({p}) == {}", literal(v, base)?),
-                    )),
-                    None => fixed_checks(some, v, &format!("{acc}({p})"), None, out)?,
+                    ));
+                    if val.is_null() {
+                        out.push((String::new(), format!("{o}_got == -1 && {o} == 0")));
+                    } else {
+                        out.push((
+                            String::new(),
+                            format!("{o}_got == 0 && {o} == {}", literal(val, base)?),
+                        ));
+                    }
+                }
+                None => {
+                    let n = c_name_of(some)?;
+                    out.push((
+                        format!("{n}_view_t {o}; int {o}_got = {acc}({v}, &{o});"),
+                        String::new(),
+                    ));
+                    if val.is_null() {
+                        out.push((String::new(), format!("{o}_got == -1 && {o}.p == NULL")));
+                    } else {
+                        out.push((String::new(), format!("{o}_got == 0")));
+                        fixed_checks(some, val, &o, out)?;
+                    }
                 }
             }
-            return Ok(true);
         }
         other => return Err(format!("no C reader check for {other:?}")),
     }
-    Ok(false)
+    Ok(())
 }
 
-/// Checks of a `head_tail` value: the head's fields, the tail walked to the end of the golden bytes.
+/// Checks of a `head_tail` value: its view made from exactly the golden bytes and no fewer, the head's fields, the
+/// variable parts.
 fn head_tail_checks(
     ty: &str,
     fields: &[(&str, Ht)],
@@ -554,69 +638,73 @@ fn head_tail_checks(
     out: &mut Vec<(String, String)>,
 ) -> Result<(), String> {
     let c = format!("{PREFIX}{}", snake(ty));
-    let upper = c.to_uppercase();
     let o = j.as_object().ok_or("an object expected")?;
     out.push((
         format!(
-            "const uint8_t *t = p + {upper}_HEAD_LEN; {c}_tail_t tl; int walked = {c}_tail(p, &t, p + {len}u, &tl);"
+            "{c}_view_t v; int made = {c}_view(p, {len}u, &v); int short_ok = 1; \
+             for (size_t cut = 0; cut < {len}u; cut++) {{ {c}_view_t s; if ({c}_view(p, cut, &s) != -1) {{ short_ok = 0; }} }}"
         ),
-        format!("walked == 0 && t == p + {len}u"),
+        format!("made == 0 && v.p == p && v.len == {len}u && short_ok"),
     ));
     for (name, kind) in fields {
-        let v = o
+        let val = o
             .get(*name)
             .ok_or_else(|| format!("field {name} missing"))?;
         let acc = format!("{c}_{name}");
         match kind {
             Ht::U8 => out.push((
                 String::new(),
-                format!("{acc}(p) == {}", literal(v, &B::U8)?),
+                format!("{acc}(&v) == {}", literal(val, &B::U8)?),
             )),
             Ht::Bit => out.push((
                 String::new(),
                 format!(
-                    "{acc}(p) == {}u",
-                    v.as_bool().ok_or("a bool expected")? as u8
+                    "{acc}(&v) == {}u",
+                    val.as_bool().ok_or("a bool expected")? as u8
                 ),
             )),
             Ht::OptionU16 => {
                 out.push((
                     String::new(),
-                    format!("{acc}_flag(p) == {}u", !v.is_null() as u8),
+                    format!("{acc}_flag(&v) == {}u", !val.is_null() as u8),
                 ));
-                if v.is_null() {
-                    out.push((String::new(), format!("tl.{name} == NULL")));
+                out.push((
+                    format!("uint16_t {name}_out; int {name}_got = {acc}(&v, &{name}_out);"),
+                    String::new(),
+                ));
+                if val.is_null() {
+                    out.push((String::new(), format!("{name}_got == -1")));
                 } else {
                     out.push((
                         String::new(),
                         format!(
-                            "tl.{name} != NULL && sw_fixed_u16(tl.{name}) == {}",
-                            literal(v, &B::U16)?
+                            "{name}_got == 0 && {name}_out == {}",
+                            literal(val, &B::U16)?
                         ),
                     ));
                 }
             }
             Ht::ListU16 => {
-                let items = v.as_array().ok_or("a list expected")?;
-                out.push((String::new(), format!("{acc}_count(p) == {}u", items.len())));
+                let items = val.as_array().ok_or("a list expected")?;
+                out.push((
+                    String::new(),
+                    format!("{acc}_count(&v) == {}u", items.len()),
+                ));
                 for (i, item) in items.iter().enumerate() {
                     out.push((
                         String::new(),
-                        format!(
-                            "sw_fixed_u16(tl.{name} + {}u) == {}",
-                            2 * i,
-                            literal(item, &B::U16)?
-                        ),
+                        format!("{acc}(&v, {i}u) == {}", literal(item, &B::U16)?),
                     ));
                 }
+                out.push((String::new(), format!("{acc}(&v, {}u) == 0", items.len())));
             }
             Ht::Str => {
-                let s = v.as_str().ok_or("a string expected")?;
-                out.push((String::new(), format!("{acc}_count(p) == {}u", s.len())));
+                let s = val.as_str().ok_or("a string expected")?;
+                out.push((String::new(), format!("{acc}_count(&v) == {}u", s.len())));
                 out.push((
                     String::new(),
                     format!(
-                        "memcmp(tl.{name}, \"{}\", {}u) == 0",
+                        "memcmp({acc}(&v), \"{}\", {}u) == 0",
                         s.escape_default(),
                         s.len()
                     ),

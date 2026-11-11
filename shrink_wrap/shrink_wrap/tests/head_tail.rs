@@ -4,6 +4,8 @@ use hex_literal::hex;
 use shrink_wrap::head_tail::{HeadTail, List, write_c_header};
 use shrink_wrap::prelude::*;
 
+mod c_run;
+
 #[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
 pub struct Wave {
     pub line: u8,
@@ -40,6 +42,31 @@ pub enum Request<'i> {
     Waves { waves: List<'i, Wave>, defer: bool },
     Utx(Utx<'i>),
     Res { r: Result<u32, u8>, tag: [u8; 2] },
+}
+
+/// A fixed-layout enum of one length: a nested head and list items whose tag may be unknown.
+#[derive_shrink_wrap(
+    borrowed,
+    sized,
+    fixed_layout,
+    ww_repr = u8,
+    derive(Clone, Copy, Debug, PartialEq)
+)]
+pub enum Pin {
+    Low(u8) = 1,
+    High(u8) = 2,
+}
+
+/// The other variable parts: a head_tail payload, a Result of a fixed-layout type, a list of a nested fixed-layout
+/// type and one of bytes, an array payload
+#[derive_shrink_wrap(head_tail, derive(Clone, Copy, Debug, PartialEq))]
+pub struct Mixed<'i> {
+    pub pin: Pin,
+    pub slave: Option<Slave>,
+    pub r: Result<Wave, u16>,
+    pub pins: List<'i, Pin>,
+    pub raw: List<'i, u8>,
+    pub words: Option<[u16; 2]>,
 }
 
 const WAVE: Wave = Wave {
@@ -346,6 +373,8 @@ fn c_header() {
             <Slave as HeadTail>::write_c_ht,
             <Utx as HeadTail>::write_c_ht,
             <Request as HeadTail>::write_c_ht,
+            <Pin as HeadTail>::write_c_ht,
+            <Mixed as HeadTail>::write_c_ht,
         ],
     )
     .unwrap();
@@ -399,4 +428,119 @@ fn cfg_variants() {
     )
     .unwrap();
     assert!(c.contains("GATED_KEPT 2u") && !c.contains("GONE"), "{c}");
+}
+
+/// Valid encodings of every type with a C reader, by its C name.
+fn encodings(rng: &mut c_run::Rng) -> Vec<(&'static str, Vec<u8>)> {
+    fn enc<'i, T: HeadTail<'i>>(v: &T) -> Vec<u8> {
+        let mut buf = [0u8; 128];
+        let n = shrink_wrap::head_tail::write(v, &mut buf).unwrap();
+        buf[..n].to_vec()
+    }
+    static PINS: [Pin; 3] = [Pin::Low(1), Pin::High(2), Pin::Low(3)];
+    static RAW: [u8; 3] = [7, 8, 9];
+    let mut out: Vec<(&'static str, Vec<u8>)> =
+        requests().iter().map(|r| ("request", enc(r))).collect();
+    out.push(("utx", enc(&utx())));
+    for _ in 0..20 {
+        let mut r = || rng.next();
+        let some = r() & 1 == 1;
+        let slave = Slave {
+            on: some,
+            scl: r() as u8,
+            a10: (r() & 1 == 1).then_some(r() as u16),
+            ptr: (r() & 1 == 1).then_some(r() as u8),
+            filt: r() as u8,
+        };
+        let wave = Wave {
+            line: r() as u8,
+            idle: some,
+            hold: r() & 1 == 1,
+            delay: r() as u32,
+        };
+        let pin = if some {
+            Pin::Low(r() as u8)
+        } else {
+            Pin::High(r() as u8)
+        };
+        let mixed = Mixed {
+            pin,
+            slave: some.then_some(slave),
+            r: if r() & 1 == 1 {
+                Ok(wave)
+            } else {
+                Err(r() as u16)
+            },
+            pins: List::new(&PINS[..r() as usize % 4]),
+            raw: List::new(&RAW[..r() as usize % 4]),
+            words: (r() & 1 == 1).then_some([r() as u16, r() as u16]),
+        };
+        out.extend([
+            ("wave", enc(&wave)),
+            ("slave", enc(&slave)),
+            ("pin", enc(&pin)),
+            ("mixed", enc(&mixed)),
+        ]);
+    }
+    out
+}
+
+/// What `from_head_tail` makes of `buf` as the type of this C name: the C program's answer for it. A string that
+/// is not UTF-8 is an error in Rust and bytes in C: `None` then, any answer is right.
+fn rust_answer(ty: &str, buf: &[u8]) -> Option<String> {
+    fn len<'i, T: HeadTail<'i>>(buf: &'i [u8]) -> Result<usize, ShrinkWrapError> {
+        let v: T = shrink_wrap::head_tail::read(buf)?;
+        Ok(T::HEAD_LEN + v.tail_len())
+    }
+    let got = match ty {
+        "wave" => len::<Wave>(buf),
+        "slave" => len::<Slave>(buf),
+        "utx" => len::<Utx>(buf),
+        "request" => len::<Request>(buf),
+        "pin" => len::<Pin>(buf),
+        "mixed" => len::<Mixed>(buf),
+        other => panic!("no type {other}"),
+    };
+    match got {
+        Err(ShrinkWrapError::MalformedUtf8) => None,
+        got => Some(c_run::expect(got.ok())),
+    }
+}
+
+/// The C views (SW-79) on valid, truncated, empty, changed and random buffers of every type: a view is made
+/// exactly when Rust reads a value, with its length, and every reader of it stays in its bytes (the C program
+/// reads each case from a buffer of exactly its length, under AddressSanitizer where it links).
+#[test]
+fn c_views_check_bounds() {
+    let mut rng = c_run::Rng(0x9e37_79b9_7f4a_7c15);
+    let valid = encodings(&mut rng);
+    let mut input = String::new();
+    let mut want = Vec::new();
+    for name in ["wave", "slave", "utx", "request", "pin", "mixed"] {
+        let of: Vec<Vec<u8>> = valid
+            .iter()
+            .filter(|(n, _)| *n == name)
+            .map(|(_, b)| b.clone())
+            .collect();
+        for (ty, bytes) in c_run::cases(name, &of, 40, &mut rng) {
+            input.push_str(&c_run::line(ty, &bytes));
+            want.push(rust_answer(ty, &bytes).map(|a| format!("{ty} {a}")));
+        }
+    }
+    let exe = c_run::build("head_tail_c.c");
+    let got = c_run::run(&exe, &input);
+    let got: Vec<&str> = got.lines().collect();
+    assert_eq!(got.len(), want.len());
+    let mut checked = 0;
+    for ((got, want), case) in got.iter().zip(&want).zip(input.lines()) {
+        if let Some(want) = want {
+            assert_eq!(got, want, "case {case}");
+            checked += 1;
+        }
+    }
+    assert!(
+        checked * 10 > want.len() * 9,
+        "only {checked} of {} cases checked",
+        want.len()
+    );
 }

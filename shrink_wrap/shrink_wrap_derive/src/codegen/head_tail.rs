@@ -11,8 +11,9 @@ use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::repr::Repr;
 use crate::ast::ty::{ArrayLen, Type};
 use crate::codegen::fixed_layout::{
-    At, Bits, Item, Kind, Prim, c_field, classify as fixed_classify, flag_local, lit, lit_str,
-    local, read_simple, repr_bytes, snake, struct_items, unraw, variant_items, write_simple,
+    At, Bits, CExtra, CView, Item, Kind, Prim, article, c_field, c_line, c_name_of,
+    classify as fixed_classify, flag_local, lit, lit_str, local, read_simple, repr_bytes, snake,
+    struct_items, unraw, variant_items, write_simple,
 };
 use crate::codegen::util::CratePath;
 use proc_macro2::{Ident, Literal, TokenStream};
@@ -524,76 +525,359 @@ fn construct_fields(head: &Head, named: bool) -> Vec<TokenStream> {
 }
 
 /// `writeln!(out, fmt, args..)?;` for the C text.
-fn cw(fmt: &str, args: &[TokenStream]) -> TokenStream {
-    let fmt = lit_str(fmt);
-    quote! { ::core::writeln!(out, #fmt #(, #args)*)?; }
+/// The number type of a list's items when they are numbers (`List<'i, u16>`), else `None` (fixed-layout items).
+fn list_prim(item: &TokenStream) -> Option<Prim> {
+    Some(match item.to_string().as_str() {
+        "u8" => Prim::U8,
+        "u16" => Prim::U16,
+        "u32" => Prim::U32,
+        "u64" => Prim::U64,
+        "i8" => Prim::I8,
+        "i16" => Prim::I16,
+        "i32" => Prim::I32,
+        "i64" => Prim::I64,
+        "f32" => Prim::F32,
+        "f64" => Prim::F64,
+        _ => return None,
+    })
 }
 
-/// C text of a head: the defines and readers of its fields (`p` points at the head), `c_name` the snake name of
-/// the struct or `{enum}_{variant}`.
-fn c_head(
+/// Bit offset of the flag of the Option or Result field `name` of `head`.
+fn flag_at(head: &Head, name: &str) -> TokenStream {
+    head.placed
+        .iter()
+        .find_map(|f| match (&f.kind, &f.at) {
+            (HKind::Head(Kind::Flag(t)), Some(At::Bit(off))) if unraw(t) == name => {
+                Some(off.clone())
+            }
+            _ => None,
+        })
+        .expect("an Option or Result has a flag")
+}
+
+/// The view members of an Option's or Result's payload: `(member, payload)`.
+fn payload_members<'p>(name: &str, kind: &'p HKind) -> Vec<(String, &'p Payload)> {
+    match kind {
+        HKind::Option(p) => vec![(name.to_string(), p)],
+        HKind::Result(ok, err) => vec![(format!("{name}_ok"), ok), (format!("{name}_err"), err)],
+        _ => vec![],
+    }
+}
+
+/// The C view of a head and its tail (a `head_tail` struct, or an enum variant with fields), named
+/// `${pre}{vc}_view_t`: its typedef with a member per variable part, the walker `${pre}{vc}__walk` that checks the
+/// tail and fills them, and a reader per field. `prefix` starts the names of the Rust consts.
+fn c_view(
     ty_s: &TokenStream,
     prefix: &str,
-    c_name: &str,
+    vc: &str,
+    what: &str,
+    made_by: &str,
     head: &Head,
     cp: &CratePath,
 ) -> Vec<TokenStream> {
     let ht = cp.item(quote! { head_tail::HeadTail });
-    let upper = c_name.to_uppercase();
+    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
     let ty_ident = format_ident!("__HtSelf");
-    let mut out = Vec::new();
+    let upper = vc.to_uppercase();
+    let view_t = format!("${{pre}}{vc}_view_t");
+    let param = format!("const {view_t} *v");
+    let off_of = |p: &Placed| {
+        let c = format_ident!("{prefix}{}_OFFSET", p.item.name.to_uppercase());
+        quote! { <#ty_s>::#c }
+    };
+    // a nested type: its C name and its head length
+    let nested = |ty: &TokenStream| {
+        vec![
+            ("n", quote! { <#ty as #ht<'static>>::C_NAME }),
+            ("hl", quote! { <#ty as #ht<'static>>::HEAD_LEN }),
+        ]
+    };
+    // checks a nested value whose head is at `at`, into the member `m`: walks the tail of a head_tail type, checks
+    // a fixed-layout one, which is all head (one of variable length has no C reader in a head_tail type)
+    let check_nested = |ty: &TokenStream,
+                        at: &str,
+                        at_args: &[(&'static str, TokenStream)],
+                        m: &str,
+                        ind: &str| {
+        let mut args = nested(ty);
+        args.extend(at_args.iter().cloned());
+        let walk = c_line(
+            &format!("{ind}if (${{pre}}${{n}}__walk({at}, t, end, &v->{m}) != 0) {{ return -1; }}"),
+            &args,
+        );
+        let check = c_line(
+            &format!(
+                "{ind}if (${{pre}}${{n}}_view({at}, ${{hl}}u, &v->{m}) != 0) {{ return -1; }}"
+            ),
+            &args,
+        );
+        let err = c_line(
+            &format!(
+                "#error \"{m}: a fixed_layout type of variable length has no C reader in a head_tail type\""
+            ),
+            &[],
+        );
+        quote! {
+            if <#ty as #ht<'static>>::C_TAIL {
+                #walk
+            } else if <#ty as #ht<'static>>::HEAD_LEN == 0 {
+                #err
+            } else {
+                #check
+            }
+        }
+    };
+
+    let mut members = Vec::new();
+    let mut walk = Vec::new();
+    let mut readers = Vec::new();
     for p in &head.placed {
-        let name = &p.item.name;
-        let fu = name.to_uppercase();
-        let off_const = format_ident!("{prefix}{fu}_OFFSET");
+        let field = &p.item.name;
+        // the member of a tuple field `0` is `_0`
+        let member = if field.starts_with(|c: char| c.is_ascii_digit()) {
+            format!("_{field}")
+        } else {
+            field.clone()
+        };
+        let name = &member;
+        let fu = field.to_uppercase();
+        let func = format!("${{pre}}{vc}_{field}");
         match &p.kind {
-            HKind::Head(kind) => out.extend(c_field(&ty_ident, prefix, c_name, name, kind)),
+            HKind::Head(kind) => readers.extend(c_field(
+                &ty_ident,
+                prefix,
+                vc,
+                &CView {
+                    param: &param,
+                    p: "v->p",
+                    len: "v->len",
+                },
+                field,
+                kind,
+                CExtra::default(),
+                cp,
+            )),
             HKind::List(_) | HKind::Str => {
-                out.push(cw(
-                    &format!("#define {{}}{upper}_{fu}_OFFSET {{}}u"),
-                    &[quote! { up }, quote! { <#ty_s>::#off_const }],
+                let off = off_of(p);
+                let (what, isz) = match &p.kind {
+                    HKind::List(item) => ("the items", quote! { <#item as #fixed>::ENCODED_LEN }),
+                    _ => ("the bytes, not 0-terminated", quote! { 1usize }),
+                };
+                members.push(c_line(
+                    &format!("    const uint8_t *{name}; /* {what} */"),
+                    &[],
                 ));
-                out.push(cw(
+                walk.push(c_line(
                     &format!(
-                        "static inline uint16_t {{}}{c_name}_{name}_count(const uint8_t *p) {{{{ return \
-                         sw_fixed_u16(p + {{}}u); }}}}"
+                        "    v->{name} = sw_ht_take_items(t, end, (size_t)sw_fixed_u16(h + ${{off}}u), ${{isz}}u);\n    \
+                         if (v->{name} == NULL) {{ return -1; }}"
                     ),
-                    &[quote! { prefix }, quote! { <#ty_s>::#off_const }],
+                    &[("off", off.clone()), ("isz", isz.clone())],
+                ));
+                readers.push(c_line(
+                    &format!(
+                        "#define ${{up}}{upper}_{fu}_OFFSET ${{off}}u\n\
+                         static inline uint16_t {func}_count({param}) {{ return sw_fixed_u16(v->p + ${{off}}u); }}"
+                    ),
+                    &[("off", off.clone())],
+                ));
+                let item = match &p.kind {
+                    HKind::List(item) => Some(item),
+                    _ => None,
+                };
+                let text = match item.map(|i| (i, list_prim(i))) {
+                    None | Some((_, Some(Prim::U8))) => {
+                        format!(
+                            "static inline const uint8_t *{func}({param}) {{ return v->{name}; }}"
+                        )
+                    }
+                    Some((_, Some(prim))) => format!(
+                        "/* item i, 0 past the end */\nstatic inline {} {func}({param}, size_t i) {{\n    \
+                         if (i >= (size_t){func}_count(v)) {{ return 0; }}\n    return {};\n}}",
+                        prim.c_ty(),
+                        prim.c_load(&format!("v->{name} + {}u * i", prim.bytes()))
+                    ),
+                    Some((_, None)) => format!(
+                        "/* checks item i and makes *out its view; 0, or -1 (*out empty) past the end or when it is \
+                         malformed */\nSW_NODISCARD static inline int {func}({param}, size_t i, ${{pre}}${{n}}_view_t \
+                         *out) {{\n    if (i >= (size_t){func}_count(v)) {{ out->p = NULL; out->len = 0u; return -1; }}\n    \
+                         return ${{pre}}${{n}}_view(v->{name} + ${{isz}}u * i, ${{isz}}u, out);\n}}"
+                    ),
+                };
+                let mut args = vec![("isz", isz)];
+                if let Some(item) = item {
+                    args.push(("n", c_name_of(item, cp)));
+                }
+                readers.push(c_line(&text, &args));
+            }
+            HKind::Nested(_, ty) => {
+                let off = off_of(p);
+                members.push(c_line(
+                    &format!("    ${{pre}}${{n}}_view_t {name};"),
+                    &nested(ty),
+                ));
+                walk.push(check_nested(
+                    ty,
+                    "h + ${off}u",
+                    &[("off", off.clone())],
+                    name,
+                    "    ",
+                ));
+                let mut args = nested(ty);
+                args.push(("off", off));
+                readers.push(c_line(
+                    &format!(
+                        "/* {field}: a ${{pre}}${{n}} */\n#define ${{up}}{upper}_{fu}_OFFSET ${{off}}u\n\
+                         static inline const ${{pre}}${{n}}_view_t *{func}({param}) {{ return &v->{name}; }}"
+                    ),
+                    &args,
                 ));
             }
-            HKind::Nested(_, ty_n) => {
-                out.push(cw(
-                    &format!(
-                        "/* {name}: a {{}}{{}} head */\n#define {{}}{upper}_{fu}_OFFSET {{}}u"
+            HKind::Option(_) | HKind::Result(..) => {
+                let flag = flag_at(head, field);
+                let pm = payload_members(name, &p.kind);
+                for (m, pl) in &pm {
+                    match pl {
+                        Payload::Nested(_, ty) => {
+                            members.push(c_line(
+                                &format!(
+                                    "    ${{pre}}${{n}}_view_t {m}; /* p NULL when not there */"
+                                ),
+                                &nested(ty),
+                            ));
+                        }
+                        _ => members.push(c_line(
+                            &format!(
+                                "    const uint8_t *{m}; /* the payload, NULL when not there */"
+                            ),
+                            &[],
+                        )),
+                    }
+                }
+                let take = |m: &str, pl: &Payload| -> TokenStream {
+                    match pl {
+                        Payload::Nested(_, ty) => {
+                            let open = c_line(
+                                "        {\n            const uint8_t *ph = sw_ht_take(t, end, ${hl}u);\n            \
+                                 if (ph == NULL) { return -1; }",
+                                &nested(ty),
+                            );
+                            let w = check_nested(ty, "ph", &[], m, "            ");
+                            let close = c_line("        }", &[]);
+                            quote! { #open #w #close }
+                        }
+                        other => c_line(
+                            &format!(
+                                "        v->{m} = sw_ht_take(t, end, ${{len}}u);\n        if (v->{m} == NULL) {{ return -1; }}"
+                            ),
+                            &[("len", c_payload_len(other))],
+                        ),
+                    }
+                };
+                let absent = |m: &str, pl: &Payload| match pl {
+                    Payload::Nested(..) => c_line(
+                        &format!("        v->{m}.p = NULL;\n        v->{m}.len = 0u;"),
+                        &[],
                     ),
-                    &[
-                        quote! { prefix },
-                        quote! { <#ty_n as #ht<'static>>::C_NAME },
-                        quote! { up },
-                        quote! { <#ty_s>::#off_const },
-                    ],
+                    _ => c_line(&format!("        v->{m} = NULL;"), &[]),
+                };
+                walk.push(c_line(
+                    "    if (sw_fixed_bits(h, ${flag}u, 1u) != 0u) {",
+                    &[("flag", flag)],
                 ));
-                out.push(cw(
-                    &format!(
-                        "static inline const uint8_t *{{}}{c_name}_{name}(const uint8_t *p) {{{{ return p + {{}}u; }}}}"
-                    ),
-                    &[quote! { prefix }, quote! { <#ty_s>::#off_const }],
-                ));
+                let (first, second) = (&pm[0], pm.get(1));
+                walk.push(take(&first.0, first.1));
+                if let Some(s) = second {
+                    walk.push(absent(&s.0, s.1));
+                }
+                walk.push(c_line("    } else {", &[]));
+                walk.push(absent(&first.0, first.1));
+                if let Some(s) = second {
+                    walk.push(take(&s.0, s.1));
+                }
+                walk.push(c_line("    }", &[]));
+                for (m, pl) in &pm {
+                    let func = format!("${{pre}}{vc}_{m}");
+                    let open = format!("SW_NODISCARD static inline int {func}({param}");
+                    let doc = "/* sets *out and returns 0, or returns -1 when it is not there */";
+                    let (text, args) = match pl {
+                        Payload::Prim(prim) => (
+                            format!(
+                                "{doc}\n{open}, {} *out) {{\n    if (v->{m} == NULL) {{ *out = 0; return -1; }}\n    \
+                                 *out = {};\n    return 0;\n}}",
+                                prim.c_ty(),
+                                prim.c_load(&format!("v->{m}"))
+                            ),
+                            vec![],
+                        ),
+                        Payload::Array(_, Prim::U8) => (
+                            format!(
+                                "{doc}\n{open}, const uint8_t **out) {{\n    *out = v->{m};\n    \
+                                 return v->{m} == NULL ? -1 : 0;\n}}"
+                            ),
+                            vec![],
+                        ),
+                        Payload::Array(len, prim) => (
+                            format!(
+                                "/* sets *out to item i and returns 0, or returns -1 (*out 0) when it is not there or i \
+                                 is past the end */\n{open}, size_t i, {} *out) {{\n    \
+                                 if (v->{m} == NULL || i >= ${{count}}u) {{ *out = 0; return -1; }}\n    \
+                                 *out = {};\n    return 0;\n}}",
+                                prim.c_ty(),
+                                prim.c_load(&format!("v->{m} + {}u * i", prim.bytes()))
+                            ),
+                            vec![("count", quote! { (#len) })],
+                        ),
+                        Payload::Nested(_, ty) => (
+                            format!(
+                                "/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there \
+                                 */\n{open}, const ${{pre}}${{n}}_view_t **out) {{\n    \
+                                 if (v->{m}.p == NULL) {{ *out = NULL; return -1; }}\n    *out = &v->{m};\n    return 0;\n}}"
+                            ),
+                            nested(ty),
+                        ),
+                    };
+                    readers.push(c_line(&text, &args));
+                }
             }
-            HKind::Option(_) | HKind::Result(..) => {}
         }
     }
-    // c_field names the consts on `__HtSelf`
-    vec![quote! {{
+
+    let mut out = vec![c_line(
+        &format!(
+            "/* a checked view of {what}: its head at p, len bytes in all (head and tail), and its variable parts; \
+             made by {made_by} */\ntypedef struct {{\n    \
+             const uint8_t *p;\n    size_t len;"
+        ),
+        &[],
+    )];
+    out.extend(members);
+    out.push(c_line(&format!("}} {view_t};"), &[]));
+    out.push(c_line(
+        &format!(
+            "/* checks the tail of {what} whose head (already checked) is at h and tail at *t (ending at end), fills *v \
+             and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that \
+             hold it */\nSW_NODISCARD static inline int ${{pre}}{vc}__walk(const uint8_t *h, const uint8_t **t, \
+             const uint8_t *end, {view_t} *v) {{\n    const uint8_t *t0 = *t;\n    (void)h;\n    (void)end;"
+        ),
+        &[],
+    ));
+    out.extend(walk);
+    out.push(c_line(
+        "    v->p = h;\n    v->len = ${hl}u + (size_t)(*t - t0);\n    return 0;\n}",
+        &[("hl", head.len.clone())],
+    ));
+    out.push(quote! {{
         #[allow(non_camel_case_types)]
         type #ty_ident = #ty_s;
-        #(#out)*
-    }}]
+        #(#readers)*
+    }});
+    out
 }
 
-/// Bytes of a payload in C, a Rust expression.
-fn c_payload_len(p: &Payload, cp: &CratePath) -> TokenStream {
-    let ht = cp.item(quote! { head_tail::HeadTail });
+/// Bytes of a number or array payload in C, a Rust expression.
+fn c_payload_len(p: &Payload) -> TokenStream {
     match p {
         Payload::Prim(prim) => {
             let n = prim.bytes();
@@ -603,157 +887,23 @@ fn c_payload_len(p: &Payload, cp: &CratePath) -> TokenStream {
             let n = prim.bytes();
             quote! { ((#len) * #n) }
         }
-        Payload::Nested(_, ty_s) => quote! { <#ty_s as #ht<'static>>::HEAD_LEN },
+        Payload::Nested(..) => unreachable!("a nested payload is checked by its type"),
     }
 }
 
-/// Members of the C tail struct for the fields of `head`, names starting with `m`.
-fn c_members(m: &str, head: &Head, cp: &CratePath) -> Vec<TokenStream> {
-    let ht = cp.item(quote! { head_tail::HeadTail });
-    let mut out = Vec::new();
-    for p in &head.placed {
-        let name = &p.item.name;
-        let nested_member = |ty_s: &TokenStream, member: String| {
-            let text = format!("    {{}}{{}}_tail_t {member};");
-            let text = lit_str(&text);
-            quote! {
-                if <#ty_s as #ht<'static>>::C_TAIL {
-                    ::core::writeln!(out, #text, prefix, <#ty_s as #ht<'static>>::C_NAME)?;
-                }
-            }
-        };
-        match &p.kind {
-            HKind::Head(_) => {}
-            HKind::List(_) => out.push(cw(
-                &format!("    const uint8_t *{m}{name}; /* the items */"),
-                &[],
-            )),
-            HKind::Str => out.push(cw(
-                &format!("    const uint8_t *{m}{name}; /* the bytes, not 0-terminated */"),
-                &[],
-            )),
-            HKind::Nested(_, ty_s) => out.push(nested_member(ty_s, format!("{m}{name}"))),
-            HKind::Option(payload) | HKind::Result(payload, _) => {
-                let what = match &p.kind {
-                    HKind::Result(..) => "the Ok or Err payload, by the flag",
-                    _ => "the payload (NULL for None)",
-                };
-                out.push(cw(
-                    &format!("    const uint8_t *{m}{name}; /* {what} */"),
-                    &[],
-                ));
-                let payloads: Vec<&Payload> = match &p.kind {
-                    HKind::Result(ok, err) => vec![ok, err],
-                    _ => vec![payload],
-                };
-                for (i, pl) in payloads.into_iter().enumerate() {
-                    if let Payload::Nested(_, ty_s) = pl {
-                        let suffix = match (&p.kind, i) {
-                            (HKind::Result(..), 0) => "_ok_tail",
-                            (HKind::Result(..), _) => "_err_tail",
-                            _ => "_tail",
-                        };
-                        out.push(nested_member(ty_s, format!("{m}{name}{suffix}")));
-                    }
-                }
-            }
-        }
-    }
-    out
-}
-
-/// Body of the C tail walker for the fields of `head`: `h` points at the head, `m` starts the member names,
-/// `c_name` names the head readers.
-fn c_walk(h: &str, m: &str, c_name: &str, head: &Head, cp: &CratePath) -> Vec<TokenStream> {
-    let ht = cp.item(quote! { head_tail::HeadTail });
-    let fixed = cp.item(quote! { fixed_layout::FixedLayout });
-    let mut out = Vec::new();
-    for p in &head.placed {
-        let name = &p.item.name;
-        // a nested value's tail: walk it when the type has a walker, else it must be all head
-        // `at` is C text with `{}` for each of `at_args`
-        let nested_walk = |ty_s: &TokenStream,
-                           at: String,
-                           at_args: Vec<TokenStream>,
-                           member: String| {
-            let walk = lit_str(&format!(
-                "    if ({{}}{{}}_tail({at}, t, end, &tl->{member}) != 0) {{{{ return -1; }}}}"
-            ));
-            let err = lit_str(&format!(
-                "#error \"{name}: a fixed_layout type of variable length has no C tail walker\""
-            ));
-            quote! {
-                if <#ty_s as #ht<'static>>::C_TAIL {
-                    ::core::writeln!(out, #walk, prefix, <#ty_s as #ht<'static>>::C_NAME #(, #at_args)*)?;
-                } else if <#ty_s as #ht<'static>>::HEAD_LEN == 0 {
-                    ::core::writeln!(out, #err)?;
-                }
-            }
-        };
-        match &p.kind {
-            HKind::Head(_) => {}
-            HKind::List(item) => out.push(cw(
-                &format!(
-                    "    tl->{m}{name} = sw_ht_take(t, end, (size_t){{}}{c_name}_{name}_count({h}) * {{}}u);\n    \
-                     if (tl->{m}{name} == NULL) {{{{ return -1; }}}}"
-                ),
-                &[quote! { prefix }, quote! { <#item as #fixed>::ENCODED_LEN }],
-            )),
-            HKind::Str => out.push(cw(
-                &format!(
-                    "    tl->{m}{name} = sw_ht_take(t, end, (size_t){{}}{c_name}_{name}_count({h}));\n    \
-                     if (tl->{m}{name} == NULL) {{{{ return -1; }}}}"
-                ),
-                &[quote! { prefix }],
-            )),
-            HKind::Nested(_, ty_s) => {
-                let off = byte_at(p);
-                out.push(nested_walk(ty_s, format!("{h} + {{}}u"), vec![off], format!("{m}{name}")));
-            }
-            HKind::Option(payload) | HKind::Result(payload, _) => {
-                let flag = format!("{c_name}_{name}_flag");
-                let payloads: Vec<(&Payload, &str)> = match &p.kind {
-                    HKind::Result(ok, err) => vec![(ok, "_ok_tail"), (err, "_err_tail")],
-                    _ => vec![(payload, "_tail")],
-                };
-                let mut arms = Vec::new();
-                for (pl, suffix) in &payloads {
-                    let len = c_payload_len(pl, cp);
-                    let mut arm = vec![cw(
-                        &format!(
-                            "        tl->{m}{name} = sw_ht_take(t, end, {{}}u);\n        if (tl->{m}{name} == NULL) \
-                             {{{{ return -1; }}}}"
-                        ),
-                        &[len],
-                    )];
-                    if let Payload::Nested(_, ty_s) = pl {
-                        arm.push(nested_walk(ty_s, format!("tl->{m}{name}"), vec![], format!("{m}{name}{suffix}")));
-                    }
-                    arms.push(arm);
-                }
-                let open = lit_str(&format!("    if ({{}}{flag}({h})) {{{{"));
-                let first = &arms[0];
-                let rest = match arms.get(1) {
-                    Some(second) => {
-                        let else_ = lit_str("    }} else {{");
-                        quote! { ::core::writeln!(out, #else_)?; #(#second)* }
-                    }
-                    None => {
-                        let else_ = cw(&format!("    }}}} else {{{{\n        tl->{m}{name} = NULL;"), &[]);
-                        quote! { #else_ }
-                    }
-                };
-                let close = lit_str("    }}");
-                out.push(quote! {
-                    ::core::writeln!(out, #open, prefix)?;
-                    #(#first)*
-                    #rest
-                    ::core::writeln!(out, #close)?;
-                });
-            }
-        }
-    }
-    out
+/// The checked entry of a top-level value: `${pre}{c_name}_view(buf, len, v)`.
+fn c_entry(c_name: &str, what: &str, head_len: TokenStream) -> TokenStream {
+    c_line(
+        &format!(
+            "/* checks that the len bytes at buf start with {what} and makes *v its view (v->len: its length); 0, or \
+             -1 (*v zeroed) when they are too short or malformed */\nSW_NODISCARD static inline int \
+             ${{pre}}{c_name}_view(const uint8_t *buf, size_t len, ${{pre}}{c_name}_view_t *v) {{\n    \
+             const uint8_t *t;\n    memset(v, 0, sizeof *v);\n    if (buf == NULL || len < ${{hl}}u) {{ return -1; }}\n    \
+             t = buf + ${{hl}}u;\n    if (${{pre}}{c_name}__walk(buf, &t, buf + len, v) != 0) {{\n        \
+             memset(v, 0, sizeof *v);\n        return -1;\n    }}\n    return 0;\n}}"
+        ),
+        &[("hl", head_len)],
+    )
 }
 
 /// What the derive sees of the type: its ident, with `'i` and with `'static`.
@@ -875,40 +1025,26 @@ pub(crate) fn ht_struct(
 
     let c_name = snake(&ident.to_string());
     let c_upper = c_name.to_uppercase();
-    let c_title = cw(
+    let mut c_text = vec![c_line(
         &format!(
-            "\n/* {ident}: a head of {{}} bytes, then its tail */\n#define {{}}{c_upper}_HEAD_LEN {{}}u"
+            "\n/* {ident}: a head of ${{hl}} bytes, then its tail */\n#define ${{up}}{c_upper}_HEAD_LEN ${{hl}}u"
         ),
-        &[
-            quote! { <#ty_s>::HEAD_LEN },
-            quote! { up },
-            quote! { <#ty_s>::HEAD_LEN },
-        ],
-    );
-    let c_head = c_head(&ty_s, "", &c_name, &head, cp);
-    let mut c_members = c_members("", &head, cp);
-    c_members.insert(
-        0,
-        cw(
-            "typedef struct {{\n    char none; /* C has no empty structs */",
-            &[],
-        ),
-    );
-    c_members.push(cw(
-        &format!("}}}} {{}}{c_name}_tail_t;"),
-        &[quote! { prefix }],
+        &[("hl", quote! { <#ty_s>::HEAD_LEN })],
+    )];
+    c_text.extend(c_view(
+        &ty_s,
+        "",
+        &c_name,
+        &article(&ident.to_string()),
+        &format!("${{pre}}{c_name}_view() or by the view of the value that holds it"),
+        &head,
+        cp,
     ));
-    let c_open = cw(
-        &format!(
-            "/* walks the tail of a {ident} whose head is at h and tail at *t (ending at end): fills tl and moves *t \
-             past it; 0, or -1 when the bytes are short */\nstatic inline int {{}}{c_name}_tail(const uint8_t *h, \
-             const uint8_t **t, const uint8_t *end, {{}}{c_name}_tail_t *tl) {{{{\n    (void)h;\n    (void)t;\n    \
-             (void)end;\n    (void)tl;"
-        ),
-        &[quote! { prefix }, quote! { prefix }],
-    );
-    let c_walk = c_walk("h", "", &c_name, &head, cp);
-    let c_close = cw("    return 0;\n}}", &[]);
+    c_text.push(c_entry(
+        &c_name,
+        &article(&ident.to_string()),
+        quote! { <#ty_s>::HEAD_LEN },
+    ));
     let c_name_lit = lit_str(&c_name);
     let unused = quote! { let _ = (&b, &tail); };
 
@@ -968,12 +1104,7 @@ pub(crate) fn ht_struct(
 
             fn write_c_ht(prefix: &str, out: &mut dyn ::core::fmt::Write) -> ::core::fmt::Result {
                 let up = #upper_ty(prefix);
-                #c_title
-                #(#c_head)*
-                #(#c_members)*
-                #c_open
-                #(#c_walk)*
-                #c_close
+                #(#c_text)*
                 Ok(())
             }
         }
@@ -1024,6 +1155,7 @@ pub(crate) fn ht_enum(
     let mut c_heads = Vec::new();
     let mut c_members = Vec::new();
     let mut c_cases = Vec::new();
+    let mut c_as = Vec::new();
     for v in variants {
         // a variant compiled out (SW-54) keeps its tag: it is just unknown to this build, like a newer one
         let cfg = v.cfg_attrs();
@@ -1168,57 +1300,106 @@ pub(crate) fn ht_enum(
         writers.push(writer(names, v, &vs, &head, tag_len, cp));
 
         let vc = format!("{c_name}_{vs}");
-        let mut v_heads = Vec::new();
-        v_heads.push(cw(
-            &format!("#define {{}}{c_upper}_{vu} {{}}u\n#define {{}}{c_upper}_{vu}_HEAD_LEN {{}}u"),
-            &[
-                quote! { up },
-                quote! { <#ty_s>::#tag_name },
-                quote! { up },
-                quote! { <#ty_s>::#head_name },
-            ],
-        ));
-        v_heads.extend(c_head(&ty_s, &format!("{vu}_"), &vc, &head, cp));
-        c_heads.push(quote! { #cfg { #(#v_heads)* } });
-        let v_members = c_members_of(&format!("{vs}_"), &head, cp);
-        c_members.push(quote! { #cfg { #(#v_members)* } });
-        let mut case = vec![cw(
-            "    case {}u:\n        vh = sw_ht_take(t, end, {}u);\n        if (vh == NULL) {{ return -1; }}\n        \
-             tl->head = vh;",
-            &[
-                quote! { <#ty_s>::#tag_name },
-                quote! { <#ty_s>::#head_name },
-            ],
+        let tag_arg = ("tag", quote! { <#ty_s>::#tag_name });
+        let hl_arg = ("hl", quote! { <#ty_s>::#head_name });
+        let mut v_text = vec![c_line(
+            &format!(
+                "#define ${{up}}{c_upper}_{vu} ${{tag}}u\n#define ${{up}}{c_upper}_{vu}_HEAD_LEN ${{hl}}u"
+            ),
+            &[tag_arg.clone(), hl_arg.clone()],
         )];
-        case.extend(c_walk("vh", &format!("{vs}_"), &vc, &head, cp));
-        case.push(cw("        return 0;", &[]));
+        let mut case = vec![c_line("    case ${tag}u:", std::slice::from_ref(&tag_arg))];
+        if head.placed.is_empty() {
+            case.push(c_line(
+                "        if (sw_ht_take(t, end, ${hl}u) == NULL) { return -1; }",
+                &[hl_arg],
+            ));
+        } else {
+            v_text.extend(c_view(
+                &ty_s,
+                &format!("{vu}_"),
+                &vc,
+                &article(&format!("{ident}::{}", v.ident)),
+                &format!("${{pre}}{c_name}_as_{vs}()"),
+                &head,
+                cp,
+            ));
+            let member = c_line(&format!("        ${{pre}}{vc}_view_t {vs};"), &[]);
+            c_members.push(quote! { #cfg #member });
+            let as_fn = c_line(
+                &format!(
+                    "/* makes *out the view of v's {} variant and returns 0, or returns -1 (*out NULL) for another \
+                     tag */\nSW_NODISCARD static inline int ${{pre}}{c_name}_as_{vs}(const ${{pre}}{c_name}_view_t *v, \
+                     const ${{pre}}{vc}_view_t **out) {{\n    if (${{pre}}{c_name}_tag(v) != ${{tag}}u) {{ *out = NULL; \
+                     return -1; }}\n    *out = &v->u.{vs};\n    return 0;\n}}",
+                    v.ident
+                ),
+                &[tag_arg],
+            );
+            c_as.push(quote! { #cfg #as_fn });
+            case.push(c_line(
+                &format!(
+                    "        {{\n            const uint8_t *vh = sw_ht_take(t, end, ${{hl}}u);\n            \
+                     if (vh == NULL) {{ return -1; }}\n            \
+                     if (${{pre}}{vc}__walk(vh, t, end, &v->u.{vs}) != 0) {{ return -1; }}\n        }}"
+                ),
+                &[hl_arg],
+            ));
+        }
+        case.push(c_line("        break;", &[]));
+        c_heads.push(quote! { #cfg { #(#v_text)* } });
         c_cases.push(quote! { #cfg { #(#case)* } });
     }
 
-    let c_title = cw(
+    let c_title = c_line(
         &format!(
-            "\n/* {ident}: a {tag_len}-byte tag (the head), then the head and tail of its variant */\n#define \
-             {{}}{c_upper}_TAG_LEN {tag_len}u\nstatic inline {} {{}}{c_name}_tag(const uint8_t *p) {{{{ return {}; }}}}",
-            tag_prim.c_ty(),
-            tag_prim.c_load("p")
+            "\n/* {ident}: a {tag_len}-byte tag (the head), then the head and tail of its variant */\n\
+             #define ${{up}}{c_upper}_TAG_LEN {tag_len}u"
         ),
-        &[quote! { up }, quote! { prefix }],
-    );
-    let c_struct_open = cw(
-        "typedef struct {{\n    const uint8_t *head; /* the head of the variant */",
         &[],
     );
-    let c_struct_close = cw(&format!("}}}} {{}}{c_name}_tail_t;"), &[quote! { prefix }]);
-    let c_open = cw(
+    let c_struct_open = c_line(
         &format!(
-            "/* walks the tail of a {ident} whose tag is at h and tail at *t (ending at end): fills tl and moves *t \
-             past it; 0, or -1 when the bytes are short or the tag unknown */\nstatic inline int \
-             {{}}{c_name}_tail(const uint8_t *h, const uint8_t **t, const uint8_t *end, {{}}{c_name}_tail_t *tl) \
-             {{{{\n    const uint8_t *vh;\n    switch ({{}}{c_name}_tag(h)) {{{{"
+            "/* a checked view of {}: its tag at p, len bytes in all, the view of its variant in u; made by \
+             ${{pre}}{c_name}_view() or by the view of the value that holds it */\ntypedef struct {{\n    \
+             const uint8_t *p;\n    size_t len;\n    union {{\n        char none; /* for variants without fields */",
+            article(&ident.to_string())
         ),
-        &[quote! { prefix }, quote! { prefix }, quote! { prefix }],
+        &[],
     );
-    let c_close = cw("    default:\n        return -1;\n    }}\n}}", &[]);
+    let c_struct_close = c_line(
+        &format!(
+            "    }} u;\n}} ${{pre}}{c_name}_view_t;\nstatic inline {} ${{pre}}{c_name}_tag(const ${{pre}}{c_name}_view_t *v) \
+             {{ return {}; }}",
+            tag_prim.c_ty(),
+            tag_prim.c_load("v->p")
+        ),
+        &[],
+    );
+    let c_open = c_line(
+        &format!(
+            "/* checks the variant of {} whose tag (already checked) is at h, and its tail at *t (ending at \
+             end), fills *v and moves *t past it; 0, or -1 when the bytes are short or the tag unknown. For the \
+             views of the types that hold it */\nSW_NODISCARD static inline int ${{pre}}{c_name}__walk(const uint8_t \
+             *h, const uint8_t **t, const uint8_t *end, ${{pre}}{c_name}_view_t *v) {{\n    const uint8_t *t0 = *t;\n    \
+             switch ({}) {{",
+            article(&ident.to_string()),
+            tag_prim.c_load("h")
+        ),
+        &[],
+    );
+    let c_close = c_line(
+        &format!(
+            "    default:\n        return -1;\n    }}\n    v->p = h;\n    v->len = {tag_len}u + (size_t)(*t - t0);\n    \
+             return 0;\n}}"
+        ),
+        &[],
+    );
+    let c_entry = c_entry(
+        &c_name,
+        &format!("{} of a known tag", article(&ident.to_string())),
+        quote! { #tag_len },
+    );
     let c_name_lit = lit_str(&c_name);
 
     let view_doc = lit_str(&format!(
@@ -1303,9 +1484,11 @@ pub(crate) fn ht_enum(
                 #c_struct_open
                 #(#c_members)*
                 #c_struct_close
+                #(#c_as)*
                 #c_open
                 #(#c_cases)*
                 #c_close
+                #c_entry
                 Ok(())
             }
         }
@@ -1313,10 +1496,6 @@ pub(crate) fn ht_enum(
     .into_iter()
     .chain(inherent(names, cp))
     .collect())
-}
-
-fn c_members_of(m: &str, head: &Head, cp: &CratePath) -> Vec<TokenStream> {
-    c_members(m, head, cp)
 }
 
 /// Rust type of a payload: as declared, or as a view holds it (`view`).

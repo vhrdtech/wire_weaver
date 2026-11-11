@@ -24,6 +24,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Observing properties under resource arrays (API-63): each element of an array of traits is observed by its own path (`players(2).playback().observe_title(..)`), a device keeps `observe_elements` element tables per such level and ends the observers of a removed element; shared sub-level clients lose `const OBSERVE`. See the `ww_stream`, `wire_weaver_core`, `wire_weaver_derive`, `wire_weaver_client` and `ww_client_server` CHANGELOGs.
 - The evolution checker compares a transparent wrapper of another `ww_stdlib` crate (`ww_block::Lease` in `ww_sd`) with the type it wraps as the same bytes, instead of reporting a wire break; a wrapper missing from that crate's snapshot is an error naming it. See the `wire_weaver_evolution` changelog.
 - The evolution checker compares a dependency's type changed without a version bump (an unpublished `ww_error` 0.1.0) by its two definitions, so a same-bytes change no longer reads as a wire break in every crate that embeds it (EVO-67). See the `wire_weaver_core` and `wire_weaver_evolution` changelogs.
+- The generated C readers of `fixed_layout` and `head_tail` types take a view checked against the buffer's length, so C parsing untrusted bytes can't read past them (SW-79, breaking for C users of those headers; see `shrink_wrap/CHANGELOG.md`).
 
 ### Added
 

@@ -145,7 +145,8 @@ pub trait HeadTail<'i>: Sized {
     const HEAD_LEN: usize;
     /// The name of the type in C (snake case, without the prefix).
     const C_NAME: &'static str;
-    /// The C text has a tail walker `<prefix><C_NAME>_tail` (else the type is all head).
+    /// The C text has a tail walker `<prefix><C_NAME>__walk` and a view with the tail's parts (else the type is all
+    /// head, and its C view is the fixed-layout one).
     const C_TAIL: bool;
 
     /// Reads the value from its head (at least [HEAD_LEN](Self::HEAD_LEN) bytes) and the tail cursor.
@@ -166,7 +167,7 @@ pub trait HeadTail<'i>: Sized {
     /// lengths and walks the tail, reads no field of the head but the counts and flags it needs for that.
     fn view_ht(head: &'i [u8], tail: &mut Tail<'i>) -> Result<Self::View, Error>;
 
-    /// The C defines, readers and tail walker of this type, names starting with `prefix`. Needs
+    /// The C defines, checked view, readers and tail walker of this type, names starting with `prefix`. Needs
     /// [C_PRELUDE](crate::fixed_layout::C_PRELUDE) and [C_TAIL_PRELUDE] in front of it, and the C text of the
     /// types it holds.
     fn write_c_ht(prefix: &str, out: &mut dyn Write) -> core::fmt::Result;
@@ -463,6 +464,14 @@ static inline const uint8_t *sw_ht_take(const uint8_t **t, const uint8_t *end, s
     }
     *t = at + n;
     return at;
+}
+/* the next count items of size bytes each: sw_ht_take of count * size, refused before the product could wrap
+   (a 16-bit size_t) */
+static inline const uint8_t *sw_ht_take_items(const uint8_t **t, const uint8_t *end, size_t count, size_t size) {
+    if (*t == NULL || (size != 0u && count > (size_t)(end - *t) / size)) {
+        return NULL;
+    }
+    return sw_ht_take(t, end, count * size);
 }
 #endif
 "#;

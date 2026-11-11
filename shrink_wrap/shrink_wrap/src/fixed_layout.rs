@@ -12,7 +12,8 @@
 //! - `from_fixed(&[u8])` / `to_fixed(&mut [u8])`: loads and stores at those offsets, no
 //!   [BufReader](crate::BufReader) or [BufWriter](crate::BufWriter), nothing generic. Same bytes as
 //!   `ser_shrink_wrap`. A short buffer or an unknown tag is an error, never a panic;
-//! - [FixedLayout], whose [write_c](FixedLayout::write_c) prints the matching C reader ([write_c_header]).
+//! - [FixedLayout], whose [write_c](FixedLayout::write_c) prints the matching C reader ([write_c_header]): a view
+//!   checked against the buffer's length, and readers that take the view (SW-79, `docs/c.md`).
 //!
 //! # What has a fixed layout
 //!
@@ -175,8 +176,8 @@ pub trait FixedLayout: Sized {
     /// Length of this value on the wire, at most [ENCODED_LEN](Self::ENCODED_LEN).
     fn fixed_len(&self) -> usize;
 
-    /// The C defines and readers of this type, names starting with `prefix` (`PREFIX` for defines). Needs the
-    /// readers of [C_PRELUDE] in front of it.
+    /// The C defines, checked view and readers of this type, names starting with `prefix` (`PREFIX` for defines).
+    /// Needs the readers of [C_PRELUDE] in front of it, and the C text of the types it holds.
     fn write_c(prefix: &str, out: &mut dyn Write) -> core::fmt::Result;
 }
 
@@ -338,6 +339,12 @@ pub const C_PRELUDE: &str = r#"#include <stddef.h>
 
 #ifndef SW_FIXED_LOADS
 #define SW_FIXED_LOADS
+/* a result that must be checked: a warning (an error with -Werror) where it is dropped */
+#if defined(__GNUC__) || defined(__clang__)
+#define SW_NODISCARD __attribute__((warn_unused_result))
+#else
+#define SW_NODISCARD
+#endif
 static inline uint8_t sw_fixed_u8(const uint8_t *p) { return p[0]; }
 static inline uint16_t sw_fixed_u16(const uint8_t *p) { return (uint16_t)((unsigned)p[0] | ((unsigned)p[1] << 8u)); }
 static inline uint32_t sw_fixed_u32(const uint8_t *p) {

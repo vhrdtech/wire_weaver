@@ -8,6 +8,12 @@
 
 #ifndef SW_FIXED_LOADS
 #define SW_FIXED_LOADS
+/* a result that must be checked: a warning (an error with -Werror) where it is dropped */
+#if defined(__GNUC__) || defined(__clang__)
+#define SW_NODISCARD __attribute__((warn_unused_result))
+#else
+#define SW_NODISCARD
+#endif
 static inline uint8_t sw_fixed_u8(const uint8_t *p) { return p[0]; }
 static inline uint16_t sw_fixed_u16(const uint8_t *p) { return (uint16_t)((unsigned)p[0] | ((unsigned)p[1] << 8u)); }
 static inline uint32_t sw_fixed_u32(const uint8_t *p) {
@@ -58,184 +64,564 @@ static inline const uint8_t *sw_ht_take(const uint8_t **t, const uint8_t *end, s
     *t = at + n;
     return at;
 }
+/* the next count items of size bytes each: sw_ht_take of count * size, refused before the product could wrap
+   (a 16-bit size_t) */
+static inline const uint8_t *sw_ht_take_items(const uint8_t **t, const uint8_t *end, size_t count, size_t size) {
+    if (*t == NULL || (size != 0u && count > (size_t)(end - *t) / size)) {
+        return NULL;
+    }
+    return sw_ht_take(t, end, count * size);
+}
 #endif
 
 /* Wave: 6 to 6 bytes */
 #define T_WAVE_LEN 6u
 #define T_WAVE_MIN_LEN 6u
+/* a checked view of a Wave: made by t_wave_view(), the only way to read one; len bytes at p */
+typedef struct { const uint8_t *p; size_t len; } t_wave_view_t;
+/* checks that the len bytes at buf start with a Wave and makes *v its view (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */
+SW_NODISCARD static inline int t_wave_view(const uint8_t *buf, size_t len, t_wave_view_t *v) {
+    size_t n;
+    v->p = NULL;
+    v->len = 0u;
+    if (buf == NULL) { return -1; }
+    n = 6u;
+    if (len < n) { return -1; }
+    v->p = buf;
+    v->len = n;
+    return 0;
+}
 #define T_WAVE_LINE_OFFSET 0u
-static inline uint8_t t_wave_line(const uint8_t *p) { return sw_fixed_u8(p + 0u); }
+static inline uint8_t t_wave_line(t_wave_view_t v) { return sw_fixed_u8(v.p + 0u); }
 #define T_WAVE_IDLE_BIT_OFFSET 8u
 #define T_WAVE_IDLE_BITS 1u
-static inline uint32_t t_wave_idle(const uint8_t *p) { return sw_fixed_bits(p, 8u, 1u); }
+static inline uint32_t t_wave_idle(t_wave_view_t v) { return sw_fixed_bits(v.p, 8u, 1u); }
 #define T_WAVE_HOLD_BIT_OFFSET 9u
 #define T_WAVE_HOLD_BITS 1u
-static inline uint32_t t_wave_hold(const uint8_t *p) { return sw_fixed_bits(p, 9u, 1u); }
+static inline uint32_t t_wave_hold(t_wave_view_t v) { return sw_fixed_bits(v.p, 9u, 1u); }
 #define T_WAVE_DELAY_OFFSET 2u
-static inline uint32_t t_wave_delay(const uint8_t *p) { return sw_fixed_u32(p + 2u); }
+static inline uint32_t t_wave_delay(t_wave_view_t v) { return sw_fixed_u32(v.p + 2u); }
 
 /* Slave: a head of 4 bytes, then its tail */
 #define T_SLAVE_HEAD_LEN 4u
+/* a checked view of a Slave: its head at p, len bytes in all (head and tail), and its variable parts; made by t_slave_view() or by the view of the value that holds it */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+    const uint8_t *a10; /* the payload, NULL when not there */
+    const uint8_t *ptr; /* the payload, NULL when not there */
+} t_slave_view_t;
+/* checks the tail of a Slave whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_slave__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_slave_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    if (sw_fixed_bits(h, 16u, 1u) != 0u) {
+        v->a10 = sw_ht_take(t, end, 2u);
+        if (v->a10 == NULL) { return -1; }
+    } else {
+        v->a10 = NULL;
+    }
+    if (sw_fixed_bits(h, 17u, 1u) != 0u) {
+        v->ptr = sw_ht_take(t, end, 1u);
+        if (v->ptr == NULL) { return -1; }
+    } else {
+        v->ptr = NULL;
+    }
+    v->p = h;
+    v->len = 4u + (size_t)(*t - t0);
+    return 0;
+}
 #define T_SLAVE_ON_BIT_OFFSET 0u
 #define T_SLAVE_ON_BITS 1u
-static inline uint32_t t_slave_on(const uint8_t *p) { return sw_fixed_bits(p, 0u, 1u); }
+static inline uint32_t t_slave_on(const t_slave_view_t *v) { return sw_fixed_bits(v->p, 0u, 1u); }
 #define T_SLAVE_SCL_OFFSET 1u
-static inline uint8_t t_slave_scl(const uint8_t *p) { return sw_fixed_u8(p + 1u); }
+static inline uint8_t t_slave_scl(const t_slave_view_t *v) { return sw_fixed_u8(v->p + 1u); }
 #define T_SLAVE_A10_FLAG_BIT_OFFSET 16u
 #define T_SLAVE_A10_FLAG_BITS 1u
-static inline uint32_t t_slave_a10_flag(const uint8_t *p) { return sw_fixed_bits(p, 16u, 1u); }
+static inline uint32_t t_slave_a10_flag(const t_slave_view_t *v) { return sw_fixed_bits(v->p, 16u, 1u); }
+/* sets *out and returns 0, or returns -1 when it is not there */
+SW_NODISCARD static inline int t_slave_a10(const t_slave_view_t *v, uint16_t *out) {
+    if (v->a10 == NULL) { *out = 0; return -1; }
+    *out = sw_fixed_u16(v->a10);
+    return 0;
+}
 #define T_SLAVE_PTR_FLAG_BIT_OFFSET 17u
 #define T_SLAVE_PTR_FLAG_BITS 1u
-static inline uint32_t t_slave_ptr_flag(const uint8_t *p) { return sw_fixed_bits(p, 17u, 1u); }
+static inline uint32_t t_slave_ptr_flag(const t_slave_view_t *v) { return sw_fixed_bits(v->p, 17u, 1u); }
+/* sets *out and returns 0, or returns -1 when it is not there */
+SW_NODISCARD static inline int t_slave_ptr(const t_slave_view_t *v, uint8_t *out) {
+    if (v->ptr == NULL) { *out = 0; return -1; }
+    *out = sw_fixed_u8(v->ptr);
+    return 0;
+}
 #define T_SLAVE_FILT_OFFSET 3u
-static inline uint8_t t_slave_filt(const uint8_t *p) { return sw_fixed_u8(p + 3u); }
-typedef struct {
-    char none; /* C has no empty structs */
-    const uint8_t *a10; /* the payload (NULL for None) */
-    const uint8_t *ptr; /* the payload (NULL for None) */
-} t_slave_tail_t;
-/* walks the tail of a Slave whose head is at h and tail at *t (ending at end): fills tl and moves *t past it; 0, or -1 when the bytes are short */
-static inline int t_slave_tail(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_slave_tail_t *tl) {
-    (void)h;
-    (void)t;
-    (void)end;
-    (void)tl;
-    if (t_slave_a10_flag(h)) {
-        tl->a10 = sw_ht_take(t, end, 2u);
-        if (tl->a10 == NULL) { return -1; }
-    } else {
-        tl->a10 = NULL;
-    }
-    if (t_slave_ptr_flag(h)) {
-        tl->ptr = sw_ht_take(t, end, 1u);
-        if (tl->ptr == NULL) { return -1; }
-    } else {
-        tl->ptr = NULL;
+static inline uint8_t t_slave_filt(const t_slave_view_t *v) { return sw_fixed_u8(v->p + 3u); }
+/* checks that the len bytes at buf start with a Slave and makes *v its view (v->len: its length); 0, or -1 (*v zeroed) when they are too short or malformed */
+SW_NODISCARD static inline int t_slave_view(const uint8_t *buf, size_t len, t_slave_view_t *v) {
+    const uint8_t *t;
+    memset(v, 0, sizeof *v);
+    if (buf == NULL || len < 4u) { return -1; }
+    t = buf + 4u;
+    if (t_slave__walk(buf, &t, buf + len, v) != 0) {
+        memset(v, 0, sizeof *v);
+        return -1;
     }
     return 0;
 }
 
 /* Utx: a head of 11 bytes, then its tail */
 #define T_UTX_HEAD_LEN 11u
+/* a checked view of an Utx: its head at p, len bytes in all (head and tail), and its variable parts; made by t_utx_view() or by the view of the value that holds it */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+    t_wave_view_t glitch; /* p NULL when not there */
+    const uint8_t *perr; /* the items */
+    t_slave_view_t s;
+    const uint8_t *name; /* the bytes, not 0-terminated */
+} t_utx_view_t;
+/* checks the tail of an Utx whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_utx__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_utx_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    if (sw_fixed_bits(h, 8u, 1u) != 0u) {
+        {
+            const uint8_t *ph = sw_ht_take(t, end, 6u);
+            if (ph == NULL) { return -1; }
+            if (t_wave_view(ph, 6u, &v->glitch) != 0) { return -1; }
+        }
+    } else {
+        v->glitch.p = NULL;
+        v->glitch.len = 0u;
+    }
+    v->perr = sw_ht_take_items(t, end, (size_t)sw_fixed_u16(h + 2u), 2u);
+    if (v->perr == NULL) { return -1; }
+    if (t_slave__walk(h + 4u, t, end, &v->s) != 0) { return -1; }
+    v->name = sw_ht_take_items(t, end, (size_t)sw_fixed_u16(h + 8u), 1u);
+    if (v->name == NULL) { return -1; }
+    v->p = h;
+    v->len = 11u + (size_t)(*t - t0);
+    return 0;
+}
 #define T_UTX_CH_OFFSET 0u
-static inline uint8_t t_utx_ch(const uint8_t *p) { return sw_fixed_u8(p + 0u); }
+static inline uint8_t t_utx_ch(const t_utx_view_t *v) { return sw_fixed_u8(v->p + 0u); }
 #define T_UTX_GLITCH_FLAG_BIT_OFFSET 8u
 #define T_UTX_GLITCH_FLAG_BITS 1u
-static inline uint32_t t_utx_glitch_flag(const uint8_t *p) { return sw_fixed_bits(p, 8u, 1u); }
+static inline uint32_t t_utx_glitch_flag(const t_utx_view_t *v) { return sw_fixed_bits(v->p, 8u, 1u); }
+/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there */
+SW_NODISCARD static inline int t_utx_glitch(const t_utx_view_t *v, const t_wave_view_t **out) {
+    if (v->glitch.p == NULL) { *out = NULL; return -1; }
+    *out = &v->glitch;
+    return 0;
+}
 #define T_UTX_PERR_OFFSET 2u
-static inline uint16_t t_utx_perr_count(const uint8_t *p) { return sw_fixed_u16(p + 2u); }
-/* s: a t_slave head */
+static inline uint16_t t_utx_perr_count(const t_utx_view_t *v) { return sw_fixed_u16(v->p + 2u); }
+/* item i, 0 past the end */
+static inline uint16_t t_utx_perr(const t_utx_view_t *v, size_t i) {
+    if (i >= (size_t)t_utx_perr_count(v)) { return 0; }
+    return sw_fixed_u16(v->perr + 2u * i);
+}
+/* s: a t_slave */
 #define T_UTX_S_OFFSET 4u
-static inline const uint8_t *t_utx_s(const uint8_t *p) { return p + 4u; }
+static inline const t_slave_view_t *t_utx_s(const t_utx_view_t *v) { return &v->s; }
 #define T_UTX_NAME_OFFSET 8u
-static inline uint16_t t_utx_name_count(const uint8_t *p) { return sw_fixed_u16(p + 8u); }
+static inline uint16_t t_utx_name_count(const t_utx_view_t *v) { return sw_fixed_u16(v->p + 8u); }
+static inline const uint8_t *t_utx_name(const t_utx_view_t *v) { return v->name; }
 #define T_UTX_DEFER_BIT_OFFSET 80u
 #define T_UTX_DEFER_BITS 1u
-static inline uint32_t t_utx_defer(const uint8_t *p) { return sw_fixed_bits(p, 80u, 1u); }
-typedef struct {
-    char none; /* C has no empty structs */
-    const uint8_t *glitch; /* the payload (NULL for None) */
-    const uint8_t *perr; /* the items */
-    t_slave_tail_t s;
-    const uint8_t *name; /* the bytes, not 0-terminated */
-} t_utx_tail_t;
-/* walks the tail of a Utx whose head is at h and tail at *t (ending at end): fills tl and moves *t past it; 0, or -1 when the bytes are short */
-static inline int t_utx_tail(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_utx_tail_t *tl) {
-    (void)h;
-    (void)t;
-    (void)end;
-    (void)tl;
-    if (t_utx_glitch_flag(h)) {
-        tl->glitch = sw_ht_take(t, end, 6u);
-        if (tl->glitch == NULL) { return -1; }
-    } else {
-        tl->glitch = NULL;
+static inline uint32_t t_utx_defer(const t_utx_view_t *v) { return sw_fixed_bits(v->p, 80u, 1u); }
+/* checks that the len bytes at buf start with an Utx and makes *v its view (v->len: its length); 0, or -1 (*v zeroed) when they are too short or malformed */
+SW_NODISCARD static inline int t_utx_view(const uint8_t *buf, size_t len, t_utx_view_t *v) {
+    const uint8_t *t;
+    memset(v, 0, sizeof *v);
+    if (buf == NULL || len < 11u) { return -1; }
+    t = buf + 11u;
+    if (t_utx__walk(buf, &t, buf + len, v) != 0) {
+        memset(v, 0, sizeof *v);
+        return -1;
     }
-    tl->perr = sw_ht_take(t, end, (size_t)t_utx_perr_count(h) * 2u);
-    if (tl->perr == NULL) { return -1; }
-    if (t_slave_tail(h + 4u, t, end, &tl->s) != 0) { return -1; }
-    tl->name = sw_ht_take(t, end, (size_t)t_utx_name_count(h));
-    if (tl->name == NULL) { return -1; }
     return 0;
 }
 
 /* Request: a 1-byte tag (the head), then the head and tail of its variant */
 #define T_REQUEST_TAG_LEN 1u
-static inline uint8_t t_request_tag(const uint8_t *p) { return sw_fixed_u8(p); }
 #define T_REQUEST_HELLO 0u
 #define T_REQUEST_HELLO_HEAD_LEN 0u
 #define T_REQUEST_STOP 1u
 #define T_REQUEST_STOP_HEAD_LEN 2u
+/* a checked view of a Request::Stop: its head at p, len bytes in all (head and tail), and its variable parts; made by t_request_as_stop() */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+} t_request_stop_view_t;
+/* checks the tail of a Request::Stop whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_request_stop__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_request_stop_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    v->p = h;
+    v->len = 2u + (size_t)(*t - t0);
+    return 0;
+}
 #define T_REQUEST_STOP_MASK_OFFSET 0u
-static inline uint16_t t_request_stop_mask(const uint8_t *p) { return sw_fixed_u16(p + 0u); }
+static inline uint16_t t_request_stop_mask(const t_request_stop_view_t *v) { return sw_fixed_u16(v->p + 0u); }
 #define T_REQUEST_WAVES 2u
 #define T_REQUEST_WAVES_HEAD_LEN 3u
+/* a checked view of a Request::Waves: its head at p, len bytes in all (head and tail), and its variable parts; made by t_request_as_waves() */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+    const uint8_t *waves; /* the items */
+} t_request_waves_view_t;
+/* checks the tail of a Request::Waves whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_request_waves__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_request_waves_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    v->waves = sw_ht_take_items(t, end, (size_t)sw_fixed_u16(h + 0u), 6u);
+    if (v->waves == NULL) { return -1; }
+    v->p = h;
+    v->len = 3u + (size_t)(*t - t0);
+    return 0;
+}
 #define T_REQUEST_WAVES_WAVES_OFFSET 0u
-static inline uint16_t t_request_waves_waves_count(const uint8_t *p) { return sw_fixed_u16(p + 0u); }
+static inline uint16_t t_request_waves_waves_count(const t_request_waves_view_t *v) { return sw_fixed_u16(v->p + 0u); }
+/* checks item i and makes *out its view; 0, or -1 (*out empty) past the end or when it is malformed */
+SW_NODISCARD static inline int t_request_waves_waves(const t_request_waves_view_t *v, size_t i, t_wave_view_t *out) {
+    if (i >= (size_t)t_request_waves_waves_count(v)) { out->p = NULL; out->len = 0u; return -1; }
+    return t_wave_view(v->waves + 6u * i, 6u, out);
+}
 #define T_REQUEST_WAVES_DEFER_BIT_OFFSET 16u
 #define T_REQUEST_WAVES_DEFER_BITS 1u
-static inline uint32_t t_request_waves_defer(const uint8_t *p) { return sw_fixed_bits(p, 16u, 1u); }
+static inline uint32_t t_request_waves_defer(const t_request_waves_view_t *v) { return sw_fixed_bits(v->p, 16u, 1u); }
 #define T_REQUEST_UTX 3u
 #define T_REQUEST_UTX_HEAD_LEN 11u
-/* 0: a t_utx head */
+/* a checked view of a Request::Utx: its head at p, len bytes in all (head and tail), and its variable parts; made by t_request_as_utx() */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+    t_utx_view_t _0;
+} t_request_utx_view_t;
+/* checks the tail of a Request::Utx whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_request_utx__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_request_utx_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    if (t_utx__walk(h + 0u, t, end, &v->_0) != 0) { return -1; }
+    v->p = h;
+    v->len = 11u + (size_t)(*t - t0);
+    return 0;
+}
+/* 0: a t_utx */
 #define T_REQUEST_UTX_0_OFFSET 0u
-static inline const uint8_t *t_request_utx_0(const uint8_t *p) { return p + 0u; }
+static inline const t_utx_view_t *t_request_utx_0(const t_request_utx_view_t *v) { return &v->_0; }
 #define T_REQUEST_RES 4u
 #define T_REQUEST_RES_HEAD_LEN 3u
+/* a checked view of a Request::Res: its head at p, len bytes in all (head and tail), and its variable parts; made by t_request_as_res() */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+    const uint8_t *r_ok; /* the payload, NULL when not there */
+    const uint8_t *r_err; /* the payload, NULL when not there */
+} t_request_res_view_t;
+/* checks the tail of a Request::Res whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_request_res__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_request_res_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    if (sw_fixed_bits(h, 0u, 1u) != 0u) {
+        v->r_ok = sw_ht_take(t, end, 4u);
+        if (v->r_ok == NULL) { return -1; }
+        v->r_err = NULL;
+    } else {
+        v->r_ok = NULL;
+        v->r_err = sw_ht_take(t, end, 1u);
+        if (v->r_err == NULL) { return -1; }
+    }
+    v->p = h;
+    v->len = 3u + (size_t)(*t - t0);
+    return 0;
+}
 #define T_REQUEST_RES_R_FLAG_BIT_OFFSET 0u
 #define T_REQUEST_RES_R_FLAG_BITS 1u
-static inline uint32_t t_request_res_r_flag(const uint8_t *p) { return sw_fixed_bits(p, 0u, 1u); }
+static inline uint32_t t_request_res_r_flag(const t_request_res_view_t *v) { return sw_fixed_bits(v->p, 0u, 1u); }
+/* sets *out and returns 0, or returns -1 when it is not there */
+SW_NODISCARD static inline int t_request_res_r_ok(const t_request_res_view_t *v, uint32_t *out) {
+    if (v->r_ok == NULL) { *out = 0; return -1; }
+    *out = sw_fixed_u32(v->r_ok);
+    return 0;
+}
+/* sets *out and returns 0, or returns -1 when it is not there */
+SW_NODISCARD static inline int t_request_res_r_err(const t_request_res_view_t *v, uint8_t *out) {
+    if (v->r_err == NULL) { *out = 0; return -1; }
+    *out = sw_fixed_u8(v->r_err);
+    return 0;
+}
 #define T_REQUEST_RES_TAG_OFFSET 1u
-static inline const uint8_t *t_request_res_tag(const uint8_t *p) { return p + 1u; }
+static inline const uint8_t *t_request_res_tag(const t_request_res_view_t *v) { return v->p + 1u; }
 #define T_REQUEST_RES_TAG_COUNT 2u
+/* a checked view of a Request: its tag at p, len bytes in all, the view of its variant in u; made by t_request_view() or by the view of the value that holds it */
 typedef struct {
-    const uint8_t *head; /* the head of the variant */
-    const uint8_t *waves_waves; /* the items */
-    t_utx_tail_t utx_0;
-    const uint8_t *res_r; /* the Ok or Err payload, by the flag */
-} t_request_tail_t;
-/* walks the tail of a Request whose tag is at h and tail at *t (ending at end): fills tl and moves *t past it; 0, or -1 when the bytes are short or the tag unknown */
-static inline int t_request_tail(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_request_tail_t *tl) {
-    const uint8_t *vh;
-    switch (t_request_tag(h)) {
+    const uint8_t *p;
+    size_t len;
+    union {
+        char none; /* for variants without fields */
+        t_request_stop_view_t stop;
+        t_request_waves_view_t waves;
+        t_request_utx_view_t utx;
+        t_request_res_view_t res;
+    } u;
+} t_request_view_t;
+static inline uint8_t t_request_tag(const t_request_view_t *v) { return sw_fixed_u8(v->p); }
+/* makes *out the view of v's Stop variant and returns 0, or returns -1 (*out NULL) for another tag */
+SW_NODISCARD static inline int t_request_as_stop(const t_request_view_t *v, const t_request_stop_view_t **out) {
+    if (t_request_tag(v) != 1u) { *out = NULL; return -1; }
+    *out = &v->u.stop;
+    return 0;
+}
+/* makes *out the view of v's Waves variant and returns 0, or returns -1 (*out NULL) for another tag */
+SW_NODISCARD static inline int t_request_as_waves(const t_request_view_t *v, const t_request_waves_view_t **out) {
+    if (t_request_tag(v) != 2u) { *out = NULL; return -1; }
+    *out = &v->u.waves;
+    return 0;
+}
+/* makes *out the view of v's Utx variant and returns 0, or returns -1 (*out NULL) for another tag */
+SW_NODISCARD static inline int t_request_as_utx(const t_request_view_t *v, const t_request_utx_view_t **out) {
+    if (t_request_tag(v) != 3u) { *out = NULL; return -1; }
+    *out = &v->u.utx;
+    return 0;
+}
+/* makes *out the view of v's Res variant and returns 0, or returns -1 (*out NULL) for another tag */
+SW_NODISCARD static inline int t_request_as_res(const t_request_view_t *v, const t_request_res_view_t **out) {
+    if (t_request_tag(v) != 4u) { *out = NULL; return -1; }
+    *out = &v->u.res;
+    return 0;
+}
+/* checks the variant of a Request whose tag (already checked) is at h, and its tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or the tag unknown. For the views of the types that hold it */
+SW_NODISCARD static inline int t_request__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_request_view_t *v) {
+    const uint8_t *t0 = *t;
+    switch (sw_fixed_u8(h)) {
     case 0u:
-        vh = sw_ht_take(t, end, 0u);
-        if (vh == NULL) { return -1; }
-        tl->head = vh;
-        return 0;
+        if (sw_ht_take(t, end, 0u) == NULL) { return -1; }
+        break;
     case 1u:
-        vh = sw_ht_take(t, end, 2u);
-        if (vh == NULL) { return -1; }
-        tl->head = vh;
-        return 0;
+        {
+            const uint8_t *vh = sw_ht_take(t, end, 2u);
+            if (vh == NULL) { return -1; }
+            if (t_request_stop__walk(vh, t, end, &v->u.stop) != 0) { return -1; }
+        }
+        break;
     case 2u:
-        vh = sw_ht_take(t, end, 3u);
-        if (vh == NULL) { return -1; }
-        tl->head = vh;
-    tl->waves_waves = sw_ht_take(t, end, (size_t)t_request_waves_waves_count(vh) * 6u);
-    if (tl->waves_waves == NULL) { return -1; }
-        return 0;
+        {
+            const uint8_t *vh = sw_ht_take(t, end, 3u);
+            if (vh == NULL) { return -1; }
+            if (t_request_waves__walk(vh, t, end, &v->u.waves) != 0) { return -1; }
+        }
+        break;
     case 3u:
-        vh = sw_ht_take(t, end, 11u);
-        if (vh == NULL) { return -1; }
-        tl->head = vh;
-    if (t_utx_tail(vh + 0u, t, end, &tl->utx_0) != 0) { return -1; }
-        return 0;
+        {
+            const uint8_t *vh = sw_ht_take(t, end, 11u);
+            if (vh == NULL) { return -1; }
+            if (t_request_utx__walk(vh, t, end, &v->u.utx) != 0) { return -1; }
+        }
+        break;
     case 4u:
-        vh = sw_ht_take(t, end, 3u);
-        if (vh == NULL) { return -1; }
-        tl->head = vh;
-    if (t_request_res_r_flag(vh)) {
-        tl->res_r = sw_ht_take(t, end, 4u);
-        if (tl->res_r == NULL) { return -1; }
-    } else {
-        tl->res_r = sw_ht_take(t, end, 1u);
-        if (tl->res_r == NULL) { return -1; }
-    }
-        return 0;
+        {
+            const uint8_t *vh = sw_ht_take(t, end, 3u);
+            if (vh == NULL) { return -1; }
+            if (t_request_res__walk(vh, t, end, &v->u.res) != 0) { return -1; }
+        }
+        break;
     default:
         return -1;
     }
+    v->p = h;
+    v->len = 1u + (size_t)(*t - t0);
+    return 0;
+}
+/* checks that the len bytes at buf start with a Request of a known tag and makes *v its view (v->len: its length); 0, or -1 (*v zeroed) when they are too short or malformed */
+SW_NODISCARD static inline int t_request_view(const uint8_t *buf, size_t len, t_request_view_t *v) {
+    const uint8_t *t;
+    memset(v, 0, sizeof *v);
+    if (buf == NULL || len < 1u) { return -1; }
+    t = buf + 1u;
+    if (t_request__walk(buf, &t, buf + len, v) != 0) {
+        memset(v, 0, sizeof *v);
+        return -1;
+    }
+    return 0;
+}
+
+/* Pin: a 1-byte tag, then the fields of its variant */
+#define T_PIN_TAG_LEN 1u
+/* a checked view of a Pin: made by t_pin_view(), the only way to read one; len bytes at p */
+typedef struct { const uint8_t *p; size_t len; } t_pin_view_t;
+static inline uint8_t t_pin_tag(t_pin_view_t v) { return sw_fixed_u8(v.p); }
+/* checks that the len bytes at buf start with a Pin of a known tag and makes *v its view (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */
+SW_NODISCARD static inline int t_pin_view(const uint8_t *buf, size_t len, t_pin_view_t *v) {
+    size_t n;
+    v->p = NULL;
+    v->len = 0u;
+    if (buf == NULL || len < 1u) { return -1; }
+    switch (sw_fixed_u8(buf)) {
+    case 1u:
+        n = 2u;
+        if (len < n) { return -1; }
+        break;
+    case 2u:
+        n = 2u;
+        if (len < n) { return -1; }
+        break;
+    default:
+        return -1;
+    }
+    v->p = buf;
+    v->len = n;
+    return 0;
+}
+#define T_PIN_LOW 1u
+#define T_PIN_LOW_LEN 2u
+/* a checked view of a Pin::Low: made by t_pin_as_low(), the only way to read one; len bytes at p */
+typedef struct { const uint8_t *p; size_t len; } t_pin_low_view_t;
+/* makes *out the view of v's Low variant and returns 0, or returns -1 (*out empty) for another tag */
+SW_NODISCARD static inline int t_pin_as_low(t_pin_view_t v, t_pin_low_view_t *out) {
+    if (t_pin_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
+    out->p = v.p;
+    out->len = v.len;
+    return 0;
+}
+#define T_PIN_LOW_0_OFFSET 1u
+static inline uint8_t t_pin_low_0(t_pin_low_view_t v) { return sw_fixed_u8(v.p + 1u); }
+#define T_PIN_HIGH 2u
+#define T_PIN_HIGH_LEN 2u
+/* a checked view of a Pin::High: made by t_pin_as_high(), the only way to read one; len bytes at p */
+typedef struct { const uint8_t *p; size_t len; } t_pin_high_view_t;
+/* makes *out the view of v's High variant and returns 0, or returns -1 (*out empty) for another tag */
+SW_NODISCARD static inline int t_pin_as_high(t_pin_view_t v, t_pin_high_view_t *out) {
+    if (t_pin_tag(v) != 2u) { out->p = NULL; out->len = 0u; return -1; }
+    out->p = v.p;
+    out->len = v.len;
+    return 0;
+}
+#define T_PIN_HIGH_0_OFFSET 1u
+static inline uint8_t t_pin_high_0(t_pin_high_view_t v) { return sw_fixed_u8(v.p + 1u); }
+
+/* Mixed: a head of 8 bytes, then its tail */
+#define T_MIXED_HEAD_LEN 8u
+/* a checked view of a Mixed: its head at p, len bytes in all (head and tail), and its variable parts; made by t_mixed_view() or by the view of the value that holds it */
+typedef struct {
+    const uint8_t *p;
+    size_t len;
+    t_pin_view_t pin;
+    t_slave_view_t slave; /* p NULL when not there */
+    t_wave_view_t r_ok; /* p NULL when not there */
+    const uint8_t *r_err; /* the payload, NULL when not there */
+    const uint8_t *pins; /* the items */
+    const uint8_t *raw; /* the items */
+    const uint8_t *words; /* the payload, NULL when not there */
+} t_mixed_view_t;
+/* checks the tail of a Mixed whose head (already checked) is at h and tail at *t (ending at end), fills *v and moves *t past it; 0, or -1 when the bytes are short or malformed. For the views of the types that hold it */
+SW_NODISCARD static inline int t_mixed__walk(const uint8_t *h, const uint8_t **t, const uint8_t *end, t_mixed_view_t *v) {
+    const uint8_t *t0 = *t;
+    (void)h;
+    (void)end;
+    if (t_pin_view(h + 0u, 2u, &v->pin) != 0) { return -1; }
+    if (sw_fixed_bits(h, 16u, 1u) != 0u) {
+        {
+            const uint8_t *ph = sw_ht_take(t, end, 4u);
+            if (ph == NULL) { return -1; }
+            if (t_slave__walk(ph, t, end, &v->slave) != 0) { return -1; }
+        }
+    } else {
+        v->slave.p = NULL;
+        v->slave.len = 0u;
+    }
+    if (sw_fixed_bits(h, 17u, 1u) != 0u) {
+        {
+            const uint8_t *ph = sw_ht_take(t, end, 6u);
+            if (ph == NULL) { return -1; }
+            if (t_wave_view(ph, 6u, &v->r_ok) != 0) { return -1; }
+        }
+        v->r_err = NULL;
+    } else {
+        v->r_ok.p = NULL;
+        v->r_ok.len = 0u;
+        v->r_err = sw_ht_take(t, end, 2u);
+        if (v->r_err == NULL) { return -1; }
+    }
+    v->pins = sw_ht_take_items(t, end, (size_t)sw_fixed_u16(h + 3u), 2u);
+    if (v->pins == NULL) { return -1; }
+    v->raw = sw_ht_take_items(t, end, (size_t)sw_fixed_u16(h + 5u), 1u);
+    if (v->raw == NULL) { return -1; }
+    if (sw_fixed_bits(h, 56u, 1u) != 0u) {
+        v->words = sw_ht_take(t, end, 4u);
+        if (v->words == NULL) { return -1; }
+    } else {
+        v->words = NULL;
+    }
+    v->p = h;
+    v->len = 8u + (size_t)(*t - t0);
+    return 0;
+}
+/* pin: a t_pin */
+#define T_MIXED_PIN_OFFSET 0u
+static inline const t_pin_view_t *t_mixed_pin(const t_mixed_view_t *v) { return &v->pin; }
+#define T_MIXED_SLAVE_FLAG_BIT_OFFSET 16u
+#define T_MIXED_SLAVE_FLAG_BITS 1u
+static inline uint32_t t_mixed_slave_flag(const t_mixed_view_t *v) { return sw_fixed_bits(v->p, 16u, 1u); }
+/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there */
+SW_NODISCARD static inline int t_mixed_slave(const t_mixed_view_t *v, const t_slave_view_t **out) {
+    if (v->slave.p == NULL) { *out = NULL; return -1; }
+    *out = &v->slave;
+    return 0;
+}
+#define T_MIXED_R_FLAG_BIT_OFFSET 17u
+#define T_MIXED_R_FLAG_BITS 1u
+static inline uint32_t t_mixed_r_flag(const t_mixed_view_t *v) { return sw_fixed_bits(v->p, 17u, 1u); }
+/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there */
+SW_NODISCARD static inline int t_mixed_r_ok(const t_mixed_view_t *v, const t_wave_view_t **out) {
+    if (v->r_ok.p == NULL) { *out = NULL; return -1; }
+    *out = &v->r_ok;
+    return 0;
+}
+/* sets *out and returns 0, or returns -1 when it is not there */
+SW_NODISCARD static inline int t_mixed_r_err(const t_mixed_view_t *v, uint16_t *out) {
+    if (v->r_err == NULL) { *out = 0; return -1; }
+    *out = sw_fixed_u16(v->r_err);
+    return 0;
+}
+#define T_MIXED_PINS_OFFSET 3u
+static inline uint16_t t_mixed_pins_count(const t_mixed_view_t *v) { return sw_fixed_u16(v->p + 3u); }
+/* checks item i and makes *out its view; 0, or -1 (*out empty) past the end or when it is malformed */
+SW_NODISCARD static inline int t_mixed_pins(const t_mixed_view_t *v, size_t i, t_pin_view_t *out) {
+    if (i >= (size_t)t_mixed_pins_count(v)) { out->p = NULL; out->len = 0u; return -1; }
+    return t_pin_view(v->pins + 2u * i, 2u, out);
+}
+#define T_MIXED_RAW_OFFSET 5u
+static inline uint16_t t_mixed_raw_count(const t_mixed_view_t *v) { return sw_fixed_u16(v->p + 5u); }
+static inline const uint8_t *t_mixed_raw(const t_mixed_view_t *v) { return v->raw; }
+#define T_MIXED_WORDS_FLAG_BIT_OFFSET 56u
+#define T_MIXED_WORDS_FLAG_BITS 1u
+static inline uint32_t t_mixed_words_flag(const t_mixed_view_t *v) { return sw_fixed_bits(v->p, 56u, 1u); }
+/* sets *out to item i and returns 0, or returns -1 (*out 0) when it is not there or i is past the end */
+SW_NODISCARD static inline int t_mixed_words(const t_mixed_view_t *v, size_t i, uint16_t *out) {
+    if (v->words == NULL || i >= 2u) { *out = 0; return -1; }
+    *out = sw_fixed_u16(v->words + 2u * i);
+    return 0;
+}
+/* checks that the len bytes at buf start with a Mixed and makes *v its view (v->len: its length); 0, or -1 (*v zeroed) when they are too short or malformed */
+SW_NODISCARD static inline int t_mixed_view(const uint8_t *buf, size_t len, t_mixed_view_t *v) {
+    const uint8_t *t;
+    memset(v, 0, sizeof *v);
+    if (buf == NULL || len < 8u) { return -1; }
+    t = buf + 8u;
+    if (t_mixed__walk(buf, &t, buf + len, v) != 0) {
+        memset(v, 0, sizeof *v);
+        return -1;
+    }
+    return 0;
 }
 
 #endif /* HEAD_TAIL_H */

@@ -5,6 +5,8 @@ use hex_literal::hex;
 use shrink_wrap::fixed_layout::{FixedLayout, write_c_header};
 use shrink_wrap::prelude::*;
 
+mod c_run;
+
 const N: usize = 3;
 
 /// Every number type and both kinds of array; detected (no `fixed_layout`), it is `sized`.
@@ -417,25 +419,29 @@ fn known_bits() {
     assert_eq!(same(&bits), hex!("8a bd 3412 fedcb ffe c0").to_vec());
 }
 
+/// Every type of this file with a C reader, in the order the header needs them.
+const C_TYPES: &[fn(&str, &mut dyn core::fmt::Write) -> core::fmt::Result] = &[
+    Numbers::write_c,
+    Inner::write_c,
+    Outer::write_c,
+    Final::write_c,
+    Op::write_c,
+    Wide::write_c,
+    Bits::write_c,
+    EndsWithBits::write_c,
+    Wrap::write_c,
+    Maybe::write_c,
+    Relocated::write_c,
+    Res::write_c,
+    TailOp::write_c,
+    Msg::write_c,
+];
+
 /// The generated C reader, checked in and compiled by `just lint-c` with every warning an error.
 #[test]
 fn c_header() {
     let mut out = String::new();
-    write_c_header(
-        &mut out,
-        "TEST_H",
-        "t_",
-        &[
-            Inner::write_c,
-            Outer::write_c,
-            Op::write_c,
-            Bits::write_c,
-            Maybe::write_c,
-            Res::write_c,
-            Msg::write_c,
-        ],
-    )
-    .unwrap();
+    write_c_header(&mut out, "TEST_H", "t_", C_TYPES).unwrap();
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixed_layout.h");
     if std::env::var_os("SW_UPDATE_GOLDEN").is_some() {
         std::fs::write(&path, &out).unwrap();
@@ -449,18 +455,12 @@ fn c_header() {
         "#define T_OUTER_LEN 15u",
         "#define T_OUTER_SIGNED_OFFSET 9u",
         "#define T_OUTER_SIGNED_COUNT 2u",
-        "static inline int16_t t_outer_signed(const uint8_t *p, size_t i) { return (int16_t)sw_fixed_u16(p + 9u + 2u * i); }",
-        "static inline const uint8_t *t_outer_inner(const uint8_t *p) { return p + 1u; }",
-        "static inline uint32_t t_inner_id(const uint8_t *p) { return sw_fixed_u32(p + 0u); }",
-        "#define T_OP_COPY 5u",
-        "#define T_OP_COPY_LEN 13u",
-        "static inline uint16_t t_op_copy_src(const uint8_t *p) { return sw_fixed_u16(p + 3u); }",
-        "static inline uint8_t t_op_tag(const uint8_t *p) { return sw_fixed_u8(p); }",
-        "    case 4u: return 3u;",
-        "#define T_BITS_S_BIT_OFFSET 11u",
-        "static inline int32_t t_bits_s(const uint8_t *p) { return sw_fixed_sbits(p, 11u, 5u); }",
-        "static inline uint32_t t_maybe_extra_flag(const uint8_t *p) { return sw_fixed_bits(p, 17u, 1u); }",
-        "static inline const uint8_t *t_res_r_err(const uint8_t *p) { return p + 2u; }",
+        "static inline uint32_t t_inner_id(t_inner_view_t v) { return sw_fixed_u32(v.p + 0u); }",
+        "SW_NODISCARD static inline int t_outer_view(const uint8_t *buf, size_t len, t_outer_view_t *v) {",
+        "SW_NODISCARD static inline int t_op_as_copy(t_op_view_t v, t_op_copy_view_t *out) {",
+        "static inline uint16_t t_op_copy_src(t_op_copy_view_t v) { return sw_fixed_u16(v.p + 3u); }",
+        "static inline int32_t t_bits_s(t_bits_view_t v) { return sw_fixed_sbits(v.p, 11u, 5u); }",
+        "SW_NODISCARD static inline int t_maybe_extra(t_maybe_view_t v, t_inner_view_t *out) {",
     ] {
         assert!(out.contains(line), "missing {line:?} in\n{out}");
     }
@@ -482,4 +482,207 @@ fn future_version_has_no_fast_path() {
     let bytes = Later::B.to_ww_bytes(&mut buf).unwrap();
     assert_eq!(Later::from_ww_bytes(bytes).unwrap(), Later::B);
     assert_eq!(Later::from_ww_bytes(&[7]).unwrap(), Later::Unknown(7));
+}
+
+/// Valid encodings of random values of every type with a C reader, by its C name.
+fn encodings(rng: &mut c_run::Rng, out: &mut Vec<(&'static str, Vec<u8>)>) {
+    fn enc<T: FixedLayout>(v: T) -> Vec<u8> {
+        let mut buf = [0u8; 64];
+        let n = v.write_fixed(&mut buf).unwrap();
+        buf[..n].to_vec()
+    }
+    let mut r = || rng.next();
+    let inner = Inner {
+        id: r() as u32,
+        hash: (r() as u32).to_le_bytes(),
+    };
+    let some = r() & 1 == 1;
+    let op = match r() % 4 {
+        0 => Op::Stop,
+        1 => Op::Erase { block: r() as u16 },
+        2 => Op::Copy {
+            dst: r() as u16,
+            src: r() as u16,
+            hash: r().to_le_bytes(),
+        },
+        _ => Op::Inner(inner),
+    };
+    out.extend([
+        (
+            "numbers",
+            enc(Numbers {
+                a: r() as u8,
+                b: r() as u16,
+                c: r() as u32,
+                d: r(),
+                e: r() as i8,
+                f: r() as i16,
+                g: r() as i32,
+                h: r() as i64,
+                x: f32::from_bits(r() as u32),
+                y: f64::from_bits(r()),
+                bytes: r().to_le_bytes()[..5].try_into().unwrap(),
+                words: [r() as u16, r() as u16, r() as u16],
+            }),
+        ),
+        ("inner", enc(inner)),
+        (
+            "outer",
+            enc(Outer {
+                tag: r() as u8,
+                inner,
+                signed: [r() as i16, r() as i16],
+                tail: r() as u16,
+            }),
+        ),
+        (
+            "final",
+            enc(Final {
+                a: r() as u16,
+                b: inner,
+            }),
+        ),
+        ("op", enc(op)),
+        (
+            "wide",
+            enc(if some {
+                Wide::A(r() as u32)
+            } else {
+                Wide::B(r() as i32)
+            }),
+        ),
+        (
+            "bits",
+            enc(Bits {
+                a: some,
+                n: Nibble::new_masked(r() as u8),
+                b: U3::__from_wire(r()),
+                s: I5::__from_wire(r()),
+                x: r() as u16,
+                wide: U20::__from_wire(r()),
+                i: I12::__from_wire(r()),
+                last: r() & 1 == 1,
+                end: U2::__from_wire(r()),
+            }),
+        ),
+        (
+            "ends_with_bits",
+            enc(EndsWithBits {
+                id: r() as u8,
+                on: some,
+            }),
+        ),
+        (
+            "wrap",
+            enc(Wrap {
+                lead: some,
+                inner,
+                flags: EndsWithBits {
+                    id: r() as u8,
+                    on: r() & 1 == 1,
+                },
+                after: r() as u8,
+            }),
+        ),
+        (
+            "maybe",
+            enc(Maybe {
+                id: r() as u16,
+                on: r() & 1 == 1,
+                extra: some.then_some(inner),
+            }),
+        ),
+        (
+            "relocated",
+            enc(Relocated {
+                kind: U3::__from_wire(r()),
+                id: r() as u8,
+                value: some.then_some([r() as u16, r() as u16]),
+            }),
+        ),
+        (
+            "res",
+            enc(Res {
+                a: r() as u8,
+                r: if some { Ok(r() as u32) } else { Err(inner) },
+            }),
+        ),
+        (
+            "tail_op",
+            enc(TailOp {
+                seq: U4::__from_wire(r()),
+                op,
+            }),
+        ),
+        (
+            "msg",
+            enc(if r() & 1 == 1 {
+                Msg::Ping
+            } else {
+                Msg::Data {
+                    urgent: r() & 1 == 1,
+                    prio: U2::__from_wire(r()),
+                    seq: r() as u16,
+                    payload: some.then_some((r() as u32).to_le_bytes()),
+                }
+            }),
+        ),
+    ]);
+}
+
+/// What `from_fixed` makes of `buf` as the type of this C name: the length of the value, `None` refused.
+fn rust_len(ty: &str, buf: &[u8]) -> Option<usize> {
+    fn len<T: FixedLayout>(buf: &[u8]) -> Option<usize> {
+        T::read_fixed(buf).ok().map(|v| v.fixed_len())
+    }
+    match ty {
+        "numbers" => len::<Numbers>(buf),
+        "inner" => len::<Inner>(buf),
+        "outer" => len::<Outer>(buf),
+        "final" => len::<Final>(buf),
+        "op" => len::<Op>(buf),
+        "wide" => len::<Wide>(buf),
+        "bits" => len::<Bits>(buf),
+        "ends_with_bits" => len::<EndsWithBits>(buf),
+        "wrap" => len::<Wrap>(buf),
+        "maybe" => len::<Maybe>(buf),
+        "relocated" => len::<Relocated>(buf),
+        "res" => len::<Res>(buf),
+        "tail_op" => len::<TailOp>(buf),
+        "msg" => len::<Msg>(buf),
+        other => panic!("no type {other}"),
+    }
+}
+
+/// The C views (SW-79) on valid, truncated, empty, changed and random buffers of every type: a view is made
+/// exactly when `from_fixed` reads a value, with its length, and every reader of it stays in its bytes (the C
+/// program reads each case from a buffer of exactly its length, under AddressSanitizer where it links).
+#[test]
+fn c_views_check_bounds() {
+    let mut rng = c_run::Rng(0x9e37_79b9_7f4a_7c15);
+    let mut valid = Vec::new();
+    for _ in 0..50 {
+        encodings(&mut rng, &mut valid);
+    }
+    let mut input = String::new();
+    let mut want = Vec::new();
+    let names: Vec<&'static str> = valid[..14].iter().map(|(n, _)| *n).collect();
+    for name in names {
+        let of: Vec<Vec<u8>> = valid
+            .iter()
+            .filter(|(n, _)| *n == name)
+            .map(|(_, b)| b.clone())
+            .collect();
+        for (ty, bytes) in c_run::cases(name, &of, 20, &mut rng) {
+            input.push_str(&c_run::line(ty, &bytes));
+            want.push(format!("{ty} {}", c_run::expect(rust_len(ty, &bytes))));
+        }
+    }
+    let exe = c_run::build("fixed_layout_c.c");
+    let got = c_run::run(&exe, &input);
+    let got: Vec<&str> = got.lines().collect();
+    assert_eq!(got.len(), want.len());
+    for ((got, want), case) in got.iter().zip(&want).zip(input.lines()) {
+        assert_eq!(got, want, "case {case}");
+    }
 }

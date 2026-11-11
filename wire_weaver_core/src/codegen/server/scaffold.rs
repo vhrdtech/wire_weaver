@@ -88,6 +88,7 @@ pub fn gen_server_scaffold(
         &omissions,
         &property_model,
         config.observe_samples,
+        None,
     );
     if !config.observe_samples && !config.observe_cells.is_empty() {
         return Err(anyhow!(

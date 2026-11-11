@@ -485,6 +485,13 @@ impl RxDispatcher {
                         shared.wake();
                         return;
                     }
+                    // an observed level whose element of a resource array was removed (API-63)
+                    if let RawStreamEvent::Sideband(ww_client_server::StreamSideband::Close) = &ev
+                        && let Some(route) = self.observe_routes.remove(&path)
+                    {
+                        route.on_ended();
+                        return;
+                    }
                     if let Some(listeners) = self.stream_handlers.get_mut(&path) {
                         listeners.retain(|tx| {
                             let keep = tx.send(ev.clone()).is_ok();

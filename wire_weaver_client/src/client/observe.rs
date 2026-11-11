@@ -279,6 +279,9 @@ pub enum ObserveEvent<T> {
     Dropped {
         events: u64,
     },
+    /// The element of a resource array the level belongs to was removed on the device (API-63): nothing more
+    /// comes, the next `recv` returns [StreamError::Closed]. Observing the same index again later starts anew.
+    Ended,
 }
 
 /// A `PropertyUpdate` as received, decoded by each observer
@@ -297,6 +300,7 @@ enum QueueItem {
     Disconnected,
     Resumed,
     Dropped { events: u64 },
+    Ended,
 }
 
 /// Queue of one observer, bounded in bytes of update data like a stream's (CLT-23): data that doesn't fit is
@@ -427,6 +431,11 @@ pub(crate) trait LevelRoute: Send + Sync + 'static {
     fn on_disconnected(&self, keep: bool);
     /// The event loop is gone.
     fn on_detached(&self);
+    /// The device ended the level (API-63, its element of a resource array was removed): the observers end, the
+    /// route is gone.
+    fn on_ended(&self);
+    /// Whether [Self::on_ended] came: a new subscription to the path starts a new level.
+    fn is_ended(&self) -> bool;
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
     /// Commands that subscribe again on a new connection, None without observers.
     fn resume(self: Arc<Self>, timeout: Duration) -> Result<Option<Pending>, Error>;
@@ -475,6 +484,8 @@ struct LevelState<U: LevelUpdate> {
     resuming: bool,
     /// Device time of the updates, unwrapped
     time: DeviceTime,
+    /// The device ended the level (API-63): its observers ended with it
+    ended: bool,
 }
 
 impl<U: LevelUpdate> Level<U> {
@@ -542,6 +553,21 @@ impl<U: LevelUpdate> LevelRoute for Level<U> {
                 queue.close();
             }
         }
+    }
+
+    fn on_ended(&self) {
+        let mut state = self.lock();
+        state.ended = true;
+        state.routed = false;
+        state.sent = None;
+        for (_, queue) in state.observers.values() {
+            queue.push(QueueItem::Ended);
+            queue.close();
+        }
+    }
+
+    fn is_ended(&self) -> bool {
+        self.lock().ended
     }
 
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync> {
@@ -730,7 +756,7 @@ fn level_of<U: LevelUpdate>(
     levels: &mut HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
     path: &[UNib32],
 ) -> Result<Arc<Level<U>>, Error> {
-    if let Some(level) = levels.get(path) {
+    if let Some(level) = levels.get(path).filter(|l| !l.is_ended()) {
         return level.clone().as_any().downcast::<Level<U>>().map_err(|_| {
             Error::User(format!(
                 "level {path:?} is observed with another update type"
@@ -750,6 +776,7 @@ fn level_of<U: LevelUpdate>(
             routed: false,
             resuming: false,
             time: DeviceTime::default(),
+            ended: false,
         }),
     });
     levels.insert(path.to_vec(), level.clone());
@@ -936,13 +963,15 @@ impl<U: LevelUpdate, T> Observer<U, T> {
             QueueItem::Disconnected => ObserveEvent::Disconnected,
             QueueItem::Resumed => ObserveEvent::Resumed,
             QueueItem::Dropped { events } => ObserveEvent::Dropped { events },
+            QueueItem::Ended => ObserveEvent::Ended,
         };
         self.pending.push_back(ev);
         Ok(())
     }
 
-    /// Next update, [ObserveEvent::Disconnected], [ObserveEvent::Resumed] or [ObserveEvent::Dropped].
-    /// [StreamError::Closed] once nothing more can come (the link went down without `keep_streams`).
+    /// Next update, [ObserveEvent::Disconnected], [ObserveEvent::Resumed], [ObserveEvent::Dropped] or
+    /// [ObserveEvent::Ended]. [StreamError::Closed] once nothing more can come (the link went down without
+    /// `keep_streams`, the level ended).
     pub async fn recv_event(&mut self) -> Result<ObserveEvent<T>, StreamError> {
         loop {
             if let Some(ev) = self.pending.pop_front() {
@@ -1031,6 +1060,12 @@ impl<U: LevelUpdate, T> Observer<U, T> {
         let entries = cfg.to_entries();
         check_samples_taken(self.image_facts, &entries)?;
         let mut state = self.level.lock();
+        if state.ended {
+            return Err(Error::User(format!(
+                "level {:?} ended on the device (its element was removed), observe it again",
+                self.level.path
+            )));
+        }
         if let Some((own, _)) = state.observers.get_mut(&self.id) {
             own.entries = entries;
             if let Some(budget) = budget {
@@ -1098,7 +1133,11 @@ impl<U: LevelUpdate, T> Drop for Observer<U, T> {
         let mut levels = registry.lock().unwrap_or_else(|e| e.into_inner());
         let mut state = self.level.lock();
         state.observers.remove(&self.id);
-        if state.observers.is_empty() {
+        // an ended level may have been replaced by a new subscription to its path meanwhile
+        let ours = levels
+            .get(&self.level.path)
+            .is_some_and(|l| std::ptr::addr_eq(Arc::as_ptr(l), Arc::as_ptr(&self.level)));
+        if state.observers.is_empty() && ours {
             levels.remove(&self.level.path);
         }
         if !state.routed {

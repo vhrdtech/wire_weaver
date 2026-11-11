@@ -37,6 +37,29 @@ struct Level {
     props: Vec<Prop>,
     /// Sampled through observe cells (`observe_cells = ".."`, API-50) instead of `<Level>Sampler::sample`
     cells: bool,
+    /// Under resource arrays (API-63): a table per observed element, see [Elements]
+    elements: Option<Elements>,
+}
+
+/// Where a level under resource arrays (API-63) takes its array indices: `path` holds a 0 at each of them.
+#[derive(Clone)]
+struct Elements {
+    /// Positions of the indices in the level's path, outermost first
+    holes: Vec<usize>,
+    /// `valid_indices_<chain>_<array>` of each array on the way, outermost first: the index at hole `i` is checked
+    /// with it, called with the indices before it
+    valid: Vec<Ident>,
+    /// `Array::name` of each array on the way, outermost first
+    arrays: Vec<String>,
+}
+
+/// A resource array of traits (API-63): `element_removed_<name>(index_chain)` ends what is observed under one of
+/// its elements.
+struct Array {
+    /// Prefixed name: `browsers`, `media_players`
+    name: String,
+    /// Indices up to and including this array's
+    depth: usize,
 }
 
 struct Prop {
@@ -55,6 +78,43 @@ struct Prop {
 }
 
 impl Level {
+    /// Indices in the element's chain (API-63), 0 for a level not under an array.
+    fn depth(&self) -> usize {
+        self.elements.as_ref().map_or(0, |e| e.holes.len())
+    }
+
+    /// The level's path as a slice pattern: `UNib32(id)` per item, an array index bound to `index_<i>` (`bind`) or
+    /// `_` (API-63).
+    fn path_pattern(&self, bind: bool) -> Vec<TokenStream> {
+        let holes = self.elements.as_ref().map_or(&[][..], |e| &e.holes[..]);
+        self.path
+            .iter()
+            .enumerate()
+            .map(|(at, id)| match holes.iter().position(|h| *h == at) {
+                Some(i) if bind => {
+                    let index = index_ident(i);
+                    quote! { #index }
+                }
+                Some(_) => quote! { _ },
+                None => quote! { UNib32(#id) },
+            })
+            .collect()
+    }
+
+    /// The level's path with the indices of the element in `chain` (`[UNib32]` of its depth) (API-63).
+    fn path_expr(&self, chain: &TokenStream) -> TokenStream {
+        let holes = self.elements.as_ref().map_or(&[][..], |e| &e.holes[..]);
+        let parts = self
+            .path
+            .iter()
+            .enumerate()
+            .map(|(at, id)| match holes.iter().position(|h| *h == at) {
+                Some(i) => quote! { #chain[#i] },
+                None => quote! { UNib32(#id) },
+            });
+        quote! { [#(#parts),*] }
+    }
+
     fn has_samples(&self) -> bool {
         self.props.iter().any(|p| p.samples)
     }
@@ -106,6 +166,11 @@ impl Level {
 /// Bytes of a level's outbox unless `observe_outbox = N` says otherwise: one big message.
 const DEFAULT_OUTBOX: usize = 4096;
 
+/// `index_<i>`: the `i`-th array index of a level's path (API-63).
+fn index_ident(i: usize) -> Ident {
+    Ident::new(&format!("index_{i}"), Span::call_site())
+}
+
 fn gate_ident(batch: &Ident) -> Ident {
     Ident::new(&format!("{batch}_gate"), batch.span())
 }
@@ -117,9 +182,14 @@ fn cursor_ident(batch: &Ident) -> Ident {
 /// The observable levels and properties of an API.
 pub(crate) struct Observe {
     levels: Vec<Level>,
-    /// Paths of resource arrays of traits: levels below them can't be observed yet
-    arrays: Vec<Vec<u32>>,
+    /// Resource arrays of traits with observable levels under them
+    arrays: Vec<Array>,
+    /// Element tables of each level under arrays (`observe_elements = K`)
+    elements: usize,
 }
+
+/// Element tables of a level under resource arrays unless `observe_elements = K` says otherwise (API-63).
+pub(crate) const DEFAULT_ELEMENTS: usize = 4;
 
 impl Observe {
     pub(crate) fn collect(
@@ -127,10 +197,12 @@ impl Observe {
         omissions: &Omissions,
         property_model: &PropertyModel,
         observe_samples: bool,
+        observe_elements: Option<usize>,
     ) -> Self {
         let mut observe = Observe {
             levels: vec![],
             arrays: vec![],
+            elements: observe_elements.unwrap_or(DEFAULT_ELEMENTS),
         };
         observe.walk(
             api_bundle,
@@ -142,7 +214,16 @@ impl Observe {
             None,
             "root",
             &mut vec![],
+            None,
         );
+        // arrays without anything observable under them need no `element_removed_*`
+        let levels = &observe.levels;
+        observe.arrays.retain(|a| {
+            levels.iter().any(|l| {
+                !l.props.is_empty()
+                    && l.elements.as_ref().is_some_and(|e| e.arrays.contains(&a.name))
+            })
+        });
         observe
     }
 
@@ -158,6 +239,7 @@ impl Observe {
         prefix: Option<&String>,
         chain: &str,
         path: &mut Vec<u32>,
+        elements: Option<&Elements>,
     ) {
         let omitted = omissions.level(item_path);
         let mut props = vec![];
@@ -186,31 +268,54 @@ impl Observe {
                         ident,
                         ty: ty.clone(),
                         batched: batched.is_some(),
-                        samples: batched.is_some() && observe_samples,
+                        // the samples of an element of an array have no batcher yet (API-63)
+                        samples: batched.is_some() && observe_samples && elements.is_none(),
                     });
                 }
                 ApiItemKindOwned::Trait { .. } => {
+                    let prefix = match prefix {
+                        Some(prefix) => format!("{prefix}_{}", item.ident),
+                        None => item.ident.clone(),
+                    };
+                    let mut item_path = item_path.to_vec();
+                    item_path.push(item.ident.clone());
                     path.push(item.id.0);
-                    if flat {
-                        let prefix = match prefix {
-                            Some(prefix) => format!("{prefix}_{}", item.ident),
-                            None => item.ident.clone(),
-                        };
-                        let mut item_path = item_path.to_vec();
-                        item_path.push(item.ident.clone());
-                        self.walk(
-                            api_bundle,
-                            item.get_as_level(api_bundle).unwrap(),
-                            omissions,
-                            property_model,
-                            observe_samples,
-                            &item_path,
-                            Some(&prefix),
-                            &format!("{chain}_{}", item.ident),
-                            path,
-                        );
+                    // under an array: the element's index follows in the path (API-63)
+                    let elements = if flat {
+                        elements.cloned()
                     } else {
-                        self.arrays.push(path.clone());
+                        let mut e = elements.cloned().unwrap_or(Elements {
+                            holes: vec![],
+                            valid: vec![],
+                            arrays: vec![],
+                        });
+                        e.arrays.push(prefix.clone());
+                        e.holes.push(path.len());
+                        e.valid.push(Ident::new(
+                            &format!("valid_indices_{chain}_{}", item.ident),
+                            Span::call_site(),
+                        ));
+                        path.push(0);
+                        self.arrays.push(Array {
+                            name: prefix.clone(),
+                            depth: e.holes.len(),
+                        });
+                        Some(e)
+                    };
+                    self.walk(
+                        api_bundle,
+                        item.get_as_level(api_bundle).unwrap(),
+                        omissions,
+                        property_model,
+                        observe_samples,
+                        &item_path,
+                        Some(&prefix),
+                        &format!("{chain}_{}", item.ident),
+                        path,
+                        elements.as_ref(),
+                    );
+                    if !flat {
+                        path.pop();
                     }
                     path.pop();
                 }
@@ -225,6 +330,7 @@ impl Observe {
             item_count: level.items.iter().map(|i| i.id.0 + 1).max().unwrap_or(0),
             props,
             cells: false,
+            elements: elements.cloned(),
         });
     }
 
@@ -282,6 +388,33 @@ impl Observe {
             .collect()
     }
 
+    /// Type of a level's field in `ObserveState`: its table, or its element tables (API-63).
+    fn table_ty(&self, level: &Level) -> TokenStream {
+        let n = level.props.len();
+        let table = quote! { [ww_stream::observe::Slot; #n] };
+        match &level.elements {
+            Some(e) => {
+                let (d, k) = (e.holes.len(), self.elements);
+                quote! { [ww_stream::observe::ElementTable<#table, #d>; #k] }
+            }
+            None => quote! { ww_stream::observe::ObserveTable<#table> },
+        }
+    }
+
+    /// The numbers a level has in `poll_properties` (`ObserveState::level`), first and last: one per table, an
+    /// element level's tables one after the other (API-63). By table level, in order.
+    fn numbers(&self) -> Vec<(usize, usize)> {
+        let mut next = 0;
+        self.tables()
+            .map(|l| {
+                let n = if l.elements.is_some() { self.elements } else { 1 };
+                let range = (next, next + n - 1);
+                next += n;
+                range
+            })
+            .collect()
+    }
+
     fn tables(&self) -> impl Iterator<Item = &Level> {
         self.levels.iter().filter(|l| !l.props.is_empty())
     }
@@ -335,7 +468,53 @@ impl Observe {
             return quote! {};
         }
         let fields: Vec<&Ident> = self.tables().map(|l| &l.field).collect();
-        let ns: Vec<usize> = self.tables().map(|l| l.props.len()).collect();
+        let field_tys: Vec<TokenStream> = self.tables().map(|l| self.table_ty(l)).collect();
+        let field_news = self.tables().map(|l| {
+            if l.elements.is_some() {
+                let k = self.elements;
+                quote! { [const { ww_stream::observe::ElementTable::new() }; #k] }
+            } else {
+                quote! { ww_stream::observe::ObserveTable::new() }
+            }
+        });
+        let field_inits = self.tables().zip(&field_tys).map(|(l, ty)| {
+            let field = &l.field;
+            let init = if l.elements.is_some() {
+                quote! { ww_stream::observe::ElementTable::init_all }
+            } else {
+                quote! { ww_stream::observe::ObserveTable::init }
+            };
+            quote! {
+                #init(
+                    &mut *core::ptr::addr_of_mut!((*at).#field)
+                        .cast::<core::mem::MaybeUninit<#ty>>(),
+                );
+            }
+        });
+        let field_resets = self.tables().map(|l| {
+            let field = &l.field;
+            if l.elements.is_some() {
+                quote! { self.#field.iter_mut().for_each(|e| e.reset()); }
+            } else {
+                quote! { self.#field.reset(); }
+            }
+        });
+        let field_budgets = self.tables().map(|l| {
+            let field = &l.field;
+            if l.elements.is_some() {
+                quote! { .saturating_add(self.#field.iter().fold(0u32, |b, e| b.saturating_add(e.budget()))) }
+            } else {
+                quote! { .saturating_add(self.#field.budget()) }
+            }
+        });
+        let field_actives = self.tables().map(|l| {
+            let field = &l.field;
+            if l.elements.is_some() {
+                quote! { || self.#field.iter().any(|e| e.is_active()) }
+            } else {
+                quote! { || self.#field.is_active() }
+            }
+        });
         let docs = self.tables().map(|l| {
             let path = l.path.iter().map(|p| p.to_string()).collect::<Vec<_>>();
             format!(" `{}` at `/{}`", l.trait_name, path.join("/"))
@@ -439,7 +618,7 @@ impl Observe {
                 pub limits: ww_stream::observe::ObserveLimits,
                 #(
                     #[doc = #docs]
-                    pub #fields: ww_stream::observe::ObserveTable<[ww_stream::observe::Slot; #ns]>,
+                    pub #fields: #field_tys,
                 )*
                 #(
                     #[doc = #outbox_docs]
@@ -456,7 +635,7 @@ impl Observe {
                 pub const fn new(limits: ww_stream::observe::ObserveLimits #batches_arg) -> Self {
                     ObserveState {
                         limits,
-                        #(#fields: ww_stream::observe::ObserveTable::new(),)*
+                        #(#fields: #field_news,)*
                         #(#outboxes: ww_stream::batch::Outbox::new(),)*
                         #batches_init
                         signal: None,
@@ -479,12 +658,7 @@ impl Observe {
                     // SAFETY: every field written in place, each through its own pointer
                     unsafe {
                         core::ptr::addr_of_mut!((*at).limits).write(limits);
-                        #(
-                            ww_stream::observe::ObserveTable::init(
-                                &mut *core::ptr::addr_of_mut!((*at).#fields)
-                                    .cast::<core::mem::MaybeUninit<ww_stream::observe::ObserveTable<[ww_stream::observe::Slot; #ns]>>>(),
-                            );
-                        )*
+                        #(#field_inits)*
                         #(
                             ww_stream::batch::Outbox::init(
                                 &mut *core::ptr::addr_of_mut!((*at).#outboxes)
@@ -499,19 +673,19 @@ impl Observe {
 
                 /// Stop observing everything, e.g., when the link went down.
                 pub fn reset(&mut self) {
-                    #(self.#fields.reset();)*
+                    #(#field_resets)*
                     #(self.#outboxes.clear();)*
                     #reset_gates
                 }
 
                 /// Bytes per second granted to all levels together.
                 pub fn budget_in_use(&self) -> u32 {
-                    0u32 #(.saturating_add(self.#fields.budget()))*
+                    0u32 #(#field_budgets)*
                 }
 
                 /// Whether any property of any level is observed.
                 pub fn is_active(&self) -> bool {
-                    false #(|| self.#fields.is_active())*
+                    false #(#field_actives)*
                 }
 
                 #level_access
@@ -529,7 +703,8 @@ impl Observe {
         let mut marks = vec![];
         let mut takes = vec![];
         let mut i = 0usize;
-        for level in self.tables() {
+        // an element's property is marked on the server, with its index chain: no bit for it (API-63)
+        for level in self.tables().filter(|l| l.elements.is_none()) {
             let field = &level.field;
             for (k, p) in level.props.iter().enumerate() {
                 let name = mark_changed_ident(&p.prefixed);
@@ -565,6 +740,19 @@ impl Observe {
                     next = Some(next.map_or(at, |n: u64| n.min(at)));
                 }
             };
+            if level.elements.is_some() {
+                // an ended element is told to its host at once
+                return quote! {
+                    for e in self.#field.iter() {
+                        let at = match e.state() {
+                            ww_stream::observe::ElementState::Free => None,
+                            ww_stream::observe::ElementState::Observed => e.table.next_wake(now_us, &|_| false),
+                            ww_stream::observe::ElementState::Ended => Some(now_us),
+                        };
+                        #min
+                    }
+                };
+            }
             if !level.has_samples() {
                 return quote! {{
                     let at = self.#field.next_wake(now_us, &|_| false);
@@ -689,15 +877,18 @@ impl Observe {
         let Some(last) = levels.len().checked_sub(1) else {
             return quote! {};
         };
+        let numbers = self.numbers();
         let pat = |i: usize| {
+            let (lo, hi) = numbers[i];
             if i == last {
                 quote! { _ }
+            } else if lo == hi {
+                quote! { #lo }
             } else {
-                quote! { #i }
+                quote! { #lo..=#hi }
             }
         };
         let level = levels.iter().enumerate().map(|(i, level)| {
-            let pat = pat(i);
             let field = &level.field;
             let oldest = if level.has_samples() {
                 let outbox = level.outbox();
@@ -705,15 +896,36 @@ impl Observe {
             } else {
                 quote! { None }
             };
-            quote! { #pat => (&mut self.#field as &mut ww_stream::observe::ObserveTable, #oldest), }
+            if level.elements.is_some() {
+                let (lo, hi) = numbers[i];
+                let pat = if i == last {
+                    quote! { l }
+                } else {
+                    quote! { l @ #lo..=#hi }
+                };
+                quote! { #pat => (&mut self.#field[l - #lo].table as &mut ww_stream::observe::ObserveTable, #oldest), }
+            } else {
+                let pat = pat(i);
+                quote! { #pat => (&mut self.#field as &mut ww_stream::observe::ObserveTable, #oldest), }
+            }
         });
+        let elements = levels
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.elements.is_some())
+            .map(|(i, level)| {
+                let (lo, hi) = numbers[i];
+                let field = &level.field;
+                quote! { l @ #lo..=#hi => Some(&mut self.#field[l - #lo] as &mut dyn ww_stream::observe::Element), }
+            });
         let oldest = levels
             .iter()
             .enumerate()
             .filter(|(_, l)| l.has_samples())
             .map(|(i, level)| {
                 let outbox = level.outbox();
-                quote! { #i => self.#outbox.oldest(), }
+                let lo = numbers[i].0;
+                quote! { #lo => self.#outbox.oldest(), }
             });
         let remove = levels
             .iter()
@@ -721,7 +933,8 @@ impl Observe {
             .filter(|(_, l)| l.has_samples())
             .map(|(i, level)| {
                 let outbox = level.outbox();
-                quote! { #i => self.#outbox.remove_oldest(), }
+                let lo = numbers[i].0;
+                quote! { #lo => self.#outbox.remove_oldest(), }
             });
         quote! {
             /// The table of trait level `level` (in `poll_properties` order; the last one beyond) and the oldest
@@ -740,6 +953,16 @@ impl Observe {
                 #[allow(clippy::match_single_binding)]
                 match level {
                     #(#oldest)*
+                    _ => None,
+                }
+            }
+
+            /// The element table with number `level` (API-63): its state and index chain; None for a level not under
+            /// a resource array.
+            pub fn element(&mut self, level: usize) -> Option<&mut dyn ww_stream::observe::Element> {
+                #[allow(clippy::match_single_binding)]
+                match level {
+                    #(#elements)*
                     _ => None,
                 }
             }
@@ -1450,6 +1673,16 @@ impl Observe {
                     write that changed a `value_on_changed` property; call it whenever the device changes it.",
                     p.ident
                 );
+                if let Some(e) = &level.elements {
+                    let d = e.holes.len();
+                    let doc = format!("{doc} `index_chain`: the element's indices, as its handlers get them.");
+                    return quote! {
+                        #[doc = #doc]
+                        pub fn #name(&mut self, index_chain: [UNib32; #d]) {
+                            ww_stream::observe::mark_element_changed(&mut self.observe_state().#field, &index_chain, #k);
+                        }
+                    };
+                }
                 quote! {
                     #[doc = #doc]
                     pub fn #name(&mut self) {
@@ -1459,10 +1692,34 @@ impl Observe {
             });
             quote! { #(#fns)* }
         });
+        let removed = self.arrays.iter().map(|array| {
+            let name = Ident::new(&format!("element_removed_{}", array.name), Span::call_site());
+            let depth = array.depth;
+            let ends = self
+                .tables()
+                .filter(|l| l.elements.as_ref().is_some_and(|e| e.arrays.contains(&array.name)))
+                .map(|l| {
+                    let field = &l.field;
+                    quote! { ww_stream::observe::end_elements(&mut state.#field, &index_chain); }
+                });
+            let doc = format!(
+                " The element of `{}` at `index_chain` was removed (API-63): what hosts observe of it, and under it, \
+                ends; they are told at the next `poll_properties`. Call it whenever an element goes away.",
+                array.name
+            );
+            quote! {
+                #[doc = #doc]
+                pub fn #name(&mut self, index_chain: [UNib32; #depth]) {
+                    let state = self.observe_state();
+                    #(#ends)*
+                }
+            }
+        });
         let poll = self.poll_properties(api_bundle, handlers, medium_ty, no_alloc);
         quote! {
             #observe_request
             #(#mark_changed)*
+            #(#removed)*
             #poll
         }
     }
@@ -1481,12 +1738,13 @@ impl Observe {
             .iter()
             .filter(|l| l.props.is_empty())
             .map(|level| {
-                let path = &level.path;
+                let path = level.path_pattern(false);
                 let item_count = level.item_count;
-                quote! { [#(UNib32(#path)),*] => Some(#item_count), }
+                quote! { [#(#path),*] => Some(#item_count), }
             });
+        let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
         let arms = self.levels.iter().filter(|l| !l.props.is_empty()).map(|level| {
-            let path = &level.path;
+            let path = level.path_pattern(true);
             let n = level.props.len();
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
@@ -1512,14 +1770,50 @@ impl Observe {
                     state.#outbox.retain_columns(|k| table.samples(k as usize).is_some());
                 }
             });
-            let table = quote! {
-                let state = self.observe_state();
-                let limits = state.limits;
-                let others = state.budget_in_use().saturating_sub(state.#field.budget());
-                let table = &mut state.#field;
+            let (table, settle) = match &level.elements {
+                // the element must be there, as for any request to it, and gets a table of its own
+                Some(e) => {
+                    let indices: Vec<Ident> = (0..e.holes.len()).map(index_ident).collect();
+                    let checks = e.valid.iter().enumerate().map(|(i, valid)| {
+                        let index = &indices[i];
+                        let before = &indices[..i];
+                        let arg = maybe_quote(i > 0, quote! { [#(*#before),*] });
+                        quote! {
+                            if !self.#valid(#arg).contains(#index.0) {
+                                return Err(Error::new(#es_index, ErrorKind::BadIndex));
+                            }
+                        }
+                    });
+                    (
+                        quote! {
+                            #(#checks)*
+                            let chain = [#(*#indices),*];
+                            let state = self.observe_state();
+                            let limits = state.limits;
+                            let in_use = state.budget_in_use();
+                            let Some(e) = ww_stream::observe::element_for(&mut state.#field, &chain) else {
+                                // every table of the level observes another element
+                                return Err(Error::new(#es_array, ErrorKind::OperationNotSupported));
+                            };
+                            let element = &mut state.#field[e];
+                            let others = in_use.saturating_sub(element.budget());
+                            let table = &mut element.table;
+                        },
+                        quote! { self.observe_state().#field[e].settle(); },
+                    )
+                }
+                None => (
+                    quote! {
+                        let state = self.observe_state();
+                        let limits = state.limits;
+                        let others = state.budget_in_use().saturating_sub(state.#field.budget());
+                        let table = &mut state.#field;
+                    },
+                    quote! {},
+                ),
             };
             quote! {
-                [#(UNib32(#path)),*] => {
+                [#(#path),*] => {
                     #desc
                     #table
                     // put back when the answer can't be written: the host must not get an error for settings the
@@ -1545,12 +1839,10 @@ impl Observe {
                         *table = before;
                         return Err(Error::new(#es_ser, ErrorKind::ResponseSerFailed));
                     }
+                    #settle
                     #sync_gates
                 }
             }
-        });
-        let arrays = self.arrays.iter().map(|path| {
-            quote! { [#(UNib32(#path),)* ..] => { return Err(Error::new(#es_array, ErrorKind::OperationNotSupported)); } }
         });
         quote! {
             /// `RequestKind::Observe` on the trait level at `path` (SRV-18): validated and clamped by
@@ -1594,7 +1886,6 @@ impl Observe {
                 }
                 match path {
                     #(#arms)*
-                    #(#arrays)*
                     _ => return Err(Error::bad_path(#es_path)),
                 }
                 event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, wr);
@@ -1625,24 +1916,111 @@ impl Observe {
             )
         };
         let levels: Vec<&Level> = self.tables().collect();
-        let level_count = levels.len();
+        let numbers = self.numbers();
+        // one number per table: an element level's are its element tables (API-63)
+        let level_count = numbers.last().map_or(0, |(_, hi)| hi + 1);
+        let pat = |i: usize| {
+            let (lo, hi) = numbers[i];
+            if lo == hi {
+                quote! { #lo }
+            } else {
+                quote! { #lo..=#hi }
+            }
+        };
         let max_n = levels.iter().map(|l| l.props.len()).max().unwrap_or(0);
-        let descs = levels.iter().map(|level| {
+        let descs = levels.iter().enumerate().flat_map(|(i, level)| {
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
             let samples = level.props.iter().map(|p| p.samples);
-            quote! {
+            let desc = quote! {
                 ww_stream::observe::LevelDesc {
                     item_count: #item_count,
                     observable: &[#(#indices),*],
                     batched: &[#(#samples),*],
                 }
-            }
+            };
+            let (lo, hi) = numbers[i];
+            std::iter::repeat_n(desc, hi - lo + 1)
         });
-        let paths = levels.iter().map(|level| {
+        // an element's path is put together from its chain
+        let paths = levels.iter().enumerate().flat_map(|(i, level)| {
             let path = &level.path;
-            quote! { &[#(UNib32(#path)),*] }
+            let path = if level.elements.is_some() {
+                quote! { &[] }
+            } else {
+                quote! { &[#(UNib32(#path)),*] }
+            };
+            let (lo, hi) = numbers[i];
+            std::iter::repeat_n(path, hi - lo + 1)
         });
+        let element_paths = levels
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| l.elements.is_some())
+            .map(|(i, level)| {
+                let pat = pat(i);
+                let len = level.path.len();
+                let path = level.path_expr(&quote! { chain });
+                quote! {
+                    #pat => {
+                        path_buf[..#len].copy_from_slice(&#path);
+                        &path_buf[..#len]
+                    }
+                }
+            });
+        let max_path = levels.iter().map(|l| l.path.len()).max().unwrap_or(0);
+        let max_depth = levels.iter().map(|l| l.depth()).max().unwrap_or(0);
+        let has_elements = levels.iter().any(|l| l.elements.is_some());
+        let element_path = if has_elements {
+            quote! {
+                // an element level's number is one of its element tables (API-63): nothing to do while free, an
+                // ended element is told to its host and freed, an observed one's path and chain from the table
+                let mut path_buf = [UNib32(0); #max_path];
+                let mut chain = [UNib32(0); #max_depth];
+                let ended = match self.observe_state().element(level) {
+                    None => false,
+                    Some(e) => match e.state() {
+                        ww_stream::observe::ElementState::Free => continue,
+                        ww_stream::observe::ElementState::Observed => {
+                            chain[..e.chain().len()].copy_from_slice(e.chain());
+                            false
+                        }
+                        ww_stream::observe::ElementState::Ended => {
+                            chain[..e.chain().len()].copy_from_slice(e.chain());
+                            true
+                        }
+                    },
+                };
+                let path: &[UNib32] = match level {
+                    #(#element_paths)*
+                    _ => PATHS[level],
+                };
+                if ended {
+                    let result = #send_with(&mut cx, |scratch| {
+                        Ok(ww_client_server::util::ser_stream_sideband_event(
+                            scratch,
+                            0,
+                            path,
+                            ww_client_server::StreamSideband::Close,
+                        )?
+                        .len())
+                    })#maybe_await;
+                    match result {
+                        Ok(()) => {
+                            if let Some(e) = self.observe_state().element(level) {
+                                e.release();
+                            }
+                        }
+                        Err(e) => {
+                            first_err.get_or_insert(e);
+                        }
+                    }
+                    continue;
+                }
+            }
+        } else {
+            quote! { let path = PATHS[level]; }
+        };
         // a value read through an async getter is read before the update is put together, into `value_<i>_<k>`
         // (None: not read yet, Some(None): the getter failed), so that the shared, sync part of the loop
         // (`ww_stream::observe::select` / `write`) gets it from there; sync getters and fields are read in place
@@ -1669,6 +2047,18 @@ impl Observe {
         for (i, level) in levels.iter().enumerate() {
             let field = &level.field;
             let outbox = level.outbox();
+            let pat_i = pat(i);
+            // an element's handlers get its chain (API-63)
+            let (chain_arg, field_index) = match &level.elements {
+                Some(e) => {
+                    let at = (0..e.holes.len()).map(|j| quote! { [chain[#j].0 as usize] });
+                    (
+                        quote! { , core::array::from_fn(|j| chain[j]) },
+                        quote! { #(#at)* },
+                    )
+                }
+                None => (quote! {}, quote! {}),
+            };
             let mut unbounded_i = vec![];
             let mut chosen_i = vec![];
             for (k, p) in level.props.iter().enumerate() {
@@ -1684,7 +2074,7 @@ impl Observe {
                 let index = p.index;
                 let max_len = max_len_of(p, &ty, owned);
                 let get = Ident::new(&format!("get_{}", p.prefixed), Span::call_site());
-                let get_call = handlers.call(&p.dotted, quote! { self.#get(&mut cx) });
+                let get_call = handlers.call(&p.dotted, quote! { self.#get(&mut cx #chain_arg) });
                 let v = cache_ident(i, k);
                 if is_async(p) {
                     // a `+batched` property in `Samples` mode is sent as a column of its level's batch, never read
@@ -1770,21 +2160,21 @@ impl Observe {
                         let f = &p.prefixed;
                         (
                             quote! {{
-                                let value: &#ty = &self.#f;
+                                let value: &#ty = &self.#f #field_index;
                                 #measured
                             }},
                             quote! {{
-                                let value: &#ty = &self.#f;
+                                let value: &#ty = &self.#f #field_index;
                                 #put
                             }},
                         )
                     }
                 };
-                measure.push(quote! { (#i, #k) => #size_one, });
+                measure.push(quote! { (#pat_i, #k) => #size_one, });
                 // in `Samples` mode its column of the level's oldest batch
                 if p.samples {
                     write.push(quote! {
-                        (#i, #k) if column => {
+                        (#pat_i, #k) if column => {
                             let state = self.observe_state();
                             match state.#outbox.oldest().and_then(|b| b.column_after(#k as u16, &mut column_at)) {
                                 Some(column) => wr.write(#index, &ww_client_server::observe::BatchedRaw(column.bytes)).is_ok(),
@@ -1793,15 +2183,15 @@ impl Observe {
                         }
                     });
                 }
-                write.push(quote! { (#i, #k) => #write_one, });
+                write.push(quote! { (#pat_i, #k) => #write_one, });
             }
             if !unbounded_i.is_empty() {
-                read_unbounded.push(quote! { #i => { #(#unbounded_i)* } });
-                read_chosen.push(quote! { #i => { #(#chosen_i)* } });
+                read_unbounded.push(quote! { #pat_i => { #(#unbounded_i)* } });
+                read_chosen.push(quote! { #pat_i => { #(#chosen_i)* } });
             }
             if level.has_samples() {
                 let body = self.encode_batches(level);
-                encode.push(quote! { #i => { #body } });
+                encode.push(quote! { #pat_i => { #body } });
             }
         }
         let has_samples = self.has_samples();
@@ -1932,7 +2322,7 @@ impl Observe {
                 // getters, the update is sent from one place
                 for level in 0..#level_count {
                     let desc = &DESCS[level];
-                    let path = PATHS[level];
+                    #element_path
                     #encode
                     #rounds
                     loop {

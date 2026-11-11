@@ -83,6 +83,11 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) observe_outbox: usize,
 
+    /// Element tables of each trait level under resource arrays with `+observe` properties (API-63): how many
+    /// elements of it hosts observe at the same time, 0: the default (4).
+    #[darling(default)]
+    pub(crate) observe_elements: usize,
+
     /// Levels with `+batched` properties sampled through observe cells instead of `<Level>Sampler::sample`
     /// (API-50), by their `ObserveState` field: `observe_cells = "root_foc, root_control"`.
     #[darling(default)]

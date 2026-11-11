@@ -60,6 +60,9 @@ pub struct GenServerConfig {
     pub observe_batch: Option<usize>,
     /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
     pub observe_outbox: Option<usize>,
+    /// Element tables of each trait level under resource arrays (API-63), `observe_elements = K`: elements observed
+    /// at the same time; None: 4.
+    pub observe_elements: Option<usize>,
     /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`):
     /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
     pub observe_cells: Vec<String>,
@@ -182,6 +185,9 @@ pub struct GenServerConfigRaw {
     pub observe_batch: Option<usize>,
     /// Bytes of the outbox of each trait level with `+batched` properties, `observe_outbox = N`; None: 4096.
     pub observe_outbox: Option<usize>,
+    /// Element tables of each trait level under resource arrays (API-63), `observe_elements = K`: elements observed
+    /// at the same time; None: 4.
+    pub observe_elements: Option<usize>,
     /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`):
     /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
     pub observe_cells: Vec<String>,
@@ -212,6 +218,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             omit: config.omit,
             observe_batch: config.observe_batch,
             observe_outbox: config.observe_outbox,
+            observe_elements: config.observe_elements,
             observe_cells: config.observe_cells,
             observe_samples: config.observe_samples,
             crate_paths: config.crate_paths,
@@ -276,6 +283,7 @@ pub fn gen_server(
         &omissions,
         &config.property_model,
         config.observe_samples,
+        config.observe_elements,
     );
     let cells_errors = if config.observe_samples {
         observe.use_cells(&config.observe_cells)
@@ -1990,7 +1998,8 @@ fn handle_property(
     // write reaches every observer even when the handler doesn't mark it
     let mark_changed = maybe_quote_cl(cx.observable.contains(&prefixed_ident.to_string()), || {
         let mark_changed = mark_changed_ident(&prefixed_ident);
-        quote! { self.#mark_changed(); }
+        // an element of a resource array is marked by its chain (API-63)
+        quote! { self.#mark_changed(#maybe_index_chain_arg); }
     });
     let des_compact = |es: &TokenStream| {
         quote! {

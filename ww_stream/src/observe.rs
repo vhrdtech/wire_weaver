@@ -834,6 +834,190 @@ pub fn refuse_all(
     table.apply(req, &desc, &ObserveLimits::DEFAULT, 0, refused)
 }
 
+/// What an [ElementTable] is used for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElementState {
+    /// Nobody observes an element through it: free for the next `Observe` of any element.
+    Free,
+    /// A host observes the element at its index chain.
+    Observed,
+    /// The element was removed while observed: `poll_properties` tells the host (a `StreamSideband::Close` at the
+    /// level's path), then the table is free again.
+    Ended,
+}
+
+/// Observe settings of one element of a trait level under resource arrays (API-63): its index chain (the array
+/// indices on the way to the level, as the handlers get them) and its [ObserveTable].
+///
+/// A level under arrays keeps a fixed number of them, `[ElementTable<[Slot; N], D>; K]` (`observe_elements = K`):
+/// the elements observed at the same time, whichever indices they have. An `Observe` of an element takes the table
+/// already observing it, or a free one ([element_for]); one that turns everything off frees it ([ElementTable::settle]).
+/// Elements come and go: [end_elements] ends the observers of a removed one.
+#[derive(Debug, Clone)]
+pub struct ElementTable<S: ?Sized, const D: usize> {
+    chain: [UNib32; D],
+    state: ElementState,
+    pub table: ObserveTable<S>,
+}
+
+impl<const N: usize, const D: usize> ElementTable<[Slot; N], D> {
+    /// Free, nothing observed.
+    pub const fn new() -> Self {
+        ElementTable {
+            chain: [UNib32(0); D],
+            state: ElementState::Free,
+            table: ObserveTable::new(),
+        }
+    }
+
+    /// `K` tables [new](Self::new) in place, for an `ObserveState` built in a `static`.
+    pub fn init_all<const K: usize>(slot: &mut core::mem::MaybeUninit<[Self; K]>) -> &mut [Self; K] {
+        // every field is written below: a new one fails to compile here until it is
+        let _ = |e: Self| {
+            let ElementTable {
+                chain: _,
+                state: _,
+                table: _,
+            } = e;
+        };
+        let at = slot.as_mut_ptr().cast::<Self>();
+        // SAFETY: `[Self; K]` is `K` tables one after the other; every field of each written in place
+        unsafe {
+            for i in 0..K {
+                let e = at.add(i);
+                core::ptr::addr_of_mut!((*e).chain).write([UNib32(0); D]);
+                core::ptr::addr_of_mut!((*e).state).write(ElementState::Free);
+                ObserveTable::init(
+                    &mut *core::ptr::addr_of_mut!((*e).table)
+                        .cast::<core::mem::MaybeUninit<ObserveTable<[Slot; N]>>>(),
+                );
+            }
+            slot.assume_init_mut()
+        }
+    }
+
+    /// The element's index chain.
+    pub fn chain(&self) -> &[UNib32; D] {
+        &self.chain
+    }
+
+    pub fn state(&self) -> ElementState {
+        self.state
+    }
+
+    /// After an `Observe` was applied to [table](Self::table): observed while any property is, free otherwise.
+    pub fn settle(&mut self) {
+        self.state = if self.table.is_active() {
+            ElementState::Observed
+        } else {
+            ElementState::Free
+        };
+    }
+
+    /// The host was told that the element ended: free again.
+    pub fn release(&mut self) {
+        self.table.reset();
+        self.state = ElementState::Free;
+    }
+
+    /// Stop observing, without telling the host (the link went down).
+    pub fn reset(&mut self) {
+        self.release();
+    }
+
+    /// Whether `poll_properties` has anything to do with it: observed, or ended and not told yet.
+    pub fn is_active(&self) -> bool {
+        self.state != ElementState::Free
+    }
+
+    /// Bytes per second granted to the element, 0 when nothing is observed.
+    pub fn budget(&self) -> u32 {
+        match self.state {
+            ElementState::Observed => self.table.budget(),
+            _ => 0,
+        }
+    }
+}
+
+impl<const N: usize, const D: usize> Default for ElementTable<[Slot; N], D> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// An [ElementTable] of any size, as `poll_properties` reaches it by its number (`ObserveState::element`).
+pub trait Element {
+    fn state(&self) -> ElementState;
+    /// The element's index chain.
+    fn chain(&self) -> &[UNib32];
+    /// See [ElementTable::release].
+    fn release(&mut self);
+}
+
+impl<const N: usize, const D: usize> Element for ElementTable<[Slot; N], D> {
+    fn state(&self) -> ElementState {
+        self.state
+    }
+
+    fn chain(&self) -> &[UNib32] {
+        &self.chain
+    }
+
+    fn release(&mut self) {
+        ElementTable::release(self)
+    }
+}
+
+/// The table for an `Observe` of the element at `chain`: the one observing it, else a free one (its chain set);
+/// None when all are in use for other elements. A table whose element ended and the host wasn't told yet is taken
+/// back as it is: the element is there again, the host's new settings replace the end.
+pub fn element_for<const N: usize, const D: usize>(
+    tables: &mut [ElementTable<[Slot; N], D>],
+    chain: &[UNib32; D],
+) -> Option<usize> {
+    if let Some(i) = tables
+        .iter()
+        .position(|e| e.state != ElementState::Free && e.chain == *chain)
+    {
+        if tables[i].state == ElementState::Ended {
+            tables[i].release();
+            tables[i].chain = *chain;
+        }
+        return Some(i);
+    }
+    let i = tables.iter().position(|e| e.state == ElementState::Free)?;
+    tables[i].table.reset();
+    tables[i].chain = *chain;
+    Some(i)
+}
+
+/// Mark property `k` of the element at `chain` changed, if it is observed.
+pub fn mark_element_changed<const N: usize, const D: usize>(
+    tables: &mut [ElementTable<[Slot; N], D>],
+    chain: &[UNib32; D],
+    k: usize,
+) {
+    for e in tables.iter_mut() {
+        if e.state == ElementState::Observed && e.chain == *chain {
+            e.table.mark_changed(k);
+        }
+    }
+}
+
+/// The elements whose chain starts with `prefix` were removed (the element of an array at that depth, and with it
+/// everything under it): their observers end. `poll_properties` tells the host at its next call.
+pub fn end_elements<const N: usize, const D: usize>(
+    tables: &mut [ElementTable<[Slot; N], D>],
+    prefix: &[UNib32],
+) {
+    for e in tables.iter_mut() {
+        if e.state == ElementState::Observed && e.chain.starts_with(prefix) {
+            e.table.reset();
+            e.state = ElementState::Ended;
+        }
+    }
+}
+
 /// A property due at one poll, see [ObserveTable::plan]: storage for the plan, one per slot of the level.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Due {

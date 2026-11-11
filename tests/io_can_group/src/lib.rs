@@ -125,7 +125,7 @@ mod tests {
 
     fn invalid(reason: &'static str) -> CanError<'static> {
         CommonError::InvalidArgument {
-            arg: 0,
+            arg: Index::new(0),
             reason: MaxLen::new_unchecked(reason),
         }
         .into()

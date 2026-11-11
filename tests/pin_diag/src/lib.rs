@@ -10,6 +10,7 @@ mod tests {
         Drive, Index, InternedOwned, Level, PinDiagErrorOwned, Point, PointCaps, PointState, Pull,
         TestPoint,
     };
+    use ww_si::Index;
 
     const ALL: PointCaps = PointCaps {
         read: true,
@@ -49,6 +50,7 @@ mod tests {
         use tests_common::TestProcessEvents;
         use wire_weaver::BlockingEventOut;
         use ww_pin_diag::{Interned, PinDiagError};
+        use ww_si::Index;
 
         pub struct Server {
             pub points: Vec<Point<'static>>,
@@ -69,8 +71,8 @@ mod tests {
                     p("DET", "mcu", INPUT_ONLY),
                     // a firmware with a string table sends ids
                     Point {
-                        name: Interned::Id(UNib32(17)),
-                        group: Interned::Id(UNib32(18)),
+                        name: Interned::Id(Index::new(UNib32(17))),
+                        group: Interned::Id(Index::new(UNib32(18))),
                         caps: DRIVE_ONLY,
                     },
                     p("EX1", "chain", DRIVE_ONLY),
@@ -293,7 +295,10 @@ mod tests {
         assert_eq!(points[0].name, InternedOwned::Text("P0".into()));
         assert_eq!(points[0].caps, ALL);
         assert_eq!(points[DET as usize].caps, INPUT_ONLY);
-        assert_eq!(points[EX0 as usize].name, InternedOwned::Id(UNib32(17)));
+        assert_eq!(
+            points[EX0 as usize].name,
+            InternedOwned::Id(Index::new(UNib32(17)))
+        );
         assert_eq!(points[EX0 as usize].name.to_string(), "#17");
         assert_eq!(points[EX1 as usize].group.to_string(), "chain");
     }

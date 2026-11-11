@@ -2929,7 +2929,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Common(InUse)` or `Refused { rule }`. Done: crate, docs page `docs/std_library/ww_pin_diag.md`, test pair
   `tests/pin_diag` (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot;
   the host tests and plan files are TOOL-15 (`ww pins test`). Missing: a device implementing it (rePort).
-- 🚧 **STD-48 `ww_interned` strings as ids** · `v0.5.x` — `Interned { Id(UNib32), Text(&str) }` for names and reasons;
+- 🚧 **STD-48 `ww_interned` strings as ids** · `v0.5.x` — `Interned { Id(Index<InternedStr, UNib32>), Text(&str) }` for names and reasons;
   ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
   id), `ww pins` finds the ELF by build id (`ww_pin_probe::device::Names`). Missing: an accessor for
   `defmt::Str`'s index (upstream, `Table::get_str`), reading the ids from the ELF's table with it.

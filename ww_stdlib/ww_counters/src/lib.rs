@@ -59,6 +59,7 @@ pub mod host;
 use core::sync::atomic::{AtomicU32, Ordering};
 use wire_weaver::prelude::*;
 use ww_error::CommonError;
+use ww_si::Index;
 pub use ww_si::Second;
 pub use ww_si::{Count, Index, units::Word};
 
@@ -215,7 +216,7 @@ pub fn read_words<'s>(
     let offset = offset as usize;
     if offset > used {
         return Err(CountersError::Common(CommonError::InvalidArgument {
-            arg: 1,
+            arg: Index::new(1),
             reason: MaxLen::new_unchecked("offset past the used words"),
         }));
     }

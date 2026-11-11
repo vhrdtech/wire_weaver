@@ -49,6 +49,7 @@ pub use spi::SpiSlave;
 
 use wire_weaver::shrink_wrap::MaxLen;
 use ww_error::CommonError;
+use ww_si::Index;
 
 /// Why a slave config was refused, convertible into the API's `I2cError` / `SpiError`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -69,7 +70,7 @@ impl ConfigError {
             ConfigError::Unsupported => Some(CommonError::Unsupported),
             ConfigError::BufferTooBig => None,
             ConfigError::InvalidArgument(reason) => Some(CommonError::InvalidArgument {
-                arg: 0,
+                arg: Index::new(0),
                 reason: MaxLen::new_unchecked(reason),
             }),
         }

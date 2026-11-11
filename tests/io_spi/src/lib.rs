@@ -9,7 +9,7 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_numeric::NumericValue;
-    use ww_si::{Prefix, Second, Volt};
+    use ww_si::{Index, Prefix, Second, Volt};
     use ww_spi::{
         BitOrder, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiErrorOwned, SpiFrame, SpiMode,
         SpiMonitorConfig, SpiOp, SpiRole, SpiSlaveAnswers, SpiSlaveConfig,
@@ -187,7 +187,7 @@ mod tests {
             ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
                 if config.word_bits != 8 {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked("word_bits"),
                     }
                     .into()));

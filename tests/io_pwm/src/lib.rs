@@ -12,6 +12,7 @@ mod tests {
         PwmActual, PwmCapabilities, PwmChannelInfo, PwmError, PwmErrorOwned, PwmOutput, PwmState,
         Second, TimerGroup, units,
     };
+    use ww_si::Index;
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
     use ww_stream::tx::Counted;
@@ -191,7 +192,7 @@ mod tests {
             ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
                 if config.mode == CaptureMode::Off {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));

@@ -2743,6 +2743,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_onewire",
+ "ww_si",
 ]
 
 [[package]]
@@ -3854,6 +3855,7 @@ dependencies = [
  "ww_interned",
  "ww_pin_diag",
  "ww_pin_probe",
+ "ww_si",
 ]
 
 [[package]]
@@ -6540,6 +6542,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
+ "ww_si",
 ]
 
 [[package]]
@@ -6660,6 +6663,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

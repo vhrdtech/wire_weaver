@@ -13,9 +13,10 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std"]
-defmt = ["dep:defmt", "shrink_wrap/defmt"]
+std = ["shrink_wrap/std", "ww_si/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_si/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 shrink_wrap.workspace = true
+ww_si = { workspace = true, default-features = false, features = ["counting"] }

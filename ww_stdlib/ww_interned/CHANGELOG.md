@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Interned::Id` is `ww_si::Index<InternedStr, UNib32>` instead of a bare `UNib32` (AGENTS.md "Numbers are typed"):
+  same byte(s) on the wire, `InternedStr` a counted base of this crate's own declared with `ww_si::unit!`. Depends
+  on `ww_si` (`counting`) now.
+
 ### 🚀 Features
 
 - New crate (STD-48): `Interned { Id(UNib32), Text(&str) }` with `Display` (`#17` for an id not resolved).

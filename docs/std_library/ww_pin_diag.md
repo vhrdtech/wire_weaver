@@ -68,8 +68,8 @@ host that can't resolve an id shows `#17`.
 
 ```rust
 pub enum Interned<'i> {
-    Id(UNib32),     // index into the firmware's string table
-    Text(&'i str),  // the text itself
+    Id(Index<InternedStr, UNib32>),  // index into the firmware's string table
+    Text(&'i str),                   // the text itself
 }
 ```
 

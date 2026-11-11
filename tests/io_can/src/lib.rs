@@ -22,7 +22,7 @@ mod tests {
     };
     use ww_si::prefix::One;
     use ww_si::units;
-    use ww_si::{Baud, Fixed, Hertz, Second};
+    use ww_si::{Baud, Fixed, Hertz, Index, Second};
 
     /// Controller clock of the mock: 80 MHz, as an STM32H7 FDCAN kernel clock.
     const CLOCK_HZ: u32 = 80_000_000;
@@ -353,7 +353,7 @@ mod tests {
             Timing::Rate { rate, sample_point } => segments_for(rate, sample_point)
                 .map(Timing::Segments)
                 .ok_or(CanError::Common(CommonError::InvalidArgument {
-                    arg: 0,
+                    arg: Index::new(0),
                     reason: MaxLen::new_unchecked("bit rate not reachable"),
                 })),
             t => Ok(t),
@@ -669,7 +669,7 @@ mod tests {
             ) -> RpcResult<Result<Option<CanConfig>, CanError<'_>>> {
                 if candidates.is_empty() {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked("no candidates"),
                     }
                     .into()));
@@ -714,7 +714,7 @@ mod tests {
                 }
                 if ![8, 12, 16, 20, 24, 32, 48, 64].contains(&layout.element_data.get()) {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked("element_data"),
                     }
                     .into()));
@@ -822,7 +822,7 @@ mod tests {
                     };
                     if bad {
                         return Ready(Err(CommonError::InvalidArgument {
-                            arg: 0,
+                            arg: Index::new(0),
                             reason: MaxLen::new_unchecked("no such FIFO or buffer"),
                         }
                         .into()));
@@ -846,7 +846,7 @@ mod tests {
                 let mut m = self.m.lock().unwrap();
                 let Some(slot) = m.rx_buffers.get_mut(index.get() as usize) else {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));
@@ -876,7 +876,7 @@ mod tests {
                 let mut m = self.m.lock().unwrap();
                 if index.get() >= capabilities(true).tx_buffers.get() {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked("no such buffer"),
                     }
                     .into()));

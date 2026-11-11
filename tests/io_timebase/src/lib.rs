@@ -8,7 +8,7 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_si::ww_numeric::NumericValue;
-    use ww_si::{Prefix, Second};
+    use ww_si::{Index, Prefix, Second};
     use ww_timebase::{
         ClockError, ClockErrorOwned, ClockInfo, DateTime, InstanceId, Micros, Ppb, SteerPoint,
         SteerPointOwned, Steerer, SteererOwned, SyncConfig, SyncFormat, SyncSource, SyncState,
@@ -333,7 +333,7 @@ mod tests {
                     || !matches!(point.local.value, NumericValue::U32(_))
                 {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked("local not in U32 µs"),
                     }
                     .into()));
@@ -416,7 +416,7 @@ mod tests {
                     }
                     if list.contains(&s) {
                         return Ready(Err(CommonError::InvalidArgument {
-                            arg: 0,
+                            arg: Index::new(0),
                             reason: MaxLen::new_unchecked("a source named twice"),
                         }
                         .into()));

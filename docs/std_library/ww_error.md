@@ -17,7 +17,7 @@ An API crate nests them as one `#[common] Common(CommonError)` variant of its ow
 | Variant | Message (its doc line) | When |
 |---|---|---|
 | `Unsupported` | Not supported by this device (a mode, a range, a feature of the call). | The device knows the call, and can't do what was asked. |
-| `InvalidArgument { arg: u8, reason }` | Argument number {arg} is invalid: {reason}. | `arg` counts from 0. |
+| `InvalidArgument { arg: ww_si::Index<ww_si::units::Argument, u8>, reason }` | Argument number {arg} is invalid: {reason}. | `arg` counts from 0. |
 | `InUse { by }` | In use by {by}. | A resource another function holds (`"USART2"`). |
 | `Busy` | Busy with another operation, try again later. | |
 | `WrongState { reason }` | Not possible in the current state: {reason}. | |

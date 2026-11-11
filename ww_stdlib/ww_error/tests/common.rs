@@ -2,6 +2,7 @@
 
 use shrink_wrap::prelude::*;
 use ww_error::{CommonError, CommonErrorOwned, HasCommon};
+use ww_si::Index;
 
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
 enum I2cError<'i> {
@@ -79,14 +80,14 @@ fn display() {
     assert_eq!(s(CommonError::Unsupported), "Not supported by this device");
     assert_eq!(
         s(CommonError::InvalidArgument {
-            arg: 1,
+            arg: Index::new(1),
             reason: MaxLen::new_unchecked("out of range")
         }),
         "Argument number 1 is invalid: out of range"
     );
     assert_eq!(
         s(CommonError::InvalidArgument {
-            arg: 0,
+            arg: Index::new(0),
             reason: MaxLen::new_unchecked("")
         }),
         "Argument number 0 is invalid"

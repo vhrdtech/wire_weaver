@@ -14,6 +14,7 @@ mod tests {
         I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned, I2cWatchEvent,
         I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second,
     };
+    use ww_si::Index;
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
     use ww_stream::tx::Counted;
@@ -28,7 +29,7 @@ mod tests {
 
     fn invalid(arg: u8, reason: &'static str) -> I2cError<'static> {
         CommonError::InvalidArgument {
-            arg,
+            arg: Index::new(arg),
             reason: MaxLen::new_unchecked(reason),
         }
         .into()
@@ -966,13 +967,12 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert!(matches!(
-            err.device(),
-            Some(I2cErrorOwned::Common(CommonErrorOwned::InvalidArgument {
-                arg: 2,
-                ..
-            }))
-        ));
+        let Some(I2cErrorOwned::Common(CommonErrorOwned::InvalidArgument { arg, .. })) =
+            err.device()
+        else {
+            panic!("expected InvalidArgument, got {:?}", err.device());
+        };
+        assert_eq!(arg.get(), 2);
     }
 
     /// A data NACK says in which operation and at which byte; operations of a transaction each start with the

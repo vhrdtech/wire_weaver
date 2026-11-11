@@ -16,7 +16,7 @@ defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true, default-features = false }
 ww_error.workspace = true
 ww_i2c.workspace = true
-ww_si = { workspace = true, features = ["time", "u32"] }
+ww_si = { workspace = true, features = ["time", "u32", "counting"] }
 ww_spi.workspace = true
 
 [dev-dependencies]

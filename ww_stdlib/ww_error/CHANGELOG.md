@@ -1,5 +1,12 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+* `CommonError::InvalidArgument::arg` is `ww_si::Index<ww_si::units::Argument, u8>` instead of a bare `u8` (AGENTS.md
+  "Numbers are typed"): same byte on the wire, so every API embedding `CommonError` through `#[common]` shows the
+  new type in its model with no source change of its own; a caller that builds `InvalidArgument` by hand writes
+  `Index::new(n)` instead of the bare number. Depends on `ww_si` (`counting`) now.
+
 ### 🚀 Features
 
 * New crate (STD-16): `CommonError` (`Unsupported`, `InvalidArgument { arg, reason }`, `InUse { by }`, `Busy`,

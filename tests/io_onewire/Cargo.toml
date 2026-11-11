@@ -16,3 +16,4 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
 ww_onewire = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }

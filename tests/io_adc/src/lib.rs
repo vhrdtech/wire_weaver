@@ -8,7 +8,7 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_adc::*;
-    use ww_si::units;
+    use ww_si::{Index, units};
     use ww_stream::tx::Counted;
 
     /// Bytes per sample of `fmt`, see [SampleFormat].
@@ -185,7 +185,7 @@ mod tests {
                 }
                 if channels.len() as u8 > self.channels.len() as u8 {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));
@@ -299,7 +299,7 @@ mod tests {
                 let bytes = per_set * config.sets.get() as usize;
                 if bytes > 4096 {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));
@@ -365,7 +365,7 @@ mod tests {
                 let end = start + len.get() as usize;
                 let Some(slice) = self.capture.data.get(start..end) else {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));

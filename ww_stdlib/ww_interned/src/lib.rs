@@ -10,6 +10,12 @@
 //! How a firmware builds its table is open (see the docs page): the type only fixes what travels.
 
 use wire_weaver::prelude::*;
+use ww_si::Index;
+
+ww_si::unit! {
+    /// A count of strings in a firmware's string table, string: [Interned::Id]'s own base, named by this crate.
+    pub struct InternedStr = "istr" (long "interned string"), base;
+}
 
 /// A string sent as an index into the firmware's string table, or as text.
 #[derive_shrink_wrap(
@@ -20,7 +26,7 @@ use wire_weaver::prelude::*;
 )]
 pub enum Interned<'i> {
     /// Index into the string table of the firmware's ELF.
-    Id(UNib32),
+    Id(Index<InternedStr, UNib32>),
     /// The text itself, from a device without a string table.
     Text(&'i str),
 }

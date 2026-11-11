@@ -43,6 +43,7 @@ mod tests {
     mod server {
         use super::*;
         use tests_common::TestProcessEvents;
+        use ww_si::Index;
         use ww_stream::sink::SinkCredit;
 
         pub struct Server {
@@ -148,7 +149,7 @@ mod tests {
                 }
                 if count > 1 {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 1,
+                        arg: Index::new(1),
                         reason: MaxLen::new_unchecked("over max_blocks"),
                     }
                     .into()));
@@ -224,7 +225,7 @@ mod tests {
                     RunStatus::BadLease => Err(BlockError::BadLease),
                     RunStatus::BadCrc => Err(BlockError::BadCrc),
                     _ => Err(CommonError::InvalidArgument {
-                        arg: 2,
+                        arg: Index::new(2),
                         reason: MaxLen::new_unchecked("not whole blocks"),
                     }
                     .into()),

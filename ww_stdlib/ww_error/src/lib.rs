@@ -40,6 +40,7 @@ extern crate self as ww_error;
 
 use core::fmt;
 use shrink_wrap::prelude::*;
+use ww_si::{Index, units::Argument};
 
 /// Errors every crate can return, recognised by tools by this type.
 ///
@@ -58,7 +59,7 @@ pub enum CommonError<'i> {
     /// Argument number {arg} is invalid: {reason}.
     InvalidArgument {
         /// Position of the argument, starting at 0.
-        arg: u8,
+        arg: Index<Argument, u8>,
         reason: MaxLen<&'i str, 64>,
     },
     /// In use by {by}.

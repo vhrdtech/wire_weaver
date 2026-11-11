@@ -12,6 +12,7 @@ mod tests {
         Bytes, FamilyCode, Index, IndexFrom1, OneWireConfig, OneWireError, OneWireErrorOwned,
         OneWireSpeed, OneWireTransactionOwned, RomId, SearchState,
     };
+    use ww_si::Index;
 
     /// Family code used by every simulated device in these tests.
     const FAMILY_A: u8 = 0x28;
@@ -148,7 +149,7 @@ mod tests {
                 let read_len = t.read_len.get() as usize;
                 if write.len() + read_len > ww_onewire::OW_MAX {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));
@@ -242,7 +243,7 @@ mod tests {
             ) -> RpcResult<Result<OneWireConfig, OneWireError<'_>>> {
                 if config.pin.get() > 1 {
                     return Ready(Err(CommonError::InvalidArgument {
-                        arg: 0,
+                        arg: Index::new(0),
                         reason: MaxLen::new_unchecked(""),
                     }
                     .into()));

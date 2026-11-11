@@ -1098,3 +1098,88 @@ fn shared_loop_drops_a_value_that_cannot_be_written() {
     assert!(plan.is_empty());
     assert_eq!(plan.missed(), Some(UNib32(1)));
 }
+
+/// Element tables of a level under resource arrays (API-63): an `Observe` of an element takes the table already
+/// observing it or a free one, none when all observe other elements; turning everything off frees it.
+#[test]
+fn element_tables_are_taken_and_freed() {
+    let mut tables: [ElementTable<[Slot; 3], 2>; 2] = [const { ElementTable::new() }; 2];
+    let a = [UNib32(1), UNib32(7)];
+    let b = [UNib32(2), UNib32(7)];
+    let c = [UNib32(3), UNib32(0)];
+
+    let ia = element_for(&mut tables, &a).unwrap();
+    apply(&mut tables[ia].table, &DESC, &[entry(1, on_change(100))], false, None).unwrap();
+    tables[ia].settle();
+    assert_eq!(tables[ia].state(), ElementState::Observed);
+    assert_eq!(element_for(&mut tables, &a), Some(ia), "the same element, the same table");
+
+    let ib = element_for(&mut tables, &b).unwrap();
+    assert_ne!(ia, ib);
+    apply(&mut tables[ib].table, &DESC, &[entry(3, on_change(100))], false, None).unwrap();
+    tables[ib].settle();
+    assert_eq!(element_for(&mut tables, &c), None, "both observe other elements");
+
+    // a request that turns everything off frees the table
+    apply(&mut tables[ia].table, &DESC, &[], false, None).unwrap();
+    tables[ia].settle();
+    assert_eq!(tables[ia].state(), ElementState::Free);
+    assert_eq!(tables[ia].budget(), 0);
+    let ic = element_for(&mut tables, &c).unwrap();
+    assert_eq!(ic, ia);
+    assert_eq!(tables[ic].chain(), &c);
+    assert!(!tables[ic].table.is_active(), "a taken table starts with nothing observed");
+}
+
+/// A change marks its element only; removing an element ends it and everything under it, the others stay.
+#[test]
+fn element_marks_and_ends() {
+    let mut tables: [ElementTable<[Slot; 3], 2>; 3] = [const { ElementTable::new() }; 3];
+    let chains = [
+        [UNib32(1), UNib32(0)],
+        [UNib32(1), UNib32(1)],
+        [UNib32(2), UNib32(0)],
+    ];
+    for chain in &chains {
+        let i = element_for(&mut tables, chain).unwrap();
+        apply(&mut tables[i].table, &DESC, &[entry(1, on_change(100))], false, None).unwrap();
+        tables[i].settle();
+        // sent once right away
+        poll(&mut tables[i].table, &DESC, 0, |_| 2);
+    }
+    mark_element_changed(&mut tables, &chains[1], 0);
+    let due: Vec<bool> = tables
+        .iter_mut()
+        .map(|e| !poll(&mut e.table, &DESC, 1_000, |_| 2).0.is_empty())
+        .collect();
+    assert_eq!(due, [false, true, false]);
+
+    // the element of the outer array at 1 is removed: both of its inner elements end
+    end_elements(&mut tables, &[UNib32(1)]);
+    let states: Vec<ElementState> = tables.iter().map(|e| e.state()).collect();
+    assert_eq!(
+        states,
+        [ElementState::Ended, ElementState::Ended, ElementState::Observed]
+    );
+    assert!(tables.iter().take(2).all(|e| e.budget() == 0 && e.is_active()));
+    // a change of an ended element marks nothing
+    mark_element_changed(&mut tables, &chains[0], 0);
+    assert!(!tables[0].table.is_active());
+
+    // told to the host: free again
+    tables[1].release();
+    assert_eq!(tables[1].state(), ElementState::Free);
+    // the element is back before its end was told: the host's new request takes the table, the end is dropped
+    let i = element_for(&mut tables, &chains[0]).unwrap();
+    assert_eq!(i, 0);
+    assert_eq!(tables[0].state(), ElementState::Free);
+}
+
+/// `init_all` in place builds what `new` does.
+#[test]
+fn element_tables_init_in_place() {
+    let mut slot = core::mem::MaybeUninit::<[ElementTable<[Slot; 3], 1>; 4]>::uninit();
+    let tables = ElementTable::init_all(&mut slot);
+    assert!(tables.iter().all(|e| e.state() == ElementState::Free && !e.table.is_active()));
+    assert!(element_for(tables, &[UNib32(3)]).is_some());
+}

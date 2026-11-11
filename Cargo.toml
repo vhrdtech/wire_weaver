@@ -230,6 +230,7 @@ module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 multi_root_api = { version = "0.1.0", path = "./tests/multi_root_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
+observe_arrays_api = { version = "0.1.0", path = "./tests/observe_arrays_api" }
 observe_batched_api = { version = "0.1.0", path = "./tests/observe_batched_api" }
 pin_diag_api = { version = "0.1.0", path = "./tests/pin_diag_api" }
 power_stage_api = { version = "0.1.0", path = "./examples/power_stage_api" }

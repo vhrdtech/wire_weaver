@@ -255,9 +255,8 @@ mod tests {
         }
     }
 
-    /// Code over a channel, written once for both lines and for `aux[]`, which is reached under a resource array
-    /// (`ChannelClient<'_, false>`, without observe methods, SRV-18).
-    async fn read_and_reset<const O: bool>(channel: ChannelClient<'_, O>) -> Result<Code, Error> {
+    /// Code over a channel, written once for both lines and for `aux[]`, which is reached under a resource array.
+    async fn read_and_reset(channel: ChannelClient<'_>) -> Result<Code, Error> {
         let code = channel.read().call().await?;
         channel.reset().call().await?;
         Ok(code)
@@ -352,7 +351,7 @@ mod tests {
     }
 
     /// `read` works, `reset` is refused as needing `required`.
-    async fn refuses_reset<const O: bool>(channel: ChannelClient<'_, O>, required: WireVersion) {
+    async fn refuses_reset(channel: ChannelClient<'_>, required: WireVersion) {
         channel.read().call().await.unwrap();
         match channel.reset().call().await {
             Err(Error::OlderProtocol { required: r, .. }) => assert_eq!(r, required),
@@ -402,9 +401,8 @@ mod tests {
     }
 
     /// A shared client of a trait with `+observe` properties has the observe methods where its own client would:
-    /// `observe_api::Motor` on the root (`MotorClient<'_, true>`), not `observe_api::Bank` under `bank[]`
-    /// (`BankClient<'_, false>`, observing it isn't possible yet, SRV-18), where `observe_level()` is the plain
-    /// stream, as on a client of its own.
+    /// `observe_api::Motor` on the root and `observe_api::Bank` under `bank[]`, each element by its own path
+    /// (API-63).
     mod motor_client {
         wire_weaver::ww_codegen!(
             observe_api :: Motor for MotorClient,
@@ -476,14 +474,15 @@ mod tests {
     async fn observe_shapes(shared: &observe_clients::Shared, own: &observe_clients::Own) {
         use motor_client::observe_api_motor::MotorObserve;
         use observe_clients::own_api::observe_api_observe::observe_api_motor::MotorObserve as OwnMotorObserve;
-        use wire_weaver_client::observe::PreparedObserve;
+        use std::time::Duration;
+        use wire_weaver_client::observe::{PreparedObserve, on_change};
 
-        let motor: MotorClient<'_, true> = shared.motor();
+        let motor: MotorClient<'_> = shared.motor();
         let _: PreparedObserve<_, _> = motor.observe(MotorObserve::default());
         let _: PreparedObserve<_, _> = own.motor().observe(OwnMotorObserve::default());
 
-        let bank: BankClient<'_, false> = shared.bank(0);
-        let _: Result<wire_weaver_client::Stream<u8>, Error> = bank.observe_level().await;
-        let _: Result<wire_weaver_client::Stream<u8>, Error> = own.bank(0).observe_level().await;
+        let bank: BankClient<'_> = shared.bank(0);
+        let _: PreparedObserve<_, u8> = bank.observe_level(on_change(Duration::from_millis(1)));
+        let _: PreparedObserve<_, u8> = own.bank(0).observe_level(on_change(Duration::from_millis(1)));
     }
 }

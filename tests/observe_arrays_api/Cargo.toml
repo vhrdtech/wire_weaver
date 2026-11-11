@@ -1,0 +1,19 @@
+[package]
+name = "observe_arrays_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+wire_weaver = { workspace = true, features = ["std"] }

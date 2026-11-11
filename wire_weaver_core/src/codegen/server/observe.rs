@@ -202,7 +202,7 @@ impl Observe {
         let mut observe = Observe {
             levels: vec![],
             arrays: vec![],
-            elements: observe_elements.unwrap_or(DEFAULT_ELEMENTS),
+            elements: observe_elements.unwrap_or(DEFAULT_ELEMENTS).max(1),
         };
         observe.walk(
             api_bundle,

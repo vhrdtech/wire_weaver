@@ -963,12 +963,17 @@ mod tests {
         let (granted, _, _) = b.observe(&[], &[], true, None).await.unwrap();
         assert_eq!(granted, [on_change(TEMP, 1_000)]);
 
-        // a level in a resource array can't be observed yet (API-29)
+        // a level in a resource array: each element by its own path (API-63), its index checked as for any request
         let e = b
-            .observe(&[BANK, 0], &[on_change(0, 1_000)], false, None)
+            .observe(&[BANK, 2], &[on_change(0, 1_000)], false, None)
             .await
             .unwrap_err();
-        assert!(e.contains("OperationNotSupported"), "{e}");
+        assert!(e.contains("BadIndex"), "{e}");
+        let (granted, _, _) = b
+            .observe(&[BANK, 1], &[on_change(0, 1_000)], false, None)
+            .await
+            .unwrap();
+        assert_eq!(granted, [on_change(0, 1_000)]);
         // not a level
         let e = b.observe(&[TEMP], &[], false, None).await.unwrap_err();
         assert!(e.contains("BadPath"), "{e}");
@@ -1352,8 +1357,7 @@ mod tests {
     }
 
     /// A property without `+observe` keeps the stream data `observe_<name>()` (a device sends its changes by hand
-    /// with `stream_data_ser()`); a level under a resource array has no `observe()` yet (SRV-18 answers
-    /// `OperationNotSupported`), so `client.bank(0)` has none.
+    /// with `stream_data_ser()`).
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn host_plain_property_keeps_stream_observe() {
         let b = Bench::start("observe/host_plain_property", limits()).await;

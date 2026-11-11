@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).
 - Typed numbers (P2401#11nov-0947g): `Clock::shared_now` and `SteerPoint::shared_us: u64` are
   `Option<UnixMicros<u64>>` / `UnixMicros<u64>`, renamed `shared`; `SteerPoint::rate_ppb: i32` is `Ppb<i32>`,
   renamed `rate`; `SteerPoint::error_us: u32` is `Micros<u32>`, renamed `error`; `SyncStatus::slew_us: Option<i32>`

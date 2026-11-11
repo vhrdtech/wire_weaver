@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).
 * `#[since]` markers are wire revisions (EVO-24): `RevisionSource::Provisional` `w1.1`, `REWORKS` and `set_reworks` `w1.2` (were `0.2.0` and `0.3.0`). The signatures of `BoardInfo` and `RevisionSource` change with the marker bytes; the crate gets its own wire version with EVO-26.
 - The rework guard (STD-101) replaces "runs on its safe features": a firmware with an applied rework it doesn't know
   refuses to boot, before any init, unless an allowance for its very image covers it. No API items for it: the

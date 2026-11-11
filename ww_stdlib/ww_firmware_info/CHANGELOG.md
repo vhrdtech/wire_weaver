@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).
+
 ### 🚀 Features
 
 - `find_build_id(image)` (STD-101): the GNU build id inside an image's bytes (raw binary, an ELF's or UF2's flash

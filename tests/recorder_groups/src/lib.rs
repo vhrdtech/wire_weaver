@@ -5,12 +5,13 @@
 
 #[cfg(test)]
 mod tests {
+    use exact_units::{Bytes, Millis};
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_recorder::{
-        CardFacts, FullPolicy, ItemType, RecorderError, RecordingMode, Settings, State, Status,
-        TrackInfo, UsbView,
+        CardFacts, FullPolicy, ItemType, Niched, RecorderError, RecordingMode, SessionId, Settings,
+        State, Status, TrackInfo, TrackKey, UsbView,
     };
 
     #[derive(Clone)]
@@ -23,8 +24,8 @@ mod tests {
         fn new() -> Self {
             SharedTestData {
                 settings: Settings {
-                    flush_bytes: 64 << 10,
-                    flush_interval_ms: 1000,
+                    flush: Bytes::new(64u32 << 10),
+                    flush_interval: Millis::new(1000u32),
                     full: FullPolicy::DropOldest,
                     mode: RecordingMode::Continuous,
                     usb_view: UsbView {
@@ -58,11 +59,11 @@ mod tests {
             ) -> RpcResult<Status<'_>> {
                 Ready(Status {
                     state: State::Logging,
-                    session: 1,
+                    session: SessionId(1),
                     recording: None,
                     device_time: None,
-                    ring_used_bytes: 0,
-                    ring_capacity_bytes: 1 << 20,
+                    ring_used: Bytes::new(0),
+                    ring_capacity: Bytes::new(1u64 << 20),
                 })
             }
 
@@ -109,8 +110,8 @@ mod tests {
                         signature: None,
                         global_id: None,
                     },
-                    key: n as u64,
-                    rate: 0,
+                    key: TrackKey(n as u64),
+                    rate: Niched::from_option(None),
                 })
             }
 
@@ -241,25 +242,28 @@ mod tests {
         let client = connect(&device).await;
 
         let status = client.recorder().status().call().await.unwrap();
-        assert_eq!(status.session, 1);
+        assert_eq!(status.session, SessionId(1));
         assert!(client.recorder().card().call().await.unwrap().is_none());
         client.recorder().sync().call().await.unwrap();
 
         let settings = client.recorder().read_settings().read().await.unwrap();
-        assert_eq!(settings.flush_bytes, 64 << 10);
+        assert_eq!(settings.flush, Bytes::new(64u32 << 10));
         client
             .recorder()
             .write_settings(Settings {
-                flush_bytes: 128 << 10,
+                flush: Bytes::new(128u32 << 10),
                 ..settings
             })
             .write()
             .await
             .unwrap();
-        assert_eq!(data.lock().unwrap().settings.flush_bytes, 128 << 10);
+        assert_eq!(
+            data.lock().unwrap().settings.flush,
+            Bytes::new(128u32 << 10)
+        );
 
         let info = client.recorder().track(1).info().call().await.unwrap();
-        assert_eq!(info.key, 1);
+        assert_eq!(info.key, TrackKey(1));
 
         client
             .recorder()

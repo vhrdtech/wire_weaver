@@ -4304,6 +4304,7 @@ dependencies = [
 name = "recorder_groups"
 version = "0.1.0"
 dependencies = [
+ "exact_units",
  "recorder_groups_api",
  "tests_common",
  "tokio",

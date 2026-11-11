@@ -25,6 +25,10 @@
 use wire_weaver::prelude::*;
 use ww_error::CommonError;
 pub use ww_si::Second;
+pub use ww_si::exact_units::niche::{Niched, Null};
+use ww_si::prefix::{Centi, Kibi, One};
+use ww_si::units::{Block, Byte, BytePerSecond, Event, Item, Per, Ratio, Record, Segment, Session};
+use ww_si::{Bytes, Count, Fixed, Index, Mebibytes, Millis, Range, Secs};
 
 /// Most recordings one [Recorder::recordings] call returns.
 pub const MAX_RECORDINGS: usize = 8;
@@ -34,6 +38,69 @@ pub const MAX_LABEL: usize = 64;
 pub const MAX_NAME: usize = 48;
 /// Most resource ids in a [TrackInfo::path].
 pub const MAX_PATH: usize = 16;
+
+/// A size in bytes, `0` meaning unknown: [Niched] of [Null]`<0>`, the same 4 bytes as a plain `u32`. See
+/// [CardFacts::au] and [CardFacts::recording_unit].
+type UnknownableBytes = Niched<Fixed<Byte, One, u32, Range<1, 4_294_967_295>>, Null<0>, u32>;
+
+/// Items per second, see [TrackInfo::rate].
+type ItemRate = Per<Item, ww_si::units::Second>;
+
+/// A track's nominal rate, `0` meaning unknown, same shape as [UnknownableBytes]. See [TrackInfo::rate].
+type UnknownableRate = Niched<Fixed<ItemRate, One, u32, Range<1, 4_294_967_295>>, Null<0>, u32>;
+
+/// A percentage within 0..=100, see [State::Formatting].
+type BoundedPercent = Fixed<Ratio, Centi, u8, Range<0, 100>>;
+
+/// Session of a boot (counts up for the life of the card), see [Status::session] and [RecordingInfo::session].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    transparent
+)]
+pub struct SessionId(pub u32);
+
+/// Id of a recording, counting up for the life of the card, see [RecordingInfo::id].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    transparent
+)]
+pub struct RecordingId(pub u32);
+
+/// One-use token of a [FormatOffer], see [Recorder::format].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    transparent
+)]
+pub struct FormatToken(pub u32);
+
+/// Stable key of a track across sessions and firmware versions that keep its path, see [TrackInfo::key].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    transparent
+)]
+pub struct TrackKey(pub u64);
+
+/// Serial number of the card (CID), see [CardFacts::serial].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash),
+    transparent
+)]
+pub struct CardSerial(pub u32);
 
 /// Control of a recorder: a logger that writes tracks to a card or flash.
 ///
@@ -67,7 +134,7 @@ pub trait Recorder {
 
     /// Second step: carries out the offer. `rw_mb` is the size of the read-write region for a full format (`None`:
     /// the offer's default; ignored when re-creating the ring file). The token is valid for one call, only for the
-    /// card the offer was made for, and expires after [FormatOffer::valid_for_s] seconds. Stops logging, runs the
+    /// card the offer was made for, and expires after [FormatOffer::valid_for]. Stops logging, runs the
     /// card check (aliasing test, sequential write speed, worst stall, best flush size: it overwrites the card, which
     /// is why it waits for the token), then erases and writes the new layout. Takes as long as the card needs:
     /// progress is [State::Formatting] in [Recorder::status], the check's result [CardFacts::check].
@@ -76,29 +143,32 @@ pub trait Recorder {
     /// offer's limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).
     #[optional(formatting)]
     #[errors(Common(Busy, InvalidArgument), NoCard, BadToken, CardFailed)]
-    fn format(token: u32, rw_mb: Option<u32>) -> Result<(), RecorderError<'i>>;
+    fn format(token: FormatToken, rw_mb: Option<Mebibytes<u32>>) -> Result<(), RecorderError<'i>>;
 
     /// Starts a recording: a labelled span of the log. Everything is logged all the time in the default
-    /// [RecordingMode::Continuous], so `pre_trigger_s` can set the start back by that many seconds; in
+    /// [RecordingMode::Continuous], so `pre_trigger` can set the start back by that long; in
     /// `Triggered` mode tracks are written only inside recordings and the pre-trigger needs a RAM ring per track
     /// (`Unsupported` if the device has none). Returns the recording id (counts up for the life of the card).
     ///
     /// `NotLogging` without a mounted ring, `RecordingRunning` while one is open.
     #[optional(recording)]
     #[errors(Common(Unsupported, InvalidArgument), NotLogging, RecordingRunning)]
-    fn recording_start(trigger: Trigger, pre_trigger_s: u16) -> Result<u32, RecorderError<'i>>;
+    fn recording_start(
+        trigger: Trigger,
+        pre_trigger: Secs<u16>,
+    ) -> Result<RecordingId, RecorderError<'i>>;
 
     /// Stops the running recording and returns its id. `NoRecording` when none runs.
     #[optional(recording)]
     #[errors(NotLogging, NoRecording)]
-    fn recording_stop() -> Result<u32, RecorderError<'i>>;
+    fn recording_stop() -> Result<RecordingId, RecorderError<'i>>;
 
     /// Recordings on the card, oldest first, up to [MAX_RECORDINGS] with id above `after` (0 for the first page).
     /// Recordings whose data the ring has already overwritten are not listed.
     #[optional(recording)]
     #[errors(NotLogging)]
     fn recordings(
-        after: u32,
+        after: RecordingId,
     ) -> Result<MaxLen<RefVec<'i, RecordingInfo>, MAX_RECORDINGS>, RecorderError<'i>>;
 
     /// Drops a marker into the system track: a moment to find again (a button press, a note, a trigger). Written
@@ -111,8 +181,8 @@ pub trait Recorder {
         value: Option<i64>,
     ) -> Result<(), RecorderError<'i>>;
 
-    /// Writes what is in RAM to the card now (all tracks), instead of waiting for `flush_bytes` or
-    /// `flush_interval_ms`. Answers when it is on the card. Before a planned power-off, on a brown-out warning.
+    /// Writes what is in RAM to the card now (all tracks), instead of waiting for [Settings::flush] or
+    /// [Settings::flush_interval]. Answers when it is on the card. Before a planned power-off, on a brown-out warning.
     #[errors(NotLogging)]
     fn sync() -> Result<(), RecorderError<'i>>;
 
@@ -163,15 +233,15 @@ pub trait Track {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct Status<'i> {
     pub state: State<'i>,
-    /// Session of this boot (counts up for the life of the card), 0 without a mounted ring.
-    pub session: u32,
+    /// Session of this boot, 0 without a mounted ring.
+    pub session: SessionId,
     /// The running recording, if any.
-    pub recording: Option<u32>,
+    pub recording: Option<RecordingId>,
     /// Device time of the newest record, `None` before the first.
     pub device_time: Option<Second>,
-    /// Bytes of the ring holding data now, and its capacity. Equal once the ring went round.
-    pub ring_used_bytes: u64,
-    pub ring_capacity_bytes: u64,
+    /// The ring holding data now, and its capacity. Equal once the ring went round.
+    pub ring_used: Bytes<u64>,
+    pub ring_capacity: Bytes<u64>,
 }
 
 /// The recorder's state, see [Status::state].
@@ -191,8 +261,8 @@ pub enum State<'i> {
     /// The card has a ring file but it is not where the device put it (moved, deleted, replaced by a PC, other
     /// card): logging stays off until the file is re-created or the card formatted. Never overwrites anything.
     Unbound { reason: MaxLen<&'i str, 64> },
-    /// A check or format is running. `percent` 0..=100.
-    Formatting { percent: u8 },
+    /// A check or format is running.
+    Formatting { percent: BoundedPercent },
     /// Logging.
     Logging,
     /// The ring is full and the full policy is `DropNewest`: new items are refused and counted.
@@ -205,19 +275,19 @@ pub enum State<'i> {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct CardFacts<'i> {
     pub kind: CardKind,
-    /// Capacity the card reports, in bytes.
-    pub capacity_bytes: u64,
+    /// Capacity the card reports.
+    pub capacity: Bytes<u64>,
     /// Product name (CID, e.g. `SD64G`), empty if the medium has none.
     pub product: MaxLen<&'i str, MAX_NAME>,
     /// Manufacturer id (CID).
     pub manufacturer: u8,
     /// Serial number (CID).
-    pub serial: u32,
-    /// Allocation unit in bytes (SD Status `AU_SIZE`, the larger UHS/video one where given), 0 if the card reports
+    pub serial: CardSerial,
+    /// Allocation unit (SD Status `AU_SIZE`, the larger UHS/video one where given), unknown if the card reports
     /// none: the log then uses 4 MB.
-    pub au_bytes: u32,
-    /// Recording unit of the card's speed class in bytes (16 KB and up), 0 unknown.
-    pub recording_unit_bytes: u32,
+    pub au: UnknownableBytes,
+    /// Recording unit of the card's speed class (16 KB and up), unknown if not reported.
+    pub recording_unit: UnknownableBytes,
     /// Speed class (`SPEED_CLASS`: 2, 4, 6, 10), 0 unknown.
     pub speed_class: u8,
     /// UHS speed grade (1, 3), 0 unknown.
@@ -277,13 +347,12 @@ pub enum CardContent {
 pub struct CardCheck {
     /// Capacity really there: a fake card wraps around when written past its true size.
     pub aliasing_ok: bool,
-    /// Sustained sequential write speed in KiB/s.
-    pub write_kib_s: u32,
-    /// Longest single write seen in milliseconds.
-    pub worst_stall_ms: u32,
-    /// Flush size that wrote fastest on this card in bytes (0: not measured): the device's default for
-    /// [Settings::flush_bytes].
-    pub best_flush_bytes: u32,
+    /// Sustained sequential write speed.
+    pub write_rate: Fixed<BytePerSecond, Kibi, u32>,
+    /// Longest single write seen.
+    pub worst_stall: Millis<u32>,
+    /// Flush size that wrote fastest on this card (0: not measured): the device's default for [Settings::flush].
+    pub best_flush: Bytes<u32>,
     pub rating: Rating,
 }
 
@@ -325,23 +394,23 @@ pub enum FormatAction {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct FormatOffer<'i> {
     /// Pass to [Recorder::format].
-    pub token: u32,
-    /// Seconds the token stays valid.
-    pub valid_for_s: u16,
+    pub token: FormatToken,
+    /// How long the token stays valid.
+    pub valid_for: Secs<u16>,
     pub action: FormatAction,
     /// The card, with the result of its last check if it had one.
     pub card: CardFacts<'i>,
-    /// Bytes the second step erases: the whole card for [FormatAction::Format].
-    pub erases_bytes: u64,
+    /// What the second step erases: the whole card for [FormatAction::Format].
+    pub erases: Bytes<u64>,
     /// Whether the card holds a ring with data, and files in its read-write region. A UI warns on these.
     pub has_ring_data: bool,
     pub has_rw_files: bool,
-    /// Read-write region size: the default and the limits, in MB.
-    pub rw_mb_default: u32,
-    pub rw_mb_min: u32,
-    pub rw_mb_max: u32,
-    /// Bytes the ring gets with the default region.
-    pub ring_bytes: u64,
+    /// Read-write region size: the default and the limits.
+    pub rw_mb_default: Mebibytes<u32>,
+    pub rw_mb_min: Mebibytes<u32>,
+    pub rw_mb_max: Mebibytes<u32>,
+    /// What the ring gets with the default region.
+    pub ring: Bytes<u64>,
 }
 
 /// What started a recording, see [Recorder::recording_start] and [RecordingInfo].
@@ -388,9 +457,9 @@ pub enum StopReason {
     derive(Copy, Clone, Debug, PartialEq)
 )]
 pub struct RecordingInfo {
-    pub id: u32,
+    pub id: RecordingId,
     /// Session it started in.
-    pub session: u32,
+    pub session: SessionId,
     pub trigger: Trigger,
     /// Device time of the start (shifted back by the pre-trigger), `None` if the clock was not running.
     pub start: Option<Second>,
@@ -398,8 +467,8 @@ pub struct RecordingInfo {
     pub stopped: Option<StopReason>,
     /// Length in device time, `None` while it runs or unknown.
     pub duration: Option<Second>,
-    /// Bytes of the ring the span covers, all tracks.
-    pub bytes: u64,
+    /// The ring the span covers, all tracks.
+    pub bytes: Bytes<u64>,
 }
 
 /// What a marker is for, see [Recorder::marker].
@@ -451,13 +520,13 @@ impl MarkerKind {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct Settings {
-    /// Bytes a flush grows to before it is written, a multiple of 512 and the card's recording unit, at most the
-    /// ring's segment payload. Default 64 KB, or the card check's [CardCheck::best_flush_bytes]. Larger writes
+    /// What a flush grows to before it is written, a multiple of 512 and the card's recording unit, at most the
+    /// ring's segment payload. Default 64 KB, or the card check's [CardCheck::best_flush]. Larger writes
     /// are faster and lose more in a power cut. Takes effect at once.
-    pub flush_bytes: u32,
-    /// Milliseconds after which a flush with data is written even if small (default 1000): the most a power cut
+    pub flush: Bytes<u32>,
+    /// After how long a flush with data is written even if small (default 1000 ms): the most a power cut
     /// takes when data comes slowly. Takes effect at once.
-    pub flush_interval_ms: u32,
+    pub flush_interval: Millis<u32>,
     /// What to do when the ring is full. Takes effect from the next boot.
     pub full: FullPolicy,
     /// Whether tracks are written all the time or only in recordings. Takes effect from the next boot.
@@ -521,7 +590,7 @@ pub struct UsbView {
     ww_repr = nib
 )]
 pub enum Durability {
-    /// With the next flush (`flush_bytes` or `flush_interval_ms`).
+    /// With the next flush ([Settings::flush] or [Settings::flush_interval]).
     Normal,
     /// Written to the card right after each item: for events and errors. Costs a write per item.
     Immediate,
@@ -550,11 +619,11 @@ pub struct TrackInfo<'i> {
     pub path: MaxLen<RefVec<'i, UNib32>, MAX_PATH>,
     /// What the track's items are.
     pub item_type: ItemType,
-    /// Stable 64-bit key: the same track across sessions and firmware versions that keep its path. Made from
+    /// Stable key: the same track across sessions and firmware versions that keep its path. Made from
     /// numbers only (what names the API root across firmware updates, and the path).
-    pub key: u64,
-    /// Nominal items per second, 0 unknown.
-    pub rate: u32,
+    pub key: TrackKey,
+    /// Nominal rate, unknown if the device can't tell.
+    pub rate: UnknownableRate,
 }
 
 /// The type of a track's items, see [TrackInfo::item_type]. A host finds crate, version and type path in the
@@ -582,16 +651,16 @@ pub struct ItemType {
 )]
 pub struct TrackCounters {
     /// Records and item bytes stored.
-    pub records: UVlq64,
-    pub bytes: UVlq64,
+    pub records: Count<Record, UVlq64>,
+    pub bytes: Bytes<UVlq64>,
     /// Where the track's stream continues (counts across boots, the stream position of the next item).
-    pub next: UVlq64,
+    pub next: Index<Item, UVlq64>,
     /// Up to where the track is on the card.
-    pub durable: UVlq64,
+    pub durable: Index<Item, UVlq64>,
     /// Up to where the host released it.
-    pub released: UVlq64,
+    pub released: Index<Item, UVlq64>,
     /// Units refused or lost on the way: producer overflow, disabled track, full ring.
-    pub dropped: UVlq64,
+    pub dropped: Count<Item, UVlq64>,
 }
 
 /// Totals, see [Recorder::counters]. Numbers are variable length: an idle recorder's answer is a few bytes.
@@ -603,24 +672,24 @@ pub struct TrackCounters {
 )]
 pub struct RecorderCounters {
     /// Data and meta bytes written since the format.
-    pub bytes_written: UVlq64,
+    pub bytes_written: Bytes<UVlq64>,
     /// Data segments the ring went round and overwrote since the format; with `ring_segments` the overwritten
     /// span.
-    pub segments_reused: UVlq64,
-    pub ring_segments: UVlq64,
+    pub segments_reused: Count<Segment, UVlq64>,
+    pub ring_segments: Count<Segment, UVlq64>,
     /// Blocks and records a mount found torn by a power cut or damaged by the card, this boot and since the
     /// format.
-    pub torn_blocks: UVlq32,
-    pub torn_records: UVlq32,
+    pub torn_blocks: Count<Block, UVlq32>,
+    pub torn_records: Count<Record, UVlq32>,
     /// Units lost in all tracks, this boot.
-    pub dropped: UVlq64,
+    pub dropped: Count<Item, UVlq64>,
     /// Writes slower than the stall threshold, and the longest, this boot.
-    pub card_stalls: UVlq32,
-    pub worst_stall_ms: UVlq32,
+    pub card_stalls: Count<Event, UVlq32>,
+    pub worst_stall: Millis<UVlq32>,
     /// Write errors of the card, this boot.
-    pub card_errors: UVlq32,
+    pub card_errors: Count<Event, UVlq32>,
     /// Sessions since the format (this one included).
-    pub sessions: UVlq32,
+    pub sessions: Count<Session, UVlq32>,
     /// Device time of the oldest data still in the ring, `None` if empty or unknown.
     pub oldest: Option<Second>,
 }
@@ -680,8 +749,8 @@ mod tests {
     #[test]
     fn settings_round_trip() {
         let s = Settings {
-            flush_bytes: 64 << 10,
-            flush_interval_ms: 1000,
+            flush: Bytes::new(64u32 << 10),
+            flush_interval: Millis::new(1000u32),
             full: FullPolicy::DropOldest,
             mode: RecordingMode::Continuous,
             usb_view: UsbView {
@@ -704,8 +773,8 @@ mod tests {
                 signature: Some([1, 2, 3, 4, 5, 6, 7, 8]),
                 global_id: Some(UNib32(0)),
             },
-            key: 0x0123_4567_89ab_cdef,
-            rate: 2000,
+            key: TrackKey(0x0123_4567_89ab_cdef),
+            rate: UnknownableRate::new(Fixed::try_new(2000).unwrap()),
         };
         let mut buf = [0u8; 64];
         let bytes = info.to_ww_bytes(&mut buf).unwrap();
@@ -719,12 +788,12 @@ mod tests {
         let mut buf = [0u8; 128];
         let z = UVlq64(0);
         let idle = TrackCounters {
-            records: z,
-            bytes: z,
-            next: z,
-            durable: z,
-            released: z,
-            dropped: z,
+            records: Count::new(z),
+            bytes: Bytes::new(z),
+            next: Index::new(z),
+            durable: Index::new(z),
+            released: Index::new(z),
+            dropped: Count::new(z),
         };
         let bytes = idle.to_ww_bytes(&mut buf).unwrap();
         assert!(bytes.len() <= 8, "{} bytes", bytes.len());

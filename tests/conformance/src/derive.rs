@@ -1076,6 +1076,7 @@ pub fn table() -> Vec<Typed> {
             mu_law_single_zero_def(),
         ),
         case("model.marker_def.codec.offset", narrow8_def()),
+        case("model.marker_def.codec.curve", curve_def()),
         case(
             "model.marker_def.reference",
             ww_self::MarkerDefOwned::Reference(ww_self::ReferenceDefOwned::from(
@@ -1387,6 +1388,82 @@ fn narrow8_def() -> ww_self::MarkerDefOwned {
         codes: ww_si::codec::CodeSpan::all::<u8>(),
         nominal: Some(ww_si::codec::CodeSpan { low: 16, high: 235 }),
         curve: None,
+    })
+}
+
+/// A hand-authored `CodecDef::curve`, STD-111's `CurveDef` wire form: no concrete `Codec` in exact_units sets
+/// `curve: Some(..)` yet (API-62's `Transfer<Q, C>` is the only place that does, and it isn't walkable), so this
+/// is the only check that `curve`, every `CurveForm` and both kinds of `ExpBase` cross the wire right.
+fn curve_def() -> ww_self::MarkerDefOwned {
+    use ww_si::codec::{CurveForm, ExpBase, Referred, Segment};
+    use ww_si::exact_units::Fraction;
+    let segments = vec![
+        Segment {
+            from: Fraction::ZERO,
+            form: CurveForm::Affine {
+                gain: Fraction::new(1, 2),
+                offset: Fraction::ZERO,
+            },
+        },
+        Segment {
+            from: Fraction::new(1, 4),
+            form: CurveForm::Power {
+                gain: Fraction::ONE,
+                scale: Fraction::new(1, 2),
+                shift: Fraction::new(1, 10),
+                exponent: Fraction::int(2),
+                offset: Fraction::ZERO,
+            },
+        },
+        Segment {
+            from: Fraction::new(1, 2),
+            form: CurveForm::Exp {
+                gain: Fraction::new(1, 3),
+                base: ExpBase::E,
+                scale: Fraction::ONE,
+                shift: Fraction::new(1, 2),
+                offset: Fraction::ZERO,
+            },
+        },
+        Segment {
+            from: Fraction::new(3, 4),
+            form: CurveForm::Exp {
+                gain: Fraction::ONE,
+                base: ExpBase::Exactly(Fraction::new(11, 10)),
+                scale: Fraction::ONE,
+                shift: Fraction::ZERO,
+                offset: Fraction::ZERO,
+            },
+        },
+        Segment {
+            from: Fraction::new(7, 8),
+            form: CurveForm::RationalPower {
+                m1: Fraction::new(2610, 16384),
+                m2: Fraction::new(2523, 32),
+                c1: Fraction::new(3424, 4096),
+                c2: Fraction::new(2413, 128),
+                c3: Fraction::new(2392, 128),
+            },
+        },
+    ];
+    ww_self::MarkerDefOwned::Codec(ww_si::codec::CodecDefOwned {
+        id: marker_id("exact_units", "Narrow8"),
+        shape: ww_si::codec::CodecShapeOwned::Offset { zero: 16 },
+        spare: vec![
+            ww_si::codec::CodeSpan::one(0),
+            ww_si::codec::CodeSpan::one(255),
+        ],
+        codes: ww_si::codec::CodeSpan::all::<u8>(),
+        nominal: Some(ww_si::codec::CodeSpan { low: 16, high: 235 }),
+        curve: Some(ww_si::codec::CurveDefOwned {
+            id: marker_id("doc", "Curve"),
+            referred: Referred::Display,
+            unit: marker_id("exact_units", "Nit"),
+            scale: Fraction::int(10_000),
+            low: Fraction::ZERO,
+            high: Fraction::ONE,
+            segments,
+        }),
     })
 }
 

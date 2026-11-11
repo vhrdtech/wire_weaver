@@ -1756,7 +1756,10 @@ mod alias_tests {
             "pub struct Req { seq: UVlq32Backfill, n: UVlq32 }",
         )
         .unwrap();
-        assert_eq!(args(&bundle), ["struct test_api::Req {seq: uvlq32, n: uvlq32}"]);
+        assert_eq!(
+            args(&bundle),
+            ["struct test_api::Req {seq: uvlq32, n: uvlq32}"]
+        );
     }
 
     #[test]

@@ -570,7 +570,10 @@ fn exp_base_lit(e: &syn::Expr) -> Result<ExpBase> {
         {
             Ok(ExpBase::Exactly(fraction_lit(&c.args[0])?))
         }
-        _ => bail!("`{}` is not ExpBase::E or ExpBase::Exactly(..)", quote::quote!(#e)),
+        _ => bail!(
+            "`{}` is not ExpBase::E or ExpBase::Exactly(..)",
+            quote::quote!(#e)
+        ),
     }
 }
 
@@ -582,7 +585,13 @@ fn referred_lit(e: &syn::Expr) -> Result<Referred> {
             quote::quote!(#e)
         );
     };
-    match p.path.segments.last().map(|s| s.ident.to_string()).as_deref() {
+    match p
+        .path
+        .segments
+        .last()
+        .map(|s| s.ident.to_string())
+        .as_deref()
+    {
         Some("Scene") => Ok(Referred::Scene),
         Some("Display") => Ok(Referred::Display),
         _ => bail!(
@@ -606,7 +615,13 @@ fn fraction_lit(e: &syn::Expr) -> Result<Fraction> {
         )
     };
     match e {
-        syn::Expr::Path(p) => match p.path.segments.last().map(|s| s.ident.to_string()).as_deref() {
+        syn::Expr::Path(p) => match p
+            .path
+            .segments
+            .last()
+            .map(|s| s.ident.to_string())
+            .as_deref()
+        {
             Some("ZERO") => Ok(Fraction::ZERO),
             Some("ONE") => Ok(Fraction::ONE),
             _ => Err(not_a_fraction()),
@@ -638,7 +653,10 @@ fn marker_id_lit(e: &syn::Expr) -> Result<MarkerIdOwned> {
                 lit: syn::Lit::Str(lit),
                 ..
             }) => Ok(lit.value()),
-            other => bail!("MarkerId {{ .. }}: `{name}` is `{}`, not a string literal", quote::quote!(#other)),
+            other => bail!(
+                "MarkerId {{ .. }}: `{name}` is `{}`, not a string literal",
+                quote::quote!(#other)
+            ),
         }
     };
     Ok(MarkerIdOwned {
@@ -3096,5 +3114,122 @@ mod tests {
         );
         assert!(codec_spare(&def("def_list(&[CodeSpan { low: 2, high: 1 }])")).is_err());
         assert!(codec_spare(&def("SPARE")).is_err());
+    }
+
+    /// A codec's `curve`: `None`, or `Some(CurveDef { .. })` with one segment of every `CurveForm` (`Affine`,
+    /// `Power` with its `scale`, `Exp` with both kinds of `ExpBase`, `RationalPower`), every number a `Fraction`
+    /// literal (STD-111). No concrete `Codec` in exact_units sets `curve: Some(..)` yet (`Transfer<Q, C>`, the one
+    /// that does, is the generic codec STD-112 leaves uncollected), so this is the only check of the reading.
+    #[test]
+    fn codec_curve_forms() {
+        let def_of = |src: &str| -> syn::Expr {
+            let items = expand(src);
+            let Some(Item::Struct(s)) = items.iter().find(|i| matches!(i, Item::Struct(_))) else {
+                panic!("no struct");
+            };
+            match marker_line(&s.attrs).unwrap() {
+                Some(MarkerLineDef::Codec(def)) => *def,
+                _ => panic!("no codec marker"),
+            }
+        };
+        let codec = |curve: &str| {
+            format!(
+                "pub struct C;\nimpl Codec for C {{ const DEF: CodecDef<'static> = CodecDef {{ \
+                 id: MarkerId {{ crate_name: \"c\", name: \"C\" }}, shape: CodecShape::MuLaw, \
+                 spare: def_list(&[]), codes: CodeSpan::all::<u8>(), nominal: None, curve: {curve} }}; }}"
+            )
+        };
+        assert_eq!(codec_curve(&def_of(&codec("None"))).unwrap(), None);
+
+        let curve_src = "Some(CurveDef { \
+             id: MarkerId { crate_name: \"c\", name: \"Curve\" }, \
+             referred: Referred::Display, \
+             unit: MarkerId { crate_name: \"exact_units\", name: \"Nit\" }, \
+             scale: Fraction::int(10_000), low: Fraction::ZERO, high: Fraction::ONE, \
+             segments: def_list(&[\
+                Segment { from: Fraction::ZERO, form: CurveForm::Affine { gain: Fraction::new(1, 2), offset: Fraction::ZERO } }, \
+                Segment { from: Fraction::new(1, 4), form: CurveForm::Power { gain: Fraction::ONE, scale: Fraction::new(1, 2), shift: Fraction::new(1, 10), exponent: Fraction::int(2), offset: Fraction::ZERO } }, \
+                Segment { from: Fraction::new(1, 2), form: CurveForm::Exp { gain: Fraction::new(1, 3), base: ExpBase::E, scale: Fraction::ONE, shift: Fraction::new(1, 2), offset: Fraction::ZERO } }, \
+                Segment { from: Fraction::new(3, 4), form: CurveForm::Exp { gain: Fraction::ONE, base: ExpBase::Exactly(Fraction::new(11, 10)), scale: Fraction::ONE, shift: Fraction::ZERO, offset: Fraction::ZERO } }, \
+                Segment { from: Fraction::new(7, 8), form: CurveForm::RationalPower { m1: Fraction::new(2610, 16384), m2: Fraction::new(2523, 32), c1: Fraction::new(3424, 4096), c2: Fraction::new(2413, 128), c3: Fraction::new(2392, 128) } }\
+             ]) })";
+        let curve = CurveDefOwned {
+            id: MarkerIdOwned {
+                crate_name: "c".into(),
+                name: "Curve".into(),
+            },
+            referred: Referred::Display,
+            unit: MarkerIdOwned {
+                crate_name: "exact_units".into(),
+                name: "Nit".into(),
+            },
+            scale: Fraction::int(10_000),
+            low: Fraction::ZERO,
+            high: Fraction::ONE,
+            segments: vec![
+                Segment {
+                    from: Fraction::ZERO,
+                    form: CurveForm::Affine {
+                        gain: Fraction::new(1, 2),
+                        offset: Fraction::ZERO,
+                    },
+                },
+                Segment {
+                    from: Fraction::new(1, 4),
+                    form: CurveForm::Power {
+                        gain: Fraction::ONE,
+                        scale: Fraction::new(1, 2),
+                        shift: Fraction::new(1, 10),
+                        exponent: Fraction::int(2),
+                        offset: Fraction::ZERO,
+                    },
+                },
+                Segment {
+                    from: Fraction::new(1, 2),
+                    form: CurveForm::Exp {
+                        gain: Fraction::new(1, 3),
+                        base: ExpBase::E,
+                        scale: Fraction::ONE,
+                        shift: Fraction::new(1, 2),
+                        offset: Fraction::ZERO,
+                    },
+                },
+                Segment {
+                    from: Fraction::new(3, 4),
+                    form: CurveForm::Exp {
+                        gain: Fraction::ONE,
+                        base: ExpBase::Exactly(Fraction::new(11, 10)),
+                        scale: Fraction::ONE,
+                        shift: Fraction::ZERO,
+                        offset: Fraction::ZERO,
+                    },
+                },
+                Segment {
+                    from: Fraction::new(7, 8),
+                    form: CurveForm::RationalPower {
+                        m1: Fraction::new(2610, 16384),
+                        m2: Fraction::new(2523, 32),
+                        c1: Fraction::new(3424, 4096),
+                        c2: Fraction::new(2413, 128),
+                        c3: Fraction::new(2392, 128),
+                    },
+                },
+            ],
+        };
+        assert_eq!(
+            codec_curve(&def_of(&codec(curve_src))).unwrap(),
+            Some(curve)
+        );
+
+        // a missing field, a non-struct curve, a name the walker doesn't know
+        for bad in [
+            "Some(CurveDef { id: MarkerId { crate_name: \"c\", name: \"Curve\" }, referred: Referred::Display, \
+             unit: MarkerId { crate_name: \"c\", name: \"U\" }, scale: Fraction::ONE, low: Fraction::ZERO, \
+             high: Fraction::ONE })",
+            "Some(42)",
+            "SomeCurve",
+        ] {
+            assert!(codec_curve(&def_of(&codec(bad))).is_err(), "{bad}");
+        }
     }
 }

@@ -681,6 +681,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   arrays are observed in the other modes; `Samples` is refused with `ModeNotSupported`, as a level's batcher, outbox
   and sampler are one per level, not per element (API-63). Needs a sampler that takes the element's chain and a
   batcher per element table.
+- 📋 **API-62 `Transfer<Q, C>` as a codec in an API** — exact_units' generic curve-over-quantizer codec (LVL-9,
+  STD-111) isn't collected by the walker: its `Codec::DEF` sets `curve: Some(C::DEF)` over `..Q::DEF` by
+  struct-update syntax, reading `Q`'s and `C`'s own associated consts, not a literal the walker can resolve without
+  generics. `Pq`, `Hlg` and `Bt709` (exact_units' transfer curves) are only reachable through `Transfer`, so none
+  of them has a walkable `CodecDef` yet either. Using `Coded<Transfer<Narrow10, Pq>, ..>` in an API fails with "not
+  a codec" instead of walking. Needs generic-marker resolution like `Per<A, B>`/`Pow10<E>`'s `BUILT_IN` table and
+  `generics::prepare` (API-43), not the attribute-literal mechanism STD-111 extended.
 - 💡 **API-37 Const values in the introspection blob** — a codegen option putting the values of `const` items into
   the device's introspection data, so `ww info` gets them with the link setup and no extra reads. Costs flash per
   device, so not a default.

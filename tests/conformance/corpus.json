@@ -1635,6 +1635,31 @@
       "note": "a rest that is 1 (pow2 0, nothing else) isn't canonical, it is left out: Magnitude's validate refuses it"
     },
     {
+      "name": "stdlib.si.run_scale.ntsc",
+      "type": "run_scale",
+      "value": {"num": 1001, "den": 1875, "pow2": -5},
+      "bytes": "e903000053070000fb",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "H.264's 1001/60000 tick: num and den odd and coprime, the power of two apart, so a value has one form (exact_units NUM-42)"
+    },
+    {
+      "name": "stdlib.si.run_scale.rejected",
+      "type": "run_scale",
+      "value": null,
+      "bytes": "020000000100000000",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "2/1 · 2⁰ isn't canonical (1/1 · 2¹ is): RunScale's validate refuses it"
+    },
+    {
+      "name": "stdlib.si.ticks",
+      "type": "ticks",
+      "value": {"value": 154112, "scale": {"num": 1, "den": 15, "pow2": -10}},
+      "bytes": "005a020000000000010000000f000000f6",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Ticks<u64>, a Scaled<Second, u64>: the number, then its RunScale, 1/15360 s; the unit only in the type (exact_units NUM-42)"
+    },
+    {
       "name": "stdlib.si.point.celsius",
       "type": "point_celsius",
       "value": {"coord": {"value": -1234}},

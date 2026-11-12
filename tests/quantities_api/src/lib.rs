@@ -23,6 +23,7 @@ use ww_si::{
     Ampere, AnyQuantity, Fixed, Index, IndexFrom1, MaybeNan, Micros, Offset, Point, Quantity,
     Range, RangeDec, Seq, Timed, Unbounded, Volt,
 };
+use ww_si::{RunScale, Scaled, Ticks};
 
 #[ww_api_root]
 trait Quantities {
@@ -98,6 +99,12 @@ trait Quantities {
     property!(ro field: Fixed<Gauss, Milli, i16>);
     /// The same field in this crate's gamma, 10⁻⁵ G, a unit declared in Gaussian
     property!(ro survey: Fixed<Gamma, One, i32>);
+    /// A video stream's time base, read from its headers: a scale known only at run time (exact_units NUM-42)
+    property!(ro time_base: RunScale);
+    /// The last frame's presentation time, in ticks of that time base
+    property!(ro pts: Ticks<u64>);
+    /// A quantizer's step in volts, set per channel at run time
+    property!(ro step: Scaled<units::Volt, u16>);
 }
 
 ww_si::origin! {

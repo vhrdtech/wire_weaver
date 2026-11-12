@@ -59,9 +59,9 @@ pub use exact_units::{
     MAX_TRUE_BASES, MAX_UNIT_DEPTH, Magnitude, MarkerId, MaybeNan, Offset, Origin, OutOfBounds,
     Overflow, Point, PointDiff, Prefix, PrefixPolicy, PrefixRatio, Provenance, QuantityDef,
     QuantityExpr, QuantityRef, QuantitySpec, Range, RangeDec, RangeU64, Reference, ReferenceDef,
-    ReferenceHow, Repr, Rounding, SIExpr, SetToOne, Storage, System, SystemDef, SystemRef,
-    TimeCounting, TimeScaleDef, TimeZero, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr, UnitMul,
-    UnitNames, UnitTable, UnitZero, UnsignedStorage, base, codec, origin, origins, prefix,
+    ReferenceHow, Repr, Rounding, RunScale, SIExpr, Scaled, SetToOne, Storage, System, SystemDef,
+    SystemRef, TimeCounting, TimeScaleDef, TimeZero, Unbounded, Unit, UnitDef, UnitDiv, UnitExpr,
+    UnitMul, UnitNames, UnitTable, UnitZero, UnsignedStorage, base, codec, origin, origins, prefix,
     quantities, quantity, scale, systems, unit, units,
 };
 #[cfg(feature = "std")]
@@ -73,7 +73,7 @@ pub use exact_units::{
 #[cfg(feature = "information")]
 pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};
 #[cfg(feature = "time")]
-pub use exact_units::{Days, Hours, Hz, Micros, Millis, Minutes, Nanos, Secs};
+pub use exact_units::{Days, Hours, Hz, Micros, Millis, Minutes, Nanos, Secs, Ticks};
 #[cfg(feature = "dimensionless")]
 pub use exact_units::{Duty16, Percent, Permille, Ppb, Ppm, Q15, Q31, UQ16_16};
 #[cfg(feature = "counting")]

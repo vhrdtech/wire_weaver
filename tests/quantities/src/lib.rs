@@ -61,6 +61,11 @@ mod tests {
     type Field = Fixed<ww_si::systems::gaussian::Gauss, Milli, i16>;
     type Survey = Fixed<quantities_api::Gamma, One, i32>;
 
+    /// An MP4 track's timescale, 15 360 ticks a second: 1/15 · 2⁻¹⁰ in a `RunScale`'s canonical form.
+    fn time_base() -> ww_si::RunScale {
+        ww_si::RunScale::ratio(1, 15_360).unwrap()
+    }
+
     struct Values {
         voltage: Volt,
         rail: Rail,
@@ -614,6 +619,31 @@ mod tests {
             ) -> GetResult<Survey, ()> {
                 GetResult::Value(Survey::new(50_000))
             }
+
+            fn get_time_base(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<ww_si::RunScale, ()> {
+                GetResult::Value(time_base())
+            }
+
+            fn get_pts(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<ww_si::Ticks<u64>, ()> {
+                GetResult::Value(ww_si::Ticks::new(154_112, time_base()))
+            }
+
+            fn get_step(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<ww_si::Scaled<units::Volt, u16>, ()> {
+                // 3 · 2⁻¹² V a step: a 12-bit converter on a 3 V reference
+                GetResult::Value(ww_si::Scaled::new(
+                    1,
+                    ww_si::RunScale::new(3, 1, -12).unwrap(),
+                ))
+            }
         }
 
         pub mod api_impl {
@@ -985,6 +1015,65 @@ mod tests {
         );
         // a tesla is SI's: B's dimension in another system, not the same, so no factor between them
         assert!(!gauss.dim.as_dim().same(<units::Tesla as Unit>::DIM));
+    }
+
+    /// exact_units NUM-42: a run-time scale and a value at one come through the model as the derived structs, the
+    /// unit of a `Scaled` its first argument, and read back as the device wrote them.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn run_time_scales() {
+        let (device, _values) = start("quantities/scaled");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let scale = |num: u32, den: u32, pow2: i8| ValueOwned::Struct {
+            fields: FieldsValueOwned::Named(vec![
+                ("num".into(), ValueOwned::Numeric(NumericValue::U32(num))),
+                ("den".into(), ValueOwned::Numeric(NumericValue::U32(den))),
+                ("pow2".into(), ValueOwned::Numeric(NumericValue::I8(pow2))),
+            ]),
+        };
+        let (read_base, _) = read(&client, &root, "time_base").await;
+        assert_eq!(read_base, scale(1, 15, -10));
+        assert_eq!(time_base().parts(), (1, 15, -10));
+        for (name, value, unit, step) in [
+            (
+                "pts",
+                ValueOwned::Numeric(NumericValue::U64(154_112)),
+                units::Second::EXPR,
+                scale(1, 15, -10),
+            ),
+            (
+                "step",
+                ValueOwned::Numeric(NumericValue::U16(1)),
+                units::Volt::EXPR,
+                scale(3, 1, -12),
+            ),
+        ] {
+            let (read_value, ty) = read(&client, &root, name).await;
+            let ValueOwned::Struct {
+                fields: FieldsValueOwned::Named(fields),
+            } = &read_value
+            else {
+                panic!("{name}: Scaled is a struct, {read_value:?}");
+            };
+            assert_eq!(
+                fields.as_slice(),
+                [("value".into(), value), ("scale".into(), step)],
+                "{name}"
+            );
+            let Ok(TypeOwned::Struct(s)) = ty.get_in_line(bundle) else {
+                panic!("{name}: Scaled");
+            };
+            let Some(GenericArgOwned::Type(u)) = s.instance_of.as_ref().unwrap().args.first()
+            else {
+                panic!("{name}: Scaled<U, T>");
+            };
+            let walked = ww_self::units::unit_of(u, bundle).unwrap();
+            assert_eq!(
+                walked.named(),
+                Some(&(*unit.def().unwrap()).into()),
+                "{name}"
+            );
+        }
     }
 
     /// INT-13: the origins of points come with their definitions, an origin of the API's crate declared above °C

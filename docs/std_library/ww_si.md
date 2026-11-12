@@ -64,6 +64,7 @@ every value:
 | `Fixed<U, P, T, B>` | in the type | in the type | the number alone: `Micros<u32>` is 4 B | the API knows the scale and the storage: a timeout in ms as `u16`, a duty cycle in 1/65535, an ADC step |
 | `Quantity<U, B>` | in the type | per value | a prefix and number type nibble, then the number: `Volt::milli(3300u16)` is 3 B | the API knows the unit, each device picks the scale and storage (`u16` of mV here, `f32` of V there) |
 | `AnyQuantity` | per value | per value | the prefix, number and the unit: 3300 mV is 22 B with the unit by reference, 49 B in full | the unit is set at run time: configured sensor inputs, generic loggers |
+| `Scaled<U, T>` | in the type | the scale per value, exact; the number type in the type | the number, then its `RunScale` in 9 B | the scale is read at run time but exact: a video stream's time base, a quantizer step ([below](#run-time-scales)) |
 
 The units are one system in all three: the markers of `ww_si::units` (from [exact_units](exact_units.md)), with real
 dimensions. A value only converts into another of the same dimension: `Byte`, `Sample` and `Ratio` are each a
@@ -586,6 +587,34 @@ names, aliases, UCUM code, prefixes, exact_units IO-9) travel with its definitio
 The unit costs bytes on every value (22 bytes by reference, 35 in full, instead of 3 for 3300 mV), so a value whose
 unit is known when the API is written stays a typed quantity, and a channel's unit is better sent once in its
 description than with every reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its readings.
+
+## Run-time scales
+
+A `Fixed`'s scale is a type; some scales are only known once the device runs, yet exact: a video stream's time base
+(H.264's `num_units_in_tick ÷ time_scale`, an MP4 timescale), a JPEG quantization step, an HRD rate of
+2^(6 + bit_rate_scale) bit/s. `ww_si::Scaled<U, T>` (exact_units' NUM-42) is a number `T` at such a scale, the unit
+`U` still in the type, and `Ticks<T>` is `Scaled<Second, T>`:
+
+```rust
+use ww_si::{RunScale, Ticks};
+
+// an MP4 track's timescale of 15360, read from the file
+let base = RunScale::ratio(1, 15_360).unwrap();
+let pts = Ticks::<u64>::new(15_360 * 10 + 512, base);
+assert_eq!(pts.to_string(), "154112·1/15360 s");
+```
+
+A `RunScale` is `num / den · 2^pow2` with `num` and `den` odd and coprime `u32`s and `pow2` within ±127: one form per
+value, so `RunScale::ratio(2002, 120_000)` is `RunScale::ratio(1001, 60_000)`, `(1001, 1875, -5)`. On the wire it is
+`num` and `den` as `u32` and `pow2` as `i8` (`final_structure`, 9 bytes); a form that isn't the canonical one doesn't
+decode, so a value has one encoding. A `Scaled` is its number, then its `RunScale`: the `Ticks<u64>` above is 17
+bytes (`stdlib.si.ticks` in the [conformance corpus](../serdes/conformance.md)).
+
+In the API model both are the derived structs, the unit of a `Scaled` its first type argument. `ww`, Python and the
+dynamic client read and write a `Scaled` as the struct `{ value, scale: { num, den, pow2 } }` for now; showing it as a
+quantity is CLT-71, and they don't run the canonical-form check, which is Rust code the model can't carry (SW-20): a
+non-canonical scale they send is refused by the device. A scale that lives in another field or register (a SunSpec
+`*_SF`, a BLE format descriptor's exponent) is STD-77.
 
 ## Prefixes
 

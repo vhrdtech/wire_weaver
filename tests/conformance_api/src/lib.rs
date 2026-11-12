@@ -145,6 +145,9 @@ trait Conformance {
     property!(rw coded_mu_law_single_zero: ww_si::codec::Coded<ww_si::codec::MuLawSingleZero, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>);
     property!(rw niched_mu_law: ww_si::exact_units::niche::Niched<ww_si::codec::Coded<ww_si::codec::MuLawSingleZero, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>, ww_si::exact_units::niche::Null<0x7F>, u8>);
     property!(rw magnitude: ww_si::Magnitude);
+    // a scale known at run time and a number at it, the unit in the type (exact_units NUM-42)
+    property!(rw run_scale: ww_si::RunScale);
+    property!(rw ticks: ww_si::Ticks<u64>);
     // ww_si::Quantity (STD-59): a prefix and a number; binary and Exact prefixes, bounds in the type
     property!(rw quantity_volt: ww_si::Volt);
     property!(rw quantity_byte: ww_si::Quantity<ww_si::units::Byte>);

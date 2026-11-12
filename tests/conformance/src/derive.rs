@@ -941,6 +941,14 @@ pub fn table() -> Vec<Typed> {
             ww_si::Magnitude::ratio(45359237, 100_000_000),
         ),
         case("stdlib.si.magnitude.rejected", ww_si::Magnitude::ONE),
+        case(
+            "stdlib.si.run_scale.ntsc",
+            ww_si::RunScale::ratio(1001, 60_000).unwrap(),
+        ),
+        case("stdlib.si.run_scale.rejected", ww_si::RunScale::ONE),
+        case_debug("stdlib.si.ticks", || {
+            ww_si::Ticks::<u64>::new(154_112, ww_si::RunScale::ratio(1, 15_360).unwrap())
+        }),
         case("stdlib.si.point.celsius", PointCelsius::from_raw(-1234)),
         case("stdlib.si.point.bounded", point_bounded(-400)),
         case("stdlib.si.point.bounded.rejected", point_bounded(1250)),

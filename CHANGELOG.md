@@ -47,6 +47,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_date_time` calendar fields are typed with their bounds (month and day as `IndexFrom1`, seconds and nanoseconds as `Fixed`, EVO-58, wire line `w2.0`): see the `ww_date_time` changelog.
 - Generic parameter defaults that name another parameter's associated type work in APIs (API-65): `Niched<V, N>` without its storage, `T = <V as RawValue>::Raw`, resolved through exact_units' `impl RawValue` (see the `wire_weaver_core` changelog).
 - `ww_client_server`'s numbers are typed (STD-115): observe periods `Micros<UNib32>`, budgets `Fixed<BytePerSecond, One, UNib32>`, byte grants, codec history and store sizes `Bytes<..>`, resource indices `Index<Resource, UNib32>`, missed sends `Count<Event, ..>`, clock epochs `Index<Boot, ..>`; the wire bytes are unchanged. See the `ww_client_server`, `ww_stream`, `wire_weaver_core` and `wire_weaver_client` changelogs.
+- exact_units taken up to d6a7256; `ww_si` turns on its `fields`, `radiometric` and `nuclear` unit groups (see the `ww_si` changelog).
 
 ### Added
 

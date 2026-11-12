@@ -1,6 +1,6 @@
 // ww_recorder 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 42a8c2d49425274a13b23d4aa6e7008b8397d11fbd9eb3f111cd4e227d5fb844
+// shrink_wrap sha256: fc82439f2410da51fd72757213369f0b10ba43217ec6b27c942af9bba88ac864
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
@@ -60,6 +60,14 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+        190,
+        28,
+        221,
+        164,
+        120,
+        108,
+        178,
+        231,
         187,
         44,
         45,
@@ -170,6 +178,14 @@
         ]), discriminant: 6, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
         167,
         149,
         168,
@@ -180,6 +196,14 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
         55,
         18,
         202,
@@ -190,6 +214,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
         134,
         214,
         73,

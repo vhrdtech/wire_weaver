@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a68375f1ae0d242e4ebc44382714f0735ddf3c2aaf1bfcc06c90c4a10d962a4d
+// shrink_wrap sha256: 1778d0f3bad0dfda8865133db226b64b69b0ca761b63fe28dc2bb2dc88f3beb8
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -86,6 +86,14 @@
     (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "I2cMonitor", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
+        216,
+        18,
+        221,
+        138,
+        45,
+        140,
+        195,
+        88,
         150,
         173,
         63,
@@ -96,6 +104,14 @@
         149,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
         55,
         18,
         202,
@@ -106,6 +122,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
         134,
         214,
         73,
@@ -116,6 +140,14 @@
         244,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
+        30,
+        167,
+        6,
+        90,
+        28,
+        193,
+        210,
+        151,
         231,
         143,
         219,
@@ -126,6 +158,14 @@
         128,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
         167,
         149,
         168,
@@ -268,6 +308,14 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
+        190,
+        28,
+        221,
+        164,
+        120,
+        108,
+        178,
+        231,
         187,
         44,
         45,

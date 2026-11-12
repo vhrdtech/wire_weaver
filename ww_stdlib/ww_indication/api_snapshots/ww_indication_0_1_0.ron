@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2d8402bcad809858c92558cb1b5c7a9ca87af1a1d6603996b374c35243db5b13
+// shrink_wrap sha256: 3ee1e8b809bdc6b79e0295bde5b26cd88f12b998f6e26d0d4da212e448ddf3f4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -56,6 +56,14 @@
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
         167,
         149,
         168,
@@ -66,6 +74,14 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
         55,
         18,
         202,
@@ -76,6 +92,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
         134,
         214,
         73,
@@ -86,6 +110,14 @@
         244,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
+        190,
+        28,
+        221,
+        164,
+        120,
+        108,
+        178,
+        231,
         187,
         44,
         45,

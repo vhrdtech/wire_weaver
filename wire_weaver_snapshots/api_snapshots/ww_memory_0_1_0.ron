@@ -1,6 +1,6 @@
 // ww_memory 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 3f7a85beedbce21c8f4f05d32757684ca218b4bb30e422e68ccbdb1682db78ce
+// shrink_wrap sha256: 1f6fba9385181ebd6f2798f93ad7a2ededa1c03156e675b5454d587522feb4fe
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Low-level access to memory or registers over WireWeaver: read and write words at addresses, and optionally watch",
     "addresses for changes.",
@@ -21,6 +21,14 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Memory32", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+        190,
+        28,
+        221,
+        164,
+        120,
+        108,
+        178,
+        231,
         187,
         44,
         45,

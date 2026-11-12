@@ -1,6 +1,6 @@
 // ww_user_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4b86993e10dc61c147a40fba6a76a2251415a129aea8527e15949fc1227900ae
+// shrink_wrap sha256: 3a7ca218fc36cd1ed3aa4da68ed51cd55adc81ca288d3c7a51885d2df8f528b5
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A name and notes the user gives a unit (STD-24), shown by `ww list`.",
     "",
@@ -14,6 +14,14 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UserInfo", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Byte", signature: [
+        105,
+        217,
+        147,
+        154,
+        78,
+        99,
+        229,
+        193,
         135,
         230,
         195,
@@ -24,6 +32,14 @@
         123,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+        52,
+        174,
+        110,
+        134,
+        44,
+        217,
+        128,
+        133,
         41,
         220,
         164,
@@ -34,6 +50,14 @@
         193,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Range", signature: [
+        109,
+        48,
+        40,
+        233,
+        111,
+        94,
+        195,
+        1,
         153,
         121,
         110,
@@ -44,6 +68,14 @@
         151,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+        226,
+        246,
+        240,
+        210,
+        111,
+        5,
+        156,
+        197,
         37,
         238,
         72,
@@ -83,6 +115,14 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+        190,
+        28,
+        221,
+        164,
+        120,
+        108,
+        178,
+        231,
         187,
         44,
         45,
@@ -93,6 +133,14 @@
         112,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
         55,
         18,
         202,

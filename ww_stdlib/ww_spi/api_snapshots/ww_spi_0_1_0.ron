@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e25aadac20f3e9858666298adb9a188d0dd53c125f7032723b91e74fbe507122
+// shrink_wrap sha256: db691f84c974aed77679d8f0a77cc658e08d0127a6fff5bd417564b1d6e9d86e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -58,6 +58,14 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Spi", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
+        190,
+        28,
+        221,
+        164,
+        120,
+        108,
+        178,
+        231,
         187,
         44,
         45,
@@ -80,6 +88,14 @@
         ], ident: "BufferTooBig", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
         167,
         149,
         168,
@@ -90,6 +106,14 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
         55,
         18,
         202,
@@ -100,6 +124,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
         134,
         214,
         73,
@@ -137,6 +169,14 @@
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Hertz", signature: [
+        30,
+        167,
+        6,
+        90,
+        28,
+        193,
+        210,
+        151,
         231,
         143,
         219,
@@ -147,6 +187,14 @@
         128,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Volt", signature: [
+        216,
+        18,
+        221,
+        138,
+        45,
+        140,
+        195,
+        88,
         150,
         173,
         63,

@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::rc::Rc;
 use syn::{Attribute, Ident, Item, Visibility};
-use ww_self::signature::{no_resolve, trait_signature, type_signature};
+use ww_self::signature::{no_resolve, trait_signatures, type_signatures};
 use ww_self::visit::{self, Visit};
 use ww_self::visit_mut::{self, VisitMut};
 use ww_self::{
@@ -464,23 +464,25 @@ fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
         let (crate_idx, signature) = match entry {
             Entry::Type(idx) => (
                 type_crate_idx(&bundle.types[idx as usize]),
-                type_signature(bundle, idx, &no_resolve),
+                type_signatures(bundle, idx, &no_resolve),
             ),
             Entry::Trait(idx) => (
                 trait_crate_idx(&bundle.traits[idx as usize]),
-                trait_signature(bundle, idx, &no_resolve),
+                trait_signatures(bundle, idx, &no_resolve),
             ),
         };
+        // shape and docs: the snapshot keeps the docs it was saved with (EVO-69)
         Ok(if crate_idx == 0 {
             None
         } else {
-            Some(signature?)
+            Some(signature?.reference(true))
         })
     })
 }
 
 /// Bundle as sent by a device: traits and types known from embedded snapshots (see [wire_weaver_snapshots]) are
-/// replaced with references to them, if they have exactly the same definition (signature) as in the snapshot.
+/// replaced with references to them, if they have the same definition (shape signature) as in the snapshot, docs
+/// aside: the reference carries the device's own docs signature, so a host still sees when they differ (EVO-69).
 /// Everything only used by them is dropped. The API root itself is kept in-line.
 pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
     let mut bundle = bundle.clone();
@@ -514,8 +516,8 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
                     return Ok(None);
                 };
                 (
-                    type_signature(bundle, idx, &known)?,
-                    type_signature(snapshot, known_idx, &known)?,
+                    type_signatures(bundle, idx, &known)?,
+                    type_signatures(snapshot, known_idx, &known)?,
                 )
             }
             Entry::Trait(idx) => {
@@ -523,13 +525,13 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
                     return Ok(None);
                 };
                 (
-                    trait_signature(bundle, idx, &known)?,
-                    trait_signature(snapshot, known_idx, &known)?,
+                    trait_signatures(bundle, idx, &known)?,
+                    trait_signatures(snapshot, known_idx, &known)?,
                 )
             }
         };
         // different definition: crate changed without a version bump, or a snapshot of an unpublished version
-        Ok((signature == known_signature).then_some(signature))
+        Ok((signature.shape == known_signature.shape).then(|| signature.reference(true)))
     })?;
     drop_unused(&mut bundle, false);
     Ok(bundle)
@@ -1371,7 +1373,8 @@ mod tests {
         else {
             panic!("Quantity is not skipped");
         };
-        assert_eq!(signature.len(), ww_self::signature::SIGNATURE_LEN);
+        // shape and docs (EVO-69)
+        assert_eq!(signature.len(), 2 * ww_self::signature::SIGNATURE_LEN);
 
         // Quantity refers to ww_numeric types, which are skipped in the ww_si snapshot as well
         let snapshots = [
@@ -1380,14 +1383,21 @@ mod tests {
             load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
-        assert!(type_signature(&uart, quantity, &no_resolve).is_err());
+        assert!(type_signatures(&uart, quantity, &no_resolve).is_err());
         assert_eq!(
             signature,
-            &type_signature(&uart, quantity, &resolve).unwrap()
+            &type_signatures(&uart, quantity, &resolve)
+                .unwrap()
+                .reference(true)
         );
 
         let volt = type_idx(&uart, "units::Volt");
-        assert_ne!(signature, &type_signature(&uart, volt, &resolve).unwrap());
+        assert_ne!(
+            signature,
+            &type_signatures(&uart, volt, &resolve)
+                .unwrap()
+                .reference(true)
+        );
     }
 
     #[test]
@@ -1409,14 +1419,18 @@ mod tests {
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
             signature,
-            &trait_signature(&all_gpio, bank, &resolve).unwrap()
+            &trait_signatures(&all_gpio, bank, &resolve)
+                .unwrap()
+                .reference(true)
         );
         // same when starting from the ww_gpio snapshot itself
         let gpio = &snapshots[0];
         let gpio_bank = trait_idx(gpio, "Bank");
         assert_eq!(
             signature,
-            &trait_signature(gpio, gpio_bank, &resolve).unwrap()
+            &trait_signatures(gpio, gpio_bank, &resolve)
+                .unwrap()
+                .reference(true)
         );
     }
 
@@ -1446,9 +1460,11 @@ mod tests {
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
             signature,
-            &trait_signature(&uart_api, idx, &resolve).unwrap()
+            &trait_signatures(&uart_api, idx, &resolve)
+                .unwrap()
+                .reference(true)
         );
-        assert!(trait_signature(&uart_api, idx, &from_snapshots(&snapshots[..2])).is_err());
+        assert!(trait_signatures(&uart_api, idx, &from_snapshots(&snapshots[..2])).is_err());
     }
 
     /// Codegen leaves out ww_uart and ww_si definitions, putting them back from snapshots gives the same API.
@@ -1484,12 +1500,36 @@ mod tests {
         let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
             panic!("expected an in-line trait");
         };
-        level.docs.push("changed".into());
+        level.items[0].ident.push_str("_renamed");
         let sent = skip_known(&full).unwrap();
         assert!(matches!(
             sent.traits[0],
             ApiLevelLocationOwned::InLine { .. }
         ));
+    }
+
+    /// A definition whose docs alone differ from its snapshot is left out all the same, and the reference says so:
+    /// its shape signature is the snapshot's, its docs signature is not (EVO-69).
+    #[test]
+    fn definition_with_other_docs_is_left_out() {
+        use ww_self::signature::Match;
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
+        let mut full = crate::load(&crate_path, None, false).unwrap();
+        let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
+            panic!("expected an in-line trait");
+        };
+        let name = level.trait_name.clone();
+        level.docs.push("changed".into());
+        let sent = skip_known(&full).unwrap();
+        let ApiLevelLocationOwned::SkippedFullVersion { signature, .. } = &sent.traits[0] else {
+            panic!("{name} is kept in-line");
+        };
+        let version = sent.crate_version(0).unwrap().clone();
+        let snapshot = wire_weaver_snapshots::get(&version);
+        let snapshot = snapshot.unwrap_or_else(|| panic!("no snapshot of {version:?}"));
+        let idx = trait_idx(snapshot, &name);
+        let known = trait_signatures(snapshot, idx, &known).unwrap();
+        assert_eq!(known.matches(signature), Match::DocsDiffer);
     }
 
     /// Two crates in a throwaway directory: `units_lib` with a marker `units::Volt` next to a root `Volt` of another
@@ -1616,7 +1656,9 @@ mod tests {
             crate_idx: bundle.root.crate_idx,
         });
         let idx = bundle.traits.len() as u32 - 1;
-        trait_signature(&bundle, idx, &no_resolve).unwrap()
+        trait_signatures(&bundle, idx, &no_resolve)
+            .unwrap()
+            .reference(true)
     }
 
     /// Snapshots are saved for the current source of each crate, and the embedded copies are the same.

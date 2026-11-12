@@ -8,10 +8,12 @@
 //! by its signature, so a host on the same machine finds the device's exact definition and compares it with its own
 //! by the evolution rules.
 //!
-//! An entry is the canonical bundle's bytes as they were hashed: the signature is checked against them when loading,
-//! so a reader with a newer `ww_self` still reads an entry written by an older one.
+//! An entry is the canonical bundle's bytes with docs, named by the definition's shape signature (an entry written
+//! before EVO-69 by its signature with docs). Both signatures are computed from the bytes when loading and the
+//! reference is checked against them ([Signatures::matches]), so a reader with a newer `ww_self` still reads an entry
+//! written by an older one.
 
-use crate::signature::signature_of;
+use crate::signature::{self, Match, Signatures};
 use crate::{ApiBundleOwned, ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
 use anyhow::{Result, anyhow};
 use shrink_wrap::DeserializeShrinkWrapOwned;
@@ -20,7 +22,7 @@ use std::path::{Path, PathBuf};
 use ww_version::FullVersionOwned;
 
 /// A trait or a type.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Kind {
     Trait,
     Type,
@@ -67,7 +69,8 @@ fn file_path(
     dir.join(file_name(kind, version, name, signature))
 }
 
-/// Store the canonical bytes of a definition, under their signature. An existing entry is left as is.
+/// Store the canonical bytes of a definition, under its shape signature. An entry of the same shape with other docs
+/// is replaced: the newest docs win.
 pub fn store(
     dir: &Path,
     kind: Kind,
@@ -75,8 +78,9 @@ pub fn store(
     name: &str,
     canonical_bytes: &[u8],
 ) -> Result<()> {
-    let path = file_path(dir, kind, version, name, &signature_of(canonical_bytes));
-    if path.exists() {
+    let signatures = signature::signatures_of(canonical_bytes)?;
+    let path = file_path(dir, kind, version, name, &signatures.shape);
+    if fs::read(&path).is_ok_and(|bytes| bytes == canonical_bytes) {
         return Ok(());
     }
     fs::create_dir_all(dir)?;
@@ -87,8 +91,8 @@ pub fn store(
     Ok(())
 }
 
-/// Canonical bundle of the definition with this signature, `Ok(None)` when there is no such entry. The definition is
-/// `traits[0]` or `types[0]` of it.
+/// Canonical bundle of the definition `reference` names (a `Skipped*` location's signature bytes), `Ok(None)` when
+/// there is no such entry. The definition is `traits[0]` or `types[0]` of it.
 pub fn load(
     dir: &Path,
     kind: Kind,
@@ -96,23 +100,62 @@ pub fn load(
     name: &str,
     signature: &[u8],
 ) -> Result<Option<ApiBundleOwned>> {
-    let path = file_path(dir, kind, version, name, signature);
-    let bytes = match fs::read(&path) {
-        Ok(bytes) => bytes,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+    // named by the shape signature, or (written before EVO-69) by the signature with docs
+    let path = file_path(dir, kind, version, name, signature::shape_part(signature));
+    match fs::read(&path) {
+        Ok(bytes) => {
+            return decode(kind, name, signature, &bytes)
+                .map(Some)
+                .map_err(|e| anyhow!("{}: {e}", path.display()));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => return Err(anyhow!("reading {}: {e}", path.display())),
+    }
+    // a reference from before EVO-69 is a signature with docs, while the entry is named by its shape: the entries of
+    // this definition are few, each is checked
+    let prefix = file_name(kind, version, name, &[]);
+    let prefix = prefix.strip_suffix(".ww").unwrap_or(&prefix);
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Ok(None);
     };
-    decode(kind, name, signature, &bytes)
-        .map(Some)
-        .map_err(|e| anyhow!("{}: {e}", path.display()))
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let Some(rest) = file_name.to_str().and_then(|n| n.strip_prefix(prefix)) else {
+            continue;
+        };
+        if rest.contains('-') || !rest.ends_with(".ww") {
+            continue;
+        }
+        let Ok(bytes) = fs::read(entry.path()) else {
+            continue;
+        };
+        if let Ok((bundle, signatures)) = decode_with_signatures(kind, name, &bytes)
+            && signatures.matches(signature) != Match::No
+        {
+            return Ok(Some(bundle));
+        }
+    }
+    Ok(None)
 }
 
-/// The canonical bundle of an entry's bytes, checked to hash to `signature` and to hold the `kind` named `name` as
-/// its first trait or type.
-pub fn decode(kind: Kind, name: &str, signature: &[u8], bytes: &[u8]) -> Result<ApiBundleOwned> {
-    if signature_of(bytes) != signature {
+/// The canonical bundle of an entry's bytes, checked to be of the definition `reference` names (docs aside) and to
+/// hold the `kind` named `name` as its first trait or type.
+pub fn decode(kind: Kind, name: &str, reference: &[u8], bytes: &[u8]) -> Result<ApiBundleOwned> {
+    let (bundle, signatures) = decode_with_signatures(kind, name, bytes)?;
+    if signatures.matches(reference) == Match::No {
         return Err(anyhow!("doesn't match its signature, delete it"));
     }
+    Ok(bundle)
+}
+
+/// The canonical bundle of an entry's bytes and the [Signatures] computed from them, checked to hold the `kind`
+/// named `name` as its first trait or type.
+pub fn decode_with_signatures(
+    kind: Kind,
+    name: &str,
+    bytes: &[u8],
+) -> Result<(ApiBundleOwned, Signatures)> {
+    let signatures = signature::signatures_of(bytes)?;
     let bundle = ApiBundleOwned::from_ww_bytes_owned(bytes).map_err(|e| anyhow!("{e:?}"))?;
     let found = match kind {
         Kind::Trait => matches!(
@@ -132,5 +175,5 @@ pub fn decode(kind: Kind, name: &str, signature: &[u8], bytes: &[u8]) -> Result<
     if !found {
         return Err(anyhow!("doesn't hold {} {name}", kind.name()));
     }
-    Ok(bundle)
+    Ok((bundle, signatures))
 }

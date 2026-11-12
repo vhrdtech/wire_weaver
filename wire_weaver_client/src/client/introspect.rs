@@ -229,5 +229,9 @@ pub(crate) fn inline_known_in(
     for not_inlined in &inlined.not_inlined {
         warn!("Device API refers to {not_inlined}");
     }
+    // a device built with other doc comments of a dependency: the same definition (EVO-69)
+    for docs_differ in &inlined.docs_differ {
+        tracing::info!("Device API has {docs_differ}");
+    }
     inlined
 }

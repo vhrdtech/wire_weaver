@@ -1300,6 +1300,9 @@ impl fmt::Display for Comparison {
         for warning in &report.warnings {
             write!(f, "\n  warning: {warning}")?;
         }
+        for note in &report.notes {
+            write!(f, "\n  note: {note}")?;
+        }
         for proposal in &report.proposals {
             write!(f, "\n  proposal: {proposal}")?;
         }

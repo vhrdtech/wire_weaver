@@ -1,15 +1,15 @@
 //! Putting definitions of skipped traits and types back into a bundle, e.g. from crate snapshots, so that it looks as
 //! if nothing was skipped.
 //!
-//! Each definition is only put back if its [signature](crate::signature) matches the one stored in the skipped
-//! location. A definition whose signature the snapshot doesn't have (a build from another revision of a crate that
+//! Each definition is only put back if its [shape signature](crate::signature) matches the one stored in the skipped
+//! location; one whose docs differ from the reference's is put back too, and listed ([Inlined::docs_differ]). A definition whose signature the snapshot doesn't have (a build from another revision of a crate that
 //! is not published yet) can still be found by signature in the [definition cache](crate::definition_cache), or with
 //! any other [BySignature] lookup (the superseded definitions of an embedded snapshot, EVO-68). Indices differ from a
 //! bundle that had everything in-line from the start: definitions put back replace the skipped locations in place,
 //! and the ones they refer to are appended.
 
 use crate::definition_cache::{self, Kind};
-use crate::signature::{Resolve, no_resolve, trait_signature, type_signature};
+use crate::signature::{Match, Resolve, Signatures, no_resolve, trait_signatures, type_signatures};
 use crate::visit_mut::{self, VisitMut};
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
@@ -57,8 +57,32 @@ pub struct FromCache {
     pub crate_version: FullVersionOwned,
     pub name: String,
     pub signature: Vec<u8>,
-    /// Signature of the snapshot's definition, `None` without one.
+    /// Shape signature of the snapshot's definition, `None` without one.
     pub snapshot_signature: Option<Vec<u8>>,
+}
+
+/// A skipped trait or type put back from the snapshot of its crate version, whose shape is the one referred to but
+/// whose docs are not: a device built with other docs of an unpublished crate, or a snapshot saved before a doc fix in
+/// a dependency (EVO-69). The bundle holds the snapshot's docs.
+#[derive(Debug)]
+pub struct DocsDiffer {
+    pub kind: Kind,
+    pub crate_version: FullVersionOwned,
+    pub name: String,
+}
+
+impl Display for DocsDiffer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let v = &self.crate_version;
+        let (major, minor, patch) = (v.version.major.0, v.version.minor.0, v.version.patch.0);
+        write!(
+            f,
+            "{} {}::{} {major}.{minor}.{patch}: same definition, other docs (this host's are shown)",
+            self.kind.name(),
+            v.crate_id,
+            self.name,
+        )
+    }
 }
 
 impl Display for FromCache {
@@ -87,6 +111,14 @@ pub struct Inlined {
     pub not_inlined: Vec<NotInlined>,
     /// Put back from the definition cache.
     pub from_cache: Vec<FromCache>,
+    /// Put back from a snapshot with the same shape, other docs.
+    pub docs_differ: Vec<DocsDiffer>,
+}
+
+/// Where one skipped definition was put back from.
+enum Put {
+    Snapshot { docs_differ: bool },
+    Cache(FromCache),
 }
 
 /// Replace skipped traits and types with their definitions found with `resolve`, together with everything they refer
@@ -130,6 +162,7 @@ pub fn inline_skipped_by_signature<'a>(
     by_signature: Option<BySignature<'_>>,
 ) -> Inlined {
     let mut from_cache = vec![];
+    let mut docs_differ = vec![];
     let mut not_inlined = vec![];
     let mut failed_types = HashSet::new();
     let mut failed_traits = HashSet::new();
@@ -144,10 +177,26 @@ pub fn inline_skipped_by_signature<'a>(
                 continue;
             }
             let name = type_name.clone();
+            let version = match &bundle.types[idx] {
+                TypeLocationOwned::SkippedFullVersion { crate_idx, .. } => {
+                    bundle.crate_version(crate_idx.0).ok().cloned()
+                }
+                _ => None,
+            };
             match inline_type(bundle, idx, resolve, by_signature) {
-                Ok(cached) => {
+                Ok(put) => {
                     progress = true;
-                    from_cache.extend(cached);
+                    match put {
+                        Put::Cache(cached) => from_cache.push(cached),
+                        Put::Snapshot { docs_differ: true } => {
+                            docs_differ.extend(version.map(|crate_version| DocsDiffer {
+                                kind: Kind::Type,
+                                crate_version,
+                                name: name.clone(),
+                            }))
+                        }
+                        Put::Snapshot { docs_differ: false } => {}
+                    }
                 }
                 Err(reason) => {
                     failed_types.insert(idx);
@@ -169,10 +218,26 @@ pub fn inline_skipped_by_signature<'a>(
                 continue;
             }
             let name = trait_name.clone();
+            let version = match &bundle.traits[idx] {
+                ApiLevelLocationOwned::SkippedFullVersion { crate_idx, .. } => {
+                    bundle.crate_version(crate_idx.0).ok().cloned()
+                }
+                _ => None,
+            };
             match inline_trait(bundle, idx, resolve, by_signature) {
-                Ok(cached) => {
+                Ok(put) => {
                     progress = true;
-                    from_cache.extend(cached);
+                    match put {
+                        Put::Cache(cached) => from_cache.push(cached),
+                        Put::Snapshot { docs_differ: true } => {
+                            docs_differ.extend(version.map(|crate_version| DocsDiffer {
+                                kind: Kind::Trait,
+                                crate_version,
+                                name: name.clone(),
+                            }))
+                        }
+                        Put::Snapshot { docs_differ: false } => {}
+                    }
                 }
                 Err(reason) => {
                     failed_traits.insert(idx);
@@ -195,6 +260,7 @@ pub fn inline_skipped_by_signature<'a>(
             return Inlined {
                 not_inlined,
                 from_cache,
+                docs_differ,
             };
         }
     }
@@ -217,35 +283,38 @@ fn inline_type<'a>(
     idx: usize,
     resolve: Resolve<'a, '_>,
     by_signature: Option<BySignature<'_>>,
-) -> Result<Option<FromCache>> {
+) -> Result<Put> {
     let TypeLocationOwned::SkippedFullVersion {
         crate_idx,
         type_name,
         signature,
     } = &bundle.types[idx]
     else {
-        return Ok(None);
+        return Err(anyhow!("not skipped"));
     };
     let (type_name, signature) = (type_name.clone(), signature.clone());
     let version = bundle.crate_version(crate_idx.0)?.clone();
     let found = resolve(&version)
         .and_then(|src| Some((src, find_type(src, &version, &type_name)?)))
-        .map(|(src, src_idx)| (src, src_idx, type_signature(src, src_idx, resolve)));
+        .map(|(src, src_idx)| (src, src_idx, type_signatures(src, src_idx, resolve)));
     let snapshot_signature = match &found {
-        Some((_, _, Ok(found_signature))) if *found_signature == signature => None,
-        Some((_, _, Ok(found_signature))) => Some(found_signature.clone()),
+        Some((_, _, Ok(found))) if found.matches(&signature).is_same_shape() => None,
+        Some((_, _, Ok(found))) => Some(found.shape.clone()),
         _ => None,
     };
-    if let Some((src, src_idx, found_signature)) = found {
-        let found_signature = found_signature?;
-        if found_signature == signature || by_signature.is_none() {
-            check_signature(&signature, &found_signature)?;
+    if let Some((src, src_idx, found)) = found {
+        let found = found?;
+        let matched = found.matches(&signature);
+        if matched.is_same_shape() || by_signature.is_none() {
+            check_signature(&signature, matched, &found)?;
             let mut location = src.types[src_idx as usize].clone();
             let mut import = Import::new(bundle, src, resolve);
             import.visit_type_location(&mut location);
             import.finish()?;
             bundle.types[idx] = location;
-            return Ok(None);
+            return Ok(Put::Snapshot {
+                docs_differ: matched == Match::DocsDiffer,
+            });
         }
     }
     let not_found = || match &snapshot_signature {
@@ -267,7 +336,7 @@ fn inline_type<'a>(
     import.visit_type_location(&mut location);
     import.finish()?;
     bundle.types[idx] = location;
-    Ok(Some(FromCache {
+    Ok(Put::Cache(FromCache {
         kind: Kind::Type,
         crate_version: version,
         name: type_name,
@@ -281,35 +350,38 @@ fn inline_trait<'a>(
     idx: usize,
     resolve: Resolve<'a, '_>,
     by_signature: Option<BySignature<'_>>,
-) -> Result<Option<FromCache>> {
+) -> Result<Put> {
     let ApiLevelLocationOwned::SkippedFullVersion {
         crate_idx,
         trait_name,
         signature,
     } = &bundle.traits[idx]
     else {
-        return Ok(None);
+        return Err(anyhow!("not skipped"));
     };
     let (trait_name, signature) = (trait_name.clone(), signature.clone());
     let version = bundle.crate_version(crate_idx.0)?.clone();
     let found = resolve(&version)
         .and_then(|src| Some((src, find_trait(src, &version, &trait_name)?)))
-        .map(|(src, src_idx)| (src, src_idx, trait_signature(src, src_idx, resolve)));
+        .map(|(src, src_idx)| (src, src_idx, trait_signatures(src, src_idx, resolve)));
     let snapshot_signature = match &found {
-        Some((_, _, Ok(found_signature))) if *found_signature == signature => None,
-        Some((_, _, Ok(found_signature))) => Some(found_signature.clone()),
+        Some((_, _, Ok(found))) if found.matches(&signature).is_same_shape() => None,
+        Some((_, _, Ok(found))) => Some(found.shape.clone()),
         _ => None,
     };
-    if let Some((src, src_idx, found_signature)) = found {
-        let found_signature = found_signature?;
-        if found_signature == signature || by_signature.is_none() {
-            check_signature(&signature, &found_signature)?;
+    if let Some((src, src_idx, found)) = found {
+        let found = found?;
+        let matched = found.matches(&signature);
+        if matched.is_same_shape() || by_signature.is_none() {
+            check_signature(&signature, matched, &found)?;
             let mut location = src.traits[src_idx as usize].clone();
             let mut import = Import::new(bundle, src, resolve);
             import.visit_api_level_location(&mut location);
             import.finish()?;
             bundle.traits[idx] = location;
-            return Ok(None);
+            return Ok(Put::Snapshot {
+                docs_differ: matched == Match::DocsDiffer,
+            });
         }
     }
     let not_found = || match &snapshot_signature {
@@ -331,7 +403,7 @@ fn inline_trait<'a>(
     import.visit_api_level_location(&mut location);
     import.finish()?;
     bundle.traits[idx] = location;
-    Ok(Some(FromCache {
+    Ok(Put::Cache(FromCache {
         kind: Kind::Trait,
         crate_version: version,
         name: trait_name,
@@ -340,14 +412,14 @@ fn inline_trait<'a>(
     }))
 }
 
-fn check_signature(expected: &[u8], found: &[u8]) -> Result<()> {
+fn check_signature(expected: &[u8], matched: Match, found: &Signatures) -> Result<()> {
     if expected.is_empty() {
         return Err(anyhow!("no signature to check the definition against"));
     }
-    if expected != found {
+    if !matched.is_same_shape() {
         return Err(anyhow!(
             "found definition is different (signature {} instead of {}), likely changed without bumping the crate version",
-            hex(found),
+            hex(&found.shape),
             hex(expected)
         ));
     }
@@ -518,7 +590,9 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
         }
         let signature = match location {
             TypeLocationOwned::SkippedFullVersion { signature, .. } => signature.clone(),
-            TypeLocationOwned::InLine { .. } => type_signature(self.src, idx, self.resolve)?,
+            TypeLocationOwned::InLine { .. } => {
+                type_signatures(self.src, idx, self.resolve)?.reference(true)
+            }
         };
         let skipped = TypeLocationOwned::SkippedFullVersion {
             crate_idx: UNib32(self.crate_idx_of_version(version)),
@@ -565,7 +639,7 @@ impl<'d, 'a, 'r> Import<'d, 'a, 'r> {
         }
         let signature = match location {
             ApiLevelLocationOwned::SkippedFullVersion { signature, .. } => signature.clone(),
-            _ => trait_signature(self.src, idx, self.resolve)?,
+            _ => trait_signatures(self.src, idx, self.resolve)?.reference(true),
         };
         let skipped = ApiLevelLocationOwned::SkippedFullVersion {
             crate_idx: UNib32(self.crate_idx_of_version(version)),

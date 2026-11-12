@@ -1,10 +1,23 @@
 //! Signatures of traits and types, stored in `Skipped*` locations, so that a definition restored from elsewhere
-//! (e.g., a saved crate snapshot) can be checked to be exactly the one that was left out.
+//! (e.g., a saved crate snapshot) can be checked to be the one that was left out (EVO-69).
 //!
-//! A signature is a hash of a canonical, stand-alone bundle holding the definition and everything it refers to,
-//! with docs, in-line (as if nothing was skipped). Indices are assigned in the order of first use, starting from the
-//! definition itself, so the signature doesn't depend on where the definition was in the original bundle, or on what
-//! else was in it.
+//! A definition has two signatures, both hashes of a canonical, stand-alone bundle holding the definition and
+//! everything it refers to in-line (as if nothing was skipped):
+//!
+//! * the **shape signature**, with every doc comment left out: the definition's identity, its names, fields and wire
+//!   shape. Snapshots, devices and the checker match definitions by it, so a doc fix changes no identity;
+//! * the **signature with docs**, over the same bundle with its docs: it answers whether the text changed too. Under
+//!   the same shape signature it differs exactly when some doc comment differs. Before EVO-69 this was the only
+//!   signature, so a reference saved then holds it.
+//!
+//! A reference (the `signature` bytes of a `Skipped*` location) is the shape signature, followed by the signature
+//! with docs where the bundle carries docs ([Signatures::reference]): 16 bytes in snapshots and in introspection data
+//! with docs, 8 bytes without docs ([drop_docs]). An 8-byte reference saved before EVO-69 is a signature with docs:
+//! [Signatures::matches] takes either. Nothing about a reference is trusted beyond that: whoever holds a definition (a
+//! snapshot, a superseded definition, a definition cache entry) computes both signatures from it.
+//!
+//! Indices are assigned in the order of first use, starting from the definition itself, so neither signature depends
+//! on where the definition was in the original bundle, or on what else was in it.
 
 use crate::visit_mut::{self, VisitMut};
 use crate::{
@@ -15,7 +28,7 @@ use crate::{ApiLevel, ApiLevelLocation, TypeLocation};
 use anyhow::{Result, anyhow};
 use sha2::Digest;
 use shrink_wrap::prelude::*;
-use shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
+use shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned, UNib32};
 use std::collections::{HashMap, VecDeque};
 use ww_version::{FullVersion, WireVersion};
 use ww_version::{FullVersionOwned, VersionTriplet};
@@ -55,7 +68,7 @@ pub fn includes(owner: &str, field: &str) -> bool {
     !LEFT_OUT.contains(&(owner, field))
 }
 
-/// Signature length in bytes (truncated SHA-256), same as the API hash.
+/// Length in bytes of one signature (truncated SHA-256), same as the API hash.
 pub const SIGNATURE_LEN: usize = 8;
 
 /// API hash (`API_HASH_NO_DOCS` / `API_HASH_WITH_DOCS`) of a serialized bundle, as a device sends it:
@@ -64,6 +77,102 @@ pub fn api_hash(bundle_bytes: &[u8]) -> [u8; SIGNATURE_LEN] {
     let mut hash = [0u8; SIGNATURE_LEN];
     hash.copy_from_slice(&sha2::Sha256::digest(bundle_bytes)[..SIGNATURE_LEN]);
     hash
+}
+
+/// The two signatures of a definition, see the [module docs](self).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Signatures {
+    /// Without docs: the definition's identity.
+    pub shape: Vec<u8>,
+    /// With docs, as every signature was before EVO-69.
+    pub with_docs: Vec<u8>,
+}
+
+/// How a reference relates to a definition, see [Signatures::matches].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Match {
+    /// Another definition.
+    No,
+    /// The same shape and the same docs.
+    Exact,
+    /// The same shape, other docs.
+    DocsDiffer,
+    /// The same shape; the reference carries no docs to compare (introspection data without docs).
+    Shape,
+}
+
+impl Match {
+    /// Whether the reference names this definition, docs aside.
+    pub fn is_same_shape(self) -> bool {
+        self != Match::No
+    }
+}
+
+impl Signatures {
+    /// The bytes a `Skipped*` location stores: the shape signature, followed by the signature with docs when
+    /// `with_docs`.
+    pub fn reference(&self, with_docs: bool) -> Vec<u8> {
+        let mut reference = self.shape.clone();
+        if with_docs {
+            reference.extend_from_slice(&self.with_docs);
+        }
+        reference
+    }
+
+    /// How `reference` relates to this definition. 16 bytes: shape, then docs. 8 bytes: a shape signature, or a
+    /// signature with docs saved before EVO-69 (equal to [Self::with_docs] only for the same docs).
+    pub fn matches(&self, reference: &[u8]) -> Match {
+        match reference.len() {
+            n if n == 2 * SIGNATURE_LEN => {
+                let (shape, docs) = reference.split_at(SIGNATURE_LEN);
+                if shape != self.shape {
+                    Match::No
+                } else if docs == self.with_docs {
+                    Match::Exact
+                } else {
+                    Match::DocsDiffer
+                }
+            }
+            SIGNATURE_LEN if reference == self.with_docs => Match::Exact,
+            SIGNATURE_LEN if reference == self.shape => Match::Shape,
+            _ => Match::No,
+        }
+    }
+}
+
+/// The shape part of a reference: what names the definition, docs aside. An 8-byte reference saved before EVO-69 is
+/// a signature with docs, so two references compare by this only when both are of EVO-69 or later.
+pub fn shape_part(reference: &[u8]) -> &[u8] {
+    &reference[..reference.len().min(SIGNATURE_LEN)]
+}
+
+/// The docs part of a reference, `None` for an 8-byte one.
+pub fn docs_part(reference: &[u8]) -> Option<&[u8]> {
+    (reference.len() == 2 * SIGNATURE_LEN).then(|| &reference[SIGNATURE_LEN..])
+}
+
+/// Every doc comment of `bundle` cleared and every reference cut to its shape signature: the bundle a device sends
+/// without docs, and the one `API_HASH_NO_DOCS` hashes. A dependency's doc fix then changes neither.
+pub fn drop_docs(bundle: &mut ApiBundleOwned) {
+    struct Clear;
+    impl VisitMut for Clear {
+        fn visit_docs(&mut self, node: &mut Vec<String>) {
+            node.clear();
+        }
+    }
+    Clear.visit_api_bundle(bundle);
+    for location in &mut bundle.types {
+        if let TypeLocationOwned::SkippedFullVersion { signature, .. } = location {
+            signature.truncate(SIGNATURE_LEN);
+        }
+    }
+    for location in &mut bundle.traits {
+        if let ApiLevelLocationOwned::SkippedFullVersion { signature, .. }
+        | ApiLevelLocationOwned::SkippedCompactVersion { signature, .. } = location
+        {
+            signature.truncate(SIGNATURE_LEN);
+        }
+    }
 }
 
 /// Finds a bundle with in-line definitions of a crate's traits and types (e.g., that crate's snapshot),
@@ -75,34 +184,30 @@ pub fn no_resolve<'a>(_: &FullVersionOwned) -> Option<&'a ApiBundleOwned> {
     None
 }
 
-/// Signature of `bundle.traits[trait_idx]`.
+/// Signatures of `bundle.traits[trait_idx]`.
 ///
 /// Skipped definitions (including the trait itself) are looked up with `resolve`, fails if one is not found.
-pub fn trait_signature<'a>(
+pub fn trait_signatures<'a>(
     bundle: &'a ApiBundleOwned,
     trait_idx: u32,
     resolve: Resolve<'a, '_>,
-) -> Result<Vec<u8>> {
-    Ok(signature_of(&canonical_trait_bytes(
-        bundle, trait_idx, resolve,
-    )?))
+) -> Result<Signatures> {
+    signatures_of(&canonical_trait_bytes(bundle, trait_idx, resolve)?)
 }
 
-/// Signature of `bundle.types[type_idx]`.
+/// Signatures of `bundle.types[type_idx]`.
 ///
 /// Skipped definitions (including the type itself) are looked up with `resolve`, fails if one is not found.
-pub fn type_signature<'a>(
+pub fn type_signatures<'a>(
     bundle: &'a ApiBundleOwned,
     type_idx: u32,
     resolve: Resolve<'a, '_>,
-) -> Result<Vec<u8>> {
-    Ok(signature_of(&canonical_type_bytes(
-        bundle, type_idx, resolve,
-    )?))
+) -> Result<Signatures> {
+    signatures_of(&canonical_type_bytes(bundle, type_idx, resolve)?)
 }
 
-/// Serialized canonical bundle of `bundle.traits[trait_idx]`, the bytes its signature is the hash of: the trait is
-/// `traits[0]`, everything it refers to is in-line. See [crate::definition_cache].
+/// Serialized canonical bundle of `bundle.traits[trait_idx]`, with docs, the bytes its signature with docs is the
+/// hash of: the trait is `traits[0]`, everything it refers to is in-line. See [crate::definition_cache].
 pub fn canonical_trait_bytes<'a>(
     bundle: &'a ApiBundleOwned,
     trait_idx: u32,
@@ -113,8 +218,8 @@ pub fn canonical_trait_bytes<'a>(
     canonical.bytes()
 }
 
-/// Serialized canonical bundle of `bundle.types[type_idx]`, the bytes its signature is the hash of: the type is
-/// `types[0]`, everything it refers to is in-line. See [crate::definition_cache].
+/// Serialized canonical bundle of `bundle.types[type_idx]`, with docs, the bytes its signature with docs is the
+/// hash of: the type is `types[0]`, everything it refers to is in-line. See [crate::definition_cache].
 pub fn canonical_type_bytes<'a>(
     bundle: &'a ApiBundleOwned,
     type_idx: u32,
@@ -125,9 +230,43 @@ pub fn canonical_type_bytes<'a>(
     canonical.bytes()
 }
 
-/// Signature of a definition from its [canonical bytes](canonical_type_bytes): truncated SHA-256.
-pub fn signature_of(canonical_bytes: &[u8]) -> Vec<u8> {
-    sha2::Sha256::digest(canonical_bytes)[..SIGNATURE_LEN].to_vec()
+/// Signatures of a definition from its [canonical bytes](canonical_type_bytes): the signature with docs hashes the
+/// bytes as they are (also those an older `ww_self` wrote), the shape signature the same bundle read back with its
+/// docs left out.
+pub fn signatures_of(canonical_bytes: &[u8]) -> Result<Signatures> {
+    let mut bundle = CanonicalBundleOwned::from_ww_bytes_owned(canonical_bytes)
+        .map_err(|e| anyhow!("reading a canonical bundle: {e:?}"))?;
+    bundle.drop_docs();
+    let shape = bundle
+        .to_ww_bytes_owned()
+        .map_err(|e| anyhow!("serializing canonical bundle: {e:?}"))?;
+    Ok(Signatures {
+        shape: hash(&shape),
+        with_docs: hash(canonical_bytes),
+    })
+}
+
+fn hash(bytes: &[u8]) -> Vec<u8> {
+    sha2::Sha256::digest(bytes)[..SIGNATURE_LEN].to_vec()
+}
+
+impl CanonicalBundleOwned {
+    /// Clears the docs of every definition in it: they are all in-line, so no reference is left to cut.
+    fn drop_docs(&mut self) {
+        struct Clear;
+        impl VisitMut for Clear {
+            fn visit_docs(&mut self, node: &mut Vec<String>) {
+                node.clear();
+            }
+        }
+        Clear.visit_api_level(&mut self.root);
+        for location in &mut self.types {
+            Clear.visit_type_location(location);
+        }
+        for location in &mut self.traits {
+            Clear.visit_api_level_location(location);
+        }
+    }
 }
 
 /// Copies definitions into a new bundle, remapping indices in the order of first use.
@@ -414,5 +553,181 @@ impl VisitMut for Canonical<'_, '_> {
         node.future_version = None;
         self.remap(&mut node.crate_idx, Self::crate_idx);
         visit_mut::visit_item_enum(self, node)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{FieldOwned, FieldsOwned, Repr, VariantOwned};
+    use shrink_wrap::ElementSize;
+    use ww_version::VersionOwned;
+
+    /// `struct S { e: E }` and `enum E { V }` of a crate `c`, with `docs` on every definition and member.
+    fn bundle(docs: &str) -> ApiBundleOwned {
+        let docs = || vec![docs.to_string()];
+        let s = TypeOwned::Struct(ItemStructOwned {
+            instance_of: None,
+            size: ElementSize::Unsized,
+            crate_idx: UNib32(0),
+            docs: docs(),
+            ident: "S".into(),
+            path: None,
+            generics: vec![],
+            fields: FieldsOwned::Named(vec![FieldOwned {
+                docs: docs(),
+                ident: Some("e".into()),
+                default: None,
+                since: None,
+                ty: TypeOwned::OutOfLine {
+                    type_idx: UNib32(1),
+                },
+                slot: None,
+                series_opaque: false,
+            }]),
+            sparse: false,
+            extra: None,
+        });
+        let e = TypeOwned::Enum(ItemEnumOwned {
+            instance_of: None,
+            future_version: None,
+            size: ElementSize::Unsized,
+            repr: Repr::UNib32,
+            crate_idx: UNib32(0),
+            docs: docs(),
+            ident: "E".into(),
+            path: None,
+            generics: vec![],
+            variants: vec![VariantOwned {
+                docs: docs(),
+                ident: "V".into(),
+                fields: FieldsOwned::Unit,
+                discriminant: UNib32(0),
+                since: None,
+            }],
+        });
+        ApiBundleOwned {
+            magic: crate::MAGIC,
+            ww_self_version: crate::VERSION,
+            root: ApiLevelOwned {
+                docs: vec![],
+                crate_idx: UNib32(0),
+                trait_name: "Root".into(),
+                compact_id: None,
+                meta: None,
+                items: vec![],
+            },
+            types: vec![
+                TypeLocationOwned::InLine {
+                    ty: s,
+                    crate_idx: UNib32(0),
+                },
+                TypeLocationOwned::InLine {
+                    ty: e,
+                    crate_idx: UNib32(0),
+                },
+            ],
+            traits: vec![],
+            ext_crates: vec![FullVersionOwned::new(
+                "c".into(),
+                VersionOwned::new(0, 1, 0),
+            )],
+            root_omitted: None,
+            wire: None,
+            ext_wire: None,
+        }
+    }
+
+    fn signatures(bundle: &ApiBundleOwned) -> Signatures {
+        type_signatures(bundle, 0, &no_resolve).unwrap()
+    }
+
+    /// Docs move only the signature with docs, also the docs of a type referred to; the shape signature moves with
+    /// a name (EVO-69).
+    #[test]
+    fn shape_leaves_docs_out() {
+        let old = signatures(&bundle("old"));
+        let new = signatures(&bundle("new"));
+        assert_eq!(old.shape, new.shape);
+        assert_ne!(old.with_docs, new.with_docs);
+
+        let mut enum_docs = bundle("old");
+        if let TypeLocationOwned::InLine {
+            ty: TypeOwned::Enum(e),
+            ..
+        } = &mut enum_docs.types[1]
+        {
+            e.variants[0].docs = vec!["other".into()];
+        }
+        let enum_docs = signatures(&enum_docs);
+        assert_eq!(enum_docs.shape, old.shape);
+        assert_ne!(enum_docs.with_docs, old.with_docs);
+
+        let mut renamed = bundle("old");
+        if let TypeLocationOwned::InLine {
+            ty: TypeOwned::Enum(e),
+            ..
+        } = &mut renamed.types[1]
+        {
+            e.variants[0].ident = "W".into();
+        }
+        assert_ne!(signatures(&renamed).shape, old.shape);
+    }
+
+    /// The signature with docs is the one every reference held before EVO-69: the hash of the canonical bytes.
+    #[test]
+    fn with_docs_is_the_hash_of_the_canonical_bytes() {
+        let b = bundle("docs");
+        let bytes = canonical_type_bytes(&b, 0, &no_resolve).unwrap();
+        assert_eq!(signatures(&b).with_docs, hash(&bytes));
+        assert_eq!(signatures_of(&bytes).unwrap(), signatures(&b));
+    }
+
+    #[test]
+    fn references_match_by_shape() {
+        let old = signatures(&bundle("old"));
+        let new = signatures(&bundle("new"));
+        let other = Signatures {
+            shape: vec![0; SIGNATURE_LEN],
+            with_docs: vec![1; SIGNATURE_LEN],
+        };
+        assert_eq!(old.reference(true).len(), 2 * SIGNATURE_LEN);
+        assert_eq!(old.reference(false), old.shape);
+        assert_eq!(old.matches(&old.reference(true)), Match::Exact);
+        assert_eq!(new.matches(&old.reference(true)), Match::DocsDiffer);
+        assert_eq!(new.matches(&old.reference(false)), Match::Shape);
+        // saved before EVO-69: the signature with docs alone
+        assert_eq!(old.matches(&old.with_docs), Match::Exact);
+        assert_eq!(new.matches(&old.with_docs), Match::No);
+        assert_eq!(other.matches(&old.reference(true)), Match::No);
+        assert_eq!(old.matches(&[]), Match::No);
+        assert_eq!(shape_part(&old.reference(true)), old.shape);
+        assert_eq!(docs_part(&old.reference(true)), Some(&old.with_docs[..]));
+        assert_eq!(docs_part(&old.with_docs), None);
+    }
+
+    /// Without docs: no doc comment, and every reference cut to its shape.
+    #[test]
+    fn drop_docs_cuts_references() {
+        let mut b = bundle("docs");
+        let reference = signatures(&b).reference(true);
+        b.types.push(TypeLocationOwned::SkippedFullVersion {
+            crate_idx: UNib32(0),
+            type_name: "T".into(),
+            signature: reference.clone(),
+        });
+        drop_docs(&mut b);
+        let TypeLocationOwned::SkippedFullVersion { signature, .. } = &b.types[2] else {
+            unreachable!()
+        };
+        assert_eq!(signature, shape_part(&reference));
+        let TypeLocationOwned::InLine {
+            ty: TypeOwned::Struct(s),
+            ..
+        } = &b.types[0]
+        else {
+            unreachable!()
+        };
+        assert!(s.docs.is_empty());
     }
 }

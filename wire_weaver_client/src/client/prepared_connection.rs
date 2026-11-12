@@ -623,6 +623,7 @@ impl Keeper {
             Ok((info, residual)) => {
                 self.via_hub.send_replace(via_hub);
                 let (since, attempts) = (gap.since, gap.attempts);
+                commander.note_docs_updated(&info);
                 if info.user_api_hash.no_docs != commander.connected_device.user_api_hash.no_docs {
                     // CLT-63: names both wire lines when the device changed line (a DFU); this loop has no `T` to
                     // pick a client with, unlike Commander::reconnect_as, so it always gives up here

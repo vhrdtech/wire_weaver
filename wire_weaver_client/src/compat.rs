@@ -410,7 +410,7 @@ pub(crate) mod tests {
         use super::*;
         use crate::client::introspect::inline_known_in;
         use ww_self::definition_cache::{self, Kind};
-        use ww_self::signature::{canonical_type_bytes, signature_of};
+        use ww_self::signature::{SIGNATURE_LEN, canonical_type_bytes, signatures_of};
 
         /// `read`, `write` and `supply` (returns `ww_si::Volt`, `Quantity<units::Volt>`). The fixture is the marker
         /// `units::Volt`, a plain definition: one from another revision is compared by the evolution rules. A generic
@@ -441,11 +441,13 @@ pub(crate) mod tests {
         }
 
         /// What the host has (`units::Volt` from its snapshot), and what a device built from another revision of
-        /// `ww_si` sends: `units::Volt` left out, under the signature of `older` `units::Volt`, which is stored in
-        /// `cache` when given.
+        /// `ww_si` sends: `units::Volt` left out, under the reference to `older` `units::Volt`, which is stored in
+        /// `cache` when given. `legacy`: the reference as a device built before EVO-69 sends it, the signature with
+        /// docs alone. Also the host's reference and the device's.
         fn host_and_device(
             older: impl FnOnce(&mut ItemStructOwned),
             cache: Option<&std::path::Path>,
+            legacy: bool,
         ) -> (ApiBundleOwned, ApiBundleOwned, Vec<u8>, Vec<u8>) {
             let full = full();
             let sent = wire_weaver_core::transform::skip_known(&full).unwrap();
@@ -462,7 +464,11 @@ pub(crate) mod tests {
             let marker_crate_idx = marker.crate_idx.0;
             let resolve = |v: &_| crate::snapshots::get(v);
             let bytes = canonical_type_bytes(&older_full, idx as u32, &resolve).unwrap();
-            let older_signature = signature_of(&bytes);
+            let older_signatures = signatures_of(&bytes).unwrap();
+            let older_signature = match legacy {
+                true => older_signatures.with_docs.clone(),
+                false => older_signatures.reference(true),
+            };
             let version = older_full.crate_version(marker_crate_idx).unwrap().clone();
             if let Some(dir) = cache {
                 definition_cache::store(dir, Kind::Type, &version, "units::Volt", &bytes).unwrap();
@@ -489,12 +495,15 @@ pub(crate) mod tests {
             (host, device, host_signature, older_signature)
         }
 
+        /// A device built before EVO-69 names a definition by its signature with docs: one with other docs is found
+        /// in the definition cache, whatever the entry is named by.
         #[test]
         fn compatible_definition_from_the_cache() {
             let dir = cache_dir("compatible");
             let (host, mut device, host_signature, older_signature) = host_and_device(
                 |marker| marker.docs = vec!["Docs of an older revision".into()],
                 Some(&dir),
+                true,
             );
             let inlined = inline_known_in(&mut device, Some(&dir));
             assert!(inlined.not_inlined.is_empty(), "{:?}", inlined.not_inlined);
@@ -502,11 +511,37 @@ pub(crate) mod tests {
             let from_cache = &inlined.from_cache[0];
             assert_eq!(from_cache.name, "units::Volt");
             assert_eq!(from_cache.signature, older_signature);
-            assert_eq!(from_cache.snapshot_signature, Some(host_signature));
+            assert_eq!(
+                from_cache.snapshot_signature.as_deref(),
+                Some(&host_signature[..SIGNATURE_LEN])
+            );
             let compat = ApiCompat::new(&host, &device);
             assert!(compat.mismatches().is_empty());
             assert_eq!(verdict(&compat, &[SUPPLY]), Verdict::Compatible);
             std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        /// A device built with other docs of a dependency names the same shape: the host's snapshot has the
+        /// definition, no cache is needed, and the other docs are listed (EVO-69).
+        #[test]
+        fn other_docs_are_the_same_definition() {
+            let (host, mut device, _, _) = host_and_device(
+                |marker| marker.docs = vec!["Docs of an older revision".into()],
+                None,
+                false,
+            );
+            let inlined = inline_known_in(&mut device, None);
+            assert!(inlined.not_inlined.is_empty(), "{:?}", inlined.not_inlined);
+            assert!(inlined.from_cache.is_empty(), "{:?}", inlined.from_cache);
+            let names: Vec<_> = inlined
+                .docs_differ
+                .iter()
+                .map(|d| d.name.as_str())
+                .collect();
+            assert_eq!(names, ["units::Volt"]);
+            let compat = ApiCompat::new(&host, &device);
+            assert!(compat.mismatches().is_empty());
+            assert_eq!(verdict(&compat, &[SUPPLY]), Verdict::Compatible);
         }
 
         #[test]
@@ -516,6 +551,7 @@ pub(crate) mod tests {
                 // a final structure can't be read as an evolvable one
                 |marker| marker.size = ElementSize::UnsizedFinalStructure,
                 Some(&dir),
+                false,
             );
             inline_known_in(&mut device, Some(&dir));
             let compat = ApiCompat::new(&host, &device);
@@ -527,8 +563,9 @@ pub(crate) mod tests {
         fn definition_not_in_the_cache() {
             let dir = cache_dir("missing");
             let (host, mut device, host_signature, older_signature) = host_and_device(
-                |marker| marker.docs = vec!["Docs of an older revision".into()],
+                |marker| marker.size = ElementSize::UnsizedFinalStructure,
                 None,
+                false,
             );
             let inlined = inline_known_in(&mut device, Some(&dir));
             assert_eq!(inlined.not_inlined.len(), 1);
@@ -538,8 +575,8 @@ pub(crate) mod tests {
             };
             for part in [
                 "exact_units::units::Volt 0.1.0",
-                &hex::encode(host_signature),
-                &hex::encode(older_signature),
+                &hex::encode(&host_signature[..SIGNATURE_LEN]),
+                &hex::encode(&older_signature[..SIGNATURE_LEN]),
                 "different revisions of exact_units",
                 "Rebuild (reflash) both from one revision",
             ] {
@@ -930,8 +967,9 @@ pub(crate) mod tests {
             .iter()
             .position(|l| matches!(l, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Subgroup"))
             .unwrap();
-        let signature =
-            signature::trait_signature(&device, idx as u32, &signature::no_resolve).unwrap();
+        let signature = signature::trait_signatures(&device, idx as u32, &signature::no_resolve)
+            .unwrap()
+            .reference(true);
         let ApiLevelLocationOwned::InLine { crate_idx, .. } = device.traits[idx] else {
             unreachable!()
         };
@@ -963,11 +1001,17 @@ pub(crate) mod tests {
         let compat = ApiCompat::new(&client, &device);
         assert_eq!(verdict(&compat, &[1]), Verdict::Compatible);
 
-        // same version, but Subgroup gained a method (a doc change would be caught the same way)
+        // same version, but Subgroup gained a method
         let changed = source.replace("fn m1();", "fn m1();\nfn m2();");
         let device = skip_subgroup(bundle("device", "0.1.0", &changed));
         let compat = ApiCompat::new(&client, &device);
         assert_incompatible(&compat, &[1], "changed without a version bump");
+
+        // a doc comment alone is the same definition (EVO-69)
+        let changed = source.replace("fn m1();", "/// Runs m1.\nfn m1();");
+        let device = skip_subgroup(bundle("device", "0.1.0", &changed));
+        let compat = ApiCompat::new(&client, &device);
+        assert_eq!(verdict(&compat, &[1]), Verdict::Compatible);
     }
 
     #[test]

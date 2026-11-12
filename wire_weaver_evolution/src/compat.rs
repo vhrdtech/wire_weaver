@@ -399,7 +399,7 @@ fn trait_definition<'a>(
             let found = in_line(candidate, idx)?;
             (trait_identity(candidate, idx as u32)
                 .is_some_and(|(v, name)| v == identity.0 && name == identity.1)
-                && trait_signature(candidate, idx as u32).as_deref() == Some(signature))
+                && trait_named(candidate, idx as u32, signature))
             .then_some(found)
         })
     };
@@ -697,31 +697,181 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-/// Signature of a trait: stored for a skipped one, calculated for an in-line one (definitions it refers to that are
-/// skipped are looked up in embedded snapshots).
+/// Signature of a trait as two sides compare it (EVO-69): the shape signature, calculated for an in-line one
+/// (definitions it refers to that are skipped are looked up in embedded snapshots), the shape part of the reference
+/// for a skipped one. An 8-byte reference saved before EVO-69 is a signature with docs; [normalize_references] turns
+/// it into the shape signature where the definition it names is known.
 fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
     match bundle.traits.get(trait_idx as usize)? {
         ApiLevelLocationOwned::InLine { .. } => {
-            signature::trait_signature(bundle, trait_idx, &|v| known(v)).ok()
+            signature::trait_signatures(bundle, trait_idx, &|v| known(v))
+                .ok()
+                .map(|s| s.shape)
         }
         ApiLevelLocationOwned::SkippedFullVersion { signature, .. }
         | ApiLevelLocationOwned::SkippedCompactVersion { signature, .. } => {
-            (!signature.is_empty()).then(|| signature.clone())
+            (!signature.is_empty()).then(|| signature::shape_part(signature).to_vec())
         }
     }
 }
 
-/// Signature of a type: stored for a skipped one, calculated for an in-line one (definitions it refers to that are
-/// skipped are looked up in embedded snapshots).
+/// Signature of a type as two sides compare it, see [trait_signature].
 fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { .. } => {
-            signature::type_signature(bundle, type_idx, &|v| known(v)).ok()
+            signature::type_signatures(bundle, type_idx, &|v| known(v))
+                .ok()
+                .map(|s| s.shape)
         }
         TypeLocationOwned::SkippedFullVersion { signature, .. } => {
-            (!signature.is_empty()).then(|| signature.clone())
+            (!signature.is_empty()).then(|| signature::shape_part(signature).to_vec())
         }
     }
+}
+
+/// Whether the in-line trait `trait_idx` of `bundle` is the definition `reference` names, docs aside.
+fn trait_named(bundle: &ApiBundleOwned, trait_idx: u32, reference: &[u8]) -> bool {
+    signature::trait_signatures(bundle, trait_idx, &|v| known(v))
+        .is_ok_and(|s| s.matches(reference).is_same_shape())
+}
+
+/// Whether the in-line type `type_idx` of `bundle` is the definition `reference` names, docs aside.
+fn type_named(bundle: &ApiBundleOwned, type_idx: u32, reference: &[u8]) -> bool {
+    signature::type_signatures(bundle, type_idx, &|v| known(v))
+        .is_ok_and(|s| s.matches(reference).is_same_shape())
+}
+
+/// A trait or type of another crate a bundle leaves out: its crate version and (qualified) name.
+pub type Referenced = (Kind, FullVersionOwned, String);
+
+/// Turns every reference of `bundle` (the signature bytes of a `Skipped*` location) into the shape signature of the
+/// definition it names, so that two sides compare definitions, never doc comments or the form of a reference (EVO-69):
+/// 16 bytes are cut to their shape part, and an 8-byte one saved before EVO-69 (a signature with docs) is looked up
+/// among the definitions known here: the embedded snapshot of its crate version, `definitions` (the source's,
+/// EVO-67) and the superseded ones (EVO-68). One found nowhere is left as it is. Returns the signature with docs each
+/// reference names, where known: two sides whose shapes agree and these differ have other docs of a dependency.
+pub fn normalize_references(
+    bundle: &mut ApiBundleOwned,
+    definitions: &[&ApiBundleOwned],
+) -> std::collections::HashMap<Referenced, Vec<u8>> {
+    let mut docs = std::collections::HashMap::new();
+    let mut resolved = vec![];
+    for (idx, location) in bundle.types.iter().enumerate() {
+        if let TypeLocationOwned::SkippedFullVersion {
+            crate_idx,
+            type_name,
+            signature,
+        } = location
+            && let Ok(version) = bundle.crate_version(crate_idx.0)
+        {
+            let key = (Kind::Type, version.clone(), type_name.clone());
+            resolved.push((
+                Kind::Type,
+                idx,
+                resolve_reference(&key, signature, definitions),
+            ));
+            if let Some((_, Some(with_docs))) = &resolved.last().unwrap().2 {
+                docs.insert(key, with_docs.clone());
+            }
+        }
+    }
+    for (idx, location) in bundle.traits.iter().enumerate() {
+        if let ApiLevelLocationOwned::SkippedFullVersion {
+            crate_idx,
+            trait_name,
+            signature,
+        } = location
+            && let Ok(version) = bundle.crate_version(crate_idx.0)
+        {
+            let key = (Kind::Trait, version.clone(), trait_name.clone());
+            resolved.push((
+                Kind::Trait,
+                idx,
+                resolve_reference(&key, signature, definitions),
+            ));
+            if let Some((_, Some(with_docs))) = &resolved.last().unwrap().2 {
+                docs.insert(key, with_docs.clone());
+            }
+        }
+    }
+    for (kind, idx, found) in resolved {
+        let Some((shape, _)) = found else {
+            continue;
+        };
+        match kind {
+            Kind::Type => {
+                if let TypeLocationOwned::SkippedFullVersion { signature, .. } =
+                    &mut bundle.types[idx]
+                {
+                    *signature = shape;
+                }
+            }
+            Kind::Trait => {
+                if let ApiLevelLocationOwned::SkippedFullVersion { signature, .. } =
+                    &mut bundle.traits[idx]
+                {
+                    *signature = shape;
+                }
+            }
+        }
+    }
+    docs
+}
+
+/// The shape signature `reference` names and its signature with docs where known, see [normalize_references].
+fn resolve_reference(
+    (kind, version, name): &Referenced,
+    reference: &[u8],
+    definitions: &[&ApiBundleOwned],
+) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
+    if let Some(docs) = signature::docs_part(reference) {
+        return Some((
+            signature::shape_part(reference).to_vec(),
+            Some(docs.to_vec()),
+        ));
+    }
+    if reference.len() != signature::SIGNATURE_LEN {
+        return None;
+    }
+    let in_line = |bundle: &ApiBundleOwned| -> Option<signature::Signatures> {
+        let idx = match kind {
+            Kind::Type => bundle
+                .types
+                .iter()
+                .enumerate()
+                .find_map(|(idx, l)| match l {
+                    TypeLocationOwned::InLine { ty, .. } => user_type_identity(bundle, ty)
+                        .is_some_and(|(v, n)| v == version && n == name.as_str())
+                        .then_some(idx),
+                    _ => None,
+                })?,
+            Kind::Trait => (0..bundle.traits.len()).find(|idx| {
+                matches!(bundle.traits[*idx], ApiLevelLocationOwned::InLine { .. })
+                    && trait_identity(bundle, *idx as u32)
+                        .is_some_and(|(v, n)| v == version && n == name.as_str())
+            })?,
+        };
+        match kind {
+            Kind::Type => signature::type_signatures(bundle, idx as u32, &|v| known(v)),
+            Kind::Trait => signature::trait_signatures(bundle, idx as u32, &|v| known(v)),
+        }
+        .ok()
+    };
+    let candidates = known(version)
+        .into_iter()
+        .chain(definitions.iter().copied())
+        .chain(superseded(*kind, version, name, reference))
+        .filter_map(in_line);
+    for candidate in candidates {
+        match candidate.matches(reference) {
+            signature::Match::Exact => return Some((candidate.shape, Some(candidate.with_docs))),
+            signature::Match::Shape | signature::Match::DocsDiffer => {
+                return Some((candidate.shape, None));
+            }
+            signature::Match::No => {}
+        }
+    }
+    None
 }
 
 /// Deepest nesting of [TypeCheck::check]: types nested [MAX_DEPTH](ww_self::generics::MAX_DEPTH) levels on both
@@ -2323,7 +2473,7 @@ fn defined_in<'b>(
             TypeLocationOwned::InLine { ty, .. }
                 if user_type_identity(bundle, ty)
                     .is_some_and(|(v, name)| v == identity.0 && name == identity.1)
-                    && type_signature(bundle, idx as u32).as_deref() == Some(signature) =>
+                    && type_named(bundle, idx as u32, signature) =>
             {
                 Some((bundle, ty))
             }
@@ -2390,36 +2540,40 @@ pub(crate) mod tests {
     }
 
     thread_local! {
-        static SUPERSEDED: RefCell<Vec<(String, &'static ApiBundleOwned)>> = const { RefCell::new(vec![]) };
+        static SUPERSEDED: RefCell<Vec<(Referenced, signature::Signatures, &'static ApiBundleOwned)>> =
+            const { RefCell::new(vec![]) };
     }
 
     /// Makes the canonical `bytes` of a definition known to the checker on this thread as a superseded one of an
     /// embedded snapshot (EVO-68).
     pub(crate) fn add_superseded(kind: Kind, name: &str, bytes: &[u8]) {
-        let signature = signature::signature_of(bytes);
-        let bundle = ww_self::definition_cache::decode(kind, name, &signature, bytes).unwrap();
-        let file_name = ww_self::definition_cache::file_name(
+        let (bundle, signatures) =
+            ww_self::definition_cache::decode_with_signatures(kind, name, bytes).unwrap();
+        let key = (
             kind,
-            bundle.crate_version(0).unwrap(),
-            name,
-            &signature,
+            bundle.crate_version(0).unwrap().clone(),
+            name.to_string(),
         );
         let bundle: &'static ApiBundleOwned = Box::leak(Box::new(bundle));
-        SUPERSEDED.with(|s| s.borrow_mut().push((file_name, bundle)));
+        SUPERSEDED.with(|s| s.borrow_mut().push((key, signatures, bundle)));
     }
 
     pub(super) fn superseded(
         kind: Kind,
         version: &FullVersionOwned,
         name: &str,
-        signature: &[u8],
+        reference: &[u8],
     ) -> Option<&'static ApiBundleOwned> {
-        let file_name = ww_self::definition_cache::file_name(kind, version, name, signature);
         SUPERSEDED.with(|s| {
             s.borrow()
                 .iter()
-                .find(|(n, _)| *n == file_name)
-                .map(|(_, b)| *b)
+                .find(|((k, v, n), signatures, _)| {
+                    *k == kind
+                        && v == version
+                        && n == name
+                        && signatures.matches(reference).is_same_shape()
+                })
+                .map(|(_, _, b)| *b)
         })
     }
 }
@@ -2461,8 +2615,7 @@ fn skipped_def(
                             if user_type_identity(snapshot, ty)
                                 .is_some_and(|(_, name)| name == type_name.as_str())
                                 && (expected.is_empty()
-                                    || type_signature(snapshot, idx as u32).as_ref()
-                                        == Some(expected)) =>
+                                    || type_named(snapshot, idx as u32, expected)) =>
                         {
                             Some((snapshot, ty))
                         }

@@ -233,6 +233,9 @@ pub struct Report {
     pub compatible: Vec<String>,
     /// Not affecting the verdict, e.g. an added resource without `#[since]`.
     pub warnings: Vec<String>,
+    /// For information only: a dependency's trait or type the same on both sides with other doc comments (EVO-69).
+    /// Its docs are its own crate's to bump for, never this crate's.
+    pub notes: Vec<String>,
     /// Fields of the model that one of the snapshot files compared doesn't have (saved by an older wire_weaver), left
     /// out on both sides, see [compare_recorded].
     pub unrecorded: Vec<Unrecorded>,
@@ -497,6 +500,12 @@ fn compare_with(
     // definitions themselves are found
     let mut new = new.clone();
     new.ext_crates[0] = old_version.clone();
+    // other crates' definitions by their shape: a dependency's doc fix is a note, never a change (EVO-69)
+    let mut old = old.clone();
+    let old_docs = compat::normalize_references(&mut old, definitions);
+    let new_docs = compat::normalize_references(&mut new, definitions);
+    let notes = docs_notes(&old_docs, &new_docs);
+    let old = &old;
     // the format a snapshot was saved in is not part of the definitions
     new.ww_self_version = old.ww_self_version;
     let mut checker = Checker {
@@ -567,6 +576,7 @@ fn compare_with(
         breaking: checker.breaking,
         compatible: checker.compatible,
         warnings: checker.warnings,
+        notes,
         unrecorded: vec![],
         old_wire: old.wire,
         new_wire: new.wire,
@@ -1596,9 +1606,30 @@ fn own_type_paths(bundle: &ApiBundleOwned) -> BTreeMap<String, (String, &TypeOwn
 fn bytes(bundle: &ApiBundleOwned, with_docs: bool) -> Result<Vec<u8>, String> {
     let mut bundle = bundle.clone();
     if !with_docs {
-        DropDocs.visit_api_bundle(&mut bundle);
+        ww_self::signature::drop_docs(&mut bundle);
     }
     bundle.to_ww_bytes_owned().map_err(|e| format!("{e:?}"))
+}
+
+/// [Report::notes]: the dependencies' traits and types both sides refer to by the same shape whose docs differ.
+fn docs_notes(
+    old: &std::collections::HashMap<compat::Referenced, Vec<u8>>,
+    new: &std::collections::HashMap<compat::Referenced, Vec<u8>>,
+) -> Vec<String> {
+    let mut notes: Vec<String> = old
+        .iter()
+        .filter(|(key, docs)| new.get(*key).is_some_and(|new| new != *docs))
+        .map(|((kind, version, name), _)| {
+            format!(
+                "{} {}::{name} {}: doc comments changed since the old version was saved, the definition is the same",
+                kind.name(),
+                version.crate_id,
+                display(&version.version)
+            )
+        })
+        .collect();
+    notes.sort();
+    notes
 }
 
 /// Removes all doc comments from a bundle.

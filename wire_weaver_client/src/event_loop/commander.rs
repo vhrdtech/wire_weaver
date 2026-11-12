@@ -467,6 +467,19 @@ impl Commander {
         Ok(resumed)
     }
 
+    /// Logs "documentation updated" for a device that came back with the same API and other docs, see
+    /// [DeviceApiInfo::docs_updated_since].
+    pub(crate) fn note_docs_updated(&self, info: &DeviceApiInfo) {
+        if info.docs_updated_since(&self.connected_device) {
+            tracing::info!(
+                "{}: documentation updated (API hash with docs {} -> {}), the API is the same",
+                info.user_api_version.crate_id,
+                self.connected_device.user_api_hash.with_docs,
+                info.user_api_hash.with_docs,
+            );
+        }
+    }
+
     /// Connects again after `disconnect().keep_streams()` (or a link that went down), through the transport and the
     /// device selection this Commander was connected with, on the same command channel: handles of streams, sinks and
     /// observers made from it (and its clones) stay valid. Then [Self::resume_streams], whose count it returns.
@@ -476,7 +489,8 @@ impl Commander {
     /// another API than before (other firmware) is refused after it connected: [Error::ReconnectedOnAnotherLine]
     /// (CLT-63) when it came back on another wire line this Commander's `speaks()` also has a client of (a facade,
     /// EVO-28) — [Self::reconnect_as] picks that client instead of refusing — else [Error::IncompatibleResource].
-    /// Either way, disconnect and make a new client.
+    /// Either way, disconnect and make a new client. A device with the same API and other docs (EVO-69) is taken
+    /// back, with "documentation updated" logged.
     pub async fn reconnect(&self) -> Result<usize, Error> {
         let Some(reconnect) = &self.reconnect else {
             return Err(Error::Unsupported {
@@ -486,6 +500,7 @@ impl Commander {
         };
         self.clear_const_cache();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
+        self.note_docs_updated(&info);
         if info.user_api_hash.no_docs != self.connected_device.user_api_hash.no_docs {
             let e = self.reconnected_elsewhere_error(info);
             // the link just came up on the wrong API: leave the Commander disconnected, not stuck on a connection
@@ -515,6 +530,7 @@ impl Commander {
         };
         self.clear_const_cache();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
+        self.note_docs_updated(&info);
         if info.user_api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
             self.resume_streams().await?;
             return T::try_from_cmd(self.clone());

@@ -176,6 +176,10 @@ pub(crate) fn print_report(report: &Report, old_path: &Path, new_label: &str) {
     for warning in &report.warnings {
         println!("  {} {warning}", style("warning:").yellow());
     }
+    // a dependency's doc comments changed, its definition did not (EVO-69)
+    for note in &report.notes {
+        println!("  {} {note}", style("note:").dim());
+    }
     // across a wire break, resources of the same name elsewhere are never taken for the same ones (EVO-40)
     for proposal in &report.proposals {
         println!("  {} {proposal}", style("proposal:").cyan());

@@ -246,8 +246,8 @@ fn shared_for<'s>(
     })
 }
 
-/// Signature of a trait as a shared sub-level client sees it (CLT-68): its canonical stand-alone form (as for skipped
-/// definitions, `ww_self::signature`) with docs and every `#[since]` cleared. A shared trait has a revision per line
+/// Signature of a trait as a shared sub-level client sees it (CLT-68): its shape signature (as for skipped definitions,
+/// `ww_self::signature`, docs left out) with every `#[since]` cleared. A shared trait has a revision per line
 /// (`#[since = "w1.2, w2.1"]`, EVO-37) and none loaded on its own; the client doesn't need one, since the per-call
 /// check resolves the path in the line's own bundle. `trait_idx`: the trait in `bundle.traits`, `None` for the root.
 pub fn shared_signature(
@@ -269,9 +269,6 @@ pub fn shared_signature(
             node.since = None;
             visit_mut::visit_variant(self, node);
         }
-        fn visit_docs(&mut self, node: &mut Vec<String>) {
-            node.clear();
-        }
     }
     let mut bundle = bundle.clone();
     let trait_idx = match trait_idx {
@@ -287,9 +284,9 @@ pub fn shared_signature(
     };
     Clear.visit_api_bundle(&mut bundle);
     let signature =
-        ww_self::signature::trait_signature(&bundle, trait_idx, &ww_self::signature::no_resolve)?;
+        ww_self::signature::trait_signatures(&bundle, trait_idx, &ww_self::signature::no_resolve)?;
     let mut bytes = [0u8; 8];
-    bytes.copy_from_slice(&signature[..8]);
+    bytes.copy_from_slice(&signature.shape[..8]);
     Ok(u64::from_le_bytes(bytes))
 }
 

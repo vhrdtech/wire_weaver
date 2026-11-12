@@ -1472,8 +1472,8 @@ mod tests {
         }
         let no_resolve = &crate::signature::no_resolve;
         assert_eq!(
-            crate::signature::type_signature(&b, 3, no_resolve).unwrap(),
-            crate::signature::type_signature(&cleared, 3, no_resolve).unwrap()
+            crate::signature::type_signatures(&b, 3, no_resolve).unwrap(),
+            crate::signature::type_signatures(&cleared, 3, no_resolve).unwrap()
         );
 
         // checked like an instance

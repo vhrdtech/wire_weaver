@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use ron::ser::{PrettyConfig, to_string_pretty};
 use std::fs;
 use ww_self::definition_cache::{self, Kind};
-use ww_self::signature::{canonical_trait_bytes, canonical_type_bytes, signature_of};
+use ww_self::signature::{canonical_trait_bytes, canonical_type_bytes, signatures_of};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
 
 pub(crate) fn cache_api_bundle(api_bundle: &ApiBundleOwned, contains_docs: bool, hash: &[u8]) {
@@ -88,7 +88,7 @@ pub(crate) fn cache_definitions_in(
             continue;
         };
         let bytes = canonical_type_bytes(full, idx as u32, &resolve)?;
-        if signature_of(&bytes) == *signature {
+        if signatures_of(&bytes)?.matches(signature).is_same_shape() {
             definition_cache::store(dir, Kind::Type, version, type_name, &bytes)?;
         }
     }
@@ -112,7 +112,7 @@ pub(crate) fn cache_definitions_in(
             continue;
         };
         let bytes = canonical_trait_bytes(full, idx as u32, &resolve)?;
-        if signature_of(&bytes) == *signature {
+        if signatures_of(&bytes)?.matches(signature).is_same_shape() {
             definition_cache::store(dir, Kind::Trait, version, trait_name, &bytes)?;
         }
     }

@@ -27,7 +27,8 @@ pub struct Superseded {
     pub kind: Kind,
     /// The trait's name, or the type's qualified name (`units::Volt`).
     pub name: String,
-    /// The old signature, which the bytes hash to.
+    /// The old signature with docs, which the bytes hash to (EVO-69: both signatures are computed from the bytes when
+    /// it is looked up).
     pub signature: Vec<u8>,
     /// The canonical bundle's bytes.
     pub bytes: Vec<u8>,
@@ -71,7 +72,15 @@ pub(crate) fn superseded(
                 continue;
             }
         };
-        let old_signature = signature::signature_of(&bytes);
+        let old_signature = match signature::signatures_of(&bytes) {
+            Ok(signatures) => signatures.with_docs,
+            Err(e) => {
+                warnings.push(format!("{} {}::{name}: {e:#}", kind.name(), own.crate_id));
+                continue;
+            }
+        };
+        // kept on a change of the docs too: a reference saved before EVO-69 names a definition by its signature with
+        // docs, and only the definition itself tells its shape
         if new_signature.as_deref() == Some(old_signature.as_slice()) {
             continue;
         }
@@ -126,7 +135,7 @@ fn own_definitions(
     traits.chain(types).collect()
 }
 
-/// The signature of the crate `own`'s `kind` named `name` in `bundle`, which has every definition in-line: `Some(None)`
+/// The signature with docs of the crate `own`'s `kind` named `name` in `bundle`, which has every definition in-line: `Some(None)`
 /// when it has none, `None` when it can't be calculated (nothing is kept then).
 fn signature_in(
     bundle: &ApiBundleOwned,
@@ -141,8 +150,8 @@ fn signature_in(
         return Some(None);
     };
     let found = match kind {
-        Kind::Trait => signature::trait_signature(bundle, idx, &no_resolve),
-        Kind::Type => signature::type_signature(bundle, idx, &no_resolve),
+        Kind::Trait => signature::trait_signatures(bundle, idx, &no_resolve),
+        Kind::Type => signature::type_signatures(bundle, idx, &no_resolve),
     };
-    found.ok().map(Some)
+    found.ok().map(|s| Some(s.with_docs))
 }

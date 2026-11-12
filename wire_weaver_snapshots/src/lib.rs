@@ -7,13 +7,15 @@
 //!
 //! A crate version not published yet can change, and its snapshot is then refreshed in place. Another crate's
 //! snapshot, or a device built before, still names the definitions it had by their old signatures: `ww api save` keeps
-//! each one the refresh replaced in `api_snapshots/superseded/`, and [superseded] finds it by signature (EVO-68).
+//! each one the refresh replaced in `api_snapshots/superseded/`, and [superseded] finds it by signature (EVO-68). A
+//! kept definition's signatures are computed from its bytes, never taken from its file name (EVO-69).
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use ww_self::ApiBundleOwned;
 use ww_self::definition_cache::{self, Kind};
 use ww_self::inline::NotInlined;
+use ww_self::signature::{Match, Signatures};
 use ww_self::snapshot;
 use ww_version::FullVersionOwned;
 
@@ -24,8 +26,8 @@ const EMBEDDED: &[(&str, &[u8])] = include!(concat!(env!("OUT_DIR"), "/api_snaps
 /// [definition_cache::file_name] names them, from `api_snapshots/superseded/*.ww`.
 const SUPERSEDED: &[(&str, &[u8])] = include!(concat!(env!("OUT_DIR"), "/superseded.rs"));
 
-/// Decoded superseded definitions, one slot per [SUPERSEDED] entry.
-static SUPERSEDED_DECODED: [OnceLock<ApiBundleOwned>; SUPERSEDED.len()] =
+/// Decoded superseded definitions and their signatures, one slot per [SUPERSEDED] entry.
+static SUPERSEDED_DECODED: [OnceLock<(ApiBundleOwned, Signatures)>; SUPERSEDED.len()] =
     [const { OnceLock::new() }; SUPERSEDED.len()];
 
 /// Decoded snapshots, one slot per [EMBEDDED] entry, filled on first use of that entry.
@@ -68,21 +70,38 @@ fn decoded(index: usize) -> &'static ApiBundleOwned {
 }
 
 /// The canonical bundle (the definition first, everything it refers to in-line) of the trait or type `name` of the
-/// crate `version` with `signature`, kept when the snapshot of that version was refreshed in place and the definition
-/// changed (EVO-68). `None` when no refresh replaced it: the snapshot's own definition is found with [get].
+/// crate `version` that `reference` (a `Skipped*` location's signature bytes) names, kept when the snapshot of that
+/// version was refreshed in place and the definition changed (EVO-68). One with the same docs is preferred to one with
+/// the same shape only. `None` when no refresh replaced it: the snapshot's own definition is found with [get].
 pub fn superseded(
     kind: Kind,
     version: &FullVersionOwned,
     name: &str,
-    signature: &[u8],
+    reference: &[u8],
 ) -> Option<&'static ApiBundleOwned> {
-    let file_name = definition_cache::file_name(kind, version, name, signature);
-    let index = SUPERSEDED.iter().position(|(n, _)| *n == file_name)?;
-    Some(SUPERSEDED_DECODED[index].get_or_init(|| {
-        // all of them are checked to decode by a test
-        definition_cache::decode(kind, name, signature, SUPERSEDED[index].1)
-            .unwrap_or_else(|e| panic!("embedded superseded definition {file_name}: {e:#}"))
-    }))
+    // `ww_error_0_1_0-type-CommonError-`: the signature in the name is the one it was kept under, not trusted
+    let prefix = definition_cache::file_name(kind, version, name, &[]);
+    let prefix = prefix.strip_suffix(".ww").unwrap_or(&prefix);
+    let mut same_shape = None;
+    for (index, (file_name, bytes)) in SUPERSEDED.iter().enumerate() {
+        if !file_name
+            .strip_prefix(prefix)
+            .is_some_and(|rest| !rest.contains('-'))
+        {
+            continue;
+        }
+        let (bundle, signatures) = SUPERSEDED_DECODED[index].get_or_init(|| {
+            // all of them are checked to decode by a test
+            definition_cache::decode_with_signatures(kind, name, bytes)
+                .unwrap_or_else(|e| panic!("embedded superseded definition {file_name}: {e:#}"))
+        });
+        match signatures.matches(reference) {
+            Match::Exact => return Some(bundle),
+            Match::No => {}
+            Match::DocsDiffer | Match::Shape => same_shape = same_shape.or(Some(bundle)),
+        }
+    }
+    same_shape
 }
 
 /// File names of the embedded superseded definitions, see [superseded].
@@ -195,7 +214,7 @@ mod tests {
     /// embedded snapshot, which has another definition of it (or none) (EVO-68).
     #[test]
     fn superseded_definitions_load() {
-        use ww_self::signature::{trait_signature, type_signature};
+        use ww_self::signature::{trait_signatures, type_signatures};
         for file_name in superseded_files() {
             let (bundle, kind, name, signature) = parse_superseded(file_name);
             let version = bundle.crate_version(0).unwrap();
@@ -217,7 +236,7 @@ mod tests {
                         ww_self::ApiLevelLocationOwned::InLine { level, .. }
                             if level.trait_name == name =>
                         {
-                            Some(trait_signature(snapshot, idx, &resolve).unwrap())
+                            Some(trait_signatures(snapshot, idx, &resolve).unwrap())
                         }
                         _ => None,
                     }
@@ -228,21 +247,20 @@ mod tests {
                             ty: ww_self::TypeOwned::Struct(s),
                             ..
                         } if s.qualified_name() == name => {
-                            Some(type_signature(snapshot, idx, &resolve).unwrap())
+                            Some(type_signatures(snapshot, idx, &resolve).unwrap())
                         }
                         ww_self::TypeLocationOwned::InLine {
                             ty: ww_self::TypeOwned::Enum(e),
                             ..
                         } if e.qualified_name() == name => {
-                            Some(type_signature(snapshot, idx, &resolve).unwrap())
+                            Some(type_signatures(snapshot, idx, &resolve).unwrap())
                         }
                         _ => None,
                     }
                 }),
             };
-            assert_ne!(
-                current,
-                Some(signature),
+            assert!(
+                current.is_none_or(|current| current.with_docs != signature),
                 "{file_name}: the snapshot has it, it is not superseded"
             );
         }
@@ -251,7 +269,7 @@ mod tests {
     /// The bundle, kind, name and signature of the superseded definition `file_name`, from its bytes.
     fn parse_superseded(file_name: &str) -> (&'static ApiBundleOwned, Kind, String, Vec<u8>) {
         let bytes = SUPERSEDED.iter().find(|(n, _)| *n == file_name).unwrap().1;
-        let signature = ww_self::signature::signature_of(bytes);
+        let signature = ww_self::signature::signatures_of(bytes).unwrap().with_docs;
         let kind = match file_name.contains("-trait-") {
             true => Kind::Trait,
             false => Kind::Type,
@@ -315,7 +333,7 @@ mod tests {
     /// replaces, which keeps a pinned signature known.
     #[test]
     fn signatures_from_before_marker_definitions() {
-        use ww_self::signature::{trait_signature, type_signature};
+        use ww_self::signature::{trait_signatures, type_signatures};
         use ww_self::{ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
         let snapshot_of = |crate_id: &str| {
             all()
@@ -336,7 +354,7 @@ mod tests {
                 matches!(t, TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. } if s.ident == "DateTime")
             })
             .unwrap();
-        let signature = type_signature(date_time, idx as u32, &resolve).unwrap();
+        let signature = type_signatures(date_time, idx as u32, &resolve).unwrap();
         stays_known(
             Kind::Type,
             date_time,
@@ -351,7 +369,7 @@ mod tests {
             .iter()
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
-        let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
+        let signature = trait_signatures(timebase, idx as u32, &resolve).unwrap();
         stays_known(
             Kind::Trait,
             timebase,
@@ -361,19 +379,21 @@ mod tests {
         );
     }
 
-    /// The definition with the signature `pinned` is the snapshot's own (`signature`), or one an in-place refresh of
-    /// the snapshot replaced and kept (EVO-68): a device naming it is still understood.
+    /// The definition `pinned` names (a signature with docs, as every reference was before EVO-69) is the snapshot's
+    /// own (`signatures`), or one an in-place refresh of the snapshot replaced and kept (EVO-68): a device naming it is
+    /// still understood.
     fn stays_known(
         kind: Kind,
         snapshot: &ApiBundleOwned,
         name: &str,
-        signature: &[u8],
+        signatures: &Signatures,
         pinned: [u8; 8],
     ) {
         let version = snapshot.crate_version(0).unwrap();
         assert!(
-            signature == pinned || superseded(kind, version, name, &pinned).is_some(),
-            "{} {name}: {signature:02x?}, and no superseded definition with {pinned:02x?}",
+            signatures.matches(&pinned).is_same_shape()
+                || superseded(kind, version, name, &pinned).is_some(),
+            "{} {name}: {signatures:02x?}, and no superseded definition with {pinned:02x?}",
             kind.name()
         );
     }

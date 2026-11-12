@@ -5,9 +5,9 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use shrink_wrap::SerializeShrinkWrapOwned;
-use ww_self::ApiBundleOwned;
+use ww_self::signature;
 use ww_self::visit::Visit;
-use ww_self::visit_mut::VisitMut;
+use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeLocationOwned};
 
 /// Introspection request handler and API hash consts. With omitted items (API-16) the bundle a device sends
 /// lists them, so with `omit_if` conditions the bytes and hashes are generated for each combination, under `#[cfg]`.
@@ -141,9 +141,17 @@ pub(crate) fn introspect_prepare(
     crate::local_registry::cache_definitions(api_bundle, &sent);
     let mut contains_docs = ContainsDocs::default();
     contains_docs.visit_api_bundle(api_bundle);
+    // a left out definition's reference carries its docs signature (EVO-69): docs too, of the dependencies
+    contains_docs.contains |= sent.types.iter().any(|l| {
+        matches!(l, TypeLocationOwned::SkippedFullVersion { signature, .. } if signature::docs_part(signature).is_some())
+    }) || sent.traits.iter().any(|l| {
+        matches!(l, ApiLevelLocationOwned::SkippedFullVersion { signature, .. } if signature::docs_part(signature).is_some())
+    });
+    // without docs: no doc comment, and references cut to their shape signatures, so a dependency's doc fix changes
+    // neither these bytes nor API_HASH_NO_DOCS
     let no_docs = |bundle: &ApiBundleOwned| {
         let mut bundle = bundle.clone();
-        DropDocs.visit_api_bundle(&mut bundle);
+        signature::drop_docs(&mut bundle);
         bundle
     };
 
@@ -183,14 +191,6 @@ fn bytes_to_ts(bytes: &[u8]) -> TokenStream {
     let bytes_len = bytes.len();
     quote! {
         [u8; #bytes_len] = [ #(#bytes),* ]
-    }
-}
-
-struct DropDocs;
-
-impl VisitMut for DropDocs {
-    fn visit_docs(&mut self, docs: &mut Vec<String>) {
-        docs.clear();
     }
 }
 

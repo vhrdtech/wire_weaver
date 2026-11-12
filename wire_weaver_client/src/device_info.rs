@@ -122,6 +122,17 @@ pub struct DeviceApiInfo {
 }
 
 impl DeviceApiInfo {
+    /// Whether this device, connected again, has the API `before` had and other docs (EVO-69): the same API hash
+    /// without docs, another one with docs, as when firmware is rebuilt with improved doc comments, its own or a
+    /// dependency's. Calls and streams carry on unchanged; a tool says "documentation updated".
+    pub fn docs_updated_since(&self, before: &DeviceApiInfo) -> bool {
+        let (old, new) = (&before.user_api_hash, &self.user_api_hash);
+        old.no_docs.hash == new.no_docs.hash
+            && !old.with_docs.hash.is_empty()
+            && !new.with_docs.hash.is_empty()
+            && old.with_docs.hash != new.with_docs.hash
+    }
+
     /// Both sides' limits; messages either way are at most the smaller one (CLT-55).
     pub fn message_limit(&self) -> MessageLimit {
         MessageLimit {

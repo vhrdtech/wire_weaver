@@ -724,6 +724,7 @@ name = "ww_error"
 version = "0.1.0"
 dependencies = [
  "shrink_wrap",
+ "ww_si",
 ]
 
 [[package]]

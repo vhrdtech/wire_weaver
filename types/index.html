@@ -6359,6 +6359,13 @@ the same bytes as the derived ones.</p>
 <p>Arguments can be types, integer and <code>bool</code> literals, <code>const</code> items of the crate, a const parameter passed on
 (<code>struct Outer&lt;const N: usize&gt; { window: Window&lt;N&gt; }</code>), or left to the parameter's default. How a generic type may
 change is in the <a href="../evolution/rules/#generic-types">evolution rules</a>.</p>
+<p>A default may name another parameter's associated type (API-65): exact_units' <code>Niched&lt;V, N, T = &lt;V as
+RawValue&gt;::Raw&gt;</code> is used as <code>Niched&lt;Fixed&lt;Ratio, One, u8, Range&lt;0, 100&gt;&gt;, Null&lt;0xFF&gt;&gt;</code>, and the model has the same
+<code>Niched&lt;.., u8&gt;</code> as when <code>u8</code> is written out. The walker finds the <code>impl RawValue for Fixed&lt;U, P, T, B&gt;</code> in the
+trait's crate or the type's and takes its <code>type Raw = T</code> with the arguments of the use; the shorthand <code>V::Raw</code> is
+read through <code>V</code>'s trait bounds. Such a default needs a concrete argument: in a generic definition of your own,
+<code>struct Wrap&lt;V&gt; { n: Niched&lt;V, Null&lt;0&gt;&gt; }</code> is refused, as the impl isn't known before <code>Wrap</code> is used, so write <code>T</code>
+out there.</p>
 <h3 id="type-aliases">Type aliases<a class="headerlink" href="#type-aliases" title="Permanent link">&para;</a></h3>
 <p>A <code>type</code> alias stands for what it names, in every API position (API-45):</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_trait]</span>

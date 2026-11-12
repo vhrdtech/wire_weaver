@@ -6492,6 +6492,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "defmt 1.1.1",
+ "exact_units",
  "hex-literal",
  "shrink_wrap",
 ]

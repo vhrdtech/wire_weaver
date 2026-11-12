@@ -2459,6 +2459,7 @@ dependencies = [
 name = "ww_date_time"
 version = "0.1.0"
 dependencies = [
+ "exact_units",
  "shrink_wrap",
 ]
 

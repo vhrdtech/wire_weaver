@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 73fc1a3db39debbc36165b689e76bfe3954344bdaf4a05db817b2d8e0df5e59d
+// shrink_wrap sha256: db915d2420beecde6d21ca05e5f985011a8833cffe027d453aa47f0a27a00d8b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -311,23 +311,41 @@
             "within the last few seconds). `None` without one, and from devices that don\'t tell.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "DateTime", signature: [
-        229,
-        81,
-        175,
-        191,
-        113,
-        56,
-        216,
-        166,
-        29,
-        39,
+    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Nano", signature: [
+        43,
+        240,
+        205,
+        120,
         248,
-        111,
-        249,
-        238,
         133,
-        56,
+        82,
+        4,
+        98,
+        36,
+        26,
+        47,
+        24,
+        44,
+        57,
+        96,
+    ]),
+    SkippedFullVersion(crate_idx: 4, type_name: "DateTime", signature: [
+        103,
+        186,
+        90,
+        124,
+        167,
+        109,
+        186,
+        104,
+        109,
+        29,
+        162,
+        113,
+        146,
+        250,
+        119,
+        91,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "origins::UnixEpoch", signature: [
         196,
@@ -383,24 +401,6 @@
         238,
         114,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Nano", signature: [
-        43,
-        240,
-        205,
-        120,
-        248,
-        133,
-        82,
-        4,
-        98,
-        36,
-        26,
-        47,
-        24,
-        44,
-        57,
-        96,
-    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A host\'s fit of a device\'s clock, see `Clock::steer`: the device\'s local time `local` is the shared time",
         "`shared`, and shared time runs `rate` parts per billion faster than local time from there on (negative: slower,",
@@ -416,8 +416,8 @@
         ]), docs: [
             "Device time at the point, in the prefix and storage of `Clock::now()` (a `U32` wraps as `now()` does).",
         ], slot: None, series_opaque: false),
-        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 18, args: [
-            Type(OutOfLine(type_idx: 17)),
+        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 19, args: [
+            Type(OutOfLine(type_idx: 18)),
             Type(Instance(type_idx: 12, args: [
                 Type(OutOfLine(type_idx: 0)),
                 Type(OutOfLine(type_idx: 11)),
@@ -428,8 +428,8 @@
             "Shared time at `local`: UTC.",
         ], slot: None, series_opaque: false),
         (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 12, args: [
-            Type(OutOfLine(type_idx: 19)),
             Type(OutOfLine(type_idx: 20)),
+            Type(OutOfLine(type_idx: 16)),
             Type(NumericAny(Base(I32))),
             Type(OutOfLine(type_idx: 1)),
         ]), docs: [
@@ -503,7 +503,7 @@
             "last lock, when known.",
         ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 16), default: None, flatten: false),
+            (ident: "t", ty: OutOfLine(type_idx: 17), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -535,8 +535,8 @@
             "against its monotonic clock and adds the wall clock\'s offset when it sends, so a step of its wall clock",
             "moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).",
         ], optional: Some((group: Some("host_sync"))), meta: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 18, args: [
-            Type(OutOfLine(type_idx: 17)),
+        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 19, args: [
+            Type(OutOfLine(type_idx: 18)),
             Type(Instance(type_idx: 12, args: [
                 Type(OutOfLine(type_idx: 0)),
                 Type(OutOfLine(type_idx: 11)),
@@ -573,10 +573,10 @@
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
     Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
 ]))

@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 91f6dec1032da0a7b08ce617dfff2cd52edb0a605d8bb7dfeee91f9d062e32ec
+// shrink_wrap sha256: 9878eef722215d9c4251e2d169b31fc23ba3252d267a2397e93c8866df80e15e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -40,22 +40,22 @@
         ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((line: 1, revision: 1))),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
-        229,
-        81,
-        175,
-        191,
-        113,
-        56,
-        216,
-        166,
+        103,
+        186,
+        90,
+        124,
+        167,
+        109,
+        186,
+        104,
+        109,
         29,
-        39,
-        248,
-        111,
-        249,
-        238,
-        133,
-        56,
+        162,
+        113,
+        146,
+        250,
+        119,
+        91,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The PCB and its assembly, see [BoardInfo::BOARD].",
@@ -199,8 +199,8 @@
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 2)), ext_wire: Some([
-    Some((line: 1, revision: 2)),
-    Some((line: 1, revision: 0)),
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
+    Some((line: 2, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

@@ -15,17 +15,36 @@
 static volatile uint64_t sink;
 /* a reader broke its promise (a value past the end, a view that should be empty) */
 static int bad;
+/* a reader gave something other than 0 (for the readers of an empty view, which must read 0) */
+static int seen;
 
-static void use_u(uint64_t x) { sink += x; }
-static void use_i(int64_t x) { sink += (uint64_t)(x < 0); }
-static void use_f(double x) { sink += (uint64_t)(x != x); }
+static void use_u(uint64_t x) {
+    sink += x;
+    seen |= x != 0u;
+}
+static void use_i(int64_t x) {
+    sink += (uint64_t)(x < 0);
+    seen |= x != 0;
+}
+static void use_f(double x) {
+    sink += (uint64_t)(x != x);
+    seen |= x != 0.0;
+}
+/* the n bytes of a byte array reader; NULL only from an empty view (owner NULL) */
+static void use_bytes(const uint8_t *p, size_t n, const uint8_t *owner) {
+    size_t i;
+    if (p == NULL) {
+        bad |= owner != NULL;
+        return;
+    }
+    for (i = 0; i < n; i++) {
+        use_u(p[i]);
+    }
+}
 
 static void poke_inner(t_inner_view_t v) {
-    size_t i;
     use_u(t_inner_id(v));
-    for (i = 0; i < T_INNER_HASH_COUNT; i++) {
-        use_u(t_inner_hash(v)[i]);
-    }
+    use_bytes(t_inner_hash(v), T_INNER_HASH_COUNT, v.p);
 }
 
 static void poke_numbers(t_numbers_view_t v) {
@@ -40,9 +59,7 @@ static void poke_numbers(t_numbers_view_t v) {
     use_i(t_numbers_h(v));
     use_f(t_numbers_x(v));
     use_f(t_numbers_y(v));
-    for (i = 0; i < T_NUMBERS_BYTES_COUNT; i++) {
-        use_u(t_numbers_bytes(v)[i]);
-    }
+    use_bytes(t_numbers_bytes(v), T_NUMBERS_BYTES_COUNT, v.p);
     for (i = 0; i < T_NUMBERS_WORDS_COUNT + 2u; i++) {
         use_u(t_numbers_words(v, i));
     }
@@ -70,7 +87,6 @@ static void poke_op(t_op_view_t v) {
     t_op_erase_view_t e;
     t_op_copy_view_t c;
     t_op_inner_view_t in;
-    size_t i;
     use_u(t_op_tag(v));
     if (t_op_as_erase(v, &e) == 0) {
         use_u(t_op_erase_block(e));
@@ -80,9 +96,7 @@ static void poke_op(t_op_view_t v) {
     if (t_op_as_copy(v, &c) == 0) {
         use_u(t_op_copy_dst(c));
         use_u(t_op_copy_src(c));
-        for (i = 0; i < T_OP_COPY_HASH_COUNT; i++) {
-            use_u(t_op_copy_hash(c)[i]);
-        }
+        use_bytes(t_op_copy_hash(c), T_OP_COPY_HASH_COUNT, c.p);
     }
     if (t_op_as_inner(v, &in) == 0) {
         poke_inner(t_op_inner_0(in));
@@ -187,11 +201,17 @@ static void poke_msg(t_msg_view_t v) {
 }
 
 /* the view of the type named ty on the n bytes at b: its length, or -1 refused; -2 when a refused view isn't
-   empty or a view doesn't point at b and in it, -3 when a reader broke its promise */
+   empty or a view doesn't point at b and in it, -3 when a reader broke its promise (on a refused view: every
+   reader is called on the empty view, as by a caller that ignores the -1, and must read 0 without touching NULL) */
 #define VIEW(name)                                                                                                    \
     if (strcmp(ty, #name) == 0) {                                                                                     \
         t_##name##_view_t v;                                                                                          \
         if (t_##name##_view(b, n, &v) != 0) {                                                                         \
+            seen = 0;                                                                                                 \
+            poke_##name(v);                                                                                           \
+            if (bad || seen) {                                                                                        \
+                return -3;                                                                                            \
+            }                                                                                                         \
             return v.p == NULL && v.len == 0u ? -1 : -2;                                                              \
         }                                                                                                             \
         if (v.p != b || v.len > n) {                                                                                  \

@@ -205,7 +205,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   so there is no way to read a field without the length check. A view's `len` is the value's length (the next value
   of a stream starts there). Readers stay inside the view: an index past an array or list reads 0, an `Option` /
   `Result` payload, an enum variant (`<enum>_as_<variant>`) and a list item of a fixed-layout type are `int` readers
-  with an out parameter that return -1 when it is not there. Views and `int` readers are `SW_NODISCARD`
+  with an out parameter that return -1 when it is not there. A caller that ignores a -1 reads zeros, never
+  through `NULL`: every reader of an empty view reads 0 and a failed `int` reader leaves an empty view in `*out`.
+  A type over 65535 bytes is an `#error` where `size_t` is 16 bits. Views and `int` readers are `SW_NODISCARD`
   (`warn_unused_result` on gcc and clang). No allocation; list lengths are checked before `count * size` can wrap
   on a 16-bit `size_t`. Same acceptance and lengths as Rust's `from_fixed` / `head_tail::read` (a C string is
   bytes: no UTF-8 check), checked on valid, truncated, empty, NULL, changed and random buffers of every test type
@@ -213,7 +215,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `shrink_wrap/tests/fixed_layout.rs` and `head_tail.rs`), and in the conformance matrix (a view from exactly the
   golden bytes, refused on every shorter prefix). C99 with `-pedantic -Wconversion -Wsign-conversion -Werror` on
   the host, MSP430, Cortex-M0 and RV32. Cost on Cortex-M0 at `-Os`: 4 bytes per reading function over the old
-  readers with a hand-written length check. Raised on chunky_mcu_updater PR #6.
+  readers with a hand-written length check, and about 6 more for the empty-view check (clang `-Os`, thumbv6m: 9
+  fixed-layout readers 148 → 204 bytes, 5 `head_tail` readers +24 bytes and an 8-byte empty view in `.rodata` per
+  `_as_<variant>` used). Raised on chunky_mcu_updater PR #6.
 - ✅ **SW-52 `head_tail` views and variant writers**: `Type::view(buf)` gives a `TypeView<'_>` without making the
   value: the lengths checked and the tail walked once, the head's fields read by accessors at their offsets when
   called (the same code as `from_head_tail`, one field at a time), lists, strings, options and nested views kept

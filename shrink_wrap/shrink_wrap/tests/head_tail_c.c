@@ -16,8 +16,13 @@
 static volatile uint64_t sink;
 /* a reader broke its promise (a value past the end, a view that should be empty) */
 static int bad;
+/* a reader gave something other than 0 (for the readers of an empty view, which must read 0) */
+static int seen;
 
-static void use_u(uint64_t x) { sink += x; }
+static void use_u(uint64_t x) {
+    sink += x;
+    seen |= x != 0u;
+}
 
 static void poke_wave(t_wave_view_t v) {
     use_u(t_wave_line(v));
@@ -38,8 +43,12 @@ static void poke_pin(t_pin_view_t v) {
     }
 }
 
+/* the n bytes of a byte list or array reader; NULL only from an empty view */
 static void poke_bytes(const uint8_t *p, size_t n) {
     size_t i;
+    if (p == NULL) {
+        return;
+    }
     for (i = 0; i < n; i++) {
         use_u(p[i]);
     }
@@ -69,6 +78,8 @@ static void poke_utx(const t_utx_view_t *v) {
     use_u(t_utx_ch(v));
     if (t_utx_glitch(v, &glitch) == 0) {
         poke_wave(*glitch);
+    } else if (glitch->p != NULL || t_wave_delay(*glitch) != 0u) {
+        bad = 1; /* not there: an empty view, which reads 0 */
     }
     for (i = 0; i < (size_t)t_utx_perr_count(v) + 2u; i++) {
         use_u(t_utx_perr(v, i));
@@ -93,6 +104,8 @@ static void poke_request(const t_request_view_t *v) {
     use_u(t_request_tag(v));
     if (t_request_as_stop(v, &stop) == 0) {
         use_u(t_request_stop_mask(stop));
+    } else if (stop->p != NULL || t_request_stop_mask(stop) != 0u) {
+        bad = 1; /* another tag: an empty view, which reads 0 */
     }
     if (t_request_as_waves(v, &waves) == 0) {
         for (i = 0; i < (size_t)t_request_waves_waves_count(waves) + 2u; i++) {
@@ -106,6 +119,13 @@ static void poke_request(const t_request_view_t *v) {
     }
     if (t_request_as_utx(v, &utx) == 0) {
         poke_utx(t_request_utx_0(utx));
+    } else {
+        /* another tag: an empty view, whose readers (and those of the views in it) read 0 */
+        int was = seen;
+        seen = 0;
+        poke_utx(t_request_utx_0(utx));
+        bad |= utx->p != NULL || seen;
+        seen = was;
     }
     if (t_request_as_res(v, &res) == 0) {
         if (t_request_res_r_ok(res, &ok) == 0) {
@@ -127,6 +147,8 @@ static void poke_mixed(const t_mixed_view_t *v) {
     poke_pin(*t_mixed_pin(v));
     if (t_mixed_slave(v, &slave) == 0) {
         poke_slave(slave);
+    } else if (slave->p != NULL || t_slave_scl(slave) != 0u) {
+        bad = 1; /* not there: an empty view, which reads 0 */
     }
     if (t_mixed_r_ok(v, &wave) == 0) {
         poke_wave(*wave);
@@ -150,11 +172,17 @@ static void poke_mixed(const t_mixed_view_t *v) {
 }
 
 /* the view of the type named ty on the n bytes at b: its length, or -1 refused; -2 when a refused view isn't
-   empty or a view doesn't point at b and in it, -3 when a reader broke its promise */
+   empty or a view doesn't point at b and in it, -3 when a reader broke its promise (on a refused view: every
+   reader is called on the zeroed view, as by a caller that ignores the -1, and must read 0 without touching NULL) */
 #define VIEW_FIXED(name)                                                                                              \
     if (strcmp(ty, #name) == 0) {                                                                                     \
         t_##name##_view_t v;                                                                                          \
         if (t_##name##_view(b, n, &v) != 0) {                                                                         \
+            seen = 0;                                                                                                 \
+            poke_##name(v);                                                                                           \
+            if (bad || seen) {                                                                                        \
+                return -3;                                                                                            \
+            }                                                                                                         \
             return v.p == NULL && v.len == 0u ? -1 : -2;                                                              \
         }                                                                                                             \
         if (v.p != b || v.len > n) {                                                                                  \
@@ -167,6 +195,11 @@ static void poke_mixed(const t_mixed_view_t *v) {
     if (strcmp(ty, #name) == 0) {                                                                                     \
         t_##name##_view_t v;                                                                                          \
         if (t_##name##_view(b, n, &v) != 0) {                                                                         \
+            seen = 0;                                                                                                 \
+            poke_##name(&v);                                                                                          \
+            if (bad || seen) {                                                                                        \
+                return -3;                                                                                            \
+            }                                                                                                         \
             return v.p == NULL && v.len == 0u ? -1 : -2;                                                              \
         }                                                                                                             \
         if (v.p != b || v.len > n) {                                                                                  \
@@ -249,7 +282,8 @@ static int own_checks(void) {
     size_t cut, i;
     int ok = t_request_view(msg, sizeof msg, &req) == 0 && req.len == sizeof msg &&
              t_request_tag(&req) == T_REQUEST_UTX && t_request_as_utx(&req, &variant) == 0 &&
-             t_request_as_stop(&req, &stop) == -1 && stop == NULL;
+             t_request_as_stop(&req, &stop) == -1 && stop != NULL && stop->p == NULL &&
+             t_request_stop_mask(stop) == 0u;
     u = ok ? t_request_utx_0(variant) : NULL;
     ok = ok && t_utx_ch(u) == 7u && t_utx_glitch_flag(u) == 1u && t_utx_defer(u) == 1u;
     ok = ok && t_utx_glitch(u, &glitch) == 0 && t_wave_line(*glitch) == 1u && t_wave_idle(*glitch) == 1u &&

@@ -71,32 +71,32 @@ SW_NODISCARD static inline int t_numbers_view(const uint8_t *buf, size_t len, t_
     return 0;
 }
 #define T_NUMBERS_A_OFFSET 0u
-static inline uint8_t t_numbers_a(t_numbers_view_t v) { return sw_fixed_u8(v.p + 0u); }
+static inline uint8_t t_numbers_a(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 0u); }
 #define T_NUMBERS_B_OFFSET 1u
-static inline uint16_t t_numbers_b(t_numbers_view_t v) { return sw_fixed_u16(v.p + 1u); }
+static inline uint16_t t_numbers_b(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 1u); }
 #define T_NUMBERS_C_OFFSET 3u
-static inline uint32_t t_numbers_c(t_numbers_view_t v) { return sw_fixed_u32(v.p + 3u); }
+static inline uint32_t t_numbers_c(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u32(v.p + 3u); }
 #define T_NUMBERS_D_OFFSET 7u
-static inline uint64_t t_numbers_d(t_numbers_view_t v) { return sw_fixed_u64(v.p + 7u); }
+static inline uint64_t t_numbers_d(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u64(v.p + 7u); }
 #define T_NUMBERS_E_OFFSET 15u
-static inline int8_t t_numbers_e(t_numbers_view_t v) { return (int8_t)sw_fixed_u8(v.p + 15u); }
+static inline int8_t t_numbers_e(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return (int8_t)sw_fixed_u8(v.p + 15u); }
 #define T_NUMBERS_F_OFFSET 16u
-static inline int16_t t_numbers_f(t_numbers_view_t v) { return (int16_t)sw_fixed_u16(v.p + 16u); }
+static inline int16_t t_numbers_f(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return (int16_t)sw_fixed_u16(v.p + 16u); }
 #define T_NUMBERS_G_OFFSET 18u
-static inline int32_t t_numbers_g(t_numbers_view_t v) { return (int32_t)sw_fixed_u32(v.p + 18u); }
+static inline int32_t t_numbers_g(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return (int32_t)sw_fixed_u32(v.p + 18u); }
 #define T_NUMBERS_H_OFFSET 22u
-static inline int64_t t_numbers_h(t_numbers_view_t v) { return (int64_t)sw_fixed_u64(v.p + 22u); }
+static inline int64_t t_numbers_h(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return (int64_t)sw_fixed_u64(v.p + 22u); }
 #define T_NUMBERS_X_OFFSET 30u
-static inline float t_numbers_x(t_numbers_view_t v) { return sw_fixed_f32(v.p + 30u); }
+static inline float t_numbers_x(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_f32(v.p + 30u); }
 #define T_NUMBERS_Y_OFFSET 34u
-static inline double t_numbers_y(t_numbers_view_t v) { return sw_fixed_f64(v.p + 34u); }
+static inline double t_numbers_y(t_numbers_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_f64(v.p + 34u); }
 #define T_NUMBERS_BYTES_OFFSET 42u
-static inline const uint8_t *t_numbers_bytes(t_numbers_view_t v) { return v.p + 42u; }
+static inline const uint8_t *t_numbers_bytes(t_numbers_view_t v) { return v.p == NULL ? NULL : v.p + 42u; }
 #define T_NUMBERS_BYTES_COUNT 5u
 #define T_NUMBERS_WORDS_OFFSET 47u
 /* item i, 0 past the end */
 static inline uint16_t t_numbers_words(t_numbers_view_t v, size_t i) {
-    if (i >= 3u) { return 0; }
+    if (v.p == NULL || i >= 3u) { return 0; }
     return sw_fixed_u16(v.p + 47u + 2u * i);
 }
 #define T_NUMBERS_WORDS_COUNT 3u
@@ -119,9 +119,9 @@ SW_NODISCARD static inline int t_inner_view(const uint8_t *buf, size_t len, t_in
     return 0;
 }
 #define T_INNER_ID_OFFSET 0u
-static inline uint32_t t_inner_id(t_inner_view_t v) { return sw_fixed_u32(v.p + 0u); }
+static inline uint32_t t_inner_id(t_inner_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u32(v.p + 0u); }
 #define T_INNER_HASH_OFFSET 4u
-static inline const uint8_t *t_inner_hash(t_inner_view_t v) { return v.p + 4u; }
+static inline const uint8_t *t_inner_hash(t_inner_view_t v) { return v.p == NULL ? NULL : v.p + 4u; }
 #define T_INNER_HASH_COUNT 4u
 
 /* Outer: 15 to 15 bytes */
@@ -143,10 +143,11 @@ SW_NODISCARD static inline int t_outer_view(const uint8_t *buf, size_t len, t_ou
     return 0;
 }
 #define T_OUTER_TAG_OFFSET 0u
-static inline uint8_t t_outer_tag(t_outer_view_t v) { return sw_fixed_u8(v.p + 0u); }
+static inline uint8_t t_outer_tag(t_outer_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 0u); }
 #define T_OUTER_INNER_OFFSET 1u
 static inline t_inner_view_t t_outer_inner(t_outer_view_t v) {
     t_inner_view_t r;
+    if (v.p == NULL) { r.p = NULL; r.len = 0u; return r; }
     r.p = v.p + 1u;
     r.len = 8u;
     return r;
@@ -154,12 +155,12 @@ static inline t_inner_view_t t_outer_inner(t_outer_view_t v) {
 #define T_OUTER_SIGNED_OFFSET 9u
 /* item i, 0 past the end */
 static inline int16_t t_outer_signed(t_outer_view_t v, size_t i) {
-    if (i >= 2u) { return 0; }
+    if (v.p == NULL || i >= 2u) { return 0; }
     return (int16_t)sw_fixed_u16(v.p + 9u + 2u * i);
 }
 #define T_OUTER_SIGNED_COUNT 2u
 #define T_OUTER_TAIL_OFFSET 13u
-static inline uint16_t t_outer_tail(t_outer_view_t v) { return sw_fixed_u16(v.p + 13u); }
+static inline uint16_t t_outer_tail(t_outer_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 13u); }
 
 /* Final: 10 to 10 bytes */
 #define T_FINAL_LEN 10u
@@ -180,10 +181,11 @@ SW_NODISCARD static inline int t_final_view(const uint8_t *buf, size_t len, t_fi
     return 0;
 }
 #define T_FINAL_A_OFFSET 0u
-static inline uint16_t t_final_a(t_final_view_t v) { return sw_fixed_u16(v.p + 0u); }
+static inline uint16_t t_final_a(t_final_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 0u); }
 #define T_FINAL_B_OFFSET 2u
 static inline t_inner_view_t t_final_b(t_final_view_t v) {
     t_inner_view_t r;
+    if (v.p == NULL) { r.p = NULL; r.len = 0u; return r; }
     r.p = v.p + 2u;
     r.len = v.len - 2u;
     return r;
@@ -193,7 +195,7 @@ static inline t_inner_view_t t_final_b(t_final_view_t v) {
 #define T_OP_TAG_LEN 1u
 /* a checked view of an Op: made by t_op_view(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_op_view_t;
-static inline uint8_t t_op_tag(t_op_view_t v) { return sw_fixed_u8(v.p); }
+static inline uint8_t t_op_tag(t_op_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p); }
 /* checks that the len bytes at buf start with an Op of a known tag and makes *v its view (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */
 SW_NODISCARD static inline int t_op_view(const uint8_t *buf, size_t len, t_op_view_t *v) {
     size_t n;
@@ -233,30 +235,30 @@ SW_NODISCARD static inline int t_op_view(const uint8_t *buf, size_t len, t_op_vi
 typedef struct { const uint8_t *p; size_t len; } t_op_erase_view_t;
 /* makes *out the view of v's Erase variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_op_as_erase(t_op_view_t v, t_op_erase_view_t *out) {
-    if (t_op_tag(v) != 4u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_op_tag(v) != 4u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_OP_ERASE_BLOCK_OFFSET 1u
-static inline uint16_t t_op_erase_block(t_op_erase_view_t v) { return sw_fixed_u16(v.p + 1u); }
+static inline uint16_t t_op_erase_block(t_op_erase_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 1u); }
 #define T_OP_COPY 5u
 #define T_OP_COPY_LEN 13u
 /* a checked view of an Op::Copy: made by t_op_as_copy(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_op_copy_view_t;
 /* makes *out the view of v's Copy variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_op_as_copy(t_op_view_t v, t_op_copy_view_t *out) {
-    if (t_op_tag(v) != 5u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_op_tag(v) != 5u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_OP_COPY_DST_OFFSET 1u
-static inline uint16_t t_op_copy_dst(t_op_copy_view_t v) { return sw_fixed_u16(v.p + 1u); }
+static inline uint16_t t_op_copy_dst(t_op_copy_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 1u); }
 #define T_OP_COPY_SRC_OFFSET 3u
-static inline uint16_t t_op_copy_src(t_op_copy_view_t v) { return sw_fixed_u16(v.p + 3u); }
+static inline uint16_t t_op_copy_src(t_op_copy_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 3u); }
 #define T_OP_COPY_HASH_OFFSET 5u
-static inline const uint8_t *t_op_copy_hash(t_op_copy_view_t v) { return v.p + 5u; }
+static inline const uint8_t *t_op_copy_hash(t_op_copy_view_t v) { return v.p == NULL ? NULL : v.p + 5u; }
 #define T_OP_COPY_HASH_COUNT 8u
 #define T_OP_INNER 6u
 #define T_OP_INNER_LEN 9u
@@ -264,7 +266,7 @@ static inline const uint8_t *t_op_copy_hash(t_op_copy_view_t v) { return v.p + 5
 typedef struct { const uint8_t *p; size_t len; } t_op_inner_view_t;
 /* makes *out the view of v's Inner variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_op_as_inner(t_op_view_t v, t_op_inner_view_t *out) {
-    if (t_op_tag(v) != 6u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_op_tag(v) != 6u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
@@ -272,6 +274,7 @@ SW_NODISCARD static inline int t_op_as_inner(t_op_view_t v, t_op_inner_view_t *o
 #define T_OP_INNER_0_OFFSET 1u
 static inline t_inner_view_t t_op_inner_0(t_op_inner_view_t v) {
     t_inner_view_t r;
+    if (v.p == NULL) { r.p = NULL; r.len = 0u; return r; }
     r.p = v.p + 1u;
     r.len = v.len - 1u;
     return r;
@@ -281,7 +284,7 @@ static inline t_inner_view_t t_op_inner_0(t_op_inner_view_t v) {
 #define T_WIDE_TAG_LEN 2u
 /* a checked view of a Wide: made by t_wide_view(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_wide_view_t;
-static inline uint16_t t_wide_tag(t_wide_view_t v) { return sw_fixed_u16(v.p); }
+static inline uint16_t t_wide_tag(t_wide_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p); }
 /* checks that the len bytes at buf start with a Wide of a known tag and makes *v its view (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */
 SW_NODISCARD static inline int t_wide_view(const uint8_t *buf, size_t len, t_wide_view_t *v) {
     size_t n;
@@ -310,26 +313,26 @@ SW_NODISCARD static inline int t_wide_view(const uint8_t *buf, size_t len, t_wid
 typedef struct { const uint8_t *p; size_t len; } t_wide_a_view_t;
 /* makes *out the view of v's A variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_wide_as_a(t_wide_view_t v, t_wide_a_view_t *out) {
-    if (t_wide_tag(v) != 0u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_wide_tag(v) != 0u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_WIDE_A_0_OFFSET 2u
-static inline uint32_t t_wide_a_0(t_wide_a_view_t v) { return sw_fixed_u32(v.p + 2u); }
+static inline uint32_t t_wide_a_0(t_wide_a_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u32(v.p + 2u); }
 #define T_WIDE_B 1u
 #define T_WIDE_B_LEN 6u
 /* a checked view of a Wide::B: made by t_wide_as_b(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_wide_b_view_t;
 /* makes *out the view of v's B variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_wide_as_b(t_wide_view_t v, t_wide_b_view_t *out) {
-    if (t_wide_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_wide_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_WIDE_B_0_OFFSET 2u
-static inline int32_t t_wide_b_0(t_wide_b_view_t v) { return (int32_t)sw_fixed_u32(v.p + 2u); }
+static inline int32_t t_wide_b_0(t_wide_b_view_t v) { if (v.p == NULL) { return 0; } return (int32_t)sw_fixed_u32(v.p + 2u); }
 
 /* Bits: 9 to 9 bytes */
 #define T_BITS_LEN 9u
@@ -350,30 +353,30 @@ SW_NODISCARD static inline int t_bits_view(const uint8_t *buf, size_t len, t_bit
 }
 #define T_BITS_A_BIT_OFFSET 0u
 #define T_BITS_A_BITS 1u
-static inline uint32_t t_bits_a(t_bits_view_t v) { return sw_fixed_bits(v.p, 0u, 1u); }
+static inline uint32_t t_bits_a(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 0u, 1u); }
 #define T_BITS_N_BIT_OFFSET 4u
 #define T_BITS_N_BITS 4u
-static inline uint32_t t_bits_n(t_bits_view_t v) { return sw_fixed_bits(v.p, 4u, 4u); }
+static inline uint32_t t_bits_n(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 4u, 4u); }
 #define T_BITS_B_BIT_OFFSET 8u
 #define T_BITS_B_BITS 3u
-static inline uint32_t t_bits_b(t_bits_view_t v) { return sw_fixed_bits(v.p, 8u, 3u); }
+static inline uint32_t t_bits_b(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 8u, 3u); }
 #define T_BITS_S_BIT_OFFSET 11u
 #define T_BITS_S_BITS 5u
-static inline int32_t t_bits_s(t_bits_view_t v) { return sw_fixed_sbits(v.p, 11u, 5u); }
+static inline int32_t t_bits_s(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_sbits(v.p, 11u, 5u); }
 #define T_BITS_X_OFFSET 2u
-static inline uint16_t t_bits_x(t_bits_view_t v) { return sw_fixed_u16(v.p + 2u); }
+static inline uint16_t t_bits_x(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 2u); }
 #define T_BITS_WIDE_BIT_OFFSET 32u
 #define T_BITS_WIDE_BITS 20u
-static inline uint32_t t_bits_wide(t_bits_view_t v) { return sw_fixed_bits(v.p, 32u, 20u); }
+static inline uint32_t t_bits_wide(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 32u, 20u); }
 #define T_BITS_I_BIT_OFFSET 52u
 #define T_BITS_I_BITS 12u
-static inline int32_t t_bits_i(t_bits_view_t v) { return sw_fixed_sbits(v.p, 52u, 12u); }
+static inline int32_t t_bits_i(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_sbits(v.p, 52u, 12u); }
 #define T_BITS_LAST_BIT_OFFSET 64u
 #define T_BITS_LAST_BITS 1u
-static inline uint32_t t_bits_last(t_bits_view_t v) { return sw_fixed_bits(v.p, 64u, 1u); }
+static inline uint32_t t_bits_last(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 64u, 1u); }
 #define T_BITS_END_BIT_OFFSET 65u
 #define T_BITS_END_BITS 2u
-static inline uint32_t t_bits_end(t_bits_view_t v) { return sw_fixed_bits(v.p, 65u, 2u); }
+static inline uint32_t t_bits_end(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 65u, 2u); }
 
 /* EndsWithBits: 2 to 2 bytes */
 #define T_ENDS_WITH_BITS_LEN 2u
@@ -393,10 +396,10 @@ SW_NODISCARD static inline int t_ends_with_bits_view(const uint8_t *buf, size_t 
     return 0;
 }
 #define T_ENDS_WITH_BITS_ID_OFFSET 0u
-static inline uint8_t t_ends_with_bits_id(t_ends_with_bits_view_t v) { return sw_fixed_u8(v.p + 0u); }
+static inline uint8_t t_ends_with_bits_id(t_ends_with_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 0u); }
 #define T_ENDS_WITH_BITS_ON_BIT_OFFSET 8u
 #define T_ENDS_WITH_BITS_ON_BITS 1u
-static inline uint32_t t_ends_with_bits_on(t_ends_with_bits_view_t v) { return sw_fixed_bits(v.p, 8u, 1u); }
+static inline uint32_t t_ends_with_bits_on(t_ends_with_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 8u, 1u); }
 
 /* Wrap: 12 to 12 bytes */
 #define T_WRAP_LEN 12u
@@ -419,10 +422,11 @@ SW_NODISCARD static inline int t_wrap_view(const uint8_t *buf, size_t len, t_wra
 }
 #define T_WRAP_LEAD_BIT_OFFSET 0u
 #define T_WRAP_LEAD_BITS 1u
-static inline uint32_t t_wrap_lead(t_wrap_view_t v) { return sw_fixed_bits(v.p, 0u, 1u); }
+static inline uint32_t t_wrap_lead(t_wrap_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 0u, 1u); }
 #define T_WRAP_INNER_OFFSET 1u
 static inline t_inner_view_t t_wrap_inner(t_wrap_view_t v) {
     t_inner_view_t r;
+    if (v.p == NULL) { r.p = NULL; r.len = 0u; return r; }
     r.p = v.p + 1u;
     r.len = 8u;
     return r;
@@ -430,12 +434,13 @@ static inline t_inner_view_t t_wrap_inner(t_wrap_view_t v) {
 #define T_WRAP_FLAGS_OFFSET 9u
 static inline t_ends_with_bits_view_t t_wrap_flags(t_wrap_view_t v) {
     t_ends_with_bits_view_t r;
+    if (v.p == NULL) { r.p = NULL; r.len = 0u; return r; }
     r.p = v.p + 9u;
     r.len = 2u;
     return r;
 }
 #define T_WRAP_AFTER_OFFSET 11u
-static inline uint8_t t_wrap_after(t_wrap_view_t v) { return sw_fixed_u8(v.p + 11u); }
+static inline uint8_t t_wrap_after(t_wrap_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 11u); }
 
 /* Maybe: 3 to 11 bytes */
 #define T_MAYBE_LEN 11u
@@ -458,17 +463,17 @@ SW_NODISCARD static inline int t_maybe_view(const uint8_t *buf, size_t len, t_ma
     return 0;
 }
 #define T_MAYBE_ID_OFFSET 0u
-static inline uint16_t t_maybe_id(t_maybe_view_t v) { return sw_fixed_u16(v.p + 0u); }
+static inline uint16_t t_maybe_id(t_maybe_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 0u); }
 #define T_MAYBE_ON_BIT_OFFSET 16u
 #define T_MAYBE_ON_BITS 1u
-static inline uint32_t t_maybe_on(t_maybe_view_t v) { return sw_fixed_bits(v.p, 16u, 1u); }
+static inline uint32_t t_maybe_on(t_maybe_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 16u, 1u); }
 #define T_MAYBE_EXTRA_FLAG_BIT_OFFSET 17u
 #define T_MAYBE_EXTRA_FLAG_BITS 1u
-static inline uint32_t t_maybe_extra_flag(t_maybe_view_t v) { return sw_fixed_bits(v.p, 17u, 1u); }
+static inline uint32_t t_maybe_extra_flag(t_maybe_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 17u, 1u); }
 #define T_MAYBE_EXTRA_OFFSET 3u
 /* sets *out to its view and returns 0, or returns -1 (*out empty) when the flag says it is not there */
 SW_NODISCARD static inline int t_maybe_extra(t_maybe_view_t v, t_inner_view_t *out) {
-    if (!(sw_fixed_bits(v.p, 17u, 1u) != 0u)) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || !(sw_fixed_bits(v.p, 17u, 1u) != 0u)) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p + 3u;
     out->len = v.len - 3u;
     return 0;
@@ -497,16 +502,16 @@ SW_NODISCARD static inline int t_relocated_view(const uint8_t *buf, size_t len, 
 }
 #define T_RELOCATED_VALUE_FLAG_BIT_OFFSET 0u
 #define T_RELOCATED_VALUE_FLAG_BITS 1u
-static inline uint32_t t_relocated_value_flag(t_relocated_view_t v) { return sw_fixed_bits(v.p, 0u, 1u); }
+static inline uint32_t t_relocated_value_flag(t_relocated_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 0u, 1u); }
 #define T_RELOCATED_KIND_BIT_OFFSET 1u
 #define T_RELOCATED_KIND_BITS 3u
-static inline uint32_t t_relocated_kind(t_relocated_view_t v) { return sw_fixed_bits(v.p, 1u, 3u); }
+static inline uint32_t t_relocated_kind(t_relocated_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 1u, 3u); }
 #define T_RELOCATED_ID_OFFSET 1u
-static inline uint8_t t_relocated_id(t_relocated_view_t v) { return sw_fixed_u8(v.p + 1u); }
+static inline uint8_t t_relocated_id(t_relocated_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 1u); }
 #define T_RELOCATED_VALUE_OFFSET 2u
 /* sets *out to item i and returns 0, or returns -1 (*out 0) when the flag says it is not there or i is past the end */
 SW_NODISCARD static inline int t_relocated_value(t_relocated_view_t v, size_t i, uint16_t *out) {
-    if (!(sw_fixed_bits(v.p, 0u, 1u) != 0u) || i >= 2u) { *out = 0; return -1; }
+    if (v.p == NULL || !(sw_fixed_bits(v.p, 0u, 1u) != 0u) || i >= 2u) { *out = 0; return -1; }
     *out = sw_fixed_u16(v.p + 2u + 2u * i);
     return 0;
 }
@@ -536,20 +541,20 @@ SW_NODISCARD static inline int t_res_view(const uint8_t *buf, size_t len, t_res_
     return 0;
 }
 #define T_RES_A_OFFSET 0u
-static inline uint8_t t_res_a(t_res_view_t v) { return sw_fixed_u8(v.p + 0u); }
+static inline uint8_t t_res_a(t_res_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 0u); }
 #define T_RES_R_FLAG_BIT_OFFSET 8u
 #define T_RES_R_FLAG_BITS 1u
-static inline uint32_t t_res_r_flag(t_res_view_t v) { return sw_fixed_bits(v.p, 8u, 1u); }
+static inline uint32_t t_res_r_flag(t_res_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 8u, 1u); }
 #define T_RES_R_OFFSET 2u
 /* sets *out and returns 0, or returns -1 (*out 0) when the flag says it is not there */
 SW_NODISCARD static inline int t_res_r_ok(t_res_view_t v, uint32_t *out) {
-    if (!(sw_fixed_bits(v.p, 8u, 1u) != 0u)) { *out = 0; return -1; }
+    if (v.p == NULL || !(sw_fixed_bits(v.p, 8u, 1u) != 0u)) { *out = 0; return -1; }
     *out = sw_fixed_u32(v.p + 2u);
     return 0;
 }
 /* sets *out to its view and returns 0, or returns -1 (*out empty) when the flag says it is not there */
 SW_NODISCARD static inline int t_res_r_err(t_res_view_t v, t_inner_view_t *out) {
-    if (!(sw_fixed_bits(v.p, 8u, 1u) == 0u)) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || !(sw_fixed_bits(v.p, 8u, 1u) == 0u)) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p + 2u;
     out->len = v.len - 2u;
     return 0;
@@ -575,10 +580,11 @@ SW_NODISCARD static inline int t_tail_op_view(const uint8_t *buf, size_t len, t_
 }
 #define T_TAIL_OP_SEQ_BIT_OFFSET 0u
 #define T_TAIL_OP_SEQ_BITS 4u
-static inline uint32_t t_tail_op_seq(t_tail_op_view_t v) { return sw_fixed_bits(v.p, 0u, 4u); }
+static inline uint32_t t_tail_op_seq(t_tail_op_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 0u, 4u); }
 #define T_TAIL_OP_OP_OFFSET 1u
 static inline t_op_view_t t_tail_op_op(t_tail_op_view_t v) {
     t_op_view_t r;
+    if (v.p == NULL) { r.p = NULL; r.len = 0u; return r; }
     r.p = v.p + 1u;
     r.len = v.len - 1u;
     return r;
@@ -588,7 +594,7 @@ static inline t_op_view_t t_tail_op_op(t_tail_op_view_t v) {
 #define T_MSG_TAG_LEN 1u
 /* a checked view of a Msg: made by t_msg_view(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_msg_view_t;
-static inline uint8_t t_msg_tag(t_msg_view_t v) { return sw_fixed_u8(v.p); }
+static inline uint8_t t_msg_tag(t_msg_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p); }
 /* checks that the len bytes at buf start with a Msg of a known tag and makes *v its view (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */
 SW_NODISCARD static inline int t_msg_view(const uint8_t *buf, size_t len, t_msg_view_t *v) {
     size_t n;
@@ -623,26 +629,26 @@ SW_NODISCARD static inline int t_msg_view(const uint8_t *buf, size_t len, t_msg_
 typedef struct { const uint8_t *p; size_t len; } t_msg_data_view_t;
 /* makes *out the view of v's Data variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_msg_as_data(t_msg_view_t v, t_msg_data_view_t *out) {
-    if (t_msg_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_msg_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_MSG_DATA_URGENT_BIT_OFFSET 8u
 #define T_MSG_DATA_URGENT_BITS 1u
-static inline uint32_t t_msg_data_urgent(t_msg_data_view_t v) { return sw_fixed_bits(v.p, 8u, 1u); }
+static inline uint32_t t_msg_data_urgent(t_msg_data_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 8u, 1u); }
 #define T_MSG_DATA_PRIO_BIT_OFFSET 9u
 #define T_MSG_DATA_PRIO_BITS 2u
-static inline uint32_t t_msg_data_prio(t_msg_data_view_t v) { return sw_fixed_bits(v.p, 9u, 2u); }
+static inline uint32_t t_msg_data_prio(t_msg_data_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 9u, 2u); }
 #define T_MSG_DATA_SEQ_OFFSET 2u
-static inline uint16_t t_msg_data_seq(t_msg_data_view_t v) { return sw_fixed_u16(v.p + 2u); }
+static inline uint16_t t_msg_data_seq(t_msg_data_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 2u); }
 #define T_MSG_DATA_PAYLOAD_FLAG_BIT_OFFSET 32u
 #define T_MSG_DATA_PAYLOAD_FLAG_BITS 1u
-static inline uint32_t t_msg_data_payload_flag(t_msg_data_view_t v) { return sw_fixed_bits(v.p, 32u, 1u); }
+static inline uint32_t t_msg_data_payload_flag(t_msg_data_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 32u, 1u); }
 #define T_MSG_DATA_PAYLOAD_OFFSET 5u
 /* sets *out and returns 0, or returns -1 (*out NULL) when the flag says it is not there */
 SW_NODISCARD static inline int t_msg_data_payload(t_msg_data_view_t v, const uint8_t **out) {
-    if (!(sw_fixed_bits(v.p, 32u, 1u) != 0u)) { *out = NULL; return -1; }
+    if (v.p == NULL || !(sw_fixed_bits(v.p, 32u, 1u) != 0u)) { *out = NULL; return -1; }
     *out = v.p + 5u;
     return 0;
 }

@@ -100,6 +100,12 @@ derive: `shrink_wrap::fixed_layout::write_c_header` and `shrink_wrap::head_tail:
   (`<enum>_as_<variant>`) and an item of a list of fixed-layout types (checked when it is read, like Rust's `List`).
 - The view functions and the `int` readers are `SW_NODISCARD`: with gcc and clang a dropped result is a warning,
   an error with `-Werror`.
+- A caller that drops the -1 anyway reads zeros, never through `NULL`: on an empty view (a refused `_view`, or
+  one zero-initialized and never made) every reader reads 0, a byte-array reader returns `NULL`, the views of
+  nested values are empty too, and every `int` reader returns -1. A failed `int` reader leaves an empty view in
+  `*out` (by pointer for `head_tail`, never a `NULL` one), so its readers read 0 as well.
+- A type longer than `size_t` can count (over 65535 bytes on a 16-bit target) is an `#error`, not a cut length
+  check.
 
 A fixed-layout view is two words and is passed by value; a `head_tail` view also holds the variable parts its tail
 walk found and is passed by pointer. With the types of `shrink_wrap/tests/fixed_layout.rs` and `head_tail.rs`

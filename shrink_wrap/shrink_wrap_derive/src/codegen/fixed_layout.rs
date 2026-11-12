@@ -969,6 +969,19 @@ pub(crate) fn c_line(template: &str, args: &[(&str, TokenStream)]) -> TokenStrea
     quote! { ::core::writeln!(out, #fmt #(, #named)*)?; }
 }
 
+/// An `#error` where `size_t` can't count `len` bytes (a Rust expression), for the length define `define` (C
+/// template text): written only for a length past 65535, which a 16-bit `size_t` would cut, and the length check
+/// with it.
+pub(crate) fn c_size_guard(define: &str, len: TokenStream) -> TokenStream {
+    let line = c_line(
+        &format!(
+            "#if ${{len}}u > SIZE_MAX\n#error \"{define}: longer than size_t can count on this target\"\n#endif"
+        ),
+        &[("len", len.clone())],
+    );
+    quote! { if (#len) > 0xffff { #line } }
+}
+
 /// The C name of a nested fixed-layout or head_tail type, a Rust expression.
 pub(crate) fn c_name_of(ty: &TokenStream, cp: &CratePath) -> TokenStream {
     let ht = cp.item(quote! { head_tail::HeadTail });
@@ -1153,7 +1166,7 @@ pub(crate) fn c_field(
             out.push(c_line(
                 &format!(
                     "#define ${{up}}{upper}_{fu}_BIT_OFFSET ${{off}}u\n#define ${{up}}{upper}_{fu}_BITS {n}u\n\
-                     static inline {ty} {func}({param}) {{ return {load}({vp}, ${{off}}u, {n}u); }}"
+                     static inline {ty} {func}({param}) {{ if ({vp} == NULL) {{ return 0; }} return {load}({vp}, ${{off}}u, {n}u); }}"
                 ),
                 &[("off", quote! { #ty_ident::#off })],
             ));
@@ -1178,20 +1191,20 @@ pub(crate) fn c_field(
                 let text = match present {
                     None => match kind {
                         Kind::Prim(p) => format!(
-                            "static inline {} {func}({param}) {{ return {}; }}",
+                            "static inline {} {func}({param}) {{ if ({vp} == NULL) {{ return 0; }} return {}; }}",
                             p.c_ty(),
                             p.c_load(&format!("{vp} + ${{off}}u"))
                         ),
                         Kind::Array(_, Prim::U8) => {
                             format!(
-                                "static inline const uint8_t *{func}({param}) {{ return {vp} + ${{off}}u; }}"
+                                "static inline const uint8_t *{func}({param}) {{ return {vp} == NULL ? NULL : {vp} + ${{off}}u; }}"
                             )
                         }
                         Kind::Array(len, p) => {
                             args.push(("count", quote! { (#len) }));
                             format!(
                                 "/* item i, 0 past the end */\nstatic inline {} {func}({param}, size_t i) {{\n    \
-                                 if (i >= ${{count}}u) {{ return 0; }}\n    return {};\n}}",
+                                 if ({vp} == NULL || i >= ${{count}}u) {{ return 0; }}\n    return {};\n}}",
                                 p.c_ty(),
                                 p.c_load(&format!("{vp} + ${{off}}u + {}u * i", p.bytes()))
                             )
@@ -1206,6 +1219,7 @@ pub(crate) fn c_field(
                             };
                             format!(
                                 "static inline ${{pre}}${{n}}_view_t {func}({param}) {{\n    ${{pre}}${{n}}_view_t r;\n    \
+                                 if ({vp} == NULL) {{ r.p = NULL; r.len = 0u; return r; }}\n    \
                                  r.p = {vp} + ${{off}}u;\n    r.len = {len};\n    return r;\n}}"
                             )
                         }
@@ -1218,7 +1232,7 @@ pub(crate) fn c_field(
                         ));
                         let open = format!("SW_NODISCARD static inline int {func}({param}");
                         let absent = format!("sw_fixed_bits({vp}, ${{flag}}u, 1u) {present}");
-                        let absent = format!("!({absent})");
+                        let absent = format!("{vp} == NULL || !({absent})");
                         match kind {
                             Kind::Prim(p) => format!(
                                 "/* sets *out and returns 0, or returns -1 (*out 0) when the flag says it is not there */\n{open}, {} *out) {{\n    \
@@ -1379,6 +1393,10 @@ pub(crate) fn fixed_struct(
                 ("min", quote! { #ident::MIN_LEN }),
                 ("max", quote! { #ident::ENCODED_LEN }),
             ],
+        ),
+        c_size_guard(
+            &format!("${{up}}{c_upper}_LEN"),
+            quote! { #ident::ENCODED_LEN },
         ),
         c_view_typedef(
             &c_name,
@@ -1599,7 +1617,7 @@ pub(crate) fn fixed_enum(
         ),
         c_line(
             &format!(
-                "static inline {} ${{pre}}{c_name}_tag(${{pre}}{c_name}_view_t v) {{ return {}; }}",
+                "static inline {} ${{pre}}{c_name}_tag(${{pre}}{c_name}_view_t v) {{ if (v.p == NULL) {{ return 0; }} return {}; }}",
                 tag_prim.c_ty(),
                 tag_prim.c_load("v.p")
             ),
@@ -1741,6 +1759,10 @@ pub(crate) fn fixed_enum(
             &format!("#define ${{up}}{c_upper}_{vu} ${{tag}}u\n#define ${{up}}{c_upper}_{vu}_LEN ${{len}}u"),
             &[("tag", quote! { #ident::#tag_name }), ("len", quote! { #ident::#len_name })],
         ));
+        c_variants.push(c_size_guard(
+            &format!("${{up}}{c_upper}_{vu}_LEN"),
+            quote! { #ident::#len_name },
+        ));
         if !layout.placed.is_empty() {
             let vc = format!("{c_name}_{vs}");
             c_variants.push(c_view_typedef(
@@ -1752,7 +1774,7 @@ pub(crate) fn fixed_enum(
                 &format!(
                     "/* makes *out the view of v's {} variant and returns 0, or returns -1 (*out empty) for another tag */\n\
                      SW_NODISCARD static inline int ${{pre}}{c_name}_as_{vs}(${{pre}}{c_name}_view_t v, \
-                     ${{pre}}{vc}_view_t *out) {{\n    if (${{pre}}{c_name}_tag(v) != ${{tag}}u) {{ out->p = NULL; \
+                     ${{pre}}{vc}_view_t *out) {{\n    if (v.p == NULL || ${{pre}}{c_name}_tag(v) != ${{tag}}u) {{ out->p = NULL; \
                      out->len = 0u; return -1; }}\n    out->p = v.p;\n    out->len = v.len;\n    return 0;\n}}",
                     v.ident
                 ),

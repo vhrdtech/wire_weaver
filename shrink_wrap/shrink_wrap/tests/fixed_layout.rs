@@ -455,11 +455,11 @@ fn c_header() {
         "#define T_OUTER_LEN 15u",
         "#define T_OUTER_SIGNED_OFFSET 9u",
         "#define T_OUTER_SIGNED_COUNT 2u",
-        "static inline uint32_t t_inner_id(t_inner_view_t v) { return sw_fixed_u32(v.p + 0u); }",
+        "static inline uint32_t t_inner_id(t_inner_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u32(v.p + 0u); }",
         "SW_NODISCARD static inline int t_outer_view(const uint8_t *buf, size_t len, t_outer_view_t *v) {",
         "SW_NODISCARD static inline int t_op_as_copy(t_op_view_t v, t_op_copy_view_t *out) {",
-        "static inline uint16_t t_op_copy_src(t_op_copy_view_t v) { return sw_fixed_u16(v.p + 3u); }",
-        "static inline int32_t t_bits_s(t_bits_view_t v) { return sw_fixed_sbits(v.p, 11u, 5u); }",
+        "static inline uint16_t t_op_copy_src(t_op_copy_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u16(v.p + 3u); }",
+        "static inline int32_t t_bits_s(t_bits_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_sbits(v.p, 11u, 5u); }",
         "SW_NODISCARD static inline int t_maybe_extra(t_maybe_view_t v, t_inner_view_t *out) {",
     ] {
         assert!(out.contains(line), "missing {line:?} in\n{out}");
@@ -685,4 +685,25 @@ fn c_views_check_bounds() {
     for ((got, want), case) in got.iter().zip(&want).zip(input.lines()) {
         assert_eq!(got, want, "case {case}");
     }
+}
+
+/// Longer than a 16-bit `size_t` can count: its C text refuses to build there instead of cutting the length check
+/// (SW-79).
+#[derive_shrink_wrap(borrowed, fixed_layout, derive(Clone, Copy, Debug, PartialEq))]
+struct Huge {
+    id: u8,
+    data: [u8; 70000],
+}
+
+#[test]
+fn c_huge_needs_size_t() {
+    let mut out = String::new();
+    Huge::write_c("h_", &mut out).unwrap();
+    assert!(
+        out.contains("#define H_HUGE_MIN_LEN 70001u\n#if 70001u > SIZE_MAX\n#error \"H_HUGE_LEN: longer than size_t can count on this target\"\n#endif"),
+        "{out}"
+    );
+    let mut small = String::new();
+    Inner::write_c("t_", &mut small).unwrap();
+    assert!(!small.contains("SIZE_MAX"), "{small}");
 }

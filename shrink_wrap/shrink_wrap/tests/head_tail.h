@@ -92,15 +92,15 @@ SW_NODISCARD static inline int t_wave_view(const uint8_t *buf, size_t len, t_wav
     return 0;
 }
 #define T_WAVE_LINE_OFFSET 0u
-static inline uint8_t t_wave_line(t_wave_view_t v) { return sw_fixed_u8(v.p + 0u); }
+static inline uint8_t t_wave_line(t_wave_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 0u); }
 #define T_WAVE_IDLE_BIT_OFFSET 8u
 #define T_WAVE_IDLE_BITS 1u
-static inline uint32_t t_wave_idle(t_wave_view_t v) { return sw_fixed_bits(v.p, 8u, 1u); }
+static inline uint32_t t_wave_idle(t_wave_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 8u, 1u); }
 #define T_WAVE_HOLD_BIT_OFFSET 9u
 #define T_WAVE_HOLD_BITS 1u
-static inline uint32_t t_wave_hold(t_wave_view_t v) { return sw_fixed_bits(v.p, 9u, 1u); }
+static inline uint32_t t_wave_hold(t_wave_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_bits(v.p, 9u, 1u); }
 #define T_WAVE_DELAY_OFFSET 2u
-static inline uint32_t t_wave_delay(t_wave_view_t v) { return sw_fixed_u32(v.p + 2u); }
+static inline uint32_t t_wave_delay(t_wave_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u32(v.p + 2u); }
 
 /* Slave: a head of 4 bytes, then its tail */
 #define T_SLAVE_HEAD_LEN 4u
@@ -134,12 +134,12 @@ SW_NODISCARD static inline int t_slave__walk(const uint8_t *h, const uint8_t **t
 }
 #define T_SLAVE_ON_BIT_OFFSET 0u
 #define T_SLAVE_ON_BITS 1u
-static inline uint32_t t_slave_on(const t_slave_view_t *v) { return sw_fixed_bits(v->p, 0u, 1u); }
+static inline uint32_t t_slave_on(const t_slave_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 0u, 1u); }
 #define T_SLAVE_SCL_OFFSET 1u
-static inline uint8_t t_slave_scl(const t_slave_view_t *v) { return sw_fixed_u8(v->p + 1u); }
+static inline uint8_t t_slave_scl(const t_slave_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u8(v->p + 1u); }
 #define T_SLAVE_A10_FLAG_BIT_OFFSET 16u
 #define T_SLAVE_A10_FLAG_BITS 1u
-static inline uint32_t t_slave_a10_flag(const t_slave_view_t *v) { return sw_fixed_bits(v->p, 16u, 1u); }
+static inline uint32_t t_slave_a10_flag(const t_slave_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 16u, 1u); }
 /* sets *out and returns 0, or returns -1 when it is not there */
 SW_NODISCARD static inline int t_slave_a10(const t_slave_view_t *v, uint16_t *out) {
     if (v->a10 == NULL) { *out = 0; return -1; }
@@ -148,7 +148,7 @@ SW_NODISCARD static inline int t_slave_a10(const t_slave_view_t *v, uint16_t *ou
 }
 #define T_SLAVE_PTR_FLAG_BIT_OFFSET 17u
 #define T_SLAVE_PTR_FLAG_BITS 1u
-static inline uint32_t t_slave_ptr_flag(const t_slave_view_t *v) { return sw_fixed_bits(v->p, 17u, 1u); }
+static inline uint32_t t_slave_ptr_flag(const t_slave_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 17u, 1u); }
 /* sets *out and returns 0, or returns -1 when it is not there */
 SW_NODISCARD static inline int t_slave_ptr(const t_slave_view_t *v, uint8_t *out) {
     if (v->ptr == NULL) { *out = 0; return -1; }
@@ -156,7 +156,7 @@ SW_NODISCARD static inline int t_slave_ptr(const t_slave_view_t *v, uint8_t *out
     return 0;
 }
 #define T_SLAVE_FILT_OFFSET 3u
-static inline uint8_t t_slave_filt(const t_slave_view_t *v) { return sw_fixed_u8(v->p + 3u); }
+static inline uint8_t t_slave_filt(const t_slave_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u8(v->p + 3u); }
 /* checks that the len bytes at buf start with a Slave and makes *v its view (v->len: its length); 0, or -1 (*v zeroed) when they are too short or malformed */
 SW_NODISCARD static inline int t_slave_view(const uint8_t *buf, size_t len, t_slave_view_t *v) {
     const uint8_t *t;
@@ -206,18 +206,17 @@ SW_NODISCARD static inline int t_utx__walk(const uint8_t *h, const uint8_t **t, 
     return 0;
 }
 #define T_UTX_CH_OFFSET 0u
-static inline uint8_t t_utx_ch(const t_utx_view_t *v) { return sw_fixed_u8(v->p + 0u); }
+static inline uint8_t t_utx_ch(const t_utx_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u8(v->p + 0u); }
 #define T_UTX_GLITCH_FLAG_BIT_OFFSET 8u
 #define T_UTX_GLITCH_FLAG_BITS 1u
-static inline uint32_t t_utx_glitch_flag(const t_utx_view_t *v) { return sw_fixed_bits(v->p, 8u, 1u); }
-/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there */
+static inline uint32_t t_utx_glitch_flag(const t_utx_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 8u, 1u); }
+/* sets *out to its view and returns 0, or returns -1 (*out an empty view) when it is not there */
 SW_NODISCARD static inline int t_utx_glitch(const t_utx_view_t *v, const t_wave_view_t **out) {
-    if (v->glitch.p == NULL) { *out = NULL; return -1; }
     *out = &v->glitch;
-    return 0;
+    return v->glitch.p == NULL ? -1 : 0;
 }
 #define T_UTX_PERR_OFFSET 2u
-static inline uint16_t t_utx_perr_count(const t_utx_view_t *v) { return sw_fixed_u16(v->p + 2u); }
+static inline uint16_t t_utx_perr_count(const t_utx_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u16(v->p + 2u); }
 /* item i, 0 past the end */
 static inline uint16_t t_utx_perr(const t_utx_view_t *v, size_t i) {
     if (i >= (size_t)t_utx_perr_count(v)) { return 0; }
@@ -227,11 +226,11 @@ static inline uint16_t t_utx_perr(const t_utx_view_t *v, size_t i) {
 #define T_UTX_S_OFFSET 4u
 static inline const t_slave_view_t *t_utx_s(const t_utx_view_t *v) { return &v->s; }
 #define T_UTX_NAME_OFFSET 8u
-static inline uint16_t t_utx_name_count(const t_utx_view_t *v) { return sw_fixed_u16(v->p + 8u); }
+static inline uint16_t t_utx_name_count(const t_utx_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u16(v->p + 8u); }
 static inline const uint8_t *t_utx_name(const t_utx_view_t *v) { return v->name; }
 #define T_UTX_DEFER_BIT_OFFSET 80u
 #define T_UTX_DEFER_BITS 1u
-static inline uint32_t t_utx_defer(const t_utx_view_t *v) { return sw_fixed_bits(v->p, 80u, 1u); }
+static inline uint32_t t_utx_defer(const t_utx_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 80u, 1u); }
 /* checks that the len bytes at buf start with an Utx and makes *v its view (v->len: its length); 0, or -1 (*v zeroed) when they are too short or malformed */
 SW_NODISCARD static inline int t_utx_view(const uint8_t *buf, size_t len, t_utx_view_t *v) {
     const uint8_t *t;
@@ -266,7 +265,7 @@ SW_NODISCARD static inline int t_request_stop__walk(const uint8_t *h, const uint
     return 0;
 }
 #define T_REQUEST_STOP_MASK_OFFSET 0u
-static inline uint16_t t_request_stop_mask(const t_request_stop_view_t *v) { return sw_fixed_u16(v->p + 0u); }
+static inline uint16_t t_request_stop_mask(const t_request_stop_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u16(v->p + 0u); }
 #define T_REQUEST_WAVES 2u
 #define T_REQUEST_WAVES_HEAD_LEN 3u
 /* a checked view of a Request::Waves: its head at p, len bytes in all (head and tail), and its variable parts; made by t_request_as_waves() */
@@ -287,7 +286,7 @@ SW_NODISCARD static inline int t_request_waves__walk(const uint8_t *h, const uin
     return 0;
 }
 #define T_REQUEST_WAVES_WAVES_OFFSET 0u
-static inline uint16_t t_request_waves_waves_count(const t_request_waves_view_t *v) { return sw_fixed_u16(v->p + 0u); }
+static inline uint16_t t_request_waves_waves_count(const t_request_waves_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u16(v->p + 0u); }
 /* checks item i and makes *out its view; 0, or -1 (*out empty) past the end or when it is malformed */
 SW_NODISCARD static inline int t_request_waves_waves(const t_request_waves_view_t *v, size_t i, t_wave_view_t *out) {
     if (i >= (size_t)t_request_waves_waves_count(v)) { out->p = NULL; out->len = 0u; return -1; }
@@ -295,7 +294,7 @@ SW_NODISCARD static inline int t_request_waves_waves(const t_request_waves_view_
 }
 #define T_REQUEST_WAVES_DEFER_BIT_OFFSET 16u
 #define T_REQUEST_WAVES_DEFER_BITS 1u
-static inline uint32_t t_request_waves_defer(const t_request_waves_view_t *v) { return sw_fixed_bits(v->p, 16u, 1u); }
+static inline uint32_t t_request_waves_defer(const t_request_waves_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 16u, 1u); }
 #define T_REQUEST_UTX 3u
 #define T_REQUEST_UTX_HEAD_LEN 11u
 /* a checked view of a Request::Utx: its head at p, len bytes in all (head and tail), and its variable parts; made by t_request_as_utx() */
@@ -346,7 +345,7 @@ SW_NODISCARD static inline int t_request_res__walk(const uint8_t *h, const uint8
 }
 #define T_REQUEST_RES_R_FLAG_BIT_OFFSET 0u
 #define T_REQUEST_RES_R_FLAG_BITS 1u
-static inline uint32_t t_request_res_r_flag(const t_request_res_view_t *v) { return sw_fixed_bits(v->p, 0u, 1u); }
+static inline uint32_t t_request_res_r_flag(const t_request_res_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 0u, 1u); }
 /* sets *out and returns 0, or returns -1 when it is not there */
 SW_NODISCARD static inline int t_request_res_r_ok(const t_request_res_view_t *v, uint32_t *out) {
     if (v->r_ok == NULL) { *out = 0; return -1; }
@@ -360,7 +359,7 @@ SW_NODISCARD static inline int t_request_res_r_err(const t_request_res_view_t *v
     return 0;
 }
 #define T_REQUEST_RES_TAG_OFFSET 1u
-static inline const uint8_t *t_request_res_tag(const t_request_res_view_t *v) { return v->p + 1u; }
+static inline const uint8_t *t_request_res_tag(const t_request_res_view_t *v) { return v->p == NULL ? NULL : v->p + 1u; }
 #define T_REQUEST_RES_TAG_COUNT 2u
 /* a checked view of a Request: its tag at p, len bytes in all, the view of its variant in u; made by t_request_view() or by the view of the value that holds it */
 typedef struct {
@@ -374,28 +373,32 @@ typedef struct {
         t_request_res_view_t res;
     } u;
 } t_request_view_t;
-static inline uint8_t t_request_tag(const t_request_view_t *v) { return sw_fixed_u8(v->p); }
-/* makes *out the view of v's Stop variant and returns 0, or returns -1 (*out NULL) for another tag */
+static inline uint8_t t_request_tag(const t_request_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u8(v->p); }
+/* makes *out the view of v's Stop variant and returns 0, or returns -1 (*out an empty view) for another tag */
 SW_NODISCARD static inline int t_request_as_stop(const t_request_view_t *v, const t_request_stop_view_t **out) {
-    if (t_request_tag(v) != 1u) { *out = NULL; return -1; }
+    static const t_request_stop_view_t empty;
+    if (v->p == NULL || t_request_tag(v) != 1u) { *out = &empty; return -1; }
     *out = &v->u.stop;
     return 0;
 }
-/* makes *out the view of v's Waves variant and returns 0, or returns -1 (*out NULL) for another tag */
+/* makes *out the view of v's Waves variant and returns 0, or returns -1 (*out an empty view) for another tag */
 SW_NODISCARD static inline int t_request_as_waves(const t_request_view_t *v, const t_request_waves_view_t **out) {
-    if (t_request_tag(v) != 2u) { *out = NULL; return -1; }
+    static const t_request_waves_view_t empty;
+    if (v->p == NULL || t_request_tag(v) != 2u) { *out = &empty; return -1; }
     *out = &v->u.waves;
     return 0;
 }
-/* makes *out the view of v's Utx variant and returns 0, or returns -1 (*out NULL) for another tag */
+/* makes *out the view of v's Utx variant and returns 0, or returns -1 (*out an empty view) for another tag */
 SW_NODISCARD static inline int t_request_as_utx(const t_request_view_t *v, const t_request_utx_view_t **out) {
-    if (t_request_tag(v) != 3u) { *out = NULL; return -1; }
+    static const t_request_utx_view_t empty;
+    if (v->p == NULL || t_request_tag(v) != 3u) { *out = &empty; return -1; }
     *out = &v->u.utx;
     return 0;
 }
-/* makes *out the view of v's Res variant and returns 0, or returns -1 (*out NULL) for another tag */
+/* makes *out the view of v's Res variant and returns 0, or returns -1 (*out an empty view) for another tag */
 SW_NODISCARD static inline int t_request_as_res(const t_request_view_t *v, const t_request_res_view_t **out) {
-    if (t_request_tag(v) != 4u) { *out = NULL; return -1; }
+    static const t_request_res_view_t empty;
+    if (v->p == NULL || t_request_tag(v) != 4u) { *out = &empty; return -1; }
     *out = &v->u.res;
     return 0;
 }
@@ -458,7 +461,7 @@ SW_NODISCARD static inline int t_request_view(const uint8_t *buf, size_t len, t_
 #define T_PIN_TAG_LEN 1u
 /* a checked view of a Pin: made by t_pin_view(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_pin_view_t;
-static inline uint8_t t_pin_tag(t_pin_view_t v) { return sw_fixed_u8(v.p); }
+static inline uint8_t t_pin_tag(t_pin_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p); }
 /* checks that the len bytes at buf start with a Pin of a known tag and makes *v its view (v->len: its length); 0, or -1 (*v empty) when they are too short or malformed */
 SW_NODISCARD static inline int t_pin_view(const uint8_t *buf, size_t len, t_pin_view_t *v) {
     size_t n;
@@ -487,26 +490,26 @@ SW_NODISCARD static inline int t_pin_view(const uint8_t *buf, size_t len, t_pin_
 typedef struct { const uint8_t *p; size_t len; } t_pin_low_view_t;
 /* makes *out the view of v's Low variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_pin_as_low(t_pin_view_t v, t_pin_low_view_t *out) {
-    if (t_pin_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_pin_tag(v) != 1u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_PIN_LOW_0_OFFSET 1u
-static inline uint8_t t_pin_low_0(t_pin_low_view_t v) { return sw_fixed_u8(v.p + 1u); }
+static inline uint8_t t_pin_low_0(t_pin_low_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 1u); }
 #define T_PIN_HIGH 2u
 #define T_PIN_HIGH_LEN 2u
 /* a checked view of a Pin::High: made by t_pin_as_high(), the only way to read one; len bytes at p */
 typedef struct { const uint8_t *p; size_t len; } t_pin_high_view_t;
 /* makes *out the view of v's High variant and returns 0, or returns -1 (*out empty) for another tag */
 SW_NODISCARD static inline int t_pin_as_high(t_pin_view_t v, t_pin_high_view_t *out) {
-    if (t_pin_tag(v) != 2u) { out->p = NULL; out->len = 0u; return -1; }
+    if (v.p == NULL || t_pin_tag(v) != 2u) { out->p = NULL; out->len = 0u; return -1; }
     out->p = v.p;
     out->len = v.len;
     return 0;
 }
 #define T_PIN_HIGH_0_OFFSET 1u
-static inline uint8_t t_pin_high_0(t_pin_high_view_t v) { return sw_fixed_u8(v.p + 1u); }
+static inline uint8_t t_pin_high_0(t_pin_high_view_t v) { if (v.p == NULL) { return 0; } return sw_fixed_u8(v.p + 1u); }
 
 /* Mixed: a head of 8 bytes, then its tail */
 #define T_MIXED_HEAD_LEN 8u
@@ -570,21 +573,19 @@ SW_NODISCARD static inline int t_mixed__walk(const uint8_t *h, const uint8_t **t
 static inline const t_pin_view_t *t_mixed_pin(const t_mixed_view_t *v) { return &v->pin; }
 #define T_MIXED_SLAVE_FLAG_BIT_OFFSET 16u
 #define T_MIXED_SLAVE_FLAG_BITS 1u
-static inline uint32_t t_mixed_slave_flag(const t_mixed_view_t *v) { return sw_fixed_bits(v->p, 16u, 1u); }
-/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there */
+static inline uint32_t t_mixed_slave_flag(const t_mixed_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 16u, 1u); }
+/* sets *out to its view and returns 0, or returns -1 (*out an empty view) when it is not there */
 SW_NODISCARD static inline int t_mixed_slave(const t_mixed_view_t *v, const t_slave_view_t **out) {
-    if (v->slave.p == NULL) { *out = NULL; return -1; }
     *out = &v->slave;
-    return 0;
+    return v->slave.p == NULL ? -1 : 0;
 }
 #define T_MIXED_R_FLAG_BIT_OFFSET 17u
 #define T_MIXED_R_FLAG_BITS 1u
-static inline uint32_t t_mixed_r_flag(const t_mixed_view_t *v) { return sw_fixed_bits(v->p, 17u, 1u); }
-/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there */
+static inline uint32_t t_mixed_r_flag(const t_mixed_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 17u, 1u); }
+/* sets *out to its view and returns 0, or returns -1 (*out an empty view) when it is not there */
 SW_NODISCARD static inline int t_mixed_r_ok(const t_mixed_view_t *v, const t_wave_view_t **out) {
-    if (v->r_ok.p == NULL) { *out = NULL; return -1; }
     *out = &v->r_ok;
-    return 0;
+    return v->r_ok.p == NULL ? -1 : 0;
 }
 /* sets *out and returns 0, or returns -1 when it is not there */
 SW_NODISCARD static inline int t_mixed_r_err(const t_mixed_view_t *v, uint16_t *out) {
@@ -593,18 +594,18 @@ SW_NODISCARD static inline int t_mixed_r_err(const t_mixed_view_t *v, uint16_t *
     return 0;
 }
 #define T_MIXED_PINS_OFFSET 3u
-static inline uint16_t t_mixed_pins_count(const t_mixed_view_t *v) { return sw_fixed_u16(v->p + 3u); }
+static inline uint16_t t_mixed_pins_count(const t_mixed_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u16(v->p + 3u); }
 /* checks item i and makes *out its view; 0, or -1 (*out empty) past the end or when it is malformed */
 SW_NODISCARD static inline int t_mixed_pins(const t_mixed_view_t *v, size_t i, t_pin_view_t *out) {
     if (i >= (size_t)t_mixed_pins_count(v)) { out->p = NULL; out->len = 0u; return -1; }
     return t_pin_view(v->pins + 2u * i, 2u, out);
 }
 #define T_MIXED_RAW_OFFSET 5u
-static inline uint16_t t_mixed_raw_count(const t_mixed_view_t *v) { return sw_fixed_u16(v->p + 5u); }
+static inline uint16_t t_mixed_raw_count(const t_mixed_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_u16(v->p + 5u); }
 static inline const uint8_t *t_mixed_raw(const t_mixed_view_t *v) { return v->raw; }
 #define T_MIXED_WORDS_FLAG_BIT_OFFSET 56u
 #define T_MIXED_WORDS_FLAG_BITS 1u
-static inline uint32_t t_mixed_words_flag(const t_mixed_view_t *v) { return sw_fixed_bits(v->p, 56u, 1u); }
+static inline uint32_t t_mixed_words_flag(const t_mixed_view_t *v) { if (v->p == NULL) { return 0; } return sw_fixed_bits(v->p, 56u, 1u); }
 /* sets *out to item i and returns 0, or returns -1 (*out 0) when it is not there or i is past the end */
 SW_NODISCARD static inline int t_mixed_words(const t_mixed_view_t *v, size_t i, uint16_t *out) {
     if (v->words == NULL || i >= 2u) { *out = 0; return -1; }

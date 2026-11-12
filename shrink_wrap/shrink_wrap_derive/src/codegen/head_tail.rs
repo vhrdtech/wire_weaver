@@ -11,7 +11,7 @@ use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::repr::Repr;
 use crate::ast::ty::{ArrayLen, Type};
 use crate::codegen::fixed_layout::{
-    At, Bits, CExtra, CView, Item, Kind, Prim, article, c_field, c_line, c_name_of,
+    At, Bits, CExtra, CView, Item, Kind, Prim, article, c_field, c_line, c_name_of, c_size_guard,
     classify as fixed_classify, flag_local, lit, lit_str, local, read_simple, repr_bytes, snake,
     struct_items, unraw, variant_items, write_simple,
 };
@@ -678,7 +678,7 @@ fn c_view(
                 readers.push(c_line(
                     &format!(
                         "#define ${{up}}{upper}_{fu}_OFFSET ${{off}}u\n\
-                         static inline uint16_t {func}_count({param}) {{ return sw_fixed_u16(v->p + ${{off}}u); }}"
+                         static inline uint16_t {func}_count({param}) {{ if (v->p == NULL) {{ return 0; }} return sw_fixed_u16(v->p + ${{off}}u); }}"
                     ),
                     &[("off", off.clone())],
                 ));
@@ -767,12 +767,16 @@ fn c_view(
                             let close = c_line("        }", &[]);
                             quote! { #open #w #close }
                         }
-                        other => c_line(
-                            &format!(
-                                "        v->{m} = sw_ht_take(t, end, ${{len}}u);\n        if (v->{m} == NULL) {{ return -1; }}"
-                            ),
-                            &[("len", c_payload_len(other))],
-                        ),
+                        other => {
+                            let guard = c_size_guard(&format!("{vc}_{m}"), c_payload_len(other));
+                            let take = c_line(
+                                &format!(
+                                    "        v->{m} = sw_ht_take(t, end, ${{len}}u);\n        if (v->{m} == NULL) {{ return -1; }}"
+                                ),
+                                &[("len", c_payload_len(other))],
+                            );
+                            quote! { #guard #take }
+                        }
                     }
                 };
                 let absent = |m: &str, pl: &Payload| match pl {
@@ -831,9 +835,9 @@ fn c_view(
                         ),
                         Payload::Nested(_, ty) => (
                             format!(
-                                "/* sets *out to its view and returns 0, or returns -1 (*out NULL) when it is not there \
-                                 */\n{open}, const ${{pre}}${{n}}_view_t **out) {{\n    \
-                                 if (v->{m}.p == NULL) {{ *out = NULL; return -1; }}\n    *out = &v->{m};\n    return 0;\n}}"
+                                "/* sets *out to its view and returns 0, or returns -1 (*out an empty view) when it is not \
+                                 there */\n{open}, const ${{pre}}${{n}}_view_t **out) {{\n    \
+                                 *out = &v->{m};\n    return v->{m}.p == NULL ? -1 : 0;\n}}"
                             ),
                             nested(ty),
                         ),
@@ -1031,6 +1035,10 @@ pub(crate) fn ht_struct(
         ),
         &[("hl", quote! { <#ty_s>::HEAD_LEN })],
     )];
+    c_text.push(c_size_guard(
+        &format!("${{up}}{c_upper}_HEAD_LEN"),
+        quote! { <#ty_s>::HEAD_LEN },
+    ));
     c_text.extend(c_view(
         &ty_s,
         "",
@@ -1308,6 +1316,10 @@ pub(crate) fn ht_enum(
             ),
             &[tag_arg.clone(), hl_arg.clone()],
         )];
+        v_text.push(c_size_guard(
+            &format!("${{up}}{c_upper}_{vu}_HEAD_LEN"),
+            quote! { <#ty_s>::#head_name },
+        ));
         let mut case = vec![c_line("    case ${tag}u:", std::slice::from_ref(&tag_arg))];
         if head.placed.is_empty() {
             case.push(c_line(
@@ -1328,9 +1340,10 @@ pub(crate) fn ht_enum(
             c_members.push(quote! { #cfg #member });
             let as_fn = c_line(
                 &format!(
-                    "/* makes *out the view of v's {} variant and returns 0, or returns -1 (*out NULL) for another \
-                     tag */\nSW_NODISCARD static inline int ${{pre}}{c_name}_as_{vs}(const ${{pre}}{c_name}_view_t *v, \
-                     const ${{pre}}{vc}_view_t **out) {{\n    if (${{pre}}{c_name}_tag(v) != ${{tag}}u) {{ *out = NULL; \
+                    "/* makes *out the view of v's {} variant and returns 0, or returns -1 (*out an empty view) for \
+                     another tag */\nSW_NODISCARD static inline int ${{pre}}{c_name}_as_{vs}(const ${{pre}}{c_name}_view_t *v, \
+                     const ${{pre}}{vc}_view_t **out) {{\n    static const ${{pre}}{vc}_view_t empty;\n    \
+                     if (v->p == NULL || ${{pre}}{c_name}_tag(v) != ${{tag}}u) {{ *out = &empty; \
                      return -1; }}\n    *out = &v->u.{vs};\n    return 0;\n}}",
                     v.ident
                 ),
@@ -1370,7 +1383,7 @@ pub(crate) fn ht_enum(
     let c_struct_close = c_line(
         &format!(
             "    }} u;\n}} ${{pre}}{c_name}_view_t;\nstatic inline {} ${{pre}}{c_name}_tag(const ${{pre}}{c_name}_view_t *v) \
-             {{ return {}; }}",
+             {{ if (v->p == NULL) {{ return 0; }} return {}; }}",
             tag_prim.c_ty(),
             tag_prim.c_load("v->p")
         ),

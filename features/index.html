@@ -8781,7 +8781,7 @@ observing), SRV-46 (peer identity).
   <code>Common(InUse)</code> or <code>Refused { rule }</code>. Done: crate, docs page <code>docs/std_library/ww_pin_diag.md</code>, test pair
   <code>tests/pin_diag</code> (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot;
   the host tests and plan files are TOOL-15 (<code>ww pins test</code>). Missing: a device implementing it (rePort).</li>
-<li>🚧 <strong>STD-48 <code>ww_interned</code> strings as ids</strong> · <code>v0.5.x</code> — <code>Interned { Id(UNib32), Text(&amp;str) }</code> for names and reasons;
+<li>🚧 <strong>STD-48 <code>ww_interned</code> strings as ids</strong> · <code>v0.5.x</code> — <code>Interned { Id(Index&lt;InternedStr, UNib32&gt;), Text(&amp;str) }</code> for names and reasons;
   ids resolved on the host from the firmware's ELF by build id. Done: the type, <code>Display</code> (<code>#17</code> for an unresolved
   id), <code>ww pins</code> finds the ELF by build id (<code>ww_pin_probe::device::Names</code>). Missing: an accessor for
   <code>defmt::Str</code>'s index (upstream, <code>Table::get_str</code>), reading the ids from the ELF's table with it.</li>

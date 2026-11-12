@@ -5948,7 +5948,7 @@ An API crate nests them as one <code>#[common] Common(CommonError)</code> varian
 <td>The device knows the call, and can't do what was asked.</td>
 </tr>
 <tr>
-<td><code>InvalidArgument { arg: u8, reason }</code></td>
+<td><code>InvalidArgument { arg: ww_si::Index&lt;ww_si::units::Argument, u8&gt;, reason }</code></td>
 <td>Argument number {arg} is invalid: {reason}.</td>
 <td><code>arg</code> counts from 0.</td>
 </tr>

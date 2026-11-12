@@ -2873,6 +2873,11 @@
       "result": -9223372036854775808
     }
   ],
+  "signatures": [
+    {"name": "signature.struct.docs", "definition": "type Signed", "shape": "7f0a980582914d0b", "with_docs": "9dbe71ee06aa30b1", "note": "docs on the struct, a field and its enum's variant: the two signatures differ"},
+    {"name": "signature.enum.docs", "definition": "type SignedLevel", "shape": "b6ebb6bb2dc8bfda", "with_docs": "98026ae936f1fc16"},
+    {"name": "signature.struct.no_docs", "definition": "type Unsigned", "shape": "3875e6573d917a6f", "with_docs": "3875e6573d917a6f", "note": "no docs anywhere: the signature with docs is the shape signature"}
+  ],
   "withdrawn": [
     {"name": "client_server.error.refused", "reason": "SRV-50 / the call gate was removed before any release (the rework guard refuses to boot instead); ErrorKind::Refused went with it"},
     {"name": "stdlib.si.dim.root.rejected", "reason": "EVO-44 / a Dim has no root flag any more (exact_units UNIT-10): an exponent counts halves, so a root flag on whole exponents can't be written"}

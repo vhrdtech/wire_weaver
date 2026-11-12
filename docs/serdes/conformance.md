@@ -128,6 +128,26 @@ Python runs every case through `ww.requantize` (the factor as the model gives it
 on the host from the same `Magnitude`, as a code generator would, emits them into one C program for all cases, and
 compiles and runs it.
 
+## A signature case
+
+The `signatures` list seals the two signatures of a definition (EVO-69, [`ww_self`](../std_library/ww_self.md#signatures-and-putting-skipped-definitions-back)):
+the shape signature, without docs, and the signature with docs. A device leaves a definition its host already knows
+out of its introspection data and names it by them, and snapshots name their dependencies the same way, so they are
+as much a part of the wire as golden bytes. Only `ww_self::signature` calculates them; every consumer goes through it.
+
+```json
+{"name": "signature.struct.docs", "definition": "type Signed", "shape": "7f0a980582914d0b", "with_docs": "9dbe71ee06aa30b1"}
+```
+
+- `definition`: `type Name` or `trait Name` in the API model of `tests/conformance_api`, loaded from source. The
+  types of these cases are defined there for this alone: their names, fields and doc comments never change.
+- `shape`, `with_docs`: hex. A new case has `"?"`; the `signatures` test prints both values to fill in.
+- `note` and `wire_change` as for a case.
+
+Besides the sealed values, each case checks how the two signatures relate: the definition with its docs cleared
+has the same shape signature, and then its signature with docs is that shape signature; a reference is the shape
+signature followed by the signature with docs; an 8-byte reference matches by either.
+
 ## Frozen golden bytes
 
 Once a case's `bytes` are in, they are the contract: nothing should change them, remove the case, or change its
@@ -165,6 +185,8 @@ that doesn't resolve), or without the corpus existing yet at that commit (introd
 as a whole), the test prints why and passes rather than failing a check it can't actually run. CI's `test` and
 `coverage` jobs fetch full history (`fetch-depth: 0`) so the check means something there; a shallower checkout
 elsewhere only loses the check, not correctness.
+
+The guard seals a requantize case's `result` and a signature case's `shape` and `with_docs` the same way.
 
 A deliberate wire break is still possible: mark the changed case with `"wire_change": "EVO-n / reason"`, which the
 guard accepts once — only when the mark is new or its text changed since the baseline. A case whose mark is

@@ -18,6 +18,9 @@ pub struct Corpus {
     /// Conversions of a stored number to another scale and storage (STD-63), checked by [crate::requantize].
     #[serde(default)]
     pub requantize: Vec<RequantizeCase>,
+    /// Signatures of definitions (EVO-69), checked by [crate::signature].
+    #[serde(default)]
+    pub signatures: Vec<SignatureCase>,
     /// Cases removed together with the wire feature they covered, before it reached a release: the frozen golden
     /// bytes guard (TEST-24) lets a sealed case disappear only when it is named here. Its name stays taken.
     #[serde(default)]
@@ -69,6 +72,27 @@ impl RequantizeCase {
     pub fn gap(&self, consumer: &str) -> Option<&str> {
         self.gaps.get(consumer).map(String::as_str)
     }
+}
+
+/// The two signatures of a definition of `conformance_api` (EVO-69): what a `Skipped*` location of the API model
+/// holds, so devices, hosts and snapshots name it by the same bytes. Only `ww_self` calculates them, every consumer
+/// goes through it.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignatureCase {
+    /// Unique among the signature cases, `signature.what`.
+    pub name: String,
+    /// `type Name` or `trait Name`: the definition in the API model of `conformance_api`.
+    pub definition: String,
+    /// The shape signature as hex, `?` until the test prints it.
+    pub shape: String,
+    /// The signature with docs as hex, `?` until the test prints it.
+    pub with_docs: String,
+    #[serde(default)]
+    pub note: Option<String>,
+    /// A deliberate change of `shape` or `with_docs` (TEST-24): `"EVO-n / reason"`, as `wire_change` of a case.
+    #[serde(default)]
+    pub wire_change: Option<String>,
 }
 
 /// The consumers a requantize case goes through: the explainer shows bytes, it converts nothing.

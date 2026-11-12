@@ -173,6 +173,9 @@ trait Conformance {
     // the API model's own definitions of units and scales (INT-13), as a device sends them in its introspection data
     property!(rw marker_def: ww_self::MarkerDef<'i>);
     property!(rw item_struct_extra: ww_self::ItemStructExtra<'i>);
+    // definitions whose signatures corpus.json seals (EVO-69)
+    property!(rw signed: Signed);
+    property!(rw unsigned: Unsigned);
     // method arguments (EVO-22), the fields of an Unsized args struct: a case's value is an object of arguments
     fn args_one(a: u8);
     fn args_plain(a: u8, b: u16);
@@ -712,6 +715,32 @@ pub struct WrappedSample {
 pub struct PlainSample {
     pub t: u64,
     pub volts: f32,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// signatures (EVO-69): corpus.json's `signatures` seal both signatures of these, so their doc comments, names and
+// fields never change
+
+/// A definition with docs on itself, its field and its enum's variants: its shape signature and its signature with
+/// docs differ.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Signed {
+    /// A field's doc comment.
+    pub level: SignedLevel,
+    pub raw: u16,
+}
+
+/// The level of [Signed].
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy), ww_repr = nib)]
+pub enum SignedLevel {
+    /// A variant's doc comment.
+    Off,
+    On(u8),
+}
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Unsigned {
+    pub raw: u16,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

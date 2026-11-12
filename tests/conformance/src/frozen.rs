@@ -61,6 +61,8 @@ pub struct LenientCorpus {
     pub cases: Vec<LenientCase>,
     #[serde(default)]
     pub requantize: Vec<LenientRequantize>,
+    #[serde(default)]
+    pub signatures: Vec<LenientSignature>,
 }
 
 /// A requantize case (STD-63) of a past commit: its result is as frozen as a case's golden bytes.
@@ -69,6 +71,18 @@ pub struct LenientRequantize {
     pub name: String,
     #[serde(default)]
     pub result: serde_json::Value,
+    #[serde(default)]
+    pub wire_change: Option<String>,
+}
+
+/// A signature case (EVO-69) of a past commit: both signatures are as frozen as a case's golden bytes.
+#[derive(Debug, Deserialize)]
+pub struct LenientSignature {
+    pub name: String,
+    #[serde(default)]
+    pub shape: String,
+    #[serde(default)]
+    pub with_docs: String,
     #[serde(default)]
     pub wire_change: Option<String>,
 }
@@ -264,6 +278,27 @@ pub fn check(old: &LenientCorpus, now: &Corpus, sha: &str) -> Vec<String> {
             ));
         }
     }
+    for was in &old.signatures {
+        let Some(is) = now.signatures.iter().find(|c| c.name == was.name) else {
+            failures.push(format!(
+                "signature case '{}' existed at {sha} (baseline) and is gone now: cases don't disappear once in",
+                was.name
+            ));
+            continue;
+        };
+        let fresh_escape = is
+            .wire_change
+            .as_deref()
+            .is_some_and(|w| Some(w) != was.wire_change.as_deref());
+        if (is.shape != was.shape || is.with_docs != was.with_docs) && !fresh_escape {
+            failures.push(format!(
+                "signature case '{}': signatures changed since {sha} (baseline): old {} / {}, new {} / {}. \
+                 Devices and snapshots name definitions by them; mark it \"wire_change\": \"EVO-n / reason\" (new \
+                 or changed) with a **Breaking:** CHANGELOG entry if this is deliberate",
+                was.name, was.shape, was.with_docs, is.shape, is.with_docs
+            ));
+        }
+    }
     failures
 }
 
@@ -304,12 +339,14 @@ mod tests {
     fn changed_bytes_fail() {
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("x", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", None)],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
@@ -321,27 +358,69 @@ mod tests {
     fn unchanged_bytes_pass() {
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("x", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "00", None)],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
 
     #[test]
+    fn changed_signature_fails_unless_marked() {
+        let old = LenientCorpus {
+            cases: vec![],
+            requantize: vec![],
+            signatures: vec![LenientSignature {
+                name: "signature.x".into(),
+                shape: "00".into(),
+                with_docs: "01".into(),
+                wire_change: None,
+            }],
+        };
+        let signature = |with_docs: &str, wire_change: Option<&str>| crate::corpus::SignatureCase {
+            name: "signature.x".into(),
+            definition: "type X".into(),
+            shape: "00".into(),
+            with_docs: with_docs.into(),
+            note: None,
+            wire_change: wire_change.map(String::from),
+        };
+        let mut now = Corpus {
+            about: vec![],
+            cases: vec![],
+            requantize: vec![],
+            signatures: vec![signature("01", None)],
+            withdrawn: vec![],
+        };
+        assert!(check(&old, &now, "deadbeef").is_empty());
+        now.signatures = vec![signature("02", None)];
+        let failures = check(&old, &now, "deadbeef");
+        assert_eq!(failures.len(), 1, "{failures:?}");
+        assert!(failures[0].contains("signatures changed"));
+        now.signatures = vec![signature("02", Some("EVO-1 / reason"))];
+        assert!(check(&old, &now, "deadbeef").is_empty());
+        now.signatures = vec![];
+        assert!(check(&old, &now, "deadbeef")[0].contains("is gone now"));
+    }
+
+    #[test]
     fn disappeared_case_fails() {
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("gone", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
@@ -353,6 +432,7 @@ mod tests {
     fn withdrawn_case_passes_and_keeps_its_name() {
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("gone", "00", None)],
         };
         let withdrawn = |reason: &str| crate::corpus::Withdrawn {
@@ -363,6 +443,7 @@ mod tests {
             about: vec![],
             cases: vec![],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![withdrawn("SRV-1 / removed before any release")],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
@@ -381,12 +462,14 @@ mod tests {
         // change behind the same mark must not be exempt a second time.
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("x", "00", Some("EVO-1 / first change"))],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", Some("EVO-1 / first change"))],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
@@ -398,12 +481,14 @@ mod tests {
     fn new_wire_change_passes() {
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("x", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", Some("EVO-2 / deliberate"))],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
@@ -414,12 +499,14 @@ mod tests {
         // a second, different deliberate change: a changed reason counts as fresh, same as a new one.
         let old = LenientCorpus {
             requantize: vec![],
+            signatures: vec![],
             cases: vec![lenient("x", "ff", Some("EVO-2 / first change"))],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "00", Some("EVO-3 / second change"))],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
@@ -441,6 +528,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "ff", None)],
             requantize: vec![],
+            signatures: vec![],
             withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");

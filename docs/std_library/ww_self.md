@@ -93,29 +93,48 @@ model without generated code:
 
 ## Signatures, and putting skipped definitions back
 
-`ww_self::signature` computes a signature for a trait or type: a truncated SHA-256 (`SIGNATURE_LEN`, 8 bytes) of a
-*canonical* bundle holding just that definition and everything it refers to, in-line, with indices renumbered in
-the order of first use - so the signature depends only on the definition, not on where it sat in the original
-bundle or what else was alongside it. `trait_signature`/`type_signature` take a `Resolve` callback to look up
-`Skipped*` definitions (e.g. from a crate's published [snapshot](../evolution/checker_tool.md)) along the way.
+`ww_self::signature` computes two signatures for a trait or type (EVO-69), each a truncated SHA-256
+(`SIGNATURE_LEN`, 8 bytes) of a *canonical* bundle holding just that definition and everything it refers to, in-line,
+with indices renumbered in the order of first use, so neither depends on where the definition sat in the original
+bundle or what else was alongside it:
 
-`ww_self::inline::inline_skipped` uses the same signatures to put `Skipped*` locations back: it resolves each one,
-checks its signature matches what was stored, and replaces it in place (appending whatever the restored
-definition itself refers to). Anything not found, or found with a different signature, comes back as a
-`NotInlined` (kind, crate/version if known, name, reason) instead of being substituted silently.
+- the **shape signature**, with every doc comment left out: the definition's identity (its names, fields and wire
+  shape). Devices, hosts, snapshots and the evolution checker match definitions by it, so a doc fix changes no
+  identity;
+- the **signature with docs**, over the same bundle with its docs: under the same shape it differs exactly when some
+  doc comment differs. Before EVO-69 it was the only signature, so a reference saved then holds it.
 
-A signature is an honest description of the definition a device was built with, docs included: a crate version
-that is not published yet changes under the same version, and so does a signature when the `ww_self` model gets a
-field. A device built from another revision than the host then sends a signature the host's snapshot doesn't have.
+`trait_signatures`/`type_signatures` return both (`Signatures { shape, with_docs }`) and take a `Resolve` callback
+to look up `Skipped*` definitions (e.g. from a crate's published [snapshot](../evolution/checker_tool.md)) along the
+way. A `Skipped*` location stores a *reference*, `Signatures::reference`: the shape signature followed by the
+signature with docs (16 bytes) in snapshots and in introspection data with docs, the shape signature alone (8 bytes)
+in introspection data without docs (`drop_docs` cuts them). `Signatures::matches` tells how a reference relates to a
+definition: `Exact`, `DocsDiffer` (same shape, other docs), `Shape` (an 8-byte shape signature, no docs to compare)
+or `No`. An 8-byte reference equal to the signature with docs is `Exact`: that is one saved before EVO-69. The
+conformance corpus seals the signatures of a few definitions ([signature cases](../serdes/conformance.md#a-signature-case)).
+
+`ww_self::inline::inline_skipped` uses them to put `Skipped*` locations back: it resolves each one, checks that the
+definition found has the shape the reference names, and replaces it in place (appending whatever the restored
+definition itself refers to). Anything not found, or found with another shape, comes back as a `NotInlined` (kind,
+crate/version if known, name, reason) instead of being substituted silently. One found with the same shape and
+other docs is put back and listed in `Inlined::docs_differ`: a client shows that the device's documentation differs
+from the host's, never an error.
+
+A shape signature is an honest description of the definition a device was built with: a crate version that is not
+published yet changes under the same version, and so does a signature when the `ww_self` model gets a field. A
+device built from another revision than the host then sends a signature the host's snapshot doesn't have.
 
 ### The definition cache
 
 For that case, codegen keeps every definition it leaves out of a device's introspection data in
-`~/.wire_weaver/definitions/` on the machine it builds on: the canonical bundle's bytes as they were hashed, in a file
-named after crate, version, kind, name and signature (`ww_si-0_1_0-type-Volt-049a2a94f6d68bb5.ww`). A host
+`~/.wire_weaver/definitions/` on the machine it builds on: the canonical bundle's bytes with docs, in a file named
+after crate, version, kind, name and shape signature (`ww_si-0_1_0-type-Volt-049a2a94f6d68bb5.ww`); a build with
+other docs of the same shape overwrites it, the newest docs win. An entry written before EVO-69 is named by its
+signature with docs and is still found: the lookup computes both signatures of the entries of that crate, version,
+kind and name. A host
 (`wire_weaver_client`, the `ww` CLI, Python's `connect()`) that doesn't find a skipped definition in its snapshots
 under its signature looks it up there with `ww_self::inline::inline_skipped_or_cached`, which checks the bytes against
-the signature before using them, so an entry written by an older `ww_self` still reads. The definition is put back
+the reference before using them, so an entry written by an older `ww_self` still reads. The definition is put back
 in-line and the API check then compares it with the host's by the [evolution rules](../evolution/rules.md), with a
 warning that the device has another revision of it:
 
@@ -131,8 +150,9 @@ device's firmware once on the host's machine so that its definitions get into th
 bytes each and are never changed; deleting the directory only loses the ability to talk to such devices.
 
 The embedded snapshots keep such definitions too (EVO-68): when `ww api save` refreshes the snapshot of a version not
-published in place, each definition of the crate's own whose signature changes is kept in the same format, in
-`api_snapshots/superseded/`, and `wire_weaver_snapshots::superseded` finds it by signature. A host looks there before
+published in place, each definition of the crate's own whose signature with docs changes is kept in the same format,
+in `api_snapshots/superseded/`, and `wire_weaver_snapshots::superseded` finds it by either signature. A refresh that
+happened before is made up for with `ww api keep-superseded`, from the earlier snapshot in git history. A host looks there before
 the cache (`inline_skipped_or_cached`), so a device built before the refresh is understood on any machine;
 `ww_self::inline::inline_skipped_by_signature` takes any such lookup. See
 [superseded definitions](../evolution/checker_tool.md#superseded-definitions-evo-68).

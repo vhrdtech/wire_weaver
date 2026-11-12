@@ -368,6 +368,16 @@ A stored number converted to another scale and storage with a named rounding and
 | `requantize.degree_to_radian_i64.past_top.saturate` | m° i64 -> urad i64 | 2000000000000000000 | nearest_even | saturate | 9223372036854775807 | ✅ | ✅ | ✅ | ✅ |
 | `requantize.degree_to_radian_i64.past_bottom.saturate` | m° i64 -> urad i64 | -2000000000000000000 | floor | saturate | -9223372036854775808 | ✅ | ✅ | ✅ | ✅ |
 
+## Signatures
+
+The shape signature and the signature with docs of a definition (EVO-69), by which a device leaves it out of its introspection data and a host or snapshot finds it again. Only `ww_self` calculates them.
+
+| Case | Definition | Shape | With docs |
+|---|---|---|---|
+| `signature.struct.docs` | `type Signed` | `7f0a980582914d0b` | `9dbe71ee06aa30b1` |
+| `signature.enum.docs` | `type SignedLevel` | `b6ebb6bb2dc8bfda` | `98026ae936f1fc16` |
+| `signature.struct.no_docs` | `type Unsigned` | `3875e6573d917a6f` | `3875e6573d917a6f` |
+
 ## Gaps
 
 - **c**: no Op::INib32 in the C runtime yet, only UNib32 (SW-75). 4 cases: `inib32.one_nibble`, `inib32.two_nibbles`, `inib32.min`, `inib32.max`.

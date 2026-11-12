@@ -85,6 +85,25 @@ fn requantize_corpus() {
     }
 }
 
+/// The signature cases (EVO-69): unique names, both signatures as `ww_self` calculates them.
+#[test]
+fn signatures() {
+    let corpus = corpus::load();
+    let mut names = BTreeSet::new();
+    let mut failures = vec![];
+    for case in &corpus.signatures {
+        assert!(
+            names.insert(case.name.as_str()),
+            "signature case '{}' twice",
+            case.name
+        );
+        if let Err(e) = conformance::signature::check(case) {
+            failures.push(format!("signature case '{}': {e}", case.name));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 #[test]
 fn requantize_derive() {
     conformance::run_requantize("derive", conformance::requantize::derive);

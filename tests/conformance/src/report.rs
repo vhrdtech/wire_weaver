@@ -113,6 +113,21 @@ pub fn render(corpus: &Corpus) -> String {
             );
         }
     }
+    if !corpus.signatures.is_empty() {
+        let _ = writeln!(
+            out,
+            "\n## Signatures\n\nThe shape signature and the signature with docs of a definition (EVO-69), by which a \
+             device leaves it out of its introspection data and a host or snapshot finds it again. Only `ww_self` \
+             calculates them.\n\n| Case | Definition | Shape | With docs |\n|---|---|---|---|"
+        );
+        for case in &corpus.signatures {
+            let _ = writeln!(
+                out,
+                "| `{}` | `{}` | `{}` | `{}` |",
+                case.name, case.definition, case.shape, case.with_docs
+            );
+        }
+    }
     // every reason once, with its cases
     let mut reasons: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
     let gaps = corpus

@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0e99e064a3ff009f499cd9ba35188ecb08231c64f91ed645635dcbf866c3c668
+// shrink_wrap sha256: 9fe7b230859f8a85509fd9303de1d60cc49f70b2c51ac0f9dfb54d7f73085840
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -278,14 +278,14 @@
         16,
         110,
         133,
-        220,
-        51,
-        104,
-        58,
-        17,
-        177,
-        188,
+        92,
+        88,
         173,
+        196,
+        231,
+        38,
+        159,
+        89,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Where a paged `OneWire::search` left off: the classic Dallas/Maxim search state, carried from one page to the",

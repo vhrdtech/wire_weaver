@@ -104,7 +104,7 @@
 use wire_weaver::prelude::*;
 use ww_si::exact_units::niche::{Niched, Null};
 use ww_si::prefix::One;
-use ww_si::units::{Block, Byte, Chunk, Item, Step};
+use ww_si::units::{Block, Byte, Chunk, Request, Step};
 use ww_si::{Bytes, Count, Fixed, Index, Range};
 
 /// Largest data payload of one `Stage::write` call or one [PlanSegment], in bytes, for every node.
@@ -781,10 +781,9 @@ pub struct StageLimits {
     /// Largest data payload in one `Stage::write` or [PlanSegment], 1 to [MAX_PIECE_LEN] bytes (the bound says
     /// 1024, [MAX_PIECE_LEN]'s value). Chosen to fit the node's receive buffer.
     pub max_piece: Fixed<Byte, One, u16, Range<1, 1024>>,
-    /// How many step calls the host may have outstanding at once, at least 1.
-    // TODO(eu-markers-2): a counted marker for requests in flight instead of Item `1` on a node that blocks while it
+    /// How many step calls the host may have outstanding at once, at least 1. `1` on a node that blocks while it
     /// writes flash.
-    pub in_flight: Fixed<Item, One, u8, Range<1, 255>>,
+    pub in_flight: Fixed<Request, One, u8, Range<1, 255>>,
     /// [Target::Live] is accepted.
     pub live: bool,
     /// [Target::Stored] is accepted.

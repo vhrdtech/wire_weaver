@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f58fef6d0be7d55477a35952a44d0fff3678335b4c9cd1ac6c1879a2d464ada7
+// shrink_wrap sha256: 469cdbe160acd02caa200a31d2975beb5862988e00738c2f346ed78406ebbfaf
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -5191,6 +5191,67 @@
         (base: (crate_name: "exact_units", name: "Scan"), exp: (halves: 2)),
     ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of calendar months, month: 1 to 12 within a year (an index marker, as [Day] is for the day of the month); a month has no fixed length in seconds, so it has no scale to [Second].",
+    ], ident: "Month", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Month"), names: (symbol: "month", ascii: None, long: "month", plural: "months", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Month"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of interfaces, interface: a device\'s controllers or ports of one bus (CAN, SPI, I2C, UART), `Index<Interface, u8>`",
+        "names the one a call is about.",
+    ], ident: "Interface", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Interface"), names: (symbol: "interface", ascii: None, long: "interface", plural: "interfaces", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Interface"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of retries, retry: how often one operation was repeated, a command resent while a card or bus is busy.",
+    ], ident: "Retry", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Retry"), names: (symbol: "retry", ascii: None, long: "retry", plural: "retries", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Retry"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of requests, request: calls outstanding at once, a window\'s in-flight limit.",
+    ], ident: "Request", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Base((id: (crate_name: "exact_units", name: "Request"), names: (symbol: "request", ascii: None, long: "request", plural: "requests", aliases: "", ucum: None, prefixes: r#None), dim: (system: (crate_name: "exact_units", name: "Si"), exps: [
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+        (halves: 0),
+    ], bases: [
+        (base: (crate_name: "exact_units", name: "Request"), exp: (halves: 2)),
+    ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`A / B`, a unit outside the named list: `Per<Torque, AngularVelocity>` is N·m/(rad/s). Not normalized,",
         "`Per<Meter, Second>` is not [Speed] (convert with `to_si_f64` / `from_f32`).",
         "",
@@ -5794,6 +5855,31 @@
         "assert!(Channel::try_new(0).is_err());",
         "assert!(Channel::try_new(5).is_err());",
         "```",
+        "",
+        "`bounded` is the `const fn` constructor: a compile error in `const` code for 0 or a number outside `B`, a panic",
+        "at run time.",
+        "",
+        "```",
+        "use exact_units::{IndexFrom1, Range, units};",
+        "",
+        "type MonthNo = IndexFrom1<units::Month, u8, Range<1, 12>>;",
+        "const MARCH: MonthNo = MonthNo::bounded(3);",
+        "assert_eq!(MARCH.get(), 3);",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{IndexFrom1, Range, units};",
+        "",
+        "type MonthNo = IndexFrom1<units::Month, u8, Range<1, 12>>;",
+        "const NOPE: MonthNo = MonthNo::bounded(13);",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{IndexFrom1, Range, units};",
+        "",
+        "type MonthNo = IndexFrom1<units::Month, u8, Range<1, 12>>;",
+        "const ZERO: MonthNo = MonthNo::bounded(0);",
+        "```",
     ], ident: "IndexFrom1", generics: [
         (ident: "Of", kind: Type),
         (ident: "T", kind: Type),
@@ -6005,7 +6091,7 @@
         (ident: Some("value"), default: None, since: None, ty: Param(1), docs: [
             "The number of steps.",
         ], slot: None, series_opaque: false),
-        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 394), docs: [
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 398), docs: [
             "The step.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -6035,7 +6121,7 @@
         (docs: [
             "These prefixes only: `mmHg` takes milli and nothing else.",
         ], ident: "Only", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 396), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 400), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -6066,7 +6152,7 @@
             "The unit\'s code in UCUM (`\"Ohm\"`, `\"m/s2\"`, `\"By\"`), `None` where it has none or none is recorded: such a unit",
             "isn\'t written in [Notation::Ucum](crate::Notation::Ucum).",
         ], slot: None, series_opaque: false),
-        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 397), docs: [
+        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 401), docs: [
             "Which prefixes the unit takes in text: `km` is a kilometre, but `min` is no milli-inch.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -6107,7 +6193,7 @@
         (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 398), docs: [
+        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 402), docs: [
             "How it is written.",
         ], slot: None, series_opaque: false),
         (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 131), docs: [
@@ -6120,7 +6206,7 @@
         (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 138), docs: [
             "The exact factor to coherent SI: ° is π/180 rad, eV 1.602176634·10⁻¹⁹ J.",
         ], slot: None, series_opaque: false),
-        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 399), docs: [
+        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 403), docs: [
             "Whether the scale is the unit\'s definition or a value a source prints.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -6148,7 +6234,7 @@
         (docs: [
             "A named unit, described in full: one no table at hand lists, or a tree that reads alone.",
         ], ident: "Def", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 400), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 404), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "A named unit a table lists, by its identity: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
@@ -6158,25 +6244,25 @@
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 405)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 405)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 405)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 405)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 405)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 401)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 405)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

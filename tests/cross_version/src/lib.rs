@@ -393,8 +393,8 @@ mod tests {
     async fn incompatible_trait_version_not_found() {
         let (_calls, device) = start_old_device("cross_version/trait_version");
         let client = connect_traits_only(&device).await;
-        // a host of a later ww_dfu: same trait, a version the device doesn't have
-        let gid = FullVersion::new("ww_dfu", Version::new(0, 99, 0));
+        // a ww_dfu 0.2 host: same trait, a version the device doesn't have
+        let gid = FullVersion::new("ww_dfu", Version::new(0, 2, 0));
         let path = [UNib32(0)]; // boot_state
         let r = client
             .cmd()
@@ -488,10 +488,10 @@ mod tests {
                 .call()
         };
         assert_eq!(call(boot).await.unwrap(), BootState::Confirmed);
-        // an id the registry doesn't have, a crate's id (ww_log), BootControl of an incompatible (later) ww_dfu version
+        // an id the registry doesn't have, a crate's id (ww_log), BootControl of an incompatible ww_dfu version
         let unknown = CompactVersion::new(GlobalTypeId::new(4000), 0, 1, 0);
         let crate_id = CompactVersion::new(ww_global::WW_LOG, 0, 1, 0);
-        let old_version = CompactVersion::new(boot.gid, 0, 99, 0);
+        let old_version = CompactVersion::new(boot.gid, 0, 2, 0);
         for gid in [unknown, crate_id, old_version] {
             let r = call(gid).await;
             assert!(is_trait_not_found(&r), "{gid:?}: {r:?}");

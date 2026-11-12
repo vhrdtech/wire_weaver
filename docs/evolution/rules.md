@@ -231,6 +231,12 @@ same as for a wire-compatible addition. Devices with the old version keep connec
 improved docs are available. `ww api save` refuses to overwrite a snapshot with changed docs, and the
 [evolution checker](checker_tool.md) requires the compatible bump.
 
+This is about an API's own doc comments. A trait or type of another crate that the API uses is named in its snapshot
+and in a device's introspection data by its shape signature, which leaves docs out (EVO-69): when only that
+dependency's docs change, the API is the same, and the checker says so in a `note:` line, never an error or a bump. A
+device rebuilt with other docs and the same API connects as the same API, and the client logs "documentation
+updated".
+
 ## Data types
 
 WireWeaver considers two root types for evolution and evolution rule checks - `struct` and `enum` (plain and with data

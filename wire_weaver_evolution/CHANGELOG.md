@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Report` has a new public field `notes`: a dependency's trait or type whose docs alone differ between the two sides (EVO-69), printed as `note:` lines; a `Report { .. }` literal adds it.
 - `Saved` has a new public field `superseded: Vec<superseded::Superseded>`, the definitions a refresh in place replaced and kept (EVO-68): a `Saved { .. }` literal adds it.
 - Test fixture `nucleo_g0b1re_api` 0.4.0: the pinned signatures of `FirmwareInfo`, `LastReset`, `UserInfo` and
   `Counters` follow the stdlib units survey's typed numbers in `ww_firmware_info`, `ww_user_info` and `ww_counters`
@@ -45,6 +46,7 @@
 
 ### 🚀 Features
 
+- References compared by shape (EVO-69): `compat::normalize_references` turns each reference into the shape signature of the definition it names, an 8-byte one saved before EVO-69 through the definitions known (the snapshot, the source, the superseded ones), so frozen snapshots are read as saved and a dependency's docs-only change is a note, never a break or a bump. An API's own docs still need the compatible bump (`DocsOnly`). New `keep_superseded`, behind `ww api keep-superseded`, keeps the definitions an earlier snapshot from git history had.
 - `Check::cache(CrateCache)` (EVO-50): a `Check` holds a `wire_weaver_core::CrateCache` again, its own unless given one, which its clones share; checks given one cache (a `save` then a `run`, crates with the same dependencies) walk the dependencies' source once, also on other threads. The cache sees edits, so a run after one checks the source as it is then, and `Check` stays `Send` and `Sync`.
 - `#[moved_from]` (EVO-40): `compare_moved(old, new, moves)` with `Move` (from `wire_weaver_core::MovedFrom`) verifies that a resource moved across a wire break is exactly the same as the one it names and reports one move (`Rule::MovedAcross`); an attribute that names nothing, a resource with another signature or a place on the API's own line fails `Report::check_wire`, as do a revision newer than the old version or older than the resource's `#[since]`, an attribute naming its own place, two naming one place and a source still there on the new version. Moves to another line than the old version's (an older link of a chain, a later revision of the new line) go to `Report::unverified_moves`; `verify_move` checks one against a snapshot of its line, and `Check` does so with the line's latest snapshot, warning when there is none. A resource added with the name of one removed elsewhere is never matched, only listed in `Report::proposals` (with the attribute suggested when the signature is the same). `Check` reads the moves from the source; a new line's root in a crate with several is compared with the previous line's root of the same name for them (`NoSnapshot::previous_line`, failing only on a `#[moved_from]` that doesn't hold).
 - `Finite` bounds (exact_units NUM-20, STD-104): `Unbounded`, `MaybeNan` or a plain float read as `Finite` is a bound narrowed; a float range fits inside `Finite`.

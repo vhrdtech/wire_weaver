@@ -188,6 +188,12 @@ ww api line new tests/multi_root_api
 ww api line retire tests/multi_root_api wire_v1
 ```
 
+`ww api keep-superseded OLD.ron --current CUR.ron --into DIR` keeps the definitions an earlier snapshot of a crate
+version had and its current snapshot of the same version no longer has, in `DIR` (the crate's
+`api_snapshots/superseded/`), as `ww api save` does by itself when it refreshes a snapshot in place: for a refresh
+that happened before, with the earlier snapshot taken from git history. See
+[superseded definitions](evolution/checker_tool.md#superseded-definitions-evo-68).
+
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every
 `#[derive_shrink_wrap]` type and unit marker struct (`pub struct Volt;`) defined there, in a `pub mod` at any depth,
 or re-exported from a module with `pub use` (each known by its path and name, `units::Volt`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example

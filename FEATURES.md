@@ -2293,6 +2293,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   with `ww_error::CommonError` (same bytes): they read as needing a new wire line once both snapshots were refreshed
   (`docs/evolution/checker_tool.md#superseded-definitions-evo-68`; `wire_weaver_evolution` tests
   `tests::superseded`).
+- ✅ **EVO-69 Shape signature and docs signature** · `v0.5` — a definition has two signatures
+  (`ww_self::signature::Signatures`): the shape signature, without docs, is its identity, and the signature with
+  docs tells whether the text changed too. A `Skipped*` reference is the shape signature, then the signature with
+  docs (16 bytes; 8, the shape alone, in introspection data without docs), and an 8-byte reference saved before
+  is a signature with docs, matched as such (`Signatures::matches`). Devices leave a known definition out when the
+  shape matches (`skip_known`), hosts put it back by shape and list other docs (`Inlined::docs_differ`), the
+  client logs "documentation updated" for a device with the same API and other docs
+  (`DeviceApiInfo::docs_updated_since`), the definition cache is keyed by shape, and the checker compares
+  dependencies by shape, a docs-only change of one being a `note:` (`Report::notes`); an API's own docs still need
+  the compatible bump. Frozen snapshots are read as saved: `tests/thermo_api`'s eight files and the older
+  `ww_si`/`ww_adc` snapshots are back to their saved bytes, with the exact_units 0.1.0 definitions they name kept
+  by `ww api keep-superseded` from git history. Wire: the skipped references in introspection data and the API
+  hashes change once; no device or host uses the format. Conformance: `signatures` cases
+  (`docs/evolution/checker_tool.md#doc-comments-of-a-dependency-evo-69`, `docs/std_library/ww_self.md`;
+  `ww_self` tests `signature::tests`, `conformance` test `signatures`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

@@ -128,7 +128,7 @@ own [`Rule`](#what-is-checked) and counts toward the same required bump as it wo
 
 ## A dependency changed without a version bump (EVO-67)
 
-A snapshot names another crate's trait or type by its crate version and a signature of its definition, and leaves
+A snapshot names another crate's trait or type by its crate version and the signatures of its definition, and leaves
 the definition out. A crate version that is not published yet can change without a bump (`ww_error` 0.1.0's
 `CommonError` gaining a typed index), and then the snapshot of a crate that uses it names one signature while the
 source names another. The checker looks both definitions up: the snapshot's in the snapshots built into it, the
@@ -139,12 +139,28 @@ saved against a revision of the dependency that no snapshot holds any more) is s
 signatures. Either way the snapshot of the checking crate's current version differs from its source: save it again
 while the version is not published (`just save-snapshots` for `ww_stdlib`).
 
+### Doc comments of a dependency (EVO-69)
+
+A reference to another crate's definition is its shape signature followed by its signature with docs
+([signatures](../std_library/ww_self.md#signatures-and-putting-skipped-definitions-back)). The checker compares
+references by shape only: the definition is the same when its names, fields and wire shape are, whatever its docs
+say. When only the docs differ, the report gets a note and the verdict doesn't change:
+
+```text
+note: type exact_units::IndexFrom1 0.1.0: doc comments changed since the old version was saved, the definition is the same
+```
+
+A snapshot saved before EVO-69 holds the signature with docs alone, 8 bytes. The checker finds the definition it
+names among the ones it knows (the snapshot of that crate version, the source's, the superseded ones below) and
+reads its shape from it, so an old snapshot is never edited: it is understood as it was saved.
+
 ### Superseded definitions (EVO-68)
 
 Saving the dependency again refreshes its snapshot in place, and the definition the other snapshots name by the old
 signature would then be gone: an API line frozen in a snapshot of its own (`thermo_api`'s `wire_v1::Thermo`) and a
-device built before still name it. So `ww api save` keeps each definition of the crate's own whose signature a
-refresh in place changes, in `api_snapshots/superseded/`, one file per definition:
+device built before still name it. So `ww api save` keeps each definition of the crate's own whose signature with
+docs a refresh in place changes, in `api_snapshots/superseded/`, one file per definition (a docs-only change is kept
+too: a snapshot saved before EVO-69 names the definition by its signature with docs):
 
 ```text
 ww_stdlib/ww_error/api_snapshots/superseded/ww_error_0_1_0-type-CommonError-bb2c2d7eb9d06d70.ww
@@ -160,6 +176,18 @@ version has another one: a trait changed in place is then compared resource by r
 above. A client putting a device's definitions back finds them the same way. Commit the files with the refreshed
 snapshots. The old definitions of the other crates it refers to must be known when the refresh runs (the snapshots
 built into `ww`, or what an earlier refresh kept): otherwise `ww api save` warns that the definition can't be kept.
+
+A refresh that happened before these files existed is made up for from git history: take the earlier snapshot and
+keep what the current one no longer has.
+
+```sh
+git show 8446b3979:wire_weaver_snapshots/other_repos/exact_units_0_1_0.ron > old.ron
+ww api keep-superseded old.ron --current wire_weaver_snapshots/other_repos/exact_units_0_1_0.ron \
+    --into wire_weaver_snapshots/other_repos/superseded
+```
+
+The earlier snapshot must parse with today's model, and the definitions of other crates it refers to must be known,
+as for `ww api save`.
 
 ## Checking at every commit
 

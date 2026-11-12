@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Devices name the definitions they leave out by the shape signature, then the signature with docs (16 bytes, 8 without docs), and leave one out when its shape matches the embedded snapshot, whatever its docs (EVO-69): a dependency's doc fix no longer keeps it in-line or changes `API_HASH_NO_DOCS`. Wire: the skipped references in introspection data and the API hashes change once. The local registry caches by shape; `shared_signature` (CLT-68) is the shape signature, the same values as before.
 - `SourceNotes` has a new public field `definitions`, the walked bundle before other crates' traits and types were left out of it, for the evolution checker to find a dependency's definition that no embedded snapshot holds (EVO-67). It no longer derives `Default`, `PartialEq` and `Eq` (`ApiBundleOwned` has none of them); a `SourceNotes { .. }` literal needs the field.
 
 ### 🐛 Fixes

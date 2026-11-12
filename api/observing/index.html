@@ -6206,20 +6206,20 @@ observed value is read.</p>
 <td>never</td>
 </tr>
 <tr>
-<td><code>OnChange { min_us }</code></td>
-<td>on a change, at most once every <code>min_us</code></td>
+<td><code>OnChange { min }</code></td>
+<td>on a change, at most once every <code>min</code></td>
 </tr>
 <tr>
-<td><code>Periodic { every_us }</code></td>
-<td>every <code>every_us</code>, on a fixed grid, changed or not</td>
+<td><code>Periodic { every }</code></td>
+<td>every <code>every</code>, on a fixed grid, changed or not</td>
 </tr>
 <tr>
-<td><code>OnChangeOrBeat { min_us, max_us }</code></td>
-<td>on a change (at most every <code>min_us</code>), and at least every <code>max_us</code> even without one</td>
+<td><code>OnChangeOrBeat { min, max }</code></td>
+<td>on a change (at most every <code>min</code>), and at least every <code>max</code> even without one</td>
 </tr>
 <tr>
-<td><code>Samples { every_us, max_age_us }</code></td>
-<td>every sample the device takes (or the first in each <code>every_us</code>), in batches at most <code>max_age_us</code> old; <code>+batched</code> properties only, see <a href="#every-sample-batched">Every sample</a></td>
+<td><code>Samples { every, max_age }</code></td>
+<td>every sample the device takes (or the first in each <code>every</code>), in batches at most <code>max_age</code> old; <code>+batched</code> properties only, see <a href="#every-sample-batched">Every sample</a></td>
 </tr>
 </tbody>
 </table>
@@ -6538,7 +6538,7 @@ than a small MCU has). The server then keeps a <code>&amp;'static mut</code> to 
   default 32), a row being one <code>sample()</code> call's time and values, kept column by column: the sampler fills one
   store while the event loop encodes the other. RAM is 2 x N x (the time and every value): for 21 FOC currents and
   voltages at N = 32 about 8.4 KB. A batch is sealed when it is full, when its worst case reaches what fits one
-  update, or when it is as old as <code>max_age_us</code>. A burst of more than two batches between two <code>poll_properties</code>
+  update, or when it is as old as <code>max_age</code>. A burst of more than two batches between two <code>poll_properties</code>
   calls loses rows: a sample of each observed property per row, counted in the next update's <code>missed</code>.</li>
 <li><strong>Outbox</strong>: a sealed batch is encoded into the level's outbox (<code>observe_outbox = N</code> bytes, default 4096) as one
   unit, the time column and the column of each property in <code>Samples</code> mode, and sent from there whole, in one
@@ -6549,11 +6549,11 @@ than a small MCU has). The server then keeps a <code>&amp;'static mut</code> to 
   plain properties has it as before. Rows carry every value of the level, so a property switched into <code>Samples</code>
   also gets the rows not sent yet, each at its time; one switched out leaves the waiting batches.</li>
 <li><strong>Limits</strong>: <code>Samples</code> is refused for a property without <code>+batched</code>, and on a firmware
-  <a href="#a-firmware-that-takes-no-samples">that takes no samples</a> (<code>ModeNotSupported</code>); <code>max_age_us</code> is
-  clamped to <code>ObserveLimits::samples_max_age_us</code> (1 ms to 10 s by default); <code>every_us</code> decimates on the device's
-  grid (the first sample in each <code>every_us</code>), 0 is every sample, and is raised to
+  <a href="#a-firmware-that-takes-no-samples">that takes no samples</a> (<code>ModeNotSupported</code>); <code>max_age</code> is
+  clamped to <code>ObserveLimits::samples_max_age_us</code> (1 ms to 10 s by default); <code>every</code> decimates on the device's
+  grid (the first sample in each <code>every</code>), 0 is every sample, and is raised to
   <code>ObserveLimits::samples_min_every_us</code> (0, every sample, by default). The <code>Samples</code> entries of a level share one
-  grid and one age, so they get the finest <code>every_us</code> and the shortest <code>max_age_us</code> any of them asked for: the
+  grid and one age, so they get the finest <code>every</code> and the shortest <code>max_age</code> any of them asked for: the
   grant says so, a host that asked for less gets more. Every sample taken is encoded, also when
   the budget then drops its batch, so on an MCU set that floor from the table <a href="#which-rates-fit-an-mcu">below</a>:
   without it any host can ask for more encoding than the CPU has. A property type that borrows (bytes, a string,
@@ -6685,7 +6685,7 @@ prints one line per sample, and Python gets them per update or as numpy columns
 <p><code>sample()</code> itself is a few loads and stores; the cost is encoding, and it scales with how many properties and how
 fast they're sampled - see <a href="../batching/#which-rates-fit-an-mcu">Batching: which rates fit an MCU</a> for the measured
 instructions/cycles-per-sample table (Cortex-M3/M4F/M7) and what it means for a real device. So on an MCU observe
-a few properties at a few kHz, or decimate (<code>every_us</code>); full-rate observing of a whole control loop is for the
+a few properties at a few kHz, or decimate (<code>every</code>); full-rate observing of a whole control loop is for the
 simulator and the host (<a href="../../examples/motor_demo/">motor demo</a>), where it costs about 1 MB/s of link with integer
 storage.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>

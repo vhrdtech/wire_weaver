@@ -6133,7 +6133,7 @@ closing should call <code>.batcher.flush()</code> to send a half-full batch rath
 <h3 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h3>
 <p>Opening a batched stream is like opening any other (<code>client.readings().call()</code>, etc.), plus <code>.max_age(duration)</code>
 to pick the latency: the device clamps it to its own bounds and answers with what it granted
-(<code>StreamOpened::max_age_us</code> on the wire). Items come one at a time exactly as from an unbatched stream -
+(<code>StreamOpened::max_age</code> on the wire). Items come one at a time exactly as from an unbatched stream -
 <code>recv_event()</code>/<code>recv()</code>, each with its own <code>t</code> (or none, untimed) and its own position, as if it had been sent on
 its own - or <code>recv_batch()</code> gives a whole batch at once (<code>pos</code>, <code>items</code>, oldest first). The dynamic
 client (<code>DynStreamOpen</code>, no generated code needed) and <code>wire_weaver_py</code>'s <code>recv_batch()</code> (numpy columns, via
@@ -6258,10 +6258,10 @@ with a time column per property, and 36 % fewer bytes (1 251 B against 1 965 B):
 </tr>
 </tbody>
 </table>
-<p>So on a small MCU, observe or stream a handful of properties at a few kHz, or decimate (<code>every_us</code> for observe);
+<p>So on a small MCU, observe or stream a handful of properties at a few kHz, or decimate (<code>every</code> for observe);
 the full FOC rate above takes a fast M7, else it is for the simulator and the host
 (<a href="#the-motor-demo-measured">motor demo</a>). A device sampling faster than its CPU can encode needs a floor on the rate
-it accepts (<code>every_us</code>/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
+it accepts (<code>every</code>/sample-rate clamps), since every sample taken is encoded whether or not its batch later fits
 the budget.</p>
 <h3 id="observe-cells-measured">Observe cells, measured<a class="headerlink" href="#observe-cells-measured" title="Permanent link">&para;</a></h3>
 <p>A level on <a href="../observing/#cells-sampling-from-an-interrupt">observe cells</a> moves the copy of a row out of the

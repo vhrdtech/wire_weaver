@@ -6829,7 +6829,7 @@ with <code>SMALLEST</code>, which already wrote each regular clock almost for fr
 (<code>control</code>).</p>
 <p>Two things follow. One batcher per level seals the level's properties together: <code>control</code> went from 238 updates/s,
 sealed out of step property by property, to 48. And a level's <code>Samples</code> entries share one grid and one age: they get
-the finest <code>every_us</code> and the shortest <code>max_age_us</code> any of them asked for, and the grant says so. A property that
+the finest <code>every</code> and the shortest <code>max_age</code> any of them asked for, and the grant says so. A property that
 needs its own sample times belongs in its own trait level; levels are the rate tiers.</p>
 <h3 id="a-few-properties-of-a-level">A few properties of a level<a class="headerlink" href="#a-few-properties-of-a-level" title="Permanent link">&para;</a></h3>
 <p>Observing only some properties of a level is supported, and it is the usual case: a host asks for <code>i_a</code>, <code>i_b</code> and
@@ -7132,7 +7132,7 @@ the update's framing, the outbox and the poll's own code the rest. <a href="../.
 polls (the FOC poll lost half, see above): this bench's 4 KB outbox always had room for a batch's worst case, so its
 batches were never measured. SW-68 took 13 to 15 % off them on the H725 (17 % at <code>"z"</code>), and what is left is about
 as much codec as framing around it: less framing per column would move it next. So today a device observes a few values at every period up to a few
-hundred kHz, and above that decimates (<code>every_us</code>, a grid in whole µs) or sends raw over a fast link.</p>
+hundred kHz, and above that decimates (<code>every</code>, a grid in whole µs) or sends raw over a fast link.</p>
 <p>Flash for the encoder is 15.0 KB on a Cortex-M3 with <code>DeltaPacked</code> (9.8 KB on an M4F), 25.4 KB (17.6 KB) with a
 run-time <code>CodecPolicy</code>. A firmware no longer carries 64-bit numbers for the protocol's own types: a <code>NumericValue</code>
 takes 8 bytes instead of 16, and the H725 firmware got 7.7 KB smaller in flash. Every sample taken is encoded, also when its batch is later dropped for lack of budget, so an
@@ -7151,7 +7151,7 @@ encoding than the CPU has.</p>
   batch inside its byte budget, and a string has no bound, so <code>batched</code> on such a type is a compile error. Observe
   cells need a fixed-size cell per value, which a string doesn't have either. A fixed-size array (<code>[u8; 16]</code>) has
   both, at a column per byte. Planned for text and frames: see <a href="#ahead">Ahead</a>.</li>
-<li><strong>The CPU can't keep up.</strong> Check the table above; decimate (<code>every_us</code>) or observe fewer properties.</li>
+<li><strong>The CPU can't keep up.</strong> Check the table above; decimate (<code>every</code>) or observe fewer properties.</li>
 </ul>
 <h3 id="compared-with-raw-globals">Compared with raw globals<a class="headerlink" href="#compared-with-raw-globals" title="Permanent link">&para;</a></h3>
 <p>The usual way to get fast signals out of a controller is no protocol at all: copy the variables into a RAM buffer

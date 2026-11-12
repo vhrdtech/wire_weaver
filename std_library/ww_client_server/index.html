@@ -5940,10 +5940,12 @@ declared with <code>+observe</code> can be observed. See <a href="../../api/obse
 built on this protocol and the full wire-format picture; this section is the raw types.</p>
 <ul>
 <li><code>ObserveRequest&lt;'i&gt;</code> - body of <code>RequestKind::Observe</code>: <code>entries</code> (an <code>ObserveEntry { index, mode }</code> per
-  property), <code>patch</code> (<code>true</code>: properties not listed keep their setting; <code>false</code>: they are <code>Off</code>) and <code>budget</code>
-  (bytes per second the level's updates may take on the link, <code>None</code> leaves it to the device).</li>
-<li><code>ObserveMode</code> - <code>Off</code>, <code>OnChange { min_us }</code> (on a change, at most every <code>min_us</code>), <code>Periodic { every_us }</code>,
-  <code>OnChangeOrBeat { min_us, max_us }</code> (on a change, and at least every <code>max_us</code>). Periods are in microseconds.
+  property, <code>index</code> a <code>ResourceIndex</code>, <code>Index&lt;Resource, UNib32&gt;</code>), <code>patch</code> (<code>true</code>: properties not listed keep their
+  setting; <code>false</code>: they are <code>Off</code>) and <code>budget</code> (an <code>observe::Budget</code>, <code>Fixed&lt;BytePerSecond, One, UNib32&gt;</code>: bytes
+  per second the level's updates may take on the link, <code>None</code> leaves it to the device).</li>
+<li><code>ObserveMode</code> - <code>Off</code>, <code>OnChange { min }</code> (on a change, at most every <code>min</code>), <code>Periodic { every }</code>,
+  <code>OnChangeOrBeat { min, max }</code> (on a change, and at least every <code>max</code>), <code>Samples { every, max_age }</code>. Periods are
+  <code>Micros&lt;UNib32&gt;</code>, the same bytes as the plain <code>UNib32</code> microseconds they were.
   Evolvable: a mode from a newer host reads as <code>Unknown(_)</code> and is refused.</li>
 <li><code>ObserveGranted&lt;'i&gt;</code> - the answer, in an <code>EventKind::Value</code>: every property observed now with its mode as
   clamped by the device, the <code>refused</code> entries with an <code>ObserveRefusal</code> (<code>NoSuchIndex</code>, <code>NotObservable</code>,

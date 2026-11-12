@@ -6052,7 +6052,7 @@ just once for the feature - <code>multi_req = true</code> is an opt-in for this 
 </tr>
 </tbody>
 </table>
-<p><code>in_each_array_id: Option&lt;UNib32&gt;</code> is one more path element, the same for every index, right after the varying one
+<p><code>in_each_array_id: Option&lt;ResourceIndex&gt;</code> (<code>Index&lt;Resource, UNib32&gt;</code>, the bytes of a <code>UNib32</code>) is one more path element, the same for every index, right after the varying one
 - e.g. <code>pin[]</code> selected by <code>multi_idx</code>, then <code>set_level</code> inside each selected pin. The request's own path is the
 common prefix shared by every index (everything before the varying element).</p>
 <h2 id="the-reply-an-eitheranyvec-of-results">The reply: an <code>EitherAnyVec</code> of results<a class="headerlink" href="#the-reply-an-eitheranyvec-of-results" title="Permanent link">&para;</a></h2>

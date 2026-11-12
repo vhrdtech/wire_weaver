@@ -1,6 +1,6 @@
 // ww_adc 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a19153eca43af525a0aeeda8b4e5c7e4ae8dab15d79f16dfcfba1b6a922204ed
+// shrink_wrap sha256: 701c59a0c03cf009079c36e45a88f7845493e76c7a698f7b384d2285c811b67f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -203,22 +203,22 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        190,
-        28,
-        221,
-        164,
-        120,
-        108,
-        178,
-        231,
-        187,
-        44,
-        45,
-        126,
-        185,
-        208,
-        109,
-        112,
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of every trait in this crate: the common ones first, then what is specific to ADCs. Each method lists the",

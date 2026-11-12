@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: daaad6b253bca1a2a141522487c678b1104a8f2fe2d8b5bc9328e7b59e573d20
+// shrink_wrap sha256: 91f6dec1032da0a7b08ce617dfff2cd52edb0a605d8bb7dfeee91f9d062e32ec
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -125,22 +125,22 @@
         ], ident: "Written", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        190,
-        28,
-        221,
-        164,
-        120,
-        108,
-        178,
-        231,
-        187,
-        44,
-        45,
-        126,
-        185,
-        208,
-        109,
-        112,
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Why [BoardInfo::set_reworks] refused; nothing was written.",

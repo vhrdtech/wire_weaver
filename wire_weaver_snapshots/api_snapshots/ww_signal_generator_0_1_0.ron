@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 170e95b269197474b13305a24dafdd2963611f81e2a3f64ea88f76654150bf94
+// shrink_wrap sha256: 5e5e655cef46f54722d41ef7dd710955636dbae6902e072a54dbf651b5eaebe5
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -220,22 +220,22 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        190,
-        28,
-        221,
-        164,
-        120,
-        108,
-        178,
-        231,
-        187,
-        44,
-        45,
-        126,
-        185,
-        208,
-        109,
-        112,
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `PatternGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",

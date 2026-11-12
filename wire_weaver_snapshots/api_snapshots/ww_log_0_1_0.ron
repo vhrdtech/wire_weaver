@@ -1,6 +1,6 @@
 // ww_log 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 50caf462303b113a2954ce34c7b5df9c3e769787a35c55edd14fd335e782e61d
+// shrink_wrap sha256: 010a7e1f2cb8e7109f831491d98ac4bce540d326ab1465c915f76b9856b2f74d
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
     "records for firmware without defmt.",
@@ -70,22 +70,22 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
-        190,
-        28,
-        221,
-        164,
-        120,
-        108,
-        178,
-        231,
-        187,
-        44,
-        45,
-        126,
-        185,
-        208,
-        109,
-        112,
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of both traits in this crate. Each item says which variants it returns.",

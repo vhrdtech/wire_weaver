@@ -1,6 +1,6 @@
 // ww_block 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 721db980b775c34ffcff159c0c4e26630daa4c51d3d8ab80c392eab8c580e624
+// shrink_wrap sha256: 7d2b71d8884a19c0d955cc68e53039d23ff433213c5c3d42ae61740029bc6338
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A block device over WireWeaver (STD-39): an SD card, eMMC or flash read, checked, written and erased in whole",
     "blocks by their address (LBA).",
@@ -223,23 +223,41 @@
             "Product name of the medium (CID of a card, JEDEC part of a flash), empty if unknown.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
-        190,
-        28,
-        221,
-        164,
-        120,
-        108,
-        178,
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
         231,
-        187,
-        44,
-        45,
-        126,
-        185,
-        208,
-        109,
-        112,
+        47,
+        207,
+        207,
+        169,
+        31,
+        27,
+        75,
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of the block device calls.",
@@ -247,7 +265,7 @@
         (docs: [
             "Common error",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "No card in the slot, or the medium doesn\'t answer.",
@@ -275,24 +293,6 @@
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 7, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
-        231,
-        47,
-        207,
-        207,
-        169,
-        31,
-        27,
-        75,
-        188,
-        74,
-        229,
-        182,
-        246,
-        87,
-        154,
-        68,
-    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         176,
         71,
@@ -321,7 +321,7 @@
         "One run of [BlockDevice::write_runs]: whole blocks at `lba`, as [BlockDevice::write] takes them.",
     ], ident: "WriteRun", generics: [], fields: Named([
         (ident: Some("lease"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
-        (ident: Some("lba"), default: None, since: None, ty: Instance(type_idx: 11, args: [
+        (ident: Some("lba"), default: None, since: None, ty: Instance(type_idx: 9, args: [
             Type(OutOfLine(type_idx: 5)),
             Type(NumericAny(Base(U64))),
             Type(OutOfLine(type_idx: 3)),
@@ -351,7 +351,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The outcome of one run of [BlockDevice::write_runs], on [BlockDevice::written].",
     ], ident: "RunAck", generics: [], fields: Named([
-        (ident: Some("lba"), default: None, since: None, ty: Instance(type_idx: 11, args: [
+        (ident: Some("lba"), default: None, since: None, ty: Instance(type_idx: 9, args: [
             Type(OutOfLine(type_idx: 5)),
             Type(NumericAny(Base(U64))),
             Type(OutOfLine(type_idx: 3)),
@@ -369,7 +369,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One run of [BlockDevice::read_runs]: the blocks from `lba`.",
     ], ident: "ReadRun", generics: [], fields: Named([
-        (ident: Some("lba"), default: None, since: None, ty: Instance(type_idx: 11, args: [
+        (ident: Some("lba"), default: None, since: None, ty: Instance(type_idx: 9, args: [
             Type(OutOfLine(type_idx: 5)),
             Type(NumericAny(Base(U64))),
             Type(OutOfLine(type_idx: 3)),
@@ -384,14 +384,14 @@
         "",
         "[BlockError]: the `Common` variants and the block device\'s own, listed on each call.",
     ], crate_idx: 0, trait_name: "BlockDevice", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        (id: 0, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "NoMedium", nested: None),
         ])), multiplicity: Flat, since: None, ident: "geometry", docs: [
             "Block size and count, blocks per call, erase unit, what erased blocks read as, read-only flag. `NoMedium`",
             "without a card.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "lba", ty: Instance(type_idx: 11, args: [
+            (ident: "lba", ty: Instance(type_idx: 9, args: [
                 Type(OutOfLine(type_idx: 5)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 3)),
@@ -402,7 +402,7 @@
                 Type(NumericAny(Base(U16))),
                 Type(OutOfLine(type_idx: 3)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "InvalidArgument",
@@ -417,7 +417,7 @@
             "`OutOfRange` past the last block, `Common(InvalidArgument)` for more than [Geometry::max_blocks].",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "lba", ty: Instance(type_idx: 11, args: [
+            (ident: "lba", ty: Instance(type_idx: 9, args: [
                 Type(OutOfLine(type_idx: 5)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 3)),
@@ -428,7 +428,7 @@
                 Type(NumericAny(Base(U32))),
                 Type(OutOfLine(type_idx: 3)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
             ])),
@@ -446,7 +446,7 @@
                 Type(NumericAny(Base(U16))),
                 Type(OutOfLine(type_idx: 3)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "Refused",
@@ -465,7 +465,7 @@
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "lease", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "BadLease", nested: None),
         ])), multiplicity: Flat, since: None, ident: "release", docs: [
             "Gives the card back: its user mounts it again (and finds what the host wrote). `BadLease` for a lease that",
@@ -473,14 +473,14 @@
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "lease", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
-            (ident: "lba", ty: Instance(type_idx: 11, args: [
+            (ident: "lba", ty: Instance(type_idx: 9, args: [
                 Type(OutOfLine(type_idx: 5)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 3)),
             ]), default: None, flatten: false),
             (ident: "data", ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), default: None, flatten: false),
             (ident: "crc", ty: NumericAny(Base(U32)), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
             ])),
@@ -498,7 +498,7 @@
         ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
             (ident: "lease", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
-            (ident: "lba", ty: Instance(type_idx: 11, args: [
+            (ident: "lba", ty: Instance(type_idx: 9, args: [
                 Type(OutOfLine(type_idx: 5)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 3)),
@@ -509,7 +509,7 @@
                 Type(NumericAny(Base(U32))),
                 Type(OutOfLine(type_idx: 3)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "NoMedium", nested: None),
             (ident: "OutOfRange", nested: None),
             (ident: "BadLease", nested: None),
@@ -528,7 +528,7 @@
             "The outcome of each run of [BlockDevice::write_runs], in the order they came. A counted stream, unit: run.",
         ], optional: Some((group: Some("bulk"))), meta: None),
         (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 17), delivery: Counted, args: [
-            (ident: "lba", ty: Instance(type_idx: 11, args: [
+            (ident: "lba", ty: Instance(type_idx: 9, args: [
                 Type(OutOfLine(type_idx: 5)),
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 3)),
@@ -539,7 +539,7 @@
                 Type(NumericAny(Base(U64))),
                 Type(OutOfLine(type_idx: 3)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
             ])),

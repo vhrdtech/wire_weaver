@@ -1,6 +1,6 @@
 // ww_error 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7785bc8db5423e6611beb380df74767f756f3b4fab454eba5195e2cbdb553763
+// shrink_wrap sha256: a1b80bf6c07a6e03fe00fbb13e8b447046cbb8f0e49257f11d4784a92b91b4d8
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Errors every WireWeaver API can return (STD-16).",
     "",
@@ -39,6 +39,14 @@
     "for every API. Strings are bounded and may be empty: a device that saves flash sends `\"\"`.",
 ], crate_idx: 0, trait_name: "ww_error", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Argument", signature: [
+        161,
+        207,
+        143,
+        106,
+        43,
+        6,
+        182,
+        57,
         75,
         100,
         52,
@@ -49,6 +57,14 @@
         63,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
         55,
         18,
         202,
@@ -59,6 +75,14 @@
         5,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        231,
+        47,
+        207,
+        207,
+        169,
+        31,
+        27,
+        75,
         188,
         74,
         229,

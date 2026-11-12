@@ -1,6 +1,6 @@
 // ww_pin_diag 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 6aecc4d442fbd54b2330093936f0fc12c2c11e8bd4e29e817a190c72583a9ec0
+// shrink_wrap sha256: 6b066cce9c2082e35a4946718fc163e1a2e90e8e33f9df99d1cb0c402594ef82
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to a board\'s digital points for bring-up, verification and production tests (STD-47).",
     "",
@@ -36,59 +36,6 @@
     ], bases: [
         (base: (crate_name: "ww_pin_diag", name: "TestPoint"), exp: (halves: 2)),
     ]), quantity: None, scale: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Interned", signature: [
-        120,
-        116,
-        85,
-        207,
-        173,
-        84,
-        172,
-        173,
-        152,
-        192,
-        5,
-        187,
-        4,
-        217,
-        19,
-        95,
-    ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What a point can do at all.",
-    ], ident: "PointCaps", generics: [], fields: Named([
-        (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
-            "[PinDiag::read] gives its pad level.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("pull_up"), default: None, since: None, ty: Bool, docs: [
-            "It may be an input with [Pull::Up].",
-        ], slot: None, series_opaque: false),
-        (ident: Some("pull_down"), default: None, since: None, ty: Bool, docs: [
-            "It may be an input with [Pull::Down].",
-        ], slot: None, series_opaque: false),
-        (ident: Some("drive_low"), default: None, since: None, ty: Bool, docs: [
-            "It may drive low.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("drive_high"), default: None, since: None, ty: Bool, docs: [
-            "It may drive high.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("weak_drive"), default: None, since: None, ty: Bool, docs: [
-            "[Drive::Weak] is weaker than [Drive::Normal] on it.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "One point a test may touch.",
-    ], ident: "Point", generics: [], fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "As on the schematic or in the board\'s documentation: \"GPIO2\", \"EX13\".",
-        ], slot: None, series_opaque: false),
-        (ident: Some("group"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "What kind of point, so a host can pick them together: \"mcu\", \"chain\".",
-        ], slot: None, series_opaque: false),
-        (ident: Some("caps"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
-            "What may ever be done with it; the board\'s rules may refuse more, depending on the other points.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
         117,
         194,
@@ -125,6 +72,59 @@
         154,
         68,
     ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Interned", signature: [
+        157,
+        55,
+        45,
+        64,
+        54,
+        114,
+        63,
+        132,
+        65,
+        50,
+        90,
+        114,
+        205,
+        47,
+        58,
+        125,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What a point can do at all.",
+    ], ident: "PointCaps", generics: [], fields: Named([
+        (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
+            "[PinDiag::read] gives its pad level.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("pull_up"), default: None, since: None, ty: Bool, docs: [
+            "It may be an input with [Pull::Up].",
+        ], slot: None, series_opaque: false),
+        (ident: Some("pull_down"), default: None, since: None, ty: Bool, docs: [
+            "It may be an input with [Pull::Down].",
+        ], slot: None, series_opaque: false),
+        (ident: Some("drive_low"), default: None, since: None, ty: Bool, docs: [
+            "It may drive low.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("drive_high"), default: None, since: None, ty: Bool, docs: [
+            "It may drive high.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("weak_drive"), default: None, since: None, ty: Bool, docs: [
+            "[Drive::Weak] is weaker than [Drive::Normal] on it.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One point a test may touch.",
+    ], ident: "Point", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "As on the schematic or in the board\'s documentation: \"GPIO2\", \"EX13\".",
+        ], slot: None, series_opaque: false),
+        (ident: Some("group"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "What kind of point, so a host can pick them together: \"mcu\", \"chain\".",
+        ], slot: None, series_opaque: false),
+        (ident: Some("caps"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "What may ever be done with it; the board\'s rules may refuse more, depending on the other points.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "Pull", signature: [
         42,
         183,
@@ -187,22 +187,22 @@
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        190,
-        28,
-        221,
-        164,
-        120,
-        108,
-        178,
-        231,
-        187,
-        44,
-        45,
-        126,
-        185,
-        208,
-        109,
-        112,
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of [PinDiag].",
@@ -221,21 +221,21 @@
         (docs: [
             "The board\'s rules forbid this now: {rule}",
         ], ident: "Refused", fields: Named([
-            (ident: Some("rule"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
+            (ident: Some("rule"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Raw access to a board\'s digital points, see the [crate](crate) documentation.",
     ], crate_idx: 0, trait_name: "PinDiag", items: [
-        (id: 0, kind: Property(ty: Vec(OutOfLine(type_idx: 3)), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "POINTS", docs: [
+        (id: 0, kind: Property(ty: Vec(OutOfLine(type_idx: 5)), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "POINTS", docs: [
             "Every point a test may touch; a point\'s index in this list is its id in the calls below.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "point", ty: Instance(type_idx: 5, args: [
+            (ident: "point", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 0)),
                 Type(NumericAny(Base(U16))),
-                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 1)),
             ]), default: None, flatten: false),
             (ident: "state", ty: OutOfLine(type_idx: 9), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 11))), errors: Some([
@@ -251,10 +251,10 @@
             "board\'s rules forbid it in the current state of the other points.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "point", ty: Instance(type_idx: 5, args: [
+            (ident: "point", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 0)),
                 Type(NumericAny(Base(U16))),
-                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 1)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 11))), errors: Some([
             (ident: "NoSuchPoint", nested: None),

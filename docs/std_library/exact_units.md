@@ -178,6 +178,14 @@ shape has no algorithm yet (`ALaw`) is shown as its code. A generic codec, whose
 (`exact_units::codec::Transfer<Q, C>`, a quantizer with a transfer curve), can't be used in an API yet: the walker
 refuses it, naming STD-112.
 
+The numbers of a curve above a codec (`CodecDef::curve`, its segments' gains, offsets and exponents) are
+`exact_units::Fraction`s, `±num/den · 10^exp` with `exp` the value's power of 5: one canonical form per value, so
+1/800 is `{ neg: false, num: 1, den: 8, exp: -2 }`. On the wire a `Fraction` is its four fields (`final_structure`),
+37 bytes. A form that isn't the canonical one (`10 · 10⁰` for `1 · 10¹`) doesn't decode in Rust; the dynamic client
+and Python read and write a `Fraction` by its fields without that check, which is Rust code the model can't carry
+(SW-20), so a device refuses a non-canonical one they send. The conformance corpus's `stdlib.si.fraction.*` cases
+hold the bytes.
+
 A codec may name spare codes, codes that mean no value (`CodecDef::spare`, a list of `CodeSpan { low, high }`):
 `MuLawSingleZero` is μ-law with 0x7F spare, where `MuLaw` reads it as a second zero. A spare code read from the
 wire is refused, by the typed `Coded` and by every client from the definition in the model, with the code named:

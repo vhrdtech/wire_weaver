@@ -950,6 +950,19 @@ pub fn table() -> Vec<Typed> {
             ww_si::Magnitude::new(167_262_192_595, 1, -38, 0, 0),
         ),
         case(
+            "stdlib.si.fraction.exp",
+            ww_si::exact_units::Fraction::new(1, 800),
+        ),
+        case(
+            "stdlib.si.fraction.negative",
+            ww_si::exact_units::Fraction::new(-45_359_237, 100_000_000),
+        ),
+        case(
+            "stdlib.si.fraction.third",
+            ww_si::exact_units::Fraction::new(1, 3),
+        ),
+        case("stdlib.si.fraction.rejected", ww_si::exact_units::Fraction::ONE),
+        case(
             "stdlib.si.run_scale.ntsc",
             ww_si::RunScale::ratio(1001, 60_000).unwrap(),
         ),

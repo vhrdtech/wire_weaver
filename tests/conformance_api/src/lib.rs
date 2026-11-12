@@ -145,6 +145,8 @@ trait Conformance {
     property!(rw coded_mu_law_single_zero: ww_si::codec::Coded<ww_si::codec::MuLawSingleZero, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>);
     property!(rw niched_mu_law: ww_si::exact_units::niche::Niched<ww_si::codec::Coded<ww_si::codec::MuLawSingleZero, ww_si::Fixed<ww_si::units::Ratio, ww_si::prefix::Pow2<-13>, i16>, u8>, ww_si::exact_units::niche::Null<0x7F>, u8>);
     property!(rw magnitude: ww_si::Magnitude);
+    // an exact number, `±num/den · 10^exp` in one canonical form (exact_units NUM-33): the numbers of a codec's curve
+    property!(rw fraction: ww_si::exact_units::Fraction);
     // a scale known at run time and a number at it, the unit in the type (exact_units NUM-42)
     property!(rw run_scale: ww_si::RunScale);
     property!(rw ticks: ww_si::Ticks<u64>);

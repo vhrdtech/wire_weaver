@@ -1521,10 +1521,15 @@ mod tests {
         let name = level.trait_name.clone();
         level.docs.push("changed".into());
         let sent = skip_known(&full).unwrap();
-        let ApiLevelLocationOwned::SkippedFullVersion { signature, .. } = &sent.traits[0] else {
+        let ApiLevelLocationOwned::SkippedFullVersion {
+            signature,
+            crate_idx,
+            ..
+        } = &sent.traits[0]
+        else {
             panic!("{name} is kept in-line");
         };
-        let version = sent.crate_version(0).unwrap().clone();
+        let version = sent.crate_version(crate_idx.0).unwrap().clone();
         let snapshot = wire_weaver_snapshots::get(&version);
         let snapshot = snapshot.unwrap_or_else(|| panic!("no snapshot of {version:?}"));
         let idx = trait_idx(snapshot, &name);

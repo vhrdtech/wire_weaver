@@ -184,6 +184,25 @@ pub enum ApiCommand {
         #[arg(long, value_hint = ValueHint::FilePath)]
         against: Option<PathBuf>,
     },
+    /// Keep the definitions an earlier snapshot of a crate version had and its current snapshot no longer has
+    ///
+    /// A refresh in place keeps them by itself (EVO-68); this is for one that happened before, with the old snapshot
+    /// taken from git history: frozen snapshots and devices that name those definitions by signature are understood
+    /// again, and the checker compares the two definitions (EVO-69).
+    KeepSuperseded {
+        /// The earlier snapshot (`git show REV:path/to/crate_0_1_0.ron > old.ron`)
+        #[arg(value_hint = ValueHint::FilePath)]
+        old: PathBuf,
+
+        /// The current snapshot of the same crate version
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        current: PathBuf,
+
+        /// The directory to keep them in, the crate's `api_snapshots/superseded/` (for exact_units,
+        /// `wire_weaver_snapshots/other_repos/superseded/`)
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        into: PathBuf,
+    },
     /// Start or end a wire line of a crate with several API roots (TOOL-33, EVO-37)
     #[command(subcommand)]
     Line(LineCommand),
@@ -266,6 +285,9 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             require_current,
         } => check::check(path, against, strict, require_current),
         ApiCommand::Diff { path, against } => diff::diff(path, against),
+        ApiCommand::KeepSuperseded { old, current, into } => {
+            save::keep_superseded(old, current, into)
+        }
         ApiCommand::Line(cmd) => line::line(cmd),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }

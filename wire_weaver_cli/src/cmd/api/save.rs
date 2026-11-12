@@ -85,3 +85,32 @@ pub(crate) fn save(
     }
     Ok(())
 }
+
+/// `ww api keep-superseded`: see [wire_weaver_evolution::superseded::keep_superseded].
+pub(crate) fn keep_superseded(old: PathBuf, current: PathBuf, into: PathBuf) -> Result<()> {
+    let read = |path: &PathBuf| {
+        wire_weaver_evolution::snapshot_files::parse(path)
+            .map_err(|e| anyhow!("{}: {e}", path.display()))
+    };
+    let (old, current) = (read(&old)?, read(&current)?);
+    let (kept, warnings) =
+        wire_weaver_evolution::superseded::keep_superseded(&into, &old, &current)
+            .map_err(|e| anyhow!(e))?;
+    for warning in &warnings {
+        println!("{} {warning}", style("warning:").yellow());
+    }
+    for kept in &kept {
+        println!(
+            "kept {} {} in {}",
+            kept.kind.name(),
+            kept.name,
+            kept.path.display()
+        );
+    }
+    if kept.is_empty() {
+        println!(
+            "nothing to keep: the current snapshot has every definition of the earlier one, or they are kept"
+        );
+    }
+    Ok(())
+}

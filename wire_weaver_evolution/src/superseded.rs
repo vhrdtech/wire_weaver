@@ -101,6 +101,44 @@ pub(crate) fn superseded(
     (kept, warnings)
 }
 
+/// Keeps the definitions of `old`, an earlier snapshot of the crate version `current` is a snapshot of (one a refresh
+/// in place replaced before EVO-68 kept anything, e.g. taken from git history), that `current` no longer has: as a
+/// refresh in place does, in `dir` (`api_snapshots/superseded/`). Writes the ones not kept yet and returns them, with
+/// what couldn't be kept and why. `ww api keep-superseded` calls it.
+pub fn keep_superseded(
+    dir: &Path,
+    old: &ApiBundleOwned,
+    current: &ApiBundleOwned,
+) -> Result<(Vec<Superseded>, Vec<String>), String> {
+    let (Ok(old_version), Ok(current_version)) = (old.crate_version(0), current.crate_version(0))
+    else {
+        return Err("not a crate snapshot, ext_crates[0] must be the crate itself".into());
+    };
+    if old_version != current_version {
+        return Err(format!(
+            "{} {} and {} {} are snapshots of different crate versions",
+            old_version.crate_id,
+            crate::snapshot_files::triplet(&old_version.version),
+            current_version.crate_id,
+            crate::snapshot_files::triplet(&current_version.version),
+        ));
+    }
+    let mut definitions = current.clone();
+    compat::inline_known(&mut definitions);
+    let (kept, warnings) = superseded(dir, old, &definitions);
+    let mut written = vec![];
+    for kept in kept {
+        if kept.path.exists() {
+            continue;
+        }
+        std::fs::create_dir_all(dir).map_err(|e| format!("creating {}: {e}", dir.display()))?;
+        std::fs::write(&kept.path, &kept.bytes)
+            .map_err(|e| format!("writing {}: {e}", kept.path.display()))?;
+        written.push(kept);
+    }
+    Ok((written, warnings))
+}
+
 /// The traits and types in-line in `bundle` that are of the crate `own`: kind, index and name.
 fn own_definitions(
     bundle: &ApiBundleOwned,

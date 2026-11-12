@@ -329,7 +329,9 @@ mod tests {
     /// names; and with `ww_si` moving to 0.4.0 and wire w4.0 for exact_units' systems of units (UNIT-9, EVO-47); and
     /// with `ww_si` moving to 0.5.0 and wire w5.0 for `Timed.t` as a device point (STD-110, EVO-51); and with
     /// `Clock::shared_now` returning `Option<UnixMicros<u64>>` instead of `Option<u64>` (typed numbers for shared
-    /// time, rate, error and slew, P2401#11nov-0947g). Since EVO-68 a refresh in place keeps the definition it
+    /// time, rate, error and slew, P2401#11nov-0947g); and with `ww_date_time` moving to wire w2.0 for its bounded
+    /// calendar fields (EVO-58), which changes the shape of `DateTime` and of `Clock`, so their pins name the new
+    /// definitions. Since EVO-68 a refresh in place keeps the definition it
     /// replaces, which keeps a pinned signature known.
     #[test]
     fn signatures_from_before_marker_definitions() {
@@ -360,7 +362,7 @@ mod tests {
             date_time,
             "DateTime",
             &signature,
-            [0x1d, 0x27, 0xf8, 0x6f, 0xf9, 0xee, 0x85, 0x38],
+            [0x6d, 0x1d, 0xa2, 0x71, 0x92, 0xfa, 0x77, 0x5b],
         );
 
         let timebase = snapshot_of("ww_timebase");
@@ -375,7 +377,7 @@ mod tests {
             timebase,
             "Clock",
             &signature,
-            [0xf5, 0xa7, 0xa6, 0x7c, 0x63, 0xa9, 0xed, 0x88],
+            [0x0f, 0x96, 0x4f, 0x55, 0x41, 0xf8, 0x62, 0x3f],
         );
     }
 

@@ -2042,6 +2042,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
+ "ww_si",
 ]
 
 [[package]]
@@ -2095,6 +2096,7 @@ dependencies = [
 name = "ww_numeric"
 version = "0.3.0"
 dependencies = [
+ "defmt 1.1.1",
  "serde",
  "shrink_wrap",
 ]
@@ -2117,6 +2119,7 @@ dependencies = [
 name = "ww_si"
 version = "0.5.0"
 dependencies = [
+ "defmt 1.1.1",
  "exact_units",
  "shrink_wrap",
  "ww_numeric",

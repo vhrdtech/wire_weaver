@@ -904,6 +904,7 @@ name = "ww_error"
 version = "0.1.0"
 dependencies = [
  "shrink_wrap 0.2.0",
+ "ww_si",
 ]
 
 [[package]]
@@ -943,6 +944,15 @@ dependencies = [
  "ww_lz4",
  "ww_numeric",
  "ww_version",
+]
+
+[[package]]
+name = "ww_si"
+version = "0.5.0"
+dependencies = [
+ "exact_units",
+ "shrink_wrap 0.2.0",
+ "ww_numeric",
 ]
 
 [[package]]

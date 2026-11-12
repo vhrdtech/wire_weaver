@@ -6073,7 +6073,7 @@ digest and which traits are there (<code>Offers</code>). On a slow link that is 
 <ul>
 <li><strong>The device trusts nothing it receives.</strong> It checks every index and offset against its own layout before touching
   flash (<code>Error::OutOfRange</code>), every COPY source and every WRITE against the hash in its step
-  (<code>Error::SourceMismatch</code>, <code>Error::HashMismatch</code>), the plan header against its geometry, its version floor and the
+  (<code>Error::SourceMismatch</code>, <code>Error::HashMismatch</code>), the plan header against its geometry, its security floor and the
   release signature before the first step (<code>Error::WrongGeometry</code>, <code>Error::BelowFloor</code>, <code>Error::BadSignature</code>), and
   the finished image against the signed descriptor before it is staged (<code>Error::VerifyFailed</code>). Per-chunk hashes are
   not a trust boundary on their own; the signed descriptor over the whole image is. Chunky's device core refuses

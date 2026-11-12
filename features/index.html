@@ -8157,6 +8157,7 @@ observing), SRV-46 (peer identity).
   hashes change once; no device or host uses the format. Conformance: <code>signatures</code> cases
   (<code>docs/evolution/checker_tool.md#doc-comments-of-a-dependency-evo-69</code>, <code>docs/std_library/ww_self.md</code>;
   <code>ww_self</code> tests <code>signature::tests</code>, <code>conformance</code> test <code>signatures</code>).</li>
+<li>✅ <strong>EVO-65 <code>ww_dfu</code> typed numbers on the wire</strong> · <code>v0.5</code> — <code>ww_dfu</code> on a new wire line, <code>w2.0</code> (P2401 stdlib units survey): step indices and counts are <code>Index&lt;Step, u32&gt;</code> / <code>Count&lt;Step, u32&gt;</code>, chunks <code>Index</code>/<code>Count&lt;Chunk, u16&gt;</code>, erase blocks <code>Index&lt;Block, u16&gt;</code> / <code>Count&lt;Block, u16&gt;</code>, byte offsets in a chunk or a plan <code>Index&lt;Byte, u32&gt;</code>, sizes <code>Bytes&lt;u32&gt;</code>, all the same bytes. The breaks: <code>NodeInfo</code>'s <code>product_id</code>, <code>app_version</code> and <code>version_floor</code> become <code>app: Option&lt;ImageInfo&gt;</code> (<code>ProductId</code>, <code>ImageVersion</code>, and the image's new <code>security_counter</code>) and <code>security_floor: SecurityCounter</code>, as chunky checks the floor against the security counter, not the version; <code>geometry_id</code> is <code>geometry: GeometryId</code>; <code>LastResult::version</code> is <code>Option&lt;ImageVersion&gt;</code>; <code>Session::resume_from</code> is split into <code>resume_step</code> and <code>resume_byte</code>; <code>StageLimits::max_piece</code> is <code>Fixed&lt;Byte, One, u16, Range&lt;1, 1024&gt;&gt;</code> (a <code>u16</code>, bounded), <code>in_flight</code> <code>Fixed&lt;Request, One, u8, Range&lt;1, 255&gt;&gt;</code>; <code>ack_every</code> and <code>plan_area</code> are <code>Niched&lt;.., Null&lt;0&gt;&gt;</code>. Tests <code>ww_dfu</code> (bytes of every wrapper, the bounds, the niches), <code>tests/dfu</code>, <code>tests/dfu_scenarios</code> (transcripts again). No device or host uses the format.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -8695,8 +8696,10 @@ observing), SRV-46 (peer identity).
   recorded as a golden transcript the docs include (<code>docs/std_library/ww_dfu.md</code>, <code>tests/dfu_scenarios</code>,
   <code>just dfu-transcripts</code>). <code>StageBulk::plan</code> is a credit sink (API-28 credit-sinks). Every variable-size field is bounded (SW-19:
   <code>MAX_PIECE_LEN</code>, <code>MAX_HEADER_LEN</code>, <code>MAX_CHUNKS_PAGE</code>, <code>MAX_PRODUCT_LEN</code>), so every method has a known largest
-  request and reply. <code>Profile::AB(SlotSwitch::{Copy, Remap})</code> / <code>InPlace</code>. Next: a chunky implementation (chunky
-  NET-1).</li>
+  request and reply. <code>Profile::AB(SlotSwitch::{Copy, Remap})</code> / <code>InPlace</code>. Its numbers are typed (EVO-65): steps,
+  chunks and erase blocks as <code>Index</code>/<code>Count</code> of <code>Step</code>, <code>Chunk</code>, <code>Block</code>, byte offsets and sizes as <code>Index&lt;Byte, ..&gt;</code>
+  and <code>Bytes</code>, ids and versions as newtypes, the anti-rollback floor a <code>SecurityCounter</code> apart from the release
+  <code>ImageVersion</code>. Next: a chunky implementation (chunky NET-1).</li>
 <li>🚧 <strong>STD-13 IO trait family</strong> · <code>v0.5</code> — <code>ww_gpio</code>, <code>ww_uart</code> (optional <code>Uart::monitor</code>), <code>ww_i2c</code> (+ <code>I2cWatch</code>,
   <code>I2cMonitor</code>, 10-bit addresses), <code>ww_spi</code> (optional <code>Spi::monitor</code>), <code>ww_adc</code> (STD-18), <code>ww_pwm</code> (STD-19),
   <code>ww_onewire</code> (STD-20), <code>ww_timebase</code> (STD-17), <code>ww_logic_analyzer</code> / <code>ww_signal_generator</code> (STD-21, STD-22);

@@ -28,8 +28,9 @@ ratatui = "ratatui"
 thm = "thm"
 
 [default]
-# golden bytes of the conformance corpus (tests/conformance/corpus.json) are hex
+# golden bytes and signatures of the conformance corpus (tests/conformance/corpus.json) are hex, and so are the
+# signatures in the conformance matrix (`7f0a980582914d0b`)
 # a short git commit hash in prose (docs/articles/flash_budget.md): "commit 15ba3c20" tokenizes as "ba", a false
 # positive for "by"/"be"
-extend-ignore-re = ["\"bytes\": \"[0-9a-f ]*\"", "commit [0-9a-f]{6,40}\\b"]
+extend-ignore-re = ["\"(bytes|shape|with_docs)\": \"[0-9a-f ]*\"", "`[0-9a-f]{16}`", "commit [0-9a-f]{6,40}\\b"]
 extend-ignore-identifiers-re = []

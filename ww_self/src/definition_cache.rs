@@ -2,11 +2,11 @@
 //! `~/.wire_weaver/definitions/`.
 //!
 //! A device leaves out of its introspection data the traits and types known from crate snapshots, sending only crate,
-//! version, name and [signature](crate::signature). A crate that is not published yet changes under the same version,
+//! version, name and [signatures](crate::signature). A crate that is not published yet changes under the same version,
 //! so a device built from another revision of it can send a signature the host's snapshot doesn't have. Codegen
 //! stores the [canonical bundle](crate::signature::canonical_type_bytes) of every definition it leaves out here, keyed
-//! by its signature, so a host on the same machine finds the device's exact definition and compares it with its own
-//! by the evolution rules.
+//! by its shape signature, so a host on the same machine finds the device's definition and compares it with its own by
+//! the evolution rules.
 //!
 //! An entry is the canonical bundle's bytes with docs, named by the definition's shape signature (an entry written
 //! before EVO-69 by its signature with docs). Both signatures are computed from the bytes when loading and the

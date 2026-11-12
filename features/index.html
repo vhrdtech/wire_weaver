@@ -8124,6 +8124,7 @@ observing), SRV-46 (peer identity).
   same-bytes change of <code>ww_error::CommonError</code> is compatible in every crate embedding it, not a wire break each
   (<code>docs/evolution/checker_tool.md#a-dependency-changed-without-a-version-bump-evo-67</code>; <code>wire_weaver_evolution</code>
   tests <code>tests::in_place</code>).</li>
+<li>✅ <strong>EVO-60 <code>ww_user_info</code> caps bounded on the wire</strong> · <code>v0.5</code> — the ww_stdlib units survey's Q4: <code>UserInfoCaps::name_max</code> and <code>notes_max</code> carry their device-wide ceiling as a bound (<code>NameMax</code> / <code>NotesMax</code>, <code>Fixed&lt;units::Byte, One, u16, Range&lt;0, 32&gt;&gt;</code> / <code>Range&lt;0, 256&gt;&gt;</code>) instead of a plain <code>u16</code>; <code>ww_user_info</code> on a new wire line, <code>w2.0</code>. No device or host uses the format.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

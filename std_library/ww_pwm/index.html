@@ -5927,7 +5927,7 @@ devices with PWM output don't have spare on every channel, so a plain PWM driver
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="cp">#[ww_trait]</span>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">PwmChannel</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_output</span><span class="p">(</span><span class="n">output</span><span class="p">:</span><span class="w"> </span><span class="nc">PwmOutput</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">PwmActual</span><span class="p">,</span><span class="w"> </span><span class="n">PwmError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_duty</span><span class="p">(</span><span class="n">duty</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">PwmError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_duty</span><span class="p">(</span><span class="n">duty</span><span class="p">:</span><span class="w"> </span><span class="nc">Duty16</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">Duty16</span><span class="p">,</span><span class="w"> </span><span class="n">PwmError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="n">idle_high</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">PwmError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">state</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">PwmState</span><span class="p">;</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="p">}</span>
@@ -5975,20 +5975,21 @@ devices with PWM output don't have spare on every channel, so a plain PWM driver
 </ul>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>PwmOutput</code> - what to set: <code>freq: Hertz</code>, <code>duty: u16</code> (0..=65535 = 0..100 %), <code>inverted: bool</code>, <code>phase_correct:
-  bool</code> (center-aligned instead of edge-aligned counting).</li>
-<li><code>PwmActual</code> - what was actually set: <code>freq: Hertz</code>, <code>duty: u16</code>.</li>
+<li><code>PwmOutput</code> - what to set: <code>freq: Hertz</code>, <code>duty: Duty16</code> (<code>exact_units</code>' "0..=65535 = 0..100 %" alias),
+  <code>inverted: bool</code>, <code>phase_correct: bool</code> (center-aligned instead of edge-aligned counting).</li>
+<li><code>PwmActual</code> - what was actually set: <code>freq: Hertz</code>, <code>duty: Duty16</code>.</li>
 <li><code>PwmState</code> - <code>Idle</code> or <code>Output(PwmActual)</code>; <code>unib32</code> discriminant.</li>
 <li><code>PwmCapabilities&lt;'i&gt;</code> - <code>channels: MaxLen&lt;RefVec&lt;'i, PwmChannelInfo&lt;'i&gt;&gt;, MAX_CHANNELS&gt;</code>, <code>min_freq</code> / <code>max_freq:
-  Hertz</code>, <code>duty_bits: u8</code> (the hardware's duty resolution).</li>
-<li><code>PwmChannelInfo&lt;'i&gt;</code> - <code>name: MaxLen&lt;&amp;'i str, MAX_NAME_LEN&gt;</code>, <code>group: u8</code> (channels sharing a timer share this),
-  <code>capture: bool</code> (also reachable through <code>PwmCapture</code>, at the same index).</li>
+  Hertz</code>, <code>duty_bits: Fixed&lt;Bit, One, u8&gt;</code> (the hardware's duty resolution; kept its name since the <code>Duty16</code> fields
+  already read as "duty").</li>
+<li><code>PwmChannelInfo&lt;'i&gt;</code> - <code>name: MaxLen&lt;&amp;'i str, MAX_NAME_LEN&gt;</code>, <code>group: TimerGroup</code> (a <code>u8</code> newtype; channels
+  sharing a timer share this), <code>capture: bool</code> (also reachable through <code>PwmCapture</code>, at the same index).</li>
 <li><code>CaptureConfig</code> - <code>mode: CaptureMode</code>, <code>gate: Second</code> (the measurement window, or how long <code>PulseWidth</code> waits for
   one pulse to start).</li>
 <li><code>CaptureMode</code> - <code>Off</code>, <code>Frequency</code>, <code>DutyCycle</code>, <code>PulseWidth</code>, <code>EdgeCount</code>; <code>sized</code>, <code>unib32</code> discriminant.</li>
 <li><code>CaptureSample</code> - <code>t: Second</code> (end of the window), <code>value: CaptureValue</code>.</li>
-<li><code>CaptureValue</code> - <code>Frequency(Hertz)</code>, <code>DutyCycle(u16)</code>, <code>PulseWidth(Second)</code>, <code>EdgeCount(u32)</code>; the variant always
-  matches <code>CaptureConfig::mode</code>. <code>unib32</code> discriminant.</li>
+<li><code>CaptureValue</code> - <code>Frequency(Hertz)</code>, <code>DutyCycle(Duty16)</code>, <code>PulseWidth(Second)</code>, <code>EdgeCount(u32)</code>; the variant
+  always matches <code>CaptureConfig::mode</code>. <code>unib32</code> discriminant.</li>
 <li><code>PwmError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>SharedTimer</code>; unsized
   (<code>unib32</code> discriminant), evolvable. Each method lists the variants it returns (<code>#[errors]</code>).</li>
 </ul>

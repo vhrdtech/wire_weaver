@@ -5975,7 +5975,8 @@
 <p>Part of the <a href="../io_family/">IO trait family</a>. <code>ww_gpio</code> is a global WireWeaver trait for controlling GPIO pins remotely: reading and setting output levels,
 reading input levels, configuring pin mode / pull / drive strength, and
 observing edge events as a stream. It is
-<code>no_std</code> by default and depends only on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>Volt</code> IO level).</p>
+<code>no_std</code> by default and depends only on <code>wire_weaver</code> and <code>ww_si</code> (for <code>IoLevel</code>, the IO level in mV, and the
+counted indices of the <code>Custom</code> variants below).</p>
 <p>Add it to a device API crate with:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_gpio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span>
@@ -6064,24 +6065,27 @@ change is seen in an interrupt, so it waits for marks of an element from another
 <ul>
 <li><code>Level</code> - <code>Low</code> / <code>High</code>, <code>sized</code>, 1 bit on the wire.</li>
 <li><code>Mode</code> - <code>PushPullOutput</code>, <code>OpenDrainOutput</code>, <code>Input</code>, <code>HighZ</code> (like <code>Input</code> but may disable the input buffer to
-  save power), <code>Analog</code>, <code>Custom(u8)</code>; <code>sized</code>, 1 nibble.</li>
-<li><code>Pull</code> - <code>None</code>, <code>Up</code>, <code>Down</code>, <code>Custom(u8)</code>; <code>sized</code>, 2 bits.</li>
-<li><code>Speed</code> - <code>Slow</code>, <code>Medium</code>, <code>Fast</code>, <code>VeryFast</code>, <code>Custom(u8)</code>; <code>sized</code>, 1 nibble.</li>
-<li><code>IoPinEvent</code> - <code>RisingEdge</code>, <code>FallingEdge</code>, <code>Custom(u8)</code>; <code>sized</code>, 2 bits.</li>
+  save power), <code>Analog</code>, <code>Custom(Index&lt;CustomMode, u8&gt;)</code>; <code>sized</code>, 1 nibble.</li>
+<li><code>Pull</code> - <code>None</code>, <code>Up</code>, <code>Down</code>, <code>Custom(Index&lt;CustomPull, u8&gt;)</code>; <code>sized</code>, 2 bits.</li>
+<li><code>Speed</code> - <code>Slow</code>, <code>Medium</code>, <code>Fast</code>, <code>VeryFast</code>, <code>Custom(Index&lt;CustomSpeed, u8&gt;)</code>; <code>sized</code>, 1 nibble.</li>
+<li><code>IoPinEvent</code> - <code>RisingEdge</code>, <code>FallingEdge</code>, <code>Custom(Index&lt;CustomEvent, u8&gt;)</code>; <code>sized</code>, 2 bits.</li>
 <li><code>GpioError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>DifferentModes</code>; unsized
   (<code>unib32</code> discriminant), evolvable, <code>Display</code> from the doc lines. Each method lists the variants it returns
   (<code>#[errors]</code>).</li>
-<li><code>IoPinEnabledEvents&lt;'i&gt;</code> - which sources the <code>event</code> stream reports, its argument: <code>rising: bool</code>, <code>falling: bool</code>, and a
-  <code>custom: RefVec&lt;'i, u8&gt;</code> list of custom source indices.</li>
+<li><code>IoPinEnabledEvents&lt;'i&gt;</code> - which sources the <code>event</code> stream reports, its argument: <code>rising: bool</code>, <code>falling: bool</code>,
+  and a <code>custom: RefVec&lt;'i, Index&lt;CustomEvent, u8&gt;&gt;</code> list of custom source indices.</li>
 <li><code>PinCapabilities&lt;'i&gt;</code> - what one pin supports: <code>modes: MaxLen&lt;RefVec&lt;'i, Mode&gt;, 8&gt;</code>,
   <code>pulls: MaxLen&lt;RefVec&lt;'i, Pull&gt;, 4&gt;</code>, <code>speeds: MaxLen&lt;RefVec&lt;'i, Speed&gt;, 5&gt;</code>, <code>events: bool</code> (the <code>event</code> stream
   works on this pin), <code>name: MaxLen&lt;&amp;'i str, 16&gt;</code> (e.g. <code>"IO4"</code>, <code>"PB5"</code>).</li>
-<li><code>BankConfig</code> - <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>Bank::configure</code>.</li>
-<li><code>BankCapabilities&lt;'i&gt;</code> - what a bank supports: <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>,
-  <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code> (an adjustable supply), <code>push_pull</code> / <code>open_drain</code> / <code>input</code> /
+<li><code>BankConfig</code> - <code>io_level: Option&lt;IoLevel&gt;</code>; the argument and the answer of <code>Bank::configure</code>. <code>IoLevel</code> is
+  <code>Fixed&lt;Volt, Milli, u16&gt;</code>, the bank's IO level in mV.</li>
+<li><code>BankCapabilities&lt;'i&gt;</code> - what a bank supports: <code>io_levels: MaxLen&lt;RefVec&lt;'i, IoLevel&gt;, MAX_IO_LEVELS&gt;</code>,
+  <code>io_level_min</code> / <code>io_level_max: Option&lt;IoLevel&gt;</code> (an adjustable supply), <code>push_pull</code> / <code>open_drain</code> / <code>input</code> /
   <code>individually_configurable_pins: bool</code>, and <code>custom_mode</code> / <code>custom_pull</code> / <code>custom_speed: RefVec&lt;'i, &amp;'i str&gt;</code>
-  describing any <code>Custom(u8)</code> variants.</li>
+  describing any <code>Custom</code> variant, indexed by <code>CustomMode</code> / <code>CustomPull</code> / <code>CustomSpeed</code>.</li>
 </ul>
+<p><code>CustomMode</code>, <code>CustomPull</code>, <code>CustomSpeed</code> and <code>CustomEvent</code> are counted markers of this crate (<code>ww_si::unit!</code>),
+so an <code>Index&lt;CustomMode, u8&gt;</code> and a plain <code>u8</code> are the same byte, only the model says what it counts.</p>
 <p><code>Level</code> and <code>Mode</code> also carry small helpers: <code>Level::is_high()</code> / <code>is_low()</code>, <code>Mode::is_driving()</code> (true for
 <code>PushPullOutput</code> and <code>OpenDrainOutput</code>).</p>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and

@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 814c4700c6b0f7eb258344a04e1ab25cbaf9875c91b67674aaf3f1fc71942762
+// shrink_wrap sha256: 6f1c6e3ae9eddbd0a6f511c3ff4548aaefdda8ef1f7e4b282c7550a8668de6b0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -87,23 +87,77 @@
             "Uncommitted changes were present at build time.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
-        229,
-        81,
-        175,
-        191,
-        113,
-        56,
-        216,
-        166,
-        29,
-        39,
-        248,
-        111,
+    SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
         249,
-        238,
+        131,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "prefix::One", signature: [
+        52,
+        174,
+        110,
+        134,
+        44,
+        217,
+        128,
         133,
-        56,
+        41,
+        220,
+        164,
+        167,
+        95,
+        217,
+        20,
+        193,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "Fixed", signature: [
+        226,
+        246,
+        240,
+        210,
+        111,
+        5,
+        156,
+        197,
+        37,
+        238,
+        72,
+        65,
+        142,
+        141,
+        22,
+        33,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
+        103,
+        186,
+        90,
+        124,
+        167,
+        109,
+        186,
+        104,
+        109,
+        29,
+        162,
+        113,
+        146,
+        250,
+        119,
+        91,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cargo profile of a build.",
@@ -128,10 +182,10 @@
         (ident: Some("git"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "`None` when built outside git.",
         ], slot: None, series_opaque: false),
-        (ident: Some("built"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
+        (ident: Some("built"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Build time (UTC); `SOURCE_DATE_EPOCH` when set, for reproducible builds.",
         ], slot: None, series_opaque: false),
-        (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+        (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
             "Cargo profile the firmware was built with.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -169,24 +223,6 @@
             "The device cannot tell.",
         ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
-        176,
-        71,
-        213,
-        183,
-        163,
-        190,
-        249,
-        131,
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
-    ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Unbounded", signature: [
         117,
         194,
@@ -283,12 +319,12 @@
         (docs: [
             "ARMv6-M to ARMv8-M cores (RP2040, RP2350 Cortex-M33, STM32).",
         ], ident: "CortexM", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "RISC-V cores (RP2350 Hazard3, ESP32-C).",
         ], ident: "RiscV", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "units::Boot", signature: [
@@ -309,58 +345,22 @@
         196,
         116,
     ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "prefix::One", signature: [
-        52,
-        174,
-        110,
-        134,
-        44,
-        217,
-        128,
-        133,
-        41,
-        220,
-        164,
-        167,
-        95,
-        217,
-        20,
-        193,
-    ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "Fixed", signature: [
-        226,
-        246,
-        240,
-        210,
-        111,
-        5,
-        156,
-        197,
-        37,
-        238,
-        72,
-        65,
-        142,
-        141,
-        22,
-        33,
-    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).",
     ], ident: "ResetRecord", generics: [], fields: Named([
-        (ident: Some("cause"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+        (ident: Some("cause"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
             "What the reset-cause register (or the crash record) says.",
         ], slot: None, series_opaque: false),
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Build id of the firmware that crashed: the record may be older than an update. Empty when unknown.",
         ], slot: None, series_opaque: false),
-        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 8, args: [
-            Type(OutOfLine(type_idx: 6)),
-            Type(OutOfLine(type_idx: 7)),
+        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 10, args: [
+            Type(OutOfLine(type_idx: 2)),
+            Type(OutOfLine(type_idx: 9)),
         ])), docs: [
             "Device time of the crash since its boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
+        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 13)), docs: [
             "Registers saved by the fault handler, for a fault or panic.",
         ], slot: None, series_opaque: false),
         (ident: Some("stack"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U32)))), docs: [
@@ -370,11 +370,11 @@
         (ident: Some("message"), default: None, since: None, ty: MaxLen(max_len: Fixed(128), ty: String), docs: [
             "Panic message or fault text, cut at the bound.",
         ], slot: None, series_opaque: false),
-        (ident: Some("boots_since_crash"), default: None, since: None, ty: Instance(type_idx: 14, args: [
-            Type(OutOfLine(type_idx: 12)),
-            Type(OutOfLine(type_idx: 13)),
+        (ident: Some("boots_since_crash"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 3)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 9)),
         ]), docs: [
             "Boots since the crash data was saved: 0 when the last reset was the crash itself, 1 after one normal reset,",
             "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
@@ -387,7 +387,7 @@
         "",
         "All items are constant for the life of a firmware image.",
     ], crate_idx: 0, trait_name: "FirmwareInfo", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 7), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
             "Name, version, git commit, build time and profile.",
         ], optional: None, meta: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
@@ -408,11 +408,11 @@
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
             "Cause of the last reset and, after a crash, the record saved before it.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(Instance(type_idx: 14, args: [
-            Type(OutOfLine(type_idx: 12)),
-            Type(OutOfLine(type_idx: 13)),
+        (id: 1, kind: Method(args: [], return_ty: Some(Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 14)),
+            Type(OutOfLine(type_idx: 3)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 7)),
+            Type(OutOfLine(type_idx: 9)),
         ])), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
             "Boots since the boot counter was cleared. With the cause it tells a reset loop from a single crash.",
         ], optional: None, meta: None),
@@ -426,10 +426,10 @@
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
+    Some((line: 2, revision: 0)),
     Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
-    Some((line: 1, revision: 0)),
+    Some((line: 2, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
 ]))

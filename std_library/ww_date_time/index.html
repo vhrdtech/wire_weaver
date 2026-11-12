@@ -5847,16 +5847,17 @@ crate's own date/time types for host-side code.</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>DateTime</code> - <code>date: NaiveDate</code>, <code>time: NaiveTime</code>, <code>timezone: Timezone</code>; <code>self_describing</code>.</li>
-<li><code>NaiveDate</code> - an ISO 8601 calendar date without timezone: <code>year: Year</code>, <code>month: U4</code> (1-12), <code>day: U5</code> (1-31);
-  <code>self_describing</code>.</li>
+<li><code>NaiveDate</code> - an ISO 8601 calendar date without timezone: <code>year: Year</code>, <code>month: IndexFrom1&lt;Month, U4, Range&lt;1, 12&gt;&gt;</code>,
+  <code>day: IndexFrom1&lt;Day, U5, Range&lt;1, 31&gt;&gt;</code> (not checked against the month); <code>self_describing</code>.</li>
 <li><code>Year</code> - a signed year, <code>-262_142..=262_141</code>, stored as a <code>UNib32</code> shifted by 2025 so that years close to now take
   the fewest nibbles; a year before 2025 is masked into the low 19 bits instead, so it always costs the same extra
   nibbles regardless of how far back it is (see <a href="#sizes-on-the-wire">sizes</a> below). <code>Year::new</code> constructs one
   (bounds-checked), <code>Year::year()</code> reads it back as <code>i32</code>.</li>
-<li><code>NaiveTime</code> - an ISO 8601 time without timezone: <code>secs: U17</code> (seconds since midnight, 0-86399), <code>frac: Option&lt;U31&gt;</code>
-  (sub-second part in nanoseconds, omitted entirely when zero); <code>self_describing</code>.</li>
+<li><code>NaiveTime</code> - an ISO 8601 time without timezone: <code>secs: Fixed&lt;Second, One, U17, Range&lt;0, 86_399&gt;&gt;</code> (seconds since
+  midnight), <code>frac: Option&lt;Fixed&lt;Second, Nano, U31, Range&lt;0, 1_999_999_999&gt;&gt;&gt;</code> (sub-second part in nanoseconds, omitted
+  entirely when zero; 1 to 2 billion only in a leap second, which <code>NaiveTime::from_hms_opt</code> checks); <code>self_describing</code>.</li>
 <li><code>Timezone</code> - <code>UTC</code> (preferred, costs only 1 bit) or <code>Other(OtherTimezone)</code>; <code>self_describing</code>, <code>ww_repr = u1</code>.</li>
-<li><code>OtherTimezone</code> - <code>Naive</code> (no timezone information at all) or <code>FixedOffset { secs: I18 }</code> (offset from UTC in
+<li><code>OtherTimezone</code> - <code>Naive</code> (no timezone information at all) or <code>FixedOffset { secs: Fixed&lt;Second, One, I18, Range&lt;-86_399, 86_399&gt;&gt; }</code> (offset from UTC in
   seconds); <code>self_describing</code>, <code>ww_repr = u3</code> leaves room to add up to 6 more kinds later without breaking
   compatibility.</li>
 </ul>

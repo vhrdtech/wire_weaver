@@ -5899,7 +5899,7 @@ early once it has found the family code it is looking for).</p>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">reset</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">OneWireError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="n">from</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">SearchState</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">family</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">SearchPage</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">OneWireError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span><span class="n">from</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">SearchState</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">family</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">FamilyCode</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">SearchPage</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">OneWireError</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">OneWireCapabilities</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
@@ -5914,7 +5914,7 @@ early once it has found the family code it is looking for).</p>
 <li><code>reset</code> - reset pulse on its own; <code>true</code> when a device answered with a presence pulse (not an error - an empty
   bus is a normal <code>false</code>).</li>
 <li><code>search</code> - paged ROM search: start with <code>from: None</code>, continue with each page's <code>next</code> until it comes back
-  <code>None</code>. <code>family</code>, when given, only returns ids whose first byte matches.</li>
+  <code>None</code>. <code>family</code>, when given, only returns ids whose first byte matches it.</li>
 <li><code>capabilities</code> - pins the bus can be put on, IO levels, and whether overdrive / strong pull-up are supported.</li>
 <li><code>configure</code> - puts the bus on one of <code>capabilities().pins</code> at a given speed and IO level (<code>io_level: None</code> leaves
   it as it is), or disables it; answers with what was actually set, as the <code>configure</code> of the other IO crates does.</li>
@@ -5929,16 +5929,18 @@ the transaction's last byte; <code>OneWireCapabilities::strong_pullup</code> say
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>RomId</code> - <code>bytes: [u8; 8]</code>: family code, 48-bit serial, CRC8, most to least significant.</li>
+<li><code>FamilyCode</code> - <code>RomId</code>'s first byte, <code>pub u8</code>: a newtype, exactly its <code>u8</code> on the wire (<code>transparent</code>).</li>
 <li><code>OneWireTransaction&lt;'i&gt;</code> - <code>rom: Option&lt;RomId&gt;</code> (<code>None</code> = skip ROM), <code>write: MaxLen&lt;RefVec&lt;'i, u8&gt;, OW_MAX&gt;</code>,
-  <code>read_len: u16</code>, <code>strong_pullup: Option&lt;Second&gt;</code>.</li>
-<li><code>SearchState</code> - where a paged <code>search</code> left off: <code>last_rom: RomId</code>, <code>last_discrepancy: u8</code> (the classic
-  Dallas/Maxim search state, carried from one page to the next).</li>
+  <code>read_len: Bytes&lt;u16&gt;</code>, <code>strong_pullup: Option&lt;Second&gt;</code>.</li>
+<li><code>SearchState</code> - where a paged <code>search</code> left off: <code>last_rom: RomId</code>, <code>last_discrepancy:
+  IndexFrom1&lt;RomBit, u8, Range&lt;1, 64&gt;&gt;</code> (the classic Dallas/Maxim search state, carried from one page to the next;
+  <code>RomBit</code> is a counted marker of this crate, declared with <code>unit!</code>).</li>
 <li><code>SearchPage&lt;'i&gt;</code> - <code>roms: MaxLen&lt;RefVec&lt;'i, RomId&gt;, MAX_ROMS&gt;</code>, <code>next: Option&lt;SearchState&gt;</code> (<code>None</code> when all
   devices were found).</li>
 <li><code>Triplet</code> - one <code>triplet</code> step's result: <code>id_bit</code>, <code>cmp_bit</code> (both set when every remaining device agrees on this
   bit, both clear at a fork), <code>direction</code> (the bit this step actually drove onto the bus).</li>
-<li><code>OneWireConfig</code> - <code>enabled: bool</code>, <code>pin: u8</code> (index into <code>OneWireCapabilities::pins</code>), <code>speed: OneWireSpeed</code>,
-  <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>configure</code>.</li>
+<li><code>OneWireConfig</code> - <code>enabled: bool</code>, <code>pin: Index&lt;Pin, u8&gt;</code> (index into <code>OneWireCapabilities::pins</code>, <code>Pin</code> a counted
+  marker of <code>ww_si</code>), <code>speed: OneWireSpeed</code>, <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>configure</code>.</li>
 <li><code>OneWireSpeed</code> - <code>Standard</code> / <code>Overdrive</code>; <code>sized</code>, 1 bit.</li>
 <li><code>OneWireCapabilities&lt;'i&gt;</code> - <code>pins: MaxLen&lt;RefVec&lt;'i, MaxLen&lt;&amp;'i str, 16&gt;&gt;, MAX_PINS&gt;</code> (by name), <code>io_levels:
   MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code>, <code>overdrive: bool</code>,

@@ -2597,6 +2597,24 @@ mod tests {
         }
     }
 
+    /// exact_units NUM-32: `m_u e` on a unit's `Exact(..)` line, whole or a half, last after the other symbols;
+    /// the dalton is `Exact(1 / 1, m_u 1)`, [Magnitude::M_U].
+    #[test]
+    fn magnitude_lines_with_the_atomic_mass_constant() {
+        let line = |s: &str| syn::parse_str::<MagnitudeLine>(s);
+        let dalton = line("1 / 1, m_u 1").unwrap();
+        assert_eq!(dalton.m_u_x2, 2);
+        assert_eq!(magnitude(&dalton).unwrap(), Magnitude::M_U);
+        let half = line("1 / 1, g 1, m_u -1 / 2").unwrap();
+        assert_eq!((half.g_x2, half.m_u_x2), (2, -1));
+        assert_eq!(
+            magnitude(&half).unwrap(),
+            Magnitude::G.div(Magnitude::M_U.sqrt())
+        );
+        let err = line("1 / 1, m_u 1, g 1").unwrap_err();
+        assert!(err.to_string().contains("in this order"), "{err}");
+    }
+
     #[test]
     fn origin_fields_and_values() {
         let fields: OriginFields = syn::parse_str(

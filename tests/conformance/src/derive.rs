@@ -942,6 +942,14 @@ pub fn table() -> Vec<Typed> {
         ),
         case("stdlib.si.magnitude.rejected", ww_si::Magnitude::ONE),
         case(
+            "stdlib.si.magnitude.atomic_mass_constant",
+            ww_si::Magnitude::M_U,
+        ),
+        case(
+            "stdlib.si.magnitude.wide_prime",
+            ww_si::Magnitude::new(167_262_192_595, 1, -38, 0, 0),
+        ),
+        case(
             "stdlib.si.run_scale.ntsc",
             ww_si::RunScale::ratio(1001, 60_000).unwrap(),
         ),

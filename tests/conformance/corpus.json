@@ -1635,6 +1635,22 @@
       "note": "a rest that is 1 (pow2 0, nothing else) isn't canonical, it is left out: Magnitude's validate refuses it"
     },
     {
+      "name": "stdlib.si.magnitude.atomic_mass_constant",
+      "type": "magnitude",
+      "value": {"pow10": 0, "rest": {"pow2": 0, "symbols": {"pi": 0, "ln2": 0, "ln10": 0, "mu0": 0, "g": 0, "m_u": 2}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}},
+      "bytes": "008000800000000000020000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "m_u, the dalton in kg: a measured constant that stays a symbol (exact_units NUM-32), m_u 2 (exponents are doubled)"
+    },
+    {
+      "name": "stdlib.si.magnitude.wide_prime",
+      "type": "magnitude",
+      "value": {"pow10": -74, "rest": {"pow2": -2, "symbols": null, "factors": [{"prime": 33452438519, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}},
+      "bytes": "b680fe40fccfaee777020000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "CODATA 2022's proton mass in kg, 1.67262192595e-27 = 33452438519 · 5 · 10⁻³⁸: a prime past u32, a UVlq64 on the wire (exact_units NUM-32)"
+    },
+    {
       "name": "stdlib.si.run_scale.ntsc",
       "type": "run_scale",
       "value": {"num": 1001, "den": 1875, "pow2": -5},

@@ -15,7 +15,6 @@ mod tests {
         I2cWatchConfigOwned, I2cWatchEvent, I2cWatchReportOwned, Index, Item, MAX_READ_LEN,
         MAX_SCAN, MAX_WATCHES, Second, WatchSlot as WireWatchSlot,
     };
-    use ww_si::Index;
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
     use ww_stream::tx::Counted;

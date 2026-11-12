@@ -1,6 +1,6 @@
 // ww_board_info 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: db5c5bc61ac9934188dd73ce5327d09497ea047dcef30baf500eed245b6440db
+// shrink_wrap sha256: e5240877087c10c382886096cd010189e835905ecd2818927bf4fa70e1dbd1e8
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -33,14 +33,14 @@
         ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((line: 1, revision: 1))),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
+        109,
         29,
-        39,
-        248,
-        111,
-        249,
-        238,
-        133,
-        56,
+        162,
+        113,
+        146,
+        250,
+        119,
+        91,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The PCB and its assembly, see [BoardInfo::BOARD].",

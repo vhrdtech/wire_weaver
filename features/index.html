@@ -8132,6 +8132,16 @@ observing), SRV-46 (peer identity).
   <code>pin</code>; all of <code>ww_uart</code>'s) is a transparent wrapper or an unbounded <code>Fixed</code>/<code>Index</code>/<code>Count</code>, same bytes, no wire
   bump. <code>ww_onewire_0_1_0.ron</code> is saved again in place (never published). No device or host uses the
   format.</li>
+<li>✅ <strong>EVO-68 Superseded definitions</strong> · <code>v0.5</code> — EVO-67 for a dependency's trait, and after its snapshot was
+  refreshed in place: <code>ww api save</code> keeps each own definition whose signature a refresh in place changes, in the
+  definition cache's format (<code>api_snapshots/superseded/&lt;crate&gt;_&lt;version&gt;-&lt;kind&gt;-&lt;name&gt;-&lt;signature&gt;.ww</code>,
+  <code>wire_weaver_evolution::superseded</code>), <code>just save-snapshots</code> copies them into <code>wire_weaver_snapshots</code>, which embeds
+  them (<code>wire_weaver_snapshots::superseded</code>, also used by <code>inline_skipped</code> and <code>inline_skipped_or_cached</code>), and the
+  checker finds a definition by signature there and compares a trait changed in place resource by resource. Found by
+  <code>tests/thermo_api</code>'s frozen line snapshots, which name <code>ww_indication::Indication</code> by a signature that changed
+  with <code>ww_error::CommonError</code> (same bytes): they read as needing a new wire line once both snapshots were refreshed
+  (<code>docs/evolution/checker_tool.md#superseded-definitions-evo-68</code>; <code>wire_weaver_evolution</code> tests
+  <code>tests::superseded</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

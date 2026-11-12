@@ -2443,6 +2443,7 @@ dependencies = [
  "crc",
  "wire_weaver",
  "ww_error",
+ "ww_si",
 ]
 
 [[package]]

@@ -10,7 +10,6 @@ mod tests {
         Drive, Index, InternedOwned, Level, PinDiagErrorOwned, Point, PointCaps, PointState, Pull,
         TestPoint,
     };
-    use ww_si::Index;
 
     const ALL: PointCaps = PointCaps {
         read: true,

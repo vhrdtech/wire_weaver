@@ -12,7 +12,6 @@ mod tests {
         Bytes, FamilyCode, Index, IndexFrom1, OneWireConfig, OneWireError, OneWireErrorOwned,
         OneWireSpeed, OneWireTransactionOwned, RomId, SearchState,
     };
-    use ww_si::Index;
 
     /// Family code used by every simulated device in these tests.
     const FAMILY_A: u8 = 0x28;

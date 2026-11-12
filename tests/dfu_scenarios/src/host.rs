@@ -68,21 +68,30 @@ macro_rules! connect {
 macro_rules! send_steps {
     ($stage:expr, $plan:expr, $from:expr, $max_piece:expr) => {{
         for (index, step) in $plan.steps.iter().enumerate().skip($from as usize) {
-            let index = index as u32;
+            let index = ww_si::Index::new(index as u32);
             match step {
-                $crate::plan::Step::Erase { block } => {
-                    $stage.erase(index, *block).call().await.unwrap()
-                }
-                $crate::plan::Step::Copy { dst, src, hash } => {
-                    $stage.copy(index, *dst, *src, *hash).call().await.unwrap()
-                }
+                $crate::plan::Step::Erase { block } => $stage
+                    .erase(index, ww_si::Index::new(*block))
+                    .call()
+                    .await
+                    .unwrap(),
+                $crate::plan::Step::Copy { dst, src, hash } => $stage
+                    .copy(
+                        index,
+                        ww_si::Index::new(*dst),
+                        ww_si::Index::new(*src),
+                        *hash,
+                    )
+                    .call()
+                    .await
+                    .unwrap(),
                 $crate::plan::Step::Write { dst, hash, data } => {
                     for (i, piece) in data.chunks($max_piece as usize).enumerate() {
-                        let offset = (i * $max_piece as usize) as u32;
+                        let offset = ww_si::Index::new((i * $max_piece as usize) as u32);
                         $stage
                             .write(
                                 index,
-                                *dst,
+                                ww_si::Index::new(*dst),
                                 *hash,
                                 offset,
                                 MaxLen::new(piece.to_vec()).unwrap(),
@@ -112,7 +121,7 @@ macro_rules! send_bulk {
         while offset < to {
             let end = (offset + $max_piece as usize).min(to);
             sink.send_owned(ww_dfu::PlanSegmentOwned {
-                offset: offset as u32,
+                offset: ww_si::Index::new(offset as u32),
                 data: MaxLen::new($plan.body[offset..end].to_vec()).unwrap(),
             })
             .await
@@ -137,7 +146,7 @@ macro_rules! resume_bulk {
         while offset < to {
             let end = (offset + $max_piece as usize).min(to);
             sink.send_owned(ww_dfu::PlanSegmentOwned {
-                offset: offset as u32,
+                offset: ww_si::Index::new(offset as u32),
                 data: MaxLen::new($plan.body[offset..end].to_vec()).unwrap(),
             })
             .await

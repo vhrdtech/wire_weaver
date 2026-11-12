@@ -8,7 +8,7 @@ use clap::{Subcommand, ValueEnum};
 use console::style;
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
 use wire_weaver_client::{CallError, ClientMeta, DynClient, Error};
-use ww_dfu::{BootState, BootTarget, NodeInfoOwned, Outcome, Profile};
+use ww_dfu::{BootState, BootTarget, ImageVersion, NodeInfoOwned, Outcome, Profile};
 
 use crate::cmd::bootsel::BootselCommand;
 use crate::cmd::stm32dfu::Stm32DfuCommand;
@@ -205,8 +205,8 @@ async fn status(device: &DynClient) -> Result<()> {
         println!(
             "{:12} pieces of {} B, {} in flight{}",
             style("stage").bold(),
-            l.max_piece,
-            l.in_flight,
+            l.max_piece.get(),
+            l.in_flight.get(),
             if l.writes_in_background {
                 ""
             } else {
@@ -218,20 +218,31 @@ async fn status(device: &DynClient) -> Result<()> {
 }
 
 fn print_node(n: &NodeInfoOwned) {
-    let layout = format!("{:#010x}", n.geometry_id);
+    let layout = format!("{:#010x}", n.geometry.0);
     println!("{:12} {:?}, {:?}", style("node").bold(), n.role, n.profile);
-    println!(
-        "{:12} {} (id {})",
-        style("product").bold(),
-        escape(n.product.as_str()),
-        n.product_id
-    );
+    match n.app {
+        Some(app) => println!(
+            "{:12} {} (id {})",
+            style("product").bold(),
+            escape(n.product.as_str()),
+            app.product.0
+        ),
+        None => println!(
+            "{:12} {}",
+            style("product").bold(),
+            escape(n.product.as_str())
+        ),
+    }
     println!("{:12} {layout}", style("layout").bold());
     println!(
-        "{:12} {}, floor {}, seal {:?}",
+        "{:12} {}, security floor {}, seal {:?}",
         style("version").bold(),
-        n.app_version.map_or("no valid image".into(), version),
-        n.version_floor,
+        n.app.map_or("no valid image".into(), |app| format!(
+            "{}, security counter {}",
+            version(app.version),
+            app.security_counter.0
+        )),
+        n.security_floor.0,
         n.seal
     );
     println!(
@@ -247,8 +258,8 @@ fn print_node(n: &NodeInfoOwned) {
         Outcome::Nothing => style(outcome).dim(),
     };
     match last.version {
-        0 => println!("{:12} {outcome}", style("last update").bold()),
-        v => println!(
+        None => println!("{:12} {outcome}", style("last update").bold()),
+        Some(v) => println!(
             "{:12} {outcome} ({})",
             style("last update").bold(),
             version(v)
@@ -257,7 +268,7 @@ fn print_node(n: &NodeInfoOwned) {
 }
 
 /// A version, and how `--fw-version x.y.z` packs it.
-fn version(v: u32) -> String {
+fn version(ImageVersion(v): ImageVersion) -> String {
     format!("{v} ({}.{}.{})", v >> 16, (v >> 8) & 0xFF, v & 0xFF)
 }
 
@@ -295,6 +306,6 @@ mod tests {
 
     #[test]
     fn versions_format() {
-        assert_eq!(version(0x01_0203), "66051 (1.2.3)");
+        assert_eq!(version(ImageVersion(0x01_0203)), "66051 (1.2.3)");
     }
 }

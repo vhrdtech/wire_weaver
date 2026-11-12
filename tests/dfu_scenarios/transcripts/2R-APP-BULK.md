@@ -3,19 +3,19 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        46 B  01 80 00 10 73 69 6d 2d 64 66 …
+← { role: App, profile: AB(Remap), product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Confirmed, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        47 B  01 80 00 10 73 69 6d 2d 64 66 …
 → stage.limits()
          5 B  02 40 30 00 02
 ← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
-        13 B  02 80 40 00 00 00 01 80 00 00 …
+        11 B  02 80 40 00 01 80 00 00 00 00 …
 → bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 359, ack_every: 0)
         50 B  03 40 40 00 00 57 57 44 50 01 …
-← Ok({ steps: 11, resumed: false, resume_from: 0 })
-        13 B  03 80 80 0b 00 00 00 00 00 00 …
+← Ok({ steps: 11, resumed: false, resume_step: 0, resume_byte: 0 })
+        17 B  03 80 80 0b 00 00 00 00 00 00 …
 → bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
          5 B  04 40 42 80 02
 ← ()
@@ -60,11 +60,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        46 B  01 80 00 10 73 69 6d 2d 64 66 …
+← { role: App, profile: AB(Remap), product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 2, security_counter: 2 }), security_floor: 1, manifest_digest: Some(5673030c91c1ef0d),
+      boot_state: Trial, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        47 B  01 80 00 10 73 69 6d 2d 64 66 …
    ── the new image fails its own checks: gives up the trial instead of confirming
 → boot.revert()
          5 B  02 40 12 00 02
@@ -82,11 +82,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Reverted,
-      last_result: { outcome: Reverted, version: 2 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        46 B  01 80 00 10 73 69 6d 2d 64 66 …
+← { role: App, profile: AB(Remap), product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Reverted, last_result: { outcome: Reverted, version: Some(2) }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        51 B  01 80 00 10 73 69 6d 2d 64 66 …
 ```
 
 <details markdown="1">
@@ -95,16 +95,18 @@
 ```text
    ── device runs the app
 →    6 B  05 01 40 00 00 02
-←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
+←   49 B  08 2f 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 01 00 00 00 01 00 00 00 01 00
+          00 00 80 1d d9 5e ff d1 e0 02 14 00 00 f0 01 14
+          97
 →    6 B  05 02 40 30 00 02
-←   15 B  08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
+←   13 B  08 0b 02 80 40 00 01 80 00 00 00 00 80
 →   52 B  08 32 03 40 40 00 00 57 57 44 50 01 92 10 00 00
           02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c
           c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00
           00 00 3c 02
-←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
+←   19 B  08 11 03 80 80 0b 00 00 00 00 00 00 00 00 00 00
+          00 00 59
 →    6 B  05 04 40 42 80 02
 ←    7 B  06 04 80 00 00 00 00
 →   10 B  08 08 05 40 41 88 01 00 00 02
@@ -149,9 +151,10 @@
    ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
    ── device runs the app
 →    6 B  05 01 40 00 00 02
-←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
-          73 03 0c 91 c1 ef 0d 30 00 00 00 00 00 f0 01 57
+←   49 B  08 2f 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 02 00 00 00 02 00 00 00 01 00
+          00 00 80 56 73 03 0c 91 c1 ef 0d 30 00 f0 01 14
+          97
    ── the new image fails its own checks: gives up the trial instead of confirming
 →    6 B  05 02 40 12 00 02
 ←    4 B  03 02 80 80
@@ -161,9 +164,10 @@
    ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
    ── device runs the app
 →    6 B  05 01 40 00 00 02
-←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-          d9 5e ff d1 e0 02 14 10 20 02 00 00 00 f0 01 57
+←   53 B  08 33 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 01 00 00 00 01 00 00 00 01 00
+          00 00 80 1d d9 5e ff d1 e0 02 14 10 28 02 00 00
+          00 f0 01 54 97
 ```
 
 </details>

@@ -8,6 +8,8 @@ use ww_dfu::{
     BootState, BootTarget, ChunkState, Error, NodeInfo, PlanSegment, Progress, Session, Slot,
     SlotLayout, StageLimits, Target,
 };
+use ww_si::units::{Block, Byte, Chunk, Step};
+use ww_si::{Bytes, Count, Index};
 use ww_stream::sink::SinkCredit;
 
 use crate::node::Node;
@@ -76,8 +78,8 @@ macro_rules! stage_handlers {
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
             slot: Slot,
-            first: u16,
-            count: u16,
+            first: Index<Chunk, u16>,
+            count: Count<Chunk, u16>,
         ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>> {
             Ready(
                 self.node
@@ -106,8 +108,8 @@ macro_rules! stage_handlers {
         fn stage_erase(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            index: u32,
-            block: u16,
+            index: Index<Step, u32>,
+            block: Index<Block, u16>,
         ) -> RpcResult<Result<(), Error>> {
             Ready(self.node.erase(index, block))
         }
@@ -115,9 +117,9 @@ macro_rules! stage_handlers {
         fn stage_copy(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            index: u32,
-            dst: u16,
-            src: u16,
+            index: Index<Step, u32>,
+            dst: Index<Chunk, u16>,
+            src: Index<Chunk, u16>,
             hash: [u8; 8],
         ) -> RpcResult<Result<(), Error>> {
             Ready(self.node.copy(index, dst, src, hash))
@@ -126,10 +128,10 @@ macro_rules! stage_handlers {
         fn stage_write(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            index: u32,
-            dst: u16,
+            index: Index<Step, u32>,
+            dst: Index<Chunk, u16>,
             hash: [u8; 8],
-            offset: u32,
+            offset: Index<Byte, u32>,
             data: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_PIECE_LEN }>,
         ) -> RpcResult<Result<(), Error>> {
             let data = bytes(&data);
@@ -174,8 +176,8 @@ macro_rules! stage_handlers {
             _cx: &mut Context<'_, impl BlockingEventOut>,
             target: Target,
             header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
-            total_len: u32,
-            ack_every: u32,
+            total_len: Bytes<u32>,
+            ack_every: ww_dfu::AckEvery,
         ) -> RpcResult<Result<Session, Error>> {
             let header = bytes(&header);
             Ready(self.node.begin_bulk(target, &header, total_len, ack_every))

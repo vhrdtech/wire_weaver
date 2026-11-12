@@ -1016,9 +1016,10 @@ dependencies = [
 
 [[package]]
 name = "ww_dfu"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

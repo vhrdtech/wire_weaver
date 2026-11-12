@@ -12,6 +12,8 @@ mod tests {
         Outcome, PlanAck, Profile, Progress, Role, Session, Slot, SlotLayout, SlotSwitch,
         StageLimits, Target,
     };
+    use ww_si::units::{Block, Byte, Chunk, Step};
+    use ww_si::{Fixed, Index};
 
     const CHUNK: usize = 16;
     const CHUNKS: usize = 4;
@@ -49,13 +51,29 @@ mod tests {
         }
     }
 
+    /// Step `i` of the plan.
+    fn step(i: u32) -> Index<Step, u32> {
+        Index::new(i)
+    }
+
+    /// Chunk `i` of a slot.
+    fn chunk(i: u16) -> Index<Chunk, u16> {
+        Index::new(i)
+    }
+
+    /// Byte `i` of a chunk or of a plan.
+    fn byte(i: u32) -> Index<Byte, u32> {
+        Index::new(i)
+    }
+
     fn chunk_hash(chunk: &[u8]) -> [u8; 8] {
         chunk[..8].try_into().unwrap()
     }
 
     impl Device {
         /// The step-order rule of `Stage`: ahead of its turn is refused, behind it is a resend and skipped.
-        fn check_order(&self, index: u32) -> Result<bool, Error> {
+        fn check_order(&self, index: Index<Step, u32>) -> Result<bool, Error> {
+            let index = index.get();
             let Some(steps) = self.steps else {
                 return Err(Error::NoSession);
             };
@@ -63,7 +81,7 @@ mod tests {
                 return Err(Error::OutOfRange);
             }
             if index > self.next_step {
-                return Err(Error::OutOfOrder(self.next_step));
+                return Err(Error::OutOfOrder(Index::new(self.next_step)));
             }
             Ok(index < self.next_step)
         }
@@ -92,16 +110,19 @@ mod tests {
                     role: Role::App,
                     profile: Profile::AB(SlotSwitch::Copy),
                     product: MaxLen::new("dfu-test").unwrap(),
-                    geometry_id: 0x1234_5678,
-                    product_id: 1,
+                    geometry: ww_dfu::GeometryId(0x1234_5678),
                     seal: ww_dfu::Seal::Ed25519,
-                    app_version: Some(7),
-                    version_floor: 5,
+                    app: Some(ww_dfu::ImageInfo {
+                        product: ww_dfu::ProductId(1),
+                        version: ww_dfu::ImageVersion(7),
+                        security_counter: ww_dfu::SecurityCounter(5),
+                    }),
+                    security_floor: ww_dfu::SecurityCounter(5),
                     manifest_digest: Some([1, 2, 3, 4, 5, 6, 7, 8]),
                     boot_state: dev.boot_state,
                     last_result: LastResult {
                         outcome: Outcome::Nothing,
-                        version: 0,
+                        version: None,
                     },
                     offers: Offers {
                         boot_control: true,
@@ -159,10 +180,10 @@ mod tests {
                 _slot: Slot,
             ) -> RpcResult<Result<SlotLayout, Error>> {
                 Ready(Ok(SlotLayout {
-                    chunk_size: CHUNK as u32,
-                    chunk_count: CHUNKS as u16,
-                    erase_size: (CHUNK * 2) as u32,
-                    erase_count: (CHUNKS / 2) as u16,
+                    chunk_size: Fixed::new(CHUNK as u32),
+                    chunks: Fixed::new(CHUNKS as u16),
+                    erase_size: Fixed::new((CHUNK * 2) as u32),
+                    erase_blocks: Fixed::new((CHUNKS / 2) as u16),
                 }))
             }
 
@@ -178,10 +199,11 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 slot: Slot,
-                first: u16,
-                count: u16,
+                first: Index<Chunk, u16>,
+                count: Fixed<Chunk, ww_si::prefix::One, u16>,
             ) -> RpcResult<Result<MaxLen<RefVec<'_, ChunkState>, { ww_dfu::MAX_CHUNKS_PAGE }>, Error>>
             {
+                let (first, count) = (first.get(), count.get());
                 let dev = self.dev.read().unwrap();
                 let flash = match slot {
                     Slot::Active => &dev.active,
@@ -214,11 +236,11 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<StageLimits> {
                 Ready(StageLimits {
-                    max_piece: MAX_PIECE as u32,
-                    in_flight: 1,
+                    max_piece: Fixed::try_new(MAX_PIECE as u16).unwrap(),
+                    in_flight: Fixed::try_new(1).unwrap(),
                     live: true,
                     stored: false,
-                    plan_area: 0,
+                    plan_area: None.into(),
                     writes_in_background: true,
                 })
             }
@@ -243,27 +265,30 @@ mod tests {
                 let steps = steps as u32;
                 if dev.steps == Some(steps) {
                     return Ready(Ok(Session {
-                        steps,
+                        steps: Fixed::new(steps),
                         resumed: true,
-                        resume_from: dev.next_step,
+                        resume_step: Index::new(dev.next_step),
+                        resume_byte: Index::new(0),
                     }));
                 }
                 dev.steps = Some(steps);
                 dev.next_step = 0;
                 dev.chunk_offset = 0;
                 Ready(Ok(Session {
-                    steps,
+                    steps: Fixed::new(steps),
                     resumed: false,
-                    resume_from: 0,
+                    resume_step: Index::new(0),
+                    resume_byte: Index::new(0),
                 }))
             }
 
             fn stage_erase(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: u32,
-                block: u16,
+                index: Index<Step, u32>,
+                block: Index<Block, u16>,
             ) -> RpcResult<Result<(), Error>> {
+                let block = block.get();
                 let mut dev = self.dev.write().unwrap();
                 match dev.check_order(index) {
                     Err(e) => return Ready(Err(e)),
@@ -282,9 +307,9 @@ mod tests {
             fn stage_copy(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: u32,
-                dst: u16,
-                src: u16,
+                index: Index<Step, u32>,
+                dst: Index<Chunk, u16>,
+                src: Index<Chunk, u16>,
                 hash: [u8; 8],
             ) -> RpcResult<Result<(), Error>> {
                 let mut dev = self.dev.write().unwrap();
@@ -293,7 +318,7 @@ mod tests {
                     Ok(true) => return Ready(Ok(())),
                     Ok(false) => {}
                 }
-                let (dst, src) = (dst as usize, src as usize);
+                let (dst, src) = (dst.get() as usize, src.get() as usize);
                 if dst >= CHUNKS || src >= CHUNKS {
                     return Ready(Err(Error::OutOfRange));
                 }
@@ -311,10 +336,10 @@ mod tests {
             fn stage_write(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: u32,
-                dst: u16,
+                index: Index<Step, u32>,
+                dst: Index<Chunk, u16>,
                 hash: [u8; 8],
-                offset: u32,
+                offset: Index<Byte, u32>,
                 data: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_PIECE_LEN }>,
             ) -> RpcResult<Result<(), Error>> {
                 let mut dev = self.dev.write().unwrap();
@@ -327,7 +352,7 @@ mod tests {
                 if data.len() > MAX_PIECE {
                     return Ready(Err(Error::PieceTooBig));
                 }
-                let (dst, offset) = (dst as usize, offset as usize);
+                let (dst, offset) = (dst.get() as usize, offset.get() as usize);
                 if dst >= CHUNKS || offset + data.len() > CHUNK || offset as u32 != dev.chunk_offset
                 {
                     return Ready(Err(Error::OutOfRange));
@@ -354,10 +379,10 @@ mod tests {
                     return Ready(Err(Error::NoSession));
                 };
                 Ready(Ok(Progress {
-                    steps,
-                    next_step: dev.next_step,
-                    chunk_offset: dev.chunk_offset,
-                    plan_bytes: dev.plan.len() as u32,
+                    steps: Fixed::new(steps),
+                    next_step: Index::new(dev.next_step),
+                    chunk_offset: Index::new(dev.chunk_offset),
+                    plan_offset: Index::new(dev.plan.len() as u32),
                 }))
             }
 
@@ -407,14 +432,15 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 _target: Target,
                 _header: MaxLen<RefVec<'_, u8>, { ww_dfu::MAX_HEADER_LEN }>,
-                _total_len: u32,
-                _ack_every: u32,
+                _total_len: ww_si::Bytes<u32>,
+                _ack_every: ww_dfu::AckEvery,
             ) -> RpcResult<Result<Session, Error>> {
                 self.dev.write().unwrap().plan.clear();
                 Ready(Ok(Session {
-                    steps: 0,
+                    steps: Fixed::new(0),
                     resumed: false,
-                    resume_from: 0,
+                    resume_step: Index::new(0),
+                    resume_byte: Index::new(0),
                 }))
             }
 
@@ -438,7 +464,7 @@ mod tests {
                 let mut dev = self.dev.write().unwrap();
                 // Segments arrive in order (the sink's flow control), but an offset that doesn't continue the plan is
                 // dropped (a real node would acknowledge BulkStatus::Gap on plan_ack).
-                if value.offset as usize == dev.plan.len() {
+                if value.offset.get() as usize == dev.plan.len() {
                     dev.plan.extend(value.data.iter().map(|b| b.unwrap()));
                 }
                 // credit counts the segment's bytes as sent
@@ -558,7 +584,7 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!(layout.chunk_count, CHUNKS as u16);
+        assert_eq!(layout.chunks.get(), CHUNKS as u16);
 
         let digest = client
             .inventory()
@@ -570,7 +596,7 @@ mod tests {
 
         let chunks = client
             .inventory()
-            .chunks(Slot::Active, 1, 2)
+            .chunks(Slot::Active, chunk(1), Fixed::new(2))
             .call()
             .await
             .unwrap();
@@ -581,7 +607,7 @@ mod tests {
         );
         let blank = client
             .inventory()
-            .chunks(Slot::Inactive, 0, 9)
+            .chunks(Slot::Inactive, chunk(0), Fixed::new(9))
             .call()
             .await
             .unwrap();
@@ -595,7 +621,7 @@ mod tests {
         let stage = client.stage();
 
         let limits = stage.limits().call().await.unwrap();
-        assert_eq!(limits.max_piece, MAX_PIECE as u32);
+        assert_eq!(limits.max_piece.get(), MAX_PIECE as u16);
         assert_eq!(
             stage.progress().call().await.unwrap_err().device(),
             Some(&Error::NoSession)
@@ -607,22 +633,22 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!((session.steps, session.resumed), (3, false));
+        assert_eq!((session.steps.get(), session.resumed), (3, false));
         assert_eq!(
             stage
-                .copy(1, 0, 2, [0; 8])
+                .copy(step(1), chunk(0), chunk(2), [0; 8])
                 .call()
                 .await
                 .unwrap_err()
                 .device(),
-            Some(&Error::OutOfOrder(0))
+            Some(&Error::OutOfOrder(step(0)))
         );
 
-        stage.erase(0, 0).call().await.unwrap();
-        stage.erase(0, 0).call().await.unwrap(); // a resend is skipped
+        stage.erase(step(0), Index::new(0)).call().await.unwrap();
+        stage.erase(step(0), Index::new(0)).call().await.unwrap(); // a resend is skipped
         assert_eq!(
             stage
-                .copy(1, 0, 2, [0; 8])
+                .copy(step(1), chunk(0), chunk(2), [0; 8])
                 .call()
                 .await
                 .unwrap_err()
@@ -630,9 +656,17 @@ mod tests {
             Some(&Error::SourceMismatch)
         );
         let src_hash = [32, 33, 34, 35, 36, 37, 38, 39];
-        stage.copy(1, 0, 2, src_hash).call().await.unwrap();
+        stage
+            .copy(step(1), chunk(0), chunk(2), src_hash)
+            .call()
+            .await
+            .unwrap();
         // a resend of a done step
-        stage.copy(1, 0, 2, src_hash).call().await.unwrap();
+        stage
+            .copy(step(1), chunk(0), chunk(2), src_hash)
+            .call()
+            .await
+            .unwrap();
 
         // Resume: begin with the same header answers where to continue.
         let again = stage
@@ -640,13 +674,19 @@ mod tests {
             .call()
             .await
             .unwrap();
-        assert_eq!((again.resumed, again.resume_from), (true, 2));
+        assert_eq!((again.resumed, again.resume_step), (true, step(2)));
 
         let data: Vec<u8> = (100..100 + CHUNK as u8).collect();
         let hash: [u8; 8] = data[..8].try_into().unwrap();
         assert_eq!(
             stage
-                .write(2, 1, hash, 0, MaxLen::new(vec![0; MAX_PIECE + 1]).unwrap())
+                .write(
+                    step(2),
+                    chunk(1),
+                    hash,
+                    byte(0),
+                    MaxLen::new(vec![0; MAX_PIECE + 1]).unwrap()
+                )
                 .call()
                 .await
                 .unwrap_err()
@@ -655,17 +695,38 @@ mod tests {
         );
         // Past the protocol-wide bound the client refuses to send at all; nothing reaches the device.
         let too_long = MaxLen::new_unchecked(vec![0; ww_dfu::MAX_PIECE_LEN + 1]);
-        assert!(stage.write(2, 1, hash, 0, too_long).call().await.is_err());
-        assert_eq!(stage.progress().call().await.unwrap().chunk_offset, 0);
+        assert!(
+            stage
+                .write(step(2), chunk(1), hash, byte(0), too_long)
+                .call()
+                .await
+                .is_err()
+        );
+        assert_eq!(stage.progress().call().await.unwrap().chunk_offset, byte(0));
         stage
-            .write(2, 1, hash, 0, MaxLen::new(data[..8].to_vec()).unwrap())
+            .write(
+                step(2),
+                chunk(1),
+                hash,
+                byte(0),
+                MaxLen::new(data[..8].to_vec()).unwrap(),
+            )
             .call()
             .await
             .unwrap();
         let progress = stage.progress().call().await.unwrap();
-        assert_eq!((progress.next_step, progress.chunk_offset), (2, 8));
+        assert_eq!(
+            (progress.next_step, progress.chunk_offset),
+            (step(2), byte(8))
+        );
         stage
-            .write(2, 1, hash, 8, MaxLen::new(data[8..].to_vec()).unwrap())
+            .write(
+                step(2),
+                chunk(1),
+                hash,
+                byte(8),
+                MaxLen::new(data[8..].to_vec()).unwrap(),
+            )
             .call()
             .await
             .unwrap();
@@ -698,11 +759,16 @@ mod tests {
         let (client, dev, _device) = connect("dfu/bulk").await;
         let bulk = client.bulk();
         let session = bulk
-            .begin_bulk(Target::Live, MaxLen::new(vec![0]).unwrap(), 12, 0)
+            .begin_bulk(
+                Target::Live,
+                MaxLen::new(vec![0]).unwrap(),
+                Fixed::new(12),
+                None.into(),
+            )
             .call()
             .await
             .unwrap();
-        assert_eq!(session.resume_from, 0);
+        assert_eq!(session.resume_byte, byte(0));
 
         let mut plan = bulk.plan().await.unwrap();
         assert!(plan.is_credit());
@@ -713,7 +779,7 @@ mod tests {
         ] {
             // The second one doesn't continue the plan and is dropped by the node.
             plan.send_owned(ww_dfu::PlanSegmentOwned {
-                offset,
+                offset: byte(offset),
                 data: MaxLen::new(data).unwrap(),
             })
             .await
@@ -733,8 +799,8 @@ mod tests {
 
         // The ack type round-trips with an error inside a status.
         let ack = PlanAck {
-            have: 8,
-            status: BulkStatus::Failed(Error::OutOfOrder(3)),
+            have: byte(8),
+            status: BulkStatus::Failed(Error::OutOfOrder(step(3))),
         };
         let mut buf = [0u8; 64];
         let bytes = ack.to_ww_bytes(&mut buf).unwrap();

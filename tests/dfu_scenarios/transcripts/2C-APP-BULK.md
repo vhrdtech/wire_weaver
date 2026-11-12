@@ -3,19 +3,19 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        46 B  01 80 00 00 73 69 6d 2d 64 66 …
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Confirmed, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        47 B  01 80 00 00 73 69 6d 2d 64 66 …
 → stage.limits()
          5 B  02 40 30 00 02
 ← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
-        13 B  02 80 40 00 00 00 01 80 00 00 …
+        11 B  02 80 40 00 01 80 00 00 00 00 …
 → bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 359, ack_every: 0)
         50 B  03 40 40 00 00 57 57 44 50 01 …
-← Ok({ steps: 11, resumed: false, resume_from: 0 })
-        13 B  03 80 80 0b 00 00 00 00 00 00 …
+← Ok({ steps: 11, resumed: false, resume_step: 0, resume_byte: 0 })
+        17 B  03 80 80 0b 00 00 00 00 00 00 …
 → bulk.plan: open its session at 0
          8 B  04 40 41 88 01 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
@@ -38,8 +38,8 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 359, ack_every: 0)
         50 B  01 40 40 00 00 57 57 44 50 01 …
-← Ok({ steps: 11, resumed: true, resume_from: 192 })
-        13 B  01 80 80 0b 00 00 00 80 c0 00 …
+← Ok({ steps: 11, resumed: true, resume_step: 8, resume_byte: 192 })
+        17 B  01 80 80 0b 00 00 00 80 08 00 …
 → bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
          5 B  02 40 42 80 02
 ← ()
@@ -83,11 +83,11 @@
          3 B  01 80 80
 → node.node()
          5 B  02 40 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
-      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        46 B  02 80 00 00 73 69 6d 2d 64 66 …
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 2, security_counter: 2 }), security_floor: 1, manifest_digest: Some(5673030c91c1ef0d),
+      boot_state: Confirmed, last_result: { outcome: Confirmed, version: Some(2) },
+      offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+        51 B  02 80 00 00 73 69 6d 2d 64 66 …
 ```
 
 <details markdown="1">
@@ -96,19 +96,19 @@
 ```text
    ── device runs the app
 →   11 B  02 05 01 40 00 00 02 45 4f 44 12
-←   53 B  04 08 2e 01 80 00 00 73 69 6d 2d 64 66 75 92 10
-          00 00 01 00 00 00 08 01 00 00 00 01 00 00 00 80
-          1d d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01
-          57 13 4b 5e f7
+←   54 B  04 08 2f 01 80 00 00 73 69 6d 2d 64 66 75 92 10
+          00 00 08 01 00 00 00 01 00 00 00 01 00 00 00 01
+          00 00 00 80 1d d9 5e ff d1 e0 02 14 00 00 f0 01
+          14 97 30 ef 7d 7a
 →   11 B  03 05 02 40 30 00 02 b1 db f8 d7
-←   20 B  05 08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
-          97 75 3d 6d
+←   18 B  05 08 0b 02 80 40 00 01 80 00 00 00 00 80 42 4f
+          0d 4b
 →   57 B  04 08 32 03 40 40 00 00 57 57 44 50 01 92 10 00
           00 02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00
           2c c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00
           00 00 00 3c 02 e8 13 c7 8d
-←   20 B  06 08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
-          eb fb 3e f1
+←   24 B  06 08 11 03 80 80 0b 00 00 00 00 00 00 00 00 00
+          00 00 00 59 52 65 c9 5f
 →   15 B  05 08 08 04 40 41 88 01 00 00 02 12 a0 be 61
 ←   30 B  07 08 08 00 83 41 50 00 90 0e 02 bc 54 c4 22 08
           09 04 80 01 00 00 40 90 0e 00 4e f7 bf 19
@@ -136,8 +136,8 @@
           00 02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00
           2c c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00
           00 00 00 3c 02 8c 81 76 83
-←   20 B  0d 08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
-          1e 99 1c 3c
+←   24 B  0d 08 11 01 80 80 0b 00 00 00 80 08 00 00 00 c0
+          00 00 00 59 2f 2d 4f 0d
 →   11 B  03 05 02 40 42 80 02 c4 ff 0e bb
 ←   12 B  0e 06 02 80 00 00 00 00 f8 e9 56 ef
    ── the plan sink continues its session where the device is
@@ -171,10 +171,10 @@
 →   11 B  02 05 01 40 11 00 02 02 86 a0 0f
 ←    9 B  04 03 01 80 80 6f 8f ee f6
 →   11 B  03 05 02 40 00 00 02 21 3e 93 f3
-←   53 B  05 08 2e 02 80 00 00 73 69 6d 2d 64 66 75 92 10
-          00 00 01 00 00 00 08 02 00 00 00 01 00 00 00 80
-          56 73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01
-          57 f8 f5 7b d8
+←   58 B  05 08 33 02 80 00 00 73 69 6d 2d 64 66 75 92 10
+          00 00 08 01 00 00 00 02 00 00 00 02 00 00 00 01
+          00 00 00 80 56 73 03 0c 91 c1 ef 0d 00 18 02 00
+          00 00 f0 01 54 97 de 96 62 46
 ```
 
 </details>

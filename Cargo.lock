@@ -1089,6 +1089,7 @@ dependencies = [
  "ww_client_server",
  "ww_dfu",
  "ww_global",
+ "ww_si",
 ]
 
 [[package]]
@@ -1452,6 +1453,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_dfu",
+ "ww_si",
  "ww_stream",
 ]
 
@@ -1497,6 +1499,7 @@ dependencies = [
  "ww_dfu",
  "ww_framer",
  "ww_link",
+ "ww_si",
  "ww_stream",
 ]
 
@@ -2048,6 +2051,7 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_dfu",
+ "ww_si",
 ]
 
 [[package]]
@@ -6530,10 +6534,11 @@ dependencies = [
 
 [[package]]
 name = "ww_dfu"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

@@ -18,3 +18,4 @@ wire_weaver_client.workspace = true
 ww_client_server.workspace = true
 ww_dfu = { workspace = true, features = ["std"] }
 ww_global.workspace = true
+ww_si.workspace = true

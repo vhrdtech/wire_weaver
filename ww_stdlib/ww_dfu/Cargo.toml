@@ -1,6 +1,6 @@
 [package]
 name = "ww_dfu"
-version = "0.1.0"
+version = "0.2.0"
 authors.workspace = true
 edition.workspace = true
 description = "Firmware update data types and API"
@@ -9,13 +9,14 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 # Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
 [package.metadata.wire_weaver]
-wire = "w1.0"
+wire = "w2.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt"]
+std = ["wire_weaver/std", "ww_si/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_si/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true }
+ww_si = { workspace = true, default-features = false, features = ["counting", "information"] }

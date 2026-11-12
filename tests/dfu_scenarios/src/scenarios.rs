@@ -15,6 +15,7 @@ use crate::host::updater::UpdaterClient;
 use crate::plan::{CHUNK, Plan, chunk_hash, v1, v2};
 use crate::record::check_or_update;
 use crate::{connect, resume_bulk, send_bulk, send_steps};
+use ww_si::{Fixed, Index};
 
 /// Run a scenario on one thread, host and device side by side as tasks of one runtime: the device as single-threaded
 /// as real firmware, and every run of a scenario the same interleaving of host and device.
@@ -76,7 +77,7 @@ fn swap_shuttle_2c_app_step() {
 
         let node = host.node().node().call().await.unwrap();
         assert_eq!(node.profile, Profile::AB(SlotSwitch::Copy));
-        assert_eq!(node.app_version, Some(1));
+        assert_eq!(node.app.map(|a| a.version.0), Some(1));
         let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
 
@@ -87,13 +88,13 @@ fn swap_shuttle_2c_app_step() {
             .await
             .unwrap();
         assert_eq!(
-            (session.steps as usize, session.resumed),
+            (session.steps.get() as usize, session.resumed),
             (plan.steps.len(), false)
         );
-        send_steps!(stage, plan, 0, limits.max_piece);
+        send_steps!(stage, plan, 0, limits.max_piece.get());
         dev.rec
             .note("host resends step 5 as if its reply was lost: skipped");
-        send_steps!(stage, first_steps(&plan, 6), 5, limits.max_piece);
+        send_steps!(stage, first_steps(&plan, 6), 5, limits.max_piece.get());
         assert_eq!(stage.finish().call().await.unwrap(), BootState::Staged);
         host.boot().reboot(BootTarget::App).call().await.unwrap();
         drop(host);
@@ -103,7 +104,7 @@ fn swap_shuttle_2c_app_step() {
         let host = connect!(AppClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(2), BootState::Trial)
         );
         host.boot().confirm().call().await.unwrap();
@@ -130,17 +131,17 @@ fn swap_freight_2c_app_bulk() {
         let host = connect!(AppClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert!(node.offers.stage_bulk);
-        let max_piece = host.stage().limits().call().await.unwrap().max_piece;
+        let max_piece = host.stage().limits().call().await.unwrap().max_piece.get();
 
         let plan = Plan::ab(&v1(), &v2());
         let total = plan.body.len() as u32;
         let bulk = host.bulk();
         let session = bulk
-            .begin_bulk(Target::Live, header(&plan), total, 0)
+            .begin_bulk(Target::Live, header(&plan), Fixed::new(total), None.into())
             .call()
             .await
             .unwrap();
-        assert_eq!(session.resume_from, 0);
+        assert_eq!(session.resume_byte.get(), 0);
         let half = 3 * max_piece;
         let sink = send_bulk!(bulk, plan, 0, half, max_piece);
         // saved with the host's own progress: the plan sink's session and the segments the device accepted
@@ -153,18 +154,28 @@ fn swap_freight_2c_app_bulk() {
         let host = connect!(AppClient, &dev.addr);
         let bulk = host.bulk();
         let session = bulk
-            .begin_bulk(Target::Live, header(&plan), total, 0)
+            .begin_bulk(Target::Live, header(&plan), Fixed::new(total), None.into())
             .call()
             .await
             .unwrap();
-        assert_eq!((session.resumed, session.resume_from), (true, half));
+        assert_eq!(
+            (session.resumed, session.resume_byte.get()),
+            (true, half as u32)
+        );
         let mut acks = bulk.plan_ack().call().await.unwrap();
         dev.rec
             .note("the plan sink continues its session where the device is");
-        let (_sink, at) = resume_bulk!(bulk, cursor, plan, session.resume_from, total, max_piece);
+        let (_sink, at) = resume_bulk!(
+            bulk,
+            cursor,
+            plan,
+            session.resume_byte.get(),
+            total,
+            max_piece
+        );
         assert_eq!(at, 3, "segments the device has");
         let ack = acks.recv().await.unwrap();
-        assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
+        assert_eq!((ack.have.get(), ack.status), (total, BulkStatus::Complete));
         assert_eq!(
             host.stage().finish().call().await.unwrap(),
             BootState::Staged
@@ -179,7 +190,7 @@ fn swap_freight_2c_app_bulk() {
         host.boot().confirm().call().await.unwrap();
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(2), BootState::Confirmed)
         );
         check_or_update(CODE, &dev.rec.transcript(LINK.units()));
@@ -213,7 +224,7 @@ fn flip_shuttle_2r_app_step() {
             .call()
             .await
             .unwrap();
-        send_steps!(stage, plan, 0, limits.max_piece);
+        send_steps!(stage, plan, 0, limits.max_piece.get());
         assert_eq!(stage.finish().call().await.unwrap(), BootState::Staged);
         host.boot().reboot(BootTarget::App).call().await.unwrap();
         drop(host);
@@ -227,7 +238,7 @@ fn flip_shuttle_2r_app_step() {
         host.boot().confirm().call().await.unwrap();
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(2), BootState::Confirmed)
         );
         assert_eq!(dev.flash.lock().unwrap().run_bank, 1);
@@ -251,12 +262,12 @@ fn flip_freight_2r_app_bulk() {
         .await;
         let host = connect!(AppClient, &dev.addr);
         host.node().node().call().await.unwrap();
-        let max_piece = host.stage().limits().call().await.unwrap().max_piece;
+        let max_piece = host.stage().limits().call().await.unwrap().max_piece.get();
 
         let plan = Plan::ab(&v1(), &v2());
         let total = plan.body.len() as u32;
         let bulk = host.bulk();
-        bulk.begin_bulk(Target::Live, header(&plan), total, 0)
+        bulk.begin_bulk(Target::Live, header(&plan), Fixed::new(total), None.into())
             .call()
             .await
             .unwrap();
@@ -277,7 +288,7 @@ fn flip_freight_2r_app_bulk() {
         let host = connect!(AppClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(2), BootState::Trial)
         );
         dev.rec
@@ -290,12 +301,15 @@ fn flip_freight_2r_app_bulk() {
         let host = connect!(AppClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(1), BootState::Reverted)
         );
         assert_eq!(
-            (node.last_result.outcome, node.last_result.version),
-            (Outcome::Reverted, 2)
+            (
+                node.last_result.outcome,
+                node.last_result.version.map(|v| v.0)
+            ),
+            (Outcome::Reverted, Some(2))
         );
         check_or_update(CODE, &dev.rec.transcript(LINK.units()));
     })
@@ -324,7 +338,7 @@ fn parcel_shuttle_1s_app_step() {
         let inventory = host.inventory();
         let layout = inventory.layout(Slot::Active).call().await.unwrap();
         let chunks = inventory
-            .chunks(Slot::Active, 0, layout.chunk_count)
+            .chunks(Slot::Active, Index::new(0), layout.chunks)
             .call()
             .await
             .unwrap();
@@ -342,14 +356,14 @@ fn parcel_shuttle_1s_app_step() {
 
         let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
-        assert!(limits.stored && limits.plan_area >= 512);
+        assert!(limits.stored && limits.plan_area.value().is_some_and(|a| a.get() >= 512));
         let plan = Plan::in_place(&v1(), &v2());
         stage
             .begin(Target::Stored, header(&plan))
             .call()
             .await
             .unwrap();
-        send_steps!(stage, plan, 0, limits.max_piece);
+        send_steps!(stage, plan, 0, limits.max_piece.get());
         assert_eq!(stage.finish().call().await.unwrap(), BootState::PlanStored);
         dev.flash.lock().unwrap().cut = Some(Cut::Apply(5));
         host.boot().reboot(BootTarget::App).call().await.unwrap();
@@ -359,12 +373,15 @@ fn parcel_shuttle_1s_app_step() {
         let host = connect!(AppClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(2), BootState::Confirmed)
         );
         assert_eq!(
-            (node.last_result.outcome, node.last_result.version),
-            (Outcome::Confirmed, 2)
+            (
+                node.last_result.outcome,
+                node.last_result.version.map(|v| v.0)
+            ),
+            (Outcome::Confirmed, Some(2))
         );
         check_or_update(CODE, &dev.rec.transcript(LINK.units()));
     })
@@ -401,15 +418,20 @@ async fn parcel_freight(code: &str, link: Link) -> Device {
     .await;
     let host = connect!(AppClient, &dev.addr);
     host.node().node().call().await.unwrap();
-    let max_piece = host.stage().limits().call().await.unwrap().max_piece;
+    let max_piece = host.stage().limits().call().await.unwrap().max_piece.get();
 
     let plan = Plan::in_place(&v1(), &v2());
     let total = plan.body.len() as u32;
     let bulk = host.bulk();
-    bulk.begin_bulk(Target::Stored, header(&plan), total, 0)
-        .call()
-        .await
-        .unwrap();
+    bulk.begin_bulk(
+        Target::Stored,
+        header(&plan),
+        Fixed::new(total),
+        None.into(),
+    )
+    .call()
+    .await
+    .unwrap();
     let mut acks = bulk.plan_ack().call().await.unwrap();
     let half = 4 * max_piece;
     let sink = send_bulk!(bulk, plan, 0, half, max_piece);
@@ -418,12 +440,12 @@ async fn parcel_freight(code: &str, link: Link) -> Device {
         .note("half way: the app keeps doing its job and answers anything else");
     let node = host.node().node().call().await.unwrap();
     assert_eq!(
-        (node.app_version, node.boot_state),
+        (node.app.map(|a| a.version.0), node.boot_state),
         (Some(1), BootState::Confirmed)
     );
     let _sink = send_bulk!(bulk, plan, half, total, max_piece);
     let ack = acks.recv().await.unwrap();
-    assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
+    assert_eq!((ack.have.get(), ack.status), (total, BulkStatus::Complete));
     assert_eq!(
         host.stage().finish().call().await.unwrap(),
         BootState::PlanStored
@@ -437,7 +459,7 @@ async fn parcel_freight(code: &str, link: Link) -> Device {
     let host = connect!(AppClient, &dev.addr);
     let node = host.node().node().call().await.unwrap();
     assert_eq!(
-        (node.app_version, node.boot_state),
+        (node.app.map(|a| a.version.0), node.boot_state),
         (Some(2), BootState::Confirmed)
     );
     dev
@@ -468,10 +490,13 @@ fn pit_stop_shuttle_1l_upd_step() {
             .note("host reconnects to the same device: the updater answers");
         let host = connect!(UpdaterClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
-        assert_eq!((node.role, node.app_version), (Role::Bootloader, Some(1)));
+        assert_eq!(
+            (node.role, node.app.map(|a| a.version.0)),
+            (Role::Bootloader, Some(1))
+        );
         let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
-        assert_eq!(limits.max_piece, 32);
+        assert_eq!(limits.max_piece.get(), 32);
         let plan = Plan::in_place(&v1(), &v2());
         stage
             .begin(Target::Live, header(&plan))
@@ -479,22 +504,28 @@ fn pit_stop_shuttle_1l_upd_step() {
             .await
             .unwrap();
         dev.flash.lock().unwrap().cut = Some(Cut::Download(7));
-        send_steps!(stage, first_steps(&plan, 7), 0, limits.max_piece);
+        send_steps!(stage, first_steps(&plan, 7), 0, limits.max_piece.get());
         let crate::plan::Step::Write { dst, hash, data } = &plan.steps[7] else {
             panic!("step 7 is a WRITE");
         };
         stage
-            .write(7, *dst, *hash, 0, MaxLen::new(data[..32].to_vec()).unwrap())
+            .write(
+                Index::new(7),
+                Index::new(*dst),
+                *hash,
+                Index::new(0),
+                MaxLen::new(data[..32].to_vec()).unwrap(),
+            )
             .call()
             .await
             .unwrap();
         assert!(
             stage
                 .write(
-                    7,
-                    *dst,
+                    Index::new(7),
+                    Index::new(*dst),
                     *hash,
-                    32,
+                    Index::new(32),
                     MaxLen::new(data[32..].to_vec()).unwrap()
                 )
                 .call()
@@ -510,7 +541,7 @@ fn pit_stop_shuttle_1l_upd_step() {
         let host = connect!(UpdaterClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (None, BootState::Updating)
         );
         let stage = host.stage();
@@ -519,8 +550,8 @@ fn pit_stop_shuttle_1l_upd_step() {
             .call()
             .await
             .unwrap();
-        assert_eq!((session.resumed, session.resume_from), (true, 7));
-        send_steps!(stage, plan, 7, limits.max_piece);
+        assert_eq!((session.resumed, session.resume_step.get()), (true, 7));
+        send_steps!(stage, plan, 7, limits.max_piece.get());
         assert_eq!(stage.finish().call().await.unwrap(), BootState::Confirmed);
         host.boot().reboot(BootTarget::App).call().await.unwrap();
         drop(host);
@@ -529,7 +560,7 @@ fn pit_stop_shuttle_1l_upd_step() {
         let app = connect!(LeanAppClient, &dev.addr);
         let node = app.node().node().call().await.unwrap();
         assert_eq!(
-            (node.app_version, node.boot_state),
+            (node.app.map(|a| a.version.0), node.boot_state),
             (Some(2), BootState::Confirmed)
         );
         check_or_update(CODE, &dev.rec.transcript(LINK.units()));
@@ -574,18 +605,18 @@ async fn pit_stop_freight(code: &str, link: Link) -> Device {
     assert_eq!(dev.booted().await, Firmware::Updater);
     let host = connect!(UpdaterClient, &dev.addr);
     host.node().node().call().await.unwrap();
-    let max_piece = host.stage().limits().call().await.unwrap().max_piece;
+    let max_piece = host.stage().limits().call().await.unwrap().max_piece.get();
     let plan = Plan::in_place(&v1(), &v2());
     let total = plan.body.len() as u32;
     let bulk = host.bulk();
-    bulk.begin_bulk(Target::Live, header(&plan), total, 0)
+    bulk.begin_bulk(Target::Live, header(&plan), Fixed::new(total), None.into())
         .call()
         .await
         .unwrap();
     let mut acks = bulk.plan_ack().call().await.unwrap();
     let sink = send_bulk!(bulk, plan, 0, total, max_piece);
     let ack = acks.recv().await.unwrap();
-    assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
+    assert_eq!((ack.have.get(), ack.status), (total, BulkStatus::Complete));
     assert_eq!(
         host.stage().finish().call().await.unwrap(),
         BootState::Confirmed
@@ -599,7 +630,7 @@ async fn pit_stop_freight(code: &str, link: Link) -> Device {
     let app = connect!(LeanAppClient, &dev.addr);
     let node = app.node().node().call().await.unwrap();
     assert_eq!(
-        (node.app_version, node.last_result.outcome),
+        (node.app.map(|a| a.version.0), node.last_result.outcome),
         (Some(2), Outcome::Confirmed)
     );
     dev

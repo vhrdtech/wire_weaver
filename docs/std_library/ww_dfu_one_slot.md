@@ -48,7 +48,7 @@ leaves the app slot unbootable; the device needs an updater then (`Outcome::Reco
 this case.
 
 **Resume.** After a lost link or an app reset during the download, `begin` with the same header continues where the
-plan area ends (`resume_from`: the next step). After a cut while applying, the journal resumes; the host sees nothing
+plan area ends (`resume_step`: the next step). After a cut while applying, the journal resumes; the host sees nothing
 but a longer reboot.
 
 **What the device checks**: COPY source hashes and WRITE chunk hashes as the steps arrive and again in `finish`, the
@@ -96,7 +96,7 @@ sensor on LoRa), the flash can't hold a second image, and the bootloader has no 
 same header resumes after the bytes in the plan area. A cut during the apply is resumed from the journal. No revert
 once applied.
 
-**Resume.** `begin_bulk` with the same header: `resume_from` is the number of plan bytes already in the plan area.
+**Resume.** `begin_bulk` with the same header: `resume_byte` is the number of plan bytes already in the plan area.
 With `ack_every` the device also reports its position every so many bytes, for very long downloads.
 
 **What the device checks**: segment offsets and the plan area size as bytes arrive; in `finish` the whole stored plan
@@ -145,10 +145,10 @@ reboot into the updater until the new app starts.
 7. `BootControl::reboot(BootTarget::App)`: the new app runs.
 
 **Failures and power cuts.** A cut leaves no bootable app: the bootloader sees that and starts the updater again
-(`BootState::Updating`, `app_version: None`), and the host continues. A lost link the same. The updater must be able
+(`BootState::Updating`, `app: None`), and the host continues. A lost link the same. The updater must be able
 to resume any session it started, which is why it keeps its session record (header and next step) in flash.
 
-**Resume.** `begin` with the same header: `resumed: true`, `resume_from` the step after the last one that finished;
+**Resume.** `begin` with the same header: `resumed: true`, `resume_step` the step after the last one that finished;
 the step in flight is redone from its first piece (`Stage::progress` shows the piece offset while the link is up).
 
 **What the device checks**: the header (format, geometry, floor, signature) before erasing anything, every index
@@ -184,7 +184,7 @@ are long, or the link is fast and the host just wants to stream the plan without
 
 1. To the app: `UpdateNode::node`, then `BootControl::reboot(BootTarget::Updater)`.
 2. The host reconnects; the updater answers. `UpdateNode::node`, `Stage::limits`.
-3. `StageBulk::begin_bulk(Target::Live, header, total_len, ack_every: 0)`: the app slot stops being bootable.
+3. `StageBulk::begin_bulk(Target::Live, header, total_len, ack_every: None)`: the app slot stops being bootable.
 4. The plan after its header on the `plan` credit sink, in segments of at most `max_piece`; the updater parses the
    steps from the stream and applies each in place as soon as it is complete.
 5. `PlanAck { status: Complete }` on `plan_ack`, then `Stage::finish`: checked, `Confirmed`.

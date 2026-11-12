@@ -4,10 +4,12 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use ww_dfu::{
-    BootState, BootTarget, BulkStatus, ChunkState, Error, LastResult, NodeInfo, Offers, Outcome,
-    PlanAck, PlanSegmentOwned, Profile, Progress, Role, Session, Slot, SlotLayout, StageLimits,
-    Target,
+    BootState, BootTarget, BulkStatus, ChunkState, Error, GeometryId, ImageInfo, ImageVersion,
+    LastResult, NodeInfo, Offers, Outcome, PlanAck, PlanSegmentOwned, ProductId, Profile, Progress,
+    Role, SecurityCounter, Session, Slot, SlotLayout, StageLimits, Target,
 };
+use ww_si::units::{Block, Byte, Chunk};
+use ww_si::{Bytes, Count, Fixed, Index};
 
 use crate::flash::{Cut, Flash, LiveRecord};
 use crate::plan::{self, CHUNK, CHUNKS, ERASE, Header, HeaderError, SLOT, Step};
@@ -81,15 +83,18 @@ impl Node {
             role: self.role,
             profile: f.profile,
             product: wire_weaver::prelude::MaxLen::new("sim-dfu").unwrap(),
-            geometry_id: plan::GEOMETRY_ID,
-            product_id: 1,
+            geometry: GeometryId(plan::GEOMETRY_ID),
             seal: ww_dfu::Seal::Unsigned,
-            app_version: if bootable {
-                plan::image_version(f.active())
-            } else {
-                None
-            },
-            version_floor: f.version_floor,
+            // the simulated images use their version as their security counter
+            app: bootable
+                .then(|| plan::image_version(f.active()))
+                .flatten()
+                .map(|v| ImageInfo {
+                    product: ProductId(1),
+                    version: ImageVersion(v),
+                    security_counter: SecurityCounter(v),
+                }),
+            security_floor: f.security_floor,
             manifest_digest: bootable.then(|| manifest_digest(f.active())),
             boot_state: f.boot_state,
             last_result: f.last_result,
@@ -157,10 +162,10 @@ impl Node {
     pub fn layout(&self, slot: Slot) -> Result<SlotLayout, Error> {
         self.slot(slot)?;
         Ok(SlotLayout {
-            chunk_size: CHUNK as u32,
-            chunk_count: CHUNKS as u16,
-            erase_size: ERASE as u32,
-            erase_count: (SLOT / ERASE) as u16,
+            chunk_size: Fixed::new(CHUNK as u32),
+            chunks: Fixed::new(CHUNKS as u16),
+            erase_size: Fixed::new(ERASE as u32),
+            erase_blocks: Fixed::new((SLOT / ERASE) as u16),
         })
     }
 
@@ -168,7 +173,13 @@ impl Node {
         Ok(manifest_digest(&self.slot(slot)?))
     }
 
-    pub fn chunks(&mut self, slot: Slot, first: u16, count: u16) -> Result<&[ChunkState], Error> {
+    pub fn chunks(
+        &mut self,
+        slot: Slot,
+        first: Index<Chunk, u16>,
+        count: Count<Chunk, u16>,
+    ) -> Result<&[ChunkState], Error> {
+        let (first, count) = (first.get(), count.get());
         let bytes = self.slot(slot)?;
         if first as usize >= CHUNKS {
             return Err(Error::OutOfRange);
@@ -202,7 +213,7 @@ impl Node {
             return Err(Error::WrongGeometry);
         }
         let mut f = self.flash();
-        if hdr.version < f.version_floor {
+        if SecurityCounter(hdr.version) < f.security_floor {
             return Err(Error::BelowFloor);
         }
         if target == Target::Stored && plan::HEADER_LEN as u32 + hdr.body_len > f.plan_area_size {
@@ -217,9 +228,10 @@ impl Node {
             let have = ram.bulk.as_ref().map(|b| b.have).unwrap_or(0);
             return Ok((
                 Session {
-                    steps,
+                    steps: Fixed::new(steps),
                     resumed: true,
-                    resume_from: ram.next_step,
+                    resume_step: Index::new(ram.next_step),
+                    resume_byte: Index::new(have),
                 },
                 have,
             ));
@@ -262,9 +274,10 @@ impl Node {
         });
         Ok((
             Session {
-                steps,
+                steps: Fixed::new(steps),
                 resumed,
-                resume_from: next_step,
+                resume_step: Index::new(next_step),
+                resume_byte: Index::new(have),
             },
             have,
         ))
@@ -279,13 +292,14 @@ impl Node {
     }
 
     /// The step-order rule: `Ok(false)` to apply, `Ok(true)` for a resend of a step that is done.
-    fn check_order(&self, index: u32) -> Result<bool, Error> {
+    fn check_order(&self, index: Index<ww_si::units::Step, u32>) -> Result<bool, Error> {
+        let index = index.get();
         let ram = self.ram.as_ref().ok_or(Error::NoSession)?;
         if index >= ram.steps {
             return Err(Error::OutOfRange);
         }
         if index > ram.next_step {
-            return Err(Error::OutOfOrder(ram.next_step));
+            return Err(Error::OutOfOrder(Index::new(ram.next_step)));
         }
         Ok(index < ram.next_step)
     }
@@ -328,17 +342,28 @@ impl Node {
         Ok(())
     }
 
-    pub fn erase(&mut self, index: u32, block: u16) -> Result<(), Error> {
+    pub fn erase(
+        &mut self,
+        index: Index<ww_si::units::Step, u32>,
+        block: Index<Block, u16>,
+    ) -> Result<(), Error> {
         if self.check_order(index)? {
             return Ok(());
         }
-        self.take_step(Step::Erase { block })
+        self.take_step(Step::Erase { block: block.get() })
     }
 
-    pub fn copy(&mut self, index: u32, dst: u16, src: u16, hash: [u8; 8]) -> Result<(), Error> {
+    pub fn copy(
+        &mut self,
+        index: Index<ww_si::units::Step, u32>,
+        dst: Index<Chunk, u16>,
+        src: Index<Chunk, u16>,
+        hash: [u8; 8],
+    ) -> Result<(), Error> {
         if self.check_order(index)? {
             return Ok(());
         }
+        let (dst, src) = (dst.get(), src.get());
         let source_ok = {
             let f = self.flash();
             let src = src as usize;
@@ -355,16 +380,17 @@ impl Node {
 
     pub fn write(
         &mut self,
-        index: u32,
-        dst: u16,
+        index: Index<ww_si::units::Step, u32>,
+        dst: Index<Chunk, u16>,
         hash: [u8; 8],
-        offset: u32,
+        offset: Index<Byte, u32>,
         data: &[u8],
     ) -> Result<(), Error> {
         if self.check_order(index)? {
             return Ok(());
         }
-        if data.len() > self.limits.max_piece as usize {
+        let (dst, offset) = (dst.get(), offset.get());
+        if data.len() > self.limits.max_piece.get() as usize {
             return Err(Error::PieceTooBig);
         }
         let ram = self.ram.as_mut().ok_or(Error::NoSession)?;
@@ -391,10 +417,10 @@ impl Node {
     pub fn progress(&self) -> Result<Progress, Error> {
         let ram = self.ram.as_ref().ok_or(Error::NoSession)?;
         Ok(Progress {
-            steps: ram.steps,
-            next_step: ram.next_step,
-            chunk_offset: ram.chunk.len() as u32,
-            plan_bytes: ram.bulk.as_ref().map(|b| b.have).unwrap_or(0),
+            steps: Fixed::new(ram.steps),
+            next_step: Index::new(ram.next_step),
+            chunk_offset: Index::new(ram.chunk.len() as u32),
+            plan_offset: Index::new(ram.bulk.as_ref().map(|b| b.have).unwrap_or(0)),
         })
     }
 
@@ -421,7 +447,7 @@ impl Node {
                 if plan::digest(&f.banks[bank]) != hdr.image_digest {
                     return Err(Error::VerifyFailed);
                 }
-                f.pending_version = hdr.version;
+                f.pending_version = Some(ImageVersion(hdr.version));
                 if f.is_ab() {
                     BootState::Staged
                 } else {
@@ -430,7 +456,7 @@ impl Node {
                     f.live_record = None;
                     f.last_result = LastResult {
                         outcome: Outcome::Confirmed,
-                        version: hdr.version,
+                        version: Some(ImageVersion(hdr.version)),
                     };
                     BootState::Confirmed
                 }
@@ -452,9 +478,12 @@ impl Node {
         &mut self,
         target: Target,
         header: &[u8],
-        total_len: u32,
-        ack_every: u32,
+        total_len: Bytes<u32>,
+        ack_every: ww_dfu::AckEvery,
     ) -> Result<Session, Error> {
+        let total_len = total_len.get();
+        // 0: only at the end
+        let ack_every = ack_every.value().map_or(0, |b| b.get());
         let hdr = Header::parse(header).map_err(|_| Error::BadHeader)?;
         if hdr.body_len != total_len {
             return Err(Error::BadHeader);
@@ -469,7 +498,7 @@ impl Node {
             pending: vec![],
             failed: false,
         });
-        session.resume_from = have;
+        session.resume_byte = Index::new(have);
         Ok(session)
     }
 
@@ -484,15 +513,15 @@ impl Node {
         if bulk.failed {
             return;
         }
-        if segment.offset != bulk.have {
+        if segment.offset.get() != bulk.have {
             self.acks.push(PlanAck {
-                have: bulk.have,
+                have: Index::new(bulk.have),
                 status: BulkStatus::Gap,
             });
             return;
         }
         let data: &[u8] = &segment.data;
-        if data.len() > self.limits.max_piece as usize {
+        if data.len() > self.limits.max_piece.get() as usize {
             return self.fail(Error::PieceTooBig);
         }
         bulk.have += data.len() as u32;
@@ -529,13 +558,13 @@ impl Node {
         let bulk = self.ram.as_mut().unwrap().bulk.as_mut().unwrap();
         if bulk.have == bulk.total {
             self.acks.push(PlanAck {
-                have: bulk.have,
+                have: Index::new(bulk.have),
                 status: BulkStatus::Complete,
             });
         } else if bulk.ack_every > 0 && bulk.have - bulk.last_ack >= bulk.ack_every {
             bulk.last_ack = bulk.have;
             self.acks.push(PlanAck {
-                have: bulk.have,
+                have: Index::new(bulk.have),
                 status: BulkStatus::Receiving,
             });
         }
@@ -545,7 +574,7 @@ impl Node {
         let bulk = self.ram.as_mut().unwrap().bulk.as_mut().unwrap();
         bulk.failed = true;
         self.acks.push(PlanAck {
-            have: bulk.have,
+            have: Index::new(bulk.have),
             status: BulkStatus::Failed(e),
         });
     }
@@ -573,13 +602,14 @@ pub fn manifest_digest(slot: &[u8]) -> [u8; 8] {
 
 /// What a node with `profile` accepts, for its role.
 pub fn limits(profile: Profile, role: Role, plan_area: u32) -> StageLimits {
+    let plan_area: ww_dfu::PlanArea = Fixed::try_new(plan_area).ok().into();
     let in_place_live = role != Role::App;
     StageLimits {
         // an updater has a small receive buffer: chunks come in two pieces
-        max_piece: if in_place_live { 32 } else { CHUNK as u32 },
-        in_flight: 1,
+        max_piece: Fixed::try_new(if in_place_live { 32 } else { CHUNK as u16 }).unwrap(),
+        in_flight: Fixed::try_new(1).unwrap(),
         live: matches!(profile, Profile::AB(_)) || in_place_live,
-        stored: plan_area > 0 && !in_place_live,
+        stored: plan_area.value().is_some() && !in_place_live,
         plan_area,
         writes_in_background: !in_place_live,
     }

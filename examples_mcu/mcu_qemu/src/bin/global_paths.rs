@@ -69,7 +69,7 @@ fn main() -> ! {
         request(PathKind::absolute(&absolute), &mut b0),
         request(
             PathKind::GlobalFull {
-                gid: FullVersion::new("ww_dfu", Version::new(0, 1, 0)),
+                gid: FullVersion::new("ww_dfu", Version::new(0, 2, 0)),
                 trait_name: "BootControl",
                 path_from_trait: RefVec::Slice { slice: &boot_state },
             },
@@ -228,8 +228,8 @@ impl ServerState {
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _slot: ww_dfu::Slot,
-        _first: u16,
-        _count: u16,
+        _first: ww_si::Index<ww_si::units::Chunk, u16>,
+        _count: ww_si::Count<ww_si::units::Chunk, u16>,
     ) -> RpcResult<
         Result<
             wire_weaver::shrink_wrap::MaxLen<
@@ -283,8 +283,8 @@ impl ServerState {
     fn stage_erase(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: u32,
-        _block: u16,
+        _index: ww_si::Index<ww_si::units::Step, u32>,
+        _block: ww_si::Index<ww_si::units::Block, u16>,
     ) -> RpcResult<Result<(), ww_dfu::Error>> {
         Unimplemented.into()
     }
@@ -298,9 +298,9 @@ impl ServerState {
     fn stage_copy(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: u32,
-        _dst: u16,
-        _src: u16,
+        _index: ww_si::Index<ww_si::units::Step, u32>,
+        _dst: ww_si::Index<ww_si::units::Chunk, u16>,
+        _src: ww_si::Index<ww_si::units::Chunk, u16>,
         _hash: [u8; 8],
     ) -> RpcResult<Result<(), ww_dfu::Error>> {
         Unimplemented.into()
@@ -316,10 +316,10 @@ impl ServerState {
     fn stage_write(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: u32,
-        _dst: u16,
+        _index: ww_si::Index<ww_si::units::Step, u32>,
+        _dst: ww_si::Index<ww_si::units::Chunk, u16>,
         _hash: [u8; 8],
-        _offset: u32,
+        _offset: ww_si::Index<ww_si::units::Byte, u32>,
         _data: wire_weaver::shrink_wrap::MaxLen<wire_weaver::shrink_wrap::RefVec<'_, u8>, 1024>,
     ) -> RpcResult<Result<(), ww_dfu::Error>> {
         Unimplemented.into()
@@ -398,8 +398,8 @@ impl ServerState {
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _target: ww_dfu::Target,
         _header: wire_weaver::shrink_wrap::MaxLen<wire_weaver::shrink_wrap::RefVec<'_, u8>, 256>,
-        _total_len: u32,
-        _ack_every: u32,
+        _total_len: ww_si::Bytes<u32>,
+        _ack_every: ww_dfu::AckEvery,
     ) -> RpcResult<Result<ww_dfu::Session, ww_dfu::Error>> {
         Unimplemented.into()
     }

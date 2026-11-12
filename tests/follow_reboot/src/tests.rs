@@ -92,7 +92,7 @@ async fn update_through_rp2350_bootsel() {
 
     let app = connect(&serial).await;
     let node = app.node().node().call().await.unwrap();
-    assert_eq!(node.app_version, Some(1));
+    assert_eq!(node.app.map(|a| a.version.0), Some(1));
     app.boot().reboot(BootTarget::Updater).call().await.unwrap();
     drop(app);
 
@@ -126,7 +126,7 @@ async fn update_through_rp2350_bootsel() {
 
     let app = connect(&serial).await;
     let node = app.node().node().call().await.unwrap();
-    assert_eq!(node.app_version, Some(2));
+    assert_eq!(node.app.map(|a| a.version.0), Some(2));
 }
 
 /// The ROM's REBOOT2 is the one picotool sends after `load -x`: FLASH_UPDATE at the image's base.
@@ -203,7 +203,16 @@ async fn follow_reboot_into_the_same_app() {
     assert_eq!(back.serials, [dev.serial.clone()]);
     assert_eq!(dev.booted().await, Mode::App(5));
     let app = connect(&dev.serial).await;
-    assert_eq!(app.node().node().call().await.unwrap().app_version, Some(5));
+    assert_eq!(
+        app.node()
+            .node()
+            .call()
+            .await
+            .unwrap()
+            .app
+            .map(|a| a.version.0),
+        Some(5)
+    );
 }
 
 /// A bus with one BOOTSEL device that never leaves.
@@ -273,7 +282,16 @@ async fn update_through_stm32_rom_dfu() {
     assert_eq!(dev.booted().await, Mode::Bootsel);
     assert_eq!(dev.booted().await, Mode::App(2));
     let app = connect(&serial).await;
-    assert_eq!(app.node().node().call().await.unwrap().app_version, Some(2));
+    assert_eq!(
+        app.node()
+            .node()
+            .call()
+            .await
+            .unwrap()
+            .app
+            .map(|a| a.version.0),
+        Some(2)
+    );
 }
 
 /// The bootloader is listed before the host's USB stack lets it be opened: the open is tried again.

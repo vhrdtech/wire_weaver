@@ -3,15 +3,15 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        45 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Confirmed, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        46 B  01 80 01 73 69 6d 2d 64 66 75 …
    ── host doesn't know this manifest digest: reads the manifest
 → inventory.layout(slot: Active)
          6 B  02 40 20 00 00 02
-← Ok({ chunk_size: 64, chunk_count: 8, erase_size: 128, erase_count: 4 })
+← Ok({ chunk_size: 64, chunks: 8, erase_size: 128, erase_blocks: 4 })
         16 B  02 80 80 40 00 00 00 08 00 80 …
 → inventory.chunks(slot: Active, first: 0, count: 8)
         10 B  03 40 22 00 00 00 00 08 00 02
@@ -21,11 +21,11 @@
 → stage.limits()
          5 B  04 40 30 00 02
 ← { max_piece: 64, in_flight: 1, live: false, stored: true, plan_area: 1024, writes_in_background: true }
-        13 B  04 80 40 00 00 00 01 40 00 04 …
+        11 B  04 80 40 00 01 40 00 04 00 00 …
 → stage.begin(target: Stored, header: [35 B: 57 57 44 50 01 92 …])
         42 B  05 40 31 00 10 57 57 44 50 01 …
-← Ok({ steps: 10, resumed: false, resume_from: 0 })
-        13 B  05 80 80 0a 00 00 00 00 00 00 …
+← Ok({ steps: 10, resumed: false, resume_step: 0, resume_byte: 0 })
+        17 B  05 80 80 0a 00 00 00 00 00 00 …
 → stage.erase(index: 0, block: 0)
         11 B  06 40 32 00 00 00 00 00 00 00 …
 ← Ok(())
@@ -85,11 +85,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
-      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        45 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 2, security_counter: 2 }), security_floor: 1, manifest_digest: Some(5673030c91c1ef0d),
+      boot_state: Confirmed, last_result: { outcome: Confirmed, version: Some(2) },
+      offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+        50 B  01 80 01 73 69 6d 2d 64 66 75 …
 ```
 
 <details markdown="1">
@@ -98,9 +98,9 @@
 ```text
    ── device runs the app
 →    6 B  05 01 40 00 00 02
-←   47 B  08 2d 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-          01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d d9
-          5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
+←   48 B  08 2e 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+          08 01 00 00 00 01 00 00 00 01 00 00 00 01 00 00
+          00 80 1d d9 5e ff d1 e0 02 14 00 00 f0 01 14 97
    ── host doesn't know this manifest digest: reads the manifest
 →    7 B  06 02 40 20 00 00 02
 ←   18 B  08 10 02 80 80 40 00 00 00 08 00 80 00 00 00 04
@@ -111,11 +111,12 @@
           bb ff 91 d8 f4 9d 34 d7 00 a8 09 c6 1b 42 94 29
           60 00 1e c7 0f b2 57 d1 be fc 50 09
 →    6 B  05 04 40 30 00 02
-←   15 B  08 0d 04 80 40 00 00 00 01 40 00 04 00 00 80
+←   13 B  08 0b 04 80 40 00 01 40 00 04 00 00 80
 →   44 B  08 2a 05 40 31 00 10 57 57 44 50 01 92 10 00 00
           02 00 00 00 0a 00 e4 01 00 00 86 ba 52 71 00 2c
           c3 5d 10 9b 6b 17 9f ae b3 bd 3c 02
-←   15 B  08 0d 05 80 80 0a 00 00 00 00 00 00 00 00 19
+←   19 B  08 11 05 80 80 0a 00 00 00 00 00 00 00 00 00 00
+          00 00 59
 →   13 B  08 0b 06 40 32 00 00 00 00 00 00 00 02
 ←    4 B  03 06 80 80
 →   64 B  48 59 07 40 34 00 01 00 00 00 00 00 27 80 79 0d
@@ -178,9 +179,10 @@
    ── bootloader: image verified against the descriptor, plan area cleared
    ── device runs the app
 →    6 B  05 01 40 00 00 02
-←   47 B  08 2d 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-          01 00 00 00 08 02 00 00 00 01 00 00 00 80 56 73
-          03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01 57
+←   52 B  08 32 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+          08 01 00 00 00 02 00 00 00 02 00 00 00 01 00 00
+          00 80 56 73 03 0c 91 c1 ef 0d 00 18 02 00 00 00
+          f0 01 54 97
 ```
 
 </details>

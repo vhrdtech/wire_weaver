@@ -32,7 +32,7 @@ bootloader has no transport.
 1. `UpdateNode::node`: profile, version, boot state, manifest digest. A known digest means the host knows every chunk
    and can plan a delta; otherwise it reads `Inventory::chunks`.
 2. `Stage::limits`: `max_piece` (chunks larger than this come in pieces), `in_flight`.
-3. `Stage::begin(Target::Live, header)`: every check that can be made before writing (format, geometry, version floor,
+3. `Stage::begin(Target::Live, header)`: every check that can be made before writing (format, geometry, security floor,
    signature, boot state).
 4. `Stage::erase` / `copy` / `write` for every step, into the DFU slot; nothing the app runs from is touched.
 5. `Stage::finish`: the image in the DFU slot is checked against the signed descriptor and marked `Staged`.
@@ -43,7 +43,7 @@ bootloader has no transport.
 **Failures and power cuts.** A lost link or a cut during the download costs only time: the DFU slot is scratch. A cut
 during the swap is resumed by the bootloader from its swap state. A refused step changes nothing and names why.
 
-**Resume.** After a lost link, `begin` with the same header answers `resumed: true, resume_from: <next step>`. After
+**Resume.** After a lost link, `begin` with the same header answers `resumed: true, resume_step: <next step>`. After
 a reset during the download the session is gone (it lives in RAM); the host starts over.
 
 **What the device checks** in this scenario: a COPY source hash before copying, each WRITE's chunk hash once all its
@@ -78,7 +78,7 @@ satellite, a store-and-forward gateway): a call per step would cost more than th
 **Flow.**
 
 1. `UpdateNode::node` (and `Stage::limits` for `max_piece`, unless the host knows the device type).
-2. `StageBulk::begin_bulk(Target::Live, header, total_len, ack_every)`: the checks of `Stage::begin`; `ack_every: 0`
+2. `StageBulk::begin_bulk(Target::Live, header, total_len, ack_every)`: the checks of `Stage::begin`; `ack_every: None`
    asks for one acknowledgement at the end.
 3. The host opens the `plan` credit sink and sends the plan after its header as `PlanSegment { offset, data }`. The
    device grants credit in bytes as it frees its buffer, so the host never sends more than fits; lost segments are
@@ -93,7 +93,7 @@ step that fails ends the session with `PlanAck { status: Failed(error) }`; a seg
 device has is answered with `BulkStatus::Gap` and the position to resend from. A cut during the swap is resumed by
 the bootloader.
 
-**Resume.** `begin_bulk` with the same header answers `resumed: true` and `resume_from` in **bytes** after the header;
+**Resume.** `begin_bulk` with the same header answers `resumed: true` and `resume_byte`, in bytes after the header;
 the host sends from there. The `plan` sink continues its own session too: a host that saved `Sink::cursor()` opens it
 again with `plan_resume(cursor)`, which answers how many segments the device has in it (one unit per segment), so
 nothing the device already took is sent again and a device that lost the session (a reset) is reported as
@@ -141,7 +141,7 @@ image takes no longer than any other boot, and so does a revert.
 write (an option byte, a partition flag), so a cut or a lost link at any point costs nothing but time. An image that
 doesn't confirm is mapped out again at the next reset.
 
-**Resume.** After a lost link, `begin` with the same header continues at `resume_from`; after a reset the host
+**Resume.** After a lost link, `begin` with the same header continues at `resume_step`; after a reset the host
 starts over.
 
 **What the device checks**: COPY source hashes, WRITE chunk hashes, every index against the bank, the image against
@@ -174,7 +174,7 @@ should go in one stream (a high-speed link where the host wants to keep the pipe
 **Flow.**
 
 1. `UpdateNode::node`, `Stage::limits`.
-2. `StageBulk::begin_bulk(Target::Live, header, total_len, ack_every: 0)`.
+2. `StageBulk::begin_bulk(Target::Live, header, total_len, ack_every: None)`.
 3. The plan after its header on the `plan` credit sink; the device applies steps into the inactive bank as they
    complete.
 4. `PlanAck { status: Complete }` on `plan_ack`, then `Stage::finish`: `Staged`.

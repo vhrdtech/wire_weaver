@@ -86,7 +86,7 @@
 //! - every index and offset against its own layout before it touches flash (a step that points outside the slot is
 //!   [Error::OutOfRange], never a write);
 //! - every COPY source and every WRITE against the hash in its step;
-//! - the plan header against its geometry, its version floor and the release signature, before the first step, and
+//! - the plan header against its geometry, its security floor and the release signature, before the first step, and
 //!   the finished image against the descriptor, before it is staged.
 //!
 //! Per-chunk hashes are not a trust boundary on their own; the signed descriptor over the whole image is.
@@ -102,6 +102,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
+use ww_si::exact_units::niche::{Niched, Null};
+use ww_si::prefix::One;
+use ww_si::units::{Block, Byte, Chunk, Item, Step};
+use ww_si::{Bytes, Count, Fixed, Index, Range};
 
 /// Largest data payload of one `Stage::write` call or one [PlanSegment], in bytes, for every node.
 ///
@@ -209,8 +213,8 @@ pub trait Inventory {
     #[errors(Unsupported, OutOfRange)]
     fn chunks(
         slot: Slot,
-        first: u16,
-        count: u16,
+        first: Index<Chunk, u16>,
+        count: Count<Chunk, u16>,
     ) -> Result<MaxLen<RefVec<'i, ChunkState>, MAX_CHUNKS_PAGE>, Error>;
 }
 
@@ -229,13 +233,13 @@ pub trait Stage {
     /// resume the unfinished session for the same header.
     ///
     /// Everything that can be checked before the first byte is written is checked here: the header's format, its
-    /// geometry against this node's, the image version against the version floor, the descriptor signature, the boot
+    /// geometry against this node's, the image's security counter against the floor, the descriptor signature, the boot
     /// state ([BootState::may_stage]), the target against [StageLimits], and for [Target::Stored] that the plan fits
     /// the plan area. A refusal here costs the host nothing but this call, which matters on a slow link.
     ///
     /// [Error::BadHeader]/[Error::BadSignature]: the header or its signature doesn't parse or verify;
     /// [Error::Unsupported]: `target` isn't one of [StageLimits::live]/[StageLimits::stored];
-    /// [Error::WrongGeometry]: another flash layout; [Error::BelowFloor]: image version below the floor;
+    /// [Error::WrongGeometry]: another flash layout; [Error::BelowFloor]: security counter below the floor;
     /// [Error::PlanTooBig]: [Target::Stored] doesn't fit the plan area; [Error::WrongState]: the boot state
     /// doesn't allow staging ([BootState::may_stage]).
     #[errors(
@@ -267,7 +271,7 @@ pub trait Stage {
         Flash,
         Ecc
     )]
-    fn erase(index: u32, block: u16) -> Result<(), Error>;
+    fn erase(index: Index<Step, u32>, block: Index<Block, u16>) -> Result<(), Error>;
 
     /// Step `index`: copy chunk `src` of the running image into chunk `dst` of the slot being written.
     ///
@@ -285,7 +289,12 @@ pub trait Stage {
         Flash,
         Ecc
     )]
-    fn copy(index: u32, dst: u16, src: u16, hash: [u8; 8]) -> Result<(), Error>;
+    fn copy(
+        index: Index<Step, u32>,
+        dst: Index<Chunk, u16>,
+        src: Index<Chunk, u16>,
+        hash: [u8; 8],
+    ) -> Result<(), Error>;
 
     /// Step `index`, or a piece of it: program chunk `dst` with data whose whole chunk hashes to `hash`.
     ///
@@ -306,10 +315,10 @@ pub trait Stage {
         Ecc
     )]
     fn write(
-        index: u32,
-        dst: u16,
+        index: Index<Step, u32>,
+        dst: Index<Chunk, u16>,
         hash: [u8; 8],
-        offset: u32,
+        offset: Index<Byte, u32>,
         data: MaxLen<RefVec<'i, u8>, MAX_PIECE_LEN>,
     ) -> Result<(), Error>;
 
@@ -369,9 +378,9 @@ pub trait StageBulk {
     /// Start (or resume) a bulk session for the plan with this header; the checks are those of `Stage::begin`.
     ///
     /// `total_len` is the length of the plan after the header. `ack_every` asks the node to acknowledge at least
-    /// every so many bytes even when nothing went wrong; `0` means only at the end (and on a failure), the right
-    /// choice on a reliable link (one acknowledgement per update). The answer's [Session::resume_from] says from which
-    /// byte to start sending (0 for a new session).
+    /// every so many bytes even when nothing went wrong; none (`AckEvery::from(None)`, `0` on the wire) means only at
+    /// the end (and on a failure), the right choice on a reliable link (one acknowledgement per update). The answer's
+    /// [Session::resume_byte] says from which byte to start sending (0 for a new session).
     ///
     /// Same checks as `Stage::begin`, plus [Error::BadHeader] when `total_len` doesn't match the header.
     #[errors(
@@ -386,8 +395,8 @@ pub trait StageBulk {
     fn begin_bulk(
         target: Target,
         header: MaxLen<RefVec<'i, u8>, MAX_HEADER_LEN>,
-        total_len: u32,
-        ack_every: u32,
+        total_len: Bytes<u32>,
+        ack_every: AckEvery,
     ) -> Result<Session, Error>;
 
     /// Plan bytes from the host. A segment may be any size up to [StageLimits::max_piece]; each says where its bytes
@@ -423,18 +432,17 @@ pub struct NodeInfo<'i> {
     pub profile: Profile,
     /// Product name, as the release's manifest names it; the host uses it to pick the release line.
     pub product: MaxLen<&'i str, MAX_PRODUCT_LEN>,
-    /// Flash geometry id as the protocol spec defines it (chip line, slot layout, chunk size). A plan is made for one
+    /// Flash geometry as the protocol spec names it (chip line, slot layout, chunk size). A plan is made for one
     /// geometry and is refused on any other.
-    pub geometry_id: u32,
-    /// Product id of the image in the app slot, from its descriptor; `0` when there is no valid image. A node refuses
-    /// a plan whose image is for another product, so a host seals for this one.
-    pub product_id: u32,
+    pub geometry: GeometryId,
     /// How this node checks the seal of an image: what a host seals a new image with.
     pub seal: Seal,
-    /// Version of the image in the app slot, `None` when there is no valid image (an updater after a cut in mode 3).
-    pub app_version: Option<u32>,
-    /// Lowest version this device will still accept (anti-rollback). Only ever goes up.
-    pub version_floor: u32,
+    /// The image in the app slot, from its descriptor; `None` when there is no valid image (an updater after a cut in
+    /// mode 3).
+    pub app: Option<ImageInfo>,
+    /// The anti-rollback floor: an image whose [ImageInfo::security_counter] is below it is refused
+    /// ([Error::BelowFloor]). Only ever goes up; a host seals a new image with a counter at or above it.
+    pub security_floor: SecurityCounter,
     /// Digest of the app slot's manifest, if this node has it at hand (cached, or computed at boot); `None` means
     /// "read it with `Inventory::manifest_digest`".
     pub manifest_digest: Option<[u8; 8]>,
@@ -445,6 +453,73 @@ pub struct NodeInfo<'i> {
     /// Which update traits this node implements.
     pub offers: Offers,
 }
+
+/// What a node knows of an image from its signed descriptor (the chunky protocol spec's descriptor body).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq)
+)]
+pub struct ImageInfo {
+    /// The product the image is for. A node refuses a plan whose image is for another product, so a host seals for
+    /// this one.
+    pub product: ProductId,
+    /// The image's release version.
+    pub version: ImageVersion,
+    /// The image's anti-rollback counter, at or above the node's [NodeInfo::security_floor].
+    pub security_counter: SecurityCounter,
+}
+
+/// A flash geometry, as the chunky protocol spec names it (`FlashGeometry::id`): the chip line, the slot layout and
+/// the chunk size. Only equality means anything.
+#[derive_shrink_wrap(
+    borrowed,
+    transparent,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, Hash)
+)]
+pub struct GeometryId(pub u32);
+
+/// A product, as an image's descriptor names it. Only equality means anything.
+#[derive_shrink_wrap(
+    borrowed,
+    transparent,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, Hash)
+)]
+pub struct ProductId(pub u32);
+
+/// An image's release version, from its descriptor: informational, the host compares it, the device only reports it.
+#[derive_shrink_wrap(
+    borrowed,
+    transparent,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)
+)]
+pub struct ImageVersion(pub u32);
+
+/// An image's anti-rollback counter, from its descriptor, and the node's floor on it: an image whose counter is below
+/// the floor is refused. Not the release version: several releases may share one counter.
+#[derive_shrink_wrap(
+    borrowed,
+    transparent,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)
+)]
+pub struct SecurityCounter(pub u32);
+
+// TODO(P2401#11nov-1946): drop the spelled-out `u32` once the walker reads Niched's default storage parameter
+/// `StageBulk::begin_bulk`'s `ack_every`: acknowledge at least every so many bytes, or `None` (`0` on the wire) for
+/// only at the end.
+pub type AckEvery = Niched<Fixed<Byte, One, u32, Range<1, 4294967295>>, Null<0>, u32>;
+
+/// [StageLimits::plan_area]: the plan area's size, or `None` (`0` on the wire) without one.
+pub type PlanArea = Niched<Fixed<Byte, One, u32, Range<1, 4294967295>>, Null<0>, u32>;
 
 /// How a node checks the seal of an image's descriptor (the chunky protocol spec's seal schemes).
 #[derive_shrink_wrap(
@@ -601,8 +676,8 @@ pub enum BootTarget {
 pub struct LastResult {
     /// What happened.
     pub outcome: Outcome,
-    /// The version the update was for, `0` when there was none.
-    pub version: u32,
+    /// The release version the update was for, `None` when there was none.
+    pub version: Option<ImageVersion>,
 }
 
 /// What happened to the last update.
@@ -652,13 +727,13 @@ pub enum Slot {
 )]
 pub struct SlotLayout {
     /// Bytes per chunk: the unit hashed in the manifest and written by one WRITE step.
-    pub chunk_size: u32,
+    pub chunk_size: Bytes<u32>,
     /// Chunks in the slot.
-    pub chunk_count: u16,
+    pub chunks: Count<Chunk, u16>,
     /// Bytes per erase block (the unit of an ERASE step). On parts with mixed sector sizes, the largest.
-    pub erase_size: u32,
+    pub erase_size: Bytes<u32>,
     /// Erase blocks in the slot.
-    pub erase_count: u16,
+    pub erase_blocks: Count<Block, u16>,
 }
 
 /// The state of one chunk, as the manifest records it.
@@ -703,17 +778,19 @@ pub enum Target {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct StageLimits {
-    /// Largest data payload in one `Stage::write` or [PlanSegment], in bytes, at most [MAX_PIECE_LEN]. Chosen to
-    /// fit the node's receive buffer.
-    pub max_piece: u32,
-    /// How many step calls the host may have outstanding at once. `1` on a node that blocks while it writes flash.
-    pub in_flight: u8,
+    /// Largest data payload in one `Stage::write` or [PlanSegment], 1 to [MAX_PIECE_LEN] bytes (the bound says
+    /// 1024, [MAX_PIECE_LEN]'s value). Chosen to fit the node's receive buffer.
+    pub max_piece: Fixed<Byte, One, u16, Range<1, 1024>>,
+    /// How many step calls the host may have outstanding at once, at least 1.
+    // TODO(eu-markers-2): a counted marker for requests in flight instead of Item `1` on a node that blocks while it
+    /// writes flash.
+    pub in_flight: Fixed<Item, One, u8, Range<1, 255>>,
     /// [Target::Live] is accepted.
     pub live: bool,
     /// [Target::Stored] is accepted.
     pub stored: bool,
-    /// Size of the plan area in bytes (the largest plan [Target::Stored] takes), `0` without one.
-    pub plan_area: u32,
+    /// Size of the plan area (the largest plan [Target::Stored] takes), `None` without one.
+    pub plan_area: PlanArea,
     /// The node keeps working (answers other requests) while it writes flash. False on single-bank parts that stall
     /// while programming their own flash.
     pub writes_in_background: bool,
@@ -728,12 +805,13 @@ pub struct StageLimits {
 )]
 pub struct Session {
     /// Steps in the plan, from its header.
-    pub steps: u32,
+    pub steps: Count<Step, u32>,
     /// `false` for a new session, `true` when an unfinished one for the same plan was found.
     pub resumed: bool,
-    /// Where to continue: the next step for `Stage`, the next byte after the header for `StageBulk` (`0` for a new
-    /// session).
-    pub resume_from: u32,
+    /// Where `Stage` continues: the next step (`0` for a new session).
+    pub resume_step: Index<Step, u32>,
+    /// Where `StageBulk` continues: the next byte after the header (`0` for a new session).
+    pub resume_byte: Index<Byte, u32>,
 }
 
 /// What `Stage::progress` answers.
@@ -745,13 +823,13 @@ pub struct Session {
 )]
 pub struct Progress {
     /// Steps in the plan.
-    pub steps: u32,
+    pub steps: Count<Step, u32>,
     /// The next step the node expects (`steps` when all are in).
-    pub next_step: u32,
-    /// For a WRITE in pieces: bytes of the next step's chunk already in.
-    pub chunk_offset: u32,
-    /// For a bulk session: bytes after the header received in order.
-    pub plan_bytes: u32,
+    pub next_step: Index<Step, u32>,
+    /// For a WRITE in pieces: where the next piece of the next step's chunk starts, the bytes already in.
+    pub chunk_offset: Index<Byte, u32>,
+    /// For a bulk session: the next byte after the header the node expects, all before it received in order.
+    pub plan_offset: Index<Byte, u32>,
 }
 
 /// A segment of a bulk plan, sent on `StageBulk`'s `plan` sink.
@@ -762,7 +840,7 @@ pub struct Progress {
 )]
 pub struct PlanSegment<'i> {
     /// Where these bytes go: offset from the first byte after the plan header.
-    pub offset: u32,
+    pub offset: Index<Byte, u32>,
     /// Plan bytes, at most [StageLimits::max_piece] (and never more than [MAX_PIECE_LEN]).
     pub data: MaxLen<RefVec<'i, u8>, MAX_PIECE_LEN>,
 }
@@ -775,8 +853,9 @@ pub struct PlanSegment<'i> {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct PlanAck {
-    /// Bytes after the header the node has, in order. After a [BulkStatus::Gap] the host resends from here.
-    pub have: u32,
+    /// The first byte after the header the node doesn't have; it has every byte before it. After a
+    /// [BulkStatus::Gap] the host resends from here.
+    pub have: Index<Byte, u32>,
     /// How the session stands.
     pub status: BulkStatus,
 }
@@ -813,11 +892,17 @@ pub enum BulkStatus {
 )]
 pub enum StageEvent {
     /// Hashing a slot for the manifest: `done` of `total` chunks.
-    Hashing { done: u16, total: u16 },
+    Hashing {
+        done: Count<Chunk, u16>,
+        total: Count<Chunk, u16>,
+    },
     /// Applying: `done` of `total` steps.
-    Applying { done: u32, total: u32 },
+    Applying {
+        done: Count<Step, u32>,
+        total: Count<Step, u32>,
+    },
     /// Verifying the finished image or stored plan: `done` of `total` bytes.
-    Verifying { done: u32, total: u32 },
+    Verifying { done: Bytes<u32>, total: Bytes<u32> },
     /// The session finished; the node is now in this state.
     Finished(BootState),
     /// The session failed.
@@ -846,14 +931,14 @@ pub enum Error {
     BadHeader,
     /// The plan is for another flash geometry.
     WrongGeometry,
-    /// The image's version is below the version floor.
+    /// The image's security counter is below the node's [NodeInfo::security_floor].
     BelowFloor,
     /// The release signature over the descriptor doesn't verify.
     BadSignature,
     /// A step, offset or chunk points outside the slot. Nothing was written.
     OutOfRange,
     /// A step arrived ahead of its turn; the node expects this step index next.
-    OutOfOrder(u32),
+    OutOfOrder(Index<Step, u32>),
     /// A different step arrived under an index the node already has.
     StepMismatch,
     /// A piece is longer than [StageLimits::max_piece].
@@ -872,6 +957,64 @@ pub enum Error {
     Flash,
     /// A read faulted on ECC (a cut write or erase); the chunk needs an erase.
     Ecc,
-    /// An implementation-specific error.
+    /// An implementation-specific error: the vendor's own code, no unit.
     Custom(u32),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bytes<T: SerializeShrinkWrap>(value: &T) -> Vec<u8> {
+        let mut buf = [0u8; 64];
+        value.to_ww_bytes(&mut buf).unwrap().to_vec()
+    }
+
+    /// The ids, versions and typed numbers are their `T` on the wire, byte for byte.
+    #[test]
+    fn typed_numbers_are_their_storage() {
+        let x = 0x1234_5678u32;
+        assert_eq!(bytes(&GeometryId(x)), bytes(&x));
+        assert_eq!(bytes(&ProductId(x)), bytes(&x));
+        assert_eq!(bytes(&ImageVersion(x)), bytes(&x));
+        assert_eq!(bytes(&SecurityCounter(x)), bytes(&x));
+        assert_eq!(bytes(&Index::<Step, u32>::new(x)), bytes(&x));
+        assert_eq!(bytes(&Bytes::<u32>::new(x)), bytes(&x));
+        assert_eq!(bytes(&Count::<Chunk, u16>::new(7)), bytes(&7u16));
+        let max_piece: Fixed<Byte, One, u16, Range<1, 1024>> = Fixed::try_new(1024).unwrap();
+        assert_eq!(bytes(&max_piece), bytes(&1024u16));
+    }
+
+    /// `None` of a zero-means-none field is a plain `0`, a value its number.
+    #[test]
+    fn niches_are_zero() {
+        assert_eq!(bytes(&AckEvery::from(None)), bytes(&0u32));
+        let every: AckEvery = Fixed::try_new(4096).ok().into();
+        assert_eq!(bytes(&every), bytes(&4096u32));
+        assert_eq!(every.value().map(|b| b.get()), Some(4096));
+        assert_eq!(
+            PlanArea::from_ww_bytes(&bytes(&0u32)).unwrap().value(),
+            None
+        );
+    }
+
+    /// A `max_piece` outside 1..=1024 is refused on decode.
+    #[test]
+    fn max_piece_bounds() {
+        let limits = StageLimits {
+            max_piece: Fixed::try_new(64).unwrap(),
+            in_flight: Fixed::try_new(1).unwrap(),
+            live: true,
+            stored: false,
+            plan_area: None.into(),
+            writes_in_background: true,
+        };
+        let mut wire = bytes(&limits);
+        assert_eq!(StageLimits::from_ww_bytes(&wire).unwrap(), limits);
+        // max_piece is the first two bytes: 2000 is past the bound
+        wire[..2].copy_from_slice(&2000u16.to_le_bytes());
+        assert!(StageLimits::from_ww_bytes(&wire).is_err());
+        wire[..2].copy_from_slice(&0u16.to_le_bytes());
+        assert!(StageLimits::from_ww_bytes(&wire).is_err());
+    }
 }

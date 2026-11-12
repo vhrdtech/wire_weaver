@@ -2,7 +2,9 @@
 //! record, the plan area with its apply journal and the live session record of the updater. The bootloader runs on it
 //! between two firmware runs.
 
-use ww_dfu::{BootState, Error, LastResult, Outcome, Profile, SlotSwitch};
+use ww_dfu::{
+    BootState, Error, ImageVersion, LastResult, Outcome, Profile, SecurityCounter, SlotSwitch,
+};
 
 use crate::plan::{self, CHUNK, CHUNKS, ERASE, Header, SLOT, Step};
 use crate::record::Recorder;
@@ -73,11 +75,12 @@ pub struct Flash {
     pub run_bank: usize,
     pub boot_state: BootState,
     pub last_result: LastResult,
-    pub version_floor: u32,
+    /// The anti-rollback floor. The simulated images use their version as their security counter.
+    pub security_floor: SecurityCounter,
     /// Digest the app slot must have to boot: the descriptor of the image the device last accepted.
     pub app_digest: [u8; 8],
     /// Version of a staged or trial image, for `last_result`
-    pub pending_version: u32,
+    pub pending_version: Option<ImageVersion>,
     /// The app asked to start the updater; stays set until a live in-place session finishes.
     pub enter_updater: bool,
     pub plan_area: PlanArea,
@@ -99,11 +102,11 @@ impl Flash {
             boot_state: BootState::Confirmed,
             last_result: LastResult {
                 outcome: Outcome::Nothing,
-                version: 0,
+                version: None,
             },
-            version_floor: 1,
+            security_floor: SecurityCounter(1),
             app_digest: plan::digest(image),
-            pending_version: 0,
+            pending_version: None,
             enter_updater: false,
             plan_area: PlanArea::default(),
             plan_area_size,
@@ -348,7 +351,7 @@ impl Flash {
                 self.boot_state = BootState::Updating;
                 self.last_result = LastResult {
                     outcome: Outcome::Recovery,
-                    version: header.version,
+                    version: Some(ImageVersion(header.version)),
                 };
                 return Ok(());
             }
@@ -360,13 +363,13 @@ impl Flash {
             self.boot_state = BootState::Confirmed;
             self.last_result = LastResult {
                 outcome: Outcome::Confirmed,
-                version: header.version,
+                version: Some(ImageVersion(header.version)),
             };
         } else {
             rec.note("bootloader: image does not match the descriptor");
             self.last_result = LastResult {
                 outcome: Outcome::Recovery,
-                version: header.version,
+                version: Some(ImageVersion(header.version)),
             };
         }
         self.plan_area = PlanArea::default();

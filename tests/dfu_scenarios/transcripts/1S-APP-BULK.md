@@ -3,19 +3,19 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        45 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Confirmed, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        46 B  01 80 01 73 69 6d 2d 64 66 75 …
 → stage.limits()
          5 B  02 40 30 00 02
 ← { max_piece: 64, in_flight: 1, live: false, stored: true, plan_area: 1024, writes_in_background: true }
-        13 B  02 80 40 00 00 00 01 40 00 04 …
+        11 B  02 80 40 00 01 40 00 04 00 00 …
 → bulk.begin_bulk(target: Stored, header: [35 B: 57 57 44 50 01 92 …], total_len: 484, ack_every: 0)
         50 B  03 40 40 00 10 57 57 44 50 01 …
-← Ok({ steps: 10, resumed: false, resume_from: 0 })
-        13 B  03 80 80 0a 00 00 00 00 00 00 …
+← Ok({ steps: 10, resumed: false, resume_step: 0, resume_byte: 0 })
+        17 B  03 80 80 0a 00 00 00 00 00 00 …
 → bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
          5 B  04 40 42 80 02
 ← ()
@@ -41,11 +41,11 @@
    ── half way: the app keeps doing its job and answers anything else
 → node.node()
          5 B  07 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        45 B  07 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Confirmed, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: true, stage: true, stage_bulk: true } }
+        46 B  07 80 01 73 69 6d 2d 64 66 75 …
 → bulk.plan: open its session at 0
          9 B  08 40 41 88 82 01 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
@@ -83,11 +83,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
-      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        45 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 2, security_counter: 2 }), security_floor: 1, manifest_digest: Some(5673030c91c1ef0d),
+      boot_state: Confirmed, last_result: { outcome: Confirmed, version: Some(2) },
+      offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+        50 B  01 80 01 73 69 6d 2d 64 66 75 …
 ```
 
 <details markdown="1">
@@ -96,19 +96,19 @@
 ```text
    ── device runs the app
 →   11 B  02 05 01 40 00 00 02 45 4f 44 12
-←   52 B  04 08 2d 01 80 01 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
-          fd b6 36 83
+←   53 B  04 08 2e 01 80 01 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 01 00 00 00 01 00 00 00 01 00
+          00 00 80 1d d9 5e ff d1 e0 02 14 00 00 f0 01 14
+          97 c1 b9 81 bb
 →   11 B  03 05 02 40 30 00 02 b1 db f8 d7
-←   20 B  05 08 0d 02 80 40 00 00 00 01 40 00 04 00 00 80
-          74 fc b7 f3
+←   18 B  05 08 0b 02 80 40 00 01 40 00 04 00 00 80 a1 c6
+          87 d5
 →   57 B  04 08 32 03 40 40 00 10 57 57 44 50 01 92 10 00
           00 02 00 00 00 0a 00 e4 01 00 00 86 ba 52 71 00
           2c c3 5d 10 9b 6b 17 9f ae b3 bd e4 01 00 00 00
           00 00 00 3c 02 28 da 9b 8b
-←   20 B  06 08 0d 03 80 80 0a 00 00 00 00 00 00 00 00 19
-          d5 90 fc 1e
+←   24 B  06 08 11 03 80 80 0a 00 00 00 00 00 00 00 00 00
+          00 00 00 59 24 84 c6 c2
 →   11 B  05 05 04 40 42 80 02 5e 3f 9e 57
 ←   12 B  07 06 04 80 00 00 00 00 ce 11 40 26
 →   15 B  06 08 08 05 40 41 88 01 00 00 02 8d c6 f6 34
@@ -139,10 +139,10 @@
 ←   15 B  09 08 08 06 83 41 50 04 90 0e 02 6a e1 bf 39
    ── half way: the app keeps doing its job and answers anything else
 →   11 B  08 05 07 40 00 00 02 ab e5 74 39
-←   52 B  0a 08 2d 07 80 01 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
-          be 41 fa 47
+←   53 B  0a 08 2e 07 80 01 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 01 00 00 00 01 00 00 00 01 00
+          00 00 80 1d d9 5e ff d1 e0 02 14 00 00 f0 01 14
+          97 1c 65 90 54
 →   16 B  09 08 09 08 40 41 88 82 01 00 00 02 47 5b e4 bf
 ←   31 B  0b 08 08 00 83 41 50 00 90 0e 02 7b c6 de 28 08
           0a 08 80 82 01 00 00 40 90 0e 00 b0 d3 71 36
@@ -177,10 +177,10 @@
    ── bootloader: image verified against the descriptor, plan area cleared
    ── device runs the app
 →   11 B  02 05 01 40 00 00 02 45 4f 44 12
-←   52 B  04 08 2d 01 80 01 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
-          73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01 57
-          b0 8b 11 a3
+←   57 B  04 08 32 01 80 01 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 02 00 00 00 02 00 00 00 01 00
+          00 00 80 56 73 03 0c 91 c1 ef 0d 00 18 02 00 00
+          00 f0 01 54 97 29 d7 66 02
 ```
 
 </details>

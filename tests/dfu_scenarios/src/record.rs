@@ -273,7 +273,10 @@ fn bundle(fw: Firmware) -> Arc<ApiBundleOwned> {
         .entry(dir)
         .or_insert_with(|| {
             let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(dir);
-            Arc::new(wire_weaver_core::load(&path, Some(name.into()), false).unwrap())
+            let mut bundle = wire_weaver_core::load(&path, Some(name.into()), false).unwrap();
+            // instances of generic types (exact_units' Fixed, Index, Niched) made concrete for dynamic decoding
+            wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+            Arc::new(bundle)
         })
         .clone()
 }
@@ -493,9 +496,16 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
     }
 }
 
-/// Compact form of a value: numbers plain, byte arrays as hex, structs with their field names.
+/// Compact form of a value: numbers plain, also inside a one-field wrapper (a newtype id, exact_units' `Fixed`,
+/// `Index`, `Niched`), byte arrays as hex, structs with their field names.
 pub fn fmt_value(v: &ValueOwned) -> String {
     match v {
+        ValueOwned::Struct {
+            fields: FieldsValueOwned::Named(f),
+        } if f.len() == 1 && matches!(f[0].1, ValueOwned::Numeric(_)) => fmt_value(&f[0].1),
+        ValueOwned::Struct {
+            fields: FieldsValueOwned::Unnamed(f),
+        } if f.len() == 1 && matches!(f[0], ValueOwned::Numeric(_)) => fmt_value(&f[0]),
         ValueOwned::Bool(b) => b.to_string(),
         ValueOwned::Numeric(n) => {
             // `U32(5)` -> `5`

@@ -102,7 +102,7 @@ The other combinations make no sense, which is why they have no code:
 
 - **The device trusts nothing it receives.** It checks every index and offset against its own layout before touching
   flash (`Error::OutOfRange`), every COPY source and every WRITE against the hash in its step
-  (`Error::SourceMismatch`, `Error::HashMismatch`), the plan header against its geometry, its version floor and the
+  (`Error::SourceMismatch`, `Error::HashMismatch`), the plan header against its geometry, its security floor and the
   release signature before the first step (`Error::WrongGeometry`, `Error::BelowFloor`, `Error::BadSignature`), and
   the finished image against the signed descriptor before it is staged (`Error::VerifyFailed`). Per-chunk hashes are
   not a trust boundary on their own; the signed descriptor over the whole image is. Chunky's device core refuses

@@ -3,11 +3,11 @@
    ── link up: dfu_lean_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: false,
-      stage: false, stage_bulk: false } }
-        45 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 1, security_counter: 1 }), security_floor: 1, manifest_digest: Some(1dd95effd1e00214),
+      boot_state: Confirmed, last_result: { outcome: Nothing, version: None }, offers: { boot_control: true,
+      inventory: false, stage: false, stage_bulk: false } }
+        46 B  01 80 01 73 69 6d 2d 64 66 75 …
 → boot.reboot(into: Updater)
          6 B  02 40 13 00 10 02
 ← Ok(())
@@ -19,19 +19,19 @@
    ── link up: dfu_updater_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: Bootloader, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
-      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
-      stage: true, stage_bulk: true } }
-        45 B  01 80 11 73 69 6d 2d 64 66 75 …
+← { role: Bootloader, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned,
+      app: Some({ product: 1, version: 1, security_counter: 1 }), security_floor: 1,
+      manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed, last_result: { outcome: Nothing,
+      version: None }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
+        46 B  01 80 11 73 69 6d 2d 64 66 75 …
 → stage.limits()
          5 B  02 40 30 00 02
 ← { max_piece: 32, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: false }
-        13 B  02 80 20 00 00 00 01 80 00 00 …
+        11 B  02 80 20 00 01 80 00 00 00 00 …
 → bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 484, ack_every: 0)
         50 B  03 40 40 00 00 57 57 44 50 01 …
-← Ok({ steps: 10, resumed: false, resume_from: 0 })
-        13 B  03 80 80 0a 00 00 00 00 00 00 …
+← Ok({ steps: 10, resumed: false, resume_step: 0, resume_byte: 0 })
+        17 B  03 80 80 0a 00 00 00 00 00 00 …
 → bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
          5 B  04 40 42 80 02
 ← ()
@@ -95,11 +95,11 @@
    ── link up: dfu_lean_app_api (link setup not shown, same on every link)
 → node.node()
          5 B  01 40 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
-      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
-      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: false,
-      stage: false, stage_bulk: false } }
-        45 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry: 4242, seal: Unsigned, app: Some({ product: 1,
+      version: 2, security_counter: 2 }), security_floor: 1, manifest_digest: Some(5673030c91c1ef0d),
+      boot_state: Confirmed, last_result: { outcome: Confirmed, version: Some(2) },
+      offers: { boot_control: true, inventory: false, stage: false, stage_bulk: false } }
+        50 B  01 80 01 73 69 6d 2d 64 66 75 …
 ```
 
 <details markdown="1">
@@ -108,25 +108,28 @@
 ```text
    ── device runs the app
 →   12 B  82 86 00 00 00 00 00 01 40 00 00 02
-←   48 B  82 2e 00 01 80 01 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 80 01 57
+←   49 B  82 2f 00 01 80 01 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 01 00 00 00 01 00 00 00 01 00
+          00 00 80 1d d9 5e ff d1 e0 02 14 00 00 80 01 14
+          97
 →   13 B  82 87 00 00 00 00 00 02 40 13 00 10 02
 ←    6 B  82 04 00 02 80 80
 ←    4 B  82 02 0c 02
    ── device resets (into the updater)
    ── device runs the updater
 →   12 B  82 86 00 00 00 00 00 01 40 00 00 02
-←   48 B  82 2e 00 01 80 11 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
+←   49 B  82 2f 00 01 80 11 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 01 00 00 00 01 00 00 00 01 00
+          00 00 80 1d d9 5e ff d1 e0 02 14 00 00 f0 01 14
+          97
 →   12 B  82 86 00 00 00 00 00 02 40 30 00 02
-←   16 B  82 0e 00 02 80 20 00 00 00 01 80 00 00 00 00 00
+←   14 B  82 0c 00 02 80 20 00 01 80 00 00 00 00 00
 →   57 B  82 b3 00 00 00 00 00 03 40 40 00 00 57 57 44 50
           01 92 10 00 00 02 00 00 00 0a 00 e4 01 00 00 86
           ba 52 71 00 2c c3 5d 10 9b 6b 17 9f ae b3 bd e4
           01 00 00 00 00 00 00 3c 02
-←   16 B  82 0e 00 03 80 80 0a 00 00 00 00 00 00 00 00 19
+←   20 B  82 12 00 03 80 80 0a 00 00 00 00 00 00 00 00 00
+          00 00 00 59
 →   12 B  82 86 00 00 00 00 00 04 40 42 80 02
 ←    9 B  82 07 00 04 80 00 00 00 00
 →   15 B  82 89 00 00 00 00 00 05 40 41 88 01 00 00 02
@@ -205,9 +208,10 @@
    ── device resets (into the app)
    ── device runs the app
 →   12 B  82 86 00 00 00 00 00 01 40 00 00 02
-←   48 B  82 2e 00 01 80 01 73 69 6d 2d 64 66 75 92 10 00
-          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
-          73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 80 01 57
+←   53 B  82 33 00 01 80 01 73 69 6d 2d 64 66 75 92 10 00
+          00 08 01 00 00 00 02 00 00 00 02 00 00 00 01 00
+          00 00 80 56 73 03 0c 91 c1 ef 0d 00 18 02 00 00
+          00 80 01 54 97
 ```
 
 </details>

@@ -1395,6 +1395,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-signature-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A signature case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5711,6 +5722,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-signature-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A signature case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5990,6 +6012,22 @@ Python runs every case through <code>ww.requantize</code> (the factor as the mod
 <code>sw_requantize()</code> (<code>shrink_wrap/c/sw_requantize.h</code>): <code>tests/conformance/src/c.rs</code> works out each factor's constants
 on the host from the same <code>Magnitude</code>, as a code generator would, emits them into one C program for all cases, and
 compiles and runs it.</p>
+<h2 id="a-signature-case">A signature case<a class="headerlink" href="#a-signature-case" title="Permanent link">&para;</a></h2>
+<p>The <code>signatures</code> list seals the two signatures of a definition (EVO-69, <a href="../../std_library/ww_self/#signatures-and-putting-skipped-definitions-back"><code>ww_self</code></a>):
+the shape signature, without docs, and the signature with docs. A device leaves a definition its host already knows
+out of its introspection data and names it by them, and snapshots name their dependencies the same way, so they are
+as much a part of the wire as golden bytes. Only <code>ww_self::signature</code> calculates them; every consumer goes through it.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;signature.struct.docs&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;definition&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;type Signed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;shape&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;7f0a980582914d0b&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;with_docs&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;9dbe71ee06aa30b1&quot;</span><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>definition</code>: <code>type Name</code> or <code>trait Name</code> in the API model of <code>tests/conformance_api</code>, loaded from source. The
+  types of these cases are defined there for this alone: their names, fields and doc comments never change.</li>
+<li><code>shape</code>, <code>with_docs</code>: hex. A new case has <code>"?"</code>; the <code>signatures</code> test prints both values to fill in.</li>
+<li><code>note</code> and <code>wire_change</code> as for a case.</li>
+</ul>
+<p>Besides the sealed values, each case checks how the two signatures relate: the definition with its docs cleared
+has the same shape signature, and then its signature with docs is that shape signature; a reference is the shape
+signature followed by the signature with docs; an 8-byte reference matches by either.</p>
 <h2 id="frozen-golden-bytes">Frozen golden bytes<a class="headerlink" href="#frozen-golden-bytes" title="Permanent link">&para;</a></h2>
 <p>Once a case's <code>bytes</code> are in, they are the contract: nothing should change them, remove the case, or change its
 <code>direction</code> or <code>bytes_from</code> without everyone noticing. <code>CONFORMANCE=update</code> on its own only refuses to <em>overwrite</em>
@@ -6022,6 +6060,7 @@ that doesn't resolve), or without the corpus existing yet at that commit (introd
 as a whole), the test prints why and passes rather than failing a check it can't actually run. CI's <code>test</code> and
 <code>coverage</code> jobs fetch full history (<code>fetch-depth: 0</code>) so the check means something there; a shallower checkout
 elsewhere only loses the check, not correctness.</p>
+<p>The guard seals a requantize case's <code>result</code> and a signature case's <code>shape</code> and <code>with_docs</code> the same way.</p>
 <p>A deliberate wire break is still possible: mark the changed case with <code>"wire_change": "EVO-n / reason"</code>, which the
 guard accepts once — only when the mark is new or its text changed since the baseline. A case whose mark is
 unchanged from the baseline is sealed again at its current bytes: reusing the same mark across unrelated later

@@ -8142,6 +8142,21 @@ observing), SRV-46 (peer identity).
   with <code>ww_error::CommonError</code> (same bytes): they read as needing a new wire line once both snapshots were refreshed
   (<code>docs/evolution/checker_tool.md#superseded-definitions-evo-68</code>; <code>wire_weaver_evolution</code> tests
   <code>tests::superseded</code>).</li>
+<li>✅ <strong>EVO-69 Shape signature and docs signature</strong> · <code>v0.5</code> — a definition has two signatures
+  (<code>ww_self::signature::Signatures</code>): the shape signature, without docs, is its identity, and the signature with
+  docs tells whether the text changed too. A <code>Skipped*</code> reference is the shape signature, then the signature with
+  docs (16 bytes; 8, the shape alone, in introspection data without docs), and an 8-byte reference saved before
+  is a signature with docs, matched as such (<code>Signatures::matches</code>). Devices leave a known definition out when the
+  shape matches (<code>skip_known</code>), hosts put it back by shape and list other docs (<code>Inlined::docs_differ</code>), the
+  client logs "documentation updated" for a device with the same API and other docs
+  (<code>DeviceApiInfo::docs_updated_since</code>), the definition cache is keyed by shape, and the checker compares
+  dependencies by shape, a docs-only change of one being a <code>note:</code> (<code>Report::notes</code>); an API's own docs still need
+  the compatible bump. Frozen snapshots are read as saved: <code>tests/thermo_api</code>'s eight files and the older
+  <code>ww_si</code>/<code>ww_adc</code> snapshots are back to their saved bytes, with the exact_units 0.1.0 definitions they name kept
+  by <code>ww api keep-superseded</code> from git history. Wire: the skipped references in introspection data and the API
+  hashes change once; no device or host uses the format. Conformance: <code>signatures</code> cases
+  (<code>docs/evolution/checker_tool.md#doc-comments-of-a-dependency-evo-69</code>, <code>docs/std_library/ww_self.md</code>;
+  <code>ww_self</code> tests <code>signature::tests</code>, <code>conformance</code> test <code>signatures</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

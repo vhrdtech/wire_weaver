@@ -6688,6 +6688,11 @@ then records the removal. Only roots in single-file top-level modules are handle
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ww<span class="w"> </span>api<span class="w"> </span>line<span class="w"> </span>new<span class="w"> </span>tests/multi_root_api
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>ww<span class="w"> </span>api<span class="w"> </span>line<span class="w"> </span>retire<span class="w"> </span>tests/multi_root_api<span class="w"> </span>wire_v1
 </span></code></pre></div>
+<p><code>ww api keep-superseded OLD.ron --current CUR.ron --into DIR</code> keeps the definitions an earlier snapshot of a crate
+version had and its current snapshot of the same version no longer has, in <code>DIR</code> (the crate's
+<code>api_snapshots/superseded/</code>), as <code>ww api save</code> does by itself when it refreshes a snapshot in place: for a refresh
+that happened before, with the earlier snapshot taken from git history. See
+<a href="../evolution/checker_tool/#superseded-definitions-evo-68">superseded definitions</a>.</p>
 <p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait defined in the crate's <code>src/lib.rs</code>, and every
 <code>#[derive_shrink_wrap]</code> type and unit marker struct (<code>pub struct Volt;</code>) defined there, in a <code>pub mod</code> at any depth,
 or re-exported from a module with <code>pub use</code> (each known by its path and name, <code>units::Volt</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example

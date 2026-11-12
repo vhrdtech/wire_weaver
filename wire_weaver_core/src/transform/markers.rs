@@ -2355,6 +2355,7 @@ mod tests {
         let mut compiled_bases = bases!(
             Radian Neper NeperLoss Bit Item Sample Frame Packet Line Row Record Entry Cycle Block Sector Chunk Char Code
             Argument Boot Buffer Channel Event Fifo Filter Operation Pin Pulse Scan Segment Session Step Tick TimeQuantum
+            Month Interface Retry Request
         );
         compiled_bases.sort_by_key(|(name, _)| *name);
         assert_eq!(

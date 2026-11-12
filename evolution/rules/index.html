@@ -6605,7 +6605,10 @@ The checker compares it by what it means, not only by its bytes:</p>
 <p><code>Fixed&lt;Second, Micro, u64&gt;</code> and <code>Fixed&lt;Second, Micro, u64, Unbounded&gt;</code> are the same type (the model always records
 <code>B</code>), and so is an alias of either (<code>Micros&lt;u64&gt;</code>). <code>Fixed</code> in your API is a <code>ww_si</code> type the API model skips; the
 checker reads its definition from the <code>ww_si</code> snapshot built into it, so a field changed from <code>u64</code> to <code>Fixed</code> is
-checked the same way as a wrapper of your own.</p>
+checked the same way as a wrapper of your own. The same for a wrapper of any other crate with a built-in snapshot
+(<code>ww_block::Lease</code>, a <code>u32</code>, as an argument of <code>ww_sd</code>). When that snapshot doesn't hold the wrapper (saved before it
+was added, for a version not published yet), the check stops with an error naming it: save that crate's snapshot
+again (<code>just save-snapshots</code> for <code>ww_stdlib</code>).</p>
 <p>This holds for every generic type, not only <code>Fixed</code>: a type parameter that no field uses (one only in <code>PhantomData</code>,
 which the model doesn't have) is a marker that gives the bytes a meaning. A marker with a definition in the model (a
 unit, scale or origin, INT-13) is compared by that definition; any other marker by name, with its own arguments

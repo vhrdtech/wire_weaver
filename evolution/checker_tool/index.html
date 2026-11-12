@@ -2552,6 +2552,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-dependency-changed-without-a-version-bump-evo-67" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A dependency changed without a version bump (EVO-67)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#checking-at-every-commit" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5773,6 +5784,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-dependency-changed-without-a-version-bump-evo-67" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A dependency changed without a version bump (EVO-67)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#checking-at-every-commit" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6059,6 +6081,17 @@ definition):</p>
 <p>A group forms only once a cause reaches two or more items; a single broken item still reads as an ordinary breaking
 line, with its own rule and bump. Grouping is naming, not a verdict of its own: every grouped item still carries its
 own <a href="#what-is-checked"><code>Rule</code></a> and counts toward the same required bump as it would alone.</p>
+<h2 id="a-dependency-changed-without-a-version-bump-evo-67">A dependency changed without a version bump (EVO-67)<a class="headerlink" href="#a-dependency-changed-without-a-version-bump-evo-67" title="Permanent link">&para;</a></h2>
+<p>A snapshot names another crate's trait or type by its crate version and a signature of its definition, and leaves
+the definition out. A crate version that is not published yet can change without a bump (<code>ww_error</code> 0.1.0's
+<code>CommonError</code> gaining a typed index), and then the snapshot of a crate that uses it names one signature while the
+source names another. The checker looks both definitions up: the snapshot's in the snapshots built into it, the
+source's in what the walk of the source saw. When it finds both, it compares them as any two versions of a type, so
+<code>arg: u8</code> -&gt; <code>arg: Index&lt;Argument, u8&gt;</code> is <code>u8 -&gt; Index&lt;Argument, u8, Unbounded&gt;, same bytes</code> in every crate that
+embeds the type, and a change of the bytes is a break named at the field. A definition found nowhere (a snapshot
+saved against a revision of the dependency that no snapshot holds any more) is still reported by its two
+signatures. Either way the snapshot of the checking crate's current version differs from its source: save it again
+while the version is not published (<code>just save-snapshots</code> for <code>ww_stdlib</code>).</p>
 <h2 id="checking-at-every-commit">Checking at every commit<a class="headerlink" href="#checking-at-every-commit" title="Permanent link">&para;</a></h2>
 <p>The checker is a library, <code>wire_weaver_evolution</code>, which parses the crate from source like <code>ww api check</code> does and
 needs neither the client nor a device. An API crate runs it from a test of its own, so the version of the checker is

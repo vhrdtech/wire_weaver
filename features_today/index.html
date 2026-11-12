@@ -5923,6 +5923,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/showcase/">Writing in place</a></strong>: Builders that write a value straight into the output buffer, and patching a field after the rest is written.</li>
 <li><strong><a href="../serdes/layouts/#fixed_layout-fields-at-fixed-offsets">Fixed layouts</a></strong>: Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header.</li>
 <li><strong><a href="../serdes/layouts/#head_tail-a-fixed-head-and-a-sequential-tail">Fixed head, sequential tail</a></strong>: <code>head_tail</code>, a format of its own for small firmware, with views that read fields on demand and a writer per enum variant.</li>
+<li><strong><a href="../c/#generated-readers">Checked C views</a></strong>: The generated C readers take a view made from the buffer and its length, so C code can't read a field past the end of the bytes it was given.</li>
 <li><strong><a href="../c/"><code>shrink_wrap</code> in C</a></strong>: A C99 reader and writer of the same format, no <code>malloc</code>.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
@@ -6165,6 +6166,7 @@ round, and tell you before a release when a change would break that.</p>
 <ul>
 <li><strong><a href="../evolution/rules/">Evolution rules</a></strong>: What you can change in types and APIs, and which version to bump.</li>
 <li><strong><a href="../evolution/checker_tool/">Evolution checker</a></strong>: <code>ww api check</code> and <code>ww api diff</code> say whether a change is compatible.</li>
+<li><strong><a href="../evolution/checker_tool/#a-dependency-changed-without-a-version-bump-evo-67">A dependency changed in place</a></strong>: A same-bytes change of a dependency's type under the same, unpublished version is compared by its two definitions, not reported as a break in every crate that embeds it.</li>
 <li><strong><a href="../evolution/checker_tool/#several-broken-items-one-cause-evo-21">One cause, not many breaks</a></strong>: Several broken traits or types caused by the one dependency that changed are reported together, naming it once.</li>
 <li><strong><a href="../api/methods/#arguments-that-evolve">Arguments that evolve</a></strong>: Add trailing arguments with a default, or turn arguments into one <code>#[flatten]</code> struct, without breaking the wire.</li>
 <li><strong><a href="../transport/ww_link/#the-frozen-hello">Frozen hello</a></strong>: Link setup opens with a few fixed bytes that name each layer's generation, so a host and a device that can't talk say which side to update instead of timing out.</li>

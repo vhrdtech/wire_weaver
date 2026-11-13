@@ -486,7 +486,7 @@ mod tests {
     }
 
     /// The hub reads only seq, path and kind: a client without client meta (built before CLT-41) and a request of a
-    /// newer envelope, which the hub can't decode, go through as they are, the answer with the client's seq.
+    /// kind from a newer version (`RequestKind::Unknown`) go through as they are, the answer with the client's seq.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn other_client_versions_pass_through() {
         let bench = start("versions", Duration::from_secs(30));
@@ -534,7 +534,11 @@ mod tests {
         // the kind is a nibble: set it to 15
         let diff = read[at] ^ introspect[at];
         bytes[at] |= if diff & 0xF0 != 0 { 0xF0 } else { 0x0F };
-        assert!(RequestOwned::from_ww_bytes_owned(&bytes).is_err());
+        // a kind from a newer version reads as `Unknown` (SRV-60), nothing past it decoded
+        assert!(matches!(
+            RequestOwned::from_ww_bytes_owned(&bytes).map(|r| r.kind),
+            Ok(RequestKindOwned::Unknown(15))
+        ));
         bytes
     }
 

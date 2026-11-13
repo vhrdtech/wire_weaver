@@ -855,6 +855,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Since SRV-53 a server with introspection leaves global paths to the client, which resolves them from the
   introspection data (traits under a resource array at index 0 too); one without finds `GlobalFull` traits by hash.
   Missing: traits under a resource array on a device without introspection.
+- 📋 **SRV-61 Global ids for user traits** — only `ww_stdlib` traits have a `ww_global` id, so a user trait is reached
+  by `GlobalFull` (crate, version and name, 8-16 bytes and more) and can't be named on a bus at all. User traits join
+  the one registry: a range for registered traits (proposal `1024..=4095`, 2 bytes as `UNib32`) and delegated blocks
+  for organisations and private projects that assign their own ids. Open: whether a user crate's codegen takes its id
+  from the published registry or from `#[ww_trait(gid = N)]` checked against it. Chorus (CHR-1) names traits on a bus
+  by these ids.
 - ⛔ **API-22 Implement the same trait several times → enum selector** · `v0.5.x` — stalled. At least print a proper error
   when a trait is implemented twice (`tests/traits_api`).
 - ⛔ **API-23 Index chain array → named arguments** · `v0.5.x` — stalled. Generating ad-hoc structs with named index
@@ -1940,17 +1946,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 Chorus is the bus counterpart of `ww_client_server`, carried on ww_link's Data1 over a shared medium (CAN, CAN FD,
 RS-485, UDP multicast): send to all, to a group, a value per group member in one frame, collect one reply from every
-node, act together on a sync. Nodes run different firmware; what they share is a bus API crate listing the roles
-(traits) a bus has, its groups and its sync points. A Chorus request names a role and an item in it, and the node runs
-the same generated dispatch as for Data0. Unicast Data0 to one node over the same bus is TR-6.
+node, act together on a sync. Nodes run different firmware; what they share are traits with `ww_global` ids
+(SRV-61) and a bus API crate with the groups, sync points and staged items. A Chorus request names a trait by its id
+and an item in it (a group address implies the trait), and the node runs the same generated dispatch as for Data0.
+Unicast Data0 to one node over the same bus is TR-6.
 
 - 📋 **CHR-1 Chorus wire model and the bus API crate** — the `ww_chorus` envelope (`Call`, `Read`, `Write`,
   `WriteEach` with one value per rank, `Sync`, `At`, `Publish`; seq 0 for no reply), destinations node / group / all,
-  role ids as positions in the bus API, the bus API in `ww_self` and its wire version line, conformance corpus cases.
+  traits named by their `ww_global` id (SRV-61; a group address implies its trait), the bus API (groups, sync points,
+  staged items) in `ww_self` with its wire version line, conformance corpus cases.
 - 📋 **CHR-2 Discovery** — a heartbeat every node sends (uptime, health, mode, unique-id hash, API hash bits), the
   roster on the host, node info by request-all, plug-and-play node ids by unique id with an allocator role, conflict
   detection when two nodes take one id, setting id and bit rate of a node that is not on the bus yet.
-- 📋 **CHR-3 Node runtime and server codegen** — a role table from role id to the base path in the node's own tree,
+- 📋 **CHR-3 Node runtime and server codegen** — a table from global trait id to the base path in the node's own tree,
   dispatch through the existing `process_request` with the caller in the context, hardware filters for own id, groups
   and all, staged shadows applied at a sync, a small at-time queue; all state static, measured for stack, flash and
   cycles.

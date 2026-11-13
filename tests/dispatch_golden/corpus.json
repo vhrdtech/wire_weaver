@@ -168,10 +168,11 @@
       "steps": [
         {
           "request": "808080800141c1010021",
-          "reply": "01802000000100"
+          "reply": "018020000100"
         }
       ],
-      "note": "UserInfo::CAPABILITIES, a const, read on a GlobalCompact path."
+      "note": "UserInfo::CAPABILITIES, a const, read on a GlobalCompact path.",
+      "wire_change": "EVO-72 / UserInfoCaps::name_max is a u8 bounded by MAX_NAME_LEN, one byte shorter"
     },
     {
       "name": "global.missing_trait",

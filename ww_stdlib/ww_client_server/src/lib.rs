@@ -46,9 +46,9 @@ use ww_version::{CompactVersion, FullVersion};
 use observe::ObserveRequest;
 #[cfg(feature = "std")]
 use observe::ObserveRequestOwned;
+use stream::StreamCursor;
 #[cfg(feature = "streams")]
 use stream::StreamHead;
-use stream::StreamCursor;
 
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;

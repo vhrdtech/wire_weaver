@@ -1130,6 +1130,54 @@ mod tests {
         );
     }
 
+    /// A bound written `{ MAX_X as i64 }` reads the const through the cast (P2401#13nov-0531), and a cast that
+    /// would change the value in Rust (wrap or cut) is refused, naming the value and the type.
+    #[test]
+    fn a_const_cast_reads_as_its_value_if_it_fits() {
+        let api = |consts: &str, arg: &str| {
+            format!(
+                "{consts}\n#[derive_shrink_wrap]\npub struct Limit<const MAX: i64>(pub u16);\n\n\
+                #[derive_shrink_wrap]\npub struct Caps {{\n    pub max: Limit<{arg}>,\n}}\n\n\
+                #[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n    fn caps() -> Caps;\n}}\n"
+            )
+        };
+        let lib = api("pub const MAX_X: u16 = 300;", "{ MAX_X as i64 }");
+        let dir = write_crate("const_cast_fits_api", &[("lib.rs", &lib)]);
+        let bundle = format!("{:?}", load_crate(&dir).unwrap());
+        assert!(bundle.contains("Const(Numeric(I64(300)))"), "{bundle}");
+
+        for (name, consts, arg, refusal) in [
+            (
+                "const_cast_wraps_api",
+                "pub const MAX_X: u16 = 300;",
+                "{ MAX_X as i8 as i64 }",
+                "300 doesn't fit i8",
+            ),
+            (
+                "const_cast_negative_api",
+                "pub const NEG: i32 = -1;",
+                "{ NEG as u64 as i64 }",
+                "-1 doesn't fit u64",
+            ),
+            (
+                "const_cast_too_big_api",
+                "pub const BIG: u64 = 18446744073709551615;",
+                "{ BIG as i64 }",
+                "18446744073709551615 doesn't fit i64",
+            ),
+            (
+                "const_cast_not_int_api",
+                "",
+                "{ 5 as f32 as i64 }",
+                "`as f32`",
+            ),
+        ] {
+            let dir = write_crate(name, &[("lib.rs", &api(consts, arg))]);
+            let err = format!("{:#}", load_crate(&dir).unwrap_err());
+            assert!(err.contains(refusal), "{name}: {err}");
+        }
+    }
+
     const IMPORTED_COMMON: &str = "#[ww_trait]\npub trait Channel {\n    fn get() -> Code;\n}\n\n\
         #[ww_trait]\npub trait Sensor {\n    fn read() -> Code;\n}\n\n\
         #[derive_shrink_wrap]\npub struct Code(pub u16);\n";

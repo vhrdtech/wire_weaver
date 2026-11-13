@@ -480,7 +480,7 @@ fn matches_def(
                     let name = ep.path.get_ident().expect("an ident").to_string();
                     bind(binding, name, arg.clone())
                 }
-                _ => const_expr_value(expr, cx).is_some_and(|v| same_value(v, value)),
+                _ => const_expr_value(expr, cx).is_ok_and(|v| same_value(v, value)),
             },
             _ => false,
         })

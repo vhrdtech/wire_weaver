@@ -750,7 +750,8 @@ fn const_param_or_value(
     )?))
 }
 
-/// Value of a const argument: an integer or bool literal (also `-1`, `{ 4 }`), or a `const` of one in lib.rs.
+/// Value of a const argument: an integer or bool literal (also `-1`, `{ 4 }`), a `const` of one in lib.rs, or
+/// `EXPR as INT` of these ([const_expr_value]).
 fn convert_const_arg(
     expr: &Expr,
     param: &GenericParamOwned,
@@ -760,9 +761,7 @@ fn convert_const_arg(
     let GenericParamKindOwned::Const { ty } = &param.kind else {
         return Err(anyhow!("{} is not a const parameter", param.ident));
     };
-    let value = const_expr_value(expr, current_crate).ok_or_else(|| {
-        anyhow!("expected an integer or bool literal, or a const of one in lib.rs")
-    })?;
+    let value = const_expr_value(expr, current_crate)?;
     let _ = scratch;
     match (ty, value) {
         (TypeOwned::Bool, ConstValue::Bool(b)) => Ok(ValueOwned::Bool(b)),
@@ -779,42 +778,90 @@ pub(super) enum ConstValue {
     Int(i128),
 }
 
-pub(super) fn const_expr_value(expr: &Expr, current_crate: &CrateContext) -> Option<ConstValue> {
+/// Value of a const expression: an integer or bool literal, `-EXPR`, `{ EXPR }`, `(EXPR)`, a `const` of lib.rs, or
+/// `EXPR as INT` (`{ MAX_WATCHES as i64 }` as a bound) with the value checked to fit `INT`: a cast that would wrap or
+/// cut in Rust is refused, never read as the number Rust makes of it. `usize` and `isize` are taken as 32 bits wide,
+/// the narrowest of the targets an API builds for.
+pub(super) fn const_expr_value(expr: &Expr, current_crate: &CrateContext) -> Result<ConstValue> {
     match expr {
         Expr::Lit(lit) => match &lit.lit {
-            Lit::Int(lit_int) => lit_int.base10_parse().ok().map(ConstValue::Int),
-            Lit::Bool(lit_bool) => Some(ConstValue::Bool(lit_bool.value)),
-            _ => None,
+            Lit::Int(lit_int) => Ok(ConstValue::Int(lit_int.base10_parse()?)),
+            Lit::Bool(lit_bool) => Ok(ConstValue::Bool(lit_bool.value)),
+            _ => Err(anyhow!("expected an integer or bool literal")),
         },
         Expr::Unary(syn::ExprUnary {
             op: syn::UnOp::Neg(_),
             expr,
             ..
         }) => match const_expr_value(expr, current_crate)? {
-            ConstValue::Int(v) => Some(ConstValue::Int(v.checked_neg()?)),
-            ConstValue::Bool(_) => None,
+            ConstValue::Int(v) => v
+                .checked_neg()
+                .map(ConstValue::Int)
+                .ok_or_else(|| anyhow!("-({v}) is out of range")),
+            ConstValue::Bool(_) => Err(anyhow!("a bool can't be negated")),
         },
         Expr::Block(block) => match block.block.stmts.as_slice() {
             [syn::Stmt::Expr(expr, None)] => const_expr_value(expr, current_crate),
-            _ => None,
+            _ => Err(anyhow!("expected a block of one expression")),
         },
         Expr::Group(group) => const_expr_value(&group.expr, current_crate),
         Expr::Paren(paren) => const_expr_value(&paren.expr, current_crate),
+        Expr::Cast(cast) => {
+            let target = match &*cast.ty {
+                syn::Type::Path(path) => path.path.get_ident().map(ToString::to_string),
+                _ => None,
+            }
+            .ok_or_else(|| anyhow!("expected `as` an integer type"))?;
+            let (min, max) = int_cast_range(&target)
+                .ok_or_else(|| anyhow!("`as {target}`: expected `as` an integer type"))?;
+            match const_expr_value(&cast.expr, current_crate)? {
+                ConstValue::Int(v) if (min..=max).contains(&v) => Ok(ConstValue::Int(v)),
+                ConstValue::Int(v) => Err(anyhow!(
+                    "{v} doesn't fit {target} ({min}..={max}): `as` would change it"
+                )),
+                ConstValue::Bool(_) => Err(anyhow!("`as {target}` of a bool")),
+            }
+        }
         Expr::Path(path) => {
-            let name = path.path.get_ident()?.to_string();
+            let name = path
+                .path
+                .get_ident()
+                .ok_or_else(|| anyhow!("expected a const of lib.rs, not a path"))?
+                .to_string();
             current_crate
                 .lib_rs_ast
                 .items
                 .iter()
                 .find_map(|item| match item {
-                    Item::Const(item_const) if item_const.ident == name => {
+                    Item::Const(item_const) if item_const.ident == name => Some(
                         const_expr_value(&item_const.expr, current_crate)
-                    }
+                            .with_context(|| format!("const {name}")),
+                    ),
                     _ => None,
                 })
+                .unwrap_or_else(|| Err(anyhow!("no const {name} in lib.rs")))
         }
-        _ => None,
+        _ => Err(anyhow!(
+            "expected an integer or bool literal, a const of one in lib.rs or `EXPR as INT`"
+        )),
     }
+}
+
+/// The values of the integer type `name` an `as` keeps unchanged; `usize` and `isize` as 32 bits.
+fn int_cast_range(name: &str) -> Option<(i128, i128)> {
+    Some(match name {
+        "u8" => (0, u8::MAX.into()),
+        "u16" => (0, u16::MAX.into()),
+        "u32" | "usize" => (0, u32::MAX.into()),
+        "u64" => (0, u64::MAX.into()),
+        "u128" => (0, i128::MAX),
+        "i8" => (i8::MIN.into(), i8::MAX.into()),
+        "i16" => (i16::MIN.into(), i16::MAX.into()),
+        "i32" | "isize" => (i32::MIN.into(), i32::MAX.into()),
+        "i64" => (i64::MIN.into(), i64::MAX.into()),
+        "i128" => (i128::MIN, i128::MAX),
+        _ => return None,
+    })
 }
 
 /// `v` as a value of the integer type `base`, an error when it doesn't fit.
@@ -886,7 +933,7 @@ fn convert_length(expr: &Expr, current_crate: &CrateContext, scratch: &Scratch) 
     {
         return convert_length(expr, current_crate, scratch);
     }
-    match const_expr_value(expr, current_crate)? {
+    match const_expr_value(expr, current_crate).ok()? {
         ConstValue::Int(v) => u32::try_from(v).ok().map(|v| Length::Fixed(UNib32(v))),
         ConstValue::Bool(_) => None,
     }

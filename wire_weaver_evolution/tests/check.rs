@@ -593,7 +593,11 @@ fn compatible_stdlib_change_passes_the_fixture() {
 
     let saved = std::fs::read_to_string(&snapshot).unwrap();
     let refreshed = pins::refresh(c.path(), Some(&snapshot), false, false, &cache).unwrap();
-    let what: Vec<_> = refreshed.refreshed.iter().map(|r| r.what.as_str()).collect();
+    let what: Vec<_> = refreshed
+        .refreshed
+        .iter()
+        .map(|r| r.what.as_str())
+        .collect();
     assert_eq!(what, ["trait ww_uid::Uid"], "{:?}", refreshed.refreshed);
     let text = std::fs::read_to_string(&snapshot).unwrap();
     assert_ne!(text, saved);

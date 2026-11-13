@@ -66,7 +66,10 @@ pub fn refresh(
         }
     };
     if !snapshot.exists() {
-        return Err(format!("{}: no such snapshot to refresh", snapshot.display()));
+        return Err(format!(
+            "{}: no such snapshot to refresh",
+            snapshot.display()
+        ));
     }
     let outcome = Check::new(crate_dir)
         .against(&snapshot)
@@ -241,7 +244,9 @@ fn ext_crate_line(line: &str) -> Option<(String, (String, String))> {
     let (crate_id, rest) = line.split_once('"')?;
     let rest = rest.strip_prefix(", version: (")?;
     let written = &rest[..rest.find(", pre:")?];
-    let mut parts = written.split(", ").map(|p| p.split_once(": ").map(|(_, n)| n));
+    let mut parts = written
+        .split(", ")
+        .map(|p| p.split_once(": ").map(|(_, n)| n));
     let (major, minor, patch) = (parts.next()??, parts.next()??, parts.next()??);
     Some((
         crate_id.to_string(),

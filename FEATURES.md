@@ -855,12 +855,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Since SRV-53 a server with introspection leaves global paths to the client, which resolves them from the
   introspection data (traits under a resource array at index 0 too); one without finds `GlobalFull` traits by hash.
   Missing: traits under a resource array on a device without introspection.
-- 📋 **SRV-61 Global ids for user traits** — only `ww_stdlib` traits have a `ww_global` id, so a user trait is reached
-  by `GlobalFull` (crate, version and name, 8-16 bytes and more) and can't be named on a bus at all. User traits join
-  the one registry: a range for registered traits (proposal `1024..=4095`, 2 bytes as `UNib32`) and delegated blocks
-  for organisations and private projects that assign their own ids. Open: whether a user crate's codegen takes its id
-  from the published registry or from `#[ww_trait(gid = N)]` checked against it. Chorus (CHR-1) names traits on a bus
-  by these ids.
+- 📋 **SRV-61 Global ids for our own traits** — only `ww_stdlib` traits have a `ww_global` id, so any other trait is
+  reached by `GlobalFull` (crate, version and name, 8-16 bytes and more) and can't be named on a bus at all. Our own
+  API traits get low ids straight in `ww_global`, assigned by hand like the stdlib ones (up to 63 for traits in hot
+  bus frames: one byte as `UNib32`), and the codegen looks them up by crate and trait name. Chorus (CHR-1) names
+  traits on a bus by these ids. Later: a range for outside users and delegated blocks for private projects.
 - ⛔ **API-22 Implement the same trait several times → enum selector** · `v0.5.x` — stalled. At least print a proper error
   when a trait is implemented twice (`tests/traits_api`).
 - ⛔ **API-23 Index chain array → named arguments** · `v0.5.x` — stalled. Generating ad-hoc structs with named index

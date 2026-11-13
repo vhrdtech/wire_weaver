@@ -6344,14 +6344,19 @@ up with the device's other data.</p>
 <li>timing: <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>speeds</code> (the only SCL frequencies of a controller with a few fixed
   ones, empty when any between <code>min_freq</code> and <code>max_freq</code> works, at most <code>MAX_SPEEDS</code>), <code>stretch_timeout:
   Option&lt;I2cTimeRange&gt;</code> (<code>min</code> / <code>max</code> of the master's stretch timeout, <code>None</code> when it can't be changed);</li>
-<li>sizes, all <code>u16</code>: <code>max_write_len</code>, <code>max_read_len</code>, <code>max_write_read_len</code> (write part of a <code>RepeatedStart</code>
-  read), <code>max_ops</code> (operations per <code>i2c_transaction</code>);</li>
+<li>sizes, each bounded by its const and in the smallest storage that holds it: <code>max_write_len</code> and
+  <code>max_read_len: Bytes&lt;u16, Range&lt;0, 512&gt;&gt;</code> (<code>MAX_WRITE_LEN</code>, <code>MAX_READ_LEN</code>), <code>max_write_read_len: Bytes&lt;u8,
+  Range&lt;0, 64&gt;&gt;</code> (write part of a <code>RepeatedStart</code> read, <code>MAX_WRITE_READ_LEN</code>), <code>max_ops: Count&lt;Op, u8, Range&lt;0,
+  16&gt;&gt;</code> (operations per <code>i2c_transaction</code>, <code>MAX_OPS</code>); a device answering a limit past its const is refused on
+  decode;</li>
 <li>features: <code>ten_bit_addresses</code>, <code>zero_length_write</code>, <code>bus_recovery</code>.
   Slave mode is in the device's introspection (the <code>slave</code> group) and <code>I2cSlaveCapabilities</code>.</li>
 </ul>
 </li>
-<li><code>I2cWatchCapabilities</code> - <code>max_watches: u32</code> (at most <code>MAX_WATCHES</code>, 512), <code>max_len</code> (at most <code>MAX_WATCH_LEN</code>), <code>min_period</code>.</li>
-<li><code>I2cWatchConfig&lt;'i&gt;</code> - <code>addr</code>, <code>kind: I2cReadKind&lt;'i&gt;</code>, <code>len</code>, <code>period: Second</code>, <code>report: I2cWatchReport&lt;'i&gt;</code>.</li>
+<li><code>I2cWatchCapabilities</code> - <code>max_watches: Count&lt;Watch, u16, Range&lt;1, 512&gt;&gt;</code> (<code>MAX_WATCHES</code>), <code>max_len: Bytes&lt;u8,
+  Range&lt;1, 32&gt;&gt;</code> (<code>MAX_WATCH_LEN</code>), <code>min_period</code>.</li>
+<li><code>I2cWatchConfig&lt;'i&gt;</code> - <code>addr</code>, <code>kind: I2cReadKind&lt;'i&gt;</code>, <code>len: Bytes&lt;u8, Range&lt;1, 32&gt;&gt;</code>, <code>period: Second</code>, <code>report:
+  I2cWatchReport&lt;'i&gt;</code>.</li>
 <li><code>I2cWatchReport&lt;'i&gt;</code> - <code>Always</code>, <code>Changed { mask }</code>, <code>Matches { bytes }</code>, see <a href="#i2cwatch"><code>I2cWatch</code></a> above.</li>
 <li><code>I2cMatchByte</code> - <code>mask</code>, <code>value: u8</code>, one byte of a <code>Matches</code> rule; <code>sized</code>, two bytes.</li>
 <li><code>I2cWatchEvent&lt;'i&gt;</code> - <code>slot</code>, <code>result: Result&lt;MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WATCH_LEN&gt;, I2cError&gt;</code>.</li>

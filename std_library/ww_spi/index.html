@@ -5970,8 +5970,8 @@ address and <code>map_max_freq</code> (<code>None</code>: no register map).</p>
   <code>truncated</code>, <code>mosi</code> / <code>miso: MaxLen&lt;RefVec&lt;'i, u8&gt;, SPI_MAX&gt;</code>.</li>
 <li><code>SpiCapabilities&lt;'i&gt;</code> - <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>min_word</code> / <code>max_word: Fixed&lt;Bit, One, u8&gt;</code>, <code>master:
   bool</code>, <code>io_levels: MaxLen&lt;RefVec&lt;'i, Fixed&lt;Volt, Milli, u16&gt;&gt;, MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max:
-  Option&lt;Fixed&lt;Volt, Milli, u16&gt;&gt;</code> (an adjustable supply), <code>max_len: Bytes&lt;u32&gt;</code> (largest transfer this device
-  does, at most <code>SPI_MAX</code>).</li>
+  Option&lt;Fixed&lt;Volt, Milli, u16&gt;&gt;</code> (an adjustable supply), <code>max_len: Bytes&lt;u16, Range&lt;0, 512&gt;&gt;</code> (largest transfer
+  this device does, bounded by <code>SPI_MAX</code>).</li>
 <li><code>SpiError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>BufferTooBig</code>; unsized
   (<code>unib32</code> discriminant), evolvable. Each method lists the variants it returns (<code>#[errors]</code>).</li>
 </ul>

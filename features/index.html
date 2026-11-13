@@ -5584,6 +5584,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bus-api-ww_chorus-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bus API (<code>ww_chorus</code>, <code>BUS</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#introspection-ww_self-int" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5632,6 +5643,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Testing, CI and performance (<code>TEST</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropped-and-superseded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dropped and superseded
       </span>
     </span>
   </a>
@@ -5742,6 +5764,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bus-api-ww_chorus-bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bus API (<code>ww_chorus</code>, <code>BUS</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#introspection-ww_self-int" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5790,6 +5823,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Testing, CI and performance (<code>TEST</code>)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dropped-and-superseded" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dropped and superseded
       </span>
     </span>
   </a>
@@ -5852,6 +5896,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>⛔ blocked (the note says on what)</li>
 <li>🔍 probably done or obsolete, needs a check before closing</li>
 <li>🧪 done and tested on the host, the check on hardware is still open (the note says what to check)</li>
+<li>🐛 known bug, not yet fixed (the note says how to hit it)</li>
 <li><strong>Target</strong> is the release an item is planned for: <code>v0.5</code> is the next release (the workspace is at 0.5.0,
   crates.io has 0.4.0). <code>v0.5.x</code> is the next compatible release after it: <code>v0.5.1</code> if nothing turns out to be
   breaking, otherwise the next minor. No tag means not scheduled. <code>grep '</code>v0.5<code>' FEATURES.md</code> gives the release
@@ -6203,9 +6248,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   TEST-30 floor −76 to −336 B; instructions at <code>z</code> within ±0.6 %, at <code>3</code> the bit-io micro loops on a local reader or
   writer up to 2.2x (restored with <code>fast-io</code>), dispatch ±1.3 % except a call with an argument (+4.8 %). No wire
   change. <code>docs/articles/flash_budget.md#sw-74-reader-and-writer-plumbing</code>.</li>
-<li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has one <code>shrink_wrap</code> target, <code>shrink-wrap-tail-size</code> (<code>TailSize</code> types
-  round-tripped, random bytes into their readers); <code>shrink-wrap-ref-vec</code>
-  (SW-37) came with its feature, <code>shrink-wrap-option-any-vec</code> with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60, <code>shrink-wrap-nesting</code> with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.</li>
+<li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has several <code>shrink_wrap</code> targets: <code>shrink-wrap-tail-size</code> (<code>TailSize</code>
+  types round-tripped, random bytes into their readers), <code>shrink-wrap-latched</code> (SW-38's one-error-check-per-type
+  reads against <code>read_field</code>), <code>shrink-wrap-ref-vec</code> (SW-37) came with its feature, <code>shrink-wrap-option-any-vec</code>
+  with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60,
+  <code>shrink-wrap-nesting</code> with the nesting depth limit (recursive types at random limits). Round-trip every built-in
+  type and the derive's features.</li>
 <li>🔍 <strong>SW-23 Tuple enum variants evolution</strong> — check that tuple variants evolve as <code>docs/evolution/rules.md</code> says
   (fields can be appended) and add a test.</li>
 <li>💡 <strong>SW-65 Aligned plain <code>Series</code> columns</strong> — numbers byte-aligned and little-endian at their width (numeric
@@ -6693,6 +6741,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Since SRV-53 a server with introspection leaves global paths to the client, which resolves them from the
   introspection data (traits under a resource array at index 0 too); one without finds <code>GlobalFull</code> traits by hash.
   Missing: traits under a resource array on a device without introspection.</li>
+<li>📋 <strong>SRV-61 Global ids for our own traits</strong> — only <code>ww_stdlib</code> traits have a <code>ww_global</code> id, so any other trait is
+  reached by <code>GlobalFull</code> (crate, version and name, 8-16 bytes and more) and can't be named on a bus at all. Our own
+  API traits get low ids straight in <code>ww_global</code>, assigned by hand like the stdlib ones (up to 63 for traits in hot
+  bus frames: one byte as <code>UNib32</code>), and the codegen looks them up by crate and trait name. Chorus (BUS-13) names
+  traits on a bus by these ids. Later: a range for outside users and delegated blocks for private projects.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
 <li>⛔ <strong>API-23 Index chain array → named arguments</strong> · <code>v0.5.x</code> — stalled. Generating ad-hoc structs with named index
@@ -6701,6 +6754,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   server before a handler is called and visible in introspection (<code>docs/api/arrays.md</code>). Lengths of lists and
   strings inside a resource's type are bounded with <code>MaxLen</code> (SW-19). Observed levels under an array have a pool of
   element tables (API-63) and don't need the bound; with it, a firmware could size the pool to the array.</li>
+<li>📋 <strong>API-66 Staged and timed actions</strong> — nothing applies several writes together or at a given time: a motor's
+  torque and an ADC's gain on one device, or three joints of a leg on a bus (BUS-13). <code>#[staged]</code> properties written
+  into a shadow and applied by a commit (or a bus sync), and a request run at a shared time (<code>ww_timebase</code>), refused
+  with an error while the device's clock is not locked. Point-to-point first; Chorus uses the same model.</li>
 <li>🚧 <strong>API-30 Counted and reliable streams</strong> · <code>v0.5</code> — counted streams put a head in every event (flags and a
   length-coded 64-bit <code>pos</code> in units the device names when it sends, the event's <code>units</code>, <code>lost</code>, optional device time
   <code>t</code>), so drops on the device, link losses and duplicates are reported exactly and item types carry no <code>seq</code> /
@@ -6922,10 +6979,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>RequestKind::Cancel</code> and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>, <code>Overloaded</code>, <code>Internal</code>:
   appended forms that a side sends only after the other announced them in link setup, so existing bytes don't change.
   The client fills them from its tracing span and call timeout, the server opens a span per request.</li>
-<li>📋 <strong>SRV-48 Call context</strong> — <code>wire_weaver::CallContext</code> (<code>no_std</code>, <code>Copy</code>): the request's seq, priority, peer,
-  trace context, deadline and connection, carried by the handler <code>Context</code>, passed to the local trait (CLT-57) and
-  read by the client; light <code>CallError</code>/<code>Error</code> types and <code>ItemStream</code> in <code>wire_weaver::call</code> (std), so API crates
-  name them without <code>wire_weaver_client</code>.</li>
 <li>📋 <strong>SRV-49 Server forwarding to the local trait</strong> — <code>ww_codegen!(.., server = true, serve_trait = "..")</code>
   generates a std server that forwards every request to one shared implementation of the API's local trait
   (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
@@ -7240,11 +7293,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>ww_report::crash</code> (<code>Symbolizer</code>, <code>CrashAddresses</code>, <code>CrashFrames</code>, serializable) for other host tools,
   <code>docs/std_library/device_contract.md#crash-call-chain</code>, tests against a real thumbv6m ELF
   (<code>ww_report/tests/crash_frames.rs</code>, <code>just crash-fw-elf</code>).</li>
-<li>🐛 <strong>CLT-30 Link setup gives up too early on slow RTT probes</strong> — the client sends <code>GetDeviceInfo</code> 5 times 50 ms
-  apart (<code>LINK_SETUP_RETRIES</code> / <code>LINK_SETUP_RETRY_INTERVAL</code> in <code>event_loop/core/tx.rs</code>), 250 ms for every transport.
-  Through a J-Link on one of our dev PCs (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was
-  not received from device after several retries" while the device is fine; with 40 retries they mostly work. Needs
-  a per-transport budget (RTT: seconds) or one taken from the connect timeout. Found 16 Oct 2026.</li>
 <li>✅ <strong>CLT-28 Observing properties on the host</strong> · <code>v0.5.x</code> — generated std clients have <code>observe(cfg)</code> per trait
   level with <code>+observe</code> properties (an <code>Observer</code> of the level's <code>&lt;Trait&gt;Update</code>) and <code>observe_&lt;name&gt;(mode)</code> per
   property, fanned out from the level: one device subscription per level covering all its observers (merged modes,
@@ -7550,11 +7598,6 @@ observing), SRV-46 (peer identity).
   crafted serial could make another one look held. Now lower-case letters, digits and <code>-</code> stay and every other byte
   is <code>_xx</code>, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
   socket's too, was FNV), and the key inside the file is checked on read.
-- 📋 <strong>CLT-48 Fallible methods in multi calls</strong> — <code>MultiCall</code> (CLT-15) only takes infallible methods, so a method
-  returning <code>Result</code> (<code>ww_i2c::I2c::i2c_read</code>, any method with <code>#[errors]</code>) can't be batched into one round trip;
-  found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
-  controller wants exactly that. Needs each index's answer to carry the method's own <code>Result</code> next to the
-  per-index <code>Error</code>.
 - ✅ <strong>CLT-48 Fallible methods in multi calls</strong> · <code>v0.5.x</code> — a method returning <code>Result&lt;T, E&gt;</code> (any with
   <code>#[errors]</code>, e.g. <code>ww_i2c::I2c::i2c_read</code>/<code>i2c_write</code>) goes into a <code>MultiCall</code> tuple (CLT-15) and into
   <code>call_array</code>, mixed with methods without <code>Result</code>; each position answers what its single <code>call()</code> would,
@@ -7724,10 +7767,32 @@ observing), SRV-46 (peer identity).
   <code>u8::MAX</code>). <code>wire_weaver_usb_embassy</code> uses them, descriptor bytes unchanged.</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
-<li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — server and client, using CANopen (<code>docs/transport/overview.md</code>).</li>
+<li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — <code>ww_client_server</code> on Data0 to one node of a CAN or CAN FD bus by its node id, over
+  the bus link (TR-26..28): source, destination, priority and the framer head in the 29-bit CAN ID, CRC-16 on split
+  messages, a host transport over SocketCAN and gs_usb with one event loop per node. Not CANopen, which maps poorly
+  onto typed traits (Roman, 13 Nov 2026).</li>
 <li>📋 <strong>TR-7 UART</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong>TR-8 IP / WireGuard</strong> · <code>v0.5.x</code>.</li>
 <li>💡 <strong>TR-9 EtherCAT</strong>.</li>
+<li>📋 <strong>TR-26 Reassembly per sender in <code>ww_framer</code></strong> — <code>FramedRx</code> has one assembly state and <code>SeqRx</code> one sender's
+  counter, so on a shared medium a Start from a second sender drops the first one's partial message. A small pool of
+  assembly slots keyed by an address the medium supplies (CAN source id and priority, UDP peer), sized by the
+  firmware, with <code>SeqRx</code> per key; fuzzed. Needed by every bus medium (TR-6, TR-30, BUS-13).</li>
+<li>📋 <strong>TR-27 Head out of band, priority on the message</strong> — on classic CAN 1-2 of 8 bytes go to the U2Head while
+  the 29-bit CAN ID could carry its message kind and user kind (the DLC gives the length). A <code>Head</code> whose bits are read
+  from and written to the medium's metadata. With it, the request priority (today a nibble inside the bytes) is handed
+  to the link and the transport with the message, so CAN puts it in the ID and USB and UDP send queues can order by it.</li>
+<li>📋 <strong>TR-28 Bus link: one ww_link session per peer</strong> — <code>DeviceLink</code> holds one host, a second hello takes the link
+  over (<code>DownReason::NewSession</code>), <code>PacketSource</code> returns no source address and UDP serves one host at a time. Sessions
+  keyed by the peer's address on one medium, the peer named in <code>CallContext</code> (today <code>Peer::Unknown</code> on devices), a
+  hello that goes split through the framer on 8-byte frames. First user: two hosts on one UDP device; then CAN node ids
+  (TR-6) and the Chorus bus (BUS-13).</li>
+<li>📋 <strong>TR-29 Simulated CAN bus</strong> — in-process, like TR-21's simulated UDP: arbitration by ID, a bit-time clock,
+  error frames, double reception (an error in the last EOF bit), RX overflow, bus-off and TX mailbox reordering, so the
+  bus link, TR-6 and Chorus are tested without hardware.</li>
+<li>📋 <strong>TR-30 RS-485 and UDP multicast as bus media</strong> — a bus prefix with source and destination where the medium has
+  no ID field, RS-485 replies in time slots by rank (half-duplex, no arbitration), one UDP multicast group per bus
+  with replies unicast to the requester.</li>
 <li>✅ <strong>TR-13 RTT server panicked on the first request</strong> — since TR-12 the async <code>Server::handle</code> checked for a waiting
   request with <code>embassy_futures::poll_once(rx.wait_message())</code>, a no-op waker; the RTT medium waits on an
   <code>embassy_time::Timer</code> while no data is there, and embassy-time panics on a waker not from its executor ("Found
@@ -7771,6 +7836,43 @@ observing), SRV-46 (peer identity).
   <code>usb_init()</code> convenience, who can't reach into its private <code>UsbBuffers</code>. Next: CRC through a pluggable checksum
   so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+). The lone request and reply flushes once
   planned here are superseded by request priority (CLT-50).</li>
+</ul>
+<h2 id="bus-api-ww_chorus-bus">Bus API (<code>ww_chorus</code>, <code>BUS</code>)<a class="headerlink" href="#bus-api-ww_chorus-bus" title="Permanent link">&para;</a></h2>
+<p>Chorus is the bus counterpart of <code>ww_client_server</code>, carried on ww_link's Data1 over a shared medium (CAN, CAN FD,
+RS-485, UDP multicast): send to all, to a group, a value per group member in one frame, collect one reply from every
+node, act together on a sync. Nodes run different firmware; what they share are traits with <code>ww_global</code> ids
+(SRV-61) and a bus API crate with the groups, sync points and staged items. A Chorus request names a trait by its id
+and an item in it (a group address implies the trait), and the node runs the same generated dispatch as for Data0.
+Unicast Data0 to one node over the same bus is TR-6.</p>
+<ul>
+<li>📋 <strong>BUS-13 Chorus wire model and the bus API crate</strong> — the <code>ww_chorus</code> envelope (<code>Call</code>, <code>Read</code>, <code>Write</code>,
+  <code>WriteEach</code> with one value per rank, <code>Sync</code>, <code>At</code>, <code>Publish</code>; seq 0 for no reply), destinations node / group / all,
+  traits named by their <code>ww_global</code> id (SRV-61; a group address implies its trait), the bus API (groups, sync points,
+  staged items) in <code>ww_self</code> with its wire version line, conformance corpus cases.</li>
+<li>📋 <strong>BUS-14 Discovery</strong> — a heartbeat every node sends (uptime, health, mode, unique-id hash, API hash bits), the
+  roster on the host, node info by request-all, plug-and-play node ids by unique id with an allocator role, conflict
+  detection when two nodes take one id, setting id and bit rate of a node that is not on the bus yet.</li>
+<li>📋 <strong>BUS-15 Node runtime and server codegen</strong> — a table from global trait id to the base path in the node's own tree,
+  dispatch through the existing <code>process_request</code> with the caller in the context, hardware filters for own id, groups
+  and all, staged shadows applied at a sync, a small at-time queue; all state static, measured for stack, flash and
+  cycles.</li>
+<li>📋 <strong>BUS-16 Host bus client and collector</strong> — generated <code>BusClient</code> (<code>bus.all().freeze()</code>,
+  <code>bus.group(..).torque().write_each(..)</code>, <code>.collect(deadline)</code>), <code>Collected&lt;T&gt;</code> with a result per node (ok, error,
+  missing, incompatible, late), deadlines computed from the medium, Data0 fan-out for nodes without Chorus, a bus as one
+  hub device with its nodes under it, <code>ww bus ls</code> / <code>watch</code> / <code>call</code> / <code>assign</code>.</li>
+<li>📋 <strong>BUS-17 Bus time sync</strong> — two-step sync frames (the master's hardware TX timestamp of the previous sync), each
+  node's hardware RX timestamp, the clock estimator in <code>no_std</code>, steering <code>ww_timebase::Clock</code>; measured on hardware.</li>
+<li>📋 <strong>BUS-18 Chorus on hardware</strong> — freeze, write-each, roll call and time sync on CAN nodes behind a USB-CAN bridge,
+  timing checked with a logic analyzer.</li>
+<li>📋 <strong>BUS-19 Multicast bulk transfer</strong> — one transfer to many nodes (firmware updates to a fleet), paced, acks
+  collected, resend to the nodes that missed parts.</li>
+<li>💡 <strong>BUS-20 Chorus decoder</strong> — frames from a CAN capture (candump, a logic analyzer) shown as role and item names
+  through the bus API's <code>ww_self</code>.</li>
+<li>💡 <strong>BUS-21 Bus load budget</strong> — load per bit rate computed from the bus API (groups, sync rate, published items)
+  before any board exists.</li>
+<li>💡 <strong>BUS-22 Liveliness per role</strong> — a role declares that its nodes publish within a period; the host flags a node
+  that misses one, not only after missed heartbeats.</li>
+<li>💡 <strong>BUS-23 Cyphal gateway</strong> — a role that bridges Cyphal subjects and services to Chorus roles.</li>
 </ul>
 <h2 id="introspection-ww_self-int">Introspection (<code>ww_self</code>, <code>INT</code>)<a class="headerlink" href="#introspection-ww_self-int" title="Permanent link">&para;</a></h2>
 <ul>
@@ -8206,6 +8308,13 @@ observing), SRV-46 (peer identity).
   <code>breaking_stdlib_change_fails_the_fixture</code>).</li>
 <li>✅ <strong>EVO-65 <code>ww_dfu</code> typed numbers on the wire</strong> · <code>v0.5</code> — <code>ww_dfu</code> on a new wire line, <code>w2.0</code> (P2401 stdlib units survey): step indices and counts are <code>Index&lt;Step, u32&gt;</code> / <code>Count&lt;Step, u32&gt;</code>, chunks <code>Index</code>/<code>Count&lt;Chunk, u16&gt;</code>, erase blocks <code>Index&lt;Block, u16&gt;</code> / <code>Count&lt;Block, u16&gt;</code>, byte offsets in a chunk or a plan <code>Index&lt;Byte, u32&gt;</code>, sizes <code>Bytes&lt;u32&gt;</code>, all the same bytes. The breaks: <code>NodeInfo</code>'s <code>product_id</code>, <code>app_version</code> and <code>version_floor</code> become <code>app: Option&lt;ImageInfo&gt;</code> (<code>ProductId</code>, <code>ImageVersion</code>, and the image's new <code>security_counter</code>) and <code>security_floor: SecurityCounter</code>, as chunky checks the floor against the security counter, not the version; <code>geometry_id</code> is <code>geometry: GeometryId</code>; <code>LastResult::version</code> is <code>Option&lt;ImageVersion&gt;</code>; <code>Session::resume_from</code> is split into <code>resume_step</code> and <code>resume_byte</code>; <code>StageLimits::max_piece</code> is <code>Fixed&lt;Byte, One, u16, Range&lt;1, 1024&gt;&gt;</code> (a <code>u16</code>, bounded), <code>in_flight</code> <code>Fixed&lt;Request, One, u8, Range&lt;1, 255&gt;&gt;</code>; <code>ack_every</code> and <code>plan_area</code> are <code>Niched&lt;.., Null&lt;0&gt;&gt;</code>. Tests <code>ww_dfu</code> (bytes of every wrapper, the bounds, the niches), <code>tests/dfu</code>, <code>tests/dfu_scenarios</code> (transcripts again). No device or host uses the format.</li>
 <li>✅ <strong>EVO-58 Typed, bounded calendar fields of <code>ww_date_time</code></strong> · <code>v0.5</code> — the wire change of <code>ww_date_time</code> (wire line <code>w1.0</code> -&gt; <code>w2.0</code>): <code>NaiveDate::month</code> and <code>day</code> are <code>IndexFrom1&lt;Month, U4, Range&lt;1, 12&gt;&gt;</code> and <code>IndexFrom1&lt;Day, U5, Range&lt;1, 31&gt;&gt;</code>, <code>NaiveTime::secs</code> is <code>Fixed&lt;Second, One, U17, Range&lt;0, 86_399&gt;&gt;</code> and <code>frac</code> <code>Option&lt;Fixed&lt;Second, Nano, U31, Range&lt;0, 1_999_999_999&gt;&gt;&gt;</code>, <code>OtherTimezone::FixedOffset::secs</code> is <code>Fixed&lt;Second, One, I18, Range&lt;-86_399, 86_399&gt;&gt;</code>. The bytes are the same, the new bounds are checked on decode (<code>SubtypeOutOfRange</code>), so a bound added is a break. Types embedding <code>DateTime</code> (<code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_timebase</code>) move to a new wire line with it. No device or host uses the format.</li>
+<li>✅ <strong>EVO-72 Capability limits bounded by their consts</strong> · <code>v0.5</code> — each <code>ww_stdlib</code> limit documented "at most
+  <code>MAX_..</code>" carries that const as its <code>Range</code> bound (<code>{ MAX_X as i64 }</code>, read by the walker's const evaluator) in the
+  smallest storage that holds it, refused past it on decode: <code>ww_i2c</code> (<code>I2cCapabilities</code>' four limits,
+  <code>I2cWatchCapabilities</code> with the new unit <code>Watch</code>, <code>I2cWatchConfig::len</code>; wire <code>w1.0</code> -&gt; <code>w2.0</code>), <code>ww_user_info</code>
+  (<code>NameMax</code> in a <code>u8</code>; <code>w2.0</code> -&gt; <code>w3.0</code>), <code>ww_spi</code> (<code>SpiCapabilities::max_len</code> in a <code>u16</code>; <code>w2.0</code> -&gt; <code>w3.0</code>),
+  <code>ww_dfu</code> (<code>max_piece</code>, same bytes). Never published, so the 0.1.0 snapshots were saved again in place. No device
+  or host uses the format (<code>~/git/tpm/area/ops/in-use.md</code>).</li>
 <li>✅ <strong>EVO-57 <code>ww_spi</code> typed numbers on the wire</strong> · <code>v0.5</code> — the wire change of STD-56 for <code>ww_spi</code>: word size,
   byte lengths, register offsets and counts move from a bare integer to <code>exact_units::Fixed</code> / <code>Bytes</code> / <code>Index</code> /
   <code>Count</code> (same bytes, Rust-only break besides the renames); <code>SpiRwBit::SetIsRead</code>/<code>ClearIsRead</code>'s <code>bit</code> gets a
@@ -8745,7 +8854,6 @@ observing), SRV-46 (peer identity).
   <code>ww_memory</code> (was <code>ww_ll</code>: one word type per trait, optional watches, errors on <code>CommonError</code>, docs page),
   Known gaps are <code>TODO</code>s in their sources (e.g. SMBus and 7-bit addresses in <code>ww_i2c</code>; <code>ww_can_bus</code> is done in
   STD-29). <code>ww_log</code> (was <code>ww_log_bare_metal</code>) left for STD-26.</li>
-<li>💡 <strong>STD-9 Stubs</strong>, for later: <code>ww_spi</code> (<code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_user_info</code> and <code>ww_uid</code> moved to STD-24).</li>
 <li>🚧 <strong>STD-12 <code>ww_dfu</code> firmware update API</strong> — traits <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>, <code>Stage</code>,
   <code>StageBulk</code>: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec. End to
@@ -9160,6 +9268,12 @@ observing), SRV-46 (peer identity).
   Since STD-102 (<code>ww_si</code> on exact_units' integer kernel) it is a gate: <code>just no-float-guard</code>, part of <code>just test</code>,
   fails on any forbidden symbol (<code>--guard-strict</code> is the default). All 16 builds are clean: 0 f64, 0 128-bit and 0
   slow-path symbols; the no-float group has 0 f32 helpers and 0 VFP instructions.</li>
+</ul>
+<h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>STD-9 Stubs, for later: <code>ww_spi</code></strong> — superseded by STD-13: <code>ww_spi</code> is now a full IO-family trait (optional
+  <code>Spi::monitor</code>, typed numbers, STD-56), not a stub; <code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_user_info</code> and
+  <code>ww_uid</code> moved to STD-24 already.</li>
 <li><strong>SRV-50 Server call gate</strong> — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   <code>ww_codegen!(.., call_gate = true)</code>, a <code>CallGate::admit</code> question per trait level (and per item where named) before

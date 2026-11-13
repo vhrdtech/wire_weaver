@@ -5783,10 +5783,10 @@
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">notes</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="mi">256</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">UserInfoError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;</span><span class="p">);</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>CAPABILITIES</code> (<code>name_max</code>, <code>notes_max</code>, <code>persistent</code>) says what this device keeps: a device may keep less than the
-bounds of 32 and 256 bytes, and a device without room for notes leaves them out with <code>omit = ["user.notes"]</code>
-(<code>notes_max</code> is then 0). It is a <a href="../../api/properties/#const-items"><code>const</code> item</a>, usually a Rust const in the
-server's consts impl.</p>
+<p><code>CAPABILITIES</code> (<code>name_max: Bytes&lt;u8, Range&lt;0, 32&gt;&gt;</code>, <code>notes_max: Bytes&lt;u16, Range&lt;0, 256&gt;&gt;</code>, <code>persistent</code>) says
+what this device keeps: a device may keep less than the bounds of 32 and 256 bytes (<code>MAX_NAME_LEN</code>,
+<code>MAX_NOTES_LEN</code>), and a device without room for notes leaves them out with <code>omit = ["user.notes"]</code> (<code>notes_max</code> is
+then 0). It is a <a href="../../api/properties/#const-items"><code>const</code> item</a>, usually a Rust const in the server's consts impl.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>A write returns <code>UserInfoError</code>: <code>Common(CommonError)</code> (see <a href="../ww_error/">ww_error</a>) or <code>TooLong { max }</code> with what
 the device keeps. <code>Common(Busy)</code> means storage can't be touched right now, <code>Common(Fault)</code> that saving failed. The

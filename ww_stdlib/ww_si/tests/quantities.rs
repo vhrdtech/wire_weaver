@@ -197,8 +197,9 @@ fn units_and_dimensions() {
     };
     // EnergyDensity, Entropy, DampingRatio and QualityFactor are `Of` aliases since UNIT-8, not units of their own
     // exact_units at c132f58 (UNIT-6, UNIT-19): 20 more units, the new counted markers and bit/s, B/s rates; at
-    // 109f3cf (UNIT-6) 4 more: Month, Interface, Retry, Request
-    assert_eq!(ww_si::units::ALL.len(), 151 + customary + nuclear);
+    // 109f3cf (UNIT-6) 4 more: Month, Interface, Retry, Request; at 7b6cc3c (UNIT-13) 4 more: the fluence and fluence
+    // rate units m⁻², cm⁻², m⁻²·s⁻¹, cm⁻²·s⁻¹
+    assert_eq!(ww_si::units::ALL.len(), 155 + customary + nuclear);
 }
 
 #[test]

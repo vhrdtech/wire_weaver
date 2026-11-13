@@ -24,12 +24,12 @@ pub struct Status {
 Later, someone needs blinks of a whole second, so `period` becomes a `Millis<u16>`. Everything compiles. But a host
 still built with version 1 now reads this from a new device:
 
-| Version 3 writes `period: 1000 ms` | Version 1 reads it as |
-|------------------------------------|-----------------------|
-| `80 e8 03`                         | `period: 232 ms`      |
+| The `u16` version writes `period: 1000 ms` | Version 1 reads it as |
+|--------------------------------------------|-----------------------|
+| `80 e8 03`                                 | `period: 232 ms`      |
 
 No error, just a wrong number. Version 1 reads one byte where two were written. Nothing on the wire says that the
-field changed. (Going the other way, version 3 can't read version 1's two bytes at all and fails.)
+field changed. (Going the other way, the `u16` version can't read version 1's two bytes at all and fails.)
 
 This is what evolution is about. Two different things can break when an API crate changes:
 
@@ -43,8 +43,8 @@ A change can break one without the other. Renaming a field breaks Rust code and 
 
 ## Add, don't change
 
-The safe way to evolve is to add things at the end, and to say what older data means for them. Here version 2 adds
-a brightness instead of touching `period`:
+The safe way to evolve is to add things at the end, and to say what older data means for them. Here version 2 leaves
+`period` alone and adds a brightness:
 
 ```rust
 #[derive_shrink_wrap(borrowed)]

@@ -5891,7 +5891,9 @@ reads such a request as <code>RequestKind::Unknown</code> (<code>StreamSideband:
   trait_name, path_from_trait }</code> (any crates.io trait, by crate name and version - biggest, since it carries the
   name as a string). A server honors a global path wherever the matching trait sits in its API tree (API-20), after
   checking its own version is protocol-compatible (<code>FullVersion::is_protocol_compatible</code>) - what makes a global
-  path work across API versions, e.g. for firmware update or device info calls.</li>
+  path work across API versions, e.g. for firmware update or device info calls. Every element of a path (and of
+  the event paths below) is a <code>ResourceIndex</code>, <code>Index&lt;Resource, UNib32&gt;</code>: the bytes of a plain <code>UNib32</code>, typed so a
+  path element can't be mixed up with another number. <code>resource_path([0, 3])</code> builds one, <code>const</code> included.</li>
 <li><code>RequestKind&lt;'i&gt;</code> - the operation: <code>Call { args }</code> / <code>MultiCall</code> (same method over an array or several methods
   at once), <code>Read</code> / <code>MultiRead</code>, <code>Write { data }</code> / <code>MultiWrite</code>, <code>StreamSideband { sideband }</code>, <code>Introspect</code>
   (send the <code>ww_self::ApiBundle</code> of the addressed resource), <code>StreamOpen { resume, args }</code> (open a
@@ -5899,7 +5901,9 @@ reads such a request as <code>RequestKind::Unknown</code> (<code>StreamSideband:
   <code>Observe { cfg }</code> (how a trait level's properties are sent, see <a href="#observing-properties">below</a> and
   <a href="../../api/observing/">Observing properties</a>). Arguments and written values travel as <code>TailBytes&lt;'i&gt;</code> - already
   ShrinkWrap-serialized by the generated code on either end, opaque to this crate.</li>
-<li><code>MultiIndex&lt;'i&gt;</code> / <code>MultiArgs&lt;'i&gt;</code> - which resources a multi-request covers (<code>Range</code>, <code>List</code>, or <code>Mask32</code>) and
+<li><code>MultiIndex&lt;'i&gt;</code> / <code>MultiArgs&lt;'i&gt;</code> - which resources a multi-request covers (<code>Range</code>, a <code>List</code> of
+  <code>ResourceIndex</code>es, or <code>Mask32</code>; <code>Range</code> holds plain <code>UNib32</code>s, as a range in the API model holds only plain
+  numbers, and <code>MultiIndex::iter</code> yields <code>ResourceIndex</code>es for all three) and
   whether every one gets the same serialized arguments (<code>MultiArgs::Same</code>) or each its own
   (<code>MultiArgs::Different</code>) - see <a href="../../api/multi_requests/">Multi requests</a> for the full request/reply shape.</li>
 <li><code>Event&lt;'i&gt;</code> - <code>seq: UVlq32</code> (echoes the request's, 0 for unsolicited stream/property updates), <code>result:

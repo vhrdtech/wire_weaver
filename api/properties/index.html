@@ -6036,7 +6036,7 @@ server struct implements, in one of two forms, picked per item with the <code>co
 <ul>
 <li><code>const</code> (the default): a Rust const, <code>const LIMITS: Limits&lt;'static&gt; = ..;</code>.</li>
 <li><code>fn</code>: a value fixed at boot or link time (OTP, a chip id register, the build id in flash), <code>fn serial(&amp;self) -&gt;
-  &amp;str</code>. Items in an array of traits get the index chain: <code>fn channel_gain(&amp;self, index_chain: [UNib32; 1]) -&gt; u8</code>.</li>
+  &amp;str</code>. Items in an array of traits get the index chain: <code>fn channel_gain(&amp;self, index_chain: [ww_client_server::ResourceIndex; 1]) -&gt; u8</code>.</li>
 </ul>
 <p>Names carry the trait item chain prefix, as handler names do: <code>BOARD</code> of <code>board: BoardInfo</code> is <code>BOARD_BOARD</code> as a
 const and <code>board_board</code> as a <code>fn</code>. <code>const_model</code> is a comma separated list of <code>regex=const|fn</code>, the regex matching

@@ -5774,7 +5774,7 @@ a request for another index is answered <code>ErrorKind::BadIndex</code>. Bounds
 <a href="../../types/#bounded-lists-and-strings-maxlent-n"><code>MaxLen</code></a> instead.</p>
 <p>On the host, an array item takes its index first: <code>device.port(0).pin(3).read_pull()</code>, <code>device.adc(2).call()</code>. On the
 device, every handler of an item inside arrays, at any depth, gets the indices leading to it as one more argument,
-<code>index_chain: [UNib32; N]</code>, after <code>cx</code>; <code>ww api scaffold</code> prints the exact signatures. The generated code stays
+<code>index_chain: [ww_client_server::ResourceIndex; N]</code>, after <code>cx</code>; <code>ww api scaffold</code> prints the exact signatures. The generated code stays
 flat: the whole API tree becomes plain function calls on the server struct, with no per-index state.</p>
 <p>A whole array can be read, written or called in one request, see <a href="../multi_requests/">Multi requests</a>.</p>
 <h2 id="array-of-resources-vs-resource-of-array">Array of resources vs resource of array<a class="headerlink" href="#array-of-resources-vs-resource-of-array" title="Permanent link">&para;</a></h2>

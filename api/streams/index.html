@@ -6116,7 +6116,7 @@ which reach the device's <code>sideband_&lt;name&gt;</code> handler, for devices
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each index is its own stream: the host opens <code>device.adc(2).call()</code> or <code>device.port(0).event().call()</code>, and every
-device handler gets the index chain after <code>cx</code> (<code>index_chain: [UNib32; 1]</code>), as does <code>stream_adc(index_chain)</code>.
+device handler gets the index chain after <code>cx</code> (<code>index_chain: [ww_client_server::ResourceIndex; 1]</code>), as does <code>stream_adc(index_chain)</code>.
 <code>valid_indices_root_adc()</code> says which indices exist. On the device, send through the same chain:
 <code>stream_data_ser().adc_send(2, &amp;mut state.adc_streams[2], &amp;chunk, units, t, out)</code> for the array itself,
 <code>stream_data_ser().port(0).event_send(&amp;event, cx)</code> inside an array of traits.</p>

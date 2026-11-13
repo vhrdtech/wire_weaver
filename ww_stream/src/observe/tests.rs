@@ -409,13 +409,26 @@ fn t_is_a_wrapping_u32() {
     );
     // prefix and number type in one byte, then the u32: 4 bytes less than a u64
     let mut buf = [0u8; 32];
-    let t32 = event_overhead(&mut buf, &[UNib32(1)], plan.t(), None).unwrap();
+    let t32 = event_overhead(
+        &mut buf,
+        &ww_client_server::resource_path([1]),
+        plan.t(),
+        None,
+    )
+    .unwrap();
     let t64 = ww_si::Second::from_parts(
         ww_si::Prefix::Micro,
         ww_si::ww_numeric::NumericValue::U64(5),
     );
-    let t64 = event_overhead(&mut buf, &[UNib32(1)], Some(t64), None).unwrap();
-    let without = event_overhead(&mut buf, &[UNib32(1)], None, None).unwrap();
+    let t64 = event_overhead(
+        &mut buf,
+        &ww_client_server::resource_path([1]),
+        Some(t64),
+        None,
+    )
+    .unwrap();
+    let without =
+        event_overhead(&mut buf, &ww_client_server::resource_path([1]), None, None).unwrap();
     assert_eq!(t64 - t32, 4);
     assert!(t32 - without <= 6, "{t32} {without}");
 }
@@ -450,7 +463,9 @@ fn measure_bounds() {
     let s: &str = "hello";
     // the string's own length nibble, and room for its size in the update
     assert_eq!(measure(&s, &mut buf), Some(6 + LEN_SLOT));
-    assert!(event_overhead(&mut buf, &[UNib32(1)], None, None).unwrap() <= 4);
+    assert!(
+        event_overhead(&mut buf, &ww_client_server::resource_path([1]), None, None).unwrap() <= 4
+    );
 }
 
 #[test]
@@ -966,7 +981,7 @@ fn shared_loop_writes_the_chosen_values() {
         Some(10_000),
     )
     .unwrap();
-    let path = [UNib32(2)];
+    let path = ww_client_server::resource_path([2]);
     let mut buf = [0u8; 128];
     let plan = t.plan(0, &LIMITS, &mut due);
     assert!(plan.is_due(0) && !plan.is_due(1) && plan.is_due(2));
@@ -1058,7 +1073,7 @@ fn shared_loop_drops_a_value_that_cannot_be_written() {
         Some(10_000),
     )
     .unwrap();
-    let path = [UNib32(2)];
+    let path = ww_client_server::resource_path([2]);
     let mut buf = [0u8; 128];
     let plan = t.plan(0, &LIMITS, &mut due);
     let mut round = select(
@@ -1108,9 +1123,9 @@ fn shared_loop_drops_a_value_that_cannot_be_written() {
 #[test]
 fn element_tables_are_taken_and_freed() {
     let mut tables: [ElementTable<[Slot; 3], 2>; 2] = [const { ElementTable::new() }; 2];
-    let a = [UNib32(1), UNib32(7)];
-    let b = [UNib32(2), UNib32(7)];
-    let c = [UNib32(3), UNib32(0)];
+    let a = ww_client_server::resource_path([1, 7]);
+    let b = ww_client_server::resource_path([2, 7]);
+    let c = ww_client_server::resource_path([3, 0]);
 
     let ia = element_for(&mut tables, &a).unwrap();
     apply(
@@ -1165,9 +1180,9 @@ fn element_tables_are_taken_and_freed() {
 fn element_marks_and_ends() {
     let mut tables: [ElementTable<[Slot; 3], 2>; 3] = [const { ElementTable::new() }; 3];
     let chains = [
-        [UNib32(1), UNib32(0)],
-        [UNib32(1), UNib32(1)],
-        [UNib32(2), UNib32(0)],
+        ww_client_server::resource_path([1, 0]),
+        ww_client_server::resource_path([1, 1]),
+        ww_client_server::resource_path([2, 0]),
     ];
     for chain in &chains {
         let i = element_for(&mut tables, chain).unwrap();
@@ -1191,7 +1206,7 @@ fn element_marks_and_ends() {
     assert_eq!(due, [false, true, false]);
 
     // the element of the outer array at 1 is removed: both of its inner elements end
-    end_elements(&mut tables, &[UNib32(1)]);
+    end_elements(&mut tables, &ww_client_server::resource_path([1]));
     let states: Vec<ElementState> = tables.iter().map(|e| e.state()).collect();
     assert_eq!(
         states,
@@ -1230,5 +1245,5 @@ fn element_tables_init_in_place() {
             .iter()
             .all(|e| e.state() == ElementState::Free && !e.table.is_active())
     );
-    assert!(element_for(tables, &[UNib32(3)]).is_some());
+    assert!(element_for(tables, &ww_client_server::resource_path([3])).is_some());
 }

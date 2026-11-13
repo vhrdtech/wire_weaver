@@ -356,7 +356,7 @@ where
 /// place.
 pub fn ser_property_update_event<'a>(
     scratch: &'a mut [u8],
-    path: &[UNib32],
+    path: &[ResourceIndex],
     t: Option<Second>,
     missed: Option<UNib32>,
     sample_times: Option<&[u8]>,
@@ -427,7 +427,7 @@ mod tests {
                 },
             },
         ];
-        let path = [UNib32(1)];
+        let path = crate::resource_path([1]);
         let cfg = ObserveRequest {
             entries: RefVec::Slice { slice: &entries },
             patch: false,
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn update_event_in_place() {
-        let path = [UNib32(2)];
+        let path = crate::resource_path([2]);
         let data = [0xaa, 0xbb, 0xcc];
         let times = times();
         let mut series_buf = [0u8; 64];
@@ -556,7 +556,10 @@ mod tests {
             else {
                 panic!("{back:?}");
             };
-            assert_eq!(p.iter().next().unwrap().unwrap(), UNib32(2));
+            assert_eq!(
+                p.iter().next().unwrap().unwrap(),
+                ResourceIndex::new(UNib32(2))
+            );
             assert_eq!(back_t.is_some(), t.is_some());
             assert_eq!(missed, Some(Count::new(UNib32(3))));
             assert_eq!(
@@ -670,7 +673,7 @@ mod tests {
     /// Without a timestamp and nothing missed, an update of a level one deep costs 4 bytes plus its data.
     #[test]
     fn update_event_overhead() {
-        let path = [UNib32(2)];
+        let path = crate::resource_path([2]);
         let mut scratch = [0u8; 64];
         let built = ser_property_update_event(&mut scratch, &path, None, None, None, |buf| {
             buf[0] = 0xaa;

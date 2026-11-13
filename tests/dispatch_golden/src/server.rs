@@ -115,27 +115,27 @@ impl Server {
     fn channel_pulse(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        index_chain: [UNib32; 1],
+        index_chain: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<u8> {
-        Ready(index_chain[0].0 as u8)
+        Ready(index_chain[0].get().0 as u8)
     }
 
     fn set_channel_level(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        index_chain: [UNib32; 1],
+        index_chain: [ww_client_server::ResourceIndex; 1],
         value: u8,
     ) -> SetResult<()> {
-        self.channel_level[index_chain[0].0 as usize] = value;
+        self.channel_level[index_chain[0].get().0 as usize] = value;
         Set
     }
 
     fn get_channel_level(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        index_chain: [UNib32; 1],
+        index_chain: [ww_client_server::ResourceIndex; 1],
     ) -> GetResult<u8, ()> {
-        Value(self.channel_level[index_chain[0].0 as usize])
+        Value(self.channel_level[index_chain[0].get().0 as usize])
     }
 
     fn set_info_name(

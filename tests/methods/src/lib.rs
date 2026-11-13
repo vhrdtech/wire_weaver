@@ -182,7 +182,7 @@ mod tests {
             fn unit_double(
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
             ) -> RpcResult<u8> {
                 let _ = index_chain;
@@ -192,7 +192,7 @@ mod tests {
             fn unit_halve(
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
             ) -> RpcResult<Result<u8, MethodError>> {
                 let _ = index_chain;
@@ -400,7 +400,7 @@ mod tests {
             fn unit_double(
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
             ) -> RpcResult<u8> {
                 let _ = index_chain;
@@ -410,7 +410,7 @@ mod tests {
             fn unit_halve(
                 &mut self,
                 _cx: &mut Cx<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
             ) -> RpcResult<Result<u8, MethodError>> {
                 let _ = index_chain;
@@ -1088,11 +1088,9 @@ mod tests {
             );
         };
         let list = || {
-            MultiIndexOwned::List(vec![
-                UNib32(0),
-                UNib32(1),
-                UNib32(no_std_sync_server::UNITS),
-            ])
+            MultiIndexOwned::List(
+                ww_client_server::resource_path([0, 1, no_std_sync_server::UNITS]).to_vec(),
+            )
         };
         // different args: 4 to unit 0, 5 to unit 1
         let args = |i: u32| if i == 0 { 4 } else { 5 };
@@ -1124,7 +1122,7 @@ mod tests {
 
         // different args: one value per unit, in list order
         let r = call_array(
-            MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2), UNib32(3)]),
+            MultiIndexOwned::List(ww_client_server::resource_path([0, 1, 2, 3]).to_vec()),
             |i| client.unit(i).double(i as u8 + 1),
         )
         .await

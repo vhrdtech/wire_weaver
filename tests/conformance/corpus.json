@@ -1103,6 +1103,38 @@
       "note": "an Ack of a counted or reliable stream (feature streams, SRV-60); a firmware without streams reads it as StreamSideband::Unknown(5) and its plain stream answers OperationNotSupported at item site 0 (tests/lean_server)"
     },
     {
+      "name": "client_server.request.absolute_path",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 4, "path_kind": {"Absolute": {"path": [3, 1, 1000]}}, "kind": "Read"},
+      "bytes": "808080800040318df123",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "a Read on the absolute path [3, 1, 1000], each element a ResourceIndex: golden bytes taken from the same request with bare UNib32 path elements, before they were typed"
+    },
+    {
+      "name": "client_server.request.global_path",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 4, "path_kind": {"GlobalCompact": {"gid": {"gid": 5, "major": 0, "minor": 2, "patch": 1}, "path_from_trait": [2, 0]}}, "kind": {"Call": {"args": [5]}}},
+      "bytes": "808080800041502120000502",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "a Call through a GlobalCompact path, path_from_trait [2, 0] of ResourceIndex: golden bytes taken from the same request with bare UNib32 path elements"
+    },
+    {
+      "name": "client_server.event.stream_data_path",
+      "type": "Event",
+      "value": {"seq": 0, "result": {"Ok": {"StreamData": {"path": [7, 300], "data": [1, 2]}}}},
+      "bytes": "00827cd4010202",
+      "gaps": {"dynamic": "ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Event is a protocol message, not a type of an API in the model", "python": "ww_client_server's Event is a protocol message, not a type of an API in the model", "c": "ww_client_server's Event is a protocol message, not a type of an API in the model"},
+      "note": "a StreamData event on the path [7, 300] of ResourceIndex: golden bytes taken from the same event with bare UNib32 path elements"
+    },
+    {
+      "name": "client_server.multi_index.list",
+      "type": "MultiIndex",
+      "value": {"List": [0, 9, 70000]},
+      "bytes": "40918ed89203",
+      "gaps": {"dynamic": "ww_client_server's MultiIndex is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's MultiIndex is a protocol message, not a type of an API in the model", "python": "ww_client_server's MultiIndex is a protocol message, not a type of an API in the model", "c": "ww_client_server's MultiIndex is a protocol message, not a type of an API in the model"},
+      "note": "a MultiIndex List of ResourceIndex [0, 9, 70000]: golden bytes taken from the same list of bare UNib32s"
+    },
+    {
       "name": "stdlib.timebase.steer_point",
       "type": "steer_point",
       "value": {"local": {"prefix": "Micro", "value": {"U32": 1000000}}, "shared": {"coord": {"value": 1700000000000000}}, "rate": {"value": -9900990}, "error": {"value": 250}, "steerer": null},

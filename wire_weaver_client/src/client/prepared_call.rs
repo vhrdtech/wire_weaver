@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
-use wire_weaver::shrink_wrap::UNib32;
+use ww_client_server::ResourceIndex;
 use ww_client_server::{ErrorOwned, PathKindOwned};
 
 /// Self-contained struct containing all necessary information needed to perform a call:
@@ -209,7 +209,7 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
 }
 
 impl<T, E> PreparedCall<T, E> {
-    fn multi_absolute_path(&self) -> Option<Vec<UNib32>> {
+    fn multi_absolute_path(&self) -> Option<Vec<ResourceIndex>> {
         if self.postpone_err.is_err() {
             return None;
         }
@@ -225,7 +225,7 @@ impl<T: DeserializeShrinkWrapOwned> CallPath for PreparedCall<T, Error> {
     type Item = T;
     type Output = Result<T, ErrorOwned>;
 
-    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>> {
         self.multi_absolute_path()
     }
 
@@ -253,7 +253,7 @@ where
     type Item = Result<T, D>;
     type Output = Result<T, CallError<D>>;
 
-    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>> {
         self.multi_absolute_path()
     }
 

@@ -164,27 +164,27 @@ mod tests {
             fn set_channel_gain(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: f32,
             ) -> SetResult<()> {
-                self.gains[index_chain[0].0 as usize] = value;
+                self.gains[index_chain[0].get().0 as usize] = value;
                 Set
             }
 
             fn get_channel_gain(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<f32, ()> {
-                Value(self.gains[index_chain[0].0 as usize])
+                Value(self.gains[index_chain[0].get().0 as usize])
             }
 
             fn channel_id(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<u32> {
-                Ready(index_chain[0].0 * 10)
+                Ready(index_chain[0].get().0 * 10)
             }
         }
 
@@ -627,7 +627,7 @@ mod tests {
                 priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::GlobalCompact {
                     gid: CompactVersion::new(GlobalTypeId::new(id), 0, 1, 0),
-                    path_from_trait: vec![UNib32(1)],
+                    path_from_trait: ww_client_server::resource_path([1]).to_vec(),
                 },
                 kind: RequestKindOwned::Read,
             }
@@ -1217,7 +1217,7 @@ mod tests {
         channel
             .multi_write(
                 cmd,
-                MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2)]),
+                MultiIndexOwned::List(ww_client_server::resource_path([0, 1, 2]).to_vec()),
                 Some("gain"),
                 DynMultiValue::Different(&[num(N::F32(0.1)), num(N::F32(0.2)), num(N::F32(0.3))]),
             )
@@ -1251,7 +1251,7 @@ mod tests {
         let r = channel
             .multi_read(
                 cmd,
-                MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2)]),
+                MultiIndexOwned::List(ww_client_server::resource_path([0, 1, 2]).to_vec()),
                 Some("gain"),
             )
             .await
@@ -1265,7 +1265,7 @@ mod tests {
         let r = channel
             .multi_call(
                 cmd,
-                MultiIndexOwned::List(vec![UNib32(0), UNib32(2)]),
+                MultiIndexOwned::List(ww_client_server::resource_path([0, 2]).to_vec()),
                 Some("id"),
                 DynMultiArgs::Same(&[]),
             )

@@ -206,6 +206,8 @@ pub fn gen_client(
         use wire_weaver_client::StreamEvent;
         #[allow(unused_imports)]
         use wire_weaver_client::ww_client_server::StreamSideband;
+        #[allow(unused_imports)]
+        use wire_weaver_client::ww_client_server::ResourceIndex;
         #additional_use
 
         #hl_init
@@ -487,7 +489,7 @@ fn level_methods(
     // the level's own path, for observing it
     let level_chain = observable.then(|| {
         if index_chain.is_empty() {
-            quote! { let index_chain: [UNib32; 0] = []; }
+            quote! { let index_chain: [ResourceIndex; 0] = []; }
         } else if index_chain.is_dynamic() {
             quote! { let index_chain = self.index_chain.clone(); }
         } else {
@@ -533,19 +535,23 @@ fn level_method(
 ) -> TokenStream {
     let api_bundle = ctx.api_bundle;
     let id = item.id.0;
-    let index_chain_push_pre = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
+    let index_chain_push_pre =
+        index_chain.push_back(quote! { self. }, quote! { ResourceIndex::new(UNib32(#id)) });
     let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
         Multiplicity::Flat => (index_chain_push_pre.clone(), quote! {}),
         Multiplicity::Array {
             index_type_idx: None,
         } => {
-            let p = index_chain.push_back(quote! {}, quote! { UNib32(index) });
+            let p = index_chain.push_back(quote! {}, quote! { ResourceIndex::new(UNib32(index)) });
             (quote! { #index_chain_push_pre #p }, quote! { , index: u32 })
         }
         Multiplicity::Array {
             index_type_idx: Some(type_idx),
         } => {
-            let p = index_chain.push_back(quote! {}, quote! { UNib32(index.into()) });
+            let p = index_chain.push_back(
+                quote! {},
+                quote! { ResourceIndex::new(UNib32(index.into())) },
+            );
             let ty = ty_def_by_idx(api_bundle, type_idx.0, false, TyPos::Arg).unwrap();
             (quote! { #index_chain_push_pre #p }, quote! { , index: #ty })
         }

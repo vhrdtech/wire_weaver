@@ -114,7 +114,7 @@ async fn const_values(device: &DynClient, root: DynResource) -> HashMap<Vec<u32>
             let ApiItemKindOwned::Property { ty, .. } = &item.kind else {
                 continue;
             };
-            let path = child.index_chain().iter().map(|id| id.0).collect();
+            let path = child.index_chain().iter().map(|id| id.get().0).collect();
             let value = match child.read(device.cmd()).await {
                 Ok(value) => crate::value_fmt::fmt_value(&value, Some(ty), level.bundle()),
                 Err(e) => style(format!("<{e}>")).red().to_string(),

@@ -218,7 +218,7 @@ trait Port {
 ```
 
 Each index is its own stream: the host opens `device.adc(2).call()` or `device.port(0).event().call()`, and every
-device handler gets the index chain after `cx` (`index_chain: [UNib32; 1]`), as does `stream_adc(index_chain)`.
+device handler gets the index chain after `cx` (`index_chain: [ww_client_server::ResourceIndex; 1]`), as does `stream_adc(index_chain)`.
 `valid_indices_root_adc()` says which indices exist. On the device, send through the same chain:
 `stream_data_ser().adc_send(2, &mut state.adc_streams[2], &chunk, units, t, out)` for the array itself,
 `stream_data_ser().port(0).event_send(&event, cx)` inside an array of traits.

@@ -61,8 +61,8 @@ fn request<'b>(path_kind: PathKind<'_>, buf: &'b mut [u8]) -> &'b [u8] {
 #[entry]
 fn main() -> ! {
     let mut stdout = hio::hstdout().unwrap();
-    let boot_state = [UNib32(0)];
-    let absolute = [UNib32(1), UNib32(0)];
+    let boot_state = ww_client_server::resource_path([0]);
+    let absolute = ww_client_server::resource_path([1, 0]);
     let boot = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap();
     let (mut b0, mut b1, mut b2, mut b3) = ([0u8; 64], [0u8; 64], [0u8; 64], [0u8; 64]);
     let requests = [

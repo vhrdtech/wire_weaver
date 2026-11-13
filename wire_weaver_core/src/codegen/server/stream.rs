@@ -762,15 +762,19 @@ fn sideband_ser_methods(
 
 fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> TokenStream {
     match (index_chain.is_empty(), is_array) {
-        (false, false) => index_chain.push_back(quote! { self. }, quote! { UNib32(#id) }),
+        (false, false) => {
+            index_chain.push_back(quote! { self. }, quote! { ResourceIndex::new(UNib32(#id)) })
+        }
         (false, true) => {
-            let op1 = index_chain.push_back(quote! { self. }, quote! { UNib32(#id) });
-            let op2 = index_chain.push_back(quote! {}, quote! { UNib32(index) });
+            let op1 =
+                index_chain.push_back(quote! { self. }, quote! { ResourceIndex::new(UNib32(#id)) });
+            let op2 =
+                index_chain.push_back(quote! {}, quote! { ResourceIndex::new(UNib32(index)) });
             quote! { #op1 #op2 }
         }
-        (true, false) => quote! { let index_chain = [UNib32(#id)]; },
+        (true, false) => quote! { let index_chain = [ResourceIndex::new(UNib32(#id))]; },
         (true, true) => {
-            quote! { let index_chain = [UNib32(#id), UNib32(index)]; }
+            quote! { let index_chain = [ResourceIndex::new(UNib32(#id)), ResourceIndex::new(UNib32(index))]; }
         }
     }
 }

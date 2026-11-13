@@ -14,8 +14,8 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use ww_client_server::ResourceIndex;
 
-use wire_weaver::shrink_wrap::UNib32;
 use ww_self::visit::Visit;
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned};
 use ww_version::WireVersion;
@@ -179,14 +179,14 @@ impl ApiCompat {
 
     /// Find a resource by a request path (item ids interleaved with array indices, as sent to the device).
     /// Returns None for paths not in the client's API.
-    pub(crate) fn resolve(&self, path: &[UNib32]) -> Option<Resolved<'_>> {
+    pub(crate) fn resolve(&self, path: &[ResourceIndex]) -> Option<Resolved<'_>> {
         let mut level = &self.root;
         let mut name = String::new();
         let mut since = vec![];
         let mut path = path.iter();
         let mut resolved = None;
         while let Some(id) = path.next() {
-            let node = level.get(&id.0)?;
+            let node = level.get(&id.get().0)?;
             if !name.is_empty() {
                 name.push('.');
             }
@@ -385,8 +385,10 @@ pub(crate) mod tests {
         ApiCompat::new(&client, &device)
     }
 
-    fn path(ids: &[u32]) -> Vec<UNib32> {
-        ids.iter().map(|id| UNib32(*id)).collect()
+    fn path(ids: &[u32]) -> Vec<ResourceIndex> {
+        ids.iter()
+            .map(|id| ResourceIndex::new(wire_weaver::shrink_wrap::UNib32(*id)))
+            .collect()
     }
 
     fn verdict(compat: &ApiCompat, ids: &[u32]) -> Verdict {
@@ -668,7 +670,7 @@ pub(crate) mod tests {
                     for b in &bundles {
                         let compat = ApiCompat::new(a, b);
                         for item in &a.root.items {
-                            let _ = compat.resolve(&[item.id]);
+                            let _ = compat.resolve(&[ResourceIndex::new(item.id)]);
                         }
                     }
                 }
@@ -1113,7 +1115,7 @@ pub(crate) mod tests {
         };
         let call = |cmd: &Commander| {
             cmd.prepare_call::<(), Error>(
-                PathKind::absolute(&[UNib32(0), UNib32(set_reworks)]),
+                PathKind::absolute(&ww_client_server::resource_path([0, set_reworks])),
                 Ok(vec![]),
                 "",
             )
@@ -1196,8 +1198,12 @@ pub(crate) mod tests {
         cmd.resolve_api_match().unwrap();
 
         fn call(cmd: &Commander, id: u32) -> Result<(), Error> {
-            cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
-                .postpone_err
+            cmd.prepare_call::<(), Error>(
+                PathKind::absolute(&ww_client_server::resource_path([id])),
+                Ok(vec![]),
+                "",
+            )
+            .postpone_err
         }
         assert!(
             matches!(call(&cmd, 0), Err(Error::IncompatibleResource { resource, .. }) if resource == "a")
@@ -1273,8 +1279,12 @@ pub(crate) mod tests {
             .unwrap()
         };
         fn call(cmd: &Commander, id: u32) -> Result<(), Error> {
-            cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
-                .postpone_err
+            cmd.prepare_call::<(), Error>(
+                PathKind::absolute(&ww_client_server::resource_path([id])),
+                Ok(vec![]),
+                "",
+            )
+            .postpone_err
         }
         let commander = || {
             let (tx, _rx) = tokio::sync::mpsc::channel(1);
@@ -1458,8 +1468,12 @@ pub(crate) mod tests {
         cmd.resolve_api_match().unwrap();
 
         let call = |id: u32| -> Result<(), Error> {
-            cmd.prepare_call::<(), Error>(PathKind::absolute(&[UNib32(id)]), Ok(vec![]), "")
-                .postpone_err
+            cmd.prepare_call::<(), Error>(
+                PathKind::absolute(&ww_client_server::resource_path([id])),
+                Ok(vec![]),
+                "",
+            )
+            .postpone_err
         };
         assert!(call(0).is_ok());
         assert!(call(1).is_ok(), "#[since = \"w1.1\"] on a w2.0 device");

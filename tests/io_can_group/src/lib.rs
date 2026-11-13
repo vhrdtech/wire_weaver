@@ -155,8 +155,8 @@ mod tests {
             pub names: [&'static str; 2],
         }
 
-        fn idx(chain: [UNib32; 1]) -> usize {
-            chain[0].0 as usize
+        fn idx(chain: [ww_client_server::ResourceIndex; 1]) -> usize {
+            chain[0].get().0 as usize
         }
 
         impl Server {
@@ -320,7 +320,7 @@ mod tests {
             fn can_interface_capabilities(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<Capabilities<'_>> {
                 let clock = self.m.lock().unwrap().clock.frequency;
                 Ready(Capabilities {
@@ -369,7 +369,7 @@ mod tests {
             fn can_interface_configure(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 config: CanConfig,
             ) -> RpcResult<Result<CanConfig, CanError<'_>>> {
                 let mut m = self.m.lock().unwrap();
@@ -410,7 +410,7 @@ mod tests {
             fn can_interface_config(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<CanConfig> {
                 let m = self.m.lock().unwrap();
                 Ready(
@@ -424,7 +424,7 @@ mod tests {
             fn get_can_interface_status(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<Status, ()> {
                 let m = self.m.lock().unwrap();
                 Value(m.controllers[idx(index_chain)].status.unwrap_or(Status {
@@ -439,7 +439,7 @@ mod tests {
             fn can_interface_rx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 Ready(())
             }
@@ -447,22 +447,28 @@ mod tests {
             fn close_can_interface_rx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) {
             }
 
-            fn stream_can_interface_rx(&mut self, index_chain: [UNib32; 1]) -> &mut Counted {
+            fn stream_can_interface_rx(
+                &mut self,
+                index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> &mut Counted {
                 &mut self.rx[idx(index_chain)]
             }
 
-            fn credit_can_interface_tx(&mut self, index_chain: [UNib32; 1]) -> &mut SinkCredit {
+            fn credit_can_interface_tx(
+                &mut self,
+                index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> &mut SinkCredit {
                 &mut self.tx[idx(index_chain)]
             }
 
             fn sideband_can_interface_tx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 _sideband: ww_client_server::StreamSideband,
             ) -> Option<ww_client_server::StreamSideband> {
                 None
@@ -472,7 +478,7 @@ mod tests {
             fn write_can_interface_tx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: ww_can_bus::TxFrame<'_>,
             ) {
                 let i = idx(index_chain);
@@ -489,7 +495,7 @@ mod tests {
             fn can_tt_configure_tt(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 config: Option<TtConfig>,
             ) -> RpcResult<Result<Option<TtConfig>, CanError<'_>>> {
                 let mut m = self.m.lock().unwrap();
@@ -509,7 +515,7 @@ mod tests {
             fn can_tt_set_schedule(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 triggers: MaxLen<RefVec<'_, Trigger>, 64>,
             ) -> RpcResult<Result<(), CanError<'_>>> {
                 let list: Vec<Trigger> = triggers.iter().map(|t| t.unwrap()).collect();
@@ -529,7 +535,7 @@ mod tests {
             fn get_can_tt_tt_status(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<TtStatus, ()> {
                 let m = self.m.lock().unwrap();
                 let c = &m.controllers[idx(index_chain)];
@@ -550,7 +556,7 @@ mod tests {
             fn can_xl_configure_xl(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 config: Option<XlConfig>,
             ) -> RpcResult<Result<Option<XlConfig>, CanError<'_>>> {
                 let mut m = self.m.lock().unwrap();
@@ -578,7 +584,7 @@ mod tests {
             fn can_xl_rx_xl(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 Ready(())
             }
@@ -586,22 +592,28 @@ mod tests {
             fn close_can_xl_rx_xl(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) {
             }
 
-            fn stream_can_xl_rx_xl(&mut self, _index_chain: [UNib32; 1]) -> &mut Counted {
+            fn stream_can_xl_rx_xl(
+                &mut self,
+                _index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> &mut Counted {
                 &mut self.rx_xl
             }
 
-            fn credit_can_xl_tx_xl(&mut self, _index_chain: [UNib32; 1]) -> &mut SinkCredit {
+            fn credit_can_xl_tx_xl(
+                &mut self,
+                _index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> &mut SinkCredit {
                 &mut self.tx_xl
             }
 
             fn sideband_can_xl_tx_xl(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 _sideband: ww_client_server::StreamSideband,
             ) -> Option<ww_client_server::StreamSideband> {
                 None
@@ -610,7 +622,7 @@ mod tests {
             fn write_can_xl_tx_xl(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: ww_can_bus::XlTxFrame<'_>,
             ) {
                 let i = idx(index_chain);

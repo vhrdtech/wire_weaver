@@ -198,7 +198,7 @@ server struct implements, in one of two forms, picked per item with the `const_m
 
 - `const` (the default): a Rust const, `const LIMITS: Limits<'static> = ..;`.
 - `fn`: a value fixed at boot or link time (OTP, a chip id register, the build id in flash), `fn serial(&self) ->
-  &str`. Items in an array of traits get the index chain: `fn channel_gain(&self, index_chain: [UNib32; 1]) -> u8`.
+  &str`. Items in an array of traits get the index chain: `fn channel_gain(&self, index_chain: [ww_client_server::ResourceIndex; 1]) -> u8`.
 
 Names carry the trait item chain prefix, as handler names do: `BOARD` of `board: BoardInfo` is `BOARD_BOARD` as a
 const and `board_board` as a `fn`. `const_model` is a comma separated list of `regex=const|fn`, the regex matching

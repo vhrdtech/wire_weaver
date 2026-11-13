@@ -524,7 +524,7 @@ mod tests {
                     }) = event.result
                     {
                         _ = updates_tx.send(Update {
-                            path: path.iter().map(|p| p.unwrap().0).collect(),
+                            path: path.iter().map(|p| p.unwrap().get().0).collect(),
                             t: t.map(us),
                             sample_times: sample_times.map(|s| s.iter().map(us).collect()),
                             missed: missed.map_or(0, |m| m.get().0),
@@ -554,7 +554,10 @@ mod tests {
                 patch: false,
                 budget: budget.map(|b| Budget::new(UNib32(b))),
             };
-            let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
+            let path: Vec<ww_client_server::ResourceIndex> = path
+                .iter()
+                .map(|p| ww_client_server::ResourceIndex::new(UNib32(*p)))
+                .collect();
             let req = Request {
                 seq: UVlq32Backfill(0),
                 priority: ww_client_server::Priority::NORMAL.nibble(),

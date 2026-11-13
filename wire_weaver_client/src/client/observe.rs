@@ -459,7 +459,7 @@ pub(crate) trait LevelRoute: Send + Sync + 'static {
 /// Where a level's `PropertyUpdate` events go, see [Command::ObserveRoute].
 #[doc(hidden)]
 pub struct ObserveRouteHook {
-    pub(crate) path: Vec<UNib32>,
+    pub(crate) path: Vec<ResourceIndex>,
     pub(crate) route: Arc<dyn LevelRoute>,
 }
 
@@ -472,10 +472,10 @@ impl Debug for ObserveRouteHook {
 }
 
 /// Levels observed through a [Commander](crate::Commander) and its clones, by path.
-pub(crate) type ObserveRegistry = Arc<Mutex<HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>>>;
+pub(crate) type ObserveRegistry = Arc<Mutex<HashMap<Vec<ResourceIndex>, Arc<dyn LevelRoute>>>>;
 
 pub(crate) struct Level<U: LevelUpdate> {
-    path: Vec<UNib32>,
+    path: Vec<ResourceIndex>,
     state: Mutex<LevelState<U>>,
 }
 
@@ -688,7 +688,7 @@ impl<U: LevelUpdate> Level<U> {
     }
 }
 
-fn request_bytes(path: &[UNib32], cfg: &ObserveConfig) -> Result<Vec<u8>, Error> {
+fn request_bytes(path: &[ResourceIndex], cfg: &ObserveConfig) -> Result<Vec<u8>, Error> {
     let entries = cfg
         .entries
         .iter()
@@ -764,8 +764,8 @@ pub(crate) fn check_samples_taken(
 
 /// The level at `path`, a new one if it isn't observed yet.
 fn level_of<U: LevelUpdate>(
-    levels: &mut HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
-    path: &[UNib32],
+    levels: &mut HashMap<Vec<ResourceIndex>, Arc<dyn LevelRoute>>,
+    path: &[ResourceIndex],
 ) -> Result<Arc<Level<U>>, Error> {
     if let Some(level) = levels.get(path).filter(|l| !l.is_ended()) {
         return level.clone().as_any().downcast::<Level<U>>().map_err(|_| {
@@ -834,7 +834,7 @@ pub struct PreparedObserve<U: LevelUpdate, T> {
     pub(crate) postpone_err: Result<(), Error>,
     pub(crate) transport: TransportCommander,
     pub(crate) image_facts: ImageFacts,
-    pub(crate) path: Vec<UNib32>,
+    pub(crate) path: Vec<ResourceIndex>,
     pub(crate) cfg: ObserveConfig,
     pub(crate) queue_bytes: usize,
     pub(crate) extract: Extract<U, T>,

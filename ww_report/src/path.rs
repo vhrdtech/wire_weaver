@@ -4,7 +4,7 @@
 //! streams are opened on an absolute path (CLT-23), so the stored log needs this. A trait implemented at several
 //! places (two `PinDiag` boards behind one device) is told apart by the path's names ([find_all_traits]).
 
-use wire_weaver::prelude::UNib32;
+use wire_weaver_client::ww_client_server::ResourceIndex;
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiLevelLocationOwned, ApiLevelOwned,
 };
@@ -13,7 +13,7 @@ use wire_weaver_client::ww_self::{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TraitAt {
     /// Absolute resource path, `[]` for the root itself.
-    pub path: Vec<UNib32>,
+    pub path: Vec<ResourceIndex>,
     /// The items' names along the path joined with `.`, as the API declares them: `diag.pins`, empty for the root.
     pub name: String,
 }
@@ -24,7 +24,7 @@ pub fn find_trait(
     bundle: &ApiBundleOwned,
     crate_id: &str,
     trait_name: &str,
-) -> Option<Vec<UNib32>> {
+) -> Option<Vec<ResourceIndex>> {
     find_all_traits(bundle, crate_id, trait_name)
         .into_iter()
         .next()
@@ -66,7 +66,7 @@ fn search(
     bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     (crate_id, name): (&str, &str),
-    path: &mut Vec<(UNib32, String)>,
+    path: &mut Vec<(ResourceIndex, String)>,
     found: &mut Vec<TraitAt>,
     depth: usize,
 ) {
@@ -81,7 +81,7 @@ fn search(
         if item.is_array() {
             continue;
         }
-        path.push((item.id, item.ident.clone()));
+        path.push((ResourceIndex::new(item.id), item.ident.clone()));
         let at = || TraitAt {
             path: path.iter().map(|(id, _)| *id).collect(),
             name: path

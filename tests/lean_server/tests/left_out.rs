@@ -8,7 +8,7 @@
 use lean_server::reply;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{
-    DeserializeShrinkWrap, SerializeShrinkWrap, UNib32, UVlq32, UVlq32Backfill,
+    DeserializeShrinkWrap, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
 };
 use ww_client_server::{
     Error, Event, EventKind, PathKind, Priority, Request, RequestKind, StreamSideband, err_seq,
@@ -91,7 +91,7 @@ fn stream_ack_is_refused_before_the_handler() {
 #[ignore = "needs ww_client_server without multi and streams, which a workspace build turns on: just test-lean-server"]
 fn the_rest_is_served() {
     // a call of base.c0 on the same server, answered as without the features
-    let path = [UNib32(0), UNib32(0)];
+    let path = ww_client_server::resource_path([0, 0]);
     let request = Request {
         seq: UVlq32Backfill(1),
         priority: Priority::NORMAL.nibble(),

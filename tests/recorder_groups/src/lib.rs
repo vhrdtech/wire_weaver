@@ -100,9 +100,9 @@ mod tests {
             fn recorder_track_info(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<TrackInfo<'_>> {
-                let n = index_chain[0].0;
+                let n = index_chain[0].get().0;
                 let path: &'static [UNib32] = if n == 0 { &[] } else { &[UNib32(0)] };
                 Ready(TrackInfo {
                     path: MaxLen::new(RefVec::Slice { slice: path }).unwrap(),
@@ -118,10 +118,10 @@ mod tests {
             fn set_recorder_track_enabled(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: bool,
             ) -> SetResult<RecorderError<'_>> {
-                let n = index_chain[0].0;
+                let n = index_chain[0].get().0;
                 if n == 0 && !value {
                     // the system track can't be disabled
                     return SetError(RecorderError::unsupported());
@@ -133,9 +133,9 @@ mod tests {
             fn get_recorder_track_enabled(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<bool, RecorderError<'_>> {
-                Value(self.data.lock().unwrap().enabled[index_chain[0].0 as usize])
+                Value(self.data.lock().unwrap().enabled[index_chain[0].get().0 as usize])
             }
         }
 

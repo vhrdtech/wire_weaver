@@ -295,7 +295,7 @@ mod tests {
                 priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice {
-                        slice: &[UNib32(0)],
+                        slice: &ww_client_server::resource_path([0]),
                     },
                 },
                 kind: RequestKind::Call {

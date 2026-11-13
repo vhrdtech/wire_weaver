@@ -155,7 +155,7 @@ use ww_client_server::MultiIndexOwned;
 
 // write different: one value per channel, in list order
 let r = write_array(
-    MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2), UNib32(3)]),
+    MultiIndexOwned::List(ww_client_server::resource_path([0, 1, 2, 3]).to_vec()),
     |i| client.ch(i).write_level((i as u8 + 1) * 10),
 )
 .await
@@ -217,7 +217,7 @@ let channel = root.child("channel").unwrap();
 channel
     .multi_write(
         cmd,
-        MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2)]),
+        MultiIndexOwned::List(ww_client_server::resource_path([0, 1, 2]).to_vec()),
         Some("gain"),
         DynMultiValue::Different(&[num(N::F32(0.1)), num(N::F32(0.2)), num(N::F32(0.3))]),
     )

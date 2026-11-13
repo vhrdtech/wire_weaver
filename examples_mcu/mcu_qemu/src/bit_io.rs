@@ -315,7 +315,7 @@ fn write_request(buf: &mut [u8]) -> usize {
     };
     let mut args_buf = [0u8; 32];
     let args = args.to_ww_bytes(&mut args_buf).unwrap();
-    let path = [UNib32(3), UNib32(1), UNib32(12)];
+    let path = ww_client_server::resource_path([3, 1, 12]);
     let request = Request {
         seq: UVlq32Backfill(5),
         priority: ww_client_server::Priority::NORMAL.nibble(),
@@ -395,7 +395,7 @@ fn read_request(buf: &[u8]) -> u32 {
         return 0;
     };
     for id in path.iter() {
-        sum = sum.rotate_left(5) ^ id.unwrap().0;
+        sum = sum.rotate_left(5) ^ id.unwrap().get().0;
     }
     let RequestKind::Call { args } = request.kind else {
         return 0;

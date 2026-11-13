@@ -140,15 +140,15 @@ mod tests {
             pub(super) fn aux_read(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: [UNib32; 1],
+                index: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<Code> {
-                RpcResult::Ready(Code(20 + index[0].0 as u16))
+                RpcResult::Ready(Code(20 + index[0].get().0 as u16))
             }
 
             pub(super) fn aux_reset(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index: [UNib32; 1],
+                _index: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 RpcResult::Ready(())
             }

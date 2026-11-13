@@ -44,7 +44,7 @@ mod full_server {
         fn probe_set_high(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index: [UNib32; 1],
+            _index: [ww_client_server::ResourceIndex; 1],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -139,7 +139,7 @@ mod cfg_server {
         fn probe_set_high(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index: [UNib32; 1],
+            _index: [ww_client_server::ResourceIndex; 1],
         ) -> RpcResult<()> {
             Ready(())
         }

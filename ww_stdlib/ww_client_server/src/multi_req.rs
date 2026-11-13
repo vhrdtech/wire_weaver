@@ -2,7 +2,7 @@ use core::ops::Range;
 
 use wire_weaver::shrink_wrap::{RefVecIter, UNib32};
 
-use crate::MultiIndex;
+use crate::{MultiIndex, ResourceIndex};
 
 impl MultiIndex<'_> {
     /// Indices this multi-request covers, in order. A `Range` with `start >= end` and an empty `Mask32` cover none,
@@ -30,7 +30,7 @@ pub enum MultiIndexIter<'i> {
         range: Range<u32>,
     },
     List {
-        list: RefVecIter<'i, UNib32>,
+        list: RefVecIter<'i, ResourceIndex>,
     },
     /// Set bits of `mask` from bit `pos` up, lowest first
     Mask32 {
@@ -40,11 +40,11 @@ pub enum MultiIndexIter<'i> {
 }
 
 impl<'i> Iterator for MultiIndexIter<'i> {
-    type Item = UNib32;
+    type Item = ResourceIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            MultiIndexIter::Range { range } => range.next().map(UNib32),
+            MultiIndexIter::Range { range } => range.next().map(|i| ResourceIndex::new(UNib32(i))),
             MultiIndexIter::List { list } => {
                 if let Some(Ok(id)) = list.next() {
                     Some(id)
@@ -57,7 +57,7 @@ impl<'i> Iterator for MultiIndexIter<'i> {
                     let bit = *pos as u32;
                     *pos += 1;
                     if *mask & (1 << bit) != 0 {
-                        return Some(UNib32(bit));
+                        return Some(ResourceIndex::new(UNib32(bit)));
                     }
                 }
                 None
@@ -101,7 +101,7 @@ impl crate::MultiIndexOwned {
 #[cfg(feature = "std")]
 enum MultiIndexOwnedIter<'i> {
     Range(core::ops::Range<u32>),
-    List(core::slice::Iter<'i, UNib32>),
+    List(core::slice::Iter<'i, ResourceIndex>),
     Mask32 { mask: u32, pos: usize },
 }
 
@@ -112,7 +112,7 @@ impl Iterator for MultiIndexOwnedIter<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             MultiIndexOwnedIter::Range(range) => range.next(),
-            MultiIndexOwnedIter::List(list) => list.next().map(|i| i.0),
+            MultiIndexOwnedIter::List(list) => list.next().map(|i| i.get().0),
             MultiIndexOwnedIter::Mask32 { mask, pos } => {
                 while *pos < 32 {
                     let bit = *pos as u32;
@@ -133,7 +133,7 @@ mod tests {
     use wire_weaver::shrink_wrap::RefVec;
 
     fn collect(idx: MultiIndex<'_>) -> Vec<u32> {
-        idx.iter().map(|i| i.0).collect()
+        idx.iter().map(|i| i.get().0).collect()
     }
 
     #[test]
@@ -142,7 +142,7 @@ mod tests {
         assert!(collect(MultiIndex::Range(UNib32(5)..UNib32(5))).is_empty());
         assert!(collect(MultiIndex::Range(UNib32(7)..UNib32(3))).is_empty());
         let mut it = MultiIndex::Range(UNib32(u32::MAX - 1)..UNib32(u32::MAX)).iter();
-        assert_eq!(it.next(), Some(UNib32(u32::MAX - 1)));
+        assert_eq!(it.next(), Some(ResourceIndex::new(UNib32(u32::MAX - 1))));
         assert_eq!(it.next(), None);
     }
 
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn list() {
-        let list = [UNib32(3), UNib32(1)];
+        let list = crate::resource_path([3, 1]);
         assert_eq!(
             collect(MultiIndex::List(RefVec::Slice { slice: &list })),
             [3, 1]

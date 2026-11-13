@@ -124,10 +124,10 @@ mod tests {
             fn pwm_channel_set_output(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 output: PwmOutput,
             ) -> RpcResult<Result<PwmActual, PwmError<'_>>> {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 let actual = PwmActual {
                     freq: output.freq,
                     duty: output.duty,
@@ -139,10 +139,10 @@ mod tests {
             fn pwm_channel_set_duty(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 duty: Duty16,
             ) -> RpcResult<Result<Duty16, PwmError<'_>>> {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 let mut m = self.m.lock().unwrap();
                 match &mut m.channels[idx] {
                     Some(actual) => {
@@ -159,10 +159,10 @@ mod tests {
             fn pwm_channel_stop(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 _idle_high: bool,
             ) -> RpcResult<Result<(), PwmError<'_>>> {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().channels[idx] = None;
                 Ready(Ok(()))
             }
@@ -170,9 +170,9 @@ mod tests {
             fn pwm_channel_state(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<PwmState> {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 let state = match self.m.lock().unwrap().channels[idx] {
                     Some(actual) => PwmState::Output(actual),
                     None => PwmState::Idle,
@@ -187,7 +187,7 @@ mod tests {
             fn pwm_capture_channel_capture(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 config: CaptureConfig,
             ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
                 if config.mode == CaptureMode::Off {
@@ -197,7 +197,7 @@ mod tests {
                     }
                     .into()));
                 }
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().streaming[idx] = Some(config);
                 Ready(Ok(config))
             }
@@ -205,26 +205,26 @@ mod tests {
             fn close_pwm_capture_channel_capture(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().streaming[idx] = None;
             }
 
             fn stream_pwm_capture_channel_capture(
                 &mut self,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> &mut Counted {
-                &mut self.capture[index_chain[0].0 as usize]
+                &mut self.capture[index_chain[0].get().0 as usize]
             }
 
             fn pwm_capture_channel_set_capture(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 config: CaptureConfig,
             ) -> RpcResult<Result<CaptureConfig, PwmError<'_>>> {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().capture_config[idx] = Some(config);
                 Ready(Ok(config))
             }
@@ -232,9 +232,9 @@ mod tests {
             fn pwm_capture_channel_read_capture(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<Result<CaptureSample, PwmError<'_>>> {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 match self.m.lock().unwrap().capture_sample[idx] {
                     Some(sample) => Ready(Ok(sample)),
                     None => Ready(Err(CommonError::WrongState {

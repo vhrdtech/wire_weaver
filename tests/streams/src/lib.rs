@@ -68,10 +68,10 @@ mod tests {
             fn array_of_streams(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 self.record(
-                    &format!("array_of_streams[{}]", index_chain[0].0),
+                    &format!("array_of_streams[{}]", index_chain[0].get().0),
                     StreamSideband::Open,
                 );
                 Ready(())
@@ -80,10 +80,10 @@ mod tests {
             fn close_array_of_streams(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) {
                 self.record(
-                    &format!("array_of_streams[{}]", index_chain[0].0),
+                    &format!("array_of_streams[{}]", index_chain[0].get().0),
                     StreamSideband::Close,
                 );
             }
@@ -143,10 +143,13 @@ mod tests {
             fn sideband_array_of_streams(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
-                self.record(&format!("array_of_streams[{}]", index_chain[0].0), sideband)
+                self.record(
+                    &format!("array_of_streams[{}]", index_chain[0].get().0),
+                    sideband,
+                )
             }
 
             fn finish(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
@@ -398,7 +401,10 @@ mod tests {
 
     /// Stream sideband event from the device, not in response to a request
     fn sideband_event(path: &[u32], sideband: StreamSideband) -> Vec<u8> {
-        let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
+        let path: Vec<ww_client_server::ResourceIndex> = path
+            .iter()
+            .map(|p| ww_client_server::ResourceIndex::new(UNib32(*p)))
+            .collect();
         let event = Event {
             seq: UVlq32(0),
             result: Ok(EventKind::StreamSideband {

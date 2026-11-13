@@ -314,12 +314,12 @@ impl Decoder {
         }
     }
 
-    fn resolve(&self, path: &[UNib32]) -> Option<Resource> {
+    fn resolve(&self, path: &[ww_client_server::ResourceIndex]) -> Option<Resource> {
         let b = bundle(self.fw?);
         let mut level: &ApiLevelOwned = &b.root;
         let mut names = vec![];
         for (i, idx) in path.iter().enumerate() {
-            let item = level.items.iter().find(|it| it.id == *idx)?;
+            let item = level.items.iter().find(|it| it.id == idx.get())?;
             names.push(item.ident.clone());
             match &item.kind {
                 ApiItemKindOwned::Trait { trait_idx, .. } => {
@@ -347,7 +347,7 @@ impl Decoder {
 
     fn request(&mut self, bytes: &[u8]) -> Result<String, String> {
         let req = Request::from_ww_bytes(bytes).map_err(|e| format!("{e:?}"))?;
-        let path: Vec<UNib32> = match &req.path_kind {
+        let path: Vec<ww_client_server::ResourceIndex> = match &req.path_kind {
             PathKind::Absolute { path } => path.iter().map(|p| p.unwrap()).collect(),
             other => return Err(format!("path {other:?}")),
         };
@@ -441,7 +441,8 @@ impl Decoder {
                 "written".into()
             }
             EventKind::StreamData { path, data } => {
-                let path: Vec<UNib32> = path.iter().map(|p| p.unwrap()).collect();
+                let path: Vec<ww_client_server::ResourceIndex> =
+                    path.iter().map(|p| p.unwrap()).collect();
                 let res = self.resolve(&path).ok_or("unknown stream")?;
                 let ApiItemKindOwned::Stream { ty, .. } = &res.kind else {
                     return Err("not a stream".into());
@@ -452,17 +453,20 @@ impl Decoder {
             }
             EventKind::StreamSideband { path, sideband } => {
                 self.pending.remove(&ev.seq.0);
-                let path: Vec<UNib32> = path.iter().map(|p| p.unwrap()).collect();
+                let path: Vec<ww_client_server::ResourceIndex> =
+                    path.iter().map(|p| p.unwrap()).collect();
                 let res = self.resolve(&path).ok_or("unknown stream")?;
                 format!("{}: {}", res.name, fmt_sideband(&sideband))
             }
             EventKind::StreamItem { path, head, .. } => {
-                let path: Vec<UNib32> = path.iter().map(|p| p.unwrap()).collect();
+                let path: Vec<ww_client_server::ResourceIndex> =
+                    path.iter().map(|p| p.unwrap()).collect();
                 let res = self.resolve(&path).ok_or("unknown stream")?;
                 format!("{} at {} ⇒ (not decoded)", res.name, head.pos)
             }
             EventKind::PropertyUpdate { path, .. } => {
-                let path: Vec<UNib32> = path.iter().map(|p| p.unwrap()).collect();
+                let path: Vec<ww_client_server::ResourceIndex> =
+                    path.iter().map(|p| p.unwrap()).collect();
                 format!("property update of {path:?} ⇒ (not decoded)")
             }
         })

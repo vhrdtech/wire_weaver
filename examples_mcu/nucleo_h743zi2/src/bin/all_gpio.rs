@@ -181,7 +181,7 @@ impl ServerState {
     async fn port_capabilities(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<BankCapabilities<'_>> {
         Ready(BankCapabilities {
             io_levels: MaxLen::new_unchecked(RefVec::Slice {
@@ -202,7 +202,7 @@ impl ServerState {
     async fn port_configure(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
         config: BankConfig,
     ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
         // fixed 3.3 V, no level translators
@@ -215,9 +215,9 @@ impl ServerState {
     async fn port_name(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 1],
+        index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<&'_ str> {
-        let name = match index[0].0 {
+        let name = match index[0].get().0 {
             0 => "PA",
             1 => "PB",
             2 => "PC",
@@ -237,11 +237,11 @@ impl ServerState {
     async fn port_pin_set_output_level(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
         level: Level,
     ) -> RpcResult<()> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let odr = self.bank[bank_idx].odr();
         let level = if level == Level::High {
             Odr::HIGH
@@ -255,10 +255,10 @@ impl ServerState {
     async fn port_pin_output_level(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<Level> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let odr = self.bank[bank_idx].odr().read().odr(pin_idx);
         let level = match odr {
             Odr::HIGH => Level::High,
@@ -270,10 +270,10 @@ impl ServerState {
     async fn port_pin_toggle(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<()> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let odr = self.bank[bank_idx].odr().read().odr(pin_idx);
         let odr = match odr {
             Odr::HIGH => Odr::LOW,
@@ -288,10 +288,10 @@ impl ServerState {
     async fn port_pin_input_level(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<Level> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let idr = self.bank[bank_idx].idr().read().idr(pin_idx);
         let level = match idr {
             Idr::HIGH => Level::High,
@@ -304,7 +304,7 @@ impl ServerState {
     async fn port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
         _enabled: IoPinEnabledEvents<'_>,
     ) -> RpcResult<Result<(), GpioError<'_>>> {
         Ready(Err(CommonError::Unsupported.into()))
@@ -313,12 +313,12 @@ impl ServerState {
     async fn close_port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) {
     }
 
     /// One state for every pin: the stream never opens on this board.
-    async fn stream_port_pin_event(&mut self, _index: [UNib32; 2]) -> &mut Counted {
+    async fn stream_port_pin_event(&mut self, _index: [ww_client_server::ResourceIndex; 2]) -> &mut Counted {
         &mut self.pin_events
     }
 
@@ -331,7 +331,7 @@ impl ServerState {
     async fn port_pin_set_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
         mode: Mode,
         initial: Option<Level>,
     ) -> RpcResult<Result<(), GpioError<'_>>> {
@@ -339,8 +339,8 @@ impl ServerState {
             self.port_pin_set_output_level(_cx, index, initial)
                 .await;
         }
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         if mode == Mode::OpenDrainOutput {
             self.bank[bank_idx]
                 .otyper()
@@ -367,10 +367,10 @@ impl ServerState {
     async fn port_pin_mode(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<Mode> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let mode = self.bank[bank_idx].moder().read().moder(pin_idx);
         let mode = match mode {
             Moder::INPUT => Mode::Input,
@@ -388,9 +388,9 @@ impl ServerState {
         Ready(mode)
     }
 
-    async fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], pull: Pull) -> SetResult<GpioError<'_>> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+    async fn set_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [ww_client_server::ResourceIndex; 2], pull: Pull) -> SetResult<GpioError<'_>> {
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let pull = match pull {
             Pull::None => Pupdr::FLOATING,
             Pull::Up => Pupdr::PULL_UP,
@@ -403,9 +403,9 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Pull, GpioError<'_>> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+    async fn get_port_pin_pull(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [ww_client_server::ResourceIndex; 2]) -> GetResult<Pull, GpioError<'_>> {
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let pull = self.bank[bank_idx].pupdr().read().pupdr(pin_idx);
         let pull = match pull {
             Pupdr::FLOATING => Pull::None,
@@ -416,9 +416,9 @@ impl ServerState {
         Value(pull)
     }
 
-    async fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2], speed: Speed) -> SetResult<GpioError<'_>> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+    async fn set_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [ww_client_server::ResourceIndex; 2], speed: Speed) -> SetResult<GpioError<'_>> {
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let speed = match speed {
             Speed::Slow => Ospeedr::LOW_SPEED,
             Speed::Medium => Ospeedr::MEDIUM_SPEED,
@@ -432,9 +432,9 @@ impl ServerState {
         Set
     }
 
-    async fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [UNib32; 2]) -> GetResult<Speed, GpioError<'_>> {
-        let bank_idx = index[0].0 as usize;
-        let pin_idx = index[1].0 as usize;
+    async fn get_port_pin_speed(&mut self, _cx: &mut Context<'_, impl EventOut>, index: [ww_client_server::ResourceIndex; 2]) -> GetResult<Speed, GpioError<'_>> {
+        let bank_idx = index[0].get().0 as usize;
+        let pin_idx = index[1].get().0 as usize;
         let speed = self.bank[bank_idx].ospeedr().read().ospeedr(pin_idx);
         let speed = match speed {
             Ospeedr::LOW_SPEED => Speed::Slow,
@@ -449,10 +449,10 @@ impl ServerState {
     async fn port_pin_capabilities(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 2],
+        index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<PinCapabilities<'_>> {
-        let pin = index[1].0 as u8;
-        self.pin_name = [b'P', BANK_LETTERS[index[0].0 as usize], b'0' + pin % 10, 0];
+        let pin = index[1].get().0 as u8;
+        self.pin_name = [b'P', BANK_LETTERS[index[0].get().0 as usize], b'0' + pin % 10, 0];
         let len = if pin >= 10 {
             self.pin_name[2] = b'1';
             self.pin_name[3] = b'0' + pin - 10;
@@ -479,8 +479,8 @@ impl ServerState {
         ValidIndices::range_u32(0..self.bank.len() as u32)
     }
 
-    fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_> {
-        let _pin_idx = index[0].0 as usize;
+    fn valid_indices_root_port_pin(&mut self, index: [ww_client_server::ResourceIndex; 1]) -> ValidIndices<'_> {
+        let _pin_idx = index[0].get().0 as usize;
         ValidIndices::range_u32(0..16)
     }
 }

@@ -108,7 +108,10 @@ mod tests {
         let args = args_bytes(&mut args_buf);
         for path in [&[0u32][..], &[3, u32::MAX, 7], &[1000, 0, 0, 0, 0]] {
             let max = call_request(path, ARGS_MAX).unwrap();
-            let path_elements: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
+            let path_elements: Vec<crate::ResourceIndex> = path
+                .iter()
+                .map(|p| crate::ResourceIndex::new(UNib32(*p)))
+                .collect();
             let request = Request {
                 seq: UVlq32Backfill(u32::MAX),
                 priority: crate::Priority::NORMAL.nibble(),

@@ -171,7 +171,7 @@ mod tests {
             fn get_bank_level(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u8, ()> {
                 GetResult::Value(0)
             }
@@ -339,7 +339,7 @@ mod tests {
             fn get_bank_level(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u8, ()> {
                 GetResult::Value(0)
             }
@@ -490,7 +490,7 @@ mod tests {
                             t => panic!("timestamp {t:?}"),
                         };
                         _ = updates_tx.send(Update {
-                            path: path.iter().map(|p| p.unwrap().0).collect(),
+                            path: path.iter().map(|p| p.unwrap().get().0).collect(),
                             t,
                             missed: missed.map_or(0, |m| m.get().0),
                             data: data.0.to_vec(),
@@ -523,7 +523,10 @@ mod tests {
                 patch,
                 budget: budget.map(|b| Budget::new(UNib32(b))),
             };
-            let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
+            let path: Vec<ww_client_server::ResourceIndex> = path
+                .iter()
+                .map(|p| ww_client_server::ResourceIndex::new(UNib32(*p)))
+                .collect();
             let req = Request {
                 seq: UVlq32Backfill(0),
                 priority: ww_client_server::Priority::NORMAL.nibble(),
@@ -1040,7 +1043,7 @@ mod tests {
             patch: false,
             budget: None,
         };
-        let path = [UNib32(MOTOR)];
+        let path = ww_client_server::resource_path([MOTOR]);
         let req = Request {
             seq: UVlq32Backfill(1),
             priority: ww_client_server::Priority::NORMAL.nibble(),
@@ -1099,7 +1102,7 @@ mod tests {
             patch: false,
             budget: Some(Budget::new(UNib32(1_000_000_000))),
         };
-        let path = [UNib32(MOTOR)];
+        let path = ww_client_server::resource_path([MOTOR]);
         let req = Request {
             seq: UVlq32Backfill(1),
             priority: ww_client_server::Priority::NORMAL.nibble(),

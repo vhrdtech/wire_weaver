@@ -10,6 +10,7 @@ use std::marker::PhantomData;
 use std::pin::pin;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+use ww_client_server::ResourceIndex;
 
 use tracing::{debug, warn};
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
@@ -182,7 +183,7 @@ pub(crate) struct Shared {
 }
 
 pub(crate) struct Inner {
-    pub(crate) path: Vec<wire_weaver::shrink_wrap::UNib32>,
+    pub(crate) path: Vec<ResourceIndex>,
     config: PositionedConfig,
     rx: Receiver,
     /// Live and backfill run, with a sequence number each for the order they arrived in
@@ -213,10 +214,7 @@ pub(crate) struct Inner {
 }
 
 impl Shared {
-    pub(crate) fn new(
-        path: Vec<wire_weaver::shrink_wrap::UNib32>,
-        config: PositionedConfig,
-    ) -> Arc<Self> {
+    pub(crate) fn new(path: Vec<ResourceIndex>, config: PositionedConfig) -> Arc<Self> {
         let delivery = match config.delivery {
             ww_self::Delivery::Counted => ww_stream::rx::Delivery::Counted,
             ww_self::Delivery::Reliable => ww_stream::rx::Delivery::Reliable,

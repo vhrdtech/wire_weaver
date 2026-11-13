@@ -643,7 +643,7 @@ impl Decoder {
                 let r = Request::from_ww_bytes(bytes).ok();
                 let chain: Option<Vec<u32>> = match r.as_ref().map(|r| &r.path_kind) {
                     Some(PathKind::Absolute { path }) => {
-                        path.iter().map(|p| p.ok().map(|p| p.0)).collect()
+                        path.iter().map(|p| p.ok().map(|p| p.get().0)).collect()
                     }
                     _ => None,
                 };

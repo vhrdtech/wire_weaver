@@ -28,6 +28,7 @@ use tokio::sync::OnceCell;
 use tracing::{debug, warn};
 use wire_weaver::prelude::{DeserializeShrinkWrap, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
+use ww_client_server::ResourceIndex;
 use ww_client_server::{ErrorOwned, PathKind, PathKindOwned, Request};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion};
@@ -45,7 +46,7 @@ pub struct GlobalPaths {
     /// How to fetch the introspection data and send requests again, set once connected.
     link: Mutex<Option<Link>>,
     /// Paths found so far, `None` for a trait the device's API doesn't have in a compatible version.
-    resolved: Mutex<HashMap<TraitKey, Option<Vec<UNib32>>>>,
+    resolved: Mutex<HashMap<TraitKey, Option<Vec<ResourceIndex>>>>,
 }
 
 struct Link {
@@ -101,7 +102,7 @@ impl GlobalPaths {
         crate_id: &str,
         version: &VersionOwned,
         trait_name: &str,
-    ) -> Option<Vec<UNib32>> {
+    ) -> Option<Vec<ResourceIndex>> {
         let api = self.api.get()?.as_ref()?;
         let key = (
             crate_id.to_string(),
@@ -221,7 +222,7 @@ pub(crate) fn find_trait(
     api: &ApiBundleOwned,
     wanted: &FullVersionOwned,
     trait_name: &str,
-) -> Option<Vec<UNib32>> {
+) -> Option<Vec<ResourceIndex>> {
     let omitted: Vec<u32> = api.root_omitted.iter().flatten().map(|id| id.0).collect();
     let wanted = Wanted {
         version: wanted,
@@ -260,8 +261,8 @@ fn find_in_level(
     omitted: &[u32],
     wanted: &Wanted,
     trait_name: &str,
-    path: &mut Vec<UNib32>,
-) -> Option<Vec<UNib32>> {
+    path: &mut Vec<ResourceIndex>,
+) -> Option<Vec<ResourceIndex>> {
     if level.trait_name == trait_name && wanted.matches(api, level.crate_idx.0) {
         return Some(path.clone());
     }
@@ -280,9 +281,9 @@ fn find_in_level(
             continue;
         };
         let depth = path.len();
-        path.push(item.id);
+        path.push(ResourceIndex::new(item.id));
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
-            path.push(UNib32(0));
+            path.push(ResourceIndex::new(UNib32(0)));
         }
         let child_omitted: Vec<u32> = item_omitted.iter().flatten().map(|id| id.0).collect();
         let found = find_in_level(api, child, &child_omitted, wanted, trait_name, path);
@@ -330,7 +331,7 @@ pub trait Status {
             "test_api".into(),
             VersionOwned::new(version.0, version.1, 7),
         );
-        find_trait(api, &wanted, trait_name).map(|p| p.iter().map(|id| id.0).collect())
+        find_trait(api, &wanted, trait_name).map(|p| p.iter().map(|id| id.get().0).collect())
     }
 
     #[test]
@@ -384,7 +385,7 @@ pub trait Status {
         device.ext_crates[idx].version = VersionOwned::new(0, 4, 0);
         device.set_crate_wire(idx as u32, Some(WireVersion::new(2, 1)));
         let found = find_trait(&device, &wanted, "BoardInfo");
-        assert_eq!(found, Some(vec![UNib32(1)]));
+        assert_eq!(found, Some(ww_client_server::resource_path([1]).to_vec()));
 
         device.set_crate_wire(idx as u32, Some(WireVersion::new(3, 0)));
         assert_eq!(find_trait(&device, &wanted, "BoardInfo"), None);
@@ -413,7 +414,7 @@ pub trait Status {
         _ = paths.api.set(Some(Arc::new(api)));
         assert_eq!(
             paths.resolve("test_api", &version, "Port"),
-            Some(vec![UNib32(2), UNib32(0)])
+            Some(ww_client_server::resource_path([2, 0]).to_vec())
         );
         assert_eq!(paths.resolved.lock().unwrap().len(), 1);
         assert_eq!(paths.resolve("other_api", &version, "Port"), None);

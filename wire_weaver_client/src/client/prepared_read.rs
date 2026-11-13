@@ -5,8 +5,8 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
-use wire_weaver::shrink_wrap::UNib32;
 use ww_client_server::PathKindOwned;
+use ww_client_server::ResourceIndex;
 
 /// Self-contained struct containing all necessary information needed to perform a read:
 /// * TX ends towards transport and dispatcher event loops
@@ -151,7 +151,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
 impl<T: DeserializeShrinkWrapOwned> PropertyPath for PreparedRead<T> {
     type Output = T;
 
-    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>> {
         let Ok(path_kind) = &self.path_kind else {
             return None;
         };

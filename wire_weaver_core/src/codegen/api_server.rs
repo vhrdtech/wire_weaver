@@ -474,7 +474,7 @@ pub fn gen_server(
         #[allow(unused_imports)]
         use ww_client_server::{
             Request, RequestKind, Event, EventKind, EventKindDiscriminants,
-            PathKind, Error, ErrorKind, StreamSideband, ErrorKindDiscriminants,
+            PathKind, Error, ErrorKind, StreamSideband, ErrorKindDiscriminants, ResourceIndex,
             util::{ser_err_event, ser_unit_return_event, ser_value_event, ser_stream_sideband_event},
             builder::{EventBuilder, EventKindBuilder, ErrorBuilder},
             dispatch::{err as ww_err, WrAction},
@@ -513,13 +513,14 @@ pub fn gen_server(
                 let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
 
                 // a global trait path continues from wherever the trait sits in this API (API-20)
-                let (base, path): (&[UNib32], _) = match &request.path_kind {
+                let (base, path): (&[ResourceIndex], _) = match &request.path_kind {
                     PathKind::Absolute { path } => (&[], path),
                     #global_path_arms
                 };
 
                 const MAX_DEPTH: usize = 16; // TODO: calculate max depth
-                let mut path_arr = [UNib32(0); MAX_DEPTH];
+                // a constant, so the array is cleared as with a plain number (a loop at opt-level z otherwise)
+                let mut path_arr = [const { ResourceIndex::new(UNib32(0)) }; MAX_DEPTH];
                 let mut path_len: usize = 0;
                 for (idx, resource_id) in base.iter().map(|id| Ok(*id)).chain(path.iter()).enumerate() {
                     let resource_id = resource_id?;
@@ -788,7 +789,7 @@ fn poll_streams_fn(
     };
     let path_of = |s: &PolledStream| {
         let path = &s.path;
-        quote! { [#(UNib32(#path)),*] }
+        quote! { [#(ResourceIndex::new(UNib32(#path))),*] }
     };
     let send_with = |closure: TokenStream| {
         if use_async {
@@ -1109,7 +1110,7 @@ fn global_full_table(traits: &[GlobalTrait]) -> Result<TokenStream, String> {
         let path = &t.path;
         entries.push(quote! {
             ww_client_server::dispatch::GlobalTrait {
-                hash: #hash, major: #major, minor: #minor, path: &[#(UNib32(#path)),*]
+                hash: #hash, major: #major, minor: #minor, path: &[#(ResourceIndex::new(UNib32(#path))),*]
             }
         });
     }
@@ -1134,14 +1135,17 @@ fn global_compact_lookup(traits: &[GlobalTrait]) -> TokenStream {
         let path = &t.path;
         let version_check = version_check(&t.crate_version);
         Some(quote! {
-            #id if #version_check => Some(&[#(UNib32(#path)),*]),
+            #id if #version_check => {
+                const PATH: &[ResourceIndex] = &[#(ResourceIndex::new(UNib32(#path))),*];
+                Some(PATH)
+            }
         })
     });
     quote! {
         /// Absolute path of a global trait in this API by its `ww_global` id, None if it's not implemented in a
         /// compatible version or has no id.
         #[allow(unused_variables)]
-        fn ww_global_compact_trait_path(gid: &wire_weaver::ww_version::CompactVersion) -> Option<&'static [UNib32]> {
+        fn ww_global_compact_trait_path(gid: &wire_weaver::ww_version::CompactVersion) -> Option<&'static [ResourceIndex]> {
             match gid.gid.id.0 {
                 #(#compact_arms)*
                 _ => None,
@@ -1227,7 +1231,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                 return wr.finish_and_take();
             }
             if let Some(resource_id) = *in_each_array_id {
-                path_arr[path_len + 1] = resource_id.get();
+                path_arr[path_len + 1] = resource_id;
             }
             let multi_args = match &request.kind {
                 RequestKind::MultiCall { multi_args, .. } => Some(multi_args),
@@ -1473,7 +1477,7 @@ fn process_request_inner_recursive(
         #maybe_async fn #process_fn_name(
             &mut self,
             #maybe_index_chain_def
-            path_iter: &mut Iter<'_, UNib32>,
+            path_iter: &mut Iter<'_, ResourceIndex>,
             wr: &mut BufWriter<'_>,
             d: &ww_client_server::dispatch::Dispatch<'_, #multi>,
             cx: &mut #context_ty,
@@ -1600,7 +1604,7 @@ fn level_matchers(
             let maybe_index_chain_arg = index_chain.fun_argument_call();
             let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
             let validate_index = quote! {
-                if !self.#valid_indices(#maybe_index_chain_arg).contains(index.0) {
+                if !self.#valid_indices(#maybe_index_chain_arg).contains(index.get().0) {
                     return ww_err(wr, d, #es_index, ErrorKindDiscriminants::BadIndex);
                 }
             };
@@ -1645,7 +1649,7 @@ fn level_matchers(
         }
     });
     quote! {
-        Some(id) => match id.0 {
+        Some(id) => match id.get().0 {
             #(#arm_attrs #ids => { #handlers } ),*
             #omitted_arm
             _ => { ww_err(wr, d, #es, ErrorKindDiscriminants::BadPath) }

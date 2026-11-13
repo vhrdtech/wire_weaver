@@ -166,27 +166,27 @@ impl Server {
     async fn set_channel_enabled(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index_chain: [UNib32; 1],
+        index_chain: [ww_client_server::ResourceIndex; 1],
         value: bool,
     ) -> SetResult<()> {
-        self.enabled[index_chain[0].0 as usize] = value;
+        self.enabled[index_chain[0].get().0 as usize] = value;
         SetResult::Set
     }
 
     async fn get_channel_enabled(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index_chain: [UNib32; 1],
+        index_chain: [ww_client_server::ResourceIndex; 1],
     ) -> GetResult<bool, ()> {
-        GetResult::Value(self.enabled[index_chain[0].0 as usize])
+        GetResult::Value(self.enabled[index_chain[0].get().0 as usize])
     }
 
     async fn channel_last(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index_chain: [UNib32; 1],
+        index_chain: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<Sample> {
-        RpcResult::Ready(self.sample(index_chain[0].0 as u8))
+        RpcResult::Ready(self.sample(index_chain[0].get().0 as u8))
     }
 
     async fn set_indication_mode(

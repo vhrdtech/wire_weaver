@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e6184b004507f0007037affcb0bc0f9726f5d2c96495ca3e6a25db17cb823af1
+// shrink_wrap sha256: ca2d27bfde7a8f421655377b1d500d2163ae383f0b00eddb12e2c84e007b344f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         176,
@@ -599,7 +599,11 @@
         (docs: [
             "Full path to a resource, regardless of whether it is in a trait or not.",
         ], ident: "Absolute", fields: Named([
-            (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [], slot: None, series_opaque: false),
+            (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "Request is for a trait implemented anywhere in the API tree, through a global unique ID (manually assigned for",
@@ -608,7 +612,11 @@
             (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
                 "CompactVersion consists of 3 UNib32\'s, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.",
             ], slot: None, series_opaque: false),
-            (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
+            (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "Used to identify a trait resource, starting from trait root.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
@@ -621,7 +629,11 @@
             (ident: Some("trait_name"), default: None, since: None, ty: String, docs: [
                 "Name of the trait in the `gid` crate, a crate can define several.",
             ], slot: None, series_opaque: false),
-            (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
+            (ident: Some("path_from_trait"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "Used to identify a trait resource, starting from trait root.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
@@ -662,7 +674,11 @@
             (ident: None, default: None, since: None, ty: Range(UNib32), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [], ident: "List", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [], ident: "Mask32", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
@@ -996,7 +1012,11 @@
         (docs: [
             "Sent by user code whenever a stream has more data or whenever applicable.",
         ], ident: "StreamData", fields: Named([
-            (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
+            (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "When subscribing through trait interface, this path is used later to match stream updates to an original request.",
             ], slot: None, series_opaque: false),
             (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
@@ -1006,7 +1026,11 @@
         (docs: [
             "Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.",
         ], ident: "StreamSideband", fields: Named([
-            (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
+            (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "When subscribing through trait interface, this path is used later to match stream updates to an original request.",
             ], slot: None, series_opaque: false),
             (ident: Some("sideband"), default: None, since: None, ty: OutOfLine(type_idx: 29), docs: [], slot: None, series_opaque: false),
@@ -1015,7 +1039,11 @@
             "An event of a counted or reliable stream (API-30): the head says where its data sits in the stream, what",
             "the device dropped right before it and when it was made, see [StreamHead]. Feature `streams`.",
         ], ident: "StreamItem", fields: Named([
-            (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
+            (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "Same as in [EventKind::StreamData].",
             ], slot: None, series_opaque: false),
             (ident: Some("head"), default: None, since: None, ty: OutOfLine(type_idx: 33), docs: [], slot: None, series_opaque: false),
@@ -1026,7 +1054,11 @@
         (docs: [
             "Observed properties of one trait level (API-38), sent when any of them is due, see [observe].",
         ], ident: "PropertyUpdate", fields: Named([
-            (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
+            (ident: Some("path"), default: None, since: None, ty: Vec(Instance(type_idx: 6, args: [
+                Type(OutOfLine(type_idx: 5)),
+                Type(NumericAny(Base(UNib32))),
+                Type(OutOfLine(type_idx: 2)),
+            ])), docs: [
                 "Path of the trait level, as in its [RequestKind::Observe].",
             ], slot: None, series_opaque: false),
             (ident: Some("t"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 32, args: [
@@ -1073,7 +1105,7 @@
             "Expected an array index in the resource path, but got None instead",
         ], ident: "ExpectedArrayIndexGotNone", fields: Unit, discriminant: 3, since: None),
         (docs: [
-            "Tried to deserialize UNib32 from the resource path, but got an error",
+            "Tried to deserialize a resource index from the resource path, but got an error",
         ], ident: "ArrayIndexDesFailed", fields: Unit, discriminant: 4, since: None),
         (docs: [
             "Failed to deserialize arguments",

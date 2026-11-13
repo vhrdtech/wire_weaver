@@ -10,7 +10,7 @@ mod tests {
     struct SharedTestData {
         subgroup_m1_called: bool,
         gpio_used_indices: Vec<u32>,
-        set_gain: HashMap<[UNib32; 2], f32>,
+        set_gain: HashMap<[ww_client_server::ResourceIndex; 2], f32>,
     }
 
     mod no_std_sync_server {
@@ -30,20 +30,20 @@ mod tests {
             fn gpio_set_high(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: [UNib32; 1],
+                index: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 self.data
                     .write()
                     .unwrap()
                     .gpio_used_indices
-                    .push(index[0].0);
+                    .push(index[0].get().0);
                 Ready(())
             }
 
             fn set_periph_channel_gain(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: [UNib32; 2],
+                index: [ww_client_server::ResourceIndex; 2],
                 gain: f32,
             ) -> SetResult<()> {
                 self.data.write().unwrap().set_gain.insert(index, gain);
@@ -53,7 +53,7 @@ mod tests {
             fn get_periph_channel_gain(
                 &self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index: [UNib32; 2],
+                index: [ww_client_server::ResourceIndex; 2],
             ) -> GetResult<f32, ()> {
                 let value = self
                     .data
@@ -69,7 +69,7 @@ mod tests {
             fn periph_channel_run(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index: [UNib32; 2],
+                _index: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<()> {
                 Ready(())
             }
@@ -92,7 +92,7 @@ mod tests {
 
             fn valid_indices_root_periph_channel(
                 &mut self,
-                _index: [UNib32; 1],
+                _index: [ww_client_server::ResourceIndex; 1],
             ) -> ValidIndices<'_> {
                 ValidIndices::range_u32(0..255)
             }
@@ -140,7 +140,7 @@ mod tests {
             fn gpio_set_high(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index: [UNib32; 1],
+                _index: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 Ready(())
             }
@@ -148,7 +148,7 @@ mod tests {
             fn set_periph_channel_gain(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index: [UNib32; 2],
+                _index: [ww_client_server::ResourceIndex; 2],
                 _gain: f32,
             ) -> SetResult<()> {
                 Set
@@ -157,7 +157,7 @@ mod tests {
             fn get_periph_channel_gain(
                 &self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index: [UNib32; 2],
+                _index: [ww_client_server::ResourceIndex; 2],
             ) -> GetResult<f32, ()> {
                 Value(0.0)
             }
@@ -165,7 +165,7 @@ mod tests {
             fn periph_channel_run(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index: [UNib32; 2],
+                _index: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<()> {
                 Ready(())
             }
@@ -197,7 +197,7 @@ mod tests {
 
             fn valid_indices_root_periph_channel(
                 &mut self,
-                _index: [UNib32; 1],
+                _index: [ww_client_server::ResourceIndex; 1],
             ) -> ValidIndices<'_> {
                 ValidIndices::range_u32(0..255)
             }
@@ -302,7 +302,10 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            data.read().unwrap().set_gain.get(&[UNib32(3), UNib32(7)]),
+            data.read()
+                .unwrap()
+                .set_gain
+                .get(&ww_client_server::resource_path([3, 7])),
             Some(&10.0)
         );
         let value = client
@@ -415,7 +418,10 @@ mod tests {
         args: &[u8],
     ) -> Option<String> {
         use ww_client_server::{Event, PathKind, Request, RequestKind};
-        let path: Vec<UNib32> = path.iter().map(|id| UNib32(*id)).collect();
+        let path: Vec<ww_client_server::ResourceIndex> = path
+            .iter()
+            .map(|id| ww_client_server::ResourceIndex::new(UNib32(*id)))
+            .collect();
         let request = Request {
             seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
             priority: ww_client_server::Priority::NORMAL.nibble(),

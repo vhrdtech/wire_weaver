@@ -15,13 +15,14 @@
 
 use crate::builder::ErrorBuilder;
 use crate::stream::StreamOpened;
-use crate::{Error, ErrorKind, ErrorKindDiscriminants, Request, StreamSideband, err_seq};
+use crate::{
+    Error, ErrorKind, ErrorKindDiscriminants, Request, ResourceIndex, StreamSideband, err_seq,
+};
 use core::marker::PhantomData;
 use wire_weaver::shrink_wrap::{
     BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error as ShrinkWrapError, RefVec,
     SerializeShrinkWrap,
     buf_writer::{BufWriterState, UnsizedBuilder},
-    nib32::UNib32,
 };
 use wire_weaver::{GetResult, RpcResult, SetResult};
 
@@ -49,7 +50,7 @@ pub struct Dispatch<'d, const MULTI: bool> {
     /// The request, or in a multi request the element's (`Read`, `Call`, `Write`).
     pub request: &'d Request<'d>,
     /// The whole path of the resource.
-    pub path: &'d [UNib32],
+    pub path: &'d [ResourceIndex],
     /// Where the reply starts in the writer: its event kind, or a multi request's element.
     pub before: BufWriterState,
     /// The request is an element of a multi request: no event kind of its own, values written as elements.
@@ -618,7 +619,7 @@ pub struct GlobalTrait {
     /// Minor version of the trait's crate: before 1.0 it has to match too.
     pub minor: u16,
     /// Absolute path of the trait in the API tree.
-    pub path: &'static [UNib32],
+    pub path: &'static [ResourceIndex],
 }
 
 /// Absolute path of the trait `trait_name` of `gid`'s crate in `table`, None when the table has no such trait or
@@ -629,7 +630,7 @@ pub fn global_full_path(
     table: &'static [GlobalTrait],
     gid: &wire_weaver::ww_version::FullVersion<'_>,
     trait_name: &str,
-) -> Option<&'static [UNib32]> {
+) -> Option<&'static [ResourceIndex]> {
     let hash = ww_global::trait_hash(gid.crate_id, trait_name);
     let t = table.iter().find(|t| t.hash == hash)?;
     let (major, minor) = (gid.version.major.0, gid.version.minor.0);

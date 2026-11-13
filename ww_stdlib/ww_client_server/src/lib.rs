@@ -24,6 +24,18 @@ pub mod units {
 /// Resource index within a trait level, see [units::Resource].
 pub type ResourceIndex = ww_si::Index<units::Resource, UNib32>;
 
+/// A resource path from its numbers: `resource_path([0, 3])`, the same bytes as the `UNib32`s it holds. `const`, so
+/// generated servers keep their paths in tables.
+pub const fn resource_path<const N: usize>(ids: [u32; N]) -> [ResourceIndex; N] {
+    let mut path = [const { ResourceIndex::new(UNib32(0)) }; N];
+    let mut i = 0;
+    while i < N {
+        path[i] = ResourceIndex::new(UNib32(ids[i]));
+        i += 1;
+    }
+    path
+}
+
 pub use wire_weaver::Priority;
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
 /// The units of this protocol's numbers (periods, byte grants, budgets), for code that builds them, generated code
@@ -147,7 +159,7 @@ pub struct Request<'i> {
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, Clone), final_structure, ww_repr = nib)]
 pub enum PathKind<'i> {
     /// Full path to a resource, regardless of whether it is in a trait or not.
-    Absolute { path: RefVec<'i, UNib32> },
+    Absolute { path: RefVec<'i, ResourceIndex> },
 
     /// Request is for a trait implemented anywhere in the API tree, through a global unique ID (manually assigned for
     /// common traits, one per trait).
@@ -155,7 +167,7 @@ pub enum PathKind<'i> {
         /// CompactVersion consists of 3 UNib32's, so the smallest additional size of such a call if all numbers are <= 7 is 2 bytes.
         gid: CompactVersion,
         /// Used to identify a trait resource, starting from trait root.
-        path_from_trait: RefVec<'i, UNib32>,
+        path_from_trait: RefVec<'i, ResourceIndex>,
     },
 
     /// Request is for a trait implemented anywhere in the API tree, through a crates.io name and version (any crate
@@ -166,7 +178,7 @@ pub enum PathKind<'i> {
         /// Name of the trait in the `gid` crate, a crate can define several.
         trait_name: &'i str,
         /// Used to identify a trait resource, starting from trait root.
-        path_from_trait: RefVec<'i, UNib32>,
+        path_from_trait: RefVec<'i, ResourceIndex>,
     },
 }
 
@@ -322,8 +334,10 @@ pub enum RequestKind<'i> {
 )]
 pub enum MultiIndex<'i> {
     // All,
+    // a `Range` in the API model holds only a plain number (`ww_self::Type::Range`), so this one stays `UNib32`: the
+    // same numbers as `ResourceIndex`es, which `MultiIndex::iter` yields
     Range(Range<UNib32>),
-    List(RefVec<'i, UNib32>),
+    List(RefVec<'i, ResourceIndex>),
     Mask32(u32),
 }
 
@@ -375,7 +389,7 @@ pub enum EventKind<'i> {
     /// Sent by user code whenever a stream has more data or whenever applicable.
     StreamData {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
-        path: RefVec<'i, UNib32>,
+        path: RefVec<'i, ResourceIndex>,
         /// Stream data can be a whole frame or a chunk of a byte stream.
         data: TailBytes<'i>,
     } = 2,
@@ -383,7 +397,7 @@ pub enum EventKind<'i> {
     /// Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.
     StreamSideband {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
-        path: RefVec<'i, UNib32>,
+        path: RefVec<'i, ResourceIndex>,
         sideband: StreamSideband,
     } = 3,
 
@@ -392,7 +406,7 @@ pub enum EventKind<'i> {
     #[cfg(feature = "streams")]
     StreamItem {
         /// Same as in [EventKind::StreamData].
-        path: RefVec<'i, UNib32>,
+        path: RefVec<'i, ResourceIndex>,
         head: StreamHead,
         /// The serialized item.
         data: TailBytes<'i>,
@@ -401,7 +415,7 @@ pub enum EventKind<'i> {
     /// Observed properties of one trait level (API-38), sent when any of them is due, see [observe].
     PropertyUpdate {
         /// Path of the trait level, as in its [RequestKind::Observe].
-        path: RefVec<'i, UNib32>,
+        path: RefVec<'i, ResourceIndex>,
         /// When the values were taken, on the device's clock.
         t: Option<ww_si::Second>,
         /// Sends of this level's properties that were due but did not fit the budget since the previous update.
@@ -491,7 +505,7 @@ pub enum ErrorKind<'i> {
     BadIndex,
     /// Expected an array index in the resource path, but got None instead
     ExpectedArrayIndexGotNone,
-    /// Tried to deserialize UNib32 from the resource path, but got an error
+    /// Tried to deserialize a resource index from the resource path, but got an error
     ArrayIndexDesFailed,
 
     /// Failed to deserialize arguments
@@ -532,7 +546,7 @@ pub enum ErrorKind<'i> {
 // }
 
 impl PathKind<'_> {
-    pub fn absolute(path_from_root: &[UNib32]) -> PathKind<'_> {
+    pub fn absolute(path_from_root: &[ResourceIndex]) -> PathKind<'_> {
         PathKind::Absolute {
             path: RefVec::Slice {
                 slice: path_from_root,
@@ -544,7 +558,7 @@ impl PathKind<'_> {
         global_full: FullVersion<'static>,
         global_compact: Option<CompactVersion>,
         trait_name: &'static str,
-        path_from_trait: &'a [UNib32],
+        path_from_trait: &'a [ResourceIndex],
     ) -> PathKind<'a> {
         if let Some(compact) = global_compact {
             PathKind::GlobalCompact {
@@ -985,7 +999,10 @@ mod tests {
     fn sink_write_in_a_request_is_as_long_as_a_write() {
         // in a whole request the discriminant's nibble lands on either half of a byte, depending on the path
         for path in [&[3u32][..], &[3, 1], &[3, 1, 2]] {
-            let path: std::vec::Vec<UNib32> = path.iter().map(|i| UNib32(*i)).collect();
+            let path: std::vec::Vec<ResourceIndex> = path
+                .iter()
+                .map(|i| ResourceIndex::new(UNib32(*i)))
+                .collect();
             let request = |kind| Request {
                 seq: UVlq32Backfill(0),
                 priority: crate::Priority::NORMAL.nibble(),

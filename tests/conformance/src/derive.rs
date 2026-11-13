@@ -786,10 +786,10 @@ pub fn table() -> Vec<Typed> {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
                 priority: Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::Absolute {
-                    path: vec![UNib32(10)],
+                    path: ww_client_server::resource_path([10]).to_vec(),
                 },
                 kind: RequestKindOwned::MultiRead {
-                    multi_idx: MultiIndexOwned::List(vec![UNib32(0), UNib32(1)]),
+                    multi_idx: MultiIndexOwned::List(ww_client_server::resource_path([0, 1]).to_vec()),
                     in_each_array_id: Some(ResourceIndex::new(UNib32(1))),
                 },
             }
@@ -800,7 +800,7 @@ pub fn table() -> Vec<Typed> {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
                 priority: Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::Absolute {
-                    path: vec![UNib32(0), UNib32(6)],
+                    path: ww_client_server::resource_path([0, 6]).to_vec(),
                 },
                 kind: RequestKindOwned::SinkWrite {
                     pos: wire_weaver::shrink_wrap::UVlq32(5),
@@ -816,7 +816,7 @@ pub fn table() -> Vec<Typed> {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
                 priority: Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::Absolute {
-                    path: vec![UNib32(0), UNib32(6)],
+                    path: ww_client_server::resource_path([0, 6]).to_vec(),
                 },
                 kind: RequestKindOwned::StreamSideband {
                     sideband: StreamSideband::Ack {
@@ -1224,6 +1224,48 @@ pub fn table() -> Vec<Typed> {
         case_debug("tail_bytes", || WithTailOwned {
             kind: 3,
             rest: TailBytesOwned(vec![1, 2, 3]),
+        }),
+        case_debug("client_server.request.absolute_path", || {
+            ww_client_server::RequestOwned {
+                seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
+                path_kind: ww_client_server::PathKindOwned::Absolute {
+                    path: ww_client_server::resource_path([3, 1, 1000]).to_vec(),
+                },
+                kind: ww_client_server::RequestKindOwned::Read,
+            }
+        }),
+        case_debug("client_server.request.global_path", || {
+            ww_client_server::RequestOwned {
+                seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
+                path_kind: ww_client_server::PathKindOwned::GlobalCompact {
+                    gid: wire_weaver::ww_version::CompactVersion::new(
+                        ww_global::GlobalTypeId::new(5),
+                        0,
+                        2,
+                        1,
+                    ),
+                    path_from_trait: ww_client_server::resource_path([2, 0]).to_vec(),
+                },
+                kind: ww_client_server::RequestKindOwned::Call {
+                    args: TailBytesOwned(vec![5]),
+                },
+            }
+        }),
+        case_debug("client_server.event.stream_data_path", || {
+            ww_client_server::EventOwned {
+                seq: UVlq32(0),
+                result: Ok(ww_client_server::EventKindOwned::StreamData {
+                    path: ww_client_server::resource_path([7, 300]).to_vec(),
+                    data: TailBytesOwned(vec![1, 2]),
+                }),
+            }
+        }),
+        case_debug("client_server.multi_index.list", || {
+            ww_client_server::MultiIndexOwned::List(
+                ww_client_server::resource_path([0, 9, 70_000]).to_vec(),
+            )
         }),
     ]
 }

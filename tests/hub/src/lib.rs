@@ -88,7 +88,7 @@ mod tests {
             fn bus_send(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 id: u32,
             ) -> RpcResult<Result<u32, hub_api::BusError<'_>>> {
                 Ready(Ok(id))
@@ -98,10 +98,10 @@ mod tests {
             fn set_bus_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u32,
             ) -> SetResult<hub_api::BusError<'_>> {
-                self.seen.lock().unwrap().speed[index_chain[0].0 as usize] = value;
+                self.seen.lock().unwrap().speed[index_chain[0].get().0 as usize] = value;
                 SetResult::Set
             }
 
@@ -109,9 +109,9 @@ mod tests {
             fn get_bus_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u32, hub_api::BusError<'_>> {
-                GetResult::Value(self.seen.lock().unwrap().speed[index_chain[0].0 as usize])
+                GetResult::Value(self.seen.lock().unwrap().speed[index_chain[0].get().0 as usize])
             }
 
             /// Received frames.
@@ -120,7 +120,7 @@ mod tests {
             fn bus_rx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 RpcResult::Ready(())
             }
@@ -129,14 +129,14 @@ mod tests {
             fn close_bus_rx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) {
             }
 
             fn sideband_bus_rx(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 _sideband: ww_client_server::StreamSideband,
             ) -> Option<ww_client_server::StreamSideband> {
                 // TODO: None sends no reply

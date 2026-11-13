@@ -54,7 +54,7 @@ mod tests {
         fn array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -62,14 +62,14 @@ mod tests {
         fn close_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
         ) {
         }
 
         fn sideband_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -95,7 +95,7 @@ mod tests {
         fn subgroup_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -103,14 +103,14 @@ mod tests {
         fn close_subgroup_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
         ) {
         }
 
         fn sideband_subgroup_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -119,7 +119,7 @@ mod tests {
         fn gpio_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -127,14 +127,14 @@ mod tests {
         fn close_gpio_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
         ) {
         }
 
         fn sideband_gpio_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 1],
+            _index_chain: [ww_client_server::ResourceIndex; 1],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -143,7 +143,7 @@ mod tests {
         fn gpio_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 2],
+            _index_chain: [ww_client_server::ResourceIndex; 2],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -151,14 +151,14 @@ mod tests {
         fn close_gpio_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 2],
+            _index_chain: [ww_client_server::ResourceIndex; 2],
         ) {
         }
 
         fn sideband_gpio_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 2],
+            _index_chain: [ww_client_server::ResourceIndex; 2],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -167,7 +167,7 @@ mod tests {
         fn periph_channel_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 2],
+            _index_chain: [ww_client_server::ResourceIndex; 2],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -175,14 +175,14 @@ mod tests {
         fn close_periph_channel_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 2],
+            _index_chain: [ww_client_server::ResourceIndex; 2],
         ) {
         }
 
         fn sideband_periph_channel_stream(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 2],
+            _index_chain: [ww_client_server::ResourceIndex; 2],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -191,7 +191,7 @@ mod tests {
         fn periph_channel_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 3],
+            _index_chain: [ww_client_server::ResourceIndex; 3],
         ) -> RpcResult<()> {
             Ready(())
         }
@@ -199,14 +199,14 @@ mod tests {
         fn close_periph_channel_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 3],
+            _index_chain: [ww_client_server::ResourceIndex; 3],
         ) {
         }
 
         fn sideband_periph_channel_array_of_streams(
             &mut self,
             _cx: &mut Context<'_, impl BlockingEventOut>,
-            _index_chain: [UNib32; 3],
+            _index_chain: [ww_client_server::ResourceIndex; 3],
             _cmd: StreamSideband,
         ) -> Option<StreamSideband> {
             None
@@ -230,18 +230,21 @@ mod tests {
 
         fn valid_indices_root_gpio_array_of_streams(
             &mut self,
-            _index: [UNib32; 1],
+            _index: [ww_client_server::ResourceIndex; 1],
         ) -> ValidIndices<'_> {
             ValidIndices::range_u32(0..255)
         }
 
-        fn valid_indices_root_periph_channel(&mut self, _index: [UNib32; 1]) -> ValidIndices<'_> {
+        fn valid_indices_root_periph_channel(
+            &mut self,
+            _index: [ww_client_server::ResourceIndex; 1],
+        ) -> ValidIndices<'_> {
             ValidIndices::range_u32(0..255)
         }
 
         fn valid_indices_root_periph_channel_array_of_streams(
             &mut self,
-            _index: [UNib32; 2],
+            _index: [ww_client_server::ResourceIndex; 2],
         ) -> ValidIndices<'_> {
             ValidIndices::range_u32(0..255)
         }
@@ -285,7 +288,7 @@ mod tests {
         };
         assert_eq!(
             path.iter()
-                .map(|p| p.unwrap().0)
+                .map(|p| p.unwrap().get().0)
                 .collect::<Vec<_>>()
                 .as_slice(),
             expected

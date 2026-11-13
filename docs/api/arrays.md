@@ -24,7 +24,7 @@ a request for another index is answered `ErrorKind::BadIndex`. Bounds in the API
 
 On the host, an array item takes its index first: `device.port(0).pin(3).read_pull()`, `device.adc(2).call()`. On the
 device, every handler of an item inside arrays, at any depth, gets the indices leading to it as one more argument,
-`index_chain: [UNib32; N]`, after `cx`; `ww api scaffold` prints the exact signatures. The generated code stays
+`index_chain: [ww_client_server::ResourceIndex; N]`, after `cx`; `ww api scaffold` prints the exact signatures. The generated code stays
 flat: the whole API tree becomes plain function calls on the server struct, with no per-index state.
 
 A whole array can be read, written or called in one request, see [Multi requests](multi_requests.md).

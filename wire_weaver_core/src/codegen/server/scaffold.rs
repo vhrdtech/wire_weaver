@@ -949,7 +949,7 @@ fn index_chain_arg(len: usize) -> String {
     if len == 0 {
         String::new()
     } else {
-        format!("_index_chain: [UNib32; {len}], ")
+        format!("_index_chain: [ww_client_server::ResourceIndex; {len}], ")
     }
 }
 

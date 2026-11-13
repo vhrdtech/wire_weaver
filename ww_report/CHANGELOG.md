@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `path::TraitAt::path` and `path::find_trait` are `Vec<ResourceIndex>` (`wire_weaver_client::ww_client_server::ResourceIndex`, STD-115), and the defmt log client's `at_path` takes one.
 - `report::Report::reset_symbols: Part<Vec<Located>>` is replaced by `crash: Part<CrashFrames>` (CLT-59), also in
   `ww report --format json`: read the frames from `crash.sites[].frames[]` (`function`, `file`, `short_file`,
   `line`, `column`, `inlined`, `kind`), the panic site from `crash.panic_site`.

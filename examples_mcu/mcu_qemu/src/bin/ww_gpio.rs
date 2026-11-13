@@ -60,7 +60,7 @@ impl ServerState {
     fn port_capabilities(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<BankCapabilities<'_>> {
         let cap = BankCapabilities {
             io_levels: MaxLen::new_unchecked(RefVec::Slice {
@@ -82,7 +82,7 @@ impl ServerState {
     fn port_configure(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
         config: BankConfig,
     ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
         // fixed 3.3 V, no level translators
@@ -95,7 +95,7 @@ impl ServerState {
     fn port_name(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<&'_ str> {
         ww_unimplemented!()
     }
@@ -103,7 +103,7 @@ impl ServerState {
     fn port_pin_set_output_level(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
         _level: Level,
     ) -> RpcResult<()> {
         ww_unimplemented!()
@@ -112,7 +112,7 @@ impl ServerState {
     fn port_pin_output_level(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<Level> {
         ww_unimplemented!()
     }
@@ -120,7 +120,7 @@ impl ServerState {
     fn port_pin_toggle(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<()> {
         ww_unimplemented!()
     }
@@ -128,7 +128,7 @@ impl ServerState {
     fn port_pin_input_level(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<Level> {
         ww_unimplemented!()
     }
@@ -137,7 +137,7 @@ impl ServerState {
     fn port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
         _enabled: IoPinEnabledEvents<'_>,
     ) -> RpcResult<Result<(), GpioError<'_>>> {
         Ready(Err(CommonError::Unsupported.into()))
@@ -146,12 +146,12 @@ impl ServerState {
     fn close_port_pin_event(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) {
     }
 
     /// One state for every pin: the stream never opens on this board.
-    fn stream_port_pin_event(&mut self, _index: [UNib32; 2]) -> &mut Counted {
+    fn stream_port_pin_event(&mut self, _index: [ww_client_server::ResourceIndex; 2]) -> &mut Counted {
         &mut self.pin_events
     }
 
@@ -163,7 +163,7 @@ impl ServerState {
     fn port_pin_set_mode(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
         _mode: Mode,
         _initial: Option<Level>,
     ) -> RpcResult<Result<(), GpioError<'_>>> {
@@ -173,7 +173,7 @@ impl ServerState {
     fn port_pin_mode(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<Mode> {
         ww_unimplemented!()
     }
@@ -181,7 +181,7 @@ impl ServerState {
     fn set_port_pin_pull(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
         _pull: Pull,
     ) -> SetResult<GpioError<'_>> {
         ww_unimplemented!()
@@ -190,7 +190,7 @@ impl ServerState {
     fn get_port_pin_pull(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> GetResult<Pull, GpioError<'_>> {
         ww_unimplemented!()
     }
@@ -198,7 +198,7 @@ impl ServerState {
     fn set_port_pin_speed(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
         _speed: Speed,
     ) -> SetResult<GpioError<'_>> {
         ww_unimplemented!()
@@ -207,7 +207,7 @@ impl ServerState {
     fn get_port_pin_speed(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> GetResult<Speed, GpioError<'_>> {
         ww_unimplemented!()
     }
@@ -215,7 +215,7 @@ impl ServerState {
     fn port_pin_capabilities(
         &mut self,
         _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 2],
+        _index: [ww_client_server::ResourceIndex; 2],
     ) -> RpcResult<PinCapabilities<'_>> {
         ww_unimplemented!()
     }
@@ -224,7 +224,7 @@ impl ServerState {
         ValidIndices::range_u32(0..8)
     }
 
-    fn valid_indices_root_port_pin(&mut self, _index: [UNib32; 1]) -> ValidIndices<'_> {
+    fn valid_indices_root_port_pin(&mut self, _index: [ww_client_server::ResourceIndex; 1]) -> ValidIndices<'_> {
         ValidIndices::range_u32(0..16)
     }
 }

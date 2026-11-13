@@ -138,7 +138,7 @@ impl WireWeaverAsyncApiBackend for Dev {
 
 fn update_event(data: &LevelData) -> Vec<u8> {
     let data = data.to_ww_bytes_owned().unwrap();
-    let path = [UNib32(LEVEL)];
+    let path = ww_client_server::resource_path([LEVEL]);
     let mut buf = [0u8; 128];
     Event {
         seq: UVlq32(0),
@@ -250,10 +250,9 @@ async fn start_event_loop(
 }
 
 fn level_path() -> PathKind<'static> {
+    const PATH: [ww_client_server::ResourceIndex; 1] = ww_client_server::resource_path([LEVEL]);
     PathKind::Absolute {
-        path: RefVec::Slice {
-            slice: &[UNib32(LEVEL)],
-        },
+        path: RefVec::Slice { slice: &PATH },
     }
 }
 

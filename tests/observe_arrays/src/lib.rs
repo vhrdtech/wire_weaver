@@ -52,7 +52,7 @@ mod tests {
                 state: u8,
             ) -> RpcResult<()> {
                 self.browser_state[slot as usize] = state;
-                self.mark_changed_browsers_state([UNib32(slot)]);
+                self.mark_changed_browsers_state(ww_client_server::resource_path([slot]));
                 RpcResult::Ready(())
             }
 
@@ -64,7 +64,9 @@ mod tests {
             ) -> RpcResult<()> {
                 if let Some((_, t)) = self.players.iter_mut().find(|(id, _)| *id == player) {
                     *t = title;
-                    self.mark_changed_media_players_playback_title([UNib32(player)]);
+                    self.mark_changed_media_players_playback_title(
+                        ww_client_server::resource_path([player]),
+                    );
                 }
                 RpcResult::Ready(())
             }
@@ -86,7 +88,7 @@ mod tests {
             ) -> RpcResult<()> {
                 self.players.retain(|(id, _)| *id != player);
                 self.player_ids.retain(|id| id.0 != player);
-                self.element_removed_media_players([UNib32(player)]);
+                self.element_removed_media_players(ww_client_server::resource_path([player]));
                 RpcResult::Ready(())
             }
 
@@ -97,30 +99,30 @@ mod tests {
             async fn get_browsers_state(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u8, ()> {
-                GetResult::Value(self.browser_state[index_chain[0].0 as usize])
+                GetResult::Value(self.browser_state[index_chain[0].get().0 as usize])
             }
 
             async fn changed_browsers_zoom(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) {
             }
 
             async fn get_browsers_playback_title(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<String, ()> {
-                GetResult::Value(format!("browser {}", index_chain[0].0))
+                GetResult::Value(format!("browser {}", index_chain[0].get().0))
             }
 
             async fn browsers_playback_play(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 RpcResult::Ready(())
             }
@@ -134,7 +136,7 @@ mod tests {
             async fn get_media_players_source(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u8, ()> {
                 GetResult::Value(0)
             }
@@ -142,9 +144,13 @@ mod tests {
             async fn get_media_players_playback_title(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<String, ()> {
-                match self.players.iter().find(|(id, _)| *id == index_chain[0].0) {
+                match self
+                    .players
+                    .iter()
+                    .find(|(id, _)| *id == index_chain[0].get().0)
+                {
                     Some((_, title)) => GetResult::Value(title.clone()),
                     None => GetResult::Unimplemented,
                 }
@@ -153,7 +159,7 @@ mod tests {
             async fn media_players_playback_play(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<()> {
                 RpcResult::Ready(())
             }
@@ -584,7 +590,7 @@ mod tests {
                 ..
             }) = Event::from_ww_bytes(&bytes)
             {
-                paths.insert(path.iter().map(|p| p.unwrap().0).collect::<Vec<_>>());
+                paths.insert(path.iter().map(|p| p.unwrap().get().0).collect::<Vec<_>>());
             }
         }
         // browsers is item 0 of the root, playback item 2 of Browser; media item 1, players item 0, playback item 1

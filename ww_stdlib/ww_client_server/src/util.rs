@@ -9,11 +9,9 @@
 //!
 //! [StreamHead]: crate::stream::StreamHead
 
-use super::{Event, EventKind, EventKindDiscriminants, StreamSideband};
+use super::{Event, EventKind, EventKindDiscriminants, ResourceIndex, StreamSideband};
 use crate::builder::{EventBuilder, EventKindBuilder};
-use wire_weaver::shrink_wrap::{
-    BufWriter, Error, SerializeShrinkWrap, UNib32, UVlq32, ref_vec::RefVec,
-};
+use wire_weaver::shrink_wrap::{BufWriter, Error, SerializeShrinkWrap, UVlq32, ref_vec::RefVec};
 
 /// Serialize an `Ok` event of any kind. Links the serializer of every [EventKind], see the [module docs](self):
 /// device code uses the writer of its kind instead.
@@ -73,7 +71,7 @@ pub fn ser_value_event<'a>(
 pub fn ser_stream_data_bytes_event<'a>(
     scratch: &'a mut [u8],
     seq: u32,
-    path: &[UNib32],
+    path: &[ResourceIndex],
     data: &[u8],
 ) -> Result<&'a [u8], Error> {
     let mut wr = BufWriter::new(scratch);
@@ -90,7 +88,7 @@ pub fn ser_stream_data_bytes_event<'a>(
 pub fn ser_stream_sideband_event<'a>(
     scratch: &'a mut [u8],
     seq: u32,
-    path: &[UNib32],
+    path: &[ResourceIndex],
     sideband: StreamSideband,
 ) -> Result<&'a [u8], Error> {
     let mut wr = BufWriter::new(scratch);
@@ -107,7 +105,7 @@ pub fn ser_stream_sideband_event<'a>(
 mod tests {
     use super::*;
     use crate::{Error as WwError, ErrorKind};
-    use wire_weaver::shrink_wrap::{UVlq64, tail_bytes::TailBytes};
+    use wire_weaver::shrink_wrap::{UNib32, UVlq64, tail_bytes::TailBytes};
 
     fn whole<'a, 'i>(
         buf: &'a mut [u8],
@@ -128,7 +126,11 @@ mod tests {
         &[0xaa],
         &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
     ];
-    const PATHS: [&[UNib32]; 3] = [&[], &[UNib32(3)], &[UNib32(0), UNib32(7), UNib32(1000)]];
+    const PATHS: [&[ResourceIndex]; 3] = [
+        &[],
+        &crate::resource_path([3]),
+        &crate::resource_path([0, 7, 1000]),
+    ];
 
     #[test]
     fn value_event_as_whole() {
@@ -252,7 +254,9 @@ mod tests {
     fn too_small_scratch_is_an_error() {
         let mut b = [0u8; 4];
         assert!(ser_value_event(&mut b, 1, &[0; 8]).is_err());
-        assert!(ser_stream_data_bytes_event(&mut b, 1, &[UNib32(1)], &[0; 8]).is_err());
+        assert!(
+            ser_stream_data_bytes_event(&mut b, 1, &crate::resource_path([1]), &[0; 8]).is_err()
+        );
         assert!(ser_err_event(&mut b[..1], 1000, WwError::not_supported(123)).is_err());
     }
 }

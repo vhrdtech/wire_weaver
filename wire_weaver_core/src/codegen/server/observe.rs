@@ -83,7 +83,7 @@ impl Level {
         self.elements.as_ref().map_or(0, |e| e.holes.len())
     }
 
-    /// The level's path as a slice pattern: `UNib32(id)` per item, an array index bound to `index_<i>` (`bind`) or
+    /// The level's path as a slice pattern over its numbers (`u32`s): `id` per item, an array index bound to `index_<i>` (`bind`) or
     /// `_` (API-63).
     fn path_pattern(&self, bind: bool) -> Vec<TokenStream> {
         let holes = self.elements.as_ref().map_or(&[][..], |e| &e.holes[..]);
@@ -96,18 +96,18 @@ impl Level {
                     quote! { #index }
                 }
                 Some(_) => quote! { _ },
-                None => quote! { UNib32(#id) },
+                None => quote! { #id },
             })
             .collect()
     }
 
-    /// The level's path with the indices of the element in `chain` (`[UNib32]` of its depth) (API-63).
+    /// The level's path with the indices of the element in `chain` (`[ResourceIndex]` of its depth) (API-63).
     fn path_expr(&self, chain: &TokenStream) -> TokenStream {
         let holes = self.elements.as_ref().map_or(&[][..], |e| &e.holes[..]);
         let parts = self.path.iter().enumerate().map(|(at, id)| {
             match holes.iter().position(|h| *h == at) {
                 Some(i) => quote! { #chain[#i] },
-                None => quote! { UNib32(#id) },
+                None => quote! { ww_client_server::ResourceIndex::new(UNib32(#id)) },
             }
         });
         quote! { [#(#parts),*] }
@@ -1682,7 +1682,7 @@ impl Observe {
                     let doc = format!("{doc} `index_chain`: the element's indices, as its handlers get them.");
                     return quote! {
                         #[doc = #doc]
-                        pub fn #name(&mut self, index_chain: [UNib32; #d]) {
+                        pub fn #name(&mut self, index_chain: [ww_client_server::ResourceIndex; #d]) {
                             ww_stream::observe::mark_element_changed(&mut self.observe_state().#field, &index_chain, #k);
                         }
                     };
@@ -1713,7 +1713,7 @@ impl Observe {
             );
             quote! {
                 #[doc = #doc]
-                pub fn #name(&mut self, index_chain: [UNib32; #depth]) {
+                pub fn #name(&mut self, index_chain: [ww_client_server::ResourceIndex; #depth]) {
                     let state = self.observe_state();
                     #(#ends)*
                 }
@@ -1736,6 +1736,7 @@ impl Observe {
             fixed_err_seq("OBSERVE_ARRAY"),
             fixed_err_seq("OBSERVE_PATH"),
         );
+        let max_path = self.levels.iter().map(|l| l.path.len()).max().unwrap_or(0);
         // levels without observable properties: every entry refused, by one shared path
         let empty = self
             .levels
@@ -1781,9 +1782,12 @@ impl Observe {
                     let checks = e.valid.iter().enumerate().map(|(i, valid)| {
                         let index = &indices[i];
                         let before = &indices[..i];
-                        let arg = maybe_quote(i > 0, quote! { [#(*#before),*] });
+                        let arg = maybe_quote(
+                            i > 0,
+                            quote! { [#(ww_client_server::ResourceIndex::new(UNib32(*#before))),*] },
+                        );
                         quote! {
-                            if !self.#valid(#arg).contains(#index.0) {
+                            if !self.#valid(#arg).contains(*#index) {
                                 return Err(Error::new(#es_index, ErrorKind::BadIndex));
                             }
                         }
@@ -1791,7 +1795,7 @@ impl Observe {
                     (
                         quote! {
                             #(#checks)*
-                            let chain = [#(*#indices),*];
+                            let chain = [#(ww_client_server::ResourceIndex::new(UNib32(*#indices))),*];
                             let state = self.observe_state();
                             let limits = state.limits;
                             let in_use = state.budget_in_use();
@@ -1853,7 +1857,7 @@ impl Observe {
             /// `ww_stream::observe::ObserveTable::apply`, answered with `ObserveGranted`.
             fn observe_request(
                 &mut self,
-                path: &[UNib32],
+                path: &[ww_client_server::ResourceIndex],
                 cfg: &ww_client_server::observe::ObserveRequest<'_>,
                 wr: &mut BufWriter<'_>,
             ) -> Result<(), Error<'static>> {
@@ -1863,7 +1867,16 @@ impl Observe {
                 const REFUSED_MAX: usize = 16;
                 let mut refused = [ObserveRefused { index: ww_client_server::ResourceIndex::new(UNib32(0)), reason: ObserveRefusal::NoSuchIndex }; REFUSED_MAX];
                 let event_kind_builder = EventKindBuilder::new(wr).map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
-                let empty_level: Option<u32> = match path {
+                // the path's numbers, for the levels' slice patterns: no level's path is longer than this
+                let mut numbers = [0u32; #max_path];
+                let Some(numbers) = numbers.get_mut(..path.len()) else {
+                    return Err(Error::bad_path(#es_path));
+                };
+                for (n, index) in numbers.iter_mut().zip(path) {
+                    *n = index.get().0;
+                }
+                let numbers = &*numbers;
+                let empty_level: Option<u32> = match numbers {
                     #(#empty)*
                     _ => None,
                 };
@@ -1888,7 +1901,7 @@ impl Observe {
                     event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, wr);
                     return Ok(());
                 }
-                match path {
+                match numbers {
                     #(#arms)*
                     _ => return Err(Error::bad_path(#es_path)),
                 }
@@ -1952,7 +1965,7 @@ impl Observe {
             let path = if level.elements.is_some() {
                 quote! { &[] }
             } else {
-                quote! { &[#(UNib32(#path)),*] }
+                quote! { &[#(ww_client_server::ResourceIndex::new(UNib32(#path))),*] }
             };
             let (lo, hi) = numbers[i];
             std::iter::repeat_n(path, hi - lo + 1)
@@ -1979,8 +1992,8 @@ impl Observe {
             quote! {
                 // an element level's number is one of its element tables (API-63): nothing to do while free, an
                 // ended element is told to its host and freed, an observed one's path and chain from the table
-                let mut path_buf = [UNib32(0); #max_path];
-                let mut chain = [UNib32(0); #max_depth];
+                let mut path_buf = [const { ww_client_server::ResourceIndex::new(UNib32(0)) }; #max_path];
+                let mut chain = [const { ww_client_server::ResourceIndex::new(UNib32(0)) }; #max_depth];
                 let ended = match self.observe_state().element(level) {
                     None => false,
                     Some(e) => match e.state() {
@@ -1995,7 +2008,7 @@ impl Observe {
                         }
                     },
                 };
-                let path: &[UNib32] = match level {
+                let path: &[ww_client_server::ResourceIndex] = match level {
                     #(#element_paths)*
                     _ => PATHS[level],
                 };
@@ -2055,7 +2068,7 @@ impl Observe {
             // an element's handlers get its chain (API-63)
             let (chain_arg, field_index) = match &level.elements {
                 Some(e) => {
-                    let at = (0..e.holes.len()).map(|j| quote! { [chain[#j].0 as usize] });
+                    let at = (0..e.holes.len()).map(|j| quote! { [chain[#j].get().0 as usize] });
                     (
                         quote! { , core::array::from_fn(|j| chain[j]) },
                         quote! { #(#at)* },
@@ -2306,7 +2319,7 @@ impl Observe {
                 #scratch_arg
             ) -> Result<(), wire_weaver::SendError> {
                 const DESCS: [ww_stream::observe::LevelDesc<'static>; #level_count] = [#(#descs),*];
-                const PATHS: [&[UNib32]; #level_count] = [#(#paths),*];
+                const PATHS: [&[ww_client_server::ResourceIndex]; #level_count] = [#(#paths),*];
                 #[allow(unused_mut)]
                 let mut cx = wire_weaver::Context::new(0, medium, out);
                 // changes marked outside the server state since the last poll (SRV-25)

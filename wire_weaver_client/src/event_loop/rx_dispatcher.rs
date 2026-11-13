@@ -13,7 +13,8 @@ use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use tracing::{debug, trace, warn};
 use wire_weaver::prelude::UVlq32Backfill;
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned, UNib32};
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned};
+use ww_client_server::ResourceIndex;
 use ww_client_server::{ErrorKind, EventKind, PathKindOwned, RequestKindOwned};
 
 pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
@@ -108,7 +109,7 @@ pub(crate) struct RxDispatcher {
     /// one, [Self::take_absolute_retries] (SRV-53)
     absolute_retries: Vec<AbsoluteRetry>,
     /// Open counted and reliable streams, by path
-    positioned: HashMap<Vec<UNib32>, Arc<Shared>>,
+    positioned: HashMap<Vec<ResourceIndex>, Arc<Shared>>,
     /// Time base of the streams' receivers, and when they were polled last
     epoch: Option<Instant>,
     last_stream_poll: Option<Instant>,
@@ -116,11 +117,11 @@ pub(crate) struct RxDispatcher {
     pub(crate) keep_streams: bool,
     /// Timed out requests, whose seq is not freed until a late reply arrives or [LATE_REPLY_WINDOW] ends.
     timed_out: HashMap<SeqTy, Instant>,
-    stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
+    stream_handlers: HashMap<Vec<ResourceIndex>, Vec<StreamUpdateSender>>,
     /// Sinks registered on this connection, told when it goes and whether they are kept
     sinks: Vec<Weak<SinkLink>>,
     /// Observed trait levels, by path (CLT-28)
-    observe_routes: HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
+    observe_routes: HashMap<Vec<ResourceIndex>, Arc<dyn LevelRoute>>,
     /// Forwarded requests waiting for their (last) answer (`Command::Forward`): tag, timeout instant and
     /// [LATE_REPLY_WINDOW] end, by seq.
     forwards: HashMap<SeqTy, (u64, Instant, Instant)>,
@@ -259,7 +260,7 @@ impl RxDispatcher {
             .filter(|(_, l)| !l.is_empty())
             .map(|(p, _)| p)
             .chain(self.positioned.keys())
-            .map(|p| p.iter().map(|n| n.0).collect())
+            .map(|p| p.iter().map(|n| n.get().0).collect())
             .collect();
         paths.sort();
         paths.dedup();

@@ -46,7 +46,7 @@ pub fn request(i: usize, buf: &mut [u8]) -> &[u8] {
             sideband: StreamSideband::Close,
         },
     };
-    let path = [UNib32(0), UNib32(CASES[i].1)];
+    let path = ww_client_server::resource_path([0, CASES[i].1]);
     let req = Request {
         seq: UVlq32Backfill(7),
         priority: Priority::NORMAL.nibble(),

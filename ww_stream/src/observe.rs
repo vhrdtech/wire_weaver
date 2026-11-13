@@ -858,7 +858,7 @@ pub enum ElementState {
 /// Elements come and go: [end_elements] ends the observers of a removed one.
 #[derive(Debug, Clone)]
 pub struct ElementTable<S: ?Sized, const D: usize> {
-    chain: [UNib32; D],
+    chain: [ResourceIndex; D],
     state: ElementState,
     pub table: ObserveTable<S>,
 }
@@ -867,7 +867,7 @@ impl<const N: usize, const D: usize> ElementTable<[Slot; N], D> {
     /// Free, nothing observed.
     pub const fn new() -> Self {
         ElementTable {
-            chain: [UNib32(0); D],
+            chain: [const { ResourceIndex::new(UNib32(0)) }; D],
             state: ElementState::Free,
             table: ObserveTable::new(),
         }
@@ -890,7 +890,8 @@ impl<const N: usize, const D: usize> ElementTable<[Slot; N], D> {
         unsafe {
             for i in 0..K {
                 let e = at.add(i);
-                core::ptr::addr_of_mut!((*e).chain).write([UNib32(0); D]);
+                core::ptr::addr_of_mut!((*e).chain)
+                    .write([const { ResourceIndex::new(UNib32(0)) }; D]);
                 core::ptr::addr_of_mut!((*e).state).write(ElementState::Free);
                 ObserveTable::init(
                     &mut *core::ptr::addr_of_mut!((*e).table)
@@ -902,7 +903,7 @@ impl<const N: usize, const D: usize> ElementTable<[Slot; N], D> {
     }
 
     /// The element's index chain.
-    pub fn chain(&self) -> &[UNib32; D] {
+    pub fn chain(&self) -> &[ResourceIndex; D] {
         &self.chain
     }
 
@@ -954,7 +955,7 @@ impl<const N: usize, const D: usize> Default for ElementTable<[Slot; N], D> {
 pub trait Element {
     fn state(&self) -> ElementState;
     /// The element's index chain.
-    fn chain(&self) -> &[UNib32];
+    fn chain(&self) -> &[ResourceIndex];
     /// See [ElementTable::release].
     fn release(&mut self);
 }
@@ -964,7 +965,7 @@ impl<const N: usize, const D: usize> Element for ElementTable<[Slot; N], D> {
         self.state
     }
 
-    fn chain(&self) -> &[UNib32] {
+    fn chain(&self) -> &[ResourceIndex] {
         &self.chain
     }
 
@@ -978,7 +979,7 @@ impl<const N: usize, const D: usize> Element for ElementTable<[Slot; N], D> {
 /// back as it is: the element is there again, the host's new settings replace the end.
 pub fn element_for<const N: usize, const D: usize>(
     tables: &mut [ElementTable<[Slot; N], D>],
-    chain: &[UNib32; D],
+    chain: &[ResourceIndex; D],
 ) -> Option<usize> {
     if let Some(i) = tables
         .iter()
@@ -999,7 +1000,7 @@ pub fn element_for<const N: usize, const D: usize>(
 /// Mark property `k` of the element at `chain` changed, if it is observed.
 pub fn mark_element_changed<const N: usize, const D: usize>(
     tables: &mut [ElementTable<[Slot; N], D>],
-    chain: &[UNib32; D],
+    chain: &[ResourceIndex; D],
     k: usize,
 ) {
     for e in tables.iter_mut() {
@@ -1013,7 +1014,7 @@ pub fn mark_element_changed<const N: usize, const D: usize>(
 /// everything under it): their observers end. `poll_properties` tells the host at its next call.
 pub fn end_elements<const N: usize, const D: usize>(
     tables: &mut [ElementTable<[Slot; N], D>],
-    prefix: &[UNib32],
+    prefix: &[ResourceIndex],
 ) {
     for e in tables.iter_mut() {
         if e.state == ElementState::Observed && e.chain.starts_with(prefix) {
@@ -1435,7 +1436,7 @@ impl Update {
 pub fn select<'m>(
     plan: &Plan<'_>,
     desc: &LevelDesc<'_>,
-    path: &[UNib32],
+    path: &[ResourceIndex],
     buf: &mut [u8],
     marks: &'m mut [Mark],
     batch: Option<&BatchOffer<'_>>,
@@ -1556,7 +1557,7 @@ pub fn write(
 /// wrote), with the time column of the batch sent (`sample_times`, API-39). Returns the event's length.
 pub fn ser_update(
     scratch: &mut [u8],
-    path: &[UNib32],
+    path: &[ResourceIndex],
     update: &Update,
     data: &[u8],
     sample_times: Option<&[u8]>,
@@ -1613,7 +1614,7 @@ pub use ww_si::Second;
 
 /// [event_overhead] of the level at `path` with the longest `t` and `missed` an update can have: what
 /// [batch_budget] is worked out from, before the update's own head is known.
-pub fn batch_overhead(buf: &mut [u8], path: &[UNib32]) -> Result<usize, ShrinkWrapError> {
+pub fn batch_overhead(buf: &mut [u8], path: &[ResourceIndex]) -> Result<usize, ShrinkWrapError> {
     let t = ww_si::Second::from_parts(
         ww_si::Prefix::Micro,
         ww_si::ww_numeric::NumericValue::U32(u32::MAX),
@@ -1757,7 +1758,7 @@ pub fn measure<T: SerializeShrinkWrap + ?Sized>(value: &T, buf: &mut [u8]) -> Op
 /// Length of the `PropertyUpdate` event of the level at `path` with no data, serialized into `buf`.
 pub fn event_overhead(
     buf: &mut [u8],
-    path: &[UNib32],
+    path: &[ResourceIndex],
     t: Option<ww_si::Second>,
     missed: Option<UNib32>,
 ) -> Result<usize, ShrinkWrapError> {

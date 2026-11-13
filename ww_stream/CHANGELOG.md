@@ -34,6 +34,7 @@
 ### ⚠️ Breaking
 
 - Feature `streams` (SRV-60, on with `std` and `lz4`) holds `tx`, `rx`, `sink` and `codec` and the counted and reliable sides of `batch::Batched` (`poll_reliable`, `poll_counted`): they need `ww_client_server`'s `streams` wire messages, which a firmware with only plain streams and observed properties no longer carries. A firmware with counted or reliable streams or credit sinks turns it on (`ww_stream = { .., features = ["streams"] }`).
+- Resource paths are `ww_client_server::ResourceIndex`es (STD-115), the same bytes: an `observe::ElementTable`'s chain (`chain()`, `element_for`, `mark_element_changed`, `end_elements`, the `Element` trait) and the `path` of `observe::batch_overhead` and the observe event writers.
 - Follows `ww_client_server`'s typed numbers (STD-115): the wire types it builds and reads (observe periods, budgets, resource indices, byte grants, store sizes, clock epochs) are typed; its own API (`ObserveLimits`, `Batched::with_max_age`, `SinkCredit`, the stores) keeps its plain µs and byte counts, so a firmware's settings are unchanged. Code that matched `ObserveMode` or `StoreStatus` fields by hand renames them (`min`, `every`, `max`, `max_age`, `used`, `capacity`).
 
 - `batch` re-exports `TimePoint` and `TimeStep` next to `Timed`, whose `t` is a time point now (`ww_si` STD-110, wire change EVO-51): a `Batched<_, Timed<T>, N>` holds `Timed<T, DeviceMicros<u32>>` items.

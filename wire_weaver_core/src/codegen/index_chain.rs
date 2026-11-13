@@ -4,7 +4,7 @@ use quote::quote;
 #[derive(Copy, Clone)]
 pub struct IndexChain {
     len: usize,
-    /// The chain's start is only known at run time, kept in a `Vec<UNib32>`: a shared sub-level client reached at
+    /// The chain's start is only known at run time, kept in a `Vec<ResourceIndex>`: a shared sub-level client reached at
     /// another depth in each line (CLT-68). `len` counts what is pushed after that start.
     dynamic: bool,
 }
@@ -17,7 +17,7 @@ impl IndexChain {
         }
     }
 
-    /// A chain whose start is a `Vec<UNib32>` field set at run time (CLT-68).
+    /// A chain whose start is a `Vec<ResourceIndex>` field set at run time (CLT-68).
     pub fn dynamic() -> Self {
         IndexChain {
             len: 0,
@@ -34,18 +34,18 @@ impl IndexChain {
         if len == 0 {
             quote! {}
         } else {
-            quote! { index_chain: [UNib32; #len] , }
+            quote! { index_chain: [ResourceIndex; #len] , }
         }
     }
 
     pub fn struct_field_def(&self) -> TokenStream {
         let len = self.len;
         if self.dynamic {
-            quote! { pub index_chain: Vec<UNib32>, }
+            quote! { pub index_chain: Vec<ResourceIndex>, }
         } else if len == 0 {
             quote! {}
         } else {
-            quote! { pub index_chain: [UNib32; #len], }
+            quote! { pub index_chain: [ResourceIndex; #len], }
         }
     }
 
@@ -54,7 +54,7 @@ impl IndexChain {
     //     if len == 0 {
     //         quote! {}
     //     } else {
-    //         quote! { -> [UNib32; #len] }
+    //         quote! { -> [ResourceIndex; #len] }
     //     }
     // }
 
@@ -72,30 +72,30 @@ impl IndexChain {
         if len == 0 {
             quote! {}
         } else {
-            let indices = (0..len).map(|i| quote! { index_chain[#i].0 as usize });
+            let indices = (0..len).map(|i| quote! { index_chain[#i].get().0 as usize });
             quote! { [ #(#indices),* ] }
         }
     }
 
     /// Increments length and generates code that creates new index chain from all previous elements + one new from `expr`:
-    /// `let index_chain: [UNib32; prev_len + 1] = [ <source> index_chain[0], <source> index_chain[1], ..., <expr> ];`
+    /// `let index_chain: [ResourceIndex; prev_len + 1] = [ <source> index_chain[0], <source> index_chain[1], ..., <expr> ];`
     pub fn push_back(&mut self, source: TokenStream, expr: TokenStream) -> TokenStream {
         let prev_len = self.len;
         self.len += 1;
         let len = self.len;
         if self.dynamic {
             quote! {
-                let mut index_chain: Vec<UNib32> = #source index_chain.to_vec();
+                let mut index_chain: Vec<ResourceIndex> = #source index_chain.to_vec();
                 index_chain.push(#expr);
             }
         } else if prev_len == 0 {
             quote! {
-                let index_chain: [UNib32; 1] = [#expr];
+                let index_chain: [ResourceIndex; 1] = [#expr];
             }
         } else {
             let copy_previous = (0..prev_len).map(|i| quote! { #source index_chain[#i] });
             quote! {
-                let index_chain: [UNib32; #len] = [#(#copy_previous),*, #expr];
+                let index_chain: [ResourceIndex; #len] = [#(#copy_previous),*, #expr];
             }
         }
     }

@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
 use wire_weaver::shrink_wrap::{
-    DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec, SerializeShrinkWrap, UNib32, UVlq32,
+    DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec, SerializeShrinkWrap, UVlq32,
 };
 use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind, StreamSideband};
@@ -84,6 +84,7 @@ impl WireWeaverAsyncApiBackend for Dev {
             .iter()
             .next()
             .ok_or(ShrinkWrapError::OutOfBoundsRev)??
+            .get()
             .0;
         let now_ms = self.now_ms();
         let opened: Opened = match request.kind {
@@ -149,7 +150,7 @@ enum Produce {
 }
 
 fn stream_event(stream: u32, head: StreamHead, item: &[u8], buf: &mut [u8]) -> Vec<u8> {
-    let path = [UNib32(stream)];
+    let path = ww_client_server::resource_path([stream]);
     Event {
         seq: UVlq32(0),
         result: Ok(EventKind::StreamItem {
@@ -164,7 +165,7 @@ fn stream_event(stream: u32, head: StreamHead, item: &[u8], buf: &mut [u8]) -> V
 }
 
 fn sideband_event(stream: u32, sideband: StreamSideband, buf: &mut [u8]) -> Vec<u8> {
-    let path = [UNib32(stream)];
+    let path = ww_client_server::resource_path([stream]);
     Event {
         seq: UVlq32(0),
         result: Ok(EventKind::StreamSideband {
@@ -335,12 +336,16 @@ impl Connection {
 }
 
 fn path(stream: u32) -> PathKind<'static> {
+    const RELIABLE_PATH: [ww_client_server::ResourceIndex; 1] =
+        ww_client_server::resource_path([RELIABLE]);
+    const COUNTED_PATH: [ww_client_server::ResourceIndex; 1] =
+        ww_client_server::resource_path([COUNTED]);
     PathKind::Absolute {
         path: RefVec::Slice {
             slice: if stream == RELIABLE {
-                &[UNib32(RELIABLE)]
+                &RELIABLE_PATH
             } else {
-                &[UNib32(COUNTED)]
+                &COUNTED_PATH
             },
         },
     }

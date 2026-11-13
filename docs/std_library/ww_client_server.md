@@ -35,7 +35,9 @@ reads such a request as `RequestKind::Unknown` (`StreamSideband::Unknown`) and t
   trait_name, path_from_trait }` (any crates.io trait, by crate name and version - biggest, since it carries the
   name as a string). A server honors a global path wherever the matching trait sits in its API tree (API-20), after
   checking its own version is protocol-compatible (`FullVersion::is_protocol_compatible`) - what makes a global
-  path work across API versions, e.g. for firmware update or device info calls.
+  path work across API versions, e.g. for firmware update or device info calls. Every element of a path (and of
+  the event paths below) is a `ResourceIndex`, `Index<Resource, UNib32>`: the bytes of a plain `UNib32`, typed so a
+  path element can't be mixed up with another number. `resource_path([0, 3])` builds one, `const` included.
 * `RequestKind<'i>` - the operation: `Call { args }` / `MultiCall` (same method over an array or several methods
   at once), `Read` / `MultiRead`, `Write { data }` / `MultiWrite`, `StreamSideband { sideband }`, `Introspect`
   (send the `ww_self::ApiBundle` of the addressed resource), `StreamOpen { resume, args }` (open a
@@ -43,7 +45,9 @@ reads such a request as `RequestKind::Unknown` (`StreamSideband::Unknown`) and t
   `Observe { cfg }` (how a trait level's properties are sent, see [below](#observing-properties) and
   [Observing properties](../api/observing.md)). Arguments and written values travel as `TailBytes<'i>` - already
   ShrinkWrap-serialized by the generated code on either end, opaque to this crate.
-* `MultiIndex<'i>` / `MultiArgs<'i>` - which resources a multi-request covers (`Range`, `List`, or `Mask32`) and
+* `MultiIndex<'i>` / `MultiArgs<'i>` - which resources a multi-request covers (`Range`, a `List` of
+  `ResourceIndex`es, or `Mask32`; `Range` holds plain `UNib32`s, as a range in the API model holds only plain
+  numbers, and `MultiIndex::iter` yields `ResourceIndex`es for all three) and
   whether every one gets the same serialized arguments (`MultiArgs::Same`) or each its own
   (`MultiArgs::Different`) - see [Multi requests](../api/multi_requests.md) for the full request/reply shape.
 * `Event<'i>` - `seq: UVlq32` (echoes the request's, 0 for unsolicited stream/property updates), `result:

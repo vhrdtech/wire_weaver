@@ -9,7 +9,8 @@
 
 use crate::{Level, PinError, Pins, Point, PointCaps, PointState, Pull};
 use anyhow::{Result, anyhow, bail};
-use wire_weaver::prelude::{CommonErrorOwned, UNib32};
+use wire_weaver::prelude::CommonErrorOwned;
+use wire_weaver_client::ww_client_server::ResourceIndex;
 use wire_weaver_client::{CallError, Commander, DynClient, DynResource, DynResourceKind};
 use ww_gpio::{GpioErrorOwned, Mode};
 use ww_pin_diag::{InternedOwned, PinDiagErrorOwned};
@@ -145,7 +146,7 @@ impl BankPins {
     }
 }
 
-fn commander(device: &DynClient, chain: &[UNib32]) -> Commander {
+fn commander(device: &DynClient, chain: &[ResourceIndex]) -> Commander {
     let mut cmd = device.cmd().clone();
     cmd.set_base_path(chain.to_vec());
     cmd

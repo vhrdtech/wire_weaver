@@ -40,7 +40,7 @@ impl GpioClient {
         let index = if let Some(base_path) = cmd.base_path()
             && let Some(last) = base_path.last()
         {
-            last.0
+            last.get().0
         } else {
             return Err(Error::Internal("empty base path".into()));
         };

@@ -35,13 +35,13 @@ fn request(seq: u32, path_kind: PathKind<'_>, kind: RequestKind<'_>) -> Vec<u8> 
     req.to_ww_bytes(&mut buf).unwrap().to_vec()
 }
 
-fn absolute(path: &[UNib32]) -> PathKind<'_> {
+fn absolute(path: &[ww_client_server::ResourceIndex]) -> PathKind<'_> {
     PathKind::Absolute {
         path: RefVec::Slice { slice: path },
     }
 }
 
-fn call(seq: u32, path: &[UNib32], args: &[u8]) -> Vec<u8> {
+fn call(seq: u32, path: &[ww_client_server::ResourceIndex], args: &[u8]) -> Vec<u8> {
     request(
         seq,
         absolute(path),
@@ -51,11 +51,11 @@ fn call(seq: u32, path: &[UNib32], args: &[u8]) -> Vec<u8> {
     )
 }
 
-fn read(seq: u32, path: &[UNib32]) -> Vec<u8> {
+fn read(seq: u32, path: &[ww_client_server::ResourceIndex]) -> Vec<u8> {
     request(seq, absolute(path), RequestKind::Read)
 }
 
-fn write(seq: u32, path: &[UNib32], data: &[u8]) -> Vec<u8> {
+fn write(seq: u32, path: &[ww_client_server::ResourceIndex], data: &[u8]) -> Vec<u8> {
     request(
         seq,
         absolute(path),
@@ -82,18 +82,24 @@ fn max_len_str_bytes<const N: usize>(s: &str) -> Vec<u8> {
 /// The request bytes of `name`'s `step`-th step (0-based), matching [crate::corpus::Case::steps]' order.
 pub fn build(name: &str, step: usize) -> Vec<u8> {
     match (name, step) {
-        ("call.no_args", 0) => call(1, &[UNib32(0)], &[]),
-        ("call.with_args", 0) => call(1, &[UNib32(1)], &with_args_bytes(5, 300)),
-        ("call.absent", 0) => call(1, &[UNib32(2)], &[]),
-        ("multi.deferred_then_answer", 0) => call(7, &[UNib32(3)], &[]),
-        ("multi.deferred_then_answer", 1) => call(8, &[UNib32(4)], &[0x37]),
-        ("property.read", 0) => read(1, &[UNib32(5)]),
-        ("property.write", 0) => write(1, &[UNib32(5)], &[7]),
-        ("property.write_user_error", 0) => write(1, &[UNib32(6)], &[200]),
-        ("const.read", 0) => read(1, &[UNib32(7)]),
+        ("call.no_args", 0) => call(1, &ww_client_server::resource_path([0]), &[]),
+        ("call.with_args", 0) => call(
+            1,
+            &ww_client_server::resource_path([1]),
+            &with_args_bytes(5, 300),
+        ),
+        ("call.absent", 0) => call(1, &ww_client_server::resource_path([2]), &[]),
+        ("multi.deferred_then_answer", 0) => call(7, &ww_client_server::resource_path([3]), &[]),
+        ("multi.deferred_then_answer", 1) => {
+            call(8, &ww_client_server::resource_path([4]), &[0x37])
+        }
+        ("property.read", 0) => read(1, &ww_client_server::resource_path([5])),
+        ("property.write", 0) => write(1, &ww_client_server::resource_path([5]), &[7]),
+        ("property.write_user_error", 0) => write(1, &ww_client_server::resource_path([6]), &[200]),
+        ("const.read", 0) => read(1, &ww_client_server::resource_path([7])),
         ("stream.open", 0) => request(
             1,
-            absolute(&[UNib32(8)]),
+            absolute(&ww_client_server::resource_path([8])),
             RequestKind::StreamOpen {
                 resume: None,
                 max_age: None,
@@ -101,17 +107,17 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
                 args: TailBytes(&[]),
             },
         ),
-        ("sink.write", 0) => write(1, &[UNib32(9)], &[42]),
-        ("array.call", 0) => call(1, &[UNib32(10), UNib32(0), UNib32(0)], &[]),
-        ("array.property_write", 0) => write(1, &[UNib32(10), UNib32(1), UNib32(1)], &[5]),
-        ("array.bad_index", 0) => call(1, &[UNib32(10), UNib32(99), UNib32(0)], &[]),
+        ("sink.write", 0) => write(1, &ww_client_server::resource_path([9]), &[42]),
+        ("array.call", 0) => call(1, &ww_client_server::resource_path([10, 0, 0]), &[]),
+        ("array.property_write", 0) => write(1, &ww_client_server::resource_path([10, 1, 1]), &[5]),
+        ("array.bad_index", 0) => call(1, &ww_client_server::resource_path([10, 99, 0]), &[]),
         ("global.full_read_name", 0) => request(
             1,
             PathKind::GlobalFull {
                 gid: USER_INFO_FULL_GID,
                 trait_name: "UserInfo",
                 path_from_trait: RefVec::Slice {
-                    slice: &[UNib32(1)],
+                    slice: &ww_client_server::resource_path([1]),
                 },
             },
             RequestKind::Read,
@@ -121,7 +127,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
             PathKind::GlobalCompact {
                 gid: USER_INFO_COMPACT_GID.expect("ww_user_info::UserInfo has a ww_global id"),
                 path_from_trait: RefVec::Slice {
-                    slice: &[UNib32(1)],
+                    slice: &ww_client_server::resource_path([1]),
                 },
             },
             RequestKind::Write {
@@ -133,7 +139,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
             PathKind::GlobalCompact {
                 gid: USER_INFO_COMPACT_GID.expect("ww_user_info::UserInfo has a ww_global id"),
                 path_from_trait: RefVec::Slice {
-                    slice: &[UNib32(0)],
+                    slice: &ww_client_server::resource_path([0]),
                 },
             },
             RequestKind::Read,
@@ -147,7 +153,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
                     gid,
                     trait_name: "UserInfo",
                     path_from_trait: RefVec::Slice {
-                        slice: &[UNib32(1)],
+                        slice: &ww_client_server::resource_path([1]),
                     },
                 },
                 RequestKind::Read,
@@ -159,25 +165,29 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
                 gid: CHANNEL_FULL_GID,
                 trait_name: "Channel",
                 path_from_trait: RefVec::Slice {
-                    slice: &[UNib32(0)],
+                    slice: &ww_client_server::resource_path([0]),
                 },
             },
             RequestKind::Call {
                 args: TailBytes(&[]),
             },
         ),
-        ("error.bad_path", 0) => call(1, &[UNib32(999)], &[]),
-        ("error.too_deep_path", 0) => call(1, &[UNib32(0), UNib32(0)], &[]),
-        ("error.wrong_kind_call_on_property", 0) => call(1, &[UNib32(5)], &[]),
-        ("error.wrong_kind_write_on_const", 0) => write(1, &[UNib32(7)], &[0, 0]),
-        ("error.seq_zero_read_property", 0) => read(0, &[UNib32(5)]),
-        ("error.seq_zero_call_no_reply", 0) => call(0, &[UNib32(0)], &[]),
+        ("error.bad_path", 0) => call(1, &ww_client_server::resource_path([999]), &[]),
+        ("error.too_deep_path", 0) => call(1, &ww_client_server::resource_path([0, 0]), &[]),
+        ("error.wrong_kind_call_on_property", 0) => {
+            call(1, &ww_client_server::resource_path([5]), &[])
+        }
+        ("error.wrong_kind_write_on_const", 0) => {
+            write(1, &ww_client_server::resource_path([7]), &[0, 0])
+        }
+        ("error.seq_zero_read_property", 0) => read(0, &ww_client_server::resource_path([5])),
+        ("error.seq_zero_call_no_reply", 0) => call(0, &ww_client_server::resource_path([0]), &[]),
         ("multi.multi_call", 0) => request(
             1,
-            absolute(&[UNib32(10)]),
+            absolute(&ww_client_server::resource_path([10])),
             RequestKind::MultiCall {
                 multi_idx: MultiIndex::List(RefVec::Slice {
-                    slice: &[UNib32(0), UNib32(1)],
+                    slice: &ww_client_server::resource_path([0, 1]),
                 }),
                 in_each_array_id: Some(ResourceIndex::new(UNib32(0))),
                 multi_args: MultiArgs::Same(RefVec::Slice { slice: &[] }),
@@ -185,10 +195,10 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         ),
         ("multi.multi_read", 0) => request(
             1,
-            absolute(&[UNib32(10)]),
+            absolute(&ww_client_server::resource_path([10])),
             RequestKind::MultiRead {
                 multi_idx: MultiIndex::List(RefVec::Slice {
-                    slice: &[UNib32(0), UNib32(1)],
+                    slice: &ww_client_server::resource_path([0, 1]),
                 }),
                 in_each_array_id: Some(ResourceIndex::new(UNib32(1))),
             },

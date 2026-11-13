@@ -31,6 +31,7 @@
 
 ### 🐛 Fixes
 
+- Reads the pin index from the commander's `ResourceIndex` base path (STD-115, `wire_weaver_client`'s breaking change).
 - Drop the unused `tokio` and `ww_si` dependencies (cargo-machete).
 - Follows `ww_gpio`'s counted `Pin::event` stream function (API-31): `enable_interrupts` opens the pin's event
   stream with the edges to report, `disable_interrupts` closes it (STD-13).

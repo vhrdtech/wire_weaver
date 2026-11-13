@@ -15,6 +15,8 @@ use wire_weaver::shrink_wrap::{
 use ww_si::units::Boot;
 use ww_si::{Bytes, Index, Micros, Second};
 
+use crate::ResourceIndex;
+
 /// Per-event head of a counted or reliable stream ([EventKind::StreamItem](crate::EventKind::StreamItem)): where the
 /// event's data sits in the stream, how much the device dropped right before it and when it was made.
 ///
@@ -231,7 +233,7 @@ impl StreamOpened<'_> {
 #[cfg(feature = "streams")]
 pub fn ser_stream_item_event<'a>(
     scratch: &'a mut [u8],
-    path: &[UNib32],
+    path: &[ResourceIndex],
     head: &StreamHead,
     item: impl FnOnce(&mut [u8]) -> Result<usize, Error>,
 ) -> Result<&'a [u8], Error> {
@@ -267,7 +269,7 @@ pub fn ser_stream_item_event<'a>(
 /// their own sizes. Used by `poll_streams` for plain batched streams (API-41).
 pub fn ser_stream_data_event<'a>(
     scratch: &'a mut [u8],
-    path: &[UNib32],
+    path: &[ResourceIndex],
     item: impl FnOnce(&mut [u8]) -> Result<usize, Error>,
 ) -> Result<&'a [u8], Error> {
     use crate::EventKindDiscriminants;
@@ -710,7 +712,7 @@ mod tests {
 
     #[test]
     fn in_an_event() {
-        let path = [UNib32(2)];
+        let path = crate::resource_path([2]);
         let head = StreamHead {
             pos: 1 << 33,
             units: 3,
@@ -737,7 +739,10 @@ mod tests {
         else {
             panic!("{back:?}");
         };
-        assert_eq!(p.iter().next().unwrap().unwrap(), UNib32(2));
+        assert_eq!(
+            p.iter().next().unwrap().unwrap(),
+            crate::resource_path([2])[0]
+        );
         assert_eq!(h, head);
         assert_eq!(data.0, [1, 2, 3]);
         // seq, result and kind, path and its length in the back: 4 bytes as for StreamData; head 6 + 1 + 1 + 5; data
@@ -781,7 +786,7 @@ mod tests {
 
     #[test]
     fn stream_item_event_matches_derived() {
-        let path = [UNib32(1), UNib32(12)];
+        let path = crate::resource_path([1, 12]);
         let head = StreamHead {
             units: 3,
             lost: Some(2),
@@ -815,7 +820,7 @@ mod tests {
 
     #[test]
     fn stream_data_event_matches_derived() {
-        let path = [UNib32(3)];
+        let path = crate::resource_path([3]);
         let item: (u8, &str) = (9, "batch");
         let mut ibuf = [0u8; 32];
         let item_bytes = item.to_ww_bytes(&mut ibuf).unwrap().to_vec();

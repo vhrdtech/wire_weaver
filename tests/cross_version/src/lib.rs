@@ -395,7 +395,7 @@ mod tests {
         let client = connect_traits_only(&device).await;
         // a ww_dfu 0.2 host: same trait, a version the device doesn't have
         let gid = FullVersion::new("ww_dfu", Version::new(0, 2, 0));
-        let path = [UNib32(0)]; // boot_state
+        let path = ww_client_server::resource_path([0]); // boot_state
         let r = client
             .cmd()
             .prepare_call::<BootState, Error>(
@@ -416,7 +416,7 @@ mod tests {
         let (calls, device) = start_old_device("cross_version/absolute");
         let client = connect_traits_only(&device).await;
         // led_on of the old API, at [0]: the host can't know that is still what [0] means
-        let path = [UNib32(0)];
+        let path = ww_client_server::resource_path([0]);
         let r = client
             .cmd()
             .prepare_call::<(), Error>(
@@ -474,7 +474,7 @@ mod tests {
         let client = connect_traits_only(&device).await;
         let boot = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap();
         let call = |gid: CompactVersion| {
-            let path = [UNib32(0)]; // boot_state
+            let path = ww_client_server::resource_path([0]); // boot_state
             client
                 .cmd()
                 .prepare_call::<BootState, Error>(

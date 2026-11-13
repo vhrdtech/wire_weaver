@@ -13,7 +13,7 @@ macro_rules! trait_client {
 
         impl $client {
             /// Address the trait by an absolute path instead of a global trait path: what streams need.
-            pub fn at_path(&mut self, path: Vec<wire_weaver::prelude::UNib32>) {
+            pub fn at_path(&mut self, path: Vec<wire_weaver_client::ww_client_server::ResourceIndex>) {
                 self.cmd.set_base_path(path);
             }
 

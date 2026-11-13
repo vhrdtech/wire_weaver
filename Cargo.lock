@@ -882,6 +882,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_core",
  "ww_client_server",
+ "ww_global",
  "ww_link",
  "ww_numeric",
  "ww_self",

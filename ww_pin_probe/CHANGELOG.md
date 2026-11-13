@@ -9,4 +9,5 @@
 
 ### 🐛 Fixes
 
+- Builds its bank and pin clients on `ResourceIndex` paths (STD-115, `wire_weaver_client`'s breaking change).
 - `probe::Setup::new` with no selected points takes the plan's points also when there are watched ones; it took none, so `--plan F --watch X` tested only X (TOOL-15).

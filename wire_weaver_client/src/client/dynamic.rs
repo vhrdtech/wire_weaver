@@ -48,7 +48,7 @@ use ww_self::{
 #[derive(Clone, Debug)]
 pub struct DynResource {
     bundle: Arc<ApiBundleOwned>,
-    index_chain: Vec<UNib32>,
+    index_chain: Vec<ResourceIndex>,
     /// Human-readable path from the API root, e.g. `periph[1].channel[0].gain`.
     path: String,
     /// None for the API root
@@ -133,7 +133,7 @@ impl DynResource {
     }
 
     /// Resource IDs and indices from the API root, as sent to a device.
-    pub fn index_chain(&self) -> &[UNib32] {
+    pub fn index_chain(&self) -> &[ResourceIndex] {
         &self.index_chain
     }
 
@@ -225,7 +225,7 @@ impl DynResource {
             )));
         };
         let mut index_chain = self.index_chain.clone();
-        index_chain.push(item.id);
+        index_chain.push(ResourceIndex::new(item.id));
         let path = if self.path.is_empty() {
             name.to_string()
         } else {
@@ -277,7 +277,7 @@ impl DynResource {
             )));
         };
         let mut index_chain = self.index_chain.clone();
-        index_chain.push(UNib32(index));
+        index_chain.push(ResourceIndex::new(UNib32(index)));
         Ok(DynResource {
             bundle: self.bundle.clone(),
             index_chain,
@@ -836,7 +836,7 @@ impl DynResource {
 
     /// This array's own absolute path (an `#[optional]` one checked first), the request path of every multi
     /// request on it, see [Self::multi_read]/[Self::multi_write]/[Self::multi_call].
-    fn array_path(&self) -> Result<Vec<UNib32>, Error> {
+    fn array_path(&self) -> Result<Vec<ResourceIndex>, Error> {
         if !matches!(self.node, Node::Array) {
             return Err(self.not_a("array"));
         }

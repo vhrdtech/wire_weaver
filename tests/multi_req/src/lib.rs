@@ -78,29 +78,29 @@ mod tests {
             $($async)? fn pin_set_level(
                 &mut self,
                 _cx: &mut Context<'_, impl $out>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 high: bool,
             ) -> RpcResult<()> {
-                self.shared.lock().unwrap().pin_level[index_chain[0].0 as usize] = high;
+                self.shared.lock().unwrap().pin_level[index_chain[0].get().0 as usize] = high;
                 Ready(())
             }
 
             $($async)? fn set_pin_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl $out>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
             ) -> SetResult<()> {
-                self.shared.lock().unwrap().pin_mode[index_chain[0].0 as usize] = value;
+                self.shared.lock().unwrap().pin_mode[index_chain[0].get().0 as usize] = value;
                 Set
             }
 
             $($async)? fn get_pin_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl $out>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u8, ()> {
-                Value(self.shared.lock().unwrap().pin_mode[index_chain[0].0 as usize])
+                Value(self.shared.lock().unwrap().pin_mode[index_chain[0].get().0 as usize])
             }
         };
     }
@@ -277,7 +277,11 @@ mod tests {
             seq: UVlq32Backfill(0),
             priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKindOwned::Absolute {
-                path: path.iter().copied().map(UNib32).collect(),
+                path: path
+                    .iter()
+                    .copied()
+                    .map(|i| ww_client_server::ResourceIndex::new(UNib32(i)))
+                    .collect(),
             },
             kind,
         };
@@ -326,7 +330,12 @@ mod tests {
     }
 
     fn list(ids: &[u32]) -> MultiIndexOwned {
-        MultiIndexOwned::List(ids.iter().copied().map(UNib32).collect())
+        MultiIndexOwned::List(
+            ids.iter()
+                .copied()
+                .map(|i| ww_client_server::ResourceIndex::new(UNib32(i)))
+                .collect(),
+        )
     }
 
     fn range(r: std::ops::Range<u32>) -> MultiIndexOwned {
@@ -659,7 +668,11 @@ mod tests {
                 seq: UVlq32Backfill(1),
                 priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::Absolute {
-                    path: path.iter().copied().map(UNib32).collect(),
+                    path: path
+                        .iter()
+                        .copied()
+                        .map(|i| ww_client_server::ResourceIndex::new(UNib32(i)))
+                        .collect(),
                 },
                 kind,
             };
@@ -699,7 +712,11 @@ mod tests {
                     seq: UVlq32Backfill(1),
                     priority: ww_client_server::Priority::NORMAL.nibble(),
                     path_kind: PathKindOwned::Absolute {
-                        path: path.iter().copied().map(UNib32).collect(),
+                        path: path
+                            .iter()
+                            .copied()
+                            .map(|i| ww_client_server::ResourceIndex::new(UNib32(i)))
+                            .collect(),
                     },
                     kind: kind(),
                 };

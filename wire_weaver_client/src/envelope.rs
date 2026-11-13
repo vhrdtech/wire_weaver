@@ -71,7 +71,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
             PathKind::Absolute { path } => {
                 let chain: Vec<u32> = path
                     .iter()
-                    .map(|i| i.map(|i| i.0))
+                    .map(|i| i.map(|i| i.get().0))
                     .collect::<Result<_, _>>()?;
                 b.leaf(
                     1,
@@ -101,7 +101,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                 // a trait of a crate that is known from a snapshot, wherever the device has it
                 let chain: Vec<u32> = path_from_trait
                     .iter()
-                    .map(|i| i.map(|i| i.0))
+                    .map(|i| i.map(|i| i.get().0))
                     .collect::<Result<_, _>>()?;
                 let resource = global_trait(&gid.make_owned(), trait_name)
                     .ok_or_else(|| anyhow!("{}@{} is not known here", gid.crate_id, trait_name))
@@ -127,7 +127,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                 // a trait by its ww_global id: named through the registry, then known from a snapshot like GlobalFull
                 let chain: Vec<u32> = path_from_trait
                     .iter()
-                    .map(|i| i.map(|i| i.0))
+                    .map(|i| i.map(|i| i.get().0))
                     .collect::<Result<_, _>>()?;
                 let named = compact_trait_name(gid).map_err(|e| e.to_string());
                 let resource = named
@@ -316,7 +316,7 @@ pub fn explain_reply<'r>(
             | EventKind::PropertyUpdate { path, .. } => {
                 let chain: Vec<u32> = path
                     .iter()
-                    .map(|i| i.map(|i| i.0))
+                    .map(|i| i.map(|i| i.get().0))
                     .collect::<Result<_, _>>()?;
                 root.map(|root| root.descend(&chain).map_err(|e| anyhow!("{e}")))
             }

@@ -154,19 +154,19 @@ mod tests {
             fn set_ch_level(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 value: u8,
             ) -> SetResult<()> {
-                self.data.write().unwrap().ch_level[index_chain[0].0 as usize] = value;
+                self.data.write().unwrap().ch_level[index_chain[0].get().0 as usize] = value;
                 Set
             }
 
             fn get_ch_level(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> GetResult<u8, ()> {
-                Value(self.data.read().unwrap().ch_level[index_chain[0].0 as usize])
+                Value(self.data.read().unwrap().ch_level[index_chain[0].get().0 as usize])
             }
         };
     }
@@ -590,7 +590,7 @@ mod tests {
 
         // write different: one value per channel, in list order
         let r = write_array(
-            MultiIndexOwned::List(vec![UNib32(0), UNib32(1), UNib32(2), UNib32(3)]),
+            MultiIndexOwned::List(ww_client_server::resource_path([0, 1, 2, 3]).to_vec()),
             |i| client.ch(i).write_level((i as u8 + 1) * 10),
         )
         .await

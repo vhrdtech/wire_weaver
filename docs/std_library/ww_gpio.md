@@ -256,17 +256,17 @@ mod server_impl {
 
 Each resource path becomes an async method named after the flattened path, e.g. `port_pin_set_output_level`,
 `get_port_pin_pull` / `set_port_pin_pull` (property get/set), or `port_pin_event` / `close_port_pin_event` (the stream opened with its sources, closed).
-The `[bank_index, pin_index]` addressing is passed in as `index: [UNib32; 2]`:
+The `[bank_index, pin_index]` addressing is passed in as `index: [ww_client_server::ResourceIndex; 2]`:
 
 ```rust
 async fn port_pin_set_output_level(
     &mut self,
     _cx: &mut Context<'_, impl EventOut>,
-    index: [UNib32; 2],
+    index: [ww_client_server::ResourceIndex; 2],
     level: Level,
 ) -> RpcResult<()> {
-    let bank_idx = index[0].0 as usize;
-    let pin_idx = index[1].0 as usize;
+    let bank_idx = index[0].get().0 as usize;
+    let pin_idx = index[1].get().0 as usize;
     let odr = self.bank[bank_idx].odr();
     let level = if level == Level::High { Odr::HIGH } else { Odr::LOW };
     odr.modify(|o| o.set_odr(pin_idx, level));
@@ -282,7 +282,7 @@ fn valid_indices_root_port(&mut self) -> ValidIndices<'_> {
     ValidIndices::range_u32(0..self.bank.len() as u32)
 }
 
-fn valid_indices_root_port_pin(&mut self, index: [UNib32; 1]) -> ValidIndices<'_> {
+fn valid_indices_root_port_pin(&mut self, index: [ww_client_server::ResourceIndex; 1]) -> ValidIndices<'_> {
     ValidIndices::range_u32(0..16)
 }
 ```

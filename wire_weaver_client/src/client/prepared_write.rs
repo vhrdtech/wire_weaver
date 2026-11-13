@@ -6,8 +6,8 @@ use crate::{CallError, Error, OutcomeError, Promise};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
-use wire_weaver::shrink_wrap::UNib32;
 use ww_client_server::PathKindOwned;
+use ww_client_server::ResourceIndex;
 
 /// Self-contained struct containing all necessary information needed to perform a write:
 /// * TX ends towards transport and dispatcher event loops
@@ -170,7 +170,7 @@ impl<E: OutcomeError> PreparedWrite<E> {
 }
 
 impl WritePath for PreparedWrite<Error> {
-    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>> {
         if self.postpone_err.is_err() {
             return None;
         }

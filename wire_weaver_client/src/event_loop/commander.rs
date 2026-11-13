@@ -31,6 +31,7 @@ use tracing::{debug, warn};
 use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+use ww_client_server::ResourceIndex;
 use ww_client_server::{PathKind, PathKindOwned, Priority, RequestKindOwned, StreamSideband};
 use ww_si::Micros;
 use ww_stream::StreamCursor;
@@ -50,7 +51,7 @@ pub struct Commander {
     /// * Some (non-empty path) for trait implemented at some particular path, trait addressing will be substituted with an actual path.
     ///
     /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "std_client"`) uses absolute addressing.
-    base_path: Option<Vec<UNib32>>,
+    base_path: Option<Vec<ResourceIndex>>,
 
     default_timeout: Duration,
     /// Priority of requests that don't set their own, see [Commander::set_default_priority]
@@ -137,7 +138,7 @@ pub(crate) struct WeakCommander {
     cmd_tx: mpsc::WeakSender<Command>,
     last_clone: Weak<()>,
     loop_thread: Option<std::thread::ThreadId>,
-    base_path: Option<Vec<UNib32>>,
+    base_path: Option<Vec<ResourceIndex>>,
     default_timeout: Duration,
     default_priority: Priority,
     connected_device: DeviceApiInfo,
@@ -919,11 +920,11 @@ impl Commander {
         )
     }
 
-    pub fn base_path(&self) -> Option<&Vec<UNib32>> {
+    pub fn base_path(&self) -> Option<&Vec<ResourceIndex>> {
         self.base_path.as_ref()
     }
 
-    pub fn set_base_path(&mut self, base_path: Vec<UNib32>) {
+    pub fn set_base_path(&mut self, base_path: Vec<ResourceIndex>) {
         self.base_path = Some(base_path);
     }
 
@@ -1205,8 +1206,8 @@ impl Commander {
     fn resolve_compact(
         &self,
         gid: &CompactVersion,
-        path_from_trait: &wire_weaver::shrink_wrap::RefVec<'_, UNib32>,
-    ) -> Result<Option<Vec<UNib32>>, Error> {
+        path_from_trait: &wire_weaver::shrink_wrap::RefVec<'_, ResourceIndex>,
+    ) -> Result<Option<Vec<ResourceIndex>>, Error> {
         let Some(entry) = ww_global::entry(gid.gid.id.0)
             .filter(|e| e.kind == ww_global::EntryKind::Trait && e.retired.is_none())
         else {

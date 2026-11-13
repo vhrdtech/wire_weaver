@@ -68,7 +68,7 @@ pub(crate) fn classify(request: &[u8]) -> Op {
     };
     let Ok(path) = path
         .iter()
-        .map(|n| n.map(|n| n.0))
+        .map(|n| n.map(|n| n.get().0))
         .collect::<Result<Vec<u32>, _>>()
     else {
         return Op::Other;
@@ -117,9 +117,9 @@ pub(crate) fn access(request: &[u8]) -> Result<Option<(Access, Place, bool)>, ()
         // a kind from a newer version: undecodable as before it read as Unknown, never given an access
         RequestKind::Unknown(_) => return Err(()),
     };
-    let ids = |p: &wire_weaver::shrink_wrap::RefVec<'_, wire_weaver::shrink_wrap::UNib32>| {
+    let ids = |p: &wire_weaver::shrink_wrap::RefVec<'_, ww_client_server::ResourceIndex>| {
         p.iter()
-            .map(|n| n.map(|n| n.0))
+            .map(|n| n.map(|n| n.get().0))
             .collect::<Result<Vec<u32>, _>>()
             .ok()
     };
@@ -155,7 +155,10 @@ pub(crate) fn request(path: &[u32], priority: Priority, kind: RequestKindOwned) 
         seq: UVlq32Backfill(0),
         priority: priority.nibble(),
         path_kind: PathKindOwned::Absolute {
-            path: path.iter().map(|n| UNib32(*n)).collect(),
+            path: path
+                .iter()
+                .map(|n| ww_client_server::ResourceIndex::new(UNib32(*n)))
+                .collect(),
         },
         kind,
     }
@@ -193,9 +196,9 @@ pub(crate) fn classify_event(event: &[u8]) -> Unsolicited {
     let Ok(event) = Event::from_ww_bytes(event) else {
         return Unsolicited::Other;
     };
-    let path = |p: &wire_weaver::shrink_wrap::RefVec<'_, wire_weaver::shrink_wrap::UNib32>| {
+    let path = |p: &wire_weaver::shrink_wrap::RefVec<'_, ww_client_server::ResourceIndex>| {
         p.iter()
-            .map(|n| n.map(|n| n.0))
+            .map(|n| n.map(|n| n.get().0))
             .collect::<Result<Vec<u32>, _>>()
             .ok()
     };
@@ -240,7 +243,7 @@ pub(crate) fn is_ok(event: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wire_weaver::shrink_wrap::{RefVec, SerializeShrinkWrapOwned, UNib32};
+    use wire_weaver::shrink_wrap::{RefVec, SerializeShrinkWrapOwned};
 
     #[test]
     fn seq_replaced_rest_kept() {
@@ -253,7 +256,7 @@ mod tests {
             seq: UVlq32Backfill(0),
             priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKindOwned::Absolute {
-                path: vec![UNib32(2), UNib32(5)],
+                path: ww_client_server::resource_path([2, 5]).to_vec(),
             },
             kind: RequestKindOwned::Read,
         }
@@ -310,7 +313,7 @@ mod tests {
             seq: UVlq32(0),
             result: Ok(EventKind::StreamSideband {
                 path: RefVec::Slice {
-                    slice: &[UNib32(4)],
+                    slice: &ww_client_server::resource_path([4]),
                 },
                 sideband: StreamSideband::Close,
             }),

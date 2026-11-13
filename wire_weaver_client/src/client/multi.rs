@@ -20,7 +20,7 @@
 use std::time::Duration;
 
 use wire_weaver::shrink_wrap::{
-    BufReader, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned, UNib32,
+    BufReader, DeserializeShrinkWrap, DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned,
     either_any_vec::EitherAnyVec,
 };
 use ww_client_server::{
@@ -34,7 +34,7 @@ use crate::{Error, event_loop::commander::TransportCommander};
 pub trait PropertyPath {
     type Output: DeserializeShrinkWrapOwned;
 
-    fn absolute_path(&self) -> Option<Vec<UNib32>>;
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>>;
     fn commander(&self) -> TransportCommander;
 }
 
@@ -48,7 +48,7 @@ pub trait CallPath {
     /// `Result<T, CallError<D>>` as its single call (CLT-48).
     type Output;
 
-    fn absolute_path(&self) -> Option<Vec<UNib32>>;
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>>;
     fn args_bytes(&self) -> Vec<u8>;
     fn commander(&self) -> TransportCommander;
     /// Turns an index's answer into [Self::Output], checking it as a single call would (`#[errors(..)]` list).
@@ -59,19 +59,23 @@ pub trait CallPath {
 /// multi-write.
 #[doc(hidden)]
 pub trait WritePath {
-    fn absolute_path(&self) -> Option<Vec<UNib32>>;
+    fn absolute_path(&self) -> Option<Vec<ResourceIndex>>;
     fn value_bytes(&self) -> Vec<u8>;
     fn commander(&self) -> TransportCommander;
 }
 
 /// `(prefix, varying values in `paths` order, trailing id)`, see [split_common].
-type PathShape = (Vec<UNib32>, Vec<UNib32>, Option<ResourceIndex>);
+type PathShape = (
+    Vec<ResourceIndex>,
+    Vec<ResourceIndex>,
+    Option<ResourceIndex>,
+);
 
 /// Finds the one path element where `paths` (same length, at least 2 entries) diverge: every one up to there must
 /// agree (the common prefix, sent as the request's own path), and at most one more after it must also agree for
 /// all of them (`in_each_array_id`). Identical paths vary at their last element, which repeats (`List([id, id])`).
 /// Returns `(prefix, varying values in `paths` order, trailing id)`.
-pub(crate) fn split_common(paths: &[Vec<UNib32>]) -> Result<PathShape, Error> {
+pub(crate) fn split_common(paths: &[Vec<ResourceIndex>]) -> Result<PathShape, Error> {
     if paths.len() < 2 {
         return Err(Error::MultiReq("need at least 2 resources".into()));
     }
@@ -100,7 +104,7 @@ pub(crate) fn split_common(paths: &[Vec<UNib32>]) -> Result<PathShape, Error> {
     // the same resource more than once (a tuple calling one method twice, CLT-49): it repeats at its own last id
     let k = diverges_at.unwrap_or(len - 1);
     let prefix = paths[0][..k].to_vec();
-    let varying: Vec<UNib32> = paths.iter().map(|p| p[k]).collect();
+    let varying: Vec<ResourceIndex> = paths.iter().map(|p| p[k]).collect();
     let trailing = match len - k - 1 {
         0 => None,
         1 => {
@@ -112,7 +116,7 @@ pub(crate) fn split_common(paths: &[Vec<UNib32>]) -> Result<PathShape, Error> {
                     ));
                 }
             }
-            Some(ResourceIndex::new(id))
+            Some(id)
         }
         _ => {
             return Err(Error::MultiReq(
@@ -139,7 +143,7 @@ pub(crate) fn merge_args(items: Vec<Vec<u8>>) -> Result<MultiArgsOwned, Error> {
 /// Sends an already built multi request and returns the raw response bytes (an `EitherAnyVec`).
 pub(crate) async fn send_multi(
     commander: TransportCommander,
-    prefix: Vec<UNib32>,
+    prefix: Vec<ResourceIndex>,
     kind: RequestKindOwned,
     timeout: Option<Duration>,
 ) -> Result<Vec<u8>, Error> {
@@ -151,7 +155,7 @@ pub(crate) async fn send_multi(
 
 pub(crate) fn send_multi_blocking(
     commander: TransportCommander,
-    prefix: Vec<UNib32>,
+    prefix: Vec<ResourceIndex>,
     kind: RequestKindOwned,
     timeout: Option<Duration>,
 ) -> Result<Vec<u8>, Error> {
@@ -186,7 +190,7 @@ fn call_outputs<C: CallPath>(call: &C, items: Vec<Result<C::Item, ErrorOwned>>) 
 /// `(commander, prefix, trailing id, per-index bytes, first index's builder)`, see [materialize].
 type MaterializeResult<L> = (
     TransportCommander,
-    Vec<UNib32>,
+    Vec<ResourceIndex>,
     Option<ResourceIndex>,
     Vec<Vec<u8>>,
     L,
@@ -199,7 +203,7 @@ type MaterializeResult<L> = (
 fn materialize<L>(
     multi_idx: &MultiIndexOwned,
     leaf: impl Fn(u32) -> L,
-    path_of: impl Fn(&L) -> Option<Vec<UNib32>>,
+    path_of: impl Fn(&L) -> Option<Vec<ResourceIndex>>,
     bytes_of: impl Fn(&L) -> Option<Vec<u8>>,
     commander_of: impl Fn(&L) -> TransportCommander,
 ) -> Result<MaterializeResult<L>, Error> {

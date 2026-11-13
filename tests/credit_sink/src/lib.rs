@@ -178,14 +178,17 @@ mod tests {
                 ValidIndices::range_u32(0..4)
             }
 
-            fn credit_lanes(&mut self, index_chain: [UNib32; 1]) -> &mut SinkCredit {
-                &mut self.lanes_credit[index_chain[0].0 as usize]
+            fn credit_lanes(
+                &mut self,
+                index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> &mut SinkCredit {
+                &mut self.lanes_credit[index_chain[0].get().0 as usize]
             }
 
             fn sideband_lanes(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 _sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 None
@@ -194,10 +197,10 @@ mod tests {
             fn write_lanes(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 data: &shrink_wrap::tail_bytes::TailBytes<'_>,
             ) {
-                let idx = index_chain[0].0 as usize;
+                let idx = index_chain[0].get().0 as usize;
                 self.m.lock().unwrap().lanes[idx].extend_from_slice(data.0);
                 self.lanes_credit[idx].free(data.0.len() as u32);
             }
@@ -318,14 +321,17 @@ mod tests {
                 ValidIndices::range_u32(0..0)
             }
 
-            fn credit_lanes(&mut self, _index_chain: [UNib32; 1]) -> &mut SinkCredit {
+            fn credit_lanes(
+                &mut self,
+                _index_chain: [ww_client_server::ResourceIndex; 1],
+            ) -> &mut SinkCredit {
                 &mut self.other
             }
 
             async fn sideband_lanes(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 _sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 None
@@ -334,7 +340,7 @@ mod tests {
             async fn write_lanes(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
                 _data: &shrink_wrap::tail_bytes::TailBytes<'_>,
             ) {
             }
@@ -1220,7 +1226,7 @@ mod tests {
         for expected in [
             "pub plan_credit: ww_stream::sink::SinkCredit,",
             "fn credit_plan(&mut self, ) -> &mut ww_stream::sink::SinkCredit { &mut self.plan_credit }",
-            "fn credit_lanes(&mut self, _index_chain: [UNib32; 1], ) -> &mut ww_stream::sink::SinkCredit",
+            "fn credit_lanes(&mut self, _index_chain: [ww_client_server::ResourceIndex; 1], ) -> &mut ww_stream::sink::SinkCredit",
             "fn write_plan(",
         ] {
             assert!(code.contains(expected), "{expected}\n{code}");

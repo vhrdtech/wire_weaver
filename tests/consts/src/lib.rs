@@ -53,8 +53,8 @@ mod tests {
 
             const INFO_NAME: &'static str = "info";
 
-            fn channel_gain(&self, index_chain: [UNib32; 1]) -> u8 {
-                self.gains[index_chain[0].0 as usize]
+            fn channel_gain(&self, index_chain: [ww_client_server::ResourceIndex; 1]) -> u8 {
+                self.gains[index_chain[0].get().0 as usize]
             }
 
             const CHANNEL_KIND: &'static str = "adc";
@@ -372,7 +372,7 @@ mod tests {
             "fn serial(&self, ) -> & '_ str { todo!() }",
             "// optional, can be left out with omit = [\"EXTRA\"]",
             "const INFO_NAME: & 'static str = todo!();",
-            "fn channel_gain(&self, _index_chain: [UNib32; 1], ) -> u8 { todo!() }",
+            "fn channel_gain(&self, _index_chain: [ww_client_server::ResourceIndex; 1], ) -> u8 { todo!() }",
             "const_model = \"SERIAL|GAIN=fn\",",
         ] {
             assert!(code.contains(expected), "{expected}\n{code}");
@@ -401,12 +401,12 @@ mod tests {
             uptime: 0,
         };
         // the root, a property, a trait level, one in an array, and a path that doesn't exist
-        let paths: [&[UNib32]; 5] = [
+        let paths: [&[ww_client_server::ResourceIndex]; 5] = [
             &[],
-            &[UNib32(3)],
-            &[UNib32(4)],
-            &[UNib32(5), UNib32(1)],
-            &[UNib32(99)],
+            &ww_client_server::resource_path([3]),
+            &ww_client_server::resource_path([4]),
+            &ww_client_server::resource_path([5, 1]),
+            &ww_client_server::resource_path([99]),
         ];
         for path in paths {
             let cfg = ObserveRequest {

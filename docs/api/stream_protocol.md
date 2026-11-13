@@ -25,7 +25,7 @@ A counted or reliable stream sends `EventKind::StreamItem` instead of `StreamDat
 // ww_client_server
 pub enum EventKind<'i> {
     // ... Value, Written, StreamData, StreamSideband
-    StreamItem { path: RefVec<'i, UNib32>, head: StreamHead, data: TailBytes<'i> },
+    StreamItem { path: RefVec<'i, ResourceIndex>, head: StreamHead, data: TailBytes<'i> },
 }
 
 // ww_client_server::stream

@@ -79,7 +79,7 @@ mod tests {
             pub banks: Arc<Mutex<Vec<BankModel>>>,
             pub events: Vec<Vec<PinEvents>>,
             /// Edges seen by the mock's loopback, sent before the next request (after the reply that caused them)
-            pub pending: Vec<([UNib32; 2], IoPinEvent)>,
+            pub pending: Vec<([ww_client_server::ResourceIndex; 2], IoPinEvent)>,
             pub stream_sessions: u32,
             pub start: std::time::Instant,
         }
@@ -102,7 +102,12 @@ mod tests {
             }
 
             /// Loopback: the input follows the output, an edge goes to the pin's `event` stream if it reports it.
-            fn edge(&mut self, index_chain: [UNib32; 2], before: Level, after: Level) {
+            fn edge(
+                &mut self,
+                index_chain: [ww_client_server::ResourceIndex; 2],
+                before: Level,
+                after: Level,
+            ) {
                 let (bank, pin) = Self::idx(index_chain);
                 let events = &self.events[bank][pin];
                 let ev = match (before, after) {
@@ -142,16 +147,16 @@ mod tests {
 
             fn valid_indices_root_bank_pin(
                 &mut self,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> ValidIndices<'_> {
-                let bank = index_chain[0].0 as usize;
+                let bank = index_chain[0].get().0 as usize;
                 ValidIndices::range_u32(0..self.banks.lock().unwrap()[bank].pins.len() as u32)
             }
 
             fn bank_capabilities(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                _index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<BankCapabilities<'_>> {
                 Ready(BankCapabilities {
                     io_levels: MaxLen::new(RefVec::Slice {
@@ -173,10 +178,10 @@ mod tests {
             fn bank_configure(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
                 config: BankConfig,
             ) -> RpcResult<Result<BankConfig, GpioError<'_>>> {
-                let bank = index_chain[0].0 as usize;
+                let bank = index_chain[0].get().0 as usize;
                 let mut banks = self.banks.lock().unwrap();
                 if let Some(level) = config.io_level {
                     let supported = [IoLevel::new(3300), IoLevel::new(1800)];
@@ -193,16 +198,16 @@ mod tests {
             fn bank_name(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                index_chain: [ww_client_server::ResourceIndex; 1],
             ) -> RpcResult<&'_ str> {
-                let bank = index_chain[0].0 as usize;
+                let bank = index_chain[0].get().0 as usize;
                 Ready(self.banks.lock().unwrap()[bank].name)
             }
 
             fn bank_pin_set_output_level(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
                 level: Level,
             ) -> RpcResult<()> {
                 let before = self.with_pin_mut(index_chain, |pin| {
@@ -215,7 +220,7 @@ mod tests {
             fn bank_pin_toggle(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<()> {
                 let before = self.with_pin_mut(index_chain, |pin| {
                     let before = pin.output_level;
@@ -234,7 +239,7 @@ mod tests {
             fn bank_pin_output_level(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<Level> {
                 Ready(self.pin(index_chain).output_level)
             }
@@ -242,7 +247,7 @@ mod tests {
             fn bank_pin_input_level(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<Level> {
                 // Loopback: the mock has no real pads, input mirrors the output register.
                 Ready(self.with_pin_mut(index_chain, |pin| {
@@ -254,7 +259,7 @@ mod tests {
             fn bank_pin_event(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
                 enabled: IoPinEnabledEvents<'_>,
             ) -> RpcResult<Result<(), GpioError<'_>>> {
                 if !enabled.custom.is_empty() {
@@ -274,7 +279,7 @@ mod tests {
             fn close_bank_pin_event(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) {
                 let (bank, pin) = Self::idx(index_chain);
                 let events = &mut self.events[bank][pin];
@@ -283,7 +288,10 @@ mod tests {
                 self.with_pin_mut(index_chain, |pin| pin.events = (false, false));
             }
 
-            fn stream_bank_pin_event(&mut self, index_chain: [UNib32; 2]) -> &mut Counted {
+            fn stream_bank_pin_event(
+                &mut self,
+                index_chain: [ww_client_server::ResourceIndex; 2],
+            ) -> &mut Counted {
                 let (bank, pin) = Self::idx(index_chain);
                 &mut self.events[bank][pin].counted
             }
@@ -291,7 +299,7 @@ mod tests {
             fn bank_pin_set_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
                 mode: Mode,
                 initial: Option<Level>,
             ) -> RpcResult<Result<(), GpioError<'_>>> {
@@ -311,7 +319,7 @@ mod tests {
             fn bank_pin_mode(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<Mode> {
                 Ready(self.pin(index_chain).mode)
             }
@@ -319,7 +327,7 @@ mod tests {
             fn set_bank_pin_pull(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
                 value: Pull,
             ) -> SetResult<GpioError<'_>> {
                 self.with_pin_mut(index_chain, |pin| pin.pull = value);
@@ -329,7 +337,7 @@ mod tests {
             fn get_bank_pin_pull(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> GetResult<Pull, GpioError<'_>> {
                 Value(self.pin(index_chain).pull)
             }
@@ -337,7 +345,7 @@ mod tests {
             fn set_bank_pin_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
                 value: Speed,
             ) -> SetResult<GpioError<'_>> {
                 self.with_pin_mut(index_chain, |pin| pin.speed = value);
@@ -347,7 +355,7 @@ mod tests {
             fn get_bank_pin_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> GetResult<Speed, GpioError<'_>> {
                 Value(self.pin(index_chain).speed)
             }
@@ -355,7 +363,7 @@ mod tests {
             fn bank_pin_capabilities(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 2],
+                _index_chain: [ww_client_server::ResourceIndex; 2],
             ) -> RpcResult<PinCapabilities<'_>> {
                 Ready(PinCapabilities {
                     modes: MaxLen::new_unchecked(RefVec::Slice {
@@ -372,18 +380,21 @@ mod tests {
                 })
             }
 
-            fn idx(index_chain: [UNib32; 2]) -> (usize, usize) {
-                (index_chain[0].0 as usize, index_chain[1].0 as usize)
+            fn idx(index_chain: [ww_client_server::ResourceIndex; 2]) -> (usize, usize) {
+                (
+                    index_chain[0].get().0 as usize,
+                    index_chain[1].get().0 as usize,
+                )
             }
 
-            fn pin(&self, index_chain: [UNib32; 2]) -> PinModel {
+            fn pin(&self, index_chain: [ww_client_server::ResourceIndex; 2]) -> PinModel {
                 let (bank, pin) = Self::idx(index_chain);
                 self.banks.lock().unwrap()[bank].pins[pin]
             }
 
             fn with_pin_mut<R>(
                 &mut self,
-                index_chain: [UNib32; 2],
+                index_chain: [ww_client_server::ResourceIndex; 2],
                 f: impl FnOnce(&mut PinModel) -> R,
             ) -> R {
                 let (bank, pin) = Self::idx(index_chain);

@@ -68,6 +68,7 @@
 
 ### 🐛 Fixes
 
+- `ww introspect` reads the dynamic client's `ResourceIndex` paths (STD-115); its output is unchanged.
 - `ww dfu rp flash --follow` waits (at most 5 s) for the BOOTSEL device to leave the bus before judging, so it no longer reports "it refused to boot (blink code 1)" after a good flash.
 - `ww api tree` shows types as `ww introspect` does, generic instances made concrete: a `Fixed` there has its unit and bounds after it too (`[ms, 1..=5000]`, CLT-54).
 - `ww pins test --plan FILE --watch POINTS` tests the plan's points next to the watched ones; it tested only the watched points, the plan's were dropped (TOOL-15). `--watch` without a plan and without points still only reads.

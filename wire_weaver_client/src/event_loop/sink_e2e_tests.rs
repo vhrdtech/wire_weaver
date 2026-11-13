@@ -8,8 +8,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use wire_weaver::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
 use wire_weaver::shrink_wrap::{
-    DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec, SerializeShrinkWrap, UNib32, UVlq32,
-    UVlq64,
+    DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec, SerializeShrinkWrap, UVlq32, UVlq64,
 };
 use wire_weaver::{EventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 use ww_client_server::{
@@ -60,7 +59,7 @@ impl Dev {
 }
 
 async fn send_sideband(out: &mut EventWriter<'_, impl MessageSink>, sideband: StreamSideband) {
-    let path = [UNib32(SINK)];
+    let path = ww_client_server::resource_path([SINK]);
     // a lost Ack is recovered by the host's next Query
     let _ = out
         .send_event(&Event {
@@ -283,7 +282,7 @@ impl Host {
     }
 
     async fn sink(&self) -> Sink<TailBytesOwned> {
-        let path = [UNib32(SINK)];
+        let path = ww_client_server::resource_path([SINK]);
         self.cmd
             .prepare_credit_sink(PathKind::Absolute {
                 path: RefVec::Slice { slice: &path },
@@ -447,7 +446,7 @@ async fn late_duplicate_open_resets_nothing() {
     flush(&mut sink).await;
     // the first open once more
     let path = PathKindOwned::Absolute {
-        path: vec![UNib32(SINK)],
+        path: ww_client_server::resource_path([SINK]).to_vec(),
     };
     let (open, answer) = host
         .cmd

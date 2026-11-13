@@ -173,15 +173,15 @@ impl ServerState {
     async fn uart_rx(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<()> {
         Ready(())
     }
 
-    async fn close_uart_rx(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [UNib32; 1]) {}
+    async fn close_uart_rx(&mut self, _cx: &mut Context<'_, impl EventOut>, _index: [ww_client_server::ResourceIndex; 1]) {}
 
-    async fn stream_uart_rx(&mut self, index: [UNib32; 1]) -> &mut Counted {
-        &mut self.rx[index[0].0 as usize]
+    async fn stream_uart_rx(&mut self, index: [ww_client_server::ResourceIndex; 1]) -> &mut Counted {
+        &mut self.rx[index[0].get().0 as usize]
     }
 
     fn new_stream_session(&mut self) -> u32 {
@@ -192,23 +192,23 @@ impl ServerState {
     async fn sideband_uart_tx(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
         _sideband: StreamSideband,
     ) -> Option<StreamSideband> {
         None
     }
 
-    fn credit_uart_tx(&mut self, index: [UNib32; 1]) -> &mut SinkCredit {
-        &mut self.tx_credit[index[0].0 as usize]
+    fn credit_uart_tx(&mut self, index: [ww_client_server::ResourceIndex; 1]) -> &mut SinkCredit {
+        &mut self.tx_credit[index[0].get().0 as usize]
     }
 
     async fn write_uart_tx(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 1],
+        index: [ww_client_server::ResourceIndex; 1],
         data: &shrink_wrap::tail_bytes::TailBytes<'_>,
     ) {
-        let index = index[0].0 as usize;
+        let index = index[0].get().0 as usize;
         let bytes = data.0;
         let mut wg = self.tx_producer[index].wait_grant(bytes.len() as u16).await;
         wg.copy_from_slice(bytes);
@@ -220,7 +220,7 @@ impl ServerState {
     async fn uart_capabilities(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<Capabilities<'_>> {
         let cap = Capabilities {
             min_baud_rate: Baud::base(1200u32),
@@ -244,7 +244,7 @@ impl ServerState {
     async fn uart_configure(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
         _config: UartConfig,
     ) -> RpcResult<Result<UartConfig, ww_uart::UartError<'_>>> {
         ww_unimplemented!()
@@ -253,7 +253,7 @@ impl ServerState {
     async fn uart_set_pin_level(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
         _pin: ww_uart::Pin,
         _is_high: bool,
     ) -> RpcResult<Result<(), ww_uart::UartError<'_>>> {
@@ -263,7 +263,7 @@ impl ServerState {
     async fn uart_send_break(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
         _duration: ww_si::Second,
     ) -> RpcResult<Result<(), ww_uart::UartError<'_>>> {
         ww_unimplemented!()
@@ -272,7 +272,7 @@ impl ServerState {
     async fn uart_tx_pending(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
-        _index: [UNib32; 1],
+        _index: [ww_client_server::ResourceIndex; 1],
     ) -> RpcResult<Bytes<u32>> {
         ww_unimplemented!()
     }

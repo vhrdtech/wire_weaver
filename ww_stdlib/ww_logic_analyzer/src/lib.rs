@@ -50,9 +50,6 @@ pub use ww_i2c::I2cAddress;
 pub use ww_si::prefix::One;
 pub use ww_si::units::{Bit, Channel, Item, Pin, Sample};
 pub use ww_si::{Baud, Bytes, Count, Fixed, Hertz, Index, Second, Volt};
-// TODO(su-spi): ww_spi::SpiMode doesn't derive `defmt::Format` yet, which breaks this crate's `--all-features`
-// build (TriggerStage conditionally derives it). su-spi is adding the derive; remove this note once it lands and
-// `--all-features` build/doc/clippy are clean again.
 pub use ww_spi::SpiMode;
 
 /// Most channels a device lists, and most channels in one capture or stream.

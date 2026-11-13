@@ -55,7 +55,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `Range<0, 7>` bound, and `io_level` moves from `ww_si::Quantity<Volt>` to `Fixed<Volt, Milli, u16>`; wire line
   `w2.0` (EVO-57). See the `ww_spi` CHANGELOG.
 - `just jobs=N test` (also `test-all`, `lint`, `check`, and anything they call) caps `CARGO_BUILD_JOBS` and `NEXTEST_TEST_THREADS` at `N` for that run; without `jobs=`, both are left exactly as inherited.
-- `ww_logic_analyzer` channel numbers, sample positions and amounts, capture memory, raw word width and trigger stage/condition counts are typed (`Index<Channel, u8>`, `Index<Sample, u32>`, `Count<Sample, u32>`, `Bytes<u32>`, `Fixed<Bit, One, u8>`, `Count<Item, u8>`), and `TriggerStage::SpiFirstByte::mode` is a `ww_spi::SpiMode` instead of a bare `u8` (wire change EVO-59, wire line `w2.0`); pending `ww_spi::SpiMode` gaining `defmt::Format` (TOOL/su-spi), its `--all-features` build, doc and clippy are red. See the `ww_logic_analyzer` changelog.
+- `ww_logic_analyzer` channel numbers, sample positions and amounts, capture memory, raw word width and trigger stage/condition counts are typed (`Index<Channel, u8>`, `Index<Sample, u32>`, `Count<Sample, u32>`, `Bytes<u32>`, `Fixed<Bit, One, u8>`, `Count<Item, u8>`), and `TriggerStage::SpiFirstByte::mode` is a `ww_spi::SpiMode` instead of a bare `u8` (wire change EVO-59, wire line `w2.0`). See the `ww_logic_analyzer` changelog.
 
 ### Added
 

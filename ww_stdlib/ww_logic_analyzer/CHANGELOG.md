@@ -2,7 +2,7 @@
 
 ### ⚠️ Breaking
 
-- Wire line `w2.0`: it follows `ww_gpio`'s `w2.0` (EVO-64), whose `Level` this crate re-exports. No code change.
+- Wire line `w2.0`: it follows `ww_gpio`'s `w2.0` (EVO-64), whose `Level` this crate re-exports. Its typed numbers (EVO-59, below) ride the same new line.
 - `TransitionsChunk::edges` is a `Series<'i, u32>` instead of a `DeltaOfDelta<'i, u32>` (removed from shrink_wrap).
   On 128 edges it takes 8 B instead of 23 B for a steady clock, 76 B / 129 B with one sample of jitter, 300 B / 398 B
   for sparse random edges, 150 B / 151 B for UART bytes; the worst case is 610 B (`MAX_READ_LEN` 768 still holds a
@@ -13,7 +13,7 @@
   hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 - `TriggerStage::UartByte::baud` is a `ww_si::Baud` instead of a `u32` (STD-13).
-- Wire line `w2.0` (EVO-59): every channel number is an `Index<Channel, u8>` (`read_transitions`,
+- Typed numbers (EVO-59, on the `w2.0` line above): every channel number is an `Index<Channel, u8>` (`read_transitions`,
   `TriggerStage::UartByte::channel`, `I2cAddress::scl`/`sda`, `SpiFirstByte::cs`/`sck`/`data`,
   `ChannelCondition::channel`, `TransitionsChunk::channel`, `CaptureConfig::channels`, `StreamConfig::channels`,
   `RefVec<u8>` -> `RefVec<Index<Channel, u8>>`); `RateLimit::channels` is a `Count<Channel, u8>`;
@@ -27,10 +27,6 @@
   `ww_spi::SpiMode` instead of a bare `0..=3` `u8`. All transparent wrappers or same-size enums, so the bytes stay
   the same; `ww_si` gains the `information` and `counting` features it was missing for a standalone build (it
   built only through feature unification with another crate before).
-- Depends on `ww_spi` now, for `SpiMode`. **Blocked**: `ww_spi::SpiMode` doesn't derive `defmt::Format`, which
-  `TriggerStage`'s `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))` needs once it holds one; until
-  `ww_spi` adds that derive (su-spi is on it), this crate's `--all-features` build, `cargo doc` and clippy are
-  red. `TODO(su-spi)` next to the `use` in `src/lib.rs`.
 
 ### 🚀 Features
 

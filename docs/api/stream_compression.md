@@ -6,8 +6,8 @@ level: advanced
 
 A counted stream can send its events compressed: each event's item goes through LZ4 with the items before it as
 history, so a byte stream of text (a UART carrying a shell or a TUI, a log) takes a third to a fifth of the link.
-Nothing changes in the API: the device chooses per stream by the state it keeps for it, the host offers the codec
-when it opens the stream, and an older host simply gets the events as they are.
+Nothing changes in the API: the device chooses per stream by the state it keeps for it and says which codec when
+the host opens the stream, and the host decodes it. A host that wants the items as they are asks for that at open.
 
 Measured on shell and TUI captures cut into 512-byte chunks, the way a UART's receive stream sends them: 3.5-5x with
 a 12 KiB buffer (4 KiB kept as history), 3.2-3.9x with 2 KiB; 64-byte chunks still get 2.2-2.9x. Without history
@@ -20,7 +20,7 @@ the USB link.
 
 A counted stream's state, what `stream_<name>()` returns, is anything that implements
 `ww_stream::codec::CountedState`. `ww_stream::tx::Counted` sends items as they are; `ww_stream::codec::Compressed`
-wraps one with a codec and compresses once the host offers that codec. With `ww_stream`'s `lz4` feature the codec is
+wraps one with a codec and compresses unless the host opened the stream `raw`. With `ww_stream`'s `lz4` feature the codec is
 `ww_lz4::Encoder<HASH, BUF>`: `HASH` hash table entries (2 bytes each) and a `BUF`-byte buffer for the history and the
 item being compressed.
 
@@ -50,9 +50,10 @@ part with flash wait states. Batched and reliable streams don't compress yet.
 
 ## Host side
 
-`wire_weaver_client` offers LZ4 whenever it opens or resumes a counted stream, and decodes before the items reach
-the stream's queue: generated clients, the dynamic client and Python get the same items as from an uncompressed
-stream. `ClientConfig::stream_compression(false)` (or `.compression(false)` on one open) turns the offer off.
+`wire_weaver_client` decodes the codec the device names when it opens or resumes a counted stream, before the
+items reach the stream's queue: generated clients, the dynamic client and Python get the same items as from an
+uncompressed stream. `ClientConfig::stream_compression(false)` (or `.compression(false)` on one open) opens the
+stream `raw`: for debugging, or to spare the device's CPU on a fast link.
 `StreamStats` says what was saved: `codec_bytes_in` came over the link, `codec_bytes_out` is what they decoded to
 (Python: the same keys in `stats`).
 
@@ -73,12 +74,24 @@ until the next restart, and reports their units as a `Gap { cause: Link }`, coun
 
 ## On the wire
 
-- `RequestKind::StreamOpen { codecs }`: the codecs the host decodes (`StreamCodecs { lz4 }`, evolvable), `None` from
-  a host that doesn't offer any.
-- `StreamOpened { codec }`: the one the device took, `StreamCodec::Lz4 { history }` with how far back its blocks
-  reach, or `None`: events as they are.
+- `RequestKind::StreamOpen { raw }`: one bit, `true` asks for the events as they are.
+- `StreamOpened { codec }`: the codec the device compresses this session's events with, `StreamCodec::Lz4 { history
+  }` with how far back its blocks reach, or `None`: events as they are (the host asked for `raw`, or the stream
+  doesn't compress).
 - Each event's data is one [LZ4 block](https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md) (no frame, no
   checksum: the link has its own), which decodes with the bytes of the items before it as the dictionary
   (`LZ4_decompress_safe_usingDict`, lz4_flex's `decompress_into_with_dict`). An item that doesn't shrink is a block
   of literals only, so there is no flag per event.
 - `HeadExt::codec_restart` on the event where the history starts over.
+
+## A codec from a newer version
+
+A new codec is a new `StreamCodec` variant. A host built before it reads its discriminant as
+`StreamCodec::Unknown(d)`, closes the stream and opens it again with `raw`, so it gets the events as they are instead
+of failing the open. `StreamCodec` is `final_structure`: the device writes it in place before the stream function's
+result, so an older host can't skip a newer codec's fields, and the rest of that first answer is not the result. It
+doesn't need it: the answer to the `raw` open carries the result.
+
+Why the device decides: it is the side that knows what it can afford (its RAM for the history, its CPU), and the
+host is the capable side, which can decode whatever it is given. Reading a codec offer on every open cost a small
+device more flash and instructions than the one bit that replaced it.

@@ -11,6 +11,7 @@ use wire_weaver::shrink_wrap::{
     DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec, SerializeShrinkWrap, UVlq32,
 };
 use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+use ww_client_server::stream::{StreamCodec, StreamOpened};
 use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind, StreamSideband};
 use ww_device::{LinkConfig, LinkEvent};
 use ww_stream::store::RamRing;
@@ -39,6 +40,10 @@ struct Dev {
     counted: Counted,
     sessions: u32,
     epoch: tokio::time::Instant,
+    /// A newer firmware: the counted stream compresses with a codec this host doesn't know (API-55)
+    newer_codec: bool,
+    /// What the counted stream was asked: `"open"`, `"open raw"`, `"close"`
+    counted_log: Vec<&'static str>,
 }
 
 impl Dev {
@@ -48,6 +53,8 @@ impl Dev {
             counted: Counted::new(),
             sessions: 0,
             epoch: tokio::time::Instant::now(),
+            newer_codec: false,
+            counted_log: vec![],
         })
     }
 
@@ -87,8 +94,9 @@ impl WireWeaverAsyncApiBackend for Dev {
             .get()
             .0;
         let now_ms = self.now_ms();
+        let mut raw_open = true;
         let opened: Opened = match request.kind {
-            RequestKind::StreamOpen { resume, .. } => match (stream, resume) {
+            RequestKind::StreamOpen { resume, raw, .. } => match (stream, resume) {
                 (RELIABLE, Some(cursor)) => self
                     .reliable
                     .resume(cursor)
@@ -106,6 +114,8 @@ impl WireWeaverAsyncApiBackend for Dev {
                     .resume(cursor)
                     .map_err(|_| ShrinkWrapError::OutOfBoundsRev)?,
                 (_, None) => {
+                    self.counted_log.push(if raw { "open raw" } else { "open" });
+                    raw_open = raw;
                     self.sessions += 1;
                     self.counted.open(self.sessions)
                 }
@@ -118,7 +128,10 @@ impl WireWeaverAsyncApiBackend for Dev {
                         .on_sideband(&sideband, now_ms)
                         .await
                         .map_err(|_| ShrinkWrapError::OutOfBoundsRev)?,
-                    (_, StreamSideband::Close) => self.counted.detach(),
+                    (_, StreamSideband::Close) => {
+                        self.counted_log.push("close");
+                        self.counted.detach()
+                    }
                     _ => {}
                 }
                 return Ok(&[]);
@@ -126,7 +139,17 @@ impl WireWeaverAsyncApiBackend for Dev {
             _ => return Err(ShrinkWrapError::OutOfBoundsRev),
         };
         let mut buf = [0u8; 64];
-        let opened = opened.to_wire(&[]).to_ww_bytes(&mut buf)?;
+        let opened = if self.newer_codec && !raw_open {
+            // a codec from a newer version: its fields follow, where an older host expects the result
+            StreamOpened {
+                result: TailBytes(&[0x5a, 0xa5, 0x07]),
+                ..opened.to_wire(&[])
+            }
+            .with_codec(Some(StreamCodec::Unknown(9)))
+            .to_ww_bytes(&mut buf)?
+        } else {
+            opened.to_wire(&[]).to_ww_bytes(&mut buf)?
+        };
         Event {
             seq: UVlq32(request.seq.0),
             result: Ok(EventKind::Value {
@@ -553,6 +576,44 @@ async fn s4_counted_stuck_host_drops_newest_and_reports_them() {
     assert_eq!(items as u64 + lost, total as u64);
     assert_eq!(s.stats().lost_host, lost);
     conn.host_exits().await;
+}
+
+/// API-55: a newer device declares a codec this host doesn't know. The host closes the stream and opens it again
+/// with `raw`, the open succeeds and the items come as they are.
+#[tokio::test]
+async fn unknown_codec_reopens_raw() {
+    let (produce_tx, produce_rx) = mpsc::unbounded_channel();
+    let mut dev = Dev::new();
+    dev.newer_codec = true;
+    let conn = connect_host(dev, produce_rx).await;
+    let mut s = conn
+        .cmd
+        .prepare_stream_open::<(), PositionedStream<TailBytesOwned>>(
+            path(COUNTED),
+            Some(ww_self::Delivery::Counted),
+            Ok(vec![]),
+        )
+        .call()
+        .await
+        .unwrap();
+    produce_tx
+        .send(Produce::Items {
+            stream: COUNTED,
+            from: 0,
+            to: 3,
+        })
+        .unwrap();
+    for i in 0..3 {
+        match next(&mut s).await {
+            StreamEvent::Item { pos, value, .. } => {
+                assert_eq!(pos, i);
+                assert_eq!(index(&value) as u64, i);
+            }
+            ev => panic!("{ev:?}"),
+        }
+    }
+    let (dev, _) = conn.host_exits().await;
+    assert_eq!(dev.counted_log, ["open", "close", "open raw"]);
 }
 
 /// S6: a recorder acknowledges what it saved ([AckMode::Explicit]) and saves the cursor with it; after its host

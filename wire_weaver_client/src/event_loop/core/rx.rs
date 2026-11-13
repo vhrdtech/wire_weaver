@@ -569,6 +569,18 @@ impl RxCore {
             self.output
                 .push_back(RxOutput::ToTx(ToTx::ResolveAbsolute(Box::new(retry))));
         }
+        // a stream opened with a codec this host doesn't know: closed, then opened again with raw (API-55)
+        for (close, reopen) in self.dispatcher.take_reopens() {
+            self.output.push_back(RxOutput::ToTx(ToTx::Send(close)));
+            if let Some((retry, done_tx, timeout, hook)) = reopen {
+                self.output.push_back(RxOutput::ToTx(ToTx::RetryFull {
+                    retry,
+                    done_tx,
+                    timeout,
+                    hook,
+                }));
+            }
+        }
         if self.phase == Phase::Up {
             for bytes in self.dispatcher.poll_streams(now) {
                 self.output.push_back(RxOutput::ToTx(ToTx::Send(bytes)));
@@ -608,6 +620,11 @@ impl RxCore {
         }
         for retry in self.dispatcher.take_absolute_retries() {
             _ = retry.done_tx.send(Err(Error::Disconnected));
+        }
+        for (_, reopen) in self.dispatcher.take_reopens() {
+            if let Some((_, done_tx, _, _)) = reopen {
+                _ = done_tx.send(Err(Error::Disconnected));
+            }
         }
         if notify_tx {
             self.output

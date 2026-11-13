@@ -15,6 +15,7 @@ use tracing::{debug, trace, warn};
 use wire_weaver::prelude::UVlq32Backfill;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned};
 use ww_client_server::ResourceIndex;
+use ww_client_server::stream::StreamCodec;
 use ww_client_server::{ErrorKind, EventKind, PathKindOwned, RequestKindOwned};
 
 pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
@@ -105,6 +106,9 @@ pub(crate) struct RxDispatcher {
     /// Requests the device answered `TraitNotFound` to with a compact path, to be sent again by tx with
     /// [Self::take_retries]
     retries: Vec<Retry>,
+    /// Streams the device opened with a codec this host doesn't know (API-55): their close, then the open again
+    /// with `raw`, [Self::take_reopens]
+    reopens: Vec<(Vec<u8>, Option<Retry>)>,
     /// Requests the device answered `TraitNotFound` to with a `GlobalFull` path, to be sent again with an absolute
     /// one, [Self::take_absolute_retries] (SRV-53)
     absolute_retries: Vec<AbsoluteRetry>,
@@ -138,7 +142,8 @@ pub(crate) struct RxDispatcher {
 
 struct ResponseSenderWrapper(Option<ResponseSender>);
 
-/// A request to send again with a `GlobalFull` path: the request, its response sender, timeout and stream hook.
+/// A request to send again (with a `GlobalFull` path, or a stream's open with `raw`): the request, its response
+/// sender, timeout and stream hook.
 pub(crate) type Retry = (
     Box<FullRetry>,
     ResponseSender,
@@ -283,6 +288,12 @@ impl RxDispatcher {
     /// Requests to send again with a `GlobalFull` path, since the last call.
     pub fn take_retries(&mut self) -> Vec<Retry> {
         std::mem::take(&mut self.retries)
+    }
+
+    /// Closes of streams opened with a codec this host doesn't know, each with its open again with `raw`
+    /// (API-55), since the last call.
+    pub fn take_reopens(&mut self) -> Vec<(Vec<u8>, Option<Retry>)> {
+        std::mem::take(&mut self.reopens)
     }
 
     /// Requests to send again with an absolute path, since the last call.
@@ -438,8 +449,11 @@ impl RxDispatcher {
         match event.result {
             Ok(event_kind) => match event_kind {
                 EventKind::Value { data } => {
-                    if let Some(hook) = self.stream_opens.remove(&event.seq.0) {
-                        self.stream_opened(*hook, data.as_slice());
+                    if let Some(hook) = self.stream_opens.remove(&event.seq.0)
+                        && let Some(reopen) = self.stream_opened(*hook, data.as_slice())
+                    {
+                        self.reopen_raw(event.seq.0, reopen);
+                        return;
                     }
                     if let Some(mut done_tx) = self.take_response(event.seq.0) {
                         let return_or_value_bytes = data.as_slice().to_vec();
@@ -591,17 +605,29 @@ impl RxDispatcher {
         }
     }
 
-    /// The device answered a request that opens a counted or reliable stream.
-    fn stream_opened(&mut self, hook: StreamOpenHook, bytes: &[u8]) {
-        if !(hook.is_open)(bytes) {
-            return;
-        }
+    /// The device answered a request that opens a counted or reliable stream. Returns the hook back when the
+    /// device declared a codec this host doesn't know (API-55) and the stream is to be opened again with `raw`.
+    fn stream_opened(&mut self, hook: StreamOpenHook, bytes: &[u8]) -> Option<StreamOpenHook> {
         let Ok(decoded) = decode_opened(bytes) else {
-            return;
+            return None;
         };
+        if let Some(StreamCodec::Unknown(d)) = decoded.codec {
+            // the rest of the answer is the newer codec's fields, not the stream function's result
+            if hook.raw_reopen.is_some() {
+                debug!("stream opened with codec {d} this host doesn't know, opening it again with raw");
+                return Some(hook);
+            }
+            warn!("stream opened with raw, but the device declared codec {d}: it ends");
+            hook.shared.lock().ended();
+            hook.shared.wake();
+            return None;
+        }
+        if !(hook.is_open)(bytes) {
+            return None;
+        }
         let mut inner = hook.shared.lock();
         if inner.closed {
-            return;
+            return None;
         }
         inner.opened(hook.resume, &decoded.opened, decoded.codec);
         let path = inner.path.clone();
@@ -612,6 +638,28 @@ impl RxDispatcher {
             old.lock().disconnected(false);
             old.wake();
         }
+        None
+    }
+
+    /// Close the stream the request `seq` opened with a codec this host doesn't know, and send the open again with
+    /// `raw` (API-55): the answer to that one goes to whoever waits for `seq`'s.
+    fn reopen_raw(&mut self, seq: SeqTy, mut hook: StreamOpenHook) {
+        let Some(reopen) = hook.raw_reopen.take() else {
+            return;
+        };
+        let Some(done_tx) = self.take_response(seq).and_then(|mut w| w.0.take()) else {
+            // nobody waits for the open anymore: closing it is enough
+            self.reopens.push((reopen.close, None));
+            return;
+        };
+        let retry = Box::new(FullRetry {
+            compact: None,
+            bytes: reopen.open_raw,
+        });
+        self.reopens.push((
+            reopen.close,
+            Some((retry, done_tx, reopen.timeout, Some(Box::new(hook)))),
+        ));
     }
 
     /// Sideband the streams' receivers want to send now (`Ack`, `Resend`), as requests.

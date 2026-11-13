@@ -765,6 +765,19 @@ pub fn table() -> Vec<Typed> {
                 instance_id: 0x0102_0304_0506_0708,
             }), None)
         }),
+        // ww_client_server's request and its answer to a stream open (API-55), not in the API model
+        case_debug("client_server.stream_open.compressed", || {
+            stream_open(false)
+        }),
+        case_debug("client_server.stream_open.raw", || stream_open(true)),
+        case_debug("client_server.stream_opened.lz4", || {
+            stream_opened(Some(ww_client_server::stream::StreamCodec::Lz4 {
+                history: ww_si::Bytes::new(wire_weaver::shrink_wrap::UVlq32(4096)),
+            }))
+        }),
+        case_debug("client_server.stream_opened.unknown", || {
+            stream_opened(Some(ww_client_server::stream::StreamCodec::Unknown(9)))
+        }),
         // ww_link's Disconnect payload, not in the API model
         case_borrowed_only(
             "disconnect_reason.hub_handover",
@@ -1653,6 +1666,33 @@ fn device_info(
         token: 7,
         image_facts: ww_link::ImageFacts { no_observe_samples },
         user_api_wire,
+    }
+}
+
+/// A stream open as a host sends it (API-55): `raw` asks for the items as they are.
+fn stream_open(raw: bool) -> ww_client_server::RequestKindOwned {
+    ww_client_server::RequestKindOwned::StreamOpen {
+        resume: None,
+        max_age: None,
+        raw,
+        args: wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned(vec![0x2a]),
+    }
+}
+
+/// A device's answer to a stream open with the codec it declares (API-55), and a stream function's result.
+fn stream_opened(
+    codec: Option<ww_client_server::stream::StreamCodec>,
+) -> ww_client_server::stream::StreamOpenedOwned {
+    use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
+    ww_client_server::stream::StreamOpenedOwned {
+        session: UVlq32(3),
+        oldest: UVlq64(0),
+        live_from: UVlq64(0),
+        resume_from: None,
+        capacity: None,
+        max_age: None,
+        codec,
+        result: wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned(vec![0x80]),
     }
 }
 

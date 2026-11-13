@@ -93,25 +93,18 @@ impl HeadExt {
     };
 }
 
-/// Codecs a host decodes, offered when it opens a stream (API-55, [RequestKind::StreamOpen](crate::RequestKind::StreamOpen)).
-/// Evolvable: a codec added later is a field appended here.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    derive(Debug, Clone, Copy, PartialEq, Eq, Default)
-)]
-pub struct StreamCodecs {
-    /// [StreamCodec::Lz4].
-    pub lz4: bool,
-}
-
-/// Codec a device compresses a stream's events with (API-55), answered in [StreamOpened::codec] out of the host's
-/// [StreamCodecs] offer. Applies to counted streams' [EventKind::StreamItem](crate::EventKind::StreamItem) events:
-/// their data is the codec's output, the serialized item comes out of the host's decoder.
+/// Codec a device compresses a stream's events with (API-55), declared in [StreamOpened::codec]. Applies to counted
+/// streams' [EventKind::StreamItem](crate::EventKind::StreamItem) events: their data is the codec's output, the
+/// serialized item comes out of the host's decoder.
 ///
-/// `final_structure`, so [StreamOpened::ser_head] can write it in place before the stream function's result. New
-/// codecs are new variants: a device only answers one the host offered, so a host never reads a variant it doesn't
-/// know.
+/// The device chooses: a stream whose state compresses does so unless the host opened it with `raw`
+/// ([RequestKind::StreamOpen](crate::RequestKind::StreamOpen)). A codec added later is a new variant, which an older
+/// host reads as [StreamCodec::Unknown]; such a host opens the stream again with `raw`.
+///
+/// `final_structure`, so [StreamOpened::ser_head] can write it in place before the stream function's result: an
+/// `Unsized` enum's size would go to the back of the buffer, in the same byte as the result's own sizes. So an older
+/// host can't skip a newer codec's fields: it reads the discriminant, and the rest of [StreamOpened::result] is not
+/// the result. It doesn't need it, it opens the stream again.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -124,6 +117,10 @@ pub enum StreamCodec {
     /// of the items decoded before it, back to the last [HeadExt::codec_restart]. An item that doesn't compress is a
     /// block of literals only.
     Lz4 { history: Bytes<UVlq32> },
+    /// A codec from a newer version, with its discriminant: this host can't decode it, and the rest of
+    /// [StreamOpened] after it holds that codec's fields.
+    #[future_version]
+    Unknown(u8),
 }
 
 /// A point in a stream: a position in a session. The host keeps one per open stream and passes it back to resume
@@ -169,8 +166,8 @@ pub struct StreamOpened<'i> {
     /// Batched streams (API-41): the most a batch waits on the device before it is sent, granted for the
     /// `max_age` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn't batched.
     pub max_age: Option<Micros<UNib32>>,
-    /// Compressed streams (API-55): the codec the device took out of the host's offer, `None` for events sent as
-    /// they are (no offer, or a stream that doesn't compress).
+    /// Compressed streams (API-55): the codec the device compresses this session's events with, `None` for events
+    /// sent as they are (the host asked for `raw`, or a stream that doesn't compress).
     pub codec: Option<StreamCodec>,
     /// Serialized result of the stream function (its `Result<T, E>`), empty for `stream!`.
     pub result: TailBytes<'i>,
@@ -680,18 +677,42 @@ mod tests {
         assert!(!ext.codec_restart);
     }
 
-    /// API-55: the codec answer of an open and the host's offer.
+    /// API-55: the codec a device declares, and one from a newer version with fields of its own, which this
+    /// version reads as `Unknown`: the answer still decodes, its `result` holds the newer codec's fields.
     #[test]
-    fn codec_offer_and_answer() {
+    fn codec_declared_and_newer() {
         let mut buf = [0u8; 16];
-        let offer = StreamCodecs { lz4: true };
-        let b = offer.to_ww_bytes(&mut buf).unwrap().to_vec();
-        assert_eq!(StreamCodecs::from_ww_bytes(&b).unwrap(), offer);
         let codec = StreamCodec::Lz4 {
             history: Bytes::new(UVlq32(4096)),
         };
         let b = codec.to_ww_bytes(&mut buf).unwrap().to_vec();
         assert_eq!(StreamCodec::from_ww_bytes(&b).unwrap(), codec);
+
+        #[derive_shrink_wrap(borrowed, derive(Debug), final_structure, ww_repr = nib)]
+        enum NewerCodec {
+            Lz4 { history: Bytes<UVlq32> },
+            Zstd { level: u8, window: UVlq32 },
+        }
+        let result: Result<u8, u8> = Ok(9);
+        let mut buf = [0u8; 64];
+        let mut wr = BufWriter::new(&mut buf);
+        let head = StreamOpened::closed();
+        wr.write(&head.session).unwrap();
+        wr.write(&head.oldest).unwrap();
+        wr.write(&head.live_from).unwrap();
+        wr.write(&head.resume_from).unwrap();
+        wr.write(&head.capacity).unwrap();
+        wr.write(&head.max_age).unwrap();
+        wr.write(&Some(NewerCodec::Zstd {
+            level: 3,
+            window: UVlq32(1 << 20),
+        }))
+        .unwrap();
+        wr.align_byte();
+        result.ser_shrink_wrap(&mut wr).unwrap();
+        let newer = wr.finish_and_take().unwrap().to_vec();
+        let back = StreamOpened::from_ww_bytes(&newer).unwrap();
+        assert_eq!(back.codec, Some(StreamCodec::Unknown(1)));
     }
 
     /// A 32 GB byte stream near its end, events of 1 KiB: 8 bytes, 13 with a timestamp.
@@ -845,33 +866,42 @@ mod tests {
         let result: Result<(u8, &str), u8> = Ok((7, "abc"));
         let mut rbuf = [0u8; 32];
         let result_bytes = result.to_ww_bytes(&mut rbuf).unwrap().to_vec();
-        let opened = StreamOpened {
-            session: UVlq32(3),
-            oldest: UVlq64(1),
-            live_from: UVlq64(300),
-            resume_from: Some(UVlq64(2)),
-            max_age: Some(Micros::new(UNib32(20_000))),
-            capacity: None,
-            codec: Some(StreamCodec::Lz4 {
+        let codecs = [
+            None,
+            Some(StreamCodec::Lz4 {
                 history: Bytes::new(UVlq32(4096)),
             }),
-            result: TailBytes(&result_bytes),
-        };
-        let mut buf = [0u8; 64];
-        let derived = opened.to_ww_bytes(&mut buf).unwrap().to_vec();
+            Some(StreamCodec::Unknown(5)),
+        ];
+        for codec in codecs {
+            let opened = StreamOpened {
+                session: UVlq32(3),
+                oldest: UVlq64(1),
+                live_from: UVlq64(300),
+                resume_from: Some(UVlq64(2)),
+                max_age: Some(Micros::new(UNib32(20_000))),
+                capacity: None,
+                codec,
+                result: TailBytes(&result_bytes),
+            };
+            let mut buf = [0u8; 64];
+            let derived = opened.to_ww_bytes(&mut buf).unwrap().to_vec();
+
+            let mut buf = [0u8; 64];
+            let mut wr = BufWriter::new(&mut buf);
+            opened.ser_head(&mut wr).unwrap();
+            result.ser_shrink_wrap(&mut wr).unwrap();
+            let in_place = wr.finish_and_take().unwrap().to_vec();
+            assert_eq!(in_place, derived, "{codec:?}");
+            let back = StreamOpened::from_ww_bytes(&in_place).unwrap();
+            assert_eq!(back.codec, codec);
+            assert_eq!(
+                <Result<(u8, &str), u8>>::from_ww_bytes(back.result.0).unwrap(),
+                result
+            );
+        }
 
         let mut buf = [0u8; 64];
-        let mut wr = BufWriter::new(&mut buf);
-        opened.ser_head(&mut wr).unwrap();
-        result.ser_shrink_wrap(&mut wr).unwrap();
-        let in_place = wr.finish_and_take().unwrap().to_vec();
-        assert_eq!(in_place, derived);
-        let back = StreamOpened::from_ww_bytes(&in_place).unwrap();
-        assert_eq!(
-            <Result<(u8, &str), u8>>::from_ww_bytes(back.result.0).unwrap(),
-            result
-        );
-
         let status = StreamStatus {
             open: true,
             session: Some(UVlq32(1)),

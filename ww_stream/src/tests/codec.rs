@@ -6,13 +6,11 @@ use crate::tx::Counted;
 use crate::{StreamCursor, StreamHead};
 use std::vec::Vec;
 use wire_weaver::shrink_wrap::{Error, UVlq32, UVlq64};
-use ww_client_server::stream::{StreamCodec, StreamCodecs};
+use ww_client_server::stream::StreamCodec;
 use ww_lz4::{Decoder, Encoder};
 use ww_si::Bytes;
 
 type Enc = Encoder<1024, 4096>;
-
-const LZ4: StreamCodecs = StreamCodecs { lz4: true };
 
 fn line(i: usize) -> Vec<u8> {
     format!(
@@ -44,7 +42,7 @@ fn restarts(head: &StreamHead) -> bool {
 #[test]
 fn counted_is_a_counted_state_without_codec() {
     let mut c = Counted::new();
-    let (opened, codec) = c.open_offered(3, Some(&LZ4));
+    let (opened, codec) = c.open_session(3, false);
     assert_eq!((opened.session, codec), (3, None));
     let (head, data) = send(&mut c, b"abc").unwrap();
     assert_eq!(data, b"abc");
@@ -52,22 +50,22 @@ fn counted_is_a_counted_state_without_codec() {
 }
 
 #[test]
-fn no_offer_sends_items_as_they_are() {
+fn raw_sends_items_as_they_are() {
     let mut s = Compressed::new(Enc::new(1024));
-    let (_, codec) = s.open_offered(1, None);
+    let (_, codec) = s.open_session(1, true);
     assert_eq!(codec, None);
     assert!(!s.is_compressing());
     let (head, data) = send(&mut s, &line(0)).unwrap();
     assert_eq!(data, line(0));
     assert_eq!(head.ext, None);
-    let (_, codec) = s.open_offered(2, Some(&StreamCodecs::default()));
-    assert_eq!(codec, None, "an empty offer");
+    let (_, codec) = s.open_session(2, false);
+    assert!(codec.is_some() && s.is_compressing(), "the next session compresses");
 }
 
 #[test]
 fn round_trip_with_history() {
     let mut s = Compressed::new(Enc::new(1024)).restart_every(0);
-    let (_, codec) = s.open_offered(1, Some(&LZ4));
+    let (_, codec) = s.open_session(1, false);
     assert_eq!(
         codec,
         Some(StreamCodec::Lz4 {
@@ -93,7 +91,7 @@ fn round_trip_with_history() {
 #[test]
 fn restarts_every_n_bytes() {
     let mut s = Compressed::new(Enc::new(1024)).restart_every(2000);
-    s.open_offered(1, Some(&LZ4));
+    s.open_session(1, false);
     let mut dec = Decoder::new();
     let mut since = 0;
     let mut marks = 0;
@@ -118,7 +116,7 @@ fn restarts_every_n_bytes() {
 #[test]
 fn unsent_event_restarts() {
     let mut s = Compressed::new(Enc::new(1024)).restart_every(0);
-    s.open_offered(1, Some(&LZ4));
+    s.open_session(1, false);
     let mut dec = Decoder::new();
     for i in 0..5 {
         let (head, data) = send(&mut s, &line(i)).unwrap();
@@ -143,7 +141,7 @@ fn unsent_event_restarts() {
 #[test]
 fn producer_loss_keeps_history() {
     let mut s = Compressed::new(Enc::new(1024)).restart_every(0);
-    s.open_offered(1, Some(&LZ4));
+    s.open_session(1, false);
     let mut dec = Decoder::new();
     for i in 0..10 {
         if i == 5 {
@@ -162,7 +160,7 @@ fn producer_loss_keeps_history() {
 #[test]
 fn link_loss_heals_at_the_next_restart() {
     let mut s = Compressed::new(Enc::new(1024)).restart_every(1500);
-    s.open_offered(1, Some(&LZ4));
+    s.open_session(1, false);
     let mut dec = Decoder::new();
     let mut expect = 0u64;
     let mut in_step = false;
@@ -197,9 +195,9 @@ fn link_loss_heals_at_the_next_restart() {
 }
 
 #[test]
-fn resume_restarts_and_takes_the_new_offer() {
+fn resume_restarts_and_takes_the_new_raw_bit() {
     let mut s = Compressed::new(Enc::new(1024));
-    s.open_offered(1, Some(&LZ4));
+    s.open_session(1, false);
     send(&mut s, &line(0)).unwrap();
     send(&mut s, &line(1)).unwrap();
     s.detach();
@@ -207,12 +205,12 @@ fn resume_restarts_and_takes_the_new_offer() {
         session: UVlq32(1),
         pos: UVlq64(0),
     };
-    let (_, codec) = s.resume_offered(cursor, None).unwrap();
-    assert_eq!(codec, None, "an older host resumes");
+    let (_, codec) = s.resume_session(cursor, true).unwrap();
+    assert_eq!(codec, None, "a host that asks for raw");
     let (head, data) = send(&mut s, &line(2)).unwrap();
     assert_eq!(data, line(2));
     assert!(head.ext.is_none());
-    let (_, codec) = s.resume_offered(cursor, Some(&LZ4)).unwrap();
+    let (_, codec) = s.resume_session(cursor, false).unwrap();
     assert!(codec.is_some());
     let (head, data) = send(&mut s, &line(3)).unwrap();
     assert!(restarts(&head));
@@ -223,7 +221,7 @@ fn resume_restarts_and_takes_the_new_offer() {
 #[test]
 fn item_error_restarts() {
     let mut s = Compressed::new(Enc::new(1024)).restart_every(0);
-    s.open_offered(1, Some(&LZ4));
+    s.open_session(1, false);
     send(&mut s, &line(0)).unwrap();
     let head = s.head(5, None).unwrap();
     let mut buf = [0u8; 256];
@@ -241,8 +239,8 @@ fn init_in_place_is_new() {
     let mut slot = std::boxed::Box::new(core::mem::MaybeUninit::<Compressed<Enc>>::uninit());
     let b = Compressed::init(&mut slot, |c| Enc::init(c, 1024));
     assert!(!b.is_compressing());
-    a.open_offered(1, Some(&LZ4));
-    b.open_offered(1, Some(&LZ4));
+    a.open_session(1, false);
+    b.open_session(1, false);
     for i in 0..200 {
         assert_eq!(send(&mut *a, &line(i)), send(b, &line(i)));
     }

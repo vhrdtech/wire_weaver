@@ -2435,10 +2435,10 @@ fn handle_stream_fn(
         quote! { .with_max_age(Some(ww_client_server::ww_si::Micros::new(wire_weaver::shrink_wrap::UNib32(granted)))) },
     );
     let max_age_arg = maybe_quote(batched, quote! { max_age, });
-    // a counted stream's state is anything `ww_stream::codec::CountedState`: `Counted`, or `Compressed` that takes
-    // a codec out of the host's offer (API-55)
+    // a counted stream's state is anything `ww_stream::codec::CountedState`: `Counted`, or `Compressed`, which
+    // compresses unless the host asked for `raw` (API-55)
     let codec_counted = delivery == Delivery::Counted && !batched;
-    let codecs_arg = maybe_quote(codec_counted, quote! { codecs, });
+    let raw_arg = maybe_quote(codec_counted, quote! { raw, });
 
     let args: Vec<ArgumentOwned> = stream.args.to_vec();
     let (args_des, args_list) = if cx.no_alloc {
@@ -2485,7 +2485,7 @@ fn handle_stream_fn(
         Delivery::Plain => quote! {},
         Delivery::Counted if codec_counted => quote! {
             let session = self.new_stream_session();
-            let (opened, codec) = ww_stream::codec::CountedState::open_offered(#state, session, codecs.as_ref());
+            let (opened, codec) = ww_stream::codec::CountedState::open_session(#state, session, *raw);
             opened.to_wire(&[]).with_codec(codec)
         },
         Delivery::Counted => quote! {
@@ -2521,7 +2521,7 @@ fn handle_stream_fn(
     let open = if cx.no_alloc && delivery == Delivery::Plain && !batched {
         // SRV-51: no session, so the whole answer is the shared path's
         quote! {
-            RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
+            RequestKind::StreamOpen { resume: None, #max_age_arg #raw_arg #maybe_args } => {
                 #args_des
                 let result: RpcResult<#enforce_ty> = #open_call;
                 ww_client_server::dispatch::reply_open_plain(wr, d, result)
@@ -2529,7 +2529,7 @@ fn handle_stream_fn(
         }
     } else if cx.no_alloc {
         quote! {
-            RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
+            RequestKind::StreamOpen { resume: None, #max_age_arg #raw_arg #maybe_args } => {
                 #args_des
                 match #open_call {
                     RpcResult::Ready(output) => {
@@ -2545,7 +2545,7 @@ fn handle_stream_fn(
         }
     } else {
         quote! {
-            RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
+            RequestKind::StreamOpen { resume: None, #max_age_arg #raw_arg #maybe_args } => {
                 #args_des
                 match #open_call {
                     RpcResult::Ready(output) => {
@@ -2594,8 +2594,8 @@ fn handle_stream_fn(
         };
         if codec_counted {
             quote! {
-                RequestKind::StreamOpen { resume: Some(cursor), codecs, .. } => {
-                    let r = ww_stream::codec::CountedState::resume_offered(#state, *cursor, codecs.as_ref());
+                RequestKind::StreamOpen { resume: Some(cursor), raw, .. } => {
+                    let r = ww_stream::codec::CountedState::resume_session(#state, *cursor, *raw);
                     let (opened, codec) = match #resume_result {
                         Ok(v) => v,
                         Err(kind) => return ww_client_server::dispatch::err_kind(wr, d, #es_resume, kind),

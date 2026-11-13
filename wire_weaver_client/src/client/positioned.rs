@@ -273,15 +273,13 @@ impl Inner {
         self.config.max_age_us
     }
 
-    /// The codecs to offer when opening or resuming (API-55).
-    pub(crate) fn codec_offer(&self) -> Option<ww_client_server::stream::StreamCodecs> {
-        crate::client::prepared_stream_open::codec_offer(
-            Some(self.config.delivery),
-            self.config.compression,
-        )
+    /// Delivery and whether compression is on, for the requests that resume the stream (API-55).
+    pub(crate) fn compression(&self) -> (ww_self::Delivery, bool) {
+        (self.config.delivery, self.config.compression)
     }
 
-    /// The device answered the open (or a resume from `cursor`), taking `codec` (API-55).
+    /// The device answered the open (or a resume from `cursor`), declaring `codec` (API-55): a codec this host
+    /// doesn't know never gets here, the event loop opens such a stream again with `raw`.
     pub(crate) fn opened(
         &mut self,
         cursor: Option<StreamCursor>,
@@ -295,7 +293,7 @@ impl Inner {
             Some(ww_client_server::stream::StreamCodec::Lz4 { .. }) => {
                 Some(self.decoder.take().unwrap_or_default())
             }
-            None => None,
+            Some(ww_client_server::stream::StreamCodec::Unknown(_)) | None => None,
         };
         self.in_step = false;
         let (gaps, ended) = self.rx.opened(cursor, opened);
@@ -1025,10 +1023,9 @@ mod tests {
     /// on the link makes the ones after it undecodable until the device's next codec restart, reported as one gap.
     #[test]
     fn compressed_stream_decodes_and_heals() {
-        use ww_client_server::stream::StreamCodecs;
         use ww_stream::codec::{Compressed, CountedState};
         let mut dev = Compressed::new(ww_lz4::Encoder::<1024, 4096>::new(1024)).restart_every(600);
-        let (opened, codec) = dev.open_offered(1, Some(&StreamCodecs { lz4: true }));
+        let (opened, codec) = dev.open_session(1, false);
         assert!(codec.is_some());
         let shared = counted(1 << 20);
         let mut inner = shared.lock();

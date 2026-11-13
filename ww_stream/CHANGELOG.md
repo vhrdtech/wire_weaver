@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `codec` (EVO-73): the device compresses a `Compressed` stream unless the host asked for `raw`, no offer anymore. `CountedState::open_offered(session, codecs)` and `resume_offered(cursor, codecs)` become `open_session(session, raw)` and `resume_session(cursor, raw)` (not `open` / `resume`, which `Counted` has itself); `ItemCodec::answer(&self, offer)` becomes `ItemCodec::codec(&self) -> StreamCodec`, the codec as the device declares it.
+
 ### 🚀 Features
 
 - `observe::ElementTable<S, D>` (API-63): the observe table of one element of a trait level under resource arrays, with its index chain and `ElementState` (`Free`, `Observed`, `Ended`); `new` / `init_all` in place, `settle`, `release`, `budget`. `observe::element_for` takes the table observing an element or a free one, `mark_element_changed` marks a property of one element, `end_elements` ends the elements under a removed one, `observe::Element` reaches a table of any size by its number.

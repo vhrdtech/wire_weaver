@@ -103,7 +103,7 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
             RequestKind::StreamOpen {
                 resume: None,
                 max_age: None,
-                codecs: None,
+                raw: false,
                 args: TailBytes(&[]),
             },
         ),

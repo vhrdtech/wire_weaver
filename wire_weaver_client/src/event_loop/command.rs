@@ -286,6 +286,21 @@ pub struct StreamOpenHook {
     pub(crate) resume: Option<StreamCursor>,
     /// Whether the answer says the stream is open (the stream function returned `Ok`)
     pub(crate) is_open: fn(&[u8]) -> bool,
+    /// A compressed stream (API-55) whose device declares a codec this host doesn't know: close it and open it
+    /// again with `raw`
+    pub(crate) raw_reopen: Option<Box<RawReopen>>,
+}
+
+/// What a [StreamOpenHook] sends when the device answers the open with a codec this host can't decode
+/// (`StreamCodec::Unknown`, API-55): a close, then the same open with `raw` set.
+#[derive(Debug)]
+pub(crate) struct RawReopen {
+    /// The stream's close sideband, a request without a reply
+    pub(crate) close: Vec<u8>,
+    /// The open request again, with `raw`
+    pub(crate) open_raw: Vec<u8>,
+    /// Timeout of the open sent again
+    pub(crate) timeout: Duration,
 }
 
 impl Debug for StreamOpenHook {
@@ -301,11 +316,13 @@ impl StreamOpenHook {
     pub(crate) fn new<R: StreamOpenResult>(
         shared: Arc<Shared>,
         resume: Option<StreamCursor>,
+        raw_reopen: Option<Box<RawReopen>>,
     ) -> Self {
         StreamOpenHook {
             shared,
             resume,
             is_open: is_open::<R>,
+            raw_reopen,
         }
     }
 }

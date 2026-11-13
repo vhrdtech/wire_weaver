@@ -1056,6 +1056,38 @@
       "note": "ww_link LinkSetup (CLT-41) with the appended client_meta"
     },
     {
+      "name": "client_server.stream_open.compressed",
+      "type": "RequestKind",
+      "value": {"StreamOpen": {"resume": null, "max_age": null, "raw": false, "args": [42]}},
+      "bytes": "802a",
+      "gaps": {"dynamic": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model", "python": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model", "c": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model"},
+      "note": "RequestKind::StreamOpen (API-55) of a host that takes the device's codec: raw is one bit after max_age"
+    },
+    {
+      "name": "client_server.stream_open.raw",
+      "type": "RequestKind",
+      "value": {"StreamOpen": {"resume": null, "max_age": null, "raw": true, "args": [42]}},
+      "bytes": "822a",
+      "gaps": {"dynamic": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model", "python": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model", "c": "ww_client_server's RequestKind is the request envelope, not a type of an API in the model"},
+      "note": "RequestKind::StreamOpen (API-55) of a host that asks for the items as they are"
+    },
+    {
+      "name": "client_server.stream_opened.lz4",
+      "type": "StreamOpened",
+      "value": {"session": 3, "oldest": 0, "live_from": 0, "resume_from": null, "capacity": null, "max_age": null, "codec": {"Lz4": {"history": 4096}}, "result": [128]},
+      "bytes": "03000010a00080",
+      "gaps": {"dynamic": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model", "python": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model", "c": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model"},
+      "note": "StreamOpened (API-55) with the codec the device declares, written in place before the stream function's result (final_structure)"
+    },
+    {
+      "name": "client_server.stream_opened.unknown",
+      "type": "StreamOpened",
+      "value": {"session": 3, "oldest": 0, "live_from": 0, "resume_from": null, "capacity": null, "max_age": null, "codec": "<unknown 9>", "result": [128]},
+      "bytes": "0300001980",
+      "gaps": {"dynamic": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model", "python": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model", "c": "ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model"},
+      "note": "StreamOpened (API-55) with a codec of a newer version: its discriminant is read as Unknown, the host opens the stream again with raw"
+    },
+    {
       "name": "disconnect_reason.hub_handover",
       "type": "DisconnectReason",
       "value": "HubHandover",

@@ -1,9 +1,9 @@
 //! Compressed counted streams (API-55): a counted stream's events carry their serialized item through a codec that
-//! keeps history across events (LZ4 with the items before as its dictionary), negotiated when the host opens the
-//! stream. Design: `docs/api/stream_compression.md`.
+//! keeps history across events (LZ4 with the items before as its dictionary), declared by the device when the host
+//! opens the stream. Design: `docs/api/stream_compression.md`.
 //!
 //! A counted stream's state is anything that implements [CountedState]: a plain [Counted] sends items as they are,
-//! [Compressed] puts them through an [ItemCodec] when the host offered that codec. Generated code goes through the
+//! [Compressed] puts them through an [ItemCodec] unless the host asked for them `raw`. Generated code goes through the
 //! trait, so a firmware opts a stream in by what its `stream_<name>()` returns, the API doesn't change.
 //!
 //! The device and the host keep the same history only while every event that went through the codec reaches the
@@ -21,7 +21,7 @@ use crate::tx::Counted;
 use crate::{HeadExt, Opened, ResumeError, StreamCursor, StreamHead};
 use core::mem::MaybeUninit;
 use wire_weaver::shrink_wrap::Error;
-use ww_client_server::stream::{StreamCodec, StreamCodecs, StreamStatus};
+use ww_client_server::stream::{StreamCodec, StreamStatus};
 use ww_si::Second;
 
 /// Default of [Compressed::restart_every]: 32 KiB of items. With a few KiB of history the events right after a
@@ -30,8 +30,8 @@ pub const DEFAULT_RESTART_EVERY: u32 = 32 * 1024;
 
 /// A codec that compresses a stream's items one at a time with the items before as history (API-55).
 pub trait ItemCodec {
-    /// The codec to use out of the host's offer, `None` when the host can't decode this one.
-    fn answer(&self, offer: &StreamCodecs) -> Option<StreamCodec>;
+    /// The codec as the device declares it in `StreamOpened::codec`.
+    fn codec(&self) -> StreamCodec;
 
     /// Start over: the next item references nothing before it.
     fn restart(&mut self);
@@ -54,23 +54,21 @@ pub trait CountedState {
     /// The positions and sessions.
     fn counted(&mut self) -> &mut Counted;
 
-    /// The host opened the stream offering `codecs`: a new session, and the codec taken, if any.
-    fn open_offered(
-        &mut self,
-        session: u32,
-        codecs: Option<&StreamCodecs>,
-    ) -> (Opened, Option<StreamCodec>) {
-        let _ = codecs;
+    /// The host opened the stream, asking for the items as they are when `raw`: a new session, and the codec the
+    /// events go through, if any.
+    fn open_session(&mut self, session: u32, raw: bool) -> (Opened, Option<StreamCodec>) {
+        let _ = raw;
         (self.counted().open(session), None)
     }
 
-    /// The host resumes from `cursor` offering `codecs` (see [Counted::resume]), and the codec taken, if any.
-    fn resume_offered(
+    /// The host resumes from `cursor` (see [Counted::resume]), `raw` as in [CountedState::open_session], and the codec the
+    /// events go through, if any.
+    fn resume_session(
         &mut self,
         cursor: StreamCursor,
-        codecs: Option<&StreamCodecs>,
+        raw: bool,
     ) -> Result<(Opened, Option<StreamCodec>), ResumeError<()>> {
-        let _ = codecs;
+        let _ = raw;
         Ok((self.counted().resume(cursor)?, None))
     }
 
@@ -111,15 +109,15 @@ impl CountedState for Counted {
     }
 }
 
-/// A counted stream whose items go through `codec` when the host offered it (API-55); events go as they are to a
-/// host that didn't. Big (the codec's history and tables): keep it in a `static` and build it in place, see
+/// A counted stream whose items go through `codec` (API-55), unless the host opened it `raw`: then events go as they
+/// are. Big (the codec's history and tables): keep it in a `static` and build it in place, see
 /// [Compressed::new].
 pub struct Compressed<C> {
     /// Positions and sessions.
     pub stream: Counted,
     /// The codec, with its history.
     pub codec: C,
-    /// The host offered the codec: events go through it.
+    /// The host didn't ask for `raw`: events go through the codec.
     on: bool,
     /// The next event starts the history over.
     restart: bool,
@@ -129,7 +127,7 @@ pub struct Compressed<C> {
 }
 
 impl<C: ItemCodec> Compressed<C> {
-    /// A counted stream with no session yet that compresses with `codec` once a host offers it.
+    /// A counted stream with no session yet that compresses with `codec` once a host opens it.
     pub const fn new(codec: C) -> Self {
         Compressed {
             stream: Counted::new(),
@@ -168,16 +166,15 @@ impl<C: ItemCodec> Compressed<C> {
         self
     }
 
-    /// The host decodes the codec: events go through it.
+    /// The session's events go through the codec (the host didn't ask for `raw`).
     pub fn is_compressing(&self) -> bool {
         self.on
     }
 
-    fn take_offer(&mut self, codecs: Option<&StreamCodecs>) -> Option<StreamCodec> {
-        let codec = codecs.and_then(|offer| self.codec.answer(offer));
-        self.on = codec.is_some();
+    fn start(&mut self, raw: bool) -> Option<StreamCodec> {
+        self.on = !raw;
         self.restart = true;
-        codec
+        (!raw).then(|| self.codec.codec())
     }
 }
 
@@ -186,22 +183,18 @@ impl<C: ItemCodec> CountedState for Compressed<C> {
         &mut self.stream
     }
 
-    fn open_offered(
-        &mut self,
-        session: u32,
-        codecs: Option<&StreamCodecs>,
-    ) -> (Opened, Option<StreamCodec>) {
-        let codec = self.take_offer(codecs);
+    fn open_session(&mut self, session: u32, raw: bool) -> (Opened, Option<StreamCodec>) {
+        let codec = self.start(raw);
         (self.stream.open(session), codec)
     }
 
-    fn resume_offered(
+    fn resume_session(
         &mut self,
         cursor: StreamCursor,
-        codecs: Option<&StreamCodecs>,
+        raw: bool,
     ) -> Result<(Opened, Option<StreamCodec>), ResumeError<()>> {
         let opened = self.stream.resume(cursor)?;
-        Ok((opened, self.take_offer(codecs)))
+        Ok((opened, self.start(raw)))
     }
 
     fn head(&mut self, units: u64, t: Option<Second>) -> Option<StreamHead> {
@@ -247,13 +240,13 @@ impl<C: ItemCodec> CountedState for Compressed<C> {
     }
 }
 
-/// LZ4 with the items before as history (`ww_lz4`), answered as [StreamCodec::Lz4] to a host that offers it.
+/// LZ4 with the items before as history (`ww_lz4`), declared as [StreamCodec::Lz4].
 #[cfg(any(feature = "lz4", test))]
 impl<const HASH: usize, const BUF: usize> ItemCodec for ww_lz4::Encoder<HASH, BUF> {
-    fn answer(&self, offer: &StreamCodecs) -> Option<StreamCodec> {
-        offer.lz4.then_some(StreamCodec::Lz4 {
+    fn codec(&self) -> StreamCodec {
+        StreamCodec::Lz4 {
             history: ww_si::Bytes::new(wire_weaver::shrink_wrap::UVlq32(Self::HISTORY as u32)),
-        })
+        }
     }
 
     fn restart(&mut self) {

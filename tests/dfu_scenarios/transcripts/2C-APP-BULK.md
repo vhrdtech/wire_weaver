@@ -40,7 +40,7 @@
         50 B  01 40 40 00 00 57 57 44 50 01 …
 ← Ok({ steps: 11, resumed: true, resume_step: 8, resume_byte: 192 })
         17 B  01 80 80 0b 00 00 00 80 08 00 …
-→ bulk.plan_ack: StreamOpen { resume: None, max_age: None, codecs: None, args: tail(0:[]) }
+→ bulk.plan_ack: StreamOpen { resume: None, max_age: None, raw: false, args: tail(0:[]) }
          5 B  02 40 42 80 02
 ← ()
          6 B  02 80 00 00 00 00

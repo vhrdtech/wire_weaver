@@ -20,7 +20,7 @@ use ww_stream::{Opened, StreamCursor};
 use crate::client::batch::{ItemTime, Unpack, Unpacker};
 use crate::client::positioned::{AckMode, PositionedConfig, PositionedStream, Shared};
 use crate::error_list::{self, ErrorList};
-use crate::event_loop::command::{Command, StreamOpenHook};
+use crate::event_loop::command::{Command, RawReopen, StreamOpenHook};
 use crate::event_loop::commander::TransportCommander;
 use crate::event_loop::rx_dispatcher::{ResponseReceiver, StreamUpdateReceiver};
 use crate::{Error, Stream};
@@ -279,9 +279,9 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         self
     }
 
-    /// Counted streams: offer the device to compress the events (API-55), see
+    /// Counted streams: take the events compressed when the device compresses this stream (API-55), see
     /// [ClientConfig::stream_compression](crate::ClientConfig::stream_compression) (the default comes from there).
-    /// Off, the device sends them as they are.
+    /// Off, the open asks for `raw` and the device sends them as they are.
     pub fn compression(mut self, on: bool) -> Self {
         self.compression = on;
         self
@@ -376,18 +376,18 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             )));
         }
         let (done_tx, done_rx) = oneshot::channel();
-        let request = RequestOwned {
-            seq: UVlq32Backfill(0),
-            priority: self.transport_cmd_tx.priority.nibble(),
-            path_kind: self.path_kind.clone(),
-            kind: RequestKindOwned::StreamOpen {
-                codecs: codec_offer(self.delivery, self.compression),
-                resume: self.resume,
-                max_age: self.max_age_us.map(|us| Micros::new(UNib32(us))),
-                args: TailBytesOwned(self.args.clone()),
-            },
-        }
-        .to_ww_bytes_owned()?;
+        let priority = self.transport_cmd_tx.priority.nibble();
+        let open = |raw| {
+            stream_open_request(
+                &self.path_kind,
+                priority,
+                self.resume,
+                self.max_age_us,
+                raw,
+                self.args.clone(),
+            )
+        };
+        let request = open(!self.compression)?;
         let timeout = self
             .timeout_override
             .unwrap_or(self.transport_cmd_tx.default_timeout());
@@ -428,6 +428,14 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
                 shared: shared.clone(),
                 resume: self.resume,
                 is_open: self.open_check(),
+                raw_reopen: raw_reopen(
+                    delivery,
+                    self.compression,
+                    path,
+                    priority,
+                    || open(true),
+                    timeout,
+                )?,
             }),
         };
         let parts = Parts::Positioned {
@@ -447,19 +455,66 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
     }
 }
 
-/// The codecs a host offers when it opens a stream (API-55): LZ4 for counted streams with `compression` on.
-pub(crate) fn codec_offer(
-    delivery: Option<ww_self::Delivery>,
+/// The request that opens the stream at `path_kind`, or resumes it from `resume`: `raw` asks for the items as they
+/// are, even when the device compresses the stream (API-55).
+pub(crate) fn stream_open_request(
+    path_kind: &PathKindOwned,
+    priority: wire_weaver::prelude::Nibble,
+    resume: Option<StreamCursor>,
+    max_age_us: Option<u32>,
+    raw: bool,
+    args: Vec<u8>,
+) -> Result<Vec<u8>, Error> {
+    Ok(RequestOwned {
+        seq: UVlq32Backfill(0),
+        priority,
+        path_kind: path_kind.clone(),
+        kind: RequestKindOwned::StreamOpen {
+            resume,
+            max_age: max_age_us.map(|us| Micros::new(UNib32(us))),
+            raw,
+            args: TailBytesOwned(args),
+        },
+    }
+    .to_ww_bytes_owned()?)
+}
+
+/// What to send when a counted stream opened with compression on gets a codec this host doesn't know (API-55): a
+/// close of the stream at `path`, then `open_raw()`. None for other streams and with compression off: their opens
+/// already ask for `raw`.
+pub(crate) fn raw_reopen(
+    delivery: ww_self::Delivery,
     compression: bool,
-) -> Option<ww_client_server::stream::StreamCodecs> {
-    (compression && delivery == Some(ww_self::Delivery::Counted))
-        .then_some(ww_client_server::stream::StreamCodecs { lz4: true })
+    path: &[UNib32],
+    priority: wire_weaver::prelude::Nibble,
+    open_raw: impl FnOnce() -> Result<Vec<u8>, Error>,
+    timeout: Duration,
+) -> Result<Option<Box<RawReopen>>, Error> {
+    if !compression || delivery != ww_self::Delivery::Counted {
+        return Ok(None);
+    }
+    let close = RequestOwned {
+        seq: UVlq32Backfill(0),
+        priority,
+        path_kind: PathKindOwned::Absolute {
+            path: path.to_vec(),
+        },
+        kind: RequestKindOwned::StreamSideband {
+            sideband: ww_client_server::StreamSideband::Close,
+        },
+    }
+    .to_ww_bytes_owned()?;
+    Ok(Some(Box::new(RawReopen {
+        close,
+        open_raw: open_raw()?,
+        timeout,
+    })))
 }
 
 /// The device's answer to an open, decoded.
 pub(crate) struct DecodedOpened {
     pub opened: Opened,
-    /// The codec the device took (API-55)
+    /// The codec the device declared (API-55)
     pub codec: Option<ww_client_server::stream::StreamCodec>,
     /// The stream function's serialized result
     pub result: Vec<u8>,

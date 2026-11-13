@@ -716,16 +716,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`motor_sim` repo): every `Foc` property and `Control`'s 13 measured values are `+observe+batched`.
 - 🧪 **API-55 Compressed counted streams** · `v0.5` — a counted stream's events carry their serialized item as
   one LZ4 block that copies from the items before it (history kept across events, SRV-27 `ww_lz4`), so a byte
-  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. Negotiated at open:
-  `StreamOpen { codecs }` is the host's offer, `StreamOpened { codec }` the device's answer (`StreamCodec::Lz4 {
-  history }`), so an older host gets the events as they are; an item that doesn't shrink goes as a block of literals.
+  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. The device declares the codec
+  at open, `StreamOpened { codec }` (`StreamCodec::Lz4 { history }`), and the host decodes it; `StreamOpen { raw }`
+  asks for the events as they are, and a host that reads a codec of a newer version (`StreamCodec::Unknown`) opens
+  the stream again with `raw` (EVO-73); an item that doesn't shrink goes as a block of literals.
   `HeadExt::codec_restart` marks where the history starts over: at open and resume, after an event the device
   couldn't send, and every 32 KiB, so a link loss heals; the host drops what it can't decode until then and reports
   it as a link gap (`StreamStats::lost_codec`, `codec_bytes_in` / `_out`). The API doesn't change: the device opts
   in per stream with its state, `ww_stream::codec::Compressed` (feature `lz4`) instead of `Counted`, through
-  `ww_stream::codec::CountedState`; `ClientConfig::stream_compression(false)` turns the host's offer off. Typed and
+  `ww_stream::codec::CountedState`; `ClientConfig::stream_compression(false)` sets `raw`. Typed and
   dynamic clients and Python decode alike (`docs/api/stream_compression.md`; tests `ww_stream` `tests::codec`,
-  `wire_weaver_client` `compressed_stream_decodes_and_heals`, `tests/io_uart` `rx_compressed`). To check on
+  `wire_weaver_client` `compressed_stream_decodes_and_heals` and `unknown_codec_reopens_raw`, `tests/io_uart`
+  `rx_compressed`). To check on
   hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -> device).
 - 🧪 **SW-69 No core::fmt Debug of shrink_wrap types on a device** · `v0.5` — flash diet: the variant names of
@@ -2435,6 +2437,18 @@ Unicast Data0 to one node over the same bus is TR-6.
   tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture`,
   `breaking_stdlib_change_fails_the_fixture`).
 - ✅ **EVO-65 `ww_dfu` typed numbers on the wire** · `v0.5` — `ww_dfu` on a new wire line, `w2.0` (P2401 stdlib units survey): step indices and counts are `Index<Step, u32>` / `Count<Step, u32>`, chunks `Index`/`Count<Chunk, u16>`, erase blocks `Index<Block, u16>` / `Count<Block, u16>`, byte offsets in a chunk or a plan `Index<Byte, u32>`, sizes `Bytes<u32>`, all the same bytes. The breaks: `NodeInfo`'s `product_id`, `app_version` and `version_floor` become `app: Option<ImageInfo>` (`ProductId`, `ImageVersion`, and the image's new `security_counter`) and `security_floor: SecurityCounter`, as chunky checks the floor against the security counter, not the version; `geometry_id` is `geometry: GeometryId`; `LastResult::version` is `Option<ImageVersion>`; `Session::resume_from` is split into `resume_step` and `resume_byte`; `StageLimits::max_piece` is `Fixed<Byte, One, u16, Range<1, 1024>>` (a `u16`, bounded), `in_flight` `Fixed<Request, One, u8, Range<1, 255>>`; `ack_every` and `plan_area` are `Niched<.., Null<0>>`. Tests `ww_dfu` (bytes of every wrapper, the bounds, the niches), `tests/dfu`, `tests/dfu_scenarios` (transcripts again). No device or host uses the format.
+- ✅ **EVO-73 The device declares a stream's codec** · `v0.5` — wire break of `ww_client_server`: the host's codec
+  offer, `RequestKind::StreamOpen { codecs: Option<StreamCodecs> }`, becomes one bit, `raw` (send the items as they
+  are), and `StreamCodecs` is gone. A device compresses a `Compressed` stream unless the host asked for `raw` and
+  says which codec in `StreamOpened::codec`, as before; the host decodes what it names. `StreamCodec` gets a
+  written `#[future_version] Unknown(u8)` and stays `final_structure`, so `StreamOpened::ser_head` still writes it in
+  place before the stream function's result (an `Unsized` codec's size would share a byte with the result's own
+  sizes); a host that reads `Unknown` closes the stream and opens it again with `raw`. Measured in the design of
+  P2401 (`qemu_icount`, `fw-z`): fewer instructions per open and less flash on a Cortex-M0+, nothing per event.
+  `ww_stream::codec::CountedState::open_session` / `resume_session` take `raw`, `ItemCodec::codec` replaces
+  `answer`. Conformance cases `client_server.stream_open.*`, `client_server.stream_opened.*`; tests
+  `ww_client_server` `codec_declared_and_newer`, `wire_weaver_client` `unknown_codec_reopens_raw`. No device or host
+  uses the format.
 - ✅ **EVO-58 Typed, bounded calendar fields of `ww_date_time`** · `v0.5` — the wire change of `ww_date_time` (wire line `w1.0` -> `w2.0`): `NaiveDate::month` and `day` are `IndexFrom1<Month, U4, Range<1, 12>>` and `IndexFrom1<Day, U5, Range<1, 31>>`, `NaiveTime::secs` is `Fixed<Second, One, U17, Range<0, 86_399>>` and `frac` `Option<Fixed<Second, Nano, U31, Range<0, 1_999_999_999>>>`, `OtherTimezone::FixedOffset::secs` is `Fixed<Second, One, I18, Range<-86_399, 86_399>>`. The bytes are the same, the new bounds are checked on decode (`SubtypeOutOfRange`), so a bound added is a break. Types embedding `DateTime` (`ww_board_info`, `ww_firmware_info`, `ww_timebase`) move to a new wire line with it. No device or host uses the format.
 - ✅ **EVO-72 Capability limits bounded by their consts** · `v0.5` — each `ww_stdlib` limit documented "at most
   `MAX_..`" carries that const as its `Range` bound (`{ MAX_X as i64 }`, read by the walker's const evaluator) in the

@@ -6065,6 +6065,13 @@ names is the array literal of a <code>const</code> in the codec's module, and it
 shape has no algorithm yet (<code>ALaw</code>) is shown as its code. A generic codec, whose definition is one per instance
 (<code>exact_units::codec::Transfer&lt;Q, C&gt;</code>, a quantizer with a transfer curve), can't be used in an API yet: the walker
 refuses it, naming STD-112.</p>
+<p>The numbers of a curve above a codec (<code>CodecDef::curve</code>, its segments' gains, offsets and exponents) are
+<code>exact_units::Fraction</code>s, <code>±num/den · 10^exp</code> with <code>exp</code> the value's power of 5: one canonical form per value, so
+1/800 is <code>{ neg: false, num: 1, den: 8, exp: -2 }</code>. On the wire a <code>Fraction</code> is its four fields (<code>final_structure</code>),
+37 bytes. A form that isn't the canonical one (<code>10 · 10⁰</code> for <code>1 · 10¹</code>) doesn't decode in Rust; the dynamic client
+and Python read and write a <code>Fraction</code> by its fields without that check, which is Rust code the model can't carry
+(SW-20), so a device refuses a non-canonical one they send. The conformance corpus's <code>stdlib.si.fraction.*</code> cases
+hold the bytes.</p>
 <p>A codec may name spare codes, codes that mean no value (<code>CodecDef::spare</code>, a list of <code>CodeSpan { low, high }</code>):
 <code>MuLawSingleZero</code> is μ-law with 0x7F spare, where <code>MuLaw</code> reads it as a second zero. A spare code read from the
 wire is refused, by the typed <code>Coded</code> and by every client from the definition in the model, with the code named:</p>

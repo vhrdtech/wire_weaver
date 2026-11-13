@@ -14,7 +14,13 @@ wire = "w1.0"
 [features]
 default = ["std"]
 std = ["wire_weaver/std", "ww_gpio/std", "ww_interned/std", "ww_si/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt", "ww_gpio/defmt", "ww_interned/defmt", "ww_si/defmt"]
+defmt = [
+    "dep:defmt",
+    "wire_weaver/defmt",
+    "ww_gpio/defmt",
+    "ww_interned/defmt",
+    "ww_si/defmt",
+]
 
 [dependencies]
 defmt = { workspace = true, optional = true }

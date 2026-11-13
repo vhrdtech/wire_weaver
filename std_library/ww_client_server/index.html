@@ -5873,6 +5873,13 @@ though some types (<code>StreamCursor</code>, <code>SinkCredit</code>, the <code
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">ww_client_server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
+<p>Two features add request kinds a firmware may not serve, both on with <code>std</code>: <code>multi</code> (<code>MultiCall</code>, <code>MultiRead</code>,
+<code>MultiWrite</code>, <code>MultiIndex</code>, <code>MultiArgs</code>; for a server with <code>multi_req = true</code>, see
+<a href="../../api/multi_requests/">Multi requests</a>) and <code>streams</code> (<code>SinkWrite</code>, <code>StreamItem</code> and the <code>Ack</code> / <code>Resend</code> /
+<code>Query</code> sideband of <a href="../../api/counted_streams/#device-side">counted and reliable streams</a> and credit sinks). Plain
+streams, observe and introspection are in every build. The discriminants are fixed, so a build without a feature
+reads such a request as <code>RequestKind::Unknown</code> (<code>StreamSideband::Unknown</code>) and the generated server answers it with
+<code>OperationNotSupported</code>. What leaving them out saves: <a href="../../serdes/code_size/#request-kinds-a-firmware-leaves-out-multi-and-streams">Code size</a>.</p>
 <h2 id="request-and-event">Request and Event<a class="headerlink" href="#request-and-event" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>Request&lt;'i&gt;</code> - <code>seq: UVlq32Backfill</code> (request id, 0 = no answer expected), <code>path_kind: PathKind&lt;'i&gt;</code>, <code>kind:

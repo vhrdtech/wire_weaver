@@ -6640,8 +6640,12 @@ the few it uses, a host enables all of them.</p>
   without <code>f32</code>, so two builds with different features agree on every variant they share.</li>
 <li>The variant, its code and its part of the size exist only where the predicate holds: without <code>u128</code> the enum
   above is 8 bytes in memory instead of 32, and no 128-bit code is linked.</li>
-<li>Reading a variant that is compiled out gives <code>Error::EnumVariantDisabled</code> (an unknown number is still
-  <code>EnumFutureVersionOrMalformedData</code>).</li>
+<li>Reading a variant that is compiled out gives the <a href="#no_future_version-future_version-name-enums-only"><code>#[future_version]</code></a>
+  variant with its discriminant when the enum has one (<code>Unknown(1)</code>), as a variant from a newer version would, and
+  <code>Error::EnumVariantDisabled</code> otherwise (an unknown number is still <code>EnumFutureVersionOrMalformedData</code>). Writing
+  <code>Unknown(d)</code> of a discriminant compiled out here is allowed and gives the same bytes back. <code>ww_client_server</code>'s
+  <code>RequestKind</code> relies on it: a firmware without the <code>multi</code> feature reads a multi request as <code>Unknown(1)</code> and
+  answers that it doesn't support it.</li>
 <li>Introspection, API snapshots and type signatures list every variant whatever features are on: they are made from
   the source, not from the compiled type. A firmware built with a few variants and a host built with all of them
   have the same definition and connect (<code>tests/cfg_variants</code>); a call with a variant the device lacks fails there

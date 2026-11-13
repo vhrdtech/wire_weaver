@@ -2273,6 +2273,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#cost-when-not-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cost when not used
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-stream-data-gets-lost" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5689,6 +5700,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#cost-when-not-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cost when not used
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-stream-data-gets-lost" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5996,6 +6018,17 @@ UART chunk's last byte arrived).</p>
 the device's handlers and producers and the host's <code>PositionedStream</code> in
 <a href="../counted_streams/">Counted and reliable streams</a>, the bytes on the wire and the acknowledgement protocol in
 <a href="../stream_protocol/">Stream protocol</a>.</p>
+<h2 id="cost-when-not-used">Cost when not used<a class="headerlink" href="#cost-when-not-used" title="Permanent link">&para;</a></h2>
+<p>Counted and reliable streams are behind the <code>streams</code> feature of <code>ww_client_server</code> and <code>ww_stream</code>, on for hosts,
+off in a firmware built with <code>default-features = false</code> (how to turn it on:
+<a href="../counted_streams/#device-side">Counted and reliable streams</a>). A firmware with only plain streams then doesn't link
+the <code>Ack</code> / <code>Resend</code> / <code>Query</code> sideband, the resume cursors, the codecs or their 64-bit position readers. Together with
+<code>multi</code>, on a Cortex-M0+ at <code>opt-level = "z"</code>, that is 1652 B of 14238 B for a server with one method, and about 12 %
+fewer instructions to decode and dispatch a plain call or read (8 % fewer cycles on a Cortex-M7); the full tables are
+in <a href="../../serdes/code_size/#request-kinds-a-firmware-leaves-out-multi-and-streams">Code size</a>. Such a firmware answers a
+<code>SinkWrite</code> request with <code>OperationNotSupported</code> at site <code>err_seq::REQUEST_KIND_UNKNOWN</code> (61), and an <code>Ack</code>, <code>Resend</code>
+or <code>Query</code> for a plain stream with <code>OperationNotSupported</code> at the stream's <code>KIND_NOT_TAKEN</code>; the bytes of these
+messages are the same in every build.</p>
 <h2 id="where-stream-data-gets-lost">Where stream data gets lost<a class="headerlink" href="#where-stream-data-gets-lost" title="Permanent link">&para;</a></h2>
 <p>From a producer on the device to user code on the host:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> producer ──► device buffer ──► event loop ──► framer ──► medium ──► host transport ──► event loop ──► stream queue ──► user code

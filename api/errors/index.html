@@ -6082,9 +6082,9 @@ which the host knows, they pinpoint one place. The host prints them as one line:
 <td>a trait level's dispatch: 40 no such item, 41 item left out, 42 index not valid, 43 index expected, 44 a level doesn't take this request, 45 valid indices too big, 46 answer header too big</td>
 </tr>
 <tr>
-<td>48..59</td>
+<td>48..61</td>
 <td>request</td>
-<td>before or around the path: 48 global trait not found, 49 path too deep, 50..53 multi requests, 54..58 observe requests, 59 introspection</td>
+<td>before or around the path: 48 global trait not found, 49 path too deep, 50..53 multi requests, 54..58 observe requests, 59 introspection, 60 answer over the link's message limit, 61 a request kind this firmware doesn't serve (<code>RequestKind::Unknown</code>: newer, or left out with the <code>multi</code> / <code>streams</code> features)</td>
 </tr>
 <tr>
 <td><code>u32::MAX</code></td>

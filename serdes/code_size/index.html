@@ -1506,6 +1506,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#request-kinds-a-firmware-leaves-out-multi-and-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Request kinds a firmware leaves out: <code>multi</code> and <code>streams</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-is-left" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5976,6 +5987,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#request-kinds-a-firmware-leaves-out-multi-and-streams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Request kinds a firmware leaves out: <code>multi</code> and <code>streams</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-is-left" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -7986,6 +8008,230 @@ makes its task-side encoding of series and bit fields 5-22 % slower; <code>"inli
 </tr>
 </tbody>
 </table>
+<p>Those are features of <code>shrink_wrap</code>, where a feature would change bytes. One level up, <code>ww_client_server</code> has two,
+because they only remove request kinds and keep every byte: see the next section.</p>
+<h2 id="request-kinds-a-firmware-leaves-out-multi-and-streams">Request kinds a firmware leaves out: <code>multi</code> and <code>streams</code><a class="headerlink" href="#request-kinds-a-firmware-leaves-out-multi-and-streams" title="Permanent link">&para;</a></h2>
+<p><code>ww_client_server</code> (SRV-60) has two cargo features, both on with <code>std</code> and off in a firmware that depends on it with
+<code>default-features = false</code>:</p>
+<ul>
+<li><code>multi</code>: <code>RequestKind::MultiCall</code>, <code>MultiRead</code>, <code>MultiWrite</code>, with <code>MultiIndex</code> and <code>MultiArgs</code>. A server generated
+  with <code>multi_req = true</code> needs it (<a href="../../api/multi_requests/">Multi requests</a>).</li>
+<li><code>streams</code>: counted and reliable streams and credit sinks. That is <code>RequestKind::SinkWrite</code>, <code>EventKind::StreamItem</code>
+  and the <code>Ack</code> / <code>Resend</code> / <code>Query</code> sideband, with their cursors, codecs and 64-bit positions; <code>ww_stream</code> has a
+  <code>streams</code> feature for its side (tx, rx, sink, codec). Plain streams, <code>StreamOpen</code>, observe and introspection stay
+  in every build (<a href="../../api/stream_reliability/">Stream delivery</a>).</li>
+</ul>
+<p>Every server decodes <code>Request</code> with one generated function, so before these features every firmware linked the
+decoders of all request kinds, used or not. The discriminants are written out in the enums, so a build without a
+feature numbers the rest the same, and a left-out kind reads as <code>#[future_version] Unknown(d)</code> (the derive treats a
+<code>#[cfg]</code>'d-out variant as unknown, see
+<a href="../derive_reference/#cfg-on-enum-variants"><code>#[cfg(..)]</code> on enum variants</a>). The generated server answers it with <code>OperationNotSupported</code> at site
+<code>err_seq::REQUEST_KIND_UNKNOWN</code> (61), a sideband message that is <code>Unknown</code> the same at the stream's <code>KIND_NOT_TAKEN</code>.
+A server generated with <code>multi_req = true</code> or with a counted or reliable stream or credit sink stops with a
+<code>compile_error!</code> that names the feature to turn on. <code>tests/conformance</code> has the bytes of such requests (the
+<code>client_server.request.multi_read</code> case is the same bytes as before) and <code>tests/lean_server</code> checks that a server
+built without the features refuses them.</p>
+<p>Measured 13 Nov 2026, sync servers, master <code>7a525390e</code> (before) against this change.</p>
+<p>Flash, the whole image (vector table, text, rodata and data), Cortex-M0+ (<code>thumbv6m-none-eabi</code>),
+<code>just flash-budget --modes sync</code>, bytes:</p>
+<table>
+<thead>
+<tr>
+<th>server</th>
+<th style="text-align: right;"><code>fw-z</code> before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">change</th>
+<th style="text-align: right;"><code>fw-3</code> before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>floor, one method</td>
+<td style="text-align: right;">14238</td>
+<td style="text-align: right;">12586</td>
+<td style="text-align: right;">−1652 (−11.6 %)</td>
+<td style="text-align: right;">19810</td>
+<td style="text-align: right;">16874</td>
+<td style="text-align: right;">−2936 (−14.8 %)</td>
+</tr>
+<tr>
+<td>8 resources, two of each kind (<code>BaseOnly</code>)</td>
+<td style="text-align: right;">17026</td>
+<td style="text-align: right;">15266</td>
+<td style="text-align: right;">−1760</td>
+<td style="text-align: right;">22702</td>
+<td style="text-align: right;">20434</td>
+<td style="text-align: right;">−2268</td>
+</tr>
+<tr>
+<td>4 observed properties</td>
+<td style="text-align: right;">29074</td>
+<td style="text-align: right;">27658</td>
+<td style="text-align: right;">−1416</td>
+<td style="text-align: right;">40574</td>
+<td style="text-align: right;">38362</td>
+<td style="text-align: right;">−2212</td>
+</tr>
+</tbody>
+</table>
+<p>What each resource adds stays about the same (at <code>fw-z</code> a call 52 → 55 B, a property 112 → 107 B, a stream
+165 → 148 B). On the Cortex-M7 (<code>thumbv7em-none-eabihf</code>), the <code>stm32h725ig-dispatch-cycles</code> firmware of
+<code>usb_stm32h725ig</code> is 27796 → 26148 B (−1648) in its release profile (fat LTO, <code>opt-level = "z"</code>) and 35920 → 33572 B
+(−2348) at <code>opt-level = 3</code>.</p>
+<p>Where the floor's bytes went, by <code>just flash-attribute</code> at <code>fw-z</code>: the <code>MultiIndex</code> decoder (216 B), the
+<code>MultiArgs</code> decoder (154 B), about 60 B of branches for <code>Result</code> replies inside a multi reply, the <code>StreamSideband</code>
+decoder (244 B, 36 B after) with two <code>UVlq64</code> readers (102 and 88 B, one of 28 B after), <code>StreamCursor</code> (46 B) and
+<code>StreamCodecs</code> (24 B). The code under the dispatcher went from 1932 to 1314 B, all code from 12306 to 10740 B.</p>
+<p>Instructions per request, Cortex-M3 under QEMU (<code>lm3s6965evb</code>, <code>qemu_icount</code>), <code>just dispatch-budget</code>, warm:</p>
+<table>
+<thead>
+<tr>
+<th>request</th>
+<th style="text-align: right;"><code>fw-z</code> before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;"><code>fw-3</code> before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>call, no arguments</td>
+<td style="text-align: right;">2301</td>
+<td style="text-align: right;">2019</td>
+<td style="text-align: right;">1398</td>
+<td style="text-align: right;">1389</td>
+</tr>
+<tr>
+<td>call with an argument and an output</td>
+<td style="text-align: right;">2727</td>
+<td style="text-align: right;">2446</td>
+<td style="text-align: right;">1703</td>
+<td style="text-align: right;">1699</td>
+</tr>
+<tr>
+<td>property read</td>
+<td style="text-align: right;">2258</td>
+<td style="text-align: right;">1980</td>
+<td style="text-align: right;">1382</td>
+<td style="text-align: right;">1375</td>
+</tr>
+<tr>
+<td>property write</td>
+<td style="text-align: right;">2404</td>
+<td style="text-align: right;">2122</td>
+<td style="text-align: right;">1483</td>
+<td style="text-align: right;">1473</td>
+</tr>
+<tr>
+<td>stream open</td>
+<td style="text-align: right;">3326</td>
+<td style="text-align: right;">3039</td>
+<td style="text-align: right;">1981</td>
+<td style="text-align: right;">1973</td>
+</tr>
+<tr>
+<td>stream close</td>
+<td style="text-align: right;">2247</td>
+<td style="text-align: right;">1954</td>
+<td style="text-align: right;">1375</td>
+<td style="text-align: right;">1364</td>
+</tr>
+<tr>
+<td>bad path</td>
+<td style="text-align: right;">2713</td>
+<td style="text-align: right;">2433</td>
+<td style="text-align: right;">1721</td>
+<td style="text-align: right;">1717</td>
+</tr>
+<tr>
+<td>a kind the resource doesn't take</td>
+<td style="text-align: right;">2489</td>
+<td style="text-align: right;">2213</td>
+<td style="text-align: right;">1556</td>
+<td style="text-align: right;">1555</td>
+</tr>
+</tbody>
+</table>
+<p>Cycles per request, STM32H725 (Cortex-M7 at 540 MHz, I- and D-cache on), DWT <code>CYCCNT</code>, <code>just dispatch-budget
+--cycles</code>, the smallest of three warm runs:</p>
+<table>
+<thead>
+<tr>
+<th>request</th>
+<th style="text-align: right;"><code>opt-level = "z"</code> before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;"><code>opt-level = 3</code> before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>call, no arguments</td>
+<td style="text-align: right;">3064</td>
+<td style="text-align: right;">2827</td>
+<td style="text-align: right;">1820</td>
+<td style="text-align: right;">1794</td>
+</tr>
+<tr>
+<td>call with an argument and an output</td>
+<td style="text-align: right;">3769</td>
+<td style="text-align: right;">3516</td>
+<td style="text-align: right;">2330</td>
+<td style="text-align: right;">2317</td>
+</tr>
+<tr>
+<td>property read</td>
+<td style="text-align: right;">3039</td>
+<td style="text-align: right;">2790</td>
+<td style="text-align: right;">1817</td>
+<td style="text-align: right;">1785</td>
+</tr>
+<tr>
+<td>property write</td>
+<td style="text-align: right;">3242</td>
+<td style="text-align: right;">3001</td>
+<td style="text-align: right;">1936</td>
+<td style="text-align: right;">1903</td>
+</tr>
+<tr>
+<td>stream open</td>
+<td style="text-align: right;">4384</td>
+<td style="text-align: right;">4119</td>
+<td style="text-align: right;">2605</td>
+<td style="text-align: right;">2573</td>
+</tr>
+<tr>
+<td>stream close</td>
+<td style="text-align: right;">2948</td>
+<td style="text-align: right;">2692</td>
+<td style="text-align: right;">1831</td>
+<td style="text-align: right;">1822</td>
+</tr>
+<tr>
+<td>bad path</td>
+<td style="text-align: right;">3650</td>
+<td style="text-align: right;">3412</td>
+<td style="text-align: right;">2269</td>
+<td style="text-align: right;">2249</td>
+</tr>
+<tr>
+<td>a kind the resource doesn't take</td>
+<td style="text-align: right;">3373</td>
+<td style="text-align: right;">3119</td>
+<td style="text-align: right;">2115</td>
+<td style="text-align: right;">2094</td>
+</tr>
+</tbody>
+</table>
+<p>At <code>opt-level = "z"</code> a request costs about 12 % fewer instructions and 8 % fewer cycles. The decoder of <code>Request</code>
+is one function that the size build doesn't split, and it got smaller and simpler. At <code>opt-level = 3</code> it is under
+1 % either way. The replies are the same bytes, with the same hashes, before and after.</p>
+<p>Observe stays in every build. A server that observes nothing already links little of it (<code>Observe { cfg }</code> is a
+<code>RefBox</code>, decoded only by code that reads it, SRV-54). Compiled out for a trial with the same settings, it saved
+96 B at the floor and 100 B with <code>BaseOnly</code> at <code>fw-z</code> (272 and 192 B at <code>fw-3</code>), under 1 %, and most firmware
+observes something.</p>
 <h2 id="what-is-left">What is left<a class="headerlink" href="#what-is-left" title="Permanent link">&para;</a></h2>
 <p>With views and writers (SW-52, <a href="#head-and-tail">Head and tail</a>) the derived codec fits the 8 KB softcore: busgen's
 firmware is 5608 bytes (UART) and 5090 (I2C) on RV32IC, against 4552 / 4716 hand-written, with a ceiling of about

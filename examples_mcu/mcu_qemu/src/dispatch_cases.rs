@@ -39,7 +39,7 @@ pub fn request(i: usize, buf: &mut [u8]) -> &[u8] {
         4 => RequestKind::StreamOpen {
             resume: None,
             max_age: None,
-            codecs: None,
+            raw: false,
             args: TailBytes(&[]),
         },
         _ => RequestKind::StreamSideband {

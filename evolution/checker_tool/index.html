@@ -2721,6 +2721,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unit-suffix hints (TOOL-22)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-reason-required-under-strict-tool-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A reason, required under <code>--strict</code> (TOOL-35)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5992,6 +6009,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Unit-suffix hints (TOOL-22)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-reason-required-under-strict-tool-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A reason, required under <code>--strict</code> (TOOL-35)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6559,15 +6593,45 @@ silences the note with <code>#[no_unit_hint]</code> right on it:</p>
 </span></code></pre></div>
 <p><code>ww api scaffold</code> shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
 handlers are written against <code>Fixed</code> from the start where the note applies.</p>
+<h3 id="a-reason-required-under-strict-tool-35">A reason, required under <code>--strict</code> (TOOL-35)<a class="headerlink" href="#a-reason-required-under-strict-tool-35" title="Permanent link">&para;</a></h3>
+<p>The bare forms above stay accepted by default: the walker and <code>ww_codegen!</code>/the derive macros never error on one.
+A reason is written the same way, in place of the bare attribute: <code>#[no_unit_hint = "reason"]</code> on a field or a
+resource item, <code>#[no_unit_hint = "reason"]</code> for every argument of a method, or <code>#[no_unit_hint(arg = "reason",
+..)]</code> per argument:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">    </span><span class="cp">#[no_unit_hint = </span><span class="s">&quot;s is the slot letter here, not seconds&quot;</span><span class="cp">]</span>
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">    </span><span class="n">retry_count_s</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="p">}</span>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="w">    </span><span class="cp">#[no_unit_hint(poll_hz = </span><span class="s">&quot;a raw register value, not a frequency&quot;</span><span class="cp">)]</span>
+</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">poll_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span>
+</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>ww api check --strict</code> and <code>ww api scaffold --strict</code> refuse a bare or empty <code>#[no_unit_hint]</code>, naming the item
+and the reasoned form to write instead:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>$ ww api check my_device_api --strict
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>my_device_api::retry_count_s: #[no_unit_hint] needs a reason under --strict, e.g. #[no_unit_hint = &quot;reason&quot;]
+</span></code></pre></div>
+<p>Writing the reason is the point: it is a second look at whether a unit might actually fit after all
+(<code>exact_units</code>/<code>ww_si</code> types, the table in <code>AGENTS.md</code>'s typed-numbers section) before silencing the note for
+good. A reason never changes the wire or a snapshot.</p>
+<p>This is <code>--strict</code>/<code>strict(true)</code> only, never implied by <code>--require-current</code>/<code>require_current(true)</code>: the
+<a href="#checking-at-every-commit">documented <code>tests/evolution.rs</code> template</a> above uses <code>require_current(true)</code> alone,
+and an external user who copies it is not forced to write a reason for every <code>#[no_unit_hint]</code>. A project that
+wants its own <code>#[no_unit_hint]</code>s to need one adds <code>.strict(true)</code> next to <code>require_current(true)</code> in its own
+<code>tests/evolution.rs</code>; this repo's own evolution tests (<code>tests/stdlib_evolution</code>, <code>tests/thermo_api</code>) do this,
+while <code>examples/blinky_api</code>'s stays the unmodified template.</p>
 <h2 id="a-missing-test-warning-tool-31">A missing-test warning (TOOL-31)<a class="headerlink" href="#a-missing-test-warning-tool-31" title="Permanent link">&para;</a></h2>
 <p><code>ww api check</code> and <code>ww api save</code> also warn, before anything else, when the crate directory has no
 <code>tests/evolution.rs</code> calling <code>wire_weaver_evolution::Check</code> (the <a href="#checking-at-every-commit">test above</a>):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>$ ww api check my_device_api
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>  only by `ww api check` run by hand
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
-</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>no changes
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>$ ww api check my_device_api
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>  only by `ww api check` run by hand
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>no changes
 </span></code></pre></div>
 <p>A crate without the API crate's own test only gets checked when someone remembers to run <code>ww api check</code> by hand:
 <code>cargo test</code>, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,

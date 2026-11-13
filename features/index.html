@@ -8459,6 +8459,22 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   compile and read right in a crate with several roots; the wire-version note points at
   <code>[package.metadata.wire_weaver.roots]</code> for such a root, instead of the crate-level <code>wire</code>.
   <code>wire_weaver_core::gen_server_scaffold</code> test <code>several_roots</code>, <code>tests/multi_root_api</code>.</li>
+<li>✅ <strong>TOOL-35 A reason on <code>#[no_unit_hint]</code>, required under <code>--strict</code></strong> — the bare forms (<code>#[no_unit_hint]</code> on a
+  field, bare or naming arguments on a method, bare on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item) stay
+  accepted by default; the walker and <code>ww_codegen!</code>/the derive macros never error on one. A reason is written the
+  same way: <code>#[no_unit_hint = "reason"]</code> on a field, a resource item, or every argument of a method,
+  <code>#[no_unit_hint(arg = "reason", ..)]</code> per argument (<code>wire_weaver_core::transform::unit_hint</code>,
+  <code>UnreasonedSilence</code>, found alongside the TOOL-22 hints by the same walk, <code>load_with_hints</code> and
+  <code>load_crate_with_notes</code> return both). <code>ww api check --strict</code> and <code>ww api scaffold --strict</code> refuse a bare or
+  empty reason, naming the item and the reasoned form to use instead; <code>Check::assert</code> refuses the same way with
+  <code>strict(true)</code>, never with <code>require_current(true)</code> alone (Q37, 13 Nov 2026: external users copying the
+  documented <code>tests/evolution.rs</code> template, which uses <code>require_current</code>, aren't forced into writing a reason).
+  Our own repo opts in explicitly (<code>strict(true)</code> added next to <code>require_current(true)</code> in
+  <code>tests/stdlib_evolution</code> and <code>tests/thermo_api</code>'s evolution tests; <code>examples/blinky_api</code>'s stays the
+  unmodified template). A reason never changes the wire or a snapshot. Every existing use in the repo (<code>ww_can_bus</code>'s <code>Status</code>
+  fault-confinement counters, <code>TtConfig</code>'s TURCF/TTOCF register fields, <code>XlFrame</code>'s protocol code and acceptance
+  field) got a real one; none of them turned out to want a unit instead.
+  <code>docs/evolution/checker_tool.md#unit-suffix-hints-tool-22</code>.</li>
 <li>✅ <strong>TOOL-28 <code>ww board rework set</code> / <code>clear</code></strong> — records a rework done on the bench through
   <code>BoardInfo::set_reworks</code> (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). <code>ww board rework set 1,3,5</code> / <code>clear 1,3,5</code> mark reworks applied or undone, all or none; <code>--dry-run</code>

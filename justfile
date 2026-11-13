@@ -24,6 +24,8 @@ test-all:
     # a firmware's SeriesStore sizes, compare and conversions, with the number types up to 32 bits only
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow
+    # a server built as a firmware is, without ww_client_server's multi and streams, refuses their requests (SRV-60)
+    just test-lean-server
     # ww_block's crc32/crc32_update, table size other than the default (STD-39)
     cargo nextest run -p ww_block --features crc-table-256
     cargo nextest run -p ww_block --features crc-table-slice16
@@ -39,6 +41,11 @@ test-all:
     just test-facade-ui
     # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
     just no-float-guard
+
+# A server with ww_client_server built without `multi` and `streams`, as in a firmware, refusing the corpus's multi,
+# credit sink and Ack requests as not supported (SRV-60); alone, since a workspace build turns the features on
+test-lean-server:
+    cargo nextest run -p lean_server --run-ignored only
 
 # ww_ecc_flash's zeros and strict reads on a simulated flash, with each family's word size
 [working-directory('mcu')]

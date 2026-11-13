@@ -205,6 +205,7 @@ dispatch_golden_api = { version = "0.1.0", path = "./tests/dispatch_golden_api" 
 dynamic_api = { version = "0.1.0", path = "./tests/dynamic_api" }
 fan_api = { version = "0.1.0", path = "./tests/fan_api" }
 firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
+flash_budget_api = { version = "0.1.0", path = "./tests/flash_budget_api", default-features = false }
 foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }

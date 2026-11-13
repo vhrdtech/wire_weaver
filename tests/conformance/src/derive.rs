@@ -775,6 +775,58 @@ pub fn table() -> Vec<Typed> {
             "disconnect_reason.from_newer",
             wire_weaver::DisconnectReason::Newer(7),
         ),
+        // ww_client_server's request envelope, not in the API model: the requests a firmware without the `multi` or
+        // `streams` feature (SRV-60) reads as RequestKind::Unknown and refuses, tests/lean_server sends these bytes
+        case_debug("client_server.request.multi_read", || {
+            use ww_client_server::{
+                MultiIndexOwned, PathKindOwned, Priority, RequestKindOwned, RequestOwned,
+                ResourceIndex,
+            };
+            RequestOwned {
+                seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
+                priority: Priority::NORMAL.nibble(),
+                path_kind: PathKindOwned::Absolute {
+                    path: vec![UNib32(10)],
+                },
+                kind: RequestKindOwned::MultiRead {
+                    multi_idx: MultiIndexOwned::List(vec![UNib32(0), UNib32(1)]),
+                    in_each_array_id: Some(ResourceIndex::new(UNib32(1))),
+                },
+            }
+        }),
+        case_debug("client_server.request.sink_write", || {
+            use ww_client_server::{PathKindOwned, Priority, RequestKindOwned, RequestOwned};
+            RequestOwned {
+                seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
+                priority: Priority::NORMAL.nibble(),
+                path_kind: PathKindOwned::Absolute {
+                    path: vec![UNib32(0), UNib32(6)],
+                },
+                kind: RequestKindOwned::SinkWrite {
+                    pos: wire_weaver::shrink_wrap::UVlq32(5),
+                    data: wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned(vec![1, 2, 3]),
+                },
+            }
+        }),
+        case_debug("client_server.request.sideband_ack", || {
+            use ww_client_server::{
+                PathKindOwned, Priority, RequestKindOwned, RequestOwned, StreamSideband,
+            };
+            RequestOwned {
+                seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
+                priority: Priority::NORMAL.nibble(),
+                path_kind: PathKindOwned::Absolute {
+                    path: vec![UNib32(0), UNib32(6)],
+                },
+                kind: RequestKindOwned::StreamSideband {
+                    sideband: StreamSideband::Ack {
+                        backfill: None,
+                        have: wire_weaver::shrink_wrap::UVlq64(0),
+                        grant: ww_si::Bytes::new(wire_weaver::shrink_wrap::UVlq32(4096)),
+                    },
+                },
+            }
+        }),
         case("stdlib.timebase.steer_point", steer_point(None)),
         case(
             "stdlib.timebase.steer_point.steerer",

@@ -1,0 +1,21 @@
+[package]
+name = "lean_server"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "SRV-60: a server built as a firmware is, ww_client_server without `multi` and `streams`, refusing those requests."
+
+# No `std` on ww_client_server here: that turns on `multi` and `streams`. Only its own build (`just test-lean-server`,
+# `cargo nextest run -p lean_server --run-ignored only`) leaves them out, a workspace build unifies them in.
+[dependencies]
+flash_budget_api.workspace = true
+wire_weaver.workspace = true
+ww_client_server.workspace = true
+ww_stream.workspace = true
+
+[dev-dependencies]
+hex = { workspace = true, features = ["std"] }
+serde_json.workspace = true

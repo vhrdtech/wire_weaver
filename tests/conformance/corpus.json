@@ -1079,6 +1079,30 @@
       "gaps": {"dynamic": "TailBytes has no form in the API model yet (INT-9)", "explain": "TailBytes has no form in the API model yet (INT-9)", "python": "TailBytes has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {
+      "name": "client_server.request.multi_read",
+      "type": "Request",
+      "value": {"seq": 1, "priority": 4, "path_kind": {"Absolute": {"path": [10]}}, "kind": {"MultiRead": {"multi_idx": {"List": [0, 1]}, "in_each_array_id": 1}}},
+      "bytes": "808080800140a13040128121",
+      "gaps": {"dynamic": "ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's request envelope, not a type of an API in the model", "python": "ww_client_server's request envelope, not a type of an API in the model", "c": "ww_client_server's request envelope, not a type of an API in the model"},
+      "note": "a multi request as hosts send it (feature multi of ww_client_server, SRV-60): the discriminants are written out, so these bytes are the same as before the feature existed (dispatch_golden multi.multi_read); a firmware without multi reads it as RequestKind::Unknown(3) and answers OperationNotSupported at err_seq 61 (tests/lean_server)"
+    },
+    {
+      "name": "client_server.request.sink_write",
+      "type": "Request",
+      "value": {"seq": 1, "priority": 4, "path_kind": {"Absolute": {"path": [0, 6]}}, "kind": {"SinkWrite": {"pos": 5, "data": [1, 2, 3]}}},
+      "bytes": "80808080014006a00501020302",
+      "gaps": {"dynamic": "ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's request envelope, not a type of an API in the model", "python": "ww_client_server's request envelope, not a type of an API in the model", "c": "ww_client_server's request envelope, not a type of an API in the model"},
+      "note": "a credit sink write (feature streams, SRV-60); a firmware without streams reads it as RequestKind::Unknown(10) and answers OperationNotSupported at err_seq 61 (tests/lean_server)"
+    },
+    {
+      "name": "client_server.request.sideband_ack",
+      "type": "Request",
+      "value": {"seq": 1, "priority": 4, "path_kind": {"Absolute": {"path": [0, 6]}}, "kind": {"StreamSideband": {"sideband": {"Ack": {"backfill": null, "have": 0, "grant": 4096}}}}},
+      "bytes": "80808080014006650000a00002",
+      "gaps": {"dynamic": "ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's request envelope, not a type of an API in the model", "python": "ww_client_server's request envelope, not a type of an API in the model", "c": "ww_client_server's request envelope, not a type of an API in the model"},
+      "note": "an Ack of a counted or reliable stream (feature streams, SRV-60); a firmware without streams reads it as StreamSideband::Unknown(5) and its plain stream answers OperationNotSupported at item site 0 (tests/lean_server)"
+    },
+    {
       "name": "stdlib.timebase.steer_point",
       "type": "steer_point",
       "value": {"local": {"prefix": "Micro", "value": {"U32": 1000000}}, "shared": {"coord": {"value": 1700000000000000}}, "rate": {"value": -9900990}, "error": {"value": 250}, "steerer": null},

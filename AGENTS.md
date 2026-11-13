@@ -107,6 +107,7 @@ just install          # build ww (--profile deploy) and install it (through our 
 just build-docs       # build the docs site and check its links
 just save-snapshots   # API snapshots of ww_global, ww_tap, ww_stdlib/* and exact_units into wire_weaver_snapshots
 just conformance-update   # fill in golden bytes of new conformance cases
+just jobs=4 test --changed   # caps CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS at 4 for that run (also test-all, lint, check); unset leaves them inherited
 ```
 
 `just --list` has the rest (fuzzing, QEMU, hardware, Python). Single test: `cargo nextest run -p <crate> <test>`

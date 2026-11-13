@@ -1,3 +1,10 @@
+# `just jobs=N <recipe>` caps build and test parallelism for that run (test, test-all, lint, check and anything
+# they call); unset (the default) leaves CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS exactly as inherited (tpm's gate
+# sets them itself for its own runs).
+jobs := ""
+export CARGO_BUILD_JOBS := if jobs != "" { jobs } else { env_var_or_default('CARGO_BUILD_JOBS', 'default') }
+export NEXTEST_TEST_THREADS := if jobs != "" { jobs } else { env_var_or_default('NEXTEST_TEST_THREADS', 'num-cpus') }
+
 # List all available targets
 default:
     @just --list

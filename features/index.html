@@ -5584,10 +5584,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#bus-api-ww_chorus-bus" class="md-nav__link">
+  <a href="#bus-api-ww_chorus-cbus" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Bus API (<code>ww_chorus</code>, <code>BUS</code>)
+        Bus API (<code>ww_chorus</code>, <code>CBUS</code>)
       </span>
     </span>
   </a>
@@ -5764,10 +5764,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#bus-api-ww_chorus-bus" class="md-nav__link">
+  <a href="#bus-api-ww_chorus-cbus" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Bus API (<code>ww_chorus</code>, <code>BUS</code>)
+        Bus API (<code>ww_chorus</code>, <code>CBUS</code>)
       </span>
     </span>
   </a>
@@ -6744,7 +6744,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>SRV-61 Global ids for our own traits</strong> — only <code>ww_stdlib</code> traits have a <code>ww_global</code> id, so any other trait is
   reached by <code>GlobalFull</code> (crate, version and name, 8-16 bytes and more) and can't be named on a bus at all. Our own
   API traits get low ids straight in <code>ww_global</code>, assigned by hand like the stdlib ones (up to 63 for traits in hot
-  bus frames: one byte as <code>UNib32</code>), and the codegen looks them up by crate and trait name. Chorus (BUS-13) names
+  bus frames: one byte as <code>UNib32</code>), and the codegen looks them up by crate and trait name. Chorus (CBUS-1) names
   traits on a bus by these ids. Later: a range for outside users and delegated blocks for private projects.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
@@ -6755,7 +6755,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   strings inside a resource's type are bounded with <code>MaxLen</code> (SW-19). Observed levels under an array have a pool of
   element tables (API-63) and don't need the bound; with it, a firmware could size the pool to the array.</li>
 <li>📋 <strong>API-66 Staged and timed actions</strong> — nothing applies several writes together or at a given time: a motor's
-  torque and an ADC's gain on one device, or three joints of a leg on a bus (BUS-13). <code>#[staged]</code> properties written
+  torque and an ADC's gain on one device, or three joints of a leg on a bus (CBUS-1). <code>#[staged]</code> properties written
   into a shadow and applied by a commit (or a bus sync), and a request run at a shared time (<code>ww_timebase</code>), refused
   with an error while the device's clock is not locked. Point-to-point first; Chorus uses the same model.</li>
 <li>🚧 <strong>API-30 Counted and reliable streams</strong> · <code>v0.5</code> — counted streams put a head in every event (flags and a
@@ -7777,7 +7777,7 @@ observing), SRV-46 (peer identity).
 <li>📋 <strong>TR-26 Reassembly per sender in <code>ww_framer</code></strong> — <code>FramedRx</code> has one assembly state and <code>SeqRx</code> one sender's
   counter, so on a shared medium a Start from a second sender drops the first one's partial message. A small pool of
   assembly slots keyed by an address the medium supplies (CAN source id and priority, UDP peer), sized by the
-  firmware, with <code>SeqRx</code> per key; fuzzed. Needed by every bus medium (TR-6, TR-30, BUS-13).</li>
+  firmware, with <code>SeqRx</code> per key; fuzzed. Needed by every bus medium (TR-6, TR-30, CBUS-1).</li>
 <li>📋 <strong>TR-27 Head out of band, priority on the message</strong> — on classic CAN 1-2 of 8 bytes go to the U2Head while
   the 29-bit CAN ID could carry its message kind and user kind (the DLC gives the length). A <code>Head</code> whose bits are read
   from and written to the medium's metadata. With it, the request priority (today a nibble inside the bytes) is handed
@@ -7786,7 +7786,7 @@ observing), SRV-46 (peer identity).
   over (<code>DownReason::NewSession</code>), <code>PacketSource</code> returns no source address and UDP serves one host at a time. Sessions
   keyed by the peer's address on one medium, the peer named in <code>CallContext</code> (today <code>Peer::Unknown</code> on devices), a
   hello that goes split through the framer on 8-byte frames. First user: two hosts on one UDP device; then CAN node ids
-  (TR-6) and the Chorus bus (BUS-13).</li>
+  (TR-6) and the Chorus bus (CBUS-1).</li>
 <li>📋 <strong>TR-29 Simulated CAN bus</strong> — in-process, like TR-21's simulated UDP: arbitration by ID, a bit-time clock,
   error frames, double reception (an error in the last EOF bit), RX overflow, bus-off and TX mailbox reordering, so the
   bus link, TR-6 and Chorus are tested without hardware.</li>
@@ -7837,7 +7837,7 @@ observing), SRV-46 (peer identity).
   so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+). The lone request and reply flushes once
   planned here are superseded by request priority (CLT-50).</li>
 </ul>
-<h2 id="bus-api-ww_chorus-bus">Bus API (<code>ww_chorus</code>, <code>BUS</code>)<a class="headerlink" href="#bus-api-ww_chorus-bus" title="Permanent link">&para;</a></h2>
+<h2 id="bus-api-ww_chorus-cbus">Bus API (<code>ww_chorus</code>, <code>CBUS</code>)<a class="headerlink" href="#bus-api-ww_chorus-cbus" title="Permanent link">&para;</a></h2>
 <p>Chorus is the bus counterpart of <code>ww_client_server</code>, carried on ww_link's Data1 over a shared medium (CAN, CAN FD,
 RS-485, UDP multicast): send to all, to a group, a value per group member in one frame, collect one reply from every
 node, act together on a sync. Nodes run different firmware; what they share are traits with <code>ww_global</code> ids
@@ -7845,34 +7845,34 @@ node, act together on a sync. Nodes run different firmware; what they share are 
 and an item in it (a group address implies the trait), and the node runs the same generated dispatch as for Data0.
 Unicast Data0 to one node over the same bus is TR-6.</p>
 <ul>
-<li>📋 <strong>BUS-13 Chorus wire model and the bus API crate</strong> — the <code>ww_chorus</code> envelope (<code>Call</code>, <code>Read</code>, <code>Write</code>,
+<li>📋 <strong>CBUS-1 Chorus wire model and the bus API crate</strong> — the <code>ww_chorus</code> envelope (<code>Call</code>, <code>Read</code>, <code>Write</code>,
   <code>WriteEach</code> with one value per rank, <code>Sync</code>, <code>At</code>, <code>Publish</code>; seq 0 for no reply), destinations node / group / all,
   traits named by their <code>ww_global</code> id (SRV-61; a group address implies its trait), the bus API (groups, sync points,
   staged items) in <code>ww_self</code> with its wire version line, conformance corpus cases.</li>
-<li>📋 <strong>BUS-14 Discovery</strong> — a heartbeat every node sends (uptime, health, mode, unique-id hash, API hash bits), the
+<li>📋 <strong>CBUS-2 Discovery</strong> — a heartbeat every node sends (uptime, health, mode, unique-id hash, API hash bits), the
   roster on the host, node info by request-all, plug-and-play node ids by unique id with an allocator role, conflict
   detection when two nodes take one id, setting id and bit rate of a node that is not on the bus yet.</li>
-<li>📋 <strong>BUS-15 Node runtime and server codegen</strong> — a table from global trait id to the base path in the node's own tree,
+<li>📋 <strong>CBUS-3 Node runtime and server codegen</strong> — a table from global trait id to the base path in the node's own tree,
   dispatch through the existing <code>process_request</code> with the caller in the context, hardware filters for own id, groups
   and all, staged shadows applied at a sync, a small at-time queue; all state static, measured for stack, flash and
   cycles.</li>
-<li>📋 <strong>BUS-16 Host bus client and collector</strong> — generated <code>BusClient</code> (<code>bus.all().freeze()</code>,
+<li>📋 <strong>CBUS-4 Host bus client and collector</strong> — generated <code>BusClient</code> (<code>bus.all().freeze()</code>,
   <code>bus.group(..).torque().write_each(..)</code>, <code>.collect(deadline)</code>), <code>Collected&lt;T&gt;</code> with a result per node (ok, error,
   missing, incompatible, late), deadlines computed from the medium, Data0 fan-out for nodes without Chorus, a bus as one
   hub device with its nodes under it, <code>ww bus ls</code> / <code>watch</code> / <code>call</code> / <code>assign</code>.</li>
-<li>📋 <strong>BUS-17 Bus time sync</strong> — two-step sync frames (the master's hardware TX timestamp of the previous sync), each
+<li>📋 <strong>CBUS-5 Bus time sync</strong> — two-step sync frames (the master's hardware TX timestamp of the previous sync), each
   node's hardware RX timestamp, the clock estimator in <code>no_std</code>, steering <code>ww_timebase::Clock</code>; measured on hardware.</li>
-<li>📋 <strong>BUS-18 Chorus on hardware</strong> — freeze, write-each, roll call and time sync on CAN nodes behind a USB-CAN bridge,
+<li>📋 <strong>CBUS-6 Chorus on hardware</strong> — freeze, write-each, roll call and time sync on CAN nodes behind a USB-CAN bridge,
   timing checked with a logic analyzer.</li>
-<li>📋 <strong>BUS-19 Multicast bulk transfer</strong> — one transfer to many nodes (firmware updates to a fleet), paced, acks
+<li>📋 <strong>CBUS-7 Multicast bulk transfer</strong> — one transfer to many nodes (firmware updates to a fleet), paced, acks
   collected, resend to the nodes that missed parts.</li>
-<li>💡 <strong>BUS-20 Chorus decoder</strong> — frames from a CAN capture (candump, a logic analyzer) shown as role and item names
+<li>💡 <strong>CBUS-8 Chorus decoder</strong> — frames from a CAN capture (candump, a logic analyzer) shown as role and item names
   through the bus API's <code>ww_self</code>.</li>
-<li>💡 <strong>BUS-21 Bus load budget</strong> — load per bit rate computed from the bus API (groups, sync rate, published items)
+<li>💡 <strong>CBUS-9 Bus load budget</strong> — load per bit rate computed from the bus API (groups, sync rate, published items)
   before any board exists.</li>
-<li>💡 <strong>BUS-22 Liveliness per role</strong> — a role declares that its nodes publish within a period; the host flags a node
+<li>💡 <strong>CBUS-10 Liveliness per role</strong> — a role declares that its nodes publish within a period; the host flags a node
   that misses one, not only after missed heartbeats.</li>
-<li>💡 <strong>BUS-23 Cyphal gateway</strong> — a role that bridges Cyphal subjects and services to Chorus roles.</li>
+<li>💡 <strong>CBUS-11 Cyphal gateway</strong> — a role that bridges Cyphal subjects and services to Chorus roles.</li>
 </ul>
 <h2 id="introspection-ww_self-int">Introspection (<code>ww_self</code>, <code>INT</code>)<a class="headerlink" href="#introspection-ww_self-int" title="Permanent link">&para;</a></h2>
 <ul>
@@ -8322,6 +8322,16 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   or change what is sent, a real wire break); <code>ww_spi</code> was never published, so its 0.1.0 snapshot was saved again
   in place on a new wire line, <code>w2.0</code>. No device or host uses the format (<code>~/git/tpm/area/ops/in-use.md</code>).</li>
 <li>✅ <strong>EVO-59 <code>ww_logic_analyzer</code> typed numbers on the wire</strong> · <code>v0.5</code> — the stdlib units survey's per-crate change (<code>prj/P2401-wireweaver/design/stdlib-units-survey.md</code>): every channel number is an <code>Index&lt;Channel, u8&gt;</code> (<code>read_transitions</code>, <code>TriggerStage::UartByte::channel</code>, <code>I2cAddress::scl</code>/<code>sda</code>, <code>SpiFirstByte::cs</code>/<code>sck</code>/<code>data</code>, <code>ChannelCondition::channel</code>, <code>TransitionsChunk::channel</code>, <code>CaptureConfig::channels</code>, <code>StreamConfig::channels</code>), <code>RateLimit::channels</code> a <code>Count&lt;Channel, u8&gt;</code>, <code>ChannelInfo::gpio_pin</code> an <code>Option&lt;Index&lt;Pin, u8&gt;&gt;</code>; every sample position an <code>Index&lt;Sample, u32&gt;</code> and every sample amount a <code>Count&lt;Sample, u32&gt;</code> (<code>read_transitions</code>'s <code>from</code>, <code>CaptureStatus::Done::trigger_at</code>/<code>samples</code>, <code>SampleRange</code>, <code>RawChunk</code>, <code>TransitionsChunk::from</code>/<code>scanned_to</code>/<code>edges</code>, <code>CaptureConfig::samples</code>/<code>pre_trigger</code>, <code>CaptureActual::samples</code>); <code>LaCapabilities::memory</code> a <code>Bytes&lt;u32&gt;</code>, <code>RawLayout::width</code> a <code>Fixed&lt;Bit, One, u8&gt;</code>, <code>TriggerCapabilities::max_stages</code>/<code>max_conditions</code> a <code>Count&lt;Item, u8&gt;</code>, <code>TriggerStage::SpiFirstByte::mode</code> a <code>ww_spi::SpiMode</code> instead of a bare <code>0..=3</code> <code>u8</code> (reusing <code>ww_spi</code>'s enum, as the crate already reuses <code>ww_gpio::Level</code> and <code>ww_i2c::I2cAddress</code>; <code>ww_spi::SpiMode</code> now derives <code>defmt::Format</code>, as <code>TriggerStage</code>'s conditional derive needs). Every change a transparent wrapper or an enum of the same <code>ww_repr</code>, so the bytes are unchanged; wire line <code>w2.0</code> (shared with EVO-64) records the break, as the survey's decisions call for a new line, a CHANGELOG entry and an EVO item per break, bytes or not. <code>ww_logic_analyzer</code> 0.1.0 (never published), its <code>api_snapshots</code> refreshed. No device or host uses the format.</li>
+<li>✅ <strong>EVO-71 Generations from the wire line</strong> · <code>v0.5</code> — the four foundation crates of the frozen hello
+  (<code>shrink_wrap</code>, <code>ww_framer</code>, <code>ww_link</code>, <code>ww_client_server</code>) declare <code>[package.metadata.wire_weaver] wire = "w1.0"</code>
+  in <code>Cargo.toml</code>, and their <code>GENERATION</code> is that line, read at compile time by <code>shrink_wrap::generation_from_manifest!()</code>
+  (a <code>const fn</code> over <code>include_str!</code> of the manifest: no build script, <code>no_std</code>, about 0.1 ms of compile time per crate;
+  a missing or malformed line is a compile error). A layer's break is bumped in one place. The evolution checker sees
+  the lines: <code>ww_client_server</code> and <code>ww_link</code> (<code>DeviceInfo</code>, <code>LinkSetup</code>, <code>ClientMeta</code>) are snapshot-checked in
+  <code>tests/stdlib_evolution</code>, so a break there asks for <code>w2.0</code>, and the hello's generation follows; <code>shrink_wrap</code>'s
+  encoding and <code>ww_framer</code>'s frames have no model the checker could compare, and stay guarded by the conformance
+  corpus and their byte tests. The hello bytes are unchanged (<code>docs/transport/ww_link.md#the-frozen-hello</code>; tests
+  <code>shrink_wrap</code> <code>wire_line::tests</code>, <code>ww_link</code> <code>hello::tests::frozen_payload_bytes</code>, <code>stdlib_evolution</code> <code>ww_link</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s

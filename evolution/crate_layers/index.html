@@ -5953,7 +5953,7 @@ keeps working with a host or firmware built against <code>wire_weaver 0.6</code>
 <li><code>ww_framer</code> (frame layout, heads, checksums, frame prefixes) and <code>ww_link</code> (message kinds, <code>DeviceInfo</code>,
   <code>LinkSetup</code>, each medium's <code>Framing</code>) - changing these breaks every device from every host. Such a break bumps
   the layer's generation in the <a href="../../transport/ww_link/#the-frozen-hello">frozen hello</a> (<code>ww_framer::GENERATION</code>,
-  <code>ww_link::hello::GENERATION</code>), so peers on both sides of it fail with <code>Error::IncompatibleGeneration</code>, naming the
+  <code>ww_link::hello::GENERATION</code>, the line of the crate's <code>[package.metadata.wire_weaver] wire</code>: bump it to <code>w2.0</code>), so peers on both sides of it fail with <code>Error::IncompatibleGeneration</code>, naming the
   layer, instead of a setup timeout. Only add new message kinds that old peers ignore; never change existing ones.
   The hello itself (EVO-23, 0.5) was such a break: <code>GetDeviceInfo</code> became <code>Hello</code>. The one before it was TR-15
   (0.5): the setup token in <code>GetDeviceInfo</code> / <code>DeviceInfo</code> / <code>LinkSetup</code> / <code>LinkReady</code>, USB packets

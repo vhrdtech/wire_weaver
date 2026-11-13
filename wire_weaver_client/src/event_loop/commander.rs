@@ -8,12 +8,12 @@ use crate::client::observe::{
 };
 use crate::client::positioned::Shared;
 use crate::client::prepared_connection::Reconnect;
+use crate::client::prepared_stream_open::{raw_reopen, stream_open_request};
 use crate::client::sink::{Resumed, SinkLink};
 use crate::compat::{ApiCompat, ApiMatch, Since, Verdict, has_since};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
 use crate::event_loop::command::{Command, StreamOpenHook};
-use crate::client::prepared_stream_open::{raw_reopen, stream_open_request};
 use crate::event_loop::event_queue::event_queue;
 use crate::event_loop::rx_dispatcher::ResponseReceiver;
 use crate::event_loop::rx_dispatcher::ResponseSender;
@@ -785,14 +785,7 @@ impl Commander {
             let priority = self.default_priority.nibble();
             let path_kind = PathKindOwned::Absolute { path: path.clone() };
             let open = |raw| {
-                stream_open_request(
-                    &path_kind,
-                    priority,
-                    Some(cursor),
-                    max_age_us,
-                    raw,
-                    vec![],
-                )
+                stream_open_request(&path_kind, priority, Some(cursor), max_age_us, raw, vec![])
             };
             let bytes = open(!compression)?;
             let raw_reopen = raw_reopen(

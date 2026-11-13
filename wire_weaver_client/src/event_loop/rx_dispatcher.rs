@@ -614,7 +614,9 @@ impl RxDispatcher {
         if let Some(StreamCodec::Unknown(d)) = decoded.codec {
             // the rest of the answer is the newer codec's fields, not the stream function's result
             if hook.raw_reopen.is_some() {
-                debug!("stream opened with codec {d} this host doesn't know, opening it again with raw");
+                debug!(
+                    "stream opened with codec {d} this host doesn't know, opening it again with raw"
+                );
                 return Some(hook);
             }
             warn!("stream opened with raw, but the device declared codec {d}: it ends");

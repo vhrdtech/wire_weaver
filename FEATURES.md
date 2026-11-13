@@ -2443,8 +2443,9 @@ Unicast Data0 to one node over the same bus is TR-6.
   says which codec in `StreamOpened::codec`, as before; the host decodes what it names. `StreamCodec` gets a
   written `#[future_version] Unknown(u8)` and stays `final_structure`, so `StreamOpened::ser_head` still writes it in
   place before the stream function's result (an `Unsized` codec's size would share a byte with the result's own
-  sizes); a host that reads `Unknown` closes the stream and opens it again with `raw`. Measured in the design of
-  P2401 (`qemu_icount`, `fw-z`): fewer instructions per open and less flash on a Cortex-M0+, nothing per event.
+  sizes); a host that reads `Unknown` closes the stream and opens it again with `raw`. Measured at `fw-z`: an open
+  that takes the codec is 161 instructions shorter on a Cortex-M3 (QEMU), the dispatcher 24-118 B smaller on M0+
+  and M3, the same stack, nothing changes per event.
   `ww_stream::codec::CountedState::open_session` / `resume_session` take `raw`, `ItemCodec::codec` replaces
   `answer`. Conformance cases `client_server.stream_open.*`, `client_server.stream_opened.*`; tests
   `ww_client_server` `codec_declared_and_newer`, `wire_weaver_client` `unknown_codec_reopens_raw`. No device or host

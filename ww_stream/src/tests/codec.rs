@@ -59,7 +59,10 @@ fn raw_sends_items_as_they_are() {
     assert_eq!(data, line(0));
     assert_eq!(head.ext, None);
     let (_, codec) = s.open_session(2, false);
-    assert!(codec.is_some() && s.is_compressing(), "the next session compresses");
+    assert!(
+        codec.is_some() && s.is_compressing(),
+        "the next session compresses"
+    );
 }
 
 #[test]

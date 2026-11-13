@@ -92,6 +92,16 @@ left:
   other field (see [inside the checker](inside_the_checker.md#new-fields-in-padding-bits) for the exact conditions).
 * Struct fields and enum variants can be renamed (but their position must not change).
 
+A `final_structure` enum can still take new variants, if it has a catch-all written out: an older reader reads a newer
+variant's discriminant as the catch-all, but it can't step over that variant's fields, so nothing after the enum in the
+same value is readable. The protocol then has to recover around it. `ww_client_server::StreamCodec`, the codec a device
+declares in `StreamOpened` (EVO-73, [stream compression](../api/stream_compression.md)), is one: it stays
+`final_structure`, as `StreamOpened` writes it in place before the stream function's result, and has `#[future_version]
+Unknown(u8)`. A host that reads `Unknown(d)` doesn't need the rest of the answer: it closes the stream and opens it
+again asking for `raw`, whose answer it can read whole (`wire_weaver_client` does this). Making the enum `Unsized` would
+have let older hosts skip a newer codec's fields, but its size would then have shared a byte with the result's sizes and
+changed the answer's bytes.
+
 ### Maximum lengths: `MaxLen<T, N>`
 
 A [`MaxLen<T, N>`](../types.md#bounded-lists-and-strings-maxlent-n) has the same bytes as `T`, so a bound never

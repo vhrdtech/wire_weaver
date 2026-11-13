@@ -7934,6 +7934,26 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>
+<li>✅ <strong>EVO-74 A <code>#[ww_trait]</code> moved into its own <code>pub mod</code> kept its root item</strong> · <code>v0.5</code> — found splitting
+  <code>ww_stdlib</code> crates into topic modules (P2401#13nov-0647b): <code>load_crate</code>'s whole-crate snapshot path scanned only
+  <code>entry.lib_rs_ast.items</code> (the crate root file's own top-level items) for a trait to give its own
+  <code>ApiLevelLocationOwned</code>/root item; <code>convert_snapshot_item</code>, which <em>is</em> called for a <code>pub mod</code>'s contents, had no
+  <code>Item::Trait</code> arm, so a sub-trait moved into its own module silently lost its root item (named by other crates,
+  <code>a_crate::SubTrait</code>, <code>tests/io_can_group_api</code>'s <code>ww_impl!(can: ww_can_bus::CanGroup)</code> style) while staying
+  reachable only as a sub-level of whatever still used it with <code>ww_impl!</code> in the same crate. Fixed by giving
+  <code>convert_snapshot_item</code> the same trait-converting arm as the top-level loop (and threading <code>items</code>/<code>wire</code> through
+  its <code>Mod</code> and reexport recursion), so a trait is found at any <code>pub mod</code> depth, as types already were (API-46).
+  <code>wire_weaver_core</code> test <code>a_subtrait_moved_into_its_own_module_is_still_a_root_item</code>.</li>
+<li>✅ <strong>EVO-75 Definitions compared wherever the source declares them</strong> · <code>v0.5</code> — found splitting <code>ww_stdlib</code>
+  crates into topic modules (P2401#13nov-1452): the walker numbers a crate's types and traits in the order it reaches
+  them in the source, so moving types (or a <code>#[ww_trait]</code>, EVO-74) from <code>lib.rs</code> into a <code>pub mod</code>, re-exported at the
+  same paths, gave another bundle of the same definitions, and <code>ww api check</code>, which compared bytes, reported
+  "compatible changes, order of items" and asked for a bump. The checker now compares both sides renumbered by
+  <code>ww_self::order::canonical_order</code> (first use from the root, then by crate and path; a crate snapshot's trait list by
+  name), and <code>ww api save</code> keeps a saved snapshot whose definitions are the same. The walker's own order is kept, so
+  no saved snapshot, introspection data or wire byte changes. Chosen over a layout-independent walker order, which
+  would have renumbered every existing snapshot. <code>wire_weaver_evolution</code> test
+  <code>moving_definitions_into_modules_changes_nothing</code>, <code>docs/evolution/checker_tool.md</code>.</li>
 <li>✅ <strong>EVO-1 Evolution rules</strong> in <code>docs/evolution/rules.md</code>: crate layers and version bumping.</li>
 <li>✅ <strong>EVO-2 SHA signatures</strong> of APIs and types, hashing only the major version (or <code>0.minor</code>), version independent.</li>
 <li>✅ <strong>EVO-3 Crate version recorded in bundles</strong>.</li>

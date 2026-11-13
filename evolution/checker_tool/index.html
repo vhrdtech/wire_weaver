@@ -6121,6 +6121,11 @@ snapshot first, and refuses to save if the version is not bumped enough (<code>-
 has snapshots of all of its published versions, every new snapshot is checked against the previous one. Refreshing is
 for a version still being worked on: once a version is released, its snapshot never changes, bump the version instead
 (the pre-commit hook <a href="#a-released-snapshot-never-changes">below</a> refuses it).</p>
+<p>Traits and types are compared by their definitions, not by where the source declares them. Moving types or a
+<code>#[ww_trait]</code> from <code>lib.rs</code> into a <code>pub mod</code>, re-exported at the same paths, numbers them in another order in the
+bundle, and the check still says <code>no changes</code>: both sides are put into one order before they are compared (the order
+of first use from the API root, then the types nothing uses by their path in the crate, EVO-75). <code>ww api save</code> keeps
+the snapshot file as it was saved then, so a released snapshot stays untouched.</p>
 <p>A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
 version to put into <code>Cargo.toml</code>:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww api check examples/blinky_api

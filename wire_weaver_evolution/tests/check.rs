@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
 use wire_weaver_evolution::{
-    Change, Check, CrateCache, Outcome, RootsOutcome, Rule, SaveStatus, Saved,
+    Change, Check, CrateCache, Outcome, Report, RootsOutcome, Rule, SaveStatus, Saved, pins,
 };
 
 const API: &str = r#"
@@ -408,22 +408,37 @@ fn compatible_bump_with_current_snapshot_passes() {
 }
 
 /// nucleo_g0b1re_template's API 0.4.0 with its snapshots, saved by a wire_weaver from before
-/// `ItemEnum::future_version` (EVO-10).
+/// `ItemEnum::future_version` (EVO-10). It follows the live ww_stdlib by path on purpose, so a stdlib change reaches
+/// it at once; its pinned stdlib signatures are refreshed by `just refresh-fixture-pins` (EVO-70), never by hand.
 fn old_format_fixture() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/nucleo_g0b1re_api")
 }
 
+fn old_format_snapshot(crate_dir: &Path) -> PathBuf {
+    crate_dir
+        .join(SNAPSHOTS_DIR)
+        .join("nucleo_g0b1re_api_0_4_0.ron")
+}
+
 /// The fixture copied into `c`, its path dependencies made absolute, with `lib_rs` changed by `edit`.
 fn copy_fixture(c: &TestCrate, edit: impl Fn(String) -> String) {
+    copy_fixture_with(c, edit, |cargo_toml| cargo_toml);
+}
+
+/// [copy_fixture] with its `Cargo.toml` (dependencies already absolute) changed by `edit_toml` too.
+fn copy_fixture_with(
+    c: &TestCrate,
+    edit: impl Fn(String) -> String,
+    edit_toml: impl Fn(String) -> String,
+) {
     let fixture = old_format_fixture();
-    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let cargo_toml = std::fs::read_to_string(fixture.join("Cargo.toml"))
         .unwrap()
         .replace(
             "path = \"../../../../",
-            &format!("path = \"{}/", repo.display()),
+            &format!("path = \"{}/", repo().display()),
         );
-    std::fs::write(c.path().join("Cargo.toml"), cargo_toml).unwrap();
+    std::fs::write(c.path().join("Cargo.toml"), edit_toml(cargo_toml)).unwrap();
     let lib_rs = std::fs::read_to_string(fixture.join("src/lib.rs")).unwrap();
     std::fs::write(c.path().join("src/lib.rs"), edit(lib_rs)).unwrap();
     let snapshots = c.path().join(SNAPSHOTS_DIR);
@@ -432,6 +447,10 @@ fn copy_fixture(c: &TestCrate, edit: impl Fn(String) -> String) {
         let path = entry.unwrap().path();
         std::fs::copy(&path, snapshots.join(path.file_name().unwrap())).unwrap();
     }
+}
+
+fn repo() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()
 }
 
 fn unrecorded(outcome: &Outcome) -> Vec<String> {
@@ -446,20 +465,49 @@ fn unrecorded(outcome: &Outcome) -> Vec<String> {
         .collect()
 }
 
+/// The fixture's source against its saved snapshot keeps the wire (EVO-70): a definition it embeds from the live
+/// ww_stdlib may have changed since its pins were refreshed, which is fine while it stays compatible.
+fn assert_keeps_wire(outcome: &Outcome) -> &Report {
+    let Outcome::Compared(comparison) = outcome else {
+        panic!("{outcome:?}")
+    };
+    assert!(
+        pins::wire_compatible(&comparison.report),
+        "{outcome}\nThe nucleo_g0b1re_api fixture (deployed firmware's API 0.4.0) no longer works with its saved \
+         snapshot on the wire: a ww_stdlib definition it embeds changed incompatibly, see `breaking` above. If the \
+         break is intended (a stated wire break, with its EVO item and CHANGELOG entry), refresh the fixture's pins \
+         with `just refresh-fixture-pins --accept-breaking`; never edit the signatures by hand."
+    );
+    &comparison.report
+}
+
 #[test]
 fn old_format_snapshot_passes_against_unchanged_source() {
-    // upgrading wire_weaver alone is no change of the API (EVO-13): the snapshot has no future_version, which codegen
-    // now records for the crate's SiliconRevision
-    let (outcome, verdict) = check_current(&old_format_fixture());
-    verdict.unwrap_or_else(|e| panic!("{outcome}\n{e}"));
-
-    let snapshot = old_format_fixture()
-        .join(SNAPSHOTS_DIR)
-        .join("nucleo_g0b1re_api_0_4_0.ron");
-    let outcome = Check::new(old_format_fixture())
-        .against(&snapshot)
+    // the fixture as it is: whatever the stdlib changed since its pins were refreshed keeps the wire
+    let fixture = old_format_fixture();
+    let outcome = Check::new(&fixture)
+        .against(old_format_snapshot(&fixture))
         .run()
         .unwrap();
+    assert_keeps_wire(&outcome);
+
+    // upgrading wire_weaver alone is no change of the API (EVO-13): the snapshot has no future_version, which codegen
+    // now records for the crate's SiliconRevision. Checked on a copy with its pins refreshed to today's stdlib, so
+    // that a compatible stdlib change doesn't show up here.
+    let c = TestCrate::new("old-format-unchanged");
+    copy_fixture(&c, |lib_rs| lib_rs);
+    let cache = CrateCache::default();
+    pins::refresh(c.path(), None, false, false, &cache).unwrap();
+    let outcome = Check::new(c.path())
+        .require_current(true)
+        .cache(cache.clone())
+        .run()
+        .unwrap();
+    outcome
+        .verdict()
+        .unwrap_or_else(|e| panic!("{outcome}\n{e}"));
+
+    let outcome = check_fixture(&c, &cache);
     assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
     // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still, ApiBundle::wire (EVO-24) and
     // ApiBundle::ext_wire (EVO-26) last
@@ -479,6 +527,114 @@ fn old_format_snapshot_passes_against_unchanged_source() {
             snapshot saved by an older wire_weaver",
         ],
     );
+}
+
+/// The fixture with `ww_uid`, a stdlib crate it embeds (`Device::uid`), replaced by a copy of the same version whose
+/// `src/lib.rs` is changed by `edit`: a stdlib change in place, as a session makes one.
+fn fixture_with_changed_uid(name: &str, edit: impl Fn(String) -> String) -> TestCrate {
+    let c = TestCrate::new(name);
+    let uid = c.path().join("ww_uid");
+    std::fs::create_dir_all(uid.join("src")).unwrap();
+    let source = repo().join("ww_stdlib/ww_uid");
+    let lib_rs = std::fs::read_to_string(source.join("src/lib.rs")).unwrap();
+    let changed = edit(lib_rs.clone());
+    assert_ne!(changed, lib_rs, "the edit changed nothing");
+    std::fs::write(uid.join("src/lib.rs"), changed).unwrap();
+    // its own manifest, without the workspace's inheritance
+    std::fs::write(
+        uid.join("Cargo.toml"),
+        format!(
+            "[package]\nname = \"ww_uid\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n\
+             [package.metadata.wire_weaver]\nwire = \"w1.0\"\n\n[features]\nstd = [\"wire_weaver/std\"]\n\
+             defmt = [\"wire_weaver/defmt\"]\n\n[dependencies]\n\
+             wire_weaver = {{ path = \"{}/wire_weaver\", default-features = false }}\n",
+            repo().display()
+        ),
+    )
+    .unwrap();
+    let ww_uid = format!("path = \"{}\"", source.display());
+    copy_fixture_with(
+        &c,
+        |lib_rs| lib_rs,
+        |cargo_toml| {
+            assert!(cargo_toml.contains(&ww_uid), "{cargo_toml}");
+            cargo_toml.replace(&ww_uid, &format!("path = \"{}\"", uid.display()))
+        },
+    );
+    c
+}
+
+const UID_VALUE: &str = "    pub value: MaxLen<RefVec<'i, u8>, 16>,";
+
+/// [Check] of `c` against its old-format snapshot, through `cache`.
+fn check_fixture(c: &TestCrate, cache: &CrateCache) -> Outcome {
+    Check::new(c.path())
+        .against(old_format_snapshot(c.path()))
+        .cache(cache.clone())
+        .run()
+        .unwrap()
+}
+
+/// A compatible stdlib change in place (the id's max length raised) passes the fixture's check, and
+/// `refresh-fixture-pins` takes it: only the pin's bytes change, and the fixture then compares clean (EVO-70). Before,
+/// any change of an embedded stdlib definition read as the same "definitions changed" against the old-format
+/// snapshot, and sessions edited the pinned signatures by hand.
+#[test]
+fn compatible_stdlib_change_passes_the_fixture() {
+    let c = fixture_with_changed_uid("old-format-uid-compatible", |lib_rs| {
+        lib_rs.replace(UID_VALUE, "    pub value: MaxLen<RefVec<'i, u8>, 32>,")
+    });
+    let cache = CrateCache::default();
+    let snapshot = old_format_snapshot(c.path());
+    let outcome = check_fixture(&c, &cache);
+    let report = assert_keeps_wire(&outcome);
+    assert_eq!(report.change, Change::Compatible, "{outcome}");
+    has_all(&outcome.to_string(), &["Device::uid: max length raised"]);
+
+    let saved = std::fs::read_to_string(&snapshot).unwrap();
+    let refreshed = pins::refresh(c.path(), Some(&snapshot), false, false, &cache).unwrap();
+    let what: Vec<_> = refreshed.refreshed.iter().map(|r| r.what.as_str()).collect();
+    assert_eq!(what, ["trait ww_uid::Uid"], "{:?}", refreshed.refreshed);
+    let text = std::fs::read_to_string(&snapshot).unwrap();
+    assert_ne!(text, saved);
+    // only the pin's bytes changed, the old format is kept
+    assert_eq!(text.lines().count(), saved.lines().count());
+    assert!(!text.contains("future_version"));
+    let outcome = check_fixture(&c, &cache);
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
+}
+
+/// An incompatible stdlib change in place (the id's bytes as a `u32`) fails the fixture's check, named at the field,
+/// and `refresh-fixture-pins` refuses it unless the break is accepted on purpose (EVO-70).
+#[test]
+fn breaking_stdlib_change_fails_the_fixture() {
+    let c = fixture_with_changed_uid("old-format-uid-breaking", |lib_rs| {
+        lib_rs.replace(UID_VALUE, "    pub value: u32,")
+    });
+    let cache = CrateCache::default();
+    let snapshot = old_format_snapshot(c.path());
+    let outcome = check_fixture(&c, &cache);
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert_eq!(comparison.report.change, Change::Breaking, "{outcome}");
+    assert!(!pins::wire_compatible(&comparison.report));
+    let text = outcome.to_string();
+    has_all(
+        &text,
+        &["trait Uid: IDS: struct UniqueId: field `value`: u32 on the new version"],
+    );
+    // no "doc comments changed, the definition is the same" note for a definition that changed
+    assert!(!text.contains("the definition is the same"), "{text}");
+
+    let saved = std::fs::read_to_string(&snapshot).unwrap();
+    let err = pins::refresh(c.path(), Some(&snapshot), false, false, &cache).unwrap_err();
+    has_all(&err, &["field `value`", "--accept-breaking"]);
+    assert_eq!(std::fs::read_to_string(&snapshot).unwrap(), saved);
+    // accepted on purpose: refreshed, and the fixture then compares clean
+    pins::refresh(c.path(), Some(&snapshot), true, false, &cache).unwrap();
+    let outcome = check_fixture(&c, &cache);
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
 }
 
 #[test]

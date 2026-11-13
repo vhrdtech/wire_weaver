@@ -194,6 +194,12 @@ version had and its current snapshot of the same version no longer has, in `DIR`
 that happened before, with the earlier snapshot taken from git history. See
 [superseded definitions](evolution/checker_tool.md#superseded-definitions-evo-68).
 
+`ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]` rewrites the pinned references of the
+snapshot of a crate's current version (the signatures of other crates' definitions it leaves out, and those crates'
+versions) to what the source gives, keeping every other byte, for a frozen fixture that follows its dependencies by
+path; refused on a wire break unless `--accept-breaking`. See
+[a snapshot saved by an older wire_weaver](evolution/checker_tool.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70).
+
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every
 `#[derive_shrink_wrap]` type and unit marker struct (`pub struct Volt;`) defined there, in a `pub mod` at any depth,
 or re-exported from a module with `pub use` (each known by its path and name, `units::Volt`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example

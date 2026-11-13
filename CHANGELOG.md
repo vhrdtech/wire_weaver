@@ -56,6 +56,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `w2.0` (EVO-57). See the `ww_spi` CHANGELOG.
 - `just jobs=N test` (also `test-all`, `lint`, `check`, and anything they call) caps `CARGO_BUILD_JOBS` and `NEXTEST_TEST_THREADS` at `N` for that run; without `jobs=`, both are left exactly as inherited.
 - `ww_logic_analyzer` channel numbers, sample positions and amounts, capture memory, raw word width and trigger stage/condition counts are typed (`Index<Channel, u8>`, `Index<Sample, u32>`, `Count<Sample, u32>`, `Bytes<u32>`, `Fixed<Bit, One, u8>`, `Count<Item, u8>`), and `TriggerStage::SpiFirstByte::mode` is a `ww_spi::SpiMode` instead of a bare `u8` (wire change EVO-59, wire line `w2.0`). See the `ww_logic_analyzer` changelog.
+- The evolution checker compares a dependency's changed definitions against a snapshot saved by an older wire_weaver too, and `ww api refresh-pins` / `just refresh-fixture-pins` (called by `just save-snapshots`) keep the `nucleo_g0b1re_api` fixture's pinned stdlib signatures in line: its tests pass a compatible stdlib change and fail a break, and nobody edits signature bytes by hand (EVO-70). See the `wire_weaver_evolution` and `wire_weaver_cli` changelogs.
 
 ### Added
 

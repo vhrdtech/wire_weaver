@@ -281,6 +281,14 @@ save-snapshots *args:
     for f in ww_global/api_snapshots/superseded/*.ww ww_tap/api_snapshots/superseded/*.ww wire_weaver_snapshots/other_repos/superseded/*.ww ww_stdlib/*/api_snapshots/superseded/*.ww; do \
         [ ! -e "$f" ] || [ "$(basename "$(dirname "$(dirname "$(dirname "$f")")")")" = ww_client_server ] || cp "$f" wire_weaver_snapshots/api_snapshots/superseded/; \
     done
+    # the frozen fixture that follows the stdlib by path: its pins follow too (EVO-70)
+    just refresh-fixture-pins
+
+# Refresh the pinned stdlib signatures of the nucleo_g0b1re_api evolution fixture to the stdlib's current source,
+# keeping its old snapshot format (EVO-70). Refused on a wire break, unless --accept-breaking.
+refresh-fixture-pins *args:
+    cargo build -q -p wire_weaver_cli
+    target/debug/ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
 
 pre-commit:
     cargo sort -w -g

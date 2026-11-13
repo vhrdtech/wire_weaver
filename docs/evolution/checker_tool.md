@@ -189,6 +189,29 @@ ww api keep-superseded old.ron --current wire_weaver_snapshots/other_repos/exact
 The earlier snapshot must parse with today's model, and the definitions of other crates it refers to must be known,
 as for `ww api save`.
 
+### A snapshot saved by an older wire_weaver (EVO-70)
+
+A snapshot saved before a field of the model that signatures include (`ApiBundle::wire`, EVO-24) holds signatures
+made over other bytes, so the checker doesn't require the two sides' signatures to be equal. It still compares a
+definition whose signature changed when it knows both definitions: a signature that names a known definition (the
+snapshot of its crate version, the source's, a superseded one) was made over the same bytes. A dependency changed in
+place is then a compatible change or a break named at the field, as in a snapshot of today's format. Only a
+signature that names nothing known is let through unchecked.
+
+A frozen snapshot that stands for a released API but follows the live `ww_stdlib` by path on purpose, as the
+evolution checker's `nucleo_g0b1re_api` fixture does, keeps its pins in line with the source without being saved
+again (saving would rewrite it in today's format):
+
+```sh
+ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api
+```
+
+It rewrites only the signatures by which the snapshot of the crate's current version names other crates' traits and
+types, and those crates' versions; an 8-byte reference stays 8 bytes. It refuses when the source no longer works with
+the snapshot on the wire, printing the report, unless `--accept-breaking` (a stated break of the dependency).
+`--dry-run` prints what would change. In this repository `just refresh-fixture-pins` runs it, and `just
+save-snapshots` calls that at its end.
+
 ## Checking at every commit
 
 The checker is a library, `wire_weaver_evolution`, which parses the crate from source like `ww api check` does and

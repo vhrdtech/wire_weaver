@@ -330,9 +330,10 @@ mod tests {
     /// with `ww_si` moving to 0.5.0 and wire w5.0 for `Timed.t` as a device point (STD-110, EVO-51); and with
     /// `Clock::shared_now` returning `Option<UnixMicros<u64>>` instead of `Option<u64>` (typed numbers for shared
     /// time, rate, error and slew, P2401#11nov-0947g); and with `ww_date_time` moving to wire w2.0 for its bounded
-    /// calendar fields (EVO-58), which changes the shape of `DateTime` and of `Clock`, so their pins name the new
-    /// definitions. Since EVO-68 a refresh in place keeps the definition it
-    /// replaces, which keeps a pinned signature known.
+    /// calendar fields (EVO-58), which changes the shape of `DateTime` and of `Clock`. Since EVO-68 a refresh in place
+    /// keeps the definition it replaces, which keeps a pinned signature known. The pins are read from the files that
+    /// hold them, `ww_board_info` 0.1.0's snapshot and the fixture's, which `just refresh-fixture-pins` refreshes
+    /// (EVO-70): no signature bytes are written here by hand.
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signatures, type_signatures};
@@ -357,13 +358,20 @@ mod tests {
             })
             .unwrap();
         let signature = type_signatures(date_time, idx as u32, &resolve).unwrap();
-        stays_known(
-            Kind::Type,
-            date_time,
-            "DateTime",
-            &signature,
-            [0x6d, 0x1d, 0xa2, 0x71, 0x92, 0xfa, 0x77, 0x5b],
-        );
+        let board_info = snapshot_of("ww_board_info");
+        let pinned = board_info
+            .types
+            .iter()
+            .find_map(|t| match t {
+                TypeLocationOwned::SkippedFullVersion {
+                    type_name,
+                    signature,
+                    ..
+                } if type_name == "DateTime" => Some(signature.clone()),
+                _ => None,
+            })
+            .expect("ww_board_info 0.1.0 leaves DateTime out");
+        stays_known(Kind::Type, date_time, "DateTime", &signature, &pinned);
 
         let timebase = snapshot_of("ww_timebase");
         let idx = timebase
@@ -372,13 +380,25 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signatures(timebase, idx as u32, &resolve).unwrap();
-        stays_known(
-            Kind::Trait,
-            timebase,
-            "Clock",
-            &signature,
-            [0xe2, 0x89, 0x11, 0x29, 0xa8, 0x59, 0xb1, 0x13],
+        // an old-format snapshot, read for the one pin
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api/api_snapshots/nucleo_g0b1re_api_0_4_0.ron",
         );
+        let text = std::fs::read_to_string(&fixture).unwrap();
+        let pinned = pinned_in(&text, "trait_name: \"Clock\"");
+        stays_known(Kind::Trait, timebase, "Clock", &signature, &pinned);
+    }
+
+    /// The signature bytes of the reference `head` (`trait_name: "Clock"`) in the RON of a snapshot.
+    fn pinned_in(text: &str, head: &str) -> Vec<u8> {
+        let start = text.find(head).unwrap_or_else(|| panic!("no {head}"));
+        let list = &text[start..];
+        let list = &list[list.find('[').unwrap() + 1..list.find(']').unwrap()];
+        list.split(',')
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .map(|n| n.parse().unwrap())
+            .collect()
     }
 
     /// The definition `pinned` names (a signature with docs, as every reference was before EVO-69) is the snapshot's
@@ -389,12 +409,12 @@ mod tests {
         snapshot: &ApiBundleOwned,
         name: &str,
         signatures: &Signatures,
-        pinned: [u8; 8],
+        pinned: &[u8],
     ) {
         let version = snapshot.crate_version(0).unwrap();
         assert!(
-            signatures.matches(&pinned).is_same_shape()
-                || superseded(kind, version, name, &pinned).is_some(),
+            signatures.matches(pinned).is_same_shape()
+                || superseded(kind, version, name, pinned).is_some(),
             "{} {name}: {signatures:02x?}, and no superseded definition with {pinned:02x?}",
             kind.name()
         );

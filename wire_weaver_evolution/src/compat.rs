@@ -321,9 +321,7 @@ fn compare_kinds<'a>(
                     Some(ApiLevelLocationOwned::InLine { .. })
                 )
             };
-            if to_device.compare_signatures
-                && (skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0))
-            {
+            if skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0) {
                 let (signature, device_signature) = (
                     trait_signature(client, trait_idx.0),
                     trait_signature(device, device_trait_idx.0),
@@ -355,6 +353,10 @@ fn compare_kinds<'a>(
                     )
                     .map_err(|e| format!("trait {}: {e}", identity.1))
                     .inspect_err(|_| to_device.note_root("trait", &identity));
+                }
+                // a signature made over other bytes (an older snapshot format) names no definition known here
+                if !to_device.compare_signatures {
+                    return Ok(());
                 }
                 check_same_definition(
                     "trait",
@@ -748,12 +750,13 @@ pub type Referenced = (Kind, FullVersionOwned, String);
 /// definition it names, so that two sides compare definitions, never doc comments or the form of a reference (EVO-69):
 /// 16 bytes are cut to their shape part, and an 8-byte one saved before EVO-69 (a signature with docs) is looked up
 /// among the definitions known here: the embedded snapshot of its crate version, `definitions` (the source's,
-/// EVO-67) and the superseded ones (EVO-68). One found nowhere is left as it is. Returns the signature with docs each
-/// reference names, where known: two sides whose shapes agree and these differ have other docs of a dependency.
+/// EVO-67) and the superseded ones (EVO-68). One found nowhere is left as it is. Returns both signatures of the
+/// definition each reference names, where known: two sides whose shapes agree and whose signatures with docs differ
+/// have other docs of a dependency.
 pub fn normalize_references(
     bundle: &mut ApiBundleOwned,
     definitions: &[&ApiBundleOwned],
-) -> std::collections::HashMap<Referenced, Vec<u8>> {
+) -> std::collections::HashMap<Referenced, signature::Signatures> {
     let mut docs = std::collections::HashMap::new();
     let mut resolved = vec![];
     for (idx, location) in bundle.types.iter().enumerate() {
@@ -770,8 +773,14 @@ pub fn normalize_references(
                 idx,
                 resolve_reference(&key, signature, definitions),
             ));
-            if let Some((_, Some(with_docs))) = &resolved.last().unwrap().2 {
-                docs.insert(key, with_docs.clone());
+            if let Some((shape, Some(with_docs))) = &resolved.last().unwrap().2 {
+                docs.insert(
+                    key,
+                    signature::Signatures {
+                        shape: shape.clone(),
+                        with_docs: with_docs.clone(),
+                    },
+                );
             }
         }
     }
@@ -789,8 +798,14 @@ pub fn normalize_references(
                 idx,
                 resolve_reference(&key, signature, definitions),
             ));
-            if let Some((_, Some(with_docs))) = &resolved.last().unwrap().2 {
-                docs.insert(key, with_docs.clone());
+            if let Some((shape, Some(with_docs))) = &resolved.last().unwrap().2 {
+                docs.insert(
+                    key,
+                    signature::Signatures {
+                        shape: shape.clone(),
+                        with_docs: with_docs.clone(),
+                    },
+                );
             }
         }
     }
@@ -993,7 +1008,9 @@ impl<'a> TypeCheck<'a> {
     /// Whether a trait or type one side left out (by crate version and signature) is checked to have the same
     /// signature on the other side. Off when the two sides' signatures come from different shapes of the API model:
     /// a snapshot saved by an older wire_weaver, before a field of the model that signatures include (EVO-22's
-    /// argument defaults), computed them over other bytes.
+    /// argument defaults), computed them over other bytes. Off, two signatures that differ still have their two
+    /// definitions compared when both are known (EVO-67, EVO-68), as a signature that names a known definition was
+    /// made over the same bytes; only one that names nothing known is let through unchecked (EVO-70).
     pub fn compare_signatures(mut self, compare: bool) -> Self {
         self.compare_signatures = compare;
         self
@@ -1110,9 +1127,6 @@ impl<'a> TypeCheck<'a> {
                     TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
                     _ => None,
                 };
-                if !self.compare_signatures {
-                    return Ok(());
-                }
                 let (w_signature, r_signature) =
                     (signature(self.writer, w_ty), signature(self.reader, r_ty));
                 // one crate version defined differently on each side (changed without a version bump, a version
@@ -1126,6 +1140,10 @@ impl<'a> TypeCheck<'a> {
                     return self
                         .with_bundle(0, wb, |c| c.with_bundle(1, rb, |c| c.check(wd, rd)))
                         .inspect_err(|_| self.note_root("type", &w));
+                }
+                // a signature made over other bytes (an older snapshot format) names no definition known here
+                if !self.compare_signatures {
+                    return Ok(());
                 }
                 return check_same_definition(
                     "type",
@@ -1361,50 +1379,50 @@ impl<'a> TypeCheck<'a> {
         };
         check_same_origin("type", (&w, self.writer), (&r, self.reader))
             .inspect_err(|_| self.note_root("type", &w))?;
-        if self.compare_signatures {
-            let (w_signature, r_signature) = (
-                type_signature(self.writer, wi),
-                type_signature(self.reader, ri),
-            );
-            // same crate version, signatures differ (changed without a version bump, a version not published,
-            // EVO-67): compared by the two definitions when both are known, instead of requiring equal
-            // signatures, the same fallback `Checker::check`'s plain `resolve()` path has for a non-generic
-            // skipped type. `wd`/`rd` are the generic definitions themselves (`IndexFrom1<Of, T, B>`); the
-            // instantiated arguments (`wa`/`ra`) are still checked below either way.
-            let evo_67 = match (&w_signature, &r_signature) {
-                (Some(w_sig), Some(r_sig)) if w.0 == r.0 && w_sig != r_sig => Some((
-                    self.definition(
-                        self.writer,
-                        &TypeOwned::OutOfLine {
-                            type_idx: UNib32(wi),
-                        },
-                        &w,
-                        w_sig,
-                    ),
-                    self.definition(
-                        self.reader,
-                        &TypeOwned::OutOfLine {
-                            type_idx: UNib32(ri),
-                        },
-                        &r,
-                        r_sig,
-                    ),
-                )),
-                _ => None,
-            };
-            match evo_67 {
-                Some((Some((wb, wd)), Some((rb, rd)))) => self
-                    .with_bundle(0, wb, |c| c.with_bundle(1, rb, |c| c.check(wd, rd)))
-                    .inspect_err(|_| self.note_root("type", &w))?,
-                _ => check_same_definition(
-                    "type",
-                    (&w, self.writer_name),
-                    (&r, self.reader_name),
-                    w_signature,
-                    r_signature,
-                )
+        let (w_signature, r_signature) = (
+            type_signature(self.writer, wi),
+            type_signature(self.reader, ri),
+        );
+        // same crate version, signatures differ (changed without a version bump, a version not published,
+        // EVO-67): compared by the two definitions when both are known, instead of requiring equal
+        // signatures, the same fallback `Checker::check`'s plain `resolve()` path has for a non-generic
+        // skipped type. `wd`/`rd` are the generic definitions themselves (`IndexFrom1<Of, T, B>`); the
+        // instantiated arguments (`wa`/`ra`) are still checked below either way.
+        let evo_67 = match (&w_signature, &r_signature) {
+            (Some(w_sig), Some(r_sig)) if w.0 == r.0 && w_sig != r_sig => Some((
+                self.definition(
+                    self.writer,
+                    &TypeOwned::OutOfLine {
+                        type_idx: UNib32(wi),
+                    },
+                    &w,
+                    w_sig,
+                ),
+                self.definition(
+                    self.reader,
+                    &TypeOwned::OutOfLine {
+                        type_idx: UNib32(ri),
+                    },
+                    &r,
+                    r_sig,
+                ),
+            )),
+            _ => None,
+        };
+        match evo_67 {
+            Some((Some((wb, wd)), Some((rb, rd)))) => self
+                .with_bundle(0, wb, |c| c.with_bundle(1, rb, |c| c.check(wd, rd)))
                 .inspect_err(|_| self.note_root("type", &w))?,
-            }
+            // a signature made over other bytes (an older snapshot format) names no definition known here
+            _ if !self.compare_signatures => {}
+            _ => check_same_definition(
+                "type",
+                (&w, self.writer_name),
+                (&r, self.reader_name),
+                w_signature,
+                r_signature,
+            )
+            .inspect_err(|_| self.note_root("type", &w))?,
         }
         if wa.len() != ra.len() {
             return Err(format!(

@@ -114,3 +114,29 @@ pub(crate) fn keep_superseded(old: PathBuf, current: PathBuf, into: PathBuf) -> 
     }
     Ok(())
 }
+
+pub(crate) fn refresh_pins(
+    path: PathBuf,
+    snapshot: Option<PathBuf>,
+    accept_breaking: bool,
+    dry_run: bool,
+) -> Result<()> {
+    let refreshed = wire_weaver_evolution::pins::refresh(
+        &path,
+        snapshot.as_deref(),
+        accept_breaking,
+        dry_run,
+        &Default::default(),
+    )
+    .map_err(|e| anyhow!(e))?;
+    for pin in &refreshed.refreshed {
+        println!("{}: {} -> {}", pin.what, pin.from, pin.to);
+    }
+    let file = refreshed.path.display();
+    match (refreshed.refreshed.is_empty(), dry_run) {
+        (true, _) => println!("{file}: pins are current"),
+        (false, true) => println!("{file}: would refresh {} pins", refreshed.refreshed.len()),
+        (false, false) => println!("{file}: refreshed {} pins", refreshed.refreshed.len()),
+    }
+    Ok(())
+}

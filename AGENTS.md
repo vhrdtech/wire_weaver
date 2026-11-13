@@ -259,6 +259,9 @@ part of its SemVer contract. Use `ww api check` / `ww api diff` rather than eyeb
 breaks the wire. Which devices and hosts that affects comes from our internal device/host tracking; nothing listed
 means a break costs only its CHANGELOG entry and its `EVO-n` item.
 
+Pinned signatures (the `nucleo_g0b1re_api` evolution fixture's, `wire_weaver_snapshots`') are refreshed by the
+tool, `just save-snapshots` (it calls `just refresh-fixture-pins`), never edited by hand.
+
 `ElementSize::Sized { size_bits }` is the bits of the value's own fields, padding excluded (`struct { a: bool, b: u8 }`
 is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
 

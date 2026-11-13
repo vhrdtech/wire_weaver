@@ -59,6 +59,8 @@ mod check;
 pub mod compat;
 mod diff;
 mod layout;
+#[cfg(feature = "source")]
+pub mod pins;
 pub mod recorded;
 mod rule;
 pub mod snapshot_files;
@@ -1611,14 +1613,18 @@ fn bytes(bundle: &ApiBundleOwned, with_docs: bool) -> Result<Vec<u8>, String> {
     bundle.to_ww_bytes_owned().map_err(|e| format!("{e:?}"))
 }
 
-/// [Report::notes]: the dependencies' traits and types both sides refer to by the same shape whose docs differ.
+/// [Report::notes]: the dependencies' traits and types both sides refer to by the same shape whose docs differ. One
+/// whose shape differs too is no docs note: its definitions are compared by the evolution rules.
 fn docs_notes(
-    old: &std::collections::HashMap<compat::Referenced, Vec<u8>>,
-    new: &std::collections::HashMap<compat::Referenced, Vec<u8>>,
+    old: &std::collections::HashMap<compat::Referenced, ww_self::signature::Signatures>,
+    new: &std::collections::HashMap<compat::Referenced, ww_self::signature::Signatures>,
 ) -> Vec<String> {
     let mut notes: Vec<String> = old
         .iter()
-        .filter(|(key, docs)| new.get(*key).is_some_and(|new| new != *docs))
+        .filter(|(key, old)| {
+            new.get(*key)
+                .is_some_and(|new| new.shape == old.shape && new.with_docs != old.with_docs)
+        })
         .map(|((kind, version, name), _)| {
             format!(
                 "{} {}::{name} {}: doc comments changed since the old version was saved, the definition is the same",

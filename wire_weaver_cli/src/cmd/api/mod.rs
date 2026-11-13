@@ -203,6 +203,29 @@ pub enum ApiCommand {
         #[arg(long, value_hint = ValueHint::DirPath)]
         into: PathBuf,
     },
+    /// Refresh the pinned references of a frozen snapshot to what the source gives (EVO-70)
+    ///
+    /// Rewrites only the signatures by which the snapshot of the crate's current version names other crates'
+    /// traits and types, and those crates' versions, keeping every other byte (an old-format snapshot stays in its
+    /// format). For a fixture that follows the live stdlib by path; refused when the source no longer works with
+    /// the snapshot on the wire, unless --accept-breaking.
+    RefreshPins {
+        /// Path to the crate
+        #[arg(value_hint = ValueHint::DirPath)]
+        path: PathBuf,
+
+        /// The snapshot to refresh, instead of the one of the crate's current version
+        #[arg(long, value_hint = ValueHint::FilePath)]
+        snapshot: Option<PathBuf>,
+
+        /// Refresh them across a wire break too: a stated break of a dependency
+        #[arg(long)]
+        accept_breaking: bool,
+
+        /// Print what would change, write nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Start or end a wire line of a crate with several API roots (TOOL-33, EVO-37)
     #[command(subcommand)]
     Line(LineCommand),
@@ -288,6 +311,12 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
         ApiCommand::KeepSuperseded { old, current, into } => {
             save::keep_superseded(old, current, into)
         }
+        ApiCommand::RefreshPins {
+            path,
+            snapshot,
+            accept_breaking,
+            dry_run,
+        } => save::refresh_pins(path, snapshot, accept_breaking, dry_run),
         ApiCommand::Line(cmd) => line::line(cmd),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }

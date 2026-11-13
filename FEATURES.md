@@ -2330,6 +2330,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   hashes change once; no device or host uses the format. Conformance: `signatures` cases
   (`docs/evolution/checker_tool.md#doc-comments-of-a-dependency-evo-69`, `docs/std_library/ww_self.md`;
   `ww_self` tests `signature::tests`, `conformance` test `signatures`).
+- ✅ **EVO-70 Old-format snapshots compare embedded definitions; pins refreshed by a tool** · `v0.5` — against a
+  snapshot saved by an older wire_weaver (EVO-13) the checker turned signature checks off altogether, so any change
+  of an embedded stdlib definition, a break too, read as "compatible: definitions changed", and a docs note said "the
+  definition is the same" for a definition whose shape changed. Now two signatures that name known definitions have
+  the definitions compared (EVO-67/68), a break named at the field, and only a signature that names nothing known is
+  let through. `ww api refresh-pins` (`wire_weaver_evolution::pins`) rewrites a frozen snapshot's pinned references
+  and dependency versions to the source's, keeping its format, refused on a wire break unless `--accept-breaking`;
+  `just refresh-fixture-pins` runs it on the `nucleo_g0b1re_api` fixture, which follows the live `ww_stdlib` by path
+  on purpose, and `just save-snapshots` calls it. The fixture's tests require a wire-compatible verdict instead of
+  "no changes", the EVO-13 checks run on a copy with refreshed pins, and `wire_weaver_snapshots`'
+  `signatures_from_before_marker_definitions` reads its pins from the snapshot files: no signature bytes are edited
+  by hand (`docs/evolution/checker_tool.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70`; `wire_weaver_evolution`
+  tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture`,
+  `breaking_stdlib_change_fails_the_fixture`).
 - ✅ **EVO-65 `ww_dfu` typed numbers on the wire** · `v0.5` — `ww_dfu` on a new wire line, `w2.0` (P2401 stdlib units survey): step indices and counts are `Index<Step, u32>` / `Count<Step, u32>`, chunks `Index`/`Count<Chunk, u16>`, erase blocks `Index<Block, u16>` / `Count<Block, u16>`, byte offsets in a chunk or a plan `Index<Byte, u32>`, sizes `Bytes<u32>`, all the same bytes. The breaks: `NodeInfo`'s `product_id`, `app_version` and `version_floor` become `app: Option<ImageInfo>` (`ProductId`, `ImageVersion`, and the image's new `security_counter`) and `security_floor: SecurityCounter`, as chunky checks the floor against the security counter, not the version; `geometry_id` is `geometry: GeometryId`; `LastResult::version` is `Option<ImageVersion>`; `Session::resume_from` is split into `resume_step` and `resume_byte`; `StageLimits::max_piece` is `Fixed<Byte, One, u16, Range<1, 1024>>` (a `u16`, bounded), `in_flight` `Fixed<Request, One, u8, Range<1, 255>>`; `ack_every` and `plan_area` are `Niched<.., Null<0>>`. Tests `ww_dfu` (bytes of every wrapper, the bounds, the niches), `tests/dfu`, `tests/dfu_scenarios` (transcripts again). No device or host uses the format.
 - ✅ **EVO-58 Typed, bounded calendar fields of `ww_date_time`** · `v0.5` — the wire change of `ww_date_time` (wire line `w1.0` -> `w2.0`): `NaiveDate::month` and `day` are `IndexFrom1<Month, U4, Range<1, 12>>` and `IndexFrom1<Day, U5, Range<1, 31>>`, `NaiveTime::secs` is `Fixed<Second, One, U17, Range<0, 86_399>>` and `frac` `Option<Fixed<Second, Nano, U31, Range<0, 1_999_999_999>>>`, `OtherTimezone::FixedOffset::secs` is `Fixed<Second, One, I18, Range<-86_399, 86_399>>`. The bytes are the same, the new bounds are checked on decode (`SubtypeOutOfRange`), so a bound added is a break. Types embedding `DateTime` (`ww_board_info`, `ww_firmware_info`, `ww_timebase`) move to a new wire line with it. No device or host uses the format.
 - ✅ **EVO-57 `ww_spi` typed numbers on the wire** · `v0.5` — the wire change of STD-56 for `ww_spi`: word size,

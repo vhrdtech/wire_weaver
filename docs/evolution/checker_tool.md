@@ -629,8 +629,14 @@ my_device_api::retry_count_s: #[no_unit_hint] needs a reason under --strict, e.g
 
 Writing the reason is the point: it is a second look at whether a unit might actually fit after all
 (`exact_units`/`ww_si` types, the table in `AGENTS.md`'s typed-numbers section) before silencing the note for
-good. A reason never changes the wire or a snapshot. Our own repo runs `ww api check`/`Check::assert` under
-`--strict`/`strict(true)` (every API crate's `tests/evolution.rs`), so every `#[no_unit_hint]` here needs one.
+good. A reason never changes the wire or a snapshot.
+
+This is `--strict`/`strict(true)` only, never implied by `--require-current`/`require_current(true)`: the
+[documented `tests/evolution.rs` template](#checking-at-every-commit) above uses `require_current(true)` alone,
+and an external user who copies it is not forced to write a reason for every `#[no_unit_hint]`. A project that
+wants its own `#[no_unit_hint]`s to need one adds `.strict(true)` next to `require_current(true)` in its own
+`tests/evolution.rs`; this repo's own evolution tests (`tests/stdlib_evolution`, `tests/thermo_api`) do this,
+while `examples/blinky_api`'s stays the unmodified template.
 
 ## A missing-test warning (TOOL-31)
 

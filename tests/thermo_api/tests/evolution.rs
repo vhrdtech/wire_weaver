@@ -6,7 +6,11 @@
 
 #[test]
 fn api_evolution() {
+    // `strict(true)` (TOOL-35): our own repo wants a reason on every `#[no_unit_hint]`, opted in explicitly
+    // here rather than implied by `require_current` (the documented `tests/evolution.rs` template,
+    // docs/evolution/checker_tool.md, doesn't force external users copying it into writing one).
     wire_weaver_evolution::Check::new(env!("CARGO_MANIFEST_DIR"))
         .require_current(true)
+        .strict(true)
         .assert();
 }

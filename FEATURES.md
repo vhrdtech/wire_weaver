@@ -2574,9 +2574,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   `#[no_unit_hint(arg = "reason", ..)]` per argument (`wire_weaver_core::transform::unit_hint`,
   `UnreasonedSilence`, found alongside the TOOL-22 hints by the same walk, `load_with_hints` and
   `load_crate_with_notes` return both). `ww api check --strict` and `ww api scaffold --strict` refuse a bare or
-  empty reason, naming the item and the reasoned form to use instead; `Check::assert` (an API crate's own
-  `tests/evolution.rs`, `strict(true)`) refuses the same way, so our repo's own gate catches one without opening a
-  terminal. A reason never changes the wire or a snapshot. Every existing use in the repo (`ww_can_bus`'s `Status`
+  empty reason, naming the item and the reasoned form to use instead; `Check::assert` refuses the same way with
+  `strict(true)`, never with `require_current(true)` alone (Q37, 13 Nov 2026: external users copying the
+  documented `tests/evolution.rs` template, which uses `require_current`, aren't forced into writing a reason).
+  Our own repo opts in explicitly (`strict(true)` added next to `require_current(true)` in
+  `tests/stdlib_evolution` and `tests/thermo_api`'s evolution tests; `examples/blinky_api`'s stays the
+  unmodified template). A reason never changes the wire or a snapshot. Every existing use in the repo (`ww_can_bus`'s `Status`
   fault-confinement counters, `TtConfig`'s TURCF/TTOCF register fields, `XlFrame`'s protocol code and acceptance
   field) got a real one; none of them turned out to want a unit instead.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.

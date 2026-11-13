@@ -872,6 +872,28 @@ pub struct SteerPoint {
     Check::new(c.path()).strict(true).assert();
 }
 
+/// `require_current` alone (the documented `tests/evolution.rs` template, `docs/evolution/checker_tool.md`)
+/// does not need a reason: only `strict` opts into that, so external users copying the template aren't forced.
+#[test]
+fn require_current_alone_accepts_a_bare_no_unit_hint() {
+    let api = r#"
+#[derive_shrink_wrap]
+pub struct SteerPoint {
+    #[no_unit_hint]
+    pub shared_us: u64,
+}
+"#;
+    let c = TestCrate::new("unit-hint-require-current");
+    c.write("0.1.0", api).save();
+    // this is exactly what Check::assert does internally, without the strict-mode panic
+    let outcome = Check::new(c.path()).require_current(true).run().unwrap();
+    assert!(
+        !outcome.unreasoned().is_empty(),
+        "the violation is still found"
+    );
+    Check::new(c.path()).require_current(true).assert();
+}
+
 /// A tiny path-dependency crate with one struct, whose own version and `id` field type `write_dep` sets: a stand-in
 /// for a `ww_stdlib` crate making a breaking change of its own (EVO-21, as `ww_board_info`'s `Rework` did, STD-98).
 fn write_dep(name: &str, version: &str, id_ty: &str) -> PathBuf {

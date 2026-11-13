@@ -18,9 +18,9 @@ pub(crate) fn check(
         .require_current(require_current)
         .run()
         .map_err(|e| anyhow!(e))?;
-    if (strict || require_current)
-        && let Some(message) = unreasoned_message(outcome.unreasoned())
-    {
+    // TOOL-35: --require-current alone doesn't need a reason (the documented tests/evolution.rs template uses
+    // it, and external users aren't forced into writing one); only --strict does.
+    if strict && let Some(message) = unreasoned_message(outcome.unreasoned()) {
         return Err(anyhow!("{message}"));
     }
     match &outcome {

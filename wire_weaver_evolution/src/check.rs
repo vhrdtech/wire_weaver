@@ -545,6 +545,10 @@ impl Check {
     ///
     /// With [SAVE_ENV] (`WW_API_SAVE=1 cargo test --test evolution`), [saves](Self::save) the snapshot of the current
     /// version first, so the lock file pins the saver too.
+    ///
+    /// With [strict](Self::strict) (not [require_current](Self::require_current), which doesn't imply this: the
+    /// documented `tests/evolution.rs` template uses it and external users aren't forced into writing a reason),
+    /// also panics on a bare or empty `#[no_unit_hint]` (TOOL-35); opt in with `.strict(true)`.
     pub fn assert(&self) {
         if std::env::var_os(SAVE_ENV).is_some_and(|v| !v.is_empty() && v != "0") {
             match self.save(false) {
@@ -562,7 +566,7 @@ impl Check {
         let outcome = self
             .run()
             .unwrap_or_else(|e| panic!("evolution check failed: {e}"));
-        if (self.strict || self.require_current)
+        if self.strict
             && let Some(message) = unreasoned_message(outcome.unreasoned())
         {
             panic!("\n{outcome}\n{message}");

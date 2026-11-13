@@ -11,12 +11,16 @@ use std::path::Path;
 use wire_weaver_evolution::Check;
 
 fn check(name: &str) {
+    // `strict(true)` (TOOL-35): our own repo wants a reason on every `#[no_unit_hint]`, opted in explicitly
+    // here rather than implied by `require_current` (external users copying the documented
+    // `tests/evolution.rs` template, docs/evolution/checker_tool.md, aren't forced into writing one).
     Check::new(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../ww_stdlib")
             .join(name),
     )
     .require_current(true)
+    .strict(true)
     .assert();
 }
 

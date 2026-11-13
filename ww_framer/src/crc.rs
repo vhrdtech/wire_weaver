@@ -120,20 +120,28 @@ macro_rules! algorithm {
 
 algorithm!(
     /// CRC-8/SMBUS (poly 0x07), 1 byte.
-    Crc8Smbus, u8, CRC_8_SMBUS
+    Crc8Smbus,
+    u8,
+    CRC_8_SMBUS
 );
 algorithm!(
     /// CRC-16/USB (poly 0x8005, reflected), 2 bytes.
-    Crc16Usb, u16, CRC_16_USB
+    Crc16Usb,
+    u16,
+    CRC_16_USB
 );
 algorithm!(
     /// CRC-16/IBM-SDLC aka CRC-16/X-25 (poly 0x1021, reflected), 2 bytes. Used in HDLC / PPP.
-    Crc16IbmSdlc, u16, CRC_16_IBM_SDLC
+    Crc16IbmSdlc,
+    u16,
+    CRC_16_IBM_SDLC
 );
 algorithm!(
     /// CRC-32/ISO-HDLC, the common "CRC-32" (zlib, Ethernet, PNG), 4 bytes, with a 1 KiB table. `ww_link`'s UDP
     /// configuration uses the same algorithm through `ww_block::crc32_update` instead, see the [module docs](self).
-    Crc32IsoHdlc, u32, CRC_32_ISO_HDLC
+    Crc32IsoHdlc,
+    u32,
+    CRC_32_ISO_HDLC
 );
 
 /// [Checksum] over a whole message using the [crc](https://docs.rs/crc) crate,

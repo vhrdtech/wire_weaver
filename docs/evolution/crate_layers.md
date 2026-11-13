@@ -120,7 +120,7 @@ The exception is code that defines what goes on the wire:
 * `ww_framer` (frame layout, heads, checksums, frame prefixes) and `ww_link` (message kinds, `DeviceInfo`,
   `LinkSetup`, each medium's `Framing`) - changing these breaks every device from every host. Such a break bumps
   the layer's generation in the [frozen hello](../transport/ww_link.md#the-frozen-hello) (`ww_framer::GENERATION`,
-  `ww_link::hello::GENERATION`), so peers on both sides of it fail with `Error::IncompatibleGeneration`, naming the
+  `ww_link::hello::GENERATION`, the line of the crate's `[package.metadata.wire_weaver] wire`: bump it to `w2.0`), so peers on both sides of it fail with `Error::IncompatibleGeneration`, naming the
   layer, instead of a setup timeout. Only add new message kinds that old peers ignore; never change existing ones.
   The hello itself (EVO-23, 0.5) was such a break: `GetDeviceInfo` became `Hello`. The one before it was TR-15
   (0.5): the setup token in `GetDeviceInfo` / `DeviceInfo` / `LinkSetup` / `LinkReady`, USB packets

@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ca2d27bfde7a8f421655377b1d500d2163ae383f0b00eddb12e2c84e007b344f
+// shrink_wrap sha256: b99bcb57890f0a2f733718a266947544d58e6bfcb5bf7ecd299f186bd1d48b34
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         176,
@@ -1176,10 +1176,10 @@
     (crate_id: "shrink_wrap", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: None, ext_wire: Some([
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
     None,
-    None,
-    None,
+    Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 5, revision: 0)),
 ]))

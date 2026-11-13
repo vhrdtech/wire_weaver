@@ -235,6 +235,18 @@ A **generation** is one byte per foundation layer (`ww_framer::GENERATION`, `ww_
 additions never change it, they are negotiated in `DeviceInfo` and `LinkSetup` after the hello. A later layer gets
 its byte appended (`n` grows), and a reader takes the four it knows.
 
+Each generation is the line of its crate's [wire version](../evolution/rules.md#the-wire-version), declared once in
+the crate's `Cargo.toml` like every other crate whose bytes cross the wire:
+
+```toml
+[package.metadata.wire_weaver]
+wire = "w1.0"
+```
+
+`GENERATION` is read from it at compile time (`shrink_wrap::generation_from_manifest!()`, a `const fn` over the
+manifest, no build script), so a break of the layer bumps the line (`w2.0`) and the hello says 2. A compatible
+addition bumps the revision (`w1.1`), which the hello doesn't carry.
+
 The frame around the payload is frozen per medium too, and both sides write and read it **outside the framer**
 (`Framing::hello_frame`, `Framing::find_hello`): every received frame is checked for a hello before the framer sees
 it, so a peer whose framer is of another generation still reads the hello and names the framer as what differs.

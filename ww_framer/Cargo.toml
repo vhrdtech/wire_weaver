@@ -7,6 +7,10 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[package.metadata.wire_weaver]
+# its line is the GENERATION in the link setup hello (EVO-23): a wire break bumps it
+wire = "w1.0"
+
 [features]
 std = ["shrink_wrap/std"]
 defmt = ["dep:defmt"]

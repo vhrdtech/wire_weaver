@@ -74,6 +74,7 @@ Wire-incompatible with 0.1.0.
 ### 🚀 Features
 
 - Hidden `__ww_require_multi!` / `__ww_require_streams!` macros, called by generated servers: a `compile_error!` naming the feature and the stream or sink that needs it, when this crate is built without it.
+- A wire version, `[package.metadata.wire_weaver] wire = "w1.0"` in `Cargo.toml` (EVO-71), and `GENERATION` is its line, still 1: the evolution checker derives the wire bump of a change to the API model from the snapshot (`needs: wire w1.0 -> w2.0`), and the hello follows. The 0.2.0 snapshot (never published) is saved again with it.
 - `ww_client_server::GENERATION` (EVO-23): the API model's generation, sent in the link setup hello; link setup decides on it, not on the crate version.
 - `dispatch` reply paths shared by every type (SRV-55): `reply_call`, `reply_value`, `reply_get` / `reply_get_unit_err`, `reply_set`, `reply_opened` and `reply_open_plain` are `#[inline(always)]` and hand the value on as a `dispatch::ErasedValue` (a pointer and its type's serializer) to paths compiled once per server mode, so a firmware no longer has a copy of each path per value type. Same signatures, same reply bytes. Donguru's firmware is 17.2 KB smaller (332,184 → 314,972 B).
 - `dispatch::GlobalTrait` and `dispatch::global_full_path` (SRV-53): the table a generated server without introspection looks `GlobalFull` paths up in, by `ww_global::trait_hash` of the request's crate id and trait name, then the crate version (same major, same minor before 1.0). No crate or trait names in a firmware's flash.

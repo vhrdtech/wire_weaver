@@ -8,6 +8,10 @@ repository.workspace = true
 description = "Compact zero-copy wire format for microcontrollers using no allocator and supporting dynamic types."
 readme = "../README.md"
 
+[package.metadata.wire_weaver]
+# its line is the GENERATION in the link setup hello (EVO-23): a wire break bumps it
+wire = "w1.0"
+
 [features]
 default = ["std"]
 std = ["fast-io", "refused", "serde/std"]

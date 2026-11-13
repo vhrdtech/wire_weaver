@@ -36,8 +36,9 @@ pub const GENERATION_COUNT: u8 = 4;
 /// Length of a hello payload this build sends.
 pub const HELLO_LEN: usize = 4 + GENERATION_COUNT as usize + 8;
 
-/// Generation of the link layer (message kinds, their payloads, link setup), see [Generations::link].
-pub const GENERATION: u8 = 1;
+/// Generation of the link layer (message kinds, their payloads, link setup), see [Generations::link]: the line of the
+/// crate's wire version, `[package.metadata.wire_weaver] wire` in its `Cargo.toml` ([shrink_wrap::wire_line]).
+pub const GENERATION: u8 = shrink_wrap::generation_from_manifest!();
 
 /// Who sent a [Hello].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

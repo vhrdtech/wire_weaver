@@ -9,8 +9,10 @@ extern crate self as shrink_wrap;
 
 /// Generation of the wire format, sent in the WireWeaver link setup hello (`ww_link::Hello`): it counts only global
 /// breaks of the encoding, never additions (a new encoding is an opt-in type or directive and leaves it alone). A
-/// peer of another generation would misread every message, so link setup refuses it by name.
-pub const GENERATION: u8 = 1;
+/// peer of another generation would misread every message, so link setup refuses it by name. It is the line of the
+/// crate's wire version, `[package.metadata.wire_weaver] wire` in its `Cargo.toml` ([wire_line]).
+pub const GENERATION: u8 = generation_from_manifest!();
+pub mod wire_line;
 
 pub mod array_string;
 pub use array_string::ArrayString;

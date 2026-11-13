@@ -1,0 +1,242 @@
+// ww_link 0.5.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: ff9641bdf3617225ff89346025ab9c082942e9f96b905e3604d61a0c17c99c6d
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "WireWeaver link layer: message kinds and their payloads carried over [ww_framer] frames.",
+    "",
+    "This crate is sans-IO and `no_std`: it only knows how to encode a [Message] into framer",
+    "messages and how to decode them back. Sending frames, timers and connection state are up to",
+    "the host ([wire_weaver_client](https://docs.rs/wire_weaver_client)) or device event loops.",
+    "",
+    "Frame layout is defined by [ww_framer]: each frame holds one or more link messages, each",
+    "prefixed with a [U2Head] carrying [Kind] as `user_kind`. Data messages use the compact 2-bit",
+    "user kind form, all the rest use the extended one.",
+], crate_idx: 0, trait_name: "ww_link", items: [], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "USB: one frame per packet, see [UsbHead], [UsbChecksum], [UsbTail], [UsbPrefix].",
+    ], ident: "UsbFraming", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "[UsbFraming] with a [SeqPrefix] frame counter, as a diagnostic: counts lost, duplicated or reordered packets",
+        "(which a working USB stack never has). Off by default, host and device must both turn it on.",
+    ], ident: "UsbSeqFraming", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "UDP: one frame per datagram, see [UdpHead], [UdpChecksum], [UdpTail], [UdpPrefix].",
+    ], ident: "UdpFraming", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "CRC-32/ISO-HDLC (zip, Ethernet) of [UdpChecksum], computed by `ww_block::crc32_update`: one implementation",
+        "for the link and block checksums, with the lookup table size a firmware picks once with `ww_block`\'s",
+        "`crc-table-*` features (bitwise without one).",
+    ], ident: "LinkCrc32", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "CompactVersion", signature: [
+        50,
+        74,
+        22,
+        142,
+        34,
+        241,
+        185,
+        230,
+        32,
+        77,
+        77,
+        145,
+        27,
+        203,
+        115,
+        71,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "FullVersion", signature: [
+        115,
+        6,
+        16,
+        37,
+        53,
+        78,
+        161,
+        245,
+        189,
+        68,
+        8,
+        121,
+        208,
+        86,
+        149,
+        206,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "ApiHashPair", signature: [
+        68,
+        172,
+        164,
+        95,
+        74,
+        143,
+        175,
+        59,
+        98,
+        190,
+        8,
+        32,
+        236,
+        251,
+        226,
+        130,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "ImageFacts", signature: [
+        180,
+        35,
+        228,
+        124,
+        206,
+        222,
+        21,
+        229,
+        0,
+        108,
+        227,
+        54,
+        123,
+        172,
+        32,
+        217,
+    ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "WireVersion", signature: [
+        99,
+        205,
+        151,
+        217,
+        186,
+        238,
+        155,
+        200,
+        37,
+        86,
+        103,
+        110,
+        176,
+        156,
+        120,
+        226,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Sent from device to host after its [Kind::Hello], when every generation matched the host\'s.",
+    ], ident: "DeviceInfo", generics: [], fields: Named([
+        (ident: Some("dev_link_version"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "This crate version on the device side",
+        ], slot: None, series_opaque: false),
+        (ident: Some("api_model_version"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
+            "E.g., ww_client_server version on the device side",
+        ], slot: None, series_opaque: false),
+        (ident: Some("user_api_version"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "User API crate version on the device side, for display: nothing decides on it, see [DeviceInfo::user_api_wire]",
+        ], slot: None, series_opaque: false),
+        (ident: Some("hash"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [
+            "First 8 bytes for SHA256 of ww_self bytes with and without doc comments",
+        ], slot: None, series_opaque: false),
+        (ident: Some("dev_max_message_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Maximum length message that device can process",
+        ], slot: None, series_opaque: false),
+        (ident: Some("packet_accumulation_time_us"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Configures host side to use the same value",
+        ], slot: None, series_opaque: false),
+        (ident: Some("token"), default: Some(Bool(false)), since: None, ty: NumericAny(Base(U64)), docs: [
+            "The token of the host\'s [Kind::Hello] this answers, see [Message::Hello].",
+        ], slot: None, series_opaque: false),
+        (ident: Some("image_facts"), default: Some(Bool(false)), since: None, ty: OutOfLine(type_idx: 7), docs: [
+            "What this firmware image chose at build time and the API doesn\'t show, outside [DeviceInfo::hash]. All zero",
+            "from a device built before it existed: the host asks as usual, and the device\'s answers still decide.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("user_api_wire"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+            "Wire version of the device\'s API root (EVO-25), what the host decides on: the same line connects, another",
+            "line is refused, and `#[since]` items newer than its revision are refused before anything is sent.",
+            "[DeviceInfo::user_api_version] is the crate version, for display only. `None` from a device built before it",
+            "existed: a host with a generated client refuses it, a dynamic one goes on.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: ByteAlignedU8, crate_idx: 0, docs: [
+        "What kind of program a client is, for lists of who holds or uses a device.",
+    ], ident: "ClientKind", generics: [], variants: [
+        (docs: [
+            "A command line tool (the default).",
+        ], ident: "Cli", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A program with a window.",
+        ], ident: "Gui", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "A Python notebook or script through `wire_weaver_py`.",
+        ], ident: "Notebook", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A long-running background program.",
+        ], ident: "Service", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "A ww hub forwarding for other clients.",
+        ], ident: "Hub", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "A test run.",
+        ], ident: "Test", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "A kind this version has no name for.",
+        ], ident: "Unknown", fields: Unit, discriminant: 6, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Newer", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Who a client is, sent in [LinkSetup::client_meta] and written to holder lock files. Free text is for people to",
+        "read (lists, logs), nothing decides on it.",
+    ], ident: "ClientMeta", generics: [], fields: Named([
+        (ident: Some("program"), default: None, since: None, ty: String, docs: [
+            "Program name, e.g. the executable\'s file name.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("app_version"), default: None, since: None, ty: String, docs: [
+            "Version of the program, free text, empty if unknown.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("label"), default: None, since: None, ty: String, docs: [
+            "A name the user gave this client, empty if none.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pid"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Operating system process id, 0 if unknown.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("user"), default: None, since: None, ty: String, docs: [
+            "Login name of the user running the program, empty if unknown.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("host"), default: None, since: None, ty: String, docs: [
+            "Host name of the PC running the program, empty if unknown.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("purpose"), default: None, since: None, ty: Option(some_ty: String), docs: [
+            "What the program is doing with the device, e.g. \"DFU update\", for people.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("instance_id"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+            "Random number picked per client object, shared by all its connections: tells two clients of the same",
+            "program and pid apart, and one client\'s several devices together. 0 if unknown.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Sent from host to device after receiving [DeviceInfo].",
+    ], ident: "LinkSetup", generics: [], fields: Named([
+        (ident: Some("host_user_version"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [
+            "User API crate version on the host side, empty crate id for a dynamic host",
+        ], slot: None, series_opaque: false),
+        (ident: Some("host_max_message_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Maximum length message that host can process",
+        ], slot: None, series_opaque: false),
+        (ident: Some("token"), default: Some(Bool(false)), since: None, ty: NumericAny(Base(U64)), docs: [
+            "The host\'s setup token, echoed in [Message::LinkReady]. 0 from a host built before the token existed, which",
+            "the device refuses.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("client_meta"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
+            "Who connects (CLT-41): program, user, host, pid. `None` from a host built before it existed, or one that",
+            "chose not to say. The device may log it (`ww_device`\'s `DeviceLink::peer_meta`), a hub shows it.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("host_user_wire"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+            "Wire version of the API root the host\'s client was generated from (EVO-25), what the device decides on: the",
+            "same line connects, another line is refused with [DisconnectReason::IncompatibleVersion].",
+            "[LinkSetup::host_user_version] is the crate version, for display only. `None` from a dynamic host (an empty",
+            "crate id, it works through introspection), which every device takes, and from a host with a generated client",
+            "built before it existed, which the device refuses.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "ww_link", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+    Some((line: 1, revision: 0)),
+]))

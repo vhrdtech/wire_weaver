@@ -24,8 +24,9 @@ pub use tx::Tx;
 
 /// Generation of the frame layout, sent in the link setup hello (`ww_link::Hello`): it counts only breaks of the
 /// bytes a framer writes, additions never change it. A peer of another generation can't read this one's frames, and
-/// the hello, frozen per medium, is what tells the two apart.
-pub const GENERATION: u8 = 1;
+/// the hello, frozen per medium, is what tells the two apart. It is the line of the crate's wire version,
+/// `[package.metadata.wire_weaver] wire` in its `Cargo.toml` ([shrink_wrap::wire_line]).
+pub const GENERATION: u8 = shrink_wrap::generation_from_manifest!();
 
 /// Marks the configuration types (head, checksum, tail, prefix) a framer is generic over without holding any of
 /// them, so a framer is `Send` and `Sync` whatever they are.

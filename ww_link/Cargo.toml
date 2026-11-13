@@ -7,6 +7,10 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[package.metadata.wire_weaver]
+# its line is the GENERATION in the link setup hello (EVO-23): a wire break bumps it
+wire = "w1.0"
+
 [features]
 default = []
 # hosts get the fastest CRC-32 table (16 KiB), firmware picks one with ww_block's crc-table-* features

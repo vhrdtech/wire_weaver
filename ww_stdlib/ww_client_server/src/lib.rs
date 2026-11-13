@@ -109,8 +109,9 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
 
 /// Generation of this API model (requests, events, their envelopes), sent in the link setup hello
 /// (`ww_link::Hello`). It counts only wire breaks, never additions; link setup decides on it, not on the crate
-/// version above.
-pub const GENERATION: u8 = 1;
+/// version above. It is the line of the crate's wire version, `[package.metadata.wire_weaver] wire` in its
+/// `Cargo.toml` (`shrink_wrap::wire_line`).
+pub const GENERATION: u8 = wire_weaver::shrink_wrap::generation_from_manifest!();
 
 /// Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.
 ///

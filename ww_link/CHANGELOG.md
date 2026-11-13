@@ -21,6 +21,7 @@
 
 ### 🚀 Features
 
+- `hello::GENERATION` is the line of the crate's wire version, declared in its `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"` (EVO-71), still 1. `ww_link` has a snapshot (`api_snapshots/ww_link_0_5_0.ron`) checked by `tests/stdlib_evolution`, so a break of `DeviceInfo`, `LinkSetup` or `ClientMeta` asks for `w2.0`, and with it the hello's link generation 2.
 - The wire version of the user API in link setup (EVO-25): `DeviceInfo::user_api_wire` and `LinkSetup::host_user_wire`, both `Option<WireVersion>`, appended with `#[default = None]` (wire-compatible both ways: an older peer reads as `None` and steps over the field). `WireVersion` is re-exported. **Rust-source break:** `DeviceInfo { .. }` and `LinkSetup { .. }` literals add the field.
 - `ClientMeta` and `ClientKind` (CLT-41): who a client is (program, app version, label, kind, pid, user, host, purpose, instance id), carried in the new `LinkSetup::client_meta: Option<ClientMeta>` (`#[default = None]`, appended: wire-compatible both ways, older peers read it as absent / ignore it). **Rust-source break:** `LinkSetup { .. }` literals need `client_meta`.
 

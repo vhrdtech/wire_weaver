@@ -351,8 +351,8 @@ async fn test<P: Pins>(
             t.step();
         }
     }
-    for i in 0..setup.targets.len() {
-        if !setup.targets[i].watch {
+    for (i, target) in setup.targets.iter().enumerate() {
+        if !target.watch {
             t.per_point(i).await?;
             t.step();
         }

@@ -17,6 +17,15 @@
 
 ### 🐛 Fixes
 
+- A `#[ww_trait]` moved into its own `pub mod` kept its root item (EVO-74, found splitting `ww_stdlib` crates into
+  topic modules, P2401#13nov-0647b): `load_crate`'s whole-crate snapshot path scanned only the crate root file's
+  own top-level items for a trait to give its own root item, and `convert_snapshot_item` (called for a `pub mod`'s
+  contents) had no `Item::Trait` arm, so a sub-trait moved into its own module silently lost the root item other
+  crates name it by (`a_crate::SubTrait`), while staying reachable only as a sub-level of whatever still used it
+  with `ww_impl!` in the same crate. `convert_snapshot_item` now converts a trait the same way the top-level loop
+  did (items/wire threaded through its `Mod` and reexport recursion), so a trait is found at any `pub mod` depth,
+  as types already were. Test `a_subtrait_moved_into_its_own_module_is_still_a_root_item`.
+
 - A parameter default that names another parameter's associated type resolves (API-65, P2401#11nov-1946): `Niched<V, N>` (exact_units' `T = <V as RawValue>::Raw`) failed with `default of T of Niched ... Dependency not found`. A default is converted with the arguments before it in scope (`convert_generic_args`), and a projection, `<X as Trait>::Assoc` or `V::Assoc` through `V`'s bounds, resolves to the associated type of the `impl Trait for X` found in the trait's crate or `X`'s, in any module (new `transform::projection`; `CrateContext::trait_impls` indexes a crate's trait impls once, when a projection first looks into it, leaving out items whose `#[cfg]` is known false). A projection of a parameter of the generic definition being converted, or one no impl answers, is an error naming it.
 
 - The codec walker reads every `CodecShape` (`markers::codec_shape`): `Table(def_list(&X))`, `Offset { zero }` and `MantissaExponent { radix, exponents, mantissas, mantissa_offset, exponent_zero, exponent_step }` besides `MuLaw` and `ALaw`. A table a `DEF` names (`def_list(&X)`, for `spare` too) is the array literal of a `const X` of the codec's module, numbers are literals, negated, parenthesised or `+`, `-`, `*` and `<<` of them, checked in `i128`; the walker evaluates no `const` code, and a computed table is refused naming it. Every whole-crate walk of exact_units failed on `CanFdDlc` before (`ww api save --dep exact_units`, `just save-snapshots`). A generic `impl<..> Codec` (`exact_units::codec::Transfer<Q, C>`, a definition per instance) gives its struct no definition, and an API using an instance is refused with an error naming it and STD-112. `exact_units_definitions_match_the_compiled_consts` checks every codec and every counted base against the compiled ones (dev-dependency features `levels`, `nuclear`).

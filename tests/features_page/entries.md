@@ -545,6 +545,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - TEST-32 | A firmware size tool for the project's own development, not a feature of WireWeaver.
 - TEST-33 | A firmware guard for the project's own development (lists the float and 128-bit code a build links), not a feature of WireWeaver.
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.
+- EVO-74 | A crate-walker fix (a `#[ww_trait]` moved into its own `pub mod` kept its root item), test maintenance, not a feature.
 - UNIT-11 | How `q!`'s symbol table is made and checked: the user-visible side is NUM-15.
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.
 - EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.

@@ -2042,6 +2042,16 @@ Unicast Data0 to one node over the same bus is TR-6.
 
 ## Evolution, versioning and compatibility (`EVO`)
 
+- ✅ **EVO-74 A `#[ww_trait]` moved into its own `pub mod` kept its root item** · `v0.5` — found splitting
+  `ww_stdlib` crates into topic modules (P2401#13nov-0647b): `load_crate`'s whole-crate snapshot path scanned only
+  `entry.lib_rs_ast.items` (the crate root file's own top-level items) for a trait to give its own
+  `ApiLevelLocationOwned`/root item; `convert_snapshot_item`, which *is* called for a `pub mod`'s contents, had no
+  `Item::Trait` arm, so a sub-trait moved into its own module silently lost its root item (named by other crates,
+  `a_crate::SubTrait`, `tests/io_can_group_api`'s `ww_impl!(can: ww_can_bus::CanGroup)` style) while staying
+  reachable only as a sub-level of whatever still used it with `ww_impl!` in the same crate. Fixed by giving
+  `convert_snapshot_item` the same trait-converting arm as the top-level loop (and threading `items`/`wire` through
+  its `Mod` and reexport recursion), so a trait is found at any `pub mod` depth, as types already were (API-46).
+  `wire_weaver_core` test `a_subtrait_moved_into_its_own_module_is_still_a_root_item`.
 - ✅ **EVO-1 Evolution rules** in `docs/evolution/rules.md`: crate layers and version bumping.
 - ✅ **EVO-2 SHA signatures** of APIs and types, hashing only the major version (or `0.minor`), version independent.
 - ✅ **EVO-3 Crate version recorded in bundles**.

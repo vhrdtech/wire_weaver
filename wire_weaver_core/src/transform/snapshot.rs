@@ -19,9 +19,9 @@ use ww_self::{
 };
 use ww_version::{FullVersionOwned, WireVersion};
 
-/// Load all `#[ww_trait]`/`#[ww_api_root]` traits defined in a crate's `src/lib.rs`, and all `#[derive_shrink_wrap]`
-/// types and unit marker structs (`pub struct Volt;`) defined there, in its `pub mod`s at any depth, or re-exported
-/// with `pub use` from its modules. Each is known by its path and name (`units::Volt`, API-46).
+/// Load all `#[ww_trait]`/`#[ww_api_root]` traits and all `#[derive_shrink_wrap]` types and unit marker structs
+/// (`pub struct Volt;`) defined in a crate's `src/lib.rs`, in its `pub mod`s at any depth, or re-exported with
+/// `pub use` from its modules. Each is known by its path and name (`units::Volt`, API-46).
 ///
 /// Intended to be saved and kept around as a crate snapshot, so that API bundles can refer to its traits and types
 /// by crate name, version and item name only ([TypeLocationOwned::SkippedFullVersion] and
@@ -122,36 +122,7 @@ fn load_crate_in(
         let mut globs = vec![];
         let mut wire = None;
         for item in &entry.lib_rs_ast.items {
-            match item {
-                Item::Trait(item_trait)
-                    if has_attr(&item_trait.attrs, &["ww_trait", "ww_api_root"]) =>
-                {
-                    if let Some(root_wire) = get_wire_attr(&item_trait.attrs, &entry)? {
-                        if wire.is_some() {
-                            return Err(anyhow!(
-                                "more than one #[ww_api_root(wire = ..)] in the crate"
-                            ))
-                            .context(entry.err_context());
-                        }
-                        wire = Some((root_wire, item_trait.ident.to_string()));
-                    }
-                    let trait_idx = convert_trait(item_trait, &entry, scratch)?;
-                    items.push(ApiItemOwned {
-                        id: UNib32(items.len() as u32),
-                        kind: ApiItemKindOwned::Trait {
-                            trait_idx,
-                            omitted: None,
-                        },
-                        multiplicity: Multiplicity::Flat,
-                        since: None,
-                        ident: item_trait.ident.to_string(),
-                        docs: vec![],
-                        optional: None,
-                        meta: None,
-                    });
-                }
-                _ => convert_snapshot_item(item, &entry, scratch, &mut globs)?,
-            }
+            convert_snapshot_item(item, &entry, scratch, &mut items, &mut wire, &mut globs)?;
         }
         // after everything else, so a glob re-export only appends what isn't in yet; each module once
         let mut globbed = std::collections::HashSet::new();
@@ -161,7 +132,7 @@ fn load_crate_in(
                     continue;
                 }
                 for item in &module.lib_rs_ast.items {
-                    convert_snapshot_item(item, &module, scratch, &mut globs)?;
+                    convert_snapshot_item(item, &module, scratch, &mut items, &mut wire, &mut globs)?;
                 }
             }
         }
@@ -334,15 +305,44 @@ fn snapshot_bundle(
     Ok((bundle, notes))
 }
 
-/// The types `item` of `cx` (the crate root or a module) puts into a snapshot: itself, what it re-exports, or the
-/// types of a `pub mod`. A module re-exported by a glob (`pub use thermal::*`) goes into `globs`, converted last.
+/// The trait, or types, `item` of `cx` (the crate root or a module) puts into a snapshot: a `#[ww_trait]`/
+/// `#[ww_api_root]` trait itself, a type itself, what it re-exports, or the items of a `pub mod` (at any depth, so a
+/// sub-trait moved into its own module is still found, API-46-style). A module re-exported by a glob
+/// (`pub use thermal::*`) goes into `globs`, converted last.
 fn convert_snapshot_item(
     item: &Item,
     cx: &CrateContext,
     scratch: &mut Scratch,
+    items: &mut Vec<ApiItemOwned>,
+    wire: &mut Option<(WireVersion, String)>,
     globs: &mut Vec<Rc<CrateContext>>,
 ) -> Result<()> {
     match item {
+        Item::Trait(item_trait) if has_attr(&item_trait.attrs, &["ww_trait", "ww_api_root"]) => {
+            if let Some(root_wire) = get_wire_attr(&item_trait.attrs, cx)? {
+                if wire.is_some() {
+                    return Err(anyhow!(
+                        "more than one #[ww_api_root(wire = ..)] in the crate"
+                    ))
+                    .context(cx.err_context());
+                }
+                *wire = Some((root_wire, item_trait.ident.to_string()));
+            }
+            let trait_idx = convert_trait(item_trait, cx, scratch)?;
+            items.push(ApiItemOwned {
+                id: UNib32(items.len() as u32),
+                kind: ApiItemKindOwned::Trait {
+                    trait_idx,
+                    omitted: None,
+                },
+                multiplicity: Multiplicity::Flat,
+                since: None,
+                ident: item_trait.ident.to_string(),
+                docs: vec![],
+                optional: None,
+                meta: None,
+            });
+        }
         Item::Struct(item_struct) if is_snapshot_struct(item_struct) => {
             convert_named_ty(&item_struct.ident, cx, scratch)?;
         }
@@ -356,7 +356,15 @@ fn convert_snapshot_item(
                     *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
                 });
                 if is_local {
-                    convert_reexport(&*cx.resolve_path(path, scratch)?, name, cx, scratch, globs)?;
+                    convert_reexport(
+                        &*cx.resolve_path(path, scratch)?,
+                        name,
+                        cx,
+                        scratch,
+                        items,
+                        wire,
+                        globs,
+                    )?;
                 }
             }
             // `mod thermal { .. } pub use thermal::*;`: everything the module has
@@ -372,7 +380,7 @@ fn convert_snapshot_item(
         Item::Mod(item_mod) if matches!(item_mod.vis, Visibility::Public(_)) => {
             let module = cx.resolve_path([&item_mod.ident], scratch)?;
             for item in &module.lib_rs_ast.items {
-                convert_snapshot_item(item, &module, scratch, globs)?;
+                convert_snapshot_item(item, &module, scratch, items, wire, globs)?;
             }
         }
         _ => {}
@@ -387,6 +395,8 @@ fn convert_reexport(
     name: &Ident,
     cx: &CrateContext,
     scratch: &mut Scratch,
+    items: &mut Vec<ApiItemOwned>,
+    wire: &mut Option<(WireVersion, String)>,
     globs: &mut Vec<Rc<CrateContext>>,
 ) -> Result<()> {
     if is_snapshot_ty(module, name) {
@@ -395,7 +405,7 @@ fn convert_reexport(
     if module.has_module(&name.to_string()) {
         let reexported = module.resolve_path([name], scratch)?;
         for item in &reexported.lib_rs_ast.items {
-            convert_snapshot_item(item, &reexported, scratch, globs)?;
+            convert_snapshot_item(item, &reexported, scratch, items, wire, globs)?;
         }
         return Ok(());
     }
@@ -414,6 +424,8 @@ fn convert_reexport(
                 name,
                 cx,
                 scratch,
+                items,
+                wire,
                 globs,
             )?;
         }
@@ -1245,6 +1257,26 @@ mod tests {
             let err = format!("{:#}", load_crate(&dir).unwrap_err());
             assert!(err.contains(what), "{what} not in: {err}");
         }
+    }
+
+    /// A `#[ww_trait]` moved into its own `pub mod` (STD-115-style module split) still gets its own root item, not
+    /// only a sub-level reachable through the trait that uses it with `ww_impl!`: other crates resolve it by a
+    /// root-qualified path (`a_crate::Sub`), which only a root item gives it.
+    #[test]
+    fn a_subtrait_moved_into_its_own_module_is_still_a_root_item() {
+        let lib = "pub mod group;\npub use group::Sub;\n\n\
+            #[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n    ww_impl!(sub: Sub);\n}\n";
+        let group = "#[ww_trait]\npub trait Sub {\n    fn get() -> u8;\n}\n";
+        let dir = write_crate(
+            "subtrait_module_api",
+            &[("lib.rs", lib), ("group.rs", group)],
+        );
+        let bundle = load_crate(&dir).unwrap();
+        assert!(
+            bundle.root.items.iter().any(|item| item.ident == "Sub"),
+            "Sub has no root item: {:?}",
+            bundle.root.items
+        );
     }
 
     /// A [CrateCache] keeps a load only while the files it came from are unchanged: an edit to a module, a module

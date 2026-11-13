@@ -105,6 +105,8 @@ fn main() -> ! {
         );
     }
     info!("done");
+    // probe-rs ends the run at a breakpoint
+    cortex_m::asm::bkpt();
     loop {
         cortex_m::asm::wfi();
     }

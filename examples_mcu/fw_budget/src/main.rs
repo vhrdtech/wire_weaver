@@ -498,12 +498,13 @@ pub(crate) fn board_cycles_of(
     let elf = target_dir.join("thumbv7em-none-eabihf/release").join(bin);
     eprintln!("running it on {chip}");
     let timeout = format!("{TIMEOUT_S}s");
-    let text = match probe_host {
-        None => output(
-            Command::new("timeout")
-                .args([&timeout, "probe-rs", "run", "--chip", chip])
-                .arg(elf),
-        ),
+    let mut cmd = match probe_host {
+        None => {
+            let mut cmd = Command::new("timeout");
+            cmd.args([&timeout, "probe-rs", "run", "--chip", chip])
+                .arg(elf);
+            cmd
+        }
         Some(host) => {
             let remote = "/tmp/ww-units-budget";
             output(Command::new("ssh").args([host, &format!("mkdir -p {remote}")]))?;
@@ -514,22 +515,23 @@ pub(crate) fn board_cycles_of(
                     .arg(format!("{host}:{remote}/{bin}")),
             )?;
             // ssh runs without the login profile: cargo's bin dir, where probe-rs is installed, isn't on PATH
-            output(Command::new("ssh").arg(host).arg(format!(
+            let mut cmd = Command::new("ssh");
+            cmd.arg(host).arg(format!(
                 "PATH=$HOME/.cargo/bin:$PATH timeout {timeout} probe-rs run --chip {chip} {remote}/{bin}"
-            )))
+            ));
+            cmd
         }
     };
-    // `timeout` ends probe-rs after the bin's `done` (it loops in wfi), so the exit status is no error here
-    let text = match text {
-        Ok(t) => t,
-        Err(e) if e.to_string().contains("exit status: 124") => {
-            return Err(format!(
-                "no result from the board in {TIMEOUT_S} s (is {chip} behind the probe?)"
-            )
-            .into());
-        }
-        Err(e) => return Err(e),
-    };
+    // the bin idles in wfi after `done`, so `timeout` always ends probe-rs: its output counts once `done` is in it
+    let out = cmd.stderr(Stdio::inherit()).output()?;
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    if !text.lines().any(|l| l.contains("INFO ] done") || l.ends_with(" done")) {
+        return Err(format!(
+            "no result from the board in {TIMEOUT_S} s (is {chip} behind the probe?), probe-rs: {}",
+            out.status
+        )
+        .into());
+    }
     parse_cycles(&text)
 }
 
@@ -540,7 +542,12 @@ fn parse_cycles(text: &str) -> Res<Vec<Cost>> {
         let Some((head, rest)) = line.split_once(" | ops=") else {
             continue;
         };
-        let label = head.rsplit_once("INFO ").map_or(head, |(_, l)| l).trim();
+        // `0.001 INFO label` or `0.001 [INFO ] label`, as probe-rs versions print it
+        let label = head
+            .rsplit_once("INFO")
+            .map_or(head, |(_, l)| l)
+            .trim_start_matches([' ', ']'])
+            .trim();
         let field = |name: &str| -> Res<u64> {
             let (_, after) = rest.split_once(name).ok_or("bad cycles line")?;
             let num: String = after.chars().take_while(char::is_ascii_digit).collect();
@@ -722,6 +729,10 @@ mod tests {
         let costs = parse_cycles(text).unwrap();
         assert_eq!(costs[0].label, "struct encode: Fixed");
         assert_eq!((costs[0].ops, costs[0].cold, costs[0].warm), (16, 900, 700));
+        let bracketed = "0.000030 [INFO ] call, no arguments or output | ops=1 cycles cold=4379 warm=3064 | bytes=2 hash=1f6ff212 (src/bin/dispatch_cycles.rs:102)\n";
+        let costs = parse_cycles(bracketed).unwrap();
+        assert_eq!(costs[0].label, "call, no arguments or output");
+        assert_eq!((costs[0].cold, costs[0].warm), (4379, 3064));
     }
 
     #[test]

@@ -80,7 +80,7 @@
 
 use wire_weaver::prelude::*;
 pub use ww_si::units::{Byte, Cycle, Item};
-pub use ww_si::{Bytes, Count, Hertz, Index, Second, Volt};
+pub use ww_si::{Bytes, Count, Hertz, Index, Range, Second, Volt};
 
 /// Largest data of one `I2c::i2c_write`, in bytes.
 pub const MAX_WRITE_LEN: usize = 512;
@@ -121,6 +121,8 @@ ww_si::unit! {
     /// `I2c::i2c_read`, `0`/`1` for the write/read part of a repeated-start read, the index into `ops` for
     /// `i2c_transaction`. See [I2cError::Nack]'s `op`.
     pub struct Op = "op" (long "operation" plural "operations"), base;
+    /// A watch an `I2cWatch` device holds, see [I2cWatchCapabilities::max_watches].
+    pub struct Watch = "watch" (long "watch" plural "watches"), base;
 }
 
 /// An I2C master: configure the bus, write, read and scan, see the bus lines and free a stuck bus.
@@ -363,10 +365,10 @@ pub struct WatchSlot(pub u32);
     derive(Debug, Copy, Clone)
 )]
 pub struct I2cWatchCapabilities {
-    /// Watches held at once, at most [MAX_WATCHES].
-    pub max_watches: Count<Item, u32>,
-    /// Longest read of one watch, at most [MAX_WATCH_LEN].
-    pub max_len: Bytes<u16>,
+    /// Watches held at once, 1 to [MAX_WATCHES].
+    pub max_watches: Count<Watch, u16, Range<1, { MAX_WATCHES as i64 }>>,
+    /// Longest read of one watch, 1 to [MAX_WATCH_LEN] bytes.
+    pub max_len: Bytes<u8, Range<1, { MAX_WATCH_LEN as i64 }>>,
     /// Shortest period of one watch.
     pub min_period: Second,
 }
@@ -381,8 +383,8 @@ pub struct I2cWatchConfig<'i> {
     pub addr: I2cAddress,
     /// Plain read, or a register read (write the register address, repeated start, read).
     pub kind: I2cReadKind<'i>,
-    /// Bytes to read, at most [MAX_WATCH_LEN].
-    pub len: Bytes<u16>,
+    /// Bytes to read, 1 to [MAX_WATCH_LEN] (and at most [I2cWatchCapabilities::max_len]).
+    pub len: Bytes<u8, Range<1, { MAX_WATCH_LEN as i64 }>>,
     /// How often to read.
     pub period: Second,
     /// When to send a result.
@@ -674,14 +676,15 @@ pub struct I2cCapabilities<'i> {
     /// be changed (the device still enforces its own, and answers it in `I2c::i2c_configure`).
     pub stretch_timeout: Option<I2cTimeRange>,
 
-    /// Largest write this device takes, at most [MAX_WRITE_LEN].
-    pub max_write_len: Bytes<u16>,
-    /// Largest read this device does, at most [MAX_READ_LEN].
-    pub max_read_len: Bytes<u16>,
-    /// Longest write part of an [I2cReadKind::RepeatedStart] read this device takes, at most [MAX_WRITE_READ_LEN].
-    pub max_write_read_len: Bytes<u16>,
-    /// Most operations of one `I2c::i2c_transaction` this device takes, at most [MAX_OPS].
-    pub max_ops: Count<Op, u16>,
+    /// Largest write this device takes, 0 to [MAX_WRITE_LEN] bytes.
+    pub max_write_len: Bytes<u16, Range<0, { MAX_WRITE_LEN as i64 }>>,
+    /// Largest read this device does, 0 to [MAX_READ_LEN] bytes.
+    pub max_read_len: Bytes<u16, Range<0, { MAX_READ_LEN as i64 }>>,
+    /// Longest write part of an [I2cReadKind::RepeatedStart] read this device takes, 0 to [MAX_WRITE_READ_LEN]
+    /// bytes (0 without a master).
+    pub max_write_read_len: Bytes<u8, Range<0, { MAX_WRITE_READ_LEN as i64 }>>,
+    /// Most operations of one `I2c::i2c_transaction` this device takes, 0 to [MAX_OPS] (0 without a master).
+    pub max_ops: Count<Op, u8, Range<0, { MAX_OPS as i64 }>>,
 
     /// 10-bit addresses work.
     pub ten_bit_addresses: bool,
@@ -1040,10 +1043,10 @@ mod tests {
                 min: Second::milli(1u8),
                 max: Second::base(1u8),
             }),
-            max_write_len: Bytes::new(256),
-            max_read_len: Bytes::new(256),
-            max_write_read_len: Bytes::new(4),
-            max_ops: Count::new(8),
+            max_write_len: Bytes::<u16, _>::bounded(256),
+            max_read_len: Bytes::<u16, _>::bounded(256),
+            max_write_read_len: Bytes::<u8, _>::bounded(4),
+            max_ops: Count::<_, u8, _>::bounded(8),
             ten_bit_addresses: true,
             zero_length_write: false,
             bus_recovery: true,
@@ -1066,5 +1069,35 @@ mod tests {
             (256, 256, 4, 8)
         );
         assert!(back.ten_bit_addresses && !back.zero_length_write && back.bus_recovery);
+
+        // a limit past its const is refused on decode: the byte of `max_ops` is the one that differs between 8 and
+        // 9, and 17 there is one past MAX_OPS
+        let nine = bytes_of(&I2cCapabilities {
+            max_ops: Count::<_, u8, _>::bounded(9),
+            ..caps.clone()
+        });
+        let at = b.iter().zip(&nine).position(|(a, b)| a != b).unwrap();
+        let mut over = b.clone();
+        over[at] = MAX_OPS as u8 + 1;
+        assert!(I2cCapabilities::from_ww_bytes(&over).is_err());
+        over[at] = MAX_OPS as u8;
+        assert_eq!(
+            I2cCapabilities::from_ww_bytes(&over).unwrap().max_ops.get(),
+            16
+        );
+    }
+
+    #[test]
+    fn watch_limits_are_bounded_by_their_consts() {
+        let caps = I2cWatchCapabilities {
+            max_watches: Count::<_, u16, _>::bounded(MAX_WATCHES as u16),
+            max_len: Bytes::<u8, _>::bounded(MAX_WATCH_LEN as u8),
+            min_period: Second::milli(1u8),
+        };
+        let back = I2cWatchCapabilities::from_ww_bytes(&bytes_of(&caps)).unwrap();
+        assert_eq!((back.max_watches.get(), back.max_len.get()), (512, 32));
+        assert!(Count::<Watch, u16, Range<1, { MAX_WATCHES as i64 }>>::try_new(0).is_err());
+        assert!(Count::<Watch, u16, Range<1, { MAX_WATCHES as i64 }>>::try_new(513).is_err());
+        assert!(Bytes::<u8, Range<1, { MAX_WATCH_LEN as i64 }>>::try_new(33).is_err());
     }
 }

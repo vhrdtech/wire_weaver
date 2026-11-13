@@ -85,14 +85,14 @@ impl Default for I2cLimits {
 }
 
 impl From<&I2cCapabilitiesOwned> for I2cLimits {
-    /// The device's limits, never above what the wire format carries.
+    /// The device's limits, never above what the wire format carries: their bounds ([MAX_WRITE_LEN], ...) are
+    /// checked on decode.
     fn from(caps: &I2cCapabilitiesOwned) -> Self {
-        let wire = I2cLimits::default();
         I2cLimits {
-            max_write_len: caps.max_write_len.get().min(wire.max_write_len),
-            max_read_len: caps.max_read_len.get().min(wire.max_read_len),
-            max_write_read_len: caps.max_write_read_len.get().min(wire.max_write_read_len),
-            max_ops: caps.max_ops.get().min(wire.max_ops),
+            max_write_len: caps.max_write_len.get(),
+            max_read_len: caps.max_read_len.get(),
+            max_write_read_len: caps.max_write_read_len.get().into(),
+            max_ops: caps.max_ops.get().into(),
         }
     }
 }

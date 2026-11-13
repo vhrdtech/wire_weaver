@@ -296,12 +296,17 @@ up with the device's other data.
     * timing: `min_freq` / `max_freq: Hertz`, `speeds` (the only SCL frequencies of a controller with a few fixed
       ones, empty when any between `min_freq` and `max_freq` works, at most `MAX_SPEEDS`), `stretch_timeout:
       Option<I2cTimeRange>` (`min` / `max` of the master's stretch timeout, `None` when it can't be changed);
-    * sizes, all `u16`: `max_write_len`, `max_read_len`, `max_write_read_len` (write part of a `RepeatedStart`
-      read), `max_ops` (operations per `i2c_transaction`);
+    * sizes, each bounded by its const and in the smallest storage that holds it: `max_write_len` and
+      `max_read_len: Bytes<u16, Range<0, 512>>` (`MAX_WRITE_LEN`, `MAX_READ_LEN`), `max_write_read_len: Bytes<u8,
+      Range<0, 64>>` (write part of a `RepeatedStart` read, `MAX_WRITE_READ_LEN`), `max_ops: Count<Op, u8, Range<0,
+      16>>` (operations per `i2c_transaction`, `MAX_OPS`); a device answering a limit past its const is refused on
+      decode;
     * features: `ten_bit_addresses`, `zero_length_write`, `bus_recovery`.
   Slave mode is in the device's introspection (the `slave` group) and `I2cSlaveCapabilities`.
-* `I2cWatchCapabilities` - `max_watches: u32` (at most `MAX_WATCHES`, 512), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
-* `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.
+* `I2cWatchCapabilities` - `max_watches: Count<Watch, u16, Range<1, 512>>` (`MAX_WATCHES`), `max_len: Bytes<u8,
+  Range<1, 32>>` (`MAX_WATCH_LEN`), `min_period`.
+* `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len: Bytes<u8, Range<1, 32>>`, `period: Second`, `report:
+  I2cWatchReport<'i>`.
 * `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { bytes }`, see [`I2cWatch`](#i2cwatch) above.
 * `I2cMatchByte` - `mask`, `value: u8`, one byte of a `Matches` rule; `sized`, two bytes.
 * `I2cWatchEvent<'i>` - `slot`, `result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>`.

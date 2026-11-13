@@ -28,7 +28,7 @@ mod tests {
 
         pub struct Server {
             pub storage: Arc<Mutex<Storage>>,
-            pub name_max: u16,
+            pub name_max: u8,
             pub name_copy: String,
             pub notes_copy: String,
         }
@@ -69,7 +69,7 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 value: MaxLen<&'_ str, 32>,
             ) -> SetResult<UserInfoError<'_>> {
-                self.save(&value, self.name_max as usize, |s| &mut s.name)
+                self.save(&value, usize::from(self.name_max), |s| &mut s.name)
             }
 
             fn get_user_name(
@@ -168,7 +168,7 @@ mod tests {
             .expect("connect")
     }
 
-    fn start(path: &str, name_max: u16) -> (TestDevice, Arc<Mutex<Storage>>) {
+    fn start(path: &str, name_max: u8) -> (TestDevice, Arc<Mutex<Storage>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let storage = Arc::new(Mutex::new(Storage::default()));
         let device = tests_common::start_device(

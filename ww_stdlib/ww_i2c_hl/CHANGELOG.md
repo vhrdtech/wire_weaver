@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- `I2cLimits::from(&I2cCapabilitiesOwned)` takes the device's limits as they are: `ww_i2c` bounds them by its consts on the wire now (EVO-72), so the clamp to `I2cLimits::default()` is gone. Same values as before.
+
 ### 🐛 Fixes
 
 - Follows `ww_i2c`'s typed numbers (P2401#11nov-0948g): `I2cLimits` stays plain `u16` for `embedded-hal`, so only

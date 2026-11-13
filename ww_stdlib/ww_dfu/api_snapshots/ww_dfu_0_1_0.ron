@@ -1,6 +1,6 @@
 // ww_dfu 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4aedbb2dc1d9c77c5153832d43b98e2bd9db8fb9447bfc8bbb1c3b1aba00caa7
+// shrink_wrap sha256: 490c7d1e1660d07de5f97fe3784fd56fb7171dcf30cffda52d92fc7e0158d585
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Firmware update API: a set of small traits that every node taking part in an update picks from.",
     "",
@@ -682,8 +682,8 @@
                 Const(Numeric(I64(1024))),
             ])),
         ]), docs: [
-            "Largest data payload in one `Stage::write` or [PlanSegment], 1 to [MAX_PIECE_LEN] bytes (the bound says",
-            "1024, [MAX_PIECE_LEN]\'s value). Chosen to fit the node\'s receive buffer.",
+            "Largest data payload in one `Stage::write` or [PlanSegment], 1 to [MAX_PIECE_LEN] bytes. Chosen to fit the",
+            "node\'s receive buffer.",
         ], slot: None, series_opaque: false),
         (ident: Some("in_flight"), default: None, since: None, ty: Instance(type_idx: 22, args: [
             Type(OutOfLine(type_idx: 28)),

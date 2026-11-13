@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d54b032c15f836bb4d85339818079c273135b5479f712c162fa4f1ac4ac2db7c
+// shrink_wrap sha256: 04d43557492c029da629dae93a1aa45e8d13f6c0ddf925c68dfdd01bb61db078
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -991,8 +991,8 @@
     Some((line: 2, revision: 0)),
     None,
     Some((line: 5, revision: 0)),
-    Some((line: 1, revision: 0)),
     Some((line: 2, revision: 0)),
+    Some((line: 3, revision: 0)),
     Some((line: 1, revision: 0)),
     Some((line: 2, revision: 0)),
 ]))

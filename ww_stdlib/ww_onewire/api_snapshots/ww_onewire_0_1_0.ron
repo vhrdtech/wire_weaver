@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9fe7b230859f8a85509fd9303de1d60cc49f70b2c51ac0f9dfb54d7f73085840
+// shrink_wrap sha256: 9cf56d0984425f7a17a9c245ae929bb17d0bbe59086947481a30afb0a56c9eab
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -54,6 +54,24 @@
     ], ident: "RomId", generics: [], fields: Named([
         (ident: Some("bytes"), default: None, since: None, ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Byte", signature: [
         105,
         217,
@@ -89,24 +107,6 @@
         217,
         20,
         193,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
-        117,
-        194,
-        53,
-        38,
-        149,
-        154,
-        238,
-        33,
-        55,
-        18,
-        202,
-        102,
-        156,
-        182,
-        138,
-        5,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
         226,
@@ -170,14 +170,14 @@
         ], slot: None, series_opaque: false),
         (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
         (ident: Some("read_len"), default: None, since: None, ty: Instance(type_idx: 4, args: [
-            Type(OutOfLine(type_idx: 1)),
             Type(OutOfLine(type_idx: 2)),
-            Type(NumericAny(Base(U16))),
             Type(OutOfLine(type_idx: 3)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
         (ident: Some("strong_pullup"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 5)),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Drive the bus high this long after the last byte (parasite-powered parts converting or writing).",
         ], slot: None, series_opaque: false),
@@ -345,20 +345,20 @@
         ], slot: None, series_opaque: false),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 17)),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ]))), docs: [
             "Discrete IO levels [OneWireConfig::io_level] can be set to (e.g. 3.3 V, 5 V); empty if the adapter has no",
             "level control.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 17)),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
         (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 17)),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
@@ -397,14 +397,14 @@
         (ident: Some("pin"), default: None, since: None, ty: Instance(type_idx: 8, args: [
             Type(OutOfLine(type_idx: 19)),
             Type(NumericAny(Base(U8))),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Index into [OneWireCapabilities::pins].",
         ], slot: None, series_opaque: false),
         (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 17)),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as",
             "it is going in (the only choice on a device without them), and is the answer of a device without them.",

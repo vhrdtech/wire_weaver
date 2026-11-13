@@ -176,7 +176,7 @@ mod tests {
                     io_levels: MaxLen::new(RefVec::Slice { slice: &IO_LEVELS }).unwrap(),
                     io_level_min: None,
                     io_level_max: None,
-                    max_len: Fixed::new(MAX_LEN as u32),
+                    max_len: Fixed::<_, _, u16, _>::bounded(MAX_LEN as u16),
                 })
             }
 
@@ -352,7 +352,7 @@ mod tests {
 
         let caps = client.spi().capabilities().call().await.unwrap();
         assert!(caps.master);
-        assert_eq!(caps.max_len.get(), MAX_LEN as u32);
+        assert_eq!(caps.max_len.get(), MAX_LEN as u16);
 
         let actual = client
             .spi()
@@ -662,7 +662,7 @@ mod tests {
                     io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
                     io_level_min: None,
                     io_level_max: None,
-                    max_len: Fixed::new(ww_spi::SPI_MAX as u32),
+                    max_len: Fixed::<_, _, u16, _>::bounded(ww_spi::SPI_MAX as u16),
                 })
             }
 

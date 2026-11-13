@@ -310,10 +310,10 @@ mod tests {
                         min: Second::milli(1u8),
                         max: Second::base(1u8),
                     }),
-                    max_write_len: Bytes::new(ww_i2c::MAX_WRITE_LEN as u16),
-                    max_read_len: Bytes::new(MAX_READ_LEN as u16),
-                    max_write_read_len: Bytes::new(ww_i2c::MAX_WRITE_READ_LEN as u16),
-                    max_ops: Count::new(ww_i2c::MAX_OPS as u16),
+                    max_write_len: Bytes::<u16, _>::bounded(ww_i2c::MAX_WRITE_LEN as u16),
+                    max_read_len: Bytes::<u16, _>::bounded(MAX_READ_LEN as u16),
+                    max_write_read_len: Bytes::<u8, _>::bounded(ww_i2c::MAX_WRITE_READ_LEN as u8),
+                    max_ops: Count::<_, u8, _>::bounded(ww_i2c::MAX_OPS as u8),
                     ten_bit_addresses: true,
                     zero_length_write: false,
                     bus_recovery: true,
@@ -615,8 +615,8 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<I2cWatchCapabilities> {
                 Ready(I2cWatchCapabilities {
-                    max_watches: Count::new(MAX_WATCHES as u32),
-                    max_len: Bytes::new(MAX_WATCH_LEN as u16),
+                    max_watches: Count::<_, u16, _>::bounded(MAX_WATCHES as u16),
+                    max_len: Bytes::<u8, _>::bounded(MAX_WATCH_LEN as u8),
                     min_period: secs(0),
                 })
             }
@@ -744,7 +744,7 @@ mod tests {
                         m.read(
                             slot.config.addr,
                             offset_of_owned(&slot.config.kind),
-                            slot.config.len.get(),
+                            slot.config.len.get().into(),
                         )
                     };
                     let report = match &result {
@@ -1049,7 +1049,7 @@ mod tests {
         );
         let caps = client.i2c().i2c_capabilities().call().await.unwrap();
         assert!(!caps.zero_length_write);
-        assert_eq!(caps.max_ops.get(), ww_i2c::MAX_OPS as u16);
+        assert_eq!(caps.max_ops.get(), ww_i2c::MAX_OPS as u8);
     }
 
     /// A slave stretching the clock past the timeout is `ClockStretch`; the timeout is set with `i2c_configure`
@@ -1219,7 +1219,7 @@ mod tests {
             .watch_add(I2cWatchConfigOwned {
                 addr,
                 kind: I2cReadKindOwned::Plain,
-                len: 1.into(),
+                len: Bytes::<u8, _>::bounded(1),
                 period: secs(0),
                 report: I2cWatchReportOwned::Always,
             })
@@ -1248,7 +1248,7 @@ mod tests {
             .watch_add(I2cWatchConfigOwned {
                 addr,
                 kind: I2cReadKindOwned::Plain,
-                len: 1.into(),
+                len: Bytes::<u8, _>::bounded(1),
                 period: secs(0),
                 report: I2cWatchReportOwned::Changed {
                     mask: MaxLen::new(vec![0xFF]).unwrap(),
@@ -1287,7 +1287,7 @@ mod tests {
             .watch_add(I2cWatchConfigOwned {
                 addr,
                 kind: I2cReadKindOwned::Plain,
-                len: 1.into(),
+                len: Bytes::<u8, _>::bounded(1),
                 period: secs(0),
                 report: I2cWatchReportOwned::Matches {
                     bytes: MaxLen::new(vec![I2cMatchByte {
@@ -1339,7 +1339,7 @@ mod tests {
             .watch_add(I2cWatchConfigOwned {
                 addr,
                 kind: I2cReadKindOwned::Plain,
-                len: 1.into(),
+                len: Bytes::<u8, _>::bounded(1),
                 period: secs(0),
                 report: I2cWatchReportOwned::Changed {
                     mask: MaxLen::new(vec![0xFF]).unwrap(),
@@ -1389,7 +1389,7 @@ mod tests {
         let cfg = I2cWatchConfigOwned {
             addr,
             kind: I2cReadKindOwned::Plain,
-            len: 1.into(),
+            len: Bytes::<u8, _>::bounded(1),
             period: secs(0),
             report: I2cWatchReportOwned::Always,
         };
@@ -1529,10 +1529,10 @@ mod tests {
                     max_freq: Hertz::kilo(400u16),
                     speeds: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
                     stretch_timeout: None,
-                    max_write_len: Bytes::new(ww_i2c::MAX_WRITE_LEN as u16),
-                    max_read_len: Bytes::new(MAX_READ_LEN as u16),
-                    max_write_read_len: Bytes::new(0),
-                    max_ops: Count::new(0),
+                    max_write_len: Bytes::<u16, _>::bounded(ww_i2c::MAX_WRITE_LEN as u16),
+                    max_read_len: Bytes::<u16, _>::bounded(MAX_READ_LEN as u16),
+                    max_write_read_len: Bytes::<u8, _>::bounded(0),
+                    max_ops: Count::<_, u8, _>::bounded(0),
                     ten_bit_addresses: false,
                     zero_length_write: false,
                     bus_recovery: false,

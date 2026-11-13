@@ -150,8 +150,8 @@ address and `map_max_freq` (`None`: no register map).
   `truncated`, `mosi` / `miso: MaxLen<RefVec<'i, u8>, SPI_MAX>`.
 * `SpiCapabilities<'i>` - `min_freq` / `max_freq: Hertz`, `min_word` / `max_word: Fixed<Bit, One, u8>`, `master:
   bool`, `io_levels: MaxLen<RefVec<'i, Fixed<Volt, Milli, u16>>, MAX_IO_LEVELS>`, `io_level_min` / `io_level_max:
-  Option<Fixed<Volt, Milli, u16>>` (an adjustable supply), `max_len: Bytes<u32>` (largest transfer this device
-  does, at most `SPI_MAX`).
+  Option<Fixed<Volt, Milli, u16>>` (an adjustable supply), `max_len: Bytes<u16, Range<0, 512>>` (largest transfer
+  this device does, bounded by `SPI_MAX`).
 * `SpiError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), `BufferTooBig`; unsized
   (`unib32` discriminant), evolvable. Each method lists the variants it returns (`#[errors]`).
 

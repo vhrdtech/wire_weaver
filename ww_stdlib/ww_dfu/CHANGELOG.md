@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `StageLimits::max_piece` is `Bytes<u16, Range<1, { MAX_PIECE_LEN as i64 }>>` (P2401#13nov-0531): the bound names `MAX_PIECE_LEN` instead of repeating 1024. The same type, bytes and wire line (`w2.0`); the 0.1.0 snapshot is saved again for the changed docs.
+
 ### ⚠️ Breaking
 
 - Typed numbers, on a new wire line `w2.0` (EVO-65, the P2401 stdlib units survey); the crate depends on `ww_si` (`counting`, `information`). Same bytes, new Rust types: step indices `Index<Step, u32>` (`Stage::erase`/`copy`/`write`'s `index`, `Progress::next_step`, `Error::OutOfOrder`) and counts `Count<Step, u32>` (`Session::steps`, `Progress::steps`, `StageEvent::Applying`); chunks `Index<Chunk, u16>` (`Inventory::chunks`' `first`, `copy`'s `dst`/`src`, `write`'s `dst`) and `Count<Chunk, u16>` (`chunks`' `count`, `StageEvent::Hashing`); erase blocks `Index<Block, u16>` (`erase`'s `block`); byte positions `Index<Byte, u32>` (`write`'s `offset`, `Progress::chunk_offset`, `PlanSegment::offset`, `PlanAck::have`); sizes `Bytes<u32>` (`begin_bulk`'s `total_len`, `SlotLayout::chunk_size`/`erase_size`, `StageEvent::Verifying`). Renamed: `SlotLayout::chunk_count` to `chunks: Count<Chunk, u16>`, `erase_count` to `erase_blocks: Count<Block, u16>`, `Progress::plan_bytes` to `plan_offset: Index<Byte, u32>`, `NodeInfo::geometry_id` to `geometry: GeometryId`. Build values with `Index::new(n)` / `Fixed::new(n)`, read them with `.get()`.

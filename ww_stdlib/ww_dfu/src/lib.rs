@@ -778,9 +778,9 @@ pub enum Target {
     derive(Copy, Clone, Debug, PartialEq, Eq)
 )]
 pub struct StageLimits {
-    /// Largest data payload in one `Stage::write` or [PlanSegment], 1 to [MAX_PIECE_LEN] bytes (the bound says
-    /// 1024, [MAX_PIECE_LEN]'s value). Chosen to fit the node's receive buffer.
-    pub max_piece: Fixed<Byte, One, u16, Range<1, 1024>>,
+    /// Largest data payload in one `Stage::write` or [PlanSegment], 1 to [MAX_PIECE_LEN] bytes. Chosen to fit the
+    /// node's receive buffer.
+    pub max_piece: Bytes<u16, Range<1, { MAX_PIECE_LEN as i64 }>>,
     /// How many step calls the host may have outstanding at once, at least 1. `1` on a node that blocks while it
     /// writes flash.
     pub in_flight: Fixed<Request, One, u8, Range<1, 255>>,
@@ -980,7 +980,8 @@ mod tests {
         assert_eq!(bytes(&Index::<Step, u32>::new(x)), bytes(&x));
         assert_eq!(bytes(&Bytes::<u32>::new(x)), bytes(&x));
         assert_eq!(bytes(&Count::<Chunk, u16>::new(7)), bytes(&7u16));
-        let max_piece: Fixed<Byte, One, u16, Range<1, 1024>> = Fixed::try_new(1024).unwrap();
+        let max_piece: Bytes<u16, Range<1, { MAX_PIECE_LEN as i64 }>> =
+            Fixed::try_new(1024).unwrap();
         assert_eq!(bytes(&max_piece), bytes(&1024u16));
     }
 

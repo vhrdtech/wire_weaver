@@ -10,17 +10,17 @@
 
 use wire_weaver::prelude::*;
 use ww_error::CommonError;
-pub use ww_si::{Bytes, Fixed, Range, prefix::One, units::Byte};
+pub use ww_si::{Bytes, Range, units::Byte};
 
 /// Longest name any device keeps, in bytes.
 pub const MAX_NAME_LEN: usize = 32;
 /// Longest notes any device keeps, in bytes.
 pub const MAX_NOTES_LEN: usize = 256;
 
-/// A device's name length cap, bounded to [MAX_NAME_LEN].
-pub type NameMax = Fixed<Byte, One, u16, Range<0, 32>>;
-/// A device's notes length cap, bounded to [MAX_NOTES_LEN] (0 when notes are left out).
-pub type NotesMax = Fixed<Byte, One, u16, Range<0, 256>>;
+/// A device's name length cap, 0 to [MAX_NAME_LEN] bytes.
+pub type NameMax = Bytes<u8, Range<0, { MAX_NAME_LEN as i64 }>>;
+/// A device's notes length cap, 0 to [MAX_NOTES_LEN] bytes (0 when notes are left out).
+pub type NotesMax = Bytes<u16, Range<0, { MAX_NOTES_LEN as i64 }>>;
 
 /// A name and notes the user gives this unit.
 ///

@@ -845,7 +845,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#5d77bb43c78677d0d43206bbd41a16d8d2c9e310"
+source = "git+https://github.com/romixlab/exact_units#7b6cc3c10efea57f1438259b48f2c419a5479961"
 dependencies = [
  "defmt 1.1.1",
  "serde",

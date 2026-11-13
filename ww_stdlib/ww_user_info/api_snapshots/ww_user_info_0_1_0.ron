@@ -1,6 +1,6 @@
 // ww_user_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 47d680641269614f9d40d60d28d4334bd951f8bfcd3caaaefed9324a997d0c32
+// shrink_wrap sha256: ac4639af892d531c6b9f44f00eacc5908a222489e75e27a1838b95cea63b3c88
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A name and notes the user gives a unit (STD-24), shown by `ww list`.",
     "",
@@ -13,6 +13,24 @@
 ], crate_idx: 0, trait_name: "ww_user_info", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UserInfo", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Range", signature: [
+        109,
+        48,
+        40,
+        233,
+        111,
+        94,
+        195,
+        1,
+        153,
+        121,
+        110,
+        11,
+        94,
+        3,
+        242,
+        151,
+    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Byte", signature: [
         105,
         217,
@@ -49,24 +67,6 @@
         20,
         193,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Range", signature: [
-        109,
-        48,
-        40,
-        233,
-        111,
-        94,
-        195,
-        1,
-        153,
-        121,
-        110,
-        11,
-        94,
-        3,
-        242,
-        151,
-    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
         226,
         246,
@@ -89,10 +89,10 @@
         "What a device keeps of the user\'s name and notes.",
     ], ident: "UserInfoCaps", generics: [], fields: Named([
         (ident: Some("name_max"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 0)),
             Type(OutOfLine(type_idx: 1)),
-            Type(NumericAny(Base(U16))),
-            Type(Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 2)),
+            Type(NumericAny(Base(U8))),
+            Type(Instance(type_idx: 0, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(32))),
             ])),
@@ -100,10 +100,10 @@
             "Longest name the device keeps, in bytes (at most [MAX_NAME_LEN]).",
         ], slot: None, series_opaque: false),
         (ident: Some("notes_max"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 0)),
             Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
             Type(NumericAny(Base(U16))),
-            Type(Instance(type_idx: 2, args: [
+            Type(Instance(type_idx: 0, args: [
                 Const(Numeric(I64(0))),
                 Const(Numeric(I64(256))),
             ])),
@@ -162,8 +162,8 @@
             "Longer than this device keeps ({max} bytes)",
         ], ident: "TooLong", fields: Named([
             (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-                Type(OutOfLine(type_idx: 0)),
                 Type(OutOfLine(type_idx: 1)),
+                Type(OutOfLine(type_idx: 2)),
                 Type(NumericAny(Base(U16))),
                 Type(OutOfLine(type_idx: 5)),
             ]), docs: [
@@ -206,8 +206,8 @@
     (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-], root_omitted: None, wire: Some((line: 2, revision: 0)), ext_wire: Some([
-    Some((line: 2, revision: 0)),
+], root_omitted: None, wire: Some((line: 3, revision: 0)), ext_wire: Some([
+    Some((line: 3, revision: 0)),
     None,
     Some((line: 1, revision: 0)),
 ]))

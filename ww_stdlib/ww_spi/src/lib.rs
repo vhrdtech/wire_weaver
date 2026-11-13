@@ -310,8 +310,8 @@ pub struct SpiCapabilities<'i> {
     pub io_level_min: Option<Fixed<Volt, Milli, u16>>,
     /// Highest IO level of an adjustable supply, if the adapter has one.
     pub io_level_max: Option<Fixed<Volt, Milli, u16>>,
-    /// Largest transfer this device does, at most [SPI_MAX].
-    pub max_len: Bytes<u32>,
+    /// Largest transfer this device does, 0 to [SPI_MAX] bytes.
+    pub max_len: Bytes<u16, Range<0, { SPI_MAX as i64 }>>,
 }
 
 /// Slave mode, see `Spi::slave_frames`.

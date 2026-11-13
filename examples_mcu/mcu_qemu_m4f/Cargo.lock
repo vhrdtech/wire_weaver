@@ -293,7 +293,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#5d77bb43c78677d0d43206bbd41a16d8d2c9e310"
+source = "git+https://github.com/romixlab/exact_units#7b6cc3c10efea57f1438259b48f2c419a5479961"
 dependencies = [
  "defmt",
  "serde",

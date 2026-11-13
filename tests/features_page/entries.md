@@ -556,9 +556,11 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-55 | The wire change behind exact_units at c132f58 (`CodecDef`'s `codes`/`nominal`/`curve`, `Symbols`' `m_u`): the user-visible side is STD-109 (codec) and the Magnitude conformance cases it touches.
 - EVO-60 | The wire change behind `ww_user_info`'s bounded `NameMax` / `NotesMax` caps: the user-visible side is `docs/std_library/ww_user_info.md`.
 - EVO-61 | The wire change behind `ww_onewire`'s new wire line (`SearchState::last_discrepancy`'s added `1..=64` bound): the user-visible side is STD-113.
+- EVO-72 | The wire change behind the capability limits bounded by their `MAX_*` consts (`ww_i2c` `w2.0`, `ww_user_info` and `ww_spi` `w3.0`): the user-visible side is the docs of those crates.
 - EVO-65 | The wire change behind `ww_dfu`'s typed numbers (wire `w2.0`): ids and versions as newtypes, a security counter apart from the release version, `resume_from` split; the user-visible side is STD-12.
 - EVO-58 | The wire change behind the typed, bounded calendar fields of `ww_date_time` (wire `w2.0`): the user-visible side is STD-4, see [ww_date_time](std_library/ww_date_time.md).
 - EVO-57 | The wire change behind `ww_spi`'s typed numbers (word size, byte lengths, register offsets, `io_level` as `Fixed`): the user-visible side is STD-56.
 - EVO-59 | The wire change behind `ww_logic_analyzer` typing its channel, sample and size fields: transparent wrappers of the same bytes, test maintenance, not a new capability.
 - NUM-31, NUM-32, NUM-33, NUM-34, NUM-35, NUM-42, UNIT-6, UNIT-12, UNIT-14, UNIT-19, PT-8, LVL-8, LVL-9, LVL-10, LVL-12, LVL-13, IO-16 | exact_units features landed between the previous and this session's `cargo update -p exact_units` (f2051438 to c132f587); not used by wire_weaver yet.
 - NUM-40, NUM-41, CPX-7 | exact_units features landed with the take-up from c132f58 to 58cc839: exact_units' own, no wire_weaver side yet.
+- NUM-38, NUM-39, UNIT-13, IO-11, IO-14, IO-15 | exact_units features landed with the take-up from d6a7256 to 7b6cc3c: exact_units' own, no wire_weaver side yet.

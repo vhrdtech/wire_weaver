@@ -16,10 +16,10 @@ pub trait UserInfo {
 }
 ```
 
-`CAPABILITIES` (`name_max`, `notes_max`, `persistent`) says what this device keeps: a device may keep less than the
-bounds of 32 and 256 bytes, and a device without room for notes leaves them out with `omit = ["user.notes"]`
-(`notes_max` is then 0). It is a [`const` item](../api/properties.md#const-items), usually a Rust const in the
-server's consts impl.
+`CAPABILITIES` (`name_max: Bytes<u8, Range<0, 32>>`, `notes_max: Bytes<u16, Range<0, 256>>`, `persistent`) says
+what this device keeps: a device may keep less than the bounds of 32 and 256 bytes (`MAX_NAME_LEN`,
+`MAX_NOTES_LEN`), and a device without room for notes leaves them out with `omit = ["user.notes"]` (`notes_max` is
+then 0). It is a [`const` item](../api/properties.md#const-items), usually a Rust const in the server's consts impl.
 
 ## Errors
 

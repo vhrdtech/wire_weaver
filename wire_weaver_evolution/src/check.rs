@@ -522,9 +522,9 @@ impl Check {
             && !force
         {
             return Err(format!(
-                "{of}{e}.\nNot saved: bump `version` in {} to {} or later (docs/evolution/rules.md#your-apis-version) \
-                 and save again.",
-                self.path.join("Cargo.toml").display(),
+                "{of}{e}.\nNot saved: bump {} to {} or later (docs/evolution/rules.md#your-apis-version) and save \
+                 again.",
+                version_declared_at(Some(&self.path)),
                 triplet(&report.minimal_version())
             ));
         }
@@ -817,9 +817,9 @@ impl Comparison {
             }
             if let Some(path) = &self.crate_path {
                 msg.push_str(&format!(
-                    "\nBump `version` in {} to {} or later (docs/evolution/rules.md#your-apis-version); once that \
-                     version is released, record it with `ww api save {}` and commit {SNAPSHOTS_DIR}/.",
-                    path.join("Cargo.toml").display(),
+                    "\nBump {} to {} or later (docs/evolution/rules.md#your-apis-version); once that version is \
+                     released, record it with `ww api save {}` and commit {SNAPSHOTS_DIR}/.",
+                    version_declared_at(Some(path)),
                     triplet(&report.minimal_version()),
                     path.display()
                 ));
@@ -838,14 +838,11 @@ impl Comparison {
     fn current_hint(&self) -> String {
         let report = &self.report;
         let version = format!("{} {}", report.new.crate_id, triplet(&report.new.version));
-        let cargo_toml = match &self.crate_path {
-            Some(path) => path.join("Cargo.toml").display().to_string(),
-            None => "Cargo.toml".to_string(),
-        };
+        let declared_at = version_declared_at(self.crate_path.as_deref());
         if self.new_label == "source" {
             format!(
                 "\nThe source differs from {}, the snapshot of {version}{}.\nIf {version} is not released yet, save \
-                 it again with {}. A released version's snapshot never changes: bump `version` in {cargo_toml} \
+                 it again with {}. A released version's snapshot never changes: bump {declared_at} \
                  instead (docs/evolution/rules.md#your-apis-version) and save the new version's snapshot.",
                 self.old_path.display(),
                 self.unchanged_since
@@ -858,7 +855,7 @@ impl Comparison {
             )
         } else {
             format!(
-                "\nBump `version` in {cargo_toml} to {} or later (docs/evolution/rules.md#your-apis-version) and save \
+                "\nBump {declared_at} to {} or later (docs/evolution/rules.md#your-apis-version) and save \
                  its snapshot with {}; {} goes then, as {version} was never released.",
                 triplet(&report.minimal_version()),
                 save_command(self.crate_path.as_deref()),
@@ -908,6 +905,43 @@ fn wire_declared_at(crate_path: Option<&Path>, root: Option<&str>) -> String {
             "`[package.metadata.wire_weaver] wire` of {}",
             cargo_toml.display()
         )
+    }
+}
+
+/// Where the crate version at `crate_path` is declared, for a hint to bump it: `version` in its `Cargo.toml`, or
+/// `[workspace.package] version` of the workspace's `Cargo.toml` for a crate that inherits it
+/// (`version.workspace = true`, the framework crates such as `ww_link`).
+pub(crate) fn version_declared_at(crate_path: Option<&Path>) -> String {
+    let Some(crate_path) = crate_path else {
+        return "`version` in the crate's `Cargo.toml`".to_string();
+    };
+    let cargo_toml = crate_path.join("Cargo.toml");
+    let inherited = fs::read_to_string(&cargo_toml).is_ok_and(|text| {
+        text.lines().any(|line| {
+            let line: String = line.chars().filter(|c| !c.is_whitespace()).collect();
+            line == "version.workspace=true" || line.starts_with("version={workspace=true")
+        })
+    });
+    let workspace = inherited
+        .then(|| {
+            let crate_path = crate_path.canonicalize().ok()?;
+            crate_path
+                .ancestors()
+                .skip(1)
+                .map(|dir| dir.join("Cargo.toml"))
+                .find(|path| {
+                    fs::read_to_string(path)
+                        .is_ok_and(|text| text.lines().any(|l| l.trim() == "[workspace]"))
+                })
+        })
+        .flatten();
+    match workspace {
+        Some(workspace) => format!(
+            "`[workspace.package] version` in {} (inherited by {})",
+            workspace.display(),
+            cargo_toml.display()
+        ),
+        None => format!("`version` in {}", cargo_toml.display()),
     }
 }
 
@@ -1369,5 +1403,26 @@ impl fmt::Display for Comparison {
             write!(f, "\n  warning: {warning}")?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod hint_tests {
+    use super::version_declared_at;
+    use std::path::Path;
+
+    /// A crate that inherits the workspace version is told to bump `[workspace.package] version`, one with its own
+    /// `version` that one.
+    #[test]
+    fn where_the_version_is_declared() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let ww_link = version_declared_at(Some(&root.join("ww_link")));
+        assert!(
+            ww_link.starts_with("`[workspace.package] version` in ")
+                && ww_link.contains("(inherited by "),
+            "{ww_link}"
+        );
+        let own = version_declared_at(Some(&root.join("ww_stdlib/ww_gpio")));
+        assert!(own.starts_with("`version` in "), "{own}");
     }
 }

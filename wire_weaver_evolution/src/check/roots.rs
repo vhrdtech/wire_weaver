@@ -425,10 +425,10 @@ impl Check {
                 && !force
             {
                 return Err(format!(
-                    "{}.\nNot saved: bump `version` in {} to {} or later (docs/evolution/rules.md#several-lines-in-one-crate) \
+                    "{}.\nNot saved: bump {} to {} or later (docs/evolution/rules.md#several-lines-in-one-crate) \
                      and save again.",
                     removed.needs(&own.crate_id),
-                    self.path.join("Cargo.toml").display(),
+                    super::version_declared_at(Some(&self.path)),
                     triplet(&min)
                 ));
             }
@@ -676,9 +676,9 @@ impl RootsOutcome {
                         ));
                     }
                     msg.push_str(&format!(
-                        "\nBump `version` in {} to {} or later (docs/evolution/rules.md#several-lines-in-one-crate) \
-                         and record the removal with {}.",
-                        self.crate_path.join("Cargo.toml").display(),
+                        "\nBump {} to {} or later (docs/evolution/rules.md#several-lines-in-one-crate) and record \
+                         the removal with {}.",
+                        super::version_declared_at(Some(&self.crate_path)),
                         triplet(&min),
                         save_command(Some(&self.crate_path))
                     ));

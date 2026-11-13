@@ -6693,6 +6693,11 @@ version had and its current snapshot of the same version no longer has, in <code
 <code>api_snapshots/superseded/</code>), as <code>ww api save</code> does by itself when it refreshes a snapshot in place: for a refresh
 that happened before, with the earlier snapshot taken from git history. See
 <a href="../evolution/checker_tool/#superseded-definitions-evo-68">superseded definitions</a>.</p>
+<p><code>ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]</code> rewrites the pinned references of the
+snapshot of a crate's current version (the signatures of other crates' definitions it leaves out, and those crates'
+versions) to what the source gives, keeping every other byte, for a frozen fixture that follows its dependencies by
+path; refused on a wire break unless <code>--accept-breaking</code>. See
+<a href="../evolution/checker_tool/#a-snapshot-saved-by-an-older-wire_weaver-evo-70">a snapshot saved by an older wire_weaver</a>.</p>
 <p><code>ww api save &lt;path&gt;</code> saves every <code>#[ww_trait]</code>/<code>#[ww_api_root]</code> trait defined in the crate's <code>src/lib.rs</code>, and every
 <code>#[derive_shrink_wrap]</code> type and unit marker struct (<code>pub struct Volt;</code>) defined there, in a <code>pub mod</code> at any depth,
 or re-exported from a module with <code>pub use</code> (each known by its path and name, <code>units::Volt</code>) into <code>&lt;path&gt;/api_snapshots/&lt;crate&gt;_&lt;major&gt;_&lt;minor&gt;_&lt;patch&gt;.ron</code>, for example

@@ -701,11 +701,20 @@ impl ToTokens for CGEnumSer<'_> {
             // a known one would be read back as that variant, without its fields
             let ident = &fv.ident;
             let max = self.item_enum.repr.max_discriminant();
-            let known = self.item_enum.variants.iter().map(|v| v.discriminant_lit());
+            // a variant compiled out here may be written as the #[future_version] one: that's how it reads back
+            let known = self.item_enum.variants.iter().map(|v| {
+                let d = v.discriminant_lit();
+                if v.cfg.is_empty() {
+                    quote! { *discriminant == #d }
+                } else {
+                    let cfg = &v.cfg;
+                    quote! { (cfg!(all(#(#cfg),*)) && *discriminant == #d) }
+                }
+            });
             let error = self.item_enum.crate_path.error();
             tokens.append_all(quote! {
                 if let Self::#ident(discriminant) = self {
-                    if *discriminant as u32 > #max #(|| *discriminant == #known)* {
+                    if *discriminant as u32 > #max #(|| #known)* {
                         return Err(#error::SubtypeOutOfRange);
                     }
                 }
@@ -951,18 +960,27 @@ impl ToTokens for CGEnumVariantsDes<'_> {
             let enum_name = &self.item_enum.ident;
             let variant_name = &variant.ident;
             if let Some(not_cfg) = variant.not_cfg_attr() {
-                // Compiled out here, but a known variant: say so instead of "future version or malformed".
-                // A latched discriminant that failed to read is 0, the kept error comes first then.
+                // Compiled out here, but a known variant: the #[future_version] variant holds it as it would a newer
+                // one (a request a firmware built without the feature answers as unsupported); without one, say so
+                // instead of "future version or malformed". A latched discriminant that failed to read is 0, the
+                // kept error comes first then.
                 let error = self.item_enum.crate_path.error();
                 let check_kept = maybe_quote(
                     matches!(self.item_enum.repr, Repr::U8 | Repr::U16 | Repr::U32),
                     || quote! { rd.latched()?; },
                 );
+                let value = match self.item_enum.future_version {
+                    Some(fv) => {
+                        let ident = &fv.ident;
+                        quote! { #enum_name::#ident(#discriminant) }
+                    }
+                    None => quote! { return Err(#error::EnumVariantDisabled) },
+                };
                 tokens.append_all(quote! {
                     #not_cfg
                     #discriminant => {
                         #check_kept
-                        return Err(#error::EnumVariantDisabled);
+                        #value
                     }
                 });
                 tokens.append_all(variant.cfg_attrs());

@@ -140,14 +140,68 @@ fn owned_and_lengths() {
         LenFullOwned::from_ww_bytes_owned(&bytes),
         Ok(LenFullOwned::B(vec![1, 2, 3]))
     );
+    // Unsized, so it has `Unknown(u32)` (SW-47), which takes the compiled-out variant; its size slot skips the fields
     assert_eq!(
         LenSubsetOwned::from_ww_bytes_owned(&bytes),
-        Err(Error::EnumVariantDisabled)
+        Ok(LenSubsetOwned::Unknown(1))
     );
     let bytes = LenFullOwned::A(9).to_ww_bytes_owned().unwrap();
     assert_eq!(bytes, LenSubsetOwned::A(9).to_ww_bytes_owned().unwrap());
     assert_eq!(
         LenSubsetOwned::from_ww_bytes_owned(&bytes),
         Ok(LenSubsetOwned::A(9))
+    );
+}
+
+/// A request kind as a firmware without an optional part has it: the parts it lacks are compiled out, with their
+/// discriminants written, and the `#[future_version]` variant takes them (ww_client_server's `RequestKind`).
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), final_structure, ww_repr = nib)]
+enum KindFull<'i> {
+    Call { name: &'i str } = 0,
+    Multi { ids: RefVec<'i, u8>, arg: u8 } = 1,
+    Read = 2,
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), final_structure, ww_repr = nib)]
+enum KindSmall<'i> {
+    Call {
+        name: &'i str,
+    } = 0,
+    #[cfg(any())]
+    Multi {
+        ids: RefVec<'i, u8>,
+        arg: u8,
+    } = 1,
+    Read = 2,
+    #[future_version]
+    Unknown(u32),
+}
+
+#[test]
+fn compiled_out_variant_reads_as_future_version() {
+    let mut full = [0u8; 32];
+    let mut small = [0u8; 32];
+    let ids = [1, 2, 3];
+    let multi = KindFull::Multi {
+        ids: RefVec::Slice { slice: &ids },
+        arg: 7,
+    };
+    let bytes = multi.to_ww_bytes(&mut full).unwrap();
+    assert_eq!(KindSmall::from_ww_bytes(bytes), Ok(KindSmall::Unknown(1)));
+    // the variants both have keep their bytes
+    let read = KindFull::Read.to_ww_bytes(&mut full).unwrap();
+    assert_eq!(read, KindSmall::Read.to_ww_bytes(&mut small).unwrap());
+    assert_eq!(KindSmall::from_ww_bytes(read), Ok(KindSmall::Read));
+    let call = KindFull::Call { name: "c" }.to_ww_bytes(&mut full).unwrap();
+    assert_eq!(KindSmall::from_ww_bytes(call), Ok(KindSmall::Call { name: "c" }));
+    // a discriminant compiled out here can be written as the future version (it is read back as it was), a
+    // present one can't
+    assert_eq!(
+        KindSmall::Unknown(1).to_ww_bytes(&mut small).unwrap(),
+        &[0x10]
+    );
+    assert_eq!(
+        KindSmall::Unknown(2).to_ww_bytes(&mut small),
+        Err(Error::SubtypeOutOfRange)
     );
 }

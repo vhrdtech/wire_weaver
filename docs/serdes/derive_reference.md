@@ -316,8 +316,12 @@ pub enum Number {
   without `f32`, so two builds with different features agree on every variant they share.
 - The variant, its code and its part of the size exist only where the predicate holds: without `u128` the enum
   above is 8 bytes in memory instead of 32, and no 128-bit code is linked.
-- Reading a variant that is compiled out gives `Error::EnumVariantDisabled` (an unknown number is still
-  `EnumFutureVersionOrMalformedData`).
+- Reading a variant that is compiled out gives the [`#[future_version]`](#no_future_version-future_version-name-enums-only)
+  variant with its discriminant when the enum has one (`Unknown(1)`), as a variant from a newer version would, and
+  `Error::EnumVariantDisabled` otherwise (an unknown number is still `EnumFutureVersionOrMalformedData`). Writing
+  `Unknown(d)` of a discriminant compiled out here is allowed and gives the same bytes back. `ww_client_server`'s
+  `RequestKind` relies on it: a firmware without the `multi` feature reads a multi request as `Unknown(1)` and
+  answers that it doesn't support it.
 - Introspection, API snapshots and type signatures list every variant whatever features are on: they are made from
   the source, not from the compiled type. A firmware built with a few variants and a host built with all of them
   have the same definition and connect (`tests/cfg_variants`); a call with a variant the device lacks fails there

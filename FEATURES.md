@@ -13,6 +13,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   - ⛔ blocked (the note says on what)
   - 🔍 probably done or obsolete, needs a check before closing
   - 🧪 done and tested on the host, the check on hardware is still open (the note says what to check)
+  - 🐛 known bug, not yet fixed (the note says how to hit it)
 - **Target** is the release an item is planned for: `v0.5` is the next release (the workspace is at 0.5.0,
   crates.io has 0.4.0). `v0.5.x` is the next compatible release after it: `v0.5.1` if nothing turns out to be
   breaking, otherwise the next minor. No tag means not scheduled. `grep '`v0.5`' FEATURES.md` gives the release

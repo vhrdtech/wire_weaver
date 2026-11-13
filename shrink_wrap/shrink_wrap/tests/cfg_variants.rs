@@ -193,7 +193,10 @@ fn compiled_out_variant_reads_as_future_version() {
     assert_eq!(read, KindSmall::Read.to_ww_bytes(&mut small).unwrap());
     assert_eq!(KindSmall::from_ww_bytes(read), Ok(KindSmall::Read));
     let call = KindFull::Call { name: "c" }.to_ww_bytes(&mut full).unwrap();
-    assert_eq!(KindSmall::from_ww_bytes(call), Ok(KindSmall::Call { name: "c" }));
+    assert_eq!(
+        KindSmall::from_ww_bytes(call),
+        Ok(KindSmall::Call { name: "c" })
+    );
     // a discriminant compiled out here can be written as the future version (it is read back as it was), a
     // present one can't
     assert_eq!(

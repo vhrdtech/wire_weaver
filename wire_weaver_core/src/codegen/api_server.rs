@@ -2628,7 +2628,11 @@ fn handle_stream_fn(
         Delivery::Counted | Delivery::Reliable => {
             let what = format!(
                 "{} stream `{ident}`",
-                if delivery == Delivery::Counted { "counted" } else { "reliable" }
+                if delivery == Delivery::Counted {
+                    "counted"
+                } else {
+                    "reliable"
+                }
             );
             quote! { ww_client_server::__ww_require_streams!(#what); }
         }

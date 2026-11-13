@@ -756,6 +756,7 @@ pub(crate) fn request_variant(kind: &RequestKind) -> &'static str {
         RequestKind::Observe { .. } => "Observe",
         RequestKind::SinkWrite { .. } => "SinkWrite",
         RequestKind::SinkWriteUnits { .. } => "SinkWriteUnits",
+        RequestKind::Unknown(_) => "Unknown",
     }
 }
 

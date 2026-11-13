@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 923e5a538b54620da009f03382ac35910e5f7bf2cc6aa7126de92732a268e111
+// shrink_wrap sha256: e6184b004507f0007037affcb0bc0f9726f5d2c96495ca3e6a25db17cb823af1
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         176,
@@ -686,6 +686,9 @@
     InLine(ty: Enum((size: UnsizedFinalStructure, repr: Nibble, crate_idx: 0, docs: [
         "Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.",
         "Optional, user can choose to send stream updates without using the sideband channel.",
+        "",
+        "`Ack`, `Resend` and `Query` belong to counted and reliable streams and credit sinks (feature `streams`); a",
+        "build without it reads them as [StreamSideband::Unknown] and refuses them.",
     ], ident: "StreamSideband", generics: [], variants: [
         (docs: [
             "Plain sinks: the host opens the sink, for the device\'s sideband handler (no protocol meaning). Streams are",
@@ -741,9 +744,14 @@
             (ident: Some("backfill"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UVlq64))), docs: [], slot: None, series_opaque: false),
             (ident: Some("sent"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 7, since: None),
-    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: UnsizedFinalStructure, repr: Nibble, crate_idx: 0, docs: [
         "Operation (call, read, write, etc.) to be performed on a resource.",
+        "",
+        "The discriminants are written out: the multi requests (feature `multi`) and the counted and reliable stream",
+        "requests (feature `streams`) are compiled out of a firmware that doesn\'t use them, and every build numbers the",
+        "rest the same. Such a firmware reads a request it left out as [RequestKind::Unknown] and answers",
+        "[ErrorKind::OperationNotSupported], as it does a request kind from a newer version.",
     ], ident: "RequestKind", generics: [], variants: [
         (docs: [
             "Call a method with provided arguments.",
@@ -875,7 +883,7 @@
             (ident: Some("pos"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
             (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 11, since: None),
-    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Operation (call, read, write, etc.) to be performed on a resource together with a request ID and resource path.",
         "",
@@ -1005,7 +1013,7 @@
         ]), discriminant: 3, since: None),
         (docs: [
             "An event of a counted or reliable stream (API-30): the head says where its data sits in the stream, what",
-            "the device dropped right before it and when it was made, see [StreamHead].",
+            "the device dropped right before it and when it was made, see [StreamHead]. Feature `streams`.",
         ], ident: "StreamItem", fields: Named([
             (ident: Some("path"), default: None, since: None, ty: Vec(NumericAny(Base(UNib32))), docs: [
                 "Same as in [EventKind::StreamData].",

@@ -15,6 +15,9 @@ only-fixed = []
 flash-async = []
 # the no-f64 guard (TEST-33) with a 64-bit number type enabled too, as usb_io_fw's firmware has
 guard-u64 = ["ww_si/u64"]
+# counted streams and credit sinks (qemu-ww-gpio, qemu-global-paths); the flash and dispatch budgets build without
+# it, as a firmware with only plain streams does
+streams = ["ww_client_server/streams", "ww_stream/streams"]
 
 [dependencies]
 cortex-m = "0.7"
@@ -62,6 +65,7 @@ path = "src/bin/ww_gpio.rs"
 test = false
 doctest = false
 bench = false
+required-features = ["streams"]
 
 [[bin]]
 name = "qemu-global-paths"
@@ -69,6 +73,7 @@ path = "src/bin/global_paths.rs"
 test = false
 doctest = false
 bench = false
+required-features = ["streams"]
 
 [[bin]]
 name = "qemu-bounded"

@@ -114,6 +114,8 @@ pub(crate) fn access(request: &[u8]) -> Result<Option<(Access, Place, bool)>, ()
         }
         RequestKind::Observe { .. } => (Access::Observe, false),
         RequestKind::Introspect => return Ok(None),
+        // a kind from a newer version: undecodable as before it read as Unknown, never given an access
+        RequestKind::Unknown(_) => return Err(()),
     };
     let ids = |p: &wire_weaver::shrink_wrap::RefVec<'_, wire_weaver::shrink_wrap::UNib32>| {
         p.iter()

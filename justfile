@@ -180,11 +180,13 @@ check-examples-mcu-qemu:
     # Checking mcu_qemu
     @cargo check
     @cargo check --features flash-async
+    @cargo check --features streams
 
 [working-directory('examples_mcu/nucleo_h743zi2')]
 check-examples-mcu-nucleo-h743zi2:
     # Checking nucleo_h743zi2
     @cargo check
+    @cargo check --features streams
     @cargo check --features settings
 
 [working-directory('examples_mcu/nucleo_h743zi2')]
@@ -219,6 +221,7 @@ hw-ecc-flash-h7:
 check-examples-mcu-stm32h725ig:
     # Checking usb_stm32h725ig
     @cargo check
+    @cargo check --features streams
 
 [working-directory('examples_mcu/rp2')]
 check-examples-mcu-rp2:

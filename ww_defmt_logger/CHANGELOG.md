@@ -14,6 +14,7 @@
 
 ### 🚀 Features
 
+- Turns on `ww_stream`'s new `streams` feature, which holds the reliable streams it sends logs on (SRV-60).
 - First version (STD-26): the `defmt` global logger of a WireWeaver device. `global_logger!(NAME, SIZE)` makes a
   `DefmtLogger<N>` the `#[defmt::global_logger]`: frames go into a lock-free ring (critical section on the producer
   side only, whole frames committed at once), are teed to an `rtt-target` up channel with the `rtt` feature

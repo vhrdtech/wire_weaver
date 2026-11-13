@@ -58,6 +58,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_logic_analyzer` channel numbers, sample positions and amounts, capture memory, raw word width and trigger stage/condition counts are typed (`Index<Channel, u8>`, `Index<Sample, u32>`, `Count<Sample, u32>`, `Bytes<u32>`, `Fixed<Bit, One, u8>`, `Count<Item, u8>`), and `TriggerStage::SpiFirstByte::mode` is a `ww_spi::SpiMode` instead of a bare `u8` (wire change EVO-59, wire line `w2.0`). See the `ww_logic_analyzer` changelog.
 - The evolution checker compares a dependency's changed definitions against a snapshot saved by an older wire_weaver too, and `ww api refresh-pins` / `just refresh-fixture-pins` (called by `just save-snapshots`) keep the `nucleo_g0b1re_api` fixture's pinned stdlib signatures in line: its tests pass a compatible stdlib change and fail a break, and nobody edits signature bytes by hand (EVO-70). See the `wire_weaver_evolution` and `wire_weaver_cli` changelogs.
 - A `#[cfg]`'d-out enum variant reads as the enum's `#[future_version]` variant when it has one (see `shrink_wrap/CHANGELOG.md`).
+- Firmware leaves out multi requests and counted/reliable streams it doesn't serve (SRV-60): `ww_client_server` features `multi` and `streams` (on with `std`), `ww_stream`'s `streams`; a left-out or newer request kind reads as `RequestKind::Unknown` and is answered "not supported", same wire. See the `ww_client_server`, `ww_stream`, `wire_weaver_core`, `ww_hub` and `ww_defmt_logger` changelogs.
 
 ### Added
 

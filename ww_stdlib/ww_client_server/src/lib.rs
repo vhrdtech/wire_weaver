@@ -5,6 +5,7 @@ pub mod builder;
 pub mod dispatch;
 pub mod err_seq;
 pub mod max_len;
+#[cfg(feature = "multi")]
 pub mod multi_req;
 pub mod observe;
 pub mod stream;
@@ -33,12 +34,57 @@ use ww_version::{CompactVersion, FullVersion};
 use observe::ObserveRequest;
 #[cfg(feature = "std")]
 use observe::ObserveRequestOwned;
-use stream::{StreamCodecs, StreamCursor, StreamHead};
+#[cfg(feature = "streams")]
+use stream::StreamHead;
+use stream::{StreamCodecs, StreamCursor};
 
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 #[cfg(feature = "std")]
 use ww_version::FullVersionOwned;
+
+/// Called by a server generated with `multi_req = true`: a compile error that says what to turn on when this crate
+/// is built without its `multi` feature (a firmware with `default-features = false`).
+#[cfg(feature = "multi")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __ww_require_multi {
+    () => {};
+}
+
+#[cfg(not(feature = "multi"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __ww_require_multi {
+    () => {
+        compile_error!(
+            "this server is generated with `multi_req = true`, which needs the `multi` feature of ww_client_server: \
+             add `features = [\"multi\"]` to the firmware's ww_client_server dependency (hosts have it through `std`)"
+        );
+    };
+}
+
+/// Called by a server generated with a counted or reliable stream or a credit sink, named by `$item`: a compile error
+/// that says what to turn on when this crate is built without its `streams` feature.
+#[cfg(feature = "streams")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __ww_require_streams {
+    ($item:literal) => {};
+}
+
+#[cfg(not(feature = "streams"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __ww_require_streams {
+    ($item:literal) => {
+        compile_error!(concat!(
+            $item,
+            " needs the `streams` feature of ww_client_server and ww_stream: add `features = [\"streams\"]` to the \
+             firmware's ww_client_server and ww_stream dependencies (hosts have it through `std`)"
+        ));
+    };
+}
 
 /// Version of this protocol itself, exchanged and checked during the link setup phase with a remote device.
 pub const FULL_VERSION: FullVersion = full_version!();
@@ -125,6 +171,11 @@ pub enum PathKind<'i> {
 }
 
 /// Operation (call, read, write, etc.) to be performed on a resource.
+///
+/// The discriminants are written out: the multi requests (feature `multi`) and the counted and reliable stream
+/// requests (feature `streams`) are compiled out of a firmware that doesn't use them, and every build numbers the
+/// rest the same. Such a firmware reads a request it left out as [RequestKind::Unknown] and answers
+/// [ErrorKind::OperationNotSupported], as it does a request kind from a newer version.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure, ww_repr = nib)]
 pub enum RequestKind<'i> {
     /// Call a method with provided arguments.
@@ -132,47 +183,50 @@ pub enum RequestKind<'i> {
     Call {
         /// Arguments are put into a struct and serialized using ShrinkWrap to obtain this byte array.
         args: TailBytes<'i>,
-    },
+    } = 0,
     /// Call the same method over an array of traits or several methods in one request.
+    #[cfg(feature = "multi")]
     MultiCall {
         /// List of resources to call
         multi_idx: MultiIndex<'i>,
         /// Some when calling the same method on an array of traits: its resource index in each trait
         in_each_array_id: Option<ResourceIndex>,
         multi_args: MultiArgs<'i>,
-    },
+    } = 1,
 
     /// Read a property.
     /// Expected to get [EventKind::Value] with property bytes.
-    Read,
+    Read = 2,
     /// Read the same property over an array of traits or several properties in one request.
+    #[cfg(feature = "multi")]
     MultiRead {
         /// List of properties to read from
         multi_idx: MultiIndex<'i>,
         /// Some when reading the same property on an array of traits: its resource index in each trait
         in_each_array_id: Option<ResourceIndex>,
-    },
+    } = 3,
 
     /// Write property or stream down. Property value is serialized fully into a byte array using ShrinkWrap.
     /// Objects of a stream are also serialized in full and sent as one unit.
-    Write { data: TailBytes<'i> },
+    Write { data: TailBytes<'i> } = 4,
     /// Write multiple properties or streams in one request.
+    #[cfg(feature = "multi")]
     MultiWrite {
         /// List of resources to write to
         multi_idx: MultiIndex<'i>,
         /// Some when addressing the same resource on an array of traits: its resource index in each trait
         in_each_array_id: Option<ResourceIndex>,
         multi_data: MultiArgs<'i>,
-    },
+    } = 5,
 
     /// Stream sideband channel (open, close, frame sync, etc.). Optional to use.
-    StreamSideband { sideband: StreamSideband },
+    StreamSideband { sideband: StreamSideband } = 6,
 
     // Write default value (if available) to a property, without sending any data.
     // WriteDefault,
     /// Send serialized AST describing a resource and all related types, see `ww_self` for format.
     /// Optional, for simplicity can be implemented only at root level, sending all API tree.
-    Introspect,
+    Introspect = 7,
 
     /// Open a counted or reliable stream (API-30, API-31): call its stream function with `args`, or resume from
     /// `resume` with the arguments the session was opened with. Answered with [EventKind::Value] holding
@@ -189,7 +243,7 @@ pub enum RequestKind<'i> {
         codecs: Option<StreamCodecs>,
         /// Arguments of the stream function, serialized like [RequestKind::Call] arguments.
         args: TailBytes<'i>,
-    },
+    } = 8,
 
     /// Observe properties of the trait level at the path (API-38): how each one is sent from now on, see
     /// [observe]. Answered with [EventKind::Value] holding [observe::ObserveGranted]; updates arrive as
@@ -197,7 +251,7 @@ pub enum RequestKind<'i> {
     ///
     /// `cfg` is decoded when it is read ([RefBox::read]), the same bytes as a plain [ObserveRequest]: a server that
     /// observes nothing never links its decoder (SRV-54).
-    Observe { cfg: RefBox<'i, ObserveRequest<'i>> },
+    Observe { cfg: RefBox<'i, ObserveRequest<'i>> } = 9,
 
     /// Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,
     /// modulo 2^28 (`ww_stream::sink::wire_pos`), and the item itself, the serialized value. Not answered; the
@@ -207,18 +261,25 @@ pub enum RequestKind<'i> {
     /// [RequestKind::SinkWriteUnits]: a flag for the units would cost a byte whenever the discriminant ends a byte
     /// (found in real requests), a variant of its own costs nothing. Build and read both with
     /// [RequestKind::sink_write] and [RequestKind::as_sink_write].
+    #[cfg(feature = "streams")]
     SinkWrite {
         /// Position of the item's first unit, modulo 2^28.
         pos: UVlq32,
         data: TailBytes<'i>,
-    },
+    } = 10,
     /// [RequestKind::SinkWrite] of an item with `units` units other than 1, which the host names (a byte sink: the
     /// bytes of its payload). Never 0.
+    #[cfg(feature = "streams")]
     SinkWriteUnits {
         units: UVlq64,
         pos: UVlq32,
         data: TailBytes<'i>,
-    },
+    } = 11,
+    /// A request kind this build doesn't serve, with its discriminant: one from a newer version, or one compiled out
+    /// (the multi requests without the `multi` feature, credit sink writes without `streams`). Nothing after the
+    /// discriminant is read. The server answers [ErrorKind::OperationNotSupported].
+    #[future_version]
+    Unknown(u32),
 }
 
 /// Index for a multi request. Two kinds of multi requests are possible:
@@ -252,6 +313,7 @@ pub enum RequestKind<'i> {
 /// server handles, and with [ErrorKind::ResponseSerFailed] when the answers don't fit into its buffer (a huge
 /// `Range`). A deferred method can't answer inside a multi request yet, it gets [ErrorKind::OperationNotSupported].
 // An index form this side doesn't know fails the request, instead of selecting nothing (SW-47)
+#[cfg(feature = "multi")]
 #[derive_shrink_wrap(
     owned(feature = "std"),
     derive(Clone, Debug),
@@ -271,6 +333,7 @@ pub enum MultiIndex<'i> {
 /// `Same` holds the arguments (or data) once, used for every index. `Different` holds a serialized `Vec<Vec<u8>>`,
 /// the arguments of each index in index order: an index without an entry is answered with
 /// [ErrorKind::ArgsDesFailed], and the whole request fails with it when the list doesn't deserialize.
+#[cfg(feature = "multi")]
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug), ww_repr = u1)]
 pub enum MultiArgs<'i> {
     Same(RefVec<'i, u8>),
@@ -304,10 +367,10 @@ pub enum EventKind<'i> {
         // TODO: add is_multipart: bool, is_end: bool or enum Kind { SinglePart, MultiPart, MultiPartEnd(crc) }?
         // TODO: add CRC?
         data: TailBytes<'i>,
-    },
+    } = 0,
 
     /// Sent in response to RequestKind::Write, only for properties and when request ID is not 0.
-    Written,
+    Written = 1,
 
     /// Sent by user code whenever a stream has more data or whenever applicable.
     StreamData {
@@ -315,24 +378,25 @@ pub enum EventKind<'i> {
         path: RefVec<'i, UNib32>,
         /// Stream data can be a whole frame or a chunk of a byte stream.
         data: TailBytes<'i>,
-    },
+    } = 2,
 
     /// Optionally sent by in response to RequestKind::StreamSideband or whenever applicable.
     StreamSideband {
         /// When subscribing through trait interface, this path is used later to match stream updates to an original request.
         path: RefVec<'i, UNib32>,
         sideband: StreamSideband,
-    },
+    } = 3,
 
     /// An event of a counted or reliable stream (API-30): the head says where its data sits in the stream, what
-    /// the device dropped right before it and when it was made, see [StreamHead].
+    /// the device dropped right before it and when it was made, see [StreamHead]. Feature `streams`.
+    #[cfg(feature = "streams")]
     StreamItem {
         /// Same as in [EventKind::StreamData].
         path: RefVec<'i, UNib32>,
         head: StreamHead,
         /// The serialized item.
         data: TailBytes<'i>,
-    },
+    } = 4,
 
     /// Observed properties of one trait level (API-38), sent when any of them is due, see [observe].
     PropertyUpdate {
@@ -348,11 +412,14 @@ pub enum EventKind<'i> {
         /// The level's properties: an `OptionAnyVec` with one slot per resource index, the properties sent this
         /// time present.
         data: TailBytes<'i>,
-    },
+    } = 5,
 }
 
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
 /// Optional, user can choose to send stream updates without using the sideband channel.
+///
+/// `Ack`, `Resend` and `Query` belong to counted and reliable streams and credit sinks (feature `streams`); a
+/// build without it reads them as [StreamSideband::Unknown] and refuses them.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -363,37 +430,44 @@ pub enum EventKind<'i> {
 pub enum StreamSideband {
     /// Plain sinks: the host opens the sink, for the device's sideband handler (no protocol meaning). Streams are
     /// opened with [RequestKind::StreamOpen] (API-31), credit sinks too (API-34, with the host's session).
-    Open,
+    Open = 0,
     /// Sent if a stream was successfully closed
-    Close,
+    Close = 1,
     /// If a stream is a sequence of bytes, can be used to delimit frames
-    FrameSync,
+    FrameSync = 2,
     /// Can be used to indicate total size of the upcoming stream updates, in a unit the stream's users agree on
-    SizeHint(UNib32),
+    SizeHint(UNib32) = 3,
     /// User event, can be used to indicate errors or other data
-    User(UNib32),
+    User(UNib32) = 4,
     /// Counted and reliable streams (API-30), receiver to sender: every unit before `have` (live run) and before
     /// `backfill` (backfill run, while there is one) was received; the sender may have up to `grant` bytes of events
     /// in flight beyond them. Cumulative, a lost one is replaced by the next one.
     // `backfill` first: its flag fills the nibble after the discriminant
+    #[cfg(feature = "streams")]
     Ack {
         backfill: Option<UVlq64>,
         have: UVlq64,
         grant: ww_si::Bytes<UVlq32>,
-    },
+    } = 5,
     /// Reliable streams, receiver to sender: units from `from` on are missing (in whichever run `from` falls), send
     /// again from there (go-back-N), with up to `grant` bytes in flight.
+    #[cfg(feature = "streams")]
     Resend {
         from: UVlq64,
         grant: ww_si::Bytes<UVlq32>,
-    },
+    } = 6,
     /// Reliable streams, sender to receiver: "I have sent up to `sent` (live run) and `backfill` (backfill run),
     /// where are you?" when out of credit or nothing was heard for a while; answered with [StreamSideband::Ack] or
     /// [StreamSideband::Resend].
+    #[cfg(feature = "streams")]
     Query {
         backfill: Option<UVlq64>,
         sent: UVlq64,
-    },
+    } = 7,
+    /// A sideband message this build doesn't know, with its discriminant: one from a newer version, or one
+    /// compiled out (`Ack`, `Resend`, `Query` without the `streams` feature). Nothing after the discriminant is read.
+    #[future_version]
+    Unknown(u32),
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
@@ -656,24 +730,31 @@ impl RequestKind<'_> {
     pub fn discriminants(&self) -> EventKindDiscriminants {
         match self {
             RequestKind::Call { .. } => EventKindDiscriminants::Value,
+            #[cfg(feature = "multi")]
             RequestKind::MultiCall { .. } => EventKindDiscriminants::Value,
             RequestKind::Read => EventKindDiscriminants::Value,
+            #[cfg(feature = "multi")]
             RequestKind::MultiRead { .. } => EventKindDiscriminants::Value,
             RequestKind::Write { .. } => EventKindDiscriminants::Written,
             // answers of each index, like MultiRead
+            #[cfg(feature = "multi")]
             RequestKind::MultiWrite { .. } => EventKindDiscriminants::Value,
             RequestKind::StreamSideband { .. } => EventKindDiscriminants::StreamSideband,
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
             RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,
             RequestKind::Observe { .. } => EventKindDiscriminants::Value,
             // not answered: acknowledged by sideband, only an error comes back
+            #[cfg(feature = "streams")]
             RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. } => {
                 EventKindDiscriminants::Written
             }
+            // never answered with a value: refused
+            RequestKind::Unknown(_) => EventKindDiscriminants::Value,
         }
     }
 }
 
+#[cfg(feature = "streams")]
 impl<'i> RequestKind<'i> {
     /// A write to a credit sink: [RequestKind::SinkWrite] for one unit, [RequestKind::SinkWriteUnits] otherwise.
     pub fn sink_write(units: u64, pos: u32, data: &'i [u8]) -> Self {
@@ -708,6 +789,7 @@ impl RequestKind<'_> {
             RequestKind::Call { args } => RequestKindOwned::Call {
                 args: args.make_owned(),
             },
+            #[cfg(feature = "multi")]
             RequestKind::MultiCall {
                 multi_idx,
                 in_each_array_id,
@@ -718,6 +800,7 @@ impl RequestKind<'_> {
                 multi_args: multi_args.make_owned()?,
             },
             RequestKind::Read => RequestKindOwned::Read,
+            #[cfg(feature = "multi")]
             RequestKind::MultiRead {
                 multi_idx,
                 in_each_array_id,
@@ -728,6 +811,7 @@ impl RequestKind<'_> {
             RequestKind::Write { data } => RequestKindOwned::Write {
                 data: data.make_owned(),
             },
+            #[cfg(feature = "multi")]
             RequestKind::MultiWrite {
                 multi_idx,
                 in_each_array_id,
@@ -752,10 +836,12 @@ impl RequestKind<'_> {
                 codecs: *codecs,
                 args: args.make_owned(),
             },
+            #[cfg(feature = "streams")]
             RequestKind::SinkWrite { pos, data } => RequestKindOwned::SinkWrite {
                 pos: *pos,
                 data: data.make_owned(),
             },
+            #[cfg(feature = "streams")]
             RequestKind::SinkWriteUnits { units, pos, data } => RequestKindOwned::SinkWriteUnits {
                 units: *units,
                 pos: *pos,
@@ -764,6 +850,7 @@ impl RequestKind<'_> {
             RequestKind::Observe { cfg } => RequestKindOwned::Observe {
                 cfg: Box::new(cfg.read()?.make_owned()?),
             },
+            RequestKind::Unknown(d) => RequestKindOwned::Unknown(*d),
         };
         Ok(req)
     }
@@ -801,7 +888,7 @@ impl Request<'_> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "multi"))]
 impl MultiArgs<'_> {
     pub fn make_owned(&self) -> Result<MultiArgsOwned, shrink_wrap::Error> {
         match self {
@@ -811,7 +898,7 @@ impl MultiArgs<'_> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "multi"))]
 impl MultiIndex<'_> {
     pub fn make_owned(&self) -> Result<MultiIndexOwned, shrink_wrap::Error> {
         match self {

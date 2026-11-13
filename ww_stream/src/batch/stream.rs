@@ -2,8 +2,11 @@
 //! stream and its batcher together.
 
 use super::{BatchSource, Batcher, Consumer, EncodeError, Producer, Push, Scratch, Seal};
+#[cfg(feature = "streams")]
 use crate::StreamHead;
+#[cfg(feature = "streams")]
 use crate::store::StreamStore;
+#[cfg(feature = "streams")]
 use crate::tx::{Counted, Pushed, Reliable};
 use core::marker::PhantomData;
 use wire_weaver::shrink_wrap::Error;
@@ -194,6 +197,7 @@ where
     }
 }
 
+#[cfg(feature = "streams")]
 impl<St, const K: usize, T, const N: usize, Src> Batched<Reliable<St, K>, T, N, Src>
 where
     St: StreamStore,
@@ -215,6 +219,7 @@ where
     }
 }
 
+#[cfg(feature = "streams")]
 impl<T, const N: usize, Src> Batched<Counted, T, N, Src>
 where
     T: SeriesStore + for<'a> SeriesColumns<'a>,
@@ -262,6 +267,7 @@ where
     /// `buf` and puts each into the store as one event (once; resends copy it). The budget is `buf`'s length and the
     /// store's [max_item_len](StreamStore::max_item_len), whichever is smaller; `buf` is free again afterwards (the
     /// one `poll_streams` reads events into will do). Without a session batches are dropped unencoded.
+    #[cfg(feature = "streams")]
     pub async fn poll_reliable<St: StreamStore, const K: usize, const B: usize>(
         &mut self,
         stream: &mut Reliable<St, K>,
@@ -325,6 +331,7 @@ where
     /// the next sealed batch into `buf` and returns its head and bytes, to send right away ([Counted::unsent] when
     /// that fails). Call again while it returns one. Without a host a sealed batch is dropped unencoded and counted
     /// as lost.
+    #[cfg(feature = "streams")]
     pub fn poll_counted<'b, const B: usize>(
         &mut self,
         stream: &mut Counted,

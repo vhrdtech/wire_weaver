@@ -18,7 +18,8 @@ defmt.workspace = true
 rtt-target = { version = "0.6", optional = true }
 wire_weaver.workspace = true
 ww_log.workspace = true
-ww_stream.workspace = true
+# logs go out on a reliable stream (`ww_stream::tx::Reliable`)
+ww_stream = { workspace = true, features = ["streams"] }
 
 [dev-dependencies]
 critical-section = { version = "1.2", features = ["std"] }

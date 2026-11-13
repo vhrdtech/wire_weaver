@@ -158,6 +158,11 @@ pub const INTROSPECT: u32 = 59;
 /// The answer is longer than the link's message limit, the smaller of the host's and the device's (CLT-55):
 /// `ww_device` sends this error with [ResponseSerFailed](crate::ErrorKind::ResponseSerFailed) instead.
 pub const REPLY_OVER_LIMIT: u32 = 60;
+/// A request kind this firmware doesn't serve ([RequestKind::Unknown](crate::RequestKind::Unknown)): one from a
+/// newer version, or one left out of the build (the multi requests without `ww_client_server`'s `multi` feature,
+/// credit sink writes without `streams`), answered with
+/// [OperationNotSupported](crate::ErrorKind::OperationNotSupported).
+pub const REQUEST_KIND_UNKNOWN: u32 = 61;
 
 /// `ww_device`'s answer when the server failed without an error to send.
 pub const GENERIC: u32 = u32::MAX;
@@ -171,7 +176,8 @@ pub enum Site {
     DeferredReturn(u32),
     /// The dispatch of a trait level on the request's path, one of the `LEVEL_*` sites (and [REPLY_START]).
     Level(u32),
-    /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites, [INTROSPECT] or [REPLY_OVER_LIMIT].
+    /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites, [INTROSPECT], [REPLY_OVER_LIMIT]
+    /// or [REQUEST_KIND_UNKNOWN].
     Request(u32),
     /// [GENERIC].
     Generic,
@@ -185,7 +191,7 @@ impl Site {
             0..ITEM_END => Site::Item(err_seq),
             DEFERRED_OUTPUT_SER..=DEFERRED_EVENT_FINISH => Site::DeferredReturn(err_seq),
             LEVEL_BAD_PATH..=REPLY_START => Site::Level(err_seq),
-            REQUEST_TRAIT_NOT_FOUND..=REPLY_OVER_LIMIT => Site::Request(err_seq),
+            REQUEST_TRAIT_NOT_FOUND..=REQUEST_KIND_UNKNOWN => Site::Request(err_seq),
             GENERIC => Site::Generic,
             _ => Site::Unknown(err_seq),
         }
@@ -239,6 +245,7 @@ impl Site {
             OBSERVE_PATH => "observe request: no observable level there",
             INTROSPECT => "introspection: event not sent",
             REPLY_OVER_LIMIT => "answer longer than the link's message limit",
+            REQUEST_KIND_UNKNOWN => "request kind not served by this firmware",
             _ => return None,
         })
     }
@@ -281,7 +288,7 @@ mod tests {
             "level site 40 (no such item)"
         );
         // every site in a range has a name
-        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REPLY_OVER_LIMIT) {
+        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REQUEST_KIND_UNKNOWN) {
             let site = Site::of(seq);
             if !matches!(site, Site::Unknown(_)) {
                 assert!(site.name().is_some(), "{seq}");

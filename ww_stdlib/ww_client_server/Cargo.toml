@@ -9,7 +9,13 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std"]
+# hosts read and send everything; a firmware turns on only the parts it serves
+std = ["wire_weaver/std", "ww_si/std", "multi", "streams"]
+# MultiCall, MultiRead, MultiWrite (MultiIndex, MultiArgs): needed by a server generated with `multi_req = true`
+multi = []
+# counted and reliable streams and credit sinks: SinkWrite requests, StreamItem events, the Ack/Resend/Query
+# sideband; plain streams and their StreamOpen don't need it
+streams = []
 
 [dependencies]
 wire_weaver.workspace = true

@@ -227,7 +227,8 @@ impl StreamOpened<'_> {
 /// Serialize an [EventKind::StreamItem](crate::EventKind::StreamItem) event of the stream at `path` into `scratch`:
 /// `item` writes the item's bytes at the start of the buffer it is given (`value.to_ww_bytes(buf)`, or raw bytes as
 /// a store keeps them) and returns their length. The item keeps its own sizes, as `from_ww_bytes` on the host
-/// expects. Used by generated `stream_data_ser()` methods and `poll_streams`.
+/// expects. Used by generated `stream_data_ser()` methods and `poll_streams`. Feature `streams`.
+#[cfg(feature = "streams")]
 pub fn ser_stream_item_event<'a>(
     scratch: &'a mut [u8],
     path: &[UNib32],

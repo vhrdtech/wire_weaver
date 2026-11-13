@@ -19,19 +19,27 @@
 //! | [codec] | [Compressed](codec::Compressed), [CountedState](codec::CountedState): counted streams whose items go through a codec with history, negotiated at open (API-55) | device |
 //! | [counters] | [StreamCnt](counters::StreamCnt) (`cnt` instance counters with the `cnt` feature), [TxStats](counters::TxStats) | device |
 //!
+//! `tx`, `rx`, `sink` and `codec`, and the counted and reliable sides of [batch::Batched], need the `streams` feature
+//! (`ww_client_server/streams`, on with `std`): a firmware with only plain streams and observed properties leaves
+//! them and their wire messages out.
+//!
 //! **Sharing with producer tasks.** A [Reliable](tx::Reliable) is one `&mut` state: the producer pushes into it and
 //! the event loop reads the next event out of it into its own buffer ([Reliable::next_event](tx::Reliable::next_event)),
 //! then sends that buffer with the state released. Shared between tasks it sits behind the firmware's async mutex,
 //! held only for a push or a store read, never while the link is busy: a slow link never stalls a producer.
 
 pub mod batch;
+#[cfg(feature = "streams")]
 pub mod codec;
 pub mod counters;
 pub mod observe;
+#[cfg(feature = "streams")]
 pub mod rx;
 pub mod sched;
+#[cfg(feature = "streams")]
 pub mod sink;
 pub mod store;
+#[cfg(feature = "streams")]
 pub mod tx;
 pub mod wake;
 

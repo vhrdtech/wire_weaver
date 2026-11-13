@@ -9,7 +9,10 @@ repository.workspace = true
 
 [features]
 default = []
-std = ["alloc", "ww_client_server/std", "ww_si/std"]
+std = ["alloc", "streams", "ww_client_server/std", "ww_si/std"]
+# counted and reliable streams and credit sinks (tx, rx, sink, codec): their wire messages are behind
+# ww_client_server's `streams` too, so a firmware with only plain streams and observe doesn't carry them
+streams = ["ww_client_server/streams"]
 # sink::SinkTx, the host side of credit sinks
 alloc = []
 # typed per-stream instance counters (cnt::Counters<StreamCnt>)
@@ -19,7 +22,7 @@ defmt = ["dep:defmt", "wire_weaver/defmt"]
 # store::LogStore: a power-cut safe log on a block device
 log-store = ["dep:crc"]
 # codec::ItemCodec for ww_lz4::Encoder: compressed counted streams (API-55)
-lz4 = ["dep:ww_lz4"]
+lz4 = ["streams", "dep:ww_lz4"]
 # store::PersistentRamRing: a RAM ring that survives a soft reset
 persistent-ram = ["dep:crc"]
 # store::log::SdMedium on an embedded-sdmmc BlockDevice

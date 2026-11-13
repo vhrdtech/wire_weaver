@@ -6,6 +6,8 @@ edition = "2024"
 [features]
 # the dispatch bench's server (`mcu_qemu/src/flash_budget.rs`) asks for it; only the sync server is built here
 flash-async = []
+# counted streams and credit sinks (ww_gpio's `event`, ww_uart's `rx` and `tx`): the all-gpio and uart bins
+streams = ["ww_client_server/streams", "ww_stream/streams"]
 
 [dependencies]
 cortex-m-rt = "0.7"
@@ -59,6 +61,7 @@ path = "src/bin/all_gpio.rs"
 test = false
 doctest = false
 bench = false
+required-features = ["streams"]
 
 [[bin]]
 name = "stm32h725ig-uart"
@@ -66,6 +69,7 @@ path = "src/bin/uart.rs"
 test = false
 doctest = false
 bench = false
+required-features = ["streams"]
 
 # see for more info: https://docs.rust-embedded.org/book/unsorted/speed-vs-size.html
 # cargo build/run

@@ -430,6 +430,12 @@ pub fn gen_server(
     let server_struct_path = config.server_struct_path;
     let multi = cx.multi_req;
     let maybe_multi_req = maybe_quote_cl(cx.multi_req, || multi_req_handlers(&root_await));
+    // the multi requests are behind ww_client_server's `multi`: say so instead of failing on its types
+    let require_multi = maybe_quote(
+        cx.multi_req,
+        quote! { ww_client_server::__ww_require_multi!(); },
+    );
+    let es_kind_unknown = fixed_err_seq("REQUEST_KIND_UNKNOWN");
     let growable_reply_helpers = maybe_quote(
         !config.no_alloc,
         quote! {
@@ -452,6 +458,7 @@ pub fn gen_server(
         },
     );
     quote! {
+        #require_multi
         #args_structs
         #max_len_consts
 
@@ -530,6 +537,12 @@ pub fn gen_server(
                 let mut iter = path.iter();
                 let before_process = wr.save_state();
                 match &request.kind {
+                    // newer, or left out of this build (`multi`, `streams` features): nothing past the kind was read
+                    RequestKind::Unknown(_) => {
+                        wr.write(&Error::not_supported(#es_kind_unknown))?;
+                        event_builder.finish(false, &mut wr);
+                        wr.finish_and_take()
+                    }
                     #maybe_multi_req
                     #observe_arm
                     _ => {
@@ -2609,8 +2622,20 @@ fn handle_stream_fn(
         _ => quote! { #state #inner .detach(); },
     };
     let close_call = cx.call(ident, quote! { self.#close_fn(cx, #idx) });
+    // counted and reliable streams are behind ww_client_server's `streams`: say so instead of failing on its types
+    let require_streams = match delivery {
+        Delivery::Plain => quote! {},
+        Delivery::Counted | Delivery::Reliable => {
+            let what = format!(
+                "{} stream `{ident}`",
+                if delivery == Delivery::Counted { "counted" } else { "reliable" }
+            );
+            quote! { ww_client_server::__ww_require_streams!(#what); }
+        }
+    };
     let close = quote! {
         RequestKind::StreamSideband { sideband: StreamSideband::Close } => {
+            #require_streams
             #detach
             #close_call;
             WrAction::Acknowledged
@@ -2622,8 +2647,17 @@ fn handle_stream_fn(
             let sideband_fn = Ident::new(&format!("sideband_{prefixed_ident}"), ident.span());
             let sideband_call = cx.call(ident, quote! { self.#sideband_fn(cx, #idx *sideband) });
             let ev_kind_builder = cx.prepare_event_kind_builder();
+            let es_unknown = item_err_seq("", "KIND_NOT_TAKEN");
+            // a sideband message this build doesn't know (newer, or `Ack`/`Resend`/`Query` without `streams`)
+            // never reaches the handler
+            let unknown = quote! {
+                RequestKind::StreamSideband { sideband: StreamSideband::Unknown(_) } => {
+                    ww_err(wr, d, #es_unknown, ErrorKindDiscriminants::OperationNotSupported)
+                }
+            };
             if cx.no_alloc {
                 quote! {
+                    #unknown
                     RequestKind::StreamSideband { sideband } => {
                         let answer: Option<StreamSideband> = #sideband_call;
                         ww_client_server::dispatch::reply_sideband(wr, d, answer)
@@ -2631,6 +2665,7 @@ fn handle_stream_fn(
                 }
             } else {
                 quote! {
+                    #unknown
                     RequestKind::StreamSideband { sideband } => {
                         // user fn returns Option<StreamSideband>
                         match #sideband_call {
@@ -2773,6 +2808,14 @@ fn handle_stream(
         #call_user_sideband
         #match_user_sideband
     };
+    // a sideband message this build doesn't know (newer, or `Ack`/`Resend`/`Query` without `streams`) never reaches
+    // the handler
+    let es_unknown = item_err_seq("", "KIND_NOT_TAKEN");
+    let refuse_unknown_sideband = quote! {
+        RequestKind::StreamSideband { sideband: StreamSideband::Unknown(_) } => {
+            ww_err(wr, d, #es_unknown, ErrorKindDiscriminants::OperationNotSupported)
+        }
+    };
     // streams (device out) are stream functions, see handle_stream_fn
     debug_assert!(!is_up);
     let specific_ops = {
@@ -2846,6 +2889,7 @@ fn handle_stream(
                     // TODO: ?? do not send acknowledgements on stream writes
                     #reply_ack
                 }
+                #refuse_unknown_sideband
                 RequestKind::StreamSideband { sideband } => {
                     #handle_sideband
                 }
@@ -2853,6 +2897,9 @@ fn handle_stream(
             Some(FlowControl::Credit) => {
                 let credit_fn =
                     Ident::new(format!("credit_{}", prefixed_ident).as_str(), ident.span());
+                let require_streams = format!("credit sink `{ident}`");
+                let require_streams =
+                    quote! { ww_client_server::__ww_require_streams!(#require_streams); };
                 let credit = quote! { self.#credit_fn(#maybe_index_chain_call) };
                 let send_sideband = if cx.use_async {
                     quote! {
@@ -2936,6 +2983,7 @@ fn handle_stream(
                         ww_err(wr, d, #es_open, ErrorKindDiscriminants::OperationNotSupported)
                     }
                     kind @ (RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. }) => {
+                        #require_streams
                         let Some((units, pos, data)) = kind.as_sink_write() else {
                             return ww_err(wr, d, #es_open, ErrorKindDiscriminants::OperationNotSupported);
                         };
@@ -2961,6 +3009,7 @@ fn handle_stream(
                         }
                         #reply_ack
                     }
+                    #refuse_unknown_sideband
                     RequestKind::StreamSideband { sideband: StreamSideband::Query { sent, .. } } => {
                         // answered here, the user's sideband handler doesn't see it
                         match #credit.on_query(sent.0) {

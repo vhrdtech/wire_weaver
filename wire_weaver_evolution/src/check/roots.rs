@@ -9,8 +9,8 @@ use ww_self::{ApiBundleOwned, qualified_name};
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 use super::{
-    Check, Comparison, NoSnapshot, Outcome, SaveStatus, Saved, UnitHint, compare_checked,
-    design_line_warnings, key, own_moves, save_command, unreached_moves,
+    Check, Comparison, NoSnapshot, Outcome, SaveStatus, Saved, UnitHint, UnreasonedSilence,
+    compare_checked, design_line_warnings, key, own_moves, save_command, unreached_moves,
 };
 use crate::recorded::Recorded;
 use crate::snapshot_files::{
@@ -39,6 +39,9 @@ pub struct RootsOutcome {
     pub shared: Vec<SharedChange>,
     /// Unit-suffix hints found in the source (TOOL-22), once each for all roots: a note, never part of the verdict.
     pub hints: Vec<UnitHint>,
+    /// `#[no_unit_hint]`s found with no reason or an empty one (TOOL-22), once each for all roots: what `--strict`
+    /// refuses.
+    pub unreasoned: Vec<UnreasonedSilence>,
     /// What looked wrong but doesn't change the verdict, once each for all roots: a root on w0, the design line, in a
     /// crate that can be published (EVO-41).
     pub warnings: Vec<String>,
@@ -102,6 +105,7 @@ impl Check {
         let dir = self.crate_snapshots_dir();
         let mut loaded = vec![];
         let mut hints = vec![];
+        let mut unreasoned = vec![];
         let mut warnings = vec![];
         let mut moves = vec![];
         let mut modules = BTreeMap::new();
@@ -113,6 +117,11 @@ impl Check {
             for hint in notes.hints.iter() {
                 if !hints.contains(hint) {
                     hints.push(hint.clone());
+                }
+            }
+            for violation in notes.unreasoned.iter() {
+                if !unreasoned.contains(violation) {
+                    unreasoned.push(violation.clone());
                 }
             }
             for moved in own_moves(&bundle, &notes) {
@@ -149,6 +158,7 @@ impl Check {
             removed: vec![],
             shared: vec![],
             hints,
+            unreasoned,
             warnings,
             current_required: self.require_current,
         };
@@ -247,6 +257,7 @@ impl Check {
             new: bundle,
             current_required: false,
             hints: vec![],
+            unreasoned: vec![],
             design_line: wire.is_design_line(),
             warnings: vec![],
             unchanged_since: None,
@@ -298,6 +309,7 @@ impl Check {
                 current_required: require_current,
                 previous: None,
                 hints: vec![],
+                unreasoned: vec![],
                 design_line,
                 warnings: vec![],
                 previous_line,
@@ -333,6 +345,7 @@ impl Check {
                 new,
                 current_required: require_current,
                 hints: vec![],
+                unreasoned: vec![],
                 design_line,
                 warnings: vec![],
                 unchanged_since,
@@ -385,6 +398,7 @@ impl Check {
             current_required: true,
             previous: Some(old.path),
             hints: vec![],
+            unreasoned: vec![],
             design_line: false,
             warnings: vec![],
             previous_line: None,

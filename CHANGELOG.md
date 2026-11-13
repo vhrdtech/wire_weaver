@@ -61,6 +61,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Firmware leaves out multi requests and counted/reliable streams it doesn't serve (SRV-60): `ww_client_server` features `multi` and `streams` (on with `std`), `ww_stream`'s `streams`; a left-out or newer request kind reads as `RequestKind::Unknown` and is answered "not supported", same wire. See the `ww_client_server`, `ww_stream`, `wire_weaver_core`, `ww_hub` and `ww_defmt_logger` changelogs.
 - Capability limits bounded by their `MAX_*` consts (EVO-72, P2401#13nov-0531): `ww_i2c` (wire `w2.0`, new counted unit `Watch`), `ww_user_info` and `ww_spi` (wire `w3.0`) carry each limit documented "at most `MAX_..`" as `Count`/`Bytes<T, Range<.., { MAX_.. as i64 }>>` in the smallest storage that holds it; `ww_dfu`'s `max_piece` names its const. The walker reads `EXPR as INT` in a const argument, checked to fit. exact_units taken up to 7b6cc3c (`Count`/`Bytes` take a bounds parameter). See the `wire_weaver_core`, `ww_i2c`, `ww_user_info`, `ww_spi`, `ww_dfu` and `ww_i2c_hl` changelogs.
 - Resource paths are typed (STD-115): `ww_client_server`'s request and event paths, `MultiIndex::List`, generated index chains and the clients' paths are `ResourceIndex`es, the same bytes (conformance cases `client_server.*` hold the old bytes); server dispatch measured at the same instructions per request and code within 4 B, see `ww_stdlib/ww_client_server/CHANGELOG.md`, `wire_weaver_core/`, `wire_weaver_client/`, `ww_stream/`.
+- `#[no_unit_hint]` accepts a reason (TOOL-35: `#[no_unit_hint = "reason"]`, or per method argument), which
+  `ww api check --strict`/`--require-current` and `ww api scaffold --strict` refuse to be bare or empty, naming
+  the item and the form to use instead; `Check::assert` refuses the same way, so an API crate's own
+  `tests/evolution.rs` catches a missing reason. Every existing `#[no_unit_hint]` in the repo (`ww_can_bus`) got
+  one. See the `wire_weaver_core`, `wire_weaver_evolution`, `wire_weaver_cli` and `ww_can_bus` changelogs.
 
 ### Added
 

@@ -2,7 +2,7 @@ use super::{
     crate_walker::{CrateContext, LookupKey, Scratch, TypeInProgress},
     markers::{CrateRefs, generic_codec_error, is_generic_codec, marker_def},
     projection::{Projection, param_bounds},
-    unit_hint::{is_silenced, suggest},
+    unit_hint::{is_silenced, suggest, unreasoned_silence},
     util::{
         Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
         use_tree_path_to,
@@ -1225,15 +1225,14 @@ fn convert_fields(
                 }
                 if let Some(ident) = &f.ident {
                     let name = ident.to_string();
+                    let item = format!("{item_path}::{name}");
                     if !is_silenced(&f.attrs, &name)
-                        && let Some(hint) = suggest(
-                            &format!("{item_path}::{name}"),
-                            &name,
-                            &f.ty,
-                            &collect_docs(&f.attrs),
-                        )
+                        && let Some(hint) = suggest(&item, &name, &f.ty, &collect_docs(&f.attrs))
                     {
                         scratch.unit_hints.push(hint);
+                    }
+                    if let Some(violation) = unreasoned_silence(&item, &f.attrs, &name, false) {
+                        scratch.unreasoned.push(violation);
                     }
                 }
                 let since = get_since_attr(&f.attrs, current_crate, scratch)?;

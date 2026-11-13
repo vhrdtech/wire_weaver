@@ -2,7 +2,9 @@ use anyhow::{Result, anyhow};
 use console::style;
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::triplet;
-use wire_weaver_evolution::{Change, Check, Comparison, Outcome, Report, RootsOutcome};
+use wire_weaver_evolution::{
+    Change, Check, Comparison, Outcome, Report, RootsOutcome, unreasoned_message,
+};
 
 pub(crate) fn check(
     path: PathBuf,
@@ -16,6 +18,11 @@ pub(crate) fn check(
         .require_current(require_current)
         .run()
         .map_err(|e| anyhow!(e))?;
+    if (strict || require_current)
+        && let Some(message) = unreasoned_message(outcome.unreasoned())
+    {
+        return Err(anyhow!("{message}"));
+    }
     match &outcome {
         Outcome::Compared(c) => print_report(&c.report, &c.old_path, &c.new_label),
         Outcome::Roots(r) => print_roots(r),

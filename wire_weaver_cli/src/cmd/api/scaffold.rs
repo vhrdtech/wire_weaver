@@ -3,14 +3,19 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use wire_weaver_core::{ServerScaffoldConfig, gen_server_scaffold, load_with_hints};
+use wire_weaver_evolution::unreasoned_message;
 
 pub(crate) fn scaffold(
     crate_path: PathBuf,
     root: Option<String>,
     config: ServerScaffoldConfig,
     output: Option<PathBuf>,
+    strict: bool,
 ) -> Result<()> {
-    let (api_bundle, hints, crate_paths) = load_with_hints(&crate_path, root, false)?;
+    let (api_bundle, hints, unreasoned, crate_paths) = load_with_hints(&crate_path, root, false)?;
+    if strict && let Some(message) = unreasoned_message(&unreasoned) {
+        return Err(anyhow!("{message}"));
+    }
     let code = rustfmt(gen_server_scaffold(&api_bundle, &config, &crate_paths)?)?;
     match output {
         Some(path) => {

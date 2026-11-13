@@ -69,7 +69,8 @@ pub mod superseded;
 #[cfg(feature = "source")]
 pub use check::{
     Check, Comparison, CrateCache, NoSnapshot, Outcome, RemovedRoot, RootOutcome, RootsOutcome,
-    SAVE_ENV, SaveStatus, Saved, SharedChange, UnitHint, missing_test_warning,
+    SAVE_ENV, SaveStatus, Saved, SharedChange, UnitHint, UnreasonedSilence, missing_test_warning,
+    unreasoned_message,
 };
 pub use compat::RootCause;
 pub use diff::{Difference, diff};

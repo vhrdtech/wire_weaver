@@ -4,7 +4,7 @@ use super::{
     meta::{MetaSite, get_meta},
     moved_from::get_moved_from_attrs,
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
-    unit_hint::{is_silenced, suggest},
+    unit_hint::{is_silenced, suggest, unreasoned_silence},
     util::{
         Batched, collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr,
         get_optional_attr, get_since_attr, get_stream_fn_attr, use_tree_globs, use_tree_path_to,
@@ -347,15 +347,19 @@ fn convert_api_item_fn(
                 .context(current_crate.err_context()));
         };
         let arg_name = arg_ident.ident.to_string();
+        let item = format!("{}::{arg_name}", item_fn.sig.ident);
         if !is_silenced(&item_fn.attrs, &arg_name)
             && let Some(hint) = suggest(
-                &format!("{}::{arg_name}", item_fn.sig.ident),
+                &item,
                 &arg_name,
                 &pat_type.ty,
                 &collect_docs(&pat_type.attrs),
             )
         {
             scratch.unit_hints.push(hint);
+        }
+        if let Some(violation) = unreasoned_silence(&item, &item_fn.attrs, &arg_name, true) {
+            scratch.unreasoned.push(violation);
         }
         let ty = convert_ty(&pat_type.ty, current_crate, scratch)?;
         let (default, flatten) = get_arg_attrs(&pat_type.attrs, &arg_name)
@@ -607,6 +611,11 @@ fn convert_api_item_property(
         )
     {
         scratch.unit_hints.push(hint);
+    }
+    if let Some(violation) =
+        unreasoned_silence(&property_name, &item_macro.attrs, &property_name, false)
+    {
+        scratch.unreasoned.push(violation);
     }
     let ty = convert_ty(&args.ty, current_crate, scratch)?;
     let write_err_ty = if let Some(write_err_ty) = &args.write_err_ty {

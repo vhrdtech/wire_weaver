@@ -52,7 +52,8 @@ pub fn load(
     trait_name: Option<String>,
     offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
-    load_with_hints(crate_path, trait_name, offline_mode).map(|(bundle, _hints, _paths)| bundle)
+    load_with_hints(crate_path, trait_name, offline_mode)
+        .map(|(bundle, _hints, _unreasoned, _paths)| bundle)
 }
 
 /// [load] of the crate generated code is in (`ww_codegen!(crate :: Trait ..)`), with the modules of its traits
@@ -84,13 +85,19 @@ fn load_own_with_paths_walked(
     Ok((bundle, paths))
 }
 
-/// [load], also returning the unit-suffix hints found (TOOL-22) and the modules of the root's own trait
-/// ([CratePaths::trait_module], empty at the crate root), for `ww api scaffold` to show (TOOL-32).
+/// [load], also returning the unit-suffix hints found (TOOL-22), the `#[no_unit_hint]`s that need a reason under
+/// `--strict`, and the modules of the root's own trait ([CratePaths::trait_module], empty at the crate root), for
+/// `ww api scaffold` to show (TOOL-32).
 pub fn load_with_hints(
     crate_path: &Path,
     trait_name: Option<String>,
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>, CratePaths)> {
+) -> Result<(
+    ApiBundleOwned,
+    Vec<super::UnitHint>,
+    Vec<super::UnreasonedSilence>,
+    CratePaths,
+)> {
     let key = MacroLoad::Api {
         crate_path: MacroLoad::path(crate_path),
         root: trait_name.clone(),
@@ -101,13 +108,18 @@ pub fn load_with_hints(
 pub(crate) fn load_with_hints_walked(
     crate_path: &Path,
     trait_name: Option<String>,
-) -> Result<(ApiBundleOwned, Vec<super::UnitHint>, CratePaths)> {
+) -> Result<(
+    ApiBundleOwned,
+    Vec<super::UnitHint>,
+    Vec<super::UnreasonedSilence>,
+    CratePaths,
+)> {
     let mut scratch = Scratch::default();
     let manifest = ManifestContext::load(crate_path)?;
     let features = manifest.default_features();
     let bundle = load_inner(manifest, features, trait_name, &mut scratch)?;
     let paths = CratePaths::default().with_trait_modules(&scratch);
-    Ok((bundle, scratch.unit_hints, paths))
+    Ok((bundle, scratch.unit_hints, scratch.unreasoned, paths))
 }
 
 /// Load API definition and all referenced data types for a given dependency of 'current crate'.
@@ -491,6 +503,9 @@ pub(crate) struct Scratch {
     /// Unit-suffix hints found so far (TOOL-22), not part of the bundle: `load`/`load_crate` drop them,
     /// `load_with_hints`/`load_crate_with_notes` return them alongside it.
     pub(crate) unit_hints: Vec<super::UnitHint>,
+    /// `#[no_unit_hint]`s found so far with no reason or an empty one, not part of the bundle: what `ww api check
+    /// --strict` refuses, returned alongside `unit_hints`.
+    pub(crate) unreasoned: Vec<super::UnreasonedSilence>,
     /// `#[moved_from]` of the resources converted so far (EVO-40), not part of the bundle either.
     pub(crate) moved_from: Vec<super::MovedFrom>,
     /// The crate of the API root being loaded and the root's wire version: `#[since = "w1.5, w2.2"]` on an item of
@@ -1520,6 +1535,7 @@ impl Scratch {
             self.trait_bounds.clear();
             // TOOL-22: a discarded run (features grew) walked the same source and found the same hints again
             self.unit_hints.clear();
+            self.unreasoned.clear();
         }
     }
 

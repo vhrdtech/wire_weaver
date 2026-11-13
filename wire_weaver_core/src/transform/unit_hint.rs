@@ -5,8 +5,14 @@
 //! error, found by [suggest] while the crate walker (`load_crate`/`load`) runs, and silenced per item with
 //! `#[no_unit_hint]` (bare on a struct/enum field, bare or naming arguments `#[no_unit_hint(a, b)]` on a trait
 //! method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item).
+//!
+//! A reason is accepted the same way: `#[no_unit_hint = "reason"]` on a field or resource item, `#[no_unit_hint =
+//! "reason"]` for every argument of a method or `#[no_unit_hint(arg = "reason", ..)]` per argument. The bare forms
+//! stay accepted by default (the walker and `ww_codegen!`/the derive macros never error on one); `ww api check
+//! --strict` is what refuses a bare or empty reason, found by [unreasoned_silence].
 
-use syn::{Attribute, GenericArgument, Meta, PathArguments, Type};
+use syn::punctuated::Punctuated;
+use syn::{Attribute, Expr, GenericArgument, Lit, Meta, PathArguments, Token, Type};
 
 /// A unit-suffix hint found while walking a crate.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,6 +41,26 @@ impl std::fmt::Display for UnitHint {
 /// The name part of an `item` path (`MyStruct::shared_us` -> `shared_us`).
 fn name_of(item: &str) -> &str {
     item.rsplit("::").next().unwrap_or(item)
+}
+
+/// A `#[no_unit_hint]` found with no reason (bare) or an empty one, found while the crate walker runs: `ww api
+/// check --strict` refuses these, naming the item and showing the reasoned form to use instead.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnreasonedSilence {
+    /// Where it was found, e.g. `MyStruct::shared_us` or `set_timeout::timeout_ms`.
+    pub item: String,
+    /// The reasoned form to use instead, e.g. `#[no_unit_hint = "reason"]` or `#[no_unit_hint(poll_hz = "reason")]`.
+    pub example: String,
+}
+
+impl std::fmt::Display for UnreasonedSilence {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: #[no_unit_hint] needs a reason under --strict, e.g. {}",
+            self.item, self.example
+        )
+    }
 }
 
 /// `(suffix, unit, prefix, alias)`, `exact_units::units::{unit}` and `exact_units::prefix::{prefix}`; `alias` is
@@ -273,22 +299,74 @@ fn bare_integer(ty: &Type) -> Option<&'static str> {
         .find(|i| seg.ident == i)
 }
 
-/// Whether `#[no_unit_hint]` on `attrs` silences the hint for `name`: bare silences everything on the item it is
-/// on (a field, or every argument of a method), `#[no_unit_hint(a, b)]` only the named arguments.
+/// Whether `#[no_unit_hint]` on `attrs` silences the hint for `name`: bare or reasoned (`#[no_unit_hint = "..."]`)
+/// silences everything on the item it is on (a field, or every argument of a method), `#[no_unit_hint(a, b)]` /
+/// `#[no_unit_hint(a = "...", b = "...")]` only the named arguments.
 pub(crate) fn is_silenced(attrs: &[Attribute], name: &str) -> bool {
-    attrs.iter().any(|a| {
+    no_unit_hint_for(attrs, name).is_some()
+}
+
+/// `attrs`' `#[no_unit_hint]` verdict for `name`: `None` if no such attribute targets it, `Some(reason)` if one
+/// does — `None` inside for a bare form, `Some(r)` for `#[no_unit_hint = "r"]` or `#[no_unit_hint(name = "r")]`
+/// (`r` may be empty, or come back empty when the value wasn't a string literal).
+fn no_unit_hint_for(attrs: &[Attribute], name: &str) -> Option<Option<String>> {
+    attrs.iter().find_map(|a| {
         if !a.path().is_ident("no_unit_hint") {
-            return false;
+            return None;
         }
         match &a.meta {
-            Meta::Path(_) => true,
-            Meta::List(list) => list
-                .parse_args_with(
-                    syn::punctuated::Punctuated::<syn::Ident, syn::Token![,]>::parse_terminated,
-                )
-                .is_ok_and(|idents| idents.iter().any(|i| i == name)),
-            Meta::NameValue(_) => false,
+            Meta::Path(_) => Some(None),
+            Meta::NameValue(nv) => Some(Some(reason_of(&nv.value))),
+            Meta::List(list) => {
+                let metas = list
+                    .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)
+                    .ok()?;
+                metas.iter().find_map(|m| match m {
+                    Meta::Path(p) if p.is_ident(name) => Some(None),
+                    Meta::NameValue(nv) if nv.path.is_ident(name) => {
+                        Some(Some(reason_of(&nv.value)))
+                    }
+                    _ => None,
+                })
+            }
         }
+    })
+}
+
+/// The string literal of a `#[no_unit_hint = ..]`/`#[no_unit_hint(arg = ..)]` value; anything else (a non-string
+/// literal, an expression) reads as an empty reason, which `--strict` refuses the same as a bare attribute.
+fn reason_of(value: &Expr) -> String {
+    match value {
+        Expr::Lit(lit) => match &lit.lit {
+            Lit::Str(s) => s.value(),
+            _ => String::new(),
+        },
+        _ => String::new(),
+    }
+}
+
+/// `item`'s `#[no_unit_hint]` for `name`, if it needs a reason under `ww api check --strict` (bare, or an empty
+/// string): `None` when nothing silences `name`, or it already has a non-empty reason. `named_form`: whether
+/// `#[no_unit_hint({name} = "reason")]` is valid here (a method argument) as well as `#[no_unit_hint = "reason"]`
+/// (the only form on a field, or a `property!`/`stream!`/`sink!`/`ww_impl!` item, which has nothing else to name).
+pub(crate) fn unreasoned_silence(
+    item: &str,
+    attrs: &[Attribute],
+    name: &str,
+    named_form: bool,
+) -> Option<UnreasonedSilence> {
+    let reason = no_unit_hint_for(attrs, name)?;
+    if !reason.unwrap_or_default().trim().is_empty() {
+        return None;
+    }
+    let example = if named_form {
+        format!("#[no_unit_hint({name} = \"reason\")]")
+    } else {
+        "#[no_unit_hint = \"reason\"]".to_string()
+    };
+    Some(UnreasonedSilence {
+        item: item.to_string(),
+        example,
     })
 }
 
@@ -335,6 +413,51 @@ mod tests {
         assert!(is_silenced(std::slice::from_ref(&named), "timeout_ms"));
         assert!(!is_silenced(&[named], "unrelated_ms"));
         assert!(!is_silenced(&[], "shared_us"));
+    }
+
+    #[test]
+    fn silenced_by_a_reasoned_attribute() {
+        let reasoned: Attribute = parse_quote!(#[no_unit_hint = "a slot letter, not seconds"]);
+        assert!(is_silenced(&[reasoned], "retry_count_s"));
+        let per_arg: Attribute =
+            parse_quote!(#[no_unit_hint(poll_hz = "a raw register value, not a frequency")]);
+        assert!(is_silenced(std::slice::from_ref(&per_arg), "poll_hz"));
+        assert!(!is_silenced(&[per_arg], "timeout_ms"));
+    }
+
+    #[test]
+    fn bare_and_empty_reasons_need_one_under_strict() {
+        let bare: Attribute = parse_quote!(#[no_unit_hint]);
+        let v = unreasoned_silence("S::shared_us", &[bare], "shared_us", false).unwrap();
+        assert_eq!(v.item, "S::shared_us");
+        assert_eq!(v.example, "#[no_unit_hint = \"reason\"]");
+
+        let empty: Attribute = parse_quote!(#[no_unit_hint = ""]);
+        assert!(unreasoned_silence("S::shared_us", &[empty], "shared_us", false).is_some());
+
+        let blank: Attribute = parse_quote!(#[no_unit_hint = "   "]);
+        assert!(unreasoned_silence("S::shared_us", &[blank], "shared_us", false).is_some());
+
+        let bare_arg: Attribute = parse_quote!(#[no_unit_hint(poll_hz)]);
+        let v =
+            unreasoned_silence("Device::configure::poll_hz", &[bare_arg], "poll_hz", true).unwrap();
+        assert_eq!(v.example, "#[no_unit_hint(poll_hz = \"reason\")]");
+    }
+
+    #[test]
+    fn a_real_reason_is_not_a_violation() {
+        let reasoned: Attribute = parse_quote!(#[no_unit_hint = "a slot letter, not seconds"]);
+        assert!(
+            unreasoned_silence("S::retry_count_s", &[reasoned], "retry_count_s", false).is_none()
+        );
+
+        let per_arg: Attribute = parse_quote!(#[no_unit_hint(poll_hz = "a register value")]);
+        assert!(
+            unreasoned_silence("Device::configure::poll_hz", &[per_arg], "poll_hz", true).is_none()
+        );
+
+        // nothing silences this name: no violation, no note either
+        assert!(unreasoned_silence("S::count", &[], "count", false).is_none());
     }
 
     #[test]

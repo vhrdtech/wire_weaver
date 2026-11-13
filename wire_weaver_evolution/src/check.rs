@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 pub use roots::{RemovedRoot, RootOutcome, RootsOutcome, SharedChange};
 use wire_weaver_core::SourceNotes;
-pub use wire_weaver_core::{CrateCache, UnitHint};
+pub use wire_weaver_core::{CrateCache, UnitHint, UnreasonedSilence};
 use ww_self::{ApiBundleOwned, snapshot};
 use ww_version::{VersionOwned, WireVersion};
 
@@ -123,36 +123,39 @@ impl Check {
                 return self.run_roots(&roots, cache);
             }
         }
-        let (new, new_recorded, new_label, dir, hints, moves, definitions) = if is_snapshot {
-            let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
-            let new = read(&self.path)?;
-            (
-                new.bundle,
-                new.recorded,
-                self.path.display().to_string(),
-                dir,
-                vec![],
-                vec![],
-                None,
-            )
-        } else {
-            let (new, notes) = cache
-                .load_crate_with_notes(&self.path)
-                .map_err(|e| format!("{e:#}"))?;
-            let dir = self.crate_snapshots_dir();
-            let moves = own_moves(&new, &notes);
-            let label = "source".to_string();
-            let definitions = Some(notes.definitions);
-            (
-                new,
-                Recorded::default(),
-                label,
-                dir,
-                notes.hints,
-                moves,
-                definitions,
-            )
-        };
+        let (new, new_recorded, new_label, dir, hints, unreasoned, moves, definitions) =
+            if is_snapshot {
+                let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
+                let new = read(&self.path)?;
+                (
+                    new.bundle,
+                    new.recorded,
+                    self.path.display().to_string(),
+                    dir,
+                    vec![],
+                    vec![],
+                    vec![],
+                    None,
+                )
+            } else {
+                let (new, notes) = cache
+                    .load_crate_with_notes(&self.path)
+                    .map_err(|e| format!("{e:#}"))?;
+                let dir = self.crate_snapshots_dir();
+                let moves = own_moves(&new, &notes);
+                let label = "source".to_string();
+                let definitions = Some(notes.definitions);
+                (
+                    new,
+                    Recorded::default(),
+                    label,
+                    dir,
+                    notes.hints,
+                    notes.unreasoned,
+                    moves,
+                    definitions,
+                )
+            };
         let definitions: Vec<&ApiBundleOwned> = definitions.iter().collect();
         // w0, the design line (EVO-41): no snapshot is required, what one shows is information
         let design_line = new.wire.is_some_and(|w| w.is_design_line());
@@ -162,7 +165,7 @@ impl Check {
         };
         warnings.extend(unreached_moves(&[&new], &moves));
         if self.require_current && !is_snapshot && self.against.is_none() && !design_line {
-            return self.run_current(new, hints, &moves, &definitions);
+            return self.run_current(new, hints, unreasoned, &moves, &definitions);
         }
         let old = match &self.against {
             Some(against) => read(against)?,
@@ -191,6 +194,7 @@ impl Check {
                             current_required: false,
                             previous: None,
                             hints,
+                            unreasoned,
                             design_line,
                             warnings,
                             previous_line: None,
@@ -217,6 +221,7 @@ impl Check {
             new,
             current_required: false,
             hints,
+            unreasoned,
             design_line,
             warnings,
             unchanged_since: None,
@@ -229,6 +234,7 @@ impl Check {
         &self,
         source: ApiBundleOwned,
         hints: Vec<UnitHint>,
+        unreasoned: Vec<UnreasonedSilence>,
         moves: &[Move],
         definitions: &[&ApiBundleOwned],
     ) -> Result<Outcome, String> {
@@ -248,6 +254,7 @@ impl Check {
                 current_required: true,
                 previous: previous.map(|s| s.path),
                 hints,
+                unreasoned,
                 design_line: false,
                 warnings: warnings.clone(),
                 previous_line: None,
@@ -289,6 +296,7 @@ impl Check {
             new,
             current_required: true,
             hints,
+            unreasoned,
             design_line: false,
             warnings: warnings.clone(),
             unchanged_since: None,
@@ -554,11 +562,31 @@ impl Check {
         let outcome = self
             .run()
             .unwrap_or_else(|e| panic!("evolution check failed: {e}"));
+        if (self.strict || self.require_current)
+            && let Some(message) = unreasoned_message(outcome.unreasoned())
+        {
+            panic!("\n{outcome}\n{message}");
+        }
         match outcome.verdict() {
             Ok(ok) => println!("{outcome}\n{ok}"),
             Err(e) => panic!("\n{outcome}\n{e}"),
         }
     }
+}
+
+/// `items`, one per line, if there are any: what `--strict` refuses a bare or empty `#[no_unit_hint]` with, for
+/// [Check::assert] and `ww api check --strict`.
+pub fn unreasoned_message(items: &[UnreasonedSilence]) -> Option<String> {
+    if items.is_empty() {
+        return None;
+    }
+    Some(
+        items
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n"),
+    )
 }
 
 /// What [Check::run] found.
@@ -591,6 +619,9 @@ pub struct Comparison {
     /// Unit-suffix hints found in the source (TOOL-22), empty for a snapshot file: a note, never part of the
     /// verdict.
     pub hints: Vec<UnitHint>,
+    /// `#[no_unit_hint]`s found with no reason or an empty one (TOOL-22), empty for a snapshot file: what `--strict`
+    /// refuses, never part of the version/wire verdict.
+    pub unreasoned: Vec<UnreasonedSilence>,
     /// The newer side is on w0, the design line (EVO-41): breaks are accepted, the report is information and the
     /// verdict passes.
     pub design_line: bool,
@@ -619,6 +650,9 @@ pub struct NoSnapshot {
     pub previous: Option<PathBuf>,
     /// Unit-suffix hints found in the source (TOOL-22), empty for a snapshot file.
     pub hints: Vec<UnitHint>,
+    /// `#[no_unit_hint]`s found with no reason or an empty one (TOOL-22), empty for a snapshot file: what
+    /// `--strict` refuses.
+    pub unreasoned: Vec<UnreasonedSilence>,
     /// The crate is on w0, the design line (EVO-41): it keeps no snapshots, so none is missing.
     pub design_line: bool,
     /// What looked wrong but doesn't change the verdict: a crate that can be published with its root on w0.
@@ -701,6 +735,16 @@ impl Outcome {
             Outcome::Compared(c) => &c.hints,
             Outcome::NoSnapshot(n) => &n.hints,
             Outcome::Roots(r) => &r.hints,
+        }
+    }
+
+    /// `#[no_unit_hint]`s found with no reason or an empty one (TOOL-22): what `ww api check --strict` refuses,
+    /// never part of [verdict](Self::verdict) itself.
+    pub fn unreasoned(&self) -> &[UnreasonedSilence] {
+        match self {
+            Outcome::Compared(c) => &c.unreasoned,
+            Outcome::NoSnapshot(n) => &n.unreasoned,
+            Outcome::Roots(r) => &r.unreasoned,
         }
     }
 

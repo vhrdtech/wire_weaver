@@ -783,6 +783,95 @@ pub trait Api {
     assert!(outcome.hints().is_empty(), "{:?}", outcome.hints());
 }
 
+/// TOOL-22: a bare or empty `#[no_unit_hint]` is accepted either way (never an error from the walker), but shows up
+/// in [Outcome::unreasoned] for `ww api check --strict` and [Check::assert] (with `strict(true)`) to refuse; a real
+/// reason, bare-for-all-arguments or per-argument, clears it.
+#[test]
+fn bare_no_unit_hint_needs_a_reason_under_strict() {
+    let api = r#"
+#[derive_shrink_wrap]
+pub struct SteerPoint {
+    #[no_unit_hint]
+    pub shared_us: u64,
+}
+"#;
+    let c = TestCrate::new("unit-hint-bare");
+    c.write("0.1.0", api);
+    let (outcome, _) = check(c.path(), false);
+    assert!(outcome.hints().is_empty(), "{:?}", outcome.hints());
+    let unreasoned = outcome.unreasoned();
+    assert_eq!(unreasoned.len(), 1, "{unreasoned:?}");
+    assert_eq!(unreasoned[0].item, "SteerPoint::shared_us");
+    assert!(unreasoned[0].to_string().contains("--strict"));
+
+    let empty = api.replace(
+        "    #[no_unit_hint]\n    pub shared_us: u64,",
+        "    #[no_unit_hint = \"\"]\n    pub shared_us: u64,",
+    );
+    c.write("0.1.0", &empty);
+    let (outcome, _) = check(c.path(), false);
+    assert_eq!(outcome.unreasoned().len(), 1, "{:?}", outcome.unreasoned());
+
+    let reasoned = api.replace(
+        "    #[no_unit_hint]\n    pub shared_us: u64,",
+        "    #[no_unit_hint = \"s is a slot letter here, not seconds\"]\n    pub shared_us: u64,",
+    );
+    c.write("0.1.0", &reasoned);
+    let (outcome, _) = check(c.path(), false);
+    assert!(
+        outcome.unreasoned().is_empty(),
+        "{:?}",
+        outcome.unreasoned()
+    );
+}
+
+/// Same for a method argument: bare-for-all or per-argument, named forms accept a reason too.
+#[test]
+fn bare_no_unit_hint_on_arguments_needs_a_reason_under_strict() {
+    let api = r#"
+#[ww_api_root(wire = "w1.0")]
+pub trait Api {
+    #[no_unit_hint(poll_hz)]
+    fn configure(timeout_ms: u32, poll_hz: u32);
+}
+"#;
+    let c = TestCrate::new("unit-hint-arg-bare");
+    c.write("0.1.0", api);
+    let (outcome, _) = check(c.path(), false);
+    let unreasoned = outcome.unreasoned();
+    assert_eq!(unreasoned.len(), 1, "{unreasoned:?}");
+    assert_eq!(unreasoned[0].item, "configure::poll_hz");
+    assert!(unreasoned[0].example.contains("poll_hz"));
+
+    let reasoned = api.replace(
+        "    #[no_unit_hint(poll_hz)]\n",
+        "    #[no_unit_hint(poll_hz = \"a raw register value, not a frequency\")]\n",
+    );
+    c.write("0.1.0", &reasoned);
+    let (outcome, _) = check(c.path(), false);
+    assert!(
+        outcome.unreasoned().is_empty(),
+        "{:?}",
+        outcome.unreasoned()
+    );
+}
+
+/// [Check::assert] with `strict(true)` panics on an unreasoned `#[no_unit_hint]`, passes with a real reason.
+#[test]
+#[should_panic(expected = "--strict")]
+fn assert_panics_under_strict_on_an_unreasoned_silence() {
+    let api = r#"
+#[derive_shrink_wrap]
+pub struct SteerPoint {
+    #[no_unit_hint]
+    pub shared_us: u64,
+}
+"#;
+    let c = TestCrate::new("unit-hint-assert");
+    c.write("0.1.0", api).save();
+    Check::new(c.path()).strict(true).assert();
+}
+
 /// A tiny path-dependency crate with one struct, whose own version and `id` field type `write_dep` sets: a stand-in
 /// for a `ww_stdlib` crate making a breaking change of its own (EVO-21, as `ww_board_info`'s `Rework` did, STD-98).
 fn write_dep(name: &str, version: &str, id_ty: &str) -> PathBuf {

@@ -2567,6 +2567,19 @@ Unicast Data0 to one node over the same bus is TR-6.
   compile and read right in a crate with several roots; the wire-version note points at
   `[package.metadata.wire_weaver.roots]` for such a root, instead of the crate-level `wire`.
   `wire_weaver_core::gen_server_scaffold` test `several_roots`, `tests/multi_root_api`.
+- ✅ **TOOL-35 A reason on `#[no_unit_hint]`, required under `--strict`** — the bare forms (`#[no_unit_hint]` on a
+  field, bare or naming arguments on a method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item) stay
+  accepted by default; the walker and `ww_codegen!`/the derive macros never error on one. A reason is written the
+  same way: `#[no_unit_hint = "reason"]` on a field, a resource item, or every argument of a method,
+  `#[no_unit_hint(arg = "reason", ..)]` per argument (`wire_weaver_core::transform::unit_hint`,
+  `UnreasonedSilence`, found alongside the TOOL-22 hints by the same walk, `load_with_hints` and
+  `load_crate_with_notes` return both). `ww api check --strict` and `ww api scaffold --strict` refuse a bare or
+  empty reason, naming the item and the reasoned form to use instead; `Check::assert` (an API crate's own
+  `tests/evolution.rs`, `strict(true)`) refuses the same way, so our repo's own gate catches one without opening a
+  terminal. A reason never changes the wire or a snapshot. Every existing use in the repo (`ww_can_bus`'s `Status`
+  fault-confinement counters, `TtConfig`'s TURCF/TTOCF register fields, `XlFrame`'s protocol code and acceptance
+  field) got a real one; none of them turned out to want a unit instead.
+  `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`

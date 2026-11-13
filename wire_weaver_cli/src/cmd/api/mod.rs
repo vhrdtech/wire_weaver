@@ -111,6 +111,10 @@ pub enum ApiCommand {
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
+
+        /// Refuse a `#[no_unit_hint]` with no reason or an empty one (TOOL-22)
+        #[arg(long)]
+        strict: bool,
     },
     /// Save all traits and types defined in a crate into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`
     ///
@@ -275,6 +279,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             introspect,
             introspect_compression,
             output,
+            strict,
         } => scaffold::scaffold(
             path,
             root,
@@ -294,6 +299,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 introspect_compression: introspect_compression.unwrap_or_default(),
             },
             output,
+            strict,
         ),
         ApiCommand::Save {
             path,

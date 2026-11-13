@@ -47,6 +47,8 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
 pub struct SourceNotes {
     /// Unit-suffix hints (TOOL-22).
     pub hints: Vec<super::UnitHint>,
+    /// `#[no_unit_hint]`s with no reason or an empty one, what `ww api check --strict` refuses.
+    pub unreasoned: Vec<super::UnreasonedSilence>,
     /// Resources marked `#[moved_from]` (EVO-40), of every crate walked: the checker takes its own crate's.
     pub moved_from: Vec<super::MovedFrom>,
     /// The module of every trait the load converted, by crate and trait name, empty at the crate root: the API model
@@ -274,13 +276,14 @@ pub fn root_of_crate_snapshot(bundle: &ApiBundleOwned, trait_name: &str) -> Opti
     Some(root)
 }
 
-/// `hints`, kept in their first order, each only once: a type reached from more than one API item is converted once
-/// per reference, so the same hint would otherwise be pushed once per reference too.
-fn dedup_hints(hints: Vec<super::UnitHint>) -> Vec<super::UnitHint> {
-    let mut deduped = Vec::with_capacity(hints.len());
-    for hint in hints {
-        if !deduped.contains(&hint) {
-            deduped.push(hint);
+/// `items` (unit-suffix hints or unreasoned `#[no_unit_hint]`s), kept in their first order, each only once: a type
+/// reached from more than one API item is converted once per reference, so the same one would otherwise be pushed
+/// once per reference too.
+fn dedup<T: PartialEq>(items: Vec<T>) -> Vec<T> {
+    let mut deduped = Vec::with_capacity(items.len());
+    for item in items {
+        if !deduped.contains(&item) {
+            deduped.push(item);
         }
     }
     deduped
@@ -295,7 +298,8 @@ fn snapshot_bundle(
     wire: Option<WireVersion>,
     keep_own_types: bool,
 ) -> Result<(ApiBundleOwned, SourceNotes)> {
-    let hints = dedup_hints(std::mem::take(&mut scratch.unit_hints));
+    let hints = dedup(std::mem::take(&mut scratch.unit_hints));
+    let unreasoned = dedup(std::mem::take(&mut scratch.unreasoned));
     let moved_from = std::mem::take(&mut scratch.moved_from);
     let trait_modules = scratch.trait_modules.clone();
     let scratch = std::mem::take(&mut scratch.root_bundle);
@@ -320,6 +324,7 @@ fn snapshot_bundle(
     };
     let notes = SourceNotes {
         hints,
+        unreasoned,
         moved_from,
         trait_modules,
         definitions: bundle.clone(),

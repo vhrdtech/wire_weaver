@@ -141,7 +141,7 @@ mod tests {
                 crate_path: MacroLoad::path(&dir),
                 root: Some(root.to_string()),
             };
-            let (bundle, _hints, _paths) = kept
+            let (bundle, _hints, _unreasoned, _paths) = kept
                 .get_or_load(key, || load_with_hints_walked(&dir, Some(root.to_string())))
                 .unwrap();
             bundle

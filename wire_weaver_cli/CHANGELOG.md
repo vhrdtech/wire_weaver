@@ -10,6 +10,7 @@
 ### 🚀 Features
 
 - `ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]` rewrites the pinned references of a crate's current snapshot to the source's, keeping its format, for a frozen fixture that follows its dependencies by path (EVO-70).
+- `ww api check --strict`/`--require-current` and `ww api scaffold --strict` refuse a `#[no_unit_hint]` with no reason or an empty one (TOOL-35), naming the item and the reasoned form to write instead (`#[no_unit_hint = "reason"]`, or `#[no_unit_hint(arg = "reason", ..)]` per method argument). `ww api scaffold`'s `load_with_hints` call now also takes the unreasoned silences.
 - `ww api keep-superseded OLD.ron --current CUR.ron --into DIR` keeps the definitions an earlier snapshot of a crate version had and its current one no longer has (EVO-68, EVO-69), for a refresh in place made before `ww api save` kept them. `ww api check` prints a dependency's docs-only change as a `note:` line (EVO-69).
 - `ww api save` keeps the definitions a refresh in place replaces in `api_snapshots/superseded/` and lists them (`kept the trait Indication it replaced in ..`), so snapshots and devices naming them by their old signature are still checked (EVO-68).
 - `ww api check` across a wire break (EVO-40): resources matched by path and `#[moved_from]`, a move reported as one, `proposal:` lines for a resource added with the name of one removed elsewhere, and for a new line's root in a crate with several, the moves and proposals against the line before.

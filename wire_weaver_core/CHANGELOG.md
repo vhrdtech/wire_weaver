@@ -3,7 +3,12 @@
 ### ⚠️ Breaking
 
 - Generated servers and clients carry resource paths as `ww_client_server::ResourceIndex` (STD-115, the protocol's paths are typed): the index chain a handler of an item under a resource array takes is `[ResourceIndex; N]` (`index_chain[0].get().0` for the number), as are the `index_chain` arguments of `mark_changed_*` and `element_removed_*` (observe, API-63), the generated `valid_indices_*` functions and a sub-level client's `index_chain` field (`Vec<ResourceIndex>` for a shared one, CLT-68). `ww api scaffold` prints `_index_chain: [ww_client_server::ResourceIndex; N]`. The bytes on the wire are the same.
+- `load_with_hints` returns a 4-tuple now, `(ApiBundleOwned, Vec<UnitHint>, Vec<UnreasonedSilence>, CratePaths)`: the new element is the `#[no_unit_hint]`s with no reason or an empty one (TOOL-35). `SourceNotes` has a new public field `unreasoned: Vec<UnreasonedSilence>`; a `SourceNotes { .. }` literal needs it.
 - Devices name the definitions they leave out by the shape signature, then the signature with docs (16 bytes, 8 without docs), and leave one out when its shape matches the embedded snapshot, whatever its docs (EVO-69): a dependency's doc fix no longer keeps it in-line or changes `API_HASH_NO_DOCS`. Wire: the skipped references in introspection data and the API hashes change once. The local registry caches by shape; `shared_signature` (CLT-68) is the shape signature, the same values as before.
+
+### 🚀 Features
+
+- `#[no_unit_hint]` accepts a reason (TOOL-35): `#[no_unit_hint = "reason"]` on a struct/enum field, a `property!`/`stream!`/`sink!`/`ww_impl!` item, or for every argument of a trait method, `#[no_unit_hint(arg = "reason", ..)]` per argument. The bare forms stay accepted by default; nothing in `wire_weaver_core` ever errors on one. New `transform::unit_hint::UnreasonedSilence` (`item`, `example`) for a bare or empty one, found by `unreasoned_silence` alongside `UnitHint`'s `suggest`, re-exported as `wire_weaver_core::UnreasonedSilence`: `ww api check --strict` and `ww api scaffold --strict` refuse these (`wire_weaver_evolution`, `wire_weaver_cli`).
 - `SourceNotes` has a new public field `definitions`, the walked bundle before other crates' traits and types were left out of it, for the evolution checker to find a dependency's definition that no embedded snapshot holds (EVO-67). It no longer derives `Default`, `PartialEq` and `Eq` (`ApiBundleOwned` has none of them); a `SourceNotes { .. }` literal needs the field.
 
 ### 🚀 Features

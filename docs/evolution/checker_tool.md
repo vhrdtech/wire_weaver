@@ -599,6 +599,39 @@ property!(ro, rate_hz: u32); // a raw register value here, not a frequency
 `ww api scaffold` shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
 handlers are written against `Fixed` from the start where the note applies.
 
+### A reason, required under `--strict` (TOOL-35)
+
+The bare forms above stay accepted by default: the walker and `ww_codegen!`/the derive macros never error on one.
+A reason is written the same way, in place of the bare attribute: `#[no_unit_hint = "reason"]` on a field or a
+resource item, `#[no_unit_hint = "reason"]` for every argument of a method, or `#[no_unit_hint(arg = "reason",
+..)]` per argument:
+
+```rust
+struct SteerPoint {
+    #[no_unit_hint = "s is the slot letter here, not seconds"]
+    retry_count_s: u8,
+}
+
+#[ww_trait]
+trait Device {
+    #[no_unit_hint(poll_hz = "a raw register value, not a frequency")]
+    fn configure(&self, timeout_ms: u32, poll_hz: u32);
+}
+```
+
+`ww api check --strict` and `ww api scaffold --strict` refuse a bare or empty `#[no_unit_hint]`, naming the item
+and the reasoned form to write instead:
+
+```
+$ ww api check my_device_api --strict
+my_device_api::retry_count_s: #[no_unit_hint] needs a reason under --strict, e.g. #[no_unit_hint = "reason"]
+```
+
+Writing the reason is the point: it is a second look at whether a unit might actually fit after all
+(`exact_units`/`ww_si` types, the table in `AGENTS.md`'s typed-numbers section) before silencing the note for
+good. A reason never changes the wire or a snapshot. Our own repo runs `ww api check`/`Check::assert` under
+`--strict`/`strict(true)` (every API crate's `tests/evolution.rs`), so every `#[no_unit_hint]` here needs one.
+
 ## A missing-test warning (TOOL-31)
 
 `ww api check` and `ww api save` also warn, before anything else, when the crate directory has no

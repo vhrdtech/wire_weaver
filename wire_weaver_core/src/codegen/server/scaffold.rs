@@ -1045,7 +1045,7 @@ mod tests {
     #[test]
     fn several_roots() {
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/multi_root_api");
-        let (bundle, _hints, crate_paths) =
+        let (bundle, _hints, _unreasoned, crate_paths) =
             crate::load_with_hints(&crate_path, Some("wire_v2::Thermo".into()), false).unwrap();
         let code = gen_server_scaffold(&bundle, &config(&[]), &crate_paths).unwrap();
         assert!(

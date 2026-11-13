@@ -558,12 +558,11 @@ pub enum Direction {
 pub struct Status {
     pub state: ErrorState,
     /// Transmit error counter.
-    // ISO 11898-1 fault confinement counters as the controller reads them: points (+8 per error, -1 per frame sent),
-    // not a count of errors
-    #[no_unit_hint]
+    #[no_unit_hint = "ISO 11898-1 fault confinement counter as the controller reads it: points (+8 per error, \
+                       -1 per frame sent), not a count of errors"]
     pub tec: u8,
     /// Receive error counter (some controllers stop at 127 and only flag error passive above).
-    #[no_unit_hint]
+    #[no_unit_hint = "same ISO 11898-1 fault confinement points scale as tec, not a count of errors"]
     pub rec: u8,
     /// Last protocol error in the arbitration phase (or of a classic frame), if any since the last read.
     pub last_error: Option<ProtocolError>,
@@ -1293,14 +1292,13 @@ pub struct TtConfig {
     pub matrix_cycles: Fixed<units::Cycle, One, u8, Range<1, 64>>,
     /// Time unit ratio: one network time unit (NTU) is `ntu_numerator / ntu_denominator` local clock periods
     /// (M_CAN `TURCF`); level 2 adjusts it to the master's clock.
-    // the controller's TURCF register fields as they are
-    #[no_unit_hint]
+    #[no_unit_hint = "the controller's TURCF register field as it is, half of a ratio with ntu_denominator"]
     pub ntu_numerator: u32,
-    #[no_unit_hint]
+    #[no_unit_hint = "the controller's TURCF register field as it is, half of a ratio with ntu_numerator"]
     pub ntu_denominator: u16,
     /// Application watchdog limit in 256 NTU steps; `None` disables it.
-    // TTOCF.AWL as the controller takes it
-    #[no_unit_hint]
+    #[no_unit_hint = "TTOCF.AWL register field as the controller takes it, in device-defined 256 NTU steps, not a \
+                       plain duration"]
     pub watchdog: Option<u8>,
 }
 
@@ -1455,14 +1453,12 @@ pub struct XlFrame<'i> {
     /// Virtual CAN network ID; `None` when not used.
     pub vcid: Option<VcId>,
     /// SDU type: what the data carries (CiA 611-1).
-    // a protocol code, not a number
-    #[no_unit_hint]
+    #[no_unit_hint = "a protocol code (CiA 611-1 SDU type), not a number"]
     pub sdt: u8,
     /// Simple extended content: CADH (CiA 613-2) present.
     pub sec: bool,
     /// Acceptance field (32 bits).
-    // a protocol field the receivers' filters match, not a number
-    #[no_unit_hint]
+    #[no_unit_hint = "a protocol field the receivers' filters match (a bit pattern), not a number"]
     pub af: u32,
     /// 1-2048 bytes.
     pub data: MaxLen<RefVec<'i, u8>, MAX_XL_DATA_LEN>,

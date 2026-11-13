@@ -12,9 +12,10 @@ pub mod property_model;
 pub mod transform;
 
 pub use transform::{
-    CrateCache, CratePaths, MovedFrom, SourceNotes, UnitHint, api_roots, dependency_dir, load,
-    load_crate, load_crate_with_notes, load_dep, load_dep_with_paths, load_own_with_paths,
-    load_root, load_root_with_notes, load_with_hints, publishable, root_of_crate_snapshot,
+    CrateCache, CratePaths, MovedFrom, SourceNotes, UnitHint, UnreasonedSilence, api_roots,
+    dependency_dir, load, load_crate, load_crate_with_notes, load_dep, load_dep_with_paths,
+    load_own_with_paths, load_root, load_root_with_notes, load_with_hints, publishable,
+    root_of_crate_snapshot,
 };
 
 pub use codegen::api_client::{ClientModel, GenClientConfig, gen_client};

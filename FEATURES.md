@@ -364,9 +364,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   TEST-30 floor −76 to −336 B; instructions at `z` within ±0.6 %, at `3` the bit-io micro loops on a local reader or
   writer up to 2.2x (restored with `fast-io`), dispatch ±1.3 % except a call with an argument (+4.8 %). No wire
   change. `docs/articles/flash_budget.md#sw-74-reader-and-writer-plumbing`.
-- 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
-  round-tripped, random bytes into their readers); `shrink-wrap-ref-vec`
-  (SW-37) came with its feature, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` and `shrink-wrap-series-type` with SW-60, `shrink-wrap-nesting` with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.
+- 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has several `shrink_wrap` targets: `shrink-wrap-tail-size` (`TailSize`
+  types round-tripped, random bytes into their readers), `shrink-wrap-latched` (SW-38's one-error-check-per-type
+  reads against `read_field`), `shrink-wrap-ref-vec` (SW-37) came with its feature, `shrink-wrap-option-any-vec`
+  with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` and `shrink-wrap-series-type` with SW-60,
+  `shrink-wrap-nesting` with the nesting depth limit (recursive types at random limits). Round-trip every built-in
+  type and the derive's features.
 - 🔍 **SW-23 Tuple enum variants evolution** — check that tuple variants evolve as `docs/evolution/rules.md` says
   (fields can be appended) and add a test.
 - 💡 **SW-65 Aligned plain `Series` columns** — numbers byte-aligned and little-endian at their width (numeric
@@ -1081,10 +1084,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Internal`:
   appended forms that a side sends only after the other announced them in link setup, so existing bytes don't change.
   The client fills them from its tracing span and call timeout, the server opens a span per request.
-- 📋 **SRV-48 Call context** — `wire_weaver::CallContext` (`no_std`, `Copy`): the request's seq, priority, peer,
-  trace context, deadline and connection, carried by the handler `Context`, passed to the local trait (CLT-57) and
-  read by the client; light `CallError`/`Error` types and `ItemStream` in `wire_weaver::call` (std), so API crates
-  name them without `wire_weaver_client`.
 - 📋 **SRV-49 Server forwarding to the local trait** — `ww_codegen!(.., server = true, serve_trait = "..")`
   generates a std server that forwards every request to one shared implementation of the API's local trait
   (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
@@ -1394,11 +1393,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_report::crash` (`Symbolizer`, `CrashAddresses`, `CrashFrames`, serializable) for other host tools,
   `docs/std_library/device_contract.md#crash-call-chain`, tests against a real thumbv6m ELF
   (`ww_report/tests/crash_frames.rs`, `just crash-fw-elf`).
-- 🐛 **CLT-30 Link setup gives up too early on slow RTT probes** — the client sends `GetDeviceInfo` 5 times 50 ms
-  apart (`LINK_SETUP_RETRIES` / `LINK_SETUP_RETRY_INTERVAL` in `event_loop/core/tx.rs`), 250 ms for every transport.
-  Through a J-Link on one of our dev PCs (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was
-  not received from device after several retries" while the device is fine; with 40 retries they mostly work. Needs
-  a per-transport budget (RTT: seconds) or one taken from the connect timeout. Found 16 Oct 2026.
 - ✅ **CLT-28 Observing properties on the host** · `v0.5.x` — generated std clients have `observe(cfg)` per trait
   level with `+observe` properties (an `Observer` of the level's `<Trait>Update`) and `observe_<name>(mode)` per
   property, fanned out from the level: one device subscription per level covering all its observers (merged modes,
@@ -1702,11 +1696,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   crafted serial could make another one look held. Now lower-case letters, digits and `-` stay and every other byte
   is `_xx`, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
   socket's too, was FNV), and the key inside the file is checked on read.
-- 📋 **CLT-48 Fallible methods in multi calls** — `MultiCall` (CLT-15) only takes infallible methods, so a method
-  returning `Result` (`ww_i2c::I2c::i2c_read`, any method with `#[errors]`) can't be batched into one round trip;
-  found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
-  controller wants exactly that. Needs each index's answer to carry the method's own `Result` next to the
-  per-index `Error`.
 - ✅ **CLT-48 Fallible methods in multi calls** · `v0.5.x` — a method returning `Result<T, E>` (any with
   `#[errors]`, e.g. `ww_i2c::I2c::i2c_read`/`i2c_write`) goes into a `MultiCall` tuple (CLT-15) and into
   `call_array`, mixed with methods without `Result`; each position answers what its single `call()` would,
@@ -2893,7 +2882,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_memory` (was `ww_ll`: one word type per trait, optional watches, errors on `CommonError`, docs page),
   Known gaps are `TODO`s in their sources (e.g. SMBus and 7-bit addresses in `ww_i2c`; `ww_can_bus` is done in
   STD-29). `ww_log` (was `ww_log_bare_metal`) left for STD-26.
-- 💡 **STD-9 Stubs**, for later: `ww_spi` (`ww_board_info`, `ww_firmware_info`, `ww_user_info` and `ww_uid` moved to STD-24).
 - 🚧 **STD-12 `ww_dfu` firmware update API** — traits `UpdateNode`, `BootControl`, `Inventory`, `Stage`,
   `StageBulk`: each node (app, bootloader, recovery app) implements what it needs; A/B live, in place from a stored
   plan, in place live; step by step or bulk. Carries the octet records of the chunky protocol spec. End to
@@ -3307,6 +3295,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Since STD-102 (`ww_si` on exact_units' integer kernel) it is a gate: `just no-float-guard`, part of `just test`,
   fails on any forbidden symbol (`--guard-strict` is the default). All 16 builds are clean: 0 f64, 0 128-bit and 0
   slow-path symbols; the no-float group has 0 f32 helpers and 0 VFP instructions.
+
+## Dropped and superseded
+
+- **STD-9 Stubs, for later: `ww_spi`** — superseded by STD-13: `ww_spi` is now a full IO-family trait (optional
+  `Spi::monitor`, typed numbers, STD-56), not a stub; `ww_board_info`, `ww_firmware_info`, `ww_user_info` and
+  `ww_uid` moved to STD-24 already.
 - **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before

@@ -13,15 +13,15 @@ extern crate panic_semihosting;
 #[macro_use]
 #[path = "../flash_budget.rs"]
 mod flash_budget;
+#[path = "../dispatch_cases.rs"]
+mod dispatch_cases;
 
 use core::fmt::Write;
 use core::hint::black_box;
 use cortex_m_rt::{ExceptionFrame, entry, exception};
 use cortex_m_semihosting::{debug, hio};
+use dispatch_cases::{CASES, fnv, request};
 use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::UVlq32Backfill;
-use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
-use ww_client_server::{PathKind, Priority, Request, RequestKind, StreamSideband};
 
 flash_budget_server_impl!(BaseOnly);
 
@@ -37,55 +37,6 @@ fn mark_start() {
 #[inline(never)]
 fn mark_end() {
     unsafe { core::arch::asm!("nop", "nop", options(nostack, preserves_flags)) }
-}
-
-/// Indices in `BaseOnly`: `base` 0, and in `Base`: c0 0, c1 1, a0 2, a1 3, p0 4, p1 5, s0 6, s1 7.
-const CASES: [(&str, u32); 8] = [
-    ("call, no arguments or output", 0),
-    ("call, an argument and an output", 2),
-    ("property read", 4),
-    ("property write", 4),
-    ("stream open", 6),
-    ("stream close", 6),
-    ("error: bad path", 9),
-    ("error: kind not taken", 0),
-];
-
-/// The request bytes of case `i`, into `buf`.
-fn request(i: usize, buf: &mut [u8]) -> &[u8] {
-    let mut code = [0u8; 8];
-    let code = flash_budget_api::Code(0x1234)
-        .to_ww_bytes(&mut code)
-        .unwrap();
-    let kind = match i {
-        0 | 6 => RequestKind::Call {
-            args: TailBytes(&[]),
-        },
-        1 => RequestKind::Call {
-            args: TailBytes(code),
-        },
-        2 | 7 => RequestKind::Read,
-        3 => RequestKind::Write {
-            data: TailBytes(code),
-        },
-        4 => RequestKind::StreamOpen {
-            resume: None,
-            max_age: None,
-            codecs: None,
-            args: TailBytes(&[]),
-        },
-        _ => RequestKind::StreamSideband {
-            sideband: StreamSideband::Close,
-        },
-    };
-    let path = [UNib32(0), UNib32(CASES[i].1)];
-    let req = Request {
-        seq: UVlq32Backfill(7),
-        priority: Priority::NORMAL.nibble(),
-        path_kind: PathKind::absolute(&path),
-        kind,
-    };
-    req.to_ww_bytes(buf).unwrap()
 }
 
 /// One request through the server, its reply into `scratch`.
@@ -116,12 +67,6 @@ fn serve_reply<'a>(request: &[u8], scratch: &'a mut [u8]) -> Option<&'a [u8]> {
 /// The size of `process_request_bytes`' future (`use_async`): the state machine of every level it may await in.
 #[cfg_attr(not(feature = "flash-async"), allow(dead_code))]
 static FUTURE_BYTES: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
-
-fn fnv(bytes: &[u8]) -> u32 {
-    bytes.iter().fold(0x811c_9dc5u32, |h, &b| {
-        (h ^ b as u32).wrapping_mul(0x0100_0193)
-    })
-}
 
 #[exception]
 unsafe fn HardFault(_frame: &ExceptionFrame) -> ! {

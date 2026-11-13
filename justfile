@@ -337,7 +337,8 @@ flash-attribute elf *args:
     cargo run -q --release -- --attribute {{ absolute_path(elf) }} {{ args }}
 
 # Instructions per request of a server (TEST-30): one request of each kind through the dispatcher of the flash budget's
-# `BaseOnly` server on a Cortex-M3 under QEMU at `fw-z` and `fw-3`, sync and `use_async`; `--qemu-host HOST` runs QEMU there
+# `BaseOnly` server on a Cortex-M3 under QEMU at `fw-z` and `fw-3`, sync and `use_async`; `--qemu-host HOST` runs QEMU there,
+# `--cycles [--probe-host HOST]` adds DWT cycles on the STM32H725 (replaces the board's firmware)
 [working-directory('examples_mcu/fw_budget')]
 dispatch-budget *args:
     cargo run -q --release -- --requests {{ args }}

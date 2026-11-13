@@ -8,7 +8,7 @@
 //! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N] [--sites PATTERN]   # bytes by inlined frame, see attribute.rs
 //! cargo run --release -- --guard                     # the no-float guard (TEST-33) alone: fails on a forbidden symbol
 //! cargo run --release -- --flash [--guard-report]    # the flash budget, then the guard (`--guard-report`: never fails)
-//! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
+//! cargo run --release -- --requests [--qemu-host HOST] [--cycles [--probe-host HOST]] # per request of a server (TEST-30)
 //!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds;
 //!     `--profiles fw-s` builds at opt-level "s" instead, which neither runs by default
 //! cargo run --release -- [--profile fw-z|fw-3|fw-s] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
@@ -51,6 +51,8 @@ struct Args {
     profile: String,
     qemu_host: Option<String>,
     cycles: bool,
+    /// `--cycles`: the PC the board's probe is on, reached over ssh; this PC when not given.
+    probe_host: Option<String>,
     chip: String,
     /// Compare the plain and Fixed code in the ELFs of these targets and both profiles instead of running anything.
     elf: bool,
@@ -80,6 +82,7 @@ fn parse_args() -> Res<Args> {
         profile: "fw-z".into(),
         qemu_host: None,
         cycles: false,
+        probe_host: None,
         chip: "STM32H725IGKx".into(),
         elf: false,
         flash: false,
@@ -102,6 +105,7 @@ fn parse_args() -> Res<Args> {
             "--qemu-host" => args.qemu_host = Some(value("--qemu-host")?),
             "--chip" => args.chip = value("--chip")?,
             "--cycles" => args.cycles = true,
+            "--probe-host" => args.probe_host = Some(value("--probe-host")?),
             "--elf" => args.elf = true,
             "--flash" => {
                 args.flash = true;
@@ -272,7 +276,17 @@ fn run(args: &Args) -> Res<()> {
         return no_f64_guard::run(&qemu_dir, !args.guard_report);
     }
     if args.requests {
-        return requests::run(&root, &args.filter(), &qemu_dir, args.qemu_host.as_deref());
+        let probe = args.cycles.then(|| requests::Probe {
+            chip: &args.chip,
+            host: args.probe_host.as_deref(),
+        });
+        return requests::run(
+            &root,
+            &args.filter(),
+            &qemu_dir,
+            args.qemu_host.as_deref(),
+            probe,
+        );
     }
     eprintln!("building {QEMU_BIN} at profile {}", args.profile);
     let elf = qemu_dir
@@ -453,23 +467,58 @@ pub(crate) fn qemu_icount(root: &Path, elf: &Path, host: Option<&str>) -> Res<St
 
 /// Cycles from the board: builds the cycles bin and runs it with probe-rs until it prints `done`.
 fn board_cycles(root: &Path, chip: &str) -> Res<Vec<Cost>> {
+    board_cycles_of(root, chip, CYCLES_BIN, None, None)
+}
+
+/// Cycles from the board, of `bin` of `usb_stm32h725ig` at its release profile (fat LTO, `opt-level = "z"`, the
+/// shipped one) or at `opt_level` (`"3"`, built into a target dir of its own), run with probe-rs here or on
+/// `probe_host` over ssh (the ELF is copied to `/tmp/ww-units-budget` there).
+pub(crate) fn board_cycles_of(
+    root: &Path,
+    chip: &str,
+    bin: &str,
+    opt_level: Option<&str>,
+    probe_host: Option<&str>,
+) -> Res<Vec<Cost>> {
     let dir = root.join("usb_stm32h725ig");
-    eprintln!("building {CYCLES_BIN}");
-    let status = cargo(&dir)
-        .args(["build", "--release", "--bin", CYCLES_BIN])
-        .status()?;
-    if !status.success() {
+    let target_dir = match opt_level {
+        Some(o) => dir.join(format!("target/opt-{o}")),
+        None => dir.join("target"),
+    };
+    eprintln!("building {bin} at opt-level {}", opt_level.unwrap_or("z"));
+    let mut cmd = cargo(&dir);
+    cmd.args(["build", "--release", "--bin", bin])
+        .env("CARGO_TARGET_DIR", &target_dir);
+    if let Some(o) = opt_level {
+        cmd.env("CARGO_PROFILE_RELEASE_OPT_LEVEL", o);
+    }
+    if !cmd.status()?.success() {
         return Err("cargo build of the cycles bin failed".into());
     }
-    let elf = dir
-        .join("target/thumbv7em-none-eabihf/release")
-        .join(CYCLES_BIN);
+    let elf = target_dir.join("thumbv7em-none-eabihf/release").join(bin);
     eprintln!("running it on {chip}");
-    let text = output(
-        Command::new("timeout")
-            .args([&format!("{TIMEOUT_S}s"), "probe-rs", "run", "--chip", chip])
-            .arg(elf),
-    );
+    let timeout = format!("{TIMEOUT_S}s");
+    let text = match probe_host {
+        None => output(
+            Command::new("timeout")
+                .args([&timeout, "probe-rs", "run", "--chip", chip])
+                .arg(elf),
+        ),
+        Some(host) => {
+            let remote = "/tmp/ww-units-budget";
+            output(Command::new("ssh").args([host, &format!("mkdir -p {remote}")]))?;
+            output(
+                Command::new("scp")
+                    .arg("-q")
+                    .arg(&elf)
+                    .arg(format!("{host}:{remote}/{bin}")),
+            )?;
+            // ssh runs without the login profile: cargo's bin dir, where probe-rs is installed, isn't on PATH
+            output(Command::new("ssh").arg(host).arg(format!(
+                "PATH=$HOME/.cargo/bin:$PATH timeout {timeout} probe-rs run --chip {chip} {remote}/{bin}"
+            )))
+        }
+    };
     // `timeout` ends probe-rs after the bin's `done` (it loops in wfi), so the exit status is no error here
     let text = match text {
         Ok(t) => t,

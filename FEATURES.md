@@ -1337,6 +1337,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   passed about 4 runs in 5 while its simulated firmware had to call it). A refused write marks nothing; `ww api
   scaffold`'s setter stub says so. Test `tests/observe` `host_write_marks_get_set_changed`.
 
+- ✅ **SRV-60 Multi requests and counted streams behind features** — `ww_client_server` features `multi`
+  (`MultiCall`/`MultiRead`/`MultiWrite`, `MultiIndex`, `MultiArgs`) and `streams` (`SinkWrite`, `StreamItem`, the
+  `Ack`/`Resend`/`Query` sideband, cursors, codecs; `ww_stream` has its own `streams`), on with `std`, off in a
+  firmware with `default-features = false`. Plain streams, observe and introspection stay in every build. The
+  discriminants are written out, so a left-out kind reads as `#[future_version] Unknown(d)` (the derive reads a
+  `#[cfg]`'d-out variant that way) and is answered `OperationNotSupported` at site 61 (`REQUEST_KIND_UNKNOWN`); a
+  server with `multi_req = true` or counted/reliable streams gets a compile error naming the feature. A one-method
+  server at `fw-z` on a Cortex-M0+: 14238 → 12586 B, about 12 % fewer instructions per plain request (8 % fewer
+  cycles on the STM32H725); at `fw-3` −2.9 KB and under 1 % in speed. Conformance cases
+  `client_server.request.multi_read`, `.sink_write`, `.sideband_ack`; `tests/lean_server` refuses them without the features. Observe was
+  measured too and left in (96 B at the floor). See `docs/serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams`.
 - 📋 **SRV-59 Marking an element's change from another task** — `ObserveSignal` (SRV-25) has a bit per observable
   property of the flat levels; a property of a level under resource arrays (API-63) is marked on the server,
   `mark_changed_<name>(index_chain)`, so an interrupt or another task can't mark it without the server state. Needs a

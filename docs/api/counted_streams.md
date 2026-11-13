@@ -24,6 +24,18 @@ trait Adc {
 
 ## Device side
 
+Counted and reliable streams and credit sinks need the `streams` feature of `ww_client_server` and of `ww_stream`.
+Hosts have it through `std`; a firmware built with `default-features = false` turns it on in both:
+
+```toml
+ww_client_server = { version = "..", default-features = false, features = ["streams"] }
+ww_stream = { version = "..", default-features = false, features = ["streams"] }
+```
+
+Without it a server with such a stream stops with a compile error that names the stream and the feature. A firmware
+with only plain streams leaves the feature off and saves the decoders of the sideband, the cursors and the codecs
+(see [Stream delivery](stream_reliability.md#cost-when-not-used)).
+
 Besides the open and close handlers every stream has, a counted or reliable stream needs `stream_<name>()`, returning
 its state, and the server one `new_stream_session()` (see the handler table in
 [Streams](streams.md#device-side)).

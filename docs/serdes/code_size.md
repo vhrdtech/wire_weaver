@@ -718,6 +718,89 @@ The options that were on the table, and why none became a cargo feature:
 | `#[inline(never)]` shared helpers, non-generic paths | done for the integer reads and writes (steps 2 and 3), and, not generic, for lists of plain numbers (SW-70: one `write_plain_list` / `skip_plain_list` for every `RefVec<u8>`, `RefVec<u32>`, ..) |
 | speed of the bit paths in a size build | a `--cfg`, not a feature, see [Hot paths at opt-level z](#hot-paths-at-opt-level-z) |
 
+Those are features of `shrink_wrap`, where a feature would change bytes. One level up, `ww_client_server` has two,
+because they only remove request kinds and keep every byte: see the next section.
+
+## Request kinds a firmware leaves out: `multi` and `streams`
+
+`ww_client_server` (SRV-60) has two cargo features, both on with `std` and off in a firmware that depends on it with
+`default-features = false`:
+
+- `multi`: `RequestKind::MultiCall`, `MultiRead`, `MultiWrite`, with `MultiIndex` and `MultiArgs`. A server generated
+  with `multi_req = true` needs it ([Multi requests](../api/multi_requests.md)).
+- `streams`: counted and reliable streams and credit sinks. That is `RequestKind::SinkWrite`, `EventKind::StreamItem`
+  and the `Ack` / `Resend` / `Query` sideband, with their cursors, codecs and 64-bit positions; `ww_stream` has a
+  `streams` feature for its side (tx, rx, sink, codec). Plain streams, `StreamOpen`, observe and introspection stay
+  in every build ([Stream delivery](../api/stream_reliability.md)).
+
+Every server decodes `Request` with one generated function, so before these features every firmware linked the
+decoders of all request kinds, used or not. The discriminants are written out in the enums, so a build without a
+feature numbers the rest the same, and a left-out kind reads as `#[future_version] Unknown(d)` (the derive treats a
+`#[cfg]`'d-out variant as unknown, see
+[`#[cfg(..)]` on enum variants](derive_reference.md#cfg-on-enum-variants)). The generated server answers it with `OperationNotSupported` at site
+`err_seq::REQUEST_KIND_UNKNOWN` (61), a sideband message that is `Unknown` the same at the stream's `KIND_NOT_TAKEN`.
+A server generated with `multi_req = true` or with a counted or reliable stream or credit sink stops with a
+`compile_error!` that names the feature to turn on. `tests/conformance` has the bytes of such requests (the
+`client_server.request.multi_read` case is the same bytes as before) and `tests/lean_server` checks that a server
+built without the features refuses them.
+
+Measured 13 Nov 2026, sync servers, master `7a525390e` (before) against this change.
+
+Flash, the whole image (vector table, text, rodata and data), Cortex-M0+ (`thumbv6m-none-eabi`),
+`just flash-budget --modes sync`, bytes:
+
+| server | `fw-z` before | after | change | `fw-3` before | after | change |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| floor, one method | 14238 | 12586 | −1652 (−11.6 %) | 19810 | 16874 | −2936 (−14.8 %) |
+| 8 resources, two of each kind (`BaseOnly`) | 17026 | 15266 | −1760 | 22702 | 20434 | −2268 |
+| 4 observed properties | 29074 | 27658 | −1416 | 40574 | 38362 | −2212 |
+
+What each resource adds stays about the same (at `fw-z` a call 52 → 55 B, a property 112 → 107 B, a stream
+165 → 148 B). On the Cortex-M7 (`thumbv7em-none-eabihf`), the `stm32h725ig-dispatch-cycles` firmware of
+`usb_stm32h725ig` is 27796 → 26148 B (−1648) in its release profile (fat LTO, `opt-level = "z"`) and 35920 → 33572 B
+(−2348) at `opt-level = 3`.
+
+Where the floor's bytes went, by `just flash-attribute` at `fw-z`: the `MultiIndex` decoder (216 B), the
+`MultiArgs` decoder (154 B), about 60 B of branches for `Result` replies inside a multi reply, the `StreamSideband`
+decoder (244 B, 36 B after) with two `UVlq64` readers (102 and 88 B, one of 28 B after), `StreamCursor` (46 B) and
+`StreamCodecs` (24 B). The code under the dispatcher went from 1932 to 1314 B, all code from 12306 to 10740 B.
+
+Instructions per request, Cortex-M3 under QEMU (`lm3s6965evb`, `qemu_icount`), `just dispatch-budget`, warm:
+
+| request | `fw-z` before | after | `fw-3` before | after |
+| --- | ---: | ---: | ---: | ---: |
+| call, no arguments | 2301 | 2019 | 1398 | 1389 |
+| call with an argument and an output | 2727 | 2446 | 1703 | 1699 |
+| property read | 2258 | 1980 | 1382 | 1375 |
+| property write | 2404 | 2122 | 1483 | 1473 |
+| stream open | 3326 | 3039 | 1981 | 1973 |
+| stream close | 2247 | 1954 | 1375 | 1364 |
+| bad path | 2713 | 2433 | 1721 | 1717 |
+| a kind the resource doesn't take | 2489 | 2213 | 1556 | 1555 |
+
+Cycles per request, STM32H725 (Cortex-M7 at 540 MHz, I- and D-cache on), DWT `CYCCNT`, `just dispatch-budget
+--cycles`, the smallest of three warm runs:
+
+| request | `opt-level = "z"` before | after | `opt-level = 3` before | after |
+| --- | ---: | ---: | ---: | ---: |
+| call, no arguments | 3064 | 2827 | 1820 | 1794 |
+| call with an argument and an output | 3769 | 3516 | 2330 | 2317 |
+| property read | 3039 | 2790 | 1817 | 1785 |
+| property write | 3242 | 3001 | 1936 | 1903 |
+| stream open | 4384 | 4119 | 2605 | 2573 |
+| stream close | 2948 | 2692 | 1831 | 1822 |
+| bad path | 3650 | 3412 | 2269 | 2249 |
+| a kind the resource doesn't take | 3373 | 3119 | 2115 | 2094 |
+
+At `opt-level = "z"` a request costs about 12 % fewer instructions and 8 % fewer cycles. The decoder of `Request`
+is one function that the size build doesn't split, and it got smaller and simpler. At `opt-level = 3` it is under
+1 % either way. The replies are the same bytes, with the same hashes, before and after.
+
+Observe stays in every build. A server that observes nothing already links little of it (`Observe { cfg }` is a
+`RefBox`, decoded only by code that reads it, SRV-54). Compiled out for a trial with the same settings, it saved
+96 B at the floor and 100 B with `BaseOnly` at `fw-z` (272 and 192 B at `fw-3`), under 1 %, and most firmware
+observes something.
+
 ## What is left
 
 With views and writers (SW-52, [Head and tail](#head-and-tail)) the derived codec fits the 8 KB softcore: busgen's

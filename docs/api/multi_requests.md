@@ -25,7 +25,21 @@ mod server_impl {
 }
 ```
 
-Without it, a server refuses the request. With it, the dispatcher gets one more arm that treats every index of
+The request kinds themselves are behind the `multi` feature of `ww_client_server`. Hosts have it through `std`; a
+firmware that depends on `ww_client_server` with `default-features = false` turns it on:
+
+```toml
+ww_client_server = { version = "..", default-features = false, features = ["multi"] }
+```
+
+A server generated with `multi_req = true` in a firmware without the feature stops with a compile error that says
+so. A firmware built without it doesn't link the decoders of `MultiIndex` and `MultiArgs` (about 1.6 KB at
+`opt-level = "z"` on a Cortex-M0+, together with `streams`, and about 12 % fewer instructions per plain request:
+[the tables](../serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams)). Such a firmware reads
+a multi request as `RequestKind::Unknown` (the discriminants are fixed, so nothing past them is misread) and answers
+it with `OperationNotSupported`, at the error site `err_seq::REQUEST_KIND_UNKNOWN` (61).
+
+Without `multi_req = true`, a server refuses the request. With it, the dispatcher gets one more arm that treats every index of
 `MultiCall`/`MultiRead`/`MultiWrite` as a `Call`/`Read`/`Write` of its own: an index that fails is answered with an
 error in its own slot and the rest go on, the request never panics on malformed input (an unknown path, a mode the
 server doesn't support, a path at the depth limit), and it is answered with `EventKind::Value` holding an
@@ -233,4 +247,5 @@ huge `Range` (e.g. `0..u32::MAX`) fails outright rather than running for billion
   although its `method_model` says `immediate` ([deferred methods](methods.md#deferred) need a reply tied to one
   request's `seq`, which a shared multi-request slot can't carry).
 - **A trait level itself** (not a leaf resource) inside a multi request answers `OperationNotSupported`, as does a
-  server without `multi_req = true` for any multi request at all.
+  server without `multi_req = true` for any multi request at all, or a firmware whose `ww_client_server` is built
+  without `multi` (site 61).

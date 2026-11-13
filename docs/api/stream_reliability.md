@@ -32,6 +32,19 @@ the device's handlers and producers and the host's `PositionedStream` in
 [Counted and reliable streams](counted_streams.md), the bytes on the wire and the acknowledgement protocol in
 [Stream protocol](stream_protocol.md).
 
+## Cost when not used
+
+Counted and reliable streams are behind the `streams` feature of `ww_client_server` and `ww_stream`, on for hosts,
+off in a firmware built with `default-features = false` (how to turn it on:
+[Counted and reliable streams](counted_streams.md#device-side)). A firmware with only plain streams then doesn't link
+the `Ack` / `Resend` / `Query` sideband, the resume cursors, the codecs or their 64-bit position readers. Together with
+`multi`, on a Cortex-M0+ at `opt-level = "z"`, that is 1652 B of 14238 B for a server with one method, and about 12 %
+fewer instructions to decode and dispatch a plain call or read (8 % fewer cycles on a Cortex-M7); the full tables are
+in [Code size](../serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams). Such a firmware answers a
+`SinkWrite` request with `OperationNotSupported` at site `err_seq::REQUEST_KIND_UNKNOWN` (61), and an `Ack`, `Resend`
+or `Query` for a plain stream with `OperationNotSupported` at the stream's `KIND_NOT_TAKEN`; the bytes of these
+messages are the same in every build.
+
 ## Where stream data gets lost
 
 From a producer on the device to user code on the host:

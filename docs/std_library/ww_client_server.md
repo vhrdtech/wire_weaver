@@ -16,6 +16,14 @@ though some types (`StreamCursor`, `SinkCredit`, the `max_len` helpers) are mean
 ww_client_server = { version = "0.2", default-features = false }
 ```
 
+Two features add request kinds a firmware may not serve, both on with `std`: `multi` (`MultiCall`, `MultiRead`,
+`MultiWrite`, `MultiIndex`, `MultiArgs`; for a server with `multi_req = true`, see
+[Multi requests](../api/multi_requests.md)) and `streams` (`SinkWrite`, `StreamItem` and the `Ack` / `Resend` /
+`Query` sideband of [counted and reliable streams](../api/counted_streams.md#device-side) and credit sinks). Plain
+streams, observe and introspection are in every build. The discriminants are fixed, so a build without a feature
+reads such a request as `RequestKind::Unknown` (`StreamSideband::Unknown`) and the generated server answers it with
+`OperationNotSupported`. What leaving them out saves: [Code size](../serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams).
+
 ## Request and Event
 
 * `Request<'i>` - `seq: UVlq32Backfill` (request id, 0 = no answer expected), `path_kind: PathKind<'i>`, `kind:

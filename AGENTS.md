@@ -80,7 +80,9 @@ Docs: `exact_units` itself (`Fixed`, scales, bounds, aliases, points, indices, r
 own book at [exact.vhrd.tech](https://exact.vhrd.tech/); `docs/std_library/exact_units.md`, `ww_si.md`, `points.md`,
 `indices.md`, `rounding.md`, `customary.md` and `units_in_the_model.md` cover only the WireWeaver side (the API
 model, `ww`, Python, the dynamic client, the wire bytes). `exact_units` lives in its own repository
-(romixlab/exact_units), taken by git and locked by commit in `Cargo.toml`; `ww_si` re-exports all of it, so an API
+(romixlab/exact_units), taken by git with no pin in `Cargo.toml`: `Cargo.lock` records the resolved commit, so a
+break on its side shows up fast, and `cargo update -p exact_units` moves it forward (a git dependency's new commit
+must land on its remote's default branch before `Cargo.lock` can name it). `ww_si` re-exports all of it, so an API
 writes `ww_si::..` and turns on the unit groups it needs as `ww_si` features (`time`, `electrical`, `counting`, ...).
 
 ## FEATURES.md
@@ -201,7 +203,8 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 - **Host tools**: `wire_weaver_cli` (binary `ww`, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH),
   `ww_hub`/`ww_hub_api` (the per-user hub), `ww_clock_sync`, `ww_tap`, `wire_weaver_py` (Python),
   `wire_weaver_evolution` (the compatibility checker), `wire_weaver_tool` (egui viewer, `docs/dev_tool.md`). Nothing
-  here depends on another repository by path (`just check-clean-clone`); `exact_units` comes by git.
+  here depends on another repository by path (`just check-clean-clone`); `exact_units` comes by git, with the
+  commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.
 - **`ww_stdlib/`**: reusable API traits and types for unrelated projects (units, time, numeric, GPIO, I2C, SPI, UART,
   CAN, DFU, logs, ...; canonical home `vhrdtech/ww_stdlib`). Reuse or extend one of these before inventing a
   project-local equivalent.

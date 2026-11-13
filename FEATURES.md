@@ -863,6 +863,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
   strings inside a resource's type are bounded with `MaxLen` (SW-19). Observed levels under an array have a pool of
   element tables (API-63) and don't need the bound; with it, a firmware could size the pool to the array.
+- 📋 **API-66 Staged and timed actions** — nothing applies several writes together or at a given time: a motor's
+  torque and an ADC's gain on one device, or three joints of a leg on a bus (CHR-1). `#[staged]` properties written
+  into a shadow and applied by a commit (or a bus sync), and a request run at a shared time (`ww_timebase`), refused
+  with an error while the device's clock is not locked. Point-to-point first; Chorus uses the same model.
 - 🚧 **API-30 Counted and reliable streams** · `v0.5` — counted streams put a head in every event (flags and a
   length-coded 64-bit `pos` in units the device names when it sends, the event's `units`, `lost`, optional device time
   `t`), so drops on the device, link losses and duplicates are reported exactly and item types carry no `seq` /
@@ -1869,6 +1873,25 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TR-7 UART** · `v0.5.x`.
 - 💡 **TR-8 IP / WireGuard** · `v0.5.x`.
 - 💡 **TR-9 EtherCAT**.
+- 📋 **TR-26 Reassembly per sender in `ww_framer`** — `FramedRx` has one assembly state and `SeqRx` one sender's
+  counter, so on a shared medium a Start from a second sender drops the first one's partial message. A small pool of
+  assembly slots keyed by an address the medium supplies (CAN source id and priority, UDP peer), sized by the
+  firmware, with `SeqRx` per key; fuzzed. Needed by every bus medium (TR-6, TR-30, CHR-1).
+- 📋 **TR-27 Head out of band, priority on the message** — on classic CAN 1-2 of 8 bytes go to the U2Head while
+  the 29-bit CAN ID could carry its message kind and user kind (the DLC gives the length). A `Head` whose bits are read
+  from and written to the medium's metadata. With it, the request priority (today a nibble inside the bytes) is handed
+  to the link and the transport with the message, so CAN puts it in the ID and USB and UDP send queues can order by it.
+- 📋 **TR-28 Bus link: one ww_link session per peer** — `DeviceLink` holds one host, a second hello takes the link
+  over (`DownReason::NewSession`), `PacketSource` returns no source address and UDP serves one host at a time. Sessions
+  keyed by the peer's address on one medium, the peer named in `CallContext` (today `Peer::Unknown` on devices), a
+  hello that goes split through the framer on 8-byte frames. First user: two hosts on one UDP device; then CAN node ids
+  (TR-6) and the Chorus bus (CHR-1).
+- 📋 **TR-29 Simulated CAN bus** — in-process, like TR-21's simulated UDP: arbitration by ID, a bit-time clock,
+  error frames, double reception (an error in the last EOF bit), RX overflow, bus-off and TX mailbox reordering, so the
+  bus link, TR-6 and Chorus are tested without hardware.
+- 📋 **TR-30 RS-485 and UDP multicast as bus media** — a bus prefix with source and destination where the medium has
+  no ID field, RS-485 replies in time slots by rank (half-duplex, no arbitration), one UDP multicast group per bus
+  with replies unicast to the requester.
 - ✅ **TR-13 RTT server panicked on the first request** — since TR-12 the async `Server::handle` checked for a waiting
   request with `embassy_futures::poll_once(rx.wait_message())`, a no-op waker; the RTT medium waits on an
   `embassy_time::Timer` while no data is there, and embassy-time panics on a waker not from its executor ("Found
@@ -1912,6 +1935,43 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `usb_init()` convenience, who can't reach into its private `UsbBuffers`. Next: CRC through a pluggable checksum
   so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+). The lone request and reply flushes once
   planned here are superseded by request priority (CLT-50).
+
+## Bus API (`ww_chorus`, `CHR`)
+
+Chorus is the bus counterpart of `ww_client_server`, carried on ww_link's Data1 over a shared medium (CAN, CAN FD,
+RS-485, UDP multicast): send to all, to a group, a value per group member in one frame, collect one reply from every
+node, act together on a sync. Nodes run different firmware; what they share is a bus API crate listing the roles
+(traits) a bus has, its groups and its sync points. A Chorus request names a role and an item in it, and the node runs
+the same generated dispatch as for Data0. Unicast Data0 to one node over the same bus is TR-6.
+
+- 📋 **CHR-1 Chorus wire model and the bus API crate** — the `ww_chorus` envelope (`Call`, `Read`, `Write`,
+  `WriteEach` with one value per rank, `Sync`, `At`, `Publish`; seq 0 for no reply), destinations node / group / all,
+  role ids as positions in the bus API, the bus API in `ww_self` and its wire version line, conformance corpus cases.
+- 📋 **CHR-2 Discovery** — a heartbeat every node sends (uptime, health, mode, unique-id hash, API hash bits), the
+  roster on the host, node info by request-all, plug-and-play node ids by unique id with an allocator role, conflict
+  detection when two nodes take one id, setting id and bit rate of a node that is not on the bus yet.
+- 📋 **CHR-3 Node runtime and server codegen** — a role table from role id to the base path in the node's own tree,
+  dispatch through the existing `process_request` with the caller in the context, hardware filters for own id, groups
+  and all, staged shadows applied at a sync, a small at-time queue; all state static, measured for stack, flash and
+  cycles.
+- 📋 **CHR-4 Host bus client and collector** — generated `BusClient` (`bus.all().freeze()`,
+  `bus.group(..).torque().write_each(..)`, `.collect(deadline)`), `Collected<T>` with a result per node (ok, error,
+  missing, incompatible, late), deadlines computed from the medium, Data0 fan-out for nodes without Chorus, a bus as one
+  hub device with its nodes under it, `ww bus ls` / `watch` / `call` / `assign`.
+- 📋 **CHR-5 Bus time sync** — two-step sync frames (the master's hardware TX timestamp of the previous sync), each
+  node's hardware RX timestamp, the clock estimator in `no_std`, steering `ww_timebase::Clock`; measured on hardware.
+- 📋 **CHR-6 Chorus on hardware** — freeze, write-each, roll call and time sync on CAN nodes behind a USB-CAN bridge,
+  timing checked with a logic analyzer.
+- 📋 **CHR-7 Multicast bulk transfer** — one transfer to many nodes (firmware updates to a fleet), paced, acks
+  collected, resend to the nodes that missed parts.
+- 💡 **CHR-8 Chorus decoder** — frames from a CAN capture (candump, a logic analyzer) shown as role and item names
+  through the bus API's `ww_self`.
+- 💡 **CHR-9 Bus load budget** — load per bit rate computed from the bus API (groups, sync rate, published items)
+  before any board exists.
+- 💡 **CHR-10 Liveliness per role** — a role declares that its nodes publish within a period; the host flags a node
+  that misses one, not only after missed heartbeats.
+- 💡 **CHR-11 Cyphal gateway** — a role that bridges Cyphal subjects and services to Chorus roles.
+- 💡 **CHR-12 CANopen gateway** — a CANopen device profile seen as a trait (PDOs, SDOs, NMT, EMCY).
 
 ## Introspection (`ww_self`, `INT`)
 

@@ -10,11 +10,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 284 of 284 | 0 |
-| dynamic | 247 of 284 | 37 |
-| explain | 247 of 284 | 37 |
-| python | 245 of 284 | 39 |
-| c | 34 of 284 | 250 |
+| derive | 288 of 288 | 0 |
+| dynamic | 247 of 288 | 41 |
+| explain | 247 of 288 | 41 |
+| python | 245 of 288 | 43 |
+| c | 34 of 288 | 254 |
 
 | Case | Type | Direction | derive | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|
@@ -163,6 +163,10 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `link_setup.without_meta` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
 | `link_setup.wire_version` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
 | `link_setup.with_meta` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.stream_open.compressed` | `RequestKind` | both | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.stream_open.raw` | `RequestKind` | both | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.stream_opened.lz4` | `StreamOpened` | both | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.stream_opened.unknown` | `StreamOpened` | both | ✅ | gap - | gap - | gap - | gap - |
 | `disconnect_reason.hub_handover` | `DisconnectReason` | both | ✅ | gap - | gap - | gap - | gap - |
 | `disconnect_reason.from_newer` | `DisconnectReason` | both | ✅ | gap - | gap - | gap - | gap - |
 | `tail_bytes` | `WithTail` | both | ✅ | gap INT-9 | gap INT-9 | gap INT-9 | gap API-26 |
@@ -406,6 +410,8 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **c**: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: `client_server.event.stream_data_path`.
 - **c**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
 - **c**: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **c**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
+- **c**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **c**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **c**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
 - **c**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
@@ -421,6 +427,8 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **dynamic**: ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: `client_server.event.stream_data_path`.
 - **dynamic**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: `client_server.multi_index.list`.
 - **dynamic**: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **dynamic**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
+- **dynamic**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **dynamic**: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **dynamic**: ww_link's DeviceInfo is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
 - **dynamic**: ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
@@ -436,6 +444,8 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **explain**: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: `client_server.event.stream_data_path`.
 - **explain**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
 - **explain**: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **explain**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
+- **explain**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **explain**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **explain**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
 - **explain**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
@@ -452,6 +462,8 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **python**: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: `client_server.event.stream_data_path`.
 - **python**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
 - **python**: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **python**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
+- **python**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **python**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
 - **python**: ww_link's DeviceInfo is a link message, not a type of an API in the model. 3 cases: `device_info.ordinary`, `device_info.no_observe_samples`, `device_info.wire_version`.
 - **python**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.

@@ -13,7 +13,7 @@ use wire_weaver::shrink_wrap::{
     BufReader, ElementSize, Error as ShrinkWrapError, SerializeShrinkWrapOwned,
 };
 use ww_client_server::stream::StreamOpenedOwned;
-use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
+use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned, ResourceIndex};
 use ww_si::Micros;
 use ww_stream::{Opened, StreamCursor};
 
@@ -485,7 +485,7 @@ pub(crate) fn stream_open_request(
 pub(crate) fn raw_reopen(
     delivery: ww_self::Delivery,
     compression: bool,
-    path: &[UNib32],
+    path: &[ResourceIndex],
     priority: wire_weaver::prelude::Nibble,
     open_raw: impl FnOnce() -> Result<Vec<u8>, Error>,
     timeout: Duration,

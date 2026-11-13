@@ -29,7 +29,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
-use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UNib32, UVlq32Backfill};
+use wire_weaver::prelude::{DeserializeShrinkWrapOwned, UVlq32Backfill};
 use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_client_server::ResourceIndex;

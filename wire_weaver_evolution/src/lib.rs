@@ -1606,8 +1606,12 @@ fn own_type_paths(bundle: &ApiBundleOwned) -> BTreeMap<String, (String, &TypeOwn
         .collect()
 }
 
+/// The bytes of `bundle`'s definitions, renumbered in [canonical order](ww_self::order::canonical_order): two
+/// bundles with the same definitions are equal wherever the source declared them (types moved into a `pub mod`,
+/// EVO-75), so only a changed definition makes them differ.
 fn bytes(bundle: &ApiBundleOwned, with_docs: bool) -> Result<Vec<u8>, String> {
     let mut bundle = bundle.clone();
+    ww_self::order::canonical_order(&mut bundle);
     if !with_docs {
         ww_self::signature::drop_docs(&mut bundle);
     }

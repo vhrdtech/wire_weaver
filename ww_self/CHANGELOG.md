@@ -159,6 +159,7 @@
 
 ### 🚀 Features
 
+- `order::canonical_order` (EVO-75): renumbers a bundle's types, traits and crates in an order that depends only on its definitions (first use from the root, then by crate and path), so two bundles of the same definitions compare equal wherever the source declared them. A crate snapshot's root items (its trait list) are sorted by name; an API root keeps its items and ids.
 - `inline::inline_skipped_by_signature` puts skipped definitions back with any lookup by signature (`inline::BySignature`), not only the definition cache in a directory, for the superseded definitions of embedded snapshots (EVO-68). `definition_cache::file_name` and `definition_cache::decode` give an entry's file name and read its bytes, checked against the signature, without a directory.
 - `StreamFnRef::batch_time_ty()` (API-61): the time point of a timed batched stream, the second argument of its `Timed<T, Tm>` `batch_item_ty`.
 - `units::codec_of`, `codec_decode` and `codec_encode` run a codec's definition from the model without the `Codec` trait (`CodecDef::decode` / `encode`); `Wrapper::storage_ty` (STD-109).

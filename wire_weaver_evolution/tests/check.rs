@@ -97,6 +97,13 @@ impl TestCrate {
         self
     }
 
+    /// `src/<name>.rs`, for a `pub mod <name>;` of `lib.rs`.
+    fn write_module(&self, name: &str, source: &str) -> &Self {
+        let source = format!("use wire_weaver::prelude::*;\n{source}");
+        std::fs::write(self.dir.join(format!("src/{name}.rs")), source).unwrap();
+        self
+    }
+
     fn snapshot(&self, file_name: &str) -> PathBuf {
         self.dir.join(SNAPSHOTS_DIR).join(file_name)
     }
@@ -2177,4 +2184,123 @@ fn moved_from_on_a_trait_outside_the_root_tree() {
         ),
         "{err}"
     );
+}
+
+/// One crate in two layouts: everything in `lib.rs`, or the types and the sub-trait in `pub mod`s declared after the
+/// root, re-exported at the same paths (a `ww_stdlib` crate split into topic modules).
+const LAYOUT_TYPES: &str = r#"
+#[derive_shrink_wrap]
+pub struct Config {
+    pub gain: u8,
+    pub mode: Mode,
+}
+
+#[derive_shrink_wrap(ww_repr = u4)]
+pub enum Mode {
+    Off,
+    On,
+}
+
+#[derive_shrink_wrap]
+pub struct Unused {
+    pub x: u8,
+}
+"#;
+
+const LAYOUT_CHANNEL: &str = r#"
+#[ww_trait]
+pub trait Channel {
+    fn mode() -> Mode;
+    fn status() -> Status;
+}
+
+#[derive_shrink_wrap]
+pub struct Status {
+    pub on: bool,
+}
+"#;
+
+const LAYOUT_API: &str = r#"
+#[ww_api_root(wire = "w1.0")]
+pub trait Api {
+    fn config() -> Config;
+    ww_impl!(channel: Channel);
+}
+"#;
+
+fn write_in_lib_rs(c: &TestCrate) {
+    c.write(
+        "0.1.0",
+        &format!("{LAYOUT_TYPES}{LAYOUT_CHANNEL}{LAYOUT_API}"),
+    );
+}
+
+fn write_in_modules(c: &TestCrate) {
+    c.write(
+        "0.1.0",
+        &format!(
+            "pub mod channel;\npub use channel::{{Channel, Status}};\n{LAYOUT_API}\npub mod types;\n\
+             pub use types::{{Config, Mode, Unused}};\n"
+        ),
+    )
+    .write_module("types", LAYOUT_TYPES)
+    .write_module("channel", &format!("use crate::types::Mode;\n{LAYOUT_CHANNEL}"));
+}
+
+/// The walker numbers types and traits in the order it reaches them in the source, so the two layouts are different
+/// bundles of the same definitions: the check compares definitions, and a snapshot saved in one layout is up to date,
+/// left as it was, in the other (EVO-75). The sub-trait in its own module keeps its root item (EVO-74).
+#[test]
+fn moving_definitions_into_modules_changes_nothing() {
+    let c = TestCrate::new("layouts");
+    write_in_lib_rs(&c);
+    let in_lib_rs = wire_weaver_core::load_crate(c.path()).unwrap();
+    write_in_modules(&c);
+    let in_modules = wire_weaver_core::load_crate(c.path()).unwrap();
+    assert!(
+        in_modules
+            .root
+            .items
+            .iter()
+            .any(|item| item.ident == "Channel"),
+        "{:?}",
+        in_modules.root.items
+    );
+    let encode = |bundle: &ww_self::ApiBundleOwned| ww_self::snapshot::encode(bundle).unwrap();
+    assert_ne!(
+        encode(&in_lib_rs),
+        encode(&in_modules),
+        "the layouts give the same order, nothing is tested"
+    );
+    let canonical = |bundle: &ww_self::ApiBundleOwned| {
+        let mut bundle = bundle.clone();
+        ww_self::order::canonical_order(&mut bundle);
+        encode(&bundle)
+    };
+    assert_eq!(canonical(&in_lib_rs), canonical(&in_modules));
+
+    for (save_in, check_in) in [
+        (
+            write_in_lib_rs as fn(&TestCrate),
+            write_in_modules as fn(&TestCrate),
+        ),
+        (write_in_modules, write_in_lib_rs),
+    ] {
+        let _ = std::fs::remove_dir_all(c.path().join(SNAPSHOTS_DIR));
+        save_in(&c);
+        c.save();
+        let saved = std::fs::read_to_string(c.snapshot("test_api_0_1_0.ron")).unwrap();
+        check_in(&c);
+        assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
+        assert_eq!(save_one(c.path(), false).status, SaveStatus::UpToDate);
+        assert_eq!(
+            std::fs::read_to_string(c.snapshot("test_api_0_1_0.ron")).unwrap(),
+            saved
+        );
+    }
+    // a changed definition still is one
+    write_in_modules(&c);
+    c.write_module("types", &LAYOUT_TYPES.replace("pub x: u8", "pub x: u16"));
+    let err = check_current(c.path()).1.unwrap_err();
+    assert!(err.contains("The source differs from"), "{err}");
 }

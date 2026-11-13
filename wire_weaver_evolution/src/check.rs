@@ -1219,12 +1219,24 @@ fn existing_status(
                     )
                     .is_ok_and(|r| r.change == Change::None)
             });
-            let complete = old.is_some_and(|old| old.recorded.unrecorded().is_empty());
+            let complete = old
+                .as_ref()
+                .is_some_and(|old| old.recorded.unrecorded().is_empty());
+            // the hash of the file's own bundle: the same definitions numbered in another order (types moved into a
+            // `pub mod`, EVO-75) keep the file as it was saved
+            let own_hash = old
+                .as_ref()
+                .and_then(|old| snapshot::encode(&old.bundle).ok())
+                .map(|bytes| snapshot::hash_line(&bytes));
+            let hash = snapshot::saved_hash(&text);
+            let hash_ok = hash.is_some()
+                && (hash == snapshot::saved_hash(contents)
+                    || hash == own_hash.as_deref().and_then(snapshot::saved_hash));
             // the same definitions in another ww_self format or with fields it didn't record yet, or a file
             // without (or with another) hash, are saved again
             if !same {
                 SaveStatus::Refreshed
-            } else if !complete || snapshot::saved_hash(&text) != snapshot::saved_hash(contents) {
+            } else if !complete || !hash_ok {
                 SaveStatus::Reformatted
             } else {
                 SaveStatus::UpToDate

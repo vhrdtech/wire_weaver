@@ -33,6 +33,7 @@
 
 ### 🐛 Fixes
 
+- Moving types or a `#[ww_trait]` of a crate from `lib.rs` into a `pub mod` (re-exported, same paths) is no change (EVO-75): the checker compares both sides in `ww_self::order::canonical_order`, so `ww api check` no longer reports "compatible changes, order of items" and asks for a bump, and `Check::save` keeps the saved snapshot as it is (`SaveStatus::UpToDate`) instead of rewriting it in the new order.
 - No `doc comments changed ..., the definition is the same` note for a dependency whose shape changed too (EVO-70).
 - Against a snapshot saved by an older wire_weaver (EVO-13) the checker compares a dependency's definition whose signature changed when it knows both definitions, instead of skipping every signature check: a stdlib change in place is a compatible change or a break named at the field, where any change, a break too, read as "compatible: definitions changed" (EVO-70). Only a signature that names nothing known is let through.
 - A hint to bump the crate version names `[workspace.package] version` of the workspace's `Cargo.toml` for a crate that inherits it (`version.workspace = true`, such as `ww_link`, snapshot-checked since EVO-71), instead of a `version` its own `Cargo.toml` doesn't have.

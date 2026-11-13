@@ -32,6 +32,8 @@ pub mod generics;
 #[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]
+pub mod order;
+#[cfg(feature = "std")]
 mod series;
 #[cfg(feature = "std")]
 pub use series::{DecodedSeries, FieldsKind, SeriesColumn, VariantColumns};

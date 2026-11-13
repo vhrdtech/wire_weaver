@@ -2052,6 +2052,16 @@ Unicast Data0 to one node over the same bus is TR-6.
   `convert_snapshot_item` the same trait-converting arm as the top-level loop (and threading `items`/`wire` through
   its `Mod` and reexport recursion), so a trait is found at any `pub mod` depth, as types already were (API-46).
   `wire_weaver_core` test `a_subtrait_moved_into_its_own_module_is_still_a_root_item`.
+- ✅ **EVO-75 Definitions compared wherever the source declares them** · `v0.5` — found splitting `ww_stdlib`
+  crates into topic modules (P2401#13nov-1452): the walker numbers a crate's types and traits in the order it reaches
+  them in the source, so moving types (or a `#[ww_trait]`, EVO-74) from `lib.rs` into a `pub mod`, re-exported at the
+  same paths, gave another bundle of the same definitions, and `ww api check`, which compared bytes, reported
+  "compatible changes, order of items" and asked for a bump. The checker now compares both sides renumbered by
+  `ww_self::order::canonical_order` (first use from the root, then by crate and path; a crate snapshot's trait list by
+  name), and `ww api save` keeps a saved snapshot whose definitions are the same. The walker's own order is kept, so
+  no saved snapshot, introspection data or wire byte changes. Chosen over a layout-independent walker order, which
+  would have renumbered every existing snapshot. `wire_weaver_evolution` test
+  `moving_definitions_into_modules_changes_nothing`, `docs/evolution/checker_tool.md`.
 - ✅ **EVO-1 Evolution rules** in `docs/evolution/rules.md`: crate layers and version bumping.
 - ✅ **EVO-2 SHA signatures** of APIs and types, hashing only the major version (or `0.minor`), version independent.
 - ✅ **EVO-3 Crate version recorded in bundles**.

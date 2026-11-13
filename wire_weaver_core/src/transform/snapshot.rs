@@ -1789,6 +1789,10 @@ mod tests {
             let mut saved: ApiBundleOwned = ron::from_str(&saved).unwrap();
             // records which ww_self saved it, doesn't make a snapshot out of date
             saved.ww_self_version = bundle.ww_self_version;
+            // nor does the order the walker numbered the same definitions in (EVO-75)
+            let mut bundle = bundle;
+            ww_self::order::canonical_order(&mut saved);
+            ww_self::order::canonical_order(&mut bundle);
             assert_eq!(
                 ron::to_string(&saved).unwrap(),
                 ron::to_string(&bundle).unwrap(),

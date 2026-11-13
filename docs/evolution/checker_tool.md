@@ -40,6 +40,12 @@ has snapshots of all of its published versions, every new snapshot is checked ag
 for a version still being worked on: once a version is released, its snapshot never changes, bump the version instead
 (the pre-commit hook [below](#a-released-snapshot-never-changes) refuses it).
 
+Traits and types are compared by their definitions, not by where the source declares them. Moving types or a
+`#[ww_trait]` from `lib.rs` into a `pub mod`, re-exported at the same paths, numbers them in another order in the
+bundle, and the check still says `no changes`: both sides are put into one order before they are compared (the order
+of first use from the API root, then the types nothing uses by their path in the crate, EVO-75). `ww api save` keeps
+the snapshot file as it was saved then, so a released snapshot stays untouched.
+
 A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
 version to put into `Cargo.toml`:
 

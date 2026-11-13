@@ -69,6 +69,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `#[no_unit_hint]` in the repo (`ww_can_bus`) got one. See the `wire_weaver_core`, `wire_weaver_evolution`,
   `wire_weaver_cli` and `ww_can_bus` changelogs.
 - The generations of the frozen hello come from one place (EVO-71): `shrink_wrap`, `ww_framer`, `ww_link` and `ww_client_server` declare a wire version in `Cargo.toml` like every other crate on the wire, and their `GENERATION` is its line, read at compile time by a `const fn` (no build script). The hello bytes are unchanged; `ww_link`'s link setup payloads are snapshot-checked now. See the `shrink_wrap`, `ww_framer`, `ww_link` and `ww_client_server` changelogs.
+- `ww api check` and `ww api save` compare definitions, not the order the walker reached them in: moving types or a `#[ww_trait]` from `lib.rs` into a `pub mod` is no change and asks for no bump (EVO-75), and a trait in its own `pub mod` keeps its root item in a crate snapshot (EVO-74). See the `ww_self`, `wire_weaver_core` and `wire_weaver_evolution` changelogs.
 
 ### Added
 

@@ -76,9 +76,9 @@ fn main() -> ! {
             addr,
             io_level: None,
             answers: I2cSlaveAnswers::Registers {
-                pointer_bytes: 1,
-                len: 256,
-                page: Some(16),
+                pointer_bytes: Fixed::new(1),
+                len: Fixed::new(256),
+                page: Some(Fixed::new(16)),
                 read_only: false,
             },
         })

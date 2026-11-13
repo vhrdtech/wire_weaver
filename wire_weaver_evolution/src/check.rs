@@ -522,7 +522,7 @@ impl Check {
             && !force
         {
             return Err(format!(
-                "{of}{e}.\nNot saved: bump {} to {} or later (docs/evolution/rules.md#your-apis-version) and save \
+                "{of}{e}.\nNot saved: bump {} to {} or later (docs/evolution/versions.md#your-apis-version) and save \
                  again.",
                 version_declared_at(Some(&self.path)),
                 triplet(&report.minimal_version())
@@ -773,7 +773,7 @@ impl Comparison {
         }
         let wire = report.check_wire().err().map(|e| {
             format!(
-                "{e}.\n{} (docs/evolution/rules.md#the-wire-version).",
+                "{e}.\n{} (docs/evolution/versions.md#the-wire-version).",
                 capitalized(&wire_hint_at(
                     report,
                     &wire_declared_at(self.crate_path.as_deref(), self.root.as_deref())
@@ -817,7 +817,7 @@ impl Comparison {
             }
             if let Some(path) = &self.crate_path {
                 msg.push_str(&format!(
-                    "\nBump {} to {} or later (docs/evolution/rules.md#your-apis-version); once that version is \
+                    "\nBump {} to {} or later (docs/evolution/versions.md#your-apis-version); once that version is \
                      released, record it with `ww api save {}` and commit {SNAPSHOTS_DIR}/.",
                     version_declared_at(Some(path)),
                     triplet(&report.minimal_version()),
@@ -843,7 +843,7 @@ impl Comparison {
             format!(
                 "\nThe source differs from {}, the snapshot of {version}{}.\nIf {version} is not released yet, save \
                  it again with {}. A released version's snapshot never changes: bump {declared_at} \
-                 instead (docs/evolution/rules.md#your-apis-version) and save the new version's snapshot.",
+                 instead (docs/evolution/versions.md#your-apis-version) and save the new version's snapshot.",
                 self.old_path.display(),
                 self.unchanged_since
                     .as_ref()
@@ -855,7 +855,7 @@ impl Comparison {
             )
         } else {
             format!(
-                "\nBump {declared_at} to {} or later (docs/evolution/rules.md#your-apis-version) and save \
+                "\nBump {declared_at} to {} or later (docs/evolution/versions.md#your-apis-version) and save \
                  its snapshot with {}; {} goes then, as {version} was never released.",
                 triplet(&report.minimal_version()),
                 save_command(self.crate_path.as_deref()),
@@ -1064,7 +1064,7 @@ fn design_line_verdict(wire: Option<WireVersion>, what: &str) -> String {
     let wire = wire.map_or("w0".to_string(), |w| w.to_string());
     format!(
         "{wire} is the design line: breaks are accepted and {what}; at its first release the API moves to w1.0, and \
-         `ww api save` keeps its first snapshot (docs/evolution/rules.md#w0-the-design-line)"
+         `ww api save` keeps its first snapshot (docs/evolution/versions.md#w0-the-design-line)"
     )
 }
 
@@ -1077,7 +1077,7 @@ fn design_line_warnings(crate_path: &Path, bundle: &ApiBundleOwned) -> Result<Ve
     let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
     Ok(vec![format!(
         "{} can be published (its Cargo.toml has no `publish = false`), and its API is on {}, the design line, \
-         where breaks need no new line: move it to w1.0 before publishing (docs/evolution/rules.md#w0-the-design-line)",
+         where breaks need no new line: move it to w1.0 before publishing (docs/evolution/versions.md#w0-the-design-line)",
         own.crate_id,
         bundle.wire.map_or("w0".to_string(), |w| w.to_string())
     )])

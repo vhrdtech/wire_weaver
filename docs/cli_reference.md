@@ -192,20 +192,20 @@ ww api line retire tests/multi_root_api wire_v1
 version had and its current snapshot of the same version no longer has, in `DIR` (the crate's
 `api_snapshots/superseded/`), as `ww api save` does by itself when it refreshes a snapshot in place: for a refresh
 that happened before, with the earlier snapshot taken from git history. See
-[superseded definitions](evolution/checker_tool.md#superseded-definitions-evo-68).
+[superseded definitions](evolution/inside_the_checker.md#superseded-definitions-evo-68).
 
 `ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]` rewrites the pinned references of the
 snapshot of a crate's current version (the signatures of other crates' definitions it leaves out, and those crates'
 versions) to what the source gives, keeping every other byte, for a frozen fixture that follows its dependencies by
 path; refused on a wire break unless `--accept-breaking`. See
-[a snapshot saved by an older wire_weaver](evolution/checker_tool.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70).
+[a snapshot saved by an older wire_weaver](evolution/inside_the_checker.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70).
 
 `ww api save <path>` saves every `#[ww_trait]`/`#[ww_api_root]` trait defined in the crate's `src/lib.rs`, and every
 `#[derive_shrink_wrap]` type and unit marker struct (`pub struct Volt;`) defined there, in a `pub mod` at any depth,
 or re-exported from a module with `pub use` (each known by its path and name, `units::Volt`) into `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.ron`, for example
 `ww_stdlib/ww_gpio/api_snapshots/ww_gpio_0_1_0.ron`. Commit the snapshot and never change it afterward.
 A crate with several API roots (a `[package.metadata.wire_weaver.roots]` table, [several lines in one
-crate](evolution/rules.md#several-lines-in-one-crate)) gets a snapshot per root instead,
+crate](evolution/versions.md#several-lines-in-one-crate)) gets a snapshot per root instead,
 `<path>/api_snapshots/<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`
 (`multi_root_api_0_1_0.wire_v2.Thermo@w2.1.ron`): the root and what it reaches, saved only when the root changed
 ([Several API roots in one crate](evolution/checker_tool.md#several-api-roots-in-one-crate)).
@@ -237,7 +237,7 @@ saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits,
 Running it again does nothing if nothing changed. Only the snapshot of the version in `Cargo.toml` is written: when the
 source changed since it was saved, it is refreshed, which is only right for a version that was never published. A
 released version's snapshot never changes, including for doc comments only: bump the crate version instead (see
-[evolution rules](evolution/rules.md#doc-comments), doc-only changes bump the compatible position, so that tools can
+[evolution rules](evolution/versions.md#doc-comments), doc-only changes bump the compatible position, so that tools can
 tell that improved docs are available) and save the new version's snapshot. A snapshot is only saved if the version is
 bumped enough since the previous version's snapshot (`--force` saves anyway), see below.
 

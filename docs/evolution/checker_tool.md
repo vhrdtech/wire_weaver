@@ -1,12 +1,25 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Evolution checker
+# The evolution checker
 
-`ww api check <path>` compares the traits and types of a crate with the latest [snapshot](../cli_reference.md#ww-api) saved in
-`<path>/api_snapshots/`, and fails if the crate version or the [wire version](rules.md#the-wire-version) is not
-bumped enough for what changed, following the [evolution rules](rules.md). The crate is parsed from source, same as for `ww api save`, so nothing has to be built.
+Remembering every rule in [what can change](rules.md) is not a job for people. The evolution checker does it: it
+compares a crate with a snapshot of its last release and says what changed, whether that is compatible, and which
+[wire and crate versions](versions.md#which-bump-a-change-needs) the change needs. It reads the crate from source,
+same as for `ww api save`, so nothing has to be built.
+
+It runs three ways, all the same checker:
+
+* `ww api check <path>` on the command line,
+* a test in the API crate (`tests/evolution.rs`), so `cargo test`, CI and a pre-commit hook check every commit,
+* the library, `wire_weaver_evolution`, from other tools.
+
+## A first check
+
+`ww api check <path>` compares the traits and types of a crate with the latest [snapshot](../cli_reference.md#ww-api)
+saved in `<path>/api_snapshots/`, and fails if the crate version or the [wire version](versions.md#the-wire-version)
+is not bumped enough for what changed:
 
 ```
 $ ww api check ww_stdlib/ww_uart
@@ -24,14 +37,16 @@ $ ww api save my_device_api     # once per released version, commit api_snapshot
 $ ww api check my_device_api    # after changing the crate and bumping its version
 ```
 
-The snapshot used is the newest one of the same crate with a version not newer than the one in `Cargo.toml`, so it is
-the snapshot of the current version if it was already saved, and of the previous version otherwise. `--against <file>`
-compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet, unless `--strict` is given:
-then a crate without a snapshot fails, naming the `ww api save` to run. `--require-current` requires the snapshot of
-the version in `Cargo.toml` itself, see [below](#the-current-versions-snapshot).
+Which snapshot is used:
 
-`<path>` can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g. to
-check snapshots that were saved with `--force`.
+* The newest one of the same crate with a version not newer than the one in `Cargo.toml`: the snapshot of the current
+  version if it was already saved, and of the previous version otherwise.
+* `--against <file>` compares with a specific snapshot instead.
+* `<path>` can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g.
+  to check snapshots that were saved with `--force`.
+* Nothing is checked if there is no snapshot yet, unless `--strict` is given: then a crate without a snapshot fails,
+  naming the `ww api save` to run. `--require-current` requires the snapshot of the version in `Cargo.toml` itself,
+  see [below](#the-current-versions-snapshot).
 
 `ww api save` only ever writes the snapshot of the version in `Cargo.toml`: it saves it, or refreshes it when the
 source changed since, and never touches an older version's. It runs the same check against the previous version's
@@ -46,6 +61,8 @@ bundle, and the check still says `no changes`: both sides are put into one order
 of first use from the API root, then the types nothing uses by their path in the crate, EVO-75). `ww api save` keeps
 the snapshot file as it was saved then, so a released snapshot stays untouched.
 
+## Reading a report
+
 A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
 version to put into `Cargo.toml`:
 
@@ -57,19 +74,19 @@ blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -> 0.1
       rule: traits, resources and types are never removed, clients and code using them break (docs/evolution/rules.md#api)
 Error: blinky_api 0.1.0 -> 0.1.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
 blinky_api 0.1.0 has a snapshot (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron), so it is released and never changes: a change needs a new version.
-Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
+Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/versions.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
 ```
 
 `blinky_api`'s snapshot of 0.1.0 was saved before wire versions existed, so only the crate version is checked
 against it; the next section shows both.
 
-## Two bumps: the wire and the crate
+### Two bumps: the wire and the crate
 
-The wire version (`[package.metadata.wire_weaver] wire = "w1.0"` in `Cargo.toml`) and the crate version are bumped apart: the wire version for what devices and hosts of
-the two versions can still say to each other, the crate version for Rust code. One comparison gives both, on the
-`needs:` line, and the check fails when either is not bumped enough, naming what to change for each. A trailing
-argument with a default is a wire-compatible addition, a new wire revision, but a breaking change of the Rust
-signatures, a breaking crate bump:
+The wire version (`[package.metadata.wire_weaver] wire = "w1.0"` in `Cargo.toml`) and the crate version are bumped
+apart: the wire version for what devices and hosts of the two versions can still say to each other, the crate version
+for Rust code. One comparison gives both, on the `needs:` line, and the check fails when either is not bumped enough,
+naming what to change for each. A trailing argument with a default is a wire-compatible addition, a new wire
+revision, but a breaking change of the Rust signatures, a breaking crate bump:
 
 ```
 $ ww api check my_device_api
@@ -78,21 +95,21 @@ my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1
   breaking (Rust only, the wire is compatible): MyDevice::led_on: takes 0 argument(s) on the old version, 1 on the new version: the same bytes on the wire, but other parameters for handlers and client calls
       rule: arguments added at the end with a default, or promoted to a #[flatten] struct, keep the wire, but change the Rust signatures of handlers and client calls (docs/evolution/rules.md#arguments)
 Error: my_device_api 0.1.0 -> 0.1.1 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
-Bump `version` in my_device_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save my_device_api` and commit api_snapshots/.
+Bump `version` in my_device_api/Cargo.toml to 0.2.0 or later (docs/evolution/versions.md#your-apis-version); once that version is released, record it with `ww api save my_device_api` and commit api_snapshots/.
 my_device_api wire w1.0 -> w1.0 has MyDevice::led_on: arguments added or removed at the end, which needs a new wire revision: w1.1 or later.
-Bump the wire version in `[package.metadata.wire_weaver] wire` of my_device_api/Cargo.toml to w1.1 or later (docs/evolution/rules.md#the-wire-version).
+Bump the wire version in `[package.metadata.wire_weaver] wire` of my_device_api/Cargo.toml to w1.1 or later (docs/evolution/versions.md#the-wire-version).
 ```
 
-Which change needs which bump is in [the rules](rules.md#which-bump-a-change-needs). In short:
+Which change needs which bump is in [versions](versions.md#which-bump-a-change-needs). In short:
 
-* A new wire line (`w1.0` -> `w2.0`): anything that breaks the wire, also through a dependency. A `ww_stdlib` crate
-  on a new line of its own is one cause, with the breaks it brings named under it: `shared_api on a new wire line,
-  w1.0 -> w2.0 (2 wire breaks because type shared_api::Shared changed)`.
+* A new wire line (`w1.0` -> `w2.0`): anything that breaks the wire, also through a dependency. A `ww_stdlib` crate on
+  a new line of its own is one cause, with the breaks it brings named under it: `shared_api on a new wire line, w1.0
+  -> w2.0 (2 wire breaks because type shared_api::Shared changed)`.
 * A new wire revision (`w1.0` -> `w1.1`): a wire-compatible addition (a method, property, stream, trait, type, field,
   variant or trailing argument), a raised max length, or a dependency at a newer revision of its line.
 * No wire bump: doc comments, and changes that only break Rust code (a rename, a `#[flatten]` promotion, a changed
   catch-all). Doc comments still need the compatible crate bump: they are in introspection data and snapshots, so
-  tools show the new docs ([doc comments](rules.md#doc-comments)).
+  tools show the new docs ([doc comments](versions.md#doc-comments)).
 
 A bigger bump than needed is always accepted, so a line bumped by hand for a change of meaning the checker can't see
 passes. A wire version going back, or no longer declared, fails, and so does a `#[since]` newer than the crate's wire
@@ -100,11 +117,11 @@ version. `ww api save` refuses to save in each of these cases, as for a crate ve
 declares no wire version on the old side has nothing to compare with: the `needs:` line still says what it would
 need. From code, `Report::wire_bump`, `Report::minimal_wire()` and `Report::check_wire()` give the same.
 
-## Several broken items, one cause (EVO-21)
+### Several broken items, one cause (EVO-21)
 
-A dependency (a `ww_stdlib` crate, or any other crate used through it) can break more than one trait, resource or
-type of the checked crate at once: every item that reaches the one type, trait or marker the dependency changed
-breaks with it. The checker groups such items under the change that actually broke them, instead of listing them as
+A dependency (a `ww_stdlib` crate, or any other crate used through it) can break more than one trait, resource or type
+of the checked crate at once: every item that reaches the one type, trait or marker the dependency changed breaks
+with it. The checker groups such items under the change that actually broke them, instead of listing them as
 unrelated breaks, whenever it can name that cause (a crate and a name, from the same checks that already explain a
 single break: [a wire-incompatible dependency version](#what-is-checked), or the same crate version with a different
 definition):
@@ -132,91 +149,18 @@ A group forms only once a cause reaches two or more items; a single broken item 
 line, with its own rule and bump. Grouping is naming, not a verdict of its own: every grouped item still carries its
 own [`Rule`](#what-is-checked) and counts toward the same required bump as it would alone.
 
-## A dependency changed without a version bump (EVO-67)
+### Notes about dependencies
 
-A snapshot names another crate's trait or type by its crate version and the signatures of its definition, and leaves
-the definition out. A crate version that is not published yet can change without a bump (`ww_error` 0.1.0's
-`CommonError` gaining a typed index), and then the snapshot of a crate that uses it names one signature while the
-source names another. The checker looks both definitions up: the snapshot's in the snapshots built into it, the
-source's in what the walk of the source saw. When it finds both, it compares them as any two versions of a type, so
-`arg: u8` -> `arg: Index<Argument, u8>` is `u8 -> Index<Argument, u8, Unbounded>, same bytes` in every crate that
-embeds the type, and a change of the bytes is a break named at the field. A definition found nowhere (a snapshot
-saved against a revision of the dependency that no snapshot holds any more) is still reported by its two
-signatures. Either way the snapshot of the checking crate's current version differs from its source: save it again
-while the version is not published (`just save-snapshots` for `ww_stdlib`).
-
-### Doc comments of a dependency (EVO-69)
-
-A reference to another crate's definition is its shape signature followed by its signature with docs
-([signatures](../std_library/ww_self.md#signatures-and-putting-skipped-definitions-back)). The checker compares
-references by shape only: the definition is the same when its names, fields and wire shape are, whatever its docs
-say. When only the docs differ, the report gets a note and the verdict doesn't change:
+Some lines in a report are `note:`s, which never change the verdict. One says that a dependency's doc comments
+changed while its definition stayed the same (EVO-69):
 
 ```text
 note: type exact_units::IndexFrom1 0.1.0: doc comments changed since the old version was saved, the definition is the same
 ```
 
-A snapshot saved before EVO-69 holds the signature with docs alone, 8 bytes. The checker finds the definition it
-names among the ones it knows (the snapshot of that crate version, the source's, the superseded ones below) and
-reads its shape from it, so an old snapshot is never edited: it is understood as it was saved.
-
-### Superseded definitions (EVO-68)
-
-Saving the dependency again refreshes its snapshot in place, and the definition the other snapshots name by the old
-signature would then be gone: an API line frozen in a snapshot of its own (`thermo_api`'s `wire_v1::Thermo`) and a
-device built before still name it. So `ww api save` keeps each definition of the crate's own whose signature with
-docs a refresh in place changes, in `api_snapshots/superseded/`, one file per definition (a docs-only change is kept
-too: a snapshot saved before EVO-69 names the definition by its signature with docs):
-
-```text
-ww_stdlib/ww_error/api_snapshots/superseded/ww_error_0_1_0-type-CommonError-bb2c2d7eb9d06d70.ww
-ww_stdlib/ww_indication/api_snapshots/superseded/ww_indication_0_1_0-trait-Indication-e1b197f7361f73a6.ww
-```
-
-A trait or type whose own source didn't change is kept too when its signature did: `Indication`'s method returns a
-`CommonError`. A file holds the same bytes the [definition cache](../std_library/ww_self.md#the-definition-cache) keeps for a device's
-definitions: the definition and everything it refers to, in-line, which its signature is the hash of, so a file
-that was changed fails to load. `just save-snapshots` copies them into `wire_weaver_snapshots`, which builds them in
-next to the snapshots, and the checker finds a definition by its signature there when the snapshot of its crate
-version has another one: a trait changed in place is then compared resource by resource, a type field by field, as
-above. A client putting a device's definitions back finds them the same way. Commit the files with the refreshed
-snapshots. The old definitions of the other crates it refers to must be known when the refresh runs (the snapshots
-built into `ww`, or what an earlier refresh kept): otherwise `ww api save` warns that the definition can't be kept.
-
-A refresh that happened before these files existed is made up for from git history: take the earlier snapshot and
-keep what the current one no longer has.
-
-```sh
-git show 8446b3979:wire_weaver_snapshots/other_repos/exact_units_0_1_0.ron > old.ron
-ww api keep-superseded old.ron --current wire_weaver_snapshots/other_repos/exact_units_0_1_0.ron \
-    --into wire_weaver_snapshots/other_repos/superseded
-```
-
-The earlier snapshot must parse with today's model, and the definitions of other crates it refers to must be known,
-as for `ww api save`.
-
-### A snapshot saved by an older wire_weaver (EVO-70)
-
-A snapshot saved before a field of the model that signatures include (`ApiBundle::wire`, EVO-24) holds signatures
-made over other bytes, so the checker doesn't require the two sides' signatures to be equal. It still compares a
-definition whose signature changed when it knows both definitions: a signature that names a known definition (the
-snapshot of its crate version, the source's, a superseded one) was made over the same bytes. A dependency changed in
-place is then a compatible change or a break named at the field, as in a snapshot of today's format. Only a
-signature that names nothing known is let through unchecked.
-
-A frozen snapshot that stands for a released API but follows the live `ww_stdlib` by path on purpose, as the
-evolution checker's `nucleo_g0b1re_api` fixture does, keeps its pins in line with the source without being saved
-again (saving would rewrite it in today's format):
-
-```sh
-ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api
-```
-
-It rewrites only the signatures by which the snapshot of the crate's current version names other crates' traits and
-types, and those crates' versions; an 8-byte reference stays 8 bytes. It refuses when the source no longer works with
-the snapshot on the wire, printing the report, unless `--accept-breaking` (a stated break of the dependency).
-`--dry-run` prints what would change. In this repository `just refresh-fixture-pins` runs it, and `just
-save-snapshots` calls that at its end.
+Others say what a snapshot saved by an older wire_weaver doesn't record, or that a dependency's unpublished version
+changed in place. How the checker tells these apart, through the two signatures every definition has, is in
+[inside the checker](inside_the_checker.md#snapshots-and-signatures).
 
 ## Checking at every commit
 
@@ -257,8 +201,8 @@ $ WW_API_SAVE=1 cargo test -p my_device_api --test evolution
 
 It writes the snapshot of the current version, or refreshes it when the source changed, and refuses (failing the
 test) when the version is not bumped enough since the previous version's snapshot. As the test runs the checker its
-lock file pins, saving needs no `ww` install either, and every clone saves the same bytes. `ww api save my_device_api`
-does the same; `Check::save` is the library call behind both.
+lock file pins, saving needs no `ww` install either, and every clone saves the same bytes. `ww api save
+my_device_api` does the same; `Check::save` is the library call behind both.
 
 So the flow is: bump the version when starting on the next one, change the API, save, commit the snapshot with the
 change. A failing test names what to do:
@@ -269,16 +213,20 @@ Save it with `just api-save` (`WW_API_SAVE=1 cargo test --test evolution` in the
 ```
 
 Upgrading wire_weaver alone never makes this test fail or asks for a new snapshot. A newer wire_weaver may record
-more about an API than the one that saved its snapshot (EVO-10 added each enum's catch-all, `future_version`): a field
-of the API model that a snapshot file has nowhere was not recorded by its writer, and the checker compares both sides
-without it, saying so in the report (`not compared: ItemEnum::future_version, which a snapshot saved by an older
-wire_weaver doesn't have`). A snapshot is saved again only for a real change of the API, or when you run `ww api save`
-to record the new fields too (an appended variant of an enum with the catch-all passes only once the snapshot records
-the catch-all).
+more about an API than the one that saved its snapshot (EVO-10 added each enum's catch-all, `future_version`): a
+field of the API model that a snapshot file has nowhere was not recorded by its writer, and the checker compares both
+sides without it, saying so in the report (`not compared: ItemEnum::future_version, which a snapshot saved by an
+older wire_weaver doesn't have`). A snapshot is saved again only for a real change of the API, or when you run `ww
+api save` to record the new fields too (an appended variant of an enum with the catch-all passes only once the
+snapshot records the catch-all). The same holds for the signatures inside an old snapshot
+([a snapshot saved by an older wire_weaver](inside_the_checker.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70)).
 
 `strict(true)` instead of `require_current(true)` only requires some snapshot to compare with: the source is then
 compared with the newest one not newer than its version, which may be the previous version's. That suits a crate that
-saves a snapshot only when it releases.
+saves a snapshot only when it releases. `strict(true)` also asks for a reason on every `#[no_unit_hint]`
+([below](#a-reason-required-under-strict-tool-35)); both can be set together.
+
+### Recipes, CI and a hook
 
 Recipes in the project's `justfile`, `api-check` to run the test on its own, `api-save` to save the current version's
 snapshot, `setup` to turn on the hook below:
@@ -297,8 +245,8 @@ setup:
     git config core.hooksPath .githooks
 ```
 
-A step in CI, after the toolchain is set up (`--target` with the host's triple when `.cargo/config.toml` builds for
-an MCU by default):
+A step in CI, after the toolchain is set up (`--target` with the host's triple when `.cargo/config.toml` builds for an
+MCU by default):
 
 ```yaml
       - name: API evolution check
@@ -334,10 +282,62 @@ for f in $(git diff --cached --name-only --diff-filter=MD -- my_device_api/api_s
 done
 ```
 
+### A missing-test warning (TOOL-31)
+
+`ww api check` and `ww api save` also warn, before anything else, when the crate directory has no
+`tests/evolution.rs` calling `wire_weaver_evolution::Check` (the [test above](#checking-at-every-commit)):
+
+```
+$ ww api check my_device_api
+warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
+  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
+  only by `ww api check` run by hand
+my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1.0 (source): no changes
+no changes
+```
+
+A crate without the API crate's own test only gets checked when someone remembers to run `ww api check` by hand:
+`cargo test`, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,
+and it only looks at the file's text (it doesn't need the crate to build), so it also fires on a crate the checker
+can't otherwise parse. `wire_weaver_evolution::missing_test_warning(path)` is the library call behind it, for other
+tools that want the same check.
+
+## Listing all changes
+
+`ww api diff <path>` compares the same versions as `ww api check` (and also takes `--against` or a snapshot file), and
+lists every difference, doc comments included, followed by the verdict. It never fails, and doesn't tell why a change
+is breaking, `ww api check` does:
+
+```
+$ ww api diff ww_stdlib/ww_uart
+ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.0 (source)
+  ~ Uart::rx: docs
+      /// Receive stream
+    + /// of chunks
+  ~ Uart::prevent_back_feed: docs
+      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
+    - /// Optional, check [Capabilities] if supported.
+    + /// Check [Capabilities] if supported.
+  + Uart::flush: fn flush()
+  ~ RxFlags: field `parity_error`: docs
+    + /// Parity error
+  + RxFlags: field `framing_error`: framing_error: bool
+breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
+```
+
+Each line is an added (`+`), removed (`-`) or changed (`~`) trait, resource, type, struct field, enum variant or
+dependency crate version. Changes are: a resource's signature (kind, arguments, return type, property access, stream
+direction, array or not), a resource's or variant's name, a type's kind, size kind or repr, a field's position, type
+or `#[default]` value, `#[since]` of any of them, and doc comments, shown as a line diff. Items are matched as
+described [below](#what-is-checked), enum variants by discriminant, fields by name and unnamed ones by position. A
+renamed type is removed and added.
+
+`diff()` in `wire_weaver_evolution` returns the same list, for use from other tools.
+
 ## Several API roots in one crate
 
 A crate that holds several wire lines, one `#[ww_api_root]` per module with its wire version in
-`[package.metadata.wire_weaver.roots]` ([several lines in one crate](rules.md#several-lines-in-one-crate)), has a
+`[package.metadata.wire_weaver.roots]` ([several lines in one crate](versions.md#several-lines-in-one-crate)), has a
 snapshot per root, named after the crate version that saved it and the root's wire version,
 `<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.ron`. Crates with one root, or none
 (`ww_stdlib`), keep their whole-crate files:
@@ -351,19 +351,18 @@ wire_v2::Thermo: saved tests/multi_root_api/api_snapshots/multi_root_api_0_1_0.w
 * A root's snapshot holds the root and the traits and types it reaches. A type in `common` that no root uses is in
   none of them, and another line's types are not in this one's.
 * `#[since = "w1.2, w2.1"]` on a shared item is recorded as the revision of the snapshot's own line.
-* Each root is checked against its own previous snapshot before it is saved, as a crate is: the version and the
-  entry in the `roots` table must be bumped enough. Nothing is written when any root is refused.
+* Each root is checked against its own previous snapshot before it is saved, as a crate is: the version and the entry
+  in the `roots` table must be bumped enough. Nothing is written when any root is refused.
 * Only the current crate version's files are written, as for a whole crate, so a released snapshot never changes and
   the pre-commit hook [above](#a-released-snapshot-never-changes) works unchanged.
 * A root that didn't change since its previous snapshot gets no new file: that one, saved by an older crate version,
   stays its latest. A root that changed, a doc comment too, gets a file of the new crate version.
-* A crate that had one root and now has several still has its older whole-crate snapshots
-  (`thermo_api_1_2_0.ron`). Each counts as an earlier snapshot of the root on the same line with the same trait
-  name, cut down to that root.
+* A crate that had one root and now has several still has its older whole-crate snapshots (`thermo_api_1_2_0.ron`).
+  Each counts as an earlier snapshot of the root on the same line with the same trait name, cut down to that root.
 * A root with no earlier snapshot is saved unchecked. When the crate has snapshots of older versions, `ww api save`
   warns, naming what it looked for and what is there: a root renamed, or moved to another module or line, matches
   none of them by name (EVO-40).
-* A root on w0 gets no snapshot (below).
+* A root on w0 gets no snapshot ([below](#the-design-line-w0)).
 
 ### Checking each root
 
@@ -397,67 +396,36 @@ crate: 0.2.0 or later, the largest its roots need
 * With `require_current` (the evolution test), a root that changed since its latest snapshot needs a file of the
   current version. A root unchanged since an older version's snapshot needs none.
 * A root the `roots` table no longer lists while it has snapshots is a line leaving the crate, a breaking crate bump
-  ([several lines in one crate](rules.md#several-lines-in-one-crate)) of the last version that shipped it: the newest
-  one saved before the current version while the root had a snapshot. A root only ever saved by the version being
-  worked on was never shipped and needs no bump. `ww api save` records the removal in
-  `<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.removed`, a one-line text file, and refuses
-  it without the bump. Later versions are not asked again, and the evolution test fails until the removal is recorded.
+  ([several lines in one crate](versions.md#several-lines-in-one-crate)) of the last version that shipped it: the
+  newest one saved before the current version while the root had a snapshot. A root only ever saved by the version
+  being worked on was never shipped and needs no bump. `ww api save` records the removal in
+  `<crate>_<major>_<minor>_<patch>.<module path>.<Trait>@w<line>.<revision>.removed`, a one-line text file, and
+  refuses it without the bump. Later versions are not asked again, and the evolution test fails until the removal is
+  recorded.
 * `ww api check --against <file>` takes one root's snapshot file and checks that root. A root's snapshot file checked
   by itself is compared with the previous snapshot of the same root.
 * `ww api diff` lists each root's differences under its name.
-* All roots are loaded with one cache of the crates read (`wire_weaver_core::CrateCache`), so the dependencies'
-  source is walked once for the whole check. The cache keeps a load only while every file it read has the size and
+* All roots are loaded with one cache of the crates read (`wire_weaver_core::CrateCache`), so the dependencies' source
+  is walked once for the whole check. The cache keeps a load only while every file it read has the size and
   modification time it had, so a check after an edit sees it; `Check::cache` shares one cache between checks, also on
   other threads (EVO-50).
 * A root on w0 gets no snapshot and needs none: its check is on the design line ([below](#the-design-line-w0)).
 
 ## The design line, w0
 
-An API on `w0.x` is still being designed ([w0, the design line](rules.md#w0-the-design-line)): `ww api save` keeps no
-snapshot of it, and `ww api check` passes, also with `--strict` and in the evolution test with `require_current`.
+An API on `w0.x` is still being designed ([w0, the design line](versions.md#w0-the-design-line)): `ww api save` keeps
+no snapshot of it, and `ww api check` passes, also with `--strict` and in the evolution test with `require_current`.
 
 ```
 $ ww api save my_device_api
-not saved: w0.2 is the design line, which keeps no snapshots (docs/evolution/rules.md#w0-the-design-line); the first is saved once the API moves to w1.0 at its first release
+not saved: w0.2 is the design line, which keeps no snapshots (docs/evolution/versions.md#w0-the-design-line); the first is saved once the API moves to w1.0 at its first release
 ```
 
 * Against a snapshot that exists (`--against`, or one kept from before), `ww api check` prints the report as usual,
   `needs:` saying `wire w0.2 (the design line: no wire bump)`, and passes: what differs is information.
 * A crate that can be published (no `publish = false`) with a root on w0 gets a warning from both commands.
-* Moving the API to `w1.0` makes the next `ww api save` keep its first snapshot, and every check from there on is
-  the one above.
-
-## Listing all changes
-
-`ww api diff <path>` compares the same versions as `ww api check` (and also takes `--against` or a snapshot file), and
-lists every difference, doc comments included, followed by the verdict. It never fails, and doesn't tell why a change
-is breaking, `ww api check` does:
-
-```
-$ ww api diff ww_stdlib/ww_uart
-ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -> 0.1.0 (source)
-  ~ Uart::rx: docs
-      /// Receive stream
-    + /// of chunks
-  ~ Uart::prevent_back_feed: docs
-      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
-    - /// Optional, check [Capabilities] if supported.
-    + /// Check [Capabilities] if supported.
-  + Uart::flush: fn flush()
-  ~ RxFlags: field `parity_error`: docs
-    + /// Parity error
-  + RxFlags: field `framing_error`: framing_error: bool
-breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
-```
-
-Each line is an added (`+`), removed (`-`) or changed (`~`) trait, resource, type, struct field, enum variant or
-dependency crate version. Changes are: a resource's signature (kind, arguments, return type, property access, stream
-direction, array or not), a resource's or variant's name, a type's kind, size kind or repr, a field's position, type
-or `#[default]` value, `#[since]` of any of them, and doc comments, shown as a line diff. Items are matched as
-described below, enum variants by discriminant, fields by name and unnamed ones by position. A renamed type is
-removed and added.
-
-`diff()` in `wire_weaver_evolution` returns the same list, for use from other tools.
+* Moving the API to `w1.0` makes the next `ww api save` keep its first snapshot, and every check from there on is the
+  one above.
 
 ## What is checked
 
@@ -471,7 +439,7 @@ Changes are sorted into four kinds, and each kind requires a bump of a version p
 | Breaking          | see below                                                                                                   | breaking position (minor before 1.0, major after)  |
 
 Doc comments are not on the wire, but a released version's snapshot never changes, so they need a new version as well
-(see [doc comments](rules.md#doc-comments)). A bigger bump than required is always fine.
+(see [doc comments](versions.md#doc-comments)). A bigger bump than required is always fine.
 
 Traits and types are matched by name. Resources are matched by their id inside each trait (their position, as the
 device sees them) while the old and the new version are on one wire line. Across a line break they are matched by
@@ -487,11 +455,11 @@ proposal, a resource at another position as a wire change only. A change is brea
   new client with an old device), compared the same way as a client checks its API against a device's: resource kind,
   number and types of arguments, return type, property access, stream direction, array or not,
 * a type can't be written by one version and read by the other: e.g. field type changed, field added without
-  `#[default]` at the end of an `Unsized` type, field added in between old ones outside of unused padding bits (see
-  below), field added at the end of a `final_structure`, `self_describing` or `sized` type, enum variant added or
-  removed, `ww_repr` or size kind changed,
-* a [max length](rules.md#maximum-lengths-maxlent-n) is lowered or added (`T` -> `MaxLen<T, N>`): data the old
-  version writes may no longer be read,
+  `#[default]` at the end of an `Unsized` type, field added in between old ones outside of unused
+  [padding bits](inside_the_checker.md#new-fields-in-padding-bits), field added at the end of a `final_structure`,
+  `self_describing` or `sized` type, enum variant added or removed, `ww_repr` or size kind changed,
+* a [max length](rules.md#maximum-lengths-maxlent-n) is lowered or added (`T` -> `MaxLen<T, N>`): data the old version
+  writes may no longer be read,
 * a marker argument changes although the bytes stay: the unit or prefix of a
   [transparent wrapper](rules.md#transparent-wrappers-units-and-scales) (`Fixed<Second, Micro, u64>` -> `Fixed<Second,
   Milli, u64>`), any type argument no field uses, or one wrapper replaced by another of the same bytes (rule
@@ -499,73 +467,27 @@ proposal, a resource at another position as a wire change only. A change is brea
 * a `ww_si::Quantity` becomes a `ww_si::Fixed` or back: other bytes; the finding says it is the intended move, for a
   major version,
 * a [bound](rules.md#bounds) is narrowed or widened: values one side writes are refused by the other (rule `Bound`),
-* a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
-  `ww_si 0.1` -> `0.2`), or one from the same crate version with a different definition.
+* a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g. `ww_si
+  0.1` -> `0.2`), or one from the same crate version with a different definition
+  ([changed in place](inside_the_checker.md#a-dependency-changed-without-a-version-bump-evo-67)).
 
 It also warns about additions without `#[since]`, or with a `#[since]` older than the new wire version (and about a
-wire revision that wasn't bumped for them), and fails on any resource, field or variant whose `#[since]` is newer
-than the API's own wire version (a host built with it would refuse that item on every device of this version, see
-[`#[since]`](rules.md#since)). A change of the root's wire version is listed too; whether it is bumped enough is
+wire revision that wasn't bumped for them), and fails on any resource, field or variant whose `#[since]` is newer than
+the API's own wire version (a host built with it would refuse that item on every device of this version, see
+[`#[since]`](versions.md#since)). A change of the root's wire version is listed too; whether it is bumped enough is
 [checked on its own](#two-bumps-the-wire-and-the-crate).
 
-## New fields in padding bits
-
-Padding inside a type, before a field aligned to a nibble or a byte, is always written as zero bits and skipped when
-reading. A new field of any type, `Unsized` or not, can take such bits, anywhere between the old fields, if:
-
-* none of the old fields moves and the size doesn't change: the new field only takes bits that were padding,
-* all zero bits are a valid value of it, as that is what it reads from old data: `bool`, numbers, arrays and
-  non-`Unsized` structs of them, or an enum without data that has a variant with discriminant 0,
-* it's fixed size (not `UNib32`, `Option`, an enum with data, an `Unsized` type, ...).
-
-Old fields are then matched by name. Where padding is depends on the bit offset the type starts at. An `Unsized` type
-always starts at a byte boundary, so its padding is always in the same place:
-
-```rust
-#[derive_shrink_wrap]
-pub struct U {
-    pub f: bool,
-    // 7 bits of padding before `b`
-    #[since = "w1.1"]
-    pub g: u7, // added in w1.1, reads as 0 from old data
-    pub b: u8,
-    pub s: String,
-}
-```
-
-An `Unsized` type can gain fields with `#[default]` at the end as well, in the same version. Bits after its last field
-are not free though: lengths of variable size fields are written there.
-
-`final_structure`, `self_describing` and `sized` types are packed tightly into their parent, so they can't grow at the
-end, and they can start at any bit inside the parent, so the checker requires that the new field fits for every start
-offset:
-
-```rust
-#[derive_shrink_wrap(sized)]
-pub struct S {
-    pub a: u8,
-    pub f: bool,
-    // 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned
-    #[since = "w1.1"]
-    pub g: u3, // added in w1.1, reads as 0 from old data
-    pub b: u8,
-}
-```
-
-Without `a`, the padding before `b` is 7 bits if `S` starts at a byte boundary, but none if it starts at bit offset 7,
-so `g` can't be added. Padding after the last field is never free: whatever follows the type in its parent starts
-right there. Enum variants with data are not padded to the same size, so there are no free bits after a shorter
-variant either.
-
-All of this was checked against real bytes: old and new versions read each other's data, with the new field
-reading as zero from old data. The client uses the same rules when comparing its API with a device's.
+The client uses the same rules when it compares its API with a device's at connect time, and so does `Check` in an
+API crate's test: the checks live in one place, `wire_weaver_evolution::compat`.
 
 ## Unit-suffix hints (TOOL-22)
 
-`ww api check` also notes a plain integer field, method argument or property whose name ends in a known unit
-suffix (`_us`, `_ms`, `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`), with the
-[`exact_units::Fixed<U, P, T>`](../std_library/exact_units.md) it could become instead: a note, never an error,
-printed after the verdict and never affecting it, even when there is no snapshot to compare with yet:
+A number whose unit lives only in its name is a change of meaning waiting to happen: nothing stops the next version
+from sending milliseconds in `timeout_us`. So `ww api check` also notes a plain integer field, method argument or
+property whose name ends in a known unit suffix (`_us`, `_ms`, `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`,
+`_bits`, `_kib`), with the [`exact_units::Fixed<U, P, T>`](../std_library/exact_units.md) it could become instead: a
+note, never an error, printed after the verdict and never affecting it, even when there is no snapshot to compare
+with yet:
 
 ```
 $ ww api check my_device_api
@@ -602,15 +524,15 @@ and on a `property!`/`stream!`/`sink!`/`ww_impl!` item it silences the resource'
 property!(ro, rate_hz: u32); // a raw register value here, not a frequency
 ```
 
-`ww api scaffold` shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
-handlers are written against `Fixed` from the start where the note applies.
+`ww api scaffold` shows the same notes on stderr, next to the generated handler stubs, so a new API crate's handlers
+are written against `Fixed` from the start where the note applies.
 
 ### A reason, required under `--strict` (TOOL-35)
 
-The bare forms above stay accepted by default: the walker and `ww_codegen!`/the derive macros never error on one.
-A reason is written the same way, in place of the bare attribute: `#[no_unit_hint = "reason"]` on a field or a
-resource item, `#[no_unit_hint = "reason"]` for every argument of a method, or `#[no_unit_hint(arg = "reason",
-..)]` per argument:
+The bare forms above stay accepted by default: the walker and `ww_codegen!`/the derive macros never error on one. A
+reason is written the same way, in place of the bare attribute: `#[no_unit_hint = "reason"]` on a field or a resource
+item, `#[no_unit_hint = "reason"]` for every argument of a method, or `#[no_unit_hint(arg = "reason", ..)]` per
+argument:
 
 ```rust
 struct SteerPoint {
@@ -625,8 +547,8 @@ trait Device {
 }
 ```
 
-`ww api check --strict` and `ww api scaffold --strict` refuse a bare or empty `#[no_unit_hint]`, naming the item
-and the reasoned form to write instead:
+`ww api check --strict` and `ww api scaffold --strict` refuse a bare or empty `#[no_unit_hint]`, naming the item and
+the reasoned form to write instead:
 
 ```
 $ ww api check my_device_api --strict
@@ -634,35 +556,15 @@ my_device_api::retry_count_s: #[no_unit_hint] needs a reason under --strict, e.g
 ```
 
 Writing the reason is the point: it is a second look at whether a unit might actually fit after all
-(`exact_units`/`ww_si` types, the table in `AGENTS.md`'s typed-numbers section) before silencing the note for
-good. A reason never changes the wire or a snapshot.
+(`exact_units`/`ww_si` types, the table in `AGENTS.md`'s typed-numbers section) before silencing the note for good. A
+reason never changes the wire or a snapshot.
 
 This is `--strict`/`strict(true)` only, never implied by `--require-current`/`require_current(true)`: the
-[documented `tests/evolution.rs` template](#checking-at-every-commit) above uses `require_current(true)` alone,
-and an external user who copies it is not forced to write a reason for every `#[no_unit_hint]`. A project that
-wants its own `#[no_unit_hint]`s to need one adds `.strict(true)` next to `require_current(true)` in its own
-`tests/evolution.rs`; this repo's own evolution tests (`tests/stdlib_evolution`, `tests/thermo_api`) do this,
-while `examples/blinky_api`'s stays the unmodified template.
-
-## A missing-test warning (TOOL-31)
-
-`ww api check` and `ww api save` also warn, before anything else, when the crate directory has no
-`tests/evolution.rs` calling `wire_weaver_evolution::Check` (the [test above](#checking-at-every-commit)):
-
-```
-$ ww api check my_device_api
-warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
-  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
-  only by `ww api check` run by hand
-my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1.0 (source): no changes
-no changes
-```
-
-A crate without the API crate's own test only gets checked when someone remembers to run `ww api check` by hand:
-`cargo test`, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,
-and it only looks at the file's text (it doesn't need the crate to build), so it also fires on a crate the checker
-can't otherwise parse. `wire_weaver_evolution::missing_test_warning(path)` is the library call behind it, for other
-tools that want the same check.
+[documented `tests/evolution.rs` template](#checking-at-every-commit) above uses `require_current(true)` alone, and an
+external user who copies it is not forced to write a reason for every `#[no_unit_hint]`. A project that wants its own
+`#[no_unit_hint]`s to need one adds `.strict(true)` next to `require_current(true)` in its own `tests/evolution.rs`;
+this repo's own evolution tests (`tests/stdlib_evolution`, `tests/thermo_api`) do this, while `examples/blinky_api`'s
+stays the unmodified template.
 
 ## Limitations
 
@@ -672,7 +574,8 @@ tools that want the same check.
 * Whether a version was released is not known to the checker: `ww api save` and `WW_API_SAVE=1` refresh the current
   version's snapshot whether it was released or not, a hook or review has to keep released ones unchanged.
 * Only traits and types that `ww api save` finds are checked (see [ww api](../cli_reference.md#ww-api)).
-* Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.
+* Semantic changes that keep the same bytes and the same types, like a value that now means something else, can't be
+  detected. A change of unit, scale, origin or bound is detected ([units compared by meaning](units_by_meaning.md)).
 * Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual
   uses it's always at the same offset.
 * [Grouping several breaks under one cause](#several-broken-items-one-cause-evo-21) only works when the cause is a

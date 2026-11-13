@@ -12,8 +12,8 @@ The dense wire format is useful on `std` too (many small objects without compres
 Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.md`, `docs/serdes/derive.md` with
 `derive_reference.md`, `size_assumptions.md` and `layouts.md` (read before touching any type definition),
 `docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
-`docs/evolution/rules.md`. Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the
-source and its comments are authoritative.
+`docs/evolution/overview.md` with `versions.md` and `rules.md`. Prefer the docs (`docs/`, built with zensical) to the
+source; where they are unclear, the source and its comments are authoritative.
 
 ## Numbers are typed: never a bare integer or float
 
@@ -253,7 +253,7 @@ after `&mut self`; deferred methods answer later with `<method>_send_return(out,
 
 ## Compatibility
 
-Read `docs/evolution/rules.md` and `docs/evolution/crate_layers.md` before any breaking change, wire or Rust API, in
+Read `docs/evolution/versions.md`, `rules.md` and `crate_layers.md` before any breaking change, wire or Rust API, in
 any crate: they explain the crate layers (`shrink_wrap` → `ww_stdlib` → framework → user API), why a `shrink_wrap`
 break cascades, which framework code is wire-defining (`ww_framer`, `ww_link`, `ww_client_server`, codegen), and
 which version position to bump. Types default to unsized and evolvable (fields appended with `#[default = ..]`);

@@ -49,7 +49,7 @@ pub(crate) fn save(
                 .wire
                 .map_or("w0".to_string(), |w| w.to_string());
             println!(
-                "{root}not saved: {wire} is the design line, which keeps no snapshots (docs/evolution/rules.md#w0-the-design-line); \
+                "{root}not saved: {wire} is the design line, which keeps no snapshots (docs/evolution/versions.md#w0-the-design-line); \
                  the first is saved once the API moves to w1.0 at its first release"
             );
             continue;

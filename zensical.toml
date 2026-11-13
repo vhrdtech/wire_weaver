@@ -81,12 +81,18 @@ nav = [
         ]
     },
     { "Evolution" = [
-            "evolution/rules.md",
-            "evolution/checker_tool.md",
+            "evolution/overview.md",
             { "Advanced" = [
+                    "evolution/versions.md",
+                    "evolution/rules.md",
+                    "evolution/checker_tool.md",
                     "evolution/units_by_meaning.md",
-                    "evolution/crate_layers.md",
-                    "evolution/multi_line_host.md"
+                    "evolution/multi_line_host.md",
+                    "evolution/crate_layers.md"
+                ]
+            },
+            { "Nomicon" = [
+                    "evolution/inside_the_checker.md"
                 ]
             }
         ]

@@ -110,7 +110,7 @@ device into its updater: see [global trait addressing](addressing.md#global-trai
 Two attributes on a resource tell the evolution checker and clients where it comes from:
 
 * `#[since = "w2.4"]` names the wire revision that added it. A host refuses to call it on a device of an older
-  revision, before sending anything ([`#[since]`](../evolution/rules.md#since)).
+  revision, before sending anything ([`#[since]`](../evolution/versions.md#since)).
 * `#[moved_from(w2.1, Thermo::self_test)]` names the place it had on an earlier line, as `Trait::resource`, when it
   moved across a line break: into a sub-level, another trait, or under another name. The checker verifies that it is
   the same resource and reports a move instead of a removal and an addition. A resource that moved over several

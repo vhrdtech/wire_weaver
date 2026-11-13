@@ -4,7 +4,7 @@ level: advanced
 
 # A host for several wire lines
 
-A wire break starts a new [wire line](rules.md#the-wire-version) of an API: a `w2.0` device and a `w1.2` host refuse
+A wire break starts a new [wire line](versions.md#the-wire-version) of an API: a `w2.0` device and a `w1.2` host refuse
 each other in link setup. Firmware in the field doesn't update all at once, so a host application often has to talk
 to devices of several lines for a while. Generated clients are static, one per line, so the host bundles one client
 per line and picks one at connect time. This page shows how, on the example in `tests/thermo` (EVO-28, EVO-42): a
@@ -15,7 +15,7 @@ generated code (the dynamic client, Python) are [at the end](#scripts-and-tools-
 The shape in short:
 
 1. One API crate holds every line still in use, one root per module (`wire_v1`, `wire_v2`, `wire_v3`), and what more
-   than one line uses in a module of its own (`common`), see [several lines in one crate](rules.md#several-lines-in-one-crate).
+   than one line uses in a module of its own (`common`), see [several lines in one crate](versions.md#several-lines-in-one-crate).
 2. The host has a module per line with its generated client and its conversions to the driver's own types; the
    types in `common` are converted once, for every line.
 3. A facade, an enum over the line clients made by `wire_weaver_client::facade!`, hides which line the device is on.
@@ -206,7 +206,7 @@ operation's name.
   `fn`, in one of `wire_weaver_client::facade`'s adapters (`StreamOf`, `SplitStreamOf` for a batch given item by
   item, `ObserverOf`, `SinkOf`), or a type of its own implementing `Receives` or `Sends`.
 - Errors of each line fold into the driver's one `Error`. A call to an item newer than the device's revision is
-  refused by the generated client before it is sent (`Error::OlderProtocol`, see [`#[since]`](rules.md#since)); the
+  refused by the generated client before it is sent (`Error::OlderProtocol`, see [`#[since]`](versions.md#since)); the
   driver turns that into `Error::Unsupported`, which names the operation.
 - A variant holds the line's whole client: `match` on the facade reaches what only one line has.
 - A mistake in the operations (`&mut self`, a generic operation, a plain `fn`, a line in `#[unsupported]` the enum

@@ -93,7 +93,7 @@ pub(crate) fn get_since_attr(
         return match revisions.iter().any(|r| r.is_design_line() || !shared) {
             true => Err(anyhow!(
                 "#[since = \"{value}\"] on w0, the design line: breaks are accepted there and revisions mean nothing \
-                 (docs/evolution/rules.md#w0-the-design-line). Remove it; items added after the first release, \
+                 (docs/evolution/versions.md#w0-the-design-line). Remove it; items added after the first release, \
                  `w1.0`, take `#[since]`"
             ))
             .context(current_crate.err_context()),

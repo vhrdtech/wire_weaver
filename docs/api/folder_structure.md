@@ -27,7 +27,7 @@ the generated `<ROOT_TRAIT>_FULL_GID` constant), so publish it to crates.io for 
 name unique enough for internal use.
 
 Its `Cargo.toml` holds two versions. The crate version is Cargo's: normal [SemVer rules](https://semver.org) for
-the Rust API. The [wire version](../evolution/rules.md#the-wire-version) is what a host and a device decide on when
+the Rust API. The [wire version](../evolution/versions.md#the-wire-version) is what a host and a device decide on when
 they connect: the same line talks, another line is told apart before the first call.
 
 ```toml
@@ -39,7 +39,7 @@ version = "0.1.0"
 wire = "w0.0"
 ```
 
-A new API starts on `w0.0`, the [design line](../evolution/rules.md#w0-the-design-line), where breaks are accepted
+A new API starts on `w0.0`, the [design line](../evolution/versions.md#w0-the-design-line), where breaks are accepted
 and no snapshots are kept; its first release moves to `w1.0`.
 
 What counts as a breaking change for each is in the [evolution rules](../evolution/rules.md); `ww api check` says

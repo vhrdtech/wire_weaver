@@ -61,7 +61,7 @@ pub struct RootOutcome {
 }
 
 /// An API root with snapshots in the crate's snapshot directory that the `roots` table no longer lists: a line
-/// leaving the crate, a breaking crate bump (docs/evolution/rules.md#several-lines-in-one-crate). `ww api save`
+/// leaving the crate, a breaking crate bump (docs/evolution/versions.md#several-lines-in-one-crate). `ww api save`
 /// records the removal ([removed_file_name]), so a later version isn't asked for the bump again.
 #[derive(Debug)]
 pub struct RemovedRoot {
@@ -425,7 +425,7 @@ impl Check {
                 && !force
             {
                 return Err(format!(
-                    "{}.\nNot saved: bump {} to {} or later (docs/evolution/rules.md#several-lines-in-one-crate) \
+                    "{}.\nNot saved: bump {} to {} or later (docs/evolution/versions.md#several-lines-in-one-crate) \
                      and save again.",
                     removed.needs(&own.crate_id),
                     super::version_declared_at(Some(&self.path)),
@@ -676,7 +676,7 @@ impl RootsOutcome {
                         ));
                     }
                     msg.push_str(&format!(
-                        "\nBump {} to {} or later (docs/evolution/rules.md#several-lines-in-one-crate) and record \
+                        "\nBump {} to {} or later (docs/evolution/versions.md#several-lines-in-one-crate) and record \
                          the removal with {}.",
                         super::version_declared_at(Some(&self.crate_path)),
                         triplet(&min),

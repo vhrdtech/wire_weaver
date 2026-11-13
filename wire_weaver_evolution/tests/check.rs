@@ -1010,7 +1010,7 @@ fn both_bumps_named_in_the_verdict() {
         "test_api wire w1.0 -> w1.0 has Api::led_on: arguments added or removed at the end, which needs a new wire \
          revision: w1.1 or later",
         "Bump the wire version in `#[ww_api_root(wire = ..)]` to w1.1 or later",
-        "docs/evolution/rules.md#the-wire-version",
+        "docs/evolution/versions.md#the-wire-version",
     ] {
         assert!(err.contains(expected), "'{expected}' not in:\n{err}");
     }

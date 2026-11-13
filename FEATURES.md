@@ -1142,7 +1142,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🧪 **SRV-30 Hub version skew and handover** · `v0.5.x` — a hub serves every client whose link and API model
   versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
   newer replaces older, so it converges); a refusal names both versions and the fix. Built
-  (`docs/transport/hub.md#version-skew-and-handover-srv-30`, `docs/evolution/rules.md#the-ww-hub-and-version-skew`):
+  (`docs/transport/hub.md#version-skew-and-handover-srv-30`, `docs/evolution/versions.md#the-ww-hub-and-version-skew`):
   preamble version 2 with a skippable trailer carrying the client's `ww_link` and `ww_client_server` versions (version
   1 still read: versions unknown; a client asks a v1-only hub again in v1), the hub's window (`ww_hub/src/window.rs`:
   SemVer-compatible with its build, plus earlier majors it keeps after a break, none yet) and status 4 with
@@ -2186,7 +2186,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   crate versions with an error that says why. The trait gets a `*_WIRE_VERSION` const, `ww_self::ApiBundle::wire` carries it (crate snapshots too), and `#[since = "w2.1"]`
   on items, fields and variants names a wire revision; the crate-version form is refused with a hint. The client
   compares `#[since]` with the device's wire version (from link setup since EVO-25, else from its introspection
-  data), the checker hints and checks markers against the root's wire version (`docs/evolution/rules.md#the-wire-version`;
+  data), the checker hints and checks markers against the root's wire version (`docs/evolution/versions.md#the-wire-version`;
   tests `ww_version` `wire::tests`, `wire_weaver_core` `wire_version_and_since`, `tests/cross_version`).
 - ✅ **EVO-26 Wire versions of shared crates** · `v0.5` — every crate whose traits or types cross the wire has a
   wire version apart from its crate version: a crate without an API root declares it in `Cargo.toml`,
@@ -2214,7 +2214,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   names what to change for each and where the wire version is declared (the root's attribute or `Cargo.toml`), and
   `ww api save` refuses the same. A `ww_stdlib` crate on a new wire line is one reason with the breaks it causes
   named under it (EVO-21) (`docs/evolution/checker_tool.md#two-bumps-the-wire-and-the-crate`,
-  `docs/evolution/rules.md#which-bump-a-change-needs`; `wire_weaver_evolution` tests `tests::both_bumps`,
+  `docs/evolution/versions.md#which-bump-a-change-needs`; `wire_weaver_evolution` tests `tests::both_bumps`,
   `tests::wire_lines`, `check::both_bumps_named_in_the_verdict`, and `snapshot_pairs`, every saved snapshot of
   `ww_global`, `ww_tap` and the `ww_stdlib` crates against the one before it).
 - 💡 **EVO-29 Global paths by wire line on the device** — a device without introspection data resolves `GlobalFull`
@@ -2231,7 +2231,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   host checks `#[since]` against the wire version from link setup, also without introspection data; dynamic hosts
   and the hub keep working (a tunnel fronts the device with its wire version). A full client needs its root's wire
   version (a compile error says to mark it `#[ww_api_root]` with a wire version, in `Cargo.toml` since EVO-31); the crate version is for display and
-  `Version::is_protocol_compatible` for crate versions only (`docs/evolution/rules.md#the-wire-version`; tests
+  `Version::is_protocol_compatible` for crate versions only (`docs/evolution/versions.md#the-wire-version`; tests
   `tests/wire_line`, `ww_device` `incompatible_and_dynamic_hosts`, `wire_weaver_client`
   `crate_breaking_bump_on_the_same_line_connects`, `incompatible_host_is_refused`, conformance `device_info.wire_version`,
   `link_setup.wire_version`).
@@ -2241,7 +2241,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   EVO-28 bench): refused in a crate that can be published (`publish = false` marks test crates) and when the
   crate's `Cargo.toml` declares a different one. Every API root in the repository moved to `Cargo.toml`
   (`tests/wire_line_old_api` keeps the attribute as the end-to-end case); `ww api scaffold` says where the wire
-  version lives or how to declare it (`docs/evolution/rules.md#the-wire-version`; tests `wire_weaver_core`
+  version lives or how to declare it (`docs/evolution/versions.md#the-wire-version`; tests `wire_weaver_core`
   `wire_version_in_cargo_toml`, `wire_version_note`, `tests/wire_line`).
 - ✅ **EVO-28 A host for several wire lines** · `v0.5` — one host driver bundles a generated client per wire line
   of an API (versions of the API crate as renamed dependencies) behind a facade and connects once to a device on
@@ -2277,7 +2277,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   released lines' revisions). A client whose device's API hash differs compares the device's introspection data
   and, without it, refuses every call with `Error::DesignLineUnchecked`; equal hashes stay identical, the hash being
   over the device's own introspection bytes. `ww api scaffold` suggests `w0.0`; moving to `w1.0` saves the first
-  snapshot. Docs: `docs/evolution/rules.md#w0-the-design-line`, `docs/evolution/checker_tool.md#the-design-line-w0`;
+  snapshot. Docs: `docs/evolution/versions.md#w0-the-design-line`, `docs/evolution/checker_tool.md#the-design-line-w0`;
   tests `wire_weaver_evolution` `design_line_*`, `wire_weaver_core` `since_refused_on_the_design_line`,
   `design_line_root_shares_with_a_released_one`, `wire_version_note`, `wire_weaver_client`
   `design_line_checks_the_device_or_refuses`, `any_revision_of_the_line_is_taken`.
@@ -2379,7 +2379,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   `[package.metadata.wire_weaver.roots]` (`"wire_v2::Thermo" = "w2.1"`). `ww_codegen!(api::wire_v2::Thermo ..)`
   names a root by its module path, `#[ww_api_root]` in a module finds itself from its source file, a line's module
   names shared items with `super::`, and `#[since = "w1.2, w2.1"]` on a shared item names a revision per line.
-  Snapshots per root are EVO-38, checks per root EVO-39. Docs: `docs/evolution/rules.md#several-lines-in-one-crate`;
+  Snapshots per root are EVO-38, checks per root EVO-39. Docs: `docs/evolution/versions.md#several-lines-in-one-crate`;
   tests `tests/multi_root`.
 - ✅ **EVO-45 Quantity specs in the model** · `v0.5` — the wire change of exact_units UNIT-8: a `UnitDef` names the quantity it measures by the quantity marker's `MarkerId` (`exact_units::Resistance` for `Ohm`) instead of an English name; `MarkerDef::Quantity(QuantityDef)` is new (id, parent by id, dimension, `is_kind`, character), appended after `Base`, and `MarkerDef::Of` (`units::Of<Q, U>`) takes `Phase`'s place, `Phase<A>` being the alias `Of<PhaseAngle, A>`. The walker reads `quantity!` lines and `quantity X` on `unit!` lines and checks them against `quantities::ALL`, describes `QuantityRef` by `MarkerId`'s shape, and refuses two open roots of one dimension; a bundle keeps every quantity a marker names by id, on the device and when a client puts skipped definitions back. `ww_self::units` resolves a unit's quantity (`CanonicalUnit::quantity`, a `QuantityExprOwned` for `UnitKind`) with the bundle as the table, `factor_to` takes exact_units' conversion rule (a height converts to a length, not to a width), the evolution checker compares quantities, and the dynamic client shows `Of<Q, U>` as `U`. Conformance case `model.marker_def.unit_kind` carries the mark; `model.marker_def.of`, `.quantity` and `.quantity_kind` are new; tests in `tests/quantities` (`quantities_of_the_model`). No device or host uses the format. [Docs](docs/std_library/units_in_the_model.md#quantities).
 - ✅ **EVO-47 Systems of units in the model** · `v0.5` — the wire change of exact_units UNIT-9: a `Dim` starts with the `MarkerId` of its system (`exact_units::Si`, `Natural`, `Gaussian`), then as many exponents as the system has (SI seven, Gaussian six of g, cm, s, K, mol, cd, Natural five); a dimension without true exponents is written as SI's. `MarkerDef::System(SystemDef)` is new, appended after `Quantity`: the base symbols, what the system sets to 1, the rule per SI base and the rows by quantity. The walker reads a system before a dimension's colon (`[Gaussian: g 1/2, cm -1/2, s -1]`, the three built-in systems by name), checks Natural's and Gaussian's units and quantities against their compiled `ALL` lists, describes `SystemRef` by `MarkerId`'s shape, and a bundle keeps the system other than SI that a unit or quantity counts in, as it keeps a named quantity; SI is never listed. `ww_si` re-exports `System`, `SystemDef`, `systems`, `Crossing` and the bridge types, with a `systems` feature (on with `std`). Conformance cases `stdlib.si.dim.*` and every case holding a `UnitDef` carry the mark; `stdlib.si.dim.gaussian_half`, `.gaussian.count.rejected`, `.gaussian.ratio.rejected` and `model.marker_def.system` are new. No device or host uses the format. Python's `Quantity.system` names the system and `dim` counts in its bases; the evolution checker finds a unit that moved to another system breaking; tests in `tests/quantities` (`systems_of_the_model`). [Docs](docs/std_library/units_in_the_model.md#systems-of-units).
@@ -2392,7 +2392,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   compares the two definitions by the evolution rules when it finds both (the snapshot's in the embedded snapshots,
   the source's in `wire_weaver_core::SourceNotes::definitions`, passed by `Check` to `compare_recorded`), so a
   same-bytes change of `ww_error::CommonError` is compatible in every crate embedding it, not a wire break each
-  (`docs/evolution/checker_tool.md#a-dependency-changed-without-a-version-bump-evo-67`; `wire_weaver_evolution`
+  (`docs/evolution/inside_the_checker.md#a-dependency-changed-without-a-version-bump-evo-67`; `wire_weaver_evolution`
   tests `tests::in_place`). The fallback originally covered only a plain (non-generic) skipped type's
   `TypeCheck::check`; a *generic* one (an `Instance`, `exact_units::IndexFrom1`-like) went through
   `missing_definition` and `check_instances` instead, neither of which tried `TypeCheck::definitions` before
@@ -2422,7 +2422,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   checker finds a definition by signature there and compares a trait changed in place resource by resource. Found by
   `tests/thermo_api`'s frozen line snapshots, which name `ww_indication::Indication` by a signature that changed
   with `ww_error::CommonError` (same bytes): they read as needing a new wire line once both snapshots were refreshed
-  (`docs/evolution/checker_tool.md#superseded-definitions-evo-68`; `wire_weaver_evolution` tests
+  (`docs/evolution/inside_the_checker.md#superseded-definitions-evo-68`; `wire_weaver_evolution` tests
   `tests::superseded`).
 - ✅ **EVO-69 Shape signature and docs signature** · `v0.5` — a definition has two signatures
   (`ww_self::signature::Signatures`): the shape signature, without docs, is its identity, and the signature with
@@ -2437,7 +2437,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   `ww_si`/`ww_adc` snapshots are back to their saved bytes, with the exact_units 0.1.0 definitions they name kept
   by `ww api keep-superseded` from git history. Wire: the skipped references in introspection data and the API
   hashes change once; no device or host uses the format. Conformance: `signatures` cases
-  (`docs/evolution/checker_tool.md#doc-comments-of-a-dependency-evo-69`, `docs/std_library/ww_self.md`;
+  (`docs/evolution/inside_the_checker.md#doc-comments-of-a-dependency-evo-69`, `docs/std_library/ww_self.md`;
   `ww_self` tests `signature::tests`, `conformance` test `signatures`).
 - ✅ **EVO-70 Old-format snapshots compare embedded definitions; pins refreshed by a tool** · `v0.5` — against a
   snapshot saved by an older wire_weaver (EVO-13) the checker turned signature checks off altogether, so any change
@@ -2450,7 +2450,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   on purpose, and `just save-snapshots` calls it. The fixture's tests require a wire-compatible verdict instead of
   "no changes", the EVO-13 checks run on a copy with refreshed pins, and `wire_weaver_snapshots`'
   `signatures_from_before_marker_definitions` reads its pins from the snapshot files: no signature bytes are edited
-  by hand (`docs/evolution/checker_tool.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70`; `wire_weaver_evolution`
+  by hand (`docs/evolution/inside_the_checker.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70`; `wire_weaver_evolution`
   tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture`,
   `breaking_stdlib_change_fails_the_fixture`).
 - ✅ **EVO-65 `ww_dfu` typed numbers on the wire** · `v0.5` — `ww_dfu` on a new wire line, `w2.0` (P2401 stdlib units survey): step indices and counts are `Index<Step, u32>` / `Count<Step, u32>`, chunks `Index`/`Count<Chunk, u16>`, erase blocks `Index<Block, u16>` / `Count<Block, u16>`, byte offsets in a chunk or a plan `Index<Byte, u32>`, sizes `Bytes<u32>`, all the same bytes. The breaks: `NodeInfo`'s `product_id`, `app_version` and `version_floor` become `app: Option<ImageInfo>` (`ProductId`, `ImageVersion`, and the image's new `security_counter`) and `security_floor: SecurityCounter`, as chunky checks the floor against the security counter, not the version; `geometry_id` is `geometry: GeometryId`; `LastResult::version` is `Option<ImageVersion>`; `Session::resume_from` is split into `resume_step` and `resume_byte`; `StageLimits::max_piece` is `Fixed<Byte, One, u16, Range<1, 1024>>` (a `u16`, bounded), `in_flight` `Fixed<Request, One, u8, Range<1, 255>>`; `ack_every` and `plan_area` are `Niched<.., Null<0>>`. Tests `ww_dfu` (bytes of every wrapper, the bounds, the niches), `tests/dfu`, `tests/dfu_scenarios` (transcripts again). No device or host uses the format.

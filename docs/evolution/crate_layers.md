@@ -2,10 +2,11 @@
 level: advanced
 ---
 
-# Crate layers and version bumps
+# Changing WireWeaver itself
 
-For changing WireWeaver itself or a `ww_stdlib` crate. An application only needs the
-[evolution rules](rules.md) for its own API crate.
+Your API sits on top of a stack of crates, and every byte it sends is shaped by all of them. This page is for changing
+WireWeaver itself or a `ww_stdlib` crate. An application only needs [what can change](rules.md) and
+[versions](versions.md) for its own API crate.
 
 Every crate in the stack has its own versioning rules, because a change travels differently depending on where it
 is made: a `shrink_wrap` break cascades to every other crate, a framework crate is free to break its Rust API, and
@@ -66,7 +67,7 @@ Therefore:
 ## Layer 2: ww_stdlib
 
 `ww_stdlib` crates are meant to be shared between unrelated projects, so their types end up inside many
-different APIs. Like an API root, each one has a [wire version](rules.md#the-wire-version) of its own, apart from its
+different APIs. Like an API root, each one has a [wire version](versions.md#the-wire-version) of its own, apart from its
 crate version, declared in its `Cargo.toml`:
 
 ```toml
@@ -106,7 +107,7 @@ the root `Cargo.toml` before breaking one. `ww_version` and `ww_global` are spec
 
 `ww_client_server` is the API model: it defines the request/event encoding that every generated server and client
 speaks. Its version is sent to the host in `DeviceInfo::api_model_version`, and a wire break there is a wire break for
-every user API, so it is treated with almost the same care as `shrink_wrap` - see [API model](rules.md#api-model).
+every user API, so it is treated with almost the same care as `shrink_wrap` - see [API model](versions.md#api-model).
 
 ## Layer 3: framework
 
@@ -118,15 +119,15 @@ keeps working with a host or firmware built against `wire_weaver 0.6`, as long a
 The exception is code that defines what goes on the wire:
 
 * `ww_framer` (frame layout, heads, checksums, frame prefixes) and `ww_link` (message kinds, `DeviceInfo`,
-  `LinkSetup`, each medium's `Framing`) - changing these breaks every device from every host. Such a break bumps
-  the layer's generation in the [frozen hello](../transport/ww_link.md#the-frozen-hello) (`ww_framer::GENERATION`,
-  `ww_link::hello::GENERATION`, the line of the crate's `[package.metadata.wire_weaver] wire`: bump it to `w2.0`), so peers on both sides of it fail with `Error::IncompatibleGeneration`, naming the
-  layer, instead of a setup timeout. Only add new message kinds that old peers ignore; never change existing ones.
-  The hello itself (EVO-23, 0.5) was such a break: `GetDeviceInfo` became `Hello`. The one before it was TR-15
-  (0.5): the setup token in `GetDeviceInfo` / `DeviceInfo` / `LinkSetup` / `LinkReady`, USB packets
-  without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every message. A device and a
-  host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the token, which is refused as
-  well, so every firmware and host is rebuilt together.
+  `LinkSetup`, each medium's `Framing`) - changing these breaks every device from every host. Such a break bumps the
+  layer's generation in the [frozen hello](../transport/ww_link.md#the-frozen-hello), the line of the crate's wire
+  version ([below](#generations-from-the-wire-line)), so peers on both sides of it fail with
+  `Error::IncompatibleGeneration`, naming the layer, instead of a setup timeout. Only add new message kinds that old
+  peers ignore; never change existing ones. The hello itself (EVO-23, 0.5) was such a break: `GetDeviceInfo` became
+  `Hello`. The one before it was TR-15 (0.5): the setup token in `GetDeviceInfo` / `DeviceInfo` / `LinkSetup` /
+  `LinkReady`, USB packets without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every
+  message. A device and a host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the
+  token, which is refused as well, so every firmware and host is rebuilt together.
 * Server and client codegen in `wire_weaver_core` - how resources are indexed, how arguments and return values are
   wrapped. Changing it changes the wire for every user API without any user version changing, so it must stay
   byte-identical for the same API definition.
@@ -138,4 +139,42 @@ batch, and mark as `Wire format:` in the changelog.
 
 ## Layer 4: user API
 
-See [your API's version](rules.md#your-apis-version) in the evolution rules.
+See [your API's version](versions.md#your-apis-version).
+
+## Generations from the wire line
+
+Four crates are the foundation every link stands on: `shrink_wrap` (the encoding), `ww_framer` (frames), `ww_link`
+(link messages) and `ww_client_server` (the API model). A break in one of them would make the version exchange itself
+unreadable, so link setup opens with the [frozen hello](../transport/ww_link.md#the-frozen-hello), plain bytes at
+fixed positions with one **generation** byte per layer. Two peers whose generation of a layer differs stop right
+there, with `Error::IncompatibleGeneration` naming the layer.
+
+A generation is not a number of its own (EVO-71). Each of the four crates declares a wire version in its `Cargo.toml`
+like every other crate whose bytes cross the wire, and its generation is that version's line:
+
+```toml
+# ww_link/Cargo.toml
+[package.metadata.wire_weaver]
+wire = "w1.0"
+```
+
+```rust
+// ww_link/src/hello.rs
+pub const GENERATION: u8 = shrink_wrap::generation_from_manifest!();
+```
+
+So a break of the layer is bumped in one place:
+
+* A break bumps the line (`w1.0` -> `w2.0`), and the hello says 2. A compatible addition bumps the revision (`w1.1`),
+  which the hello doesn't carry: additions are negotiated after it, in `DeviceInfo` and `LinkSetup`.
+* `generation_from_manifest!()` reads the line at compile time: a `const fn` (`shrink_wrap::wire_line`) over
+  `include_str!` of the calling crate's manifest. It needs no build script, works in `no_std`, and costs about 0.1 ms
+  of compile time per crate. A missing or malformed line is a compile error.
+* The evolution checker sees two of the four. `ww_client_server` and `ww_link` (`DeviceInfo`, `LinkSetup`,
+  `ClientMeta`) have snapshots checked in `tests/stdlib_evolution`, so a break of a link payload asks for `w2.0`, and
+  the hello's generation follows.
+* `shrink_wrap`'s encoding and `ww_framer`'s frames have no API model the checker could compare. They stay guarded by
+  the [conformance corpus](../serdes/conformance.md) and their own byte tests (`ww_link`'s
+  `hello::tests::frozen_payload_bytes` holds the hello's bytes).
+
+All four are on `w1.0` today, generation 1.

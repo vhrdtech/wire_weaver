@@ -155,7 +155,7 @@ in `api_snapshots/superseded/`, and `wire_weaver_snapshots::superseded` finds it
 happened before is made up for with `ww api keep-superseded`, from the earlier snapshot in git history. A host looks there before
 the cache (`inline_skipped_or_cached`), so a device built before the refresh is understood on any machine;
 `ww_self::inline::inline_skipped_by_signature` takes any such lookup. See
-[superseded definitions](../evolution/checker_tool.md#superseded-definitions-evo-68).
+[superseded definitions](../evolution/inside_the_checker.md#superseded-definitions-evo-68).
 
 ## Visiting the model
 

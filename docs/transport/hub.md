@@ -572,7 +572,7 @@ the device sends before the next answers; it is there either way. The hub's trac
 ## Version skew and handover (SRV-30)
 
 Programs on one PC are built at different times: `dg` with one WireWeaver release, the rePort GUI with another, one
-hub for both. Three layers keep that working, each under WireWeaver's own [evolution rules](../evolution/rules.md#the-ww-hub-and-version-skew):
+hub for both. Three layers keep that working, each under WireWeaver's own [evolution rules](../evolution/versions.md#the-ww-hub-and-version-skew):
 
 1. **The preamble** is frozen ([Wire format](#wire-format)): any client and any hub can exchange their versions and a
    clear refusal.

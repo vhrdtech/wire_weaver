@@ -1,291 +1,96 @@
 ---
-level: basic
+level: advanced
 ---
 
-# Evolution rules
+# What can change
 
-Two different things can break when a WireWeaver crate changes, and they are tracked separately:
+Every rule on this page answers the same two questions about a change:
 
-* **Wire compatibility** - whether bytes written by one side can still be read by the other. Firmware lives in the
-  field for years, hosts are updated on their own schedule, and ShrinkWrap blobs may be stored on disk. A wire break
-  means deployed devices stop talking to new hosts (or the other way around), which no `cargo update` can fix.
-* **Rust (SemVer) compatibility** - whether code still compiles against the new crate version. A break here is
-  annoying, but it is found by the compiler and fixed by the developer, before anything ships.
+1. Can each version still read what the other one writes? If not, the change breaks the **wire**: a new
+   [wire line](versions.md#the-wire-version).
+2. Does Rust code written against the old crate still compile? If not, the change breaks the **crate**: its breaking
+   version position.
 
-A change can break one without the other: renaming a `BufWriter` method breaks Rust code but not a single byte on the
-wire; changing a field's `u8` to `u16` in an API type compiles fine and silently breaks the wire. The rules below say
-what you can change in your API crate without breaking either, and which version to bump when you do.
-For changing WireWeaver itself or a `ww_stdlib` crate, see [crate layers and version bumps](crate_layers.md).
+A change that passes both is an addition: a new wire revision, the crate's compatible position. Which bump each
+outcome needs is in [which bump a change needs](versions.md#which-bump-a-change-needs), and the
+[evolution checker](checker_tool.md) applies every rule here for you. This page is for knowing why it says what it
+says, and for planning a change before making it.
 
-## In short
-
-A device runs `blinky_api 0.1.0`, wire version `w1.0`. The next version adds a method and a field, and keeps
-everything else:
-
-```toml
-# Cargo.toml of blinky_api
-[package.metadata.wire_weaver]
-wire = "w1.1"
-```
-
-```rust
-#[ww_api_root]
-pub trait BlinkyApi {
-    fn led_on();
-    fn led_off();
-    #[since = "w1.1"]
-    fn led_toggle();
-}
-
-#[derive_shrink_wrap]
-struct Status {
-    on: bool,
-    #[since = "w1.1"]
-    #[default = None]
-    brightness: Option<u8>, // old data reads as None
-}
-```
-
-Both are wire-compatible additions, so the wire version goes from `w1.0` to `w1.1` and the crate from `0.1.0` to
-`0.1.1`: an old device and a new host still
-connect, the host gets a clean error when it calls `led_toggle` on the old device, and reads `None` for the
-brightness it doesn't send. The rest of this page lists which changes are compatible like these. When in doubt,
-run the [evolution checker](checker_tool.md), it compares your crate with its last release.
-
-## Your API's version
-
-An API has two versions, for two jobs:
-
-* The **crate version** is Cargo's: SemVer for the Rust code built against the API crate. A Rust-only break (a
-  trailing argument with a default, a `#[flatten]` promotion, see [Arguments](#arguments)) bumps its breaking
-  position, a wire-compatible addition its compatible one (patch before 1.0, minor after).
-* The **wire version** (below) is what devices and hosts decide on: link setup connects a device and a host of the
-  same API on the same wire line, whatever their crate versions, and refuses another line.
-
-Name and version of the user API crate are still sent during link setup, for display (`DeviceApiInfo`, logs,
-`PeerVersion` on the device), and the crate name tells APIs apart: a host whose client was generated from another
-API crate is refused. Nothing decides on the crate version's numbers.
-
-### The wire version
-
-Apart from the crate version, the API crate declares its wire version in its `Cargo.toml`, said "wire 2.3": line 2,
-revision 3.
-
-```toml
-[package]
-name = "blinky_api"
-version = "0.4.1"
-
-[package.metadata.wire_weaver]
-wire = "w2.3"
-```
-
- A wire-compatible addition bumps the revision (`w2.3` -> `w2.4`), a wire break the line
-(`w3.0`). A new API starts at `w0.0`, the [design line](#w0-the-design-line), and its first release at `w1.0`. The
-`w` is part of the notation everywhere, so a crate version can't be taken
-for one: `2.3`, `w2.3.0` and `0.2.0` are refused. The `#[ww_api_root]` trait gets a
-`*_WIRE_VERSION: ww_version::WireVersion` const next to its `*_FULL_GID`. Every crate whose traits or types cross the
-wire declares its wire version the same way, `ww_stdlib` crates too ([crate layers](crate_layers.md)).
-
-A test crate (`publish = false`) may give the wire version in the attribute instead, `#[ww_api_root(wire = "w2.3")]`:
-several roots in one crate standing for different lines, as in a test of two lines talking (EVO-31). The attribute
-is refused in a crate that can be published, and when the crate's `Cargo.toml` declares a different one.
-
-Link setup decides on the line (EVO-25): `DeviceInfo` carries the device's wire version, `LinkSetup` the host's.
-
-* The same line connects, whatever the revisions: a `w2.4` host talks to a `w2.3` device and the other way round.
-  Items newer than the device's revision are refused by the host, see [`#[since]`](#since).
-* Another line is refused on both sides: the host with `Error::IncompatibleDeviceProtocol`, which names both lines
-  and who should update, the device with `Disconnect(IncompatibleVersion)`.
-* A host without generated code (the dynamic client, `ww`, Python) works from the device's introspection data and
-  connects to any line.
-* A device or host that doesn't say its wire version (built before it existed) is refused by a generated peer.
-
-A full client needs the wire version of its root: `ww_codegen!` stops with an error naming the fix when the root
-trait is a plain `#[ww_trait]`.
-
-Mark additions with `#[since = "w2.4"]`, the revision that adds them, so that a newer host can report a clean error
-when calling a resource that an older device doesn't have (see `examples/blinky_api_evolved`).
-
-### w0, the design line
-
-Line 0 is for an API still being designed (EVO-41): breaks are accepted without a new line, and nothing is kept that
-would hold the API to its earlier shape. A first release moves it to `w1.0`, and from there every rule above applies.
-
-* `ww api save` keeps no snapshot of a crate or root on `w0.x` and says why. Moving to `w1.0` saves the first one.
-* `ww api check` and the crate's evolution test pass on w0, with `strict` and `require_current` too. Against a
-  snapshot that exists (one kept from before, or `--against`) they list what differs as information and ask for no
-  bump.
-* `#[since]` on w0 is a compile error: revisions mean nothing there. A type shared with released lines of one crate
-  ([several lines](#several-lines-in-one-crate)) keeps their revisions; one naming line 0 is refused.
-* Link setup takes a device of any w0 revision. A client then needs the device's introspection data whenever the
-  API hashes differ: it compares every resource, as on any line, and refuses per call what differs. Without that
-  data it refuses every call into its API with `Error::DesignLineUnchecked`, since a revision tells nothing on w0.
-  Equal hashes need nothing more: the hash is over the device's own introspection bytes.
-* `ww api check` and `ww api save` warn when a crate that can be published (no `publish = false`) has a root on w0:
-  others would build on an API that may still break. Move it to `w1.0` before publishing.
-
-`ww api scaffold` suggests `w0.0` for an API that declares no wire version. Keep devices with a w0 API to the bench:
-any build of it may break any other.
-
-### Several lines in one crate
-
-One API crate can hold every wire line still in use, one `#[ww_api_root]` per module, with the types and sub-traits
-the lines share unchanged in a module of their own (EVO-37, `tests/multi_root_api`):
-
-```text
-src/lib.rs        pub mod common; pub mod wire_v1; pub mod wire_v2;
-src/common.rs     types and #[ww_trait]s every line uses as they are
-src/wire_v1.rs    #[ww_api_root] pub trait Thermo { .. }   // line 1
-src/wire_v2.rs    #[ww_api_root] pub trait Thermo { .. }   // line 2
-```
-
-Each root's wire version is an entry of the `roots` table, by its module path:
-
-```toml
-[package.metadata.wire_weaver.roots]
-"wire_v1::Thermo" = "w1.2"
-"wire_v2::Thermo" = "w2.1"
-```
-
-* A shared type is one Rust type on every line: a host of several lines converts nothing between them.
-* The crate version is for Rust only, so one crate version serves firmware of every line it holds. A line leaves the
-  crate when no device runs it any more, a breaking crate bump.
-* `ww_codegen!` names a root by its module path, `ww_codegen!(thermo_api::wire_v2::Thermo for Client, ..)`; with
-  several roots, a bare `Thermo` or no name is an error listing them. Two roots of one name differ by their line;
-  two traits of one name in one root's tree are refused, since the API model names a trait by crate and name.
-* A line's module names the shared types with `use super::common::Code;` and the shared sub-traits by path,
-  `ww_impl!(channel: super::common::Channel)`.
-* An item of a shared type or trait was added in a revision of each line it is on: `#[since = "w1.2, w2.1"]` names
-  one revision per line, and each root takes its own line's.
-* A host gets one client for a shared sub-trait for all lines, generated once with `client = "sub_level"` and named
-  by each line's client with `sub_levels = [..]` ([shared sub-traits](multi_line_host.md#shared-sub-traits), CLT-68).
-* Every root needs an entry once the table exists; a crate-level `wire = ..` stays for a crate with one root and for
-  crates whose traits are reached by global paths (`ww_stdlib`).
-* `ww api save` saves a snapshot per root, and `ww api check` checks each root against its own latest one
-  ([several API roots](checker_tool.md#several-api-roots-in-one-crate), [checking each root](checker_tool.md#checking-each-root)):
-  the crate version is bumped for the root that needs the most, and a root removed from the table is a breaking
-  crate bump, recorded by `ww api save`.
-
-### Which bump a change needs
-
-The wire version and the crate version are bumped apart, each for what it describes: the wire version for what
-devices and hosts of the two versions can still say to each other, the crate version for Rust code (Cargo SemVer).
-The [evolution checker](checker_tool.md#two-bumps-the-wire-and-the-crate) derives both from one comparison and fails
-when either is not bumped enough:
-
-| Change                                                          | Wire version        | Crate version     |
-|-----------------------------------------------------------------|---------------------|-------------------|
-| [doc comments](#doc-comments) only                              | none                | compatible        |
-| a new method, property, stream, trait, type, field or variant   | `w2.3` -> `w2.4`    | compatible        |
-| a trailing argument with a default                              | `w2.3` -> `w2.4`    | breaking          |
-| a rename, a `#[flatten]` promotion, a catch-all changed         | none                | breaking          |
-| a wire break (removed, moved, a type changed, a bound narrowed) | `w2.3` -> `w3.0`    | breaking          |
-| a dependency at a newer revision of its wire line               | `w2.3` -> `w2.4`    | as its changes    |
-| a dependency on a new wire line                                 | `w2.3` -> `w3.0`    | breaking          |
-
-Doc comments are not silent: they can say what the code can't (a unit's meaning, a limit, when to call what), they
-are in introspection data and snapshots, and the compatible crate bump lets tools see and show that the docs changed
-([doc comments](#doc-comments)).
-
-"Compatible" is the crate's patch before 1.0 and minor after, "breaking" minor before 1.0 and major after. A bigger
-bump than needed is always accepted, so a new line by hand for a change of meaning the checker can't see stays
-allowed. A wire version may not go back, and a crate that declared one keeps declaring it.
-
-### `#[since]`
-
-`#[since = "w2.4"]` is the wire revision that added a resource, field or variant. A crate version there
-(`#[since = "0.2.0"]`, the form before wire versions) is refused with a hint. A host refuses to call a resource
-marked newer than the connected device's wire version, with `Error::OlderProtocol`, before sending anything. Wire
-versions are compared by line, then revision: the device has the item when its wire version is at least the
-marker's.
-
-* On one line, that is the revision that added the item: a `w2.5` device has an item marked `w2.4` and not one
-  marked `w2.6`.
-* A new line (`w2.5` -> `w3.0`) counts every older marker as present: an item marked `w2.4` is callable on a `w3.0`
-  device. Keep the markers as they are on a new line, don't rewrite them. Whether an item survived the break is not
-  the marker's to say: an item the new line removed is reported from the device's introspection data
-  (`Error::NotImplementedByDevice`).
-
-The host knows the device's wire version from link setup (`DeviceInfo`, EVO-25), and from its introspection data
-when the device says nothing there; only a device from before wire versions leaves `#[since]` unchecked.
-
-A marker names a revision of the crate that declares the item, not of the API root: a trait from a `ww_stdlib` crate
-(`ww_impl!(board: ww_board_info::BoardInfo)`) carries that crate's markers, compared with the device's wire version of
-that crate (`[package.metadata.wire_weaver] wire = ..` in its `Cargo.toml`, see
-[crate layers](crate_layers.md#layer-2-ww_stdlib)). They need the device's introspection data; link setup carries
-only the root's wire version.
-
-A marker newer than the API's own wire version is a mistake (the item would be refused on every device of this
-version); the [evolution checker](checker_tool.md) fails on it.
-
-The API crate's dependencies are part of this contract: upgrading a `ww_stdlib` crate or `shrink_wrap` to a
-wire-incompatible version, or [the API model](#api-model), is a breaking change of the user API too.
-
-### Doc comments
-
-Doc comments on traits, resources and types are not part of the wire format, but they carry meaning the code can't
-express (what a value means, its limits, when to use what) and are shipped in introspection data and in [crate snapshots](../cli_reference.md#ww-api), so a GUI or CLI can show them. A released version's snapshot never
-changes, so a doc-only change is still a new version: bump the compatible position (patch before 1.0, minor after),
-same as for a wire-compatible addition. Devices with the old version keep connecting, and tools can tell that
-improved docs are available. `ww api save` refuses to overwrite a snapshot with changed docs, and the
-[evolution checker](checker_tool.md) requires the compatible bump.
-
-This is about an API's own doc comments. A trait or type of another crate that the API uses is named in its snapshot
-and in a device's introspection data by its shape signature, which leaves docs out (EVO-69): when only that
-dependency's docs change, the API is the same, and the checker says so in a `note:` line, never an error or a bump. A
-device rebuilt with other docs and the same API connects as the same API, and the client logs "documentation
-updated".
+The short version: add at the end, with a default; don't remove, reorder or retype what is out there; a change of
+meaning is a break even when the bytes stay. For changing WireWeaver itself or a `ww_stdlib` crate, see
+[crate layers](crate_layers.md).
 
 ## Data types
 
-WireWeaver considers two root types for evolution and evolution rule checks - `struct` and `enum` (plain and with data
-variants).
-Size of a type is marked as one of: `Unsized`, `FinalStructure`, `SelfDescribing` or `Sized`.
+WireWeaver considers two root types for evolution - `struct` and `enum` (plain and with data variants). How a type
+may change depends on its [size assumption](../serdes/size_assumptions.md): `Unsized` (the default),
+`FinalStructure`, `SelfDescribing` or `Sized`. The first can grow, the others trade that away for bytes.
 
 ### Unsized types
 
-By default, user defined struct or enum is `Unsized`. Both can contain variable-size types - vectors,
-strings or other structs and enums. Unsized types support all the evolution options. It is recommended to stick with
-unsized types, unless extreme space-saving is required.
+By default, a struct or enum is `Unsized`. It can contain variable-size types: vectors, strings, other structs and
+enums. When serializing, its size is written next to it, and that is the only overhead: it buys all the backwards and
+forwards compatibility below. Stick with unsized types unless extreme space-saving is required.
 
-When serializing, size of such objects is calculated and written to the resulting byte array. Which is the only
-overhead, giving all the nice backwards and forwards compatibility benefits.
+**Fields can be appended.** New fields with `#[default = ..]` can be added to the end of structs and enum struct
+variants. Old data reads as the default (see [derive](../serdes/derive.md#evolving-types)), and old readers skip the
+new field. `T` can be anything:
 
-* New fields with `#[default = ..]` can be added to the end of structs and enum struct variants. Old data reads as
-  the default (see [derive](../serdes/derive.md#evolving-types)), `T` can be anything:
-    * `Option<T>` - `#[default = None]`,
-    * `Vec<T>`, `String` - `#[default = Vec::new()]`, `#[default = String::new()]`,
-    * a bit-sized field (`bool`, nibble, `Option` / `Result` flag) can land in padding bits of the old data's last
-      byte, which read as 0: give it its zero value as the default.
-* New enum variants can be added at the end. Readers of older versions fail on them unless the enum has a
-  [`#[future_version]` variant](../serdes/derive.md#enum-variants-from-a-newer-version); with one, they get its
-  discriminant. Every `Unsized` enum has one unless it says `no_future_version` (SW-47). In an `Unsized` enum new
-  variants may carry data, in a `sized` or `self_describing` one only new unit variants can be read past by older
-  readers. Adding or removing `no_future_version` changes the Rust type, not the wire: a Rust API break only.
-  The checker knows the catch-all (EVO-10): a variant appended to an enum with one is a compatible change, one
-  inserted before others or a reordering moves a variant to another discriminant and stays breaking, as does any new
-  variant of an enum without the catch-all. The API model records the catch-all since EVO-10, so a snapshot saved
-  before it counts as one without: save it again (`ww api save`) for appended variants to pass.
-* New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
-  other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
-* TODO: clarify: `T` -> struct containing `T`
-* Struct fields and enum variants can be renamed (but their position must NOT change).
-* Enum variants are never removed: Rust code naming one breaks, so the checker asks for a breaking crate bump. With a
-  catch-all the wire keeps (a reader of the new version takes an older writer's value of it as the catch-all), so
-  the wire version needs no bump of its own; without one it is a wire break too.
-* A tuple struct (`struct Pair(u8, u16);`) follows the same rules by position: new fields with `#[default = ..]` only
-  at the end. Naming the fields of a tuple struct, or the other way round, keeps every byte, but the API model then
-  describes a different type (named instead of unnamed fields), which the checker reports as breaking. A unit
-  struct (`struct Marker;`) can get fields with defaults later, named or not.
+* `Option<T>` - `#[default = None]`,
+* `Vec<T>`, `String` - `#[default = Vec::new()]`, `#[default = String::new()]`,
+* a bit-sized field (`bool`, nibble, `Option` / `Result` flag) can land in padding bits of the old data's last byte,
+  which read as 0: give it its zero value as the default.
 
-A `TailSize<N>` field (see [wire format](../serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value)) is part
-of the layout like a `Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields
-after it evolve as usual, and old readers skip what newer writers append.
+**Fields can fill padding.** New fixed-size fields can be added in between old ones, into previously unused padding
+bits, without moving any other field (the exact conditions are in
+[inside the checker](inside_the_checker.md#new-fields-in-padding-bits)).
+
+**Variants can be appended.** New enum variants can be added at the end. Readers of older versions fail on them
+unless the enum has a [`#[future_version]` variant](../serdes/derive.md#enum-variants-from-a-newer-version), the
+catch-all; with one, they get its discriminant. Every `Unsized` enum has one unless it says `no_future_version`
+(SW-47).
+
+* In an `Unsized` enum new variants may carry data. In a `sized` or `self_describing` one only new unit variants can
+  be read past by older readers.
+* Adding or removing `no_future_version` changes the Rust type, not the wire: a Rust API break only.
+* The checker knows the catch-all (EVO-10): a variant appended to an enum with one is a compatible change. One
+  inserted before others, or a reordering, moves a variant to another discriminant and stays breaking, as does any
+  new variant of an enum without the catch-all.
+* The API model records the catch-all since EVO-10, so a snapshot saved before it counts as one without: save it
+  again (`ww api save`) for appended variants to pass.
+
+**Names can change, positions can't.** Struct fields and enum variants can be renamed, but their position must not
+change. Python and `ww` scripts that name them change with them.
+
+**Variants are never removed.** Rust code naming one breaks, so the checker asks for a breaking crate bump. With a
+catch-all the wire keeps (a reader of the new version takes an older writer's value of it as the catch-all), so the
+wire version needs no bump of its own; without one it is a wire break too.
+
+**Tuple and unit structs** follow the same rules. A tuple struct (`struct Pair(u8, u16);`) goes by position: new
+fields with `#[default = ..]` only at the end. Naming the fields of a tuple struct, or the other way round, keeps
+every byte, but the API model then describes a different type (named instead of unnamed fields), which the checker
+reports as breaking. A unit struct (`struct Marker;`) can get fields with defaults later, named or not.
+
+**Some fields are part of the layout.** A `TailSize<N>` field (see
+[wire format](../serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value)) is part of the layout like a
+`Sized` field: adding, removing or moving it, or changing `N`, breaks compatibility; fields after it evolve as usual,
+and old readers skip what newer writers append.
 
 A [`Series<T>`](../serdes/series.md) field is like a `Vec<T>` field: it can be appended with
 `#[default = Default::default()]` (old data reads as an empty series), but swapping it for a `Vec<T>`, or changing
 `T` other than as `T`'s own rules allow, changes the bits and breaks compatibility.
+
+### FinalStructure, SelfDescribing and Sized types
+
+These types are packed tightly into their parent, with no size of their own, so they can't grow at the end. What is
+left:
+
+* `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its
+  parent, the bytes are the same, and the checker reports it as compatible. A `sized` enum must have variants of one
+  size (see [size assumptions](../serdes/size_assumptions.md)).
+* New fixed-size fields can be added in between old ones, into previously unused padding bits, without moving any
+  other field (see [inside the checker](inside_the_checker.md#new-fields-in-padding-bits) for the exact conditions).
+* Struct fields and enum variants can be renamed (but their position must not change).
 
 ### Maximum lengths: `MaxLen<T, N>`
 
@@ -304,54 +109,12 @@ is compatible depends on what the old version writes:
 At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.
 
-### Overflow policies of `Fixed`
-
-The bounds marker `B` of an `exact_units::Fixed` that is `Unbounded`, `Wrapping` or `Saturating` (STD-63) has no
-bytes of its own: changing one into another keeps the bytes and the value they mean, and changes what arithmetic on
-the value does (a `Bam16` wraps at a turn, a `Q15` stops at its ends). Every reader still reads every value. Whether
-the checker reports such a change, and how, is open: EVO-17. A change of the unit or the scale is a change of
-meaning, not of policy.
-
-### Compressed sequences: `Series<T>`
-
-A `Series` has bytes of its own, so `Vec<T>` -> `Series<T>` or `Series<u32>` -> `Series<u64>` is breaking (`ww api
-check` reports it), unlike the borrowed / owned form (`Series<'i, T>` / `SeriesOwned<T>`), which is the same type.
-The codecs of its columns are not part of the type: each writer picks its own (`CodecPolicy`), every reader reads
-them all. A struct or enum `T` evolves inside a `Series` as it does on its own (see [Series](../serdes/series.md)).
-
-### Sparse structs
-
-A [`sparse` struct](../serdes/layouts.md#sparse-a-struct-of-optional-fields) (DER-13) has a slot per field, all of
-them `Option<T>`:
-
-* New fields can be appended after the last slot, without `#[default]`: older data reads them as `None`, older
-  readers ignore them.
-* A field can't be inserted before the last slot, also not into a gap left by `#[slot = N]`: a reader that doesn't
-  know the slot can't step over a present value in it and fails with `Error::OptionAnyVecUnknownSlot`. Removing a
-  field breaks too: data from an older writer can still have it present.
-* A field's slot and its `T` can't change (`T` evolves by its own rules); fields can be renamed.
-* Turning an ordinary struct into a `sparse` one or back changes every byte: breaking.
-
-### Generic types
-
-A generic struct or enum (`Timed<T>`, `Window<const N: usize>`, API-43) evolves like any other: its fields by the
-rules for its size assumption, its arguments by their own rules (`Timed<Ampere>` changes when `Ampere` does). Its
-parameters are compared by position and kind:
-
-* Renaming a parameter (`Timed<T>` -> `Timed<V>`) changes nothing.
-* Adding, removing or reordering parameters, turning a type parameter into a const one, or changing the type of a
-  const parameter (`usize` -> `u8`) is breaking, also when a default keeps old code compiling: the uses on the wire
-  carry one argument per parameter.
-* Making a fixed length a parameter (`[u16; 4]` -> `[u16; N]`) or back is breaking for the definition; uses that
-  end up with the same length (`Window<4>`) have the same bytes.
-* A use with other arguments (`Window<4>` -> `Window<8>`, `Pair<u8, u16>` -> `Pair<u8, u32>`) is another type, as
-  `[u16; 4]` -> `[u16; 8]` is.
-
 ### Transparent wrappers, units and scales
 
-A [`transparent`](../serdes/derive_reference.md#transparent) struct (DER-18) is exactly its one field on the wire,
-`ww_si::Fixed<U, P, T, B>` (STD-55) is one: a `T` with its unit `U`, prefix or scale `P` and bound `B` in the type.
-The checker compares it by what it means, not only by its bytes:
+The trickiest changes keep every byte and still break. A [`transparent`](../serdes/derive_reference.md#transparent)
+struct (DER-18) is exactly its one field on the wire, and `ww_si::Fixed<U, P, T, B>` (STD-55) is one: a `T` with its
+unit `U`, prefix or scale `P` and bound `B` in the type. The checker compares it by what it means, not only by its
+bytes:
 
 * **`T` -> a wrapper of `T`, or back** (`shared_us: u64` -> `shared: Fixed<Second, Micro, u64>`): compatible, the
   bytes are the same. The checker lists it as `u64 -> Fixed<Second, Micro, u64, Unbounded>, same bytes`. Renaming the
@@ -361,8 +124,8 @@ The checker compares it by what it means, not only by its bytes:
   the bytes are the same: a reader of the old version would take a value in ms for µs. Units and scales are compared
   by value, so another name for the same one is compatible (`Milli` -> `Pow10<-3>`, `Fixed<Volt, Milli, ..>` ->
   `Fixed<MilliVolt, One, ..>`), and lbf·s -> N·s is breaking with the factor in the finding (EVO-17, see
-  [units compared by meaning](units_by_meaning.md)). Origins of points are compared by where their zero lies. The same for one wrapper
-  replaced by another wrapper of the same bytes (`Fixed<..>` -> a `Count<u64>` of your own).
+  [units compared by meaning](units_by_meaning.md)). Origins of points are compared by where their zero lies. The
+  same for one wrapper replaced by another wrapper of the same bytes (`Fixed<..>` -> a `Count<u64>` of your own).
 * **Another `T`** (`u32` -> `u64`, inside the wrapper or across it): breaking, as for plain numbers.
 * **`Quantity<U>` -> `Fixed<U, ..>`**: breaking, a `Quantity` sends its prefix and number type with every value, a
   `Fixed` only the number. It is the intended move for values whose prefix and type never change, so the checker says
@@ -384,8 +147,8 @@ unit, scale or origin, INT-13) is compared by that definition; any other marker 
 ### Bounds
 
 A bound (`B` of `Fixed`: `Unbounded`, `Range<MIN, MAX>`, `RangeU64<MIN, MAX>`, `RangeDec<MIN, MAX, EXP>`) doesn't
-change the bytes, but a reader refuses a value outside its bound (on decode, before a handler runs). So a bound is part
-of the contract, and any change of it breaks one side, depending on who writes the item:
+change the bytes, but a reader refuses a value outside its bound (on decode, before a handler runs). So a bound is
+part of the contract, and any change of it breaks one side, depending on who writes the item:
 
 * **Narrowed** (`Range<0, 300>` -> `Range<0, 100>`, `Unbounded` or plain `T` -> `Range<..>`): the new version refuses
   values the old one writes. For a method argument or a writable property that is an old host's call refused by a new
@@ -395,44 +158,81 @@ of the contract, and any change of it breaks one side, depending on who writes t
   host.
 
 Both are breaking, unlike a [max length](#maximum-lengths-maxlent-n) raised, and the checker says which side writes
-and which refuses: `Api::uptime: B of Fixed: bound 0..=600 on the new version, 0..=300 on the old version: values the
-new version writes outside 0..=300 are refused by the old version`. Bounds are compared by value: `RangeDec<-5, 25,
--1>` and `RangeDec<-50, 250, -2>` are both `-0.5..=2.5`, the same bound. They are recognised by name and arguments
-wherever they come from; a bound marker of your own with other names is compared as any marker, by name.
+and which refuses:
+
+```text
+Api::uptime: B of Fixed: bound 0..=600 on the new version, 0..=300 on the old version: values the new version
+writes outside 0..=300 are refused by the old version
+```
+
+Bounds are compared by value: `RangeDec<-5, 25, -1>` and `RangeDec<-50, 250, -2>` are both `-0.5..=2.5`, the same
+bound. They are recognised by name and arguments wherever they come from; a bound marker of your own with other names
+is compared as any marker, by name.
 
 In the place of a bound, `Saturating` is the same values as `Unbounded` (compatible), while `Wrapping` on one side
 only is breaking: a wrapping number is a position modulo its storage, the reader would take a wrap for a jump (see
 [units compared by meaning](units_by_meaning.md#bounds-wrapping-and-saturating)).
 
-### FinalStructure, SelfDescribing and Sized types
+### Overflow policies of `Fixed`
 
-* `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its
-  parent, the bytes are the same, and the checker reports it as compatible. A `sized` enum must have variants of one
-  size (see [derive](../serdes/size_assumptions.md)).
-* New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
-  other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
-* Struct fields and enum variants can be renamed (but their position must NOT change).
+The bounds marker `B` of an `exact_units::Fixed` that is `Unbounded`, `Wrapping` or `Saturating` (STD-63) has no
+bytes of its own: changing one into another keeps the bytes and the value they mean, and changes what arithmetic on
+the value does (a `Bam16` wraps at a turn, a `Q15` stops at its ends). Every reader still reads every value. Whether the
+checker reports such a change, and how, is open: EVO-17 (today `Wrapping` on one side only is reported as breaking,
+see [bounds](#bounds)). A change of the unit or the scale is a change of meaning, not of policy.
+
+### Generic types
+
+A generic struct or enum (`Timed<T>`, `Window<const N: usize>`, API-43) evolves like any other: its fields by the
+rules for its size assumption, its arguments by their own rules (`Timed<Ampere>` changes when `Ampere` does). Its
+parameters are compared by position and kind:
+
+* Renaming a parameter (`Timed<T>` -> `Timed<V>`) changes nothing.
+* Adding, removing or reordering parameters, turning a type parameter into a const one, or changing the type of a
+  const parameter (`usize` -> `u8`) is breaking, also when a default keeps old code compiling: the uses on the wire
+  carry one argument per parameter.
+* Making a fixed length a parameter (`[u16; 4]` -> `[u16; N]`) or back is breaking for the definition; uses that end
+  up with the same length (`Window<4>`) have the same bytes.
+* A use with other arguments (`Window<4>` -> `Window<8>`, `Pair<u8, u16>` -> `Pair<u8, u32>`) is another type, as
+  `[u16; 4]` -> `[u16; 8]` is.
+
+### Sparse structs
+
+A [`sparse` struct](../serdes/layouts.md#sparse-a-struct-of-optional-fields) (DER-13) has a slot per field, all of
+them `Option<T>`:
+
+* New fields can be appended after the last slot, without `#[default]`: older data reads them as `None`, older
+  readers ignore them.
+* A field can't be inserted before the last slot, also not into a gap left by `#[slot = N]`: a reader that doesn't
+  know the slot can't step over a present value in it and fails with `Error::OptionAnyVecUnknownSlot`. Removing a
+  field breaks too: data from an older writer can still have it present.
+* A field's slot and its `T` can't change (`T` evolves by its own rules); fields can be renamed.
+* Turning an ordinary struct into a `sparse` one or back changes every byte: breaking.
+
+### Compressed sequences: `Series<T>`
+
+A `Series` has bytes of its own, so `Vec<T>` -> `Series<T>` or `Series<u32>` -> `Series<u64>` is breaking (`ww api
+check` reports it), unlike the borrowed / owned form (`Series<'i, T>` / `SeriesOwned<T>`), which is the same type.
+The codecs of its columns are not part of the type: each writer picks its own (`CodecPolicy`), every reader reads
+them all. A struct or enum `T` evolves inside a `Series` as it does on its own (see [Series](../serdes/series.md)).
 
 ## API
 
-Data types used in API are a part of SemVer guarantee and are subject to the rules above. Meaning that it's not allowed
-to break compatibility on any of the data types used directly or indirectly without also bumping the breaking position
-of the API version as well (minor before 1.0, major after, see [your API's version](#your-apis-version)).
-
-* `T` to struct of `T` in return position
-* `T` to `Vec<T>` in return position?
+Data types used in an API are part of its SemVer guarantee and follow the rules above: breaking compatibility of any
+data type used directly or indirectly needs a bump of the API's breaking version position as well (minor before 1.0,
+major after, see [your API's version](versions.md#your-apis-version)). The API itself adds rules for its resources.
 
 ### Moving a resource to another place
 
 Within a wire line, a resource is its position in its trait: that is its id on the wire. A new one goes at the end,
 and moving one (inserting another before it, or putting it into a sub-level) is a wire break that needs a new line.
 
-Across a line break the bytes are incompatible anyway, so position means nothing there. The [evolution
-checker](checker_tool.md#what-is-checked) matches resources by their path instead, the trait and the name:
-`Thermo::read_once` on line 2 is `Thermo::read_once` on line 3, wherever it sits in the trait. A resource replaced in
-place reads as one removed and one added (`set_rate` removed, `configure` added), not as a rename with other
-arguments. A stream item or argument whose type was replaced by another type of the crate (`Sample` by `Batch`) is
-reported as replaced, not compared field by field.
+Across a line break the bytes are incompatible anyway, so position means nothing there. The
+[evolution checker](checker_tool.md#what-is-checked) matches resources by their path instead, the trait and the
+name: `Thermo::read_once` on line 2 is `Thermo::read_once` on line 3, wherever it sits in the trait. A resource
+replaced in place reads as one removed and one added (`set_rate` removed, `configure` added), not as a rename with
+other arguments. A stream item or argument whose type was replaced by another type of the crate (`Sample` by
+`Batch`) is reported as replaced, not compared field by field.
 
 A resource that moved to another place on the new line is marked there with `#[moved_from]`, naming the wire version
 and the place it had on the line before:
@@ -463,23 +263,23 @@ pub trait Health {
 * A resource that moved over several breaks keeps one attribute per earlier line, so the older link needn't be
   deleted: `#[moved_from(w2.1, Thermo::self_test)]` and `#[moved_from(w1.0, Thermo::check)]`. Two naming one line are
   refused.
-* Each attribute is checked against the snapshot of the line it names: by the comparison itself for the line
-  compared with, against that line's latest snapshot for an older link of a chain and on every later revision of
-  the new line. One that can't be checked, as its line has no snapshot, is a warning.
-* An attribute that doesn't hold fails the check: one naming a place the line doesn't have, a revision newer than
-  that line's latest snapshot or older than the resource's own `#[since]`, a version on the API's own line, its own
-  place, a place another attribute names too, or a resource still there on the new line (a resource that stayed
-  can't have moved too).
+* Each attribute is checked against the snapshot of the line it names: by the comparison itself for the line compared
+  with, against that line's latest snapshot for an older link of a chain and on every later revision of the new line.
+  One that can't be checked, as its line has no snapshot, is a warning.
+* An attribute that doesn't hold fails the check: one naming a place the line doesn't have, a revision newer than that
+  line's latest snapshot or older than the resource's own `#[since]`, a version on the API's own line, its own place,
+  a place another attribute names too, or a resource still there on the new line (a resource that stayed can't have
+  moved too).
 * A resource of the same name at another place is never taken for the same one by itself: its meaning may have
   changed, as `on()` of a LED and `on()` of a motor. When a line break is first checked, the checker lists each
   resource added with the name of one removed elsewhere as a proposal, suggesting `#[moved_from]` when the signature
   is the same. It never adds the attribute.
-* In a crate with [several lines](#several-lines-in-one-crate), the new line's root has no snapshot of its own line
-  yet. It is compared with the latest snapshot of the previous line's root of the same name, for its moves and
-  proposals only.
+* In a crate with [several lines](versions.md#several-lines-in-one-crate), the new line's root has no snapshot of its
+  own line yet. It is compared with the latest snapshot of the previous line's root of the same name, for its moves
+  and proposals only.
 
-`#[moved_from]` is read from the source and is not part of the API model: a device's introspection data doesn't
-carry it, so the dynamic client and the facade helpers don't see it yet.
+`#[moved_from]` is read from the source and is not part of the API model: a device's introspection data doesn't carry
+it, so the dynamic client and the facade helpers don't see it yet.
 
 ### Arguments
 
@@ -488,11 +288,11 @@ the rules for [unsized types](#unsized-types) (EVO-22, [methods](../api/methods.
 
 * **Adding an argument at the end with a default** is wire-compatible. A device of the older version skips it, a
   device of the newer version reads the default when an older client leaves it out. `Option<T>`, `Vec<T>` and
-  `String` arguments at the end have their natural default (`None`, empty) without an attribute, any other type
-  needs `#[default = expr]`. Removing a trailing argument that has a default is wire-compatible the same way.
+  `String` arguments at the end have their natural default (`None`, empty) without an attribute, any other type needs
+  `#[default = expr]`. Removing a trailing argument that has a default is wire-compatible the same way.
 * **Adding an argument without a default** (or before others) breaks the wire: a device of the newer version can't
-  read a call from an older client. The checker names it: `argument `brightness` is not sent by the old version and
-  has no #[default]`.
+  read a call from an older client. The checker names it: ``argument `brightness` is not sent by the old version and
+  has no #[default]``.
 * **Promoting arguments to a `#[flatten]` struct** (`fn f(a: u8, b: u16)` to `fn f(#[flatten] c: C)` with
   `struct C { a: u8, b: u16 }`) keeps every byte. The struct then grows by its own rules: fields appended with
   `#[default]`.
@@ -500,16 +300,19 @@ the rules for [unsized types](#unsized-types) (EVO-22, [methods](../api/methods.
   `ww` scripts that pass it by name change with it.
 
 Each of the compatible changes still gives the handler and the client call other parameters: a break of the API
-crate's Rust API. `ww api check` reports it with its own rule, `breaking (Rust only, the wire is compatible)`, and
-the breaking version position is bumped, as for a rename. The wire version gets a new revision at most, so devices
-and hosts of both versions keep talking: link setup decides on the wire line, not on the crate version.
+crate's Rust API. `ww api check` reports it with its own rule, `breaking (Rust only, the wire is compatible)`, and the
+breaking version position is bumped, as for a rename. The wire version gets a new revision at most, so devices and
+hosts of both versions keep talking: link setup decides on the wire line, not on the crate version.
 
-Streams (API-30, API-31, [stream reliability](../api/stream_reliability.md)): the delivery kind of a stream is part
-of the API. Turning a plain `stream!` into a `#[counted]` or `#[reliable]` one (or back, or one into the other), or
-giving a stream arguments or a result (`#[stream(T)] fn name(args) -> Result<A, E>`), changes its events and how it is
-opened, so it is a break of the API crate: bump its breaking version position, as for a plain sink becoming a
-`#[credit]` one. A plain `#[stream(T)] fn name()` without arguments and result is the same as `stream!(name: T)`, the
-same bytes in introspection.
+### Streams and batched properties
+
+The delivery kind of a stream is part of the API (API-30, API-31,
+[stream reliability](../api/stream_reliability.md)). Turning a plain `stream!` into a `#[counted]` or `#[reliable]`
+one (or back, or one into the other), or giving a stream arguments or a result
+(`#[stream(T)] fn name(args) -> Result<A, E>`), changes its events and how it is opened, so it is a break of the API
+crate: bump its breaking version position, as for a plain sink becoming a `#[credit]` one. A plain
+`#[stream(T)] fn name()` without arguments and result is the same as `stream!(name: T)`, the same bytes in
+introspection.
 
 Batching a stream (API-41: `batched` / `batched(untimed)` in `#[stream(..)]`, `#[batched]` next to `stream!`), or
 un-batching it, or switching between timed and untimed, changes its item type on the wire (one `Series<Timed<T>>` or
@@ -536,7 +339,7 @@ so `ww api check` treats the marker by what it does to their Rust code:
 
 ### Metadata attributes
 
-`#[claim(..)]`, `#[shares(..)]` and `#[label(..)]` (SRV-34, [Metadata](../api/metadata.md)) are not on the wire and a
+`#[claim(..)]`, `#[shares(..)]` and `#[label(..)]` (SRV-34, [metadata](../api/metadata.md)) are not on the wire and a
 server doesn't use them: adding, changing or removing one is compatible, `ww api check` lists it. Only the
 introspection data (and so the API hash) changes. Removing a `#[claim]` does change what the hub lets a program do: a
 program that claims that resource is refused from then on, so say so in the changelog.
@@ -554,62 +357,35 @@ generated server has it as `image_facts()`, the third argument of `LinkConfig::n
 * A fact only saves a host from asking. What a device answers still decides, for a host that doesn't read the fact.
 * A choice that changes what a client may rely on is not a fact of the image: it belongs in the API.
 
-### API model
+### Not decided yet
 
-API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model
-version without breaking compatibility.
-
-E.g., if user_device_api v0.1.0 depends on ww_client_server v0.4.0 and a new major version of ww_client_server comes
-out (v0.5.0), then user_device_api must be bumped to v0.2.0 to use the newer API model. This should only happen to add
-new features though, and if previous version is doing all that it is supposed to, there might not be a need to
-upgrade.
-
-## The ww hub and version skew
-
-The [ww hub](../transport/hub.md#version-skew-and-handover-srv-30) (SRV-30) sits between programs built with
-different WireWeaver releases and the devices, so it adds rules of its own:
-
-* **The preamble is frozen.** Its bytes never change; new fields are new trailer entries (a new tag), which a reader
-  that doesn't know them skips. That is what lets any client and any hub exchange their versions and a clear refusal.
-* **What the hub serves.** A client says its generations in the preamble (EVO-23, the bytes of its
-  [link hello](../transport/ww_link.md#the-frozen-hello)); the hub serves every client whose link, shrink_wrap and
-  API model generations are its own. A wire-compatible change of any of them is invisible to the hub. A breaking one
-  bumps that layer's generation and means: the hub keeps the previous generation's code for a while and lists it in
-  its window, the way a device keeps an old protocol, so programs built before the break keep working through a
-  newer hub until they are rebuilt. A client outside the window is refused (status 4) with its versions and the fix,
-  never served half-way. A client from before the generations is judged by its `ww_link` and `ww_client_server`
-  versions by Cargo's SemVer rule (the same major, 0.x: the same minor).
-* **The user API is end to end.** The hub reads the envelope only, never a user API: a user API change is between the
-  client and the device as without a hub, and the hub doesn't need rebuilding for it.
-* **`ww_hub_api`** evolves like any API crate: additions are wire-compatible (an older hub answers `Unimplemented`),
-  `Hub::info` and `Hub::handover` are frozen.
-* **Newer replaces older.** A program that can host a newer hub than the running one has it hand over; only a strictly
-  newer `ww_hub` version replaces an older one, so a PC converges on its newest hub.
+Two changes of a return type are open questions, not rules yet: `T` -> a struct containing `T` (other than a
+[transparent wrapper](#transparent-wrappers-units-and-scales) of it, which is compatible), and `T` -> `Vec<T>`.
 
 ## Settings stored on a device
 
 A [settings store](../api/settings.md) (`ww_settings`, STD-32) keeps a record per group in the device's flash, and
 the record outlives the firmware that wrote it: an update reads the old firmware's record, a downgrade the new one's.
-Each field has a slot, each stored field is a byte blob of its own, so every firmware can step over a slot it
-doesn't know. That makes the rules looser than for a [sparse struct](#sparse-structs):
+Each field has a slot, each stored field is a byte blob of its own, so every firmware can step over a slot it doesn't
+know. That makes the rules looser than for a [sparse struct](#sparse-structs):
 
 * **Adding a field**: any slot that was never used, also one in a gap between older slots. Older records read it as
   its default. An older firmware keeps it unchanged when it writes its record.
 * **Removing a field**: put its slot into `#[settings(retired(..))]`; the derive then refuses to give it to another
-  field. A record that still holds it is read without it, and the slot is dropped on the next write, so a downgrade
-  to a firmware that still has the field finds it at its default.
+  field. A record that still holds it is read without it, and the slot is dropped on the next write, so a downgrade to
+  a firmware that still has the field finds it at its default.
 * **Changing a field's type**: only the way the type itself may evolve (a struct gets fields with `#[default]`
   appended, an enum gets variants). An older firmware reads what it knows of the newer value (a struct's first
   fields, an enum variant it doesn't know as `Unknown(n)`), and as long as it doesn't change the field, it writes the
-  newer bytes back unchanged; if it changes the field, the parts it doesn't know are gone. Bytes it can't decode at all
-  (an enum with `no_future_version`) are kept while the field stays at its default. Any other type change, or a
+  newer bytes back unchanged; if it changes the field, the parts it doesn't know are gone. Bytes it can't decode at
+  all (an enum with `no_future_version`) are kept while the field stays at its default. Any other type change, or a
   change of what the value means (units, scale): a new slot, and the old one retired.
 * **Changing a default**: a stored record holds only the fields that differ from their default, so every device that
   never set the field takes the new default, and so does one that set it to exactly the old default. When that is
   wrong, the field needs a new slot.
-* **Renaming a field** is fine; the slot is what is stored. Moving a field to another group (another `Key`) is a
-  new field there and a retired one here; copying the value over is the firmware's job on load.
+* **Renaming a field** is fine; the slot is what is stored. Moving a field to another group (another `Key`) is a new
+  field there and a retired one here; copying the value over is the firmware's job on load.
 * The **record format** (`ww_settings::record::FORMAT`) and the **store layout** (the page and item headers in
-  `ww_settings::store`) are defined by `ww_settings` itself: a change to either is a breaking change of
-  `ww_settings`, as for `ww_framer` in [layer 3](crate_layers.md#layer-3-framework). A firmware that finds a record in a format it
+  `ww_settings::store`) are defined by `ww_settings` itself: a change to either is a breaking change of `ww_settings`,
+  as for `ww_framer` in [layer 3](crate_layers.md#layer-3-framework). A firmware that finds a record in a format it
   doesn't know leaves it alone (`is_read_only`) instead of overwriting it.

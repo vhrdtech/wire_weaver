@@ -28,7 +28,7 @@ ww_version = "0.2"
   bandwidth-limited link.
 * `VersionTriplet` - plain `major` / `minor` / `patch: UNib32`, no crate name; `final_structure`. For comparing
   versions where a name isn't needed.
-* `WireVersion` - `line` / `revision: UNib32`; `final_structure`. An API's [wire version](../evolution/rules.md#the-wire-version),
+* `WireVersion` - `line` / `revision: UNib32`; `final_structure`. An API's [wire version](../evolution/versions.md#the-wire-version),
   written `w2.3` (line 2, revision 3), apart from its crate version: `Display` and `FromStr` in that form only, so
   `2.3`, `w2.3.0` and a crate version like `0.2.0` are refused with a `WireVersionError` that says why. Ordered by
   line, then revision; `same_line`, `next_revision`, `next_line`. `#[ww_api_root]` emits a `<TRAIT>_WIRE_VERSION`

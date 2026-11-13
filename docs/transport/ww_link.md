@@ -176,7 +176,7 @@ Also re-exported for convenience: `DisconnectReason`, `CompactVersion`, `FullVer
 Rules the reference event loop follows (and a new transport should too):
 
 - The hello is retried every 50 ms, up to 5 times; then link setup is considered failed.
-- Both sides decide on the user API's [wire line](../evolution/rules.md#the-wire-version) (EVO-25), never on its
+- Both sides decide on the user API's [wire line](../evolution/versions.md#the-wire-version) (EVO-25), never on its
   crate version. The host refuses the connection when `DeviceInfo.user_api_wire` is on another line than its
   generated client, or `user_api_version` names another API crate. The device likewise replies
   `Disconnect(IncompatibleVersion)` to a `LinkSetup` whose `host_user_wire` is on another line or missing; a dynamic
@@ -235,7 +235,7 @@ A **generation** is one byte per foundation layer (`ww_framer::GENERATION`, `ww_
 additions never change it, they are negotiated in `DeviceInfo` and `LinkSetup` after the hello. A later layer gets
 its byte appended (`n` grows), and a reader takes the four it knows.
 
-Each generation is the line of its crate's [wire version](../evolution/rules.md#the-wire-version), declared once in
+Each generation is the line of its crate's [wire version](../evolution/versions.md#the-wire-version), declared once in
 the crate's `Cargo.toml` like every other crate whose bytes cross the wire:
 
 ```toml

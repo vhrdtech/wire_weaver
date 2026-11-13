@@ -107,7 +107,7 @@ fn roots_of(path: &Path) -> Result<Vec<(String, u32)>> {
     if roots.is_empty() {
         bail!(
             "{} has no `[package.metadata.wire_weaver.roots]` table: lines are kept as one root per module in a crate \
-             with several (docs/evolution/rules.md#several-lines-in-one-crate)",
+             with several (docs/evolution/versions.md#several-lines-in-one-crate)",
             path.display()
         );
     }

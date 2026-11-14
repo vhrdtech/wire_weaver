@@ -83,16 +83,18 @@ pub use ww_si::units::{Byte, Cycle, Item};
 pub use ww_si::{Bytes, Count, Hertz, Index, Range, Second, Volt};
 
 pub mod error;
-pub use error::I2cError;
+pub use error::{I2cError, I2cErrorOwned};
 pub mod monitor;
 pub use monitor::{
-    I2cMonitor, I2cRecord, I2cRecordKind, I2cSlaveAnswers, I2cSlaveCapabilities, I2cSlaveConfig,
-    I2cSlaveEvent, I2cSlaveTransfer, I2cSlaveUnderrun, MAX_RECORD_LEN,
+    I_2_C_MONITOR_COMPACT_GID, I_2_C_MONITOR_FULL_GID, I2cMonitor, I2cRecord, I2cRecordKind,
+    I2cRecordOwned, I2cSlaveAnswers, I2cSlaveCapabilities, I2cSlaveConfig, I2cSlaveEvent,
+    I2cSlaveEventOwned, I2cSlaveTransfer, I2cSlaveTransferOwned, I2cSlaveUnderrun, MAX_RECORD_LEN,
 };
 pub mod watch;
 pub use watch::{
-    I2cMatchByte, I2cWatch, I2cWatchCapabilities, I2cWatchConfig, I2cWatchEvent, I2cWatchReport,
-    MAX_WATCH_LEN, MAX_WATCHES, WatchSlot,
+    I_2_C_WATCH_COMPACT_GID, I_2_C_WATCH_FULL_GID, I2cMatchByte, I2cWatch, I2cWatchCapabilities,
+    I2cWatchConfig, I2cWatchConfigOwned, I2cWatchEvent, I2cWatchEventOwned, I2cWatchReport,
+    I2cWatchReportOwned, MAX_WATCH_LEN, MAX_WATCHES, WatchSlot,
 };
 
 /// Largest data of one `I2c::i2c_write`, in bytes.

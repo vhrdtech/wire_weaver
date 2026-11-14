@@ -6602,16 +6602,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>motor_sim</code> repo): every <code>Foc</code> property and <code>Control</code>'s 13 measured values are <code>+observe+batched</code>.</li>
 <li>🧪 <strong>API-55 Compressed counted streams</strong> · <code>v0.5</code> — a counted stream's events carry their serialized item as
   one LZ4 block that copies from the items before it (history kept across events, SRV-27 <code>ww_lz4</code>), so a byte
-  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. Negotiated at open:
-  <code>StreamOpen { codecs }</code> is the host's offer, <code>StreamOpened { codec }</code> the device's answer (<code>StreamCodec::Lz4 {
-  history }</code>), so an older host gets the events as they are; an item that doesn't shrink goes as a block of literals.
+  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. The device declares the codec
+  at open, <code>StreamOpened { codec }</code> (<code>StreamCodec::Lz4 { history }</code>), and the host decodes it; <code>StreamOpen { raw }</code>
+  asks for the events as they are, and a host that reads a codec of a newer version (<code>StreamCodec::Unknown</code>) opens
+  the stream again with <code>raw</code> (EVO-73); an item that doesn't shrink goes as a block of literals.
   <code>HeadExt::codec_restart</code> marks where the history starts over: at open and resume, after an event the device
   couldn't send, and every 32 KiB, so a link loss heals; the host drops what it can't decode until then and reports
   it as a link gap (<code>StreamStats::lost_codec</code>, <code>codec_bytes_in</code> / <code>_out</code>). The API doesn't change: the device opts
   in per stream with its state, <code>ww_stream::codec::Compressed</code> (feature <code>lz4</code>) instead of <code>Counted</code>, through
-  <code>ww_stream::codec::CountedState</code>; <code>ClientConfig::stream_compression(false)</code> turns the host's offer off. Typed and
+  <code>ww_stream::codec::CountedState</code>; <code>ClientConfig::stream_compression(false)</code> sets <code>raw</code>. Typed and
   dynamic clients and Python decode alike (<code>docs/api/stream_compression.md</code>; tests <code>ww_stream</code> <code>tests::codec</code>,
-  <code>wire_weaver_client</code> <code>compressed_stream_decodes_and_heals</code>, <code>tests/io_uart</code> <code>rx_compressed</code>). To check on
+  <code>wire_weaver_client</code> <code>compressed_stream_decodes_and_heals</code> and <code>unknown_codec_reopens_raw</code>, <code>tests/io_uart</code>
+  <code>rx_compressed</code>). To check on
   hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -&gt; device).</li>
 <li>🧪 <strong>SW-69 No core::fmt Debug of shrink_wrap types on a device</strong> · <code>v0.5</code> — flash diet: the variant names of
@@ -8327,6 +8329,19 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   tests <code>old_format_snapshot_passes_against_unchanged_source</code>, <code>compatible_stdlib_change_passes_the_fixture</code>,
   <code>breaking_stdlib_change_fails_the_fixture</code>).</li>
 <li>✅ <strong>EVO-65 <code>ww_dfu</code> typed numbers on the wire</strong> · <code>v0.5</code> — <code>ww_dfu</code> on a new wire line, <code>w2.0</code> (P2401 stdlib units survey): step indices and counts are <code>Index&lt;Step, u32&gt;</code> / <code>Count&lt;Step, u32&gt;</code>, chunks <code>Index</code>/<code>Count&lt;Chunk, u16&gt;</code>, erase blocks <code>Index&lt;Block, u16&gt;</code> / <code>Count&lt;Block, u16&gt;</code>, byte offsets in a chunk or a plan <code>Index&lt;Byte, u32&gt;</code>, sizes <code>Bytes&lt;u32&gt;</code>, all the same bytes. The breaks: <code>NodeInfo</code>'s <code>product_id</code>, <code>app_version</code> and <code>version_floor</code> become <code>app: Option&lt;ImageInfo&gt;</code> (<code>ProductId</code>, <code>ImageVersion</code>, and the image's new <code>security_counter</code>) and <code>security_floor: SecurityCounter</code>, as chunky checks the floor against the security counter, not the version; <code>geometry_id</code> is <code>geometry: GeometryId</code>; <code>LastResult::version</code> is <code>Option&lt;ImageVersion&gt;</code>; <code>Session::resume_from</code> is split into <code>resume_step</code> and <code>resume_byte</code>; <code>StageLimits::max_piece</code> is <code>Fixed&lt;Byte, One, u16, Range&lt;1, 1024&gt;&gt;</code> (a <code>u16</code>, bounded), <code>in_flight</code> <code>Fixed&lt;Request, One, u8, Range&lt;1, 255&gt;&gt;</code>; <code>ack_every</code> and <code>plan_area</code> are <code>Niched&lt;.., Null&lt;0&gt;&gt;</code>. Tests <code>ww_dfu</code> (bytes of every wrapper, the bounds, the niches), <code>tests/dfu</code>, <code>tests/dfu_scenarios</code> (transcripts again). No device or host uses the format.</li>
+<li>✅ <strong>EVO-73 The device declares a stream's codec</strong> · <code>v0.5</code> — wire break of <code>ww_client_server</code>: the host's codec
+  offer, <code>RequestKind::StreamOpen { codecs: Option&lt;StreamCodecs&gt; }</code>, becomes one bit, <code>raw</code> (send the items as they
+  are), and <code>StreamCodecs</code> is gone. A device compresses a <code>Compressed</code> stream unless the host asked for <code>raw</code> and
+  says which codec in <code>StreamOpened::codec</code>, as before; the host decodes what it names. <code>StreamCodec</code> gets a
+  written <code>#[future_version] Unknown(u8)</code> and stays <code>final_structure</code>, so <code>StreamOpened::ser_head</code> still writes it in
+  place before the stream function's result (an <code>Unsized</code> codec's size would share a byte with the result's own
+  sizes); a host that reads <code>Unknown</code> closes the stream and opens it again with <code>raw</code>. Measured at <code>fw-z</code>: an open
+  that takes the codec is 161 instructions shorter on a Cortex-M3 (QEMU), the dispatcher 24-118 B smaller on M0+
+  and M3, the same stack, nothing changes per event.
+  <code>ww_stream::codec::CountedState::open_session</code> / <code>resume_session</code> take <code>raw</code>, <code>ItemCodec::codec</code> replaces
+  <code>answer</code>. Conformance cases <code>client_server.stream_open.*</code>, <code>client_server.stream_opened.*</code>; tests
+  <code>ww_client_server</code> <code>codec_declared_and_newer</code>, <code>wire_weaver_client</code> <code>unknown_codec_reopens_raw</code>. No device or host
+  uses the format.</li>
 <li>✅ <strong>EVO-58 Typed, bounded calendar fields of <code>ww_date_time</code></strong> · <code>v0.5</code> — the wire change of <code>ww_date_time</code> (wire line <code>w1.0</code> -&gt; <code>w2.0</code>): <code>NaiveDate::month</code> and <code>day</code> are <code>IndexFrom1&lt;Month, U4, Range&lt;1, 12&gt;&gt;</code> and <code>IndexFrom1&lt;Day, U5, Range&lt;1, 31&gt;&gt;</code>, <code>NaiveTime::secs</code> is <code>Fixed&lt;Second, One, U17, Range&lt;0, 86_399&gt;&gt;</code> and <code>frac</code> <code>Option&lt;Fixed&lt;Second, Nano, U31, Range&lt;0, 1_999_999_999&gt;&gt;&gt;</code>, <code>OtherTimezone::FixedOffset::secs</code> is <code>Fixed&lt;Second, One, I18, Range&lt;-86_399, 86_399&gt;&gt;</code>. The bytes are the same, the new bounds are checked on decode (<code>SubtypeOutOfRange</code>), so a bound added is a break. Types embedding <code>DateTime</code> (<code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_timebase</code>) move to a new wire line with it. No device or host uses the format.</li>
 <li>✅ <strong>EVO-72 Capability limits bounded by their consts</strong> · <code>v0.5</code> — each <code>ww_stdlib</code> limit documented "at most
   <code>MAX_..</code>" carries that const as its <code>Range</code> bound (<code>{ MAX_X as i64 }</code>, read by the walker's const evaluator) in the

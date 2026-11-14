@@ -2075,6 +2075,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#a-codec-from-a-newer-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A codec from a newer version
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5677,6 +5688,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#a-codec-from-a-newer-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A codec from a newer version
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5826,8 +5848,8 @@
 <h1 id="compressed-streams">Compressed streams<a class="headerlink" href="#compressed-streams" title="Permanent link">&para;</a></h1>
 <p>A counted stream can send its events compressed: each event's item goes through LZ4 with the items before it as
 history, so a byte stream of text (a UART carrying a shell or a TUI, a log) takes a third to a fifth of the link.
-Nothing changes in the API: the device chooses per stream by the state it keeps for it, the host offers the codec
-when it opens the stream, and an older host simply gets the events as they are.</p>
+Nothing changes in the API: the device chooses per stream by the state it keeps for it and says which codec when
+the host opens the stream, and the host decodes it. A host that wants the items as they are asks for that at open.</p>
 <p>Measured on shell and TUI captures cut into 512-byte chunks, the way a UART's receive stream sends them: 3.5-5x with
 a 12 KiB buffer (4 KiB kept as history), 3.2-3.9x with 2 KiB; 64-byte chunks still get 2.2-2.9x. Without history
 across chunks the same 512-byte chunks only get about 2x, and 64-byte ones nothing. Random or already compressed data
@@ -5837,7 +5859,7 @@ the USB link.</p>
 <h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
 <p>A counted stream's state, what <code>stream_&lt;name&gt;()</code> returns, is anything that implements
 <code>ww_stream::codec::CountedState</code>. <code>ww_stream::tx::Counted</code> sends items as they are; <code>ww_stream::codec::Compressed</code>
-wraps one with a codec and compresses once the host offers that codec. With <code>ww_stream</code>'s <code>lz4</code> feature the codec is
+wraps one with a codec and compresses unless the host opened the stream <code>raw</code>. With <code>ww_stream</code>'s <code>lz4</code> feature the codec is
 <code>ww_lz4::Encoder&lt;HASH, BUF&gt;</code>: <code>HASH</code> hash table entries (2 bytes each) and a <code>BUF</code>-byte buffer for the history and the
 item being compressed.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_stream</span><span class="p">::</span><span class="n">codec</span><span class="p">::</span><span class="n">Compressed</span><span class="p">;</span>
@@ -5862,9 +5884,10 @@ item being compressed.</p>
 encoder's hot functions into RAM on bare-metal targets (cortex-m-rt copies <code>.data</code>), about 30 % fewer cycles on a
 part with flash wait states. Batched and reliable streams don't compress yet.</p>
 <h2 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h2>
-<p><code>wire_weaver_client</code> offers LZ4 whenever it opens or resumes a counted stream, and decodes before the items reach
-the stream's queue: generated clients, the dynamic client and Python get the same items as from an uncompressed
-stream. <code>ClientConfig::stream_compression(false)</code> (or <code>.compression(false)</code> on one open) turns the offer off.
+<p><code>wire_weaver_client</code> decodes the codec the device names when it opens or resumes a counted stream, before the
+items reach the stream's queue: generated clients, the dynamic client and Python get the same items as from an
+uncompressed stream. <code>ClientConfig::stream_compression(false)</code> (or <code>.compression(false)</code> on one open) opens the
+stream <code>raw</code>: for debugging, or to spare the device's CPU on a fast link.
 <code>StreamStats</code> says what was saved: <code>codec_bytes_in</code> came over the link, <code>codec_bytes_out</code> is what they decoded to
 (Python: the same keys in <code>stats</code>).</p>
 <h2 id="staying-in-step">Staying in step<a class="headerlink" href="#staying-in-step" title="Permanent link">&para;</a></h2>
@@ -5882,16 +5905,25 @@ history stays as it is. A host that misses an event on the link (a jump of the p
 until the next restart, and reports their units as a <code>Gap { cause: Link }</code>, counted in <code>StreamStats::lost_codec</code>.</p>
 <h2 id="on-the-wire">On the wire<a class="headerlink" href="#on-the-wire" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>RequestKind::StreamOpen { codecs }</code>: the codecs the host decodes (<code>StreamCodecs { lz4 }</code>, evolvable), <code>None</code> from
-  a host that doesn't offer any.</li>
-<li><code>StreamOpened { codec }</code>: the one the device took, <code>StreamCodec::Lz4 { history }</code> with how far back its blocks
-  reach, or <code>None</code>: events as they are.</li>
+<li><code>RequestKind::StreamOpen { raw }</code>: one bit, <code>true</code> asks for the events as they are.</li>
+<li><code>StreamOpened { codec }</code>: the codec the device compresses this session's events with, <code>StreamCodec::Lz4 { history
+  }</code> with how far back its blocks reach, or <code>None</code>: events as they are (the host asked for <code>raw</code>, or the stream
+  doesn't compress).</li>
 <li>Each event's data is one <a href="https://github.com/lz4/lz4/blob/dev/doc/lz4_Block_format.md">LZ4 block</a> (no frame, no
   checksum: the link has its own), which decodes with the bytes of the items before it as the dictionary
   (<code>LZ4_decompress_safe_usingDict</code>, lz4_flex's <code>decompress_into_with_dict</code>). An item that doesn't shrink is a block
   of literals only, so there is no flag per event.</li>
 <li><code>HeadExt::codec_restart</code> on the event where the history starts over.</li>
 </ul>
+<h2 id="a-codec-from-a-newer-version">A codec from a newer version<a class="headerlink" href="#a-codec-from-a-newer-version" title="Permanent link">&para;</a></h2>
+<p>A new codec is a new <code>StreamCodec</code> variant. A host built before it reads its discriminant as
+<code>StreamCodec::Unknown(d)</code>, closes the stream and opens it again with <code>raw</code>, so it gets the events as they are instead
+of failing the open. <code>StreamCodec</code> is <code>final_structure</code>: the device writes it in place before the stream function's
+result, so an older host can't skip a newer codec's fields, and the rest of that first answer is not the result. It
+doesn't need it: the answer to the <code>raw</code> open carries the result.</p>
+<p>Why the device decides: it is the side that knows what it can afford (its RAM for the history, its CPU), and the
+host is the capable side, which can decode whatever it is given. Reading a codec offer on every open cost a small
+device more flash and instructions than the one bit that replaced it.</p>
 
 
 

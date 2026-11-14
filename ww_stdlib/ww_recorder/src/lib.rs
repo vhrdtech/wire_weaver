@@ -31,21 +31,21 @@ use ww_si::{Fixed, Mebibytes, Range, Secs};
 
 pub mod card;
 pub use card::{
-    CardCheck, CardContent, CardFacts, CardKind, CardSerial, FormatAction, FormatOffer,
-    FormatToken, MAX_NAME, Rating,
+    CardCheck, CardContent, CardFacts, CardFactsOwned, CardKind, CardSerial, FormatAction,
+    FormatOffer, FormatOfferOwned, FormatToken, MAX_NAME, Rating,
 };
 pub mod counters;
 pub use counters::RecorderCounters;
 pub mod error;
-pub use error::RecorderError;
+pub use error::{RecorderError, RecorderErrorOwned};
 pub mod recording;
 pub use recording::{MarkerKind, RecordingId, RecordingInfo, SessionId, StopReason, Trigger};
 pub mod settings;
 pub use settings::{Compression, Durability, FullPolicy, RecordingMode, Settings, UsbView};
 pub mod status;
-pub use status::{State, Status};
+pub use status::{State, StateOwned, Status, StatusOwned};
 pub mod track;
-pub use track::{ItemType, MAX_PATH, Track, TrackCounters, TrackInfo, TrackKey};
+pub use track::{ItemType, MAX_PATH, Track, TrackCounters, TrackInfo, TrackInfoOwned, TrackKey};
 
 /// Most recordings one [Recorder::recordings] call returns.
 pub const MAX_RECORDINGS: usize = 8;

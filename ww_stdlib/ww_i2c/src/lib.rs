@@ -82,6 +82,19 @@ use wire_weaver::prelude::*;
 pub use ww_si::units::{Byte, Cycle, Item};
 pub use ww_si::{Bytes, Count, Hertz, Index, Range, Second, Volt};
 
+pub mod error;
+pub use error::I2cError;
+pub mod monitor;
+pub use monitor::{
+    I2cMonitor, I2cRecord, I2cRecordKind, I2cSlaveAnswers, I2cSlaveCapabilities, I2cSlaveConfig,
+    I2cSlaveEvent, I2cSlaveTransfer, I2cSlaveUnderrun, MAX_RECORD_LEN,
+};
+pub mod watch;
+pub use watch::{
+    I2cMatchByte, I2cWatch, I2cWatchCapabilities, I2cWatchConfig, I2cWatchEvent, I2cWatchReport,
+    MAX_WATCH_LEN, MAX_WATCHES, WatchSlot,
+};
+
 /// Largest data of one `I2c::i2c_write`, in bytes.
 pub const MAX_WRITE_LEN: usize = 512;
 
@@ -96,16 +109,6 @@ pub const MAX_OPS: usize = 16;
 
 /// Most addresses one `I2c::i2c_scan` returns: every 7-bit address.
 pub const MAX_SCAN: usize = 128;
-
-/// Largest data of one monitor record ([I2cRecord::bytes]); a longer transaction is cut and marked
-/// [I2cRecordKind::Truncated].
-pub const MAX_RECORD_LEN: usize = 512;
-
-/// Most watches one `I2cWatch` device holds at once (it may hold fewer, see [I2cWatchCapabilities]).
-pub const MAX_WATCHES: usize = 512;
-
-/// Longest read of one watch, in bytes.
-pub const MAX_WATCH_LEN: usize = 32;
 
 /// Longest name in [I2cCapabilities::driver_name].
 pub const MAX_NAME_LEN: usize = 32;
@@ -310,149 +313,6 @@ pub trait I2c {
     fn slave_clear_answers() -> Count<Item, u32>;
 }
 
-/// Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for
-/// (every result, a change under a mask, or a match with a value), so the host doesn't poll over the link.
-///
-/// A device implementing it also implements `I2c` (it needs a master). Host transactions have priority: the device
-/// runs a watch read only when no host transaction is waiting, so host calls are spliced in between autonomous
-/// ones and see no more delay than one watch read. A watch to an address under a `delay_after` waits like any
-/// transfer. Results go out on the `changes` stream.
-#[ww_trait]
-pub trait I2cWatch {
-    /// Results the watches report, in the order they were read. A counted stream, unit: result; the head's time is
-    /// when the read started, and the host learns exactly how many results the device dropped.
-    #[counted]
-    stream!(changes: I2cWatchEvent<'i>);
-
-    /// How many watches, how fast, how long.
-    fn watch_capabilities() -> I2cWatchCapabilities;
-
-    /// Adds a watch and returns its slot, used by the other methods and in [I2cWatchEvent::slot].
-    /// `InvalidArgument` for a period below the device's minimum or a mask or match rule not as long as the read,
-    /// `BufferTooBig` for a read longer than this device watches, `WrongState` while not a master.
-    #[errors(Common(InvalidArgument, WrongState), OutOfWatchSlots, BufferTooBig)]
-    fn watch_add(watch: I2cWatchConfig<'i>) -> Result<WatchSlot, I2cError<'i>>;
-
-    /// Replaces a watch's configuration; its previous result is forgotten, so the next read is reported. Errors as
-    /// `I2cWatch::watch_add`.
-    #[errors(Common(InvalidArgument, WrongState), InvalidWatchSlot, BufferTooBig)]
-    fn watch_modify(slot: WatchSlot, watch: I2cWatchConfig<'i>) -> Result<(), I2cError<'i>>;
-
-    /// Removes a watch.
-    #[errors(InvalidWatchSlot)]
-    fn watch_remove(slot: WatchSlot) -> Result<(), I2cError<'i>>;
-
-    /// Slots in use.
-    fn watch_list() -> MaxLen<RefVec<'i, WatchSlot>, MAX_WATCHES>;
-}
-
-/// A watch's slot, returned by `I2cWatch::watch_add` and used by `watch_modify`, `watch_remove`, `watch_list` and
-/// [I2cWatchEvent::slot].
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    transparent,
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone)
-)]
-pub struct WatchSlot(pub u32);
-
-/// What `I2cWatch` can do.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Copy, Clone)
-)]
-pub struct I2cWatchCapabilities {
-    /// Watches held at once, 1 to [MAX_WATCHES].
-    pub max_watches: Count<Watch, u16, Range<1, { MAX_WATCHES as i64 }>>,
-    /// Longest read of one watch, 1 to [MAX_WATCH_LEN] bytes.
-    pub max_len: Bytes<u8, Range<1, { MAX_WATCH_LEN as i64 }>>,
-    /// Shortest period of one watch.
-    pub min_period: Second,
-}
-
-/// One autonomous read, see `I2cWatch::watch_add`.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone)
-)]
-pub struct I2cWatchConfig<'i> {
-    pub addr: I2cAddress,
-    /// Plain read, or a register read (write the register address, repeated start, read).
-    pub kind: I2cReadKind<'i>,
-    /// Bytes to read, 1 to [MAX_WATCH_LEN] (and at most [I2cWatchCapabilities::max_len]).
-    pub len: Bytes<u8, Range<1, { MAX_WATCH_LEN as i64 }>>,
-    /// How often to read.
-    pub period: Second,
-    /// When to send a result.
-    pub report: I2cWatchReport<'i>,
-}
-
-/// When a watch sends its result.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone),
-    ww_repr = unib32
-)]
-pub enum I2cWatchReport<'i> {
-    /// Every read.
-    Always,
-    /// When `data & mask` differs from the previous read's (`mask` as long as the read; all ones to see any change).
-    Changed {
-        mask: MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>,
-    },
-    /// When `data[i] & bytes[i].mask == bytes[i].value` for every byte starts or stops being true (an alert bit set,
-    /// a status reaching a state); one [I2cMatchByte] per byte read.
-    Matches {
-        bytes: MaxLen<RefVec<'i, I2cMatchByte>, MAX_WATCH_LEN>,
-    },
-}
-
-/// One byte of an [I2cWatchReport::Matches] rule: the read byte matches when `byte & mask == value`. A `mask` of
-/// `0x00` ignores the byte. Two bytes on the wire.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    sized
-)]
-pub struct I2cMatchByte {
-    pub mask: u8,
-    pub value: u8,
-}
-
-/// A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to
-/// fail, and the next successful read is reported whatever the rule.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone)
-)]
-pub struct I2cWatchEvent<'i> {
-    pub slot: WatchSlot,
-    pub result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError<'i>>,
-}
-
-/// Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.
-///
-/// The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter's own
-/// transfers too), for devices that only sniff and implement no `I2c`.
-#[ww_trait]
-pub trait I2cMonitor {
-    /// One record per transaction, in bus order. Opening starts monitoring, closing stops it. `io_level` as in
-    /// [I2cConfig::io_level]; the adapter's pull-ups stay as they are (the watched bus has its own). A counted
-    /// stream, unit: transaction; the head's time is the start condition, and the host learns exactly how many
-    /// records the device dropped. `Unsupported` for an IO level the adapter can't do.
-    #[errors(Common(InUse, Unsupported, Refused, NoPower))]
-    #[stream(I2cRecord<'i>, counted)]
-    fn records(io_level: Option<Volt>) -> Result<(), I2cError<'i>>;
-}
-
 /// A 7-bit or 10-bit I2C address.
 ///
 /// Bit-packed (SW-48): a 7-bit address takes one byte on the wire (the variant bit and 7 address bits), a 10-bit
@@ -603,45 +463,6 @@ pub struct I2cLinesState {
     pub sda: Option<Volt>,
 }
 
-/// One transaction seen by `I2cMonitor`: from a start to the stop (or to the next repeated start).
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone)
-)]
-pub struct I2cRecord<'i> {
-    /// Time of the stop (or repeated start); the start condition's is the time in the event head.
-    pub end: Second,
-    pub addr: I2cAddress,
-    /// Read (true) or write (false).
-    pub read: bool,
-    pub kind: I2cRecordKind,
-    /// The first byte on the bus that was not acknowledged: `Some(0)` the address, `Some(n)` the n-th data byte
-    /// (`bytes[n - 1]`); the same count as [I2cError::Nack]'s `at`.
-    pub nack_at: Option<Index<Byte, u16>>,
-    /// Data bytes, without the address.
-    pub bytes: MaxLen<RefVec<'i, u8>, MAX_RECORD_LEN>,
-}
-
-/// How a monitored transaction ended.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Copy, Clone),
-    ww_repr = unib32
-)]
-pub enum I2cRecordKind {
-    /// Ended with a stop.
-    Complete,
-    /// Ended with a repeated start; the next record continues the transaction.
-    RepeatedStart,
-    /// More than [MAX_RECORD_LEN] bytes, the rest was cut.
-    Truncated,
-    /// A start or stop in the middle of a byte, or a line stuck.
-    BusError,
-}
-
 /// What the adapter supports, see `I2c::i2c_capabilities`.
 #[derive_shrink_wrap(
     owned(feature = "std"),
@@ -705,183 +526,6 @@ pub struct I2cCapabilities<'i> {
 pub struct I2cTimeRange {
     pub min: Second,
     pub max: Second,
-}
-
-/// Slave mode, see `I2c::slave_events`.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Copy, Clone)
-)]
-pub struct I2cSlaveConfig {
-    /// This device's address on the bus.
-    pub addr: I2cAddress,
-    /// As in [I2cConfig::io_level].
-    pub io_level: Option<Volt>,
-    /// Where the answers to the master's reads come from.
-    pub answers: I2cSlaveAnswers,
-}
-
-/// Where a slave's answers come from, see [I2cSlaveConfig::answers].
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Copy, Clone),
-    ww_repr = unib32
-)]
-pub enum I2cSlaveAnswers {
-    /// The register map (`I2c::slave_map_write`): the first `pointer_bytes` bytes of each master write set the
-    /// pointer (big-endian, 0 for a chip without one: the pointer then only moves by reading and writing), the
-    /// rest are stored from it. Reads come from the pointer. Both go up by one per byte and wrap at `len` (the
-    /// first `len` bytes of the map); with `page`, writes wrap within their page of that many bytes, as in an
-    /// EEPROM. With `read_only` the master's data bytes are acknowledged but not stored (they are still reported).
-    Registers {
-        pointer_bytes: Bytes<u8>,
-        len: Bytes<u32>,
-        page: Option<Bytes<u16>>,
-        read_only: bool,
-    },
-    /// The answer queue (`I2c::slave_answers`): each master read takes the next answer; `empty` says what happens
-    /// when there is none.
-    Queue { empty: I2cSlaveUnderrun },
-}
-
-/// What a slave does when the master reads and no answer is queued: the host is too slow or sent nothing.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Copy, Clone),
-    ww_repr = unib32
-)]
-pub enum I2cSlaveUnderrun {
-    /// Send `fill` for every byte the master reads (`0xFF` is what a released bus reads).
-    Fill(u8),
-    /// Hold SCL low until an answer comes, for at most `max` per read, then send `fill` for the rest. The device
-    /// sends [I2cSlaveEvent::ReadWaiting] as soon as it starts to wait. See the crate docs for the limits of
-    /// stretching.
-    Stretch { max: Second, fill: u8 },
-    /// Don't acknowledge the address while the queue is empty, writes included, as a busy EEPROM does; a master
-    /// polling for an acknowledge gets one once an answer is queued.
-    Nack,
-}
-
-/// An event of `I2c::slave_events`; the start condition's time is the time in the event head.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone),
-    ww_repr = unib32
-)]
-pub enum I2cSlaveEvent<'i> {
-    /// A transaction addressed to this device ended.
-    Transfer(I2cSlaveTransfer<'i>),
-    /// The master reads and no answer is queued: the device holds SCL low ([I2cSlaveUnderrun::Stretch]) until an
-    /// answer comes on `I2c::slave_answers` or the limit passes. Sent at once, not held back for batching. The
-    /// write before it (a command, a register address) is the [I2cSlaveEvent::Transfer] just before.
-    ReadWaiting,
-}
-
-/// One transaction addressed to this device: from the start (or repeated start) to the stop (or the next repeated
-/// start).
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Clone)
-)]
-pub struct I2cSlaveTransfer<'i> {
-    /// Time of the stop (or repeated start); the start condition's is the time in the event head.
-    pub end: Second,
-    /// Master read (true) or write (false).
-    pub read: bool,
-    /// How it ended; [I2cRecordKind::Truncated] when more than [MAX_RECORD_LEN] bytes went by, also when it ended
-    /// with a repeated start.
-    pub kind: I2cRecordKind,
-    /// [I2cSlaveAnswers::Registers]: the pointer at the first data byte (after the pointer bytes of a write).
-    pub pointer: Option<Index<Byte, u32>>,
-    /// The data bytes: what the master wrote (pointer bytes included), or what this device sent.
-    pub bytes: MaxLen<RefVec<'i, u8>, MAX_RECORD_LEN>,
-    /// Bytes of a read sent as the fill byte because no answer was there (or came too late); 0 when all came from
-    /// an answer or the map.
-    pub filled: Bytes<u16>,
-    /// How long this device held SCL low in the transaction, waiting for an answer or for room; `None` if it
-    /// didn't.
-    pub stretched: Option<Second>,
-}
-
-/// What slave mode supports, see `I2c::slave_capabilities`.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, Copy, Clone)
-)]
-pub struct I2cSlaveCapabilities {
-    /// Size of the register map in bytes, 0 if there is none ([I2cSlaveAnswers::Registers] unsupported).
-    pub map_len: Bytes<u32>,
-    /// Widest register pointer, in bytes.
-    pub max_pointer_bytes: Bytes<u8>,
-    /// Answers the queue holds, 0 if there is none ([I2cSlaveAnswers::Queue] unsupported).
-    pub queue_len: Count<Item, u32>,
-    /// Longest [I2cSlaveUnderrun::Stretch], `None` if the device can't stretch while it waits for the host.
-    pub max_stretch: Option<Second>,
-    /// [I2cSlaveUnderrun::Nack] works.
-    pub nack_when_empty: bool,
-    /// A 10-bit slave address works.
-    pub ten_bit_addresses: bool,
-    /// Fastest SCL the slave keeps up with.
-    pub max_freq: Hertz,
-}
-
-/// Errors of every trait in this crate: the common ones first, then what is specific to I2C. Each method lists the
-/// variants it returns.
-#[derive_shrink_wrap(
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Debug, PartialEq, Eq, Clone),
-    ww_repr = unib32,
-    display
-)]
-pub enum I2cError<'i> {
-    /// {0}
-    #[common]
-    Common(CommonError<'i>),
-    /// Not acknowledged: the address, or a data byte of a write (`at`), in operation `op`.
-    ///
-    /// `op` is 0 for `I2c::i2c_write` and a plain `I2c::i2c_read`; for an [I2cReadKind::RepeatedStart] read 0 is
-    /// the write part and 1 the read part; for `I2c::i2c_transaction` the index of the [I2cOp]. `at` counts bytes on
-    /// the bus within that operation as [I2cRecord::nack_at] does: `Some(0)` the address, `Some(n)` the n-th data
-    /// byte (`data[n - 1]`, so `n - 1` bytes went through), `None` when the controller can't tell. A slave only refuses data on writes: in a read it is the master that doesn't
-    /// acknowledge the last byte, which is no error.
-    #[display("not acknowledged: operation {op}, byte {at:?} (0: the address)")]
-    Nack {
-        op: Index<Op, u8>,
-        at: Option<Index<Byte, u16>>,
-    },
-    /// Arbitration lost to another master.
-    Arbitration,
-    /// Bus error: a start or stop where it doesn't belong.
-    Bus,
-    /// Packet error check (SMBus PEC) failed.
-    Crc,
-    /// Data came faster than the adapter could take it (slave mode).
-    Overrun,
-    /// Longer than this device takes, see its capabilities.
-    BufferTooBig,
-    /// All watch slots are taken.
-    OutOfWatchSlots,
-    /// No watch in this slot.
-    InvalidWatchSlot,
-    /// A slave held SCL low longer than the stretch timeout ([I2cMode::Master]) at once; the transfer was aborted with a stop.
-    #[display("a slave held SCL low longer than the stretch timeout")]
-    ClockStretch,
-    /// A line is held low when the master wants to start (`scl_low`, `sda_low`: which one), so it can't: a slave
-    /// stuck mid-byte, missing pull-ups or a short. The device doesn't recover on its own; `I2c::i2c_wiggle_clock`
-    /// frees a stuck slave.
-    #[display("bus stuck: SCL low {scl_low}, SDA low {sda_low}")]
-    BusStuck { scl_low: bool, sda_low: bool },
 }
 
 #[cfg(test)]

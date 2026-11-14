@@ -123,3 +123,11 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
   `I2cMonitor`, and a unit test checking `I2cAddress::seven`/`::ten` wire sizes (1 and 2 bytes). Docs page
   `docs/std_library/ww_i2c.md`.
 - Wire version `w1.0` of its own (EVO-26), in `Cargo.toml` as `[package.metadata.wire_weaver] wire = "w1.0"`: `#[since]` in this crate names its revisions, and a Rust-only break of the crate no longer touches the wire line of the APIs using it. The snapshot carries it (`wire`, `ext_wire`), so its hash changed.
+
+### ⚙️ Miscellaneous Tasks
+
+- Split the single `lib.rs` into topic modules (`error`, `monitor`, `watch`), each re-exported at the crate root
+  so every public path stays the same; `ww api check` reports no change. `I2cCapabilities` and the transaction
+  types stay in `lib.rs` next to the `I2c` trait: their `MaxLen`/`Range` bounds share its size consts
+  (`MAX_WRITE_LEN`, `MAX_READ_LEN`, `MAX_WRITE_READ_LEN`, `MAX_OPS`), and such a bound's const must live in the
+  same file as its use.

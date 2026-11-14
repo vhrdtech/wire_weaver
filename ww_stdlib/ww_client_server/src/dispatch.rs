@@ -580,7 +580,8 @@ mod tests {
     fn err_rewinds_and_writes_the_error() {
         let request = Request {
             seq: UVlq32Backfill(1),
-            priority: Priority::NORMAL.nibble(),
+            priority: Priority::NORMAL.to_wire(),
+            reserved: false,
             path_kind: PathKind::absolute(&[]),
             kind: RequestKind::Read,
         };

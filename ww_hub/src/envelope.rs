@@ -153,7 +153,8 @@ pub(crate) fn request(path: &[u32], priority: Priority, kind: RequestKindOwned) 
     use wire_weaver::shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
     RequestOwned {
         seq: UVlq32Backfill(0),
-        priority: priority.nibble(),
+        priority: priority.to_wire(),
+        reserved: false,
         path_kind: PathKindOwned::Absolute {
             path: path
                 .iter()
@@ -254,7 +255,8 @@ mod tests {
         // a request as a client serializes it: padded seq placeholder
         let req = RequestOwned {
             seq: UVlq32Backfill(0),
-            priority: ww_client_server::Priority::NORMAL.nibble(),
+            priority: ww_client_server::Priority::NORMAL.to_wire(),
+            reserved: false,
             path_kind: PathKindOwned::Absolute {
                 path: ww_client_server::resource_path([2, 5]).to_vec(),
             },
@@ -272,7 +274,7 @@ mod tests {
         assert!(matches!(classify(&trimmed), Op::Other));
     }
 
-    /// The device's seq replaces the client's (SRV-29) without touching the priority nibble behind it (CLT-50),
+    /// The device's seq replaces the client's (SRV-29) without touching the priority bits behind it (CLT-50),
     /// whatever length either seq takes; requests the hub builds for a client keep the client's priority.
     #[test]
     fn seq_rewrite_keeps_priority() {

@@ -333,7 +333,8 @@ round, and tell you before a release when a change would break that.
 - EVO-10 | Checker knows the catch-all | Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible. | evolution/rules.md#unsized-types
 - EVO-11 | Evolution check at every commit | A test of your API crate fails when the API changed without the version bump it needs. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
-- EVO-14 | Priority in every request | Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after. | transport/ww_framer.md#latency-and-priority
+- EVO-14 | Priority in every request | Requests carry a priority; hosts and devices built before it don't talk to ones after. | transport/ww_framer.md#latency-and-priority
+- EVO-76 | Priority as on a CAN bus | A request's priority has 8 levels in 3 bits, as CAN and Cyphal carry in a frame's ID, with one bit reserved beside it; the upper four are urgent. | transport/ww_framer.md#latency-and-priority
 - EVO-13 | Upgrades don't touch your snapshots | A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading. | evolution/checker_tool.md#the-current-versions-snapshot
 - EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: distinguished bases sorted, out-of-order, repeated or zero ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/ww_si.md#units-known-only-at-run-time
 - EVO-15 | Units and bounds in the checker | Wrapping a plain number in a unit type passes as the same bytes; changing its unit, prefix or bound is caught as breaking. | evolution/rules.md#transparent-wrappers-units-and-scales

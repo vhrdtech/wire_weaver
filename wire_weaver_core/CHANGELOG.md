@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Server codegen (EVO-76): a multi request's per-item `Request` copies the new `reserved` bit beside `priority`, so generated servers need the matching `ww_client_server`. Handlers and `ww api scaffold` output don't change.
 - Server codegen (EVO-73): the `StreamOpen` arms of a counted stream bind `raw` instead of `codecs` and call `ww_stream::codec::CountedState::open_session` / `resume_session`, so generated servers need the matching `ww_client_server` and `ww_stream`. Handlers and `ww api scaffold` output don't change.
 - Generated servers and clients carry resource paths as `ww_client_server::ResourceIndex` (STD-115, the protocol's paths are typed): the index chain a handler of an item under a resource array takes is `[ResourceIndex; N]` (`index_chain[0].get().0` for the number), as are the `index_chain` arguments of `mark_changed_*` and `element_removed_*` (observe, API-63), the generated `valid_indices_*` functions and a sub-level client's `index_chain` field (`Vec<ResourceIndex>` for a shared one, CLT-68). `ww api scaffold` prints `_index_chain: [ww_client_server::ResourceIndex; N]`. The bytes on the wire are the same.
 - `load_with_hints` returns a 4-tuple now, `(ApiBundleOwned, Vec<UnitHint>, Vec<UnreasonedSilence>, CratePaths)`: the new element is the `#[no_unit_hint]`s with no reason or an empty one (TOOL-35). `SourceNotes` has a new public field `unreasoned: Vec<UnreasonedSilence>`; a `SourceNotes { .. }` literal needs it.

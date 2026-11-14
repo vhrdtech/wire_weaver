@@ -195,10 +195,12 @@ The framer only fills frames; when one goes out is decided above it, by the Wire
   what lets requests made close together share one packet, and it keeps packetization the same from run to run.
 - **Never later than the window**: the host waits for it on a timer accurate to tens of microseconds (tokio's own
   counts whole milliseconds and made a 1 ms window cost about 2), so a window of `W` costs at most `W` (CLT-53).
-- **Urgent requests** go out at once. Every request carries a 4-bit priority (`wire_weaver::Priority`, 0..=15,
-  4 by default); 8 and up (`Priority::URGENT`) is urgent: the host flushes the frame as soon as the request is in
+- **Urgent requests** go out at once. Every request carries a 3-bit priority (`wire_weaver::Priority`, 0..=7,
+  2 by default, as many levels as CAN and Cyphal carry in a frame's ID) and one reserved bit beside it (EVO-76);
+  the upper half, 4 and up (`Priority::URGENT`), is urgent: the host flushes the frame as soon as the request is in
   it, taking what was already waiting along, and the device flushes its reply the same way, also a deferred reply
-  sent later through `Server::sink()` (SRV-42).
+  sent later through `Server::sink()` (SRV-42). `0..=1` are left for background traffic below the default and `3`
+  for batched traffic that should go first.
 
 ```rust
 let v = client.read_temperature().urgent().read().await?;           // sent and answered at once

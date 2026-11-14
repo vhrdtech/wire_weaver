@@ -515,7 +515,8 @@ mod tests {
         let request = |kind| {
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(0),
-                priority: ww_client_server::Priority::NORMAL.nibble(),
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKindOwned::Absolute { path: vec![] },
                 kind,
             }

@@ -122,7 +122,7 @@ pub const GENERATION: u8 = wire_weaver::shrink_wrap::generation_from_manifest!()
 /// - 3B (seq <= 127, empty Absolute path - root req, Kind with no data)
 /// - 4B (seq <= 127, path len 1 <= 7, Kind with 1B args)
 ///
-/// The priority nibble right after `seq` shares a byte with `path_kind`'s discriminant.
+/// The priority (3 bits) and the reserved bit right after `seq` share a byte with `path_kind`'s discriminant.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
 pub struct Request<'i> {
     /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
@@ -131,9 +131,12 @@ pub struct Request<'i> {
     pub seq: UVlq32Backfill,
 
     /// How soon the request and its reply should go out (CLT-50), see [Priority](wire_weaver::Priority) for the
-    /// scale: `4` ([Priority::NORMAL](wire_weaver::Priority::NORMAL)) by default, `8` and up are flushed at once
-    /// instead of waiting for the link's accumulation window.
-    pub priority: Nibble,
+    /// scale: `2` ([Priority::NORMAL](wire_weaver::Priority::NORMAL)) by default, `4` and up are flushed at once
+    /// instead of waiting for the link's accumulation window. 8 levels, as CAN and Cyphal carry (EVO-76).
+    pub priority: U3,
+
+    /// Kept for a later use beside `priority` (EVO-76): written `false`, ignored on read.
+    pub reserved: bool,
 
     /// Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.
     pub path_kind: PathKind<'i>,
@@ -887,7 +890,7 @@ impl Request<'_> {
     pub fn peek_priority(bytes: &[u8]) -> Result<wire_weaver::Priority, shrink_wrap::Error> {
         let mut rd = BufReader::new(bytes);
         rd.read_uvlq32()?;
-        Ok(rd.read_nib()?.into())
+        Ok(U3::des_shrink_wrap(&mut rd)?.into())
     }
 }
 
@@ -897,6 +900,7 @@ impl Request<'_> {
         Ok(RequestOwned {
             seq: self.seq,
             priority: self.priority,
+            reserved: self.reserved,
             path_kind: self.path_kind.make_owned()?,
             kind: self.kind.make_owned()?,
         })
@@ -935,7 +939,8 @@ mod tests {
     fn request_set_seq() {
         let request = Request {
             seq: UVlq32Backfill(0),
-            priority: crate::Priority::NORMAL.nibble(),
+            priority: crate::Priority::NORMAL.to_wire(),
+            reserved: false,
             path_kind: PathKind::absolute(&[]),
             kind: RequestKind::Read,
         };
@@ -1006,7 +1011,8 @@ mod tests {
                 .collect();
             let request = |kind| Request {
                 seq: UVlq32Backfill(0),
-                priority: crate::Priority::NORMAL.nibble(),
+                priority: crate::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKind::absolute(&path),
                 kind,
             };

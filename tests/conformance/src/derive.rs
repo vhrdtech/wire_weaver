@@ -797,7 +797,8 @@ pub fn table() -> Vec<Typed> {
             };
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
-                priority: Priority::NORMAL.nibble(),
+                priority: Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([10]).to_vec(),
                 },
@@ -811,7 +812,8 @@ pub fn table() -> Vec<Typed> {
             use ww_client_server::{PathKindOwned, Priority, RequestKindOwned, RequestOwned};
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
-                priority: Priority::NORMAL.nibble(),
+                priority: Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([0, 6]).to_vec(),
                 },
@@ -827,7 +829,8 @@ pub fn table() -> Vec<Typed> {
             };
             RequestOwned {
                 seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
-                priority: Priority::NORMAL.nibble(),
+                priority: Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([0, 6]).to_vec(),
                 },
@@ -1241,7 +1244,8 @@ pub fn table() -> Vec<Typed> {
         case_debug("client_server.request.absolute_path", || {
             ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
-                priority: ww_client_server::Priority::NORMAL.nibble(),
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: ww_client_server::PathKindOwned::Absolute {
                     path: ww_client_server::resource_path([3, 1, 1000]).to_vec(),
                 },
@@ -1251,7 +1255,8 @@ pub fn table() -> Vec<Typed> {
         case_debug("client_server.request.global_path", || {
             ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
-                priority: ww_client_server::Priority::NORMAL.nibble(),
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: ww_client_server::PathKindOwned::GlobalCompact {
                     gid: wire_weaver::ww_version::CompactVersion::new(
                         ww_global::GlobalTypeId::new(5),
@@ -1264,6 +1269,29 @@ pub fn table() -> Vec<Typed> {
                 kind: ww_client_server::RequestKindOwned::Call {
                     args: TailBytesOwned(vec![5]),
                 },
+            }
+        }),
+        // the priority's 3 bits and the reserved bit share the byte after seq with path_kind's discriminant (EVO-76)
+        case_debug("client_server.request.urgent", || {
+            ww_client_server::RequestOwned {
+                seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::URGENT.to_wire(),
+                reserved: false,
+                path_kind: ww_client_server::PathKindOwned::Absolute {
+                    path: ww_client_server::resource_path([3]).to_vec(),
+                },
+                kind: ww_client_server::RequestKindOwned::Read,
+            }
+        }),
+        case_debug("client_server.request.highest_reserved", || {
+            ww_client_server::RequestOwned {
+                seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::HIGHEST.to_wire(),
+                reserved: true,
+                path_kind: ww_client_server::PathKindOwned::Absolute {
+                    path: ww_client_server::resource_path([3]).to_vec(),
+                },
+                kind: ww_client_server::RequestKindOwned::Read,
             }
         }),
         case_debug("client_server.event.stream_data_path", || {

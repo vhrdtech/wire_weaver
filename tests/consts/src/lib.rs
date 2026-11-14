@@ -416,7 +416,8 @@ mod tests {
             };
             let request = Request {
                 seq: UVlq32Backfill(7),
-                priority: ww_client_server::Priority::NORMAL.nibble(),
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice { slice: path },
                 },

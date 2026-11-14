@@ -14,8 +14,8 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 use wire_weaver::prelude::UNib32;
-use wire_weaver::shrink_wrap::Nibble;
 use wire_weaver::shrink_wrap::buf_reader::Cursors;
+use wire_weaver::shrink_wrap::prelude::U3;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, SerializeShrinkWrapOwned, UVlq32, UVlq32Backfill,
@@ -54,14 +54,26 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
         b.leaf(1, "seq", "uvlq32", at, b.at(&rd), num(seq.0), None);
 
         let at = b.at(&rd);
-        let priority: Nibble = rd.read()?;
+        let priority: U3 = rd.read()?;
         b.leaf(
             1,
             "priority",
-            "nibble",
+            "u3",
             at,
             b.at(&rd),
             num(priority.value() as u32),
+            None,
+        );
+
+        let at = b.at(&rd);
+        let reserved: bool = rd.read()?;
+        b.leaf(
+            1,
+            "reserved",
+            "bool",
+            at,
+            b.at(&rd),
+            Some(ValueOwned::Bool(reserved)),
             None,
         );
 
@@ -400,7 +412,8 @@ pub fn request_bytes(resource: &DynResource, payload: Option<Vec<u8>>) -> Result
     };
     let mut bytes = RequestOwned {
         seq: UVlq32Backfill(0),
-        priority: ww_client_server::Priority::NORMAL.nibble(),
+        priority: ww_client_server::Priority::NORMAL.to_wire(),
+        reserved: false,
         path_kind: path,
         kind,
     }

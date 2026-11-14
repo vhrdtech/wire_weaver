@@ -1254,16 +1254,23 @@ mod async_server {
         assert!(server.is_up());
         log.borrow_mut().clear();
 
-        // seq, then the priority nibble (high nibble of the next byte)
-        let normal = (wire_weaver::Priority::NORMAL.level() << 4) | 0xA;
-        let urgent = (wire_weaver::Priority::URGENT.level() << 4) | 0xB;
+        // seq, then the 3-bit priority and the reserved bit (the high nibble of the next byte, EVO-76)
+        let normal = (wire_weaver::Priority::NORMAL.level() << 5) | 0xA;
+        let urgent = (wire_weaver::Priority::URGENT.level() << 5) | 0xB;
+        // the highest batched level with the reserved bit set: still batched, the bit is ignored
+        let batched_reserved = (3 << 5) | 0x10 | 0xA;
 
         // default priority, a lone request or back to back: the replies wait for the window
-        for bytes in [&[1u8, normal][..], &[2, normal], &[3, normal]] {
+        for bytes in [
+            &[1u8, normal][..],
+            &[2, normal],
+            &[3, normal],
+            &[4, batched_reserved],
+        ] {
             push(&queue, &Message::Data { channel: 0, bytes });
             run_ready(&mut server);
         }
-        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0); 3]);
+        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0); 4]);
         log.borrow_mut().clear();
 
         // an urgent request: its reply goes out at once, with what waited
@@ -1271,7 +1278,7 @@ mod async_server {
             &queue,
             &Message::Data {
                 channel: 0,
-                bytes: &[4, urgent],
+                bytes: &[5, urgent],
             },
         );
         run_ready(&mut server);

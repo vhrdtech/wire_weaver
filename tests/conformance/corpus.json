@@ -1113,42 +1113,63 @@
     {
       "name": "client_server.request.multi_read",
       "type": "Request",
-      "value": {"seq": 1, "priority": 4, "path_kind": {"Absolute": {"path": [10]}}, "kind": {"MultiRead": {"multi_idx": {"List": [0, 1]}, "in_each_array_id": 1}}},
+      "value": {"seq": 1, "priority": 2, "reserved": false, "path_kind": {"Absolute": {"path": [10]}}, "kind": {"MultiRead": {"multi_idx": {"List": [0, 1]}, "in_each_array_id": 1}}},
       "bytes": "808080800140a13040128121",
+      "wire_change": "EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay",
       "gaps": {"dynamic": "ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's request envelope, not a type of an API in the model", "python": "ww_client_server's request envelope, not a type of an API in the model", "c": "ww_client_server's request envelope, not a type of an API in the model"},
       "note": "a multi request as hosts send it (feature multi of ww_client_server, SRV-60): the discriminants are written out, so these bytes are the same as before the feature existed (dispatch_golden multi.multi_read); a firmware without multi reads it as RequestKind::Unknown(3) and answers OperationNotSupported at err_seq 61 (tests/lean_server)"
     },
     {
       "name": "client_server.request.sink_write",
       "type": "Request",
-      "value": {"seq": 1, "priority": 4, "path_kind": {"Absolute": {"path": [0, 6]}}, "kind": {"SinkWrite": {"pos": 5, "data": [1, 2, 3]}}},
+      "value": {"seq": 1, "priority": 2, "reserved": false, "path_kind": {"Absolute": {"path": [0, 6]}}, "kind": {"SinkWrite": {"pos": 5, "data": [1, 2, 3]}}},
       "bytes": "80808080014006a00501020302",
+      "wire_change": "EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay",
       "gaps": {"dynamic": "ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's request envelope, not a type of an API in the model", "python": "ww_client_server's request envelope, not a type of an API in the model", "c": "ww_client_server's request envelope, not a type of an API in the model"},
       "note": "a credit sink write (feature streams, SRV-60); a firmware without streams reads it as RequestKind::Unknown(10) and answers OperationNotSupported at err_seq 61 (tests/lean_server)"
     },
     {
       "name": "client_server.request.sideband_ack",
       "type": "Request",
-      "value": {"seq": 1, "priority": 4, "path_kind": {"Absolute": {"path": [0, 6]}}, "kind": {"StreamSideband": {"sideband": {"Ack": {"backfill": null, "have": 0, "grant": 4096}}}}},
+      "value": {"seq": 1, "priority": 2, "reserved": false, "path_kind": {"Absolute": {"path": [0, 6]}}, "kind": {"StreamSideband": {"sideband": {"Ack": {"backfill": null, "have": 0, "grant": 4096}}}}},
       "bytes": "80808080014006650000a00002",
+      "wire_change": "EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay",
       "gaps": {"dynamic": "ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's request envelope, not a type of an API in the model", "python": "ww_client_server's request envelope, not a type of an API in the model", "c": "ww_client_server's request envelope, not a type of an API in the model"},
       "note": "an Ack of a counted or reliable stream (feature streams, SRV-60); a firmware without streams reads it as StreamSideband::Unknown(5) and its plain stream answers OperationNotSupported at item site 0 (tests/lean_server)"
     },
     {
       "name": "client_server.request.absolute_path",
       "type": "Request",
-      "value": {"seq": 0, "priority": 4, "path_kind": {"Absolute": {"path": [3, 1, 1000]}}, "kind": "Read"},
+      "value": {"seq": 0, "priority": 2, "reserved": false, "path_kind": {"Absolute": {"path": [3, 1, 1000]}}, "kind": "Read"},
       "bytes": "808080800040318df123",
+      "wire_change": "EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay",
       "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
       "note": "a Read on the absolute path [3, 1, 1000], each element a ResourceIndex: golden bytes taken from the same request with bare UNib32 path elements, before they were typed"
     },
     {
       "name": "client_server.request.global_path",
       "type": "Request",
-      "value": {"seq": 0, "priority": 4, "path_kind": {"GlobalCompact": {"gid": {"gid": 5, "major": 0, "minor": 2, "patch": 1}, "path_from_trait": [2, 0]}}, "kind": {"Call": {"args": [5]}}},
+      "value": {"seq": 0, "priority": 2, "reserved": false, "path_kind": {"GlobalCompact": {"gid": {"gid": 5, "major": 0, "minor": 2, "patch": 1}, "path_from_trait": [2, 0]}}, "kind": {"Call": {"args": [5]}}},
       "bytes": "808080800041502120000502",
+      "wire_change": "EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay",
       "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
       "note": "a Call through a GlobalCompact path, path_from_trait [2, 0] of ResourceIndex: golden bytes taken from the same request with bare UNib32 path elements"
+    },
+    {
+      "name": "client_server.request.urgent",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 4, "reserved": false, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
+      "bytes": "8080808000803201",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "Priority::URGENT (4), the lowest urgent level: the top 3 bits of the byte after seq, the reserved bit below them 0, then path_kind's discriminant (EVO-76)"
+    },
+    {
+      "name": "client_server.request.highest_reserved",
+      "type": "Request",
+      "value": {"seq": 0, "priority": 7, "reserved": true, "path_kind": {"Absolute": {"path": [3]}}, "kind": "Read"},
+      "bytes": "8080808000f03201",
+      "gaps": {"dynamic": "ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_client_server's Request is a protocol message, not a type of an API in the model", "python": "ww_client_server's Request is a protocol message, not a type of an API in the model", "c": "ww_client_server's Request is a protocol message, not a type of an API in the model"},
+      "note": "Priority::HIGHEST (7) with the reserved bit set, as a later sender may write it: readers ignore the bit (EVO-76)"
     },
     {
       "name": "client_server.event.stream_data_path",

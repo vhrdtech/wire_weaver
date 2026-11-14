@@ -10,11 +10,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 288 of 288 | 0 |
-| dynamic | 247 of 288 | 41 |
-| explain | 247 of 288 | 41 |
-| python | 245 of 288 | 43 |
-| c | 34 of 288 | 254 |
+| derive | 290 of 290 | 0 |
+| dynamic | 247 of 290 | 43 |
+| explain | 247 of 290 | 43 |
+| python | 245 of 290 | 45 |
+| c | 34 of 290 | 256 |
 
 | Case | Type | Direction | derive | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|
@@ -175,6 +175,8 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `client_server.request.sideband_ack` | `Request` | both | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.absolute_path` | `Request` | both | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.request.global_path` | `Request` | both | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.urgent` | `Request` | both | ✅ | gap - | gap - | gap - | gap - |
+| `client_server.request.highest_reserved` | `Request` | both | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.event.stream_data_path` | `Event` | both | ✅ | gap - | gap - | gap - | gap - |
 | `client_server.multi_index.list` | `MultiIndex` | both | ✅ | gap - | gap - | gap - | gap - |
 | `stdlib.timebase.steer_point` | `steer_point` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
@@ -409,7 +411,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **c**: the C runtime has no 128-bit numbers (SW-66). 2 cases: `int.u128.max`, `int.i128.min`.
 - **c**: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: `client_server.event.stream_data_path`.
 - **c**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
-- **c**: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **c**: ww_client_server's Request is a protocol message, not a type of an API in the model. 4 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`.
 - **c**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **c**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **c**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -426,7 +428,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **dynamic**: the API model has no #[default] values, an old field reads as its type's default (INT-10). 2 cases: `evolution.new_reads_old`, `cfg_attr.new_reads_old`.
 - **dynamic**: ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: `client_server.event.stream_data_path`.
 - **dynamic**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: `client_server.multi_index.list`.
-- **dynamic**: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **dynamic**: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 4 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`.
 - **dynamic**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **dynamic**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **dynamic**: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -443,7 +445,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **explain**: the API model has no #[default] values, an old field reads as its type's default (INT-10). 2 cases: `evolution.new_reads_old`, `cfg_attr.new_reads_old`.
 - **explain**: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: `client_server.event.stream_data_path`.
 - **explain**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
-- **explain**: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **explain**: ww_client_server's Request is a protocol message, not a type of an API in the model. 4 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`.
 - **explain**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **explain**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **explain**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -461,7 +463,7 @@ The shape signature and the signature with docs of a definition (EVO-69), by whi
 - **python**: the API model has no #[default] values (INT-10). 2 cases: `evolution.new_reads_old`, `cfg_attr.new_reads_old`.
 - **python**: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: `client_server.event.stream_data_path`.
 - **python**: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: `client_server.multi_index.list`.
-- **python**: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: `client_server.request.absolute_path`, `client_server.request.global_path`.
+- **python**: ww_client_server's Request is a protocol message, not a type of an API in the model. 4 cases: `client_server.request.absolute_path`, `client_server.request.global_path`, `client_server.request.urgent`, `client_server.request.highest_reserved`.
 - **python**: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: `client_server.stream_open.compressed`, `client_server.stream_open.raw`.
 - **python**: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: `client_server.stream_opened.lz4`, `client_server.stream_opened.unknown`.
 - **python**: ww_client_server's request envelope, not a type of an API in the model. 3 cases: `client_server.request.multi_read`, `client_server.request.sink_write`, `client_server.request.sideband_ack`.
@@ -475,6 +477,11 @@ Accepted by the frozen golden bytes guard (TEST-24) as a deliberate break, each 
 
 - `device_info.ordinary`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
 - `device_info.no_observe_samples`: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.
+- `client_server.request.multi_read`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
+- `client_server.request.sink_write`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
+- `client_server.request.sideband_ack`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
+- `client_server.request.absolute_path`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
+- `client_server.request.global_path`: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.
 - `stdlib.si.dim.volt`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.rad_bit`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.
 - `stdlib.si.dim.counted`: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.

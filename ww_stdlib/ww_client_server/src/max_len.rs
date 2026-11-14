@@ -114,7 +114,8 @@ mod tests {
                 .collect();
             let request = Request {
                 seq: UVlq32Backfill(u32::MAX),
-                priority: crate::Priority::NORMAL.nibble(),
+                priority: crate::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice {
                         slice: &path_elements,
@@ -131,7 +132,8 @@ mod tests {
             let max = call_request_compact(path, ARGS_MAX).unwrap();
             let request = Request {
                 seq: UVlq32Backfill(u32::MAX),
-                priority: crate::Priority::NORMAL.nibble(),
+                priority: crate::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKind::GlobalCompact {
                     gid: CompactVersion {
                         gid: ww_global::GlobalTypeId::new(u32::MAX),

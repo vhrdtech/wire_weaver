@@ -27,7 +27,7 @@ use super::transport::Opened;
 /// Much longer than anything in these tests takes on paused time: waiting for it shows in the elapsed time.
 const WINDOW: Duration = Duration::from_millis(50);
 
-/// Requests with this byte after the priority nibble's byte are answered later, from outside of `Server::handle`.
+/// Requests with this byte after the priority's byte are answered later, from outside of `Server::handle`.
 const DEFERRED: u8 = 0xDE;
 
 /// Answers with the request's bytes after its priority byte and the kind byte, at once, or deferred: seq and
@@ -48,7 +48,8 @@ impl WireWeaverAsyncApiBackend for Backend {
     ) -> Result<&'a [u8], ShrinkWrapError> {
         let mut rd = BufReader::new(data);
         let seq = rd.read_uvlq32()?;
-        let priority = Priority::from_nibble(rd.read_nib()?);
+        let priority = Priority::from_wire(rd.read()?);
+        let _reserved = rd.read_bool()?;
         let data = &data[data.len() - rd.bytes_left()..];
         if data.first() == Some(&DEFERRED) {
             _ = self.deferred.send((seq, priority));
@@ -178,10 +179,10 @@ async fn send(
 ) -> oneshot::Receiver<Result<Vec<u8>, crate::Error>> {
     let (done_tx, done_rx) = oneshot::channel();
     let kind = if deferred { DEFERRED } else { 0 };
-    // the priority nibble, then (nibble aligned) the kind byte
+    // the 3-bit priority and the reserved bit, then (nibble aligned) the kind byte
     let bytes = [0u8; UVlq32Backfill::LEN]
         .into_iter()
-        .chain([priority.level() << 4, kind])
+        .chain([priority.level() << 5, kind])
         .chain(data.iter().copied())
         .collect();
     cmd_tx

@@ -435,7 +435,8 @@ mod tests {
         };
         let req = Request {
             seq: UVlq32Backfill(5),
-            priority: crate::Priority::NORMAL.nibble(),
+            priority: crate::Priority::NORMAL.to_wire(),
+            reserved: false,
             path_kind: PathKind::absolute(&path),
             kind: RequestKind::Observe {
                 cfg: RefBox::new(&cfg),

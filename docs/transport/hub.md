@@ -291,7 +291,7 @@ The hub runs one `wire_weaver_client` event loop per open device and gives each 
 - **Seq remap.** Every request goes to the device with a seq of the hub's event loop; each answer gets the client's
   seq back and goes to that client only. Answers of plain calls are routed on the event loop's receive task straight
   into the client's queue.
-- **Priority** (CLT-50). The remap keeps the request's priority nibble. A batch a client flushed goes on to the
+- **Priority** (CLT-50). The remap keeps the request's priority bits. A batch a client flushed goes on to the
   device as it came, without another window, and an urgent request goes out at once; what goes back to a client is
   written at once. A default call through the hub waits for the window twice, as a direct one does: on the client's
   link to the hub and for the device's reply. The hub's queue to the device is served in arrival order, not sorted by

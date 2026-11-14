@@ -376,7 +376,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             )));
         }
         let (done_tx, done_rx) = oneshot::channel();
-        let priority = self.transport_cmd_tx.priority.nibble();
+        let priority = self.transport_cmd_tx.priority;
         let open = |raw| {
             stream_open_request(
                 &self.path_kind,
@@ -459,7 +459,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
 /// are, even when the device compresses the stream (API-55).
 pub(crate) fn stream_open_request(
     path_kind: &PathKindOwned,
-    priority: wire_weaver::prelude::Nibble,
+    priority: wire_weaver::Priority,
     resume: Option<StreamCursor>,
     max_age_us: Option<u32>,
     raw: bool,
@@ -467,7 +467,8 @@ pub(crate) fn stream_open_request(
 ) -> Result<Vec<u8>, Error> {
     Ok(RequestOwned {
         seq: UVlq32Backfill(0),
-        priority,
+        priority: priority.to_wire(),
+        reserved: false,
         path_kind: path_kind.clone(),
         kind: RequestKindOwned::StreamOpen {
             resume,
@@ -486,7 +487,7 @@ pub(crate) fn raw_reopen(
     delivery: ww_self::Delivery,
     compression: bool,
     path: &[ResourceIndex],
-    priority: wire_weaver::prelude::Nibble,
+    priority: wire_weaver::Priority,
     open_raw: impl FnOnce() -> Result<Vec<u8>, Error>,
     timeout: Duration,
 ) -> Result<Option<Box<RawReopen>>, Error> {
@@ -495,7 +496,8 @@ pub(crate) fn raw_reopen(
     }
     let close = RequestOwned {
         seq: UVlq32Backfill(0),
-        priority,
+        priority: priority.to_wire(),
+        reserved: false,
         path_kind: PathKindOwned::Absolute {
             path: path.to_vec(),
         },

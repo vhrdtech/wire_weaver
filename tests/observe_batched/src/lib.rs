@@ -560,7 +560,8 @@ mod tests {
                 .collect();
             let req = Request {
                 seq: UVlq32Backfill(0),
-                priority: ww_client_server::Priority::NORMAL.nibble(),
+                priority: ww_client_server::Priority::NORMAL.to_wire(),
+                reserved: false,
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice { slice: &path },
                 },
@@ -807,7 +808,8 @@ mod tests {
         };
         let req = Request {
             seq: UVlq32Backfill(1),
-            priority: ww_client_server::Priority::NORMAL.nibble(),
+            priority: ww_client_server::Priority::NORMAL.to_wire(),
+            reserved: false,
             path_kind: PathKind::Absolute {
                 path: RefVec::Slice { slice: &[] },
             },

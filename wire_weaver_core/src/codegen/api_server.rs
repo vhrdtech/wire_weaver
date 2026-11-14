@@ -1292,6 +1292,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                         let item_request = Request {
                             seq: request.seq,
                             priority: request.priority,
+                            reserved: request.reserved,
                             path_kind: PathKind::Absolute { path: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] } },
                             kind,
                         };

@@ -1,6 +1,6 @@
 // ww_client_server 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 6686e5bb220dd792743254c420cfa9f936a949ebf6ed2e9f3bf498a86cdabb4d
+// shrink_wrap sha256: 8df8db647e823b791fb7a22bc0c4dbef79847411ed9563cae55ac5f67a397214
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_client_server", items: [], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         176,
@@ -905,17 +905,20 @@
         "- 3B (seq <= 127, empty Absolute path - root req, Kind with no data)",
         "- 4B (seq <= 127, path len 1 <= 7, Kind with 1B args)",
         "",
-        "The priority nibble right after `seq` shares a byte with `path_kind`\'s discriminant.",
+        "The priority (3 bits) and the reserved bit right after `seq` share a byte with `path_kind`\'s discriminant.",
     ], ident: "Request", generics: [], fields: Named([
         (ident: Some("seq"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [
             "Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.",
             "0 means no answer is expected.",
             "Serialized as 1 byte if <= 127, 2 bytes if <= 16383, etc., once [Request::set_seq] is used.",
         ], slot: None, series_opaque: false),
-        (ident: Some("priority"), default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [
+        (ident: Some("priority"), default: None, since: None, ty: NumericAny(Base(UB(3))), docs: [
             "How soon the request and its reply should go out (CLT-50), see [Priority](wire_weaver::Priority) for the",
-            "scale: `4` ([Priority::NORMAL](wire_weaver::Priority::NORMAL)) by default, `8` and up are flushed at once",
-            "instead of waiting for the link\'s accumulation window.",
+            "scale: `2` ([Priority::NORMAL](wire_weaver::Priority::NORMAL)) by default, `4` and up are flushed at once",
+            "instead of waiting for the link\'s accumulation window. 8 levels, as CAN and Cyphal carry (EVO-76).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("reserved"), default: None, since: None, ty: Bool, docs: [
+            "Kept for a later use beside `priority` (EVO-76): written `false`, ignored on read.",
         ], slot: None, series_opaque: false),
         (ident: Some("path_kind"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [
             "Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.",

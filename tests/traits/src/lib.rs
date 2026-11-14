@@ -424,7 +424,8 @@ mod tests {
             .collect();
         let request = Request {
             seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
-            priority: ww_client_server::Priority::NORMAL.nibble(),
+            priority: ww_client_server::Priority::NORMAL.to_wire(),
+            reserved: false,
             path_kind: PathKind::Absolute {
                 path: RefVec::Slice { slice: &path },
             },

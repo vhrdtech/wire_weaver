@@ -730,18 +730,18 @@ mod tests {
     }
 
     /// Request bytes as serialized by the client: seq placeholder followed by `rest`.
-    /// Request bytes with a seq placeholder, `rest` from the priority nibble on (`[1]`: priority 0).
+    /// Request bytes with a seq placeholder, `rest` from the priority bits on (`[1]`: priority 0).
     fn request(rest: &[u8]) -> Vec<u8> {
         let mut bytes = vec![0; wire_weaver::shrink_wrap::UVlq32Backfill::LEN];
         bytes.extend_from_slice(rest);
         bytes
     }
 
-    /// [request] at `priority`: its nibble shares the first byte of `rest` (the low nibble of `rest[0]` stays).
+    /// [request] at `priority`: its 3 bits share the first byte of `rest` (the low 5 bits of `rest[0]` stay).
     fn request_at(priority: Priority, rest: &[u8]) -> Vec<u8> {
         let mut bytes = request(rest);
         let i = wire_weaver::shrink_wrap::UVlq32Backfill::LEN;
-        bytes[i] = (priority.level() << 4) | (bytes[i] & 0x0f);
+        bytes[i] = (priority.level() << 5) | (bytes[i] & 0x1f);
         bytes
     }
 
@@ -1133,7 +1133,8 @@ mod tests {
         };
         let flushes = p.flushes;
         send(&mut p, request_at(Priority::NORMAL, &[1]));
-        send(&mut p, request_at(Priority::new(7).unwrap(), &[2]));
+        // the highest batched level waits as well
+        send(&mut p, request_at(Priority::new(3).unwrap(), &[2]));
         assert_eq!(p.flushes, flushes, "default traffic waits for the window");
         assert_eq!(p.tx.poll_timeout(), Some(now + window));
         send(&mut p, request_at(Priority::URGENT, &[3]));

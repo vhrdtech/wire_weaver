@@ -49,7 +49,8 @@ pub fn request(i: usize, buf: &mut [u8]) -> &[u8] {
     let path = ww_client_server::resource_path([0, CASES[i].1]);
     let req = Request {
         seq: UVlq32Backfill(7),
-        priority: Priority::NORMAL.nibble(),
+        priority: Priority::NORMAL.to_wire(),
+        reserved: false,
         path_kind: PathKind::absolute(&path),
         kind,
     };

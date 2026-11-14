@@ -94,7 +94,8 @@ fn the_rest_is_served() {
     let path = ww_client_server::resource_path([0, 0]);
     let request = Request {
         seq: UVlq32Backfill(1),
-        priority: Priority::NORMAL.nibble(),
+        priority: Priority::NORMAL.to_wire(),
+        reserved: false,
         path_kind: PathKind::absolute(&path),
         kind: RequestKind::Call {
             args: TailBytes(&[]),

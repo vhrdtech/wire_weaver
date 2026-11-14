@@ -27,7 +27,8 @@ struct WithArgsArgs {
 fn request(seq: u32, path_kind: PathKind<'_>, kind: RequestKind<'_>) -> Vec<u8> {
     let req = Request {
         seq: UVlq32Backfill(seq),
-        priority: Priority::NORMAL.nibble(),
+        priority: Priority::NORMAL.to_wire(),
+        reserved: false,
         path_kind,
         kind,
     };

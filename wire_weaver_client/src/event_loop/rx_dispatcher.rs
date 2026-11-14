@@ -678,7 +678,8 @@ impl RxDispatcher {
             while let Some(sideband) = inner.poll(now_ms) {
                 let req = ww_client_server::RequestOwned {
                     seq: UVlq32Backfill(0),
-                    priority: ww_client_server::Priority::NORMAL.nibble(),
+                    priority: ww_client_server::Priority::NORMAL.to_wire(),
+                    reserved: false,
                     path_kind: PathKindOwned::Absolute { path: path.clone() },
                     kind: RequestKindOwned::StreamSideband { sideband },
                 };

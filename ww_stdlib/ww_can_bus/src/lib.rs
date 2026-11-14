@@ -58,21 +58,26 @@ use ww_si::{Fixed, Index, Range};
 
 pub mod capabilities;
 pub use capabilities::{
-    Capabilities, MAX_TERMINATION_VALUES, MemoryLayout, TimestampInfo, TimestampPoint, TimingLimits,
+    Capabilities, CapabilitiesOwned, MAX_TERMINATION_VALUES, MemoryLayout, TimestampInfo,
+    TimestampPoint, TimingLimits,
 };
 pub mod config;
 pub use config::{BitTiming, CanConfig, FdConfig, Mode, Options, RxOverflow, Tdc, Timing, TxOrder};
 pub mod error;
-pub use error::CanError;
+pub use error::{CanError, CanErrorOwned};
 pub mod filter;
-pub use filter::{Filter, FilterAction, FilterConfig, FilterMatch, MAX_FILTERS, NonMatching};
+pub use filter::{
+    Filter, FilterAction, FilterConfig, FilterConfigOwned, FilterMatch, MAX_FILTERS, NonMatching,
+};
 pub mod frame;
 pub use frame::{
-    BufferedFrame, CanId, Frame, FrameKind, MAX_DATA_LEN, RxFrame, TxEvent, TxFrame, TxOutcome,
+    BufferedFrame, BufferedFrameOwned, CanId, Frame, FrameKind, FrameOwned, MAX_DATA_LEN, RxFrame,
+    RxFrameOwned, TxEvent, TxFrame, TxFrameOwned, TxOutcome,
 };
 pub mod group;
 pub use group::{
-    CanGroup, ClockSource, GroupCapabilities, GroupClock, GroupState, MAX_CLOCK_SOURCES,
+    CAN_GROUP_COMPACT_GID, CAN_GROUP_FULL_GID, CanGroup, ClockSource, ClockSourceOwned,
+    GroupCapabilities, GroupCapabilitiesOwned, GroupClock, GroupState, MAX_CLOCK_SOURCES,
     MAX_NAME_LEN, Performance,
 };
 pub mod status;
@@ -82,8 +87,8 @@ pub use status::{
 };
 pub mod time_triggered;
 pub use time_triggered::{
-    CanTimeTriggered, MAX_TRIGGERS, Trigger, TriggerKind, TtConfig, TtErrorLevel, TtLevel, TtRole,
-    TtStatus, TtSync,
+    CAN_TIME_TRIGGERED_COMPACT_GID, CAN_TIME_TRIGGERED_FULL_GID, CanTimeTriggered, MAX_TRIGGERS,
+    Trigger, TriggerKind, TtConfig, TtErrorLevel, TtLevel, TtRole, TtStatus, TtSync,
 };
 pub mod transceiver;
 pub use transceiver::{
@@ -93,7 +98,10 @@ pub use transceiver::{
 #[cfg(feature = "xl")]
 pub mod xl;
 #[cfg(feature = "xl")]
-pub use xl::{MAX_XL_DATA_LEN, VcId, XlConfig, XlFrame, XlPwm, XlTxFrame};
+pub use xl::{
+    CAN_XL_COMPACT_GID, CAN_XL_FULL_GID, CanXl, MAX_XL_DATA_LEN, VcId, XlConfig, XlFrame,
+    XlFrameOwned, XlPwm, XlTxFrame, XlTxFrameOwned,
+};
 
 /// Most bit timings one `Can::detect_timing` tries.
 pub const MAX_TIMING_CANDIDATES: usize = 16;

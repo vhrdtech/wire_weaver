@@ -102,21 +102,28 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod boot_control;
-pub use boot_control::{BootControl, BootState, BootTarget};
+pub use boot_control::{
+    BOOT_CONTROL_COMPACT_GID, BOOT_CONTROL_FULL_GID, BootControl, BootState, BootTarget,
+};
 
 pub mod inventory;
-pub use inventory::{CHUNK_HASH_LEN, ChunkState, Inventory, MAX_CHUNKS_PAGE, Slot, SlotLayout};
+pub use inventory::{
+    CHUNK_HASH_LEN, ChunkState, INVENTORY_COMPACT_GID, INVENTORY_FULL_GID, Inventory,
+    MAX_CHUNKS_PAGE, Slot, SlotLayout,
+};
 
 pub mod stage;
 pub use stage::{
-    AckEvery, BulkStatus, MAX_HEADER_LEN, MAX_PIECE_LEN, PlanAck, PlanArea, PlanSegment, Progress,
-    Session, Stage, StageBulk, StageEvent, StageLimits, Target,
+    AckEvery, BulkStatus, MAX_HEADER_LEN, MAX_PIECE_LEN, PlanAck, PlanArea, PlanSegment,
+    PlanSegmentOwned, Progress, STAGE_BULK_COMPACT_GID, STAGE_BULK_FULL_GID, STAGE_COMPACT_GID,
+    STAGE_FULL_GID, Session, Stage, StageBulk, StageEvent, StageLimits, Target,
 };
 
 pub mod update_node;
 pub use update_node::{
-    GeometryId, ImageInfo, ImageVersion, LastResult, MAX_PRODUCT_LEN, NodeInfo, Offers, Outcome,
-    ProductId, Profile, Role, Seal, SecurityCounter, SlotSwitch, UpdateNode,
+    GeometryId, ImageInfo, ImageVersion, LastResult, MAX_PRODUCT_LEN, NodeInfo, NodeInfoOwned,
+    Offers, Outcome, ProductId, Profile, Role, Seal, SecurityCounter, SlotSwitch,
+    UPDATE_NODE_COMPACT_GID, UPDATE_NODE_FULL_GID, UpdateNode,
 };
 
 pub mod error;

@@ -54,6 +54,12 @@
     instead of a magic number a reader has to know, same bytes.
   - `ww_si` features gained `information`, `counting`, `dimensionless` next to `time`.
 
+### ⚙️ Miscellaneous Tasks
+
+- Split the single `lib.rs` into topic modules (`card`, `counters`, `error`, `recording`, `settings`, `status`,
+  `track`), each re-exported at the crate root so every public path stays the same; `ww api check` reports no
+  change.
+
 ### 📝 Docs
 
 - What a track is said plainly (Roman asked how a trait can be on a track): a track is one stream

@@ -5808,28 +5808,28 @@
 <tbody>
 <tr>
 <td>derive</td>
-<td>288 of 288</td>
+<td>290 of 290</td>
 <td>0</td>
 </tr>
 <tr>
 <td>dynamic</td>
-<td>247 of 288</td>
-<td>41</td>
-</tr>
-<tr>
-<td>explain</td>
-<td>247 of 288</td>
-<td>41</td>
-</tr>
-<tr>
-<td>python</td>
-<td>245 of 288</td>
+<td>247 of 290</td>
 <td>43</td>
 </tr>
 <tr>
+<td>explain</td>
+<td>247 of 290</td>
+<td>43</td>
+</tr>
+<tr>
+<td>python</td>
+<td>245 of 290</td>
+<td>45</td>
+</tr>
+<tr>
 <td>c</td>
-<td>34 of 288</td>
-<td>254</td>
+<td>34 of 290</td>
+<td>256</td>
 </tr>
 </tbody>
 </table>
@@ -7409,6 +7409,26 @@
 </tr>
 <tr>
 <td><code>client_server.request.global_path</code></td>
+<td><code>Request</code></td>
+<td>both</td>
+<td>✅</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+</tr>
+<tr>
+<td><code>client_server.request.urgent</code></td>
+<td><code>Request</code></td>
+<td>both</td>
+<td>✅</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+<td>gap -</td>
+</tr>
+<tr>
+<td><code>client_server.request.highest_reserved</code></td>
 <td><code>Request</code></td>
 <td>both</td>
 <td>✅</td>
@@ -9702,7 +9722,7 @@
 <li><strong>c</strong>: the C runtime has no 128-bit numbers (SW-66). 2 cases: <code>int.u128.max</code>, <code>int.i128.min</code>.</li>
 <li><strong>c</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: <code>client_server.event.stream_data_path</code>.</li>
 <li><strong>c</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>c</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>.</li>
+<li><strong>c</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 4 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>.</li>
 <li><strong>c</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>c</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>c</strong>: ww_client_server's request envelope, not a type of an API in the model. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -9719,7 +9739,7 @@
 <li><strong>dynamic</strong>: the API model has no #[default] values, an old field reads as its type's default (INT-10). 2 cases: <code>evolution.new_reads_old</code>, <code>cfg_attr.new_reads_old</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: <code>client_server.event.stream_data_path</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>dynamic</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>.</li>
+<li><strong>dynamic</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 4 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>dynamic</strong>: ww_client_server's request envelope, not a type of an API in the model; a dynamic consumer reads API types. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -9736,7 +9756,7 @@
 <li><strong>explain</strong>: the API model has no #[default] values, an old field reads as its type's default (INT-10). 2 cases: <code>evolution.new_reads_old</code>, <code>cfg_attr.new_reads_old</code>.</li>
 <li><strong>explain</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: <code>client_server.event.stream_data_path</code>.</li>
 <li><strong>explain</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>explain</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>.</li>
+<li><strong>explain</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 4 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>.</li>
 <li><strong>explain</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>explain</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>explain</strong>: ww_client_server's request envelope, not a type of an API in the model. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -9754,7 +9774,7 @@
 <li><strong>python</strong>: the API model has no #[default] values (INT-10). 2 cases: <code>evolution.new_reads_old</code>, <code>cfg_attr.new_reads_old</code>.</li>
 <li><strong>python</strong>: ww_client_server's Event is a protocol message, not a type of an API in the model. 1 case: <code>client_server.event.stream_data_path</code>.</li>
 <li><strong>python</strong>: ww_client_server's MultiIndex is a protocol message, not a type of an API in the model. 1 case: <code>client_server.multi_index.list</code>.</li>
-<li><strong>python</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 2 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>.</li>
+<li><strong>python</strong>: ww_client_server's Request is a protocol message, not a type of an API in the model. 4 cases: <code>client_server.request.absolute_path</code>, <code>client_server.request.global_path</code>, <code>client_server.request.urgent</code>, <code>client_server.request.highest_reserved</code>.</li>
 <li><strong>python</strong>: ww_client_server's RequestKind is the request envelope, not a type of an API in the model. 2 cases: <code>client_server.stream_open.compressed</code>, <code>client_server.stream_open.raw</code>.</li>
 <li><strong>python</strong>: ww_client_server's StreamOpened is the answer envelope of a stream open, not a type of an API in the model. 2 cases: <code>client_server.stream_opened.lz4</code>, <code>client_server.stream_opened.unknown</code>.</li>
 <li><strong>python</strong>: ww_client_server's request envelope, not a type of an API in the model. 3 cases: <code>client_server.request.multi_read</code>, <code>client_server.request.sink_write</code>, <code>client_server.request.sideband_ack</code>.</li>
@@ -9767,6 +9787,11 @@
 <ul>
 <li><code>device_info.ordinary</code>: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.</li>
 <li><code>device_info.no_observe_samples</code>: EVO-25 / the bytes of a device from before the appended user_api_wire, read as None; encoding None now writes its flag.</li>
+<li><code>client_server.request.multi_read</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
+<li><code>client_server.request.sink_write</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
+<li><code>client_server.request.sideband_ack</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
+<li><code>client_server.request.absolute_path</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
+<li><code>client_server.request.global_path</code>: EVO-76 / the priority nibble is now priority: U3 and a reserved bit; NORMAL (2, reserved false) has the old NORMAL's bits, so the bytes stay.</li>
 <li><code>stdlib.si.dim.volt</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>
 <li><code>stdlib.si.dim.rad_bit</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>
 <li><code>stdlib.si.dim.counted</code>: EVO-47 / exact_units UNIT-9: a Dim starts with the MarkerId of its system (exact_units::Si here), then as many exponents as the system has.</li>

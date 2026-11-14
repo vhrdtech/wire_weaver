@@ -7481,14 +7481,15 @@ observing), SRV-46 (peer identity).
   shortened form or none. <code>DeviceLink::peer_meta()</code> on the device; <code>wire_weaver_py</code> sets <code>Notebook</code>. Docs:
   <code>docs/transport/hub.md</code>. Tested on Linux; the macOS and Windows parent-process detection compiles by inspection
   only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).
-- 🧪 <strong>CLT-50 Request priority</strong> · <code>v0.5.x</code> — every request carries a 4-bit priority (<code>ww_client_server::Request</code>'s
-  <code>priority</code> nibble, <code>wire_weaver::Priority</code>: 0..=15, <code>NORMAL</code> = 4 by default, <code>URGENT</code> = 8, wire change EVO-14).
+- 🧪 <strong>CLT-50 Request priority</strong> · <code>v0.5.x</code> — every request carries a 3-bit priority (<code>ww_client_server::Request</code>'s
+  <code>priority: U3</code> and a reserved bit beside it, <code>wire_weaver::Priority</code>: 0..=7 as CAN and Cyphal carry, <code>NORMAL</code> = 2
+  by default, <code>URGENT</code> = 4; wire changes EVO-14 and EVO-76).
   Default traffic follows one plain rule on both ends: a frame goes out when it is full or when the device's
-  accumulation window is over, never later (CLT-53), also for a request or reply alone. An urgent request (8 and up)
+  accumulation window is over, never later (CLT-53), also for a request or reply alone. An urgent request (4 and up)
   is flushed at once by the host, and its reply, immediate or deferred (SRV-42), by the device. API:
   <code>.priority(p)</code> / <code>.urgent()</code> on <code>PreparedCall</code>, <code>PreparedRead</code>, <code>PreparedWrite</code> and <code>PreparedStreamOpen</code>,
   <code>Commander::set_default_priority</code>, <code>ClientConfig::default_priority</code>; a multi request (CLT-15) goes at the highest
-  priority of its items. Through the hub (SRV-29) the nibble stays as the client sent it and the hub's link to the
+  priority of its items. Through the hub (SRV-29) the priority stays as the client sent it and the hub's link to the
   device flushes an urgent request at once too (<code>tests/hub</code> <code>urgent_call_through_the_hub_goes_at_once</code>). Replaces
   the lone request/reply fast paths (CLT-37, TR-12's reply flush), which made latency depend on what else happened
   to be queued. Docs: <code>docs/transport/ww_framer.md#latency-and-priority</code>; tests
@@ -8000,6 +8001,22 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   list of fields or <code>ww_self</code> versions: the next model field gets it too, also a non-<code>Option</code> one, which DER-17 makes
   readable (<code>docs/evolution/checker_tool.md#the-current-versions-snapshot</code>, <code>wire_weaver_evolution/tests/check.rs</code>
   with G0's old-format snapshots as a fixture).</li>
+<li>✅ <strong>EVO-76 Priority in 3 bits plus a reserved bit</strong> · <code>v0.5</code> — <strong>wire break</strong> of <code>ww_client_server</code>'s <code>Request</code>:
+  the <code>priority</code> nibble becomes <code>priority: U3</code> and <code>reserved: bool</code> (the same 4 bits after <code>seq</code>), and
+  <code>wire_weaver::Priority</code> has 8 levels, 0..=7, as many as CAN and Cyphal carry in a frame's ID, so a bus medium maps
+  it to the ID without loss (TR-27). Urgent is the upper half, <code>URGENT</code> = 4 and up; <code>NORMAL</code> = 2, <code>LOWEST</code> = 0,
+  <code>HIGHEST</code> = 7. The reserved bit is written <code>false</code> and ignored on read, kept for a later use beside the priority.
+  <code>Priority::to_wire</code> / <code>from_wire</code> (a <code>U3</code>) replace <code>nibble</code> / <code>from_nibble</code>. The flush rule is unchanged: firmware
+  still peeks the priority and compares it (<code>ww_device::request_priority</code>). Conformance cases of <code>Request</code> carry
+  <code>"wire_change": "EVO-76 / ..."</code>; tests <code>wire_weaver</code> <code>priority::tests::eight_levels_upper_half_urgent</code>,
+  <code>ww_device</code> <code>replies_flushed_by_priority</code> (the reserved bit set on a batched request), <code>wire_weaver_client</code>
+  <code>flush_e2e_tests</code>, <code>core::tests::urgent_request_flushes_at_once</code>
+  (<a href="../docs/transport/ww_framer/#latency-and-priority">latency and priority</a>). Flash (<code>just flash-budget</code>, whole
+  image): the <code>U3</code> is the first bit field of a server without any, so it links shrink_wrap's word read
+  (<code>take_in_word</code>, <code>load_be32</code>, <code>read_un32_latch</code>): the one-method floor on a Cortex-M0+ grows 12558 → 12818 B at
+  <code>fw-z</code> sync (+260), 13474 → 13778 B async (+304), 16794 → 17106 B / 17614 → 18030 B at <code>fw-3</code> (+312 / +416); an
+  image that already reads bit fields (4 observed properties) moves by -60..+72 B. No device or host uses the
+  format.</li>
 <li>✅ <strong>EVO-14 Priority nibble in <code>Request</code></strong> · <code>v0.5.x</code> — <strong>wire break</strong> of <code>ww_client_server</code>'s <code>Request</code>: a
   <code>priority: Nibble</code> after <code>seq</code> (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of <code>Request</code> carry the new bytes with <code>"wire_change": "EVO-14 / ..."</code>.</li>
@@ -9332,6 +9349,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>SW-80 A small-field bit read without the word read</strong> — dropped (Roman, 14 Nov 2026): real firmware links the bit
+  reader anyway. It was a read for bit fields of 8 bits or less that would spare a firmware without wider ones
+  shrink_wrap's word read (about 250 B on a Cortex-M0+, since EVO-76 linked by every server for <code>Request</code>'s 3-bit
+  priority). Tried while landing EVO-76: a <code>take_bits8</code> behind <code>read_un8</code> / <code>read_un8_latch</code> brought the one-method
+  floor from +260 to +108 B, but <code>bits_de</code> (<code>just size-bench</code>, small and wide fields together) grew 704 → 888 B on
+  thumbv6m, as both reads are linked.</li>
 <li><strong>STD-9 Stubs, for later: <code>ww_spi</code></strong> — superseded by STD-13: <code>ww_spi</code> is now a full IO-family trait (optional
   <code>Spi::monitor</code>, typed numbers, STD-56), not a stub; <code>ww_board_info</code>, <code>ww_firmware_info</code>, <code>ww_user_info</code> and
   <code>ww_uid</code> moved to STD-24 already.</li>

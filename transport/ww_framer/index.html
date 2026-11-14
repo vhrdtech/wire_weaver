@@ -6222,10 +6222,12 @@ Such a frame is a byte or two shorter than the maximum.</p>
   what lets requests made close together share one packet, and it keeps packetization the same from run to run.</li>
 <li><strong>Never later than the window</strong>: the host waits for it on a timer accurate to tens of microseconds (tokio's own
   counts whole milliseconds and made a 1 ms window cost about 2), so a window of <code>W</code> costs at most <code>W</code> (CLT-53).</li>
-<li><strong>Urgent requests</strong> go out at once. Every request carries a 4-bit priority (<code>wire_weaver::Priority</code>, 0..=15,
-  4 by default); 8 and up (<code>Priority::URGENT</code>) is urgent: the host flushes the frame as soon as the request is in
+<li><strong>Urgent requests</strong> go out at once. Every request carries a 3-bit priority (<code>wire_weaver::Priority</code>, 0..=7,
+  2 by default, as many levels as CAN and Cyphal carry in a frame's ID) and one reserved bit beside it (EVO-76);
+  the upper half, 4 and up (<code>Priority::URGENT</code>), is urgent: the host flushes the frame as soon as the request is in
   it, taking what was already waiting along, and the device flushes its reply the same way, also a deferred reply
-  sent later through <code>Server::sink()</code> (SRV-42).</li>
+  sent later through <code>Server::sink()</code> (SRV-42). <code>0..=1</code> are left for background traffic below the default and <code>3</code>
+  for batched traffic that should go first.</li>
 </ul>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">read_temperature</span><span class="p">().</span><span class="n">urgent</span><span class="p">().</span><span class="n">read</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w">           </span><span class="c1">// sent and answered at once</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">i2c_read</span><span class="p">(</span><span class="mh">0x48</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">).</span><span class="n">priority</span><span class="p">(</span><span class="n">Priority</span><span class="p">::</span><span class="n">HIGHEST</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>

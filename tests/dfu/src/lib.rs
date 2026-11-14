@@ -89,7 +89,7 @@ mod tests {
 
     /// Largest `StageBulk::plan` segment in bytes, known from the `MaxLen` bounds
     const PLAN_SEGMENT_MAX: u32 =
-        server::api_impl::WwDfuStageBulkStreamSerializer::PLAN_MAX_ITEM_BYTES.unwrap();
+        server::api_impl::WwDfuStageStageBulkStreamSerializer::PLAN_MAX_ITEM_BYTES.unwrap();
 
     mod server {
         use super::*;

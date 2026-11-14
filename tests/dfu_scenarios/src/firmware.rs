@@ -239,7 +239,7 @@ fn bytes(v: &RefVec<'_, u8>) -> Vec<u8> {
 
 /// Receive buffer of the `plan` sink: room for two of the largest segments.
 pub fn plan_credit() -> SinkCredit {
-    let max = app::api_impl::WwDfuStageBulkStreamSerializer::PLAN_MAX_ITEM_BYTES.unwrap();
+    let max = app::api_impl::WwDfuStageStageBulkStreamSerializer::PLAN_MAX_ITEM_BYTES.unwrap();
     SinkCredit::sized_for(2 * max, Some(max))
 }
 

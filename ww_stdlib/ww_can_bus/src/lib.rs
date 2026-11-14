@@ -57,29 +57,34 @@ pub use ww_si::{Baud, Hertz, Ohm, Second};
 use ww_si::{Fixed, Index, Range};
 
 pub mod capabilities;
+#[cfg(feature = "std")]
+pub use capabilities::CapabilitiesOwned;
 pub use capabilities::{
-    Capabilities, CapabilitiesOwned, MAX_TERMINATION_VALUES, MemoryLayout, TimestampInfo,
-    TimestampPoint, TimingLimits,
+    Capabilities, MAX_TERMINATION_VALUES, MemoryLayout, TimestampInfo, TimestampPoint, TimingLimits,
 };
 pub mod config;
 pub use config::{BitTiming, CanConfig, FdConfig, Mode, Options, RxOverflow, Tdc, Timing, TxOrder};
 pub mod error;
-pub use error::{CanError, CanErrorOwned};
+pub use error::CanError;
+#[cfg(feature = "std")]
+pub use error::CanErrorOwned;
 pub mod filter;
-pub use filter::{
-    Filter, FilterAction, FilterConfig, FilterConfigOwned, FilterMatch, MAX_FILTERS, NonMatching,
-};
+#[cfg(feature = "std")]
+pub use filter::FilterConfigOwned;
+pub use filter::{Filter, FilterAction, FilterConfig, FilterMatch, MAX_FILTERS, NonMatching};
 pub mod frame;
 pub use frame::{
-    BufferedFrame, BufferedFrameOwned, CanId, Frame, FrameKind, FrameOwned, MAX_DATA_LEN, RxFrame,
-    RxFrameOwned, TxEvent, TxFrame, TxFrameOwned, TxOutcome,
+    BufferedFrame, CanId, Frame, FrameKind, MAX_DATA_LEN, RxFrame, TxEvent, TxFrame, TxOutcome,
 };
+#[cfg(feature = "std")]
+pub use frame::{BufferedFrameOwned, FrameOwned, RxFrameOwned, TxFrameOwned};
 pub mod group;
 pub use group::{
-    CAN_GROUP_COMPACT_GID, CAN_GROUP_FULL_GID, CanGroup, ClockSource, ClockSourceOwned,
-    GroupCapabilities, GroupCapabilitiesOwned, GroupClock, GroupState, MAX_CLOCK_SOURCES,
-    MAX_NAME_LEN, Performance,
+    CAN_GROUP_COMPACT_GID, CAN_GROUP_FULL_GID, CanGroup, ClockSource, GroupCapabilities,
+    GroupClock, GroupState, MAX_CLOCK_SOURCES, MAX_NAME_LEN, Performance,
 };
+#[cfg(feature = "std")]
+pub use group::{ClockSourceOwned, GroupCapabilitiesOwned};
 pub mod status;
 pub use status::{
     Activity, BusError, BusLoad, Direction, ErrorState, FdFrameFlags, Phase, ProtocolError,
@@ -99,9 +104,11 @@ pub use transceiver::{
 pub mod xl;
 #[cfg(feature = "xl")]
 pub use xl::{
-    CAN_XL_COMPACT_GID, CAN_XL_FULL_GID, CanXl, MAX_XL_DATA_LEN, VcId, XlConfig, XlFrame,
-    XlFrameOwned, XlPwm, XlTxFrame, XlTxFrameOwned,
+    CAN_XL_COMPACT_GID, CAN_XL_FULL_GID, CanXl, MAX_XL_DATA_LEN, VcId, XlConfig, XlFrame, XlPwm,
+    XlTxFrame,
 };
+#[cfg(all(feature = "xl", feature = "std"))]
+pub use xl::{XlFrameOwned, XlTxFrameOwned};
 
 /// Most bit timings one `Can::detect_timing` tries.
 pub const MAX_TIMING_CANDIDATES: usize = 16;

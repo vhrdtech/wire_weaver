@@ -31,21 +31,29 @@ use ww_si::{Fixed, Mebibytes, Range, Secs};
 
 pub mod card;
 pub use card::{
-    CardCheck, CardContent, CardFacts, CardFactsOwned, CardKind, CardSerial, FormatAction,
-    FormatOffer, FormatOfferOwned, FormatToken, MAX_NAME, Rating,
+    CardCheck, CardContent, CardFacts, CardKind, CardSerial, FormatAction, FormatOffer,
+    FormatToken, MAX_NAME, Rating,
 };
+#[cfg(feature = "std")]
+pub use card::{CardFactsOwned, FormatOfferOwned};
 pub mod counters;
 pub use counters::RecorderCounters;
 pub mod error;
-pub use error::{RecorderError, RecorderErrorOwned};
+pub use error::RecorderError;
+#[cfg(feature = "std")]
+pub use error::RecorderErrorOwned;
 pub mod recording;
 pub use recording::{MarkerKind, RecordingId, RecordingInfo, SessionId, StopReason, Trigger};
 pub mod settings;
 pub use settings::{Compression, Durability, FullPolicy, RecordingMode, Settings, UsbView};
 pub mod status;
-pub use status::{State, StateOwned, Status, StatusOwned};
+pub use status::{State, Status};
+#[cfg(feature = "std")]
+pub use status::{StateOwned, StatusOwned};
 pub mod track;
-pub use track::{ItemType, MAX_PATH, Track, TrackCounters, TrackInfo, TrackInfoOwned, TrackKey};
+#[cfg(feature = "std")]
+pub use track::TrackInfoOwned;
+pub use track::{ItemType, MAX_PATH, Track, TrackCounters, TrackInfo, TrackKey};
 
 /// Most recordings one [Recorder::recordings] call returns.
 pub const MAX_RECORDINGS: usize = 8;

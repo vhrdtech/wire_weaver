@@ -113,17 +113,21 @@ pub use inventory::{
 };
 
 pub mod stage;
+#[cfg(feature = "std")]
+pub use stage::PlanSegmentOwned;
 pub use stage::{
-    AckEvery, BulkStatus, MAX_HEADER_LEN, MAX_PIECE_LEN, PlanAck, PlanArea, PlanSegment,
-    PlanSegmentOwned, Progress, STAGE_BULK_COMPACT_GID, STAGE_BULK_FULL_GID, STAGE_COMPACT_GID,
-    STAGE_FULL_GID, Session, Stage, StageBulk, StageEvent, StageLimits, Target,
+    AckEvery, BulkStatus, MAX_HEADER_LEN, MAX_PIECE_LEN, PlanAck, PlanArea, PlanSegment, Progress,
+    STAGE_BULK_COMPACT_GID, STAGE_BULK_FULL_GID, STAGE_COMPACT_GID, STAGE_FULL_GID, Session, Stage,
+    StageBulk, StageEvent, StageLimits, Target,
 };
 
 pub mod update_node;
+#[cfg(feature = "std")]
+pub use update_node::NodeInfoOwned;
 pub use update_node::{
-    GeometryId, ImageInfo, ImageVersion, LastResult, MAX_PRODUCT_LEN, NodeInfo, NodeInfoOwned,
-    Offers, Outcome, ProductId, Profile, Role, Seal, SecurityCounter, SlotSwitch,
-    UPDATE_NODE_COMPACT_GID, UPDATE_NODE_FULL_GID, UpdateNode,
+    GeometryId, ImageInfo, ImageVersion, LastResult, MAX_PRODUCT_LEN, NodeInfo, Offers, Outcome,
+    ProductId, Profile, Role, Seal, SecurityCounter, SlotSwitch, UPDATE_NODE_COMPACT_GID,
+    UPDATE_NODE_FULL_GID, UpdateNode,
 };
 
 pub mod error;

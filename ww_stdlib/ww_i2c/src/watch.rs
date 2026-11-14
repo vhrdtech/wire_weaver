@@ -1,8 +1,11 @@
 use wire_weaver::prelude::*;
 use ww_si::{Bytes, Count, Range, Second};
 
+#[cfg(feature = "std")]
+use crate::I2cReadKindOwned;
+#[cfg(feature = "std")]
 use crate::error::I2cErrorOwned;
-use crate::{I2cAddress, I2cError, I2cReadKind, I2cReadKindOwned, Watch};
+use crate::{I2cAddress, I2cError, I2cReadKind, Watch};
 
 /// Most watches one `I2cWatch` device holds at once (it may hold fewer, see [I2cWatchCapabilities]).
 pub const MAX_WATCHES: usize = 512;

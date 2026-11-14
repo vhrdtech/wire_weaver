@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚙️ Miscellaneous Tasks
+
+- `src/lib.rs` split into topic modules: `update_node`, `boot_control`, `inventory`, `stage` (`Stage`, `StageBulk` and their shared types stay together, since `MAX_PIECE_LEN`/`MAX_HEADER_LEN` bound fields and request data in both traits), `error` (P2401#13nov-0647b). Every public path stays the same via re-exports; no API or wire change.
+
 ### 🚀 Features
 
 - `StageLimits::max_piece` is `Bytes<u16, Range<1, { MAX_PIECE_LEN as i64 }>>` (P2401#13nov-0531): the bound names `MAX_PIECE_LEN` instead of repeating 1024. The same type, bytes and wire line (`w2.0`); the 0.1.0 snapshot is saved again for the changed docs.

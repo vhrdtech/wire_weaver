@@ -19,6 +19,8 @@
 
 ### 🐛 Fixes
 
+- The crate walker also reads a `[patch]` in the workspace's `.cargo/config.toml`, so a dependency developed beside
+  the workspace no longer fails with "has no source".
 - A `#[ww_trait]` moved into its own `pub mod` kept its root item (EVO-74, found splitting `ww_stdlib` crates into
   topic modules, P2401#13nov-0647b): `load_crate`'s whole-crate snapshot path scanned only the crate root file's
   own top-level items for a trait to give its own root item, and `convert_snapshot_item` (called for a `pub mod`'s

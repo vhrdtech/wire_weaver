@@ -429,16 +429,30 @@ impl CargoSources {
 /// Directory of `package` as a `[patch.<source>]` of the workspace whose `Cargo.lock` is `lock_path` puts it: a git
 /// or registry dependency that Cargo resolves to a path there (wire_weaver patches the shrink_wrap that exact_units
 /// takes by git to its own).
+/// Where a `[patch]` of the workspace at `lock_path` puts `package`: the manifest's, then `.cargo/config.toml`'s, whose
+/// paths are relative to the workspace root as well.
 fn patched_dir(lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
     let root = lock_path.parent().unwrap_or(Path::new("."));
-    let manifest_path = root.join("Cargo.toml");
-    stamps::note(&manifest_path);
-    let Ok(contents) = fs::read_to_string(&manifest_path) else {
+    for file in [
+        root.join("Cargo.toml"),
+        root.join(".cargo").join("config.toml"),
+    ] {
+        if let Some(dir) = patch_in(&file, package)? {
+            return Ok(Some(root.join(dir)));
+        }
+    }
+    Ok(None)
+}
+
+/// The path the `[patch]` tables of the TOML file `path` give `package`, if any.
+fn patch_in(path: &Path, package: &str) -> Result<Option<String>> {
+    stamps::note(path);
+    let Ok(contents) = fs::read_to_string(path) else {
         return Ok(None);
     };
-    let manifest: toml::Table = toml::from_str(&contents)
-        .with_context(|| format!("Failed to parse {}", manifest_path.display()))?;
-    let Some(patch) = manifest.get("patch").and_then(|p| p.as_table()) else {
+    let file: toml::Table =
+        toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
+    let Some(patch) = file.get("patch").and_then(|p| p.as_table()) else {
         return Ok(None);
     };
     for deps in patch.values().filter_map(|deps| deps.as_table()) {
@@ -448,8 +462,8 @@ fn patched_dir(lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
             if renamed.unwrap_or(name) != package {
                 continue;
             }
-            if let Some(path) = dep.get("path").and_then(|p| p.as_str()) {
-                return Ok(Some(root.join(path)));
+            if let Some(dir) = dep.get("path").and_then(|p| p.as_str()) {
+                return Ok(Some(dir.to_owned()));
             }
         }
     }
@@ -512,5 +526,23 @@ mod tests {
             Some(root.join("./shrink_wrap/shrink_wrap"))
         );
         assert_eq!(patched_dir(&lock, "no_such_package").unwrap(), None);
+    }
+
+    #[test]
+    fn patch_of_the_cargo_config_puts_a_git_dependency_at_a_path() {
+        let root = std::env::temp_dir().join(format!("ww_patched_dir_{}", std::process::id()));
+        fs::create_dir_all(root.join(".cargo")).unwrap();
+        fs::write(root.join("Cargo.toml"), "[workspace]\n").unwrap();
+        fs::write(
+            root.join(".cargo/config.toml"),
+            "[patch.\"https://example.org/units\"]\nunits = { path = \"../units\" }\n",
+        )
+        .unwrap();
+        let lock = root.join("Cargo.lock");
+        let found = patched_dir(&lock, "units").unwrap();
+        let missing = patched_dir(&lock, "no_such_package").unwrap();
+        fs::remove_dir_all(&root).unwrap();
+        assert_eq!(found, Some(root.join("../units")));
+        assert_eq!(missing, None);
     }
 }

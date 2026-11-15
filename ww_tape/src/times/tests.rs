@@ -600,7 +600,7 @@ fn a_salvaged_chunk_has_no_suspect_past_its_items() {
     b[column_start(&good, ColumnKind::Starts) + 25 + 16] ^= 0x01;
     let block = Block::salvage(&b).unwrap();
     let t = EventTimes::salvage(&block.chunk().unwrap()).unwrap();
-    assert_eq!(t.suspect_items().collect::<Vec<_>>(), [GROUP..2 * GROUP]);
+    assert!(t.suspect_items().eq(core::iter::once(GROUP..2 * GROUP)));
     for i in [s.len(), 3 * GROUP, usize::MAX] {
         assert!(!t.is_suspect(i), "item {i}");
     }

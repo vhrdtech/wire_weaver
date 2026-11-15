@@ -137,7 +137,7 @@ fn with_stretch(bytes: &[u8], at: usize, stretch: &[u8], align: bool) -> (Vec<u8
     let mut out = bytes[..at].to_vec();
     out.extend_from_slice(stretch);
     if align {
-        while out.len() % 512 != 0 {
+        while !out.len().is_multiple_of(512) {
             out.push(stretch[0]);
         }
     }
@@ -200,7 +200,7 @@ fn a_torn_unit_then_the_next_block_on_a_boundary_is_a_gap() {
     // the block on the boundary is an older one of the run: stale, the end of data is the stretch's start
     let mut stale = card[..at].to_vec();
     stale.extend_from_slice(&[0x5A; 300]);
-    while stale.len() % 512 != 0 {
+    while !stale.len().is_multiple_of(512) {
         stale.push(0x5A);
     }
     stale.extend(records(BlockId::new(NEW, 2)));

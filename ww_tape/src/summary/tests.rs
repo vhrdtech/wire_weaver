@@ -105,7 +105,7 @@ fn event_levels(blocks: &[Vec<u8>]) -> BTreeMap<(u8, u64), (u64, u64, EventNode)
         let s = block.summary().expect("a summary");
         let h = s.head();
         for i in 0..s.node_count() {
-            let (first, items) = h.node_items(i as u64);
+            let (first, items) = h.node_items(i as u64).unwrap();
             let old = m.insert(
                 (h.level, h.first_node() + i as u64),
                 (first, items, s.event_node(i).unwrap()),
@@ -361,7 +361,7 @@ fn series_levels(blocks: &[Vec<u8>]) -> BTreeMap<(u8, u64, u16), (u64, u64, Chan
             panic!("a series block")
         };
         for i in 0..s.node_count() {
-            let (first, items) = h.node_items(i as u64);
+            let (first, items) = h.node_items(i as u64).unwrap();
             for ch in 0..channels {
                 let old = m.insert(
                     (h.level, h.first_node() + i as u64, ch),
@@ -744,8 +744,9 @@ fn heads_read_back_and_bad_heads_are_refused() {
         (h.first_tick, h.last_tick, h.latest_end),
         (0, 49_990, 50_015)
     );
-    assert_eq!(h.node_items(0), (100, 1948));
-    assert_eq!(h.node_items(2), (4096, 1004));
+    assert_eq!(h.node_items(0), Some((100, 1948)));
+    assert_eq!(h.node_items(2), Some((4096, 1004)));
+    assert_eq!(h.node_items(3), None);
     // a flipped bit anywhere is a bad CRC; a head that lies with a good CRC is a bad summary
     for at in [5usize, 33, 50, 70, b.len() - 1] {
         let mut x = b.clone();
@@ -774,6 +775,87 @@ fn heads_read_back_and_bad_heads_are_refused() {
         restamp(&mut x);
         assert!(
             matches!(Block::read(&x), Err(BlockError::Summary(_))),
+            "byte {at}"
+        );
+    }
+}
+
+/// The last node of a head at the top of the item numbers: its end, `(n + 1) << shift`, is past u64.
+#[test]
+fn node_items_at_the_top_of_the_item_numbers() {
+    let h = SummaryHead {
+        track_id: 1,
+        track_number: 1,
+        tree: Tree::Events,
+        level: 0,
+        node_shift: 62,
+        layout: Layout::Events(EventFields::default()),
+        first_item: 3 << 62,
+        items: (1 << 62) - 1,
+        first_tick: 0,
+        last_tick: 0,
+        latest_end: 0,
+    };
+    assert_eq!(h.node_count(), 1);
+    assert_eq!(h.node_items(0), Some((3 << 62, (1 << 62) - 1)));
+    assert_eq!(h.node_items(1), None);
+    let wide = SummaryHead {
+        node_shift: 200,
+        first_item: 5,
+        items: u64::MAX - 5,
+        ..h
+    };
+    assert_eq!(wide.node_count(), 1);
+    assert_eq!(wide.node_items(0), Some((5, u64::MAX - 5)));
+    let none = SummaryHead { items: 0, ..h };
+    assert_eq!((none.node_count(), none.node_items(0)), (0, None));
+    let past = SummaryHead {
+        items: u64::MAX,
+        ..h
+    };
+    assert_eq!((past.node_count(), past.node_items(0)), (0, None));
+}
+
+/// A series head whose scale length or level is past its cap is refused before anything is sized by it.
+#[test]
+fn series_head_caps() {
+    let start = SeriesStart {
+        track_id: 7,
+        track_number: 1,
+        shape: SampleShape::scalar(Element::I16),
+        first_item: 0,
+        segment: SeriesSegment::start(0, 0, Magnitude::pow10(-3)),
+        period: Ratio64::int(1000).unwrap(),
+    };
+    let mut s =
+        SeriesSummaries::<i16>::new(start, spec(4, SeriesStats::all(Element::I16), None)).unwrap();
+    s.push(&[1, 2, 3], 0).unwrap();
+    s.finish().unwrap();
+    let b = s.take_blocks().remove(0);
+    assert!(Summary::read(&b).is_ok());
+    let restamp = |x: &mut Vec<u8>| {
+        let n = x.len();
+        let crc = crate::CRC.checksum(&x[..n - 4]);
+        x[n - 4..].copy_from_slice(&crc.to_le_bytes());
+    };
+    for (at, v, cap) in [
+        (52usize, SCALE_LEN_MAX as u16 + 1, SCALE_LEN_MAX as u64),
+        (45, u16::from(LEVEL_MAX) + 1, u64::from(LEVEL_MAX)),
+        (46, u16::from(NODE_SHIFT_MAX) + 1, u64::from(NODE_SHIFT_MAX)),
+    ] {
+        let mut x = b.clone();
+        if at == 52 {
+            x[at..at + 2].copy_from_slice(&v.to_le_bytes());
+        } else {
+            x[at] = v as u8;
+        }
+        restamp(&mut x);
+        assert_eq!(
+            Summary::read(&x).unwrap_err(),
+            SummaryError::Bound(BoundError {
+                value: u64::from(v),
+                bound: cap
+            }),
             "byte {at}"
         );
     }
@@ -1013,7 +1095,7 @@ fn scaled_nodes(blocks: &[Vec<u8>]) -> BTreeMap<(u8, u64), (u64, u64, Magnitude,
         let s = Block::read(b).unwrap().summary().unwrap();
         let h = s.head();
         for i in 0..s.node_count() {
-            let (first, items) = h.node_items(i as u64);
+            let (first, items) = h.node_items(i as u64).unwrap();
             let node = s.series_node(i).unwrap();
             assert_eq!(Some(node.scale), s.scale());
             let old = m.insert(

@@ -14,6 +14,10 @@
 //! | 21, 22 | [Codec::PACKED24_LSB], [Codec::PACKED24_MSB] | integers of 32 bits and more | 24 bits per value |
 //! | 24 | [Codec::GORILLA] | floats | XOR with the previous value of the lane, Gorilla's control bits |
 //! | 25 | [Codec::CHIMP] | floats | XOR with the previous value of the lane, Chimp's control bits |
+//! | 32 | [Codec::DELTA] | integers | differences, frame of reference, bit-packed per group |
+//! | 33 | [Codec::DELTA2] | integers | differences of differences, as [Codec::DELTA] |
+//! | 34 | [Codec::FLOAT_DELTA] | floats | [Codec::DELTA] of the bits as ordered integers |
+//! | 35 | [Codec::FLOAT_DELTA2] | floats | [Codec::DELTA2] of the bits as ordered integers |
 //!
 //! The raw device formats (0 to 22) are what a device sends, stored as it is and converted on read (a packed value
 //! of a signed element is sign-extended); any sample reads in place. Value `i` of an `_LSB` column is bits
@@ -43,8 +47,26 @@
 //! zeros equal the previous value's, kept from the last `11`; else `11`, the index and those bits. `00` and `01`
 //! forget the kept leading zeros.
 //!
+//! The delta codecs (32 to 35) code groups of [DELTA_GROUP] samples on the shared [bitpack](crate::bitpack)
+//! primitive, with the same table of group ends in front as the XOR codecs; each group restarts, so it decodes alone:
+//!
+//! ```text
+//! per group, lane by lane (b = bytes of the scalar, n = samples in the group):
+//!   b      the lane's first value
+//!   b      order 2: its first difference (0 when n is 1)
+//!   b      min: the smallest difference (order 1) or difference of differences (order 2), as a signed number
+//!   u8     width, at most the scalar's bits
+//!   ...    the n - order differences minus min, bit-packed at width (horizontal, LSB first), padded to a byte
+//! ```
+//!
+//! Differences wrap in the scalar's bits, so every value codes, and the minimum is taken as a signed number, so a
+//! ramp or a constant packs at width 0. The float flavours first map each value's bits to an ordered integer (a
+//! negative value's bits inverted, a positive one's sign bit set), so a difference is small when the floats are
+//! close; NaN payloads and the sign of zero survive.
+//!
 //! Every codec is deterministic: the same values give the same bytes.
 
+mod delta;
 mod element;
 mod raw;
 #[cfg(test)]
@@ -75,10 +97,20 @@ impl Codec {
     pub const GORILLA: Codec = Codec(24);
     /// Floats, XOR with the previous value and Chimp's control bits.
     pub const CHIMP: Codec = Codec(25);
+    /// Integers, differences bit-packed per group.
+    pub const DELTA: Codec = Codec(32);
+    /// Integers, differences of differences bit-packed per group.
+    pub const DELTA2: Codec = Codec(33);
+    /// Floats as ordered integers, differences bit-packed per group.
+    pub const FLOAT_DELTA: Codec = Codec(34);
+    /// Floats as ordered integers, differences of differences bit-packed per group.
+    pub const FLOAT_DELTA2: Codec = Codec(35);
 }
 
 /// Samples per group of the XOR codecs.
 pub const XOR_GROUP: usize = 1024;
+/// Samples per group of the delta codecs: a [bitpack](crate::bitpack) group.
+pub const DELTA_GROUP: usize = crate::bitpack::GROUP;
 
 /// A scalar type a column decodes into or encodes from.
 pub trait Sample: Copy + Default + PartialEq + core::fmt::Debug + sealed::Sealed {
@@ -183,6 +215,7 @@ enum Kind {
     Be,
     Packed { bits: u32, msb: bool },
     Xor(xor::Flavor),
+    Delta(delta::Flavor),
 }
 
 fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
@@ -211,6 +244,16 @@ fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
         }
         Codec::GORILLA if scalar.is_float() => Kind::Xor(xor::Flavor::Gorilla),
         Codec::CHIMP if scalar.is_float() => Kind::Xor(xor::Flavor::Chimp),
+        Codec(id @ 32..=35) => {
+            let float = id >= 34;
+            if float != scalar.is_float() || scalar == Element::Bool {
+                return unsupported;
+            }
+            Kind::Delta(delta::Flavor {
+                order: 1 + (id - 32) % 2,
+                float,
+            })
+        }
         _ => return unsupported,
     };
     Ok(k)
@@ -249,6 +292,7 @@ pub fn max_encoded_len(
         .ok_or(SampleError::BadShape)?;
     let len = match kind {
         Kind::Xor(_) => xor::max_len(count, values, shape.element.scalar_bits()),
+        Kind::Delta(f) => delta::max_len(f.order, count, values, shape.element.scalar_bits()),
         _ => plain_len(values, value_bits(kind, shape.element)),
     };
     len.ok_or(SampleError::BadShape)
@@ -278,6 +322,7 @@ pub fn encode<T: Sample>(
         Kind::Be => Ok(raw::encode_be(values, out)),
         Kind::Packed { bits, msb } => raw::encode_packed(values, bits, msb, out),
         Kind::Xor(flavor) => Ok(xor::encode(flavor, values, lanes, out)),
+        Kind::Delta(flavor) => Ok(delta::encode(flavor, values, lanes, out)),
     }
 }
 
@@ -355,6 +400,7 @@ impl<'b> Samples<'b> {
         let bad = SampleError::BadLength { len: bytes.len() };
         match kind {
             Kind::Xor(_) => xor::check_table(bytes, count)?,
+            Kind::Delta(_) => delta::check_table(bytes, count)?,
             _ => {
                 if plain_len(values, value_bits(kind, shape.element)) != Some(bytes.len()) {
                     return Err(bad);
@@ -424,16 +470,26 @@ impl<'b> Samples<'b> {
             Kind::Xor(flavor) => {
                 return xor::decode(flavor, self.bytes, self.count, self.lanes, first, out);
             }
+            Kind::Delta(flavor) => {
+                return delta::decode(flavor, self.bytes, self.count, self.lanes, first, out);
+            }
         }
         Ok(())
     }
 
-    /// Groups a reader can decode alone: 1 for a raw format, a group per [XOR_GROUP] samples for the XOR codecs.
-    pub fn group_count(&self) -> usize {
+    /// Samples per group: [XOR_GROUP] or [DELTA_GROUP], None for a raw format.
+    fn group_len(&self) -> Option<usize> {
         match self.kind {
-            Kind::Xor(_) => self.count.div_ceil(XOR_GROUP),
-            _ => 1,
+            Kind::Xor(_) => Some(XOR_GROUP),
+            Kind::Delta(_) => Some(DELTA_GROUP),
+            _ => None,
         }
+    }
+
+    /// Groups a reader can decode alone: 1 for a raw format, a group per [XOR_GROUP] or [DELTA_GROUP] samples for
+    /// the XOR and delta codecs.
+    pub fn group_count(&self) -> usize {
+        self.group_len().map_or(1, |n| self.count.div_ceil(n))
     }
 
     /// The samples of group `g` and the bytes of the column that code them: a reader whose chunk has bad segments
@@ -449,19 +505,19 @@ impl<'b> Samples<'b> {
             "group {g} of {}",
             self.group_count()
         );
-        match self.kind {
-            Kind::Xor(_) => {
-                let samples = g * XOR_GROUP..self.count.min((g + 1) * XOR_GROUP);
-                (samples, xor::group_range(self.bytes, self.count, g))
+        match self.group_len() {
+            Some(n) => {
+                let samples = g * n..self.count.min((g + 1) * n);
+                (samples, table_range(self.bytes, self.count.div_ceil(n), g))
             }
-            _ => (0..self.count, 0..self.bytes.len()),
+            None => (0..self.count, 0..self.bytes.len()),
         }
     }
 
-    /// The bytes that code `samples` in a raw format, None for the XOR codecs (see [Self::group_bytes]).
+    /// The bytes that code `samples` in a raw format, None for the grouped codecs (see [Self::group_bytes]).
     pub fn sample_bytes(&self, samples: Range<usize>) -> Option<Range<usize>> {
         let bits = match self.kind {
-            Kind::Xor(_) => return None,
+            Kind::Xor(_) | Kind::Delta(_) => return None,
             k => value_bits(k, self.shape.element) as usize,
         };
         let from = samples.start * self.lanes * bits / 8;

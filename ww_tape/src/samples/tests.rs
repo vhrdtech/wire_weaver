@@ -290,3 +290,79 @@ fn deterministic() {
         assert_eq!(encode_vec(c, shape, &s), encode_vec(c, shape, &s));
     }
 }
+
+#[test]
+fn delta_codecs_round_trip_every_pattern() {
+    let mut r = Rng(13);
+    for n in [1usize, 2, 3, 127, 128, 129, 300, 1000] {
+        let any_i64: Vec<i64> = (0..n).map(|_| r.next() as i64).collect();
+        let any_u8: Vec<u8> = (0..n).map(|_| r.next() as u8).collect();
+        let ramp: Vec<i32> = (0..n as i32).map(|i| i * 7 - 100).collect();
+        let iq: Vec<i16> = (0..2 * n)
+            .map(|i| ((i as f64 / 9.0).sin() * 2000.0) as i16)
+            .collect();
+        let edges: Vec<i16> = (0..n).map(|i| [i16::MIN, i16::MAX, 0, -1][i % 4]).collect();
+        for c in [Codec::DELTA, Codec::DELTA2] {
+            roundtrip(c, SampleShape::scalar(Element::I64), &any_i64);
+            roundtrip(c, SampleShape::scalar(Element::U8), &any_u8);
+            roundtrip(c, SampleShape::scalar(Element::I32), &ramp);
+            roundtrip(c, SampleShape::scalar(Element::ComplexI16), &iq);
+            roundtrip(c, SampleShape::new(Element::I16, 4), &edges[..n / 4 * 4]);
+        }
+        let any_f64: Vec<f64> = (0..n).map(|_| f64::from_bits(r.next())).collect();
+        let any_f32: Vec<f32> = (0..n).map(|_| f32::from_bits(r.next() as u32)).collect();
+        let s = sensor(n, 4);
+        let specials: Vec<f32> = (0..n)
+            .map(|i| [0.0, -0.0, f32::NAN, f32::INFINITY, -1.5, f32::MIN_POSITIVE][i % 6])
+            .collect();
+        for c in [Codec::FLOAT_DELTA, Codec::FLOAT_DELTA2] {
+            roundtrip(c, SampleShape::scalar(Element::F64), &any_f64);
+            roundtrip(c, SampleShape::scalar(Element::F32), &any_f32);
+            roundtrip(c, SampleShape::scalar(Element::F64), &s);
+            roundtrip(c, SampleShape::scalar(Element::F32), &specials);
+        }
+    }
+}
+
+#[test]
+fn delta_bytes() {
+    // a ramp packs at width 0: first value, min, width 0, no packed bytes
+    let ramp: Vec<u16> = (0..5).map(|i| 10 + 3 * i).collect();
+    assert_eq!(
+        encode_vec(Codec::DELTA, SampleShape::scalar(Element::U16), &ramp),
+        [5, 0, 0, 0, 10, 0, 3, 0, 0]
+    );
+    // order 2 of a parabola: first, first difference, min of second differences
+    let p: Vec<i16> = (0..4).map(|i| i * i).collect();
+    assert_eq!(
+        encode_vec(Codec::DELTA2, SampleShape::scalar(Element::I16), &p),
+        [7, 0, 0, 0, 0, 0, 1, 0, 2, 0, 0]
+    );
+    // differences 1, -1, 2: min -1, residuals 2, 0, 3 at width 2
+    let v: Vec<i8> = vec![0, 1, 0, 2];
+    assert_eq!(
+        encode_vec(Codec::DELTA, SampleShape::scalar(Element::I8), &v),
+        [4, 0, 0, 0, 0, 0xff, 2, 0b11_00_10]
+    );
+}
+
+#[test]
+fn delta_rejects_malformed_groups() {
+    let shape = SampleShape::scalar(Element::I16);
+    let v: Vec<i16> = (0..200).map(|i| (i * i % 300) as i16).collect();
+    let bytes = encode_vec(Codec::DELTA, shape, &v);
+    // a width over the scalar's bits
+    let mut bad = bytes.clone();
+    bad[8 + 4] = 17;
+    let s = Samples::new(Codec::DELTA, shape, 200, &bad).unwrap();
+    assert_eq!(
+        s.decode(0, &mut [0i16; 200]),
+        Err(SampleError::Corrupt { group: 0 })
+    );
+    // the second group still decodes
+    let mut tail = [0i16; 72];
+    s.decode(128, &mut tail).unwrap();
+    assert_eq!(tail, v[128..]);
+    assert!(Samples::new(Codec::DELTA, SampleShape::scalar(Element::F32), 1, &[]).is_err());
+    assert!(Samples::new(Codec::FLOAT_DELTA, shape, 1, &[]).is_err());
+}

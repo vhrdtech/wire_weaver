@@ -2,6 +2,7 @@
 //! libFuzzer's input.
 
 mod chunk;
+mod hostile;
 mod index;
 mod payloads;
 mod reader;
@@ -11,6 +12,10 @@ mod summary;
 mod times;
 
 pub use chunk::chunk;
+pub use hostile::{
+    chunk_hostile, index_hostile, payloads_hostile, reader_hostile, records_hostile,
+    samples_hostile, series_hostile, summary_hostile, times_hostile,
+};
 pub use index::index;
 pub use payloads::payloads;
 pub use reader::reader;

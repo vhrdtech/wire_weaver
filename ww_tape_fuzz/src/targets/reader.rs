@@ -7,7 +7,7 @@ use ww_tape::{
     Block, BodyCodec, Describe, FileBlocks, Layout, Medium, Recovery, code_body, coded_len_max,
 };
 
-fn walk(data: &[u8], recovery: Recovery, medium: Medium) -> Vec<Vec<u8>> {
+pub(crate) fn walk(data: &[u8], recovery: Recovery, medium: Medium) -> Vec<Vec<u8>> {
     let mut rd = FileBlocks::with_recovery(data, recovery).on(medium);
     if medium == Medium::Raw {
         rd = rd.with_layout(&Layout::UNALIGNED.on_sd_card());

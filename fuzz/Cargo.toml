@@ -159,6 +159,69 @@ doc = false
 bench = false
 
 [[bin]]
+name = "tape-records-hostile"
+path = "src/tape_records_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-chunk-hostile"
+path = "src/tape_chunk_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-times-hostile"
+path = "src/tape_times_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-payloads-hostile"
+path = "src/tape_payloads_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-samples-hostile"
+path = "src/tape_samples_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-series-hostile"
+path = "src/tape_series_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-summary-hostile"
+path = "src/tape_summary_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-index-hostile"
+path = "src/tape_index_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tape-reader-hostile"
+path = "src/tape_reader_hostile.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "link-hello"
 path = "src/link_hello.rs"
 test = false

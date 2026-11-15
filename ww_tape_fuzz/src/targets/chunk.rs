@@ -7,7 +7,7 @@ use ww_tape::{
 };
 
 /// Look at everything a block read or salvaged from `data` gives.
-fn walk(data: &[u8]) {
+pub(crate) fn walk(data: &[u8]) {
     if let Ok(b) = Block::salvage(data) {
         if b.is_intact() {
             assert!(Block::read(data).is_ok());

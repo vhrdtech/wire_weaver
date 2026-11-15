@@ -8,7 +8,7 @@ use ww_tape::piece::{FinishBlock, PieceHeadBlock};
 use ww_tape::{Block, BlockKind, Layout, Medium, OpenOptions, Tail, TapeReader};
 
 /// Look at everything the block decoders give for `data`.
-fn decode(data: &[u8]) {
+pub(crate) fn decode(data: &[u8]) {
     if let Ok(len) = IndexBlock::head_len(data)
         && let Ok(ix) = IndexBlock::read_head(&data[..len.min(data.len())])
     {
@@ -38,7 +38,7 @@ fn decode(data: &[u8]) {
     let _ = Tail::read(data);
 }
 
-fn read(data: &[u8], options: OpenOptions) {
+pub(crate) fn read(data: &[u8], options: OpenOptions) {
     let Ok(r) = TapeReader::open_with(data, options) else {
         return;
     };

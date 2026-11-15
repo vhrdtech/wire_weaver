@@ -19,7 +19,13 @@ const CODECS: [Codec; 11] = [
 ];
 
 /// Read `bytes` as a column of `count` samples and decode all of it and a tail, if the column checks.
-fn read<T: Sample>(codec: Codec, shape: SampleShape, count: usize, bytes: &[u8], from: usize) {
+pub(crate) fn read<T: Sample>(
+    codec: Codec,
+    shape: SampleShape,
+    count: usize,
+    bytes: &[u8],
+    from: usize,
+) {
     if let Ok(s) = Samples::new(codec, shape, count, bytes) {
         let lanes = s.lanes();
         if count.saturating_mul(lanes) > 1 << 20 {

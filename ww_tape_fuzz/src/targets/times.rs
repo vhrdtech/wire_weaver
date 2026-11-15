@@ -37,7 +37,7 @@ fn read_all(t: &EventTimes<'_>) {
     let _ = t.suspect_items().count();
 }
 
-fn walk(block: &[u8]) {
+pub(crate) fn walk(block: &[u8]) {
     if let Ok(b) = Block::salvage(block)
         && let Some(c) = b.chunk()
     {

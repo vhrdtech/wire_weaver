@@ -30,7 +30,7 @@ fn read_all(p: &Payloads<'_>, want: Option<&[Vec<u8>]>) {
     let _ = p.suspect_items().count();
 }
 
-fn walk(block: &[u8], want: Option<&[Vec<u8>]>) {
+pub(crate) fn walk(block: &[u8], want: Option<&[Vec<u8>]>) {
     if let Ok(b) = Block::salvage(block)
         && let Some(c) = b.chunk()
     {

@@ -8,7 +8,7 @@ use ww_tape::{
 };
 
 /// Ask the timeline everything about samples around `at`.
-fn query(t: &SeriesTimeline, at: u64, count: u32) {
+pub(crate) fn query(t: &SeriesTimeline, at: u64, count: u32) {
     for i in [0, at, at.wrapping_sub(1), at.saturating_add(1), u64::MAX] {
         let _ = (t.tick(i), t.scale(i), t.segment_of(i), t.segment_end(i));
         if let Ok((first, last)) = t.chunk_ticks(i, count) {
@@ -31,7 +31,7 @@ fn query(t: &SeriesTimeline, at: u64, count: u32) {
 }
 
 /// The kept segments hold the timeline's rules.
-fn check(t: &SeriesTimeline) {
+pub(crate) fn check(t: &SeriesTimeline) {
     let s = t.segments();
     for w in s.windows(2) {
         assert!(w[0].first_index < w[1].first_index, "ascending");

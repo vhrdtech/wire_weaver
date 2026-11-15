@@ -10,7 +10,7 @@ use ww_tape::{
 };
 
 /// Look at everything a summary block read from `data` gives.
-fn walk(data: &[u8]) {
+pub(crate) fn walk(data: &[u8]) {
     let Ok(b) = Block::read(data) else { return };
     let Some(s) = b.summary() else { return };
     let h = s.head();

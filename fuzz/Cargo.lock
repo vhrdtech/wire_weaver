@@ -971,6 +971,9 @@ dependencies = [
 name = "ww_tape_fuzz"
 version = "0.1.0"
 dependencies = [
+ "blake3",
+ "crc",
+ "exact_units",
  "shrink_wrap",
  "ww_tape",
 ]

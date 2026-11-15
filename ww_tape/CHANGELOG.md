@@ -26,6 +26,7 @@
 - Index, finish, tail, piece head and repeated describe blocks carry the last counted seq and stay out of seq order (STD-122).
 - `TapeWriter::defer_block` refuses structural blocks; `set_seq` rewrites an index block's head CRC (STD-122).
 - Golden file `golden/v2-index.hex`; fuzz target `tape-index` (STD-122, STD-124).
+- `bitpack`: groups of 128 values at one width, read in place; AVX-512, AVX2 and NEON unpack kernels (STD-120).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).
 - `Describe::Layout` and `TapeWriter::set_alignment`: chunk payloads on 4 KiB boundaries, deferred blocks filling the gaps (STD-118).

@@ -66,6 +66,7 @@
 //! The same input gives the same bytes: blocks hold no wall time, describe records go in canonical order
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(unsafe_code)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -90,6 +91,7 @@ pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
 pub mod summary;
 pub use summary::{EventFields, EventNode, Summary, SummaryError, SummaryHead};
 
+pub mod bitpack;
 pub mod chunk;
 pub use chunk::{
     Chunk, ChunkError, ChunkHead, ChunkHeadError, ChunkWriter, Codec, ColumnKind, ColumnSpec,

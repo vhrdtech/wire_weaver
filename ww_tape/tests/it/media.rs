@@ -600,3 +600,68 @@ fn a_stale_describe_set_is_not_the_pieces() {
     assert_eq!(r.pieces()[0].cut, Some(damaged_at as u64));
     assert!(r.describe_set(0).unwrap().is_empty());
 }
+
+/// A file that allows gaps, read from its newest checkpoint: the stretch after it is read with the file's gap rules,
+/// as a walk from the start reads it.
+#[test]
+fn a_gap_after_the_newest_checkpoint_is_read_past() {
+    let dir = std::env::temp_dir().join(format!("ww_tape_media_ckpt_{}", std::process::id()));
+    _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut w = TapeWriter::create(&dir.join("c.wwt"), SyncPolicy::None).unwrap();
+    w.set_index_policy(ww_tape::IndexPolicy {
+        bytes: 2048,
+        interval: None,
+    });
+    let mut set = DescribeSet::new();
+    set.insert(&Describe::Producer(Producer { name: "media" }))
+        .unwrap();
+    set.insert(&Describe::Layout(Layout::UNALIGNED.on_sd_card()))
+        .unwrap();
+    let mut id = w.next_id();
+    let mut blocks = vec![];
+    set.write_blocks(&mut id, 4096, &[], |b| blocks.push(b.to_vec()))
+        .unwrap();
+    for b in &blocks {
+        w.write_block(b).unwrap();
+    }
+    for _ in 0..100 {
+        w.write_block(&records(w.next_id())).unwrap();
+    }
+    // a few after the newest checkpoint
+    w.set_index_policy(ww_tape::IndexPolicy::NONE);
+    for _ in 0..5 {
+        w.write_block(&records(w.next_id())).unwrap();
+    }
+    let bytes = std::fs::read(w.current_path()).unwrap();
+    drop(w);
+    std::fs::remove_dir_all(&dir).unwrap();
+    // a blank sector before a records block after the newest checkpoint
+    let mut rd = FileBlocks::new(&bytes[..]);
+    let (mut index, mut recs) = (vec![], vec![]);
+    while let Some(Ok(b)) = rd.next_block() {
+        match b.kind {
+            BlockKind::Index => index.push(rd.offset()),
+            BlockKind::Records => recs.push(rd.offset()),
+            _ => {}
+        }
+    }
+    let last_index = *index.last().unwrap();
+    let after = *recs.iter().find(|r| **r > last_index).unwrap();
+    assert!(after > last_index && last_index > 0);
+    let (file, offset, len) = with_stretch(&bytes, after as usize, &[0u8; 512], false);
+    let (got, errors) = walk(&file, Medium::File);
+    assert_eq!(got.len(), 105);
+    assert!(matches!(errors[..], [FileError::Gap { .. }]), "{errors:?}");
+    let r = TapeReader::open(&file[..]).unwrap();
+    let p = &r.pieces()[0];
+    assert!(
+        matches!(p.found, ww_tape::reader::Found::Checkpoint { .. }),
+        "{:?}",
+        p.found
+    );
+    assert_eq!(
+        (p.gaps.as_slice(), p.cut, p.end),
+        (&[(offset, len)][..], None, file.len() as u64)
+    );
+}

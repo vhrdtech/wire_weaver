@@ -32,6 +32,7 @@
 
 ### 🐛 Fixes
 
+- `TapeReader` reads the stretch after a checkpoint with the piece's gap rules, as `FileBlocks` does (STD-129).
 - `TapeWriter` copies only a whole describe set, never part of one still being written (STD-129).
 - A replaced block leaves the index as it leaves a walk, in `TapeWriter`'s index and in scans (STD-129).
 - On a raw medium blank space longer than the gap ends the walk; the rest of the medium isn't read (STD-129).

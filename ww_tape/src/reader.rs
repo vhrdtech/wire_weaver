@@ -485,8 +485,33 @@ impl<S: ByteSource> TapeReader<S> {
         if ix.kind() == IndexKind::Final {
             entries.sort_by_key(|e| e.offset);
         }
+        // the stretch after the checkpoint is read with the gap rules the piece's describe blocks state
+        let mut walk = RunState::new(Medium::File);
+        if let Some(layout) = self.layout_of(start, &entries, at)? {
+            walk.set_layout(&layout);
+        }
         piece.entries = Some(entries);
-        self.scan(at + bytes.len() as u64, hi, piece)
+        self.scan_with(at + bytes.len() as u64, hi, piece, walk)
+    }
+
+    /// The newest [Layout] the describe blocks among `entries` (of the piece at `start`, within `hi`) state.
+    fn layout_of(&self, start: u64, entries: &[IndexEntry], hi: u64) -> R<Option<Layout>, S> {
+        for e in entries
+            .iter()
+            .rev()
+            .filter(|e| e.kind == BlockKind::Describe)
+        {
+            let Some(at) = start.checked_add(e.offset) else {
+                continue;
+            };
+            if let Ok(b) = self.good_block(at, hi)?
+                && let Ok(block) = Block::read(&b)
+                && let Some(layout) = crate::walk::layout_in(&block)
+            {
+                return Ok(Some(layout));
+            }
+        }
+        Ok(None)
     }
 
     /// The newest good index block that ends within `hi`, looked for backwards over at most `max` bytes.

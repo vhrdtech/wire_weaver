@@ -60,7 +60,7 @@
 
 use core::num::NonZeroUsize;
 
-use crate::bytes::{file_u8, file_u32, le_i64, le_u8, le_u16, le_u32, le_u64};
+use crate::bytes::{file_u8, file_u32, le_i64, le_u8, le_u32, le_u64};
 use crate::{BlockKind, BoundError, CRC_LEN, HEADER_LEN, MAX_BLOCK_LEN};
 
 /// The CRC of chunk blocks: the same CRC-32C as every block, with a 16-entry table for the large payloads.
@@ -107,7 +107,7 @@ pub(crate) const fn len_u64(n: usize) -> u64 {
 }
 
 /// `n` as a usize.
-const fn u32_len(n: u32) -> usize {
+pub(crate) const fn u32_len(n: u32) -> usize {
     #[expect(
         clippy::as_conversions,
         reason = "usize is at least 32 bits (the const assert above); From is not const"
@@ -1049,22 +1049,7 @@ fn column_offset(entry: &[u8; COLUMN_ENTRY_LEN]) -> crate::FromFile<u32> {
     crate::FromFile::new(u32::from_le_bytes([o0, o1, o2, o3]))
 }
 
-/// A little-endian u16 at `at` (header and entry fields of index, piece and finish blocks).
-///
-/// # Panics
-///
-/// When `buf` is shorter than `at + 2`.
-pub(crate) fn get_u16(buf: &[u8], at: usize) -> u16 {
-    let v = le_u16(buf, at);
-    assert!(
-        v.is_some(),
-        "2 bytes at {at} of a {}-byte buffer",
-        buf.len()
-    );
-    v.unwrap_or_default()
-}
-
-/// A little-endian u32 at `at`.
+/// A little-endian u32 at `at` (fields of piece and finish blocks).
 ///
 /// # Panics
 ///

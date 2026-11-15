@@ -165,7 +165,7 @@ fn entries_of_blocks() {
     let mut cb = vec![0u8; crate::chunk::chunk_len(&[cols[0].0], 0)];
     let n = crate::chunk::write_chunk(&mut cb, id(1), &head, &cols, 0).unwrap();
     let e = IndexEntry::of_block(4000, &Block::read(&cb[..n]).unwrap()).unwrap();
-    assert_eq!(e, IndexEntry::of_chunk(4000, n, &head));
+    assert_eq!(Some(e), IndexEntry::of_chunk(4000, n, &head));
     assert_eq!(
         (
             e.track_id,
@@ -301,4 +301,126 @@ fn structural_blocks_are_not_deferred() {
     w.defer_block(buf[..len].to_vec()).unwrap();
     w.finish().unwrap();
     _ = std::fs::remove_dir_all(&dir);
+}
+
+/// An entry naming no block (length 0, longer than a block, an end past u64) is refused when a whole block or a
+/// track's entries are read, and by the writer.
+#[test]
+fn entries_naming_no_block_are_refused() {
+    let entries: Vec<_> = (0..3).map(|i| entry(1, i * 400)).collect();
+    let bad_entries = [
+        IndexEntry {
+            len: 0,
+            ..entries[1]
+        },
+        IndexEntry {
+            len: (crate::MAX_BLOCK_LEN + 1) as u32,
+            ..entries[1]
+        },
+        IndexEntry {
+            offset: u64::MAX - 10,
+            ..entries[1]
+        },
+    ];
+    for kind in [IndexKind::Checkpoint, IndexKind::Final] {
+        let head = IndexHead {
+            kind,
+            self_offset: 9000,
+            prev: None,
+        };
+        let bytes = write(&head, &entries);
+        let at = IndexBlock::read(&Block::read(&bytes).unwrap())
+            .unwrap()
+            .entry_offset(1)
+            .unwrap();
+        for bad in bad_entries {
+            let mut buf = vec![0u8; bytes.len()];
+            assert!(matches!(
+                write_index(&mut buf, id(5), &head, &[entries[0], bad, entries[2]]),
+                Err(IndexError::Invalid(_))
+            ));
+            // the bad entry patched in, every CRC over it made good again
+            let mut b = bytes.clone();
+            b[at..at + ENTRY_LEN].copy_from_slice(&bad.encode());
+            if kind == IndexKind::Final {
+                let entries_at = IndexBlock::head_len(&b).unwrap();
+                let crc = CRC.checksum(&b[entries_at..b.len() - CRC_LEN]);
+                b[DIR_AT + 16..DIR_AT + 20].copy_from_slice(&crc.to_le_bytes());
+                restamp_head(&mut b);
+            }
+            seal(&mut b);
+            let block = Block::read(&b).unwrap();
+            assert_eq!(
+                IndexBlock::read(&block).unwrap_err(),
+                IndexError::BadEntries,
+                "{kind:?} {bad:?}"
+            );
+            if kind == IndexKind::Final {
+                let only_head = IndexBlock::read_head(&b).unwrap();
+                let list = only_head.track(1).unwrap();
+                let (from, n) = only_head.track_range(&list);
+                assert!(matches!(
+                    only_head.track_entries(&list, &b[from..from + n]),
+                    Err(IndexError::BadEntries)
+                ));
+            }
+        }
+    }
+}
+
+/// Entries and offsets past the last are None, never an overflow.
+#[test]
+fn entry_past_the_last_is_none() {
+    let entries: Vec<_> = (0..3).map(|i| entry(1, i * 400)).collect();
+    let bytes = write(
+        &IndexHead {
+            kind: IndexKind::Checkpoint,
+            self_offset: 9000,
+            prev: None,
+        },
+        &entries,
+    );
+    let ix = IndexBlock::read(&Block::read(&bytes).unwrap()).unwrap();
+    assert_eq!(ix.entry_offset(3), Some(bytes.len() - CRC_LEN));
+    assert_eq!(ix.entry_offset(4), None);
+    assert_eq!(ix.entry(usize::MAX), None);
+    assert_eq!(ix.entry_offset(usize::MAX), None);
+}
+
+/// A directory list over more entries than the block holds is refused by the head, and a list not of this block
+/// by [IndexBlock::track_entries].
+#[test]
+fn lists_past_the_entries_are_refused() {
+    let entries: Vec<_> = (0..4).map(|i| entry(i % 2, i * 400)).collect();
+    let mut sorted = entries.clone();
+    sorted.sort_by_key(|e| (e.track_id, e.offset));
+    let bytes = write(
+        &IndexHead {
+            kind: IndexKind::Final,
+            self_offset: 9000,
+            prev: None,
+        },
+        &sorted,
+    );
+    let mut b = bytes.clone();
+    // the second list's count: u32::MAX
+    b[DIR_AT + TRACK_LEN + 12..DIR_AT + TRACK_LEN + 16].copy_from_slice(&u32::MAX.to_le_bytes());
+    restamp_head(&mut b);
+    seal(&mut b);
+    assert!(matches!(
+        IndexBlock::read_head(&b),
+        Err(IndexError::Bound(_))
+    ));
+    let ix = IndexBlock::read_head(&bytes).unwrap();
+    let list = TrackList {
+        first: 3,
+        count: 2,
+        ..ix.track(1).unwrap()
+    };
+    let (from, n) = ix.track_range(&list);
+    assert_eq!(from + n, bytes.len() - CRC_LEN + ENTRY_LEN);
+    assert!(matches!(
+        ix.track_entries(&list, &[]),
+        Err(IndexError::BadEntries)
+    ));
 }

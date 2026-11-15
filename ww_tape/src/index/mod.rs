@@ -37,25 +37,11 @@
 //! id 0. A final index longer than [INDEX_LEN_MAX] is several final blocks, chained like checkpoints, each holding
 //! whole tracks in ascending track id order.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
-use crate::chunk::{get_u16, get_u32, get_u64, put_u32};
+use crate::bytes::{file_u16, file_u32, le_u16, le_u32, le_u64};
+use crate::chunk::u32_len;
 use crate::{
-    Block, BlockError, BlockId, BlockKind, CRC, CRC_LEN, ChunkHead, HEADER_LEN, VERSION, put_header,
+    Block, BlockError, BlockId, BlockKind, BoundError, CRC, CRC_LEN, ChunkHead, HEADER_LEN,
+    MAX_BLOCK_LEN, VERSION, put_header,
 };
 
 /// Bytes of one index entry.
@@ -76,6 +62,12 @@ pub const CHECKPOINT_ENTRIES_MAX: usize =
 pub const NONE: u64 = u64::MAX;
 
 const FLAG_FINAL: u16 = 1;
+/// Bytes of the header before the head CRC (0..28).
+const PRE_CRC_LEN: usize = 28;
+/// Where the directory starts: after the header and the fixed part.
+const DIR_AT: usize = HEADER_LEN + INDEX_FIXED_LEN;
+/// Shortest block an entry may name: a header and a CRC.
+const BLOCK_LEN_MIN: usize = HEADER_LEN + CRC_LEN;
 
 /// Whether blocks of `kind` belong to the file structure (index, finish, tail, piece head): they carry the seq of
 /// the last counted block before them and take no part in the seq order, so seq stays the producer's count of its
@@ -117,9 +109,11 @@ impl IndexEntry {
     /// finish, tail, piece head and parity blocks).
     pub fn of_block(offset: u64, block: &Block<'_>) -> Option<Self> {
         let bytes = block.bytes();
+        // a Block is at most MAX_BLOCK_LEN long: its length fits a u32
+        let len = u32::try_from(bytes.len()).ok()?;
         let mut e = IndexEntry {
             offset,
-            len: bytes.len() as u32,
+            len,
             kind: block.kind,
             level: 0,
             tree: 0,
@@ -139,7 +133,7 @@ impl IndexEntry {
             | BlockKind::Parity => return None,
             BlockKind::Events | BlockKind::Series => {
                 if let Some(c) = block.chunk() {
-                    return Some(Self::of_chunk(offset, bytes.len(), &c.head()));
+                    return Self::of_chunk(offset, bytes.len(), &c.head());
                 }
             }
             BlockKind::Summary => {
@@ -161,11 +155,14 @@ impl IndexEntry {
         Some(e)
     }
 
-    /// The entry of a chunk block of `len` bytes at `offset` with `head`.
-    pub fn of_chunk(offset: u64, len: usize, head: &ChunkHead) -> Self {
-        IndexEntry {
+    /// The entry of a chunk block of `len` bytes at `offset` with `head`; None when `len` is over [MAX_BLOCK_LEN].
+    pub fn of_chunk(offset: u64, len: usize, head: &ChunkHead) -> Option<Self> {
+        if len > MAX_BLOCK_LEN {
+            return None;
+        }
+        Some(IndexEntry {
             offset,
-            len: len as u32,
+            len: u32::try_from(len).ok()?,
             kind: head.kind,
             level: 0,
             tree: 0,
@@ -176,7 +173,7 @@ impl IndexEntry {
             first_tick: head.first_tick,
             last_tick: head.last_tick,
             latest_end: head.latest_end,
-        }
+        })
     }
 
     /// Item numbers past the last one the block holds.
@@ -184,38 +181,59 @@ impl IndexEntry {
         self.first_item.saturating_add(self.count)
     }
 
-    fn encode(&self, out: &mut [u8]) {
-        out[..ENTRY_LEN].fill(0);
-        out[0..8].copy_from_slice(&self.offset.to_le_bytes());
-        put_u32(out, 8, self.len);
-        out[12] = self.kind.to_u8();
-        out[13] = self.level;
-        out[14] = self.tree;
-        out[16..24].copy_from_slice(&self.track_id.to_le_bytes());
-        put_u32(out, 24, self.track_number);
-        out[32..40].copy_from_slice(&self.first_item.to_le_bytes());
-        out[40..48].copy_from_slice(&self.count.to_le_bytes());
-        out[48..56].copy_from_slice(&self.first_tick.to_le_bytes());
-        out[56..64].copy_from_slice(&self.last_tick.to_le_bytes());
-        out[64..72].copy_from_slice(&self.latest_end.to_le_bytes());
+    fn encode(&self) -> [u8; ENTRY_LEN] {
+        let mut out = [0u8; ENTRY_LEN];
+        let fields = self
+            .offset
+            .to_le_bytes()
+            .into_iter()
+            .chain(self.len.to_le_bytes())
+            .chain([self.kind.to_u8(), self.level, self.tree, 0])
+            .chain(self.track_id.to_le_bytes())
+            .chain(self.track_number.to_le_bytes())
+            .chain([0; 4])
+            .chain(self.first_item.to_le_bytes())
+            .chain(self.count.to_le_bytes())
+            .chain(self.first_tick.to_le_bytes())
+            .chain(self.last_tick.to_le_bytes())
+            .chain(self.latest_end.to_le_bytes());
+        for (d, s) in out.iter_mut().zip(fields) {
+            *d = s;
+        }
+        out
     }
 
-    /// Read an entry from its [ENTRY_LEN] bytes.
+    /// Read an entry from its [ENTRY_LEN] bytes. Its offset and length are as the file says: [IndexBlock] checks them.
     pub fn decode(b: &[u8; ENTRY_LEN]) -> Self {
+        #[rustfmt::skip]
+        let [
+            o0, o1, o2, o3, o4, o5, o6, o7, l0, l1, l2, l3, kind, level, tree, _,
+            t0, t1, t2, t3, t4, t5, t6, t7, n0, n1, n2, n3, _, _, _, _,
+            i0, i1, i2, i3, i4, i5, i6, i7, c0, c1, c2, c3, c4, c5, c6, c7,
+            f0, f1, f2, f3, f4, f5, f6, f7, s0, s1, s2, s3, s4, s5, s6, s7,
+            e0, e1, e2, e3, e4, e5, e6, e7,
+        ] = *b;
         IndexEntry {
-            offset: get_u64(b, 0),
-            len: get_u32(b, 8),
-            kind: BlockKind::from_u8(b[12]),
-            level: b[13],
-            tree: b[14],
-            track_id: get_u64(b, 16),
-            track_number: get_u32(b, 24),
-            first_item: get_u64(b, 32),
-            count: get_u64(b, 40),
-            first_tick: get_u64(b, 48) as i64,
-            last_tick: get_u64(b, 56) as i64,
-            latest_end: get_u64(b, 64) as i64,
+            offset: u64::from_le_bytes([o0, o1, o2, o3, o4, o5, o6, o7]),
+            len: u32::from_le_bytes([l0, l1, l2, l3]),
+            kind: BlockKind::from_u8(kind),
+            level,
+            tree,
+            track_id: u64::from_le_bytes([t0, t1, t2, t3, t4, t5, t6, t7]),
+            track_number: u32::from_le_bytes([n0, n1, n2, n3]),
+            first_item: u64::from_le_bytes([i0, i1, i2, i3, i4, i5, i6, i7]),
+            count: u64::from_le_bytes([c0, c1, c2, c3, c4, c5, c6, c7]),
+            first_tick: i64::from_le_bytes([f0, f1, f2, f3, f4, f5, f6, f7]),
+            last_tick: i64::from_le_bytes([s0, s1, s2, s3, s4, s5, s6, s7]),
+            latest_end: i64::from_le_bytes([e0, e1, e2, e3, e4, e5, e6, e7]),
         }
+    }
+
+    /// Whether the entry names a block a reader may fetch: its length that of a block, its end within a u64.
+    fn is_in_range(&self) -> bool {
+        let len = usize::try_from(self.len).ok();
+        len.is_some_and(|l| (BLOCK_LEN_MIN..=MAX_BLOCK_LEN).contains(&l))
+            && self.offset.checked_add(u64::from(self.len)).is_some()
     }
 }
 
@@ -249,6 +267,38 @@ pub struct TrackList {
     pub crc: u32,
 }
 
+impl TrackList {
+    fn decode(b: &[u8; TRACK_LEN]) -> Self {
+        #[rustfmt::skip]
+        let [
+            i0, i1, i2, i3, i4, i5, i6, i7,
+            f0, f1, f2, f3, n0, n1, n2, n3, c0, c1, c2, c3, _, _, _, _,
+        ] = *b;
+        TrackList {
+            track_id: u64::from_le_bytes([i0, i1, i2, i3, i4, i5, i6, i7]),
+            first: u32::from_le_bytes([f0, f1, f2, f3]),
+            count: u32::from_le_bytes([n0, n1, n2, n3]),
+            crc: u32::from_le_bytes([c0, c1, c2, c3]),
+        }
+    }
+
+    fn encode(&self) -> [u8; TRACK_LEN] {
+        let mut out = [0u8; TRACK_LEN];
+        let fields = self
+            .track_id
+            .to_le_bytes()
+            .into_iter()
+            .chain(self.first.to_le_bytes())
+            .chain(self.count.to_le_bytes())
+            .chain(self.crc.to_le_bytes())
+            .chain([0; 4]);
+        for (d, s) in out.iter_mut().zip(fields) {
+            *d = s;
+        }
+        out
+    }
+}
+
 /// Why an index, finish, tail or piece head block can't be read or written.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -260,7 +310,7 @@ pub enum IndexError {
     BadHeadCrc,
     /// The head or the body is out of range.
     BadHead,
-    /// A track's entries don't match their CRC.
+    /// A track's entries don't match their CRC or its list, or an entry names no block (a length outside a block's).
     BadEntries,
     /// The buffer is shorter than the block.
     Full {
@@ -268,6 +318,8 @@ pub enum IndexError {
     },
     /// The entries break a rule of the format (a final index not sorted by track, too many entries).
     Invalid(&'static str),
+    /// A count, length or offset of the head is over its bound.
+    Bound(BoundError),
 }
 
 impl From<BlockError> for IndexError {
@@ -276,40 +328,59 @@ impl From<BlockError> for IndexError {
     }
 }
 
-/// Tracks a final index over `entries` (sorted by track id) has.
-pub fn track_count(entries: &[IndexEntry]) -> usize {
-    entries
-        .iter()
-        .enumerate()
-        .filter(|(i, e)| *i == 0 || entries[i - 1].track_id != e.track_id)
-        .count()
-}
-
-/// Bytes of an index block with `entries` and `tracks` directory tracks.
-pub const fn index_len(entries: usize, tracks: usize) -> usize {
-    HEADER_LEN + INDEX_FIXED_LEN + tracks * TRACK_LEN + entries * ENTRY_LEN + CRC_LEN
-}
-
-/// Write the CRC of the block `buf` (exactly its bytes).
-pub(crate) fn seal(buf: &mut [u8]) {
-    let len = buf.len();
-    let crc = CRC.checksum(&buf[..len - CRC_LEN]);
-    buf[len - CRC_LEN..].copy_from_slice(&crc.to_le_bytes());
-}
-
-/// Rewrite the head CRC of the good index block `block` after its header changed (its seq).
-pub(crate) fn restamp_head(block: &mut [u8]) {
-    if let Ok(at) = IndexBlock::head_len(block) {
-        let crc = head_crc(block, at);
-        put_u32(block, 28, crc);
+impl From<BoundError> for IndexError {
+    fn from(e: BoundError) -> Self {
+        IndexError::Bound(e)
     }
 }
 
-fn head_crc(b: &[u8], entries_at: usize) -> u32 {
+/// Tracks a final index over `entries` (sorted by track id) has.
+pub fn track_count(entries: &[IndexEntry]) -> usize {
+    entries.chunk_by(|a, b| a.track_id == b.track_id).count()
+}
+
+/// Bytes of an index block with `entries` and `tracks` directory tracks; saturating at `usize::MAX`, a length over
+/// [MAX_BLOCK_LEN] no writer takes.
+pub const fn index_len(entries: usize, tracks: usize) -> usize {
+    (DIR_AT + CRC_LEN)
+        .saturating_add(tracks.saturating_mul(TRACK_LEN))
+        .saturating_add(entries.saturating_mul(ENTRY_LEN))
+}
+
+/// Write the CRC of the block `buf` (exactly its bytes).
+///
+/// # Panics
+///
+/// When `buf` is shorter than a block header and its CRC.
+pub(crate) fn seal(buf: &mut [u8]) {
+    assert!(
+        buf.len() >= BLOCK_LEN_MIN,
+        "a block of {} bytes is shorter than a header and a CRC",
+        buf.len()
+    );
+    if let Some((body, crc)) = buf.split_last_chunk_mut::<CRC_LEN>() {
+        *crc = CRC.checksum(body).to_le_bytes();
+    }
+}
+
+/// Rewrite the head CRC of the good index block `block` after its header changed (its seq). A block whose head is
+/// out of range ([IndexBlock::head_len]) keeps its head CRC: its head reads as bad before and after.
+pub(crate) fn restamp_head(block: &mut [u8]) {
+    if let Ok(at) = IndexBlock::head_len(block)
+        && let Some(crc) = head_crc(block, at)
+        && let Some((_, rest)) = block.split_first_chunk_mut::<PRE_CRC_LEN>()
+        && let Some((slot, _)) = rest.split_first_chunk_mut::<4>()
+    {
+        *slot = crc.to_le_bytes();
+    }
+}
+
+/// CRC-32C over bytes 0..28 and 32..`entries_at`; None when the block is shorter.
+fn head_crc(b: &[u8], entries_at: usize) -> Option<u32> {
     let mut d = CRC.digest();
-    d.update(&b[..28]);
-    d.update(&b[32..entries_at]);
-    d.finalize()
+    d.update(b.get(..PRE_CRC_LEN)?);
+    d.update(b.get(PRE_CRC_LEN + 4..entries_at)?);
+    Some(d.finalize())
 }
 
 /// Write an index block listing `entries` into `buf`; returns its length ([index_len]). A final index's entries
@@ -325,7 +396,7 @@ pub fn write_index(
         IndexKind::Final => {
             if entries
                 .windows(2)
-                .any(|w| (w[0].track_id, w[0].offset) >= (w[1].track_id, w[1].offset))
+                .any(|w| matches!(w, [a, b] if (a.track_id, a.offset) >= (b.track_id, b.offset)))
             {
                 return Err(IndexError::Invalid(
                     "final index not sorted by track and offset",
@@ -334,48 +405,74 @@ pub fn write_index(
             track_count(entries)
         }
     };
+    if entries.iter().any(|e| !e.is_in_range()) {
+        return Err(IndexError::Invalid("an entry names no block"));
+    }
     let len = index_len(entries.len(), tracks);
-    if len > crate::MAX_BLOCK_LEN || u32::try_from(entries.len()).is_err() {
-        return Err(IndexError::Invalid("index longer than a block"));
+    let too_long = IndexError::Invalid("index longer than a block");
+    if len > MAX_BLOCK_LEN {
+        return Err(too_long);
     }
-    if buf.len() < len {
-        return Err(IndexError::Full { needed: len });
-    }
-    let buf = &mut buf[..len];
-    put_header(buf, BlockKind::Index, len, entries.len() as u32, id);
-    let entries_at = HEADER_LEN + INDEX_FIXED_LEN + tracks * TRACK_LEN;
-    put_u32(buf, 32, entries_at as u32);
-    put_u32(buf, 36, tracks as u32);
-    buf[40..48].copy_from_slice(&head.self_offset.to_le_bytes());
-    buf[48..56].copy_from_slice(&head.prev.unwrap_or(NONE).to_le_bytes());
+    let count = u32::try_from(entries.len()).ok().ok_or(too_long)?;
+    let short = IndexError::Full { needed: len };
+    let buf = buf.get_mut(..len).ok_or(short)?;
+    // the parts below sum to len, at most MAX_BLOCK_LEN
+    let dir_len = tracks.checked_mul(TRACK_LEN).ok_or(too_long)?;
+    let entries_at = DIR_AT.checked_add(dir_len).ok_or(too_long)?;
+    let (header, rest) = buf.split_first_chunk_mut::<HEADER_LEN>().ok_or(short)?;
+    let (fixed, rest) = rest
+        .split_first_chunk_mut::<INDEX_FIXED_LEN>()
+        .ok_or(short)?;
+    let (dir, rest) = rest.split_at_mut_checked(dir_len).ok_or(short)?;
+    let (entry_bytes, _) = rest.split_last_chunk_mut::<CRC_LEN>().ok_or(short)?;
+
+    put_header(header, BlockKind::Index, len, count, id);
     let flags = match head.kind {
         IndexKind::Checkpoint => 0,
         IndexKind::Final => FLAG_FINAL,
     };
-    buf[56..58].copy_from_slice(&flags.to_le_bytes());
-    buf[58..60].copy_from_slice(&(ENTRY_LEN as u16).to_le_bytes());
-    for (i, e) in entries.iter().enumerate() {
-        let at = entries_at + i * ENTRY_LEN;
-        e.encode(&mut buf[at..at + ENTRY_LEN]);
+    let entry_len = u16::try_from(ENTRY_LEN).ok().ok_or(too_long)?;
+    let fields = u32::try_from(entries_at)
+        .ok()
+        .ok_or(too_long)?
+        .to_le_bytes()
+        .into_iter()
+        .chain(u32::try_from(tracks).ok().ok_or(too_long)?.to_le_bytes())
+        .chain(head.self_offset.to_le_bytes())
+        .chain(head.prev.unwrap_or(NONE).to_le_bytes())
+        .chain(flags.to_le_bytes())
+        .chain(entry_len.to_le_bytes());
+    for (d, s) in fixed.iter_mut().zip(fields) {
+        *d = s;
     }
-    let mut t = 0;
-    let mut i = 0;
-    while tracks > 0 && i < entries.len() {
-        let id = entries[i].track_id;
-        let n = entries[i..].iter().take_while(|e| e.track_id == id).count();
-        let from = entries_at + i * ENTRY_LEN;
-        let crc = CRC.checksum(&buf[from..from + n * ENTRY_LEN]);
-        let at = HEADER_LEN + INDEX_FIXED_LEN + t * TRACK_LEN;
-        buf[at..at + 8].copy_from_slice(&id.to_le_bytes());
-        put_u32(buf, at + 8, i as u32);
-        put_u32(buf, at + 12, n as u32);
-        put_u32(buf, at + 16, crc);
-        put_u32(buf, at + 20, 0);
-        t += 1;
-        i += n;
+    let (slots, _) = entry_bytes.as_chunks_mut::<ENTRY_LEN>();
+    for (slot, e) in slots.iter_mut().zip(entries) {
+        *slot = e.encode();
     }
-    let hc = head_crc(buf, entries_at);
-    put_u32(buf, 28, hc);
+    let (dir_slots, _) = dir.as_chunks_mut::<TRACK_LEN>();
+    let mut rest: &[u8] = entry_bytes;
+    let mut first = 0u32;
+    for (slot, track) in dir_slots
+        .iter_mut()
+        .zip(entries.chunk_by(|a, b| a.track_id == b.track_id))
+    {
+        let n = track.len().checked_mul(ENTRY_LEN).ok_or(too_long)?;
+        let (bytes, r) = rest.split_at_checked(n).ok_or(short)?;
+        rest = r;
+        let count = u32::try_from(track.len()).ok().ok_or(too_long)?;
+        let list = TrackList {
+            track_id: track.first().map_or(0, |e| e.track_id),
+            first,
+            count,
+            crc: CRC.checksum(bytes),
+        };
+        *slot = list.encode();
+        first = first.checked_add(count).ok_or(too_long)?;
+    }
+    let hc = head_crc(buf, entries_at).ok_or(short)?;
+    let (_, rest) = buf.split_first_chunk_mut::<PRE_CRC_LEN>().ok_or(short)?;
+    let (slot, _) = rest.split_first_chunk_mut::<4>().ok_or(short)?;
+    *slot = hc.to_le_bytes();
     seal(buf);
     Ok(len)
 }
@@ -390,21 +487,31 @@ pub struct IndexBlock<'b> {
     entries_at: usize,
     entry_len: usize,
     entries: usize,
-    tracks: usize,
+    /// The directory, ascending track id, the lists back to back over the entries
+    dir: &'b [[u8; TRACK_LEN]],
     kind: IndexKind,
+    self_offset: u64,
+    prev: u64,
 }
 
 impl<'b> IndexBlock<'b> {
-    /// The index of a good block (CRC checked).
+    /// The index of a good block (CRC checked); every entry names a block ([IndexError::BadEntries] else).
     pub fn read(block: &Block<'b>) -> Result<Self, IndexError> {
         if block.kind != BlockKind::Index || !block.body_known() {
             return Err(IndexError::Kind);
         }
         let ix = Self::read_head(block.bytes())?;
-        Ok(IndexBlock {
-            bytes: block.bytes(),
-            ..ix
-        })
+        let mut n = 0usize;
+        for e in ix.entries() {
+            if !e.is_in_range() {
+                return Err(IndexError::BadEntries);
+            }
+            n = n.saturating_add(1);
+        }
+        if n != ix.entries {
+            return Err(IndexError::BadHead);
+        }
+        Ok(ix)
     }
 
     /// Bytes of the head of the index block whose first [HEAD_LEN_PREFIX] bytes are `header`: what [Self::read_head]
@@ -416,15 +523,20 @@ impl<'b> IndexBlock<'b> {
                 needed: HEAD_LEN_PREFIX,
             }));
         }
-        if header[4] != VERSION || BlockKind::from_u8(header[5]) != BlockKind::Index {
+        if header.get(4) != Some(&VERSION)
+            || header.get(5).map(|k| BlockKind::from_u8(*k)) != Some(BlockKind::Index)
+        {
             return Err(IndexError::Kind);
         }
-        let at = get_u32(header, 32) as usize;
-        if at < HEADER_LEN + INDEX_FIXED_LEN || at.checked_add(CRC_LEN).is_none_or(|end| end > len)
-        {
+        let max = len.checked_sub(CRC_LEN).ok_or(IndexError::BadHeadCrc)?;
+        let Some(at) = file_u32(header, 32) else {
             return Err(IndexError::BadHeadCrc);
+        };
+        // read before the head CRC can be checked: out of range, the head can't be trusted
+        match at.within(max) {
+            Ok(at) if at >= DIR_AT => Ok(at),
+            _ => Err(IndexError::BadHeadCrc),
         }
-        Ok(at)
     }
 
     /// Read the head of an index block from `bytes`, its first [Self::head_len] bytes or more, head CRC checked.
@@ -437,14 +549,15 @@ impl<'b> IndexBlock<'b> {
         if bytes.len() < entries_at {
             return Err(IndexError::Block(BlockError::Short { needed: entries_at }));
         }
-        if head_crc(bytes, entries_at) != get_u32(bytes, 28) {
+        if head_crc(bytes, entries_at) != le_u32(bytes, 28) {
             return Err(IndexError::BadHeadCrc);
         }
-        let len = get_u32(bytes, 8) as usize;
-        let flags = get_u16(bytes, 56);
-        let entry_len = get_u16(bytes, 58) as usize;
-        let tracks = get_u32(bytes, 36) as usize;
-        let entries = get_u32(bytes, 12) as usize;
+        let len = crate::block_len(bytes)?;
+        let bad = IndexError::BadHead;
+        let flags = le_u16(bytes, 56).ok_or(bad)?;
+        let entry_len = file_u16(bytes, 58).ok_or(bad)?.within(len)?;
+        let tracks = file_u32(bytes, 36).ok_or(bad)?.within(len)?;
+        let entries = file_u32(bytes, 12).ok_or(bad)?.within(len)?;
         let kind = if flags & FLAG_FINAL != 0 {
             IndexKind::Final
         } else {
@@ -452,37 +565,47 @@ impl<'b> IndexBlock<'b> {
         };
         let dir_end = tracks
             .checked_mul(TRACK_LEN)
-            .and_then(|d| d.checked_add(HEADER_LEN + INDEX_FIXED_LEN));
+            .and_then(|d| d.checked_add(DIR_AT));
         let body = entries
             .checked_mul(entry_len)
-            .and_then(|b| b.checked_add(entries_at + CRC_LEN));
+            .and_then(|b| b.checked_add(entries_at))
+            .and_then(|b| b.checked_add(CRC_LEN));
         if entry_len < ENTRY_LEN
             || dir_end != Some(entries_at)
             || body != Some(len)
             || (kind == IndexKind::Checkpoint && tracks != 0)
         {
-            return Err(IndexError::BadHead);
+            return Err(bad);
         }
+        let (dir, _) = bytes.get(DIR_AT..entries_at).ok_or(bad)?.as_chunks();
         let ix = IndexBlock {
             bytes,
             len,
             entries_at,
             entry_len,
             entries,
-            tracks,
+            dir,
             kind,
+            self_offset: le_u64(bytes, 40).ok_or(bad)?,
+            prev: le_u64(bytes, 48).ok_or(bad)?,
         };
-        let mut next = 0u64;
+        // the lists run back to back over the entries, ascending track id
+        let mut next = 0usize;
         let mut prev_id = None;
         for t in ix.tracks() {
-            if u64::from(t.first) != next || prev_id.is_some_and(|p| p >= t.track_id) {
-                return Err(IndexError::BadHead);
+            let first = crate::FromFile::new(t.first).within(ix.entries)?;
+            if first != next || prev_id.is_some_and(|p| p >= t.track_id) {
+                return Err(bad);
             }
-            next += u64::from(t.count);
+            let count = crate::FromFile::new(t.count).within(ix.entries)?;
+            next = next
+                .checked_add(count)
+                .filter(|n| *n <= ix.entries)
+                .ok_or(bad)?;
             prev_id = Some(t.track_id);
         }
-        if kind == IndexKind::Final && next != entries as u64 {
-            return Err(IndexError::BadHead);
+        if kind == IndexKind::Final && next != entries {
+            return Err(bad);
         }
         Ok(ix)
     }
@@ -493,12 +616,12 @@ impl<'b> IndexBlock<'b> {
 
     /// Where this block starts in its piece.
     pub fn self_offset(&self) -> u64 {
-        get_u64(self.bytes, 40)
+        self.self_offset
     }
 
     /// The previous index block of the same kind in the piece.
     pub fn prev(&self) -> Option<u64> {
-        Some(get_u64(self.bytes, 48)).filter(|o| *o != NONE)
+        Some(self.prev).filter(|o| *o != NONE)
     }
 
     /// The block's whole length.
@@ -514,9 +637,13 @@ impl<'b> IndexBlock<'b> {
         self.entries
     }
 
-    /// Where entry `i` starts in the block.
-    pub fn entry_offset(&self, i: usize) -> usize {
-        self.entries_at + i * self.entry_len
+    /// Where entry `i` starts in the block; None past the end of the entries.
+    pub fn entry_offset(&self, i: usize) -> Option<usize> {
+        if i > self.entries {
+            return None;
+        }
+        // at most entries_at + entries × entry_len, the block's length less its CRC
+        i.checked_mul(self.entry_len)?.checked_add(self.entries_at)
     }
 
     /// Bytes of one entry in this block.
@@ -526,12 +653,12 @@ impl<'b> IndexBlock<'b> {
 
     /// Entry `i`, None past the last or when only the head was read.
     pub fn entry(&self, i: usize) -> Option<IndexEntry> {
-        let at = self.entry_offset(i);
-        if i >= self.entries || self.bytes.len() < at + self.entry_len {
+        if i >= self.entries {
             return None;
         }
+        let at = self.entry_offset(i)?;
         self.bytes
-            .get(at..)?
+            .get(at..at.checked_add(self.entry_len)?)?
             .first_chunk::<ENTRY_LEN>()
             .map(IndexEntry::decode)
     }
@@ -542,56 +669,60 @@ impl<'b> IndexBlock<'b> {
     }
 
     /// The directory of a final index, ascending track id.
-    pub fn tracks(&self) -> impl Iterator<Item = TrackList> + '_ {
-        (0..self.tracks).map(|i| {
-            let at = HEADER_LEN + INDEX_FIXED_LEN + i * TRACK_LEN;
-            TrackList {
-                track_id: get_u64(self.bytes, at),
-                first: get_u32(self.bytes, at + 8),
-                count: get_u32(self.bytes, at + 12),
-                crc: get_u32(self.bytes, at + 16),
-            }
-        })
+    pub fn tracks(&self) -> impl Iterator<Item = TrackList> + 'b {
+        self.dir.iter().map(TrackList::decode)
     }
 
     /// The directory entry of `track_id`, by binary search.
     pub fn track(&self, track_id: u64) -> Option<TrackList> {
-        let (mut lo, mut hi) = (0, self.tracks);
-        while lo < hi {
-            let mid = (lo + hi) / 2;
-            let at = HEADER_LEN + INDEX_FIXED_LEN + mid * TRACK_LEN;
-            let id = get_u64(self.bytes, at);
-            match id.cmp(&track_id) {
-                core::cmp::Ordering::Equal => return self.tracks().nth(mid),
-                core::cmp::Ordering::Less => lo = mid + 1,
-                core::cmp::Ordering::Greater => hi = mid,
-            }
-        }
-        None
+        let i = self
+            .dir
+            .binary_search_by(|t| TrackList::decode(t).track_id.cmp(&track_id))
+            .ok()?;
+        self.dir.get(i).map(TrackList::decode)
     }
 
-    /// Where `list`'s entries are in the block: offset and length in bytes.
+    /// Where `list`'s entries are in the block: offset and length in bytes. A list of this block's directory is
+    /// within its entries; the range of any other list saturates past the block, and [Self::track_entries] refuses
+    /// it.
     pub fn track_range(&self, list: &TrackList) -> (usize, usize) {
         (
-            self.entry_offset(list.first as usize),
-            list.count as usize * self.entry_len,
+            u32_len(list.first)
+                .saturating_mul(self.entry_len)
+                .saturating_add(self.entries_at),
+            u32_len(list.count).saturating_mul(self.entry_len),
         )
     }
 
-    /// The entries of `list` from their bytes ([Self::track_range]), checked against the list's CRC.
+    /// The entries of `list` from their bytes ([Self::track_range]), checked against the list's CRC and the block's
+    /// entry count, each naming a block.
     pub fn track_entries<'e>(
         &self,
         list: &TrackList,
         bytes: &'e [u8],
     ) -> Result<impl Iterator<Item = IndexEntry> + 'e, IndexError> {
+        let first = crate::FromFile::new(list.first).within(self.entries)?;
+        let count = crate::FromFile::new(list.count).within(self.entries)?;
+        if first
+            .checked_add(count)
+            .is_none_or(|end| end > self.entries)
+        {
+            return Err(IndexError::BadEntries);
+        }
         let (_, n) = self.track_range(list);
         if bytes.len() != n || CRC.checksum(bytes) != list.crc {
             return Err(IndexError::BadEntries);
         }
         // entry_len is at least ENTRY_LEN, checked when the head was read
-        Ok(bytes
+        let decode = |e: &[u8]| e.first_chunk::<ENTRY_LEN>().map(IndexEntry::decode);
+        if bytes
             .chunks_exact(self.entry_len)
-            .filter_map(|e| e.first_chunk::<ENTRY_LEN>().map(IndexEntry::decode)))
+            .filter_map(decode)
+            .any(|e| !e.is_in_range())
+        {
+            return Err(IndexError::BadEntries);
+        }
+        Ok(bytes.chunks_exact(self.entry_len).filter_map(decode))
     }
 }
 

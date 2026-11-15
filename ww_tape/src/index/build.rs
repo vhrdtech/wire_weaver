@@ -1,21 +1,5 @@
 //! [Indexer]: what a writer keeps to place checkpoints and write the final index and the finish.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -24,6 +8,8 @@ use super::{
     CHECKPOINT_ENTRIES_MAX, ENTRY_LEN, IndexEntry, IndexError, IndexHead, IndexKind, IndexPolicy,
     index_len, track_count, write_index,
 };
+use crate::bytes::le_u8;
+use crate::chunk::len_u64;
 use crate::piece::{TrackRange, TrackStart};
 use crate::{Block, BlockKind, Chunk, HEADER_LEN, MAX_BLOCK_LEN, VERSION};
 
@@ -62,7 +48,7 @@ impl Indexer {
     /// Note the block `bytes` (exactly one block, written by this writer) placed at `offset` in the piece. Its
     /// CRC is not checked again: a chunk block's head is read by its head CRC.
     pub(crate) fn placed(&mut self, offset: u64, bytes: &[u8]) {
-        self.since += bytes.len() as u64;
+        self.placed_unlisted(bytes.len());
         let Some(e) = of_placed(offset, bytes) else {
             return;
         };
@@ -75,7 +61,8 @@ impl Indexer {
 
     /// Note `len` bytes placed that no index lists: a block written again with the same bytes, which readers drop.
     pub(crate) fn placed_unlisted(&mut self, len: usize) {
-        self.since += len as u64;
+        // past u64::MAX bytes a checkpoint is due all the same
+        self.since = self.since.saturating_add(len_u64(len));
     }
 
     /// Drop the entry of the block at `offset`: a later block with its id and other bytes takes its place, as
@@ -136,17 +123,19 @@ impl Indexer {
         let mut all = self.all.clone();
         all.sort_by_key(|e| (e.track_id, e.offset));
         let mut parts: Vec<Vec<IndexEntry>> = Vec::new();
-        let mut i = 0;
-        while i < all.len() {
-            let id = all[i].track_id;
-            let n = all[i..].iter().take_while(|e| e.track_id == id).count();
-            for run in all[i..i + n].chunks(FINAL_ENTRIES_MAX) {
+        for track in all.chunk_by(|a, b| a.track_id == b.track_id) {
+            for run in track.chunks(FINAL_ENTRIES_MAX) {
                 match parts.last_mut() {
-                    Some(p) if p.len() + run.len() <= FINAL_ENTRIES_MAX => p.extend_from_slice(run),
+                    Some(p)
+                        if p.len()
+                            .checked_add(run.len())
+                            .is_some_and(|n| n <= FINAL_ENTRIES_MAX) =>
+                    {
+                        p.extend_from_slice(run)
+                    }
                     _ => parts.push(run.to_vec()),
                 }
             }
-            i += n;
         }
         parts
     }
@@ -199,7 +188,8 @@ fn add_to_range(tracks: &mut BTreeMap<u64, TrackRange>, e: &IndexEntry) {
     tracks
         .entry(e.track_id)
         .and_modify(|t| {
-            t.chunks += 1;
+            // a piece of more than u32::MAX chunks keeps the count at u32::MAX
+            t.chunks = t.chunks.saturating_add(1);
             t.items = e.end_item().saturating_sub(t.first_item);
             t.first_tick = t.first_tick.min(e.first_tick);
             t.last_tick = t.last_tick.max(e.last_tick);
@@ -221,14 +211,13 @@ fn add_to_range(tracks: &mut BTreeMap<u64, TrackRange>, e: &IndexEntry) {
 /// by its head CRC alone, without a pass over the payload; other blocks by their CRC.
 fn of_placed(offset: u64, bytes: &[u8]) -> Option<IndexEntry> {
     let chunk = bytes.len() > HEADER_LEN
-        && bytes[4] == VERSION
-        && matches!(
-            BlockKind::from_u8(bytes[5]),
-            BlockKind::Events | BlockKind::Series
-        );
+        && le_u8(bytes, 4) == Some(VERSION)
+        && le_u8(bytes, 5).is_some_and(|k| {
+            matches!(BlockKind::from_u8(k), BlockKind::Events | BlockKind::Series)
+        });
     if chunk {
         let c = Chunk::read_head(bytes).ok()?;
-        return Some(IndexEntry::of_chunk(offset, bytes.len(), &c.head()));
+        return IndexEntry::of_chunk(offset, bytes.len(), &c.head());
     }
     IndexEntry::of_block(offset, &Block::read(bytes).ok()?)
 }

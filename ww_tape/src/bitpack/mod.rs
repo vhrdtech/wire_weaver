@@ -36,7 +36,7 @@ pub const GROUP: usize = 128;
 pub const WIDTH_MAX: u32 = 64;
 /// Widest value the vector kernels unpack; wider groups take the scalar path.
 pub const KERNEL_WIDTH_MAX: u32 = 32;
-/// Bytes after the packed data that keep every read of [read] on its fast path: one 16-byte load from the byte holding
+/// Bytes after the packed data that keep every read of [Width::read] on its fast path: one 16-byte load from the byte holding
 /// the last value's first bit.
 pub const PADDING: usize = 16;
 
@@ -270,19 +270,6 @@ impl Width {
     }
 }
 
-/// `w` as a [Width].
-///
-/// # Panics
-///
-/// When `w` is over [WIDTH_MAX].
-#[track_caller]
-#[inline(always)]
-fn checked(w: u32) -> Width {
-    let r = Width::new(w);
-    assert!(r.is_ok(), "width {w} over {WIDTH_MAX}");
-    r.unwrap_or(Width::ZERO)
-}
-
 /// Bits needed to hold `x`: 0 for 0, 64 for values from 2^63.
 pub const fn width_of(x: u64) -> u32 {
     #[expect(
@@ -357,27 +344,6 @@ fn tail16(src: &[u8], at: usize) -> [u8; 16] {
         *d = *s;
     }
     b
-}
-
-/// Value `index` of values packed at `width` bits from the start of `src`: [Width::read].
-///
-/// # Panics
-///
-/// When `width` is over 64.
-#[inline]
-pub fn read(src: &[u8], index: usize, width: u32) -> u64 {
-    checked(width).read(src, index)
-}
-
-/// Pack `vals` at `width` bits each into `out`: [Width::pack].
-///
-/// # Panics
-///
-/// When `width` is over 64 or `out` is shorter than the packed values.
-pub fn pack(out: &mut [u8], vals: impl IntoIterator<Item = u64>, width: u32) -> usize {
-    let r = checked(width).pack(out, vals);
-    assert!(r.is_ok(), "out shorter than the packed values");
-    r.unwrap_or(0)
 }
 
 /// A group unpacker.
@@ -590,39 +556,6 @@ fn decode(kernel: Kernel, src: &[u8], width: u8, base: i64, slope: i64, out: &mu
     }
 }
 
-/// Unpack a group of values of at most 32 bits from the start of `src` with the fastest kernel: [Width::unpack_u32].
-///
-/// # Panics
-///
-/// When `width` is over [KERNEL_WIDTH_MAX].
-#[inline]
-pub fn unpack_u32(src: &[u8], width: u32, out: &mut [u32; GROUP]) {
-    unpack_u32_with(Kernel::best(), src, width, out);
-}
-
-/// [unpack_u32] with a given kernel: [Width::unpack_u32_with].
-///
-/// # Panics
-///
-/// When `width` is over [KERNEL_WIDTH_MAX] or this CPU doesn't run `kernel`.
-pub fn unpack_u32_with(kernel: Kernel, src: &[u8], width: u32, out: &mut [u32; GROUP]) {
-    assert!(
-        width <= KERNEL_WIDTH_MAX,
-        "width {width} over {KERNEL_WIDTH_MAX}"
-    );
-    let r = checked(width).unpack_u32_with(kernel, src, out);
-    assert!(r.is_ok(), "{kernel:?} doesn't run on this CPU");
-}
-
-/// Unpack a group of values of any width up to 64 from the start of `src`: [Width::unpack_u64].
-///
-/// # Panics
-///
-/// When `width` is over 64.
-pub fn unpack_u64(src: &[u8], width: u32, out: &mut [u64; GROUP]) {
-    checked(width).unpack_u64(src, out);
-}
-
 /// The line of value j: `(j × slope) >> 16`, wrapping, with an arithmetic shift (slope in Q16).
 #[inline(always)]
 pub const fn line(slope: i64, j: usize) -> i64 {
@@ -633,31 +566,4 @@ pub const fn line(slope: i64, j: usize) -> i64 {
     )]
     let j = j as i64;
     j.wrapping_mul(slope) >> 16
-}
-
-/// Decode a group with the fastest kernel: [Width::decode_line].
-///
-/// # Panics
-///
-/// When `width` is over 64.
-#[inline]
-pub fn decode_line(src: &[u8], width: u32, base: i64, slope: i64, out: &mut [i64; GROUP]) {
-    checked(width).decode_line(src, base, slope, out);
-}
-
-/// [decode_line] with a given kernel: [Width::decode_line_with].
-///
-/// # Panics
-///
-/// When `width` is over 64 or this CPU doesn't run `kernel`.
-pub fn decode_line_with(
-    kernel: Kernel,
-    src: &[u8],
-    width: u32,
-    base: i64,
-    slope: i64,
-    out: &mut [i64; GROUP],
-) {
-    let r = checked(width).decode_line_with(kernel, src, base, slope, out);
-    assert!(r.is_ok(), "{kernel:?} doesn't run on this CPU");
 }

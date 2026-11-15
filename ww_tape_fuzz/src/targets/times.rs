@@ -57,11 +57,16 @@ fn kernels(data: &[u8]) {
     let w = u32::from(w) % 65;
     let (base, slope) = (i64::from(w) << 50, (i64::from(w) << 33) - 7);
     let mut want = [0i64; GROUP];
-    bitpack::decode_line_with(Kernel::Scalar, src, w, base, slope, &mut want);
+    let width = bitpack::Width::new(w).expect("at most 64");
+    width
+        .decode_line_with(Kernel::Scalar, src, base, slope, &mut want)
+        .expect("the scalar kernel runs everywhere");
     for k in [Kernel::Avx2, Kernel::Avx512, Kernel::Neon] {
         if k.is_available() {
             let mut o = [0i64; GROUP];
-            bitpack::decode_line_with(k, src, w, base, slope, &mut o);
+            width
+                .decode_line_with(k, src, base, slope, &mut o)
+                .expect("an available kernel");
             assert_eq!(o, want, "{k:?} width {w}");
         }
     }

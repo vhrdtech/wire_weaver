@@ -4,6 +4,9 @@
 
 ### ⚠️ Breaking
 
+- `bitpack::read`, `pack`, `unpack_u32[_with]`, `unpack_u64` and `decode_line[_with]` are gone: use `bitpack::Width`'s methods (STD-131).
+- `EventTimes::read` refuses an events chunk of more than `times::ITEMS_MAX` (16 Mi) items; `TimesError` gains `Bound` (STD-131).
+- `TapeReader::entries` and `track_entries` refuse index entries naming blocks past the piece: `IndexError::BadEntries` (STD-131).
 - `Samples::group_bytes` returns an `Option`, None past the last group; `SampleError` gains `Bound` (STD-131).
 - `max_encoded_len` refuses a grouped column of 4 GiB or more with `BadShape` (STD-131).
 - `SummaryHead::node_items` returns an `Option`, None past the last node; `SummaryError` gains `Bound` (STD-131).
@@ -52,7 +55,7 @@
 - A piece number past the last, an over-long `Read`, or an offset past u64 is an error, not a panic (STD-131).
 - `EventTimes::is_suspect` and the column `is_suspect*` are false past the last item instead of panicking (STD-131).
 - Index blocks with a zero-length, oversized or overflowing entry are refused on read and on write (STD-131).
-- `bitpack::read` and `packed_len` saturate instead of overflowing on huge indices and counts (STD-131).
+- `bitpack::Width::read` and `packed_len` saturate instead of overflowing on huge indices and counts (STD-131).
 - Merging series stats with huge clipped counts saturates; `SeriesTimeline::from_records` is no longer quadratic (STD-131).
 - `TapeReader` reads the stretch after a checkpoint with the piece's gap rules, as `FileBlocks` does (STD-129).
 - `TapeWriter` copies only a whole describe set, never part of one still being written (STD-129).

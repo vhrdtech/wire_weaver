@@ -1,5 +1,42 @@
 use super::*;
 
+fn width(w: u32) -> Width {
+    Width::new(w).unwrap()
+}
+
+fn read(src: &[u8], index: usize, w: u32) -> u64 {
+    width(w).read(src, index)
+}
+
+fn pack(out: &mut [u8], vals: impl IntoIterator<Item = u64>, w: u32) -> usize {
+    width(w).pack(out, vals).unwrap()
+}
+
+fn unpack_u32(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+    width(w).unpack_u32(src, out).unwrap();
+}
+
+fn unpack_u32_with(kernel: Kernel, src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+    width(w).unpack_u32_with(kernel, src, out).unwrap();
+}
+
+fn unpack_u64(src: &[u8], w: u32, out: &mut [u64; GROUP]) {
+    width(w).unpack_u64(src, out);
+}
+
+fn decode_line_with(
+    kernel: Kernel,
+    src: &[u8],
+    w: u32,
+    base: i64,
+    slope: i64,
+    out: &mut [i64; GROUP],
+) {
+    width(w)
+        .decode_line_with(kernel, src, base, slope, out)
+        .unwrap();
+}
+
 /// xorshift64*, fixed seeds.
 struct Rng(u64);
 

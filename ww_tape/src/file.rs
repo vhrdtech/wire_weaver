@@ -1,53 +1,100 @@
 //! Blocks in a file or any byte stream: appended back to back, read one after the other.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
-use std::io::Read;
+use std::io::{self, Read};
 
 use crate::walk::{Head, RunState, Verdict};
 use crate::{
     Block, BlockError, GAP_CHECKS_MAX, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank,
 };
 
+/// Bytes a [FileBlocks] asks its reader for at once, at least: the buffer grows by at most this much ahead of the
+/// bytes that came, so a damaged length never allocates what it says.
+const READ_STEP: usize = 64 * 1024;
+
+/// `n` as a `u64`.
+fn wide(n: usize) -> u64 {
+    const { assert!(usize::BITS <= u64::BITS, "a usize fits a u64") };
+    u64::try_from(n).unwrap_or(u64::MAX)
+}
+
+/// `n` as the `u32` of [BlockError::BadLength]; `u32::MAX` for a longer one, over any block's length either way.
+fn report_len(n: usize) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
+
+/// A checked block's header, kept apart from its bytes: the bytes are lent again without a second check.
+#[derive(Copy, Clone, Debug)]
+struct Checked {
+    /// The header fields, with no bytes
+    head: Block<'static>,
+    len: usize,
+}
+
+impl Checked {
+    fn of(b: &Block<'_>) -> Self {
+        Checked {
+            head: Block {
+                version: b.version,
+                kind: b.kind,
+                seq: b.seq,
+                run: b.run,
+                flags: b.flags,
+                record_count: b.record_count,
+                bytes: &[],
+                intact: b.intact,
+            },
+            len: b.len(),
+        }
+    }
+
+    /// The block on the bytes it was checked on, at the start of `buf`; None when `buf` is shorter.
+    fn on(self, buf: &[u8]) -> Option<Block<'_>> {
+        let bytes = buf.get(..self.len)?;
+        Some(Block { bytes, ..self.head })
+    }
+}
+
 /// An owned block, e.g. one handed over by a producer, checked once when made.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BlockBuf(Vec<u8>);
+#[derive(Clone, Debug)]
+pub struct BlockBuf {
+    bytes: Vec<u8>,
+    /// The header of the block `bytes` holds whole
+    head: Block<'static>,
+}
+
+impl PartialEq for BlockBuf {
+    fn eq(&self, other: &Self) -> bool {
+        self.bytes == other.bytes
+    }
+}
+
+impl Eq for BlockBuf {}
 
 impl BlockBuf {
     /// Check `bytes` as one whole block.
     pub fn new(bytes: Vec<u8>) -> Result<Self, BlockError> {
         let b = Block::read(&bytes)?;
         if b.len() != bytes.len() {
-            return Err(BlockError::BadLength(bytes.len() as u32));
+            return Err(BlockError::BadLength(report_len(bytes.len())));
         }
-        Ok(BlockBuf(bytes))
+        let head = Checked::of(&b).head;
+        Ok(BlockBuf { bytes, head })
     }
 
     pub fn block(&self) -> Block<'_> {
-        // checked in new
-        Block::read(&self.0).expect("checked")
+        // the block is the whole of the bytes, checked in new
+        Block {
+            bytes: &self.bytes,
+            ..self.head
+        }
     }
 
     pub fn bytes(&self) -> &[u8] {
-        &self.0
+        &self.bytes
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.0
+        self.bytes
     }
 }
 
@@ -189,11 +236,10 @@ pub enum Recovery {
 pub struct FileBlocks<R> {
     rd: R,
     recovery: Recovery,
+    /// The bytes read and not yet passed over, from the medium offset `offset` on
     buf: Vec<u8>,
-    /// Bytes of `buf` that hold data, the current block at `buf[..current]`
-    filled: usize,
-    current: usize,
-    /// Medium offset of `buf[0]`
+    /// The block handed out last, at the start of `buf`
+    current: Option<Checked>,
     offset: u64,
     eof: bool,
     /// The run and seq taken so far, the gap rules
@@ -202,6 +248,20 @@ pub struct FileBlocks<R> {
     done: bool,
     /// The block at the start of `buf` replaces the one taken before with its id (reported already)
     replacing: bool,
+}
+
+/// What a step of the walk found.
+enum Next {
+    /// A block to hand out, at the start of `buf`
+    Block(Checked),
+    /// A copy of the block before it with the same bytes, passed over
+    Dropped,
+    End,
+}
+
+/// The stream is longer than a `u64` offset goes.
+fn too_long() -> FileError {
+    FileError::Io(io::Error::from(io::ErrorKind::FileTooLarge))
 }
 
 impl<R: Read> FileBlocks<R> {
@@ -215,8 +275,7 @@ impl<R: Read> FileBlocks<R> {
             rd,
             recovery,
             buf: Vec::new(),
-            filled: 0,
-            current: 0,
+            current: None,
             offset: 0,
             eof: false,
             walk: RunState::new(Medium::File),
@@ -259,31 +318,54 @@ impl<R: Read> FileBlocks<R> {
 
     /// Have at least `n` bytes in `buf`, false at the end of the file.
     fn fill(&mut self, n: usize) -> Result<bool, FileError> {
-        while self.filled < n {
+        while self.buf.len() < n {
             if self.eof {
                 return Ok(false);
             }
+            let have = self.buf.len();
             // grown as bytes come, so a damaged length doesn't allocate what it says
-            let want = n.min(self.filled + 64 * 1024).max(64 * 1024);
-            if self.buf.len() < want {
-                self.buf.resize(want, 0);
+            let want = n.min(have.saturating_add(READ_STEP)).max(READ_STEP);
+            self.buf.resize(want, 0);
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "buf was just grown to want bytes, and want > have"
+            )]
+            let dst = &mut self.buf[have..];
+            let got = self.rd.read(dst);
+            let now = got
+                .as_ref()
+                .ok()
+                .and_then(|got| have.checked_add(*got))
+                .filter(|now| *now <= want);
+            self.buf.truncate(now.unwrap_or(have));
+            match got {
+                Ok(0) => self.eof = true,
+                Ok(_) if now.is_none() => {
+                    return Err(FileError::Io(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "the reader said it read more bytes than asked",
+                    )));
+                }
+                Ok(_) => {}
+                Err(e) => return Err(FileError::Io(e)),
             }
-            let got = self
-                .rd
-                .read(&mut self.buf[self.filled..])
-                .map_err(FileError::Io)?;
-            if got == 0 {
-                self.eof = true;
-            }
-            self.filled += got;
         }
         Ok(true)
     }
 
-    fn consume(&mut self, n: usize) {
-        self.buf.copy_within(n..self.filled, 0);
-        self.filled -= n;
-        self.offset += n as u64;
+    /// Pass over the first `n` bytes of `buf`.
+    fn consume(&mut self, n: usize) -> Result<(), FileError> {
+        debug_assert!(n <= self.buf.len(), "consumed bytes are in buf");
+        let n = n.min(self.buf.len());
+        self.offset = self.offset.checked_add(wide(n)).ok_or_else(too_long)?;
+        self.buf.drain(..n);
+        Ok(())
+    }
+
+    /// Bytes passed over since the medium offset `start`, one this walk passed.
+    fn since(&self, start: u64) -> u64 {
+        debug_assert!(self.offset >= start, "the walk only goes forward");
+        self.offset.saturating_sub(start)
     }
 
     /// Pass over blank bytes from here: true when they are the end, running to the end of the file or, on a raw
@@ -291,18 +373,17 @@ impl<R: Read> FileBlocks<R> {
     fn skip_blank(&mut self) -> Result<bool, FileError> {
         let start = self.offset;
         loop {
-            let n = self.buf[..self.filled]
+            let n = self
+                .buf
                 .iter()
                 .position(|b| !is_blank(*b))
-                .unwrap_or(self.filled);
-            self.consume(n);
-            if self.walk.medium == Medium::Raw
-                && self.offset.saturating_sub(start) > self.walk.gap_max()
-            {
+                .unwrap_or(self.buf.len());
+            self.consume(n)?;
+            if self.walk.medium == Medium::Raw && self.since(start) > self.walk.gap_max() {
                 self.done = true;
                 return Ok(true);
             }
-            if self.filled > 0 {
+            if !self.buf.is_empty() {
                 return Ok(false);
             }
             if !self.fill(1)? {
@@ -314,39 +395,42 @@ impl<R: Read> FileBlocks<R> {
     /// The next good block, None at the end. Errors are reported one at a time: after a [FileError::Cut] the walk
     /// is over, after the others call again to go on.
     pub fn next_block(&mut self) -> Option<Result<Block<'_>, FileError>> {
-        let mut step = self.step();
-        // a copy with the same bytes as the block before it is dropped
-        while matches!(step, Ok(Some(0))) {
-            step = self.step();
-        }
-        match step {
-            Ok(Some(len)) => {
-                self.current = len;
-                // re-borrow to tie the block to self
-                Some(Ok(Block::salvage(&self.buf[..len]).expect("just read")))
+        loop {
+            match self.step() {
+                // a copy with the same bytes as the block before it is dropped
+                Ok(Next::Dropped) => {}
+                Ok(Next::Block(c)) => {
+                    self.current = Some(c);
+                    let b = self.current();
+                    debug_assert!(b.is_some(), "a block is taken with its bytes in buf");
+                    return b.map(Ok);
+                }
+                Ok(Next::End) => return None,
+                Err(e) => return Some(Err(e)),
             }
-            Ok(None) => None,
-            Err(e) => Some(Err(e)),
         }
     }
 
-    /// Find the next block: its length at the start of `buf`, None at the end.
-    fn step(&mut self) -> Result<Option<usize>, FileError> {
+    /// The block handed out last, at the start of `buf`.
+    fn current(&self) -> Option<Block<'_>> {
+        self.current?.on(&self.buf)
+    }
+
+    /// Find the next block, at the start of `buf`.
+    fn step(&mut self) -> Result<Next, FileError> {
         if self.done {
-            return Ok(None);
+            return Ok(Next::End);
         }
-        if self.current > 0 {
-            let n = self.current;
-            self.current = 0;
-            self.consume(n);
+        if let Some(c) = self.current.take() {
+            self.consume(c.len)?;
         }
         if !self.fill(1)? {
-            return Ok(None);
+            return Ok(Next::End);
         }
         // a block starts with the magic, never with a blank byte
         let start = self.offset;
-        if is_blank(self.buf[0]) && self.skip_blank()? {
-            return Ok(None);
+        if self.buf.first().is_some_and(|b| is_blank(*b)) && self.skip_blank()? {
+            return Ok(Next::End);
         }
         let blank = self.offset > start;
         let error = match self.block_here()? {
@@ -354,15 +438,15 @@ impl<R: Read> FileBlocks<R> {
                 return Err(FileError::Bad {
                     offset: start,
                     error: BlockError::BadMagic,
-                    skipped: self.offset - start,
+                    skipped: self.since(start),
                 });
             }
-            Here::Good(len) => {
+            Here::Good(c) => {
                 if blank {
                     // blank bytes, then a block: within the gap rules a gap, else the end of data
-                    return self.after_stretch(start, BlockError::BadMagic, Some(len));
+                    return self.after_stretch(start, BlockError::BadMagic, Some(c));
                 }
-                return self.judge(len);
+                return self.judge(c);
             }
             Here::Truncated if !blank => return Err(self.truncated()),
             Here::Truncated => BlockError::BadMagic,
@@ -373,7 +457,7 @@ impl<R: Read> FileBlocks<R> {
             Recovery::Resync if blank => Err(FileError::Bad {
                 offset: start,
                 error,
-                skipped: self.offset - start,
+                skipped: self.since(start),
             }),
             Recovery::Resync => Err(self.resync(error)),
         }
@@ -385,59 +469,61 @@ impl<R: Read> FileBlocks<R> {
         if !self.fill(HEADER_LEN)? {
             return Ok(Here::Truncated);
         }
-        let len = match block_len(&self.buf[..self.filled]) {
+        let len = match block_len(&self.buf) {
             Ok(len) => len,
             Err(e) => return Ok(Here::Bad(e)),
         };
         if !self.fill(len)? {
             // the rest of the file is in `buf`: a block magic in it means the length was damaged
-            let magic_later = self.buf[1..self.filled]
-                .windows(MAGIC.len())
-                .any(|w| w == MAGIC);
+            let magic_later = self
+                .buf
+                .get(1..)
+                .is_some_and(|rest| rest.windows(MAGIC.len()).any(|w| w == MAGIC));
             if self.recovery == Recovery::Resync && magic_later {
-                return Ok(Here::Bad(BlockError::BadLength(len as u32)));
+                return Ok(Here::Bad(BlockError::BadLength(report_len(len))));
             }
             return Ok(Here::Truncated);
         }
-        Ok(match Block::read(&self.buf[..len]) {
-            Ok(_) => Here::Good(len),
+        Ok(match Block::read(&self.buf) {
+            Ok(b) => Here::Good(Checked::of(&b)),
             // a chunk block with a good head: its length holds, the payload is handed out with its bad segments
             // marked, and the walk goes on after it without looking for a magic in the payload
-            Err(_)
-                if self.recovery == Recovery::Resync
-                    && Block::salvage(&self.buf[..len]).is_ok() =>
-            {
-                Here::Good(len)
-            }
+            Err(e) if self.recovery == Recovery::Resync => match Block::salvage(&self.buf) {
+                Ok(b) => Here::Good(Checked::of(&b)),
+                Err(_) => Here::Bad(e),
+            },
             Err(e) => Here::Bad(e),
         })
     }
 
-    /// The good block of `len` bytes at the start of `buf`: taken, stale or out of order.
-    fn judge(&mut self, len: usize) -> Result<Option<usize>, FileError> {
-        let b = Block::salvage(&self.buf[..len]).expect("checked");
+    /// The good block `c` at the start of `buf`: taken, stale or out of order.
+    fn judge(&mut self, c: Checked) -> Result<Next, FileError> {
+        let Some(b) = c.on(&self.buf) else {
+            return Err(self.truncated());
+        };
         let check_seq = self.recovery == Recovery::Prefix;
         let verdict = match self.walk.verdict(&b, check_seq) {
             Verdict::Duplicate { same: false } if self.replacing => Verdict::Take,
             v => v,
         };
         self.replacing = false;
+        let (run, seq) = (b.run, b.seq);
+        if matches!(verdict, Verdict::Take) {
+            self.walk.take(&b);
+        }
         match (verdict, self.recovery) {
-            (Verdict::Take, _) => {
-                self.walk.take(&b);
-                Ok(Some(len))
-            }
+            (Verdict::Take, _) => Ok(Next::Block(c)),
             (Verdict::Duplicate { same: true }, _) => {
-                // dropped: the next step reads on after it
-                self.current = len;
-                Ok(Some(0))
+                // dropped: the walk reads on after it
+                self.consume(c.len)?;
+                Ok(Next::Dropped)
             }
             (Verdict::Duplicate { same: false }, _) => {
                 self.replacing = true;
                 Err(FileError::Replaced {
                     offset: self.offset,
-                    run: b.run,
-                    seq: b.seq,
+                    run,
+                    seq,
                 })
             }
             (Verdict::Stale(run), Recovery::Prefix) => {
@@ -445,11 +531,11 @@ impl<R: Read> FileBlocks<R> {
             }
             (Verdict::Stale(run), Recovery::Resync) => {
                 let offset = self.offset;
-                self.consume(len);
+                self.consume(c.len)?;
                 Err(FileError::Stale {
                     offset,
                     run,
-                    len: len as u64,
+                    len: wide(c.len),
                 })
             }
             (Verdict::Backwards { seq, after }, _) => {
@@ -466,17 +552,15 @@ impl<R: Read> FileBlocks<R> {
         &mut self,
         start: u64,
         error: BlockError,
-        here: Option<usize>,
-    ) -> Result<Option<usize>, FileError> {
+        here: Option<Checked>,
+    ) -> Result<Next, FileError> {
         let walk = self.walk;
         let in_gap = self
             .offset
             .checked_sub(start)
             .is_some_and(|n| n <= walk.gap_max());
         if in_gap
-            && let Some(len) = here
-            && let Some(bytes) = self.buf.get(..len)
-            && let Ok(b) = Block::salvage(bytes)
+            && let Some(b) = here.and_then(|c| c.on(&self.buf))
             && walk.resumes(&b)
         {
             return self.gap(start);
@@ -486,7 +570,7 @@ impl<R: Read> FileBlocks<R> {
             if !self.skip_to(p)? || !self.fill(HEADER_LEN)? {
                 break;
             }
-            let Some(head) = self.buf.get(..self.filled).and_then(Head::read) else {
+            let Some(head) = Head::read(&self.buf) else {
                 continue;
             };
             if !walk.may_resume(&head) {
@@ -495,7 +579,7 @@ impl<R: Read> FileBlocks<R> {
             if checks == GAP_CHECKS_MAX {
                 break;
             }
-            checks += 1;
+            checks = checks.saturating_add(1);
             if !self.fill(head.len)? {
                 break;
             }
@@ -511,19 +595,19 @@ impl<R: Read> FileBlocks<R> {
 
     /// Pass over the bytes up to medium offset `to`; false when the stream ends before it.
     fn skip_to(&mut self, to: u64) -> Result<bool, FileError> {
-        while self.offset < to {
-            if self.filled == 0 && !self.fill(1)? {
+        while let Some(ahead) = to.checked_sub(self.offset).filter(|n| *n > 0) {
+            if self.buf.is_empty() && !self.fill(1)? {
                 return Ok(false);
             }
-            let n = usize::try_from(to - self.offset).map_or(self.filled, |n| n.min(self.filled));
-            self.consume(n);
+            let n = usize::try_from(ahead).map_or(self.buf.len(), |n| n.min(self.buf.len()));
+            self.consume(n)?;
         }
         Ok(true)
     }
 
     /// The gap from `start` to here, the walk going on with the block here; an error to report. Here is never
     /// before `start`; if it were, the stretch would be the end of data.
-    fn gap(&mut self, start: u64) -> Result<Option<usize>, FileError> {
+    fn gap(&mut self, start: u64) -> Result<Next, FileError> {
         match self.offset.checked_sub(start) {
             Some(len) => Err(FileError::Gap { offset: start, len }),
             None => Err(self.cut(start, Cut::Bad(BlockError::BadMagic))),
@@ -537,7 +621,7 @@ impl<R: Read> FileBlocks<R> {
             match self.next_block()? {
                 Ok(b) if b.is_intact() => break,
                 Ok(b) => {
-                    let skipped = b.len() as u64;
+                    let skipped = wide(b.len());
                     on_error(FileError::Bad {
                         offset: self.offset,
                         error: BlockError::BadCrc,
@@ -547,7 +631,7 @@ impl<R: Read> FileBlocks<R> {
                 Err(e) => on_error(e),
             }
         }
-        Some(Block::read(&self.buf[..self.current]).expect("just read"))
+        self.current()
     }
 
     fn cut(&mut self, offset: u64, why: Cut) -> FileError {
@@ -556,59 +640,81 @@ impl<R: Read> FileBlocks<R> {
     }
 
     fn truncated(&mut self) -> FileError {
-        let (offset, len) = (self.offset, self.filled as u64);
+        let (offset, len) = (self.offset, wide(self.buf.len()));
         if self.recovery == Recovery::Prefix {
             return self.cut(offset, Cut::Truncated { len });
         }
-        let n = self.filled;
-        self.consume(n);
+        if let Err(e) = self.consume(self.buf.len()) {
+            return e;
+        }
         FileError::Truncated { offset, len }
     }
 
     /// Skip to the next block magic after the start of the current bytes.
     fn resync(&mut self, error: BlockError) -> FileError {
         let offset = self.offset;
-        let mut skipped = 0u64;
-        // skip the first byte, then look for the magic
-        self.consume(1);
-        skipped += 1;
+        match self.skip_to_magic() {
+            Ok(()) => FileError::Bad {
+                offset,
+                error,
+                skipped: self.since(offset),
+            },
+            Err(e) => e,
+        }
+    }
+
+    /// Pass over the first byte, then up to the next block magic or the end of the stream.
+    fn skip_to_magic(&mut self) -> Result<(), FileError> {
+        self.consume(1)?;
         loop {
-            if let Some(i) = self.buf[..self.filled]
-                .windows(MAGIC.len())
-                .position(|w| w == MAGIC)
-            {
-                self.consume(i);
-                skipped += i as u64;
-                break;
+            if let Some(i) = self.buf.windows(MAGIC.len()).position(|w| w == MAGIC) {
+                return self.consume(i);
             }
             // keep the last bytes, a magic may start there
-            let keep = (MAGIC.len() - 1).min(self.filled);
-            let drop = self.filled - keep;
-            self.consume(drop);
-            skipped += drop as u64;
-            match self.fill(self.filled + 1) {
-                Ok(true) => {}
-                _ => {
-                    let n = self.filled;
-                    self.consume(n);
-                    skipped += n as u64;
-                    break;
-                }
+            let keep = MAGIC.len().saturating_sub(1).min(self.buf.len());
+            self.consume(self.buf.len().saturating_sub(keep))?;
+            let more = self.buf.len().saturating_add(1);
+            if !matches!(self.fill(more), Ok(true)) {
+                return self.consume(self.buf.len());
             }
-        }
-        FileError::Bad {
-            offset,
-            error,
-            skipped,
         }
     }
 }
 
 /// What starts the bytes a [FileBlocks] holds.
 enum Here {
-    /// A good block (or, in [Recovery::Resync], a chunk with a good head) of this length.
-    Good(usize),
+    /// A good block (or, in [Recovery::Resync], a chunk with a good head).
+    Good(Checked),
     /// The file ends inside the header or the block.
     Truncated,
     Bad(BlockError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A reader that says it read one byte more than it was asked for.
+    struct Overreads;
+
+    impl Read for Overreads {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            Ok(buf.len() + 1)
+        }
+    }
+
+    #[test]
+    fn a_reader_over_its_buffer_is_an_error() {
+        let mut blocks = FileBlocks::new(Overreads);
+        let e = blocks.next_block().unwrap().unwrap_err();
+        assert!(matches!(e, FileError::Io(e) if e.kind() == io::ErrorKind::InvalidData));
+    }
+
+    #[test]
+    fn an_offset_past_u64_is_an_error() {
+        let bytes = [0u8; 16];
+        let mut blocks = FileBlocks::new(&bytes[..]).starting_at(u64::MAX - 3);
+        let e = blocks.next_block().unwrap().unwrap_err();
+        assert!(matches!(e, FileError::Io(e) if e.kind() == io::ErrorKind::FileTooLarge));
+    }
 }

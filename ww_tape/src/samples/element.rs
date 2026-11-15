@@ -10,7 +10,7 @@ use shrink_wrap::prelude::*;
     borrowed,
     owned(feature = "std"),
     derive(Debug, Clone, Copy, PartialEq, Eq, Hash),
-    ww_repr = u4
+    ww_repr = u8
 )]
 pub enum Element {
     I8,
@@ -178,11 +178,11 @@ mod tests {
 
     #[test]
     fn element_bytes_are_its_code() {
-        // the element is a u4 discriminant on the wire, so its nibble is the code
+        // the element is a u8 discriminant on the wire, so its byte is the code
         for e in Element::ALL {
             let mut buf = [0u8; 8];
             let bytes = e.to_ww_bytes(&mut buf).unwrap();
-            assert_eq!(bytes[0] >> 4, e.code(), "{e:?}");
+            assert_eq!(bytes, [e.code()], "{e:?}");
         }
         let shape = SampleShape::new(Element::ComplexI16, 3);
         assert_eq!(shape.lanes(), Some(6));

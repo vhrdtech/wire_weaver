@@ -575,12 +575,12 @@ fn fit(g: &[i64]) -> (i64, i64, u32) {
 #[cfg(feature = "std")]
 pub(crate) fn encode(ticks: &[i64]) -> (TimeMode, std::vec::Vec<u8>) {
     assert!(!ticks.is_empty(), "a chunk has an item at least");
-    let period = if ticks.len() >= 2 {
-        ticks[1] - ticks[0]
-    } else {
-        0
-    };
-    if ticks.windows(2).all(|w| w[1] - w[0] == period) {
+    // gaps in i128: two ticks may lie more than i64::MAX apart, and such a period doesn't fit the column
+    let gap = |w: &[i64]| i128::from(w[1]) - i128::from(w[0]);
+    let period = if ticks.len() >= 2 { gap(ticks) } else { 0 };
+    if let Ok(period) = i64::try_from(period)
+        && ticks.windows(2).all(|w| gap(w) == i128::from(period))
+    {
         return (TimeMode::Implicit, period.to_le_bytes().to_vec());
     }
     let groups: std::vec::Vec<(i64, i64, u32)> = ticks.chunks(GROUP).map(fit).collect();

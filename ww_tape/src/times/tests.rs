@@ -186,6 +186,10 @@ pub(crate) fn workloads() -> Vec<(&'static str, Vec<i64>)> {
             .map(|i| i * i * 1_000_003 + (i % 3) * 7)
             .collect(),
     ));
+    // gaps of 2^63 ticks and more: periods that don't fit an i64
+    w.push(("extreme gaps", std::vec![i64::MIN, 0, 1]));
+    w.push(("extreme pair", std::vec![i64::MIN, i64::MAX]));
+    w.push(("extreme even", std::vec![i64::MIN, -1, i64::MAX - 1]));
     w
 }
 
@@ -194,7 +198,7 @@ fn starts_read_back_every_way() {
     for (name, s) in workloads() {
         let (mode, end) = round_trip(&s, None, None);
         assert_eq!(end, EndMode::Absent, "{name}");
-        let implicit = matches!(name, "exact" | "one" | "two" | "same tick");
+        let implicit = matches!(name, "exact" | "one" | "two" | "same tick" | "extreme even");
         assert_eq!(mode == TimeMode::Implicit, implicit, "{name}");
     }
 }

@@ -1298,3 +1298,80 @@ fn series_block_scale_is_checked() {
         );
     }
 }
+
+/// A series with a period of 62500/3 ticks cut into pieces at arbitrary samples, each piece summarised on its own from
+/// the cut: every node lies on the uncut series' grid with its items, statistics and ticks, and only the nodes a cut
+/// splits differ.
+#[test]
+fn series_cut_into_pieces_keeps_node_ticks() {
+    let shape = SampleShape::scalar(Element::I16);
+    let period = Ratio64::new(62_500, 3).unwrap();
+    let segment = SeriesSegment::start(0, 1000, Magnitude::ONE);
+    let data: Vec<i16> = (0..9000).map(|i| ((i * 31) % 2000 - 1000) as i16).collect();
+    let summarise = |from: usize, to: usize| -> Vec<Vec<u8>> {
+        let start = SeriesStart {
+            track_id: 77,
+            track_number: 2,
+            shape,
+            first_item: from as u64,
+            segment,
+            period,
+        };
+        let mut s =
+            SeriesSummaries::<i16>::new(start, spec(4, SeriesStats::all(Element::I16), None))
+                .unwrap();
+        s.push(&data[from..to], 0).unwrap();
+        s.finish().unwrap();
+        s.take_blocks()
+    };
+    let tick = |item: u64| segment.tick(period, item).unwrap();
+    let ticks_on_grid = |blocks: &[Vec<u8>]| {
+        for b in blocks {
+            let h = Block::read(b).unwrap().summary().unwrap().head();
+            assert_eq!(h.first_tick, tick(h.first_item), "{h:?}");
+            assert_eq!(h.last_tick, tick(h.first_item + h.items - 1), "{h:?}");
+        }
+    };
+    let whole = summarise(0, data.len());
+    ticks_on_grid(&whole);
+    let uncut = series_levels(&whole);
+    let cuts = [0, 1, 1234, 1235, 4096, 5003, 8999, data.len()];
+    let mut pieces = BTreeMap::new();
+    for w in cuts.windows(2) {
+        let blocks = summarise(w[0], w[1]);
+        ticks_on_grid(&blocks);
+        for (k, v) in series_levels(&blocks) {
+            pieces.entry(k).or_insert_with(Vec::new).push(v);
+        }
+    }
+    let mut split = 0;
+    for (k, got) in &pieces {
+        let (first, items, stats) = &uncut[k];
+        if let [(f, n, s)] = got.as_slice()
+            && (f, n) == (first, items)
+        {
+            assert!(same_bits(s, stats), "{k:?}");
+        } else {
+            // a node a cut splits: its parts lie within the uncut node, apart (a piece's top level is the one where a
+            // node covers it, so a short piece adds no part to the levels above)
+            let mut parts: Vec<(u64, u64)> = got.iter().map(|g| (g.0, g.1)).collect();
+            parts.sort_unstable();
+            for p in &parts {
+                assert!(
+                    p.0 >= *first && p.0 + p.1 <= first + items,
+                    "{k:?} {parts:?}"
+                );
+            }
+            assert!(
+                parts.windows(2).all(|w| w[0].0 + w[0].1 <= w[1].0),
+                "{k:?} {parts:?}"
+            );
+            split += 1;
+        }
+    }
+    assert!(
+        pieces.keys().all(|k| uncut.contains_key(k)),
+        "no node off the grid"
+    );
+    assert!(split > 0, "some nodes are split");
+}

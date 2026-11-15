@@ -325,6 +325,14 @@ build-docs:
 size-bench *args:
     cargo run -q --release -p size_bench -- {{ args }}
 
+# Float sample codecs of ww_tape on motor_sim, decoded speech and ADC data (STD-130); fetches the public-domain
+# speech file (Roosevelt's Pearl Harbor address, Wikimedia Commons) once and checks it; `just bench-sample-codecs --help`
+bench-sample-codecs *args:
+    mkdir -p target/bench-data
+    test -f target/bench-data/Roosevelt_Pearl_Harbor.ogg || curl -fsSL -o target/bench-data/Roosevelt_Pearl_Harbor.ogg https://upload.wikimedia.org/wikipedia/commons/f/fd/Roosevelt_Pearl_Harbor.ogg
+    echo "90239988a1fc36a44f6531207c918544980bfea0  target/bench-data/Roosevelt_Pearl_Harbor.ogg" | sha1sum -c --quiet
+    cargo run -q --release -p ww_tape_benchmarks -- --speech target/bench-data/Roosevelt_Pearl_Harbor.ogg {{ args }}
+
 # Units firmware budget (TEST-27): ww_si::Fixed against plain fields in instructions (QEMU M3), flash and stack, at the
 # shipped firmware's profile; `--qemu-host HOST` runs QEMU there (this PC has none), `--cycles` adds the STM32H725 (DWT)
 [working-directory('examples_mcu/fw_budget')]

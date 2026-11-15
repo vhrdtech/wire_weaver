@@ -34,6 +34,7 @@ members = [
     "ww_stream",
     "ww_tap",
     "ww_tape",
+    "ww_tape_benchmarks",
 ]
 
 exclude = [
@@ -77,7 +78,10 @@ futures-core = { version = "0.3", default-features = false, features = ["alloc"]
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
 interprocess = { version = "2.4", features = ["tokio"] }
+# ww_tape_benchmarks: a pure-Rust Vorbis decoder for the speech data set
+lewton = { version = "0.10", default-features = false, features = ["ogg"] }
 libc = "0.2"
+libm = "0.2"
 # exact: ww_tape lz4 payload columns must compress to the same bytes (ww_tape/src/lz4.rs)
 lz4_flex = { version = "=0.14.0", default-features = false, features = ["safe-decode", "checked-decode"] }
 nusb = { version = "0.2", features = ["tokio"] }
@@ -107,6 +111,8 @@ windows-sys = "0.61"
 # exact_units lives in its own repository, taken by git: Cargo.lock pins the commit (`cargo update -p exact_units`
 # moves it); the commented-out [patch."https://github.com/romixlab/exact_units"] below builds against a local checkout
 exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
+# ww_tape_benchmarks: the motor simulation data set, by git from its own repository; Cargo.lock pins the commit
+motor_sim = { git = "https://github.com/vhrdtech/motor_sim", default-features = false }
 # the docs site's WireWeaver highlighter (DOC-11), vendored into docs/ and checked by tests/docs_highlight: by git
 # from ww_lsp, which owns it; Cargo.lock pins the commit
 ww_highlight = { git = "https://github.com/romixlab/ww_lsp" }

@@ -249,13 +249,15 @@ impl<S: ByteSource> TapeReader<S> {
         let mut hi = len;
         let mut rev: Vec<PieceInfo> = Vec::new();
         while hi > 0 {
-            if let Some(p) = r.by_tail(hi)? {
+            if let Some(p) = r.by_tail(hi)?
+                && p.start < hi
+            {
                 hi = p.start;
                 rev.push(p);
                 continue;
             }
             let found = r.recover(hi, options)?;
-            let Some(first) = found.first() else {
+            let Some(first) = found.first().filter(|f| f.start < hi) else {
                 break;
             };
             hi = first.start;

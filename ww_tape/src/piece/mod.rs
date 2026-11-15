@@ -481,7 +481,8 @@ impl Tail {
         let finish_len = get_u32(b, 48);
         let fits = finish_offset
             .checked_add(u64::from(finish_len))
-            .is_some_and(|end| end + TAIL_LEN as u64 <= piece_len);
+            .and_then(|end| end.checked_add(TAIL_LEN as u64))
+            .is_some_and(|end| end <= piece_len);
         if !fits {
             return Err(IndexError::BadHead);
         }

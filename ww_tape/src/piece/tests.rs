@@ -109,6 +109,15 @@ fn finish_and_tail_round_trip() {
     };
     wrong.write(&mut tb, 78);
     assert!(Tail::read(&tb).is_err());
+    // offsets whose sum overflows u64
+    let wraps = Tail {
+        piece_len: TAIL_LEN as u64,
+        finish_offset: u64::MAX - 343,
+        finish_len: 180,
+        ..tail
+    };
+    wraps.write(&mut tb, 78);
+    assert_eq!(Tail::read(&tb), Err(IndexError::BadHead));
 }
 
 #[test]

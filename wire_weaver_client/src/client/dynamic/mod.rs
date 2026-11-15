@@ -19,6 +19,7 @@
 
 use crate::client::dyn_observe::{BatchedSlot, DynConfig, DynObserver, DynUpdate, LevelSchema};
 use crate::client::dyn_positioned::{DynPositionedStream, DynStreamOpen};
+use crate::client::keyed::KeyNotes;
 use crate::client::prepared_stream_open::RawOpenResult;
 use crate::error_list;
 use crate::observe::{ObserveMode, PreparedObserve};
@@ -56,12 +57,16 @@ pub struct DynResource {
     node: Node,
     /// An `#[optional]` item the device leaves out (API-16), requests to it fail locally.
     omitted: bool,
+    /// Its part in a keyed array (CLT-72), `None` for most resources.
+    keyed: Option<KeyedRole>,
 }
 
 #[derive(Clone, Debug)]
 enum Node {
     /// API root (None) or a trait
     Level { trait_idx: Option<u32> },
+    /// A `keyed!` companion (CLT-72): its fixed level is in [KeyedRole::Companion].
+    Keys,
     /// Array of resources, not yet indexed
     Array,
     /// Method, property or stream
@@ -105,6 +110,7 @@ impl DynResource {
             item: None,
             node: Node::Level { trait_idx: None },
             omitted: false,
+            keyed: None,
         }
     }
 
@@ -120,6 +126,7 @@ impl DynResource {
                 trait_idx: Some(trait_idx),
             },
             omitted: false,
+            keyed: None,
         }
     }
 
@@ -145,7 +152,7 @@ impl DynResource {
     pub fn kind(&self) -> Result<DynResourceKind<'_>, Error> {
         let item = self.item.as_ref();
         Ok(match (&self.node, item) {
-            (Node::Level { .. }, _) => DynResourceKind::Level(self.level()?),
+            (Node::Level { .. } | Node::Keys, _) => DynResourceKind::Level(self.level()?),
             (Node::Array, Some(item)) => DynResourceKind::Array(item),
             (Node::Item, Some(item)) => match &item.kind {
                 ApiItemKindOwned::Method {
@@ -178,13 +185,7 @@ impl DynResource {
                     flow: None,
                 },
                 ApiItemKindOwned::Trait { .. } => unreachable!("traits are levels"),
-                // TODO(CLT-72): the companion's level (ww_self::keys::keys_level) and key paths
-                ApiItemKindOwned::Keys { .. } => {
-                    return Err(Error::Other(format!(
-                        "`{}`: keyed! arrays are not reachable from the dynamic client yet (CLT-72)",
-                        self.path
-                    )));
-                }
+                ApiItemKindOwned::Keys { .. } => unreachable!("keyed! companions are levels"),
             },
             (_, None) => unreachable!("only the API root has no item"),
         })
@@ -243,6 +244,7 @@ impl DynResource {
         } else {
             self.resolve(item)?
         };
+        let keyed = self.keyed_role(level, item)?;
         Ok(DynResource {
             bundle: self.bundle.clone(),
             index_chain,
@@ -250,6 +252,7 @@ impl DynResource {
             item: Some(item.clone()),
             node,
             omitted: self.omitted || self.omitted_ids().contains(&item.id),
+            keyed,
         })
     }
 
@@ -292,6 +295,11 @@ impl DynResource {
             item: Some(item.clone()),
             node: self.resolve(item)?,
             omitted: self.omitted,
+            // `key[i]` stays in the companion, an element of a keyed array is a resource like any other
+            keyed: self
+                .keyed
+                .clone()
+                .filter(|role| matches!(role, KeyedRole::Companion(_))),
         })
     }
 
@@ -304,6 +312,7 @@ impl DynResource {
                     trait_idx: Some(trait_idx.0),
                 }
             }
+            ApiItemKindOwned::Keys { .. } => Node::Keys,
             _ => Node::Item,
         })
     }
@@ -314,6 +323,10 @@ impl DynResource {
             Node::Level {
                 trait_idx: Some(idx),
             } => self.bundle.get_trait(*idx).map_err(other),
+            Node::Keys => match &self.keyed {
+                Some(KeyedRole::Companion(companion)) => Ok(&companion.level),
+                _ => unreachable!("a companion's resource has its role"),
+            },
             _ => Err(Error::Other(format!(
                 "'{}' is not a trait",
                 self.display_path()
@@ -491,7 +504,9 @@ impl DynResource {
 
     /// Read a property. A `const` is read from the device once per connection, later reads return that value.
     pub async fn read(&self, cmd: &Commander) -> Result<ValueOwned, Error> {
-        let bytes = self.check_property_error(self.prepare_read(cmd)?.read().await)?;
+        let result = self.prepare_read(cmd)?.read().await;
+        self.key_read(cmd, &result);
+        let bytes = self.check_property_error(result)?;
         self.decode_property(&bytes)
     }
 
@@ -505,7 +520,9 @@ impl DynResource {
         if let Some(timeout) = timeout {
             read = read.with_timeout(timeout);
         }
-        let bytes = self.check_property_error(read.blocking_read())?;
+        let result = read.blocking_read();
+        self.key_read(cmd, &result);
+        let bytes = self.check_property_error(result)?;
         self.decode_property(&bytes)
     }
 
@@ -633,7 +650,7 @@ impl DynResource {
             .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind()?, None, Ok(vec![]))
             .call()
             .await?;
-        DynStream::new(self, stream, ty)
+        DynStream::new(self, stream, ty, self.key_events(cmd))
     }
 
     /// Blocking variant of [Self::stream].
@@ -642,7 +659,7 @@ impl DynResource {
         let stream = cmd
             .prepare_stream_open::<(), Stream<TailBytesOwned>>(self.path_kind()?, None, Ok(vec![]))
             .blocking_call()?;
-        DynStream::new(self, stream, ty)
+        DynStream::new(self, stream, ty, self.key_events(cmd))
     }
 
     /// Item type of a plain stream without arguments and result.
@@ -1132,6 +1149,8 @@ pub struct DynStream {
     bundle: Arc<ApiBundleOwned>,
     batched: Option<crate::client::dyn_positioned::DynBatching>,
     pending: std::collections::VecDeque<BatchItem<ValueOwned>>,
+    /// The `keys` stream of a keyed array (CLT-72): the cache to follow its announcements, and the key type.
+    key_events: Option<(KeyNotes, TypeOwned)>,
 }
 
 impl DynStream {
@@ -1139,6 +1158,7 @@ impl DynStream {
         resource: &DynResource,
         stream: Stream<TailBytesOwned>,
         ty: TypeOwned,
+        key_events: Option<(KeyNotes, TypeOwned)>,
     ) -> Result<Self, Error> {
         let is_bytes = ty.is_byte_slice(&resource.bundle).unwrap_or(false);
         let batched = match resource.stream_fn_ref() {
@@ -1162,6 +1182,7 @@ impl DynStream {
             bundle: resource.bundle.clone(),
             batched,
             pending: Default::default(),
+            key_events,
         })
     }
 
@@ -1251,10 +1272,13 @@ impl DynStream {
     /// time, a plain one is the value itself, without a time.
     fn decode(&mut self, bytes: &TailBytesOwned) -> Result<(), StreamError> {
         match &mut self.batched {
-            None => self.pending.push_back(BatchItem {
-                t: None,
-                value: decode_item(self.is_bytes, &self.ty, &self.bundle, bytes.clone())?,
-            }),
+            None => {
+                let value = decode_item(self.is_bytes, &self.ty, &self.bundle, bytes.clone())?;
+                if let Some((notes, key_ty)) = &self.key_events {
+                    keys::note_event(notes, key_ty, &self.bundle, &value);
+                }
+                self.pending.push_back(BatchItem { t: None, value });
+            }
             Some(batched) => {
                 let items = batched.decode(bytes, &self.bundle)?;
                 self.pending.extend(items);
@@ -1460,6 +1484,10 @@ impl DynSink {
             .map_err(|e| StreamError::Other(Error::Other(format!("{e:#}"))))
     }
 }
+
+mod keys;
+pub(crate) use keys::KeyedRole;
+pub use keys::{PathStep, parse_path};
 
 fn other(e: anyhow::Error) -> Error {
     Error::Other(format!("{e:#}"))

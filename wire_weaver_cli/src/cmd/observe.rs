@@ -3,7 +3,7 @@
 //! `+batched` properties come sample by sample, one line each with its device time (API-39).
 
 use crate::untrusted::escape;
-use crate::util::{display_path, resolve};
+use crate::util::display_path;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Args;
 use console::style;
@@ -18,7 +18,7 @@ use wire_weaver_client::{DynClient, DynResource, seconds};
 
 #[derive(Args)]
 pub(crate) struct ObserveArgs {
-    /// Path to a trait level, e.g. "motor" or "bank\[0\]"; empty observes the API root
+    /// Path to a trait level, e.g. "motor", "bank\[0\]" or by key "flow\[FlowKey { .. }\]"; empty observes the API root
     #[arg(default_value = "")]
     path: String,
 
@@ -51,7 +51,9 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         .ok_or_else(|| anyhow!("device did not provide introspection data"))?
         .api_bundle
         .clone();
-    let level = resolve(DynResource::root(bundle), &args.path)?;
+    let level = DynResource::root(bundle)
+        .walk_on(device.cmd(), &args.path)
+        .await?;
     let props = level
         .observable_properties()
         .with_context(|| format!("'{}'", display_path(&args.path)))?;

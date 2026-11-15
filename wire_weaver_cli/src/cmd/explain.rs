@@ -4,7 +4,7 @@
 //! `ww_self::expr` and encoded first.
 
 use crate::cmd::tap::ViewArgs;
-use crate::util::{display_path, resolve};
+use crate::util::display_path;
 use crate::value_fmt::fmt_value;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Args;
@@ -132,9 +132,7 @@ pub(crate) fn explain_cmd(args: ExplainArgs, device: Option<&DynClient>) -> Resu
         }
         ("event", Some(bytes)) => {
             let for_resource = match &args.for_path {
-                Some(path) => {
-                    Some(resolve(root.clone(), path).with_context(|| format!("'{path}'"))?)
-                }
+                Some(path) => Some(root.walk(path).with_context(|| format!("'{path}'"))?),
                 None => None,
             };
             let e = envelope::explain_event(&bytes, &root, for_resource.as_ref());
@@ -214,12 +212,14 @@ fn target(args: &ExplainArgs, bundle: &Arc<ApiBundleOwned>) -> Result<(String, T
     if let Some(ty) = find_type(bundle, &args.what) {
         return Ok((args.what.clone(), Target::Value(ty)));
     }
-    let resource = resolve(DynResource::root(bundle.clone()), &args.what).with_context(|| {
-        format!(
-            "'{}' is neither a type nor a resource",
-            display_path(&args.what)
-        )
-    })?;
+    let resource = DynResource::root(bundle.clone())
+        .walk(&args.what)
+        .with_context(|| {
+            format!(
+                "'{}' is neither a type nor a resource",
+                display_path(&args.what)
+            )
+        })?;
     resource_target(&resource, &args.what, args.ret)
 }
 
@@ -262,7 +262,7 @@ fn encode(
     let root = DynResource::root(bundle.clone());
     match expr::parse_call(&args.what)? {
         Call::Method { path, args: exprs } => {
-            let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
+            let resource = root.walk(&path).with_context(|| format!("'{path}'"))?;
             let (title, target) = resource_target(&resource, &path, false)?;
             let Target::Args(defs) = &target else {
                 bail!("'{path}' is not a method");
@@ -282,7 +282,7 @@ fn encode(
             Ok((title, target, bytes, Some(resource)))
         }
         Call::Write { path, value } => {
-            let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
+            let resource = root.walk(&path).with_context(|| format!("'{path}'"))?;
             let (title, target) = resource_target(&resource, &path, false)?;
             let Target::Value(ty) = &target else {
                 bail!("'{path}' is not a property");
@@ -293,7 +293,7 @@ fn encode(
         }
         // a property read: no payload, only the request
         Call::Path { path } if args.request => {
-            let resource = resolve(root, &path).with_context(|| format!("'{path}'"))?;
+            let resource = root.walk(&path).with_context(|| format!("'{path}'"))?;
             Ok((path, Target::None, vec![], Some(resource)))
         }
         Call::Path { path } => bail!(

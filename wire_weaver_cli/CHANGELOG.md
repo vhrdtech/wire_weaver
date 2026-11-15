@@ -11,6 +11,7 @@
 
 - `ww tap` shows a block whose coded body doesn't decode, its records lost (STD-129).
 - `ww api` trees show a keyed array as `flow[] keyed by FlowKey`, its companion as `keyed flow_keys: flow by FlowKey` (API-67, EVO-78).
+- `ww stream` and `ww observe` take an element of a keyed array by its key, `flow[FlowKey { .. }].packets` (CLT-72).
 - `ww api scaffold` prints the handlers of a `keyed!` companion, `<array>_index_of` and `get_<array>_key` (SRV-62).
 - `ww capture` files end with an index, a finish block with a BLAKE3 content hash and a tail (STD-122).
 - `ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]` rewrites the pinned references of a crate's current snapshot to the source's, keeping its format, for a frozen fixture that follows its dependencies by path (EVO-70).

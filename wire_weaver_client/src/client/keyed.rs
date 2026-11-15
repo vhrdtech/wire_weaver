@@ -195,7 +195,11 @@ impl KeyNotes {
     }
 
     /// Follows a read of `key[index]`: learns the key, or forgets the index the device refused.
-    pub(crate) fn key_read<T: std::ops::Deref<Target = [u8]>>(&self, index: u32, result: &Result<T, Error>) {
+    pub(crate) fn key_read<T: std::ops::Deref<Target = [u8]>>(
+        &self,
+        index: u32,
+        result: &Result<T, Error>,
+    ) {
         match result {
             Ok(key) => self.learn(index, key.to_vec()),
             Err(_) if is_bad_index(result) => self.forget(index),

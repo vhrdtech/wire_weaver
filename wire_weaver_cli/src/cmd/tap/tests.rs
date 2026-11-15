@@ -3,7 +3,6 @@
 //! it, and the capture read back the way `ww explain FILE` reads it: the same text.
 
 use super::*;
-use crate::util::resolve;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::ObserveMode;
 use wire_weaver_client::ww_client_server::ww_si::Micros;
@@ -207,8 +206,8 @@ async fn monitor_capture_and_explain_file_agree() {
     tap.add_bundles(&client);
 
     let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
-    let add = resolve(root.clone(), "add").unwrap();
-    let blob = resolve(root, "blob").unwrap();
+    let add = root.walk("add").unwrap();
+    let blob = root.walk("blob").unwrap();
     // several requests at once share host packets
     let calls: Vec<_> = (0..8u32)
         .map(|i| {
@@ -375,7 +374,7 @@ async fn monitor_and_capture_flags_on_a_commands_own_client() {
     .expect("connect");
     attached.add_bundles(&client);
     let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
-    let add = resolve(root, "add").unwrap();
+    let add = root.walk("add").unwrap();
     let sum = add
         .call(client.cmd(), &[u32v(3), u32v(100)])
         .await
@@ -497,7 +496,7 @@ async fn observe_requests_replies_and_updates_are_decoded() {
     let device = demo_device("cli/tap_observe", 7);
     let (printed, path) = tapped_session("observe", &device, false, async |client| {
         let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
-        let level = resolve(root, "").unwrap();
+        let level = root.walk("").unwrap();
         let props = level.observable_properties().unwrap();
         let names: Vec<_> = props.iter().map(|(_, n, _)| n.as_str()).collect();
         assert_eq!(names, ["load", "state"]);
@@ -642,7 +641,7 @@ async fn sigterm_finishes_the_capture_file() {
         assert!(status.success());
     });
     let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
-    let level = resolve(root, "").unwrap();
+    let level = root.walk("").unwrap();
     let entries = [(
         3,
         ObserveMode::OnChange {

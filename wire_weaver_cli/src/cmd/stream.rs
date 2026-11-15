@@ -4,7 +4,7 @@
 //! Stream functions with arguments aren't supported yet: the CLI has no value-parsing convention for method or
 //! stream arguments anywhere (CLT-23-adjacent), so this errors out clearly instead of half-building one.
 
-use crate::util::{display_path, resolve};
+use crate::util::display_path;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Args;
 use console::style;
@@ -16,7 +16,7 @@ use wire_weaver_client::{
 
 #[derive(Args)]
 pub(crate) struct StreamArgs {
-    /// Path to a stream, e.g. "motor.position" or "bank\[0\].samples"
+    /// Path to a stream, e.g. "motor.position", "bank\[0\].samples" or by key "flow\[FlowKey { .. }\].packets"
     path: String,
 
     /// Print whole batches (API-41's batched streams) instead of one item per line
@@ -30,7 +30,9 @@ pub(crate) async fn stream(args: StreamArgs, device: &DynClient) -> Result<()> {
         .ok_or_else(|| anyhow!("device did not provide introspection data"))?
         .api_bundle
         .clone();
-    let resource = resolve(DynResource::root(bundle), &args.path)
+    let resource = DynResource::root(bundle)
+        .walk_on(device.cmd(), &args.path)
+        .await
         .with_context(|| format!("'{}'", display_path(&args.path)))?;
     let ty = match resource.kind()? {
         DynResourceKind::Stream {

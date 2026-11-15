@@ -16,7 +16,7 @@ mod tests {
     use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
     use wire_weaver::shrink_wrap::{BufReader, UVlq32Backfill};
     use wire_weaver_client::internal::Command;
-    use wire_weaver_client::{ClientConfig, Commander, DynClient, Error};
+    use wire_weaver_client::{ClientConfig, Commander, DynClient, DynResource, Error};
     use ww_client_server::{
         ErrorKindOwned, ErrorOwned, MultiIndexOwned, PathKind, PathKindOwned, RequestKindOwned,
         RequestOwned, ResourceIndex,
@@ -690,5 +690,140 @@ mod tests {
         );
         assert!(client.flow_by(&live).await.unwrap().is_none());
         assert_eq!(calls(&index_of), 3);
+    }
+
+    /// `flow(i)`'s key as a Rust expression, as `ww` and the dynamic client take it in a path.
+    fn key_text(i: u16) -> String {
+        let (key, _) = flow(i);
+        let proto = match key.proto {
+            Proto::Tcp => "Proto::Tcp",
+            Proto::Udp => "Proto::Udp",
+            Proto::Unknown(_) => unreachable!("the test's keys"),
+        };
+        let endpoint = |e: &Endpoint| {
+            format!(
+                "Endpoint {{ addr: {:?}, port: Port({}) }}",
+                e.addr, e.port.0
+            )
+        };
+        format!(
+            "FlowKey {{ proto: {proto}, src: {}, dst: {}, first_seen: Point {{ coord: {} }} }}",
+            endpoint(&key.src),
+            endpoint(&key.dst),
+            key.first_seen.raw()
+        )
+    }
+
+    /// Index the device gave `flow(i)`.
+    fn device_index(table: &Mutex<Table>, i: u16) -> u32 {
+        let table = table.lock().unwrap();
+        let at = table
+            .flows
+            .iter()
+            .position(|f| f.as_ref().map(|(k, _)| k) == Some(&flow(i).0))
+            .expect("a live flow");
+        at as u32
+    }
+
+    /// The dynamic client finds flows by key in paths (`flow[FlowKey { .. }].bytes`), asks once per key, and
+    /// reaches the companion's own level (`flow_keys.key[i]`).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dynamic_by_key() {
+        let table = shuffled_table();
+        let device = start_blocking("keyed/dynamic", table.clone());
+        let index_of = count_index_of(&device);
+        let client = connect(&device).await;
+        let cmd = client.cmd();
+        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+        assert!(root.child("flow").unwrap().key_ty().is_some());
+        for _ in 0..2 {
+            for i in REMOVED..FLOWS {
+                let res = root
+                    .walk_on(cmd, &format!("flow[{}].bytes", key_text(i)))
+                    .await
+                    .unwrap();
+                assert_eq!(res.index_chain()[1].get().0, device_index(&table, i));
+                res.read(cmd).await.unwrap();
+            }
+        }
+        assert_eq!(calls(&index_of), u32::from(FLOWS - REMOVED));
+
+        let removed = root.walk_on(cmd, &format!("flow[{}]", key_text(0))).await;
+        assert!(removed.unwrap_err().to_string().contains("no element"));
+        let offline = root.walk(&format!("flow[{}].bytes", key_text(REMOVED)));
+        assert!(offline.unwrap_err().to_string().contains("connect"));
+
+        let i = REMOVED + 1;
+        let index = device_index(&table, i);
+        let key_value = root
+            .walk(&format!("flow_keys.key[{index}]"))
+            .unwrap()
+            .read(cmd)
+            .await
+            .unwrap();
+        let flow_array = root.child("flow").unwrap();
+        let expected = wire_weaver_client::expr::parse_value(
+            &key_text(i),
+            flow_array.key_ty().unwrap(),
+            flow_array.bundle(),
+        )
+        .unwrap();
+        assert_eq!(key_value, expected);
+    }
+
+    /// The blocking dynamic client, and its cache following the `keys` stream opened by path.
+    #[test]
+    fn dynamic_by_key_blocking() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let table = shuffled_table();
+        let device = start_async("keyed/dynamic_blocking", table.clone());
+        let index_of = count_index_of(&device);
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect_blocking()
+            .expect("connect");
+        let cmd = client.cmd();
+        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+        for i in REMOVED..FLOWS {
+            let res = root
+                .walk_on_blocking(cmd, &format!("flow[{}]", key_text(i)))
+                .unwrap();
+            assert_eq!(res.index_chain()[1].get().0, device_index(&table, i));
+        }
+        assert_eq!(calls(&index_of), u32::from(FLOWS - REMOVED));
+
+        let mut keys = root
+            .walk("flow_keys.keys")
+            .unwrap()
+            .stream_blocking(cmd)
+            .unwrap();
+        let (new, bytes) = (key(5000, 0), 5);
+        let index = {
+            let mut table = table.lock().unwrap();
+            table.flows.push(Some((new.clone(), bytes)));
+            table.flows.len() as u32 - 1
+        };
+        let added = KeyEvent::Added {
+            index: UNib32(index),
+            key: new,
+        };
+        let mut scratch = [0u8; 128];
+        device.send(
+            async_server::api_impl::stream_data_ser()
+                .flow_keys(&added, &mut scratch)
+                .unwrap(),
+        );
+        keys.recv_blocking().unwrap();
+        let text = "FlowKey { proto: Proto::Tcp, src: Endpoint { addr: [10, 0, 0, 1], port: Port(5000) }, \
+                    dst: Endpoint { addr: [10, 0, 0, 2], port: Port(443) }, first_seen: Point { coord: 0 } }";
+        let res = root
+            .walk_on_blocking(cmd, &format!("flow[{text}]"))
+            .unwrap();
+        assert_eq!(res.index_chain()[1].get().0, index);
+        assert_eq!(
+            calls(&index_of),
+            u32::from(FLOWS - REMOVED),
+            "announced, not asked"
+        );
     }
 }

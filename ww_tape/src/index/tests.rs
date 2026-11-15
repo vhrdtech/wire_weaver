@@ -130,7 +130,7 @@ fn final_index_must_be_sorted() {
 #[test]
 fn entries_of_blocks() {
     let mut buf = [0u8; 128];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]).unwrap();
     w.push(2, ClockTime::new(1, 5), &[b"x"]).unwrap();
     w.push(4, ClockTime::new(1, 6), &[b"y"]).unwrap();
     let len = w.finish();
@@ -295,7 +295,7 @@ fn structural_blocks_are_not_deferred() {
     .write(&mut tail, id(0));
     assert!(w.defer_block(tail.to_vec()).is_err());
     let mut buf = [0u8; 64];
-    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[1]);
+    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[1]).unwrap();
     b.push(1, ClockTime::new(1, 5), &[b"x"]).unwrap();
     let len = b.finish();
     w.defer_block(buf[..len].to_vec()).unwrap();

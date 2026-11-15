@@ -303,7 +303,7 @@ fn padding_puts_the_payload_on_the_alignment() {
     let payload = specs.iter().map(|s| s.len).sum();
     let head_len = chunk_head_len(2, payload);
     for offset in [0u64, 1, 100, 4096 - head_len as u64, 4097, 123_456] {
-        let pad = chunk_padding(offset, head_len, 4096);
+        let pad = chunk_padding(offset, head_len, 4096).unwrap();
         let bytes = encode(&head, &columns, 0, pad);
         let c = Block::read(&bytes).unwrap().chunk().unwrap();
         assert_eq!(
@@ -313,7 +313,16 @@ fn padding_puts_the_payload_on_the_alignment() {
         );
         assert!(pad < 4096);
     }
-    assert_eq!(chunk_padding(77, head_len, 0), 0);
+    assert_eq!(chunk_padding(77, head_len, 0), Some(0));
+    assert_eq!(
+        chunk_padding(77, head_len, 3000),
+        None,
+        "not a power of two"
+    );
+    assert_eq!(
+        chunk_padding(u64::MAX, head_len, 4096).map(|p| p < 4096),
+        Some(true)
+    );
 }
 
 #[test]
@@ -325,7 +334,7 @@ fn renumbered_blocks_stay_good() {
     let b = Block::read(&bytes).unwrap();
     assert_eq!((b.run, b.seq), (other.run, 42));
     let mut buf = [0u8; 64];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]).unwrap();
     w.push(1, ClockTime::new(1, 5), &[b"x"]).unwrap();
     let len = w.finish();
     set_id(&mut buf[..len], other.next()).unwrap();
@@ -337,7 +346,7 @@ fn renumbered_blocks_stay_good() {
 fn write_tape(path: &std::path::Path, layout: Layout) -> Vec<u8> {
     _ = std::fs::remove_file(path);
     let mut w = TapeWriter::create(path, SyncPolicy::None).unwrap();
-    w.set_alignment(layout.alignment.get());
+    w.set_alignment(layout.alignment.get()).unwrap();
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "test" }))
         .unwrap();
@@ -351,7 +360,7 @@ fn write_tape(path: &std::path::Path, layout: Layout) -> Vec<u8> {
     }
     let small = |n: i64| {
         let mut buf = [0u8; 128];
-        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[1]);
+        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[1]).unwrap();
         b.push(2, ClockTime::new(1, n), &[&[n as u8; 20]]).unwrap();
         let len = b.finish();
         buf[..len].to_vec()

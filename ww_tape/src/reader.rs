@@ -129,6 +129,7 @@ impl ByteSource for std::fs::File {
 
 /// Why a tape can't be read.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ReadError<E> {
     /// The byte source failed.
     Source(E),

@@ -654,6 +654,26 @@ fn series_summaries_match_naive_model() {
 }
 
 #[test]
+fn series_refuses_partial_frames() {
+    let shape = SampleShape::new(Element::I16, 3);
+    let start = SeriesStart {
+        track_id: 1,
+        track_number: 1,
+        shape,
+        first_item: 0,
+        segment: SeriesSegment::start(0, 0, Magnitude::ONE),
+        period: Ratio64::ONE,
+    };
+    let mut s =
+        SeriesSummaries::<i16>::new(start, spec(4, SeriesStats::all(Element::I16), None)).unwrap();
+    assert_eq!(
+        s.push(&[1, 2, 3, 4], 0),
+        Err(SummaryError::PartialFrame { stride: 3 })
+    );
+    s.push(&[1, 2, 3], 0).unwrap();
+}
+
+#[test]
 fn series_refuses_bad_specs() {
     let start = |shape| SeriesStart {
         track_id: 1,
@@ -778,7 +798,7 @@ fn summaries_fill_alignment_gaps() {
     let write = |name: &str, with_summaries: bool| {
         let path = dir.join(name);
         let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
-        w.set_alignment(crate::ALIGNMENT);
+        w.set_alignment(crate::ALIGNMENT).unwrap();
         let start = SeriesStart {
             track_id: 7,
             track_number: 1,

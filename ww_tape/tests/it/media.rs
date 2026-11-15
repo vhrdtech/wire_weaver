@@ -11,7 +11,7 @@ const NEW: RunTag = RunTag::writable(0x600d_0002);
 
 fn records(id: BlockId) -> Vec<u8> {
     let mut buf = [0u8; 256];
-    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id, &[1]);
+    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id, &[1]).unwrap();
     b.push(9, ClockTime::new(1, id.seq as i64), &[&[id.seq as u8; 40]])
         .unwrap();
     let len = b.finish();
@@ -230,7 +230,7 @@ fn finished(run: RunTag, layout: Layout, n: u64) -> Vec<u8> {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("old.wwt");
     let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
-    w.set_run(run);
+    w.set_run(run).unwrap();
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "media" }))
         .unwrap();
@@ -339,7 +339,8 @@ fn a_duplicate_block_is_not_a_cut() {
     // other bytes under the same id: the later copy wins, reported
     let other = {
         let mut buf = [0u8; 256];
-        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, BlockId::new(NEW, 3), &[1]);
+        let mut b =
+            BlockWriter::new(&mut buf, BlockKind::Records, BlockId::new(NEW, 3), &[1]).unwrap();
         b.push(9, ClockTime::new(1, 3), &[b"rewritten"]).unwrap();
         let len = b.finish();
         buf[..len].to_vec()
@@ -366,7 +367,8 @@ fn a_duplicate_after_a_gap_resumes_the_data() {
     let (from, at) = (block_start(&card, 3), block_start(&card, 4));
     let other = {
         let mut buf = [0u8; 256];
-        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, BlockId::new(NEW, 3), &[1]);
+        let mut b =
+            BlockWriter::new(&mut buf, BlockKind::Records, BlockId::new(NEW, 3), &[1]).unwrap();
         b.push(9, ClockTime::new(1, 3), &[b"rewritten"]).unwrap();
         let len = b.finish();
         buf[..len].to_vec()
@@ -427,7 +429,8 @@ fn a_layout_past_the_gap_limits_is_refused() {
         let mut item = [0u8; 64];
         let item = Describe::Layout(bad).to_ww_bytes(&mut item).unwrap();
         let mut buf = [0u8; 256];
-        let mut b = BlockWriter::new(&mut buf, BlockKind::Describe, BlockId::new(NEW, 0), &[]);
+        let mut b =
+            BlockWriter::new(&mut buf, BlockKind::Describe, BlockId::new(NEW, 0), &[]).unwrap();
         b.push_describe(&[item]).unwrap();
         let len = b.finish();
         let mut bytes = buf[..len].to_vec();

@@ -184,13 +184,8 @@ impl IndexEntry {
         out[64..72].copy_from_slice(&self.latest_end.to_le_bytes());
     }
 
-    /// Read an entry from its first [ENTRY_LEN] bytes.
-    ///
-    /// # Panics
-    ///
-    /// When `b` is shorter than [ENTRY_LEN].
-    pub fn decode(b: &[u8]) -> Self {
-        assert!(b.len() >= ENTRY_LEN, "an entry is {ENTRY_LEN} bytes");
+    /// Read an entry from its [ENTRY_LEN] bytes.
+    pub fn decode(b: &[u8; ENTRY_LEN]) -> Self {
         IndexEntry {
             offset: get_u64(b, 0),
             len: get_u32(b, 8),
@@ -240,6 +235,7 @@ pub struct TrackList {
 
 /// Why an index, finish, tail or piece head block can't be read or written.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum IndexError {
     Block(BlockError),
     /// The block is of another kind or version.
@@ -518,7 +514,10 @@ impl<'b> IndexBlock<'b> {
         if i >= self.entries || self.bytes.len() < at + self.entry_len {
             return None;
         }
-        Some(IndexEntry::decode(&self.bytes[at..]))
+        self.bytes
+            .get(at..)?
+            .first_chunk::<ENTRY_LEN>()
+            .map(IndexEntry::decode)
     }
 
     /// Every entry; none when only the head was read.
@@ -573,7 +572,10 @@ impl<'b> IndexBlock<'b> {
         if bytes.len() != n || CRC.checksum(bytes) != list.crc {
             return Err(IndexError::BadEntries);
         }
-        Ok(bytes.chunks_exact(self.entry_len).map(IndexEntry::decode))
+        // entry_len is at least ENTRY_LEN, checked when the head was read
+        Ok(bytes
+            .chunks_exact(self.entry_len)
+            .filter_map(|e| e.first_chunk::<ENTRY_LEN>().map(IndexEntry::decode)))
     }
 }
 

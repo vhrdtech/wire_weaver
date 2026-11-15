@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 
 /// Why payloads can't be encoded.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EncodeError {
     /// No items.
     Empty,

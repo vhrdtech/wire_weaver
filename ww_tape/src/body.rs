@@ -77,6 +77,7 @@ pub(crate) fn coded(body: &[u8]) -> Option<Coded<'_>> {
 
 /// Why a block's body can't be coded.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CodeError {
     /// The input is not one good block.
     Block(BlockError),
@@ -172,7 +173,7 @@ mod tests {
     /// A records block of `n` alike records.
     fn records_block(n: u32) -> Vec<u8> {
         let mut buf = vec![0u8; 4096];
-        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]);
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]).unwrap();
         for i in 0..n {
             w.push(
                 5,
@@ -343,7 +344,7 @@ mod tests {
             .unwrap()
             .to_vec();
         let mut buf = vec![0u8; 4096];
-        let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]);
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).unwrap();
         for _ in 0..20 {
             w.push_describe(&[&item]).unwrap();
         }

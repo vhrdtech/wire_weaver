@@ -243,6 +243,7 @@ pub struct Column<'b> {
 
 /// Why a chunk can't be written.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChunkError {
     /// The buffer is shorter than the block ([chunk_len]).
     Full { needed: usize },
@@ -263,22 +264,19 @@ pub const fn chunk_head_len(columns: usize, payload_len: usize) -> usize {
 }
 
 /// Zero bytes to put between the head and the payload so the payload of a block written at `offset` in a file
-/// lands on a multiple of `alignment` (0: no alignment, no padding).
-///
-/// # Panics
-///
-/// When `alignment` is neither 0 nor a power of two.
-pub const fn chunk_padding(offset: u64, head_len: usize, alignment: u32) -> usize {
-    assert!(
-        alignment == 0 || alignment.is_power_of_two(),
-        "alignment is 0 or a power of two"
-    );
+/// lands on a multiple of `alignment` (0: no alignment, no padding); None when `alignment` is neither 0 nor a power
+/// of two.
+pub const fn chunk_padding(offset: u64, head_len: usize, alignment: u32) -> Option<usize> {
     if alignment == 0 {
-        return 0;
+        return Some(0);
+    }
+    if !alignment.is_power_of_two() {
+        return None;
     }
     let a = alignment as u64;
-    let end = offset + head_len as u64;
-    ((a - end % a) % a) as usize
+    let end = offset.wrapping_add(head_len as u64);
+    // a is a power of two: the distance to the next multiple is the low bits of -end
+    Some((end.wrapping_neg() & (a - 1)) as usize)
 }
 
 /// Bytes of a whole chunk block: head, `padding`, payload and CRC.
@@ -376,16 +374,14 @@ impl<'b> ChunkWriter<'b> {
         })
     }
 
-    /// The bytes of column `i`, to fill in.
-    ///
-    /// # Panics
-    ///
-    /// When there is no column `i`.
-    pub fn column_mut(&mut self, i: usize) -> &mut [u8] {
-        assert!(i < self.columns, "column {i} of {}", self.columns);
+    /// The bytes of column `i`, to fill in; None when there is no column `i`.
+    pub fn column_mut(&mut self, i: usize) -> Option<&mut [u8]> {
+        if i >= self.columns {
+            return None;
+        }
         let from = self.payload_at + self.offsets[i] as usize;
         let to = self.payload_at + self.offsets[i + 1] as usize;
-        &mut self.buf[from..to]
+        self.buf.get_mut(from..to)
     }
 
     /// Write the segment CRCs, the head CRC and the block CRC; returns the block's length.
@@ -476,7 +472,9 @@ pub fn write_chunk(
     }
     let mut w = ChunkWriter::new(buf, id, head, &specs[..columns.len()], padding)?;
     for (i, (_, bytes)) in columns.iter().enumerate() {
-        w.column_mut(i).copy_from_slice(bytes);
+        w.column_mut(i)
+            .ok_or(ChunkError::Invalid("a column the writer was not made with"))?
+            .copy_from_slice(bytes);
     }
     Ok(w.finish())
 }
@@ -585,6 +583,7 @@ pub const fn crc32c_combine(crc_a: u32, crc_b: u32, len_b: u64) -> u32 {
 
 /// Why a chunk block's head can't be read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ChunkHeadError {
     /// The head CRC doesn't match: nothing in the block can be trusted, its length neither.
     BadHeadCrc,

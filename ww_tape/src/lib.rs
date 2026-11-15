@@ -368,6 +368,38 @@ impl Slots {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Full;
 
+/// Why [BlockWriter::new] can't start a block.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BlockStartError {
+    /// More clocks than [MAX_BLOCK_CLOCKS].
+    TooManyClocks,
+    /// The clocks are not strictly ascending.
+    ClocksUnordered,
+    /// One of the clocks is [NO_CLOCK].
+    NoClock,
+    /// The buffer doesn't hold the header, the clock table and the CRC: `needed` bytes.
+    BufferTooSmall { needed: usize },
+}
+
+/// Why [BlockWriter::push] or [BlockWriter::push_with] wrote nothing.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum PushError {
+    /// The record doesn't fit the block.
+    Full,
+    /// Track [DESCRIBE_TRACK] has no time: describe records go through [BlockWriter::push_describe].
+    DescribeTrack,
+    /// The record's clock is not one the block was started with.
+    UnknownClock(u32),
+}
+
+impl From<Full> for PushError {
+    fn from(_: Full) -> Self {
+        PushError::Full
+    }
+}
+
 /// Writes one block into a buffer: [BlockWriter::push] records, then [BlockWriter::finish].
 pub struct BlockWriter<'b> {
     buf: &'b mut [u8],
@@ -376,30 +408,32 @@ pub struct BlockWriter<'b> {
 
 impl<'b> BlockWriter<'b> {
     /// Start a block in `buf` holding records on `clocks` (strictly ascending clock numbers, none of them
-    /// [NO_CLOCK]; at most [MAX_BLOCK_CLOCKS]); at most [MAX_BLOCK_LEN] of `buf` is used.
-    ///
-    /// # Panics
-    ///
-    /// When `clocks` breaks those rules or `buf` doesn't hold the header, the clock table and the CRC.
-    pub fn new(buf: &'b mut [u8], kind: BlockKind, id: BlockId, clocks: &[u32]) -> Self {
-        assert!(
-            clocks.len() <= MAX_BLOCK_CLOCKS,
-            "at most {MAX_BLOCK_CLOCKS} clocks in a block"
-        );
-        assert!(
-            clocks.windows(2).all(|w| w[0] < w[1]),
-            "block clocks strictly ascending"
-        );
-        assert!(!clocks.contains(&NO_CLOCK), "clock 0 is no clock");
+    /// [NO_CLOCK]; at most [MAX_BLOCK_CLOCKS]); at most [MAX_BLOCK_LEN] of `buf` is used. A `buf` that doesn't hold
+    /// the header, the clock table and the CRC is refused.
+    pub fn new(
+        buf: &'b mut [u8],
+        kind: BlockKind,
+        id: BlockId,
+        clocks: &[u32],
+    ) -> Result<Self, BlockStartError> {
+        if clocks.len() > MAX_BLOCK_CLOCKS {
+            return Err(BlockStartError::TooManyClocks);
+        }
+        if !clocks.is_sorted_by(|a, b| a < b) {
+            return Err(BlockStartError::ClocksUnordered);
+        }
+        if clocks.contains(&NO_CLOCK) {
+            return Err(BlockStartError::NoClock);
+        }
         let table: usize = uvar_len(clocks.len() as u64)
             + clocks
                 .iter()
                 .map(|c| uvar_len(u64::from(*c)))
                 .sum::<usize>();
-        assert!(
-            buf.len() >= HEADER_LEN + table + CRC_LEN,
-            "block buffer holds header, clock table and CRC"
-        );
+        let needed = HEADER_LEN + table + CRC_LEN;
+        if buf.len().min(MAX_BLOCK_LEN) < needed {
+            return Err(BlockStartError::BufferTooSmall { needed });
+        }
         let usable = buf.len().min(MAX_BLOCK_LEN);
         let buf = &mut buf[..usable];
         put_header(buf, kind, 0, 0, id);
@@ -414,7 +448,7 @@ impl<'b> BlockWriter<'b> {
             pos += varint::put_uvar(&mut buf[pos..], u64::from(*c));
             slots.clocks[i] = *c;
         }
-        BlockWriter {
+        Ok(BlockWriter {
             buf,
             state: BlockState {
                 pos,
@@ -422,7 +456,7 @@ impl<'b> BlockWriter<'b> {
                 records: 0,
                 slots,
             },
-        }
+        })
     }
 
     /// Release the buffer, keeping what is needed to go on with [Self::from_state] on the same buffer.
@@ -459,12 +493,9 @@ impl<'b> BlockWriter<'b> {
     }
 
     /// Add a record on `track` at `at` whose item is `parts` back to back; `at`'s clock is the track's
-    /// [TrackDef::clock].
-    ///
-    /// # Panics
-    ///
-    /// When `track` is [DESCRIBE_TRACK] (see [Self::push_describe]) or `at`'s clock isn't one of the block's.
-    pub fn push(&mut self, track: u32, at: ClockTime, parts: &[&[u8]]) -> Result<(), Full> {
+    /// [TrackDef::clock]. Track [DESCRIBE_TRACK] (see [Self::push_describe]) and a clock that isn't one of the
+    /// block's are refused.
+    pub fn push(&mut self, track: u32, at: ClockTime, parts: &[&[u8]]) -> Result<(), PushError> {
         self.push_with(track, at, |buf| copy_parts(buf, parts))
     }
 
@@ -480,12 +511,14 @@ impl<'b> BlockWriter<'b> {
         track: u32,
         at: ClockTime,
         encode: impl FnOnce(&mut [u8]) -> Option<usize>,
-    ) -> Result<(), Full> {
-        assert!(track != DESCRIBE_TRACK, "describe records have no time");
+    ) -> Result<(), PushError> {
+        if track == DESCRIBE_TRACK {
+            return Err(PushError::DescribeTrack);
+        }
         let slots = &self.state.slots;
         let slot = slots
             .slot(at.clock)
-            .expect("the record's clock is one the block was started with");
+            .ok_or(PushError::UnknownClock(at.clock))?;
         let head = (u64::from(track) << slots.bits()) | slot as u64;
         let dt = at.ticks.wrapping_sub(slots.last[slot]);
         self.put(head, Some(dt), encode)?;
@@ -592,6 +625,7 @@ pub(crate) fn put_header(buf: &mut [u8], kind: BlockKind, len: usize, count: u32
 
 /// Why a block can't be read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BlockError {
     /// Fewer bytes than the header or its length says.
     Short {

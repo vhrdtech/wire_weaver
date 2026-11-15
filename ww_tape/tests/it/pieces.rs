@@ -40,7 +40,7 @@ fn describe_blocks_max(layout: Layout, first: BlockId, max: usize) -> Vec<Vec<u8
 
 fn records(id: BlockId, n: i64) -> Vec<u8> {
     let mut buf = [0u8; 256];
-    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id, &[1]);
+    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id, &[1]).unwrap();
     b.push(9, ClockTime::new(1, n), &[&[n as u8; 30]]).unwrap();
     let len = b.finish();
     buf[..len].to_vec()
@@ -255,7 +255,7 @@ fn aligned_file_places_checkpoints_in_gaps() {
     let dir = scratch("aligned");
     let path = dir.join("t.wwt");
     let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
-    w.set_alignment(ww_tape::ALIGNMENT);
+    w.set_alignment(ww_tape::ALIGNMENT).unwrap();
     write_tape(&mut w, 10);
     w.finish().unwrap();
     let bytes = std::fs::read(&path).unwrap();

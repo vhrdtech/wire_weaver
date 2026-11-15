@@ -61,6 +61,7 @@ const WIDTH_MAX: u32 = 32;
 
 /// Why a chunk's payload columns can't be read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PayloadsError {
     /// The chunk is not an events chunk.
     NotEvents,

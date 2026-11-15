@@ -159,7 +159,7 @@ fn describe_blocks(first: &SeriesSegment, seq: &mut ww_tape::BlockId) -> Vec<Vec
 /// The records block of one segment.
 fn segment_block(s: &SeriesSegment, seq: u64) -> Vec<u8> {
     let mut buf = [0u8; 256];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(seq), &[CLOCK]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(seq), &[CLOCK]).unwrap();
     let item = encode_value(s);
     let tick = s.first_tick(period()).unwrap();
     w.push(TRACK, ClockTime::new(CLOCK, tick), &[&item])
@@ -206,7 +206,7 @@ fn seal(w: &mut TapeWriter, t: &SeriesTimeline, first: &mut u64, column: &mut Ve
 fn write(path: &std::path::Path) {
     let p = period();
     let mut w = TapeWriter::create(path, SyncPolicy::None).unwrap();
-    w.set_alignment(ww_tape::ALIGNMENT);
+    w.set_alignment(ww_tape::ALIGNMENT).unwrap();
     let first = series_def().first_segment(START);
     let mut seq = id(0);
     for b in describe_blocks(&first, &mut seq) {

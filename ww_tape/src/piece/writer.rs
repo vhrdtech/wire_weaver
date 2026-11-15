@@ -57,7 +57,7 @@ impl PieceChain {
         options: ChainOptions,
     ) -> Result<Self, WriteError> {
         let mut writer = TapeWriter::create(&dir.join(piece_name(0)), options.sync)?;
-        writer.set_alignment(options.alignment);
+        writer.set_alignment(options.alignment)?;
         writer.set_index_policy(options.index);
         writer.begin_piece(
             &PieceHead {

@@ -11,6 +11,7 @@ use crate::{
 
 /// Why a describe set can't be built or written.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DescribeError {
     /// A record doesn't encode.
     Encode(shrink_wrap::Error),
@@ -40,6 +41,10 @@ pub enum DescribeError {
         track: u32,
         error: crate::SeriesError,
     },
+    /// A describe block doesn't start: the set's clocks break a block's rules.
+    Start(crate::BlockStartError),
+    /// A record doesn't go into the describe block sized for it.
+    Push(crate::PushError),
 }
 
 impl core::fmt::Display for DescribeError {
@@ -79,6 +84,8 @@ impl core::fmt::Display for DescribeError {
                 write!(f, "record of {len} bytes is longer than a block")
             }
             DescribeError::Kind { track, error } => write!(f, "track {track}: {error:?}"),
+            DescribeError::Start(e) => write!(f, "describe block doesn't start: {e:?}"),
+            DescribeError::Push(e) => write!(f, "describe record doesn't fit its block: {e:?}"),
         }
     }
 }
@@ -306,14 +313,15 @@ impl DescribeSet {
             }
             let clocks: Vec<u32> = clocks.into_iter().collect();
             let mut buf = vec![0u8; size];
-            let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, *id, &clocks);
+            let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, *id, &clocks)
+                .map_err(DescribeError::Start)?;
             *id = id.next();
             for (s, item) in &entries[i..j] {
                 let pushed = match s {
                     Some(s) => w.push(s.track, s.at, &[item]),
-                    None => w.push_describe(&[item]),
+                    None => w.push_describe(&[item]).map_err(crate::PushError::from),
                 };
-                pushed.expect("block sized to fit its records");
+                pushed.map_err(DescribeError::Push)?;
             }
             let first = if i == 0 { crate::FLAG_SET_FIRST } else { 0 };
             let last = if j == entries.len() {

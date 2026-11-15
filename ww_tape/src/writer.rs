@@ -61,6 +61,7 @@ pub const DEFAULT_SYNC_INTERVAL: Duration = Duration::from_secs(1);
 
 /// Why a [TapeWriter] stopped.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum WriteError {
     /// Opening, writing, syncing or renaming failed, with what was being done.
     Io {
@@ -75,6 +76,10 @@ pub enum WriteError {
     Block(crate::BlockError),
     /// A chunk doesn't encode.
     Chunk(crate::ChunkError),
+    /// An alignment that is neither 0 nor [crate::ALIGNMENT].
+    Alignment(u32),
+    /// A run tag a writer may not use ([RunTag::is_run]).
+    Run(RunTag),
     /// An index, finish, tail or piece head block doesn't encode, or a piece call came out of order (a piece head
     /// after other blocks, a cut of a file without a piece head).
     Index(IndexError),
@@ -92,6 +97,10 @@ impl core::fmt::Display for WriteError {
             WriteError::Block(e) => write!(f, "not a good block: {e:?}"),
             WriteError::Chunk(e) => write!(f, "chunk doesn't encode: {e:?}"),
             WriteError::Index(e) => write!(f, "index or piece block: {e:?}"),
+            WriteError::Alignment(a) => {
+                write!(f, "alignment {a} is neither 0 nor {}", crate::ALIGNMENT)
+            }
+            WriteError::Run(r) => write!(f, "run tag {r:?} is not one a writer may use"),
         }
     }
 }
@@ -311,17 +320,13 @@ impl TapeWriter {
     }
 
     /// Place chunk payloads on multiples of `alignment` (0 or [crate::ALIGNMENT]), counted from the start of the file;
-    /// the file's describe set says so with a [crate::Layout] record.
-    ///
-    /// # Panics
-    ///
-    /// When `alignment` is neither 0 nor [crate::ALIGNMENT].
-    pub fn set_alignment(&mut self, alignment: u32) {
-        assert!(
-            alignment == 0 || alignment == crate::ALIGNMENT,
-            "alignment is 0 or ALIGNMENT"
-        );
+    /// the file's describe set says so with a [crate::Layout] record. Another alignment is refused.
+    pub fn set_alignment(&mut self, alignment: u32) -> Result<(), WriteError> {
+        if alignment != 0 && alignment != crate::ALIGNMENT {
+            return Err(WriteError::Alignment(alignment));
+        }
         self.alignment = alignment;
+        Ok(())
     }
 
     /// Seq the writer gives the next block it places itself ([Self::write_chunk], [Self::defer_block]): one after
@@ -343,15 +348,15 @@ impl TapeWriter {
         self.run
     }
 
-    /// Make the blocks from here on part of run `run` (a deterministic producer's own tag), its seqs from 0.
-    ///
-    /// # Panics
-    ///
-    /// When `run` is not one a writer may use ([RunTag::is_run]).
-    pub fn set_run(&mut self, run: RunTag) {
-        assert!(run.is_run(), "a run tag is neither 0 nor u32::MAX");
+    /// Make the blocks from here on part of run `run` (a deterministic producer's own tag), its seqs from 0. A tag
+    /// a writer may not use ([RunTag::is_run]) is refused.
+    pub fn set_run(&mut self, run: RunTag) -> Result<(), WriteError> {
+        if !run.is_run() {
+            return Err(WriteError::Run(run));
+        }
         self.run = run;
         self.next_seq = 0;
+        Ok(())
     }
 
     /// Id of the blocks the file structure adds (index, finish, tail, piece head, repeated describe blocks): the
@@ -362,7 +367,11 @@ impl TapeWriter {
 
     fn write_raw(&mut self, block: &[u8]) -> Result<(), WriteError> {
         self.check()?;
-        assert!(block.len() >= crate::HEADER_LEN, "a block holds its header");
+        if block.len() < crate::HEADER_LEN {
+            return Err(WriteError::Block(crate::BlockError::Short {
+                needed: crate::HEADER_LEN,
+            }));
+        }
         if let Err(error) = self.file.write_all(block) {
             self.failed = true;
             return Err(WriteError::Io {
@@ -561,7 +570,8 @@ impl TapeWriter {
         let head_len = crate::chunk::chunk_head_len(columns.len(), payload);
         if self.alignment != 0 {
             let mut gap =
-                crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment);
+                crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment)
+                    .ok_or(WriteError::Alignment(self.alignment))?;
             while let Some(next) = self.deferred.first()
                 && next.len() <= gap
             {
@@ -576,7 +586,8 @@ impl TapeWriter {
             }
         }
         let padding =
-            crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment);
+            crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment)
+                .ok_or(WriteError::Alignment(self.alignment))?;
         let specs: Vec<crate::ColumnSpec> = columns.iter().map(|(c, _)| *c).collect();
         let len = crate::chunk::chunk_len(&specs, padding);
         let mut buf = core::mem::take(&mut self.chunk_buf);

@@ -165,6 +165,7 @@ impl Sample for bool {
 
 /// Why a sample column can't be read or written.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SampleError {
     /// The codec doesn't code this element (or isn't a sample codec this reader knows).
     Unsupported { codec: Codec, element: Element },

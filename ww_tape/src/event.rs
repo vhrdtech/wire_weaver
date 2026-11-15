@@ -25,6 +25,7 @@ pub struct EventRecord<'p> {
 
 /// Why an [EventRecord] can't be written or read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EventRecordError {
     /// An end before the start.
     EndBeforeStart { start: i64, end: i64 },

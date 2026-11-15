@@ -4,6 +4,11 @@
 
 ### ⚠️ Breaking
 
+- `BlockWriter::new` returns `Result<_, BlockStartError>`; `push` / `push_with` return `PushError` (full, describe track, unknown clock) (STD-131).
+- `TapeWriter::set_alignment` and `set_run` return a `Result`; `WriteError` gains `Alignment` and `Run` (STD-131).
+- `chunk_padding` returns `Option<usize>`, `ChunkWriter::column_mut` an `Option`; `IndexEntry::decode` takes `&[u8; ENTRY_LEN]` (STD-131).
+- `SeriesSummaries::push` refuses partial frames with `SummaryError::PartialFrame`; `DescribeError` gains `Start` and `Push` (STD-131).
+- Every error enum is `#[non_exhaustive]`: match with a `_` arm (STD-131).
 - `Codec::GORILLA`, `CHIMP`, `FLOAT_DELTA`, `FLOAT_DELTA2` and `XOR_GROUP` are gone; ids 24, 25, 34, 35 are reserved and refused (STD-131).
 - Describe sets mark their first and last block (`FLAG_SET_FIRST`, `FLAG_SET_LAST`); only a whole set counts as one (STD-129).
 - `PieceChain::create` takes the chain number: each chain of a result gets its own piece ids and run tag (STD-129).

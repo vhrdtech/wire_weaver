@@ -121,6 +121,7 @@ pub struct MediaStream<'i> {
 
 /// Why a series definition, segment or chunk doesn't fit.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SeriesError {
     /// A record doesn't decode as a [SeriesSegment].
     Decode(shrink_wrap::Error),

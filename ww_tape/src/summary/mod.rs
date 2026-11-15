@@ -306,6 +306,7 @@ impl SummaryHead {
 
 /// Why a summary block can't be written or read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SummaryError {
     /// The buffer is shorter than the block ([summary_len]).
     Full { needed: usize },
@@ -319,6 +320,8 @@ pub enum SummaryError {
     Scale(ScaleError),
     /// A segment a series writer was handed breaks a rule of the series' timeline.
     Series(SeriesError),
+    /// Samples handed to a series writer are not whole frames of `stride` scalars.
+    PartialFrame { stride: usize },
 }
 
 /// The scale bytes of a block with `head`: empty for an event tree.

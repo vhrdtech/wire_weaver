@@ -503,7 +503,8 @@ impl Inner {
         let id = st.next;
         st.next = id.next();
         let b = Arc::get_mut(&mut buf).expect("free block");
-        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, id, &[HOST_CLOCK]);
+        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, id, &[HOST_CLOCK])
+            .expect("a block buffer holds the header and the one clock");
         st.current = Some(Current {
             state: w.into_state(),
             buf,

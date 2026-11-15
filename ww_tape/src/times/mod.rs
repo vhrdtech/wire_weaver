@@ -106,6 +106,7 @@ impl TimeMode {
 
 /// Why a chunk's time columns can't be read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TimesError {
     /// The chunk is not an events chunk.
     NotEvents,

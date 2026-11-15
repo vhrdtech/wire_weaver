@@ -37,6 +37,7 @@ impl BlockBuf {
 
 /// Why a file could not be read further, or what was skipped in it.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum FileError {
     Io(std::io::Error),
     /// [Recovery::Prefix]: the file is read up to `offset`, the bytes from there on are left out, for `why`. Comes

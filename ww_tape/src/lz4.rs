@@ -35,6 +35,7 @@ const EXPANSION_SLACK: usize = 16;
 
 /// Why an lz4 column can't be read or written.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Lz4Error {
     /// The column is shorter than its length field.
     Short,

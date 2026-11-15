@@ -259,6 +259,7 @@ impl Value {
 
 /// Why statistics at two scales can't be brought to one.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ScaleError {
     /// No scale both are whole multiples of: their ratio isn't a fraction of integers (a power of π, a half
     /// exponent), or the common scale is out of a [Magnitude]'s range.
@@ -923,17 +924,12 @@ mod builder {
         }
 
         /// Add samples: whole frames of `channels × components` scalars, interleaved; `flags` ORs into the nodes they
-        /// fall in.
-        ///
-        /// # Panics
-        ///
-        /// When `samples` is not whole frames.
+        /// fall in. Samples that are not whole frames are refused.
         pub fn push(&mut self, samples: &[T], flags: u32) -> Result<(), SummaryError> {
             let stride = usize::from(self.channels) * usize::from(components(self.element));
-            assert!(
-                samples.len().is_multiple_of(stride),
-                "samples are whole frames of {stride} scalars"
-            );
+            if stride == 0 || !samples.len().is_multiple_of(stride) {
+                return Err(SummaryError::PartialFrame { stride });
+            }
             let mut rest = samples;
             let node = 1u64 << self.spec.base_shift;
             while !rest.is_empty() {

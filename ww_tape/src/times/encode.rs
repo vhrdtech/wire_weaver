@@ -7,6 +7,7 @@ use std::vec::Vec;
 
 /// Why times can't be encoded.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EncodeError {
     /// No items.
     Empty,

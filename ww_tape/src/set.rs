@@ -1,21 +1,5 @@
 //! [DescribeSet]: describe records in canonical order, written as describe blocks.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use shrink_wrap::prelude::*;
@@ -119,7 +103,7 @@ fn encode(d: &Describe<'_>) -> Result<Vec<u8>, DescribeError> {
                 return Ok(buf);
             }
             Err(_) if buf.len() < MAX_BLOCK_LEN => {
-                let n = buf.len() * 2;
+                let n = buf.len().saturating_mul(2);
                 buf.resize(n, 0);
             }
             Err(e) => return Err(DescribeError::Encode(e)),
@@ -303,53 +287,67 @@ impl DescribeSet {
             .map(|r| (None, r))
             .chain(sticky.iter().map(|s| (Some(*s), s.item)))
             .collect();
-        let empty = HEADER_LEN + MAX_CLOCK_TABLE + CRC_LEN;
-        let mut i = 0;
-        while i < entries.len() {
-            let mut size = empty;
-            let mut clocks = BTreeSet::new();
-            let mut j = i;
-            while j < entries.len() {
-                let (s, item) = entries[j];
-                let r = item.len() + MAX_RECORD_HEAD;
-                let new_clock = s.is_some_and(|s| !clocks.contains(&s.at.clock));
-                let fits =
-                    size + r <= block_len_max && !(new_clock && clocks.len() == MAX_BLOCK_CLOCKS);
-                if j > i && !fits {
-                    break;
-                }
-                if empty + r > MAX_BLOCK_LEN {
-                    return Err(DescribeError::TooLong { len: item.len() });
-                }
-                if let Some(s) = s {
-                    clocks.insert(s.at.clock);
-                }
-                size += r;
-                j += 1;
-            }
-            let clocks: Vec<u32> = clocks.into_iter().collect();
+        let mut rest = entries.iter();
+        let mut first = crate::FLAG_SET_FIRST;
+        while !rest.as_slice().is_empty() {
+            let (taken, size, clocks) = next_block(rest.as_slice(), block_len_max)?;
+            let last = if taken == rest.as_slice().len() {
+                crate::FLAG_SET_LAST
+            } else {
+                0
+            };
             let mut buf = vec![0u8; size];
             let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, *id, &clocks)
                 .map_err(DescribeError::Start)?;
             *id = id.next();
-            for (s, item) in &entries[i..j] {
+            for (s, item) in rest.by_ref().take(taken) {
                 let pushed = match s {
                     Some(s) => w.push(s.track, s.at, &[item]),
                     None => w.push_describe(&[item]).map_err(crate::PushError::from),
                 };
                 pushed.map_err(DescribeError::Push)?;
             }
-            let first = if i == 0 { crate::FLAG_SET_FIRST } else { 0 };
-            let last = if j == entries.len() {
-                crate::FLAG_SET_LAST
-            } else {
-                0
-            };
             w.set_flags(first | last);
+            first = 0;
             let len = w.finish();
-            out(&buf[..len]);
-            i = j;
+            buf.truncate(len);
+            out(&buf);
         }
         Ok(())
     }
+}
+
+/// Bytes of a describe block before its records: header, the longest clock table and CRC.
+const DESCRIBE_EMPTY_LEN: usize = HEADER_LEN + MAX_CLOCK_TABLE + CRC_LEN;
+
+/// The records of the next describe block from the start of `entries`: how many (at least one), the block's bytes
+/// at most, and its clocks.
+fn next_block(
+    entries: &[(Option<&Sticky<'_>>, &[u8])],
+    block_len_max: usize,
+) -> Result<(usize, usize, Vec<u32>), DescribeError> {
+    let mut size = DESCRIBE_EMPTY_LEN;
+    let mut clocks = BTreeSet::new();
+    for (taken, &(s, item)) in entries.iter().enumerate() {
+        // a record over usize::MAX bytes is too long anyway
+        let r = item.len().saturating_add(MAX_RECORD_HEAD);
+        let new_clock = s.is_some_and(|s| !clocks.contains(&s.at.clock));
+        let fits = size.checked_add(r).is_some_and(|n| n <= block_len_max)
+            && !(new_clock && clocks.len() == MAX_BLOCK_CLOCKS);
+        if taken > 0 && !fits {
+            return Ok((taken, size, clocks.into_iter().collect()));
+        }
+        let too_long = DescribeError::TooLong { len: item.len() };
+        if DESCRIBE_EMPTY_LEN
+            .checked_add(r)
+            .is_none_or(|n| n > MAX_BLOCK_LEN)
+        {
+            return Err(too_long);
+        }
+        if let Some(s) = s {
+            clocks.insert(s.at.clock);
+        }
+        size = size.checked_add(r).ok_or(too_long)?;
+    }
+    Ok((entries.len(), size, clocks.into_iter().collect()))
 }

@@ -17,14 +17,12 @@ pub(crate) const DURATION_RECORD_LEN: usize = 13;
 pub(crate) const FLAGS_RECORD_LEN: usize = 8;
 
 const DURATIONS: Layout = Layout {
-    lead: 0,
     record_len: DURATION_RECORD_LEN,
     width_at: WidthAt::Byte(8),
     offset_at: 9,
 };
 
 const FLAGS: Layout = Layout {
-    lead: 0,
     record_len: FLAGS_RECORD_LEN,
     width_at: WidthAt::OrOf(0),
     offset_at: 4,

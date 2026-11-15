@@ -105,6 +105,12 @@ pub fn read(src: &[u8], index: usize, width: u32) -> u64 {
     assert!(width <= WIDTH_MAX, "width {width} over {WIDTH_MAX}");
     let bit = index * width as usize;
     let (byte, sh) = (bit >> 3, (bit & 7) as u32);
+    if width <= 56
+        && let Some(b) = src.get(byte..byte + 8)
+    {
+        let w = u64::from_le_bytes(b.try_into().expect("8 bytes"));
+        return (w >> sh) & mask64(width);
+    }
     if let Some(b) = src.get(byte..byte + 16) {
         let w = u128::from_le_bytes(b.try_into().expect("16 bytes"));
         ((w >> sh) as u64) & mask64(width)

@@ -67,6 +67,7 @@ conformance-update:
     CONFORMANCE=update cargo nextest run -p conformance report
 
 # Rewrite ww_tape's golden files (golden/v2.hex, golden/v2-chunks.hex, golden/v2-summary.hex) after a deliberate format change (STD-117, STD-118, STD-121)
+# Rewrite ww_tape's golden files (golden/v2.hex, golden/v2-chunks.hex, golden/v2-times.hex) after a deliberate format change (STD-117, STD-118, STD-120)
 tape-golden-update:
     WW_TAPE_GOLDEN=update cargo nextest run -p ww_tape golden
 
@@ -430,3 +431,8 @@ fuzz-tape-summary:
 [working-directory('fuzz')]
 fuzz-tape-index:
     cargo +nightly fuzz run tape-index -- -max_len=65536
+
+# Fuzz ww_tape's event time codec: reads and salvage on any bytes, round trips, kernels against scalar (STD-120)
+[working-directory('fuzz')]
+fuzz-tape-times:
+    cargo +nightly fuzz run tape-times -- -max_len=65536

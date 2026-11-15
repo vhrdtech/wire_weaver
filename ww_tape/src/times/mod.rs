@@ -5,14 +5,14 @@
 //!
 //! - **Implicit** (0): item j starts at `first tick + j × period`; the column is the period (i64). A chunk whose
 //!   starts are evenly spaced takes it, a chunk of one item too (period 0).
-//! - **Linear** (1): a linear frame of reference per group of 128 items. The column holds the groups' first ticks,
-//!   then a record per group, then each group's residuals packed at its width ([bitpack]):
+//! - **Linear** (1): a linear frame of reference per group of 128 items. The column holds a 25-byte record per
+//!   group, then each group's residuals packed at its width ([bitpack](crate::bitpack)):
 //!
 //! ```text
-//! G × i64   first tick of each group: its first item's start, the search key
-//! G × 17 B  slope i64 (Q16 ticks per item, 0 to 2^55), residual minimum i32 (at most 0), width u8 (0 to 64),
-//!           offset u32 (of the group's residuals, from the end of the records)
-//! ...       residuals, group after group, 128 × width bits each (the last group: its items)
+//! per group: first tick i64 (its first item's start, the search key), slope i64 (Q16 ticks per item, 0 to 2^55),
+//!            residual minimum i32 (at most 0), width u8 (0 to 64), offset u32 (of the group's residuals, from the
+//!            end of the records)
+//! then:      residuals, group after group, 128 × width bits each (the last group: its items)
 //! ```
 //!
 //! Item j of a group starts at `first + rmin + ((j × slope) >> 16) + residual[j]`. The encoder fits the slope

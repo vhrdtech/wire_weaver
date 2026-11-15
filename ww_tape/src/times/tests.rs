@@ -354,8 +354,8 @@ fn salvage_marks_only_the_bad_group() {
     let s: Vec<i64> = workloads().swap_remove(0).1;
     let good = block(&s, None, None);
     let p = time_bytes(&good).start;
-    // group 5's width: after the 32 first ticks, record 5 at byte 12
-    let at = p + 32 * 8 + 5 * 17 + 12;
+    // group 5's width: byte 20 of its record
+    let at = p + 5 * 25 + 20;
     for width in [65u8, 0, 63] {
         let mut b = good.clone();
         b[at] = width;
@@ -444,4 +444,74 @@ fn read_refuses_wrong_shapes() {
         read(&write(h, &cols)),
         Err(TimesError::Corrupt { .. })
     ));
+}
+
+/// The golden chunks: each workload cut to 300 items, with spans and flags on some.
+fn golden_blocks() -> Vec<Vec<u8>> {
+    let mut r = Rng(17);
+    let mut out = Vec::new();
+    for (k, (_, mut s)) in workloads().into_iter().enumerate() {
+        s.truncate(300);
+        let n = s.len();
+        out.push(block(&s, None, None));
+        if k % 3 == 0 {
+            let spans: Vec<i64> = s
+                .iter()
+                .map(|x| x.saturating_add(r.below(5000) as i64))
+                .collect();
+            let flags: Vec<u32> = (0..n)
+                .map(|i| if i % 9 == 0 { 1 << (i % 5) } else { 0 })
+                .collect();
+            out.push(block(&s, Some(&spans), Some(&flags)));
+        }
+        if k % 4 == 1 {
+            let mut next = s[1..].to_vec();
+            next.push(s[n - 1].saturating_add(1));
+            out.push(block(&s, Some(&next), None));
+        }
+    }
+    out
+}
+
+/// The same times give the same bytes, and they are golden/v2-times.hex's (`WW_TAPE_GOLDEN=update` rewrites it):
+/// one chunk block per line, in hex.
+#[test]
+fn times_deterministic_and_golden() {
+    let blocks = golden_blocks();
+    assert_eq!(blocks, golden_blocks(), "two encodes of the same times");
+    let mut hex = String::new();
+    for b in &blocks {
+        for x in b {
+            hex.push_str(&std::format!("{x:02x}"));
+        }
+        hex.push('\n');
+    }
+    let golden = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("golden/v2-times.hex");
+    if std::env::var("WW_TAPE_GOLDEN").as_deref() == Ok("update") {
+        std::fs::write(&golden, &hex).unwrap();
+    }
+    let want = std::fs::read_to_string(&golden)
+        .expect("golden/v2-times.hex: run with WW_TAPE_GOLDEN=update");
+    assert_eq!(
+        hex, want,
+        "the format changed: bytes differ from golden/v2-times.hex"
+    );
+    // and the golden blocks read back to the workloads' starts
+    let starts: Vec<Vec<i64>> = workloads()
+        .into_iter()
+        .map(|(_, mut s)| {
+            s.truncate(300);
+            s
+        })
+        .collect();
+    for line in want.lines() {
+        let b: Vec<u8> = (0..line.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&line[i..i + 2], 16).unwrap())
+            .collect();
+        let block = Block::read(&b).unwrap();
+        let t = EventTimes::read(&block.chunk().unwrap()).unwrap();
+        let got: Vec<i64> = t.starts().iter().collect();
+        assert!(starts.contains(&got));
+    }
 }

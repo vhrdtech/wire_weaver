@@ -53,8 +53,6 @@ pub(crate) struct Groups<'b> {
 /// How a column's group records look.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Layout {
-    /// Bytes per group in an array in front of the records (the starts' first ticks).
-    pub(crate) lead: usize,
     pub(crate) record_len: usize,
     pub(crate) width_at: WidthAt,
     /// Offset of the u32 offset in a record.
@@ -70,9 +68,7 @@ impl<'b> Groups<'b> {
         column: &'b [u8],
         tail: &'b [u8],
     ) -> Result<Self, TimesError> {
-        let groups = group_count(n);
-        let lead = groups * layout.lead;
-        let head = lead + groups * layout.record_len;
+        let head = group_count(n) * layout.record_len;
         if column.len() < head {
             return Err(TimesError::Corrupt {
                 kind,
@@ -83,7 +79,7 @@ impl<'b> Groups<'b> {
         Ok(Groups {
             kind,
             n,
-            records: &column[lead..head],
+            records: &column[..head],
             record_len: layout.record_len,
             width_at: layout.width_at,
             offset_at: layout.offset_at,

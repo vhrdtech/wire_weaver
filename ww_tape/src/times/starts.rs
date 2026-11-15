@@ -2,21 +2,18 @@
 
 use super::groups::{Groups, Layout, WidthAt, get_i64, get_u32, group_count, group_len};
 use super::{TimeMode, TimesError};
-use crate::bitpack::{self, GROUP};
+use crate::bitpack::{self, GROUP, Kernel};
 use crate::chunk::ColumnKind;
 use core::ops::Range;
 
 /// Largest slope a group takes (Q16 ticks per item, exclusive): 2^39 ticks per item.
 pub const SLOPE_MAX: i64 = 1 << 55;
-/// Bytes of a group's first tick.
-const FIRST_LEN: usize = 8;
-/// Bytes of a group record after the first ticks: slope i64, residual minimum i32, width u8, offset u32.
-pub(crate) const RECORD_LEN: usize = 17;
+/// Bytes of a group record: first tick i64, slope i64, residual minimum i32, width u8, offset u32.
+pub(crate) const RECORD_LEN: usize = 25;
 const LAYOUT: Layout = Layout {
-    lead: FIRST_LEN,
     record_len: RECORD_LEN,
-    width_at: WidthAt::Byte(12),
-    offset_at: 13,
+    width_at: WidthAt::Byte(20),
+    offset_at: 21,
 };
 
 /// One group's line and residuals.
@@ -38,7 +35,6 @@ enum Repr<'b> {
         period: i64,
     },
     Linear {
-        firsts: &'b [u8],
         groups: Groups<'b>,
         /// Read from a damaged column: groups are checked as they are read.
         salvaged: bool,
@@ -89,7 +85,6 @@ impl<'b> Starts<'b> {
             TimeMode::Linear => {
                 let groups = Groups::split(ColumnKind::Starts, n, &LAYOUT, column, tail)?;
                 Repr::Linear {
-                    firsts: &column[..group_count(n) * FIRST_LEN],
                     groups,
                     salvaged: salvage,
                 }
@@ -167,7 +162,7 @@ impl<'b> Starts<'b> {
     fn raw_first(&self, g: usize) -> i64 {
         match self.repr {
             Repr::Implicit { period } => self.first + (g * GROUP) as i64 * period,
-            Repr::Linear { firsts, .. } => get_i64(firsts, g * FIRST_LEN),
+            Repr::Linear { groups, .. } => get_i64(groups.record(g), 0),
         }
     }
 
@@ -178,9 +173,7 @@ impl<'b> Starts<'b> {
             return true;
         };
         let r = groups.record(g);
-        let slope = get_i64(r, 0);
-        let rmin = get_u32(r, 8) as i32;
-        let f = self.raw_first(g);
+        let (f, slope, rmin) = (get_i64(r, 0), get_i64(r, 8), get_u32(r, 16) as i32);
         (0..SLOPE_MAX).contains(&slope)
             && rmin <= 0
             && (self.first..=self.last).contains(&f)
@@ -204,15 +197,7 @@ impl<'b> Starts<'b> {
         let Repr::Linear { groups, .. } = self.repr else {
             unreachable!("only linear chunks have group records");
         };
-        let r = groups.record(g);
-        let first = self.raw_first(g);
-        Group {
-            first,
-            base: first.wrapping_add(i64::from(get_u32(r, 8) as i32)),
-            slope: get_i64(r, 0),
-            width: groups.raw_width(g),
-            offset: groups.raw_offset(g),
-        }
+        record_group(&groups, g)
     }
 
     /// Group `g`'s line; a suspect group's is flat at its first tick, kept inside the chunk.
@@ -237,23 +222,16 @@ impl<'b> Starts<'b> {
         let Repr::Linear { groups, .. } = self.repr else {
             unreachable!("only linear chunks have group records");
         };
-        if h.width == 0 {
-            return &[];
-        }
-        &groups.data[h.offset..]
+        values_in(groups.data, h)
     }
 
     /// Item `j` of a group.
     #[inline]
     fn value(&self, h: Group, j: usize) -> i64 {
-        let r = if h.width == 0 {
-            0
-        } else {
-            bitpack::read(self.values(h), j, h.width)
+        let Repr::Linear { groups, .. } = self.repr else {
+            unreachable!("only linear chunks have group records");
         };
-        h.base
-            .wrapping_add(bitpack::line(h.slope, j))
-            .wrapping_add(r as i64)
+        value_in(groups.data, h, j)
     }
 
     /// Whether item `i` is in a group a salvage found damaged; its start is then a stand-in.
@@ -276,7 +254,15 @@ impl<'b> Starts<'b> {
         assert!(i < self.len(), "item {i} of {}", self.n);
         match self.repr {
             Repr::Implicit { period } => self.first.wrapping_add((i as i64).wrapping_mul(period)),
-            Repr::Linear { .. } => self.value(self.group(i / GROUP), i % GROUP),
+            Repr::Linear { groups, salvaged } => {
+                let g = i / GROUP;
+                let h = if salvaged {
+                    self.group(g)
+                } else {
+                    record_group(&groups, g)
+                };
+                value_in(groups.data, h, i % GROUP)
+            }
         }
     }
 
@@ -303,6 +289,15 @@ impl<'b> Starts<'b> {
     ///
     /// When `g` is past the last group.
     pub fn decode_group(&self, g: usize, out: &mut [i64; GROUP]) -> usize {
+        self.decode_group_with(Kernel::best(), g, out)
+    }
+
+    /// [Self::decode_group] with a given bit-pack kernel.
+    ///
+    /// # Panics
+    ///
+    /// When `g` is past the last group or this CPU doesn't run `kernel`.
+    pub fn decode_group_with(&self, kernel: Kernel, g: usize, out: &mut [i64; GROUP]) -> usize {
         assert!(
             g < self.group_count(),
             "group {g} of {}",
@@ -318,7 +313,7 @@ impl<'b> Starts<'b> {
             }
             Repr::Linear { .. } => {
                 let h = self.group(g);
-                bitpack::decode_line(self.values(h), h.width, h.base, h.slope, out);
+                bitpack::decode_line_with(kernel, self.values(h), h.width, h.base, h.slope, out);
             }
         }
         group_len(self.n, g)
@@ -405,13 +400,7 @@ impl<'b> Starts<'b> {
             "items {range:?} of {}",
             self.n
         );
-        Iter {
-            starts: *self,
-            front: range.start,
-            back: range.end,
-            front_buf: Buf::EMPTY,
-            back_buf: Buf::EMPTY,
-        }
+        Iter::new(*self, range)
     }
 
     /// The starts of all items, either way.
@@ -420,42 +409,95 @@ impl<'b> Starts<'b> {
     }
 }
 
+/// Group `g`'s record as stored.
+#[inline]
+fn record_group(groups: &Groups<'_>, g: usize) -> Group {
+    let r: &[u8; RECORD_LEN] = groups.records[g * RECORD_LEN..(g + 1) * RECORD_LEN]
+        .try_into()
+        .expect("a whole record");
+    let first = i64::from_le_bytes([r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7]]);
+    let slope = i64::from_le_bytes([r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15]]);
+    let rmin = i32::from_le_bytes([r[16], r[17], r[18], r[19]]);
+    Group {
+        first,
+        base: first.wrapping_add(i64::from(rmin)),
+        slope,
+        width: u32::from(r[20]),
+        offset: u32::from_le_bytes([r[21], r[22], r[23], r[24]]) as usize,
+    }
+}
+
+/// A group's residuals in the packed values `data`.
+#[inline]
+fn values_in(data: &[u8], h: Group) -> &[u8] {
+    if h.width == 0 { &[] } else { &data[h.offset..] }
+}
+
+/// Item `j` of a group whose residuals are in `data`.
+#[inline]
+fn value_in(data: &[u8], h: Group, j: usize) -> i64 {
+    let r = if h.width == 0 {
+        0
+    } else {
+        bitpack::read(&data[h.offset..], j, h.width)
+    };
+    h.base
+        .wrapping_add(bitpack::line(h.slope, j))
+        .wrapping_add(r as i64)
+}
+
 /// `a / b` rounded up, for `b` above 0.
 fn ceil_div(a: i128, b: i128) -> i128 {
     -((-a).div_euclid(b))
-}
-
-/// One decoded group.
-#[derive(Clone)]
-struct Buf {
-    group: usize,
-    ticks: [i64; GROUP],
-}
-
-impl Buf {
-    const EMPTY: Self = Buf {
-        group: usize::MAX,
-        ticks: [0; GROUP],
-    };
-
-    fn at(&mut self, s: &Starts<'_>, i: usize) -> i64 {
-        let g = i / GROUP;
-        if self.group != g {
-            s.decode_group(g, &mut self.ticks);
-            self.group = g;
-        }
-        self.ticks[i % GROUP]
-    }
 }
 
 /// Starts of a range of items, a group decoded at a time.
 #[derive(Clone)]
 pub struct Iter<'b> {
     starts: Starts<'b>,
+    /// Next item from the front, and one past the next from the back.
     front: usize,
     back: usize,
-    front_buf: Buf,
-    back_buf: Buf,
+    /// The front's group, decoded; the front reads `front_buf[front_at]` until `front_at` reaches `front_end`.
+    front_buf: [i64; GROUP],
+    front_at: usize,
+    front_end: usize,
+    /// The back's group, decoded; the back reads `back_buf[back_at - 1]` down to `back_start`.
+    back_buf: [i64; GROUP],
+    back_at: usize,
+    back_start: usize,
+}
+
+impl<'b> Iter<'b> {
+    fn new(starts: Starts<'b>, range: Range<usize>) -> Self {
+        Iter {
+            starts,
+            front: range.start,
+            back: range.end,
+            front_buf: [0; GROUP],
+            front_at: 0,
+            front_end: 0,
+            back_buf: [0; GROUP],
+            back_at: 0,
+            back_start: 0,
+        }
+    }
+
+    #[cold]
+    fn refill_front(&mut self) {
+        let g = self.front / GROUP;
+        let n = self.starts.decode_group(g, &mut self.front_buf);
+        self.front_at = self.front % GROUP;
+        self.front_end = n;
+    }
+
+    #[cold]
+    fn refill_back(&mut self) {
+        let g = (self.back - 1) / GROUP;
+        self.starts.decode_group(g, &mut self.back_buf);
+        self.back_at = self.back - g * GROUP;
+        self.back_start = 0;
+    }
 }
 
 impl Iterator for Iter<'_> {
@@ -466,7 +508,11 @@ impl Iterator for Iter<'_> {
         if self.front >= self.back {
             return None;
         }
-        let t = self.front_buf.at(&self.starts, self.front);
+        if self.front_at >= self.front_end {
+            self.refill_front();
+        }
+        let t = self.front_buf[self.front_at];
+        self.front_at += 1;
         self.front += 1;
         Some(t)
     }
@@ -478,12 +524,17 @@ impl Iterator for Iter<'_> {
 }
 
 impl DoubleEndedIterator for Iter<'_> {
+    #[inline]
     fn next_back(&mut self) -> Option<i64> {
         if self.front >= self.back {
             return None;
         }
+        if self.back_at <= self.back_start {
+            self.refill_back();
+        }
+        self.back_at -= 1;
         self.back -= 1;
-        Some(self.back_buf.at(&self.starts, self.back))
+        Some(self.back_buf[self.back_at])
     }
 }
 
@@ -533,22 +584,21 @@ pub(crate) fn encode(ticks: &[i64]) -> (TimeMode, std::vec::Vec<u8>) {
         return (TimeMode::Implicit, period.to_le_bytes().to_vec());
     }
     let groups: std::vec::Vec<(i64, i64, u32)> = ticks.chunks(GROUP).map(fit).collect();
-    let head = groups.len() * (FIRST_LEN + RECORD_LEN);
+    let head = groups.len() * RECORD_LEN;
     let data: usize = groups
         .iter()
         .zip(ticks.chunks(GROUP))
         .map(|((_, _, w), c)| bitpack::packed_len(c.len(), *w))
         .sum();
     let mut out = std::vec![0u8; head + data];
-    let records = groups.len() * FIRST_LEN;
     let mut at = 0usize;
     for (g, ((slope, rmin, w), c)) in groups.iter().zip(ticks.chunks(GROUP)).enumerate() {
-        out[g * FIRST_LEN..(g + 1) * FIRST_LEN].copy_from_slice(&c[0].to_le_bytes());
-        let r = records + g * RECORD_LEN;
-        out[r..r + 8].copy_from_slice(&slope.to_le_bytes());
-        out[r + 8..r + 12].copy_from_slice(&(*rmin as i32).to_le_bytes());
-        out[r + 12] = *w as u8;
-        out[r + 13..r + 17].copy_from_slice(&(at as u32).to_le_bytes());
+        let r = g * RECORD_LEN;
+        out[r..r + 8].copy_from_slice(&c[0].to_le_bytes());
+        out[r + 8..r + 16].copy_from_slice(&slope.to_le_bytes());
+        out[r + 16..r + 20].copy_from_slice(&(*rmin as i32).to_le_bytes());
+        out[r + 20] = *w as u8;
+        out[r + 21..r + 25].copy_from_slice(&(at as u32).to_le_bytes());
         let base = c[0].wrapping_add(*rmin);
         let residuals = c
             .iter()

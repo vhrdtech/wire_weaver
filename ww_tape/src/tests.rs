@@ -1090,27 +1090,29 @@ fn deterministic_and_golden() {
     );
 }
 
-/// Typed items go into hash sets, borrowed and owned (eventfull keys its items by them).
+/// Typed items hash as they compare, borrowed and owned (eventfull keys its items by them).
 #[test]
 fn typed_items_hash() {
     use std::collections::HashSet;
+    use std::hash::BuildHasher;
     let ty = TypeRef {
         bundle: RefVec::Slice { slice: &[1, 2] },
         krate: FullVersion::new("eventfull", Version::new(0, 4, 0)),
         path: "run::RunRecord",
     };
-    let a = TypedItem {
+    let item = |v: &'static [u8]| TypedItem {
         ty: ty.clone(),
-        value: RefVec::Slice { slice: &[7] },
+        value: RefVec::Slice { slice: v },
     };
-    let b = TypedItem {
-        ty,
-        value: RefVec::Slice { slice: &[8] },
-    };
-    let set: HashSet<_> = [a.clone(), b, a.clone()].into_iter().collect();
-    assert_eq!(set.len(), 2);
+    let state = std::hash::RandomState::new();
+    assert_eq!(state.hash_one(item(&[7])), state.hash_one(item(&[7])));
+    assert_ne!(state.hash_one(item(&[7])), state.hash_one(item(&[8])));
     let mut scratch = [0u8; 128];
-    let owned = TypedItemOwned::from_ww_bytes_owned(a.to_ww_bytes(&mut scratch).unwrap()).unwrap();
-    let owned: HashSet<TypedItemOwned> = [owned.clone(), owned].into_iter().collect();
-    assert_eq!(owned.len(), 1);
+    let mut owned = |v| {
+        TypedItemOwned::from_ww_bytes_owned(item(v).to_ww_bytes(&mut scratch).unwrap()).unwrap()
+    };
+    let set: HashSet<TypedItemOwned> = [owned(&[7]), owned(&[8]), owned(&[7])]
+        .into_iter()
+        .collect();
+    assert_eq!(set.len(), 2);
 }

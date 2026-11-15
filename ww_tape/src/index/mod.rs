@@ -55,6 +55,17 @@ pub const NONE: u64 = u64::MAX;
 
 const FLAG_FINAL: u16 = 1;
 
+/// Whether blocks of `kind` belong to the file structure (index, finish, tail, piece head): they carry the seq of
+/// the last counted block before them and take no part in the seq order, so seq stays the producer's count of its
+/// own blocks. A reader checks neither order nor gaps on them. Describe blocks a writer repeats are stamped the
+/// same way.
+pub fn is_structural(kind: BlockKind) -> bool {
+    matches!(
+        kind,
+        BlockKind::Index | BlockKind::Finish | BlockKind::Tail | BlockKind::PieceHead
+    )
+}
+
 /// Where a block is in its piece and what it holds.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct IndexEntry {

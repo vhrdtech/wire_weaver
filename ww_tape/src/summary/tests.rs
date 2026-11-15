@@ -844,6 +844,9 @@ fn summaries_fill_alignment_gaps() {
     let mut seq = None;
     while let Some(b) = rd.next_block() {
         let b = b.unwrap();
+        if crate::index::is_structural(b.kind) {
+            continue;
+        }
         assert!(seq.is_none_or(|s| b.seq == s + 1), "seqs ascend");
         seq = Some(b.seq);
         if b.kind == BlockKind::Summary {

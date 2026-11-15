@@ -399,10 +399,11 @@ fn aligned_file_puts_payloads_on_pages_and_fills_gaps() {
     assert_eq!(file, again, "same input, same bytes");
     let (blocks, errors) = walk(&file, Recovery::Prefix);
     assert_eq!(errors, 0);
+    // the describe backup, final index, finish and tail at the end carry the last counted seq
     let seqs: Vec<u64> = blocks.iter().map(|b| b.1).collect();
     assert_eq!(
         seqs,
-        (0..seqs.len() as u64).collect::<Vec<_>>(),
+        (0..8).chain([7; 4]).collect::<Vec<_>>(),
         "seqs ascend"
     );
     let kinds: Vec<BlockKind> = blocks.iter().map(|b| b.2).collect();

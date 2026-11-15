@@ -20,7 +20,9 @@
 //!   6 u16  flags, 0 (a reader ignores bits it doesn't know)
 //!   8 u32  len: the whole block, header and CRC included
 //!  12 u32  records in the block
-//!  16 u64  seq: the producer's block number, +1 per block; a gap is lost blocks
+//!  16 u64  seq: the producer's block number, +1 per block; a gap is lost blocks. Index, finish, tail and piece
+//!          head blocks, and describe blocks a writer repeats, carry the seq of the block before them and are not
+//!          counted (index::is_structural)
 //!  24 u64  reserved, 0
 //!  32 ...  body
 //! len-4 u32 crc over bytes 0..len-4

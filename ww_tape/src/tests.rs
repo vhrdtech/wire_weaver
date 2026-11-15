@@ -947,12 +947,64 @@ fn writer_partial_then_renamed() {
     w.tick().unwrap();
     w.finish().unwrap();
     let (seqs, errors) = read_all(&std::fs::read(&path).unwrap(), Recovery::Prefix);
-    // each run ends with its final index, finish and tail; the second also backs up its describe block
+    // each run ends with its final index, finish and tail, the second also with its describe backup: they carry
+    // the seq of the last counted block
     assert_eq!(
         (seqs, errors),
-        (vec![0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4], 0)
+        (vec![0, 1, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0], 0)
     );
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A capture passes the producer's blocks through with their own seqs: the checkpoints and describe repeats the
+/// writer adds between them take no seq of their own, so the prefix walk reads the whole file.
+#[test]
+fn pass_through_capture_reads_to_the_end() {
+    let dir = std::env::temp_dir().join(format!("ww_tape_pass_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("cap.wwtape");
+    _ = std::fs::remove_file(&path);
+    let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+    w.set_index_policy(IndexPolicy {
+        bytes: 1024,
+        interval: None,
+    });
+    w.set_describe_repeat(2048);
+    let mut buf = [0u8; 64];
+    let len = BlockWriter::new(&mut buf, BlockKind::Describe, 0, &[]).finish();
+    w.write_block(&buf[..len]).unwrap();
+    let (file, ends) = tape(60);
+    let mut start = 0;
+    for end in &ends {
+        // the producer numbers its blocks 1 and up after its describe block
+        let mut b = file[start..*end].to_vec();
+        let seq = Block::read(&b).unwrap().seq;
+        set_seq(&mut b, seq + 1).unwrap();
+        w.write_block(&b).unwrap();
+        start = *end;
+    }
+    w.finish().unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+    let mut rd = FileBlocks::new(&bytes[..]);
+    let (mut kinds, mut counted) = (vec![], vec![]);
+    while let Some(b) = rd.next_block() {
+        let b = b.expect("no cut");
+        kinds.push(b.kind);
+        if b.kind == BlockKind::Records {
+            counted.push(b.seq);
+        }
+    }
+    assert_eq!(counted, (1..=60).collect::<Vec<_>>());
+    assert!(
+        kinds.iter().filter(|k| **k == BlockKind::Index).count() >= 3,
+        "checkpoints and the final index"
+    );
+    assert!(
+        kinds.iter().filter(|k| **k == BlockKind::Describe).count() >= 3,
+        "repeats and the backup"
+    );
+    assert_eq!(kinds.last(), Some(&BlockKind::Tail));
 }
 
 /// A failed write is the end of the file: later writes and syncs are refused, never retried.

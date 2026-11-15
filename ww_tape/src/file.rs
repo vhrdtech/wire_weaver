@@ -65,8 +65,8 @@ pub enum Cut {
     /// The file ends inside a block (a writer stopped mid-way), `len` bytes of it are there.
     Truncated { len: u64 },
     /// A data block's seq is not after the one before it: not this file's next block. (A describe block may go
-    /// back: it starts the blocks of another producer run appended to the file; so may a piece head, starting the
-    /// next of concatenated pieces.)
+    /// back: it starts the blocks of another producer run appended to the file. Index, finish, tail and piece head
+    /// blocks take no part in the order.)
     SeqBackwards { seq: u64, after: u64 },
 }
 
@@ -235,16 +235,20 @@ impl<R: Read> FileBlocks<R> {
                     Ok(true) => match Block::read(&self.buf[..len]) {
                         Ok(b) => {
                             let seq = b.seq;
-                            // a describe block may start a new producer run (an appended file), a piece head
-                            // the next piece of concatenated ones
+                            // a describe block may start a new producer run (an appended file); blocks of the
+                            // file structure take no part in the seq order
+                            let structural = crate::index::is_structural(b.kind);
                             if self.recovery == Recovery::Prefix
                                 && let Some(after) = self.last_seq
                                 && seq <= after
-                                && !matches!(b.kind, BlockKind::Describe | BlockKind::PieceHead)
+                                && b.kind != BlockKind::Describe
+                                && !structural
                             {
                                 return Some(Err(self.cut(Cut::SeqBackwards { seq, after })));
                             }
-                            self.last_seq = Some(seq);
+                            if !structural {
+                                self.last_seq = Some(seq);
+                            }
                             self.current = len;
                             // re-borrow to tie the block to self
                             return Some(Ok(Block::read(&self.buf[..len]).expect("just read")));

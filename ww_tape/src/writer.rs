@@ -133,6 +133,8 @@ pub struct TapeWriter {
     replaying: bool,
     /// Bytes placed since the newest describe blocks
     since_describe: u64,
+    /// Bytes after which the newest describe blocks are written again
+    describe_repeat: u64,
 }
 
 /// What a finished piece is.
@@ -221,7 +223,13 @@ impl TapeWriter {
             describe_open: false,
             replaying: false,
             since_describe: 0,
+            describe_repeat: DESCRIBE_REPEAT_BYTES,
         }
+    }
+
+    /// Write the newest describe blocks again after about this many bytes ([DESCRIBE_REPEAT_BYTES] by default).
+    pub fn set_describe_repeat(&mut self, bytes: u64) {
+        self.describe_repeat = bytes;
     }
 
     /// When checkpoint index blocks are placed (by default every 4 MiB).
@@ -243,8 +251,8 @@ impl TapeWriter {
             )));
         }
         let mut buf = vec![0u8; piece_head_len(tracks.len())];
-        let n =
-            write_piece_head(&mut buf, self.next_seq, head, tracks).map_err(WriteError::Index)?;
+        let n = write_piece_head(&mut buf, self.structural_seq(), head, tracks)
+            .map_err(WriteError::Index)?;
         self.write_raw(&buf[..n])?;
         self.head = Some((*head, tracks.to_vec()));
         Ok(())
@@ -283,13 +291,21 @@ impl TapeWriter {
     }
 
     /// Seq the writer gives the next block it places itself ([Self::write_chunk], [Self::defer_block]): one after
-    /// the last block written.
+    /// the last counted block written. Blocks the file structure adds take the last counted seq and are not counted
+    /// ([crate::index::is_structural]).
     pub fn next_seq(&self) -> u64 {
         self.next_seq
     }
 
+    /// Seq of the blocks the file structure adds (index, finish, tail, piece head, repeated describe blocks): the
+    /// seq of the last counted block before them, 0 before the first.
+    fn structural_seq(&self) -> u64 {
+        self.next_seq.saturating_sub(1)
+    }
+
     fn write_raw(&mut self, block: &[u8]) -> Result<(), WriteError> {
         self.check()?;
+        assert!(block.len() >= crate::HEADER_LEN, "a block holds its header");
         if let Err(error) = self.file.write_all(block) {
             self.failed = true;
             return Err(WriteError::Io {
@@ -304,7 +320,9 @@ impl TapeWriter {
         self.bytes += block.len() as u64;
         self.since_describe += block.len() as u64;
         self.unsynced += 1;
-        if block.len() >= 24 {
+        // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
+        let counted = !self.replaying && !crate::index::is_structural(BlockKind::from_u8(block[5]));
+        if counted && block.len() >= 24 {
             let seq = u64::from_le_bytes(block[16..24].try_into().expect("8 bytes"));
             self.next_seq = seq.wrapping_add(1);
         }
@@ -334,7 +352,8 @@ impl TapeWriter {
         self.describe.push(block.to_vec());
     }
 
-    /// Write the newest describe blocks again, renumbered; the offset of the first. None when there are none.
+    /// Write the newest describe blocks again with the seq of the last counted block, not counted themselves; the
+    /// offset of the first. None when there are none.
     fn replay_describe(&mut self) -> Result<Option<u64>, WriteError> {
         if self.describe.is_empty() {
             return Ok(None);
@@ -342,7 +361,12 @@ impl TapeWriter {
         let at = self.offset();
         self.replaying = true;
         let blocks = core::mem::take(&mut self.describe);
-        let r = blocks.iter().try_for_each(|b| self.place(b.clone()));
+        let seq = self.structural_seq();
+        let r = blocks.iter().try_for_each(|b| {
+            let mut b = b.clone();
+            crate::set_seq(&mut b, seq).map_err(WriteError::Block)?;
+            self.write_raw(&b)
+        });
         self.describe = blocks;
         self.replaying = false;
         self.describe_open = false;
@@ -363,7 +387,7 @@ impl TapeWriter {
                 self.index_due = true;
             }
         }
-        if self.since_describe >= DESCRIBE_REPEAT_BYTES && !self.describe_open {
+        if self.since_describe >= self.describe_repeat && !self.describe_open {
             self.replay_describe()?;
         }
         Ok(())
@@ -377,7 +401,7 @@ impl TapeWriter {
         }
         let b = self
             .indexer
-            .checkpoint(self.offset(), self.next_seq)
+            .checkpoint(self.offset(), self.structural_seq())
             .map_err(WriteError::Index)?;
         self.write_raw(&b)
     }
@@ -558,8 +582,8 @@ impl TapeWriter {
         let mut prev = None;
         for part in self.indexer.final_parts() {
             let at = self.offset();
-            let b =
-                Indexer::final_block(&part, at, prev, self.next_seq).map_err(WriteError::Index)?;
+            let b = Indexer::final_block(&part, at, prev, self.structural_seq())
+                .map_err(WriteError::Index)?;
             self.write_raw(&b)?;
             prev = Some(at);
         }
@@ -576,8 +600,8 @@ impl TapeWriter {
         };
         let ranges = self.indexer.track_ranges();
         let mut buf = vec![0u8; finish_len(ranges.len())];
-        let n =
-            write_finish(&mut buf, self.next_seq, &finish, &ranges).map_err(WriteError::Index)?;
+        let n = write_finish(&mut buf, self.structural_seq(), &finish, &ranges)
+            .map_err(WriteError::Index)?;
         let finish_offset = self.offset();
         self.write_raw(&buf[..n])?;
         let tail = Tail {
@@ -590,7 +614,7 @@ impl TapeWriter {
             next,
         };
         let mut tb = [0u8; TAIL_LEN];
-        tail.write(&mut tb, self.next_seq);
+        tail.write(&mut tb, self.structural_seq());
         self.write_raw(&tb)?;
         self.sync()?;
         if let Some(partial) = self.partial.take() {

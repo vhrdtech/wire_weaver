@@ -323,14 +323,6 @@ impl<'i, T: DeserializeShrinkWrap<'i> + Debug + Clone> Debug for RefVec<'i, T> {
     }
 }
 
-// impl<'i> PartialEq for RefVec<'i, u8> {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.as_slice() == other.as_slice()
-//     }
-// }
-//
-// impl<'i> Eq for RefVec<'i, u8> {}
-
 impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq + Clone> PartialEq for RefVec<'i, T> {
     fn eq(&self, other: &Self) -> bool {
         let mut other = other.iter();

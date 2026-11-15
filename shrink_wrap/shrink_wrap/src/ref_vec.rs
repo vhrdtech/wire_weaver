@@ -355,6 +355,21 @@ impl<'i, T: DeserializeShrinkWrap<'i> + PartialEq + Clone> PartialEq for RefVec<
 
 impl<'i, T: DeserializeShrinkWrap<'i> + Eq + Clone> Eq for RefVec<'i, T> {}
 
+/// Hashes the elements as [PartialEq] compares them, up to the first that doesn't decode, then their count.
+impl<'i, T: DeserializeShrinkWrap<'i> + core::hash::Hash + Clone> core::hash::Hash
+    for RefVec<'i, T>
+{
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        let mut n = 0usize;
+        for x in self.iter() {
+            let Ok(x) = x else { break };
+            x.hash(state);
+            n += 1;
+        }
+        state.write_usize(n);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ref_vec::RefVec;
@@ -375,6 +390,26 @@ mod tests {
                 == RefVec::Slice {
                     slice: &[1u16, 2][..]
                 }
+        );
+    }
+
+    #[test]
+    fn hash_follows_eq() {
+        use core::hash::BuildHasher;
+        let state = std::collections::hash_map::RandomState::new();
+        let h = |v: &RefVec<'_, u8>| state.hash_one(v);
+        let buf = [0xAB, 0xCD, 0x02];
+        let read: RefVec<'_, u8> = BufReader::new(&buf).read().unwrap();
+        let slice = RefVec::Slice {
+            slice: &[0xABu8, 0xCD][..],
+        };
+        assert!(read == slice);
+        assert_eq!(h(&read), h(&slice));
+        assert_ne!(
+            h(&slice),
+            h(&RefVec::Slice {
+                slice: &[0xABu8][..]
+            })
         );
     }
 

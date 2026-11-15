@@ -1089,3 +1089,28 @@ fn deterministic_and_golden() {
         ]
     );
 }
+
+/// Typed items go into hash sets, borrowed and owned (eventfull keys its items by them).
+#[test]
+fn typed_items_hash() {
+    use std::collections::HashSet;
+    let ty = TypeRef {
+        bundle: RefVec::Slice { slice: &[1, 2] },
+        krate: FullVersion::new("eventfull", Version::new(0, 4, 0)),
+        path: "run::RunRecord",
+    };
+    let a = TypedItem {
+        ty: ty.clone(),
+        value: RefVec::Slice { slice: &[7] },
+    };
+    let b = TypedItem {
+        ty,
+        value: RefVec::Slice { slice: &[8] },
+    };
+    let set: HashSet<_> = [a.clone(), b, a.clone()].into_iter().collect();
+    assert_eq!(set.len(), 2);
+    let mut scratch = [0u8; 128];
+    let owned = TypedItemOwned::from_ww_bytes_owned(a.to_ww_bytes(&mut scratch).unwrap()).unwrap();
+    let owned: HashSet<TypedItemOwned> = [owned.clone(), owned].into_iter().collect();
+    assert_eq!(owned.len(), 1);
+}

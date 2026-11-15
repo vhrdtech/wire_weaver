@@ -280,7 +280,7 @@ fn map_increasing(m: &impl MapSegments) -> Result<(), shrink_wrap::Error> {
 
 /// A type in an API bundle: the bundle's hash, the crate the type is defined in and its path in that crate
 /// (`units::Volt`, `RunRecord`), as `ww_self` names a definition.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Hash, Clone))]
 pub struct TypeRef<'i> {
     /// Hash of the bundle holding the definition, as in [Describe::Bundle].
     pub bundle: RefVec<'i, u8>,
@@ -290,7 +290,7 @@ pub struct TypeRef<'i> {
 }
 
 /// A wire_weaver value of a type in a bundle.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Hash, Clone))]
 pub struct TypedItem<'i> {
     pub ty: TypeRef<'i>,
     /// The value in its ShrinkWrap encoding.

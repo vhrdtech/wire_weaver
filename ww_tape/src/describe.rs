@@ -1,21 +1,5 @@
 //! What describe records say: the producer, clocks, clock maps, tracks, API bundles and typed items.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use exact_units::units::{Per, Second, Tick};
 use exact_units::{Bytes, MagnitudeOf, Ratio64, Rounding};
 use shrink_wrap::prelude::*;
@@ -131,7 +115,10 @@ impl Layout {
         (a == 0 || a == ALIGNMENT)
             && align >= 1
             && gap <= GAP_MAX_MAX
-            && gap / align <= GAP_PROBES_MAX
+            && match gap.checked_div(align) {
+                Some(places) => places <= GAP_PROBES_MAX,
+                None => false,
+            }
     }
 
     fn validate(&self) -> Result<(), shrink_wrap::Error> {

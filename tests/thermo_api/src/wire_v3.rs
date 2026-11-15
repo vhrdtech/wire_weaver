@@ -3,7 +3,8 @@
 //! - The stream sends batches: `samples` carries a [Batch] of temperatures of one input with the first one's number,
 //!   no longer one `Sample` per item. A host wanting single samples splits each batch.
 //! - The tree moved: `uptime` and `self_test` are in a new sub-level, `health`, so their paths changed. `self_test`
-//!   is the same resource, marked `#[moved_from]`; `uptime` changed too, so it is a new one.
+//!   is the same resource renamed `check_sensor`, marked `#[moved_from]`, so its identity name stays `self_test`;
+//!   `uptime` changed too, so it is a new one.
 //! - `uptime` is in milliseconds in a `u64`, was whole seconds in a `u32`: a host model in seconds can't hold it.
 
 use super::common::{Channel, Command, Config, Mode, RateError, Sample, SelfTestError};
@@ -42,7 +43,7 @@ pub trait Health {
     property!(ro uptime: Fixed<Second, Milli, u64>);
     /// Checks the sensor.
     #[moved_from(w2.1, Thermo::self_test)]
-    fn self_test() -> Result<(), SelfTestError>;
+    fn check_sensor() -> Result<(), SelfTestError>;
 }
 
 /// Consecutive readings of one input: `temps[i]` is sample number `first + i`.

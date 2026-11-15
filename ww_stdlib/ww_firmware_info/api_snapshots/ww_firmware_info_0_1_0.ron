@@ -56,8 +56,8 @@
     "Without the note `FirmwareInfo::BUILD_ID` is empty and hosts fall back to the newest ELF they find, with a",
     "warning.",
 ], crate_idx: 0, trait_name: "ww_firmware_info", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: [], optional: None, meta: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None, meta: None),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: [], optional: None, meta: None, identity: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `--version` shows of a firmware, see `FirmwareInfo::FIRMWARE`.",
@@ -389,15 +389,15 @@
     ], crate_idx: 0, trait_name: "FirmwareInfo", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
             "Name, version, git commit, build time and profile.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
             "GNU build id of the image (20 bytes with sha1), empty when the firmware didn\'t keep the note. A host finds",
             "the ELF by it.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
             "The `bedrock_build_info` compact record as stored in flash (header with magic, length and CRC-32 included):",
             "crate features, dependencies, compiler, target. The full record is in the ELF only.",
-        ], optional: Some((group: None)), meta: None),
+        ], optional: Some((group: None)), meta: None, identity: None),
     ], compact_id: Some(8), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Why the device last reset and what the firmware saved before it, see [LastReset::last_reset].",
@@ -407,7 +407,7 @@
     ], crate_idx: 0, trait_name: "LastReset", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
             "Cause of the last reset and, after a crash, the record saved before it.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 3)),
             Type(OutOfLine(type_idx: 4)),
@@ -415,10 +415,10 @@
             Type(OutOfLine(type_idx: 5)),
         ])), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
             "Boots since the boot counter was cleared. With the cause it tells a reset loop from a single crash.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 2, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "clear", docs: [
             "Forget the crash record and zero the boot counter, after the host saved them.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
     ], compact_id: Some(9), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

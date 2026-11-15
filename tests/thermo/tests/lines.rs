@@ -391,7 +391,7 @@ fn checker_agrees_on_both_bumps() {
     let reasons = report.wire_reasons.join("\n");
     for broke in [
         "Thermo::samples: Batch on the new version, Sample on the old version: another type",
-        "Thermo::self_test moved to Health::self_test",
+        "Thermo::self_test moved to Health::check_sensor",
         "Thermo::uptime removed",
     ] {
         assert!(reasons.contains(broke), "{broke} not in:\n{reasons}");

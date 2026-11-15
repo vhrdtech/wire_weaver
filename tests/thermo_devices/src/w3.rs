@@ -152,7 +152,7 @@ impl Server {
     }
 
     /// The sensor reads open while channel 0 is disabled.
-    async fn health_self_test(
+    async fn health_check_sensor(
         &mut self,
         _cx: &mut Context<'_, impl EventOut>,
     ) -> RpcResult<Result<(), SelfTestError>> {

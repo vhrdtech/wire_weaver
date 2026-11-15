@@ -2058,6 +2058,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   Python (C: API-26). Firmware: no code cost (markers stay zero-size), introspection bytes only for the crate's own
   markers (`Rpm` 22 B, an origin ~40 B; TEST-27). Levels (STD-67), kinds (STD-68) and sentinels (STD-66) append
   their `MarkerDef` variants when their markers exist. [Units in the API model](docs/std_library/units_in_the_model.md).
+- ✅ **INT-17 Identity name of a renamed resource** · `v0.5` — `ApiItem::identity` (`#[default = None]`): the name a resource had on the oldest line of its `#[moved_from]` chain (EVO-40), when it differs from its `ident`; `None` otherwise. `ApiItemOwned::identity_name()` answers it or the `ident`, the name recorders hash so a renamed resource's tracks keep their ids (ww_tape name-path identity). Bundles without a rename keep their bytes (every stdlib snapshot's hash is unchanged). Renames within one trait only; a move to another trait keeps the name, its path prefix is a follow-up. Test `thermo` `every_line_dynamically` (`health.check_sensor` of line 3, was `self_test`).
 
 ## Evolution, versioning and compatibility (`EVO`)
 

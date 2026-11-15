@@ -56,7 +56,7 @@
     "",
     "See `tests/counters` for a complete server.",
 ], crate_idx: 0, trait_name: "ww_counters", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None, meta: None),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The counter buffers of this firmware and how to decode them, see [Counters::INFO].",
@@ -287,7 +287,7 @@
     ], crate_idx: 0, trait_name: "Counters", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
             "Buffers, their size and use, the `cnt` format version and the build id: all fixed at link time.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [
             (ident: "buffer", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
             (ident: "offset", ty: Instance(type_idx: 2, args: [
@@ -304,7 +304,7 @@
             "Words of a buffer from word `offset`, up to [MAX_WORDS] and never past its used words: empty at the end. The",
             "words of one call are copied at once, so a page is one snapshot (a `u64` counter can still tear between two",
             "calls, or within one if an interrupt carries into its high word; the host reads such a counter again).",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 2, kind: Method(args: [
             (ident: "buffer", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 5))), errors: Some([
@@ -313,7 +313,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Zero a buffer.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 6), delivery: Counted, args: [
             (ident: "period", ty: Instance(type_idx: 7, args: [
                 Type(OutOfLine(type_idx: 8)),
@@ -332,7 +332,7 @@
             "answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.",
             "",
             "Optional: a device leaves it out (`omit = [\"counters.watch\"]`), polling `read` works everywhere.",
-        ], optional: Some((group: None)), meta: None),
+        ], optional: Some((group: None)), meta: None, identity: None),
     ], compact_id: Some(13), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

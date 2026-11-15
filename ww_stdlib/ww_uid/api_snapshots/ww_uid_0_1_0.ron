@@ -9,7 +9,7 @@
     "serial number string (as lower-case hex, no separators) and a host shows in `ww list`. A host that lost a device",
     "on a reboot into a ROM bootloader sharing the same id (RP2350 BOOTSEL, STM32 DFU) finds the unit again by it.",
 ], crate_idx: 0, trait_name: "ww_uid", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uid", docs: [], optional: None, meta: None),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uid", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One unique id of a unit, where it comes from and what kind of number it is.",
@@ -75,7 +75,7 @@
     ], crate_idx: 0, trait_name: "Uid", items: [
         (id: 0, kind: Property(ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 0))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
             "All ids of this unit, the primary one first. At most 4.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
     ], compact_id: Some(11), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

@@ -387,10 +387,15 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
         assert_eq!(quantity(&up, &property_ty(&uptime), b).to_f64(), 42.0);
     }
 
-    // a method where the device has it, at the root or in `health`
-    let self_test = d.find(&["self_test", "health.self_test"]);
+    // a method where the device has it, at the root or renamed in `health`; its identity name, the oldest name of
+    // its `#[moved_from]` chain, is `self_test` on every line (INT-17)
+    let self_test = d.find(&["self_test", "health.check_sensor"]);
     assert_eq!(self_test.is_some(), wire >= WireVersion::new(2, 1));
     if let Some(self_test) = self_test {
+        let item = self_test.item().expect("a resource");
+        assert_eq!(item.identity_name(), "self_test");
+        let renamed = (wire.line.0 == 3).then_some("self_test");
+        assert_eq!(item.identity.as_deref(), renamed);
         assert_eq!(
             d.call(&self_test, &[]).await,
             Some(ValueOwned::Result(Ok(Box::new(ValueOwned::Tuple(vec![])))))

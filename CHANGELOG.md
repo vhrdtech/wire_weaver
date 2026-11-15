@@ -97,6 +97,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The book gets a Tape chapter (`docs/tape/`): what a tape file holds, how events and series store time, and what survives damage, with the measurements behind the format.
 - Evolution of keyed arrays (EVO-78): the checker and `ww api diff` know `keyed!`; `ww api tree` shows it on the array line. See the `wire_weaver_evolution` and `wire_weaver_cli` changelogs.
 - Transfer curves (STD-112, EVO-63): exact_units' `codec::Transfer<Q, C>` (a 10-bit PQ pixel, `Coded<Transfer<Narrow10, Pq>, ..>`) works in an API. The model has `MarkerDef::Curve` and `MarkerDef::Transfer`, the walker reads a curve's definition from source, and the dynamic client and Python read a code's signal and the light it means (`CodedType::light`, `ww.Quantity.light`). See the `ww_self`, `wire_weaver_core`, `wire_weaver_client`, `wire_weaver_py` and `wire_weaver_snapshots` changelogs.
+- Identity name of a renamed resource in `ww_self` (INT-17): `ApiItem::identity`, the oldest `#[moved_from]` name; bundles without a rename keep their bytes. See the `ww_self`, `wire_weaver_core` and `wire_weaver_snapshots` changelogs.
 
 ### Added
 

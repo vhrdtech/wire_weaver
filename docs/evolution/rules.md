@@ -288,8 +288,11 @@ pub trait Health {
   own line yet. It is compared with the latest snapshot of the previous line's root of the same name, for its moves
   and proposals only.
 
-`#[moved_from]` is read from the source and is not part of the API model: a device's introspection data doesn't carry
-it, so the dynamic client and the facade helpers don't see it yet.
+`#[moved_from]` is read from the source. The API model keeps one thing of it: a resource renamed on the way
+(`self_test` became `check_sensor`) carries its identity name, the name on the oldest line of its chain, in
+`ApiItem::identity` (INT-17). Recorders hash that name instead of the current one, so a renamed resource's tracks keep
+their ids. A resource that kept its name has `identity: None`. The rest of the chain stays out of a device's
+introspection data, so the dynamic client and the facade helpers don't see where a resource was.
 
 ### Arguments
 

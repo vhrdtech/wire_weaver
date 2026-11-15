@@ -416,6 +416,7 @@ mod tests {
             docs: docs("item"),
             optional: None,
             meta: None,
+            identity: None,
         };
         ApiBundleOwned {
             magic: MAGIC,

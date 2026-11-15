@@ -227,6 +227,7 @@ fn load_root_in(
             docs: vec![],
             optional: None,
             meta: None,
+            identity: None,
         };
         Ok((entry, item, wire))
     })?;
@@ -345,6 +346,7 @@ fn convert_snapshot_item(
                 docs: vec![],
                 optional: None,
                 meta: None,
+                identity: None,
             });
         }
         Item::Struct(item_struct) if is_snapshot_struct(item_struct) => {

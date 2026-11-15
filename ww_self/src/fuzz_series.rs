@@ -427,6 +427,7 @@ fn property(id: u32, ident: &str, ty: TypeOwned) -> crate::ApiItemOwned {
         docs: vec![],
         optional: None,
         meta: None,
+        identity: None,
     }
 }
 

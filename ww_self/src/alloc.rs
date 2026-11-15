@@ -54,6 +54,12 @@ impl ApiItemOwned {
         matches!(self.multiplicity, Multiplicity::Array { .. })
     }
 
+    /// The name recorders hash for this resource (INT-17): the oldest name of its `#[moved_from]` chain, else its
+    /// `ident`.
+    pub fn identity_name(&self) -> &str {
+        self.identity.as_deref().unwrap_or(&self.ident)
+    }
+
     /// How a client can claim this `ww_impl!` through the hub (SRV-34): `#[claim(..)]` on it, else on its trait's
     /// definition; `None` for an item that can't be claimed. A trait left out of `bundle` (skipped, not restored
     /// from a snapshot) counts only by the `ww_impl!`.

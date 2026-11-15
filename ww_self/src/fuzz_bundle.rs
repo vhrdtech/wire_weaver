@@ -142,6 +142,7 @@ impl Gen<'_> {
                 docs: vec![],
                 optional: None,
                 meta: None,
+                identity: None,
             });
         }
         ApiBundleOwned {

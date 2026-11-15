@@ -460,6 +460,7 @@ mod tests {
                 docs: vec![],
                 optional: None,
                 meta: None,
+                identity: None,
             })
             .collect();
         ApiBundleOwned {

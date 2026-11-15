@@ -26,7 +26,7 @@
     "",
     "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
 ], crate_idx: 0, trait_name: "ww_block", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlockDevice", docs: [], optional: None, meta: None),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlockDevice", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The medium, see [BlockDevice::geometry].",
@@ -389,7 +389,7 @@
         ])), multiplicity: Flat, since: None, ident: "geometry", docs: [
             "Block size and count, blocks per call, erase unit, what erased blocks read as, read-only flag. `NoMedium`",
             "without a card.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [
             (ident: "lba", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 3)),
@@ -415,7 +415,7 @@
             "writes the card itself.",
             "",
             "`OutOfRange` past the last block, `Common(InvalidArgument)` for more than [Geometry::max_blocks].",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 2, kind: Method(args: [
             (ident: "lba", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 3)),
@@ -438,7 +438,7 @@
         ])), multiplicity: Flat, since: None, ident: "crc", docs: [
             "CRC-32 (see [crc32]) of `count` blocks from `lba`, computed on the device: the host checks what it wrote",
             "without reading it back over a slow link. Takes as long as reading the blocks.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 3, kind: Method(args: [
             (ident: "lease", ty: Instance(type_idx: 5, args: [
                 Type(OutOfLine(type_idx: 7)),
@@ -462,7 +462,7 @@
             "",
             "`Common(Busy)` while another lease is held, `Common(Refused)` when this link may not write the card (the",
             "firmware\'s choice), `ReadOnly` for a read-only medium.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 4, kind: Method(args: [
             (ident: "lease", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -470,7 +470,7 @@
         ])), multiplicity: Flat, since: None, ident: "release", docs: [
             "Gives the card back: its user mounts it again (and finds what the host wrote). `BadLease` for a lease that",
             "lapsed or is not the current one.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 5, kind: Method(args: [
             (ident: "lease", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
             (ident: "lba", ty: Instance(type_idx: 2, args: [
@@ -495,7 +495,7 @@
             "",
             "`Common(InvalidArgument)` when `data` is not whole blocks or more than [Geometry::max_blocks], `BadCrc` when `crc` doesn\'t match (nothing is",
             "written).",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 6, kind: Method(args: [
             (ident: "lease", ty: OutOfLine(type_idx: 8), default: None, flatten: false),
             (ident: "lba", ty: Instance(type_idx: 2, args: [
@@ -518,15 +518,15 @@
             "Erases `count` blocks from `lba` (CMD38 on an SD card, a sector erase on flash, a discard on eMMC). Whole",
             "erase units ([Geometry::erase_blocks]) where it can; afterwards the blocks read as [Geometry::erased].",
             "Takes as long as the medium needs.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 7, kind: FlowSink(ty: OutOfLine(type_idx: 9), flow: Credit), multiplicity: Flat, since: None, ident: "write_runs", docs: [
             "Bulk write: runs of blocks, each with the lease from [BlockDevice::claim], acknowledged one by one on",
             "[BlockDevice::written] once on the medium (or refused). Credit-based (API-28): the host never sends more",
             "than the device has room for. For long jobs and slow links: writing a prepared filesystem, an image.",
-        ], optional: Some((group: Some("bulk"))), meta: None),
+        ], optional: Some((group: Some("bulk"))), meta: None, identity: None),
         (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 10), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "written", docs: [
             "The outcome of each run of [BlockDevice::write_runs], in the order they came. A counted stream, unit: run.",
-        ], optional: Some((group: Some("bulk"))), meta: None),
+        ], optional: Some((group: Some("bulk"))), meta: None, identity: None),
         (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 11), delivery: Counted, args: [
             (ident: "lba", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 3)),
@@ -549,7 +549,7 @@
             "Bulk read: `count` blocks from `lba` as runs of up to [Geometry::max_blocks] on this stream, at the link\'s",
             "full speed instead of one call per run. The stream ends when the last run is sent; opening it again starts",
             "another range. A counted stream, unit: block.",
-        ], optional: Some((group: Some("bulk"))), meta: None),
+        ], optional: Some((group: Some("bulk"))), meta: None, identity: None),
     ], compact_id: Some(104), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_block", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

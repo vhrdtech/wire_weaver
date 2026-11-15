@@ -217,6 +217,11 @@ pub struct ApiItem<'i> {
     /// or the hub needs to know about the item. `None`: none.
     #[default = None]
     pub meta: Option<Meta<'i>>,
+    /// The resource's identity name when it was renamed (INT-17): its name on the oldest line of its
+    /// `#[moved_from]` chain, which recorders hash instead of [ApiItem::ident] so its tracks keep their ids. `None`:
+    /// never renamed, `ident` is the identity name.
+    #[default = None]
+    pub identity: Option<&'i str>,
 }
 
 /// One entry of a method's error list (`#[errors(Common(InUse, Refused), Nack)]`, API-32): a variant of the

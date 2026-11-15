@@ -110,7 +110,7 @@ impl crate::line::V3 for Client {
 
     async fn self_test(c: &Client) -> Result<()> {
         c.health()
-            .self_test()
+            .check_sensor()
             .call()
             .await
             .map_err(|e| Error::from(e).of("self_test"))

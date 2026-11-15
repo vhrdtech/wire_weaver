@@ -25,8 +25,8 @@
     "",
     "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
 ], crate_idx: 0, trait_name: "ww_recorder", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Recorder", docs: [], optional: None, meta: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Track", docs: [], optional: None, meta: None),
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Recorder", docs: [], optional: None, meta: None, identity: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Track", docs: [], optional: None, meta: None, identity: None),
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the recorder is doing, see [Recorder::status].",
@@ -1145,14 +1145,14 @@
             "Tracks of this session, indexed by track number: 0 is the system track (markers, recordings, drops, card",
             "events), the data tracks follow from 1. The indices valid right now are the session\'s tracks; they change",
             "only when the device boots.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "What the recorder is doing now.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 2, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 1))), errors: None), multiplicity: Flat, since: None, ident: "card", docs: [
             "Facts about the card in the slot, `None` without a card. Reads what the card reports (SD Status, CID); the",
             "speed rating is the result of the last card check, made by [Recorder::format].",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 3, kind: Method(args: [
             (ident: "action", ty: OutOfLine(type_idx: 2), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 3), err_ty: OutOfLine(type_idx: 4))), errors: Some([
@@ -1169,7 +1169,7 @@
             "the card refused the old one (keeps the rw files).",
             "",
             "`Common(Busy)` while a format is running, `NoCard`.",
-        ], optional: Some((group: Some("formatting"))), meta: None),
+        ], optional: Some((group: Some("formatting"))), meta: None, identity: None),
         (id: 4, kind: Method(args: [
             (ident: "token", ty: OutOfLine(type_idx: 5), default: None, flatten: false),
             (ident: "rw_mb", ty: Option(some_ty: Instance(type_idx: 6, args: [
@@ -1196,7 +1196,7 @@
             "",
             "`BadToken` for an expired, used or other card\'s token, `Common(InvalidArgument)` for an `rw_mb` outside the",
             "offer\'s limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).",
-        ], optional: Some((group: Some("formatting"))), meta: None),
+        ], optional: Some((group: Some("formatting"))), meta: None, identity: None),
         (id: 5, kind: Method(args: [
             (ident: "trigger", ty: OutOfLine(type_idx: 10), default: None, flatten: false),
             (ident: "pre_trigger", ty: Instance(type_idx: 6, args: [
@@ -1219,13 +1219,13 @@
             "(`Unsupported` if the device has none). Returns the recording id (counts up for the life of the card).",
             "",
             "`NotLogging` without a mounted ring, `RecordingRunning` while one is open.",
-        ], optional: Some((group: Some("recording"))), meta: None),
+        ], optional: Some((group: Some("recording"))), meta: None, identity: None),
         (id: 6, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "NotLogging", nested: None),
             (ident: "NoRecording", nested: None),
         ])), multiplicity: Flat, since: None, ident: "recording_stop", docs: [
             "Stops the running recording and returns its id. `NoRecording` when none runs.",
-        ], optional: Some((group: Some("recording"))), meta: None),
+        ], optional: Some((group: Some("recording"))), meta: None, identity: None),
         (id: 7, kind: Method(args: [
             (ident: "after", ty: OutOfLine(type_idx: 13), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 14))), err_ty: OutOfLine(type_idx: 4))), errors: Some([
@@ -1233,7 +1233,7 @@
         ])), multiplicity: Flat, since: None, ident: "recordings", docs: [
             "Recordings on the card, oldest first, up to [MAX_RECORDINGS] with id above `after` (0 for the first page).",
             "Recordings whose data the ring has already overwritten are not listed.",
-        ], optional: Some((group: Some("recording"))), meta: None),
+        ], optional: Some((group: Some("recording"))), meta: None, identity: None),
         (id: 8, kind: Method(args: [
             (ident: "kind", ty: OutOfLine(type_idx: 15), default: None, flatten: false),
             (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String), default: Some("Default::default()"), flatten: false),
@@ -1246,13 +1246,13 @@
         ])), multiplicity: Flat, since: None, ident: "marker", docs: [
             "Drops a marker into the system track: a moment to find again (a button press, a note, a trigger). Written",
             "at once, not with the next flush.",
-        ], optional: Some((group: Some("markers"))), meta: None),
+        ], optional: Some((group: Some("markers"))), meta: None, identity: None),
         (id: 9, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "NotLogging", nested: None),
         ])), multiplicity: Flat, since: None, ident: "sync", docs: [
             "Writes what is in RAM to the card now (all tracks), instead of waiting for [Settings::flush] or",
             "[Settings::flush_interval]. Answers when it is on the card. Before a planned power-off, on a brown-out warning.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 10, kind: Property(ty: OutOfLine(type_idx: 16), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -1260,10 +1260,10 @@
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "settings", docs: [
             "Settings: flush thresholds, full policy, recording mode, USB view. Each field says when it takes effect.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 17)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "Totals since the card was formatted and since this boot.",
-        ], optional: Some((group: Some("counting"))), meta: None),
+        ], optional: Some((group: Some("counting"))), meta: None, identity: None),
         (id: 12, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1273,14 +1273,14 @@
             "Tells the USB mass storage view to show the log as it is now. The view is a snapshot taken when the host",
             "mounts it, so new data shows only after a re-mount; this raises a media change instead. Optional: a device",
             "without a USB view leaves it out.",
-        ], optional: Some((group: Some("usb"))), meta: None),
+        ], optional: Some((group: Some("usb"))), meta: None, identity: None),
     ], compact_id: Some(112), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "One track of the log, `Recorder::track[n]`.",
     ], crate_idx: 0, trait_name: "Track", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 18)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Where the track comes from and what it carries.",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1288,14 +1288,14 @@
         ]), batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [
             "Whether the track is written. A disabled track keeps its place in the table and its position; its items are",
             "counted as dropped. Takes effect at once; the system track (0) can\'t be disabled (`Unsupported`).",
-        ], optional: None, meta: None),
+        ], optional: None, meta: None, identity: None),
         (id: 2, kind: Property(ty: OutOfLine(type_idx: 19), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "durability", docs: [
             "When the track is flushed to the card, see [Durability]. Takes effect at once.",
-        ], optional: Some((group: Some("track_settings"))), meta: None),
+        ], optional: Some((group: Some("track_settings"))), meta: None, identity: None),
         (id: 3, kind: Property(ty: OutOfLine(type_idx: 20), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 4)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -1303,10 +1303,10 @@
         ]), batched: None), multiplicity: Flat, since: None, ident: "compression", docs: [
             "Compression of the track\'s batches, see [Compression]. Optional: a device without a codec leaves it out,",
             "and tracks are stored plain.",
-        ], optional: Some((group: None)), meta: None),
+        ], optional: Some((group: None)), meta: None, identity: None),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 21)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "What the track has stored and lost.",
-        ], optional: Some((group: Some("counting"))), meta: None),
+        ], optional: Some((group: Some("counting"))), meta: None, identity: None),
     ], compact_id: Some(113), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_recorder", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

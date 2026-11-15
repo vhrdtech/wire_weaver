@@ -144,6 +144,7 @@ pub(crate) fn convert_api_items(
                         },
                         current_crate,
                     )?,
+                    identity: None,
                 });
             }
             i => {
@@ -153,7 +154,7 @@ pub(crate) fn convert_api_items(
         }
         note_moved_from(
             item,
-            items.get(before..).unwrap_or_default(),
+            items.get_mut(before..).unwrap_or_default(),
             item_trait,
             current_crate,
             scratch,
@@ -166,10 +167,11 @@ pub(crate) fn convert_api_items(
 }
 
 /// `#[moved_from(..)]` of the trait item `item`, converted into `added` (empty for `reserved!`), kept in `scratch`
-/// for the evolution checker (EVO-40).
+/// for the evolution checker (EVO-40). A rename gives `added` its identity name, the name on the oldest line of the
+/// chain (INT-17).
 fn note_moved_from(
     item: &TraitItem,
-    added: &[ApiItemOwned],
+    added: &mut [ApiItemOwned],
     item_trait: &syn::ItemTrait,
     current_crate: &CrateContext,
     scratch: &mut Scratch,
@@ -182,7 +184,7 @@ fn note_moved_from(
     };
     let trait_name = item_trait.ident.to_string();
     let crate_id = &current_crate.version().crate_id;
-    let Some(added) = added.first() else {
+    let Some(added) = added.first_mut() else {
         if attrs.iter().any(|a| a.path().is_ident("moved_from")) {
             return Err(anyhow!(
                 "#[moved_from] on reserved! in {trait_name}: only a resource can have moved"
@@ -193,6 +195,11 @@ fn note_moved_from(
     };
     let moves = get_moved_from_attrs(attrs, crate_id, &trait_name, &added.ident)
         .context(current_crate.err_context())?;
+    added.identity = moves
+        .iter()
+        .min_by_key(|m| m.wire.line.0)
+        .filter(|oldest| oldest.from_ident != added.ident)
+        .map(|oldest| oldest.from_ident.clone());
     for moved in moves {
         if !scratch.moved_from.contains(&moved) {
             scratch.moved_from.push(moved);
@@ -457,6 +464,7 @@ fn convert_api_item_fn(
             },
             current_crate,
         )?,
+        identity: None,
     })
 }
 
@@ -529,6 +537,7 @@ fn convert_api_item_stream(
             },
             current_crate,
         )?,
+        identity: None,
     })
 }
 
@@ -674,6 +683,7 @@ fn convert_api_item_property(
             },
             current_crate,
         )?,
+        identity: None,
     })
 }
 
@@ -731,6 +741,7 @@ fn convert_api_item_impl(
         docs: collect_docs(&item_macro.attrs),
         optional,
         meta,
+        identity: None,
     })
 }
 
@@ -1023,6 +1034,7 @@ pub(crate) mod tests {
                 group: Some(g.into()),
             }),
             meta: None,
+            identity: None,
         }
     }
 

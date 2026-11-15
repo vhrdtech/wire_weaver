@@ -137,6 +137,7 @@ pub(crate) fn convert_api_item_keyed(
         docs: collect_docs(&item_macro.attrs),
         optional: get_optional_attr(&item_macro.attrs, current_crate)?,
         meta: None,
+        identity: None,
     })
 }
 

@@ -95,6 +95,7 @@ pub fn keys_level(level: &ApiLevelOwned, keys: &ApiItemOwned) -> Result<ApiLevel
         docs: vec![],
         optional: None,
         meta: None,
+        identity: None,
     };
     let items = vec![
         item(

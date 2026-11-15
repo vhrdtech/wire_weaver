@@ -260,9 +260,9 @@ async fn monitor_capture_and_explain_file_agree() {
     assert!(report.contains("add: 8"), "{report}");
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
-    // `ww capture` wrote the same bytes, `ww explain FILE` prints the same text
+    // `ww capture` wrote the same bytes (then its index, finish and tail), `ww explain FILE` prints the same text
     assert_eq!(writer.finish().unwrap().path, path);
-    assert_eq!(std::fs::read(&path).unwrap(), file);
+    assert!(std::fs::read(&path).unwrap().starts_with(&file));
     for (view, live) in views().into_iter().zip(&live) {
         let mut replayed = vec![];
         replay(

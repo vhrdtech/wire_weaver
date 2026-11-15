@@ -426,7 +426,7 @@ pub fn write_index(
     let (dir, rest) = rest.split_at_mut_checked(dir_len).ok_or(short)?;
     let (entry_bytes, _) = rest.split_last_chunk_mut::<CRC_LEN>().ok_or(short)?;
 
-    put_header(header, BlockKind::Index, len, count, id);
+    put_header(header, BlockKind::Index, len, count, id).ok_or(too_long)?;
     let flags = match head.kind {
         IndexKind::Checkpoint => 0,
         IndexKind::Final => FLAG_FINAL,

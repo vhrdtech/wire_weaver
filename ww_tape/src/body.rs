@@ -404,7 +404,7 @@ mod tests {
         assert_eq!(b.decode(&mut buf).err(), Some(BlockError::BadRecords));
         // a flagged body without even its codec byte
         let mut empty = vec![0u8; 64];
-        crate::put_header(&mut empty, BlockKind::Records, 36, 0, id(0));
+        crate::put_header(&mut empty, BlockKind::Records, 36, 0, id(0)).unwrap();
         empty[6] = FLAG_BODY_CODED as u8;
         empty.truncate(36);
         let crc = CRC.checksum(&empty[..32]);

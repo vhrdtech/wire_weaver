@@ -239,7 +239,8 @@ pub fn write_piece_head(
 ) -> Result<usize, IndexError> {
     let len = piece_head_len(tracks.len());
     let (b, count) = block_buf(buf, len, tracks.len())?;
-    put_header(b, BlockKind::PieceHead, len, count, id);
+    put_header(b, BlockKind::PieceHead, len, count, id)
+        .ok_or(IndexError::Invalid("longer than a block"))?;
     fill_piece_head(b, head, tracks).ok_or(IndexError::Invalid("piece head layout"))?;
     seal(b);
     Ok(len)
@@ -399,7 +400,8 @@ pub fn write_finish(
 ) -> Result<usize, IndexError> {
     let len = finish_len(tracks.len());
     let (b, count) = block_buf(buf, len, tracks.len())?;
-    put_header(b, BlockKind::Finish, len, count, id);
+    put_header(b, BlockKind::Finish, len, count, id)
+        .ok_or(IndexError::Invalid("longer than a block"))?;
     fill_finish(b, finish, tracks).ok_or(IndexError::Invalid("finish layout"))?;
     seal(b);
     Ok(len)
@@ -517,7 +519,7 @@ impl Tail {
     /// When `buf` is shorter than [TAIL_LEN].
     pub fn write(&self, buf: &mut [u8], id: BlockId) -> usize {
         let written = buf.get_mut(..TAIL_LEN).and_then(|b| {
-            put_header(b, BlockKind::Tail, TAIL_LEN, 0, id);
+            put_header(b, BlockKind::Tail, TAIL_LEN, 0, id)?;
             self.fill(b)?;
             seal(b);
             Some(())

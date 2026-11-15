@@ -739,6 +739,7 @@ impl BlockState {
 /// Write the 32-byte header of a block of `kind`, `len` bytes and `count` records with `id` into `buf`: flags and
 /// bytes 28..32 zero.
 /// None, writing nothing, when `buf` is shorter than the header or `len` is over [MAX_BLOCK_LEN].
+#[must_use = "None means no header was written"]
 pub(crate) fn put_header(
     buf: &mut [u8],
     kind: BlockKind,

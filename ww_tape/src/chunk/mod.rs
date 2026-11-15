@@ -425,7 +425,8 @@ impl<'b> ChunkWriter<'b> {
             .ok_or(ChunkError::TooLong { len })?;
 
         let mut header = [0u8; HEADER_LEN];
-        crate::put_header(&mut header, head.kind, len, head.count, id);
+        crate::put_header(&mut header, head.kind, len, head.count, id)
+            .ok_or(ChunkError::TooLong { len })?;
         let [header_pre @ .., _, _, _, _] = header;
         *pre = header_pre;
         let fields = payload_at

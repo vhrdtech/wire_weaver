@@ -435,7 +435,8 @@ impl<'b> SummaryWriter<'b> {
             .get_mut(..len)
             .ok_or(SummaryError::Full { needed: len })?;
         buf.fill(0);
-        crate::put_header(buf, BlockKind::Summary, len, count, id);
+        crate::put_header(buf, BlockKind::Summary, len, count, id)
+            .ok_or(SummaryError::TooLong { len })?;
         let (element, fields, channels) = match head.layout {
             Layout::Events(f) => (0, f.bits(), 0),
             Layout::Series {

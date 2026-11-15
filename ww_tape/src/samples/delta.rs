@@ -12,8 +12,6 @@ use super::ENTRY;
 pub(super) struct Flavor {
     /// 1: differences of values; 2: differences of differences.
     pub order: u8,
-    /// Floats as ordered integers: their bits mapped so that integer order is float order.
-    pub float: bool,
 }
 
 #[inline(always)]
@@ -29,27 +27,6 @@ const fn mask(bits: u32) -> u64 {
 #[inline(always)]
 fn signed(v: u64, bits: u32) -> i64 {
     ((v << (64 - bits)) as i64) >> (64 - bits)
-}
-
-/// A float's bits as an ordered integer of `bits` bits: negative values flipped, positive ones above them.
-#[inline(always)]
-fn to_ordered(v: u64, bits: u32) -> u64 {
-    let top = 1u64 << (bits - 1);
-    if v & top != 0 {
-        !v & mask(bits)
-    } else {
-        v | top
-    }
-}
-
-#[inline(always)]
-fn from_ordered(v: u64, bits: u32) -> u64 {
-    let top = 1u64 << (bits - 1);
-    if v & top != 0 {
-        v & !top
-    } else {
-        !v & mask(bits)
-    }
 }
 
 /// Bytes of a lane's header in a group: first value, first difference (order 2), the minimum, the width byte.
@@ -102,8 +79,7 @@ pub(super) fn encode<T: Sample>(
         for l in 0..lanes {
             let mut lane = [0u64; DELTA_GROUP];
             for (x, v) in lane.iter_mut().zip(group[l..].iter().step_by(lanes)) {
-                let b = v.to_bits();
-                *x = if flavor.float { to_ordered(b, w) } else { b };
+                *x = v.to_bits();
             }
             let lane = &lane[..n];
             put(out, &mut at, lane[0], bytes);
@@ -191,7 +167,6 @@ fn decode_group<T: Sample>(
 ) -> Option<()> {
     let w = T::ELEMENT.scalar_bits();
     let bytes = (w / 8) as usize;
-    let m = mask(w);
     let take = dst.len() / lanes;
     let k = g_count.saturating_sub(usize::from(flavor.order));
     let group = &src[..len];
@@ -225,12 +200,7 @@ fn decode_group<T: Sample>(
         let mut d = first_delta;
         let emit = |i: usize, v: u64, dst: &mut [T]| {
             if i >= skip {
-                let bits = if flavor.float {
-                    from_ordered(v & m, w)
-                } else {
-                    v
-                };
-                dst[(i - skip) * lanes + l] = T::from_bits(bits);
+                dst[(i - skip) * lanes + l] = T::from_bits(v);
             }
         };
         emit(0, v, dst);

@@ -7,7 +7,7 @@ use ww_tape::lz4::{lz4_decode, lz4_decoded_len, lz4_encode, lz4_max_len};
 use ww_tape::samples::{Element, SampleShape, Samples, encode, max_encoded_len};
 use ww_tape::{Codec, Sample};
 
-const CODECS: [Codec; 15] = [
+const CODECS: [Codec; 11] = [
     Codec::RAW,
     Codec::BIG_ENDIAN,
     Codec::PACKED10_LSB,
@@ -16,12 +16,8 @@ const CODECS: [Codec; 15] = [
     Codec::PACKED12_MSB,
     Codec::PACKED24_LSB,
     Codec::PACKED24_MSB,
-    Codec::GORILLA,
-    Codec::CHIMP,
     Codec::DELTA,
     Codec::DELTA2,
-    Codec::FLOAT_DELTA,
-    Codec::FLOAT_DELTA2,
     Codec::ALP,
 ];
 

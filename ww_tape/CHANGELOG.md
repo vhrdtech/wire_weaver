@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `Codec::GORILLA`, `CHIMP`, `FLOAT_DELTA`, `FLOAT_DELTA2` and `XOR_GROUP` are gone; ids 24, 25, 34, 35 are reserved and refused (STD-131).
 - Describe sets mark their first and last block (`FLAG_SET_FIRST`, `FLAG_SET_LAST`); only a whole set counts as one (STD-129).
 - `PieceChain::create` takes the chain number: each chain of a result gets its own piece ids and run tag (STD-129).
 - `PieceId::first` is `first_of(result, 0)`: its bytes change; `PieceId::first_of` names the first piece of each chain (STD-129).

@@ -163,20 +163,18 @@ A series chunk's sample columns (`ColumnKind::Samples`) are coded by the column'
 | 17, 18 | `PACKED10_LSB`, `PACKED10_MSB` | integers of 16 bits and more | 10 bits per value |
 | 19, 20 | `PACKED12_LSB`, `PACKED12_MSB` | integers of 16 bits and more | 12 bits per value, 2 values in 3 bytes |
 | 21, 22 | `PACKED24_LSB`, `PACKED24_MSB` | integers of 32 bits and more | 24 bits per value |
-| 24 | `GORILLA` | floats | XOR with the lane's previous value, Gorilla's control bits |
-| 25 | `CHIMP` | floats | XOR with the lane's previous value, Chimp's control bits |
+| 24, 25 | | | reserved: refused as an unknown codec |
 | 26 | `ALP` | floats | decimals as integers, frame of reference, bit-packed; other floats by their front bits through a dictionary |
 | 32, 33 | `DELTA`, `DELTA2` | integers | differences (or differences of differences), minus their minimum, bit-packed |
-| 34, 35 | `FLOAT_DELTA`, `FLOAT_DELTA2` | floats | the same on the float bits mapped to ordered integers |
+| 34, 35 | | | reserved: refused as an unknown codec |
 | 48 | `LZ4` | payload columns | one lz4 block after its decoded length (`ww_tape::lz4`) |
 
 - **Raw device formats** (0 to 22) are what a device sends, stored as it is: the reader converts only the samples it reads, and any sample reads in place. An `_LSB` column holds value `i` at bits `i·w` up of the column read as one little-endian number; an `_MSB` column counts bits from the top of byte 0. A packed value of a signed element is sign-extended.
-- **XOR codecs** (24, 25) are lossless for every bit pattern, NaN payloads and the sign of zero included. They code groups of 1024 samples, lane by lane.
-- **Delta codecs** (32 to 35) code groups of 128 samples on the bit-pack primitive the event time codec uses (`ww_tape::bitpack`). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.
+- **Delta codecs** (32, 33) code groups of 128 samples on the bit-pack primitive the event time codec uses (`ww_tape::bitpack`). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.
 - **ALP** (26) follows ALP (Afroozeh, Kuffó and Boncz, SIGMOD 2024) in groups of 128 samples. Floats that began as decimals (a reading times 0.1, a price, a value printed and parsed back) are stored as integers: per group and lane one exponent `e` and factor `f`, each value `d` such that `d × 10^f × 10^-e` gives its bits back exactly, the `d`s minus their minimum bit-packed. Values that don't come back bit for bit (NaN payloads, `-0.0`, infinities, more digits) are kept whole as exceptions inside the group. Other floats take ALP's second scheme, `rd`: up to 16 front bits through a dictionary of up to 8 entries, the rest bit-packed without the low zero bits the group shares. The encoder keeps per group the smallest form, so a group never grows by more than 7 bytes over raw; the layout is in the `ww_tape::samples::alp` docs.
 - **Groups.** The grouped codecs start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: `Samples::group_bytes` names a group's bytes, to check against `Chunk::range_damaged`.
 
-For data a device controls, fixed-point numbers are the default (an exact_units `Fixed` in an integer column with `DELTA`, see [series](../serdes/series.md)): they take the fewest bits and decode fastest. The float codecs are for float sources nobody controls. The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.
+For data a device controls, fixed-point numbers are the default (an exact_units `Fixed` in an integer column with `DELTA`, see [series](../serdes/series.md)): they take the fewest bits and decode fastest. ALP, the one float codec, is for float sources nobody controls. Ids 24, 25, 34 and 35 are reserved; `ww_tape_benchmarks` keeps Gorilla, Chimp and delta on ordered float bits as bench-only codecs to compare against. The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.
 
 `just bench-sample-codecs` measures every float codec on four kinds of data, each next to the same quantity stored as fixed-point integers with `DELTA` (first row of each set). Ratio is to the raw floats, in chunks of 4096 samples; times are per value on one core (AMD Ryzen AI 9 HX 370, AVX-512 kernels):
 

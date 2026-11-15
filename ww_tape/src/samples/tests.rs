@@ -173,70 +173,27 @@ pub(super) fn sensor(n: usize, seed: u64) -> Vec<f64> {
 }
 
 #[test]
-fn xor_codecs_round_trip_every_pattern() {
-    let mut r = Rng(7);
-    for c in [Codec::GORILLA, Codec::CHIMP] {
-        for n in [1usize, 2, 1023, 1024, 1025, 3000] {
-            let any64: Vec<f64> = (0..n).map(|_| f64::from_bits(r.next())).collect();
-            let any32: Vec<f32> = (0..n).map(|_| f32::from_bits(r.next() as u32)).collect();
-            roundtrip(c, SampleShape::scalar(Element::F64), &any64);
-            roundtrip(c, SampleShape::scalar(Element::F32), &any32);
-            let s = sensor(n, 3);
-            roundtrip(c, SampleShape::scalar(Element::F64), &s);
-            let s32: Vec<f32> = s.iter().map(|v| *v as f32).collect();
-            roundtrip(c, SampleShape::scalar(Element::F32), &s32);
-            let iq: Vec<f32> = (0..2 * n).map(|i| (i / 7) as f32 * 0.5).collect();
-            roundtrip(c, SampleShape::scalar(Element::ComplexF32), &iq);
-            let three: Vec<f64> = (0..3 * n).map(|i| [1.5, f64::NAN, -0.0][i % 3]).collect();
-            roundtrip(c, SampleShape::new(Element::F64, 3), &three);
-            let flat = vec![0.25f64; n];
-            roundtrip(c, SampleShape::scalar(Element::F64), &flat);
-        }
-    }
-}
-
-#[test]
-fn xor_codecs_compress_smooth_data() {
-    let s = sensor(10_000, 11);
-    for c in [Codec::GORILLA, Codec::CHIMP] {
-        let bytes = roundtrip(c, SampleShape::scalar(Element::F64), &s);
-        assert!(
-            bytes.len() * 2 < s.len() * 8,
-            "{c:?}: {} bytes",
-            bytes.len()
-        );
-        let flat = vec![3.0f64; 10_000];
-        let bytes = roundtrip(c, SampleShape::scalar(Element::F64), &flat);
-        assert!(
-            bytes.len() < 10_000 / 3,
-            "{c:?}: {} bytes for a constant",
-            bytes.len()
-        );
-    }
-}
-
-#[test]
 fn groups_decode_alone() {
     let s = sensor(2500, 5);
     let shape = SampleShape::scalar(Element::F64);
-    let mut bytes = encode_vec(Codec::GORILLA, shape, &s);
-    let col = Samples::new(Codec::GORILLA, shape, s.len(), &bytes).unwrap();
-    assert_eq!(col.group_count(), 3);
+    let mut bytes = encode_vec(Codec::ALP, shape, &s);
+    let col = Samples::new(Codec::ALP, shape, s.len(), &bytes).unwrap();
+    assert_eq!(col.group_count(), 20);
     let (samples, range) = col.group_bytes(1);
-    assert_eq!(samples, 1024..2048);
+    assert_eq!(samples, 128..256);
     // damage the middle group: the others still decode
     for b in &mut bytes[range.clone()] {
         *b = 0xff;
     }
-    let col = Samples::new(Codec::GORILLA, shape, s.len(), &bytes).unwrap();
-    let mut out = vec![0f64; 1024];
+    let col = Samples::new(Codec::ALP, shape, s.len(), &bytes).unwrap();
+    let mut out = vec![0f64; 128];
     col.decode(0, &mut out).unwrap();
-    assert_eq!(out, s[..1024]);
-    let mut out = vec![0f64; 2500 - 2048];
-    col.decode(2048, &mut out).unwrap();
-    assert_eq!(out, s[2048..]);
-    let mut out = vec![0f64; 1024];
-    assert!(col.decode(1024, &mut out).is_err() || out != s[1024..2048]);
+    assert_eq!(out, s[..128]);
+    let mut out = vec![0f64; 2500 - 256];
+    col.decode(256, &mut out).unwrap();
+    assert_eq!(out, s[256..]);
+    let mut out = vec![0f64; 128];
+    assert!(col.decode(128, &mut out).is_err() || out != s[128..256]);
 }
 
 #[test]
@@ -247,7 +204,7 @@ fn columns_are_checked() {
         SampleError::BadLength { len: 4 }
     );
     assert!(matches!(
-        Samples::new(Codec::GORILLA, shape, 3, &[]).unwrap_err(),
+        Samples::new(Codec::ALP, shape, 3, &[]).unwrap_err(),
         SampleError::Unsupported { .. }
     ));
     assert!(matches!(
@@ -278,12 +235,12 @@ fn columns_are_checked() {
     assert_eq!(s.sample_bytes(1..3), Some(2..6));
     let f = SampleShape::scalar(Element::F32);
     // a table whose last end isn't the stream's length
-    assert!(Samples::new(Codec::CHIMP, f, 1, &[9, 0, 0, 0, 1]).is_err());
+    assert!(Samples::new(Codec::ALP, f, 1, &[9, 0, 0, 0, 1]).is_err());
     // a truncated stream reads as corrupt, not a panic
-    let bytes = encode_vec(Codec::CHIMP, f, &[1.0f32, 2.0, 3.0]);
+    let bytes = encode_vec(Codec::ALP, f, &[1.0f32, 2.0, 3.0]);
     let mut cut = bytes[..bytes.len() - 1].to_vec();
     cut[..4].copy_from_slice(&((bytes.len() - 5) as u32).to_le_bytes());
-    let s = Samples::new(Codec::CHIMP, f, 3, &cut).unwrap();
+    let s = Samples::new(Codec::ALP, f, 3, &cut).unwrap();
     assert_eq!(
         s.decode(0, &mut [0f32; 3]),
         Err(SampleError::Corrupt { group: 0 })
@@ -293,7 +250,7 @@ fn columns_are_checked() {
 #[test]
 fn deterministic() {
     let s = sensor(5000, 9);
-    for c in [Codec::GORILLA, Codec::CHIMP, Codec::BIG_ENDIAN] {
+    for c in [Codec::ALP, Codec::BIG_ENDIAN] {
         let shape = SampleShape::scalar(Element::F64);
         assert_eq!(encode_vec(c, shape, &s), encode_vec(c, shape, &s));
     }
@@ -316,18 +273,6 @@ fn delta_codecs_round_trip_every_pattern() {
             roundtrip(c, SampleShape::scalar(Element::I32), &ramp);
             roundtrip(c, SampleShape::scalar(Element::ComplexI16), &iq);
             roundtrip(c, SampleShape::new(Element::I16, 4), &edges[..n / 4 * 4]);
-        }
-        let any_f64: Vec<f64> = (0..n).map(|_| f64::from_bits(r.next())).collect();
-        let any_f32: Vec<f32> = (0..n).map(|_| f32::from_bits(r.next() as u32)).collect();
-        let s = sensor(n, 4);
-        let specials: Vec<f32> = (0..n)
-            .map(|i| [0.0, -0.0, f32::NAN, f32::INFINITY, -1.5, f32::MIN_POSITIVE][i % 6])
-            .collect();
-        for c in [Codec::FLOAT_DELTA, Codec::FLOAT_DELTA2] {
-            roundtrip(c, SampleShape::scalar(Element::F64), &any_f64);
-            roundtrip(c, SampleShape::scalar(Element::F32), &any_f32);
-            roundtrip(c, SampleShape::scalar(Element::F64), &s);
-            roundtrip(c, SampleShape::scalar(Element::F32), &specials);
         }
     }
 }
@@ -372,7 +317,29 @@ fn delta_rejects_malformed_groups() {
     s.decode(128, &mut tail).unwrap();
     assert_eq!(tail, v[128..]);
     assert!(Samples::new(Codec::DELTA, SampleShape::scalar(Element::F32), 1, &[]).is_err());
-    assert!(Samples::new(Codec::FLOAT_DELTA, shape, 1, &[]).is_err());
+}
+
+/// The ids of the float codecs that left the format stay reserved: refused for every element, on read and on write.
+#[test]
+fn reserved_float_codec_ids_are_refused() {
+    for id in [24, 25, 34, 35] {
+        for element in [
+            Element::F32,
+            Element::F64,
+            Element::ComplexF32,
+            Element::I32,
+        ] {
+            let shape = SampleShape::scalar(element);
+            assert!(matches!(
+                Samples::new(Codec(id), shape, 1, &[0; 16]),
+                Err(SampleError::Unsupported { .. })
+            ));
+            assert!(matches!(
+                max_encoded_len(Codec(id), shape, 1),
+                Err(SampleError::Unsupported { .. })
+            ));
+        }
+    }
 }
 
 /// Columns of every codec, and a series chunk holding some, are the golden file's (`WW_TAPE_GOLDEN=update` rewrites
@@ -424,13 +391,7 @@ fn samples_golden() {
     add(col(Codec::PACKED10_MSB, s(Element::I16), &tens));
     add(col(Codec::PACKED24_LSB, s(Element::I32), &i32s));
     add(col(Codec::PACKED24_MSB, s(Element::I32), &i32s));
-    for c in [
-        Codec::GORILLA,
-        Codec::CHIMP,
-        Codec::FLOAT_DELTA,
-        Codec::FLOAT_DELTA2,
-        Codec::ALP,
-    ] {
+    for c in [Codec::ALP] {
         add(col(c, s(Element::F64), &f64s));
         add(col(c, s(Element::F32), &f32s));
         add(col(c, s(Element::F64), &any[..40]));
@@ -525,12 +486,8 @@ fn random_columns_never_panic() {
         Codec::PACKED10_LSB,
         Codec::PACKED12_MSB,
         Codec::PACKED24_LSB,
-        Codec::GORILLA,
-        Codec::CHIMP,
         Codec::DELTA,
         Codec::DELTA2,
-        Codec::FLOAT_DELTA,
-        Codec::FLOAT_DELTA2,
         Codec::ALP,
     ];
     fn try_all<T: Sample>(codec: Codec, shape: SampleShape, count: usize, bytes: &[u8]) {
@@ -546,7 +503,7 @@ fn random_columns_never_panic() {
         let groups = if round % 2 == 0 {
             count.div_ceil(DELTA_GROUP)
         } else {
-            count.div_ceil(XOR_GROUP)
+            count.div_ceil(ALP_GROUP)
         };
         // a plausible table half the time, so the group decoders run
         if round % 4 < 2 && bytes.len() >= groups * 4 && groups > 0 {

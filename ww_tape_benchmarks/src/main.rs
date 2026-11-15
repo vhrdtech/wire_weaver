@@ -27,13 +27,7 @@ struct Args {
 }
 
 /// The float codecs, in table order after the fixed-point row.
-const FLOAT_CODECS: [(Codec, &str); 5] = [
-    (Codec::GORILLA, "GORILLA"),
-    (Codec::CHIMP, "CHIMP"),
-    (Codec::FLOAT_DELTA, "FLOAT_DELTA"),
-    (Codec::FLOAT_DELTA2, "FLOAT_DELTA2"),
-    (Codec::ALP, "ALP"),
-];
+const FLOAT_CODECS: [(Codec, &str); 1] = [(Codec::ALP, "ALP")];
 
 /// One codec on one set.
 struct Run {

@@ -31,12 +31,31 @@
 //! Numbers are little endian, unaligned. Every read is checked against the column's bounds: [EventTimes::read]
 //! checks all group records once, then reads are infallible and never panic on any bytes.
 //!
+//! **What read checks.** Per column: widths at most 64, each group's values starting where the previous group's end,
+//! the last group's at the column's end. Starts: slope 0 to [SLOPE_MAX], residual minimum at most 0, first ticks inside
+//! the chunk's (group 0's the chunk's first), each group's item 0 equal to its first tick, each group's first tick at
+//! or after the previous group's last item, the last item the chunk's last tick; so the search keys agree with
+//! [Starts::get], and [EventTimes::decode_group_ends] with [EventTimes::end] in [EndMode::NextStart]. Durations: each
+//! minimum at most the latest end less the first tick. Left to the writer, since checking them decodes every
+//! value: items ascending inside a group, every end at or before the latest end (an overlap query's scan back trusts
+//! [Durations::group_bound]), duration minimums and flag ORs that match their values.
+//!
 //! **Salvage.** A chunk whose payload CRC failed ([Block::salvage](crate::Block::salvage)) still reads through
-//! [EventTimes::salvage]: columns in a bad segment have their group records checked one by one as they are read
-//! (width at most 64, values inside the column, offsets matching the neighbours', a broken match blamed on the
-//! group whose offset or width breaks it, slope, minimum and first tick in range, the last group
-//! ending on the chunk's last tick), and only the items of a group that fails are suspect ([EventTimes::is_suspect]).
-//! A flipped bit in a residual damages one item; one in a group record, one group.
+//! [EventTimes::salvage]: columns in a bad segment have their groups checked one by one as they are read, and only
+//! the items of a group that fails are suspect ([EventTimes::is_suspect]). A group fails when:
+//!
+//! - its width is over 64 or its values reach past the column;
+//! - its offset or width breaks the chain with a neighbour (a damaged offset breaks the links on both sides of its
+//!   group, a damaged width only the one after it, so a good neighbour isn't blamed);
+//! - starts: its slope, residual minimum or first tick is out of range, its item 0 isn't its first tick, or it is out
+//!   of order with a neighbour (either side may be the damaged one, so both groups fail), or it is the last group and
+//!   doesn't end on the chunk's last tick (so a flipped residual in the chunk's last item marks the whole last group);
+//! - durations: its minimum is past the latest end less the first tick.
+//!
+//! Every salvaged start is kept inside the chunk's ticks, every end at or before its latest end, and every flag
+//! inside its group's OR. A flipped bit in a residual damages one item (item 0's and the chunk's last item's, the
+//! group); one in a group record, one group or two, unless it moves a first tick, slope or duration minimum by
+//! too little to break an order: such a group reads shifted and isn't marked.
 
 mod groups;
 mod packed;
@@ -137,6 +156,8 @@ pub struct EventTimes<'b> {
     starts: Starts<'b>,
     ends: Ends<'b>,
     flags: Option<Flags<'b>>,
+    /// The chunk head's latest end: no end of a salvaged item reads past it.
+    latest_end: i64,
 }
 
 impl<'b> EventTimes<'b> {
@@ -226,6 +247,7 @@ impl<'b> EventTimes<'b> {
             starts,
             ends,
             flags,
+            latest_end: head.latest_end,
         })
     }
 
@@ -276,7 +298,14 @@ impl<'b> EventTimes<'b> {
                     self.starts.get(i + 1)
                 }
             }
-            Ends::Durations(d) => self.starts.get(i).wrapping_add(d.get(i) as i64),
+            Ends::Durations(d) => {
+                let end = self.starts.get(i).wrapping_add(d.get(i) as i64);
+                if d.salvaged() {
+                    end.min(self.latest_end)
+                } else {
+                    end
+                }
+            }
         }
     }
 
@@ -321,7 +350,14 @@ impl<'b> EventTimes<'b> {
                     *last
                 };
             }
-            Ends::Durations(d) => d.add_to_group(g, out),
+            Ends::Durations(d) => {
+                d.add_to_group(g, out);
+                if d.salvaged() {
+                    for t in out[..n].iter_mut() {
+                        *t = (*t).min(self.latest_end);
+                    }
+                }
+            }
         }
         n
     }

@@ -30,7 +30,8 @@ const FLAGS: Layout = Layout {
 
 /// Item durations (end minus start), read in place.
 ///
-/// In a column read by salvage, a suspect group's items read as 0 long.
+/// In a column read by salvage, a suspect group's items read as 0 long, and no item reads longer than the chunk's
+/// latest end less its first tick.
 #[derive(Copy, Clone, Debug)]
 pub struct Durations<'b> {
     groups: Groups<'b>,
@@ -83,6 +84,11 @@ impl<'b> Durations<'b> {
         self.salvaged && !self.group_ok(g)
     }
 
+    /// Whether the column was read by salvage.
+    pub(crate) fn salvaged(&self) -> bool {
+        self.salvaged
+    }
+
     /// Whether group `g` reads as it is stored.
     fn usable(&self, g: usize) -> bool {
         !self.salvaged || self.group_ok(g)
@@ -105,7 +111,8 @@ impl<'b> Durations<'b> {
         } else {
             bitpack::read(self.groups.values(g), i % GROUP, w)
         };
-        self.min(g).wrapping_add(r)
+        let d = self.min(g).wrapping_add(r);
+        if self.salvaged { d.min(self.max) } else { d }
     }
 
     /// No item of group `g` lasts longer: its minimum plus 2^width - 1, for an overlap query's scan back.
@@ -149,6 +156,11 @@ impl<'b> Durations<'b> {
             self.groups.values(g)
         };
         bitpack::decode_line(src, w, self.min(g) as i64, 0, &mut d);
+        if self.salvaged {
+            for d in d.iter_mut() {
+                *d = (*d as u64).min(self.max) as i64;
+            }
+        }
         for (t, d) in ticks.iter_mut().zip(d) {
             *t = t.wrapping_add(d);
         }
@@ -157,7 +169,8 @@ impl<'b> Durations<'b> {
 
 /// The u32 flags of items, read in place.
 ///
-/// In a column read by salvage, a suspect group's flags and OR read as 0.
+/// In a column read by salvage, a suspect group's flags and OR read as 0, and an item's flags keep only the bits of
+/// its group's OR.
 #[derive(Copy, Clone, Debug)]
 pub struct Flags<'b> {
     groups: Groups<'b>,
@@ -202,7 +215,12 @@ impl<'b> Flags<'b> {
         if w == 0 {
             return 0;
         }
-        bitpack::read(self.groups.values(g), i % GROUP, w) as u32
+        let f = bitpack::read(self.groups.values(g), i % GROUP, w) as u32;
+        if self.salvaged {
+            f & get_u32(self.groups.record(g), 0)
+        } else {
+            f
+        }
     }
 
     /// The OR of group `g`'s flags.
@@ -234,6 +252,11 @@ impl<'b> Flags<'b> {
             out.fill(0);
         } else {
             bitpack::unpack_u32(self.groups.values(g), w, out);
+            if self.salvaged {
+                for f in out.iter_mut() {
+                    *f &= or;
+                }
+            }
         }
         group_len(self.groups.n, g)
     }

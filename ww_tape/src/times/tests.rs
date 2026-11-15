@@ -381,15 +381,83 @@ fn salvage_marks_only_the_bad_group() {
             s.partition_point(|x| *x < s[1000])
         );
     }
-    // a flipped residual bit damages one item and no group
+    // a flipped residual bit inside a group damages one item and no group: bit 0 of group 0's item 64
     let mut b = good.clone();
-    let res = p + 32 * 25 + 3;
-    b[res] ^= 0x10;
+    let w = usize::from(good[p + 20]);
+    b[p + 32 * 25 + 8 * w] ^= 1;
     let block = Block::salvage(&b).unwrap();
     let t = EventTimes::salvage(&block.chunk().unwrap()).unwrap();
     assert_eq!(t.suspect_items().count(), 0);
-    let wrong = (0..s.len()).filter(|&i| t.start(i) != s[i]).count();
-    assert_eq!(wrong, 1);
+    let wrong: Vec<usize> = (0..s.len()).filter(|&i| t.start(i) != s[i]).collect();
+    assert_eq!(wrong, std::vec![64]);
+}
+
+#[test]
+fn salvage_checks_what_a_group_record_says() {
+    let s: Vec<i64> = workloads().swap_remove(0).1;
+    let good = block(&s, None, None);
+    let p = time_bytes(&good).start;
+    let rec = |g: usize, at: usize| p + g * 25 + at;
+    let w = usize::from(good[rec(5, 20)]);
+    let res5 = p
+        + 32 * 25
+        + usize::from_le_bytes([
+            good[rec(5, 21)],
+            good[rec(5, 22)],
+            good[rec(5, 23)],
+            0,
+            0,
+            0,
+            0,
+            0,
+        ]);
+    // (byte, bit, the groups that go suspect): a low bit of the residual minimum or of item 0's residual breaks
+    // item 0 == first tick; a first tick or slope that breaks the order with a neighbour marks both, either may be
+    // the damaged one
+    let cases = [
+        (rec(5, 16), 0x01, 5..6),
+        (res5, 0x01, 5..6),
+        (rec(5, 7), 0x01, 5..6),
+        (rec(5, 3), 0x80, 4..6),
+        (rec(5, 14), 0x01, 5..7),
+    ];
+    assert!(w > 0, "group 5 has residuals");
+    for (at, bit, groups) in cases {
+        let mut b = good.clone();
+        b[at] ^= bit;
+        let block = Block::salvage(&b).unwrap();
+        let chunk = block.chunk().unwrap();
+        assert!(EventTimes::read(&chunk).is_err(), "byte {at}");
+        let t = EventTimes::salvage(&chunk).unwrap();
+        let bad: Vec<_> = t.suspect_items().collect();
+        let want: Vec<_> = groups.map(|g| g * GROUP..(g + 1) * GROUP).collect();
+        assert_eq!(bad, want, "byte {at}");
+        for i in (0..s.len()).filter(|i| !t.is_suspect(*i)) {
+            assert_eq!(t.start(i), s[i], "byte {at} item {i}");
+        }
+        let starts = t.starts();
+        assert!(starts.iter().all(|x| (s[0]..=s[s.len() - 1]).contains(&x)));
+    }
+    // a residual pushed past the chunk's last tick reads clamped: the top bit of group 31's item 64
+    let mut b = good.clone();
+    let w31 = usize::from(good[rec(31, 20)]);
+    let res31 = usize::from_le_bytes([
+        good[rec(31, 21)],
+        good[rec(31, 22)],
+        good[rec(31, 23)],
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]);
+    let bit = 64 * w31 + w31 - 1;
+    b[p + 32 * 25 + res31 + bit / 8] ^= 1 << (bit % 8);
+    let block = Block::salvage(&b).unwrap();
+    let t = EventTimes::salvage(&block.chunk().unwrap()).unwrap();
+    let i = 31 * GROUP + 64;
+    assert_ne!(t.start(i), s[i]);
+    assert!(t.start(i) <= s[s.len() - 1]);
 }
 
 /// The block offset of the first byte of the `kind` column.
@@ -462,6 +530,46 @@ fn a_damaged_record_marks_its_group_only() {
                 );
             }
         }
+    }
+}
+
+#[test]
+fn salvage_keeps_durations_and_flags_in_bounds() {
+    let s: Vec<i64> = (0..300i64).map(|i| i * 1000 + (i * i) % 17).collect();
+    let spans: Vec<i64> = s
+        .iter()
+        .enumerate()
+        .map(|(i, x)| x + (i % 100) as i64)
+        .collect();
+    let flags: Vec<u32> = (0..300).map(|i| (i % 4 == 0) as u32 * 2).collect();
+    let good = block(&s, Some(&spans), Some(&flags));
+    let latest = *spans.iter().max().unwrap();
+    // bit 18 of group 2's duration minimum: in range, but its items end past the latest end; bit 0 of item 64's
+    // flags in group 1 (OR 2, width 2)
+    let mut b = good.clone();
+    let e = column_start(&good, ColumnKind::Ends);
+    b[e + 2 * 13 + 2] ^= 0x04;
+    let f = column_start(&good, ColumnKind::Flags);
+    let f_off = usize::from_le_bytes([good[f + 8 + 4], good[f + 8 + 5], 0, 0, 0, 0, 0, 0]);
+    b[f + 3 * 8 + f_off + 64 * 2 / 8] ^= 1;
+    let block = Block::salvage(&b).unwrap();
+    let t = EventTimes::salvage(&block.chunk().unwrap()).unwrap();
+    assert_eq!(t.suspect_items().count(), 0);
+    let i = GROUP + 64;
+    assert_eq!(
+        t.flag(i),
+        flags[i] & 2,
+        "a bit outside the group's OR is dropped"
+    );
+    let mut out = [0u32; GROUP];
+    t.flags().unwrap().decode_group(1, &mut out);
+    assert!(out.iter().all(|f| f & !2 == 0));
+    assert_eq!(t.end(299), latest, "clamped to the latest end");
+    let mut ends = [0i64; GROUP];
+    let n = t.decode_group_ends(2, &mut ends);
+    for (j, e) in ends[..n].iter().enumerate() {
+        assert_eq!(*e, t.end(2 * GROUP + j));
+        assert!(*e <= latest);
     }
 }
 

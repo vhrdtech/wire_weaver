@@ -45,7 +45,7 @@ enum Repr<'b> {
 ///
 /// Reads never panic on any bytes; [Starts::get] and [Starts::decode_group] panic only for an item or group past
 /// the end. In a column read by salvage, the items of a group whose record doesn't hold up ([Starts::is_suspect])
-/// read as that group's first tick, kept inside the chunk's tick range.
+/// read as that group's first tick, and every item is kept inside the chunk's tick range.
 #[derive(Copy, Clone, Debug)]
 pub struct Starts<'b> {
     n: u32,
@@ -100,18 +100,23 @@ impl<'b> Starts<'b> {
             && !salvage
         {
             groups.check()?;
+            // the previous group's last item
             let mut prev = first;
             for g in 0..groups.count() {
                 if !s.record_ok(g) {
                     return Err(corrupt("group record out of range"));
                 }
-                let f = s.raw_first(g);
-                if f < prev {
-                    return Err(corrupt("group first ticks not ascending"));
+                if !s.item0_ok(g) {
+                    return Err(corrupt("group's first item isn't its first tick"));
                 }
-                prev = f;
+                if s.raw_first(g) < prev {
+                    return Err(corrupt(
+                        "group starts before the previous group's last item",
+                    ));
+                }
+                prev = s.last_item(g);
             }
-            if s.get(n as usize - 1) != last {
+            if prev != last {
                 return Err(corrupt("last item isn't the chunk's last tick"));
             }
         }
@@ -180,17 +185,43 @@ impl<'b> Starts<'b> {
             && (g > 0 || f == self.first)
     }
 
-    /// Whether group `g` of a salvaged column holds up: its record in range ([Self::record_ok]), fitting the column
-    /// ([Groups::group_fits]), and the last group ending on the chunk's last tick.
-    fn group_ok(&self, g: usize) -> bool {
+    /// Whether group `g`'s first item is its first tick: residual 0 cancels the residual minimum.
+    fn item0_ok(&self, g: usize) -> bool {
+        let h = self.group_raw(g);
+        self.value(h, 0) == h.first
+    }
+
+    /// Whether group `g` reads on its own: fitting the column ([Groups::group_fits]), its record in range
+    /// ([Self::record_ok]) and its first item its first tick.
+    fn readable(&self, g: usize) -> bool {
         let Repr::Linear { groups, .. } = self.repr else {
             return true;
         };
-        if !(groups.group_fits(g) && self.record_ok(g)) {
+        groups.group_fits(g) && self.record_ok(g) && self.item0_ok(g)
+    }
+
+    /// The last item of a [Self::readable] group, as stored.
+    fn last_item(&self, g: usize) -> i64 {
+        self.value(self.group_raw(g), group_len(self.n, g) - 1)
+    }
+
+    /// Whether group `g` of a salvaged column holds up: [Self::readable], in order with its readable neighbours (its
+    /// first tick at or after the previous group's last item, its last item at or before the next group's first
+    /// tick), and the last group ending on the chunk's last tick. Either side of a broken order may be the damaged
+    /// one, so both groups fail.
+    fn group_ok(&self, g: usize) -> bool {
+        if !self.readable(g) {
             return false;
         }
-        g + 1 < groups.count()
-            || self.value(self.group_raw(g), group_len(self.n, g) - 1) == self.last
+        let last = self.last_item(g);
+        let after_previous =
+            g == 0 || !self.readable(g - 1) || self.last_item(g - 1) <= self.raw_first(g);
+        let before_next = if g + 1 < self.group_count() {
+            !self.readable(g + 1) || last <= self.raw_first(g + 1)
+        } else {
+            last == self.last
+        };
+        after_previous && before_next
     }
 
     fn group_raw(&self, g: usize) -> Group {
@@ -234,6 +265,17 @@ impl<'b> Starts<'b> {
         value_in(groups.data, h, j)
     }
 
+    /// Item `j` of a group as read: in a salvaged column, kept inside the chunk's ticks, since a damaged residual
+    /// may put it anywhere.
+    #[inline]
+    fn item(&self, h: Group, j: usize) -> i64 {
+        let v = self.value(h, j);
+        match self.repr {
+            Repr::Linear { salvaged: true, .. } => v.clamp(self.first, self.last),
+            _ => v,
+        }
+    }
+
     /// Whether item `i` is in a group a salvage found damaged; its start is then a stand-in.
     pub fn is_suspect(&self, i: usize) -> bool {
         self.is_suspect_group(i / GROUP)
@@ -256,12 +298,11 @@ impl<'b> Starts<'b> {
             Repr::Implicit { period } => self.first.wrapping_add((i as i64).wrapping_mul(period)),
             Repr::Linear { groups, salvaged } => {
                 let g = i / GROUP;
-                let h = if salvaged {
-                    self.group(g)
+                if salvaged {
+                    self.item(self.group(g), i % GROUP)
                 } else {
-                    record_group(&groups, g)
-                };
-                value_in(groups.data, h, i % GROUP)
+                    value_in(groups.data, record_group(&groups, g), i % GROUP)
+                }
             }
         }
     }
@@ -311,9 +352,14 @@ impl<'b> Starts<'b> {
                     t = t.wrapping_add(period);
                 }
             }
-            Repr::Linear { .. } => {
+            Repr::Linear { salvaged, .. } => {
                 let h = self.group(g);
                 bitpack::decode_line_with(kernel, self.values(h), h.width, h.base, h.slope, out);
+                if salvaged {
+                    for t in out.iter_mut() {
+                        *t = (*t).clamp(self.first, self.last);
+                    }
+                }
             }
         }
         group_len(self.n, g)
@@ -372,7 +418,7 @@ impl<'b> Starts<'b> {
         }
         while lo < hi {
             let mid = (lo + hi) / 2;
-            if self.value(h, mid) < t {
+            if self.item(h, mid) < t {
                 lo = mid + 1;
             } else {
                 hi = mid;

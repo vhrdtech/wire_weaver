@@ -6481,6 +6481,7 @@ feature tracker.</p>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape blocks</a></strong>: <code>ww_tape</code>: the generic blocks of track records that live feeds and log files (link captures) are made of.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape clocks and describe</a></strong>: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape chunk blocks</a></strong>: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.</li>
+<li><strong><a href="../transport/tap/#tape-blocks">Tape event times</a></strong>: Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape summary blocks</a></strong>: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.</li>
 <li><strong><a href="../transport/tap/#index-finish-and-tail">Tape index, finish and tail</a></strong>: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.</li>
 <li><strong><a href="../transport/tap/#tape-pieces">Tape pieces</a></strong>: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.</li>

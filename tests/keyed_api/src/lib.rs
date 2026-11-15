@@ -25,7 +25,7 @@ trait Flow {
 }
 
 /// What identifies a flow across captures: the same traffic gives the same key whatever index it gets.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone))]
 pub struct FlowKey {
     pub proto: Proto,
     pub src: Endpoint,
@@ -34,14 +34,18 @@ pub struct FlowKey {
 }
 
 /// Transport protocol of a flow.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = nib)]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = nib)]
 pub enum Proto {
     Tcp,
     Udp,
 }
 
 /// One end of a flow.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy)
+)]
 pub struct Endpoint {
     /// IPv4 address bytes as on the wire, a raw protocol field.
     pub addr: [u8; 4],
@@ -49,5 +53,9 @@ pub struct Endpoint {
 }
 
 /// A TCP or UDP port number.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy))]
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy)
+)]
 pub struct Port(pub u16);

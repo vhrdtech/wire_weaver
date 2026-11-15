@@ -428,42 +428,45 @@ fuzz-shrink-wrap-series-type:
 fuzz-shrink-wrap-nesting:
     cargo +nightly fuzz run shrink-wrap-nesting -- -max_len=4096
 
+# The ww_tape targets run with libFuzzer limits: -rss_limit_mb=1024 (1 GiB of memory), -malloc_limit_mb=128 (no
+# single allocation over 128 MiB) and -timeout=10 (10 s per input); an input over one is a crash.
+
 # Fuzz the ww_tape file reader: prefix and salvage walks over any bytes
 [working-directory('fuzz')]
 fuzz-tape-reader:
-    cargo +nightly fuzz run tape-reader -- -max_len=65536
+    cargo +nightly fuzz run tape-reader -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape chunk blocks: reading and salvage on any bytes, a flipped bit costs one segment (STD-118)
 [working-directory('fuzz')]
 fuzz-tape-chunk:
-    cargo +nightly fuzz run tape-chunk -- -max_len=262144
+    cargo +nightly fuzz run tape-chunk -- -max_len=262144 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape summary blocks: reading any bytes, trees built from the input read back (STD-121)
 [working-directory('fuzz')]
 fuzz-tape-summary:
-    cargo +nightly fuzz run tape-summary -- -max_len=16384
+    cargo +nightly fuzz run tape-summary -- -max_len=16384 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape index, finish, tail and piece head blocks and the positional reader on any bytes (STD-122, STD-124)
 [working-directory('fuzz')]
 fuzz-tape-index:
-    cargo +nightly fuzz run tape-index -- -max_len=65536
+    cargo +nightly fuzz run tape-index -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape's event time codec: reads and salvage on any bytes, round trips, kernels against scalar (STD-120)
 [working-directory('fuzz')]
 fuzz-tape-times:
-    cargo +nightly fuzz run tape-times -- -max_len=65536
+    cargo +nightly fuzz run tape-times -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape sample codecs and lz4 payloads: reading any bytes, round trips of values from the input (STD-119)
 [working-directory('fuzz')]
 fuzz-tape-samples:
-    cargo +nightly fuzz run tape-samples -- -max_len=65536
+    cargo +nightly fuzz run tape-samples -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape series tracks: track kinds and segment records from any bytes, damaged segment records (STD-127)
 [working-directory('fuzz')]
 fuzz-tape-series:
-    cargo +nightly fuzz run tape-series -- -max_len=4096
+    cargo +nightly fuzz run tape-series -- -max_len=4096 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
 
 # Fuzz ww_tape's payload codec: reads and salvage on any bytes, round trips, damaged columns (STD-126)
 [working-directory('fuzz')]
 fuzz-tape-payloads:
-    cargo +nightly fuzz run tape-payloads -- -max_len=65536
+    cargo +nightly fuzz run tape-payloads -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10

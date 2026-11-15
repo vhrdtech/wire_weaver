@@ -3,7 +3,7 @@
 use ww_tape::piece::{PieceHead, PieceId, PieceIdent, ResultId, piece_head_len, write_piece_head};
 use ww_tape::{
     BlockId, BlockKind, BlockWriter, ClockTime, Cut, Describe, DescribeSet, FileBlocks, FileError,
-    Layout, Medium, Producer, Recovery, RunTag,
+    Layout, Medium, OpenOptions, Producer, Recovery, RunTag, SyncPolicy, TapeReader, TapeWriter,
 };
 
 const OLD: RunTag = RunTag::writable(0x0bad_0001);
@@ -217,4 +217,102 @@ fn a_torn_unit_then_the_next_block_on_a_boundary_is_a_gap() {
     let (got, errors) = walk(&far, Medium::Raw);
     assert_eq!(got, seqs(NEW, 1..5));
     assert!(matches!(errors[..], [FileError::Cut { offset: o, .. }] if o == at as u64));
+}
+
+/// A finished file of run `run` (describe with `layout`, `n` records blocks, final index, finish, tail).
+fn finished(run: RunTag, layout: Layout, n: u64) -> Vec<u8> {
+    let dir = std::env::temp_dir().join(format!(
+        "ww_tape_media_{}_{}",
+        run.get(),
+        std::process::id()
+    ));
+    _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("old.wwt");
+    let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+    w.set_run(run);
+    let mut set = DescribeSet::new();
+    set.insert(&Describe::Producer(Producer { name: "media" }))
+        .unwrap();
+    set.insert(&Describe::Layout(layout)).unwrap();
+    let mut id = w.next_id();
+    let mut blocks = vec![];
+    set.write_blocks(&mut id, 4096, &[], |b| blocks.push(b.to_vec()))
+        .unwrap();
+    for b in &blocks {
+        w.write_block(b).unwrap();
+    }
+    for _ in 0..n {
+        w.write_block(&records(w.next_id())).unwrap();
+    }
+    w.finish().unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    std::fs::remove_dir_all(&dir).unwrap();
+    bytes
+}
+
+fn raw() -> OpenOptions {
+    OpenOptions {
+        medium: Medium::Raw,
+        ..Default::default()
+    }
+}
+
+/// On a raw medium the old life's tail sits at the end; opened as a file it would pass for the newest piece. Opened
+/// as a raw medium, the walk goes forward from the start and ends where the new run ends.
+#[test]
+fn a_raw_medium_opens_forward_and_never_takes_a_stale_tail() {
+    let sd = Layout::UNALIGNED.on_sd_card();
+    let old = finished(OLD, sd, 200);
+    let new = run(NEW, RunTag::NONE, sd, 20);
+    // the new run overwrote the start of the old file in place
+    let mut card = new.clone();
+    card.extend_from_slice(&old[new.len()..]);
+    let as_file = TapeReader::open(&card[..]).unwrap();
+    assert!(
+        as_file.pieces().iter().any(|p| p.tail.is_some()),
+        "the stale tail fools a file reader"
+    );
+    let r = TapeReader::open_with(&card[..], raw()).unwrap();
+    assert_eq!(r.pieces().len(), 1);
+    let p = &r.pieces()[0];
+    assert_eq!(
+        (p.start, p.end, p.cut),
+        (0, new.len() as u64, Some(new.len() as u64))
+    );
+    assert!(p.tail.is_none());
+    assert_eq!(
+        p.head.as_ref().unwrap().0.ident.id,
+        PieceId([NEW.get() as u8; 16])
+    );
+    // from a hint: the walk starts there
+    let hint = block_start(&card, 10) as u64;
+    let r = TapeReader::open_with(
+        &card[..],
+        OpenOptions {
+            start: hint,
+            ..raw()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        (r.pieces()[0].start, r.pieces()[0].end),
+        (hint, new.len() as u64)
+    );
+    assert_eq!(r.entries(0).unwrap().len(), 11, "records 10 to 20");
+}
+
+/// The positional reader reads past a gap as the walk does, and lists it.
+#[test]
+fn the_positional_reader_reads_past_a_gap() {
+    let sd = Layout::UNALIGNED.on_sd_card();
+    let card = run(NEW, RunTag::NONE, sd, 10);
+    let at = block_start(&card, 5);
+    let (card, offset, len) = with_stretch(&card, at, &[0x5A; 700], true);
+    let r = TapeReader::open_with(&card[..], raw()).unwrap();
+    let p = &r.pieces()[0];
+    assert_eq!(p.gaps, [(offset, len)]);
+    assert_eq!((p.end, p.cut), (card.len() as u64, None));
+    // describe block and 10 records blocks
+    assert_eq!(r.entries(0).unwrap().len(), 11);
 }

@@ -9,7 +9,10 @@
 //! each. A piece without a tail (being written, or cut off by a crash) is found from its newest checkpoint
 //! [index](crate::index) block, looked for backwards from the end, and the stretch after that checkpoint is scanned;
 //! a piece without any checkpoint is scanned from the start of what is left. Scans stop at the first block that
-//! isn't good, as [Recovery::Prefix](crate::Recovery) does, and say where ([PieceInfo::cut]).
+//! isn't good or belongs to a run that may not start there, as [Recovery::Prefix](crate::Recovery) does, and say where
+//! ([PieceInfo::cut]); a stretch the run's data goes on after within the layout's gap is read past
+//! ([PieceInfo::gaps]). A raw medium ([Medium::Raw]) is walked forward from its start or a hint instead
+//! ([OpenOptions::medium]).
 //!
 //! Index entries of a finished piece are read when asked for: all of them ([TapeReader::entries]) or one track's
 //! ([TapeReader::track_entries]: the final index's head and that track's entries, each checked by its own CRC).
@@ -22,7 +25,11 @@ use crate::piece::{
     ChainReport, Finish, FinishBlock, PieceHead, PieceHeadBlock, PieceSummary, TAIL_LEN, Tail,
     TrackRange, TrackStart, check_chain,
 };
-use crate::{Block, BlockError, BlockKind, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, VERSION, block_len};
+use crate::walk::{RunState, Verdict};
+use crate::{
+    Block, BlockError, BlockKind, HEADER_LEN, Layout, MAGIC, MAX_BLOCK_LEN, Medium, VERSION,
+    block_len,
+};
 
 /// Bytes that read at an offset.
 pub trait ByteSource {
@@ -149,6 +156,14 @@ pub struct OpenOptions {
     /// Most bytes looked through backwards from the end of an unfinished piece for its newest checkpoint before
     /// scanning what is left from its start instead.
     pub scan_back_max: u64,
+    /// What the bytes are kept on. A file is read from its end (tails, checkpoints); a [Medium::Raw] is walked
+    /// forward from [Self::start], since its end holds stale blocks or nothing and a stale tail there would pass
+    /// for the newest piece.
+    pub medium: Medium,
+    /// Where a [Medium::Raw] walk starts: the medium's start, or a hint the medium layer gives (its own superblock).
+    pub start: u64,
+    /// The gap rules of a [Medium::Raw] from its start, before a describe block says them; None: none until then.
+    pub layout: Option<Layout>,
 }
 
 /// Default of [OpenOptions::scan_back_max]: 256 MiB, room for a few checkpoint intervals of the largest chunks.
@@ -158,6 +173,9 @@ impl Default for OpenOptions {
     fn default() -> Self {
         OpenOptions {
             scan_back_max: DEFAULT_SCAN_BACK_MAX,
+            medium: Medium::File,
+            start: 0,
+            layout: None,
         }
     }
 }
@@ -187,8 +205,12 @@ pub struct PieceInfo {
     pub tail: Option<Tail>,
     pub found: Found,
     /// Where the bytes stopped being good blocks, when a scan stopped before the end of the piece's stretch: a cut
-    /// last block, damage, or something that isn't a block.
+    /// last block, damage, something that isn't a block, or a block of another run where no run may start (stale
+    /// data behind the end of data).
     pub cut: Option<u64>,
+    /// Blank or bad stretches a scan read past, the run's data going on after them within the layout's
+    /// [gap](Layout::gap_max): offset and length of each.
+    pub gaps: Vec<(u64, u64)>,
     /// Entries a scan or the checkpoint chain gave, in file order; None for a piece read by its tail
     entries: Option<Vec<IndexEntry>>,
 }
@@ -204,6 +226,7 @@ impl PieceInfo {
             tail: None,
             found,
             cut: None,
+            gaps: Vec::new(),
             entries: Some(Vec::new()),
         }
     }
@@ -246,6 +269,20 @@ impl<S: ByteSource> TapeReader<S> {
             len,
             pieces: Vec::new(),
         };
+        if options.medium == Medium::Raw {
+            let mut walk = RunState::new(Medium::Raw);
+            if let Some(l) = &options.layout {
+                walk.set_layout(l);
+            }
+            let start = options.start.min(len);
+            r.pieces = r.scan_with(
+                start,
+                len,
+                PieceInfo::new(start, Found::Scan { scanned: 0 }),
+                walk,
+            )?;
+            return Ok(r);
+        }
         let mut hi = len;
         let mut rev: Vec<PieceInfo> = Vec::new();
         while hi > 0 {
@@ -472,22 +509,44 @@ impl<S: ByteSource> TapeReader<S> {
 
     /// Read blocks one after the other from `from` to `hi` into `piece`, starting a new piece at a piece head and
     /// closing one at a tail; stops at the first block that isn't good.
-    fn scan(&self, from: u64, hi: u64, mut piece: PieceInfo) -> R<Vec<PieceInfo>, S> {
+    fn scan(&self, from: u64, hi: u64, piece: PieceInfo) -> R<Vec<PieceInfo>, S> {
+        self.scan_with(from, hi, piece, RunState::new(Medium::File))
+    }
+
+    /// [Self::scan] keeping to the runs `walk` takes, reading past gaps its layout allows.
+    fn scan_with(
+        &self,
+        from: u64,
+        hi: u64,
+        mut piece: PieceInfo,
+        mut walk: RunState,
+    ) -> R<Vec<PieceInfo>, S> {
         let mut out = Vec::new();
         let mut at = from;
         piece.end = piece.end.max(from);
         let scan_start = from;
         while at < hi {
-            let bytes = match self.good_block(at, hi)? {
-                Ok(b) => b,
-                Err(_) => {
-                    if !self.blank(at, hi)? {
-                        piece.cut = Some(at);
-                    }
-                    break;
+            let taken = match self.good_block(at, hi)? {
+                Ok(b) => {
+                    let ok =
+                        walk.verdict(&Block::read(&b).expect("checked"), true) == Verdict::Take;
+                    ok.then_some(b)
                 }
+                Err(_) => None,
+            };
+            let Some(bytes) = taken else {
+                if let Some(next) = self.past_gap(at, hi, &walk)? {
+                    piece.gaps.push((at, next - at));
+                    at = next;
+                    continue;
+                }
+                if !self.blank(at, hi)? {
+                    piece.cut = Some(at);
+                }
+                break;
             };
             let block = Block::read(&bytes).expect("checked");
+            walk.take(&block);
             let len = bytes.len() as u64;
             match block.kind {
                 BlockKind::PieceHead if at != piece.start => {
@@ -535,6 +594,34 @@ impl<S: ByteSource> TapeReader<S> {
             out.push(piece);
         }
         Ok(out)
+    }
+
+    /// Where the run's data goes on past the blank or bad stretch at `at` within `walk`'s gap rules: the first
+    /// non-blank byte or a resume boundary holding a block that [resumes](RunState::resumes) the walk; None when
+    /// nothing does (or the layout allows no gaps), so the stretch is the end of data.
+    fn past_gap(&self, at: u64, hi: u64, walk: &RunState) -> R<Option<u64>, S> {
+        let reach = walk.gap_max().min(hi.saturating_sub(at));
+        if reach == 0 {
+            return Ok(None);
+        }
+        let window = self.read(at, read_len(reach, usize::MAX))?;
+        let first = window
+            .iter()
+            .position(|b| !crate::is_blank(*b))
+            .map_or(at.saturating_add(reach), |i| at + i as u64);
+        let mut candidates: Vec<u64> = Vec::new();
+        if first > at && first < hi {
+            candidates.push(first);
+        }
+        candidates.extend(walk.probes(at, first.max(at)).take_while(|p| *p < hi));
+        for c in candidates {
+            if let Ok(b) = self.good_block(c, hi)?
+                && walk.resumes(&Block::read(&b).expect("checked"))
+            {
+                return Ok(Some(c));
+            }
+        }
+        Ok(None)
     }
 
     /// Whether everything from `at` to `hi` is blank ([crate::is_blank]: preallocated space, an erased medium): the

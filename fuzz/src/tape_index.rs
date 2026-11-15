@@ -8,7 +8,7 @@ use ww_tape::index::{
     IndexBlock, IndexEntry, IndexHead, IndexKind, index_len, track_count, write_index,
 };
 use ww_tape::piece::{FinishBlock, PieceHeadBlock};
-use ww_tape::{Block, BlockKind, Tail, TapeReader};
+use ww_tape::{Block, BlockKind, Layout, Medium, OpenOptions, Tail, TapeReader};
 
 /// Look at everything the block decoders give for `data`.
 fn decode(data: &[u8]) {
@@ -41,8 +41,8 @@ fn decode(data: &[u8]) {
     let _ = Tail::read(data);
 }
 
-fn read(data: &[u8]) {
-    let Ok(r) = TapeReader::open(data) else {
+fn read(data: &[u8], options: OpenOptions) {
+    let Ok(r) = TapeReader::open_with(data, options) else {
         return;
     };
     let mut end = 0;
@@ -64,7 +64,16 @@ fn read(data: &[u8]) {
 
 fuzz_target!(|data: &[u8]| {
     decode(data);
-    read(data);
+    read(data, OpenOptions::default());
+    // as a raw medium with the gap rules of an SD card: walked forward, gaps read past
+    read(
+        data,
+        OpenOptions {
+            medium: Medium::Raw,
+            layout: Some(Layout::UNALIGNED.on_sd_card()),
+            ..OpenOptions::default()
+        },
+    );
     // index blocks of entries made from the input: [final?][entries of 9 bytes: track u8, offset u64]
     let Some((&flag, rest)) = data.split_first() else {
         return;

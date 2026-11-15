@@ -228,7 +228,14 @@ fn crash_anywhere_loses_only_the_cut_block() {
     assert!(matches!(r.pieces()[0].found, Found::Checkpoint { .. }));
     assert!(r.verify(0).is_err(), "no finish, no hash");
     // a short scan back finds no checkpoint: the whole file is scanned instead
-    let r = TapeReader::open_with(&bytes[..], OpenOptions { scan_back_max: 16 }).unwrap();
+    let r = TapeReader::open_with(
+        &bytes[..],
+        OpenOptions {
+            scan_back_max: 16,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert!(matches!(r.pieces()[0].found, Found::Scan { .. }));
     assert_eq!(
         r.entries(0).unwrap().len(),

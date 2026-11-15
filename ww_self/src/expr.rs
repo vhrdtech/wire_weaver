@@ -83,7 +83,7 @@ pub enum Call {
     /// `motor.set_speed(1.5, Dir::Cw)`: a method with its arguments, each still to be read by its type.
     Method { path: String, args: Vec<Expr> },
     /// `motor.limit = 3`: a property written.
-    Write { path: String, value: Expr },
+    Write { path: String, value: Box<Expr> },
     /// `motor.limit`, `bank[0].level`: a resource by its path (a property read, a stream, ...).
     Path { path: String },
 }
@@ -103,7 +103,7 @@ pub fn parse_call(text: &str) -> Result<Call> {
         },
         Expr::Assign(assign) => Call::Write {
             path: resource_path(&assign.left)?,
-            value: (*assign.right).clone(),
+            value: Box::new((*assign.right).clone()),
         },
         other => Call::Path {
             path: resource_path(other)?,

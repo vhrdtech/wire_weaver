@@ -246,6 +246,9 @@
 
 ### 🐛 Fixes
 
+* `expr::Call::Write.value` is boxed (clippy `large_enum_variant`): `Call` held a bare `syn::Expr` next to a plain
+  `String` variant, four times its size. Tool-side only (`parse_call`, the `ww` CLI, the dynamic client), never on
+  the wire.
 * `ApiBundleOwned::get_ty` is an error for a type entry that isn't a struct or an enum: an entry referring
   to itself (`types[i] = OutOfLine(i)`) sent `is_unsized`, value encoding and defaults into endless recursion on an
   untrusted bundle, before `prepare` checked it.

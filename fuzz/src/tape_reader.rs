@@ -1,13 +1,17 @@
 //! The ww_tape file reader on any bytes: it never panics, every block it gives is a good one (or, in the salvage walk,
 //! a chunk with a good head), and the prefix walk is the start of what the salvage walk gives. Describe records of a good block decode or fail, never panic.
+//! Walked as a raw medium with the gap rules of an SD card too: every step still consumes bytes.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use shrink_wrap::DeserializeShrinkWrap;
-use ww_tape::{Block, Describe, FileBlocks, Recovery};
+use ww_tape::{Block, Describe, FileBlocks, Layout, Medium, Recovery};
 
-fn walk(data: &[u8], recovery: Recovery) -> Vec<Vec<u8>> {
-    let mut rd = FileBlocks::with_recovery(data, recovery);
+fn walk(data: &[u8], recovery: Recovery, medium: Medium) -> Vec<Vec<u8>> {
+    let mut rd = FileBlocks::with_recovery(data, recovery).on(medium);
+    if medium == Medium::Raw {
+        rd = rd.with_layout(&Layout::UNALIGNED.on_sd_card());
+    }
     let mut blocks = vec![];
     let mut steps = 0usize;
     while let Some(b) = rd.next_block() {
@@ -33,8 +37,10 @@ fn walk(data: &[u8], recovery: Recovery) -> Vec<Vec<u8>> {
 }
 
 fuzz_target!(|data: &[u8]| {
-    let prefix = walk(data, Recovery::Prefix);
-    let salvage = walk(data, Recovery::Resync);
+    let prefix = walk(data, Recovery::Prefix, Medium::File);
+    let salvage = walk(data, Recovery::Resync, Medium::File);
+    walk(data, Recovery::Prefix, Medium::Raw);
+    walk(data, Recovery::Resync, Medium::Raw);
     assert!(salvage.len() >= prefix.len());
     // the prefix walk stops at the first damage; up to there both read the same blocks, unless it stopped at a seq
     // going back, which the salvage walk doesn't check

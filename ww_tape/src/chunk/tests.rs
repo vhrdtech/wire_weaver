@@ -337,7 +337,7 @@ fn renumbered_blocks_stay_good() {
 fn write_tape(path: &std::path::Path, layout: Layout) -> Vec<u8> {
     _ = std::fs::remove_file(path);
     let mut w = TapeWriter::create(path, SyncPolicy::None).unwrap();
-    w.set_alignment(layout.alignment);
+    w.set_alignment(layout.alignment.get());
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "test" }))
         .unwrap();

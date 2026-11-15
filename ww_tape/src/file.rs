@@ -2,7 +2,8 @@
 
 use std::io::Read;
 
-use crate::{Block, BlockError, BlockKind, HEADER_LEN, MAGIC, block_len, is_blank};
+use crate::walk::{RunState, Verdict};
+use crate::{Block, BlockError, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank};
 
 /// An owned block, e.g. one handed over by a producer, checked once when made.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -55,19 +56,35 @@ pub enum FileError {
         offset: u64,
         len: u64,
     },
+    /// A blank or bad stretch of `len` bytes at `offset` that the run's data goes on after, within the layout's
+    /// [gap](crate::Layout::gap_max): a writer could not go on there (a failed program, a bad block, a torn unit,
+    /// page padding). The walk goes on after it.
+    Gap {
+        offset: u64,
+        len: u64,
+    },
+    /// [Recovery::Resync]: a good block of run `run` at `offset`, `len` bytes, where no run may start: stale data
+    /// (an earlier life of a medium), never data. Skipped by its length.
+    Stale {
+        offset: u64,
+        run: RunTag,
+        len: u64,
+    },
 }
 
 /// Why a [Recovery::Prefix] walk stopped before the end of the file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cut {
-    /// The bytes there are not a good block: bad magic, length or CRC.
+    /// The bytes there are not a good block (bad magic, length or CRC), and no block of the run follows within the
+    /// layout's gap.
     Bad(BlockError),
     /// The file ends inside a block (a writer stopped mid-way), `len` bytes of it are there.
     Truncated { len: u64 },
-    /// A data block's seq is not after the one before it: not this file's next block. (A describe block may go
-    /// back: it starts the blocks of another producer run appended to the file. Index, finish, tail and piece head
-    /// blocks take no part in the order.)
+    /// A data block's seq is not after the one before it in its run: not this file's next block. (Describe, index,
+    /// finish, tail and piece head blocks take no part in the order.)
     SeqBackwards { seq: u64, after: u64 },
+    /// A good block of run `run` where no run may start ([Medium]): stale data behind the end of data.
+    Stale { run: RunTag },
 }
 
 impl core::fmt::Display for FileError {
@@ -84,6 +101,7 @@ impl core::fmt::Display for FileError {
                     Cut::SeqBackwards { seq, after } => {
                         write!(f, "block seq {seq} after {after}")
                     }
+                    Cut::Stale { run } => write!(f, "a block of another run ({:08x})", run.get()),
                 }
             }
             FileError::Bad {
@@ -97,6 +115,17 @@ impl core::fmt::Display for FileError {
             FileError::Truncated { offset, len } => {
                 write!(f, "file ends inside a block: {len} bytes at byte {offset}")
             }
+            FileError::Gap { offset, len } => {
+                write!(
+                    f,
+                    "a gap of {len} bytes at byte {offset}, the data goes on after it"
+                )
+            }
+            FileError::Stale { offset, run, len } => write!(
+                f,
+                "a stale block of another run ({:08x}) at byte {offset}, {len} bytes skipped",
+                run.get()
+            ),
         }
     }
 }
@@ -106,13 +135,16 @@ impl std::error::Error for FileError {}
 /// What a reader does at damage.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Recovery {
-    /// The longest valid prefix: stop at the first block with a bad magic, length or CRC, a cut one, or a seq that
-    /// goes backwards, and report where ([FileError::Cut]). What a crash leaves (a cut last block, zeros of
-    /// preallocated space) reads as the file up to there. The default.
+    /// The longest valid prefix: stop at the first block with a bad magic, length or CRC, a cut one, one of a run
+    /// that may not start there, or a seq that goes backwards, and report where ([FileError::Cut]). What a crash
+    /// leaves (a cut last block, blank preallocated space) reads as the file up to there. Where the layout allows
+    /// gaps ([crate::Layout::gap_max]), a blank or bad stretch the run's data goes on after is a [FileError::Gap],
+    /// not the end. The default.
     #[default]
     Prefix,
     /// Salvage: report a bad block and read on at the next block magic one byte after its start ([FileError::Bad]);
-    /// no seq check. A chunk block whose head is good (head CRC) but whose payload isn't is handed out instead, with
+    /// no seq check; a block of a run that may not start there is reported ([FileError::Stale]) and skipped. A
+    /// chunk block whose head is good (head CRC) but whose payload isn't is handed out instead, with
     /// [Block::is_intact] false and its bad segments marked ([crate::Chunk::bad_segments]), and the walk goes on
     /// after it by its length. Any byte may start a block, also in a file aligned for its chunk payloads: a block is
     /// taken only when its CRCs match.
@@ -120,8 +152,8 @@ pub enum Recovery {
 }
 
 /// Reads blocks one after the other from a byte stream into one reused buffer, see [Recovery] for what happens at
-/// damage. Blank bytes ([is_blank]: 0x00 or 0xFF) where the next block would start, up to the end, are the end
-/// (preallocated space, an erased or trimmed medium).
+/// damage and [Medium] for where a new run may start. Blank bytes ([is_blank]: 0x00 or 0xFF) where the next block
+/// would start, up to the end, are the end (preallocated space, an erased or trimmed medium).
 pub struct FileBlocks<R> {
     rd: R,
     recovery: Recovery,
@@ -129,17 +161,17 @@ pub struct FileBlocks<R> {
     /// Bytes of `buf` that hold data, the current block at `buf[..current]`
     filled: usize,
     current: usize,
-    /// File offset of `buf[0]`
+    /// Medium offset of `buf[0]`
     offset: u64,
     eof: bool,
-    /// Seq of the last block given out
-    last_seq: Option<u64>,
+    /// The run and seq taken so far, the gap rules
+    walk: RunState,
     /// A Prefix walk was cut: nothing more
     done: bool,
 }
 
 impl<R: Read> FileBlocks<R> {
-    /// A reader that stops at the first damage ([Recovery::Prefix]).
+    /// A reader of a file that stops at the first damage ([Recovery::Prefix]).
     pub fn new(rd: R) -> Self {
         Self::with_recovery(rd, Recovery::Prefix)
     }
@@ -153,12 +185,35 @@ impl<R: Read> FileBlocks<R> {
             current: 0,
             offset: 0,
             eof: false,
-            last_seq: None,
+            walk: RunState::new(Medium::File),
             done: false,
         }
     }
 
-    /// File offset of the block [Self::next_block] returned last.
+    /// Read the bytes as kept on `medium`.
+    #[must_use]
+    pub fn on(mut self, medium: Medium) -> Self {
+        self.walk.medium = medium;
+        self
+    }
+
+    /// The bytes start at `offset` of the medium (a medium layer's hint), so gap probes land on the medium's
+    /// [resume](crate::Layout::resume_align) boundaries.
+    #[must_use]
+    pub fn starting_at(mut self, offset: u64) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    /// Take `layout`'s gap rules from the start, before a describe block says them (a medium layer that knows the
+    /// medium); a [crate::Layout] read later replaces them.
+    #[must_use]
+    pub fn with_layout(mut self, layout: &crate::Layout) -> Self {
+        self.walk.set_layout(layout);
+        self
+    }
+
+    /// Medium offset of the block [Self::next_block] returned last.
     pub fn offset(&self) -> u64 {
         self.offset
     }
@@ -192,14 +247,17 @@ impl<R: Read> FileBlocks<R> {
         self.offset += n as u64;
     }
 
-    /// Whether everything from here to the end of the file is blank (consumed if so).
-    fn blank_to_end(&mut self) -> Result<bool, FileError> {
+    /// Pass over blank bytes from here: true when they run to the end of the file.
+    fn skip_blank(&mut self) -> Result<bool, FileError> {
         loop {
-            if !self.buf[..self.filled].iter().all(|b| is_blank(*b)) {
+            let n = self.buf[..self.filled]
+                .iter()
+                .position(|b| !is_blank(*b))
+                .unwrap_or(self.filled);
+            self.consume(n);
+            if self.filled > 0 {
                 return Ok(false);
             }
-            let n = self.filled;
-            self.consume(n);
             if !self.fill(1)? {
                 return Ok(true);
             }
@@ -209,89 +267,174 @@ impl<R: Read> FileBlocks<R> {
     /// The next good block, None at the end. Errors are reported one at a time: after a [FileError::Cut] the walk
     /// is over, after the others call again to go on.
     pub fn next_block(&mut self) -> Option<Result<Block<'_>, FileError>> {
+        match self.step() {
+            Ok(Some(len)) => {
+                self.current = len;
+                // re-borrow to tie the block to self
+                Some(Ok(Block::salvage(&self.buf[..len]).expect("just read")))
+            }
+            Ok(None) => None,
+            Err(e) => Some(Err(e)),
+        }
+    }
+
+    /// Find the next block: its length at the start of `buf`, None at the end.
+    fn step(&mut self) -> Result<Option<usize>, FileError> {
         if self.done {
-            return None;
+            return Ok(None);
         }
         if self.current > 0 {
             let n = self.current;
             self.current = 0;
             self.consume(n);
         }
-        match self.fill(1) {
-            Ok(true) => {}
-            Ok(false) => return None,
-            Err(e) => return Some(Err(e)),
+        if !self.fill(1)? {
+            return Ok(None);
         }
         // a block starts with the magic, never with a blank byte
-        if is_blank(self.buf[0]) {
-            match self.blank_to_end() {
-                Ok(true) => return None,
-                Ok(false) => {}
-                Err(e) => return Some(Err(e)),
-            }
+        let start = self.offset;
+        if is_blank(self.buf[0]) && self.skip_blank()? {
+            return Ok(None);
         }
-        let error = match self.fill(HEADER_LEN) {
-            Ok(true) => match block_len(&self.buf[..self.filled]) {
-                Ok(len) => match self.fill(len) {
-                    Ok(true) => match Block::read(&self.buf[..len]) {
-                        Ok(b) => {
-                            let seq = b.seq;
-                            // a describe block may start a new producer run (an appended file); blocks of the
-                            // file structure take no part in the seq order
-                            let structural = crate::index::is_structural(b.kind);
-                            if self.recovery == Recovery::Prefix
-                                && let Some(after) = self.last_seq
-                                && seq <= after
-                                && b.kind != BlockKind::Describe
-                                && !structural
-                            {
-                                return Some(Err(self.cut(Cut::SeqBackwards { seq, after })));
-                            }
-                            if !structural {
-                                self.last_seq = Some(seq);
-                            }
-                            self.current = len;
-                            // re-borrow to tie the block to self
-                            return Some(Ok(Block::read(&self.buf[..len]).expect("just read")));
-                        }
-                        // a chunk block with a good head: its length holds, the payload is handed out with its bad
-                        // segments marked, and the walk goes on after it without looking for a magic in the payload
-                        Err(e) => match self.salvaged_seq(len) {
-                            Some(seq) => {
-                                self.last_seq = Some(seq);
-                                self.current = len;
-                                return Some(Ok(
-                                    Block::salvage(&self.buf[..len]).expect("just read")
-                                ));
-                            }
-                            None => e,
-                        },
-                    },
-                    // the rest of the file is in `buf`: a block magic in it means the length was damaged
-                    Ok(false)
-                        if self.recovery == Recovery::Resync
-                            && self.buf[1..self.filled]
-                                .windows(MAGIC.len())
-                                .any(|w| w == MAGIC) =>
-                    {
-                        BlockError::BadLength(len as u32)
-                    }
-                    Ok(false) => return Some(Err(self.truncated())),
-                    Err(e) => return Some(Err(e)),
-                },
-                Err(e) => e,
-            },
-            Ok(false) => return Some(Err(self.truncated())),
-            Err(e) => return Some(Err(e)),
+        let blank = self.offset > start;
+        let error = match self.block_here()? {
+            Here::Good(_) if blank && self.recovery == Recovery::Resync => {
+                return Err(FileError::Bad {
+                    offset: start,
+                    error: BlockError::BadMagic,
+                    skipped: self.offset - start,
+                });
+            }
+            Here::Good(len) => {
+                if blank {
+                    // blank bytes, then a block: within the gap rules a gap, else the end of data
+                    return self.after_stretch(start, BlockError::BadMagic, Some(len));
+                }
+                return self.judge(len);
+            }
+            Here::Truncated if !blank => return Err(self.truncated()),
+            Here::Truncated => BlockError::BadMagic,
+            Here::Bad(e) => e,
         };
-        Some(Err(match self.recovery {
-            Recovery::Prefix => self.cut(Cut::Bad(error)),
-            Recovery::Resync => self.resync(error),
-        }))
+        match self.recovery {
+            Recovery::Prefix => self.after_stretch(start, error, None),
+            Recovery::Resync if blank => Err(FileError::Bad {
+                offset: start,
+                error,
+                skipped: self.offset - start,
+            }),
+            Recovery::Resync => Err(self.resync(error)),
+        }
     }
 
-    /// The next good block, None at the end; what was cut or skipped is handed to `on_error`, a salvaged chunk block
-    /// ([Block::is_intact] false) as [FileError::Bad].
+    /// What starts `buf`: a good block (a damaged chunk with a good head too, in [Recovery::Resync]), a cut one, or
+    /// bad bytes.
+    fn block_here(&mut self) -> Result<Here, FileError> {
+        if !self.fill(HEADER_LEN)? {
+            return Ok(Here::Truncated);
+        }
+        let len = match block_len(&self.buf[..self.filled]) {
+            Ok(len) => len,
+            Err(e) => return Ok(Here::Bad(e)),
+        };
+        if !self.fill(len)? {
+            // the rest of the file is in `buf`: a block magic in it means the length was damaged
+            let magic_later = self.buf[1..self.filled]
+                .windows(MAGIC.len())
+                .any(|w| w == MAGIC);
+            if self.recovery == Recovery::Resync && magic_later {
+                return Ok(Here::Bad(BlockError::BadLength(len as u32)));
+            }
+            return Ok(Here::Truncated);
+        }
+        Ok(match Block::read(&self.buf[..len]) {
+            Ok(_) => Here::Good(len),
+            // a chunk block with a good head: its length holds, the payload is handed out with its bad segments
+            // marked, and the walk goes on after it without looking for a magic in the payload
+            Err(_)
+                if self.recovery == Recovery::Resync
+                    && Block::salvage(&self.buf[..len]).is_ok() =>
+            {
+                Here::Good(len)
+            }
+            Err(e) => Here::Bad(e),
+        })
+    }
+
+    /// The good block of `len` bytes at the start of `buf`: taken, stale or out of order.
+    fn judge(&mut self, len: usize) -> Result<Option<usize>, FileError> {
+        let b = Block::salvage(&self.buf[..len]).expect("checked");
+        let check_seq = self.recovery == Recovery::Prefix;
+        match (self.walk.verdict(&b, check_seq), self.recovery) {
+            (Verdict::Take, _) => {
+                self.walk.take(&b);
+                Ok(Some(len))
+            }
+            (Verdict::Stale(run), Recovery::Prefix) => {
+                Err(self.cut(self.offset, Cut::Stale { run }))
+            }
+            (Verdict::Stale(run), Recovery::Resync) => {
+                let offset = self.offset;
+                self.consume(len);
+                Err(FileError::Stale {
+                    offset,
+                    run,
+                    len: len as u64,
+                })
+            }
+            (Verdict::Backwards { seq, after }, _) => {
+                Err(self.cut(self.offset, Cut::SeqBackwards { seq, after }))
+            }
+        }
+    }
+
+    /// A blank or bad stretch started at `start` (`buf` is past its blank bytes): the run's data going on within
+    /// the layout's gap is a [FileError::Gap], else the stretch is the end of data, cut for `error`. `here` is the
+    /// good block right after blank bytes.
+    fn after_stretch(
+        &mut self,
+        start: u64,
+        error: BlockError,
+        here: Option<usize>,
+    ) -> Result<Option<usize>, FileError> {
+        let in_gap = self.offset - start <= self.walk.gap_max();
+        if in_gap && let Some(len) = here {
+            let b = Block::salvage(&self.buf[..len]).expect("checked");
+            if self.walk.resumes(&b) {
+                return Err(self.gap(start));
+            }
+        }
+        let probes: Vec<u64> = self.walk.probes(start, self.offset).collect();
+        for p in probes {
+            let r = (p - self.offset) as usize;
+            if !self.fill(r + HEADER_LEN)? {
+                break;
+            }
+            let Ok(len) = block_len(&self.buf[r..self.filled]) else {
+                continue;
+            };
+            if !self.fill(r + len)? {
+                continue;
+            }
+            if let Ok(b) = Block::read(&self.buf[r..r + len])
+                && self.walk.resumes(&b)
+            {
+                self.consume(r);
+                return Err(self.gap(start));
+            }
+        }
+        Err(self.cut(start, Cut::Bad(error)))
+    }
+
+    fn gap(&self, start: u64) -> FileError {
+        FileError::Gap {
+            offset: start,
+            len: self.offset - start,
+        }
+    }
+
+    /// The next good block, None at the end; what was cut, skipped or passed over is handed to `on_error`, a
+    /// salvaged chunk block ([Block::is_intact] false) as [FileError::Bad].
     pub fn next_good(&mut self, mut on_error: impl FnMut(FileError)) -> Option<Block<'_>> {
         loop {
             match self.next_block()? {
@@ -310,27 +453,15 @@ impl<R: Read> FileBlocks<R> {
         Some(Block::read(&self.buf[..self.current]).expect("just read"))
     }
 
-    /// In [Recovery::Resync], the seq of the damaged chunk block at the start of `buf` (`len` bytes) when its head
-    /// is good.
-    fn salvaged_seq(&self, len: usize) -> Option<u64> {
-        if self.recovery != Recovery::Resync {
-            return None;
-        }
-        Block::salvage(&self.buf[..len]).ok().map(|b| b.seq)
-    }
-
-    fn cut(&mut self, why: Cut) -> FileError {
+    fn cut(&mut self, offset: u64, why: Cut) -> FileError {
         self.done = true;
-        FileError::Cut {
-            offset: self.offset,
-            why,
-        }
+        FileError::Cut { offset, why }
     }
 
     fn truncated(&mut self) -> FileError {
         let (offset, len) = (self.offset, self.filled as u64);
         if self.recovery == Recovery::Prefix {
-            return self.cut(Cut::Truncated { len });
+            return self.cut(offset, Cut::Truncated { len });
         }
         let n = self.filled;
         self.consume(n);
@@ -374,4 +505,13 @@ impl<R: Read> FileBlocks<R> {
             skipped,
         }
     }
+}
+
+/// What starts the bytes a [FileBlocks] holds.
+enum Here {
+    /// A good block (or, in [Recovery::Resync], a chunk with a good head) of this length.
+    Good(usize),
+    /// The file ends inside the header or the block.
+    Truncated,
+    Bad(BlockError),
 }

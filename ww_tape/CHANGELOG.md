@@ -6,6 +6,7 @@
 
 - Header bytes 24..28 hold the run tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).
 - `PieceHead` gains `prev_run`: the run before the piece head on the medium, piece head bytes 92..96 (STD-129).
+- `Layout` gains `gap_max` and `resume_align`, its fields are `Bytes<u32>`; `FileError` gains `Gap` and `Stale`, `Cut` gains `Stale` (STD-129).
 - Block makers take a `BlockId` (run and seq) instead of a seq; `set_seq` is `set_id`; `DescribeSet::write_blocks` counts a `&mut BlockId` (STD-129).
 - Series summary blocks state their scale (head bytes 52..54, `Magnitude` after the head); `SeriesStart` takes `segment` instead of `first_tick` (STD-128).
 - `summary_len` returns a `Result`; `StatColumn::value` is `get`, None past the end; `SeriesSummaries::pending` returns `SeriesNode`s (STD-128).
@@ -25,6 +26,8 @@
 
 ### 🚀 Features
 
+- `FileBlocks` keeps to one run: stale blocks of another run end the data; gaps within `Layout::gap_max` are read past (STD-129).
+- `Medium` (`File`, `Raw`), `FileBlocks::on`, `starting_at`, `with_layout`; `Layout::on_sd_card`, `on_raw_nand` (STD-129).
 - Blank is 0x00 or 0xFF: `is_blank`; `FileBlocks` and `TapeReader` take either after the last block as the end (STD-129).
 - `RunTag` (random, from a seed, of a piece id) and `Block::run`; `TapeWriter::next_id`, `run`, `set_run`; a chain's run is derived (STD-129).
 - `Codec::ALP` (26): lossless floats as decimals stored as bit-packed integers, or front bits through a dictionary; `samples::ALP_GROUP` (STD-130).

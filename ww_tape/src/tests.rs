@@ -884,7 +884,11 @@ fn prefix_of_a_capture_with_a_flipped_byte() {
 /// end; anything else there is a cut.
 #[test]
 fn blank_at_the_end_is_the_end() {
-    for blank in [vec![0u8; 100_000], vec![0xFF; 100_000], [[0u8; 512], [0xFF; 512]].concat()] {
+    for blank in [
+        vec![0u8; 100_000],
+        vec![0xFF; 100_000],
+        [[0u8; 512], [0xFF; 512]].concat(),
+    ] {
         let (mut file, _) = tape(3);
         file.extend_from_slice(&blank);
         assert_eq!(read_all(&file, Recovery::Prefix), (vec![0, 1, 2], 0));

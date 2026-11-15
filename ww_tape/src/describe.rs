@@ -1,7 +1,7 @@
 //! What describe records say: the producer, clocks, clock maps, tracks, API bundles and typed items.
 
 use exact_units::units::{Per, Second, Tick};
-use exact_units::{MagnitudeOf, Ratio64, Rounding};
+use exact_units::{Bytes, MagnitudeOf, Ratio64, Rounding};
 use shrink_wrap::prelude::*;
 
 #[cfg(feature = "std")]
@@ -31,7 +31,7 @@ pub enum Describe<'i> {
     Layout(Layout),
 }
 
-/// How blocks are placed in a file.
+/// How blocks are placed in a file or on a medium.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -41,22 +41,60 @@ pub enum Describe<'i> {
 pub struct Layout {
     /// 0, or [ALIGNMENT]: every chunk block's payload starts at a multiple of it in the file, its head and smaller
     /// blocks filling the gap before it. Series files are aligned, event files not.
-    pub alignment: u32,
+    pub alignment: Bytes<u32>,
+    /// Longest stretch a writer may leave blank or damaged and go on after (a failed program, a bad block, a torn
+    /// unit): a reader looks this far past a blank or bad stretch for the run's next block before it takes the
+    /// stretch's start as the end of data. 0 on files: the first such stretch is the end.
+    pub gap_max: Bytes<u32>,
+    /// Where a writer resumes after such a stretch: at a multiple of it in the file or medium, 1 and up (a sector,
+    /// a NAND page). A reader probes these places and the first non-blank byte.
+    pub resume_align: Bytes<u32>,
 }
 
 /// The alignment of an aligned file: 4 KiB, a page and a direct I/O block.
 pub const ALIGNMENT: u32 = 4096;
+/// [Layout::gap_max] of an SD card: a 4 MiB segment, part of an allocation unit (SD 9.10 §4.13.1 has them up to
+/// 64 MB); a reader probes at most 8192 sector headers of a gap.
+pub const SD_GAP_MAX: u32 = 4 << 20;
+/// [Layout::resume_align] of an SD card: a 512-byte sector.
+pub const SD_RESUME_ALIGN: u32 = 512;
 
 impl Layout {
-    /// Not aligned.
-    pub const UNALIGNED: Layout = Layout { alignment: 0 };
-    /// Chunk payloads on 4 KiB boundaries.
+    /// Not aligned, a file: no gaps.
+    pub const UNALIGNED: Layout = Layout {
+        alignment: Bytes::new(0),
+        gap_max: Bytes::new(0),
+        resume_align: Bytes::new(1),
+    };
+    /// Chunk payloads on 4 KiB boundaries, a file: no gaps.
     pub const ALIGNED: Layout = Layout {
-        alignment: ALIGNMENT,
+        alignment: Bytes::new(ALIGNMENT),
+        ..Self::UNALIGNED
     };
 
+    /// This layout on an SD card or eMMC: gaps up to [SD_GAP_MAX], resumed on sectors.
+    pub const fn on_sd_card(self) -> Layout {
+        Layout {
+            gap_max: Bytes::new(SD_GAP_MAX),
+            resume_align: Bytes::new(SD_RESUME_ALIGN),
+            ..self
+        }
+    }
+
+    /// This layout on raw NAND with erase blocks of `erase_block` and pages of `page` bytes: gaps up to two erase
+    /// blocks, resumed on pages (ONFI 6.0 §3.1). A writer there pads to the page at a sync and programs each page
+    /// once, in order; the padding reads as a gap.
+    pub const fn on_raw_nand(self, erase_block: u32, page: u32) -> Layout {
+        Layout {
+            gap_max: Bytes::new(erase_block.saturating_mul(2)),
+            resume_align: Bytes::new(page),
+            ..self
+        }
+    }
+
     fn validate(&self) -> Result<(), shrink_wrap::Error> {
-        if self.alignment == 0 || self.alignment == ALIGNMENT {
+        let a = self.alignment.get();
+        if (a == 0 || a == ALIGNMENT) && self.resume_align.get() >= 1 {
             Ok(())
         } else {
             Err(shrink_wrap::Error::SubtypeOutOfRange)

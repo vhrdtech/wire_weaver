@@ -87,8 +87,9 @@ pub use ww_version::{FullVersion, Version};
 mod describe;
 pub use describe::{
     ALIGNMENT, ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension,
-    Ends, EventsDef, Layout, MapSegment, NO_CLOCK, Producer, Rank, TrackDef, TrackKind, TypeRef,
-    TypedItem, UNIX_CLOCK_KEY, clock_key, segments_increasing, track_id,
+    Ends, EventsDef, Layout, MapSegment, NO_CLOCK, Producer, Rank, SD_GAP_MAX, SD_RESUME_ALIGN,
+    TrackDef, TrackKind, TypeRef, TypedItem, UNIX_CLOCK_KEY, clock_key, segments_increasing,
+    track_id,
 };
 #[cfg(feature = "std")]
 pub use describe::{
@@ -136,8 +137,10 @@ pub mod reader;
 pub use reader::{ByteSource, OpenOptions, PieceInfo, ReadError, TapeReader};
 
 mod run;
-pub use run::{BlockId, RunTag};
+pub use run::{BlockId, Medium, RunTag};
 mod varint;
+#[cfg(feature = "alloc")]
+mod walk;
 pub use varint::{ivar_len, uvar_len};
 
 #[cfg(feature = "std")]

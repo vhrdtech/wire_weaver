@@ -542,7 +542,11 @@ impl<S: ByteSource> TapeReader<S> {
     fn blank(&self, mut at: u64, hi: u64) -> R<bool, S> {
         while at < hi {
             let n = (hi - at).min(64 * 1024);
-            if !self.read(at, n as usize)?.iter().all(|b| crate::is_blank(*b)) {
+            if !self
+                .read(at, n as usize)?
+                .iter()
+                .all(|b| crate::is_blank(*b))
+            {
                 return Ok(false);
             }
             at += n;

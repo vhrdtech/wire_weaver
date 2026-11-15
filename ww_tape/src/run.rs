@@ -90,3 +90,16 @@ impl BlockId {
         }
     }
 }
+
+/// What a tape's bytes are kept on: says where a reader takes a new run.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Medium {
+    /// A file: any describe block (another producer run appended) or piece head (concatenated pieces) may start a
+    /// new run. A reader finds pieces from the end of the file.
+    #[default]
+    File,
+    /// A raw medium (SD card, NAND, a partition) that may hold stale blocks of earlier lives behind the end of data:
+    /// a new run starts only at a piece head naming the run just ended ([crate::PieceHead::prev_run]), and a reader
+    /// walks forward from the start or a hint, never from the medium's end.
+    Raw,
+}

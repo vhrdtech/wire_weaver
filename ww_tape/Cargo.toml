@@ -17,7 +17,7 @@ std = ["alloc", "blake3/std", "exact_units/std", "shrink_wrap/std", "ww_version/
 [dependencies]
 blake3.workspace = true
 crc.workspace = true
-exact_units = { workspace = true, features = ["counting", "shrink_wrap", "time"] }
+exact_units = { workspace = true, features = ["counting", "information", "shrink_wrap", "time"] }
 lz4_flex.workspace = true
 shrink_wrap.workspace = true
 ww_version.workspace = true

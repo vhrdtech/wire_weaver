@@ -27,22 +27,6 @@
 //! [TapeWriter::cut] ends a piece and starts the next one of the chain;
 //! [crate::PieceChain] cuts by size, chunk count or time.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -53,6 +37,7 @@ use crate::piece::{
     ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail, TrackStart,
     finish_len, piece_head_len, write_finish, write_piece_head,
 };
+use crate::reader::wide;
 use crate::{BlockId, BlockKind, IndexError, RunTag};
 
 /// When a [TapeWriter] syncs the data to the disk, besides at [TapeWriter::finish].
@@ -312,7 +297,8 @@ impl TapeWriter {
         let mut buf = vec![0u8; piece_head_len(tracks.len())];
         let n = write_piece_head(&mut buf, self.structural_id(), head, tracks)
             .map_err(WriteError::Index)?;
-        self.write_raw(&buf[..n])?;
+        buf.truncate(n);
+        self.write_raw(&buf)?;
         self.head = Some((*head, tracks.to_vec()));
         Ok(())
     }
@@ -320,6 +306,15 @@ impl TapeWriter {
     /// Where the next block goes, from the start of the piece.
     fn offset(&self) -> u64 {
         self.bytes
+    }
+
+    /// Where the next block goes, from the start of the file.
+    fn at(&self) -> Result<u64, WriteError> {
+        self.start
+            .checked_add(self.bytes)
+            .ok_or(WriteError::Index(IndexError::Invalid(
+                "a file past u64::MAX bytes",
+            )))
     }
 
     /// Where the file is while it is written (`NAME.partial` for a new file).
@@ -383,11 +378,21 @@ impl TapeWriter {
 
     fn write_raw(&mut self, block: &[u8]) -> Result<(), WriteError> {
         self.check()?;
-        if block.len() < crate::HEADER_LEN {
+        let (Some(header), Some(crc)) = (
+            block.first_chunk::<{ crate::HEADER_LEN }>(),
+            block.last_chunk::<{ crate::CRC_LEN }>(),
+        ) else {
             return Err(WriteError::Block(crate::BlockError::Short {
                 needed: crate::HEADER_LEN,
             }));
-        }
+        };
+        let len = wide(block.len());
+        let bytes = self
+            .bytes
+            .checked_add(len)
+            .ok_or(WriteError::Index(IndexError::Invalid(
+                "a file past u64::MAX bytes",
+            )))?;
         if let Err(error) = self.file.write_all(block) {
             self.failed = true;
             return Err(WriteError::Io {
@@ -397,14 +402,15 @@ impl TapeWriter {
         }
         self.hash.update(block);
         // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
-        let kind = BlockKind::from_u8(block[5]);
+        let kind = BlockKind::from_u8(header[5]);
         let counted = !self.replaying && !crate::index::is_structural(kind);
-        self.index(block, counted);
-        self.note_describe(block);
-        self.blocks += 1;
-        self.bytes += block.len() as u64;
-        self.since_describe += block.len() as u64;
-        self.unsynced += 1;
+        self.index(block, *crc, counted);
+        self.note_describe(block, header);
+        self.bytes = bytes;
+        // counts against thresholds: past u64::MAX they stay due
+        self.blocks = self.blocks.saturating_add(1);
+        self.since_describe = self.since_describe.saturating_add(len);
+        self.unsynced = self.unsynced.saturating_add(1);
         if counted
             && matches!(
                 kind,
@@ -427,11 +433,8 @@ impl TapeWriter {
 
     /// List `block`, placed here, in the index as readers take it: a counted block with the id of the last one is
     /// that block again, unlisted with the same bytes, in its place with other bytes.
-    fn index(&mut self, block: &[u8], counted: bool) {
+    fn index(&mut self, block: &[u8], crc: [u8; crate::CRC_LEN], counted: bool) {
         let id = block_id(block);
-        let crc = *block
-            .last_chunk::<4>()
-            .expect("write_raw checked that a block holds its header");
         let again = self
             .last_counted
             .filter(|(last, ..)| counted && id == Some(*last));
@@ -452,9 +455,8 @@ impl TapeWriter {
 
     /// Keep the newest whole describe set: blocks from one marked [crate::FLAG_SET_FIRST] up to one marked
     /// [crate::FLAG_SET_LAST], back to back. A set another block interrupts is dropped.
-    fn note_describe(&mut self, block: &[u8]) {
-        let describe = block.len() > 5 && BlockKind::from_u8(block[5]) == BlockKind::Describe;
-        if !describe {
+    fn note_describe(&mut self, block: &[u8], header: &[u8; crate::HEADER_LEN]) {
+        if BlockKind::from_u8(header[5]) != BlockKind::Describe {
             self.describe_open.clear();
             return;
         }
@@ -462,9 +464,7 @@ impl TapeWriter {
         if self.replaying {
             return;
         }
-        let flags = block
-            .get(6..8)
-            .map_or(0, |f| u16::from_le_bytes([f[0], f[1]]));
+        let flags = u16::from_le_bytes([header[6], header[7]]);
         if flags & crate::FLAG_SET_FIRST != 0 {
             self.describe_open.clear();
         } else if self.describe_open.is_empty() {
@@ -551,7 +551,8 @@ impl TapeWriter {
         if self.alignment == 0 {
             return self.place(block);
         }
-        self.deferred_bytes += block.len();
+        // flushed once over DEFERRED_BYTES_MAX: never near usize::MAX
+        self.deferred_bytes = self.deferred_bytes.saturating_add(block.len());
         self.deferred.push(block);
         if self.deferred_bytes > DEFERRED_BYTES_MAX {
             self.flush_deferred()?;
@@ -585,15 +586,17 @@ impl TapeWriter {
         let payload: usize = columns.iter().map(|(c, _)| c.len).sum();
         let head_len = crate::chunk::chunk_head_len(columns.len(), payload);
         if self.alignment != 0 {
-            let mut gap =
-                crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment)
-                    .ok_or(WriteError::Alignment(self.alignment))?;
-            while let Some(next) = self.deferred.first()
-                && next.len() <= gap
+            let mut gap = crate::chunk::chunk_padding(self.at()?, head_len, self.alignment)
+                .ok_or(WriteError::Alignment(self.alignment))?;
+            while let Some(rest) = self
+                .deferred
+                .first()
+                .and_then(|next| gap.checked_sub(next.len()))
             {
                 let b = self.deferred.remove(0);
-                self.deferred_bytes -= b.len();
-                gap -= b.len();
+                // the sum of the deferred blocks' lengths
+                self.deferred_bytes = self.deferred_bytes.saturating_sub(b.len());
+                gap = rest;
                 self.place(b)?;
             }
             // a checkpoint goes before the chunk, in the gap when it fits
@@ -601,16 +604,18 @@ impl TapeWriter {
                 self.place_checkpoint()?;
             }
         }
-        let padding =
-            crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment)
-                .ok_or(WriteError::Alignment(self.alignment))?;
+        let padding = crate::chunk::chunk_padding(self.at()?, head_len, self.alignment)
+            .ok_or(WriteError::Alignment(self.alignment))?;
         let specs: Vec<crate::ColumnSpec> = columns.iter().map(|(c, _)| *c).collect();
         let len = crate::chunk::chunk_len(&specs, padding);
         let mut buf = core::mem::take(&mut self.chunk_buf);
         buf.resize(len, 0);
         let r = crate::chunk::write_chunk(&mut buf, self.next_id(), head, columns, padding)
             .map_err(WriteError::Chunk)
-            .and_then(|n| self.write_raw(&buf[..n]));
+            .and_then(|n| {
+                buf.truncate(n);
+                self.write_raw(&buf)
+            });
         self.chunk_buf = buf;
         r?;
         self.after_block()
@@ -726,13 +731,18 @@ impl TapeWriter {
             self.indexer.policy(),
             self.describe_repeat,
         );
+        let seq = head
+            .ident
+            .seq
+            .checked_add(1)
+            .ok_or(WriteError::Index(IndexError::Invalid(
+                "piece seq past u64::MAX",
+            )))?;
         let tracks = self.indexer.next_starts(&starts);
         let describe = self.describe.clone();
         let done = self.end(FinishState::Continued)?;
-        let next_id = done
-            .finished
-            .next
-            .expect("a continued piece with a head names the next");
+        // what end names in the finish and tail of a continued piece with a head
+        let next_id = PieceId::after(head.ident.id, &done.finished.hash);
         let mut next = TapeWriter::create(next_path, policy)?;
         next.alignment = alignment;
         next.indexer = Indexer::new(index_policy);
@@ -742,7 +752,7 @@ impl TapeWriter {
         let ident = PieceIdent {
             id: next_id,
             result: head.ident.result,
-            seq: head.ident.seq + 1,
+            seq,
         };
         next.write_piece_head(
             &PieceHead {
@@ -789,11 +799,17 @@ impl TapeWriter {
         let n = write_finish(&mut buf, self.structural_id(), &finish, &ranges)
             .map_err(WriteError::Index)?;
         let finish_offset = self.offset();
-        self.write_raw(&buf[..n])?;
+        buf.truncate(n);
+        self.write_raw(&buf)?;
+        let too_long = WriteError::Index(IndexError::Invalid("a piece past u64::MAX bytes"));
         let tail = Tail {
-            piece_len: self.offset() + TAIL_LEN as u64,
+            piece_len: self.offset().checked_add(wide(TAIL_LEN)).ok_or(too_long)?,
             finish_offset,
-            finish_len: n as u32,
+            finish_len: u32::try_from(n)
+                .ok()
+                .ok_or(WriteError::Index(IndexError::Invalid(
+                    "finish longer than a block",
+                )))?,
             state,
             hash,
             ident,

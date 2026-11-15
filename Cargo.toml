@@ -293,3 +293,10 @@ wire_weaver_core = { path = "./wire_weaver_core" }
 [profile.deploy]
 inherits = "release"
 incremental = true
+
+# ww_tape_fuzz decodes a million hostile blocks per decoder in a test: optimized, overflow checks still on
+[profile.test.package.ww_tape]
+opt-level = 3
+
+[profile.test.package.ww_tape_fuzz]
+opt-level = 3

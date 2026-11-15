@@ -161,6 +161,23 @@ fn block_writer_refuses_bad_input() {
 }
 
 #[test]
+fn an_encoder_claiming_more_than_it_was_given_is_full() {
+    let mut buf = [0u8; 64];
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[C1]).unwrap();
+    let free = w.free();
+    assert_eq!(
+        w.push_with(1, at(C1, 0), |space| Some(space.len() + 1)),
+        Err(PushError::Full)
+    );
+    assert_eq!(w.push_describe_with(|_| Some(usize::MAX)), Err(Full));
+    assert_eq!((w.records(), w.free()), (0, free), "nothing kept");
+    w.push(1, at(C1, 5), &[b"ok"]).unwrap();
+    let len = w.finish();
+    let b = Block::read(&buf[..len]).unwrap();
+    assert_eq!(b.records().count(), 1);
+}
+
+#[test]
 fn tape_writer_refuses_bad_settings() {
     let dir = std::env::temp_dir().join(format!("ww_tape_settings_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();

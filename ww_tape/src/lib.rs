@@ -211,6 +211,10 @@ pub const HEADER_LEN: usize = 32;
 /// Longest block a reader takes (64 MiB): a longer length is damage. Blocks are small (a producer hands over 64 KiB
 /// ones); the largest are describe blocks with big API bundles.
 pub const MAX_BLOCK_LEN: usize = 64 << 20;
+const _: () = assert!(
+    MAX_BLOCK_LEN >> 31 == 0,
+    "a block length is a u32 in the header"
+);
 /// Header flag: the block is a copy a writer made of a block it wrote before (a describe block written again: a
 /// repeat, the backup before a piece's finish, the start of the next piece). It carries the seq of the block before
 /// it and takes no part in the seq order; a reader that read the original takes nothing new from it.
@@ -305,12 +309,13 @@ pub const fn is_blank(b: u8) -> bool {
 }
 
 /// FNV-1a, 64 bit.
-pub const fn fnv1a(mut h: u64, bytes: &[u8]) -> u64 {
-    let mut i = 0;
-    while i < bytes.len() {
-        h ^= bytes[i] as u64;
+pub const fn fnv1a(mut h: u64, mut bytes: &[u8]) -> u64 {
+    while let [b, rest @ ..] = bytes {
+        #[expect(clippy::as_conversions, reason = "u8 to u64 widens; From is not const")]
+        let b = *b as u64;
+        h ^= b;
         h = h.wrapping_mul(0x100000001b3);
-        i += 1;
+        bytes = rest;
     }
     h
 }
@@ -351,10 +356,13 @@ impl ClockTime {
 
 /// Bits of the slot in a record head for `n` clocks.
 const fn slot_bits(n: usize) -> u32 {
-    if n <= 1 {
-        0
-    } else {
-        usize::BITS - (n - 1).leading_zeros()
+    match n.checked_sub(1) {
+        None | Some(0) => 0,
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "m is nonzero: at most usize::BITS - 1 leading zeros"
+        )]
+        Some(m) => usize::BITS - m.leading_zeros(),
     }
 }
 
@@ -373,12 +381,17 @@ impl Slots {
         n: 0,
     };
 
+    /// Slots in use; `n` is at most [MAX_BLOCK_CLOCKS] where it is set.
+    fn len(&self) -> usize {
+        usize::from(self.n).min(MAX_BLOCK_CLOCKS)
+    }
+
     fn clocks(&self) -> &[u32] {
-        &self.clocks[..self.n as usize]
+        self.clocks.get(..self.len()).unwrap_or_default()
     }
 
     fn bits(&self) -> u32 {
-        slot_bits(self.n as usize)
+        slot_bits(self.len())
     }
 
     fn slot(&self, clock: u32) -> Option<usize> {
@@ -447,30 +460,33 @@ impl<'b> BlockWriter<'b> {
         if clocks.contains(&NO_CLOCK) {
             return Err(BlockStartError::NoClock);
         }
-        let table: usize = uvar_len(clocks.len() as u64)
-            + clocks
-                .iter()
-                .map(|c| uvar_len(u64::from(*c)))
-                .sum::<usize>();
-        let needed = HEADER_LEN + table + CRC_LEN;
-        if buf.len().min(MAX_BLOCK_LEN) < needed {
-            return Err(BlockStartError::BufferTooSmall { needed });
-        }
+        let n = u8::try_from(clocks.len())
+            .ok()
+            .ok_or(BlockStartError::TooManyClocks)?;
+        let table = || core::iter::once(u64::from(n)).chain(clocks.iter().map(|c| u64::from(*c)));
+        // at most MAX_CLOCK_TABLE bytes: 16 clocks of 5 bytes and the count
+        let needed = table()
+            .map(uvar_len)
+            .try_fold(HEADER_LEN + CRC_LEN, usize::checked_add)
+            .ok_or(BlockStartError::TooManyClocks)?;
+        let small = BlockStartError::BufferTooSmall { needed };
         let usable = buf.len().min(MAX_BLOCK_LEN);
-        let buf = &mut buf[..usable];
-        put_header(buf, kind, 0, 0, id);
+        if usable < needed {
+            return Err(small);
+        }
+        let buf = buf.get_mut(..usable).ok_or(small)?;
+        put_header(buf, kind, 0, 0, id).ok_or(small)?;
         let mut pos = HEADER_LEN;
-        pos += varint::put_uvar(&mut buf[pos..], clocks.len() as u64)
-            .ok_or(BlockStartError::BufferTooSmall { needed })?;
-        let mut slots = Slots {
-            clocks: [0; MAX_BLOCK_CLOCKS],
-            last: [0; MAX_BLOCK_CLOCKS],
-            n: clocks.len() as u8,
-        };
-        for (i, c) in clocks.iter().enumerate() {
-            pos += varint::put_uvar(&mut buf[pos..], u64::from(*c))
-                .ok_or(BlockStartError::BufferTooSmall { needed })?;
-            slots.clocks[i] = *c;
+        for v in table() {
+            let at = buf.get_mut(pos..).ok_or(small)?;
+            pos = pos
+                .checked_add(varint::put_uvar(at, v).ok_or(small)?)
+                .ok_or(small)?;
+        }
+        let mut slots = Slots::NONE;
+        slots.n = n;
+        for (slot, c) in slots.clocks.iter_mut().zip(clocks) {
+            *slot = *c;
         }
         Ok(BlockWriter {
             buf,
@@ -489,17 +505,26 @@ impl<'b> BlockWriter<'b> {
     }
 
     /// Go on writing a block started in `buf` (the same bytes, unchanged since [Self::into_state]).
+    ///
+    /// # Panics
+    ///
+    /// When `buf` is shorter than the block written so far and its CRC: not the buffer of `state`.
     pub fn from_state(buf: &'b mut [u8], state: BlockState) -> Self {
         let usable = buf.len().min(MAX_BLOCK_LEN);
-        BlockWriter {
-            buf: &mut buf[..usable],
-            state,
-        }
+        assert!(
+            state
+                .pos
+                .checked_add(CRC_LEN)
+                .is_some_and(|end| end <= usable),
+            "from_state takes the buffer the block was started in"
+        );
+        let (buf, _) = buf.split_at_mut(usable);
+        BlockWriter { buf, state }
     }
 
     /// Bytes of records written so far.
     pub fn used(&self) -> usize {
-        self.state.pos - self.state.body
+        self.state.pos.saturating_sub(self.state.body)
     }
 
     pub fn records(&self) -> u32 {
@@ -513,7 +538,11 @@ impl<'b> BlockWriter<'b> {
 
     /// Free bytes for records, the CRC left aside.
     pub fn free(&self) -> usize {
-        self.buf.len() - CRC_LEN - self.state.pos
+        // new and from_state hold pos + CRC_LEN <= buf.len(), put keeps it
+        self.buf
+            .len()
+            .saturating_sub(CRC_LEN)
+            .saturating_sub(self.state.pos)
     }
 
     /// Add a record on `track` at `at` whose item is `parts` back to back; `at`'s clock is the track's
@@ -543,10 +572,17 @@ impl<'b> BlockWriter<'b> {
         let slot = slots
             .slot(at.clock)
             .ok_or(PushError::UnknownClock(at.clock))?;
-        let head = (u64::from(track) << slots.bits()) | slot as u64;
-        let dt = at.ticks.wrapping_sub(slots.last[slot]);
+        // a track number of 32 bits shifted by at most 4 slot bits fits a u64
+        let head = (u64::from(track) << slots.bits()) | bytes::u64_of(slot);
+        let last = slots
+            .last
+            .get(slot)
+            .ok_or(PushError::UnknownClock(at.clock))?;
+        let dt = at.ticks.wrapping_sub(*last);
         self.put(head, Some(dt), encode)?;
-        self.state.slots.last[slot] = at.ticks;
+        if let Some(last) = self.state.slots.last.get_mut(slot) {
+            *last = at.ticks;
+        }
         Ok(())
     }
 
@@ -558,33 +594,55 @@ impl<'b> BlockWriter<'b> {
         self.put(0, None, encode)
     }
 
+    /// Write a record head, its time and an item `encode` writes; nothing is kept when any part doesn't fit.
     fn put(
         &mut self,
         head: u64,
         dt: Option<i64>,
         encode: impl FnOnce(&mut [u8]) -> Option<usize>,
     ) -> Result<(), Full> {
-        let fixed = uvar_len(head) + dt.map_or(0, ivar_len);
-        let free = self.free();
-        if fixed + 1 > free {
-            return Err(Full);
-        }
+        let records = self.state.records.checked_add(1).ok_or(Full)?;
+        let fixed = uvar_len(head)
+            .checked_add(dt.map_or(0, ivar_len))
+            .ok_or(Full)?;
+        // room for the item's length and at least one byte
+        let room = self
+            .free()
+            .checked_sub(fixed)
+            .filter(|r| *r > 0)
+            .ok_or(Full)?;
         // the item goes after the longest length the free space can need, then moves down to its real place
-        let max_len_len = uvar_len((free - fixed) as u64);
-        let item_at = self.state.pos + fixed + max_len_len;
-        let end = self.buf.len() - CRC_LEN;
-        let len = encode(&mut self.buf[item_at..end]).ok_or(Full)?;
-        let len_len = uvar_len(len as u64);
+        let max_len_len = uvar_len(bytes::u64_of(room));
+        let item_at = self
+            .state
+            .pos
+            .checked_add(fixed)
+            .and_then(|a| a.checked_add(max_len_len))
+            .ok_or(Full)?;
+        let end = self.buf.len().checked_sub(CRC_LEN).ok_or(Full)?;
+        let space = self.buf.get_mut(item_at..end).ok_or(Full)?;
+        let space_len = space.len();
+        let len = encode(space).filter(|l| *l <= space_len).ok_or(Full)?;
+        let len_len = uvar_len(bytes::u64_of(len));
         let mut pos = self.state.pos;
-        pos += varint::put_uvar(&mut self.buf[pos..], head).ok_or(Full)?;
+        let n = varint::put_uvar(self.buf.get_mut(pos..).ok_or(Full)?, head).ok_or(Full)?;
+        pos = pos.checked_add(n).ok_or(Full)?;
         if let Some(dt) = dt {
-            pos += varint::put_ivar(&mut self.buf[pos..], dt).ok_or(Full)?;
+            let n = varint::put_ivar(self.buf.get_mut(pos..).ok_or(Full)?, dt).ok_or(Full)?;
+            pos = pos.checked_add(n).ok_or(Full)?;
         }
-        let real_item_at = pos + len_len;
-        self.buf.copy_within(item_at..item_at + len, real_item_at);
-        varint::put_uvar(&mut self.buf[pos..], len as u64).ok_or(Full)?;
-        self.state.pos = real_item_at + len;
-        self.state.records += 1;
+        // pos + len_len <= item_at: the length takes at most max_len_len bytes
+        let real_item_at = pos
+            .checked_add(len_len)
+            .filter(|a| *a <= item_at)
+            .ok_or(Full)?;
+        let item_end = item_at.checked_add(len).ok_or(Full)?;
+        self.buf.get(item_at..item_end).ok_or(Full)?;
+        self.buf.copy_within(item_at..item_end, real_item_at);
+        let len_at = self.buf.get_mut(pos..real_item_at).ok_or(Full)?;
+        varint::put_uvar(len_at, bytes::u64_of(len)).ok_or(Full)?;
+        self.state.pos = real_item_at.checked_add(len).ok_or(Full)?;
+        self.state.records = records;
         Ok(())
     }
 
@@ -592,29 +650,40 @@ impl<'b> BlockWriter<'b> {
     /// Set the header flags (0 when not set), before [Self::finish]: [FLAG_SET_FIRST] and [FLAG_SET_LAST] on the
     /// describe blocks of a set made without [DescribeSet::write_blocks].
     pub fn set_flags(&mut self, flags: u16) {
-        self.buf[6..8].copy_from_slice(&flags.to_le_bytes());
+        // new wrote the header: buf holds HEADER_LEN bytes
+        _ = bytes::put_u16(self.buf, 6, flags);
     }
 
     pub fn finish(self) -> usize {
         let pos = self.state.pos;
-        let len = pos + CRC_LEN;
-        self.buf[8..12].copy_from_slice(&(len as u32).to_le_bytes());
-        self.buf[12..16].copy_from_slice(&self.state.records.to_le_bytes());
-        let crc = CRC.checksum(&self.buf[..pos]);
-        self.buf[pos..len].copy_from_slice(&crc.to_le_bytes());
-        len
+        let (body, rest) = self.buf.split_at_mut(pos.min(self.buf.len()));
+        #[expect(
+            clippy::expect_used,
+            reason = "new and from_state hold pos + CRC_LEN <= buf.len() and pos <= MAX_BLOCK_LEN; put keeps it"
+        )]
+        let (end, len, crc_at) = pos
+            .checked_add(CRC_LEN)
+            .and_then(|end| {
+                let len = u32::try_from(end).ok()?;
+                Some((end, len, rest.first_chunk_mut::<CRC_LEN>()?))
+            })
+            .expect("room for the CRC after the records");
+        // the header is in body: pos is at least HEADER_LEN
+        _ = bytes::put_u32(body, 8, len);
+        _ = bytes::put_u32(body, 12, self.state.records);
+        *crc_at = CRC.checksum(body).to_le_bytes();
+        end
     }
 }
 
 fn copy_parts(buf: &mut [u8], parts: &[&[u8]]) -> Option<usize> {
-    let len: usize = parts.iter().map(|p| p.len()).sum();
-    if len > buf.len() {
-        return None;
-    }
-    let mut at = 0;
+    let mut rest = buf;
+    let mut len = 0usize;
     for p in parts {
-        buf[at..at + p.len()].copy_from_slice(p);
-        at += p.len();
+        let (dst, tail) = rest.split_at_mut_checked(p.len())?;
+        dst.copy_from_slice(p);
+        rest = tail;
+        len = len.checked_add(p.len())?;
     }
     Some(len)
 }
@@ -636,15 +705,26 @@ impl BlockState {
 
 /// Write the 32-byte header of a block of `kind`, `len` bytes and `count` records with `id` into `buf`: flags and
 /// bytes 28..32 zero.
-pub(crate) fn put_header(buf: &mut [u8], kind: BlockKind, len: usize, count: u32, id: BlockId) {
-    buf[..HEADER_LEN].fill(0);
-    buf[0..4].copy_from_slice(&MAGIC);
-    buf[4] = VERSION;
-    buf[5] = kind.to_u8();
-    buf[8..12].copy_from_slice(&(len as u32).to_le_bytes());
-    buf[12..16].copy_from_slice(&count.to_le_bytes());
-    buf[16..24].copy_from_slice(&id.seq.to_le_bytes());
-    buf[24..28].copy_from_slice(&id.run.get().to_le_bytes());
+/// None, writing nothing, when `buf` is shorter than the header or `len` is over [MAX_BLOCK_LEN].
+pub(crate) fn put_header(
+    buf: &mut [u8],
+    kind: BlockKind,
+    len: usize,
+    count: u32,
+    id: BlockId,
+) -> Option<()> {
+    if len > MAX_BLOCK_LEN {
+        return None;
+    }
+    let len = u32::try_from(len).ok()?;
+    let h = buf.first_chunk_mut::<HEADER_LEN>()?;
+    h.fill(0);
+    bytes::put(h, 0, MAGIC)?;
+    bytes::put(h, 4, [VERSION, kind.to_u8()])?;
+    bytes::put_u32(h, 8, len)?;
+    bytes::put_u32(h, 12, count)?;
+    bytes::put_u64(h, 16, id.seq)?;
+    bytes::put_u32(h, 24, id.run.get())
 }
 
 /// Why a block can't be read.
@@ -681,6 +761,12 @@ pub struct Block<'b> {
     pub flags: u16,
     pub record_count: u32,
     bytes: &'b [u8],
+    /// The bytes the block CRC covers: all but the last [CRC_LEN].
+    covered: &'b [u8],
+    /// The body: between the header and the block CRC.
+    body: &'b [u8],
+    /// The block CRC as written.
+    crc: u32,
     /// False for a chunk block handed out by [Block::salvage] whose payload doesn't match its CRCs.
     intact: bool,
 }
@@ -697,17 +783,17 @@ pub struct Record<'b> {
 /// Length of the block at the start of `bytes` from its header, without checking more than the magic; for readers
 /// of a byte stream.
 pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
-    if bytes.len() < HEADER_LEN {
-        return Err(BlockError::Short { needed: HEADER_LEN });
-    }
-    if bytes[0..4] != MAGIC {
+    let short = BlockError::Short { needed: HEADER_LEN };
+    let h = bytes.first_chunk::<HEADER_LEN>().ok_or(short)?;
+    if bytes::array::<4>(h, 0) != Some(MAGIC) {
         return Err(BlockError::BadMagic);
     }
-    let len = u32::from_le_bytes(bytes[8..12].try_into().expect("4 bytes"));
-    if (len as usize) < HEADER_LEN + CRC_LEN || len as usize > MAX_BLOCK_LEN {
-        return Err(BlockError::BadLength(len));
-    }
-    Ok(len as usize)
+    let raw = bytes::le_u32(h, 8).ok_or(short)?;
+    FromFile::new(raw)
+        .at_most(MAX_BLOCK_LEN)
+        .ok()
+        .filter(|len| *len >= HEADER_LEN + CRC_LEN)
+        .ok_or(BlockError::BadLength(raw))
 }
 
 /// Give the whole, good block `block` the run and seq of `id` and rewrite its CRCs (a chunk or index block's head CRC
@@ -726,23 +812,28 @@ pub fn mark_copy(block: &mut [u8], id: BlockId) -> Result<(), BlockError> {
 fn restamp(block: &mut [u8], id: BlockId, set: u16) -> Result<(), BlockError> {
     let b = Block::read(block)?;
     if b.len() != block.len() {
-        return Err(BlockError::BadLength(block.len() as u32));
+        return Err(BlockError::BadLength(
+            u32::try_from(block.len()).unwrap_or(u32::MAX),
+        ));
     }
     let chunk = b.is_chunk() && b.body_known();
     let index = b.kind == BlockKind::Index && b.body_known();
     let flags = b.flags | set;
-    block[6..8].copy_from_slice(&flags.to_le_bytes());
-    block[16..24].copy_from_slice(&id.seq.to_le_bytes());
-    block[24..28].copy_from_slice(&id.run.get().to_le_bytes());
+    // a block read whole holds its header and CRC
+    let short = BlockError::Short {
+        needed: HEADER_LEN + CRC_LEN,
+    };
+    bytes::put_u16(block, 6, flags).ok_or(short)?;
+    bytes::put_u64(block, 16, id.seq).ok_or(short)?;
+    bytes::put_u32(block, 24, id.run.get()).ok_or(short)?;
     if chunk {
         chunk::restamp(block);
     } else {
         if index {
             index::restamp_head(block);
         }
-        let len = block.len();
-        let crc = CRC.checksum(&block[..len - CRC_LEN]);
-        block[len - CRC_LEN..].copy_from_slice(&crc.to_le_bytes());
+        let (covered, crc) = block.split_last_chunk_mut::<CRC_LEN>().ok_or(short)?;
+        *crc = CRC.checksum(covered).to_le_bytes();
     }
     Ok(())
 }
@@ -750,23 +841,20 @@ fn restamp(block: &mut [u8], id: BlockId, set: u16) -> Result<(), BlockError> {
 /// The clock table at the start of a body: the slots and where the records start in `body`.
 fn read_clock_table(body: &[u8]) -> Option<(Slots, usize)> {
     let mut rd = varint::Reader(body);
-    let n = usize::try_from(rd.uvar()?).ok()?;
-    if n > MAX_BLOCK_CLOCKS {
-        return None;
-    }
-    let mut slots = Slots {
-        clocks: [0; MAX_BLOCK_CLOCKS],
-        last: [0; MAX_BLOCK_CLOCKS],
-        n: n as u8,
-    };
-    for i in 0..n {
+    let n = rd.uvar_file()?.at_most(MAX_BLOCK_CLOCKS).ok()?;
+    let mut slots = Slots::NONE;
+    slots.n = u8::try_from(n).ok()?;
+    // strictly ascending from NO_CLOCK (0): no clock is 0 and none repeats
+    let mut prev = NO_CLOCK;
+    for slot in slots.clocks.iter_mut().take(n) {
         let c = u32::try_from(rd.uvar()?).ok()?;
-        if c == NO_CLOCK || (i > 0 && c <= slots.clocks[i - 1]) {
+        if c <= prev {
             return None;
         }
-        slots.clocks[i] = c;
+        *slot = c;
+        prev = c;
     }
-    Some((slots, body.len() - rd.0.len()))
+    Some((slots, body.len().checked_sub(rd.0.len())?))
 }
 
 impl<'b> Block<'b> {
@@ -779,10 +867,7 @@ impl<'b> Block<'b> {
             Some(c) if c.check_payload() => Ok(block),
             Some(_) => Err(BlockError::BadCrc),
             None => {
-                let len = block.len();
-                let crc =
-                    u32::from_le_bytes(bytes[len - CRC_LEN..len].try_into().expect("4 bytes"));
-                if CRC.checksum(&bytes[..len - CRC_LEN]) != crc {
+                if CRC.checksum(block.covered) != block.crc {
                     return Err(BlockError::BadCrc);
                 }
                 block.check_records()?;
@@ -810,19 +895,22 @@ impl<'b> Block<'b> {
     /// The header, and for a chunk block its head checked; no CRC over the payload yet.
     fn read_unchecked(bytes: &'b [u8]) -> Result<(Self, Option<Chunk<'b>>), BlockError> {
         let len = block_len(bytes)?;
-        if bytes.len() < len {
-            return Err(BlockError::Short { needed: len });
-        }
+        let short = BlockError::Short { needed: len };
+        let (whole, _) = bytes.split_at_checked(len).ok_or(short)?;
+        // block_len: len is at least HEADER_LEN + CRC_LEN
+        let (covered, crc) = whole.split_last_chunk::<CRC_LEN>().ok_or(short)?;
+        let (h, body) = covered.split_first_chunk::<HEADER_LEN>().ok_or(short)?;
         let block = Block {
-            version: bytes[4],
-            kind: BlockKind::from_u8(bytes[5]),
-            record_count: u32::from_le_bytes(bytes[12..16].try_into().expect("4 bytes")),
-            seq: u64::from_le_bytes(bytes[16..24].try_into().expect("8 bytes")),
-            flags: u16::from_le_bytes(bytes[6..8].try_into().expect("2 bytes")),
-            run: RunTag::from_u32(u32::from_le_bytes(
-                bytes[24..28].try_into().expect("4 bytes"),
-            )),
-            bytes: &bytes[..len],
+            version: h[4],
+            kind: BlockKind::from_u8(h[5]),
+            record_count: bytes::le_u32(h, 12).ok_or(short)?,
+            seq: bytes::le_u64(h, 16).ok_or(short)?,
+            flags: bytes::le_u16(h, 6).ok_or(short)?,
+            run: RunTag::from_u32(bytes::le_u32(h, 24).ok_or(short)?),
+            bytes: whole,
+            covered,
+            body,
+            crc: u32::from_le_bytes(*crc),
             intact: true,
         };
         if block.body_known() && block.is_chunk() {
@@ -844,10 +932,11 @@ impl<'b> Block<'b> {
         if self.clock_table().is_none() {
             return Err(BlockError::BadRecords);
         }
+        // a record takes 2 bytes at least: no more of them than body bytes
         let mut n = 0u32;
         for r in self.records() {
             r?;
-            n += 1;
+            n = n.checked_add(1).ok_or(BlockError::BadRecords)?;
         }
         if n != self.record_count {
             return Err(BlockError::BadRecords);
@@ -862,8 +951,7 @@ impl<'b> Block<'b> {
 
     /// The block's CRC, the last 4 bytes: with its length, what tells two blocks of one id apart.
     pub fn crc(&self) -> u32 {
-        let len = self.bytes.len();
-        u32::from_le_bytes(self.bytes[len - CRC_LEN..].try_into().expect("4 bytes"))
+        self.crc
     }
 
     /// Whether the block is good throughout. Only [Self::salvage] hands out one that isn't.
@@ -914,8 +1002,9 @@ impl<'b> Block<'b> {
 
     /// The clocks of its records, ascending; none for a block whose body this reader doesn't know.
     pub fn clocks(&self) -> impl Iterator<Item = u32> {
-        let slots = self.clock_table().map(|(s, _)| s);
-        (0..slots.map_or(0, |s| s.n as usize)).filter_map(move |i| Some(slots?.clocks[i]))
+        self.clock_table()
+            .into_iter()
+            .flat_map(|(s, _)| s.clocks.into_iter().take(s.len()))
     }
 
     /// The clock table and where the records start in the block; None when this reader doesn't know the body, the
@@ -926,18 +1015,20 @@ impl<'b> Block<'b> {
         }
         let (body, at) = self.plain_body()?;
         let (slots, table) = read_clock_table(body)?;
-        Some((slots, at + table))
+        Some((slots, at.checked_add(table)?))
     }
 
     /// The body as stored and where it starts in the block: None for a body coded other than stored.
     fn plain_body(&self) -> Option<(&'b [u8], usize)> {
-        let body = &self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN];
         if !self.is_coded() {
-            return Some((body, HEADER_LEN));
+            return Some((self.body, HEADER_LEN));
         }
-        let c = body::coded(body)?;
-        (c.codec == BodyCodec::STORED)
-            .then(|| (c.bytes, self.bytes.len() - CRC_LEN - c.bytes.len()))
+        let c = body::coded(self.body)?;
+        if c.codec != BodyCodec::STORED {
+            return None;
+        }
+        // a stored body ends where the block's body ends
+        Some((c.bytes, self.covered.len().checked_sub(c.bytes.len())?))
     }
 
     fn is_coded(&self) -> bool {
@@ -950,7 +1041,7 @@ impl<'b> Block<'b> {
         if !(self.is_coded() && records) {
             return None;
         }
-        body::coded(&self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN])
+        body::coded(self.body)
     }
 
     /// The codec of a coded records or describe body ([FLAG_BODY_CODED]); None for a plain body.
@@ -985,10 +1076,10 @@ impl<'b> Block<'b> {
     /// The records, none for a chunk block or a block whose body this reader doesn't know ([Self::body_known]). A
     /// body coded with lz4 gives [BlockError::Coded]: read the records of [Self::decode].
     pub fn records(&self) -> Records<'b> {
-        let (slots, body) = match self.clock_table() {
-            Some((slots, at)) => (slots, &self.bytes[at..self.bytes.len() - CRC_LEN]),
-            None => (Slots::NONE, &[][..]),
-        };
+        let (slots, body) = self
+            .clock_table()
+            .and_then(|(slots, at)| Some((slots, self.covered.get(at..)?)))
+            .unwrap_or((Slots::NONE, &[]));
         Records {
             body,
             slots,
@@ -1011,23 +1102,26 @@ impl<'b> Records<'b> {
     fn read_one(&mut self) -> Option<Record<'b>> {
         let mut rd = varint::Reader(self.body);
         let head = rd.uvar()?;
+        // bits is at most 4 (16 slots): the shifts stay in range
         let bits = self.slots.bits();
         let track = u32::try_from(head >> bits).ok()?;
-        let slot = (head & ((1u64 << bits) - 1)) as usize;
+        let slot = usize::try_from(head & ((1u64 << bits).wrapping_sub(1))).ok()?;
         let at = if track == DESCRIBE_TRACK {
             if slot != 0 {
                 return None;
             }
             None
         } else {
-            if slot >= self.slots.n as usize {
+            if slot >= self.slots.len() {
                 return None;
             }
-            let ticks = self.slots.last[slot].wrapping_add(rd.ivar()?);
-            self.slots.last[slot] = ticks;
-            Some(ClockTime::new(self.slots.clocks[slot], ticks))
+            let clock = *self.slots.clocks.get(slot)?;
+            let last = self.slots.last.get_mut(slot)?;
+            let ticks = last.wrapping_add(rd.ivar()?);
+            *last = ticks;
+            Some(ClockTime::new(clock, ticks))
         };
-        let len = usize::try_from(rd.uvar()?).ok()?;
+        let len = rd.uvar_file()?.within(rd.0.len()).ok()?;
         let item = rd.take(len)?;
         self.body = rd.0;
         Some(Record { track, at, item })

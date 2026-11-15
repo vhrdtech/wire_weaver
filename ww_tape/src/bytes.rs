@@ -11,6 +11,19 @@
 
 use crate::FromFile;
 
+const _: () = assert!(usize::BITS <= u64::BITS, "a usize widens to a u64");
+
+/// `v` as a `u64`: a usize is at most 64 bits (the assert above).
+#[inline]
+pub(crate) const fn u64_of(v: usize) -> u64 {
+    #[expect(
+        clippy::as_conversions,
+        reason = "a usize is at most 64 bits; From is not const"
+    )]
+    let w = v as u64;
+    w
+}
+
 /// The `N` bytes at `at`, None past the end.
 #[inline]
 pub(crate) fn array<const N: usize>(b: &[u8], at: usize) -> Option<[u8; N]> {

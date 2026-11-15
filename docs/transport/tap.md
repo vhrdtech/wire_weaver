@@ -112,6 +112,38 @@ A recording can be cut into **pieces**, each a complete file that reads alone: a
 
 The header and the CRC at the end stay the same in every version: a later version changes only the body, and a reader skips a block of a version or kind it doesn't know by its length, as it skips describe records of a kind it doesn't know.
 
+### Sample codecs
+
+A series chunk's sample columns (`ColumnKind::Samples`) are coded by the column's codec id; what a sample is comes from the track: `ww_tape::SampleShape`, an `Element` (`I8` to `U64`, `F32`, `F64`, `ComplexI16`, `ComplexF32`, `Bool`; its code, 0 to 12, is how other blocks name it) and the channels interleaved in the column. `ww_tape::Samples` reads a column in place and decodes any range of samples; `ww_tape::samples::encode` writes one. Every codec gives the same bytes for the same values.
+
+| Id | Codec | Elements | Stored as |
+|---:|---|---|---|
+| 0 | `RAW` | all | little endian; `Bool` 8 per byte, the first in bit 0 |
+| 16 | `BIG_ENDIAN` | integers, floats | big endian |
+| 17, 18 | `PACKED10_LSB`, `PACKED10_MSB` | integers of 16 bits and more | 10 bits per value |
+| 19, 20 | `PACKED12_LSB`, `PACKED12_MSB` | integers of 16 bits and more | 12 bits per value, 2 values in 3 bytes |
+| 21, 22 | `PACKED24_LSB`, `PACKED24_MSB` | integers of 32 bits and more | 24 bits per value |
+| 24 | `GORILLA` | floats | XOR with the lane's previous value, Gorilla's control bits |
+| 25 | `CHIMP` | floats | XOR with the lane's previous value, Chimp's control bits |
+| 32, 33 | `DELTA`, `DELTA2` | integers | differences (or differences of differences), minus their minimum, bit-packed |
+| 34, 35 | `FLOAT_DELTA`, `FLOAT_DELTA2` | floats | the same on the float bits mapped to ordered integers |
+| 48 | `LZ4` | payload columns | one lz4 block after its decoded length (`ww_tape::lz4`) |
+
+- **Raw device formats** (0 to 22) are what a device sends, stored as it is: the reader converts only the samples it reads, and any sample reads in place. An `_LSB` column holds value `i` at bits `i·w` up of the column read as one little-endian number; an `_MSB` column counts bits from the top of byte 0. A packed value of a signed element is sign-extended.
+- **XOR codecs** (24, 25) are lossless for every bit pattern, NaN payloads and the sign of zero included. They code groups of 1024 samples, lane by lane.
+- **Delta codecs** (32 to 35) code groups of 128 samples on the bit-pack primitive the event time codec uses (`ww_tape::bitpack`). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.
+- **Groups.** Both grouped families start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: `Samples::group_bytes` names a group's bytes, to check against `Chunk::range_damaged`.
+
+Which codec fits depends on the data. On a motor simulation (every variable of `motor_sim`, 25 kHz) and on decoded speech, lossless float coding gave these ratios against raw:
+
+| Data | `GORILLA` | `CHIMP` | `FLOAT_DELTA` | `FLOAT_DELTA2` |
+|---|---:|---:|---:|---:|
+| motor, `f32` | 1.18 | 1.38 | 1.21 | 1.23 |
+| motor, `f64` | 2.32 | 2.28 | 2.68 | 2.87 |
+| speech, `f32` | 2.31 | 1.83 | 0.99 | 0.99 |
+
+The delta codecs decoded at 1 to 3 ns per value, the XOR codecs at 2 to 9 (x86-64, one core). The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.
+
 ## Decoding
 
 `wire_weaver_client::tap::Decoder` takes blocks, live or from a file (`ww_tape::FileBlocks`), and gives out

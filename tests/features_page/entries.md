@@ -459,6 +459,7 @@ feature tracker.
 - STD-122 | Tape index, finish and tail | Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk. | transport/tap.md#index-finish-and-tail
 - STD-123 | Tape pieces | One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut. | transport/tap.md#tape-pieces
 - STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | transport/tap.md#reading-by-position
+- STD-119 | Tape sample codecs | Series columns stored as the device sends them, or coded lossless as XOR floats or bit-packed deltas, read in place by any range. | transport/tap.md#sample-codecs
 
 # Examples
 

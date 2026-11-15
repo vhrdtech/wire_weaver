@@ -30,6 +30,13 @@
 - `times`: event time codec: implicit or linear frame of reference per 128 starts, three end modes, packed flags with group OR (STD-120).
 - `EventTimes` reads a chunk's times in place: get, lower bound, last at or before, iteration both ways, group decode (STD-120).
 - `EventTimes::salvage`: a damaged chunk's group records checked one by one, only a bad group's items suspect (STD-120).
+- `Element` and `SampleShape`: what a series column holds, element codes 0 to 12 (STD-119).
+- `Samples` reads a sample column in place and decodes any range; `samples::encode`, `max_encoded_len` (STD-119).
+- Raw device sample codecs: `Codec::BIG_ENDIAN`, `PACKED10/12/24_LSB/MSB`, converted on read (STD-119).
+- Lossless float codecs `Codec::GORILLA` and `CHIMP`, groups of 1024 samples that decode alone (STD-119).
+- Delta codecs `Codec::DELTA`, `DELTA2`, `FLOAT_DELTA`, `FLOAT_DELTA2`: bit-packed per group of 128 (STD-119).
+- `Codec::LZ4` payload columns through `lz4_flex` (`ww_tape::lz4`) (STD-119).
+- Golden file `golden/v2-samples.hex` and fuzz target `tape-samples` (STD-119).
 - `bitpack`: groups of 128 values at one width, read in place; AVX-512, AVX2 and NEON unpack kernels (STD-120).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).

@@ -46,11 +46,13 @@ pub struct ChainOptions {
 }
 
 impl PieceChain {
-    /// Start the chain of `result` in `dir` (which must exist) with its first piece, id [PieceId::first]; `tracks`
-    /// say where items of tracks carried over from elsewhere continue (empty for a new recording).
+    /// Start chain `chain` of `result` in `dir` (which must exist) with its first piece, id [PieceId::first_of]
+    /// `(result, chain)`; `tracks` say where items of tracks carried over from elsewhere continue (empty for a new
+    /// recording). Each chain of a result takes its own number, so its pieces and run tag are its own.
     pub fn create(
         dir: &Path,
         result: ResultId,
+        chain: u64,
         tracks: &[TrackStart],
         options: ChainOptions,
     ) -> Result<Self, WriteError> {
@@ -60,7 +62,7 @@ impl PieceChain {
         writer.begin_piece(
             &PieceHead {
                 ident: PieceIdent {
-                    id: PieceId::first(&result),
+                    id: PieceId::first_of(&result, chain),
                     result,
                     seq: 0,
                 },

@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `PieceChain::create` takes the chain number: each chain of a result gets its own piece ids and run tag (STD-129).
 - `PieceId::first` is `first_of(result, 0)`: its bytes change; `PieceId::first_of` names the first piece of each chain (STD-129).
 - `Block::records` of an lz4-coded body gives `BlockError::Coded`: read the records of `Block::decode` (STD-129).
 - Header bytes 24..28 hold the run tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).

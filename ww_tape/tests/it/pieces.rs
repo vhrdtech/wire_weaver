@@ -271,11 +271,12 @@ fn aligned_file_places_checkpoints_in_gaps() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// Write a chain of pieces cut every 4 chunks; the piece files in order.
-fn write_chain(dir: &Path) -> Vec<PathBuf> {
+/// Write chain `n` of a result, pieces cut every 4 chunks; the piece files in order.
+fn write_chain(dir: &Path, n: u64) -> Vec<PathBuf> {
     let mut chain = PieceChain::create(
         dir,
         ResultId([0x42; 32]),
+        n,
         &[],
         ww_tape::ChainOptions {
             sync: SyncPolicy::None,
@@ -308,13 +309,51 @@ fn write_chain(dir: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+/// Two chains of one result (an events chain and a series chain) have their own piece ids and run tags, so their
+/// pieces read one after the other.
+#[test]
+fn chains_of_one_result_are_apart() {
+    let (d0, d1) = (scratch("chain0"), scratch("chain1"));
+    let (c0, c1) = (write_chain(&d0, 0), write_chain(&d1, 1));
+    let (a, b) = (
+        std::fs::read(&c0[0]).unwrap(),
+        std::fs::read(&c1[0]).unwrap(),
+    );
+    let r = TapeReader::open(&a[..]).unwrap();
+    let head = |bytes: &[u8]| {
+        TapeReader::open(bytes).unwrap().pieces()[0]
+            .head
+            .clone()
+            .unwrap()
+            .0
+    };
+    let (h0, h1) = (head(&a), head(&b));
+    assert_eq!(h0.ident.id, PieceId::first_of(&ResultId([0x42; 32]), 0));
+    assert_eq!(h1.ident.id, PieceId::first_of(&ResultId([0x42; 32]), 1));
+    assert_ne!(
+        RunTag::of_piece(&h0.ident.id),
+        RunTag::of_piece(&h1.ident.id)
+    );
+    assert!(r.verify(0).unwrap());
+    let both = [a.clone(), b.clone()].concat();
+    let mut rd = FileBlocks::new(&both[..]);
+    let mut n = 0;
+    while let Some(blk) = rd.next_block() {
+        blk.unwrap();
+        n += 1;
+    }
+    assert_eq!(n, walk(&a).len() + walk(&b).len());
+    std::fs::remove_dir_all(&d0).unwrap();
+    std::fs::remove_dir_all(&d1).unwrap();
+}
+
 #[test]
 fn chain_of_pieces_links_both_ways() {
     let dir = scratch("chain");
-    let paths = write_chain(&dir);
+    let paths = write_chain(&dir, 0);
     assert_eq!(paths.len(), 3);
     let again = scratch("chain_again");
-    let paths2 = write_chain(&again);
+    let paths2 = write_chain(&again, 0);
     for (a, b) in paths.iter().zip(&paths2) {
         assert_eq!(
             std::fs::read(a).unwrap(),
@@ -408,6 +447,7 @@ fn index_golden() {
     let mut chain = PieceChain::create(
         &dir,
         ResultId([7; 32]),
+        0,
         &[],
         ww_tape::ChainOptions {
             sync: SyncPolicy::None,
@@ -464,7 +504,7 @@ fn index_golden() {
 #[test]
 fn every_block_of_a_chain_carries_its_run() {
     let dir = scratch("runs");
-    let paths = write_chain(&dir);
+    let paths = write_chain(&dir, 0);
     assert!(paths.len() > 1, "the chain was cut");
     let run = RunTag::of_piece(&PieceId::first(&ResultId([0x42; 32])));
     assert!(run.is_run());
@@ -503,7 +543,7 @@ fn every_block_of_a_chain_carries_its_run() {
 #[test]
 fn a_describe_copy_is_marked() {
     let dir = scratch("copies");
-    let paths = write_chain(&dir);
+    let paths = write_chain(&dir, 0);
     let mut marks = vec![];
     for p in &paths {
         let bytes = std::fs::read(p).unwrap();

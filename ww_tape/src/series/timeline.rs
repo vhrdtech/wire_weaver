@@ -39,7 +39,12 @@ impl SeriesTimeline {
     /// Add `s` after the segments there. A segment equal to one there is taken as a repeat and changes nothing.
     pub fn push(&mut self, s: SeriesSegment) -> Result<(), SeriesError> {
         let first = s.first_tick(self.period)?;
-        if self.segments.contains(&s) {
+        // the segments ascend by first index: a repeat is the one with its first index, found in log time
+        if self
+            .segments
+            .binary_search_by_key(&s.first_index, |x| x.first_index)
+            .is_ok_and(|i| self.segments.get(i) == Some(&s))
+        {
             return Ok(());
         }
         let Some(prev) = self.segments.last() else {

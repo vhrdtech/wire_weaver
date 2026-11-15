@@ -69,22 +69,6 @@
 //! The batch's time column (`Series<Timed<T>>`) is not stored: the grid gives every sample's tick. A host checks it
 //! against the grid and starts a segment where the device's samples left it (a gap, a restart).
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 #[cfg(test)]
 mod tests;
 #[cfg(feature = "alloc")]
@@ -104,6 +88,10 @@ use crate::summary::SeriesSummarySpec;
 use crate::{Element, Sample, SampleShape, TypeRef};
 
 /// Most channels of a series: a chunk column and a summary name a channel by a `u16`.
+#[expect(
+    clippy::as_conversions,
+    reason = "u16 to u32 widens; From is not const"
+)]
 pub const SERIES_CHANNELS_MAX: u32 = u16::MAX as u32;
 
 /// A fixed-rate series: scalar or vector samples of one element type, see the [module docs](self).
@@ -341,12 +329,10 @@ plain_value!(i8, i16, i32, i64, u8, u16, u32, u64, f32, f64, bool);
 /// Put `parts` at the start of `out`, as many as fit.
 #[inline(always)]
 fn put<T: Copy, const N: usize>(out: &mut [T], parts: [T; N]) -> usize {
-    let mut n = 0;
     for (o, p) in out.iter_mut().zip(parts) {
         *o = p;
-        n += 1;
     }
-    n
+    out.len().min(N)
 }
 
 impl<U: Copy, P: FixedScale, T: Storage + Sample, B: Bounds<T> + Copy> SeriesValue

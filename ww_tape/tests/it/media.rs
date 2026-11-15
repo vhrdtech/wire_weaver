@@ -397,3 +397,118 @@ fn a_duplicate_after_a_gap_resumes_the_data() {
         assert_eq!(p.replaced.len(), usize::from(replaced));
     }
 }
+
+/// A layout whose gap holds more than [ww_tape::GAP_PROBES_MAX] resume places, or is longer than
+/// [ww_tape::GAP_MAX_MAX], is not one a reader takes: its describe record doesn't decode, and a walk gives it no gap.
+#[test]
+fn a_layout_past_the_gap_limits_is_refused() {
+    use exact_units::Bytes;
+    use shrink_wrap::prelude::*;
+    let layout = |gap_max: u32, resume_align: u32| Layout {
+        gap_max: Bytes::new(gap_max),
+        resume_align: Bytes::new(resume_align),
+        ..Layout::UNALIGNED
+    };
+    assert!(Layout::UNALIGNED.on_sd_card().is_valid());
+    assert!(
+        layout(
+            ww_tape::GAP_MAX_MAX,
+            ww_tape::GAP_MAX_MAX / ww_tape::GAP_PROBES_MAX
+        )
+        .is_valid()
+    );
+    for bad in [
+        layout(u32::MAX, 1),
+        layout(ww_tape::GAP_MAX_MAX + 512, 512),
+        layout(ww_tape::GAP_PROBES_MAX + 1, 1),
+        layout(512, 0),
+    ] {
+        assert!(!bad.is_valid(), "{bad:?}");
+        let mut item = [0u8; 64];
+        let item = Describe::Layout(bad).to_ww_bytes(&mut item).unwrap();
+        let mut buf = [0u8; 256];
+        let mut b = BlockWriter::new(&mut buf, BlockKind::Describe, BlockId::new(NEW, 0), &[]);
+        b.push_describe(&[item]).unwrap();
+        let len = b.finish();
+        let mut bytes = buf[..len].to_vec();
+        let parsed = ww_tape::Block::read(&bytes).unwrap();
+        let rec = parsed.records().next().unwrap().unwrap();
+        assert!(Describe::from_ww_bytes(rec.item).is_err());
+        // a byte after it: no gap rules, the end of data at once
+        bytes.push(0x41);
+        let (got, errors) = walk(&bytes, Medium::Raw);
+        assert!(got.is_empty());
+        assert!(
+            matches!(errors[..], [FileError::Cut { offset: o, .. }] if o == len as u64),
+            "{errors:?}"
+        );
+    }
+}
+
+/// Counts what a positional reader reads.
+struct Counted<'a> {
+    bytes: &'a [u8],
+    reads: core::cell::Cell<u64>,
+    read_bytes: core::cell::Cell<u64>,
+}
+
+impl ww_tape::reader::ByteSource for Counted<'_> {
+    type Error = ww_tape::reader::OutOfRange;
+
+    fn size(&self) -> Result<u64, Self::Error> {
+        self.bytes.size()
+    }
+
+    fn read_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), Self::Error> {
+        self.reads.set(self.reads.get() + 1);
+        self.read_bytes
+            .set(self.read_bytes.get() + buf.len() as u64);
+        self.bytes.read_at(offset, buf)
+    }
+}
+
+/// A stretch whose every sector starts with a header of the run's next block, each 1 MiB long by its header but
+/// none good: a reader reads each header once and checks at most [ww_tape::GAP_CHECKS_MAX] of them whole, then
+/// takes the stretch's start as the end of data.
+#[test]
+fn a_gap_costs_one_header_per_resume_place() {
+    let sd = Layout::UNALIGNED.on_sd_card();
+    let card = run(NEW, RunTag::NONE, sd, 6);
+    let mut header = records(BlockId::new(NEW, 100))[..32].to_vec();
+    let claimed = 1u32 << 20;
+    header[8..12].copy_from_slice(&claimed.to_le_bytes());
+    let mut bytes = card.clone();
+    let at = bytes.len() as u64;
+    // a bad block where the next would start, then a header on every sector
+    bytes.extend_from_slice(&[0x5A; 100]);
+    while bytes.len() < card.len() + ww_tape::SD_GAP_MAX as usize + (2 << 20) {
+        if bytes.len().is_multiple_of(512) {
+            bytes.extend_from_slice(&header);
+        } else {
+            bytes.push(0x5A);
+        }
+    }
+    let src = Counted {
+        bytes: &bytes,
+        reads: 0.into(),
+        read_bytes: 0.into(),
+    };
+    let r = TapeReader::open_with(&src, raw()).unwrap();
+    let p = &r.pieces()[0];
+    assert_eq!((p.end, p.cut), (at, Some(at)));
+    let places = u64::from(ww_tape::SD_GAP_MAX / ww_tape::SD_RESUME_ALIGN) + 1;
+    let whole = u64::from(ww_tape::GAP_CHECKS_MAX) * u64::from(claimed);
+    let most = card.len() as u64 * 4 + places * 32 + whole + (1 << 20);
+    assert!(
+        src.read_bytes.get() <= most,
+        "{} bytes read, at most {most}",
+        src.read_bytes.get()
+    );
+    // the stream reader cuts at the same place
+    let (got, errors) = walk(&bytes, Medium::Raw);
+    assert_eq!(got, seqs(NEW, 1..7));
+    assert!(
+        matches!(errors[..], [FileError::Cut { offset: o, .. }] if o == at),
+        "{errors:?}"
+    );
+}

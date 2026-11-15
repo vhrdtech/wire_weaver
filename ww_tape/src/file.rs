@@ -2,8 +2,10 @@
 
 use std::io::Read;
 
-use crate::walk::{RunState, Verdict};
-use crate::{Block, BlockError, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank};
+use crate::walk::{Head, RunState, Verdict};
+use crate::{
+    Block, BlockError, GAP_CHECKS_MAX, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank,
+};
 
 /// An owned block, e.g. one handed over by a producer, checked once when made.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -222,6 +224,10 @@ impl<R: Read> FileBlocks<R> {
 
     /// Take `layout`'s gap rules from the start, before a describe block says them (a medium layer that knows the
     /// medium); a [crate::Layout] read later replaces them.
+    ///
+    /// # Panics
+    ///
+    /// When `layout` is not [valid](crate::Layout::is_valid).
     #[must_use]
     pub fn with_layout(mut self, layout: &crate::Layout) -> Self {
         self.walk.set_layout(layout);
@@ -428,46 +434,73 @@ impl<R: Read> FileBlocks<R> {
 
     /// A blank or bad stretch started at `start` (`buf` is past its blank bytes): the run's data going on within
     /// the layout's gap is a [FileError::Gap], else the stretch is the end of data, cut for `error`. `here` is the
-    /// good block right after blank bytes.
+    /// good block right after blank bytes. Probes are read one header at a time, the bytes before each passed over;
+    /// at most [GAP_CHECKS_MAX] whose header [may resume](RunState::may_resume) the walk are checked whole.
     fn after_stretch(
         &mut self,
         start: u64,
         error: BlockError,
         here: Option<usize>,
     ) -> Result<Option<usize>, FileError> {
-        let in_gap = self.offset - start <= self.walk.gap_max();
-        if in_gap && let Some(len) = here {
-            let b = Block::salvage(&self.buf[..len]).expect("checked");
-            if self.walk.resumes(&b) {
-                return Err(self.gap(start));
-            }
+        let walk = self.walk;
+        let in_gap = self
+            .offset
+            .checked_sub(start)
+            .is_some_and(|n| n <= walk.gap_max());
+        if in_gap
+            && let Some(len) = here
+            && let Some(bytes) = self.buf.get(..len)
+            && let Ok(b) = Block::salvage(bytes)
+            && walk.resumes(&b)
+        {
+            return self.gap(start);
         }
-        let probes: Vec<u64> = self.walk.probes(start, self.offset).collect();
-        for p in probes {
-            let r = (p - self.offset) as usize;
-            if !self.fill(r + HEADER_LEN)? {
+        let mut checks = 0;
+        for p in walk.probes(start, self.offset) {
+            if !self.skip_to(p)? || !self.fill(HEADER_LEN)? {
                 break;
             }
-            let Ok(len) = block_len(&self.buf[r..self.filled]) else {
+            let Some(head) = self.buf.get(..self.filled).and_then(Head::read) else {
                 continue;
             };
-            if !self.fill(r + len)? {
+            if !walk.may_resume(&head) {
                 continue;
             }
-            if let Ok(b) = Block::read(&self.buf[r..r + len])
-                && self.walk.resumes(&b)
+            if checks == GAP_CHECKS_MAX {
+                break;
+            }
+            checks += 1;
+            if !self.fill(head.len)? {
+                break;
+            }
+            if let Some(bytes) = self.buf.get(..head.len)
+                && let Ok(b) = Block::read(bytes)
+                && walk.resumes(&b)
             {
-                self.consume(r);
-                return Err(self.gap(start));
+                return self.gap(start);
             }
         }
         Err(self.cut(start, Cut::Bad(error)))
     }
 
-    fn gap(&self, start: u64) -> FileError {
-        FileError::Gap {
-            offset: start,
-            len: self.offset - start,
+    /// Pass over the bytes up to medium offset `to`; false when the stream ends before it.
+    fn skip_to(&mut self, to: u64) -> Result<bool, FileError> {
+        while self.offset < to {
+            if self.filled == 0 && !self.fill(1)? {
+                return Ok(false);
+            }
+            let n = usize::try_from(to - self.offset).map_or(self.filled, |n| n.min(self.filled));
+            self.consume(n);
+        }
+        Ok(true)
+    }
+
+    /// The gap from `start` to here, the walk going on with the block here; an error to report. Here is never
+    /// before `start`; if it were, the stretch would be the end of data.
+    fn gap(&mut self, start: u64) -> Result<Option<usize>, FileError> {
+        match self.offset.checked_sub(start) {
+            Some(len) => Err(FileError::Gap { offset: start, len }),
+            None => Err(self.cut(start, Cut::Bad(BlockError::BadMagic))),
         }
     }
 

@@ -3,7 +3,7 @@
 use shrink_wrap::prelude::*;
 
 use crate::piece::PieceHeadBlock;
-use crate::{Block, BlockKind, Describe, Layout, Medium, RunTag};
+use crate::{Block, BlockKind, Describe, FLAG_COPY, HEADER_LEN, Layout, Medium, RunTag, block_len};
 
 /// Whether a good block met in a walk belongs to the data.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -17,6 +17,36 @@ pub(crate) enum Verdict {
     /// The same (run, seq) as the last block taken: a duplicate, not a cut. `same` when its bytes are the same
     /// (dropped); else the later copy wins.
     Duplicate { same: bool },
+}
+
+/// The header fields a walk judges a block by, read before its CRC is checked: what makes a gap probe worth checking
+/// whole.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct Head {
+    /// The whole block's length, as its header says
+    pub(crate) len: usize,
+    kind: BlockKind,
+    run: RunTag,
+    seq: u64,
+    copy: bool,
+}
+
+impl Head {
+    /// The header at the start of `bytes`; None when it has no magic or its length is out of range.
+    pub(crate) fn read(bytes: &[u8]) -> Option<Head> {
+        let len = block_len(bytes).ok()?;
+        let h: &[u8; HEADER_LEN] = bytes.get(..HEADER_LEN)?.try_into().ok()?;
+        let [_, _, _, _, _, kind, f0, f1, ..] = *h;
+        let seq = u64::from_le_bytes(h[16..24].try_into().ok()?);
+        let run = u32::from_le_bytes(h[24..28].try_into().ok()?);
+        Some(Head {
+            len,
+            kind: BlockKind::from_u8(kind),
+            run: RunTag::from_u32(run),
+            seq,
+            copy: u16::from_le_bytes([f0, f1]) & FLAG_COPY != 0,
+        })
+    }
 }
 
 /// The run and seq of the blocks taken so far, and the gap rules of the newest [Layout] read.
@@ -44,7 +74,15 @@ impl RunState {
     }
 
     /// Take `layout`'s gap rules (before any describe block says them, for a medium layer that knows them).
+    ///
+    /// # Panics
+    ///
+    /// When `layout` is not [valid](Layout::is_valid); a decoded one always is.
     pub(crate) fn set_layout(&mut self, layout: &Layout) {
+        assert!(
+            layout.is_valid(),
+            "a layout's gap rules are within GAP_MAX_MAX and GAP_PROBES_MAX"
+        );
         self.gap_max = u64::from(layout.gap_max.get());
         self.resume_align = u64::from(layout.resume_align.get()).max(1);
     }
@@ -116,18 +154,37 @@ impl RunState {
         )
     }
 
+    /// Whether the block whose header is `h` may go on with the data past a gap: a superset of [Self::resumes], read
+    /// from the header alone, so only such a probe is checked whole.
+    pub(crate) fn may_resume(&self, h: &Head) -> bool {
+        let Some(run) = self.run else {
+            return true;
+        };
+        if h.run != run {
+            return match self.medium {
+                Medium::File => matches!(h.kind, BlockKind::Describe | BlockKind::PieceHead),
+                Medium::Raw => h.kind == BlockKind::PieceHead,
+            };
+        }
+        if crate::index::is_structural(h.kind) || h.copy {
+            return true;
+        }
+        self.last_seq.is_none_or(|after| h.seq >= after)
+    }
+
     /// The places past a blank or bad stretch starting at `start` a reader probes for the data going on, ascending,
     /// none at or before `from`: multiples of [Layout::resume_align] within [Layout::gap_max] of `start`. (The
     /// first non-blank byte is the caller's to probe.)
-    pub(crate) fn probes(&self, start: u64, from: u64) -> impl Iterator<Item = u64> {
-        let align = self.resume_align;
-        let end = start.saturating_add(self.gap_max);
+    /// At most [crate::GAP_PROBES_MAX] + 1, since a valid layout's `gap_max / resume_align` is within it.
+    pub(crate) fn probes(&self, start: u64, from: u64) -> impl Iterator<Item = u64> + use<> {
+        let (align, gap_max) = (self.resume_align, self.gap_max);
+        let end = start.saturating_add(gap_max);
         let first = (from.max(start) / align)
             .saturating_add(1)
             .saturating_mul(align);
         (0..)
             .map(move |i: u64| first.saturating_add(i.saturating_mul(align)))
-            .take_while(move |p| *p <= end && self.gap_max > 0)
+            .take_while(move |p| *p <= end && gap_max > 0)
     }
 }
 

@@ -25,10 +25,10 @@ use crate::piece::{
     ChainReport, Finish, FinishBlock, PieceHead, PieceHeadBlock, PieceSummary, TAIL_LEN, Tail,
     TrackRange, TrackStart, check_chain,
 };
-use crate::walk::{RunState, Verdict};
+use crate::walk::{Head, RunState, Verdict};
 use crate::{
-    Block, BlockError, BlockKind, HEADER_LEN, Layout, MAGIC, MAX_BLOCK_LEN, Medium, VERSION,
-    block_len,
+    Block, BlockError, BlockKind, GAP_CHECKS_MAX, HEADER_LEN, Layout, MAGIC, MAX_BLOCK_LEN, Medium,
+    VERSION, block_len,
 };
 
 /// Most blocks [TapeReader::describe_set] skips past a scan's cut looking for a describe copy: the damaged head set,
@@ -270,6 +270,11 @@ impl<S: ByteSource> TapeReader<S> {
         Self::open_with(src, OpenOptions::default())
     }
 
+    /// Find the pieces of `src` as `options` say.
+    ///
+    /// # Panics
+    ///
+    /// When [OpenOptions::layout] is not [valid](Layout::is_valid).
     pub fn open_with(src: S, options: OpenOptions) -> R<Self, S> {
         let len = src.size().map_err(ReadError::Source)?;
         let mut r = TapeReader {
@@ -621,28 +626,55 @@ impl<S: ByteSource> TapeReader<S> {
 
     /// Where the run's data goes on past the blank or bad stretch at `at` within `walk`'s gap rules: the first
     /// non-blank byte or a resume boundary holding a block that [resumes](RunState::resumes) the walk; None when
-    /// nothing does (or the layout allows no gaps), so the stretch is the end of data.
+    /// nothing does (or the layout allows no gaps), so the stretch is the end of data. Each place costs a header
+    /// read; at most [GAP_CHECKS_MAX] whose header [may resume](RunState::may_resume) the walk are read whole.
     fn past_gap(&self, at: u64, hi: u64, walk: &RunState) -> R<Option<u64>, S> {
         let reach = walk.gap_max().min(hi.saturating_sub(at));
         if reach == 0 {
             return Ok(None);
         }
-        let window = self.read(at, read_len(reach, usize::MAX))?;
-        let first = window
-            .iter()
-            .position(|b| !crate::is_blank(*b))
-            .map_or(at.saturating_add(reach), |i| at + i as u64);
-        let mut candidates: Vec<u64> = Vec::new();
-        if first > at && first < hi {
-            candidates.push(first);
-        }
-        candidates.extend(walk.probes(at, first.max(at)).take_while(|p| *p < hi));
+        // a block starts with its magic: blank places hold none
+        let Some(first) = self.non_blank(at, at.saturating_add(reach))? else {
+            return Ok(None);
+        };
+        let candidates = Some(first)
+            .filter(|f| *f > at)
+            .into_iter()
+            .chain(walk.probes(at, first));
+        let mut checks = 0;
         for c in candidates {
+            if hi.saturating_sub(c) < HEADER_LEN as u64 {
+                break;
+            }
+            let Some(head) = Head::read(&self.read(c, HEADER_LEN)?) else {
+                continue;
+            };
+            if !walk.may_resume(&head) {
+                continue;
+            }
+            if checks == GAP_CHECKS_MAX {
+                break;
+            }
+            checks += 1;
             if let Ok(b) = self.good_block(c, hi)?
-                && walk.resumes(&Block::read(&b).expect("checked"))
+                && let Ok(block) = Block::read(&b)
+                && walk.resumes(&block)
             {
                 return Ok(Some(c));
             }
+        }
+        Ok(None)
+    }
+
+    /// The first byte from `at` to `end` that isn't blank, read 64 KiB at a time.
+    fn non_blank(&self, mut at: u64, end: u64) -> R<Option<u64>, S> {
+        while at < end {
+            let n = read_len(end - at, 64 * 1024);
+            let bytes = self.read(at, n)?;
+            if let Some(i) = bytes.iter().position(|b| !crate::is_blank(*b)) {
+                return Ok(Some(at + i as u64));
+            }
+            at += n as u64;
         }
         Ok(None)
     }

@@ -54,8 +54,17 @@ pub struct Layout {
 /// The alignment of an aligned file: 4 KiB, a page and a direct I/O block.
 pub const ALIGNMENT: u32 = 4096;
 /// [Layout::gap_max] of an SD card: a 4 MiB segment, part of an allocation unit (SD 9.10 §4.13.1 has them up to
-/// 64 MB); a reader probes at most 8192 sector headers of a gap.
+/// 64 MB); a reader reads at most 8192 sector headers past a blank or bad stretch.
 pub const SD_GAP_MAX: u32 = 4 << 20;
+/// Largest [Layout::gap_max] a valid layout has: 64 MiB, an SD card's largest allocation unit and two erase blocks
+/// of large NAND.
+pub const GAP_MAX_MAX: u32 = 64 << 20;
+/// Most resume places in one gap, `gap_max / resume_align` of a valid layout: past a blank or bad stretch a reader
+/// reads at most this many block headers, and the first non-blank byte's.
+pub const GAP_PROBES_MAX: u32 = 8192;
+/// Most blocks past one blank or bad stretch a reader checks whole (CRC over up to [crate::MAX_BLOCK_LEN] each):
+/// those whose header says they go on with the data. Past them the stretch is the end of data.
+pub const GAP_CHECKS_MAX: u32 = 4;
 /// [Layout::resume_align] of an SD card: a 512-byte sector.
 pub const SD_RESUME_ALIGN: u32 = 512;
 
@@ -97,9 +106,20 @@ impl Layout {
         }
     }
 
-    fn validate(&self) -> Result<(), shrink_wrap::Error> {
+    /// Whether a reader takes this layout: alignment 0 or [ALIGNMENT], `resume_align` 1 and up, `gap_max` at most
+    /// [GAP_MAX_MAX] and at most [GAP_PROBES_MAX] resume places in it. A describe record of another layout doesn't
+    /// decode.
+    pub const fn is_valid(&self) -> bool {
         let a = self.alignment.get();
-        if (a == 0 || a == ALIGNMENT) && self.resume_align.get() >= 1 {
+        let (gap, align) = (self.gap_max.get(), self.resume_align.get());
+        (a == 0 || a == ALIGNMENT)
+            && align >= 1
+            && gap <= GAP_MAX_MAX
+            && gap / align <= GAP_PROBES_MAX
+    }
+
+    fn validate(&self) -> Result<(), shrink_wrap::Error> {
+        if self.is_valid() {
             Ok(())
         } else {
             Err(shrink_wrap::Error::SubtypeOutOfRange)

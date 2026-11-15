@@ -95,9 +95,9 @@ pub use ww_version::{FullVersion, Version};
 mod describe;
 pub use describe::{
     ALIGNMENT, ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension,
-    Ends, EventsDef, Layout, MapSegment, NO_CLOCK, Producer, Rank, SD_GAP_MAX, SD_RESUME_ALIGN,
-    TrackDef, TrackKind, TypeRef, TypedItem, UNIX_CLOCK_KEY, clock_key, segments_increasing,
-    track_id,
+    Ends, EventsDef, GAP_CHECKS_MAX, GAP_MAX_MAX, GAP_PROBES_MAX, Layout, MapSegment, NO_CLOCK,
+    Producer, Rank, SD_GAP_MAX, SD_RESUME_ALIGN, TrackDef, TrackKind, TypeRef, TypedItem,
+    UNIX_CLOCK_KEY, clock_key, segments_increasing, track_id,
 };
 #[cfg(feature = "std")]
 pub use describe::{

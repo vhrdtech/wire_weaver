@@ -45,6 +45,7 @@
 - `bitpack`: groups of 128 values at one width, read in place; AVX-512, AVX2 and NEON unpack kernels (STD-120).
 - `payloads`: an events chunk's payload lengths, bit-packed per group, and payloads, raw or lz4 when smaller (STD-126).
 - `Payloads::salvage`: a damaged chunk's payloads read item by item, only damaged ones marked suspect (STD-126).
+- `Payloads::iter`: every item's payload and suspicion in order, each group's lengths unpacked once (STD-126).
 - Golden file `golden/v2-payloads.hex` and fuzz target `tape-payloads` (STD-126).
 - `Lz4Error` implements `Display` and `core::error::Error`; payload errors name it as their source (STD-126).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).

@@ -431,49 +431,121 @@ impl<'b> Payloads<'b> {
         if !self.group_ok(i / GROUP) {
             return None;
         }
-        let r = self.lengths.range(i)?;
-        (r.end <= self.bytes.as_slice().len()).then_some(r)
+        self.placed(self.lengths.range(i))
+    }
+
+    /// `range` when it lies in the payload bytes.
+    fn placed(&self, range: Option<Range<usize>>) -> Option<Range<usize>> {
+        range.filter(|r| r.end <= self.bytes.as_slice().len())
+    }
+
+    /// The bytes and suspicion of an item placed at `range` (None: place lost).
+    fn item(&self, range: Option<Range<usize>>) -> Item<'_> {
+        let suspect = self.all_suspect
+            || match &range {
+                None => true,
+                Some(r) => self.bad.iter().any(|b| b.start < r.end && r.start < b.end),
+            };
+        let bytes = range
+            .and_then(|r| self.bytes.as_slice().get(r))
+            .unwrap_or(&[]);
+        Item { bytes, suspect }
     }
 
     /// The payload of item `i`, None past the last item. A salvaged item whose place was lost reads as empty.
     pub fn get(&self, i: usize) -> Option<&[u8]> {
-        if i >= self.len() {
-            return None;
-        }
-        let b = self.bytes.as_slice();
-        Some(self.range(i).and_then(|r| b.get(r)).unwrap_or(&[]))
+        (i < self.len()).then(|| self.item(self.range(i)).bytes)
     }
 
     /// Whether item `i`'s payload may be damaged: its group record failed a salvage's check, its bytes are in a bad
     /// segment, or the lz4 column holding it is. False past the last item.
     pub fn is_suspect(&self, i: usize) -> bool {
-        if i >= self.len() {
-            return false;
-        }
-        if self.all_suspect {
-            return true;
-        }
-        match self.range(i) {
-            None => true,
-            Some(r) => self.bad.iter().any(|b| b.start < r.end && r.start < b.end),
+        i < self.len() && self.item(self.range(i)).suspect
+    }
+
+    /// Every item in order, as [Self::get] and [Self::is_suspect] give it, each group of lengths unpacked once.
+    pub fn iter(&self) -> Iter<'_, 'b> {
+        Iter {
+            payloads: self,
+            i: 0,
+            lengths: [0; GROUP],
+            group: None,
         }
     }
 
     /// The item ranges whose payloads are suspect, one per item run, ascending.
     pub fn suspect_items(&self) -> impl Iterator<Item = Range<usize>> + '_ {
-        let mut i = 0;
+        let mut items = self.iter().map(|it| it.suspect).enumerate().peekable();
         core::iter::from_fn(move || {
-            while i < self.len() && !self.is_suspect(i) {
-                i = i.saturating_add(1);
+            let (start, _) = items.find(|(_, suspect)| *suspect)?;
+            let mut end = start.saturating_add(1);
+            while let Some((i, _)) = items.next_if(|(_, suspect)| *suspect) {
+                end = i.saturating_add(1);
             }
-            let start = i;
-            while i < self.len() && self.is_suspect(i) {
-                i = i.saturating_add(1);
-            }
-            (start < i).then_some(start..i)
+            Some(start..end)
         })
     }
 }
+
+/// An item's payload, as [Payloads::iter] gives it.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Item<'a> {
+    /// The payload; empty for a salvaged item whose place was lost.
+    pub bytes: &'a [u8],
+    /// Whether the payload may be damaged ([Payloads::is_suspect]).
+    pub suspect: bool,
+}
+
+/// The items of [Payloads] in order ([Payloads::iter]).
+#[derive(Clone, Debug)]
+pub struct Iter<'a, 'b> {
+    payloads: &'a Payloads<'b>,
+    i: usize,
+    /// The current group's lengths less its minimum.
+    lengths: [u32; GROUP],
+    /// The current group's minimum and where its next payload starts; None when its place is lost.
+    group: Option<(u32, u64)>,
+}
+
+impl<'a> Iterator for Iter<'a, '_> {
+    type Item = Item<'a>;
+
+    fn next(&mut self) -> Option<Item<'a>> {
+        let p = self.payloads;
+        if self.i >= p.len() {
+            return None;
+        }
+        let (g, j) = (self.i / GROUP, self.i % GROUP);
+        if j == 0 {
+            self.group = if p.group_ok(g) {
+                p.lengths
+                    .unpack(g, &mut self.lengths)
+                    .map(|r| (r.min, u64::from(r.base)))
+            } else {
+                None
+            };
+        }
+        let range = self.group.as_mut().and_then(|(min, start)| {
+            let len = u64::from(*min).checked_add(u64::from(*self.lengths.get(j)?))?;
+            let from = *start;
+            let to = from.checked_add(len)?;
+            *start = to;
+            Some(usize::try_from(from).ok()?..usize::try_from(to).ok()?)
+        });
+        if range.is_none() {
+            self.group = None;
+        }
+        self.i = self.i.saturating_add(1);
+        Some(p.item(p.placed(range)))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.payloads.len().saturating_sub(self.i);
+        (n, Some(n))
+    }
+}
+
+impl ExactSizeIterator for Iter<'_, '_> {}
 
 /// The two payload columns of `chunk`, codecs checked; None when it has neither.
 fn columns<'b>(chunk: &Chunk<'b>) -> Result<Option<(Column<'b>, Column<'b>)>, PayloadsError> {

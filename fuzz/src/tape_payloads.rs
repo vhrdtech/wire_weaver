@@ -22,6 +22,10 @@ fn read_all(p: &Payloads<'_>, want: Option<&[Vec<u8>]>) {
         }
     }
     assert!(p.get(p.len()).is_none());
+    assert_eq!(p.iter().len(), p.len());
+    for (i, it) in p.iter().enumerate() {
+        assert_eq!((Some(it.bytes), it.suspect), (p.get(i), p.is_suspect(i)), "iter item {i}");
+    }
     let _ = p.suspect_items().count();
 }
 

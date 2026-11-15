@@ -75,7 +75,19 @@ fn workloads() -> Vec<(&'static str, Vec<Vec<u8>>)> {
     ]
 }
 
+/// The iterator gives every item as `get` and `is_suspect` do.
+fn iter_matches(p: &Payloads<'_>) {
+    let items: Vec<Item<'_>> = p.iter().collect();
+    assert_eq!(items.len(), p.len());
+    assert_eq!(p.iter().len(), p.len());
+    for (i, it) in items.iter().enumerate() {
+        assert_eq!(Some(it.bytes), p.get(i), "item {i}");
+        assert_eq!(it.suspect, p.is_suspect(i), "item {i}");
+    }
+}
+
 fn check(p: &Payloads<'_>, want: &[Vec<u8>]) {
+    iter_matches(p);
     assert_eq!(p.len(), want.len());
     for (i, w) in want.iter().enumerate() {
         assert_eq!(p.get(i), Some(w.as_slice()), "item {i}");
@@ -214,6 +226,7 @@ fn rewritten(w: &[Vec<u8>], edit: impl Fn(&mut [u8]), bad: &[usize]) {
         Err(PayloadsError::Corrupt { .. })
     ));
     let s = Payloads::salvage(&c).unwrap().unwrap();
+    iter_matches(&s);
     for (i, want) in w.iter().enumerate() {
         let g = i / GROUP;
         assert_eq!(s.is_suspect(i), bad.contains(&g), "item {i}");
@@ -266,6 +279,8 @@ fn every_flipped_bit_keeps_good_items() {
             let blk = Block::salvage(&d).unwrap();
             let c = blk.chunk().unwrap();
             let s = Payloads::salvage(&c).unwrap().unwrap();
+            iter_matches(&s);
+            iter_matches(&s);
             assert_eq!(s.len(), w.len());
             marked += s.suspect_items().count();
             for (i, want) in w.iter().enumerate() {
@@ -300,6 +315,7 @@ fn damaged_segment_costs_its_items() {
         "read doesn't check payload bytes"
     );
     let s = Payloads::salvage(&c).unwrap().unwrap();
+    iter_matches(&s);
     let suspect: Vec<_> = s.suspect_items().collect();
     assert_eq!(suspect.len(), 1);
     let r = &suspect[0];
@@ -324,6 +340,7 @@ fn damaged_lz4_marks_every_item() {
     d[at + len / 2] ^= 0x40;
     let blk = Block::salvage(&d).unwrap();
     let s = Payloads::salvage(&blk.chunk().unwrap()).unwrap().unwrap();
+    iter_matches(&s);
     let mut runs = s.suspect_items();
     assert_eq!((runs.next(), runs.next()), (Some(0..50), None));
 }

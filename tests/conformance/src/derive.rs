@@ -1042,6 +1042,17 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.point.bounded", point_bounded(-400)),
         case("stdlib.si.point.bounded.rejected", point_bounded(1250)),
         case(
+            "stdlib.keyed.added",
+            ww_keyed::KeyEvent::Added {
+                index: UNib32(3),
+                key: 0x1234u16,
+            },
+        ),
+        case(
+            "stdlib.keyed.removed",
+            ww_keyed::KeyEvent::<UNib32, u16>::Removed { index: UNib32(300) },
+        ),
+        case(
             "stdlib.si.timed.default",
             ww_si::Timed::new(ww_si::origins::DeviceMicros::from_raw(5_000_123u32), 513u16),
         ),

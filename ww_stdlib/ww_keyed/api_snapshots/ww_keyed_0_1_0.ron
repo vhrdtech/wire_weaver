@@ -1,0 +1,35 @@
+// ww_keyed 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 41e6752a9dbaad1c34dbcb8eccf4d6f046ee9598e3f8e76673d10b9a5202dcd4
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "Wire types of keyed resource arrays (API-67).",
+    "",
+    "`keyed!(flow by FlowKey)` next to an array `flow[]` lets a client address its elements by a key instead of an",
+    "index. The device announces each element on the companion\'s `keys` stream with a [KeyEvent]; the generated",
+    "code names the index and key types, so this crate only fixes their wire form. See `docs/api/arrays.md`.",
+], crate_idx: 0, trait_name: "ww_keyed", items: [], compact_id: None, meta: None), types: [
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "An announcement on the `keys` stream of a `keyed!` array: an element appeared or went away.",
+        "",
+        "`I` is the array\'s index type (`UNib32` for an array declared as `name[]`), `K` the key type of `keyed!`.",
+    ], ident: "KeyEvent", generics: [
+        (ident: "I", kind: Type),
+        (ident: "K", kind: Type),
+    ], variants: [
+        (docs: [
+            "An element appeared at `index` under `key`; sent once per element.",
+        ], ident: "Added", fields: Named([
+            (ident: Some("index"), default: None, since: None, ty: Param(0), docs: [], slot: None, series_opaque: false),
+            (ident: Some("key"), default: None, since: None, ty: Param(1), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "The element at `index` is gone; the device may give the index to another key after this.",
+        ], ident: "Removed", fields: Named([
+            (ident: Some("index"), default: None, since: None, ty: Param(0), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "ww_keyed", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
+    Some((line: 1, revision: 0)),
+]))

@@ -1,0 +1,21 @@
+[package]
+name = "ww_keyed"
+version = "0.1.0"
+authors.workspace = true
+description = "Wire types of keyed resource arrays (keyed!): the key announcements a device sends"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+# Wire version of the traits and types of this crate (EVO-26): `#[since]` in it names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+std = ["shrink_wrap/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+shrink_wrap.workspace = true

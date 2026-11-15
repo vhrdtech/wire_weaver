@@ -170,6 +170,7 @@ ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = fa
 ww_i2c_hl = { version = "0.1.0", path = "./ww_stdlib/ww_i2c_hl" }
 ww_indication = { version = "0.1.0", path = "./ww_stdlib/ww_indication", default-features = false }
 ww_interned = { version = "0.1.0", path = "./ww_stdlib/ww_interned", default-features = false }
+ww_keyed = { version = "0.1.0", path = "./ww_stdlib/ww_keyed", default-features = false }
 ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }
 ww_logic_analyzer = { version = "0.1.0", path = "./ww_stdlib/ww_logic_analyzer", default-features = false }
 ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-features = false }

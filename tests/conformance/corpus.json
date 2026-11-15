@@ -1843,6 +1843,22 @@
       "note": "126.6 °C is above Range<-400, 1250>: refused on decode, as for the Fixed alone (STD-64)"
     },
     {
+      "name": "stdlib.keyed.added",
+      "type": "key_event",
+      "value": {"Added": {"index": 3, "key": 4660}},
+      "bytes": "033412",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a keyed! array's element 3 appeared under key 0x1234 (API-67)"
+    },
+    {
+      "name": "stdlib.keyed.removed",
+      "type": "key_event",
+      "value": {"Removed": {"index": 300}},
+      "bytes": "1cd4",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the element at index 300 went away, its index may be given to another key (API-67)"
+    },
+    {
       "name": "stdlib.si.timed.default",
       "type": "si_timed",
       "value": {"t": {"coord": {"value": 5000123}}, "value": 513},

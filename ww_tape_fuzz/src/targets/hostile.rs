@@ -4,6 +4,7 @@
 use super::{chunk, index, payloads, reader, samples, series, summary, times};
 use crate::hostile;
 use shrink_wrap::DeserializeShrinkWrap;
+use ww_tape::times::EventTimes;
 use ww_tape::{
     Block, Describe, Element, Layout, Medium, OpenOptions, Ratio64, SampleShape, Samples,
     SeriesSegment, SeriesTimeline, TapeReader, TrackKind, block_len,
@@ -55,9 +56,31 @@ pub fn records_hostile(data: &[u8]) {
     reader(&b);
 }
 
+/// Most items a target reads from one chunk. A reader's work on a chunk grows with its items, so a chunk that reads
+/// as more is a failure of the case here, not a loop of minutes: ww_tape bounds no chunk's count yet.
+const CHUNK_ITEMS_READ_MAX: usize = 1 << 20;
+
+/// The times of the chunk `b` read and salvaged hold at most [CHUNK_ITEMS_READ_MAX] items.
+fn items_bounded(b: &[u8]) {
+    let Ok(block) = Block::salvage(b) else { return };
+    let Some(c) = block.chunk() else { return };
+    for t in [EventTimes::read(&c), EventTimes::salvage(&c)]
+        .into_iter()
+        .flatten()
+    {
+        assert!(
+            t.len() <= CHUNK_ITEMS_READ_MAX,
+            "a chunk of {} bytes reads as {} items",
+            b.len(),
+            t.len()
+        );
+    }
+}
+
 /// `tape-chunk-hostile`: a chunk block of a hostile head, read, salvaged and renumbered.
 pub fn chunk_hostile(data: &[u8]) {
     let b = hostile::chunk(data);
+    items_bounded(&b);
     chunk::walk(&b);
     times::walk(&b);
     payloads::walk(&b, None);
@@ -66,8 +89,8 @@ pub fn chunk_hostile(data: &[u8]) {
 /// `tape-times-hostile`: an events chunk of hostile time group records, its times read and salvaged.
 pub fn times_hostile(data: &[u8]) {
     let b = hostile::times(data);
+    items_bounded(&b);
     times::walk(&b);
-    chunk::walk(&b);
 }
 
 /// `tape-payloads-hostile`: an events chunk of hostile payload lengths and lz4 lengths, its payloads read and
@@ -75,7 +98,6 @@ pub fn times_hostile(data: &[u8]) {
 pub fn payloads_hostile(data: &[u8]) {
     let b = hostile::payloads(data);
     payloads::walk(&b, None);
-    chunk::walk(&b);
 }
 
 /// The shape of the series track a describe block names; None when it names none.

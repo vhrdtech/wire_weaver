@@ -3,9 +3,9 @@
 
 use super::chunk::{build, column_start, hit_head, reseal};
 use super::{Draw, Field, hit};
+use ww_tape::ColumnKind;
 use ww_tape::bitpack::{GROUP, WIDTH_MAX};
 use ww_tape::times::{EncodedTimes, SLOPE_MAX};
-use ww_tape::{Block, ColumnKind};
 
 /// Bytes of a linear starts group record, a durations record and a flags record.
 const STARTS_RECORD: usize = 25;
@@ -71,11 +71,8 @@ pub fn times(data: &[u8]) -> Vec<u8> {
     let mut b = build(&enc.head.chunk_head(1, 1, 0), &cols);
     let groups = starts.len().div_ceil(GROUP);
     let linear = enc.head.time_mode == ww_tape::times::TimeMode::Linear;
-    let kinds: Vec<ColumnKind> = {
-        let block = Block::read(&b).expect("written good");
-        let chunk = block.chunk().expect("a chunk");
-        chunk.columns().map(|c| c.kind).collect()
-    };
+    // the chunk's columns are in the order written
+    let kinds: Vec<ColumnKind> = cols.iter().map(|c| c.0.kind).collect();
     for _ in 0..1 + d.below(3) {
         match d.u8() % 8 {
             7 => hit_head(&mut d, &mut b),

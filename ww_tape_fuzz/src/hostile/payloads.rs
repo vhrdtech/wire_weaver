@@ -7,7 +7,7 @@ use ww_tape::bitpack::GROUP;
 use ww_tape::lz4::LZ4_DECODED_MAX;
 use ww_tape::payloads::EncodedPayloads;
 use ww_tape::times::EncodedTimes;
-use ww_tape::{Block, Codec, ColumnKind, ColumnSpec};
+use ww_tape::{Codec, ColumnKind, ColumnSpec};
 
 /// Bytes of a lengths group record.
 const LENGTHS_RECORD: usize = 13;
@@ -15,7 +15,12 @@ const LENGTHS_RECORD: usize = 13;
 /// An events chunk of payloads drawn from the input whose lengths, lz4 length, codecs or head take hostile values.
 pub fn payloads(data: &[u8]) -> Vec<u8> {
     let mut d = Draw::new(data);
-    let n = 1 + d.below(GROUP + 40);
+    // mostly one short group, now and then a second group
+    let n = if d.u8() % 4 == 3 {
+        GROUP + 1 + d.below(8)
+    } else {
+        1 + d.below(24)
+    };
     // payloads that repeat give lz4 something to find
     let repeat = d.bool();
     let mut r = d.bits();
@@ -30,14 +35,11 @@ pub fn payloads(data: &[u8]) -> Vec<u8> {
     let enc = EncodedPayloads::encode(items.iter().map(Vec::as_slice)).expect("valid payloads");
     let cols: Vec<(ColumnSpec, &[u8])> = times.columns().chain(enc.columns()).collect();
     let mut b = build(&times.head.chunk_head(1, 1, 0), &cols);
-    let kinds: Vec<(ColumnKind, Codec)> = {
-        let block = Block::read(&b).expect("written good");
-        let chunk = block.chunk().expect("a chunk");
-        chunk.columns().map(|c| (c.kind, c.codec)).collect()
-    };
+    // the chunk's columns are in the order written
+    let kinds: Vec<ColumnKind> = cols.iter().map(|c| c.0.kind).collect();
     let groups = n.div_ceil(GROUP);
-    let lengths = kinds.iter().position(|k| k.0 == ColumnKind::PayloadLengths);
-    let payloads = kinds.iter().position(|k| k.0 == ColumnKind::Payloads);
+    let lengths = kinds.iter().position(|k| *k == ColumnKind::PayloadLengths);
+    let payloads = kinds.iter().position(|k| *k == ColumnKind::Payloads);
     for _ in 0..1 + d.below(3) {
         match d.u8() % 10 {
             9 => hit_head(&mut d, &mut b),

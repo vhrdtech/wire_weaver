@@ -108,7 +108,10 @@ pub fn samples(data: &[u8]) -> Vec<u8> {
     let mut channels = 1 + d.below(3) as u32;
     let per =
         (element.scalar_bits() as usize / 8).max(1) * element.parts() as usize * channels as usize;
-    let count = 1 + d.below(832 / per);
+    // half the columns of 64 samples at most, half up to the 1 KiB a block may take
+    let most = 832 / per;
+    let most = if d.bool() { most.min(64) } else { most };
+    let count = 1 + d.below(most);
     let shape = SampleShape::new(element, channels);
     let col = match column(&mut d, codec, shape, count) {
         Some(c) => c,

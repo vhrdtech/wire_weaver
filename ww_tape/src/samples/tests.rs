@@ -366,3 +366,136 @@ fn delta_rejects_malformed_groups() {
     assert!(Samples::new(Codec::DELTA, SampleShape::scalar(Element::F32), 1, &[]).is_err());
     assert!(Samples::new(Codec::FLOAT_DELTA, shape, 1, &[]).is_err());
 }
+
+/// Columns of every codec, and a series chunk holding some, are the golden file's (`WW_TAPE_GOLDEN=update` rewrites
+/// it): one line per column, `codec element channels count: hex`, then the chunk block. Inputs come from integer
+/// arithmetic only, so they are the same on every platform.
+#[test]
+fn samples_golden() {
+    let mut r = Rng(2026);
+    let n = 300;
+    let wave: Vec<i64> = (0..n as i64)
+        .map(|i| (i * i * 37 % 4001) - 2000 + i % 7)
+        .collect();
+    let i16s: Vec<i16> = wave.iter().map(|v| *v as i16).collect();
+    let u16s: Vec<u16> = wave.iter().map(|v| (*v + 2000) as u16).collect();
+    let i32s: Vec<i32> = wave.iter().map(|v| (*v * 1000) as i32).collect();
+    let f64s: Vec<f64> = wave.iter().map(|v| *v as f64 / 16.0).collect();
+    let f32s: Vec<f32> = wave.iter().map(|v| *v as f32 / 8.0).collect();
+    let any: Vec<f64> = (0..n).map(|_| f64::from_bits(r.next())).collect();
+    let bools: Vec<bool> = wave.iter().map(|v| v % 3 == 0).collect();
+    let mut lines = vec![];
+    let mut add = |line: String| lines.push(line);
+    fn col<T: Sample>(c: Codec, shape: SampleShape, v: &[T]) -> String {
+        let bytes = roundtrip(c, shape, v);
+        let lanes = shape.lanes().unwrap() as usize;
+        let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+        format!(
+            "{} {:?} {} {}: {hex}",
+            c.0,
+            shape.element,
+            shape.channels.0,
+            v.len() / lanes
+        )
+    }
+    let s = SampleShape::scalar;
+    add(col(Codec::RAW, s(Element::I16), &i16s));
+    add(col(Codec::RAW, s(Element::Bool), &bools));
+    add(col(Codec::BIG_ENDIAN, s(Element::I32), &i32s));
+    add(col(
+        Codec::BIG_ENDIAN,
+        SampleShape::new(Element::ComplexI16, 1),
+        &i16s,
+    ));
+    for c in [Codec::PACKED12_LSB, Codec::PACKED12_MSB] {
+        add(col(c, s(Element::I16), &i16s));
+        add(col(c, s(Element::U16), &u16s));
+    }
+    let tens: Vec<i16> = i16s.iter().map(|v| v / 4).collect();
+    add(col(Codec::PACKED10_LSB, s(Element::I16), &tens));
+    add(col(Codec::PACKED10_MSB, s(Element::I16), &tens));
+    add(col(Codec::PACKED24_LSB, s(Element::I32), &i32s));
+    add(col(Codec::PACKED24_MSB, s(Element::I32), &i32s));
+    for c in [
+        Codec::GORILLA,
+        Codec::CHIMP,
+        Codec::FLOAT_DELTA,
+        Codec::FLOAT_DELTA2,
+    ] {
+        add(col(c, s(Element::F64), &f64s));
+        add(col(c, s(Element::F32), &f32s));
+        add(col(c, s(Element::F64), &any[..40]));
+        add(col(c, SampleShape::new(Element::ComplexF32, 1), &f32s));
+    }
+    for c in [Codec::DELTA, Codec::DELTA2] {
+        add(col(c, s(Element::I16), &i16s));
+        add(col(c, SampleShape::new(Element::I32, 3), &i32s));
+        add(col(c, s(Element::I64), &wave));
+    }
+    let lz4 = {
+        let raw: Vec<u8> = i16s.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let mut out = vec![0u8; crate::lz4::lz4_max_len(raw.len())];
+        let n = crate::lz4::lz4_encode(&raw, &mut out).unwrap();
+        out.truncate(n);
+        out
+    };
+    lines.push(format!(
+        "48 payload: {}",
+        lz4.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    ));
+    // a series chunk: channel 0 packed 12-bit, channel 1 delta
+    let shape = s(Element::I16);
+    let c0 = encode_vec(Codec::PACKED12_LSB, shape, &i16s);
+    let c1 = encode_vec(Codec::DELTA, shape, &i16s);
+    let head = crate::ChunkHead {
+        kind: crate::BlockKind::Series,
+        track_id: 0x5a5a,
+        track_number: 3,
+        first_item: 1000,
+        count: n as u32,
+        first_tick: 0,
+        last_tick: (n as i64 - 1) * 20,
+        latest_end: (n as i64 - 1) * 20,
+        time_mode: 0,
+        end_mode: crate::EndMode::Absent,
+    };
+    let spec = |codec, param, len| crate::ColumnSpec {
+        kind: crate::ColumnKind::Samples,
+        codec,
+        param,
+        len,
+    };
+    let cols = [
+        (spec(Codec::PACKED12_LSB, 0, c0.len()), &c0[..]),
+        (spec(Codec::DELTA, 1, c1.len()), &c1[..]),
+    ];
+    let specs: Vec<_> = cols.iter().map(|c| c.0).collect();
+    let mut block = vec![0u8; crate::chunk::chunk_len(&specs, 0)];
+    let len = crate::chunk::write_chunk(&mut block, 1, &head, &cols, 0).unwrap();
+    block.truncate(len);
+    let read = crate::Block::read(&block).unwrap();
+    let chunk = read.chunk().unwrap();
+    for (param, codec) in [(0, Codec::PACKED12_LSB), (1, Codec::DELTA)] {
+        let column = chunk.find(crate::ColumnKind::Samples, param).unwrap();
+        assert_eq!(column.codec, codec);
+        let samples = Samples::of(&column, shape, n).unwrap();
+        let mut out = vec![0i16; n];
+        samples.decode(0, &mut out).unwrap();
+        assert_eq!(out, i16s);
+    }
+    lines.push(format!(
+        "chunk: {}",
+        block.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    ));
+    let text = lines.join("\n") + "\n";
+    let golden = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("golden/v2-samples.hex");
+    if std::env::var("WW_TAPE_GOLDEN").as_deref() == Ok("update") {
+        std::fs::write(&golden, &text).unwrap();
+    }
+    let want = std::fs::read_to_string(&golden)
+        .expect("golden/v2-samples.hex: run with WW_TAPE_GOLDEN=update");
+    assert!(
+        text == want,
+        "the format changed: bytes differ from golden/v2-samples.hex"
+    );
+}

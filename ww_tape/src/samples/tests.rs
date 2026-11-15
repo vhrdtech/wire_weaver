@@ -391,12 +391,14 @@ fn samples_golden() {
     add(col(Codec::PACKED10_MSB, s(Element::I16), &tens));
     add(col(Codec::PACKED24_LSB, s(Element::I32), &i32s));
     add(col(Codec::PACKED24_MSB, s(Element::I32), &i32s));
-    for c in [Codec::ALP] {
-        add(col(c, s(Element::F64), &f64s));
-        add(col(c, s(Element::F32), &f32s));
-        add(col(c, s(Element::F64), &any[..40]));
-        add(col(c, SampleShape::new(Element::ComplexF32, 1), &f32s));
-    }
+    add(col(Codec::ALP, s(Element::F64), &f64s));
+    add(col(Codec::ALP, s(Element::F32), &f32s));
+    add(col(Codec::ALP, s(Element::F64), &any[..40]));
+    add(col(
+        Codec::ALP,
+        SampleShape::new(Element::ComplexF32, 1),
+        &f32s,
+    ));
     // decimals, the data ALP codes as integers: IEEE division gives the same values everywhere
     let cents: Vec<f64> = wave.iter().map(|v| *v as f64 / 100.0).collect();
     let cents32: Vec<f32> = wave.iter().map(|v| *v as f32 / 100.0).collect();

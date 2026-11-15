@@ -306,10 +306,12 @@ impl OwnedBlock {
             .expect("OwnedBlock::read checked these bytes as one whole block")
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn bytes(&self) -> &[u8] {
         &self.bytes
     }
 
+    #[cfg(feature = "std")]
     pub(crate) fn into_bytes(self) -> Vec<u8> {
         self.bytes
     }

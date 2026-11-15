@@ -928,6 +928,7 @@ impl<'b> Block<'b> {
 
     /// The block's header, with no bytes: [Block::on] lends it again on the bytes it was read from, without a
     /// second check.
+    #[cfg(feature = "alloc")]
     pub(crate) fn detach(&self) -> Block<'static> {
         Block {
             version: self.version,
@@ -946,6 +947,7 @@ impl<'b> Block<'b> {
 
     /// A [Block::detach]ed header on `bytes`, the whole block it was read from; None when `bytes` is too short for
     /// a block.
+    #[cfg(feature = "alloc")]
     pub(crate) fn on<'c>(&self, bytes: &'c [u8]) -> Option<Block<'c>> {
         let (covered, _) = bytes.split_last_chunk::<CRC_LEN>()?;
         let (_, body) = covered.split_first_chunk::<HEADER_LEN>()?;

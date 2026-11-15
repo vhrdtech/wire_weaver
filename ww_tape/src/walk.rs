@@ -26,6 +26,10 @@ pub(crate) enum Verdict {
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Head {
     /// The whole block's length, as its header says
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "only FileBlocks reads it, which needs std")
+    )]
     pub(crate) len: usize,
     kind: BlockKind,
     run: RunTag,

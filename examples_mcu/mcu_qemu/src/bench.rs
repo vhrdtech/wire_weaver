@@ -36,7 +36,9 @@ fn mark_end() {
 fn items() -> [Timed<Ampere>; 64] {
     core::array::from_fn(|i| {
         Timed::new(
-            DeviceMicros::from_raw(super::motor_signal::T0_US + i as u32 * super::motor_signal::DT_US),
+            DeviceMicros::from_raw(
+                super::motor_signal::T0_US + i as u32 * super::motor_signal::DT_US,
+            ),
             Ampere::milli(super::motor_signal::I_A_MILLIAMPS[i]),
         )
     })

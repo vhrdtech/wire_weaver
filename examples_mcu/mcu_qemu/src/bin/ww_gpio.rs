@@ -151,7 +151,10 @@ impl ServerState {
     }
 
     /// One state for every pin: the stream never opens on this board.
-    fn stream_port_pin_event(&mut self, _index: [ww_client_server::ResourceIndex; 2]) -> &mut Counted {
+    fn stream_port_pin_event(
+        &mut self,
+        _index: [ww_client_server::ResourceIndex; 2],
+    ) -> &mut Counted {
         &mut self.pin_events
     }
 
@@ -224,7 +227,10 @@ impl ServerState {
         ValidIndices::range_u32(0..8)
     }
 
-    fn valid_indices_root_port_pin(&mut self, _index: [ww_client_server::ResourceIndex; 1]) -> ValidIndices<'_> {
+    fn valid_indices_root_port_pin(
+        &mut self,
+        _index: [ww_client_server::ResourceIndex; 1],
+    ) -> ValidIndices<'_> {
         ValidIndices::range_u32(0..16)
     }
 }

@@ -12,8 +12,11 @@ pub(crate) enum Verdict {
     Take,
     /// A block of another run where no run may start: stale data, never taken.
     Stale(RunTag),
-    /// A data block of the current run whose seq is not after the last one's.
+    /// A data block of the current run whose seq is before the last one's.
     Backwards { seq: u64, after: u64 },
+    /// The same (run, seq) as the last block taken: a duplicate, not a cut. `same` when its bytes are the same
+    /// (dropped); else the later copy wins.
+    Duplicate { same: bool },
 }
 
 /// The run and seq of the blocks taken so far, and the gap rules of the newest [Layout] read.
@@ -22,6 +25,8 @@ pub(crate) struct RunState {
     pub(crate) medium: Medium,
     run: Option<RunTag>,
     last_seq: Option<u64>,
+    /// Length and CRC of the last data block taken
+    last_bytes: Option<(usize, u32)>,
     gap_max: u64,
     resume_align: u64,
 }
@@ -32,6 +37,7 @@ impl RunState {
             medium,
             run: None,
             last_seq: None,
+            last_bytes: None,
             gap_max: 0,
             resume_align: 1,
         }
@@ -59,11 +65,14 @@ impl RunState {
                 Verdict::Stale(b.run)
             };
         }
-        let free = crate::index::is_structural(b.kind) || b.kind == BlockKind::Describe;
+        if !check_seq || is_free(b) {
+            return Verdict::Take;
+        }
         match self.last_seq {
-            Some(after) if check_seq && !free && b.seq <= after => {
-                Verdict::Backwards { seq: b.seq, after }
-            }
+            Some(after) if b.seq == after => Verdict::Duplicate {
+                same: self.last_bytes == Some((b.len(), b.crc())),
+            },
+            Some(after) if b.seq < after => Verdict::Backwards { seq: b.seq, after },
             _ => Verdict::Take,
         }
     }
@@ -86,9 +95,11 @@ impl RunState {
         if self.run != Some(b.run) {
             self.run = Some(b.run);
             self.last_seq = None;
+            self.last_bytes = None;
         }
-        if !crate::index::is_structural(b.kind) {
+        if !is_free(b) {
             self.last_seq = Some(b.seq);
+            self.last_bytes = Some((b.len(), b.crc()));
         }
         if let Some(l) = layout_in(b) {
             self.set_layout(&l);
@@ -114,6 +125,12 @@ impl RunState {
             .map(move |i: u64| first.saturating_add(i.saturating_mul(align)))
             .take_while(move |p| *p <= end && self.gap_max > 0)
     }
+}
+
+/// Whether `b` takes no part in the seq order: a block of the file structure (it carries the last counted seq) or a
+/// [copy](crate::FLAG_COPY) a writer made.
+fn is_free(b: &Block<'_>) -> bool {
+    crate::index::is_structural(b.kind) || b.is_copy()
 }
 
 /// The [Layout] a describe block says, the last one in it; None for any other block.

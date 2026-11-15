@@ -207,6 +207,8 @@ pub struct Decoder {
     bundles: HashMap<Vec<u8>, Arc<ApiBundleOwned>>,
     lookup: Option<BundleLookup>,
     next_seq: Option<u64>,
+    /// Run of the blocks fed last
+    run: Option<ww_tape::RunTag>,
     wall_ns_at_zero: Option<u64>,
     /// Time of the newest record fed, for what has no time of its own (lost blocks).
     last_t: u64,
@@ -228,6 +230,7 @@ impl Decoder {
             bundles: HashMap::new(),
             lookup: None,
             next_seq: None,
+            run: None,
             wall_ns_at_zero: None,
             last_t: 0,
             out: VecDeque::new(),
@@ -264,10 +267,14 @@ impl Decoder {
     /// Decode a block; what it gives is taken with [Decoder::next].
     pub fn feed(&mut self, block: &Block<'_>) {
         self.stats.blocks += 1;
-        // a describe block with the seq of the block before it is a copy a writer made (a repeat, the backup before
-        // the finish, the next piece's start): its sticky records are the state of the run it copies, older than
-        // the records read since
-        let copy = block.kind == BlockKind::Describe && self.next_seq == block.seq.checked_add(1);
+        // a copy a writer made (a repeat, the backup before the finish, the next piece's start): its sticky records
+        // are the state of the run it copies, older than the records read since
+        let copy = block.is_copy();
+        // seq counts per run: a new run starts counting again
+        if self.run != Some(block.run) {
+            self.run = Some(block.run);
+            self.next_seq = None;
+        }
         if let Some(next) = self.next_seq
             && block.seq > next
         {

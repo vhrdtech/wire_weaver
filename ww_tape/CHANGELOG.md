@@ -6,6 +6,7 @@
 
 - Header bytes 24..28 hold the run tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).
 - `PieceHead` gains `prev_run`: the run before the piece head on the medium, piece head bytes 92..96 (STD-129).
+- Within a run a describe block is in seq order unless marked a copy; `FileError` gains `Replaced` (STD-129).
 - `OpenOptions` gains `medium`, `start` and `layout`; `PieceInfo` gains `gaps` (STD-129).
 - `Layout` gains `gap_max` and `resume_align`, its fields are `Bytes<u32>`; `FileError` gains `Gap` and `Stale`, `Cut` gains `Stale` (STD-129).
 - Block makers take a `BlockId` (run and seq) instead of a seq; `set_seq` is `set_id`; `DescribeSet::write_blocks` counts a `&mut BlockId` (STD-129).
@@ -27,6 +28,8 @@
 
 ### 🚀 Features
 
+- The same (run, seq) twice is a duplicate, not a cut: same bytes dropped, other bytes the later wins (STD-129).
+- Header flag `FLAG_COPY` marks describe copies a writer makes; `Block::flags`, `is_copy`, `crc`; `mark_copy` (STD-129).
 - `TapeReader` keeps to runs and reads past gaps (`PieceInfo::gaps`); `OpenOptions::medium` walks a raw medium forward from `start` (STD-129).
 - `FileBlocks` keeps to one run: stale blocks of another run end the data; gaps within `Layout::gap_max` are read past (STD-129).
 - `Medium` (`File`, `Raw`), `FileBlocks::on`, `starting_at`, `with_layout`; `Layout::on_sd_card`, `on_raw_nand` (STD-129).

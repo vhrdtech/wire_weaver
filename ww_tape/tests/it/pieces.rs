@@ -497,3 +497,28 @@ fn every_block_of_a_chain_carries_its_run() {
     assert!(seqs.windows(2).all(|w| w[0] < w[1]), "{seqs:?}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// The describe blocks a writer writes again (a cut's next piece, the backup before each finish) are marked copies;
+/// the producer's own are not.
+#[test]
+fn a_describe_copy_is_marked() {
+    let dir = scratch("copies");
+    let paths = write_chain(&dir);
+    let mut marks = vec![];
+    for p in &paths {
+        let bytes = std::fs::read(p).unwrap();
+        let mut rd = FileBlocks::new(&bytes[..]);
+        let mut piece = vec![];
+        while let Some(b) = rd.next_block() {
+            let b = b.unwrap();
+            if b.kind == BlockKind::Describe {
+                piece.push(b.is_copy());
+            }
+        }
+        marks.push(piece);
+    }
+    // the first piece: the producer's describe block, its backup; each later one: the copy at its start, its backup
+    assert_eq!(marks[0], [false, true]);
+    assert!(marks[1..].iter().all(|m| m == &[true, true]), "{marks:?}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}

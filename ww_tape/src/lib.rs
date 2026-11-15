@@ -17,7 +17,7 @@
 //!   0   4  magic "WWTP"
 //!   4  u8  version, 2
 //!   5  u8  kind: 1 records, 2 describe (BlockKind)
-//!   6 u16  flags, 0 (a reader ignores bits it doesn't know)
+//!   6 u16  flags: bit 1 copy (FLAG_COPY); others 0 (a reader ignores bits it doesn't know)
 //!   8 u32  len: the whole block, header and CRC included
 //!  12 u32  records in the block
 //!  16 u64  seq: the block number in its run, from 0, +1 per block; a gap is lost blocks. Index, finish, tail and
@@ -164,6 +164,10 @@ pub const HEADER_LEN: usize = 32;
 /// Longest block a reader takes (64 MiB): a longer length is damage. Blocks are small (a producer hands over 64 KiB
 /// ones); the largest are describe blocks with big API bundles.
 pub const MAX_BLOCK_LEN: usize = 64 << 20;
+/// Header flag: the block is a copy a writer made of a block it wrote before (a describe block written again: a
+/// repeat, the backup before a piece's finish, the start of the next piece). It carries the seq of the block before
+/// it and takes no part in the seq order; a reader that read the original takes nothing new from it.
+pub const FLAG_COPY: u16 = 1 << 1;
 /// Bytes of the CRC at the end of a block.
 pub const CRC_LEN: usize = 4;
 /// Track 0: the producer's own, describe records.
@@ -573,6 +577,8 @@ pub struct Block<'b> {
     pub seq: u64,
     /// The run the block belongs to, as written: a reader decides whether it is the current one.
     pub run: RunTag,
+    /// Header flags ([FLAG_COPY]); bits this reader doesn't know are kept, not read.
+    pub flags: u16,
     pub record_count: u32,
     bytes: &'b [u8],
     /// False for a chunk block handed out by [Block::salvage] whose payload doesn't match its CRCs.
@@ -608,12 +614,24 @@ pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
 /// too), so a writer that places blocks later than it made them (a summary block filling the gap before an aligned
 /// chunk) keeps seqs ascending in the file and every block in its run.
 pub fn set_id(block: &mut [u8], id: BlockId) -> Result<(), BlockError> {
+    restamp(block, id, 0)
+}
+
+/// [set_id], and mark the block a [copy](FLAG_COPY) a writer made of a block written before.
+pub fn mark_copy(block: &mut [u8], id: BlockId) -> Result<(), BlockError> {
+    restamp(block, id, FLAG_COPY)
+}
+
+/// Give the good block `block` the id `id` and the header flags `set` too, its CRCs rewritten.
+fn restamp(block: &mut [u8], id: BlockId, set: u16) -> Result<(), BlockError> {
     let b = Block::read(block)?;
     if b.len() != block.len() {
         return Err(BlockError::BadLength(block.len() as u32));
     }
     let chunk = b.is_chunk() && b.body_known();
     let index = b.kind == BlockKind::Index && b.body_known();
+    let flags = b.flags | set;
+    block[6..8].copy_from_slice(&flags.to_le_bytes());
     block[16..24].copy_from_slice(&id.seq.to_le_bytes());
     block[24..28].copy_from_slice(&id.run.get().to_le_bytes());
     if chunk {
@@ -700,6 +718,7 @@ impl<'b> Block<'b> {
             kind: BlockKind::from_u8(bytes[5]),
             record_count: u32::from_le_bytes(bytes[12..16].try_into().expect("4 bytes")),
             seq: u64::from_le_bytes(bytes[16..24].try_into().expect("8 bytes")),
+            flags: u16::from_le_bytes(bytes[6..8].try_into().expect("2 bytes")),
             run: RunTag::from_u32(u32::from_le_bytes(
                 bytes[24..28].try_into().expect("4 bytes"),
             )),
@@ -730,6 +749,17 @@ impl<'b> Block<'b> {
             return Err(BlockError::BadRecords);
         }
         Ok(())
+    }
+
+    /// Whether the block is a [copy](FLAG_COPY) a writer made.
+    pub fn is_copy(&self) -> bool {
+        self.flags & FLAG_COPY != 0
+    }
+
+    /// The block's CRC, the last 4 bytes: with its length, what tells two blocks of one id apart.
+    pub fn crc(&self) -> u32 {
+        let len = self.bytes.len();
+        u32::from_le_bytes(self.bytes[len - CRC_LEN..].try_into().expect("4 bytes"))
     }
 
     /// Whether the block is good throughout. Only [Self::salvage] hands out one that isn't.

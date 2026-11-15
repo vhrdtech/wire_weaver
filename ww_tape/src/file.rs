@@ -63,6 +63,13 @@ pub enum FileError {
         offset: u64,
         len: u64,
     },
+    /// A good block at `offset` with the run and seq of the block before it but other bytes: the later copy wins,
+    /// it comes next. (A copy with the same bytes is dropped silently.)
+    Replaced {
+        offset: u64,
+        run: RunTag,
+        seq: u64,
+    },
     /// [Recovery::Resync]: a good block of run `run` at `offset`, `len` bytes, where no run may start: stale data
     /// (an earlier life of a medium), never data. Skipped by its length.
     Stale {
@@ -121,6 +128,11 @@ impl core::fmt::Display for FileError {
                     "a gap of {len} bytes at byte {offset}, the data goes on after it"
                 )
             }
+            FileError::Replaced { offset, run, seq } => write!(
+                f,
+                "block {seq} of run {:08x} again at byte {offset} with other bytes: the later copy is taken",
+                run.get()
+            ),
             FileError::Stale { offset, run, len } => write!(
                 f,
                 "a stale block of another run ({:08x}) at byte {offset}, {len} bytes skipped",
@@ -168,6 +180,8 @@ pub struct FileBlocks<R> {
     walk: RunState,
     /// A Prefix walk was cut: nothing more
     done: bool,
+    /// The block at the start of `buf` replaces the one taken before with its id (reported already)
+    replacing: bool,
 }
 
 impl<R: Read> FileBlocks<R> {
@@ -187,6 +201,7 @@ impl<R: Read> FileBlocks<R> {
             eof: false,
             walk: RunState::new(Medium::File),
             done: false,
+            replacing: false,
         }
     }
 
@@ -267,7 +282,12 @@ impl<R: Read> FileBlocks<R> {
     /// The next good block, None at the end. Errors are reported one at a time: after a [FileError::Cut] the walk
     /// is over, after the others call again to go on.
     pub fn next_block(&mut self) -> Option<Result<Block<'_>, FileError>> {
-        match self.step() {
+        let mut step = self.step();
+        // a copy with the same bytes as the block before it is dropped
+        while matches!(step, Ok(Some(0))) {
+            step = self.step();
+        }
+        match step {
             Ok(Some(len)) => {
                 self.current = len;
                 // re-borrow to tie the block to self
@@ -365,10 +385,28 @@ impl<R: Read> FileBlocks<R> {
     fn judge(&mut self, len: usize) -> Result<Option<usize>, FileError> {
         let b = Block::salvage(&self.buf[..len]).expect("checked");
         let check_seq = self.recovery == Recovery::Prefix;
-        match (self.walk.verdict(&b, check_seq), self.recovery) {
+        let verdict = match self.walk.verdict(&b, check_seq) {
+            Verdict::Duplicate { same: false } if self.replacing => Verdict::Take,
+            v => v,
+        };
+        self.replacing = false;
+        match (verdict, self.recovery) {
             (Verdict::Take, _) => {
                 self.walk.take(&b);
                 Ok(Some(len))
+            }
+            (Verdict::Duplicate { same: true }, _) => {
+                // dropped: the next step reads on after it
+                self.current = len;
+                Ok(Some(0))
+            }
+            (Verdict::Duplicate { same: false }, _) => {
+                self.replacing = true;
+                Err(FileError::Replaced {
+                    offset: self.offset,
+                    run: b.run,
+                    seq: b.seq,
+                })
             }
             (Verdict::Stale(run), Recovery::Prefix) => {
                 Err(self.cut(self.offset, Cut::Stale { run }))

@@ -402,7 +402,7 @@ impl TapeWriter {
         let id = self.structural_id();
         let r = blocks.iter().try_for_each(|b| {
             let mut b = b.clone();
-            crate::set_id(&mut b, id).map_err(WriteError::Block)?;
+            crate::mark_copy(&mut b, id).map_err(WriteError::Block)?;
             self.write_raw(&b)
         });
         self.describe = blocks;

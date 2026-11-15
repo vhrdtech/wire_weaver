@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- The tap decoder tells a describe copy by its header mark, not by its seq, and counts lost blocks per run (STD-129).
+
+
 ### ⚠️ Breaking
 
 - The tap decoder reads tape v2 (STD-117): times from the tap's clock, `Decoder::wall_ns_at_zero` from its clock map.

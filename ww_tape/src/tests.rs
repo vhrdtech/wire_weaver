@@ -901,37 +901,83 @@ fn blank_at_the_end_is_the_end() {
     }
 }
 
-/// A data block whose seq goes back is a cut; a describe block may go back (another producer run appended).
+/// Within a run a data block whose seq goes back is a cut; a describe block of another run starts that run; the same
+/// (run, seq) again is a duplicate, not a cut: dropped with the same bytes, taken and reported with other bytes.
 #[test]
-fn seq_going_back() {
-    let block = |kind, seq| {
+fn seq_order_and_duplicates() {
+    let block = |kind, id, item: &[u8]| {
         let mut buf = [0u8; 64];
-        let mut w = BlockWriter::new(&mut buf, kind, seq, &[C1]);
-        w.push(1, at(C1, 0), &[b"x"]).unwrap();
+        let mut w = BlockWriter::new(&mut buf, kind, id, &[C1]);
+        w.push(1, at(C1, 0), &[item]).unwrap();
         let len = w.finish();
         buf[..len].to_vec()
     };
+    let other = |seq| BlockId::new(RunTag::writable(77), seq);
+    let walk = |file: &[u8]| {
+        let mut rd = FileBlocks::new(file);
+        let (mut got, mut errors) = (vec![], vec![]);
+        while let Some(b) = rd.next_block() {
+            match b {
+                Ok(b) => got.push((b.seq, b.records().next().unwrap().unwrap().item.to_vec())),
+                Err(e) => errors.push(e),
+            }
+        }
+        (got, errors)
+    };
     let file: Vec<u8> = [
-        block(BlockKind::Records, id(5)),
-        block(BlockKind::Records, id(6)),
-        block(BlockKind::Describe, id(0)),
-        block(BlockKind::Records, id(1)),
-        block(BlockKind::Records, id(1)),
-        block(BlockKind::Records, id(2)),
+        block(BlockKind::Records, id(5), b"a"),
+        block(BlockKind::Records, id(6), b"b"),
+        block(BlockKind::Describe, other(0), b"d"),
+        block(BlockKind::Records, other(1), b"c"),
+        block(BlockKind::Records, other(1), b"c"),
+        block(BlockKind::Records, other(2), b"e"),
+        block(BlockKind::Records, other(2), b"E"),
+        block(BlockKind::Records, other(3), b"f"),
+        block(BlockKind::Records, other(2), b"g"),
     ]
     .concat();
-    let mut rd = FileBlocks::new(&file[..]);
-    let mut seqs = vec![];
-    let mut cut = None;
-    while let Some(b) = rd.next_block() {
-        match b {
-            Ok(b) => seqs.push(b.seq),
-            Err(FileError::Cut { why, .. }) => cut = Some(why),
-            Err(e) => panic!("{e}"),
-        }
-    }
-    assert_eq!(seqs, [5, 6, 0, 1]);
-    assert_eq!(cut, Some(Cut::SeqBackwards { seq: 1, after: 1 }));
+    let (got, errors) = walk(&file);
+    let seqs: Vec<(u64, &[u8])> = got.iter().map(|(s, i)| (*s, i.as_slice())).collect();
+    assert_eq!(
+        seqs,
+        [
+            (5, &b"a"[..]),
+            (6, b"b"),
+            (0, b"d"),
+            (1, b"c"),
+            (2, b"e"),
+            (2, b"E"),
+            (3, b"f")
+        ]
+    );
+    assert!(
+        matches!(
+            errors[..],
+            [
+                FileError::Replaced { seq: 2, .. },
+                FileError::Cut {
+                    why: Cut::SeqBackwards { seq: 2, after: 3 },
+                    ..
+                }
+            ]
+        ),
+        "{errors:?}"
+    );
+    // a records block can't start a run on a file: another run's data block is stale
+    let file = [
+        block(BlockKind::Records, id(5), b"a"),
+        block(BlockKind::Records, other(6), b"b"),
+    ]
+    .concat();
+    let (got, errors) = walk(&file);
+    assert_eq!(got.len(), 1);
+    assert!(matches!(
+        errors[..],
+        [FileError::Cut {
+            why: Cut::Stale { .. },
+            ..
+        }]
+    ));
 }
 
 #[test]
@@ -962,7 +1008,7 @@ fn writer_partial_then_renamed() {
     // appended: the second run's blocks start with a describe block
     let mut w = TapeWriter::append(&path, SyncPolicy::default()).unwrap();
     let mut buf = [0u8; 64];
-    let len = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).finish();
+    let len = BlockWriter::new(&mut buf, BlockKind::Describe, w.next_id(), &[]).finish();
     w.write_block(&buf[..len]).unwrap();
     w.tick().unwrap();
     w.finish().unwrap();
@@ -991,6 +1037,7 @@ fn pass_through_capture_reads_to_the_end() {
     });
     w.set_describe_repeat(2048);
     let mut buf = [0u8; 64];
+    // the producer's run: its describe block, then its records
     let len = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).finish();
     w.write_block(&buf[..len]).unwrap();
     let (file, ends) = tape(60);

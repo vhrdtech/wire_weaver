@@ -7009,6 +7009,7 @@ dependencies = [
  "blake3",
  "crc",
  "exact_units",
+ "lz4_flex",
  "shrink_wrap",
  "ww_version",
 ]

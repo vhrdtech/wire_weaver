@@ -99,6 +99,7 @@ pub use chunk::{
     EndMode,
 };
 
+pub mod lz4;
 pub mod samples;
 pub use samples::{Element, Sample, SampleError, SampleShape, Samples};
 

@@ -14,6 +14,7 @@
 //! | 21, 22 | [Codec::PACKED24_LSB], [Codec::PACKED24_MSB] | integers of 32 bits and more | 24 bits per value |
 //! | 24 | [Codec::GORILLA] | floats | XOR with the previous value of the lane, Gorilla's control bits |
 //! | 25 | [Codec::CHIMP] | floats | XOR with the previous value of the lane, Chimp's control bits |
+//! | 26 | [Codec::ALP] | floats | decimals as integers bit-packed per group, else front bits via a dictionary ([alp]) |
 //! | 32 | [Codec::DELTA] | integers | differences, frame of reference, bit-packed per group |
 //! | 33 | [Codec::DELTA2] | integers | differences of differences, as [Codec::DELTA] |
 //! | 34 | [Codec::FLOAT_DELTA] | floats | [Codec::DELTA] of the bits as ordered integers |
@@ -64,8 +65,11 @@
 //! negative value's bits inverted, a positive one's sign bit set), so a difference is small when the floats are
 //! close; NaN payloads and the sign of zero survive.
 //!
+//! ALP (26) codes groups of [ALP_GROUP] samples with the same table of group ends; its layout is in [alp].
+//!
 //! Every codec is deterministic: the same values give the same bytes.
 
+pub mod alp;
 mod delta;
 mod element;
 mod raw;
@@ -73,6 +77,7 @@ mod raw;
 mod tests;
 mod xor;
 
+pub use alp::ALP_GROUP;
 pub use element::{Element, SampleShape};
 
 use crate::Codec;
@@ -97,6 +102,8 @@ impl Codec {
     pub const GORILLA: Codec = Codec(24);
     /// Floats, XOR with the previous value and Chimp's control bits.
     pub const CHIMP: Codec = Codec(25);
+    /// Floats, ALP: decimals as integers bit-packed per group, other floats' front bits through a dictionary.
+    pub const ALP: Codec = Codec(26);
     /// Integers, differences bit-packed per group.
     pub const DELTA: Codec = Codec(32);
     /// Integers, differences of differences bit-packed per group.
@@ -216,6 +223,7 @@ enum Kind {
     Packed { bits: u32, msb: bool },
     Xor(xor::Flavor),
     Delta(delta::Flavor),
+    Alp,
 }
 
 fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
@@ -244,6 +252,7 @@ fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
         }
         Codec::GORILLA if scalar.is_float() => Kind::Xor(xor::Flavor::Gorilla),
         Codec::CHIMP if scalar.is_float() => Kind::Xor(xor::Flavor::Chimp),
+        Codec::ALP if scalar.is_float() => Kind::Alp,
         Codec(id @ 32..=35) => {
             let float = id >= 34;
             if float != scalar.is_float() || scalar == Element::Bool {
@@ -293,6 +302,7 @@ pub fn max_encoded_len(
     let len = match kind {
         Kind::Xor(_) => xor::max_len(count, values, shape.element.scalar_bits()),
         Kind::Delta(f) => delta::max_len(f.order, count, values, shape.element.scalar_bits()),
+        Kind::Alp => alp::max_len(count, values, shape.element.scalar_bits()),
         _ => plain_len(values, value_bits(kind, shape.element)),
     };
     len.ok_or(SampleError::BadShape)
@@ -323,6 +333,7 @@ pub fn encode<T: Sample>(
         Kind::Packed { bits, msb } => raw::encode_packed(values, bits, msb, out),
         Kind::Xor(flavor) => Ok(xor::encode(flavor, values, lanes, out)),
         Kind::Delta(flavor) => Ok(delta::encode(flavor, values, lanes, out)),
+        Kind::Alp => alp::encode(values, lanes, out),
     }
 }
 
@@ -361,17 +372,26 @@ fn check_table(bytes: &[u8], groups: usize) -> Result<(), SampleError> {
     Ok(())
 }
 
+/// The bytes of group `g` of a grouped column, None when the table doesn't hold it.
+fn table_entry(bytes: &[u8], groups: usize, g: usize) -> Option<Range<usize>> {
+    let table = groups.checked_mul(ENTRY)?;
+    let end_of = |i: usize| -> Option<usize> {
+        let at = i.checked_mul(ENTRY)?;
+        let e = bytes.get(at..at.checked_add(ENTRY)?)?;
+        let e: [u8; ENTRY] = e.try_into().ok()?;
+        table.checked_add(u32::from_le_bytes(e) as usize)
+    };
+    let from = match g.checked_sub(1) {
+        Some(p) => end_of(p)?,
+        None => table,
+    };
+    let to = end_of(g)?;
+    (g < groups && from <= to && to <= bytes.len()).then_some(from..to)
+}
+
 /// The bytes of group `g` of a grouped column whose table was checked.
 fn table_range(bytes: &[u8], groups: usize, g: usize) -> Range<usize> {
-    let table = groups * ENTRY;
-    let end_of = |i: usize| {
-        let e: [u8; ENTRY] = bytes[i * ENTRY..(i + 1) * ENTRY]
-            .try_into()
-            .expect("4 bytes");
-        u32::from_le_bytes(e) as usize
-    };
-    let from = if g == 0 { 0 } else { end_of(g - 1) };
-    table + from..table + end_of(g)
+    table_entry(bytes, groups, g).expect("a checked table holds every group")
 }
 
 /// A sample column read in place: its codec, shape and count, checked against its bytes.
@@ -401,6 +421,7 @@ impl<'b> Samples<'b> {
         match kind {
             Kind::Xor(_) => xor::check_table(bytes, count)?,
             Kind::Delta(_) => delta::check_table(bytes, count)?,
+            Kind::Alp => alp::check_table(bytes, count)?,
             _ => {
                 if plain_len(values, value_bits(kind, shape.element)) != Some(bytes.len()) {
                     return Err(bad);
@@ -473,21 +494,23 @@ impl<'b> Samples<'b> {
             Kind::Delta(flavor) => {
                 return delta::decode(flavor, self.bytes, self.count, self.lanes, first, out);
             }
+            Kind::Alp => return alp::decode(self.bytes, self.count, self.lanes, first, out),
         }
         Ok(())
     }
 
-    /// Samples per group: [XOR_GROUP] or [DELTA_GROUP], None for a raw format.
+    /// Samples per group: [XOR_GROUP], [DELTA_GROUP] or [ALP_GROUP], None for a raw format.
     fn group_len(&self) -> Option<usize> {
         match self.kind {
             Kind::Xor(_) => Some(XOR_GROUP),
             Kind::Delta(_) => Some(DELTA_GROUP),
+            Kind::Alp => Some(ALP_GROUP),
             _ => None,
         }
     }
 
-    /// Groups a reader can decode alone: 1 for a raw format, a group per [XOR_GROUP] or [DELTA_GROUP] samples for
-    /// the XOR and delta codecs.
+    /// Groups a reader can decode alone: 1 for a raw format, a group per [XOR_GROUP], [DELTA_GROUP] or [ALP_GROUP]
+    /// samples for the XOR, delta and ALP codecs.
     pub fn group_count(&self) -> usize {
         self.group_len().map_or(1, |n| self.count.div_ceil(n))
     }
@@ -517,7 +540,7 @@ impl<'b> Samples<'b> {
     /// The bytes that code `samples` in a raw format, None for the grouped codecs (see [Self::group_bytes]).
     pub fn sample_bytes(&self, samples: Range<usize>) -> Option<Range<usize>> {
         let bits = match self.kind {
-            Kind::Xor(_) | Kind::Delta(_) => return None,
+            Kind::Xor(_) | Kind::Delta(_) | Kind::Alp => return None,
             k => value_bits(k, self.shape.element) as usize,
         };
         let from = samples.start * self.lanes * bits / 8;

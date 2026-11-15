@@ -1,10 +1,10 @@
 use super::*;
 
 /// xorshift64*, a fixed seed per test.
-struct Rng(u64);
+pub(super) struct Rng(pub(super) u64);
 
 impl Rng {
-    fn next(&mut self) -> u64 {
+    pub(super) fn next(&mut self) -> u64 {
         self.0 ^= self.0 >> 12;
         self.0 ^= self.0 << 25;
         self.0 ^= self.0 >> 27;
@@ -12,7 +12,7 @@ impl Rng {
     }
 }
 
-fn encode_vec<T: Sample>(codec: Codec, shape: SampleShape, values: &[T]) -> Vec<u8> {
+pub(super) fn encode_vec<T: Sample>(codec: Codec, shape: SampleShape, values: &[T]) -> Vec<u8> {
     let lanes = shape.lanes().unwrap() as usize;
     let mut out = vec![0u8; max_encoded_len(codec, shape, values.len() / lanes).unwrap()];
     let n = encode(codec, shape, values, &mut out).unwrap();
@@ -21,7 +21,7 @@ fn encode_vec<T: Sample>(codec: Codec, shape: SampleShape, values: &[T]) -> Vec<
 }
 
 /// Encode, check the column, decode the whole and a few ranges back.
-fn roundtrip<T: Sample>(codec: Codec, shape: SampleShape, values: &[T]) -> Vec<u8> {
+pub(super) fn roundtrip<T: Sample>(codec: Codec, shape: SampleShape, values: &[T]) -> Vec<u8> {
     let lanes = shape.lanes().unwrap() as usize;
     let count = values.len() / lanes;
     let bytes = encode_vec(codec, shape, values);
@@ -161,7 +161,7 @@ fn every_raw_format_round_trips() {
 }
 
 /// A slow sine with a little noise, as a sensor gives, in `f64`.
-fn sensor(n: usize, seed: u64) -> Vec<f64> {
+pub(super) fn sensor(n: usize, seed: u64) -> Vec<f64> {
     let mut r = Rng(seed);
     (0..n)
         .map(|i| {
@@ -421,12 +421,18 @@ fn samples_golden() {
         Codec::CHIMP,
         Codec::FLOAT_DELTA,
         Codec::FLOAT_DELTA2,
+        Codec::ALP,
     ] {
         add(col(c, s(Element::F64), &f64s));
         add(col(c, s(Element::F32), &f32s));
         add(col(c, s(Element::F64), &any[..40]));
         add(col(c, SampleShape::new(Element::ComplexF32, 1), &f32s));
     }
+    // decimals, the data ALP codes as integers: IEEE division gives the same values everywhere
+    let cents: Vec<f64> = wave.iter().map(|v| *v as f64 / 100.0).collect();
+    let cents32: Vec<f32> = wave.iter().map(|v| *v as f32 / 100.0).collect();
+    add(col(Codec::ALP, s(Element::F64), &cents));
+    add(col(Codec::ALP, s(Element::F32), &cents32));
     for c in [Codec::DELTA, Codec::DELTA2] {
         add(col(c, s(Element::I16), &i16s));
         add(col(c, SampleShape::new(Element::I32, 3), &i32s));
@@ -517,6 +523,7 @@ fn random_columns_never_panic() {
         Codec::DELTA2,
         Codec::FLOAT_DELTA,
         Codec::FLOAT_DELTA2,
+        Codec::ALP,
     ];
     fn try_all<T: Sample>(codec: Codec, shape: SampleShape, count: usize, bytes: &[u8]) {
         if let Ok(s) = Samples::new(codec, shape, count, bytes) {

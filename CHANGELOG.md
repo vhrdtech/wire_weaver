@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- `ww_tape` ALP sample codec (STD-130): lossless floats that began as decimals stored as bit-packed integers. See the `ww_tape` changelog.
 - `ww_tape` v2 summary blocks (STD-121): a stored event item tree and mergeable series summaries. See the `ww_tape` changelog.
 - `ww_tape` sample codecs (STD-119): raw device formats, Gorilla, Chimp, delta bit-packing and lz4 payloads, read in place. See the `ww_tape` changelog.
 - `ww_tape` format v2 describe (STD-117): clocks with exact rates, clock maps, typed describe items, track dimensions, i64 ticks per clock, canonical describe order. See the `ww_tape`, `ww_tap` and `wire_weaver_client` changelogs.

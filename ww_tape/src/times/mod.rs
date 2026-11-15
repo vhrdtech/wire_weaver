@@ -33,7 +33,8 @@
 //!
 //! **Salvage.** A chunk whose payload CRC failed ([Block::salvage](crate::Block::salvage)) still reads through
 //! [EventTimes::salvage]: columns in a bad segment have their group records checked one by one as they are read
-//! (width at most 64, offsets matching the next group's, slope, minimum and first tick in range, the last group
+//! (width at most 64, values inside the column, offsets matching the neighbours', a broken match blamed on the
+//! group whose offset or width breaks it, slope, minimum and first tick in range, the last group
 //! ending on the chunk's last tick), and only the items of a group that fails are suspect ([EventTimes::is_suspect]).
 //! A flipped bit in a residual damages one item; one in a group record, one group.
 

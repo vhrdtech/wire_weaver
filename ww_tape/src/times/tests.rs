@@ -392,6 +392,79 @@ fn salvage_marks_only_the_bad_group() {
     assert_eq!(wrong, 1);
 }
 
+/// The block offset of the first byte of the `kind` column.
+fn column_start(b: &[u8], kind: ColumnKind) -> usize {
+    let block = Block::read(b).unwrap();
+    let c = block.chunk().unwrap();
+    c.payload_offset() + c.columns().find(|c| c.kind == kind).unwrap().offset
+}
+
+/// Per packed column: kind, record length, where the width (a u8, or a u32 OR for flags) and the offset sit.
+const RECORDS: [(ColumnKind, usize, usize, usize); 3] = [
+    (ColumnKind::Starts, 25, 20, 21),
+    (ColumnKind::Ends, 13, 8, 9),
+    (ColumnKind::Flags, 8, 0, 4),
+];
+
+#[test]
+fn salvage_bounds_every_group_by_the_column() {
+    // offsets that agree with each other but point far past the column
+    let s: Vec<i64> = (0..129i64).map(|i| i * i).collect();
+    let spans: Vec<i64> = s
+        .iter()
+        .enumerate()
+        .map(|(i, x)| x + (i % 7) as i64)
+        .collect();
+    let flags: Vec<u32> = (0..129).map(|i| (i % 3) as u32).collect();
+    let good = block(&s, Some(&spans), Some(&flags));
+    for (kind, len, width, offset) in RECORDS {
+        let mut b = good.clone();
+        let c = column_start(&b, kind);
+        if kind == ColumnKind::Flags {
+            b[c + width..c + width + 4].copy_from_slice(&1u32.to_le_bytes());
+        } else {
+            b[c + width] = 1;
+        }
+        b[c + offset..c + offset + 4].copy_from_slice(&0x0100_0000u32.to_le_bytes());
+        b[c + len + offset..c + len + offset + 4].copy_from_slice(&0x0100_0010u32.to_le_bytes());
+        let block = Block::salvage(&b).unwrap();
+        let chunk = block.chunk().unwrap();
+        assert!(EventTimes::read(&chunk).is_err(), "{kind:?}");
+        let t = EventTimes::salvage(&chunk).unwrap();
+        read_all(&t);
+        assert!(t.is_suspect_group(0), "{kind:?}");
+    }
+}
+
+#[test]
+fn a_damaged_record_marks_its_group_only() {
+    let s: Vec<i64> = workloads().swap_remove(0).1;
+    let mut r = Rng(5);
+    let spans: Vec<i64> = s.iter().map(|x| x + r.below(5000) as i64).collect();
+    let flags: Vec<u32> = (0..s.len()).map(|i| (i % 3) as u32).collect();
+    let good = block(&s, Some(&spans), Some(&flags));
+    for (kind, len, width, offset) in RECORDS {
+        // a flipped offset breaks the links on both sides of group 5; a flipped width only the one after it
+        for (at, bit) in [(offset, 0x04), (offset + 1, 0x01), (width, 0x04)] {
+            let mut b = good.clone();
+            let c = column_start(&b, kind);
+            b[c + 5 * len + at] ^= bit;
+            let block = Block::salvage(&b).unwrap();
+            let t = EventTimes::salvage(&block.chunk().unwrap()).unwrap();
+            let bad: Vec<_> = t.suspect_items().collect();
+            assert_eq!(bad, std::vec![(5 * GROUP..6 * GROUP)], "{kind:?} byte {at}");
+            for i in (0..s.len()).filter(|i| i / GROUP != 5) {
+                let got = (t.start(i), t.end(i), t.flag(i));
+                assert_eq!(
+                    got,
+                    (s[i], spans[i], flags[i]),
+                    "{kind:?} byte {at} item {i}"
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn an_intact_column_is_read_strictly_in_salvage() {
     let s: Vec<i64> = workloads().swap_remove(0).1;

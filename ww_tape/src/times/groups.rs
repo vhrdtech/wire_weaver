@@ -133,19 +133,48 @@ impl<'b> Groups<'b> {
         Ok(())
     }
 
-    /// Whether group `g`'s record fits the column: width at most 64, values inside the column and ending where the
-    /// next group starts (the last at the column's end).
-    pub(crate) fn group_fits(&self, g: usize) -> bool {
+    /// Where group `g`'s values end at the offset and width its record states; None for a width over 64 or an end
+    /// past the column.
+    fn end(&self, g: usize) -> Option<usize> {
         if self.raw_width(g) > WIDTH_MAX {
-            return false;
+            return None;
         }
-        let end = self.raw_offset(g) + self.packed(g);
+        let end = self.raw_offset(g).checked_add(self.packed(g))?;
+        (end <= self.data_len).then_some(end)
+    }
+
+    /// Whether group `g`'s values end where group `g + 1`'s start, the last group's at the column's end.
+    fn ends_at_next(&self, g: usize) -> bool {
         let next = if g + 1 < self.count() {
             self.raw_offset(g + 1)
         } else {
             self.data_len
         };
-        end == next
+        self.end(g) == Some(next)
+    }
+
+    /// Whether group `g` starts where group `g - 1` ends, group 0 at 0.
+    fn starts_at_previous(&self, g: usize) -> bool {
+        if g == 0 {
+            self.raw_offset(0) == 0
+        } else {
+            self.ends_at_next(g - 1)
+        }
+    }
+
+    /// Whether group `g`'s record fits the column: width at most 64, values inside the column, and no broken link
+    /// to a neighbour that `g` is to blame for.
+    ///
+    /// A damaged offset breaks the links on both sides of its group; a damaged width only the link after it. So a
+    /// broken link after `g` is `g`'s fault when the link before `g` is broken too, when `g` is the last group, or
+    /// when the link after `g + 1` holds; otherwise `g + 1`'s offset is the damaged one. A good neighbour of a
+    /// damaged group stays good.
+    pub(crate) fn group_fits(&self, g: usize) -> bool {
+        if self.end(g).is_none() {
+            return false;
+        }
+        self.ends_at_next(g)
+            || (self.starts_at_previous(g) && g + 1 < self.count() && !self.ends_at_next(g + 1))
     }
 
     /// Group `g`'s values from their first byte on; only for a group that [Self::check] or [Self::group_fits]

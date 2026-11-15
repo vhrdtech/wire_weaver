@@ -1,6 +1,7 @@
 //! ww_tape's event time codec on any bytes: a chunk block's times read and salvage without panic; times built from
-//! the input read back exactly and survive a flipped byte without panic; every bit-pack kernel decodes any bytes as
-//! the scalar code does.
+//! the input read back exactly and survive, without panic, a flipped bit and input bytes written over their columns
+//! (a good head over a damaged payload, as salvage meets it); every bit-pack kernel decodes any bytes as the scalar
+//! code does.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -24,7 +25,15 @@ fn read_all(t: &EventTimes<'_>) {
         }
     }
     assert_eq!(s.iter().rev().count(), t.len());
-    for q in [i64::MIN, -1, 0, 1 << 40, i64::MAX, s.first_tick(), s.last_tick()] {
+    for q in [
+        i64::MIN,
+        -1,
+        0,
+        1 << 40,
+        i64::MAX,
+        s.first_tick(),
+        s.last_tick(),
+    ] {
         assert!(s.lower_bound(q) <= t.len());
         let _ = s.last_at_or_before(q);
     }
@@ -64,15 +73,19 @@ fn kernels(data: &[u8]) {
 fuzz_target!(|data: &[u8]| {
     walk(data);
     kernels(data);
-    // times from the input: [flip u32][mode u8] then per item a delta u16, a duration u8, a flag u8
-    if data.len() < 9 {
+    // times from the input: [flip u32][mode u8][first tick u32][patch length u8][patch], then per item a delta u16,
+    // a duration u8, a flag u8
+    if data.len() < 10 {
         return;
     }
     let flip = u32::from_le_bytes(data[..4].try_into().unwrap()) as usize;
     let mode = data[4];
     let mut t = i64::from_le_bytes([data[5], data[6], data[7], data[8], 0, 0, 0, 0]) << (mode & 31);
+    let Some((patch, items)) = data[10..].split_at_checked(usize::from(data[9] % 64)) else {
+        return;
+    };
     let (mut starts, mut ends, mut flags) = (vec![], vec![], vec![]);
-    for c in data[9..].chunks_exact(4) {
+    for c in items.chunks_exact(4) {
         t = t.saturating_add(i64::from(u16::from_le_bytes([c[0], c[1]])) << (mode >> 5));
         starts.push(t);
         ends.push(t.saturating_add(i64::from(c[2])));
@@ -85,16 +98,25 @@ fuzz_target!(|data: &[u8]| {
     let cols: Vec<_> = enc.columns().collect();
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
-    let len = write_chunk(&mut buf, 1, &enc.head.chunk_head(1, 1, 0), &cols, 0).expect("a valid chunk");
+    let len =
+        write_chunk(&mut buf, 1, &enc.head.chunk_head(1, 1, 0), &cols, 0).expect("a valid chunk");
     let block = Block::read(&buf[..len]).expect("written good");
     let chunk = block.chunk().expect("a chunk");
     let times = EventTimes::read(&chunk).expect("written times read");
     for i in 0..starts.len() {
-        assert_eq!((times.start(i), times.end(i), times.flag(i)), (starts[i], ends[i], flags[i]));
+        assert_eq!(
+            (times.start(i), times.end(i), times.flag(i)),
+            (starts[i], ends[i], flags[i])
+        );
     }
     read_all(&times);
     let p = chunk.payload_offset();
     let at = p + flip % (len - 4 - p);
-    buf[at] ^= 1 << (flip >> 29);
+    let mut flipped = buf.clone();
+    flipped[at] ^= 1 << (flip >> 29);
+    walk(&flipped[..len]);
+    // the patch over the payload, CRCs left as they were: group records that agree with each other but not the column
+    let end = (at + patch.len()).min(len - 4);
+    buf[at..end].copy_from_slice(&patch[..end - at]);
     walk(&buf[..len]);
 });

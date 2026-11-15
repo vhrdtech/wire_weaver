@@ -342,6 +342,51 @@ fn renumbered_blocks_stay_good() {
     assert_eq!((b.run, b.seq), (other.run, 43));
 }
 
+/// Column lengths whose sum overflows a usize make a chunk too long, never a wrapped length.
+#[test]
+fn overflowing_column_lengths_are_too_long() {
+    let (head, _) = events(0, 3);
+    let spec = |kind| ColumnSpec {
+        kind,
+        codec: Codec::RAW,
+        param: 0,
+        len: usize::MAX / 2 + 1,
+    };
+    let specs = [spec(ColumnKind::Starts), spec(ColumnKind::Payloads)];
+    assert_eq!(chunk_len(&specs, 0), usize::MAX);
+    assert_eq!(chunk_head_len(usize::MAX, 0), usize::MAX);
+    let mut buf = vec![0u8; 4096];
+    assert!(matches!(
+        ChunkWriter::new(&mut buf, id(0), &head, &specs, 0),
+        Err(ChunkError::TooLong { len: usize::MAX })
+    ));
+}
+
+/// A head out of range is refused by the checked restamp, which writes nothing.
+#[test]
+fn restamp_refuses_a_head_out_of_range() {
+    let (head, cols) = events(0, 3);
+    let good = encode(&head, &event_columns(&cols), 1, 0);
+    let mut bytes = good.clone();
+    assert_eq!(try_restamp(&mut bytes), Ok(()));
+    assert_eq!(
+        bytes, good,
+        "a restamp of an unchanged header changes nothing"
+    );
+    let mut bad = good.clone();
+    bad[80] = SEGMENT_SHIFT_MAX + 1;
+    let before = bad.clone();
+    assert!(matches!(
+        try_restamp(&mut bad),
+        Err(ChunkHeadError::Bound(_))
+    ));
+    assert_eq!(bad, before);
+    let mut bad = good.clone();
+    bad[32..36].copy_from_slice(&u32::MAX.to_le_bytes());
+    assert_eq!(try_restamp(&mut bad), Err(ChunkHeadError::BadHeadCrc));
+    assert_eq!(try_restamp(&mut [0u8; 8]), Err(ChunkHeadError::BadHeadCrc));
+}
+
 /// A describe block, small records blocks deferred into the gaps, and chunks, through [TapeWriter].
 fn write_tape(path: &std::path::Path, layout: Layout) -> Vec<u8> {
     _ = std::fs::remove_file(path);

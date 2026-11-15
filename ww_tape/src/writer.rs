@@ -17,8 +17,14 @@
 //! The writer indexes what it places: a checkpoint [index](crate::index) block every few MiB ([IndexPolicy]), so a
 //! reader after a crash rescans only the stretch after the newest one. [TapeWriter::finish] ends the file as a
 //! [piece](crate::piece): the final index sorted by track, a backup of the newest describe blocks, the finish block
-//! with the BLAKE3 content hash of everything before it, and the tail. The newest describe blocks are written again
-//! about every [DESCRIBE_REPEAT_BYTES]. [TapeWriter::cut] ends a piece and starts the next one of the chain;
+//! with the BLAKE3 content hash of everything before it, and the tail.
+//!
+//! The newest describe blocks are written again as [copies](crate::FLAG_COPY), so a piece whose head describe set is
+//! damaged still reads: once right after the piece's first checkpoint (about 4 MiB in with the default
+//! [IndexPolicy]), then about every [DESCRIBE_REPEAT_BYTES] ([TapeWriter::set_describe_repeat]), and as the backup
+//! before the finish. A piece so holds one describe set before its first checkpoint, two from then on, one more per
+//! repeat, and one more once finished; a piece after a cut starts with a copy of the one before's.
+//! [TapeWriter::cut] ends a piece and starts the next one of the chain;
 //! [crate::PieceChain] cuts by size, chunk count or time.
 
 use std::fs::{File, OpenOptions};
@@ -137,6 +143,8 @@ pub struct TapeWriter {
     since_describe: u64,
     /// Bytes after which the newest describe blocks are written again
     describe_repeat: u64,
+    /// The describe copy after the piece's first checkpoint is still to be written
+    checkpoint_copy_due: bool,
 }
 
 /// What a finished piece is.
@@ -227,6 +235,7 @@ impl TapeWriter {
             replaying: false,
             since_describe: 0,
             describe_repeat: DESCRIBE_REPEAT_BYTES,
+            checkpoint_copy_due: true,
         }
     }
 
@@ -442,7 +451,13 @@ impl TapeWriter {
             .indexer
             .checkpoint(self.offset(), self.structural_id())
             .map_err(WriteError::Index)?;
-        self.write_raw(&b)
+        self.write_raw(&b)?;
+        // a second describe set early in the piece, so a damaged head set doesn't make it unreadable
+        if self.checkpoint_copy_due && !self.describe.is_empty() {
+            self.checkpoint_copy_due = false;
+            self.replay_describe()?;
+        }
+        Ok(())
     }
 
     /// A small summary or data block that may wait for the gap in front of the next aligned chunk payload. It is

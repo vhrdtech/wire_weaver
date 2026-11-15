@@ -167,8 +167,8 @@ fn finished_file_is_found_by_its_tail() {
     );
     assert_eq!(
         rec.iter().filter(|e| e.kind == BlockKind::Describe).count(),
-        2,
-        "first and backup"
+        3,
+        "first, the copy after the first checkpoint, and backup"
     );
 
     // a flipped byte before the finish fails the content hash
@@ -517,9 +517,13 @@ fn a_describe_copy_is_marked() {
         }
         marks.push(piece);
     }
-    // the first piece: the producer's describe block, its backup; each later one: the copy at its start, its backup
-    assert_eq!(marks[0], [false, true]);
-    assert!(marks[1..].iter().all(|m| m == &[true, true]), "{marks:?}");
+    // the first piece: the producer's describe block, the copy after the first checkpoint, the backup; each later
+    // one: the copy at its start, the copy after its first checkpoint, the backup
+    assert_eq!(marks[0], [false, true, true]);
+    assert!(
+        marks[1..].iter().all(|m| m == &[true, true, true]),
+        "{marks:?}"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -543,6 +547,85 @@ fn big_chunk(k: u64) -> (ChunkHead, Vec<u8>) {
         end_mode: EndMode::Absent,
     };
     (head, starts)
+}
+
+/// A piece with a damaged head describe block still has its describe set: the copy the writer placed after the first
+/// checkpoint, found through the checkpoints of an unfinished 10 MiB piece and the final index of a finished one.
+#[test]
+fn a_damaged_head_describe_set_reads_from_the_next_copy() {
+    for finished in [false, true] {
+        let dir = scratch(&format!("damaged_describe_{finished}"));
+        let path = dir.join("p.wwt");
+        let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+        let result = ResultId([7; 32]);
+        let head = ww_tape::PieceHead {
+            ident: ww_tape::PieceIdent {
+                id: PieceId::first(&result),
+                result,
+                seq: 0,
+            },
+            prev: None,
+            prev_run: RunTag::NONE,
+        };
+        w.begin_piece(&head, &[]).unwrap();
+        let originals = describe_blocks(Layout::UNALIGNED, w.next_id());
+        for b in &originals {
+            w.write_block(b).unwrap();
+        }
+        for k in 0..160 {
+            let (h, c) = big_chunk(k);
+            w.write_chunk(&h, &column(&c)).unwrap();
+        }
+        let bytes = if finished {
+            let f = w.finish().unwrap();
+            std::fs::read(f.path).unwrap()
+        } else {
+            drop(w);
+            std::fs::read(dir.join("p.wwt.partial")).unwrap()
+        };
+        assert!(bytes.len() > 10 << 20, "{} bytes", bytes.len());
+        let describe: Vec<(u64, bool)> = walk(&bytes)
+            .into_iter()
+            .filter(|b| b.2 == BlockKind::Describe)
+            .map(|b| {
+                (
+                    b.0,
+                    ww_tape::Block::read(&bytes[b.0 as usize..])
+                        .unwrap()
+                        .is_copy(),
+                )
+            })
+            .collect();
+        // the head's set, the copy after the first checkpoint (4 MiB), and the backup of a finished piece
+        let want = if finished { 3 } else { 2 };
+        assert_eq!(describe.len(), want, "{describe:?}");
+        assert!(!describe[0].1 && describe[1..].iter().all(|d| d.1));
+        assert!(
+            describe[1].0 > 4 << 20 && describe[1].0 < 5 << 20,
+            "{describe:?}"
+        );
+
+        let mut damaged = bytes.clone();
+        damaged[describe[0].0 as usize + 40] ^= 1;
+        for (src, copy) in [(&bytes, false), (&damaged, true)] {
+            let rd = TapeReader::open(&src[..]).unwrap();
+            assert_eq!(rd.pieces().len(), 1);
+            let set = rd.describe_set(0).unwrap();
+            assert_eq!(set.len(), originals.len());
+            let at = if copy { describe[1].0 } else { describe[0].0 };
+            assert_eq!(set[0].0, at, "finished {finished}, damaged {copy}");
+            for ((_, got), want) in set.iter().zip(&originals) {
+                let got = ww_tape::Block::read(got).unwrap();
+                let want = ww_tape::Block::read(want).unwrap();
+                assert_eq!(got.is_copy(), copy);
+                assert_eq!(
+                    got.records().collect::<Vec<_>>(),
+                    want.records().collect::<Vec<_>>()
+                );
+            }
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }
 
 /// The describe repeat set on a writer carries over to the next piece of a cut.

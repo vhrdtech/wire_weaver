@@ -709,6 +709,45 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(out)
     }
 
+    /// The describe set of piece `i`: the describe blocks written back to back at its head, or, when one of them is
+    /// damaged or missing, the next run of describe blocks that reads whole (the writer's copies: after the first
+    /// checkpoint, the repeats, the backup before the finish). Offsets in the piece and the blocks, in file order;
+    /// empty when no run reads whole. Damage is a reason to look further, never an error.
+    pub fn describe_set(&self, i: usize) -> R<Vec<(u64, Vec<u8>)>, S> {
+        let describe: Vec<IndexEntry> = self
+            .track_entries(i, crate::DESCRIBE_TRACK as u64)?
+            .into_iter()
+            .filter(|e| e.kind == BlockKind::Describe)
+            .collect();
+        let mut runs: Vec<&[IndexEntry]> = Vec::new();
+        let mut from = 0;
+        for k in 1..=describe.len() {
+            let apart = describe
+                .get(k)
+                .zip(describe.get(k - 1))
+                .is_none_or(|(e, prev)| {
+                    prev.offset.saturating_add(u64::from(prev.len)) != e.offset
+                });
+            if apart {
+                runs.push(&describe[from..k]);
+                from = k;
+            }
+        }
+        let mut buf = Vec::new();
+        'runs: for run in runs {
+            let mut set = Vec::with_capacity(run.len());
+            for e in run {
+                match self.read_block(i, e, &mut buf) {
+                    Ok(_) => set.push((e.offset, buf.clone())),
+                    Err(ReadError::Block { .. }) => continue 'runs,
+                    Err(other) => return Err(other),
+                }
+            }
+            return Ok(set);
+        }
+        Ok(Vec::new())
+    }
+
     /// Call `f` with each final index block of finished piece `p`, newest first.
     fn for_final(&self, p: &PieceInfo, mut f: impl FnMut(&IndexBlock<'_>)) -> R<(), S> {
         let mut at = p.finish.as_ref().and_then(|(fin, _)| fin.final_index);

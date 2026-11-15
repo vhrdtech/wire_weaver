@@ -81,7 +81,8 @@ pub fn index(data: &[u8]) {
         .iter()
         .map(|c| IndexEntry {
             offset: u64::from_le_bytes(c[1..9].try_into().unwrap()),
-            len: c[0].into(),
+            // a header and a CRC at least, as write_index takes
+            len: u32::from(c[0]) + 36,
             kind: BlockKind::from_u8(c[0]),
             level: c[0],
             tree: 0,
@@ -112,13 +113,20 @@ pub fn index(data: &[u8]) {
         self_offset: u64::from(flag),
         prev: (flag & 2 == 2).then_some(7),
     };
-    let n = write_index(
+    // write_index refuses an entry whose end passes a u64
+    let valid = entries
+        .iter()
+        .all(|e| e.offset.checked_add(u64::from(e.len)).is_some());
+    let n = match write_index(
         &mut buf,
         ww_tape::BlockId::new(ww_tape::RunTag::writable(1), 1),
         &head,
         &entries,
-    )
-    .expect("a valid index");
+    ) {
+        Ok(n) if valid => n,
+        Err(ww_tape::IndexError::Invalid(_)) if !valid => return,
+        r => panic!("write_index gave {r:?} for entries that are valid: {valid}"),
+    };
     let b = Block::read(&buf[..n]).expect("written good");
     let ix = IndexBlock::read(&b).expect("an index");
     assert_eq!(ix.entries().collect::<Vec<_>>(), entries);

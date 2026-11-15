@@ -16,7 +16,9 @@ pub(crate) fn walk(data: &[u8]) {
     let h = s.head();
     assert_eq!(h.node_count(), s.node_count() as u64);
     for i in 0..s.node_count() {
-        let (first, items) = h.node_items(i as u64);
+        let (first, items) = h
+            .node_items(i as u64)
+            .expect("every node of a read block has items");
         assert!(items >= 1 && first >= h.first_item);
         let _ = s.event_node(i);
         let _ = s.series_node(i);

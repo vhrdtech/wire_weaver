@@ -385,7 +385,9 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 # Standard library
 
 Ready-made traits and types for what many devices have: units, time, GPIO and buses, logs, firmware info, updates.
-They are shared, so a tool that knows one of them works with every device that implements it.
+They are shared, so a tool that knows one of them works with every device that implements it. Units and numbers
+build on [`exact_units`](https://github.com/romixlab/exact_units/blob/main/FEATURES.md), which keeps its own
+feature tracker.
 
 ## Basic
 
@@ -397,11 +399,6 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra
 - STD-37 | Units known at run time | A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one. | std_library/ww_si.md#units-known-only-at-run-time
 - STD-59 | Quantities as exact as `Fixed` | A run-time `Quantity` takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode. | std_library/ww_si.md#quantity-fixed-or-anyquantity
-- NUM-2 | Numbers with a fixed unit | `Fixed<Micro, Second, u32>`: the unit, scale and bounds are in the type, the wire carries exactly the `u32`, and it prints as `1500 µs`. | std_library/exact_units.md
-- UNIT-3, PT-2 | Minutes, hours, days and Unix timestamps | `Secs`, `Minutes`, `Hours` and `Days` next to the existing µs/ms/ns, and a moment in POSIX time since the Unix epoch as `UnixSecs`, `UnixMillis`, `UnixMicros` or `UnixNanos`. | std_library/exact_units.md#aliases
-- UNIT-4 | Counts, percent, binary byte sizes and whole hertz | `Count<Of, T>` for a count of things, `Percent`/`Permille` for a share of a `Ratio`, `Kibibytes`/`Mebibytes`/`Gibibytes` beside `Bytes`, `Hz`, and counted `Line`/`Row`/`Record`/`Entry` beside `Item`/`Sample`/`Frame`/`Packet`. | std_library/exact_units.md#aliases
-- UNIT-5 | SI derived units and radiometric groups | 48 named markers for the SI derived units, `Nit` (luminance) among them, grouped by field (electrical, mechanical, ...) and by radiometric versus photometric quantity. |
-- NUM-1 | Units without WireWeaver | `exact_units`, a `no_std` crate with no dependencies, gives dimensions, unit markers, exact scales and `Fixed` to any project; the wire format is a feature. | std_library/exact_units.md
 - STD-60 | Angles, bytes and samples are dimensions | Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart. | std_library/ww_si.md#dimensions
 - STD-4 | Date and time | `ww_date_time`. | std_library/ww_date_time.md
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md
@@ -418,42 +415,6 @@ They are shared, so a tool that knows one of them works with every device that i
 
 ## Advanced
 
-- NUM-4 | Rounding by name | A conversion that loses part of a step says how it rounds and what happens past the end of the storage (saturate, wrap or no value), and gives the same number on the device, in Rust and in a dynamic client; Q formats saturate and binary angles wrap by their type. | std_library/rounding.md
-- NUM-13 | Exact conversions between run-time scales | Any integer at one run-time prefix (SI, KiB, a power of two, 1/65535) converts to and compares with one at another exactly, with the rounding and overflow you name, in integer code a Cortex-M0+ runs without floats. | std_library/rounding.md
-- NUM-30 | Exact float conversions | A conversion into or out of an `f32` or `f64` gives the exact value or none, never one rounded twice through an `f64` or infinity for a finite value; the rounding forms round once, as you name. | std_library/rounding.md
-- NUM-11 | Exact fractions | `Exact<U>` holds a value no fixed scale can, such as a PLL output of 80/3 MHz, as an exact fraction with its unit; arithmetic and comparisons never round, and refuse a result that doesn't fit. | std_library/exact_units.md
-- NUM-12 | Relative error and tolerance | `rel_error` gives how far an achieved value is from its target as an exact signed ratio in %, ppm or ppb, and `within` checks it against a `Tolerance`; `Ppm<T>` sits next to `Ppb<T>`. | std_library/exact_units.md
-- NUM-3 | Exact scales | Every scale, from µ and Ki to 1/65535, a 12-bit ADC step, Q15 or a degree in radians, is one exact factor: equal however written, and a conversion between two is worked out at compile time and never rounds. | std_library/magnitude.md
-- NUM-10 | Measured constants stay symbols | μ₀ and G are exact symbols in a scale, as π is, so an oersted is exactly 10⁻⁴/μ₀ A/m; a number for them comes only from a set you name (CODATA 2018 or 2022, or the 1948 ampere), never a default. | std_library/magnitude.md
-- UNIT-1 | Imperial and US customary units | Every inch, pound, gallon, psi, Btu and horsepower as the exact factor its legal definition gives, ambiguous names like gallon or ton never bare, and pounds of force never mistaken for pounds of mass: lbf·s converts to N·s exactly or is refused; a unit that is only a value a standard prints (inHg at 32 °F) says so to clients. Opt-in, so an API without them pays nothing. | std_library/customary.md
-- PT-1 | Points and origins | A temperature in °C or °F, a register formula like raw/256 + 25 °C, gauge pressure or a heading that wraps is a point against an origin: point minus point is an amount, adding two points doesn't compile, and conversions between origins are exact. | std_library/points.md
-- PT-4 | Time scales | A device timestamp names its epoch and time scale: Unix and NTP time on POSIX's scale, TAI, GPS and PTP on TAI's, seconds since boot on the device's own clock; points convert exactly within a scale, and between POSIX time and TAI only through a leap-second table you name, never by a silent default. | std_library/points.md
-- UNIT-2 | Kinds that share a dimension | A voltage gain V/V, a current gain A/A, a power gain W/W and a duty cycle never convert into each other, nor a transimpedance V/A into Ω: the compiler refuses, a named step crosses, and clients and the evolution check tell them apart. | std_library/exact_units.md#arithmetic-and-conversions
-- LVL-1 | Gains in dB | A gain's dB is 20·lg for V/V and A/A, 10·lg for W/W, by its kind; a duty cycle has no dB. | std_library/exact_units.md#arithmetic-and-conversions
-- LVL-2 | Levels in nepers | The dB API's twin, `to_np`/`from_np` and the `np!` literal: a level in nepers, exact at compile time. |
-- LVL-3 | Level rates | A level's rate as a quantity of its own: the neper is a counted base, and a loss sits on its own base so a datasheet's positive dB/100 m never mixes with a gain; damping (δ, Λ, ζ, Q) and Beer-Lambert absorbance already land. |
-- LVL-6 | Codecs beside `Fixed` | `Coded<C, V, T>` stores a value in a non-linear encoding with the bytes of its raw code: G.711 μ-law is the worked codec, decoded and encoded by exact integer formulas, and `CodecDef` names the encoding as data on the wire. |
-- NUM-6 | Typed products and quotients | Multiplying or dividing two quantities gives back a type that carries the exact result unit and scale, never silently truncated, with checked, saturating and wrapping forms for what doesn't fit. | std_library/exact_units.md#arithmetic-and-conversions
-- CPX-3 | `Complex<U, P, T, B>` | A complex quantity, `re` and `im` of the same unit and scale, checked, saturating and wrapping arithmetic, and the kind rules of multiplication and division (an impedance times an admittance converts to a ratio). |
-- CPX-1 | Phase angles | `Phase<A>`: a phase angle in the angle unit, never confused with a plane angle; `electrical(pole_pairs)` takes a motor's mechanical angle to its electrical one for field-oriented control. |
-- CPX-6 | Complex numbers in polar form | A `Complex` gives its magnitude and phase angle and back, exactly rounded with integers alone (CORDIC), and its level in dB from its squared magnitude. |
-- CPX-5 | IQ samples in Q15 and Q31 | `CQ15`/`CQ31` samples with saturating complex multiplies rounded once, exact multiply-accumulate, interleaved buffers and an NCO mixer, for SDR and lock-in firmware. |
-- CPX-4 | Apparent and reactive power | VA and var are kinds of their own beside the watt, so S = V·I* is a `Complex` in VA and never mistaken for real power. |
-- NUM-7 | Decimal literals as exact constants | `fixed!(0.1)` is a constant in the type's own scale, worked out at compile time: exact where a stored value equals it, else the literal names its rounding (`fixed!(0.1, NearestEven)`). No hand-computed Q30 constants. |
-- NUM-15, NUM-16, NUM-17 | Literals that name their unit | `speed < q!(100 m/s)` and `fixed!(100 m/s)`: a number with its unit, checked against the value's dimension and kind, folded at compile time to one compare in the stored scale, never rounded; integer and float storages alike. |
-- NUM-18 | Thresholds in dB | `gain < q!(-3 dB)` compares a linear gain with a level, the 20·lg or 10·lg form taken from the gain's kind, still one compare at run time. |
-- LVL-7 | Level ranges | `gain.is_in(q!(-3 dB ..= 3 dB, Inside))` checks a linear gain against a range of levels, folded at compile time to compares of the stored gain. |
-- PT-5 | Point literals | `temp > q!(80 degC)` against a temperature stored at any origin, folded into the point's own frame at compile time. |
-- PT-6 | Point ranges | `p.is_in(q!(20 degC ..= 25 degC))` and `q!(25 degC +- 0.5)`: a range of temperatures or other points, folded into the point's own frame at compile time to two compares. |
-- PT-7 | Points in a `Series` and wrapping clocks | A `Point` is a `Series` column like its `Fixed`, and integer points add and subtract with wrapping, as a device clock does. | std_library/ww_si.md#which-time-point
-- NUM-22 | Ranges and tolerances as literals | `v.is_in(q!(4.9 V ..= 5.1 V))` and `q!(5 V +- 1 %)`: a range or a tolerance with its unit, folded at compile time to compares of the stored value. |
-- NUM-24 | Tolerance literals | `q!(+- 50 mV)` and `q!(+- 1 %)` wherever a tolerance around a run-time target is taken, or folded straight to a window. |
-- NUM-28 | Known leading digits | `q!(9.542425... dB)` is the range of values whose decimal starts with those digits, cut and never rounded. |
-- NUM-29 | Constants checked against a literal | `assert_in!(X, q!(9.542425... dB))` checks a constant at compile time and names its true digits when it is out. |
-- NUM-23 | Windows around a run-time target | `target.window(tol, Fit::Inside)` folds `target · (1 ± t)` to stored values once, in exact integers; `is_within` checks a value against a target and tolerance without floats. |
-- NUM-19 | Floats that are never NaN | A float quantity can't hold NaN unless its type says `MaybeNan`, so `temp > limit` can't silently stay false; the wire and text refuse NaN for it, and arithmetic costs nothing extra. |
-- NUM-20 | Floats that are always finite | A `Finite` bound keeps a float quantity a number: ±∞ and NaN are refused on construction, on the wire and in text, and arithmetic that would leave the finite range gives no value. |
-- NUM-21 | Sorting and hashing floats | A float quantity that can't be NaN is a total order with −0 equal to +0: it sorts, keys a map and has a maximum. |
 - STD-104 | Finite floats in clients | A float quantity whose type says `Finite` is refused as ±∞ or NaN in `ww`, Python and the dynamic client, and the evolution check tells when ±∞ starts to be refused. | std_library/exact_units.md#in-ww-python-and-dynamic-clients
 - STD-105 | NaN-free floats in clients | A float quantity sent or received as NaN is refused unless its type says `MaybeNan`, in `ww`, Python and the dynamic client alike; the evolution check tells when a NaN starts to be refused. | std_library/exact_units.md
 - STD-108 | Time scales in the model | An origin says what its zero is measured from and how that zero is known (exact, at run time, a time scale), so clients and the evolution check tell why a Unix time and a TAI or device time don't convert. | std_library/units_in_the_model.md#references
@@ -464,17 +425,8 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-116 | Run-time scales | A number whose exact scale is read at run time (a video stream's time base, a quantizer step) next to a unit fixed in the type: `ww_si::Scaled<U, T>` and `Ticks<T>`, refused on decode unless the scale is in its one canonical form. | std_library/ww_si.md#run-time-scales
 - STD-113 | Typed numbers in 1-Wire and UART | `ww_onewire`'s family code, byte counts, pin index and ROM search bit position, and `ww_uart`'s byte counts and idle character count, are typed instead of bare integers, so a client or `ww api check` knows what each one means and whether it is in range. | std_library/ww_onewire.md
 - STD-106 | Unit identity in the model | A unit is known by its crate and name, the definition `unit!` compiles is the one clients read, and two units of one name in one crate are refused. | std_library/units_in_the_model.md#identity
-- UNIT-7 | A unit is defined once, by its crate | A unit made with `unit!` carries its crate and name, so two crates' `Rpm` are two units that print the same, and its definition is plain data a client can read. | std_library/units_in_the_model.md#identity
-- UNIT-10 | Any number of distinguished bases, half exponents | Radians, bits, nepers and every counted thing (`Sample`, your own `Pixel`) are bases of their own, as many in one unit as it needs, and V/√Hz is plain halves: rad/s never becomes Hz, torque never energy. | std_library/ww_si.md#dimensions
-- UNIT-8 | Quantities beyond the dimension | ISO 80000's tree of quantities: a height is a length but not a width, Hz is not Bq, Ω is not V/A. `Of<Height, Meter>` names what a unit measures; up the tree converts, down is a named step, and the API model, clients and the evolution check carry it. | std_library/units_in_the_model.md#quantities
-- UNIT-9 | Systems of units beside SI | Natural (ħ = c = 1, eV) and Gaussian (g, cm, s) next to SI, every factor exact and μ₀ a symbol until you name a set of constants: 0.511 MeV becomes a mass in kg, 1 G becomes 10⁻⁴ T. A value crosses only by a named step, and where no bridge exists (a frequency into eV, Gaussian's B and H mixed up) it doesn't compile. | std_library/units_in_the_model.md#systems-of-units
-- IO-9 | Unit names in the model | A unit's ASCII form, long names, aliases, UCUM code and the prefixes it takes travel with its definition, so a client writes and reads it as its crate does. | std_library/units_in_the_model.md#what-the-model-holds
 - STD-107 | Run-time units by reference | An `AnyQuantity` names the API's units by their identity, a few bytes instead of the whole definition, and any reader with the API's model (a client, `ww`, Python, a saved tape) resolves them. | std_library/ww_si.md#units-known-only-at-run-time
-- NUM-14 | Readable unit errors | A refused conversion names both units and dimensions in the compile error, and the operation that would give the right one. |
-- NUM-8 | Niche codes next to `Bounds` | `Niched<V, N>` marks a sentinel value next to a `Fixed`'s bounds, so "no reading" needs no `Option` and costs no extra space. |
-- IO-1, IO-5 | Numbers with units in configs (serde) | A typed number is serde as the number it stores, its bounds checked on reading with the value and bound in the error, or as text with its unit, `"1.5 ms"`, read back exactly into the field's scale: for firmware too, `no_std` and without alloc. | std_library/exact_units.md#serde
 - STD-99 | Levels and their rates, Np and dB | A cable's attenuation in dB/100 m or dB/km, a resonator's damping in Np/s, is a quantity like any other, over the wire like any other; loss and gain are kept apart so a datasheet's positive number never flips sign by accident. |
-- NUM-5 | Indices and sequence numbers | A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap. | std_library/indices.md
 - STD-43 | Quantities without wide integers | On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked. | std_library/ww_si.md#conversions-and-comparisons
 - STD-102 | Exact conversions without floats | A quantity converts into any prefix and integer type with the rounding and overflow you name, exactly for every scale, with no float or 128-bit code on the device. | std_library/ww_si.md#conversions-and-comparisons
 - STD-56 | Typed numbers in `ww_stdlib` | Word sizes, byte and bit counts, offsets and counted things are their own types instead of a bare integer, crate by crate (`ww_spi` so far); a run-time-fixed value like an IO level moves from `Quantity` to `Fixed`. | std_library/ww_spi.md
@@ -501,7 +453,6 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
 - STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#tape-blocks
 - STD-117 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | transport/tap.md#tape-blocks
-- CPX-2 | CORDIC | `atan2`, `sin_cos` and integer square roots by CORDIC, `const fn`s on integers alone, sized for a Cortex-M0. |
 
 # Examples
 
@@ -550,7 +501,6 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - TEST-33 | A firmware guard for the project's own development (lists the float and 128-bit code a build links), not a feature of WireWeaver.
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.
 - EVO-74 | A crate-walker fix (a `#[ww_trait]` moved into its own `pub mod` kept its root item), test maintenance, not a feature.
-- UNIT-11 | How `q!`'s symbol table is made and checked: the user-visible side is NUM-15.
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.
 - EVO-44 | The wire change behind the dimension's shape (any number of distinguished bases, half exponents) and a unit's names: the user-visible sides are exact_units UNIT-10 and IO-9.
 - EVO-45 | The wire change behind quantity specs (a unit names its quantity by id, `MarkerDef::Quantity` and `Of`): the user-visible side is exact_units UNIT-8.
@@ -568,7 +518,3 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - EVO-58 | The wire change behind the typed, bounded calendar fields of `ww_date_time` (wire `w2.0`): the user-visible side is STD-4, see [ww_date_time](std_library/ww_date_time.md).
 - EVO-57 | The wire change behind `ww_spi`'s typed numbers (word size, byte lengths, register offsets, `io_level` as `Fixed`): the user-visible side is STD-56.
 - EVO-59 | The wire change behind `ww_logic_analyzer` typing its channel, sample and size fields: transparent wrappers of the same bytes, test maintenance, not a new capability.
-- NUM-31, NUM-32, NUM-33, NUM-34, NUM-35, NUM-42, UNIT-6, UNIT-12, UNIT-14, UNIT-19, PT-8, LVL-8, LVL-9, LVL-10, LVL-12, LVL-13, IO-16 | exact_units features landed between the previous and this session's `cargo update -p exact_units` (f2051438 to c132f587); not used by wire_weaver yet.
-- NUM-40, NUM-41, CPX-7 | exact_units features landed with the take-up from c132f58 to 58cc839: exact_units' own, no wire_weaver side yet.
-- NUM-38, NUM-39, UNIT-13, IO-11, IO-14, IO-15 | exact_units features landed with the take-up from d6a7256 to 7b6cc3c: exact_units' own, no wire_weaver side yet.
-- NUM-43, NUM-46, NUM-47, NUM-48, IO-17, IO-18 | exact_units features landed with the take-up from 7b6cc3c to 424b8df: exact_units' own (IO-17 serves ww_lsp, IO-18 the exact_units book), no wire_weaver side yet.

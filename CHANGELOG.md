@@ -76,6 +76,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww api check` and `ww api save` compare definitions, not the order the walker reached them in: moving types or a `#[ww_trait]` from `lib.rs` into a `pub mod` is no change and asks for no bump (EVO-75), and a trait in its own `pub mod` keeps its root item in a crate snapshot (EVO-74). See the `ww_self`, `wire_weaver_core` and `wire_weaver_evolution` changelogs.
 - Compressed streams: the device declares the codec, the host decodes it (EVO-73). `StreamOpen` carries one `raw` bit instead of the host's codec offer, `StreamCodec` reads a newer codec as `Unknown` and the host then opens the stream again with `raw`. Wire break; see the `ww_client_server`, `ww_stream`, `wire_weaver_core` and `wire_weaver_client` changelogs.
 - `ww_recorder`, `ww_can_bus`, `ww_i2c` and `ww_dfu` each split their single `lib.rs` into topic modules, every public path kept the same via re-exports (P2401#13nov-0647b). See those crates' changelogs.
+- `docs/features_today.md` no longer reads `exact_units`' `FEATURES.md` from the git checkout `Cargo.lock` pins: a feature landing there turned the next wire_weaver landing red for a tracker this repository doesn't own. The Standard library area now links to `exact_units`' own feature tracker instead of listing its items (P2401#15nov-1304). See the `tests/features_page/entries.md` diff; `FEATURES.md`'s DOC-9 says what the page covers now.
 
 ### Added
 

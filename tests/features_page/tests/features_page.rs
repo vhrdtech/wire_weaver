@@ -1,112 +1,15 @@
-//! `docs/features_today.md` matches `FEATURES.md`, `exact_units/FEATURES.md` and `entries.md` (DOC-7, DOC-9).
+//! `docs/features_today.md` matches `FEATURES.md` and `entries.md` (DOC-7, DOC-9).
 //! `FEATURES_PAGE=update` (`just features-page`) writes it.
 
-use std::path::{Path, PathBuf};
-
-/// `exact_units` is a git dependency (`Cargo.toml`): its source, and so its `FEATURES.md`, lives wherever Cargo put
-/// the checkout it pinned in `Cargo.lock` (`CARGO_HOME/git/checkouts/exact_units-*/<rev prefix>*/`), the same lookup
-/// the crate walker uses for the wire format (`wire_weaver_core::transform::cargo_source`), not a path relative to
-/// this repository. While the root `Cargo.toml`'s `[patch]` builds against a local checkout, it is that checkout.
-fn exact_units_dir(root: &Path) -> PathBuf {
-    let manifest = std::fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    if let Some(path) = exact_units_patch_path(&manifest) {
-        return root.join(path);
-    }
-    let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap();
-    let rev = exact_units_git_rev(&lock);
-    let cargo_home = std::env::var_os("CARGO_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(std::env::var_os("HOME").expect("CARGO_HOME or HOME must be set"))
-                .join(".cargo")
-        });
-    let checkouts = cargo_home.join("git").join("checkouts");
-    for repo_dir in std::fs::read_dir(&checkouts)
-        .unwrap_or_else(|e| panic!("{}: {e}", checkouts.display()))
-        .flatten()
-    {
-        if !repo_dir
-            .file_name()
-            .to_string_lossy()
-            .starts_with("exact_units-")
-        {
-            continue;
-        }
-        if let Some(dir) = std::fs::read_dir(repo_dir.path())
-            .into_iter()
-            .flatten()
-            .flatten()
-            .find_map(|e| {
-                let name = e.file_name();
-                let name = name.to_string_lossy();
-                (name.len() >= 7 && rev.starts_with(name.as_ref())).then(|| e.path())
-            })
-        {
-            return dir;
-        }
-    }
-    panic!(
-        "no checkout of exact_units at {rev} in {}/exact_units-*/: run `cargo fetch` first",
-        checkouts.display()
-    );
-}
-
-/// The `path` of `exact_units` in the `Cargo.toml` section `[patch."https://github.com/romixlab/exact_units"]`, when
-/// that section is there (not commented out).
-fn exact_units_patch_path(manifest: &str) -> Option<&str> {
-    let mut in_patch = false;
-    for line in manifest.lines() {
-        let line = line.trim();
-        if line.starts_with('[') {
-            in_patch = line == "[patch.\"https://github.com/romixlab/exact_units\"]";
-            continue;
-        }
-        if in_patch && line.starts_with("exact_units") {
-            let (_, rest) = line.split_once("path = \"")?;
-            return rest.split_once('"').map(|(path, _)| path);
-        }
-    }
-    None
-}
-
-/// The git revision `Cargo.lock` pinned `exact_units` to, from its `[[package]]` entry's `source =
-/// "git+URL?rev=..#SHA"`.
-fn exact_units_git_rev(lock: &str) -> &str {
-    let mut in_exact_units = false;
-    for line in lock.lines() {
-        let line = line.trim();
-        if line == "[[package]]" {
-            in_exact_units = false;
-            continue;
-        }
-        if line == "name = \"exact_units\"" {
-            in_exact_units = true;
-            continue;
-        }
-        if in_exact_units
-            && let Some(source) = line
-                .strip_prefix("source = \"")
-                .and_then(|s| s.strip_suffix('"'))
-            && let Some(git) = source.strip_prefix("git+")
-        {
-            let (_, rev) = git
-                .split_once('#')
-                .unwrap_or_else(|| panic!("git source without a revision: {source}"));
-            return rev;
-        }
-    }
-    panic!("exact_units is not a git dependency in Cargo.lock: run `cargo fetch` first");
-}
+use std::path::Path;
 
 #[test]
 fn features_page_is_current() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let root = manifest.join("../..");
     let features = std::fs::read_to_string(root.join("FEATURES.md")).unwrap();
-    let exact_units_features =
-        std::fs::read_to_string(exact_units_dir(&root).join("FEATURES.md")).unwrap();
     let entries = std::fs::read_to_string(manifest.join("entries.md")).unwrap();
-    let page = match features_page::render(&[&features, &exact_units_features], &entries) {
+    let page = match features_page::render(&features, &entries) {
         Ok(page) => page,
         Err(problems) => panic!("the features page can't be made:\n{problems}"),
     };
@@ -135,13 +38,4 @@ fn entries_link_to_pages_that_exist() {
         missing.is_empty(),
         "entries.md links to pages that aren't in docs/: {missing:?}"
     );
-}
-
-/// The `[patch]` that builds against a local exact_units checkout is read, a commented-out one is not.
-#[test]
-fn exact_units_patch() {
-    let patched = "[patch.\"https://github.com/romixlab/exact_units\"]\nexact_units = { path = \"../exact_units\" }\n\n[patch.crates-io]\n";
-    assert_eq!(exact_units_patch_path(patched), Some("../exact_units"));
-    let commented = "# [patch.\"https://github.com/romixlab/exact_units\"]\n# exact_units = { path = \"../exact_units\" }\n";
-    assert_eq!(exact_units_patch_path(commented), None);
 }

@@ -12,7 +12,10 @@ mod tests {
         let docs = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs");
         let copies = [
             ("javascripts/ww_highlight.js", ww_highlight::JS.to_owned()),
-            ("javascripts/ww_tokens.json", ww_highlight::tokens_json()),
+            (
+                "javascripts/ww_tokens.json",
+                ww_highlight::TOKENS_JSON.to_owned(),
+            ),
             ("stylesheets/ww_highlight.css", ww_highlight::CSS.to_owned()),
         ];
         for (path, want) in copies {

@@ -5,7 +5,8 @@ use super::raw::{mask, sign_extend};
 use super::{
     DELTA_GROUP, ENTRY, GroupJob, GroupReader, GroupWriter, Sample, SampleError, decode_grouped,
 };
-use crate::bitpack;
+use crate::FromFile;
+use crate::bitpack::{self, Width};
 
 /// How a delta codec sees values.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -166,17 +167,16 @@ fn decode_group<T: Sample>(flavor: Flavor, lanes: usize, job: GroupJob<'_, '_, T
         let first = r.uint(bytes)?;
         let first_delta = if flavor.order == 2 { r.uint(bytes)? } else { 0 };
         let min = r.uint(bytes)?;
-        let width = u32::from(r.u8()?);
-        if width > bits {
-            return None;
-        }
+        let width = Width::from_file(FromFile::new(r.u8()?))
+            .ok()
+            .filter(|w| w.bits() <= bits)?;
         // the bytes after the lane stay in reach of the unpack kernels
         let lane_src = rest.get(r.at..)?;
-        r.take(bitpack::packed_len(k, width))?;
+        r.take(bitpack::packed_len(k, width.bits()))?;
         if take == 0 {
             continue;
         }
-        bitpack::unpack_u64(lane_src, width, &mut residuals);
+        width.unpack_u64(lane_src, &mut residuals);
         let header = [first, first_delta, min];
         if lanes == 1 {
             rebuild(flavor, header, &residuals, skip, dst.iter_mut());

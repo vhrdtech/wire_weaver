@@ -7,7 +7,7 @@
 //! past its bytes is still an error, never a panic.
 
 use super::{Sample, SampleError};
-use crate::bitpack;
+use crate::bitpack::{self, Width};
 
 /// How a packed column lays out its values: the [bitpack] layout at a width, or one of the `_MSB` widths.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -162,7 +162,10 @@ pub(super) fn encode_packed<T: Sample>(
     }
     let needed = out.len();
     if let Packing::Lsb(bits) = packing {
-        bitpack::pack(out, values.iter().map(|v| v.to_bits()), bits);
+        Width::new(bits)
+            .map_err(SampleError::Bound)?
+            .pack(out, values.iter().map(|v| v.to_bits()))
+            .or(Err(SampleError::Full { needed }))?;
         return Ok(needed);
     }
     pack_msb(out, values.iter().map(|v| v.to_bits() & m), bits)
@@ -233,6 +236,7 @@ fn unpack_lsb<const SIGNED: bool, T: Sample>(
     out: &mut [T],
 ) -> Option<()> {
     let g = bitpack::GROUP;
+    let width = Width::new(bits).ok()?;
     let value = |raw: u64| {
         T::from_bits(if SIGNED {
             sign_extend(raw, bits).cast_unsigned()
@@ -246,7 +250,7 @@ fn unpack_lsb<const SIGNED: bool, T: Sample>(
         .min(out.len());
     let (head_out, rest) = out.split_at_mut(head);
     for (k, o) in head_out.iter_mut().enumerate() {
-        *o = value(bitpack::read(bytes, first.checked_add(k)?, bits));
+        *o = value(width.read(bytes, first.checked_add(k)?));
     }
     let mut at = first.checked_add(head)?;
     let bits_usize = usize::try_from(bits).ok()?;
@@ -256,7 +260,7 @@ fn unpack_lsb<const SIGNED: bool, T: Sample>(
     let mut chunks = rest.chunks_exact_mut(g);
     for chunk in &mut chunks {
         let from = at.checked_mul(bits_usize)? / 8;
-        bitpack::unpack_u32(bytes.get(from..)?, bits, &mut group);
+        width.unpack_u32(bytes.get(from..)?, &mut group).ok()?;
         for (o, raw) in chunk.iter_mut().zip(group) {
             let v = if SIGNED {
                 i64::from(raw.wrapping_shl(sh).cast_signed().wrapping_shr(sh)).cast_unsigned()
@@ -268,7 +272,7 @@ fn unpack_lsb<const SIGNED: bool, T: Sample>(
         at = at.checked_add(g)?;
     }
     for (k, o) in chunks.into_remainder().iter_mut().enumerate() {
-        *o = value(bitpack::read(bytes, at.checked_add(k)?, bits));
+        *o = value(width.read(bytes, at.checked_add(k)?));
     }
     Some(())
 }

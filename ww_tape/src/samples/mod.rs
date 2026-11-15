@@ -481,12 +481,10 @@ impl GroupWriter<'_> {
 
     /// The first `n` of `vals` packed at `width` bits (at most 64).
     fn packed(&mut self, vals: impl IntoIterator<Item = u64>, n: usize, width: u32) -> Option<()> {
+        let w = crate::bitpack::Width::new(width).ok()?;
         let end = self.at.checked_add(crate::bitpack::packed_len(n, width))?;
-        crate::bitpack::pack(
-            self.out.get_mut(self.at..end)?,
-            vals.into_iter().take(n),
-            width,
-        );
+        w.pack(self.out.get_mut(self.at..end)?, vals.into_iter().take(n))
+            .ok()?;
         self.at = end;
         Some(())
     }

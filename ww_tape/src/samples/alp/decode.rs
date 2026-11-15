@@ -1,7 +1,8 @@
 //! The ALP decoder: every read of the column checked, a malformed group an error.
 
 use super::{ALP_GROUP, DECIMAL, DICT_BITS_MAX, DICT_MAX, F32, F64, Float, LEFT_MAX, RD};
-use crate::bitpack::{self, packed_len};
+use crate::FromFile;
+use crate::bitpack::{Width, packed_len};
 use crate::samples::raw::sign_extend;
 use crate::samples::{Element, GroupJob, GroupReader, Sample, SampleError, decode_grouped};
 
@@ -31,15 +32,17 @@ fn decimal<F: Float>(
     let m = F::factors(e, f)?;
     let bits = F::BITS;
     let base = sign_extend(r.uint(F::BYTES)?, bits);
-    let width = u32::from(r.u8()?);
+    let width = Width::from_file(FromFile::new(r.u8()?))
+        .ok()
+        .filter(|w| w.bits() <= bits)?;
     let x = usize::from(r.u8()?);
-    if width > bits || x > n {
+    if x > n {
         return None;
     }
     let packed = rest.get(r.at..)?;
-    r.take(packed_len(n, width))?;
+    r.take(packed_len(n, width.bits()))?;
     let mut d = [0i64; ALP_GROUP];
-    bitpack::decode_line(packed, width, base, 0, &mut d);
+    width.decode_line(packed, base, 0, &mut d);
     for (o, d) in out.iter_mut().zip(&d) {
         *o = F::dec(*d, m);
     }
@@ -87,8 +90,12 @@ fn rd<F: Float>(
     let right_src = rest.get(r.at..)?;
     r.take(packed_len(n, packed))?;
     let mut codes = [0u32; ALP_GROUP];
-    bitpack::unpack_u32(codes_src, code_bits, &mut codes);
-    bitpack::unpack_u64(right_src, packed, out);
+    // code_bits is at most DICT_BITS_MAX, packed at most the float's bits
+    Width::new(code_bits)
+        .ok()?
+        .unpack_u32(codes_src, &mut codes)
+        .ok()?;
+    Width::new(packed).ok()?.unpack_u64(right_src, out);
     if zeros > 0 {
         // a shift past the scalar leaves no right bit
         for o in out.iter_mut() {

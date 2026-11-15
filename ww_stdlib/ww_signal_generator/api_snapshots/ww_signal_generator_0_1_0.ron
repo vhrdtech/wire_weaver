@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 10240d2b8ef32e4a92431ea1d727c81b74c2552cc603657405f387afca8d5fe4
+// shrink_wrap sha256: cb98a3da8c4d81e69e6cc8bc89c5083ea8dd2cbbe118cda9a70127a077b74133
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -35,98 +35,16 @@
     "`Common` variant, plus `NoSuchChannel`. Each method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_signal_generator", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PatternGenerator", docs: [], optional: None, meta: None),
-    (id: 1, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "WaveformGenerator", docs: [], optional: None, meta: None),
-    (id: 2, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "WaveformChannel", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "WaveformChannel", docs: [], optional: None, meta: None),
+    (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "WaveformGenerator", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "One output.",
-    ], ident: "PgChannelInfo", generics: [], fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
-            "For the user: \"D0\", \"PB3\".",
-        ], slot: None, series_opaque: false),
-        (ident: Some("gpio_pin"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
-            "The same pin\'s index in the device\'s `ww_gpio::Bank`, if it has one.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
-        117,
-        194,
-        53,
-        38,
-        149,
-        154,
-        238,
-        33,
-        55,
-        18,
-        202,
-        102,
-        156,
-        182,
-        138,
-        5,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        30,
-        167,
-        6,
-        90,
-        28,
-        193,
-        210,
-        151,
-        231,
-        143,
-        219,
-        237,
-        43,
-        208,
-        55,
-        128,
-    ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        177,
-        199,
-        35,
-        25,
-        231,
-        20,
-        125,
-        21,
-        134,
-        214,
-        73,
-        153,
-        74,
-        156,
-        170,
-        244,
-    ]),
-    SkippedFullVersion(crate_idx: 3, type_name: "RateLimit", signature: [
-        133,
-        66,
-        56,
-        124,
-        107,
-        85,
-        174,
-        186,
-        39,
-        158,
-        50,
-        56,
-        89,
-        77,
-        166,
-        144,
-    ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a pattern generator offers, see `PatternGenerator::capabilities`.",
     ], ident: "PgCapabilities", generics: [], fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 0))), docs: [
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 14))), docs: [
             "Channel `n` of every configuration is `channels[n]`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rates"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 4))), docs: [
+        (ident: Some("rates"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 15))), docs: [
             "Highest rate per channel count, ascending by count.",
         ], slot: None, series_opaque: false),
         (ident: Some("memory"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
@@ -145,48 +63,6 @@
             "[Start::AnalyzerTrigger] works.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "How often a pattern plays.",
-    ], ident: "Repeat", generics: [], variants: [
-        (docs: [], ident: "Once", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Times", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
-        (docs: [], ident: "Forever", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "Edge", signature: [
-        100,
-        255,
-        122,
-        37,
-        252,
-        228,
-        133,
-        131,
-        234,
-        99,
-        161,
-        56,
-        79,
-        63,
-        122,
-        4,
-    ]),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "When a pattern starts after `PatternGenerator::start`.",
-    ], ident: "Start", generics: [], variants: [
-        (docs: [
-            "Right away.",
-        ], ident: "Now", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "On the external trigger input.",
-        ], ident: "External", fields: Named([
-            (ident: Some("edge"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
-        (docs: [
-            "When this device\'s `LogicAnalyzer` triggers: a stimulus and its response on one time base.",
-        ], ident: "AnalyzerTrigger", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to play, see `PatternGenerator::configure`.",
     ], ident: "PgConfig", generics: [], fields: Named([
@@ -194,24 +70,24 @@
             "Output channels ([PgCapabilities::channels]), in the bit order of raw words and as the channel indices of",
             "transitions chunks.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 1)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "Samples per second.",
         ], slot: None, series_opaque: false),
-        (ident: Some("repeat"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
+        (ident: Some("repeat"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
         (ident: Some("idle"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Levels before the start and after the end, bit `i` for `channels[i]`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
+        (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PatternGenerator::configure` actually set.",
     ], ident: "PgActual", generics: [], fields: Named([
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 1)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 11)),
         ]), docs: [
             "Samples per second.",
         ], slot: None, series_opaque: false),
@@ -219,24 +95,6 @@
             "Raw words the generator expects ([ww_logic_analyzer::RawLayout::width]).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
-        30,
-        18,
-        211,
-        141,
-        253,
-        197,
-        48,
-        184,
-        37,
-        11,
-        183,
-        248,
-        238,
-        96,
-        205,
-        177,
-    ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `PatternGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
         "returns.",
@@ -244,13 +102,13 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "No channel with this index.",
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "StreamChunk", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "StreamChunk", signature: [
         97,
         13,
         26,
@@ -267,24 +125,6 @@
         247,
         0,
         171,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        176,
-        71,
-        213,
-        183,
-        163,
-        190,
-        249,
-        131,
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a pattern generator stands, see `PatternGenerator::status`.",
@@ -304,40 +144,263 @@
             "Playing repetition `repeat` (from 0), started at `t_start`.",
         ], ident: "Running", fields: Named([
             (ident: Some("repeat"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("t_start"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-                Type(OutOfLine(type_idx: 14)),
-                Type(OutOfLine(type_idx: 1)),
+            (ident: Some("t_start"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+                Type(OutOfLine(type_idx: 20)),
+                Type(OutOfLine(type_idx: 11)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "Played to the end, started at `t_start`.",
         ], ident: "Done", fields: Named([
-            (ident: Some("t_start"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-                Type(OutOfLine(type_idx: 14)),
-                Type(OutOfLine(type_idx: 1)),
+            (ident: Some("t_start"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+                Type(OutOfLine(type_idx: 20)),
+                Type(OutOfLine(type_idx: 11)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "Streaming couldn\'t keep up; output stopped at the idle levels.",
         ], ident: "Underrun", fields: Unit, discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 5, type_name: "SampleFormat", signature: [
-        149,
-        244,
-        33,
-        117,
-        165,
-        170,
-        181,
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One output\'s waveform, see `WaveformChannel::set`.",
+    ], ident: "Waveform", generics: [], fields: Named([
+        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
+        (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [
+            "Repetitions per second (of the whole table for [Shape::Arbitrary]).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("amplitude"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [
+            "Peak to peak.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [], slot: None, series_opaque: false),
+        (ident: Some("phase"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "0..=65535 = 0..360°, against the other channels started together.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What `WaveformChannel::set` actually does.",
+    ], ident: "WaveformActual", generics: [], fields: Named([
+        (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [], slot: None, series_opaque: false),
+        (ident: Some("amplitude"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [], slot: None, series_opaque: false),
+        (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
+        "returns.",
+    ], ident: "WgError", generics: [], variants: [
+        (docs: [
+            "{0}",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "No channel with this index.",
+        ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
+        134,
         214,
-        169,
-        181,
-        232,
-        195,
-        235,
-        137,
         73,
         153,
+        74,
+        156,
+        170,
+        244,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "units::Volt", signature: [
+        216,
+        18,
+        221,
+        138,
+        45,
+        140,
+        195,
+        88,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "What an output does, see `WaveformChannel::state`.",
+    ], ident: "WaveformState", generics: [], variants: [
+        (docs: [
+            "Holding `level`.",
+        ], ident: "Stopped", fields: Named([
+            (ident: Some("level"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+                Type(OutOfLine(type_idx: 10)),
+                Type(OutOfLine(type_idx: 11)),
+            ]), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "Set, waiting for `WaveformGenerator::start_together`.",
+        ], ident: "Held", fields: Named([
+            (ident: Some("waveform"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "Running", fields: Named([
+            (ident: Some("waveform"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
+            (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What a device\'s DACs offer, see `WaveformGenerator::capabilities`.",
+    ], ident: "WgCapabilities", generics: [], fields: Named([
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 22))), docs: [
+            "`channel[n]` is `channels[n]`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One output.",
+    ], ident: "PgChannelInfo", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "For the user: \"D0\", \"PB3\".",
+        ], slot: None, series_opaque: false),
+        (ident: Some("gpio_pin"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
+            "The same pin\'s index in the device\'s `ww_gpio::Bank`, if it has one.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "RateLimit", signature: [
+        133,
+        66,
+        56,
+        124,
+        107,
+        85,
+        174,
+        186,
+        39,
+        158,
+        50,
+        56,
+        89,
+        77,
+        166,
+        144,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "units::Hertz", signature: [
+        30,
+        167,
+        6,
+        90,
+        28,
+        193,
+        210,
+        151,
+        231,
+        143,
+        219,
+        237,
+        43,
+        208,
+        55,
+        128,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "How often a pattern plays.",
+    ], ident: "Repeat", generics: [], variants: [
+        (docs: [], ident: "Once", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Times", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [], ident: "Forever", fields: Unit, discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "When a pattern starts after `PatternGenerator::start`.",
+    ], ident: "Start", generics: [], variants: [
+        (docs: [
+            "Right away.",
+        ], ident: "Now", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "On the external trigger input.",
+        ], ident: "External", fields: Named([
+            (ident: Some("edge"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "When this device\'s `LogicAnalyzer` triggers: a stimulus and its response on one time base.",
+        ], ident: "AnalyzerTrigger", fields: Unit, discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
+        30,
+        18,
+        211,
+        141,
+        253,
+        197,
+        48,
+        184,
+        37,
+        11,
+        183,
+        248,
+        238,
+        96,
+        205,
+        177,
+    ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The waveform\'s shape.",
@@ -360,102 +423,89 @@
             "than it plays, a `once` table is a streamed DAC output. Amplitude and offset are ignored: the codes are the",
             "levels ([WgChannelInfo::code_to_volt]).",
         ], ident: "Arbitrary", fields: Named([
-            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
             (ident: Some("once"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        216,
-        18,
-        221,
-        138,
-        45,
-        140,
-        195,
-        88,
-        150,
-        173,
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One DAC output.",
+    ], ident: "WgChannelInfo", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "For the user: \"DAC1\", \"OUT A\".",
+        ], slot: None, series_opaque: false),
+        (ident: Some("min"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [
+            "Lowest output level.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [
+            "Highest output level.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [
+            "Highest frequency of the built-in shapes.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("max_sample_rate"), default: None, since: None, ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 16)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), docs: [
+            "Highest sample rate of tables.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Converter resolution.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("table_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Table memory in samples.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("code_to_volt"), default: None, since: None, ty: OutOfLine(type_idx: 25), docs: [
+            "Codes of tables to volts.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 24))), docs: [
+            "Table formats.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "Edge", signature: [
+        100,
+        255,
+        122,
+        37,
+        252,
+        228,
+        133,
+        131,
+        234,
+        99,
+        161,
+        56,
+        79,
         63,
-        134,
-        54,
-        13,
-        101,
-        149,
+        122,
+        4,
     ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "One output\'s waveform, see `WaveformChannel::set`.",
-    ], ident: "Waveform", generics: [], fields: Named([
-        (ident: Some("shape"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
-        (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [
-            "Repetitions per second (of the whole table for [Shape::Arbitrary]).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("amplitude"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [
-            "Peak to peak.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("phase"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
-            "0..=65535 = 0..360°, against the other channels started together.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What `WaveformChannel::set` actually does.",
-    ], ident: "WaveformActual", generics: [], fields: Named([
-        (ident: Some("freq"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("amplitude"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
-        "returns.",
-    ], ident: "WgError", generics: [], variants: [
-        (docs: [
-            "{0}",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
-            "No channel with this index.",
-        ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "What an output does, see `WaveformChannel::state`.",
-    ], ident: "WaveformState", generics: [], variants: [
-        (docs: [
-            "Holding `level`.",
-        ], ident: "Stopped", fields: Named([
-            (ident: Some("level"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-                Type(OutOfLine(type_idx: 18)),
-                Type(OutOfLine(type_idx: 1)),
-            ]), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
-            "Set, waiting for `WaveformGenerator::start_together`.",
-        ], ident: "Held", fields: Named([
-            (ident: Some("waveform"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
-        (docs: [], ident: "Running", fields: Named([
-            (ident: Some("waveform"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
-            (ident: Some("actual"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 5, type_name: "SampleFormat", signature: [
+        149,
+        244,
+        33,
+        117,
+        165,
+        170,
+        181,
+        214,
+        169,
+        181,
+        232,
+        195,
+        235,
+        137,
+        73,
+        153,
+    ]),
     SkippedFullVersion(crate_idx: 5, type_name: "Linear", signature: [
         134,
         10,
@@ -474,56 +524,6 @@
         68,
         33,
     ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "One DAC output.",
-    ], ident: "WgChannelInfo", generics: [], fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
-            "For the user: \"DAC1\", \"OUT A\".",
-        ], slot: None, series_opaque: false),
-        (ident: Some("min"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [
-            "Lowest output level.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [
-            "Highest output level.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [
-            "Highest frequency of the built-in shapes.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("max_sample_rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), docs: [
-            "Highest sample rate of tables.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Converter resolution.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("table_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
-            "Table memory in samples.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("code_to_volt"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [
-            "Codes of tables to volts.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 16))), docs: [
-            "Table formats.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What a device\'s DACs offer, see `WaveformGenerator::capabilities`.",
-    ], ident: "WgCapabilities", generics: [], fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 24))), docs: [
-            "`channel[n]` is `channels[n]`.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Digital channels driven from a pattern at a fixed rate, all switching on the same tick.",
@@ -531,12 +531,12 @@
         "`configure` sets it up, the `pattern` sink loads the data (`Open` starts a new pattern, `Close` completes it),",
         "`start` plays it. While it runs its pins belong to it: `ww_gpio` calls that would drive them answer `InUse`.",
     ], crate_idx: 0, trait_name: "PatternGenerator", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Channels, rates, memory, encodings and start conditions.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 9), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 12))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
@@ -550,10 +550,10 @@
             "Drops a loaded pattern.",
             "`InvalidArgument`: rate or channel count out of range; `Unsupported`: start condition; `Busy`: a pattern plays.",
         ], optional: None, meta: None),
-        (id: 2, kind: FlowSink(ty: OutOfLine(type_idx: 13), flow: Credit), multiplicity: Flat, since: None, ident: "pattern", docs: [
+        (id: 2, kind: FlowSink(ty: OutOfLine(type_idx: 4), flow: Credit), multiplicity: Flat, since: None, ident: "pattern", docs: [
             "Pattern data, appended in order. The credit is the free pattern memory.",
         ], optional: None, meta: None),
-        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 12))), errors: Some([
+        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
                 "Refused",
@@ -566,7 +566,7 @@
         (id: 4, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "stop", docs: [
             "Stops output; the channels go to their idle levels.",
         ], optional: None, meta: None),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Where the generator stands.",
         ], optional: None, meta: None),
     ], compact_id: Some(128), meta: None), crate_idx: 0),
@@ -574,8 +574,8 @@
         "One DAC output.",
     ], crate_idx: 0, trait_name: "WaveformChannel", items: [
         (id: 0, kind: Method(args: [
-            (ident: "waveform", ty: OutOfLine(type_idx: 19), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 20), err_ty: OutOfLine(type_idx: 21))), errors: Some([
+            (ident: "waveform", ty: OutOfLine(type_idx: 6), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
@@ -589,14 +589,14 @@
             "`Arbitrary` shape with no table.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "level", ty: Instance(type_idx: 3, args: [
-                Type(OutOfLine(type_idx: 18)),
-                Type(OutOfLine(type_idx: 1)),
+            (ident: "level", ty: Instance(type_idx: 9, args: [
+                Type(OutOfLine(type_idx: 10)),
+                Type(OutOfLine(type_idx: 11)),
             ]), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 18)),
-            Type(OutOfLine(type_idx: 1)),
-        ]), err_ty: OutOfLine(type_idx: 21))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 9, args: [
+            Type(OutOfLine(type_idx: 10)),
+            Type(OutOfLine(type_idx: 11)),
+        ]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Refused",
@@ -605,7 +605,7 @@
             "Stops and holds `level`; returns the level actually held.",
             "`InvalidArgument`: out of range.",
         ], optional: None, meta: None),
-        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 22)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [], optional: None, meta: None),
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [], optional: None, meta: None),
         (id: 3, kind: FlowSink(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "table", docs: [
             "Table of an [Shape::Arbitrary] waveform, raw codes appended in order; `Open` starts a new table, `Close`",
             "completes it. The credit is the free table memory.",
@@ -615,12 +615,12 @@
         "DAC outputs.",
     ], crate_idx: 0, trait_name: "WaveformGenerator", items: [
         (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 25)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 13)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their ranges and formats.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "channels", ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), default: Some("Default::default()"), flatten: false),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 21))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "WrongState",
@@ -634,16 +634,16 @@
     ], compact_id: Some(129), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_signal_generator", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_adc", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
-    None,
-    Some((line: 5, revision: 0)),
     Some((line: 2, revision: 0)),
+    Some((line: 5, revision: 0)),
+    None,
     Some((line: 1, revision: 0)),
     Some((line: 3, revision: 0)),
 ]))

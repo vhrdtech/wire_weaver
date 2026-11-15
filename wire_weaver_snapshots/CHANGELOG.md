@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Every snapshot (`ww_global`, `ww_tap`, `ww_stdlib/*`, `exact_units`) saved again in canonical order (EVO-77): order only, the same definitions.
 - Current snapshots name their dependencies by shape signature and signature with docs (16 bytes, EVO-69); `superseded` finds a kept definition by either. exact_units 0.1.0's earlier definitions (from 8446b3979, among them `IndexFrom1`, `units::Item` and `SIExpr`) are kept in `other_repos/superseded/`, so `ww_si` 0.2.0-0.4.0 and `ww_adc` 0.1.0-0.2.0 are back to their saved bytes, undoing the in-place `SIExpr` edit above.
 - `exact_units`' snapshot saved again at 5d77bb4 (by way of 109f3cf): the counted markers `Month`, `Interface`, `Retry` and `Request` (UNIT-6) are new, and `IndexFrom1`'s earlier definition is kept in `other_repos/superseded/`; `ww_onewire` 0.1.0, which names `IndexFrom1`, is saved again in place against it (never published).
 - `ww_dfu` snapshot re-saved on wire `w2.0` (EVO-65): typed numbers, `NodeInfo`'s `app: Option<ImageInfo>` and `security_floor`, `Session`'s `resume_step` and `resume_byte`; it names `ww_si`/`exact_units` types for the first time. Its `w1` definitions are kept in `ww_dfu`'s `api_snapshots/superseded/` (EVO-68), as 0.1.0 was never published and is saved again in place.

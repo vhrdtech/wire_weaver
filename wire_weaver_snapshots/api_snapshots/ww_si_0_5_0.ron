@@ -1,6 +1,6 @@
 // ww_si 0.5.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 94ffeb54282f4706346ced09f998b7e7c52c9788ee42f7e084da1b8756d50da4
+// shrink_wrap sha256: 507b62a91c055e1c94637acd574b0f86ce6f4b04d5f2a267d1158b623bfea775
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -43,24 +43,6 @@
         240,
         162,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "NumericValue", signature: [
-        108,
-        41,
-        247,
-        162,
-        8,
-        228,
-        185,
-        89,
-        86,
-        196,
-        113,
-        105,
-        83,
-        118,
-        172,
-        80,
-    ]),
     SkippedFullVersion(crate_idx: 1, type_name: "SIExpr", signature: [
         56,
         102,
@@ -78,6 +60,24 @@
         197,
         134,
         190,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "NumericValue", signature: [
+        108,
+        41,
+        247,
+        162,
+        8,
+        228,
+        185,
+        89,
+        86,
+        196,
+        113,
+        105,
+        83,
+        118,
+        172,
+        80,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value whose unit is only known at run time: a prefix, a number in whatever storage the device picks, and the",
@@ -110,47 +110,19 @@
         "```",
     ], ident: "AnyQuantity", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A [Fixed]\'s scale that no run-time [Prefix] stands for: neither a named prefix nor `Pow10`, `Pow2` or `FullScale`",
-        "(`Rational<33, 10>` over 4096, an ADC step; a binary angle, π·2⁻¹⁵ rad). Such a value goes into an",
-        "[AnyQuantity](crate::AnyQuantity) exactly instead, the scale in its unit (`AnyQuantityOwned::from_fixed`).",
-    ], ident: "UnknownScale", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "A value with the time it was taken: a sample of a property, an item of a stream (`Timed<Ampere>`,",
-        "`Timed<IvSample>`).",
-        "",
-        "`t` is a moment on a time scale, a [Point] in seconds: by default a [DeviceMicros]`<u32>`, µs since the device",
-        "booted (`DeviceBoot`) in a `u32` that wraps every 71.6 minutes. The host gets the full time back as a",
-        "`DeviceMicros<u64>` with [TimeUnwrapper](crate::TimeUnwrapper). A device picks another `Tm` for a stream that is",
-        "quiet for longer than half a wrap or needs another resolution (`DeviceMillis<u32>` wraps every 49.7 days,",
-        "`DeviceMicros<u64>` never), or a time scale it knows (`UnixMicros<u64>` for a device that keeps UTC): any",
-        "[TimePoint].",
-        "",
-        "On the wire it is a `final_structure` struct of `t`, the bytes of its storage alone, and then `value`: no fields",
-        "can be added later. In a `Series` (`series`, SW-60) `t` is a column like any other: a regular clock costs nothing",
-        "per item.",
-        "",
-        "```",
-        "use ww_si::{Ampere, Timed, origins::DeviceMicros};",
-        "",
-        "let sample = Timed::new(DeviceMicros::from_raw(1_000_040u32), Ampere::milli(250u16));",
-        "assert_eq!(sample.t.raw(), 1_000_040);",
-        "```",
-    ], ident: "Timed", generics: [
-        (ident: "V", kind: Type),
-        (ident: "Tm", kind: Type),
-    ], fields: Named([
-        (ident: Some("t"), default: None, since: None, ty: Param(1), docs: [
-            "When `value` was taken.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("value"), default: None, since: None, ty: Param(0), docs: [], slot: None, series_opaque: false),
+        "A level in decibels, dB, without a prefix (a logarithm, not a [Ratio]).",
+    ], ident: "DeciBel", generics: [], fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The full point does not fit [TimePoint::Full]: past the end of a `u64` of steps, or before the scale\'s zero.",
-    ], ident: "TimeOverflow", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A power level in decibels relative to 1 mW, dBm, without a prefix.",
+    ], ident: "DeciBelmW", generics: [], fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value of the unit `U`: a prefix and a number in whatever storage the device picks. The unit is only in the type,",
         "it takes no space on the wire or in RAM; `Quantity<units::Volt>` is written [Volt].",
@@ -190,18 +162,46 @@
         (ident: "B", kind: Type),
     ], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The full point does not fit [TimePoint::Full]: past the end of a `u64` of steps, or before the scale\'s zero.",
+    ], ident: "TimeOverflow", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "A level in decibels, dB, without a prefix (a logarithm, not a [Ratio]).",
-    ], ident: "DeciBel", generics: [], fields: Named([
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
+        "A value with the time it was taken: a sample of a property, an item of a stream (`Timed<Ampere>`,",
+        "`Timed<IvSample>`).",
+        "",
+        "`t` is a moment on a time scale, a [Point] in seconds: by default a [DeviceMicros]`<u32>`, µs since the device",
+        "booted (`DeviceBoot`) in a `u32` that wraps every 71.6 minutes. The host gets the full time back as a",
+        "`DeviceMicros<u64>` with [TimeUnwrapper](crate::TimeUnwrapper). A device picks another `Tm` for a stream that is",
+        "quiet for longer than half a wrap or needs another resolution (`DeviceMillis<u32>` wraps every 49.7 days,",
+        "`DeviceMicros<u64>` never), or a time scale it knows (`UnixMicros<u64>` for a device that keeps UTC): any",
+        "[TimePoint].",
+        "",
+        "On the wire it is a `final_structure` struct of `t`, the bytes of its storage alone, and then `value`: no fields",
+        "can be added later. In a `Series` (`series`, SW-60) `t` is a column like any other: a regular clock costs nothing",
+        "per item.",
+        "",
+        "```",
+        "use ww_si::{Ampere, Timed, origins::DeviceMicros};",
+        "",
+        "let sample = Timed::new(DeviceMicros::from_raw(1_000_040u32), Ampere::milli(250u16));",
+        "assert_eq!(sample.t.raw(), 1_000_040);",
+        "```",
+    ], ident: "Timed", generics: [
+        (ident: "V", kind: Type),
+        (ident: "Tm", kind: Type),
+    ], fields: Named([
+        (ident: Some("t"), default: None, since: None, ty: Param(1), docs: [
+            "When `value` was taken.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: Param(0), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "A power level in decibels relative to 1 mW, dBm, without a prefix.",
-    ], ident: "DeciBelmW", generics: [], fields: Named([
-        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A [Fixed]\'s scale that no run-time [Prefix] stands for: neither a named prefix nor `Pow10`, `Pow2` or `FullScale`",
+        "(`Rational<33, 10>` over 4096, an ADC step; a binary angle, π·2⁻¹⁵ rad). Such a value goes into an",
+        "[AnyQuantity](crate::AnyQuantity) exactly instead, the scale in its unit (`AnyQuantityOwned::from_fixed`).",
+    ], ident: "UnknownScale", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

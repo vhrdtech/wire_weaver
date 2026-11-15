@@ -1,6 +1,6 @@
 // ww_error 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a1b80bf6c07a6e03fe00fbb13e8b447046cbb8f0e49257f11d4784a92b91b4d8
+// shrink_wrap sha256: 5e4bc2ee46b88fb766b80bad04a3d8290616aa3b5b73ab56ffcd4baa611e77c1
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Errors every WireWeaver API can return (STD-16).",
     "",
@@ -38,23 +38,23 @@
     "Tools (the ww CLI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same",
     "for every API. Strings are bounded and may be empty: a device that saves flash sends `\"\"`.",
 ], crate_idx: 0, trait_name: "ww_error", items: [], compact_id: None, meta: None), types: [
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Argument", signature: [
-        161,
+    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
+        231,
+        47,
         207,
-        143,
-        106,
-        43,
-        6,
-        182,
-        57,
+        207,
+        169,
+        31,
+        27,
         75,
-        100,
-        52,
-        134,
-        220,
-        8,
-        100,
-        63,
+        188,
+        74,
+        229,
+        182,
+        246,
+        87,
+        154,
+        68,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
         117,
@@ -74,23 +74,23 @@
         138,
         5,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Index", signature: [
-        231,
-        47,
+    SkippedFullVersion(crate_idx: 1, type_name: "units::Argument", signature: [
+        161,
         207,
-        207,
-        169,
-        31,
-        27,
-        75,
-        188,
-        74,
-        229,
+        143,
+        106,
+        43,
+        6,
         182,
-        246,
-        87,
-        154,
-        68,
+        57,
+        75,
+        100,
+        52,
+        134,
+        220,
+        8,
+        100,
+        63,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors every crate can return, recognised by tools by this type.",
@@ -105,8 +105,8 @@
         (docs: [
             "Argument number {arg} is invalid: {reason}.",
         ], ident: "InvalidArgument", fields: Named([
-            (ident: Some("arg"), default: None, since: None, ty: Instance(type_idx: 2, args: [
-                Type(OutOfLine(type_idx: 0)),
+            (ident: Some("arg"), default: None, since: None, ty: Instance(type_idx: 0, args: [
+                Type(OutOfLine(type_idx: 2)),
                 Type(NumericAny(Base(U8))),
                 Type(OutOfLine(type_idx: 1)),
             ]), docs: [
@@ -151,5 +151,4 @@
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
-    None,
 ]))

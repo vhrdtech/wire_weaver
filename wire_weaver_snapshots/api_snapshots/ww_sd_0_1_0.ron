@@ -1,6 +1,6 @@
 // ww_sd 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 6ae87479470c15c6b93649281a1344096c86a091355e399f6ab41e80d03ead1c
+// shrink_wrap sha256: 525e737e89f1ba0c9e9d3f96d63add0257c9abcd8b618d38885056069ac96bf3
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to an SD card over WireWeaver (STD-40): its state, its registers as the card sent them, the init",
     "sequence with what each step answered, and single raw commands with their response, status bits and timing.",
@@ -28,80 +28,107 @@
 ], crate_idx: 0, trait_name: "ww_sd", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "SdCard", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
-    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
-        "How the controller talks to the card, see [Capabilities::interface].",
-    ], ident: "Interface", generics: [], variants: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What the host controller can do, see [SdCard::capabilities].",
+    ], ident: "Capabilities", generics: [], fields: Named([
+        (ident: Some("interface"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
+        (ident: Some("max_bus_width"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [
+            "The widest bus.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("max_clock"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 6)),
+            Type(OutOfLine(type_idx: 7)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 8)),
+        ]), docs: [
+            "Highest card clock.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("uhs"), default: None, since: None, ty: Bool, docs: [
+            "1.8 V signalling and the UHS-I modes.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("unrestricted"), default: None, since: None, ty: Bool, docs: [
+            "Built with `raw-sd-unrestricted`: CMD42 and CMD27 go through (with a lease).",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The card and how it is driven, see [SdCard::state].",
+    ], ident: "CardState", generics: [], fields: Named([
+        (ident: Some("present"), default: None, since: None, ty: Bool, docs: [
+            "A card is in the slot (detect switch, or it answered).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 14)), docs: [
+            "The card\'s capacity class, `None` before init.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bus"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 15)), docs: [
+            "The bus as set up by the last init, `None` while the card is not initialised.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("leased"), default: None, since: None, ty: Bool, docs: [
+            "A lease of `ww_block` is held: the card\'s user is stopped.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The card\'s registers, raw, see [SdCard::registers]. All MSB first, as the card sends them; the CRC7 byte at the",
+        "end of CID and CSD is as the controller delivered it (often zero).",
+    ], ident: "SdRegisters", generics: [], fields: Named([
+        (ident: Some("cid"), default: None, since: None, ty: Array(len: Fixed(16), ty: NumericAny(Base(U8))), docs: [
+            "Card identification (CMD2/CMD10).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("csd"), default: None, since: None, ty: Array(len: Fixed(16), ty: NumericAny(Base(U8))), docs: [
+            "Card specific data (CMD9).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ocr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Operating conditions (ACMD41\'s answer).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rca"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
+            "Relative card address (CMD3), 0 in SPI mode.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("scr"), default: None, since: None, ty: Option(some_ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))), docs: [
+            "SD configuration (ACMD51), `None` if it couldn\'t be read.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ssr"), default: None, since: None, ty: Option(some_ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(U8))))), docs: [
+            "SD Status (ACMD13, 64 bytes), `None` if it couldn\'t be read.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Errors of the SD card calls.",
+    ], ident: "SdError", generics: [], variants: [
         (docs: [
-            "The SD bus (an SDMMC/SDIO peripheral).",
-        ], ident: "Sd", fields: Unit, discriminant: 0, since: None),
+            "Common error",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
         (docs: [
-            "SPI mode: some commands don\'t exist, responses are R1-based.",
-        ], ident: "Spi", fields: Unit, discriminant: 1, since: None),
+            "No card in the slot.",
+        ], ident: "NoCard", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "The command changes the card and the call has no lease, or one that lapsed: claim the card with",
+            "`ww_block::BlockDevice::claim`.",
+        ], ident: "BadLease", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "The command can lock or damage the card for good and this device is built without `raw-sd-unrestricted`.",
+        ], ident: "Restricted", fields: Named([
+            (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
-        "Width of the data bus, see [CardState::bus] and [SdCard::reinit].",
-    ], ident: "BusWidth", generics: [], variants: [
-        (docs: [], ident: "One", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Four", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "eMMC only.",
-        ], ident: "Eight", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        30,
-        167,
-        6,
-        90,
-        28,
-        193,
-        210,
-        151,
-        231,
-        143,
-        219,
+    SkippedFullVersion(crate_idx: 1, type_name: "Lease", signature: [
+        212,
+        240,
         237,
-        43,
-        208,
-        55,
-        128,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Kilo", signature: [
-        39,
-        25,
-        60,
-        94,
+        209,
         146,
-        236,
-        113,
-        82,
-        58,
-        103,
-        232,
-        119,
-        187,
-        231,
-        113,
-        124,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
-        117,
-        194,
+        184,
+        206,
+        181,
+        86,
+        198,
+        100,
+        35,
+        115,
+        61,
         53,
-        38,
-        149,
-        154,
-        238,
-        33,
-        55,
-        18,
-        202,
-        102,
-        156,
-        182,
-        138,
-        5,
+        198,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Fixed", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "Fixed", signature: [
         226,
         246,
         240,
@@ -119,28 +146,135 @@
         22,
         33,
     ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Hertz", signature: [
+        30,
+        167,
+        6,
+        90,
+        28,
+        193,
+        210,
+        151,
+        231,
+        143,
+        219,
+        237,
+        43,
+        208,
+        55,
+        128,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "prefix::Kilo", signature: [
+        39,
+        25,
+        60,
+        94,
+        146,
+        236,
+        113,
+        82,
+        58,
+        103,
+        232,
+        119,
+        187,
+        231,
+        113,
+        124,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        117,
+        194,
+        53,
+        38,
+        149,
+        154,
+        238,
+        33,
+        55,
+        18,
+        202,
+        102,
+        156,
+        182,
+        138,
+        5,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Width of the data bus, see [CardState::bus] and [SdCard::reinit].",
+    ], ident: "BusWidth", generics: [], variants: [
+        (docs: [], ident: "One", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Four", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "eMMC only.",
+        ], ident: "Eight", fields: Unit, discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What the host controller can do, see [SdCard::capabilities].",
-    ], ident: "Capabilities", generics: [], fields: Named([
-        (ident: Some("interface"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
-        (ident: Some("max_bus_width"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
-            "The widest bus.",
+        "What the init sequence did, see [SdCard::reinit].",
+    ], ident: "InitReport", generics: [], fields: Named([
+        (ident: Some("steps"), default: None, since: None, ty: MaxLen(max_len: Fixed(24), ty: Vec(OutOfLine(type_idx: 18))), docs: [
+            "The steps in order, up to [MAX_INIT_STEPS]; repeats of a command (ACMD41 while the card is busy) are one step.",
         ], slot: None, series_opaque: false),
-        (ident: Some("max_clock"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "The state it ended in; `bus` is `None` when the card didn\'t come up.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("total"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 20)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 8)),
         ]), docs: [
-            "Highest card clock.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("uhs"), default: None, since: None, ty: Bool, docs: [
-            "1.8 V signalling and the UHS-I modes.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("unrestricted"), default: None, since: None, ty: Bool, docs: [
-            "Built with `raw-sd-unrestricted`: CMD42 and CMD27 go through (with a lease).",
+            "Time for the whole sequence.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A raw command, see [SdCard::command].",
+    ], ident: "RawCommand", generics: [], fields: Named([
+        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Command index, 0..=63.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("app"), default: None, since: None, ty: Bool, docs: [
+            "An application command: CMD55 with the card\'s RCA goes first.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("response"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
+        (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
+        (ident: Some("timeout"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 23)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 8)),
+        ])), docs: [
+            "How long to wait for the response, the data and the end of busy; `None`: the driver\'s default.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What a raw command got back, see [SdCard::command].",
+    ], ident: "RawResponse", generics: [], fields: Named([
+        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
+        (ident: Some("response"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Response bytes, MSB first, without start bit, index and CRC: 4 for R1, R1b, R3, R6 and R7, 16 for R2 (its",
+            "last byte as the controller delivered it); empty for none or when it didn\'t come.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("status"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 25)), docs: [
+            "The card status bits of an R1 or R1b response (an R6\'s 16 status bits are mapped into it), `None` for other",
+            "responses.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [
+            "Data read in the data phase, empty for none. On a data CRC error, what arrived.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("timing"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "How the controller talks to the card, see [Capabilities::interface].",
+    ], ident: "Interface", generics: [], variants: [
+        (docs: [
+            "The SD bus (an SDMMC/SDIO peripheral).",
+        ], ident: "Sd", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "SPI mode: some commands don\'t exist, responses are R1-based.",
+        ], ident: "Spi", fields: Unit, discriminant: 1, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Capacity class of a card (OCR `CCS`, CSD version, size), see [CardState::kind].",
     ], ident: "CardKind", generics: [], variants: [
@@ -157,52 +291,21 @@
             "Up to 128 TB.",
         ], ident: "Sduc", fields: Unit, discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
-        "Bus speed mode (CMD6 function group 1), see [BusState::speed].",
-    ], ident: "SpeedMode", generics: [], variants: [
-        (docs: [
-            "Up to 25 MHz.",
-        ], ident: "DefaultSpeed", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "Up to 50 MHz.",
-        ], ident: "HighSpeed", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "Sdr12", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Sdr25", fields: Unit, discriminant: 3, since: None),
-        (docs: [], ident: "Sdr50", fields: Unit, discriminant: 4, since: None),
-        (docs: [], ident: "Sdr104", fields: Unit, discriminant: 5, since: None),
-        (docs: [], ident: "Ddr50", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The bus after init, see [CardState::bus].",
     ], ident: "BusState", generics: [], fields: Named([
-        (ident: Some("width"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("width"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         (ident: Some("clock"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 2)),
-            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 6)),
+            Type(OutOfLine(type_idx: 7)),
             Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 8)),
         ]), docs: [
             "Card clock as set (the nearest the divider gives).",
         ], slot: None, series_opaque: false),
-        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
+        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [], slot: None, series_opaque: false),
         (ident: Some("low_voltage"), default: None, since: None, ty: Bool, docs: [
             "Signalling at 1.8 V (UHS-I) instead of 3.3 V.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The card and how it is driven, see [SdCard::state].",
-    ], ident: "CardState", generics: [], fields: Named([
-        (ident: Some("present"), default: None, since: None, ty: Bool, docs: [
-            "A card is in the slot (detect switch, or it answered).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
-            "The card\'s capacity class, `None` before init.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("bus"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
-            "The bus as set up by the last init, `None` while the card is not initialised.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("leased"), default: None, since: None, ty: Bool, docs: [
-            "A lease of `ww_block` is held: the card\'s user is stopped.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
@@ -210,30 +313,7 @@
     ], ident: "Rca", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "The card\'s registers, raw, see [SdCard::registers]. All MSB first, as the card sends them; the CRC7 byte at the",
-        "end of CID and CSD is as the controller delivered it (often zero).",
-    ], ident: "SdRegisters", generics: [], fields: Named([
-        (ident: Some("cid"), default: None, since: None, ty: Array(len: Fixed(16), ty: NumericAny(Base(U8))), docs: [
-            "Card identification (CMD2/CMD10).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("csd"), default: None, since: None, ty: Array(len: Fixed(16), ty: NumericAny(Base(U8))), docs: [
-            "Card specific data (CMD9).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("ocr"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
-            "Operating conditions (ACMD41\'s answer).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("rca"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [
-            "Relative card address (CMD3), 0 in SPI mode.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("scr"), default: None, since: None, ty: Option(some_ty: Array(len: Fixed(8), ty: NumericAny(Base(U8)))), docs: [
-            "SD configuration (ACMD51), `None` if it couldn\'t be read.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("ssr"), default: None, since: None, ty: Option(some_ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(U8))))), docs: [
-            "SD Status (ACMD13, 64 bytes), `None` if it couldn\'t be read.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         30,
         18,
         211,
@@ -251,44 +331,143 @@
         205,
         177,
     ]),
-    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "Errors of the SD card calls.",
-    ], ident: "SdError", generics: [], variants: [
-        (docs: [
-            "Common error",
-        ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 0, since: None),
-        (docs: [
-            "No card in the slot.",
-        ], ident: "NoCard", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "The command changes the card and the call has no lease, or one that lapsed: claim the card with",
-            "`ww_block::BlockDevice::claim`.",
-        ], ident: "BadLease", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "The command can lock or damage the card for good and this device is built without `raw-sd-unrestricted`.",
-        ], ident: "Restricted", fields: Named([
-            (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "Lease", signature: [
-        212,
-        240,
-        237,
-        209,
-        146,
-        184,
-        206,
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One step of an [InitReport]: a command and what the card answered last.",
+    ], ident: "InitStep", generics: [], fields: Named([
+        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Command index; an application command (CMD55 first) when `app`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("app"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
+        (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("response"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The first 32 bits of the last response (card status, OCR, RCA and status, or the echo of CMD8), 0 for none.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [], slot: None, series_opaque: false),
+        (ident: Some("repeats"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 28)),
+            Type(OutOfLine(type_idx: 29)),
+            Type(NumericAny(Base(U16))),
+            Type(OutOfLine(type_idx: 8)),
+        ]), docs: [
+            "How often it was sent (ACMD41 polls until the card is ready).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("time"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 20)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 8)),
+        ]), docs: [
+            "Time over all repeats.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
+        176,
+        71,
+        213,
+        183,
+        163,
+        190,
+        249,
+        131,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "prefix::Micro", signature: [
         181,
-        86,
-        198,
-        100,
-        35,
-        115,
-        61,
+        57,
+        150,
+        228,
+        89,
+        60,
+        233,
+        200,
+        241,
+        93,
+        175,
+        168,
+        3,
+        248,
+        67,
+        208,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "The response a command expects, see [RawCommand::response]. The controller needs it to receive the response.",
+    ], ident: "ResponseType", generics: [], variants: [
+        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Card status.",
+        ], ident: "R1", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Card status, then busy on DAT0.",
+        ], ident: "R1b", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "CID or CSD, 128 bits.",
+        ], ident: "R2", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "OCR, no CRC.",
+        ], ident: "R3", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "Published RCA and part of the card status.",
+        ], ident: "R6", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "Interface condition (CMD8).",
+        ], ident: "R7", fields: Unit, discriminant: 6, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "The data phase of a raw command, see [RawCommand::data].",
+    ], ident: "DataPhase", generics: [], variants: [
+        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Read `blocks` blocks of `block_len` bytes (e.g. 64 for ACMD13 and CMD6, 8 for ACMD51, 512 for CMD17).",
+        ], ident: "Read", fields: Named([
+            (ident: Some("block_len"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+                Type(OutOfLine(type_idx: 30)),
+                Type(OutOfLine(type_idx: 29)),
+                Type(NumericAny(Base(U16))),
+                Type(OutOfLine(type_idx: 8)),
+            ]), docs: [], slot: None, series_opaque: false),
+            (ident: Some("blocks"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+                Type(OutOfLine(type_idx: 31)),
+                Type(OutOfLine(type_idx: 29)),
+                Type(NumericAny(Base(U16))),
+                Type(OutOfLine(type_idx: 8)),
+            ]), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Write `data` in blocks of `block_len` bytes.",
+        ], ident: "Write", fields: Named([
+            (ident: Some("block_len"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+                Type(OutOfLine(type_idx: 30)),
+                Type(OutOfLine(type_idx: 29)),
+                Type(NumericAny(Base(U16))),
+                Type(OutOfLine(type_idx: 8)),
+            ]), docs: [], slot: None, series_opaque: false),
+            (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "prefix::Milli", signature: [
+        112,
+        217,
+        26,
+        155,
+        179,
+        128,
+        111,
+        205,
+        191,
+        83,
+        117,
+        121,
+        253,
+        181,
+        168,
         53,
-        198,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How a command went on the bus, see [RawResponse::outcome] and [InitStep::outcome].",
@@ -320,7 +499,55 @@
             (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Item", signature: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Card status bits of an R1 response (SD Physical Layer spec, card status), see [RawResponse::status].",
+    ], ident: "CardStatus", generics: [], fields: Named([
+        (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "How long a command took, see [RawResponse::timing]. Microseconds from sending the command.",
+    ], ident: "Timing", generics: [], fields: Named([
+        (ident: Some("response"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 20)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 8)),
+        ])), docs: [
+            "To the end of the response, `None` without one.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("data"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 20)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 8)),
+        ])), docs: [
+            "To the end of the data phase, `None` without one.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("busy"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
+            Type(OutOfLine(type_idx: 19)),
+            Type(OutOfLine(type_idx: 20)),
+            Type(NumericAny(Base(U32))),
+            Type(OutOfLine(type_idx: 8)),
+        ])), docs: [
+            "To the end of busy (R1b, writes, erases), `None` when the card wasn\'t busy.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Bus speed mode (CMD6 function group 1), see [BusState::speed].",
+    ], ident: "SpeedMode", generics: [], variants: [
+        (docs: [
+            "Up to 25 MHz.",
+        ], ident: "DefaultSpeed", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Up to 50 MHz.",
+        ], ident: "HighSpeed", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Sdr12", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Sdr25", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Sdr50", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Sdr104", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "Ddr50", fields: Unit, discriminant: 6, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Item", signature: [
         231,
         16,
         180,
@@ -338,7 +565,7 @@
         164,
         107,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "prefix::One", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "prefix::One", signature: [
         52,
         174,
         110,
@@ -356,113 +583,7 @@
         20,
         193,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        176,
-        71,
-        213,
-        183,
-        163,
-        190,
-        249,
-        131,
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Micro", signature: [
-        181,
-        57,
-        150,
-        228,
-        89,
-        60,
-        233,
-        200,
-        241,
-        93,
-        175,
-        168,
-        3,
-        248,
-        67,
-        208,
-    ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "One step of an [InitReport]: a command and what the card answered last.",
-    ], ident: "InitStep", generics: [], fields: Named([
-        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Command index; an application command (CMD55 first) when `app`.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("app"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("response"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
-            "The first 32 bits of the last response (card status, OCR, RCA and status, or the echo of CMD8), 0 for none.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
-        (ident: Some("repeats"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 17)),
-            Type(OutOfLine(type_idx: 18)),
-            Type(NumericAny(Base(U16))),
-            Type(OutOfLine(type_idx: 4)),
-        ]), docs: [
-            "How often it was sent (ACMD41 polls until the card is ready).",
-        ], slot: None, series_opaque: false),
-        (ident: Some("time"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 20)),
-            Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
-        ]), docs: [
-            "Time over all repeats.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What the init sequence did, see [SdCard::reinit].",
-    ], ident: "InitReport", generics: [], fields: Named([
-        (ident: Some("steps"), default: None, since: None, ty: MaxLen(max_len: Fixed(24), ty: Vec(OutOfLine(type_idx: 21))), docs: [
-            "The steps in order, up to [MAX_INIT_STEPS]; repeats of a command (ACMD41 while the card is busy) are one step.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
-            "The state it ended in; `bus` is `None` when the card didn\'t come up.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("total"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 20)),
-            Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
-        ]), docs: [
-            "Time for the whole sequence.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
-        "The response a command expects, see [RawCommand::response]. The controller needs it to receive the response.",
-    ], ident: "ResponseType", generics: [], variants: [
-        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "Card status.",
-        ], ident: "R1", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "Card status, then busy on DAT0.",
-        ], ident: "R1b", fields: Unit, discriminant: 2, since: None),
-        (docs: [
-            "CID or CSD, 128 bits.",
-        ], ident: "R2", fields: Unit, discriminant: 3, since: None),
-        (docs: [
-            "OCR, no CRC.",
-        ], ident: "R3", fields: Unit, discriminant: 4, since: None),
-        (docs: [
-            "Published RCA and part of the card status.",
-        ], ident: "R6", fields: Unit, discriminant: 5, since: None),
-        (docs: [
-            "Interface condition (CMD8).",
-        ], ident: "R7", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Byte", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Byte", signature: [
         105,
         217,
         147,
@@ -480,7 +601,7 @@
         37,
         123,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Block", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Block", signature: [
         35,
         131,
         249,
@@ -498,127 +619,6 @@
         202,
         109,
     ]),
-    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
-        "The data phase of a raw command, see [RawCommand::data].",
-    ], ident: "DataPhase", generics: [], variants: [
-        (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
-        (docs: [
-            "Read `blocks` blocks of `block_len` bytes (e.g. 64 for ACMD13 and CMD6, 8 for ACMD51, 512 for CMD17).",
-        ], ident: "Read", fields: Named([
-            (ident: Some("block_len"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-                Type(OutOfLine(type_idx: 24)),
-                Type(OutOfLine(type_idx: 18)),
-                Type(NumericAny(Base(U16))),
-                Type(OutOfLine(type_idx: 4)),
-            ]), docs: [], slot: None, series_opaque: false),
-            (ident: Some("blocks"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-                Type(OutOfLine(type_idx: 25)),
-                Type(OutOfLine(type_idx: 18)),
-                Type(NumericAny(Base(U16))),
-                Type(OutOfLine(type_idx: 4)),
-            ]), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 1, since: None),
-        (docs: [
-            "Write `data` in blocks of `block_len` bytes.",
-        ], ident: "Write", fields: Named([
-            (ident: Some("block_len"), default: None, since: None, ty: Instance(type_idx: 5, args: [
-                Type(OutOfLine(type_idx: 24)),
-                Type(OutOfLine(type_idx: 18)),
-                Type(NumericAny(Base(U16))),
-                Type(OutOfLine(type_idx: 4)),
-            ]), docs: [], slot: None, series_opaque: false),
-            (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "prefix::Milli", signature: [
-        112,
-        217,
-        26,
-        155,
-        179,
-        128,
-        111,
-        205,
-        191,
-        83,
-        117,
-        121,
-        253,
-        181,
-        168,
-        53,
-    ]),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A raw command, see [SdCard::command].",
-    ], ident: "RawCommand", generics: [], fields: Named([
-        (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
-            "Command index, 0..=63.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("arg"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("app"), default: None, since: None, ty: Bool, docs: [
-            "An application command: CMD55 with the card\'s RCA goes first.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("response"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
-        (ident: Some("data"), default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None, series_opaque: false),
-        (ident: Some("timeout"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 27)),
-            Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
-        ])), docs: [
-            "How long to wait for the response, the data and the end of busy; `None`: the driver\'s default.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Card status bits of an R1 response (SD Physical Layer spec, card status), see [RawResponse::status].",
-    ], ident: "CardStatus", generics: [], fields: Named([
-        (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "How long a command took, see [RawResponse::timing]. Microseconds from sending the command.",
-    ], ident: "Timing", generics: [], fields: Named([
-        (ident: Some("response"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 20)),
-            Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
-        ])), docs: [
-            "To the end of the response, `None` without one.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("data"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 20)),
-            Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
-        ])), docs: [
-            "To the end of the data phase, `None` without one.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("busy"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 5, args: [
-            Type(OutOfLine(type_idx: 19)),
-            Type(OutOfLine(type_idx: 20)),
-            Type(NumericAny(Base(U32))),
-            Type(OutOfLine(type_idx: 4)),
-        ])), docs: [
-            "To the end of busy (R1b, writes, erases), `None` when the card wasn\'t busy.",
-        ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "What a raw command got back, see [SdCard::command].",
-    ], ident: "RawResponse", generics: [], fields: Named([
-        (ident: Some("outcome"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
-        (ident: Some("response"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(NumericAny(Base(U8)))), docs: [
-            "Response bytes, MSB first, without start bit, index and CRC: 4 for R1, R1b, R3, R6 and R7, 16 for R2 (its",
-            "last byte as the controller delivered it); empty for none or when it didn\'t come.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("status"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 29)), docs: [
-            "The card status bits of an R1 or R1b response (an R6\'s 16 status bits are mapped into it), `None` for other",
-            "responses.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [
-            "Data read in the data phase, empty for none. On a data CRC error, what arrived.",
-        ], slot: None, series_opaque: false),
-        (ident: Some("timing"), default: None, since: None, ty: OutOfLine(type_idx: 30), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Raw access to an SD card: registers, init, single commands.",
@@ -627,17 +627,17 @@
         "",
         "[SdError]: the `Common` variants and the card\'s own, listed on each call.",
     ], crate_idx: 0, trait_name: "SdCard", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What the device\'s host controller can do: interface, bus widths, clock, UHS, the size of a data phase,",
             "whether restricted commands go through.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [
             "The card in the slot and how it is driven now.",
         ], optional: None, meta: None),
         (id: 2, kind: Stream(ty: Bool, is_up: true), multiplicity: Flat, since: None, ident: "detect", docs: [
             "Card inserted (`true`) or removed (`false`), from the card detect switch or a failing poll.",
         ], optional: None, meta: None),
-        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 14))), errors: Some([
+        (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 2), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
             ])),
@@ -649,15 +649,15 @@
             "`NoCard`, `Common(WrongState)` before the card is initialised.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "lease", ty: OutOfLine(type_idx: 15), default: None, flatten: false),
+            (ident: "lease", ty: OutOfLine(type_idx: 4), default: None, flatten: false),
             (ident: "max_clock", ty: Instance(type_idx: 5, args: [
-                Type(OutOfLine(type_idx: 2)),
-                Type(OutOfLine(type_idx: 3)),
+                Type(OutOfLine(type_idx: 6)),
+                Type(OutOfLine(type_idx: 7)),
                 Type(NumericAny(Base(U32))),
-                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 8)),
             ]), default: None, flatten: false),
-            (ident: "bus_width", ty: OutOfLine(type_idx: 1), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 22), err_ty: OutOfLine(type_idx: 14))), errors: Some([
+            (ident: "bus_width", ty: OutOfLine(type_idx: 9), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 10), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "Unsupported",
@@ -673,9 +673,9 @@
             "a bus width or clock the controller can\'t do.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "lease", ty: Option(some_ty: OutOfLine(type_idx: 15)), default: None, flatten: false),
-            (ident: "cmd", ty: OutOfLine(type_idx: 28), default: None, flatten: false),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 31), err_ty: OutOfLine(type_idx: 14))), errors: Some([
+            (ident: "lease", ty: Option(some_ty: OutOfLine(type_idx: 4)), default: None, flatten: false),
+            (ident: "cmd", ty: OutOfLine(type_idx: 11), default: None, flatten: false),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "Unsupported",
@@ -696,12 +696,12 @@
     ], compact_id: Some(105), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_sd", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_block", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_block", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
-    None,
     Some((line: 1, revision: 0)),
+    None,
     Some((line: 1, revision: 0)),
 ]))

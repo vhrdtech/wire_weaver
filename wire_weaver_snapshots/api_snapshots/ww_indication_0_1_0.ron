@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 533d3d8467ab51d4f11ebafa139f93c9ad7b1eedb5086fc68706bf635f99b188
+// shrink_wrap sha256: f3dbc553e27490f86ebf33790ae49b6f2eb5a0cefe4328f50ef747dcc216dee3
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -55,7 +55,25 @@
             "Visible outside.",
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
+    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
+        177,
+        199,
+        35,
+        25,
+        231,
+        20,
+        125,
+        21,
+        134,
+        214,
+        73,
+        153,
+        74,
+        156,
+        170,
+        244,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
         176,
         71,
         213,
@@ -73,7 +91,7 @@
         20,
         62,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
         117,
         194,
         53,
@@ -90,24 +108,6 @@
         182,
         138,
         5,
-    ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        177,
-        199,
-        35,
-        25,
-        231,
-        20,
-        125,
-        21,
-        134,
-        214,
-        73,
-        153,
-        74,
-        156,
-        170,
-        244,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         30,
@@ -141,9 +141,9 @@
             "indicators have no adjustable brightness.",
         ], optional: Some((group: None)), meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "duration", ty: Instance(type_idx: 4, args: [
-                Type(OutOfLine(type_idx: 2)),
+            (ident: "duration", ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 3)),
+                Type(OutOfLine(type_idx: 4)),
             ]), default: None, flatten: false),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 5))), errors: Some([
             (ident: "Unsupported", nested: None),
@@ -159,12 +159,12 @@
     ], compact_id: Some(25), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 5, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
     Some((line: 1, revision: 0)),
-    None,
     Some((line: 5, revision: 0)),
+    None,
     Some((line: 1, revision: 0)),
 ]))

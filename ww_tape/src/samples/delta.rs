@@ -136,9 +136,9 @@ pub(super) fn check_table(bytes: &[u8], count: usize) -> Result<(), SampleError>
     super::check_table(bytes, count.div_ceil(DELTA_GROUP))
 }
 
-/// The bytes of group `g` in the column; the table was checked.
-pub(super) fn group_range(bytes: &[u8], count: usize, g: usize) -> Range<usize> {
-    super::table_range(bytes, count.div_ceil(DELTA_GROUP), g)
+/// The bytes of group `g` in the column, None when the table doesn't hold it.
+pub(super) fn group_range(bytes: &[u8], count: usize, g: usize) -> Option<Range<usize>> {
+    super::table_entry(bytes, count.div_ceil(DELTA_GROUP), g)
 }
 
 /// Decode samples from `first` on into `out` (whole samples of `lanes` scalars) from a column whose table was
@@ -159,7 +159,7 @@ pub(super) fn decode<T: Sample>(
         let g_count = count.min(g_first + DELTA_GROUP) - g_first;
         let skip = s - g_first;
         let take = (first + n - s).min(g_count - skip);
-        let range = group_range(bytes, count, g);
+        let range = group_range(bytes, count, g).ok_or(SampleError::Corrupt { group: g })?;
         // the bytes after the group stay in reach of the unpack kernels
         let src = &bytes[range.start..];
         let dst = &mut out[(s - first) * lanes..(s - first + take) * lanes];

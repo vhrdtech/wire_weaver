@@ -1,21 +1,5 @@
 //! What a sample is: its element type and channels.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use shrink_wrap::prelude::*;
 
 /// The logical type of one value of a sample.
@@ -70,7 +54,8 @@ impl Element {
         Element::Bool,
     ];
 
-    /// The element code: 0 `I8` to 12 `Bool`, in declaration order; a newer writer's element keeps its code.
+    /// The element code: 0 `I8` to 12 `Bool`, in declaration order; a newer writer's element keeps its code. An
+    /// unknown element past 255, which no byte names, gives 255, a code no element has.
     pub const fn code(self) -> u8 {
         match self {
             Element::I8 => 0,
@@ -86,17 +71,32 @@ impl Element {
             Element::ComplexI16 => 10,
             Element::ComplexF32 => 11,
             Element::Bool => 12,
-            Element::Unknown(code) => code as u8,
+            Element::Unknown(code) => match code.to_le_bytes() {
+                [low, 0, 0, 0] => low,
+                _ => u8::MAX,
+            },
         }
     }
 
     /// The element of a code this reader knows, None for any other.
     pub const fn from_code(code: u8) -> Option<Element> {
-        if (code as usize) < Self::ALL.len() {
-            Some(Self::ALL[code as usize])
-        } else {
-            None
-        }
+        let e = match code {
+            0 => Element::I8,
+            1 => Element::I16,
+            2 => Element::I32,
+            3 => Element::I64,
+            4 => Element::U8,
+            5 => Element::U16,
+            6 => Element::U32,
+            7 => Element::U64,
+            8 => Element::F32,
+            9 => Element::F64,
+            10 => Element::ComplexI16,
+            11 => Element::ComplexF32,
+            12 => Element::Bool,
+            _ => return None,
+        };
+        Some(e)
     }
 
     /// The type a value is stored as: the part of a complex element, else the element itself.
@@ -195,6 +195,9 @@ mod tests {
         }
         assert_eq!(Element::from_code(13), None);
         assert_eq!(Element::Unknown(14).code(), 14);
+        // past a byte: no known element's code, where truncation gave 256 the code of I8
+        assert_eq!(Element::Unknown(256).code(), u8::MAX);
+        assert_eq!(Element::from_code(Element::Unknown(269).code()), None);
     }
 
     #[test]

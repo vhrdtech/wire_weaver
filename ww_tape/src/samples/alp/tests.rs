@@ -115,7 +115,7 @@ fn deterministic_and_alone_per_group() {
     assert_eq!(a, encode_vec(Codec::ALP, F64S, &s));
     let col = Samples::new(Codec::ALP, F64S, s.len(), &a).unwrap();
     assert_eq!(col.group_count(), 8);
-    let (samples, range) = col.group_bytes(3);
+    let (samples, range) = col.group_bytes(3).unwrap();
     assert_eq!(samples, 384..512);
     let mut damaged = a.clone();
     for b in &mut damaged[range] {

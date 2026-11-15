@@ -33,7 +33,9 @@ fn read<T: Sample>(codec: Codec, shape: SampleShape, count: usize, bytes: &[u8],
         let from = from % (count + 1);
         let _ = s.decode(from, &mut out[from * lanes..]);
         for g in 0..s.group_count() {
-            let (samples, range) = s.group_bytes(g);
+            let (samples, range) = s
+                .group_bytes(g)
+                .expect("a column that checks holds every group below group_count");
             assert!(samples.end <= count && range.end <= bytes.len());
         }
     }

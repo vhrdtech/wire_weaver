@@ -47,22 +47,6 @@
 //!
 //! Every codec is deterministic: the same values give the same bytes.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 pub mod alp;
 mod delta;
 mod element;
@@ -73,7 +57,7 @@ mod tests;
 pub use alp::ALP_GROUP;
 pub use element::{Element, SampleShape};
 
-use crate::Codec;
+use crate::{Codec, FromFile, bytes};
 use core::ops::Range;
 
 impl Codec {
@@ -118,26 +102,80 @@ mod sealed {
     pub trait Sealed {}
 }
 
-macro_rules! sample_int {
+/// The low bits of `bits` as an unsigned integer of a narrower or equal width.
+macro_rules! low_bits {
+    ($bits:expr, $u:ty) => {{
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_possible_truncation,
+            reason = "from_bits keeps the low bits: the truncation is its contract"
+        )]
+        let low = $bits as $u;
+        low
+    }};
+}
+
+macro_rules! sample_unsigned {
+    ($($t:ty => $e:ident);* $(;)?) => {$(
+        impl sealed::Sealed for $t {}
+        impl Sample for $t {
+            const ELEMENT: Element = Element::$e;
+            #[inline(always)]
+            fn to_bits(self) -> u64 {
+                u64::from(self)
+            }
+            #[inline(always)]
+            fn from_bits(bits: u64) -> Self {
+                low_bits!(bits, $t)
+            }
+        }
+    )*};
+}
+
+macro_rules! sample_signed {
     ($($t:ty => $e:ident, $u:ty);* $(;)?) => {$(
         impl sealed::Sealed for $t {}
         impl Sample for $t {
             const ELEMENT: Element = Element::$e;
             #[inline(always)]
             fn to_bits(self) -> u64 {
-                self as $u as u64
+                u64::from(self.cast_unsigned())
             }
             #[inline(always)]
             fn from_bits(bits: u64) -> Self {
-                bits as $u as $t
+                low_bits!(bits, $u).cast_signed()
             }
         }
     )*};
 }
 
-sample_int! {
-    i8 => I8, u8; i16 => I16, u16; i32 => I32, u32; i64 => I64, u64;
-    u8 => U8, u8; u16 => U16, u16; u32 => U32, u32; u64 => U64, u64;
+sample_unsigned! { u8 => U8; u16 => U16; u32 => U32; }
+sample_signed! { i8 => I8, u8; i16 => I16, u16; i32 => I32, u32; }
+
+impl sealed::Sealed for i64 {}
+impl Sample for i64 {
+    const ELEMENT: Element = Element::I64;
+    #[inline(always)]
+    fn to_bits(self) -> u64 {
+        self.cast_unsigned()
+    }
+    #[inline(always)]
+    fn from_bits(bits: u64) -> Self {
+        bits.cast_signed()
+    }
+}
+
+impl sealed::Sealed for u64 {}
+impl Sample for u64 {
+    const ELEMENT: Element = Element::U64;
+    #[inline(always)]
+    fn to_bits(self) -> u64 {
+        self
+    }
+    #[inline(always)]
+    fn from_bits(bits: u64) -> Self {
+        bits
+    }
 }
 
 impl sealed::Sealed for f32 {}
@@ -149,7 +187,7 @@ impl Sample for f32 {
     }
     #[inline(always)]
     fn from_bits(bits: u64) -> Self {
-        f32::from_bits(bits as u32)
+        f32::from_bits(low_bits!(bits, u32))
     }
 }
 
@@ -199,6 +237,8 @@ pub enum SampleError {
     ValueTooWide { index: usize },
     /// The output buffer is shorter than [max_encoded_len].
     Full { needed: usize },
+    /// An end in the group table is past the column's bytes.
+    Bound(crate::BoundError),
 }
 
 /// How a codec codes values.
@@ -226,13 +266,17 @@ fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
         Codec::RAW => Kind::Le,
         Codec::BIG_ENDIAN if scalar != Element::Bool => Kind::Be,
         Codec(id @ 17..=22) => {
-            let w = [10, 10, 12, 12, 24, 24][usize::from(id - 17)];
+            let w = match id {
+                17 | 18 => 10,
+                19 | 20 => 12,
+                _ => 24,
+            };
             if scalar.is_float() || scalar == Element::Bool || bits < w {
                 return unsupported;
             }
             Kind::Packed {
                 bits: w,
-                msb: id % 2 == 0,
+                msb: id.is_multiple_of(2),
             }
         }
         Codec::ALP if scalar.is_float() => Kind::Alp,
@@ -240,7 +284,8 @@ fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
             if scalar.is_float() || scalar == Element::Bool {
                 return unsupported;
             }
-            Kind::Delta(delta::Flavor { order: id - 31 })
+            let order = if id == Codec::DELTA.0 { 1 } else { 2 };
+            Kind::Delta(delta::Flavor { order })
         }
         _ => return unsupported,
     };
@@ -265,7 +310,9 @@ fn value_bits(kind: Kind, element: Element) -> u32 {
 
 /// Bytes of `values` values of `bits` bits.
 fn plain_len(values: usize, bits: u32) -> Option<usize> {
-    values.checked_mul(bits as usize).map(|b| b.div_ceil(8))
+    values
+        .checked_mul(usize::try_from(bits).ok()?)
+        .map(|b| b.div_ceil(8))
 }
 
 /// The most bytes [encode] can write for `count` samples of `shape` in `codec`.
@@ -300,11 +347,12 @@ pub fn encode<T: Sample>(
     if !values.len().is_multiple_of(lanes) {
         return Err(SampleError::OutOfRange);
     }
-    let needed = max_encoded_len(codec, shape, values.len() / lanes)?;
-    if out.len() < needed {
-        return Err(SampleError::Full { needed });
-    }
-    let out = &mut out[..needed];
+    let count = values
+        .len()
+        .checked_div(lanes)
+        .ok_or(SampleError::BadShape)?;
+    let needed = max_encoded_len(codec, shape, count)?;
+    let out = out.get_mut(..needed).ok_or(SampleError::Full { needed })?;
     match kind {
         Kind::Le => Ok(raw::encode_le(values, out)),
         Kind::Be => Ok(raw::encode_be(values, out)),
@@ -328,47 +376,57 @@ fn check_type<T: Sample>(element: Element) -> Result<(), SampleError> {
 /// Bytes of a group table entry.
 const ENTRY: usize = 4;
 
+/// Check that `groups` groups of `lanes` scalars can fit a grouped column's `len` bytes: a group takes a table
+/// entry and at least a byte per lane. This bounds the samples (a group holds at most [DELTA_GROUP] or
+/// [ALP_GROUP]) and the table by the column's length before any of it is read.
+fn check_groups(len: usize, groups: usize, lanes: usize) -> Result<(), SampleError> {
+    match lanes
+        .checked_add(ENTRY)
+        .and_then(|per| groups.checked_mul(per))
+    {
+        Some(least) if least <= len => Ok(()),
+        _ => Err(SampleError::BadLength { len }),
+    }
+}
+
 /// Check the table of a grouped column of `groups` groups: ascending ends, the last one the length after the table.
 fn check_table(bytes: &[u8], groups: usize) -> Result<(), SampleError> {
     let bad = SampleError::BadLength { len: bytes.len() };
     let table = groups.checked_mul(ENTRY).ok_or(bad)?;
-    if bytes.len() < table {
-        return Err(bad);
-    }
+    let (entries, data) = bytes.split_at_checked(table).ok_or(bad)?;
     let mut prev = 0usize;
-    for e in bytes[..table].as_chunks::<ENTRY>().0 {
-        let end = u32::from_le_bytes(*e) as usize;
+    for e in entries.as_chunks::<ENTRY>().0 {
+        let end = FromFile::new(u32::from_le_bytes(*e))
+            .within(data.len())
+            .map_err(SampleError::Bound)?;
         if end < prev {
             return Err(bad);
         }
         prev = end;
     }
-    if prev != bytes.len() - table {
+    if prev != data.len() {
         return Err(bad);
     }
     Ok(())
 }
 
-/// The bytes of group `g` of a grouped column, None when the table doesn't hold it.
+/// The bytes of group `g` of a grouped column, None when the table doesn't hold it: every lookup of a group goes
+/// through this check, the table's own check notwithstanding.
 fn table_entry(bytes: &[u8], groups: usize, g: usize) -> Option<Range<usize>> {
     let table = groups.checked_mul(ENTRY)?;
+    let (entries, data) = bytes.split_at_checked(table)?;
     let end_of = |i: usize| -> Option<usize> {
-        let at = i.checked_mul(ENTRY)?;
-        let e = bytes.get(at..at.checked_add(ENTRY)?)?;
-        let e: [u8; ENTRY] = e.try_into().ok()?;
-        table.checked_add(u32::from_le_bytes(e) as usize)
+        let end = bytes::file_u32(entries, i.checked_mul(ENTRY)?)?
+            .within(data.len())
+            .ok()?;
+        table.checked_add(end)
     };
     let from = match g.checked_sub(1) {
         Some(p) => end_of(p)?,
         None => table,
     };
     let to = end_of(g)?;
-    (g < groups && from <= to && to <= bytes.len()).then_some(from..to)
-}
-
-/// The bytes of group `g` of a grouped column whose table was checked.
-fn table_range(bytes: &[u8], groups: usize, g: usize) -> Range<usize> {
-    table_entry(bytes, groups, g).expect("a checked table holds every group")
+    (from <= to).then_some(from..to)
 }
 
 /// A sample column read in place: its codec, shape and count, checked against its bytes.
@@ -384,7 +442,8 @@ pub struct Samples<'b> {
 
 impl<'b> Samples<'b> {
     /// Take `bytes` as `count` samples of `shape` coded in `codec`: the codec must code the element and the length
-    /// must fit (for the grouped codecs, the group table too). No value is decoded yet.
+    /// must fit (for the grouped codecs, the group table too). No value is decoded yet. `count` may come from the
+    /// file: it is bounded by the column's length before anything is read.
     pub fn new(
         codec: Codec,
         shape: SampleShape,
@@ -394,13 +453,19 @@ impl<'b> Samples<'b> {
         let kind = kind(codec, shape.element)?;
         let lanes = lanes(shape)?;
         let values = count.checked_mul(lanes).ok_or(SampleError::BadShape)?;
-        let bad = SampleError::BadLength { len: bytes.len() };
+        let len = bytes.len();
         match kind {
-            Kind::Delta(_) => delta::check_table(bytes, count)?,
-            Kind::Alp => alp::check_table(bytes, count)?,
+            Kind::Delta(_) => {
+                check_groups(len, count.div_ceil(DELTA_GROUP), lanes)?;
+                delta::check_table(bytes, count)?;
+            }
+            Kind::Alp => {
+                check_groups(len, count.div_ceil(ALP_GROUP), lanes)?;
+                alp::check_table(bytes, count)?;
+            }
             _ => {
-                if plain_len(values, value_bits(kind, shape.element)) != Some(bytes.len()) {
-                    return Err(bad);
+                if plain_len(values, value_bits(kind, shape.element)) != Some(len) {
+                    return Err(SampleError::BadLength { len });
                 }
             }
         }
@@ -447,12 +512,17 @@ impl<'b> Samples<'b> {
         if !out.len().is_multiple_of(self.lanes) {
             return Err(SampleError::OutOfRange);
         }
-        let n = out.len() / self.lanes;
+        let n = out
+            .len()
+            .checked_div(self.lanes)
+            .ok_or(SampleError::BadShape)?;
         match first.checked_add(n) {
             Some(end) if end <= self.count => {}
             _ => return Err(SampleError::OutOfRange),
         }
-        let first_value = first * self.lanes;
+        let first_value = first
+            .checked_mul(self.lanes)
+            .ok_or(SampleError::OutOfRange)?;
         match self.kind {
             Kind::Le => raw::decode_le(self.bytes, first_value, out),
             Kind::Be => raw::decode_be(self.bytes, first_value, out),
@@ -472,11 +542,11 @@ impl<'b> Samples<'b> {
         Ok(())
     }
 
-    /// Samples per group: [DELTA_GROUP] or [ALP_GROUP], None for a raw format.
-    fn group_len(&self) -> Option<usize> {
+    /// Samples per group and groups: [DELTA_GROUP] or [ALP_GROUP] samples per group, None for a raw format.
+    fn groups(&self) -> Option<(usize, usize)> {
         match self.kind {
-            Kind::Delta(_) => Some(DELTA_GROUP),
-            Kind::Alp => Some(ALP_GROUP),
+            Kind::Delta(_) => Some((DELTA_GROUP, self.count.div_ceil(DELTA_GROUP))),
+            Kind::Alp => Some((ALP_GROUP, self.count.div_ceil(ALP_GROUP))),
             _ => None,
         }
     }
@@ -484,39 +554,33 @@ impl<'b> Samples<'b> {
     /// Groups a reader can decode alone: 1 for a raw format, a group per [DELTA_GROUP] or [ALP_GROUP]
     /// samples for the delta and ALP codecs.
     pub fn group_count(&self) -> usize {
-        self.group_len().map_or(1, |n| self.count.div_ceil(n))
+        self.groups().map_or(1, |(_, groups)| groups)
     }
 
-    /// The samples of group `g` and the bytes of the column that code them: a reader whose chunk has bad segments
-    /// ([Chunk::range_damaged](crate::Chunk::range_damaged), offset by the column's offset) decodes the groups whose
-    /// bytes are intact. A raw format's samples each decode alone: [Self::sample_bytes] narrows its single group.
-    ///
-    /// # Panics
-    ///
-    /// When `g` is not below [Self::group_count].
-    pub fn group_bytes(&self, g: usize) -> (Range<usize>, Range<usize>) {
-        assert!(
-            g < self.group_count(),
-            "group {g} of {}",
-            self.group_count()
-        );
-        match self.group_len() {
-            Some(n) => {
-                let samples = g * n..self.count.min((g + 1) * n);
-                (samples, table_range(self.bytes, self.count.div_ceil(n), g))
-            }
-            None => (0..self.count, 0..self.bytes.len()),
-        }
+    /// The samples of group `g` and the bytes of the column that code them, None when `g` is not below
+    /// [Self::group_count]. A reader whose chunk has bad segments ([Chunk::range_damaged](crate::Chunk::range_damaged),
+    /// offset by the column's offset) decodes the groups whose bytes are intact. A raw format's samples each decode
+    /// alone: [Self::sample_bytes] narrows its single group.
+    pub fn group_bytes(&self, g: usize) -> Option<(Range<usize>, Range<usize>)> {
+        let Some((n, groups)) = self.groups() else {
+            return (g == 0).then_some((0..self.count, 0..self.bytes.len()));
+        };
+        let bytes = table_entry(self.bytes, groups, g)?;
+        let from = g.checked_mul(n)?;
+        let to = self.count.min(from.checked_add(n)?);
+        Some((from..to, bytes))
     }
 
-    /// The bytes that code `samples` in a raw format, None for the grouped codecs (see [Self::group_bytes]).
+    /// The bytes that code `samples` in a raw format, None for the grouped codecs (see [Self::group_bytes]) and for
+    /// a range whose bit offsets overflow.
     pub fn sample_bytes(&self, samples: Range<usize>) -> Option<Range<usize>> {
         let bits = match self.kind {
             Kind::Delta(_) | Kind::Alp => return None,
-            k => value_bits(k, self.shape.element) as usize,
+            k => usize::try_from(value_bits(k, self.shape.element)).ok()?,
         };
-        let from = samples.start * self.lanes * bits / 8;
-        let to = (samples.end * self.lanes * bits).div_ceil(8);
+        let sample_bits = self.lanes.checked_mul(bits)?;
+        let from = samples.start.checked_mul(sample_bits)? / 8;
+        let to = samples.end.checked_mul(sample_bits)?.div_ceil(8);
         Some(from..to.min(self.bytes.len()))
     }
 }

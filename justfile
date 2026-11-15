@@ -436,3 +436,8 @@ fuzz-tape-index:
 [working-directory('fuzz')]
 fuzz-tape-times:
     cargo +nightly fuzz run tape-times -- -max_len=65536
+
+# Fuzz ww_tape sample codecs and lz4 payloads: reading any bytes, round trips of values from the input (STD-119)
+[working-directory('fuzz')]
+fuzz-tape-samples:
+    cargo +nightly fuzz run tape-samples -- -max_len=65536

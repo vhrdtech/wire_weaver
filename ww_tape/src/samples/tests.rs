@@ -499,3 +499,79 @@ fn samples_golden() {
         "the format changed: bytes differ from golden/v2-samples.hex"
     );
 }
+
+/// Random bytes as columns of every codec and element: a check or a decode may fail, never panic (the fuzz target
+/// `tape-samples` goes further).
+#[test]
+fn random_columns_never_panic() {
+    let mut r = Rng(99);
+    let codecs = [
+        Codec::RAW,
+        Codec::BIG_ENDIAN,
+        Codec::PACKED10_LSB,
+        Codec::PACKED12_MSB,
+        Codec::PACKED24_LSB,
+        Codec::GORILLA,
+        Codec::CHIMP,
+        Codec::DELTA,
+        Codec::DELTA2,
+        Codec::FLOAT_DELTA,
+        Codec::FLOAT_DELTA2,
+    ];
+    fn try_all<T: Sample>(codec: Codec, shape: SampleShape, count: usize, bytes: &[u8]) {
+        if let Ok(s) = Samples::new(codec, shape, count, bytes) {
+            let mut out = vec![T::default(); count * s.lanes()];
+            let _ = s.decode(0, &mut out);
+        }
+    }
+    for round in 0..2000 {
+        let len = (r.next() % 600) as usize;
+        let mut bytes: Vec<u8> = (0..len).map(|_| r.next() as u8).collect();
+        let count = (r.next() % 300) as usize;
+        let groups = if round % 2 == 0 {
+            count.div_ceil(DELTA_GROUP)
+        } else {
+            count.div_ceil(XOR_GROUP)
+        };
+        // a plausible table half the time, so the group decoders run
+        if round % 4 < 2 && bytes.len() >= groups * 4 && groups > 0 {
+            let data = (bytes.len() - groups * 4) as u32;
+            for g in 0..groups {
+                let end = data * (g as u32 + 1) / groups as u32;
+                bytes[g * 4..g * 4 + 4].copy_from_slice(&end.to_le_bytes());
+            }
+        }
+        let codec = codecs[round % codecs.len()];
+        let channels = 1 + (round / codecs.len()) as u32 % 3;
+        try_all::<i16>(
+            codec,
+            SampleShape::new(Element::I16, channels),
+            count,
+            &bytes,
+        );
+        try_all::<u32>(
+            codec,
+            SampleShape::new(Element::U32, channels),
+            count,
+            &bytes,
+        );
+        try_all::<i64>(
+            codec,
+            SampleShape::new(Element::I64, channels),
+            count,
+            &bytes,
+        );
+        try_all::<f32>(
+            codec,
+            SampleShape::new(Element::ComplexF32, channels),
+            count,
+            &bytes,
+        );
+        try_all::<f64>(
+            codec,
+            SampleShape::new(Element::F64, channels),
+            count,
+            &bytes,
+        );
+    }
+}

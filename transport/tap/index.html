@@ -4997,6 +4997,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#series-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Series tracks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5958,6 +5969,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#series-tracks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Series tracks
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6164,7 +6186,7 @@ clock, so a block reads alone and one clock costs no bit. No wall time is in a b
 exact rate and resolution as <code>Magnitude</code>s, origin: free-running, boot, Unix epoch, media start, run start, or the next epoch of a counter, fixed by an exact offset map), the
 clock maps (segments <code>b = b0 + (a - a0) · slope</code>, the slope an exact_units <code>Ratio64</code>, with an error bound, strictly increasing across segments: the tap maps its own clock to the wall clock
 read at its start), a <code>TrackDef</code> per track (number, stable key, clock, dimensions that are part of its identity, API,
-resource path, optional item type, label, whether it is sticky) and typed items (any wire_weaver value by bundle
+resource path, optional item type, label, whether it is sticky, and its kind: events, with or without ends and flags, or a <a href="#series-tracks">series</a>) and typed items (any wire_weaver value by bundle
 hash and type path), then the newest record of every sticky track. It is written at the start, when a track is
 added, when a consumer joins and after a loss, never by time, so a consumer that joins late decodes from its first
 block. <code>ww_tape::DescribeSet</code> keeps the records in that order, so the same input gives the same bytes whatever order
@@ -6297,6 +6319,10 @@ the producer added them in.</p>
 </tbody>
 </table>
 <p>The delta codecs decoded at 1 to 3 ns per value, the XOR codecs at 2 to 9 (x86-64, one core). The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.</p>
+<h3 id="series-tracks">Series tracks<a class="headerlink" href="#series-tracks" title="Permanent link">&para;</a></h3>
+<p>A series track holds samples at an exact period with no time per sample. Its <code>TrackDef</code> kind is a <code>SeriesDef</code>: the type of one value as the API declares it (a <code>TypeRef</code> to an exact_units <code>Fixed&lt;Ampere, Milli, i32&gt;</code>, a <code>ww_si</code> quantity or a plain float), the stored element and channels derived from that type, the period in ticks per sample as an exact <code>Ratio64</code> (48 kHz on a 1 ns clock is <code>62500/3</code>), the scale of the stored numbers as a <code>Magnitude</code> (<code>10⁻³</code> for that <code>Fixed</code>), the summaries the writer builds (<code>SeriesSummarySpec</code>) and, for samples kept in a media file, the stream. <code>SeriesDef::of::&lt;Fixed&lt;Ampere, Milli, i32&gt;&gt;(..)</code> takes the element and the scale from the type (<code>ww_tape::SeriesValue</code>).</p>
+<p>The track's records are its <code>SeriesSegment</code>s, at the tick of their first sample: one at the start and one at every gap, restart or change of scale. A segment names its first sample's index, a time grid (sample <code>i</code> is at <code>grid_tick + (i - grid_index) · period</code>, rounded down) and the scale from there on. A gap starts a new grid after the last tick of the one before; a prefix change of an autoranging device keeps the grid, so no sample time moves by rounding. The track is sticky, so every describe set repeats its newest segment and each piece holds the segment its samples start in. A series chunk never spans two segments, so its numbers are at one scale and its head's first and last tick are its samples' on the grid.</p>
+<p><code>ww_tape::SeriesTimeline</code> collects a track's segments from its records in any order (<code>from_records</code>), checks each against its record time and the ones before, and gives any sample's tick and scale; <code>check_chunk</code> checks a chunk head against them. A received <code>Series&lt;Fixed&lt;..&gt;&gt;</code> batch goes into chunk columns as integers: each item's stored number is put into the column as is (<code>SeriesValue::write_parts</code>), and a <code>ww_si</code> quantity's prefix becomes the segment's scale, a change of prefix starting a segment where the <code>Series</code> restarts its numeric column. The wire codecs of <code>Series&lt;T&gt;</code> and these sample codecs are separate layers: a batch is decoded once on the host and coded again for random access in the file.</p>
 <h2 id="decoding">Decoding<a class="headerlink" href="#decoding" title="Permanent link">&para;</a></h2>
 <p><code>wire_weaver_client::tap::Decoder</code> takes blocks, live or from a file (<code>ww_tape::FileBlocks</code>), and gives out
 <code>Decoded</code> frames, messages and link events:</p>

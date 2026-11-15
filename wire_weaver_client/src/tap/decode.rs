@@ -264,6 +264,10 @@ impl Decoder {
     /// Decode a block; what it gives is taken with [Decoder::next].
     pub fn feed(&mut self, block: &Block<'_>) {
         self.stats.blocks += 1;
+        // a describe block with the seq of the block before it is a copy a writer made (a repeat, the backup before
+        // the finish, the next piece's start): its sticky records are the state of the run it copies, older than
+        // the records read since
+        let copy = block.kind == BlockKind::Describe && self.next_seq == block.seq.checked_add(1);
         if let Some(next) = self.next_seq
             && block.seq > next
         {
@@ -286,6 +290,9 @@ impl Decoder {
                 }
                 continue;
             };
+            if copy {
+                continue;
+            }
             // the tap clock counts ns from the recorder's start: a time before it isn't the tap's
             let (HOST_CLOCK, Ok(t)) = (at.clock, u64::try_from(at.ticks)) else {
                 continue;
@@ -808,3 +815,6 @@ fn ready(mut bundle: ApiBundleOwned) -> Option<Arc<ApiBundleOwned>> {
     crate::client::introspect::inline_known(&mut bundle).ok()?;
     Some(Arc::new(bundle))
 }
+
+#[cfg(test)]
+mod tests;

@@ -63,6 +63,12 @@
 //! a file, when a track is added, when a live consumer joins and after blocks were lost, never by time, so record
 //! blocks carry only records and a trickle of records costs a block header each, not a description.
 //!
+//! Describe blocks a writer writes again (the repeats, the backup before a piece's finish, the start of the next
+//! piece) are copies of the newest describe run, sticky records included, with the seq of the block before them.
+//! Their sticky records are the state as of the run they copy, at its times, not at the copy's place in the file. A
+//! reader that read on to a copy takes no sticky record from it: the records read since are newer. A reader starting
+//! at a copy takes them as the state at their times.
+//!
 //! The same input gives the same bytes: blocks hold no wall time, describe records go in canonical order
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
 //! One exception: an [lz4] payload column is identical only for one `lz4_flex` version on targets of the

@@ -108,6 +108,7 @@
 //! | [WIDTH_MAX](bitpack::WIDTH_MAX) | 64 | a bit width ([bitpack::Width]) |
 //! | [KERNEL_WIDTH_MAX](bitpack::KERNEL_WIDTH_MAX) | 32 | a bit width the 32-bit kernels unpack |
 //! | [SLOPE_MAX](times::SLOPE_MAX) | 2^55 | a start group's slope (Q16 ticks per item) |
+//! | [ITEMS_MAX](times::ITEMS_MAX) | 16 Mi | the items of an events chunk |
 //! | [INDEX_LEN_MAX](index::INDEX_LEN_MAX) | 1 MiB | an index block a writer makes, and a reader looks for from the end |
 //! | [CHECKPOINT_ENTRIES_MAX](index::CHECKPOINT_ENTRIES_MAX) | 14562 | entries a writer puts in a checkpoint index block |
 //! | [NODE_SHIFT_MAX](summary::NODE_SHIFT_MAX) | 62 | a summary node's items, as a power of 2 |

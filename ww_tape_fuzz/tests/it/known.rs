@@ -18,14 +18,7 @@ pub struct Known {
 }
 
 /// Every known failure.
-pub const KNOWN: &[Known] = &[Known {
-    target: "tape-times-hostile",
-    seed: "known-chunk-count-unbounded",
-    at: "ww_tape_fuzz/src/targets/hostile.rs:71",
-    message: "a chunk of 124 bytes reads as 2147483647 items: EventTimes::read and ::salvage take any count \
-                  from the head in the implicit time mode (ww_tape/src/times/starts.rs), so a reader's loop over \
-                  the items is not bounded by the bytes it read",
-}];
+pub const KNOWN: &[Known] = &[];
 
 /// Whether `outcome` of a case of `target` fails at a known place of that target.
 pub fn is_known(target: &str, outcome: &Outcome) -> bool {

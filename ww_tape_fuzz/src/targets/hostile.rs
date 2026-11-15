@@ -56,9 +56,9 @@ pub fn records_hostile(data: &[u8]) {
     reader(&b);
 }
 
-/// Most items a target reads from one chunk. A reader's work on a chunk grows with its items, so a chunk that reads
-/// as more is a failure of the case here, not a loop of minutes: ww_tape bounds no chunk's count yet.
-const CHUNK_ITEMS_READ_MAX: usize = 1 << 20;
+/// Most items a target reads from one chunk: ww_tape's cap. A chunk that reads as more is a failure of the case, not a
+/// loop of minutes.
+const CHUNK_ITEMS_READ_MAX: usize = ww_tape::times::ITEMS_MAX;
 
 /// The times of the chunk `b` read and salvaged hold at most [CHUNK_ITEMS_READ_MAX] items.
 fn items_bounded(b: &[u8]) {

@@ -35,14 +35,15 @@ pub struct Seed {
 }
 
 /// The inputs of the known failures, minimised (`ww_tape_fuzz_seeds minimize`): target, name, input in hex.
-pub const KNOWN_INPUTS: &[(&str, &str, &str)] = &[(
-    "tape-times-hostile",
-    "chunk-count-unbounded",
-    "80f70000000000000000000000000000000000000000002703a94d75",
-)];
+pub const KNOWN_INPUTS: &[(&str, &str, &str)] = &[];
 
 /// Inputs these tests found that failed until STD-131 fixed them: target, name (seed `fixed-<name>`), hex.
 pub const FIXED_INPUTS: &[(&str, &str, &str)] = &[
+    (
+        "tape-times-hostile",
+        "chunk-count-unbounded",
+        "80f70000000000000000000000000000000000000000002703a94d75",
+    ),
     (
         "tape-reader-hostile",
         "salvage-walk-reads-inside-a-gap",

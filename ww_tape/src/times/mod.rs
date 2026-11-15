@@ -69,9 +69,13 @@ pub(crate) use groups::u32_to_usize;
 pub use packed::{Durations, Flags};
 pub use starts::{Iter, SLOPE_MAX, Starts};
 
-use crate::BlockKind;
+/// Most items of an events chunk (16 Mi): a reader's work on a chunk grows with its items, and implicit times store
+/// none per item, so the count a head states is bounded by this, not by the chunk's bytes.
+pub const ITEMS_MAX: usize = 1 << 24;
+
 use crate::bitpack::GROUP;
 use crate::chunk::{Chunk, ChunkHead, Codec, Column, ColumnKind, EndMode};
+use crate::{BlockKind, BoundError, FromFile};
 use core::ops::Range;
 
 /// Codec of a starts column.
@@ -126,6 +130,8 @@ pub enum TimesError {
         kind: ColumnKind,
         what: &'static str,
     },
+    /// The head states more items than [ITEMS_MAX].
+    Bound(BoundError),
 }
 
 impl core::fmt::Display for TimesError {
@@ -137,6 +143,7 @@ impl core::fmt::Display for TimesError {
             TimesError::Unexpected(k) => write!(f, "unexpected {k:?} column"),
             TimesError::UnknownCodec(k, c) => write!(f, "{k:?} column in unknown codec {}", c.0),
             TimesError::Corrupt { kind, what } => write!(f, "{kind:?} column: {what}"),
+            TimesError::Bound(e) => write!(f, "items: {e}"),
         }
     }
 }
@@ -212,7 +219,9 @@ impl<'b> EventTimes<'b> {
                 what: "column past the payload",
             })
         };
-        let n = u32_to_usize(head.count);
+        let n = FromFile::new(head.count)
+            .at_most(ITEMS_MAX)
+            .map_err(TimesError::Bound)?;
         let s = starts.ok_or(TimesError::Missing(ColumnKind::Starts))?;
         codec(&s, STARTS)?;
         let starts = Starts::parse(

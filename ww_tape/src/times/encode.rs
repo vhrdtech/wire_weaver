@@ -11,7 +11,7 @@ use std::vec::Vec;
 pub enum EncodeError {
     /// No items.
     Empty,
-    /// More items than a chunk holds (u32).
+    /// More items than a chunk holds ([ITEMS_MAX](super::ITEMS_MAX)).
     TooMany,
     /// Item `at` starts before the one before it.
     Unsorted { at: usize },
@@ -57,7 +57,7 @@ impl EncodedTimes {
         let (Some(&first), Some(&last)) = (starts.first(), starts.last()) else {
             return Err(EncodeError::Empty);
         };
-        let Ok(count) = u32::try_from(n) else {
+        let Some(count) = u32::try_from(n).ok().filter(|_| n <= super::ITEMS_MAX) else {
             return Err(EncodeError::TooMany);
         };
         if let Some(((at, _), _)) = starts

@@ -4,6 +4,8 @@
 
 ### ⚠️ Breaking
 
+- `Samples::group_bytes` returns an `Option`, None past the last group; `SampleError` gains `Bound` (STD-131).
+- `max_encoded_len` refuses a grouped column of 4 GiB or more with `BadShape` (STD-131).
 - `SummaryHead::node_items` returns an `Option`, None past the last node; `SummaryError` gains `Bound` (STD-131).
 - `ChunkHeadError` and `IndexError` gain `Bound`; `IndexEntry::of_chunk` and `IndexBlock::entry_offset` return an `Option` (STD-131).
 - `write_index` refuses an entry that names no block; `ReadError` gains `NoPiece` for a piece number past the last (STD-131).
@@ -43,6 +45,8 @@
 
 ### 🐛 Fixes
 
+- `Element::Unknown` codes past 255 no longer truncate to a known element's code (STD-131).
+- A delta column of 4 GiB or more is refused instead of panicking the encoder (STD-131).
 - A uvar whose 10th byte holds more than bit 63 is refused, not truncated (STD-131).
 - Item numbers near `u64::MAX` no longer wrap in summary nodes, event trees and walk probes (STD-131).
 - A piece number past the last, an over-long `Read`, or an offset past u64 is an error, not a panic (STD-131).

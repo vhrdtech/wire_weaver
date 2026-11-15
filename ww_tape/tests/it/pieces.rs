@@ -709,3 +709,57 @@ fn the_describe_repeat_carries_over_a_cut() {
     assert_eq!(copies, 6);
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// A block written again with other bytes (the order a writer makes: records, the describe copy, the records again)
+/// takes the place of the first in the index as in a walk, whether the piece is read by its final index or scanned.
+#[test]
+fn a_replaced_block_leaves_the_index() {
+    let dir = scratch("replaced");
+    let path = dir.join("r.wwt");
+    let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+    for b in describe_blocks(Layout::UNALIGNED, w.next_id()) {
+        w.write_block(&b).unwrap();
+    }
+    let id = w.next_id();
+    w.write_block(&records(id, 1)).unwrap();
+    w.write_block(&records(id, 2)).unwrap();
+    // the same bytes again: dropped, never listed
+    w.write_block(&records(id, 2)).unwrap();
+    for n in 3..6 {
+        w.write_block(&records(w.next_id(), n)).unwrap();
+    }
+    let partial = std::fs::read(w.current_path()).unwrap();
+    w.finish().unwrap();
+    let finished = std::fs::read(&path).unwrap();
+    for bytes in [partial, finished] {
+        // the blocks a walk ends up with: a replacement takes the place of the last counted block
+        let mut rd = FileBlocks::new(&bytes[..]);
+        let (mut walked, mut last, mut replaced, mut seqs) = (vec![], None, 0, vec![]);
+        while let Some(b) = rd.next_block() {
+            match b {
+                Ok(b) if listed(b.kind) => {
+                    if b.kind == BlockKind::Records {
+                        seqs.push(b.seq);
+                    }
+                    if !b.is_copy() {
+                        last = Some(walked.len());
+                    }
+                    walked.push(rd.offset());
+                }
+                Ok(_) => {}
+                Err(ww_tape::FileError::Replaced { .. }) => {
+                    walked.remove(last.take().unwrap());
+                    seqs.pop();
+                    replaced += 1;
+                }
+                Err(e) => panic!("{e}"),
+            }
+        }
+        assert_eq!(replaced, 1);
+        let r = TapeReader::open(&bytes[..]).unwrap();
+        let listed: Vec<u64> = r.entries(0).unwrap().iter().map(|e| e.offset).collect();
+        assert_eq!(listed, walked);
+        assert_eq!(seqs, [id.seq, id.seq + 1, id.seq + 2, id.seq + 3]);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

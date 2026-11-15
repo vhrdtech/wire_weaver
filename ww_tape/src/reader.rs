@@ -25,7 +25,7 @@ use crate::piece::{
     ChainReport, Finish, FinishBlock, PieceHead, PieceHeadBlock, PieceSummary, TAIL_LEN, Tail,
     TrackRange, TrackStart, check_chain,
 };
-use crate::walk::{Head, RunState, Verdict};
+use crate::walk::{Head, RunState, Verdict, is_free};
 use crate::{
     Block, BlockError, BlockKind, GAP_CHECKS_MAX, HEADER_LEN, Layout, MAGIC, MAX_BLOCK_LEN, Medium,
     VERSION, block_len,
@@ -538,6 +538,8 @@ impl<S: ByteSource> TapeReader<S> {
         let mut at = from;
         piece.end = piece.end.max(from);
         let scan_start = from;
+        // offset in the piece of the last block taken that is in the seq order: the one a replacement replaces
+        let mut last_counted: Option<u64> = None;
         while at < hi {
             let mut replaces = false;
             let taken = match self.good_block(at, hi)? {
@@ -578,11 +580,21 @@ impl<S: ByteSource> TapeReader<S> {
             let block = Block::read(&bytes).expect("checked");
             walk.take(&block);
             let len = bytes.len() as u64;
+            if replaces
+                && let Some(gone) = last_counted
+                && let Some(list) = piece.entries.as_mut()
+            {
+                list.retain(|e| e.offset != gone);
+            }
+            if !is_free(&block) {
+                last_counted = at.checked_sub(piece.start);
+            }
             match block.kind {
                 BlockKind::PieceHead if at != piece.start => {
                     set_scanned(&mut piece, at - scan_start);
                     out.push(piece);
                     piece = PieceInfo::new(at, Found::Scan { scanned: 0 });
+                    last_counted = None;
                     piece.head = PieceHeadBlock::read(&block)
                         .ok()
                         .map(|h| (h.head(), h.tracks().collect()));
@@ -604,6 +616,7 @@ impl<S: ByteSource> TapeReader<S> {
                     set_scanned(&mut piece, at + len - scan_start);
                     out.push(piece);
                     piece = PieceInfo::new(at + len, Found::Scan { scanned: 0 });
+                    last_counted = None;
                     at += len;
                     continue;
                 }
@@ -611,9 +624,6 @@ impl<S: ByteSource> TapeReader<S> {
                     if let Some(e) = IndexEntry::of_block(at - piece.start, &block)
                         && let Some(list) = piece.entries.as_mut()
                     {
-                        if replaces {
-                            list.pop();
-                        }
                         list.push(e);
                     }
                 }

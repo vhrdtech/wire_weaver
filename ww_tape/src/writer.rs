@@ -147,6 +147,8 @@ pub struct TapeWriter {
     data_copy_due: bool,
     /// A records or chunk block was placed while that copy is due
     data_placed: bool,
+    /// The last counted block written: its id, length, CRC and offset, to tell a block written again
+    last_counted: Option<(BlockId, usize, [u8; 4], u64)>,
 }
 
 /// What a finished piece is.
@@ -239,6 +241,7 @@ impl TapeWriter {
             describe_repeat: DESCRIBE_REPEAT_BYTES,
             data_copy_due: true,
             data_placed: false,
+            last_counted: None,
         }
     }
 
@@ -365,15 +368,15 @@ impl TapeWriter {
             });
         }
         self.hash.update(block);
-        self.indexer.placed(self.bytes, block);
+        // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
+        let kind = BlockKind::from_u8(block[5]);
+        let counted = !self.replaying && !crate::index::is_structural(kind);
+        self.index(block, counted);
         self.note_describe(block);
         self.blocks += 1;
         self.bytes += block.len() as u64;
         self.since_describe += block.len() as u64;
         self.unsynced += 1;
-        // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
-        let kind = BlockKind::from_u8(block[5]);
-        let counted = !self.replaying && !crate::index::is_structural(kind);
         if counted
             && matches!(
                 kind,
@@ -392,6 +395,31 @@ impl TapeWriter {
             SyncPolicy::Interval(t) => self.last_sync.elapsed() >= t,
         };
         if due { self.sync() } else { Ok(()) }
+    }
+
+    /// List `block`, placed here, in the index as readers take it: a counted block with the id of the last one is
+    /// that block again, unlisted with the same bytes, in its place with other bytes.
+    fn index(&mut self, block: &[u8], counted: bool) {
+        let id = block_id(block);
+        let crc = *block
+            .last_chunk::<4>()
+            .expect("write_raw checked that a block holds its header");
+        let again = self
+            .last_counted
+            .filter(|(last, ..)| counted && id == Some(*last));
+        match again {
+            Some((_, len, c, _)) if len == block.len() && c == crc => {
+                self.indexer.placed_unlisted(block.len());
+            }
+            Some((.., offset)) => {
+                self.indexer.replaced(offset);
+                self.indexer.placed(self.bytes, block);
+            }
+            None => self.indexer.placed(self.bytes, block),
+        }
+        if counted && let Some(id) = id {
+            self.last_counted = Some((id, block.len(), crc, self.bytes));
+        }
     }
 
     /// Keep the newest run of describe blocks.

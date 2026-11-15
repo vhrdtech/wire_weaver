@@ -190,7 +190,7 @@ impl RunState {
 
 /// Whether `b` takes no part in the seq order: a block of the file structure (it carries the last counted seq) or a
 /// [copy](crate::FLAG_COPY) a writer made.
-fn is_free(b: &Block<'_>) -> bool {
+pub(crate) fn is_free(b: &Block<'_>) -> bool {
     crate::index::is_structural(b.kind) || b.is_copy()
 }
 

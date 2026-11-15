@@ -51,28 +51,31 @@ impl Indexer {
             return;
         };
         if matches!(e.kind, BlockKind::Events | BlockKind::Series) {
-            self.tracks
-                .entry(e.track_id)
-                .and_modify(|t| {
-                    t.chunks += 1;
-                    t.items = e.end_item().saturating_sub(t.first_item);
-                    t.first_tick = t.first_tick.min(e.first_tick);
-                    t.last_tick = t.last_tick.max(e.last_tick);
-                    t.latest_end = t.latest_end.max(e.latest_end);
-                })
-                .or_insert(TrackRange {
-                    track_id: e.track_id,
-                    track_number: e.track_number,
-                    chunks: 1,
-                    first_item: e.first_item,
-                    items: e.count,
-                    first_tick: e.first_tick,
-                    last_tick: e.last_tick,
-                    latest_end: e.latest_end,
-                });
+            add_to_range(&mut self.tracks, &e);
         }
         self.pending.push(e);
         self.all.push(e);
+    }
+
+    /// Note `len` bytes placed that no index lists: a block written again with the same bytes, which readers drop.
+    pub(crate) fn placed_unlisted(&mut self, len: usize) {
+        self.since += len as u64;
+    }
+
+    /// Drop the entry of the block at `offset`: a later block with its id and other bytes takes its place, as
+    /// readers take it. A checkpoint placed already keeps it; the final index doesn't.
+    pub(crate) fn replaced(&mut self, offset: u64) {
+        let Some(i) = self.all.iter().rposition(|e| e.offset == offset) else {
+            return;
+        };
+        let gone = self.all.remove(i);
+        self.pending.retain(|e| e.offset != offset);
+        if matches!(gone.kind, BlockKind::Events | BlockKind::Series) {
+            self.tracks.remove(&gone.track_id);
+            for e in self.all.iter().filter(|e| e.track_id == gone.track_id) {
+                add_to_range(&mut self.tracks, e);
+            }
+        }
     }
 
     /// Entries not yet listed by a checkpoint.
@@ -173,6 +176,29 @@ impl Indexer {
         }
         out.into_values().collect()
     }
+}
+
+/// Add chunk entry `e` to its track's item and tick range.
+fn add_to_range(tracks: &mut BTreeMap<u64, TrackRange>, e: &IndexEntry) {
+    tracks
+        .entry(e.track_id)
+        .and_modify(|t| {
+            t.chunks += 1;
+            t.items = e.end_item().saturating_sub(t.first_item);
+            t.first_tick = t.first_tick.min(e.first_tick);
+            t.last_tick = t.last_tick.max(e.last_tick);
+            t.latest_end = t.latest_end.max(e.latest_end);
+        })
+        .or_insert(TrackRange {
+            track_id: e.track_id,
+            track_number: e.track_number,
+            chunks: 1,
+            first_item: e.first_item,
+            items: e.count,
+            first_tick: e.first_tick,
+            last_tick: e.last_tick,
+            latest_end: e.latest_end,
+        });
 }
 
 /// The entry of the block `bytes` (exactly one) a writer placed at `offset`: a chunk block's head is checked

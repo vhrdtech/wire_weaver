@@ -14,7 +14,7 @@
 
 ### 🚀 Features
 
-- Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead`, typed columns with codec ids, read in place (STD-118).
+- Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).
 - `Describe::Layout` and `TapeWriter::set_alignment`: chunk payloads on 4 KiB boundaries, deferred blocks filling the gaps (STD-118).
 - `TypeRef` and `TypedItem` (and their owned forms) derive `Eq` and `Hash` (P2401#15nov-1358).

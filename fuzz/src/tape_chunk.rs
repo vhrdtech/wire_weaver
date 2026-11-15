@@ -76,6 +76,7 @@ fuzz_target!(|data: &[u8]| {
         count: 1,
         first_tick: 0,
         last_tick: 0,
+        latest_end: 0,
         time_mode: 0,
         end_mode: if series {
             EndMode::Absent

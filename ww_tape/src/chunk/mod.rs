@@ -17,7 +17,10 @@
 //!  48 u64  first item number of the track (sample index in a series)
 //!  56 i64  first tick: the first item's start (the first sample's tick)
 //!  64 i64  last tick: the last item's start (the last sample's tick); at least the first
-//!  72 ...  n × column: kind u8, codec u8, param u16, offset u32 (from the payload start; the first 0, ascending)
+//!  72 i64  latest end: the largest end of any item, at least the last tick; the last tick when every item is an
+//!          instant (EndMode::Absent) and in a series chunk. An overlap query and a rebuilt index need no decode of the
+//!          ends column.
+//!  80 ...  n × column: kind u8, codec u8, param u16, offset u32 (from the payload start; the first 0, ascending)
 //!     ...  segment CRCs: one u32 per segment of the payload, CRC-32C of its bytes
 //!     ...  zeros up to the payload offset
 //!  payload: the columns back to back, then 16 zero bytes, so an unaligned 16-byte load at any column byte stays in
@@ -41,8 +44,8 @@ use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, VERSION};
 const CRC16: crc::Crc<u32, crc::Table<16>> =
     crc::Crc::<u32, crc::Table<16>>::new(&crc::CRC_32_ISCSI);
 
-/// Bytes of the fixed part of the chunk head (32..72).
-pub const CHUNK_FIXED_LEN: usize = 40;
+/// Bytes of the fixed part of the chunk head (32..80).
+pub const CHUNK_FIXED_LEN: usize = 48;
 /// Bytes of one column entry.
 pub const COLUMN_ENTRY_LEN: usize = 8;
 /// Zero bytes after the columns.
@@ -167,6 +170,9 @@ pub struct ChunkHead {
     pub count: u32,
     pub first_tick: i64,
     pub last_tick: i64,
+    /// The largest end of any item, at least [Self::last_tick]; equal to it when every item is an instant
+    /// ([EndMode::Absent]) and in a series chunk.
+    pub latest_end: i64,
     /// The time codec's mode (events), 0 in a series chunk.
     pub time_mode: u8,
     /// [EndMode] (events); [EndMode::Absent] in a series chunk.
@@ -313,6 +319,7 @@ impl<'b> ChunkWriter<'b> {
         buf[48..56].copy_from_slice(&head.first_item.to_le_bytes());
         buf[56..64].copy_from_slice(&head.first_tick.to_le_bytes());
         buf[64..72].copy_from_slice(&head.last_tick.to_le_bytes());
+        buf[72..80].copy_from_slice(&head.latest_end.to_le_bytes());
         let mut offsets = [0u32; MAX_COLUMNS + 1];
         let mut at = HEADER_LEN + CHUNK_FIXED_LEN;
         let mut off = 0usize;
@@ -451,6 +458,16 @@ fn check_head(head: &ChunkHead, kinds: impl Iterator<Item = ColumnKind>) -> Resu
     }
     if head.last_tick < head.first_tick {
         return Err(ChunkError::Invalid("last tick before the first"));
+    }
+    if head.latest_end < head.last_tick {
+        return Err(ChunkError::Invalid("latest end before the last tick"));
+    }
+    if (head.kind == BlockKind::Series || head.end_mode == EndMode::Absent)
+        && head.latest_end != head.last_tick
+    {
+        return Err(ChunkError::Invalid(
+            "latest end not the last tick in a chunk of instants or samples",
+        ));
     }
     if head.kind == BlockKind::Series && (head.time_mode != 0 || head.end_mode != EndMode::Absent) {
         return Err(ChunkError::Invalid(
@@ -619,6 +636,7 @@ impl<'b> Chunk<'b> {
             count: get_u32(b, 12),
             first_tick: get_u64(b, 56) as i64,
             last_tick: get_u64(b, 64) as i64,
+            latest_end: get_u64(b, 72) as i64,
             time_mode: b[46],
             end_mode: EndMode::from_u8(b[47]).unwrap_or(EndMode::Absent),
         }

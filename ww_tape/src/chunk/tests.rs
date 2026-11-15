@@ -33,6 +33,7 @@ fn events(first_item: u64, n: u32) -> (ChunkHead, Vec<Vec<u8>>) {
         count: n,
         first_tick: starts[0],
         last_tick: *starts.last().unwrap(),
+        latest_end: *starts.last().unwrap() + 4,
         time_mode: 0,
         end_mode: EndMode::Durations,
     };
@@ -64,6 +65,7 @@ fn series(first: u64, n: u32) -> (ChunkHead, Vec<Vec<u8>>) {
         count: n,
         first_tick: first as i64 * 20,
         last_tick: (first + u64::from(n) - 1) as i64 * 20,
+        latest_end: (first + u64::from(n) - 1) as i64 * 20,
         time_mode: 0,
         end_mode: EndMode::Absent,
     };
@@ -135,7 +137,7 @@ fn events_chunk_round_trip() {
     let p = chunk.payload();
     assert!(p[p.len() - PAYLOAD_PADDING..].iter().all(|b| *b == 0));
     // head: header, fixed part, 4 columns, 1 segment CRC
-    assert_eq!(chunk.payload_offset(), 32 + 40 + 4 * 8 + 4);
+    assert_eq!(chunk.payload_offset(), 32 + 48 + 4 * 8 + 4);
 }
 
 #[test]
@@ -172,10 +174,40 @@ fn chunk_heads_are_checked_on_write() {
         },
         &columns
     ));
+    // the latest end: at least the last tick, and the last tick in a chunk of instants
+    assert!(bad(
+        ChunkHead {
+            latest_end: head.last_tick - 1,
+            ..head
+        },
+        &columns
+    ));
+    assert!(bad(
+        ChunkHead {
+            end_mode: EndMode::Absent,
+            ..head
+        },
+        &columns
+    ));
+    assert!(!bad(
+        ChunkHead {
+            end_mode: EndMode::Absent,
+            latest_end: head.last_tick,
+            ..head
+        },
+        &columns
+    ));
     assert!(bad(head, &[]));
     assert!(bad(head, &[raw(ColumnKind::Samples, 0, &cols[0])]));
     let (shead, scols) = series(0, 3);
     assert!(bad(shead, &[raw(ColumnKind::Starts, 0, &scols[0])]));
+    assert!(bad(
+        ChunkHead {
+            latest_end: shead.last_tick + 1,
+            ..shead
+        },
+        &series_columns(&scols)
+    ));
     assert!(bad(
         ChunkHead {
             end_mode: EndMode::Durations,

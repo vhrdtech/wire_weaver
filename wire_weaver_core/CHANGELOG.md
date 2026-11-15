@@ -11,6 +11,7 @@
 
 ### 🚀 Features
 
+- `keyed!(flow by FlowKey)` in a trait (API-67): parsed into an `ApiItemKind::Keys` item named `flow_keys` at its position. Refused: no array `flow` before it, a method or flat item, a second `keyed!`, a float in the key, a name clash. Server and client codegen of a keyed API report SRV-62 and CLT-72 as not done yet.
 - `#[no_unit_hint]` accepts a reason (TOOL-35): `#[no_unit_hint = "reason"]` on a struct/enum field, a `property!`/`stream!`/`sink!`/`ww_impl!` item, or for every argument of a trait method, `#[no_unit_hint(arg = "reason", ..)]` per argument. The bare forms stay accepted by default; nothing in `wire_weaver_core` ever errors on one. New `transform::unit_hint::UnreasonedSilence` (`item`, `example`) for a bare or empty one, found by `unreasoned_silence` alongside `UnitHint`'s `suggest`, re-exported as `wire_weaver_core::UnreasonedSilence`: `ww api check --strict` and `ww api scaffold --strict` refuse these (`wire_weaver_evolution`, `wire_weaver_cli`).
 - `SourceNotes` has a new public field `definitions`, the walked bundle before other crates' traits and types were left out of it, for the evolution checker to find a dependency's definition that no embedded snapshot holds (EVO-67). It no longer derives `Default`, `PartialEq` and `Eq` (`ApiBundleOwned` has none of them); a `SourceNotes { .. }` literal needs the field.
 

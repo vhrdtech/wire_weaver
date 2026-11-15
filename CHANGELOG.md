@@ -93,6 +93,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Zero-cost check (TEST-34): `just zero-cost BASE_DIR` compares API bundle digests and firmware section hashes of a base checkout and this tree. A development tool, no crate changes.
 - `ww_tape` sample codecs (STD-119): raw device formats, delta bit-packing and lz4 payloads, read in place. See the `ww_tape` changelog.
 - `ww_tape` hardening (STD-131): no panics on file bytes, checked arithmetic, `FromFile` and named caps; float codecs other than ALP move to the benchmarks; `ww_tape_fuzz` builds hostile blocks per decoder and replays its seeds in `just test`. See the `ww_tape` changelog.
+- Keyed resource arrays (API-67): `keyed!(flow by FlowKey)` in the model and parser, `ww_keyed::KeyEvent`; server, client and evolution follow. See the `ww_self`, `wire_weaver_core` and `ww_keyed` changelogs.
 
 ### Added
 

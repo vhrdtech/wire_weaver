@@ -1,6 +1,7 @@
 use super::{
     crate_walker::{CrateContext, LookupKey, Scratch},
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
+    keyed::{convert_api_item_keyed, reject_keys_ident_collisions},
     meta::{MetaSite, get_meta},
     moved_from::get_moved_from_attrs,
     ty::{convert_ty, convert_ty_path, convert_ty_path_segment},
@@ -74,6 +75,17 @@ pub(crate) fn convert_api_items(
                         let api_item_impl =
                             convert_api_item_impl(current_crate, scratch, item_macro, idx as u32)?;
                         items.push(api_item_impl);
+                    }
+                    "keyed" => {
+                        let api_item_keyed = convert_api_item_keyed(
+                            current_crate,
+                            scratch,
+                            item_trait,
+                            item_macro,
+                            &items,
+                            idx as u32,
+                        )?;
+                        items.push(api_item_keyed);
                     }
                     "reserved" => {
                         let args: ReservedMacroArgs = parse2(item_macro.mac.tokens.clone())
@@ -149,6 +161,7 @@ pub(crate) fn convert_api_items(
         idx += 1;
     }
     reject_group_item_collisions(&items).context(current_crate.err_context())?;
+    reject_keys_ident_collisions(&items).context(current_crate.err_context())?;
     Ok(items)
 }
 
@@ -989,7 +1002,7 @@ impl Parse for ReservedMacroArgs {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::path::Path;
     use ww_self::OptionalOwned;
@@ -1031,7 +1044,11 @@ mod tests {
     }
 
     /// [load_src] with `package` added to the `[package]` section of its `Cargo.toml`.
-    fn load_src_with(name: &str, package: &str, lib_rs: &str) -> Result<ww_self::ApiBundleOwned> {
+    pub(crate) fn load_src_with(
+        name: &str,
+        package: &str,
+        lib_rs: &str,
+    ) -> Result<ww_self::ApiBundleOwned> {
         let dir = std::env::temp_dir()
             .join("ww_core_api_tests")
             .join(format!("{name}-{}", std::process::id()));

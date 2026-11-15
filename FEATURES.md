@@ -862,6 +862,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   API traits get low ids straight in `ww_global`, assigned by hand like the stdlib ones (up to 63 for traits in hot
   bus frames: one byte as `UNib32`), and the codegen looks them up by crate and trait name. Chorus (CBUS-1) names
   traits on a bus by these ids. Later: a range for outside users and delegated blocks for private projects.
+- 📋 **SRV-62 Server of a keyed array** · `v0.5` — handlers `<array>_index_of` and `<array>_key`, a
+  `<array>_keys_send` helper for `KeyEvent`s, valid indices from the array's own, printed by `ww api scaffold`; the
+  flash cost of one `keyed!` in the flash budget (API-67). Until then a server of a keyed API doesn't compile.
 - ⛔ **API-22 Implement the same trait several times → enum selector** · `v0.5.x` — stalled. At least print a proper error
   when a trait is implemented twice (`tests/traits_api`).
 - ⛔ **API-23 Index chain array → named arguments** · `v0.5.x` — stalled. Generating ad-hoc structs with named index
@@ -870,6 +873,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
   strings inside a resource's type are bounded with `MaxLen` (SW-19). Observed levels under an array have a pool of
   element tables (API-63) and don't need the bound; with it, a firmware could size the pool to the array.
+- 🚧 **API-67 Keyed resource arrays** · `v0.5` — `keyed!(flow by FlowKey)` after an array `flow[]` (traits,
+  properties, streams, sinks) lets a client address its elements by a key instead of the index the device gave
+  them. One item at its position, `ww_self::ApiItemKind::Keys { of, key, event_ty }`; its operations are a fixed
+  level built by `ww_self::keys::keys_level` for every consumer: `index_of(key) -> Option<I>`, `ro key[I]` and a
+  `keys` stream of `ww_keyed::KeyEvent<I, K>` (`Added { index, key }`, `Removed { index }`), `I` the array's index
+  type (`UNib32` for `name[]`). No new request kind or wire format; an API without `keyed!` has the same bundle.
+  Refused: no array before it, a method, a flat item, a second `keyed!` of one array, a float anywhere in the key,
+  a name clash with `<array>_keys`. Done: the model, parsing and checks (`tests/keyed_api`, the Dissector),
+  conformance cases `stdlib.keyed.*`. Missing: server (SRV-62), client (CLT-72), evolution and `ww api` (EVO-78).
+  [Docs](docs/api/arrays.md).
 - 📋 **API-66 Staged and timed actions** — nothing applies several writes together or at a given time: a motor's
   torque and an ADC's gain on one device, or three joints of a leg on a bus (CBUS-1). `#[staged]` properties written
   into a shadow and applied by a commit (or a bus sync), and a request run at a shared time (`ww_timebase`), refused
@@ -1473,6 +1486,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   paging). Each connection's host API version and client app version are kept for skew checks.
   See `docs/api/large_messages.md`, tests in `tests/large_messages`.
 - 📋 **CLT-71 `Scaled` as a quantity in the dynamic client** — a `ww_si::Scaled<U, T>` (STD-116) read as a `DynQuantity`: its unit from the type, its `RunScale` as the prefix, so `ww` and Python show `154112·1/15360 s` and convert it like a `Fixed`; writing one from a quantity picks the device's current scale or refuses. Today both show and take it as the struct `{ value, scale: { num, den, pow2 } }`.
+- 📋 **CLT-72 Client of a keyed array** · `v0.5` — `device.flow_by(&key)`, `flow_key(i)`, `flow_keys()`, a bounded
+  key cache per keyed array fed by `index_of`, `key` reads and the `keys` stream; keys in dynamic, Python and `ww`
+  paths (`flow[{proto: Tcp, ..}].packets`) (API-67).
 - 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
   `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
@@ -2137,6 +2153,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   `fw-z` sync (+260), 13474 → 13778 B async (+304), 16794 → 17106 B / 17614 → 18030 B at `fw-3` (+312 / +416); an
   image that already reads bit fields (4 observed properties) moves by -60..+72 B. No device or host uses the
   format.
+- 📋 **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in `ww api diff` and the checker (added, removed, key
+  type changed, the array it keys moved) and `flow[] keyed by FlowKey` in `ww api` trees (API-67).
 - ✅ **EVO-14 Priority nibble in `Request`** · `v0.5.x` — **wire break** of `ww_client_server`'s `Request`: a
   `priority: Nibble` after `seq` (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of `Request` carry the new bytes with `"wire_change": "EVO-14 / ..."`.
@@ -3223,6 +3241,10 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **STD-81 Database columns with units** — `sqlx` and `diesel` column types for `Fixed` (integer at the fixed
   scale) and `AnyQuantity`, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
   features.
+- 📋 **STD-125 `ww_tape` track identity by name path** · `v0.5` — `api_root_id` from the crate name only,
+  `track_key` over name segments (resource names, array indices, keys' shrink_wrap bytes for keyed arrays),
+  `TrackDef.keys`, `clock_key` on the same path, identity names of renamed resources (INT-17), so two runs that
+  number things differently give the same ids (API-67).
 ## Examples (`EX`)
 
 - ✅ **EX-1 Host examples**: `blinky` (+ evolved API), `all_gpio`, `uart`, `blinky_py` (hand-written pyo3 wrapper).

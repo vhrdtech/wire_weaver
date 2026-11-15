@@ -5008,6 +5008,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#payload-codec" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Payload codec
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5980,6 +5991,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#payload-codec" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Payload codec
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -6323,6 +6345,13 @@ the producer added them in.</p>
 <p>A series track holds samples at an exact period with no time per sample. Its <code>TrackDef</code> kind is a <code>SeriesDef</code>: the type of one value as the API declares it (a <code>TypeRef</code> to an exact_units <code>Fixed&lt;Ampere, Milli, i32&gt;</code>, a <code>ww_si</code> quantity or a plain float), the stored element and channels derived from that type, the period in ticks per sample as an exact <code>Ratio64</code> (48 kHz on a 1 ns clock is <code>62500/3</code>), the scale of the stored numbers as a <code>Magnitude</code> (<code>10⁻³</code> for that <code>Fixed</code>), the summaries the writer builds (<code>SeriesSummarySpec</code>) and, for samples kept in a media file, the stream. <code>SeriesDef::of::&lt;Fixed&lt;Ampere, Milli, i32&gt;&gt;(..)</code> takes the element and the scale from the type (<code>ww_tape::SeriesValue</code>).</p>
 <p>The track's records are its <code>SeriesSegment</code>s, at the tick of their first sample: one at the start and one at every gap, restart or change of scale. A segment names its first sample's index, a time grid (sample <code>i</code> is at <code>grid_tick + (i - grid_index) · period</code>, rounded down) and the scale from there on. A gap starts a new grid after the last tick of the one before; a prefix change of an autoranging device keeps the grid, so no sample time moves by rounding. The track is sticky, so every describe set repeats its newest segment and each piece holds the segment its samples start in. A series chunk never spans two segments, so its numbers are at one scale and its head's first and last tick are its samples' on the grid.</p>
 <p><code>ww_tape::SeriesTimeline</code> collects a track's segments from its records in any order (<code>from_records</code>), checks each against its record time and the ones before, and gives any sample's tick and scale; <code>check_chunk</code> checks a chunk head against them. A received <code>Series&lt;Fixed&lt;..&gt;&gt;</code> batch goes into chunk columns as integers: each item's stored number is put into the column as is (<code>SeriesValue::write_parts</code>), and a <code>ww_si</code> quantity's prefix becomes the segment's scale, a change of prefix starting a segment where the <code>Series</code> restarts its numeric column. The wire codecs of <code>Series&lt;T&gt;</code> and these sample codecs are separate layers: a batch is decoded once on the host and coded again for random access in the file.</p>
+<h3 id="payload-codec">Payload codec<a class="headerlink" href="#payload-codec" title="Permanent link">&para;</a></h3>
+<p>An events chunk's payloads take two columns, both or neither (<code>ww_tape::payloads</code>): <code>EncodedPayloads::encode</code> writes them from the items' bytes, <code>Payloads::read</code> reads them back by item.</p>
+<ul>
+<li><strong>Lengths</strong> (<code>ColumnKind::PayloadLengths</code>, codec 4, <code>payloads::LENGTHS</code>): per group of 128 items a 13-byte record (where the group's first payload starts, the group's shortest length, a width of 0 to 32 bits, where its packed lengths start), then each group's lengths less that minimum, bit-packed at its width. Payloads of one length cost the records only, and the record's start places a group's payloads without the groups before it.</li>
+<li><strong>Payloads</strong> (<code>ColumnKind::Payloads</code>): the items' bytes back to back, <code>RAW</code> and read in place, or <code>LZ4</code> (48) when that is smaller, decoded once when the chunk is opened.</li>
+</ul>
+<p>A group's lengths are stored in one form only: its minimum is its shortest length, its width the bits the largest packed value needs, and the bits after its last value are 0. A reader refuses any other, so damage to a width or a minimum can't make a group read as other lengths of the same total. <code>Payloads::salvage</code> reads a chunk whose payload CRC failed: each group of lengths is checked against its neighbours, and only the items of a group that fails, or raw items with a byte in a bad segment, are suspect (<code>Payloads::is_suspect</code>). A damaged lz4 column makes every item suspect.</p>
 <h2 id="decoding">Decoding<a class="headerlink" href="#decoding" title="Permanent link">&para;</a></h2>
 <p><code>wire_weaver_client::tap::Decoder</code> takes blocks, live or from a file (<code>ww_tape::FileBlocks</code>), and gives out
 <code>Decoded</code> frames, messages and link events:</p>

@@ -6488,6 +6488,7 @@ feature tracker.</p>
 <li><strong><a href="../transport/tap/#reading-by-position">Positional tape reader</a></strong>: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.</li>
 <li><strong><a href="../transport/tap/#sample-codecs">Tape sample codecs</a></strong>: Series columns stored as the device sends them, or coded lossless as XOR floats or bit-packed deltas, read in place by any range.</li>
 <li><strong><a href="../transport/tap/#series-tracks">Tape series tracks</a></strong>: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received <code>Series&lt;Fixed&gt;</code> batch becomes chunk columns without a float.</li>
+<li><strong><a href="../transport/tap/#payload-codec">Tape payload codec</a></strong>: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>

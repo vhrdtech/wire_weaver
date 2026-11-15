@@ -30,7 +30,7 @@
 
 ### 🚀 Features
 
-- `TapeWriter` writes a describe copy after a piece's first checkpoint; `TapeReader::describe_set` takes the next good copy (STD-129).
+- `TapeWriter` copies the describe set after a piece's first data block; `TapeReader::describe_set` takes the next good copy (STD-129).
 - `EventRecord`: an events track's record item, duration and flags as its `EventsDef` says, then the payload (STD-129).
 - `Codec::OUTER`, `is_outer`, `inner`: bit 7 of a column's codec byte marks an outer-coded column, refused until a codec exists (STD-129).
 - Header flag `FLAG_BODY_CODED`: records and describe bodies coded stored or lz4 (`code_body`, `BodyCodec`, `Block::decode`), off by default (STD-129).

@@ -20,10 +20,10 @@
 //! with the BLAKE3 content hash of everything before it, and the tail.
 //!
 //! The newest describe blocks are written again as [copies](crate::FLAG_COPY), so a piece whose head describe set is
-//! damaged still reads: once right after the piece's first checkpoint (about 4 MiB in with the default
-//! [IndexPolicy]), then about every [DESCRIBE_REPEAT_BYTES] ([TapeWriter::set_describe_repeat]), and as the backup
-//! before the finish. A piece so holds one describe set before its first checkpoint, two from then on, one more per
-//! repeat, and one more once finished; a piece after a cut starts with a copy of the one before's.
+//! damaged still reads: once right after the piece's first records or chunk block, then about every
+//! [DESCRIBE_REPEAT_BYTES] ([TapeWriter::set_describe_repeat]), and as the backup before the finish. A piece so holds
+//! one describe set while it holds no data, two, apart by that block, from its first data on, one more per repeat,
+//! and one more once finished; a piece after a cut starts with a copy of the one before's.
 //! [TapeWriter::cut] ends a piece and starts the next one of the chain;
 //! [crate::PieceChain] cuts by size, chunk count or time.
 
@@ -143,8 +143,10 @@ pub struct TapeWriter {
     since_describe: u64,
     /// Bytes after which the newest describe blocks are written again
     describe_repeat: u64,
-    /// The describe copy after the piece's first checkpoint is still to be written
-    checkpoint_copy_due: bool,
+    /// The describe copy after the piece's first records or chunk block is still to be written
+    data_copy_due: bool,
+    /// A records or chunk block was placed while that copy is due
+    data_placed: bool,
 }
 
 /// What a finished piece is.
@@ -235,7 +237,8 @@ impl TapeWriter {
             replaying: false,
             since_describe: 0,
             describe_repeat: DESCRIBE_REPEAT_BYTES,
-            checkpoint_copy_due: true,
+            data_copy_due: true,
+            data_placed: false,
         }
     }
 
@@ -369,7 +372,16 @@ impl TapeWriter {
         self.since_describe += block.len() as u64;
         self.unsynced += 1;
         // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
-        let counted = !self.replaying && !crate::index::is_structural(BlockKind::from_u8(block[5]));
+        let kind = BlockKind::from_u8(block[5]);
+        let counted = !self.replaying && !crate::index::is_structural(kind);
+        if counted
+            && matches!(
+                kind,
+                BlockKind::Records | BlockKind::Events | BlockKind::Series
+            )
+        {
+            self.data_placed = true;
+        }
         if counted && let Some(id) = block_id(block) {
             self.run = id.run;
             self.next_seq = id.seq.wrapping_add(1);
@@ -435,7 +447,12 @@ impl TapeWriter {
                 self.index_due = true;
             }
         }
-        if self.since_describe >= self.describe_repeat && !self.describe_open {
+        // a second describe set as soon as the piece holds data, so a damaged head set doesn't make it unreadable
+        let early = self.data_copy_due && self.data_placed && !self.describe.is_empty();
+        if early || (self.since_describe >= self.describe_repeat && !self.describe_open) {
+            if early {
+                self.data_copy_due = false;
+            }
             self.replay_describe()?;
         }
         Ok(())
@@ -451,13 +468,7 @@ impl TapeWriter {
             .indexer
             .checkpoint(self.offset(), self.structural_id())
             .map_err(WriteError::Index)?;
-        self.write_raw(&b)?;
-        // a second describe set early in the piece, so a damaged head set doesn't make it unreadable
-        if self.checkpoint_copy_due && !self.describe.is_empty() {
-            self.checkpoint_copy_due = false;
-            self.replay_describe()?;
-        }
-        Ok(())
+        self.write_raw(&b)
     }
 
     /// A small summary or data block that may wait for the gap in front of the next aligned chunk payload. It is

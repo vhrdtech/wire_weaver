@@ -141,7 +141,9 @@ pub use piece::{
 #[cfg(feature = "alloc")]
 pub mod reader;
 #[cfg(feature = "alloc")]
-pub use reader::{ByteSource, OpenOptions, PieceInfo, ReadError, TapeReader};
+pub use reader::{
+    ByteSource, DESCRIBE_SEEK_BLOCKS_MAX, OpenOptions, PieceInfo, ReadError, TapeReader,
+};
 
 mod event;
 pub use event::{EventRecord, EventRecordError};

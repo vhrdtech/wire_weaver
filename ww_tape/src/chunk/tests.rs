@@ -407,19 +407,23 @@ fn aligned_file_puts_payloads_on_pages_and_fills_gaps() {
     let seqs: Vec<u64> = blocks.iter().map(|b| b.1).collect();
     assert_eq!(
         seqs,
-        (0..8).chain([7; 4]).collect::<Vec<_>>(),
+        [0, 1, 1]
+            .into_iter()
+            .chain(2..8)
+            .chain([7; 4])
+            .collect::<Vec<_>>(),
         "seqs ascend"
     );
     let kinds: Vec<BlockKind> = blocks.iter().map(|b| b.2).collect();
     use BlockKind::*;
-    // the deferred blocks 1 and 2 fill the gap before the events chunk, 3 that before the second series chunk; 4
-    // has no chunk after it and goes at the end
+    // the writer's describe copy after the first data block; the deferred blocks 1 and 2 fill the gap before the
+    // events chunk, 3 that before the second series chunk; 4 has no chunk after it and goes at the end
     // then the writer's describe backup, final index, finish and tail
     assert_eq!(
         kinds,
         [
-            Describe, Series, Records, Records, Events, Records, Series, Records, Describe, Index,
-            Finish, Tail
+            Describe, Series, Describe, Records, Records, Events, Records, Series, Records,
+            Describe, Index, Finish, Tail
         ]
     );
     for (_, _, _, payload, _) in &blocks {
@@ -432,8 +436,8 @@ fn aligned_file_puts_payloads_on_pages_and_fills_gaps() {
     assert_eq!(
         kinds,
         [
-            Describe, Series, Records, Records, Events, Records, Series, Records, Describe, Index,
-            Finish, Tail
+            Describe, Series, Describe, Records, Records, Events, Records, Series, Records,
+            Describe, Index, Finish, Tail
         ]
     );
     assert!(plain.len() < file.len());

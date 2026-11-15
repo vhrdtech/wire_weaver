@@ -31,6 +31,10 @@ use crate::{
     block_len,
 };
 
+/// Most blocks [TapeReader::describe_set] skips past a scan's cut looking for a describe copy: the damaged head set,
+/// the first data block and the summary blocks placed with it fit many times over.
+pub const DESCRIBE_SEEK_BLOCKS_MAX: usize = 64;
+
 /// Bytes that read at an offset.
 pub trait ByteSource {
     type Error: core::fmt::Debug;
@@ -711,8 +715,9 @@ impl<S: ByteSource> TapeReader<S> {
 
     /// The describe set of piece `i`: the describe blocks written back to back at its head, or, when one of them is
     /// damaged or missing, the next run of describe blocks that reads whole (the writer's copies: after the first
-    /// checkpoint, the repeats, the backup before the finish). Offsets in the piece and the blocks, in file order;
-    /// empty when no run reads whole. Damage is a reason to look further, never an error.
+    /// data block, the repeats, the backup before the finish). In a piece a scan stopped in, the blocks past the stop
+    /// are looked through too ([DESCRIBE_SEEK_BLOCKS_MAX]). Offsets in the piece and the blocks, in file order; empty
+    /// when no run reads whole. Damage is a reason to look further, never an error.
     pub fn describe_set(&self, i: usize) -> R<Vec<(u64, Vec<u8>)>, S> {
         let describe: Vec<IndexEntry> = self
             .track_entries(i, crate::DESCRIBE_TRACK as u64)?
@@ -745,7 +750,51 @@ impl<S: ByteSource> TapeReader<S> {
             }
             return Ok(set);
         }
-        Ok(Vec::new())
+        // a scan stops at the first damaged block, the head's set too: the copy after the first data block is past it
+        match self.pieces[i].cut {
+            Some(cut) => self.describe_past(i, cut),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// The first run of describe blocks that reads whole after `cut` in piece `i`, the blocks before it skipped by
+    /// the lengths in their headers: at most [DESCRIBE_SEEK_BLOCKS_MAX] blocks, never past the piece's stretch or into
+    /// the next piece.
+    fn describe_past(&self, i: usize, cut: u64) -> R<Vec<(u64, Vec<u8>)>, S> {
+        let p = &self.pieces[i];
+        let hi = match self.pieces.get(i + 1) {
+            Some(next) => next.start,
+            None => self.len,
+        };
+        let mut set = Vec::new();
+        let mut at = cut;
+        for _ in 0..DESCRIBE_SEEK_BLOCKS_MAX {
+            if hi.saturating_sub(at) < HEADER_LEN as u64 {
+                break;
+            }
+            let Ok(len) = block_len(&self.read(at, HEADER_LEN)?) else {
+                break;
+            };
+            let Some(end) = at.checked_add(len as u64).filter(|e| *e <= hi) else {
+                break;
+            };
+            match self.good_block(at, hi)? {
+                Ok(b) => {
+                    let kind = Block::read(&b).expect("checked").kind;
+                    if kind == BlockKind::Describe {
+                        set.push((at - p.start, b));
+                    } else if !set.is_empty() {
+                        return Ok(set);
+                    } else if matches!(kind, BlockKind::PieceHead | BlockKind::Tail) {
+                        break;
+                    }
+                }
+                // a run with a damaged block isn't whole
+                Err(_) => set.clear(),
+            }
+            at = end;
+        }
+        Ok(set)
     }
 
     /// Call `f` with each final index block of finished piece `p`, newest first.

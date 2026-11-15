@@ -550,11 +550,12 @@ fn big_chunk(k: u64) -> (ChunkHead, Vec<u8>) {
 }
 
 /// A piece with a damaged head describe block still has its describe set: the copy the writer placed after the first
-/// checkpoint, found through the checkpoints of an unfinished 10 MiB piece and the final index of a finished one.
+/// data block, found past the scan's stop in an unfinished 1 MiB piece (no checkpoint yet), through the checkpoints
+/// of an unfinished 10 MiB piece and through the final index of a finished one.
 #[test]
 fn a_damaged_head_describe_set_reads_from_the_next_copy() {
-    for finished in [false, true] {
-        let dir = scratch(&format!("damaged_describe_{finished}"));
+    for (chunks, finished) in [(16, false), (160, false), (160, true)] {
+        let dir = scratch(&format!("damaged_describe_{chunks}_{finished}"));
         let path = dir.join("p.wwt");
         let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
         let result = ResultId([7; 32]);
@@ -572,7 +573,7 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
         for b in &originals {
             w.write_block(b).unwrap();
         }
-        for k in 0..160 {
+        for k in 0..chunks {
             let (h, c) = big_chunk(k);
             w.write_chunk(&h, &column(&c)).unwrap();
         }
@@ -583,7 +584,7 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
             drop(w);
             std::fs::read(dir.join("p.wwt.partial")).unwrap()
         };
-        assert!(bytes.len() > 10 << 20, "{} bytes", bytes.len());
+        assert!(bytes.len() as u64 > chunks << 16, "{} bytes", bytes.len());
         let describe: Vec<(u64, bool)> = walk(&bytes)
             .into_iter()
             .filter(|b| b.2 == BlockKind::Describe)
@@ -596,24 +597,28 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
                 )
             })
             .collect();
-        // the head's set, the copy after the first checkpoint (4 MiB), and the backup of a finished piece
+        // the head's set, the copy after the first chunk, and the backup of a finished piece
         let want = if finished { 3 } else { 2 };
         assert_eq!(describe.len(), want, "{describe:?}");
         assert!(!describe[0].1 && describe[1..].iter().all(|d| d.1));
-        assert!(
-            describe[1].0 > 4 << 20 && describe[1].0 < 5 << 20,
-            "{describe:?}"
-        );
+        assert!(describe[1].0 < 128 << 10, "{describe:?}");
 
         let mut damaged = bytes.clone();
         damaged[describe[0].0 as usize + 40] ^= 1;
         for (src, copy) in [(&bytes, false), (&damaged, true)] {
             let rd = TapeReader::open(&src[..]).unwrap();
             assert_eq!(rd.pieces().len(), 1);
+            if chunks == 16 && copy {
+                // no checkpoint yet: the scan from the start stops at the damaged head set
+                assert_eq!(rd.pieces()[0].cut, Some(describe[0].0));
+            }
             let set = rd.describe_set(0).unwrap();
             assert_eq!(set.len(), originals.len());
             let at = if copy { describe[1].0 } else { describe[0].0 };
-            assert_eq!(set[0].0, at, "finished {finished}, damaged {copy}");
+            assert_eq!(
+                set[0].0, at,
+                "{chunks} chunks, finished {finished}, damaged {copy}"
+            );
             for ((_, got), want) in set.iter().zip(&originals) {
                 let got = ww_tape::Block::read(got).unwrap();
                 let want = ww_tape::Block::read(want).unwrap();

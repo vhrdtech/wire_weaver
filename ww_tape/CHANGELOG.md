@@ -4,6 +4,11 @@
 
 ### ⚠️ Breaking
 
+- `SummaryHead::node_items` returns an `Option`, None past the last node; `SummaryError` gains `Bound` (STD-131).
+- `ChunkHeadError` and `IndexError` gain `Bound`; `IndexEntry::of_chunk` and `IndexBlock::entry_offset` return an `Option` (STD-131).
+- `write_index` refuses an entry that names no block; `ReadError` gains `NoPiece` for a piece number past the last (STD-131).
+- `CodeError` gains `TooLong`: a stored body past `MAX_BLOCK_LEN` is refused instead of written (STD-131).
+- `BlockBuf` no longer derives `PartialEq`; it compares bytes (STD-131).
 - `BlockWriter::new` returns `Result<_, BlockStartError>`; `push` / `push_with` return `PushError` (full, describe track, unknown clock) (STD-131).
 - `TapeWriter::set_alignment` and `set_run` return a `Result`; `WriteError` gains `Alignment` and `Run` (STD-131).
 - `chunk_padding` returns `Option<usize>`, `ChunkWriter::column_mut` an `Option`; `IndexEntry::decode` takes `&[u8; ENTRY_LEN]` (STD-131).
@@ -38,6 +43,13 @@
 
 ### 🐛 Fixes
 
+- A uvar whose 10th byte holds more than bit 63 is refused, not truncated (STD-131).
+- Item numbers near `u64::MAX` no longer wrap in summary nodes, event trees and walk probes (STD-131).
+- A piece number past the last, an over-long `Read`, or an offset past u64 is an error, not a panic (STD-131).
+- `EventTimes::is_suspect` and the column `is_suspect*` are false past the last item instead of panicking (STD-131).
+- Index blocks with a zero-length, oversized or overflowing entry are refused on read and on write (STD-131).
+- `bitpack::read` and `packed_len` saturate instead of overflowing on huge indices and counts (STD-131).
+- Merging series stats with huge clipped counts saturates; `SeriesTimeline::from_records` is no longer quadratic (STD-131).
 - `TapeReader` reads the stretch after a checkpoint with the piece's gap rules, as `FileBlocks` does (STD-129).
 - `TapeWriter` copies only a whole describe set, never part of one still being written (STD-129).
 - A replaced block leaves the index as it leaves a walk, in `TapeWriter`'s index and in scans (STD-129).
@@ -47,6 +59,10 @@
 
 ### 🚀 Features
 
+- `FromFile<T>`: a count, length or offset read from a file, usable only through a named cap or known length (STD-131).
+- The crate docs list every cap in one table; new cap `summary::LEVEL_MAX` (STD-131).
+- `bitpack::Width`, checked once, and `BitpackError`: pack, unpack and decode without a per-value width check (STD-131).
+- No panic, unchecked arithmetic or unchecked cast on file bytes: clippy's panic-class lints deny them (STD-131).
 - `TapeWriter::adopt_block`: a producer's block in the writer's run, seq gaps kept; a raw-medium piece is one run (STD-129).
 - Reserved, refused until built: `Codec::SERIES` (49), `Codec::RUNS` (36), `Element::LEAVES` (13), `ColumnKind::PAYLOAD_LEAF` (7), summary head bytes 54..56 (STD-129).
 - `TapeWriter` copies the describe set after a piece's first data block; `TapeReader::describe_set` takes the next good copy (STD-129).

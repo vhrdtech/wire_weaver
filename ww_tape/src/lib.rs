@@ -41,6 +41,10 @@
 //!   uvar item length, the item's bytes
 //! ```
 //!
+//! The item of a record on an events track whose [EventsDef] has spans or flags is an [EventRecord]: the duration
+//! (uvar, spans only), the flags (uvar, only with flags), then the payload; the record's time is the start. A track
+//! of plain instants carries the payload alone. A sticky record of an events track carries the same item.
+//!
 //! With [FLAG_BODY_CODED] that body is coded: a codec byte, its decoded length and the coded bytes ([body]).
 //!
 //! So time deltas are coded per clock, a block reads alone (its first time per clock is absolute) and one clock costs
@@ -139,6 +143,8 @@ pub mod reader;
 #[cfg(feature = "alloc")]
 pub use reader::{ByteSource, OpenOptions, PieceInfo, ReadError, TapeReader};
 
+mod event;
+pub use event::{EventRecord, EventRecordError};
 pub mod body;
 pub use body::{BodyCodec, CodeError, code_body, coded_len_max};
 mod run;

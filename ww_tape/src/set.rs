@@ -109,6 +109,8 @@ fn encode(d: &Describe<'_>) -> Result<Vec<u8>, DescribeError> {
 pub struct Sticky<'a> {
     pub track: u32,
     pub at: ClockTime,
+    /// The record's item; on an events track with spans or flags an [EventRecord](crate::EventRecord), the whole
+    /// event.
     pub item: &'a [u8],
 }
 

@@ -79,6 +79,16 @@
 //! reader that read on to a copy takes no sticky record from it: the records read since are newer. A reader starting
 //! at a copy takes them as the state at their times.
 //!
+//! A describe set's first block is marked [FLAG_SET_FIRST] and its last [FLAG_SET_LAST]: a set is whole when a block
+//! marked first is followed, back to back, by blocks up to one marked last; part of a set is never taken for one.
+//!
+//! **Gaps.** A [Layout] says how far a writer may leave a blank or bad stretch and go on after it ([Layout::gap_max])
+//! and where it resumes ([Layout::resume_align]). A reader's cost per gap is bounded by the format: `gap_max` is at
+//! most [GAP_MAX_MAX] (64 MiB) with at most [GAP_PROBES_MAX] (8192) resume places in it, else the layout record
+//! doesn't decode; a reader reads the first non-blank byte's and each resume place's header one at a time, and checks
+//! at most [GAP_CHECKS_MAX] (4) whole blocks whose header says they go on with the data. On a raw medium ([Medium])
+//! blank space longer than `gap_max` is the end of data; a piece there is one run (`TapeWriter::adopt_block`).
+//!
 //! The same input gives the same bytes: blocks hold no wall time, describe records go in canonical order
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
 //! One exception: an [lz4] payload column is identical only for one `lz4_flex` version on targets of the

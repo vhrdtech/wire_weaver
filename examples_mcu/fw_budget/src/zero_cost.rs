@@ -46,7 +46,7 @@ const API_DIRS: [(&str, &str); 4] = [
 ];
 
 /// One firmware build of a board under `examples_mcu/`: its name in the manifest and the cargo arguments, beside
-/// `--bins` (or the `--bin`s of `flash_budget`).
+/// `--bins` (unless they name a `--bin`, or the `--bin`s of `flash_budget`).
 struct Build {
     board: &'static str,
     name: &'static str,
@@ -119,12 +119,24 @@ const BUILDS: &[Build] = &[
     build(
         "rp2",
         "rtt",
-        &["--no-default-features", "--features", "rtt_target"],
+        &[
+            "--no-default-features",
+            "--features",
+            "rtt_target",
+            "--bin",
+            "rp2_ww_rtt",
+        ],
     ),
     build(
         "rp2",
         "usb_log",
-        &["--no-default-features", "--features", "usb_log"],
+        &[
+            "--no-default-features",
+            "--features",
+            "usb_log",
+            "--bin",
+            "rp2_usb_log",
+        ],
     ),
     build("ecc_flash_g0b1", "default", &[]),
     build("ecc_flash_h7", "default", &[]),
@@ -434,7 +446,7 @@ fn firmware(tree: &Path, b: &Build, digests: &mut BTreeMap<String, Digest>) -> R
             for bin in crate::flash::bins() {
                 cmd.args(["--bin", &bin]);
             }
-        } else {
+        } else if !b.args.contains(&"--bin") {
             cmd.arg("--bins");
         }
         let run = cmd.stderr(Stdio::inherit()).output()?;

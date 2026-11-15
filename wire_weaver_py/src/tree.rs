@@ -316,11 +316,49 @@ pub struct Array {
 
 #[pymethods]
 impl Array {
-    fn __getitem__(&self, py: Python<'_>, index: i64) -> PyResult<Py<PyAny>> {
-        let index = u32::try_from(index)
-            .map_err(|_| PyIndexError::new_err(format!("index {index} is out of range")))?;
-        let res = self.res.index(index).map_err(client_err)?;
-        wrap(py, res, self.conn.clone())
+    /// The element at an index (an `int`), or in a keyed array by its key (anything else): `dev.flow[3]`,
+    /// `dev.flow[{"proto": "Tcp", ...}]`; `KeyError` when the device has no element with the key.
+    fn __getitem__(&self, py: Python<'_>, index: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        if let Ok(index) = index.extract::<i64>() {
+            let index = u32::try_from(index)
+                .map_err(|_| PyIndexError::new_err(format!("index {index} is out of range")))?;
+            let res = self.res.index(index).map_err(client_err)?;
+            return wrap(py, res, self.conn.clone());
+        }
+        match self.by(py, index)? {
+            Some(element) => Ok(element),
+            None => Err(PyKeyError::new_err(format!(
+                "'{}' has no element with the key {}",
+                self.res.path(),
+                index.repr()?
+            ))),
+        }
+    }
+
+    /// The element of a keyed array with `key` (a value of its key type), `None` when the device has none. The
+    /// device is asked once per key, later lookups take the index from the connection's key cache.
+    fn by(&self, py: Python<'_>, key: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAny>>> {
+        let Some(key_ty) = self.res.key_ty() else {
+            return Err(PyTypeError::new_err(format!(
+                "'{}' is not a keyed array: index it with an int",
+                self.res.path()
+            )));
+        };
+        let key = to_value(key, key_ty, self.res.bundle())?;
+        let conn = conn(&self.res, &self.conn)?;
+        let res = &self.res;
+        let found = py
+            .detach(|| res.by_key_blocking(conn.client.cmd(), &key))
+            .map_err(client_err)?;
+        found
+            .map(|res| wrap(py, res, self.conn.clone()))
+            .transpose()
+    }
+
+    /// Name of the key type of a keyed array (`keyed!`), `None` for an array without one.
+    #[getter]
+    fn key_type(&self) -> Option<String> {
+        self.res.key_ty().map(|ty| type_name(ty, self.res.bundle()))
     }
 
     /// Indices a device accepts, as a list.

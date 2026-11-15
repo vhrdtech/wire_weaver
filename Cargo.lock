@@ -2411,6 +2411,7 @@ name = "hub_pytest_device"
 version = "0.1.0"
 dependencies = [
  "hub_pytest_device_api",
+ "keyed",
  "tests_common",
  "tokio",
  "wire_weaver",

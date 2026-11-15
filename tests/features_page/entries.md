@@ -500,6 +500,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
 - STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#tape-blocks
+- STD-117 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | transport/tap.md#tape-blocks
 - CPX-2 | CORDIC | `atan2`, `sin_cos` and integer square roots by CORDIC, `const fn`s on integers alone, sized for a Cortex-M0. |
 
 # Examples

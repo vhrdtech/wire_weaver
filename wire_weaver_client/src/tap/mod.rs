@@ -47,7 +47,7 @@ pub(crate) fn trace_events(
             return false;
         }
         let block = chunk.block();
-        if block.kind != ww_tape::BlockKind::Data {
+        if block.kind != ww_tape::BlockKind::Records {
             return true;
         }
         for r in block.records().flatten() {

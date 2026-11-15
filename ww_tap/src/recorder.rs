@@ -8,9 +8,11 @@
 //! gap is visible, never silent, and the link is never stalled.
 //!
 //! Describe blocks (the producer, the track of every link, API bundles added with [Recorder::add_bundle] and the
-//! newest session of every link) are written before the first data block, when links are added, when a consumer
-//! subscribes, after records were lost and every [RecorderConfig::describe_every], so a consumer joining late
-//! decodes from its first block on.
+//! newest session of every link) are written before the first records block, when links are added, when a consumer
+//! subscribes and after records were lost, never by time: a consumer joining late gets them when it joins.
+//!
+//! Record times are nanoseconds of the recorder's own clock ([HOST_CLOCK], origin the recorder's start); the
+//! describe set maps it to the wall clock ([WALL_CLOCK]) read once at the start.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, Weak, mpsc};
@@ -19,7 +21,8 @@ use std::time::{Duration, Instant, SystemTime};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
-    Block, BlockKind, BlockState, BlockWriter, Describe, FullVersion, Producer, TrackDef, Version,
+    Block, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
+    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, Sticky, TrackDef, Version,
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -34,8 +37,6 @@ pub struct RecorderConfig {
     pub pool_blocks: usize,
     /// How long a record may wait in a block before the block is handed over.
     pub flush_time: Duration,
-    /// How often describe blocks are repeated while there are consumers.
-    pub describe_every: Duration,
     /// Flush on time from a background thread. Off for tests that drive [Recorder::poll_flush] themselves.
     pub background_flush: bool,
     /// What the producer is, for people (in the describe block).
@@ -53,7 +54,6 @@ impl Default for RecorderConfig {
             block_size: DEFAULT_BLOCK_SIZE,
             pool_blocks: 32,
             flush_time: DEFAULT_FLUSH_TIME,
-            describe_every: Duration::from_secs(1),
             background_flush: true,
             name: "ww link tap".into(),
         }
@@ -218,10 +218,14 @@ struct State {
     sinks: Vec<Sink>,
     next_sink: u64,
     describe_due: bool,
-    last_describe: Option<Duration>,
     scratch: Vec<u8>,
     wall_ns_at_zero: u64,
 }
+
+/// The recorder's clock: ns since it started. Record times count it.
+pub const HOST_CLOCK: u32 = 1;
+/// The wall clock, ns since the Unix epoch, mapped from [HOST_CLOCK] in the describe set.
+pub const WALL_CLOCK: u32 = 2;
 
 /// Track number of a link's stream: links take 7 numbers each, from 1 on.
 pub fn track_number(link: u32, stream: u32) -> u32 {
@@ -304,7 +308,6 @@ impl Recorder {
                 sinks: Vec::new(),
                 next_sink: 0,
                 describe_due: true,
-                last_describe: None,
                 scratch: Vec::new(),
                 wall_ns_at_zero,
             }),
@@ -330,7 +333,7 @@ impl Recorder {
         &self.inner.config
     }
 
-    /// Producer clock now, ns: the time base of the blocks.
+    /// [HOST_CLOCK] now, ns: what record times count.
     pub fn now_ns(&self) -> u64 {
         self.inner.clock.now().as_nanos() as u64
     }
@@ -498,7 +501,7 @@ impl Inner {
         let seq = st.seq;
         st.seq += 1;
         let b = Arc::get_mut(&mut buf).expect("free block");
-        let w = BlockWriter::new(&mut b.bytes, BlockKind::Data, seq, now);
+        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, seq, &[HOST_CLOCK]);
         st.current = Some(Current {
             state: w.into_state(),
             buf,
@@ -536,7 +539,8 @@ impl Inner {
         let cur = st.current.as_mut().ok_or(())?;
         let b = Arc::get_mut(&mut cur.buf).expect("current block is not shared");
         let mut w = BlockWriter::from_state(&mut b.bytes, cur.state);
-        let r = w.push(track, now, &[&st.scratch[..len]]);
+        let at = ClockTime::new(HOST_CLOCK, now as i64);
+        let r = w.push(track, at, &[&st.scratch[..len]]);
         cur.state = w.into_state();
         r.map_err(|_| ())
     }
@@ -581,39 +585,51 @@ impl Inner {
         st.pool.push(cur.buf);
         deliver(&mut st.sinks, &chunk);
         self.update_layers(st);
-        if let Some(last) = st.last_describe
-            && self.clock.now().saturating_sub(last) >= self.config.describe_every
-        {
-            st.describe_due = true;
-        }
     }
 
     /// Write and hand over describe blocks (not pooled: rare, and bundles can be large).
     fn describe(&self, st: &mut State) {
         st.describe_due = false;
-        st.last_describe = Some(self.clock.now());
-        let now = self.now();
-        let mut records: Vec<(u32, Vec<u8>)> = Vec::new();
-        let mut scratch = std::mem::take(&mut st.scratch);
-        let mut add = |item: &Describe<'_>| {
-            if let Ok(b) = encode(&mut scratch, item) {
-                records.push((0, b.to_vec()));
+        let mut set = DescribeSet::new();
+        let mut add = |d: &Describe<'_>| {
+            if let Err(e) = set.insert(d) {
+                tracing::warn!("tap describe record left out: {e}");
             }
         };
-        let producer = Describe::Producer(Producer {
+        add(&Describe::Producer(Producer {
             name: &self.config.name,
-            wall_ns_at_zero: st.wall_ns_at_zero,
-        });
-        add(&producer);
-        for (hash, bytes) in &st.bundles {
-            let d = Describe::Bundle {
-                hash: RefVec::Slice { slice: hash },
-                bytes: RefVec::Slice { slice: bytes },
-            };
-            add(&d);
-        }
+        }));
         let api = api();
         let api_root = ww_tape::api_root_id(api.crate_id, api.version.major.0);
+        add(&Describe::Clock(ClockDef {
+            number: UNib32(HOST_CLOCK),
+            // a run of the recorder is a clock of its own
+            key: ww_tape::clock_key(api_root, &[], st.wall_ns_at_zero),
+            rate: Magnitude::pow10(9),
+            resolution: Magnitude::pow10(-9),
+            origin: ClockOrigin::RunStart,
+            label: "tap",
+        }));
+        add(&Describe::Clock(ClockDef {
+            number: UNib32(WALL_CLOCK),
+            key: ww_tape::UNIX_CLOCK_KEY,
+            rate: Magnitude::pow10(9),
+            resolution: Magnitude::pow10(-9),
+            origin: ClockOrigin::UnixEpoch,
+            label: "wall",
+        }));
+        let segments = [MapSegment::offset(0, st.wall_ns_at_zero as i64)];
+        add(&Describe::Map(ClockMap {
+            from: UNib32(HOST_CLOCK),
+            to: UNib32(WALL_CLOCK),
+            segments: RefVec::Slice { slice: &segments },
+        }));
+        for (hash, bytes) in &st.bundles {
+            add(&Describe::Bundle {
+                hash: RefVec::Slice { slice: hash },
+                bytes: RefVec::Slice { slice: bytes },
+            });
+        }
         for link in 0..st.links.len() as u32 {
             if st.links[link as usize].closed {
                 continue;
@@ -621,50 +637,45 @@ impl Inner {
             for stream in 0..7u32 {
                 let path = [UNib32(ids::LINK), UNib32(link), UNib32(stream)];
                 let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
-                let d = Describe::Track(TrackDef {
+                add(&Describe::Track(TrackDef {
                     number: UNib32(track_number(link, stream)),
                     key: ww_tape::track_key(api_root, &[ids::LINK, link, stream]),
+                    clock: UNib32(HOST_CLOCK),
+                    dimensions: RefVec::Slice { slice: &[] },
                     api,
                     bundle: RefVec::Slice { slice: &[] },
                     path: RefVec::Slice { slice: &path },
+                    item: None,
                     label: &label,
                     sticky: stream == ids::SESSION,
-                });
-                add(&d);
+                }));
             }
         }
-        for (link, l) in st.links.iter().enumerate() {
-            if let Some(s) = &l.session
-                && !l.closed
-            {
-                records.push((track_number(link as u32, ids::SESSION), s.clone()));
-            }
+        let now = self.now() as i64;
+        let sticky: Vec<Sticky<'_>> = st
+            .links
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| !l.closed)
+            .filter_map(|(link, l)| {
+                Some(Sticky {
+                    track: track_number(link as u32, ids::SESSION),
+                    at: ClockTime::new(HOST_CLOCK, now),
+                    item: l.session.as_deref()?,
+                })
+            })
+            .collect();
+        let mut blocks = Vec::new();
+        let written = set.write_blocks(&mut st.seq, self.config.block_size, &sticky, |b| {
+            blocks.push(b.to_vec());
+        });
+        if let Err(e) = written {
+            tracing::warn!("tap describe blocks not written: {e}");
         }
-        st.scratch = scratch;
-        // as many blocks as needed, each sized to what it carries
-        let mut i = 0;
-        while i < records.len() {
-            let mut size = ww_tape::HEADER_LEN + ww_tape::CRC_LEN;
-            let mut j = i;
-            while j < records.len() {
-                let r = records[j].1.len() + ww_tape::MAX_RECORD_HEAD;
-                if j > i && size + r > self.config.block_size {
-                    break;
-                }
-                size += r;
-                j += 1;
-            }
-            let mut bytes = vec![0u8; size];
-            let seq = st.seq;
-            st.seq += 1;
-            let mut w = BlockWriter::new(&mut bytes, BlockKind::Describe, seq, now);
-            for (track, item) in &records[i..j] {
-                w.push(*track, now, &[item]).expect("sized to fit");
-            }
-            let len = w.finish();
+        for bytes in blocks {
+            let len = bytes.len();
             let chunk = Chunk(Arc::new(ChunkBuf { bytes, len }));
             deliver(&mut st.sinks, &chunk);
-            i = j;
         }
         self.update_layers(st);
     }

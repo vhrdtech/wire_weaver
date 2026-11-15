@@ -519,6 +519,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
 - **[Tape blocks](transport/tap.md#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
+- **[Tape clocks and describe](transport/tap.md#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
 - **CORDIC**: `atan2`, `sin_cos` and integer square roots by CORDIC, `const fn`s on integers alone, sized for a Cortex-M0.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Number core](features.md#number-core-num), [Units and markers](features.md#units-and-markers-unit), [Points and origins](features.md#points-and-origins-pt), [Levels](features.md#levels-lvl), [Complex quantities](features.md#complex-quantities-cpx), [Numbers and units at the edges](features.md#numbers-and-units-at-the-edges-io) in the feature tracker.</p>

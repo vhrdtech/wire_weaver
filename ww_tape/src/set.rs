@@ -1,0 +1,212 @@
+//! [DescribeSet]: describe records in canonical order, written as describe blocks.
+
+use std::collections::{BTreeMap, BTreeSet};
+
+use shrink_wrap::prelude::*;
+
+use crate::{
+    BlockKind, BlockWriter, CRC_LEN, ClockTime, Describe, HEADER_LEN, MAX_BLOCK_CLOCKS,
+    MAX_BLOCK_LEN, MAX_CLOCK_TABLE, MAX_RECORD_HEAD, Rank,
+};
+
+/// Why a describe set can't be built or written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DescribeError {
+    /// A record doesn't encode.
+    Encode(shrink_wrap::Error),
+    /// A track's dimensions aren't in ascending order of name, or a name repeats.
+    Dimensions { track: u32 },
+    /// A track, map or sticky record names a clock the set has no [Describe::Clock] for.
+    UnknownClock { clock: u32 },
+    /// A record longer than a block can be.
+    TooLong { len: usize },
+}
+
+impl core::fmt::Display for DescribeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DescribeError::Encode(e) => write!(f, "describe record doesn't encode: {e:?}"),
+            DescribeError::Dimensions { track } => {
+                write!(
+                    f,
+                    "track {track}: dimensions not in ascending order of name"
+                )
+            }
+            DescribeError::UnknownClock { clock } => write!(f, "clock {clock} is not described"),
+            DescribeError::TooLong { len } => {
+                write!(f, "record of {len} bytes is longer than a block")
+            }
+        }
+    }
+}
+
+impl std::error::Error for DescribeError {}
+
+/// `d` encoded, into a buffer grown until it fits.
+fn encode(d: &Describe<'_>) -> Result<Vec<u8>, DescribeError> {
+    let mut buf = vec![0u8; 1024];
+    loop {
+        let r = d.to_ww_bytes(&mut buf).map(<[u8]>::len);
+        match r {
+            Ok(len) => {
+                buf.truncate(len);
+                return Ok(buf);
+            }
+            Err(_) if buf.len() < MAX_BLOCK_LEN => {
+                let n = buf.len() * 2;
+                buf.resize(n, 0);
+            }
+            Err(e) => return Err(DescribeError::Encode(e)),
+        }
+    }
+}
+
+/// The newest record of a sticky track, written after the definitions.
+#[derive(Debug, Clone, Copy)]
+pub struct Sticky<'a> {
+    pub track: u32,
+    pub at: ClockTime,
+    pub item: &'a [u8],
+}
+
+/// Describe records kept in canonical order ([Describe::rank]), so the same definitions give the same bytes
+/// whatever order they were added in.
+///
+/// A record replaces the one of the same rank and key: the producer, a bundle of the same hash, a clock, map or
+/// track of the same number(s); typed items equal byte for byte are one.
+#[derive(Debug, Clone, Default)]
+pub struct DescribeSet {
+    records: BTreeMap<(Rank, Vec<u8>), Vec<u8>>,
+    clocks: BTreeSet<u32>,
+    /// Clocks named by tracks and maps.
+    named: BTreeMap<(Rank, Vec<u8>), Vec<u32>>,
+}
+
+impl DescribeSet {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add `d`, replacing a record with the same key.
+    pub fn insert(&mut self, d: &Describe<'_>) -> Result<(), DescribeError> {
+        let bytes = encode(d)?;
+        let rank = d.rank();
+        let sub = match d {
+            Describe::Bundle { hash, .. } => hash
+                .iter()
+                .collect::<Result<Vec<u8>, _>>()
+                .map_err(DescribeError::Encode)?,
+            Describe::Item(_) | Describe::Unknown(_) => bytes.clone(),
+            _ => Vec::new(),
+        };
+        let named = match d {
+            Describe::Track(t) => {
+                if !t.dimensions_canonical() {
+                    return Err(DescribeError::Dimensions { track: t.number.0 });
+                }
+                vec![t.clock.0]
+            }
+            Describe::Map(m) => vec![m.from.0, m.to.0],
+            _ => vec![],
+        };
+        let key = (rank, sub);
+        if let Describe::Clock(c) = d {
+            self.clocks.insert(c.number.0);
+        }
+        if named.is_empty() {
+            self.named.remove(&key);
+        } else {
+            self.named.insert(key.clone(), named);
+        }
+        self.records.insert(key, bytes);
+        Ok(())
+    }
+
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
+
+    /// The encoded records in canonical order.
+    pub fn records(&self) -> impl Iterator<Item = &[u8]> {
+        self.records.values().map(Vec::as_slice)
+    }
+
+    /// Every clock a track or map names is described.
+    pub fn check(&self) -> Result<(), DescribeError> {
+        for clock in self.named.values().flatten() {
+            if !self.clocks.contains(clock) {
+                return Err(DescribeError::UnknownClock { clock: *clock });
+            }
+        }
+        Ok(())
+    }
+
+    /// Write the set as describe blocks of at most `block_len_max` bytes (a longer record gets a block of its own),
+    /// the `sticky` records after the definitions in order of track. Blocks are numbered from `*seq` on, which is
+    /// left at the next number; `out` takes each block.
+    pub fn write_blocks(
+        &self,
+        seq: &mut u64,
+        block_len_max: usize,
+        sticky: &[Sticky<'_>],
+        mut out: impl FnMut(&[u8]),
+    ) -> Result<(), DescribeError> {
+        self.check()?;
+        let mut sticky: Vec<&Sticky<'_>> = sticky.iter().collect();
+        sticky.sort_by_key(|s| s.track);
+        for s in &sticky {
+            if !self.clocks.contains(&s.at.clock) {
+                return Err(DescribeError::UnknownClock { clock: s.at.clock });
+            }
+        }
+        let entries: Vec<(Option<&Sticky<'_>>, &[u8])> = self
+            .records()
+            .map(|r| (None, r))
+            .chain(sticky.iter().map(|s| (Some(*s), s.item)))
+            .collect();
+        let empty = HEADER_LEN + MAX_CLOCK_TABLE + CRC_LEN;
+        let mut i = 0;
+        while i < entries.len() {
+            let mut size = empty;
+            let mut clocks = BTreeSet::new();
+            let mut j = i;
+            while j < entries.len() {
+                let (s, item) = entries[j];
+                let r = item.len() + MAX_RECORD_HEAD;
+                let new_clock = s.is_some_and(|s| !clocks.contains(&s.at.clock));
+                let fits =
+                    size + r <= block_len_max && !(new_clock && clocks.len() == MAX_BLOCK_CLOCKS);
+                if j > i && !fits {
+                    break;
+                }
+                if empty + r > MAX_BLOCK_LEN {
+                    return Err(DescribeError::TooLong { len: item.len() });
+                }
+                if let Some(s) = s {
+                    clocks.insert(s.at.clock);
+                }
+                size += r;
+                j += 1;
+            }
+            let clocks: Vec<u32> = clocks.into_iter().collect();
+            let mut buf = vec![0u8; size];
+            let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, *seq, &clocks);
+            *seq += 1;
+            for (s, item) in &entries[i..j] {
+                let pushed = match s {
+                    Some(s) => w.push(s.track, s.at, &[item]),
+                    None => w.push_describe(&[item]),
+                };
+                pushed.expect("block sized to fit its records");
+            }
+            let len = w.finish();
+            out(&buf[..len]);
+            i = j;
+        }
+        Ok(())
+    }
+}

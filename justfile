@@ -66,6 +66,10 @@ conformance-update:
     CONFORMANCE=update cargo nextest run -p conformance corpus
     CONFORMANCE=update cargo nextest run -p conformance report
 
+# Rewrite ww_tape's golden file (golden/v2.hex) after a deliberate format change (STD-117)
+tape-golden-update:
+    WW_TAPE_GOLDEN=update cargo nextest run -p ww_tape deterministic_and_golden
+
 # Fill in the golden bytes of new dispatch_golden cases ("request"/"reply"/an event "?") from the sync server (TEST-31)
 dispatch-golden-update:
     DISPATCH_GOLDEN=update cargo nextest run -p dispatch_golden corpus

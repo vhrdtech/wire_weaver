@@ -25,7 +25,7 @@ fn config() -> RecorderConfig {
 /// Data records of `chunk` as (track, item bytes).
 fn data(chunk: &Chunk) -> Vec<(u32, Vec<u8>)> {
     let b = chunk.block();
-    assert_eq!(b.kind, BlockKind::Data);
+    assert_eq!(b.kind, BlockKind::Records);
     b.records()
         .map(|r| {
             let Record { track, item, .. } = r.unwrap();
@@ -94,7 +94,7 @@ fn full_block_is_handed_over_and_the_record_goes_into_the_next() {
     while let Some(c) = sub.try_recv() {
         let b = c.block();
         assert!(b.len() <= 1024);
-        if b.kind == BlockKind::Data {
+        if b.kind == BlockKind::Records {
             blocks += 1;
             frames += data(&c).len();
         }
@@ -120,7 +120,7 @@ fn held_blocks_lose_records_counted_in_a_link_event() {
     // 4 blocks in the pool, all handed over (3 frames each) and held
     let delivered: usize = held
         .iter()
-        .filter(|c| c.block().kind == BlockKind::Data)
+        .filter(|c| c.block().kind == BlockKind::Records)
         .map(|c| data(c).len())
         .sum();
     assert_eq!(delivered, 12);
@@ -131,7 +131,7 @@ fn held_blocks_lose_records_counted_in_a_link_event() {
     let mut events = Vec::new();
     let mut frames = 0;
     while let Some(c) = sub.try_recv() {
-        if c.block().kind != BlockKind::Data {
+        if c.block().kind != BlockKind::Records {
             continue;
         }
         for (track, item) in data(&c) {
@@ -202,7 +202,7 @@ fn background_flush_hands_over_on_time() {
         let c = sub
             .recv_timeout(Duration::from_secs(2))
             .expect("flushed on time");
-        if c.block().kind == BlockKind::Data {
+        if c.block().kind == BlockKind::Records {
             got += data(&c).len();
         }
     }
@@ -224,5 +224,5 @@ fn bundle_added_mid_block_is_handed_over_at_once() {
         kinds.push(c.block().kind);
     }
     // the open block with the session and LinkReady, then the describe block carrying the bundle
-    assert_eq!(kinds, [BlockKind::Data, BlockKind::Describe]);
+    assert_eq!(kinds, [BlockKind::Records, BlockKind::Describe]);
 }

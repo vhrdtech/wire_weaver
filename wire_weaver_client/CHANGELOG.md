@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- The tap decoder reads tape v2 (STD-117): times from the tap's clock, `Decoder::wall_ns_at_zero` from its clock map.
+
 - Priorities have 8 levels (EVO-76, `wire_weaver::Priority`): `.priority(p)`, `Commander::set_default_priority` and `ClientConfig::default_priority` take `0..=7`, urgent from 4 (`Priority::URGENT`); `.urgent()` and the named constants are unchanged in meaning. Requests carry the priority in 3 bits and a reserved bit (`ww_client_server` EVO-76); the request explainer (`ww tap`, `envelope::explain_request`) shows `priority` as a `u3` and the `reserved` bit.
 - Wire (EVO-73): a counted stream's open and resume carry `StreamOpen { raw }` instead of a codec offer; the host decodes whatever codec the device declares in `StreamOpened::codec`. `ClientConfig::stream_compression(false)` and `PreparedStreamOpen::compression(false)` set `raw`. A device that declares a codec this host doesn't know (`StreamCodec::Unknown`) gets its stream closed and opened again with `raw`, instead of a failed open (test `unknown_codec_reopens_raw`).
 - Resource paths are `ww_client_server::ResourceIndex`es (STD-115), the same bytes: `Commander::set_base_path` takes and `base_path` returns a `Vec<ResourceIndex>`, `DynResource::index_chain` returns `&[ResourceIndex]`, and `multi::PropertyPath`, `CallPath` and `WritePath::absolute_path` return `Option<Vec<ResourceIndex>>`. `MultiIndexOwned::List` holds `ResourceIndex`es (`ww_client_server::resource_path([0, 1]).to_vec()`).

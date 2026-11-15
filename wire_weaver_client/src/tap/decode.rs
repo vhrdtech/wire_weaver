@@ -21,7 +21,10 @@ use wire_weaver::shrink_wrap::{
 use ww_client_server::{Event, PathKind, Request};
 use ww_link::DeviceInfoOwned;
 use ww_self::ApiBundleOwned;
-use ww_tap::{Dir, FrameOwned, LinkEventOwned, MessageOwned, SessionOwned, ids, track_of};
+use ww_tap::{
+    Dir, FrameOwned, HOST_CLOCK, LinkEventOwned, MessageOwned, SessionOwned, WALL_CLOCK, ids,
+    track_of,
+};
 use ww_tape::{Block, BlockKind, Describe};
 
 use super::reassembly::{FrameOutcome, FramePart, HelloFrame, Reassembled, Reassembler, walker};
@@ -205,6 +208,8 @@ pub struct Decoder {
     lookup: Option<BundleLookup>,
     next_seq: Option<u64>,
     wall_ns_at_zero: Option<u64>,
+    /// Time of the newest record fed, for what has no time of its own (lost blocks).
+    last_t: u64,
     out: VecDeque<Decoded>,
     pub stats: Stats,
 }
@@ -224,6 +229,7 @@ impl Decoder {
             lookup: None,
             next_seq: None,
             wall_ns_at_zero: None,
+            last_t: 0,
             out: VecDeque::new(),
             stats: Stats::default(),
         }
@@ -240,7 +246,7 @@ impl Decoder {
         self.with_lookup(Box::new(crate::local_registry::load))
     }
 
-    /// Wall clock (ns since the Unix epoch) at producer time 0, once a describe block said it.
+    /// Wall clock (ns since the Unix epoch) at tap clock time 0, once a describe block mapped the one to the other.
     pub fn wall_ns_at_zero(&self) -> Option<u64> {
         self.wall_ns_at_zero
     }
@@ -265,22 +271,27 @@ impl Decoder {
             self.stats.blocks_lost += lost;
             self.out.push_back(Decoded {
                 link: None,
-                t: block.t_base,
+                t: self.last_t,
                 what: What::BlocksLost { blocks: lost },
             });
         }
         self.next_seq = Some(block.seq + 1);
         // a block stores its records track by track: back in time order, so a reply comes after its request
         let mut records: Vec<_> = block.records().filter_map(Result::ok).collect();
-        records.sort_by_key(|r| r.t);
+        records.sort_by_key(|r| r.at.map(|at| at.ticks));
         for r in records {
-            self.stats.at(r.t);
-            if r.track == ww_tape::DESCRIBE_TRACK {
+            let Some(at) = r.at else {
                 if block.kind == BlockKind::Describe {
                     self.describe(r.item);
                 }
                 continue;
-            }
+            };
+            // the tap clock counts ns from the recorder's start: a time before it isn't the tap's
+            let (HOST_CLOCK, Ok(t)) = (at.clock, u64::try_from(at.ticks)) else {
+                continue;
+            };
+            self.last_t = self.last_t.max(t);
+            self.stats.at(t);
             let Some((link, stream)) = track_of(r.track) else {
                 continue;
             };
@@ -289,13 +300,13 @@ impl Decoder {
                 if let Ok(s) = SessionOwned::from_ww_bytes_owned(r.item)
                     && self.links.get(&link).and_then(|l| l.session.as_ref()) != Some(&s)
                 {
-                    self.session(link, r.t, s);
+                    self.session(link, t, s);
                     self.links.entry(link).or_default().described = true;
                 }
                 continue;
             }
-            self.record(link, stream, r.t, r.item);
-            self.expire(link, r.t);
+            self.record(link, stream, t, r.item);
+            self.expire(link, t);
         }
     }
 
@@ -318,7 +329,14 @@ impl Decoder {
             return;
         };
         match d {
-            Describe::Producer(p) => self.wall_ns_at_zero = Some(p.wall_ns_at_zero),
+            Describe::Map(m) if m.from.0 == HOST_CLOCK && m.to.0 == WALL_CLOCK => {
+                let at_zero = m
+                    .segments
+                    .iter()
+                    .filter_map(Result::ok)
+                    .find_map(|s| s.map(0));
+                self.wall_ns_at_zero = at_zero.and_then(|t| u64::try_from(t).ok());
+            }
             Describe::Bundle { hash, bytes } => {
                 let hash = hash.as_slice().to_vec();
                 if self.bundles.contains_key(&hash) {

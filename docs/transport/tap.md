@@ -72,14 +72,23 @@ bundle, so `ww explain FILE` explains the requests and replies of a capture on a
 ### Tape blocks
 
 `ww_tape` is the generic block format the tap writes; nothing in it knows the tap. A block is a 32 byte header
-(magic `WWTP`, version, kind, length, record count, the producer's block number, a time base), records (track,
-time delta, length, item bytes as LEB128 varints) and a CRC-32C, as long as its records and never padded. A
-**describe** block carries the producer (wall clock at its time 0), a `TrackDef` per track (number, stable key, API,
-resource path, label, whether it is sticky) and the API bundles the items need, then the newest record of every
-sticky track. It is written at the start, when a track is added, when a consumer joins, after a loss and every
-second, so a consumer that joins late decodes from its first block.
+(magic `WWTP`, version, kind, length, record count, the producer's block number), a body and a CRC-32C, as long as
+its records and never padded. The body of a records or describe block starts with a clock table (the clocks its
+records count), then records: a head (track and clock slot), a time delta, a length and the item bytes, as LEB128
+varints. Record times are signed i64 ticks of the track's clock, each delta against the previous record on the same
+clock, so a block reads alone and one clock costs no bit. No wall time is in a block.
 
-The header and the CRC at the end stay the same in every version: a later version changes only the body (per-track chunks, an index, compression), and a reader skips a block of a version or kind it doesn't know by its length, as it skips describe records of a kind it doesn't know.
+A **describe** block carries, in a canonical order: the producer, the API bundles, the clocks (number, stable key,
+exact rate and resolution as `Magnitude`s, origin: free-running, boot, Unix epoch, media start or run start), the
+clock maps (segments `b = b0 + (a - a0) · num/den` with an error bound: the tap maps its own clock to the wall clock
+read at its start), a `TrackDef` per track (number, stable key, clock, dimensions that are part of its identity, API,
+resource path, optional item type, label, whether it is sticky) and typed items (any wire_weaver value by bundle
+hash and type path), then the newest record of every sticky track. It is written at the start, when a track is
+added, when a consumer joins and after a loss, never by time, so a consumer that joins late decodes from its first
+block. `ww_tape::DescribeSet` keeps the records in that order, so the same input gives the same bytes whatever order
+the producer added them in.
+
+The header and the CRC at the end stay the same in every version: a later version changes only the body, and a reader skips a block of a version or kind it doesn't know by its length, as it skips describe records of a kind it doesn't know.
 
 ## Decoding
 

@@ -6956,6 +6956,7 @@ name = "ww_tape"
 version = "0.1.0"
 dependencies = [
  "crc",
+ "exact_units",
  "shrink_wrap",
  "ww_version",
 ]

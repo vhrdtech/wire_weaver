@@ -82,6 +82,9 @@ pub use describe::{
 };
 pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
 
+pub mod summary;
+pub use summary::{EventFields, EventNode, Summary, SummaryError, SummaryHead};
+
 pub mod chunk;
 pub use chunk::{
     Chunk, ChunkError, ChunkHead, ChunkHeadError, ChunkWriter, Codec, ColumnKind, ColumnSpec,
@@ -137,6 +140,8 @@ pub enum BlockKind {
     Events,
     /// One chunk of one fixed-rate series ([chunk]).
     Series,
+    /// One batch of nodes of one level of a track's summary tree ([summary]).
+    Summary,
     /// Reserved for parity blocks (one per group of blocks, for archives on poor media); none are written yet, and a
     /// reader skips them like a kind it doesn't know.
     Parity,
@@ -152,6 +157,7 @@ impl BlockKind {
             3 => BlockKind::Events,
             4 => BlockKind::Series,
             5 => BlockKind::Parity,
+            6 => BlockKind::Summary,
             other => BlockKind::Other(other),
         }
     }
@@ -163,6 +169,7 @@ impl BlockKind {
             BlockKind::Events => 3,
             BlockKind::Series => 4,
             BlockKind::Parity => 5,
+            BlockKind::Summary => 6,
             BlockKind::Other(v) => v,
         }
     }
@@ -474,6 +481,8 @@ pub enum BlockError {
     BadCrc,
     /// The head of a chunk block is bad.
     Chunk(ChunkHeadError),
+    /// The head or body of a summary block is bad.
+    Summary(SummaryError),
     /// The clock table or the records don't parse up to the end, or there are more or fewer than the header says.
     BadRecords,
 }
@@ -574,6 +583,9 @@ impl<'b> Block<'b> {
                     return Err(BlockError::BadCrc);
                 }
                 block.check_records()?;
+                if block.is_summary() {
+                    Summary::read(block.bytes).map_err(BlockError::Summary)?;
+                }
                 Ok(block)
             }
         }
@@ -639,6 +651,18 @@ impl<'b> Block<'b> {
 
     fn is_chunk(&self) -> bool {
         matches!(self.kind, BlockKind::Events | BlockKind::Series)
+    }
+
+    fn is_summary(&self) -> bool {
+        self.body_known() && self.kind == BlockKind::Summary
+    }
+
+    /// The summary of a summary block whose body this reader knows.
+    pub fn summary(&self) -> Option<Summary<'b>> {
+        if !self.is_summary() {
+            return None;
+        }
+        Summary::read(self.bytes).ok()
     }
 
     fn has_records(&self) -> bool {

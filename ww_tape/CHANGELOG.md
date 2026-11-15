@@ -5,6 +5,7 @@
 ### ⚠️ Breaking
 
 - Header bytes 24..32 hold a chunk block's payload offset and head CRC; `BlockError::Chunk` for a bad chunk head (STD-118).
+- `BlockError` gains `Summary` for a bad summary block head or body (STD-121).
 - `WriteError` gains `Block` and `Chunk`; `Describe` gains `Layout`, which takes variant 6 (STD-118).
 
 - Format version 2 (STD-117): record times are signed i64 ticks of the track's clock (`Record::at: Option<ClockTime>`), deltas coded per clock after a clock table in the body; header bytes 24..32 are reserved, `Block::t_base` is gone.
@@ -14,6 +15,8 @@
 
 ### 🚀 Features
 
+- Summary blocks (`BlockKind::Summary`, kind 6): event item tree (`EventTree`) and mergeable series summaries (`SeriesSummaries`), read in place (STD-121).
+- `SeriesSummarySpec`, `SeriesStats`, `ClipRange`: a series track's summary declaration as shrink_wrap types (STD-121).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).
 - `Describe::Layout` and `TapeWriter::set_alignment`: chunk payloads on 4 KiB boundaries, deferred blocks filling the gaps (STD-118).

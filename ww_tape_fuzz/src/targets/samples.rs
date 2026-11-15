@@ -128,11 +128,11 @@ pub fn samples(data: &[u8]) {
     let from = usize::from(u16::from_le_bytes([data[5], data[6]]));
     let body = &data[7..];
     both(codec, element, channels, count, body, from);
-    if let Ok(len) = lz4_decoded_len(body) {
-        if len <= 1 << 20 {
-            let mut out = vec![0u8; len];
-            let _ = lz4_decode(body, &mut out);
-        }
+    if let Ok(len) = lz4_decoded_len(body)
+        && len <= 1 << 20
+    {
+        let mut out = vec![0u8; len];
+        let _ = lz4_decode(body, &mut out);
     }
     let mut out = vec![0u8; lz4_max_len(body.len())];
     let n = lz4_encode(body, &mut out).expect("output sized by lz4_max_len");

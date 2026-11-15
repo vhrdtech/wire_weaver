@@ -9,15 +9,15 @@ use ww_tape::{Block, BlockKind, Layout, Medium, OpenOptions, Tail, TapeReader};
 
 /// Look at everything the block decoders give for `data`.
 fn decode(data: &[u8]) {
-    if let Ok(len) = IndexBlock::head_len(data) {
-        if let Ok(ix) = IndexBlock::read_head(&data[..len.min(data.len())]) {
-            for t in ix.tracks() {
-                let (from, n) = ix.track_range(&t);
-                if let Some(bytes) = data.get(from..from.saturating_add(n)) {
-                    if let Ok(it) = ix.track_entries(&t, bytes) {
-                        it.for_each(drop);
-                    }
-                }
+    if let Ok(len) = IndexBlock::head_len(data)
+        && let Ok(ix) = IndexBlock::read_head(&data[..len.min(data.len())])
+    {
+        for t in ix.tracks() {
+            let (from, n) = ix.track_range(&t);
+            if let Some(bytes) = data.get(from..from.saturating_add(n))
+                && let Ok(it) = ix.track_entries(&t, bytes)
+            {
+                it.for_each(drop);
             }
         }
     }
@@ -76,7 +76,9 @@ pub fn index(data: &[u8]) {
         return;
     };
     let mut entries: Vec<IndexEntry> = rest
-        .chunks_exact(9)
+        .as_chunks::<9>()
+        .0
+        .iter()
         .map(|c| IndexEntry {
             offset: u64::from_le_bytes(c[1..9].try_into().unwrap()),
             len: c[0].into(),

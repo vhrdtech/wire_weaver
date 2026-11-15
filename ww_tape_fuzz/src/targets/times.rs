@@ -82,7 +82,7 @@ pub fn times(data: &[u8]) {
         return;
     };
     let (mut starts, mut ends, mut flags) = (vec![], vec![], vec![]);
-    for c in items.chunks_exact(4) {
+    for c in items.as_chunks::<4>().0 {
         t = t.saturating_add(i64::from(u16::from_le_bytes([c[0], c[1]])) << (mode >> 5));
         starts.push(t);
         ends.push(t.saturating_add(i64::from(c[2])));

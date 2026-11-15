@@ -191,3 +191,40 @@ fn keying_another_array_across_a_break_is_breaking() {
         report.compatible
     );
 }
+
+/// `ww api diff` names the array a companion keys, as it is written.
+#[test]
+fn diff_names_the_keyed_array() {
+    let old = load_with("0.1.0", &unkeyed(API), &keyed_deps());
+    let keyed = load_with("0.1.0", API, &keyed_deps());
+    assert_eq!(
+        diff(&old, &keyed).unwrap(),
+        [
+            Difference::Added {
+                path: "Api::flow_keys".into(),
+                definition: "keyed!(flow by FlowKey)".into(),
+            },
+            Difference::Added {
+                path: "dependency ww_keyed".into(),
+                definition: "0.1.0".into(),
+            }
+        ]
+    );
+    // another key type is a change of the companion's own line
+    let new = load_with(
+        "0.1.0",
+        &API.replace("keyed!(flow by FlowKey)", "keyed!(flow by Port)")
+            .replace("pub struct FlowKey", "pub struct Port"),
+        &keyed_deps(),
+    );
+    let changed = diff(&keyed, &new).unwrap();
+    assert!(
+        changed.contains(&Difference::Changed {
+            path: "Api::flow_keys".into(),
+            what: "signature",
+            old: "keyed!(flow by FlowKey)".into(),
+            new: "keyed!(flow by Port)".into(),
+        }),
+        "{changed:?}"
+    );
+}

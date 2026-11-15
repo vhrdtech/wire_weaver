@@ -153,7 +153,7 @@ impl Differ<'_> {
         for old_item in &old.items {
             let path = format!("{trait_name}::{}", old_item.ident);
             let Some(new_item) = new_items.get(&old_item.id.0) else {
-                self.removed(path, item_signature(self.old, old_item));
+                self.removed(path, item_signature(self.old, old, old_item));
                 continue;
             };
             self.changed(
@@ -165,8 +165,8 @@ impl Differ<'_> {
             self.changed(
                 &path,
                 "signature",
-                item_signature(self.old, old_item),
-                item_signature(self.new, new_item),
+                item_signature(self.old, old, old_item),
+                item_signature(self.new, new, new_item),
             );
             self.changed(
                 &path,
@@ -180,7 +180,7 @@ impl Differ<'_> {
         for new_item in &new.items {
             if !old.items.iter().any(|i| i.id == new_item.id) {
                 let path = format!("{trait_name}::{}", new_item.ident);
-                self.added(path, item_signature(self.new, new_item));
+                self.added(path, item_signature(self.new, new, new_item));
             }
         }
     }
@@ -330,8 +330,9 @@ fn type_name(bundle: &ApiBundleOwned, ty: &TypeOwned) -> String {
         .unwrap_or_else(|e| format!("<{e}>"))
 }
 
-/// `fn set(c: Coord) -> u8`, `rw property speed: u32 observable`, `impl gpio[]: ww_gpio::Gpio`, ...
-fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
+/// `fn set(c: Coord) -> u8`, `rw property speed: u32 observable`, `impl gpio[]: ww_gpio::Gpio`,
+/// `keyed!(flow by FlowKey)`, ... of `item` in `level`.
+fn item_signature(bundle: &ApiBundleOwned, level: &ApiLevelOwned, item: &ApiItemOwned) -> String {
     let ident = match &item.multiplicity {
         Multiplicity::Flat => item.ident.clone(),
         Multiplicity::Array {
@@ -423,13 +424,13 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             }
             s
         }
-        // TODO(EVO-78): name the keyed array instead of its id
         ApiItemKindOwned::Keys { of, key, .. } => {
-            format!(
-                "keyed! {ident}: item {} by {}",
-                of.0,
-                type_name(bundle, key)
-            )
+            let array = level
+                .items
+                .iter()
+                .find(|i| i.id == *of)
+                .map_or_else(|| format!("<no item {}>", of.0), |i| i.ident.clone());
+            format!("keyed!({array} by {})", type_name(bundle, key))
         }
         ApiItemKindOwned::Trait { trait_idx, .. } => {
             let crate_name = |crate_idx: u32| bundle.crate_name(crate_idx).unwrap_or("?");

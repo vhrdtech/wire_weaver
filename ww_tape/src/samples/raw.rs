@@ -2,236 +2,301 @@
 //!
 //! An `_LSB` column is the [bitpack] layout (horizontal, LSB first), so it packs and unpacks with the shared primitive
 //! and its vector kernels; `_MSB` columns have their own loop.
-
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
+//!
+//! The decoders take a column whose length [Samples::new](super::Samples::new) checked against its count; a range
+//! past its bytes is still an error, never a panic.
 
 use super::{Sample, SampleError};
 use crate::bitpack;
 
-/// Bytes of one value of `T`.
-#[inline(always)]
-fn width<T: Sample>() -> usize {
-    (T::ELEMENT.scalar_bits() / 8) as usize
+/// How a packed column lays out its values: the [bitpack] layout at a width, or one of the `_MSB` widths.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(super) enum Packing {
+    /// LSB first, 1 to 24 bits.
+    Lsb(u32),
+    Msb10,
+    Msb12,
+    Msb24,
 }
 
+impl Packing {
+    /// Bits per value.
+    pub(super) const fn bits(self) -> u32 {
+        match self {
+            Packing::Lsb(bits) => bits,
+            Packing::Msb10 => 10,
+            Packing::Msb12 => 12,
+            Packing::Msb24 => 24,
+        }
+    }
+}
+
+/// Bytes of one value of `T`: its size, 1 to 8 for the scalars the byte-wide layouts code.
+#[inline(always)]
+const fn width<T: Sample>() -> usize {
+    size_of::<T>()
+}
+
+/// The low `bits` bits set: none for 0, all for 64 and up.
+#[inline(always)]
+const fn mask(bits: u32) -> u64 {
+    // a shift by 64 (bits 0) is None: no bit set
+    match u64::MAX.checked_shr(u64::BITS.saturating_sub(bits)) {
+        Some(m) => m,
+        None => 0,
+    }
+}
+
+/// A little-endian number of up to 8 bytes.
 #[inline(always)]
 fn load_le(b: &[u8]) -> u64 {
     let mut w = [0u8; 8];
-    w[..b.len()].copy_from_slice(b);
+    for (o, i) in w.iter_mut().zip(b) {
+        *o = *i;
+    }
     u64::from_le_bytes(w)
 }
 
+/// A big-endian number of up to 8 bytes.
 #[inline(always)]
 fn load_be(b: &[u8]) -> u64 {
     let mut w = [0u8; 8];
-    w[8 - b.len()..].copy_from_slice(b);
+    for (o, i) in w.iter_mut().rev().zip(b.iter().rev()) {
+        *o = *i;
+    }
     u64::from_be_bytes(w)
 }
 
+/// Up to 8 bytes from the start of `b`, the missing ones zero, as the first bytes of a big-endian word.
+#[inline(always)]
+fn load_be_front(b: &[u8]) -> u64 {
+    let mut w = [0u8; 8];
+    for (o, i) in w.iter_mut().zip(b) {
+        *o = *i;
+    }
+    u64::from_be_bytes(w)
+}
+
+/// Code `values` little endian into `out`, which is their bytes exactly; returns its length.
 pub(super) fn encode_le<T: Sample>(values: &[T], out: &mut [u8]) -> usize {
-    let w = width::<T>();
-    for (v, o) in values.iter().zip(out.chunks_exact_mut(w)) {
-        o.copy_from_slice(&v.to_bits().to_le_bytes()[..w]);
+    for (v, o) in values.iter().zip(out.chunks_exact_mut(width::<T>())) {
+        for (d, s) in o.iter_mut().zip(v.to_bits().to_le_bytes()) {
+            *d = s;
+        }
     }
-    values.len() * w
+    out.len()
 }
 
+/// Code `values` big endian into `out`, which is their bytes exactly; returns its length.
 pub(super) fn encode_be<T: Sample>(values: &[T], out: &mut [u8]) -> usize {
-    let w = width::<T>();
-    for (v, o) in values.iter().zip(out.chunks_exact_mut(w)) {
-        o.copy_from_slice(&v.to_bits().to_be_bytes()[8 - w..]);
+    for (v, o) in values.iter().zip(out.chunks_exact_mut(width::<T>())) {
+        // the low bytes, the lowest last
+        for (d, s) in o.iter_mut().rev().zip(v.to_bits().to_le_bytes()) {
+            *d = s;
+        }
     }
-    values.len() * w
+    out.len()
 }
 
-pub(super) fn decode_le<T: Sample>(bytes: &[u8], first: usize, out: &mut [T]) {
+/// The bytes of `n` values of `T` from value `first` on.
+fn values_bytes<T: Sample>(bytes: &[u8], first: usize, n: usize) -> Result<&[u8], SampleError> {
     let w = width::<T>();
-    let src = &bytes[first * w..(first + out.len()) * w];
-    for (o, b) in out.iter_mut().zip(src.chunks_exact(w)) {
+    let from = first.checked_mul(w).ok_or(SampleError::OutOfRange)?;
+    let len = n.checked_mul(w).ok_or(SampleError::OutOfRange)?;
+    bytes
+        .get(from..)
+        .and_then(|b| b.get(..len))
+        .ok_or(SampleError::OutOfRange)
+}
+
+pub(super) fn decode_le<T: Sample>(
+    bytes: &[u8],
+    first: usize,
+    out: &mut [T],
+) -> Result<(), SampleError> {
+    let src = values_bytes::<T>(bytes, first, out.len())?;
+    for (o, b) in out.iter_mut().zip(src.chunks_exact(width::<T>())) {
         *o = T::from_bits(load_le(b));
     }
+    Ok(())
 }
 
-pub(super) fn decode_be<T: Sample>(bytes: &[u8], first: usize, out: &mut [T]) {
-    let w = width::<T>();
-    let src = &bytes[first * w..(first + out.len()) * w];
-    for (o, b) in out.iter_mut().zip(src.chunks_exact(w)) {
+pub(super) fn decode_be<T: Sample>(
+    bytes: &[u8],
+    first: usize,
+    out: &mut [T],
+) -> Result<(), SampleError> {
+    let src = values_bytes::<T>(bytes, first, out.len())?;
+    for (o, b) in out.iter_mut().zip(src.chunks_exact(width::<T>())) {
         *o = T::from_bits(load_be(b));
     }
+    Ok(())
 }
 
-/// Sign-extend the low `bits` of `v`.
+/// Sign-extend the low `bits` of `v`, `bits` 1 to 64.
 #[inline(always)]
-fn sign_extend(v: u64, bits: u32) -> i64 {
-    ((v << (64 - bits)) as i64) >> (64 - bits)
+const fn sign_extend(v: u64, bits: u32) -> i64 {
+    let sh = u64::BITS.wrapping_sub(bits);
+    v.wrapping_shl(sh).cast_signed().wrapping_shr(sh)
 }
 
 pub(super) fn encode_packed<T: Sample>(
     values: &[T],
-    bits: u32,
-    msb: bool,
+    packing: Packing,
     out: &mut [u8],
 ) -> Result<usize, SampleError> {
+    let bits = packing.bits();
     let scalar_bits = T::ELEMENT.scalar_bits();
     let signed = T::ELEMENT.is_signed();
-    let mask = (1u64 << bits) - 1;
+    let m = mask(bits);
     for (i, v) in values.iter().enumerate() {
         let raw = v.to_bits();
         let fits = if signed {
-            let half = 1i64 << (bits - 1);
-            (-half..half).contains(&sign_extend(raw, scalar_bits))
+            sign_extend(raw, bits) == sign_extend(raw, scalar_bits)
         } else {
-            raw <= mask
+            raw <= m
         };
         if !fits {
             return Err(SampleError::ValueTooWide { index: i });
         }
     }
-    if !msb {
+    let needed = out.len();
+    if let Packing::Lsb(bits) = packing {
         bitpack::pack(out, values.iter().map(|v| v.to_bits()), bits);
-        return Ok(out.len());
+        return Ok(needed);
     }
-    out.fill(0);
-    for (i, v) in values.iter().enumerate() {
-        let bit = i * bits as usize;
-        let (at, sh) = (bit / 8, (bit % 8) as u32);
-        let n = (sh + bits).div_ceil(8) as usize;
-        let word = ((v.to_bits() & mask) << (64 - bits - sh)).to_be_bytes();
-        for (o, b) in out[at..at + n].iter_mut().zip(word) {
-            *o |= b;
+    pack_msb(out, values.iter().map(|v| v.to_bits() & m), bits)
+        .ok_or(SampleError::Full { needed })?;
+    Ok(needed)
+}
+
+/// Pack `vals` (each under `2^bits`, `bits` at most 56) MSB first into `out`, the last byte's spare bits zero;
+/// None when `out` is too short.
+fn pack_msb(out: &mut [u8], vals: impl Iterator<Item = u64>, bits: u32) -> Option<()> {
+    // `pending` holds the `n` bits not yet written, n under 8 between values
+    let mut pending = 0u64;
+    let mut n = 0u32;
+    let mut bytes = out.iter_mut();
+    for v in vals {
+        pending = pending.checked_shl(bits)? | v;
+        n = n.checked_add(bits)?;
+        while let Some(rest) = n.checked_sub(8) {
+            let [byte, ..] = pending.checked_shr(rest)?.to_le_bytes();
+            *bytes.next()? = byte;
+            n = rest;
         }
+        pending &= mask(n);
     }
-    Ok(out.len())
+    if n > 0 {
+        let [byte, ..] = pending.checked_shl(8u32.checked_sub(n)?)?.to_le_bytes();
+        *bytes.next()? = byte;
+    }
+    Some(())
 }
 
 pub(super) fn decode_packed<T: Sample>(
     bytes: &[u8],
-    bits: u32,
-    msb: bool,
+    packing: Packing,
     signed: bool,
     first: usize,
     out: &mut [T],
-) {
-    if !msb {
-        return if signed {
-            unpack_lsb::<true, T>(bytes, bits, first, out)
-        } else {
-            unpack_lsb::<false, T>(bytes, bits, first, out)
-        };
+) -> Result<(), SampleError> {
+    // the values' bits end within the bytes
+    let end_bits = first
+        .checked_add(out.len())
+        .zip(usize::try_from(packing.bits()).ok())
+        .and_then(|(end, bits)| end.checked_mul(bits));
+    let len_bits = bytes.len().checked_mul(8);
+    if !matches!((end_bits, len_bits), (Some(e), Some(l)) if e <= l) {
+        return Err(SampleError::OutOfRange);
     }
-    match (bits, signed) {
-        (10, false) => unpack::<10, true, false, T>(bytes, first, out),
-        (10, true) => unpack::<10, true, true, T>(bytes, first, out),
-        (12, false) => unpack::<12, true, false, T>(bytes, first, out),
-        (12, true) => unpack::<12, true, true, T>(bytes, first, out),
-        (24, false) => unpack::<24, true, false, T>(bytes, first, out),
-        (24, true) => unpack::<24, true, true, T>(bytes, first, out),
-        _ => unreachable!("MSB widths are 10, 12 and 24 (codec table)"),
-    }
+    let done = match (packing, signed) {
+        (Packing::Lsb(bits), true) => unpack_lsb::<true, T>(bytes, bits, first, out),
+        (Packing::Lsb(bits), false) => unpack_lsb::<false, T>(bytes, bits, first, out),
+        (Packing::Msb10, false) => unpack_msb::<10, false, T>(bytes, first, out),
+        (Packing::Msb10, true) => unpack_msb::<10, true, T>(bytes, first, out),
+        (Packing::Msb12, false) => unpack_msb::<12, false, T>(bytes, first, out),
+        (Packing::Msb12, true) => unpack_msb::<12, true, T>(bytes, first, out),
+        (Packing::Msb24, false) => unpack_msb::<24, false, T>(bytes, first, out),
+        (Packing::Msb24, true) => unpack_msb::<24, true, T>(bytes, first, out),
+    };
+    done.ok_or(SampleError::OutOfRange)
 }
 
-/// Unpack `out.len()` values of `bits` bits from value `first` on in the [bitpack] layout: single reads up to the
-/// next group of [bitpack::GROUP] values, whole groups with the vector kernels (a group starts on a byte: `GROUP · bits`
-/// is a multiple of 8), single reads for the rest.
-fn unpack_lsb<const SIGNED: bool, T: Sample>(bytes: &[u8], bits: u32, first: usize, out: &mut [T]) {
+/// Unpack `out.len()` values of `bits` bits (1 to 24) from value `first` on in the [bitpack] layout: single reads up
+/// to the next group of [bitpack::GROUP] values, whole groups with the vector kernels (a group starts on a byte:
+/// `GROUP · bits` is a multiple of 8), single reads for the rest. None when the values overflow an offset.
+fn unpack_lsb<const SIGNED: bool, T: Sample>(
+    bytes: &[u8],
+    bits: u32,
+    first: usize,
+    out: &mut [T],
+) -> Option<()> {
     let g = bitpack::GROUP;
     let value = |raw: u64| {
         T::from_bits(if SIGNED {
-            sign_extend(raw, bits) as u64
+            sign_extend(raw, bits).cast_unsigned()
         } else {
             raw
         })
     };
-    let head = (first.next_multiple_of(g) - first).min(out.len());
+    let head = first
+        .checked_next_multiple_of(g)?
+        .checked_sub(first)?
+        .min(out.len());
     let (head_out, rest) = out.split_at_mut(head);
     for (k, o) in head_out.iter_mut().enumerate() {
-        *o = value(bitpack::read(bytes, first + k, bits));
+        *o = value(bitpack::read(bytes, first.checked_add(k)?, bits));
     }
-    let mut at = first + head;
+    let mut at = first.checked_add(head)?;
+    let bits_usize = usize::try_from(bits).ok()?;
+    // sign extension in 32 bits, which vectorises (packed widths are at most 24)
+    let sh = 32u32.checked_sub(bits)?;
     let mut group = [0u32; bitpack::GROUP];
     let mut chunks = rest.chunks_exact_mut(g);
     for chunk in &mut chunks {
-        bitpack::unpack_u32(&bytes[at * bits as usize / 8..], bits, &mut group);
-        // sign extension in 32 bits, which vectorises (packed widths are at most 24)
-        let sh = 32 - bits;
+        let from = at.checked_mul(bits_usize)? / 8;
+        bitpack::unpack_u32(bytes.get(from..)?, bits, &mut group);
         for (o, raw) in chunk.iter_mut().zip(group) {
             let v = if SIGNED {
-                (((raw << sh) as i32) >> sh) as i64 as u64
+                i64::from(raw.wrapping_shl(sh).cast_signed().wrapping_shr(sh)).cast_unsigned()
             } else {
                 u64::from(raw)
             };
             *o = T::from_bits(v);
         }
-        at += g;
+        at = at.checked_add(g)?;
     }
     for (k, o) in chunks.into_remainder().iter_mut().enumerate() {
-        *o = value(bitpack::read(bytes, at + k, bits));
+        *o = value(bitpack::read(bytes, at.checked_add(k)?, bits));
     }
+    Some(())
 }
 
-/// Value `i` of `W` bits from a word loaded at its first byte.
-#[inline(always)]
-fn extract<const W: u32, const MSB: bool, const SIGNED: bool>(word: u64, sh: u32) -> u64 {
-    let v = if MSB {
-        (word << sh) >> (64 - W)
-    } else {
-        (word >> sh) & ((1u64 << W) - 1)
-    };
-    if SIGNED { sign_extend(v, W) as u64 } else { v }
-}
-
-/// Unpack `out.len()` values of `W` bits from value `first` on: an 8-byte load per value where 8 bytes are left,
-/// a padded load in the last bytes.
-fn unpack<const W: u32, const MSB: bool, const SIGNED: bool, T: Sample>(
+/// Unpack `out.len()` values of `W` bits (at most 56), MSB first, from value `first` on: an 8-byte load per value
+/// where 8 bytes are left, a padded load in the last bytes. None past the end of `bytes`.
+fn unpack_msb<const W: u32, const SIGNED: bool, T: Sample>(
     bytes: &[u8],
     first: usize,
     out: &mut [T],
-) {
-    let w = W as usize;
-    // values whose 8-byte load stays in `bytes`: i·W/8 + 8 <= len
-    let fast = if bytes.len() >= 8 {
-        ((bytes.len() - 8) * 8 + 7) / w + 1
-    } else {
-        0
-    };
-    let split = fast.saturating_sub(first).min(out.len());
-    let (head, tail) = out.split_at_mut(split);
-    for (k, o) in head.iter_mut().enumerate() {
-        let bit = (first + k) * w;
-        let at = bit / 8;
-        let b: [u8; 8] = bytes[at..at + 8]
-            .try_into()
-            .expect("8 bytes in the fast part");
-        let word = if MSB {
-            u64::from_be_bytes(b)
-        } else {
-            u64::from_le_bytes(b)
+) -> Option<()> {
+    let w = usize::try_from(W).ok()?;
+    let drop = u64::BITS.checked_sub(W)?;
+    let mut bit = first.checked_mul(w)?;
+    for o in out.iter_mut() {
+        let rest = bytes.get(bit / 8..)?;
+        let word = match rest.first_chunk::<8>() {
+            Some(b) => u64::from_be_bytes(*b),
+            None => load_be_front(rest),
         };
-        *o = T::from_bits(extract::<W, MSB, SIGNED>(word, (bit % 8) as u32));
-    }
-    for (k, o) in tail.iter_mut().enumerate() {
-        let bit = (first + split + k) * w;
-        let at = bit / 8;
-        let rest = &bytes[at..bytes.len().min(at + 8)];
-        let word = if MSB {
-            load_be(rest) << (8 * (8 - rest.len()))
+        let sh = u32::try_from(bit % 8).ok()?;
+        let v = word.wrapping_shl(sh).wrapping_shr(drop);
+        *o = T::from_bits(if SIGNED {
+            sign_extend(v, W).cast_unsigned()
         } else {
-            load_le(rest)
-        };
-        *o = T::from_bits(extract::<W, MSB, SIGNED>(word, (bit % 8) as u32));
+            v
+        });
+        bit = bit.checked_add(w)?;
     }
+    Some(())
 }

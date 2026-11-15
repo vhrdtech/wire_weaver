@@ -549,3 +549,28 @@ fn random_columns_never_panic() {
         );
     }
 }
+
+#[test]
+fn raw_ranges_past_the_bytes_are_errors() {
+    let short = [0u8; 3];
+    assert_eq!(
+        raw::decode_le(&short, 1, &mut [0u16; 1]),
+        Err(SampleError::OutOfRange)
+    );
+    assert_eq!(
+        raw::decode_be(&short, usize::MAX, &mut [0u16; 1]),
+        Err(SampleError::OutOfRange)
+    );
+    let mut out = [0u16; 3];
+    for packing in [raw::Packing::Lsb(12), raw::Packing::Msb12] {
+        assert_eq!(
+            raw::decode_packed(&short, packing, false, usize::MAX - 1, &mut out),
+            Err(SampleError::OutOfRange),
+            "{packing:?}"
+        );
+    }
+    assert_eq!(
+        raw::decode_packed(&short, raw::Packing::Msb12, false, 2, &mut out[..1]),
+        Err(SampleError::OutOfRange)
+    );
+}

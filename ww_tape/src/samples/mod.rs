@@ -246,7 +246,7 @@ pub enum SampleError {
 enum Kind {
     Le,
     Be,
-    Packed { bits: u32, msb: bool },
+    Packed(raw::Packing),
     Delta(delta::Flavor),
     Alp,
 }
@@ -259,25 +259,22 @@ fn kind(codec: Codec, element: Element) -> Result<Kind, SampleError> {
         return unsupported;
     }
     let k = match codec {
-        Codec::RAW if scalar == Element::Bool => Kind::Packed {
-            bits: 1,
-            msb: false,
-        },
+        Codec::RAW if scalar == Element::Bool => Kind::Packed(raw::Packing::Lsb(1)),
         Codec::RAW => Kind::Le,
         Codec::BIG_ENDIAN if scalar != Element::Bool => Kind::Be,
         Codec(id @ 17..=22) => {
-            let w = match id {
-                17 | 18 => 10,
-                19 | 20 => 12,
-                _ => 24,
+            let packing = match id {
+                17 => raw::Packing::Lsb(10),
+                18 => raw::Packing::Msb10,
+                19 => raw::Packing::Lsb(12),
+                20 => raw::Packing::Msb12,
+                21 => raw::Packing::Lsb(24),
+                _ => raw::Packing::Msb24,
             };
-            if scalar.is_float() || scalar == Element::Bool || bits < w {
+            if scalar.is_float() || scalar == Element::Bool || bits < packing.bits() {
                 return unsupported;
             }
-            Kind::Packed {
-                bits: w,
-                msb: id.is_multiple_of(2),
-            }
+            Kind::Packed(packing)
         }
         Codec::ALP if scalar.is_float() => Kind::Alp,
         Codec(id @ 32..=33) => {
@@ -303,7 +300,7 @@ fn lanes(shape: SampleShape) -> Result<usize, SampleError> {
 /// Bits per value of a plain layout.
 fn value_bits(kind: Kind, element: Element) -> u32 {
     match kind {
-        Kind::Packed { bits, .. } => bits,
+        Kind::Packed(packing) => packing.bits(),
         _ => element.scalar_bits(),
     }
 }
@@ -356,7 +353,7 @@ pub fn encode<T: Sample>(
     match kind {
         Kind::Le => Ok(raw::encode_le(values, out)),
         Kind::Be => Ok(raw::encode_be(values, out)),
-        Kind::Packed { bits, msb } => raw::encode_packed(values, bits, msb, out),
+        Kind::Packed(packing) => raw::encode_packed(values, packing, out),
         Kind::Delta(flavor) => Ok(delta::encode(flavor, values, lanes, out)),
         Kind::Alp => alp::encode(values, lanes, out),
     }
@@ -526,20 +523,18 @@ impl<'b> Samples<'b> {
         match self.kind {
             Kind::Le => raw::decode_le(self.bytes, first_value, out),
             Kind::Be => raw::decode_be(self.bytes, first_value, out),
-            Kind::Packed { bits, msb } => raw::decode_packed(
+            Kind::Packed(packing) => raw::decode_packed(
                 self.bytes,
-                bits,
-                msb,
+                packing,
                 self.shape.element.is_signed(),
                 first_value,
                 out,
             ),
             Kind::Delta(flavor) => {
-                return delta::decode(flavor, self.bytes, self.count, self.lanes, first, out);
+                delta::decode(flavor, self.bytes, self.count, self.lanes, first, out)
             }
-            Kind::Alp => return alp::decode(self.bytes, self.count, self.lanes, first, out),
+            Kind::Alp => alp::decode(self.bytes, self.count, self.lanes, first, out),
         }
-        Ok(())
     }
 
     /// Samples per group and groups: [DELTA_GROUP] or [ALP_GROUP] samples per group, None for a raw format.

@@ -590,6 +590,32 @@ fn an_intact_column_is_read_strictly_in_salvage() {
 }
 
 #[test]
+fn a_salvaged_chunk_has_no_suspect_past_its_items() {
+    let s: Vec<i64> = (0..300i64).map(|i| i * i).collect();
+    let spans: Vec<i64> = s.iter().map(|x| x + 3).collect();
+    let flags: Vec<u32> = (0..300).map(|i| (i % 3) as u32).collect();
+    let good = block(&s, Some(&spans), Some(&flags));
+    let mut b = good.clone();
+    // the residual minimum of group 1: the starts column is read by salvage
+    b[column_start(&good, ColumnKind::Starts) + 25 + 16] ^= 0x01;
+    let block = Block::salvage(&b).unwrap();
+    let t = EventTimes::salvage(&block.chunk().unwrap()).unwrap();
+    assert_eq!(t.suspect_items().collect::<Vec<_>>(), [GROUP..2 * GROUP]);
+    for i in [s.len(), 3 * GROUP, usize::MAX] {
+        assert!(!t.is_suspect(i), "item {i}");
+    }
+    for g in [3, 1000, usize::MAX] {
+        assert!(!t.is_suspect_group(g), "group {g}");
+        assert!(!t.starts().is_suspect_group(g), "group {g}");
+        assert!(!t.flags().unwrap().is_suspect_group(g), "group {g}");
+        let Ends::Durations(d) = t.ends() else {
+            panic!("durations")
+        };
+        assert!(!d.is_suspect_group(g), "group {g}");
+    }
+}
+
+#[test]
 fn read_refuses_wrong_shapes() {
     let s = [1i64, 5, 6];
     let enc = EncodedTimes::encode(&s, None, None).unwrap();

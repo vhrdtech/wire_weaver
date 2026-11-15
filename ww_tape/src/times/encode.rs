@@ -1,21 +1,5 @@
 //! Encoding a chunk's times into its columns.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use super::packed::{encode_durations, encode_flags};
 use super::{DURATIONS, FLAGS, STARTS, TimeHead, starts};
 use crate::chunk::{Codec, ColumnKind, ColumnSpec, EndMode};
@@ -70,45 +54,54 @@ impl EncodedTimes {
         flags: Option<&[u32]>,
     ) -> Result<Self, EncodeError> {
         let n = starts.len();
-        if n == 0 {
+        let (Some(&first), Some(&last)) = (starts.first(), starts.last()) else {
             return Err(EncodeError::Empty);
-        }
-        if n > u32::MAX as usize {
+        };
+        let Ok(count) = u32::try_from(n) else {
             return Err(EncodeError::TooMany);
-        }
-        let count = n as u32;
-        if let Some(at) = starts.windows(2).position(|w| w[1] < w[0]) {
-            return Err(EncodeError::Unsorted { at: at + 1 });
+        };
+        if let Some(((at, _), _)) = starts
+            .iter()
+            .enumerate()
+            .skip(1)
+            .zip(starts)
+            .find(|((_, s), before)| s < before)
+        {
+            return Err(EncodeError::Unsorted { at });
         }
         if ends.is_some_and(|e| e.len() != n) || flags.is_some_and(|f| f.len() != n) {
             return Err(EncodeError::Length);
         }
-        let (first, last) = (starts[0], starts[n - 1]);
         let (end_mode, latest_end, ends) = match ends {
             None => (EndMode::Absent, last, None),
             Some(e) => {
                 if let Some(at) = starts.iter().zip(e).position(|(s, e)| e < s) {
                     return Err(EncodeError::EndBeforeStart { at });
                 }
-                let latest = e.iter().copied().max().expect("an item at least");
+                let latest = e.iter().copied().max().ok_or(EncodeError::Empty)?;
                 if e == starts {
                     (EndMode::Absent, last, None)
-                } else if e[..n - 1] == starts[1..] {
+                } else if e.split_last().map(|(_, init)| init)
+                    == starts.split_first().map(|(_, rest)| rest)
+                {
                     (EndMode::NextStart, latest, None)
                 } else {
+                    // ends are at or after their starts: the wrapping difference is the duration
                     let d: Vec<u64> = starts
                         .iter()
                         .zip(e)
-                        .map(|(s, e)| e.wrapping_sub(*s) as u64)
+                        .map(|(s, e)| e.wrapping_sub(*s).cast_unsigned())
                         .collect();
-                    (EndMode::Durations, latest, Some(encode_durations(&d)))
+                    let column = encode_durations(&d).ok_or(EncodeError::TooMany)?;
+                    (EndMode::Durations, latest, Some(column))
                 }
             }
         };
         let flags = flags
             .filter(|f| f.iter().any(|x| *x != 0))
-            .map(encode_flags);
-        let (time_mode, starts) = starts::encode(starts);
+            .map(|f| encode_flags(f).ok_or(EncodeError::TooMany))
+            .transpose()?;
+        let (time_mode, starts) = starts::encode(starts).ok_or(EncodeError::TooMany)?;
         Ok(EncodedTimes {
             head: TimeHead {
                 count,

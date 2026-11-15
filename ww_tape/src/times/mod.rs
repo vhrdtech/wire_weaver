@@ -57,22 +57,6 @@
 //! group); one in a group record, one group or two, unless it moves a first tick, slope or duration minimum by
 //! too little to break an order: such a group reads shifted and isn't marked.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 mod groups;
 mod packed;
 mod starts;
@@ -219,14 +203,21 @@ impl<'b> EventTimes<'b> {
                 Err(TimesError::UnknownCodec(c.kind, c.codec))
             }
         };
+        let tail = |c: &Column<'b>| {
+            payload.get(c.offset..).ok_or(TimesError::Corrupt {
+                kind: c.kind,
+                what: "column past the payload",
+            })
+        };
+        let n = groups::items(head.count);
         let s = starts.ok_or(TimesError::Missing(ColumnKind::Starts))?;
         codec(&s, STARTS)?;
         let starts = Starts::parse(
-            head.count,
+            n,
             (head.first_tick, head.last_tick),
             mode,
             s.bytes,
-            &payload[s.offset..],
+            tail(&s)?,
             damaged(&s),
         )?;
         let ends = match (head.end_mode, ends) {
@@ -236,14 +227,14 @@ impl<'b> EventTimes<'b> {
             },
             (EndMode::Durations, Some(e)) => {
                 codec(&e, DURATIONS)?;
-                let max = (i128::from(head.latest_end) - i128::from(head.first_tick)) as u64;
-                Ends::Durations(Durations::parse(
-                    head.count,
-                    max,
-                    e.bytes,
-                    &payload[e.offset..],
-                    damaged(&e),
-                )?)
+                if head.latest_end < head.first_tick {
+                    return Err(TimesError::Corrupt {
+                        kind: ColumnKind::Ends,
+                        what: "latest end before the first tick",
+                    });
+                }
+                let max = head.latest_end.abs_diff(head.first_tick);
+                Ends::Durations(Durations::parse(n, max, e.bytes, tail(&e)?, damaged(&e))?)
             }
             (EndMode::Durations, None) => return Err(TimesError::Missing(ColumnKind::Ends)),
             (_, Some(_)) => return Err(TimesError::Unexpected(ColumnKind::Ends)),
@@ -251,12 +242,7 @@ impl<'b> EventTimes<'b> {
         let flags = match flags {
             Some(f) => {
                 codec(&f, FLAGS)?;
-                Some(Flags::parse(
-                    head.count,
-                    f.bytes,
-                    &payload[f.offset..],
-                    damaged(&f),
-                )?)
+                Some(Flags::parse(n, f.bytes, tail(&f)?, damaged(&f))?)
             }
             None => None,
         };
@@ -306,17 +292,16 @@ impl<'b> EventTimes<'b> {
     ///
     /// When `i` is past the last item.
     pub fn end(&self, i: usize) -> i64 {
+        assert!(i < self.len(), "item {i} of {}", self.len());
         match &self.ends {
             Ends::Absent => self.starts.get(i),
-            Ends::NextStart { last } => {
-                if i + 1 == self.len() {
-                    *last
-                } else {
-                    self.starts.get(i + 1)
-                }
-            }
+            Ends::NextStart { last } => match i.checked_add(1) {
+                Some(next) if next < self.len() => self.starts.get(next),
+                _ => *last,
+            },
             Ends::Durations(d) => {
-                let end = self.starts.get(i).wrapping_add(d.get(i) as i64);
+                // durations are u64 end - start, wrapping: the same bits as an i64
+                let end = self.starts.get(i).wrapping_add(d.get(i).cast_signed());
                 if d.salvaged() {
                     end.min(self.latest_end)
                 } else {
@@ -360,17 +345,24 @@ impl<'b> EventTimes<'b> {
         match &self.ends {
             Ends::Absent => {}
             Ends::NextStart { last } => {
-                out.copy_within(1..n, 0);
-                out[n - 1] = if g + 1 < self.starts.group_count() {
-                    self.starts.group_first(g + 1)
-                } else {
-                    *last
+                let next = match g.checked_add(1) {
+                    Some(next) if next < self.starts.group_count() => self.starts.group_first(next),
+                    _ => *last,
                 };
+                // n is 1 to GROUP: item j ends where item j + 1 starts, the last where the next group does
+                if let Some(items) = out.get_mut(..n)
+                    && !items.is_empty()
+                {
+                    items.copy_within(1.., 0);
+                    if let Some(end) = items.last_mut() {
+                        *end = next;
+                    }
+                }
             }
             Ends::Durations(d) => {
                 d.add_to_group(g, out);
                 if d.salvaged() {
-                    for t in out[..n].iter_mut() {
+                    for t in out.iter_mut().take(n) {
                         *t = (*t).min(self.latest_end);
                     }
                 }
@@ -379,24 +371,40 @@ impl<'b> EventTimes<'b> {
         n
     }
 
-    /// Whether item `i` is in a group a salvage found damaged in any column.
+    /// Whether item `i` is in a group a salvage found damaged in any column; false past the last item.
     pub fn is_suspect(&self, i: usize) -> bool {
         self.is_suspect_group(i / GROUP)
     }
 
-    /// Whether group `g` is one a salvage found damaged in any column.
+    /// Whether group `g` is one a salvage found damaged in any column; false past the last group.
     pub fn is_suspect_group(&self, g: usize) -> bool {
         self.starts.is_suspect_group(g)
             || matches!(&self.ends, Ends::Durations(d) if d.is_suspect_group(g))
             || self.flags.as_ref().is_some_and(|f| f.is_suspect_group(g))
     }
 
+    /// Whether a column was read by salvage.
+    fn salvaged(&self) -> bool {
+        self.starts.salvaged()
+            || matches!(&self.ends, Ends::Durations(d) if d.salvaged())
+            || self.flags.as_ref().is_some_and(Flags::salvaged)
+    }
+
     /// The item ranges of the groups a salvage found damaged, ascending.
     pub fn suspect_items(&self) -> impl Iterator<Item = Range<usize>> + '_ {
         let n = self.len();
-        (0..self.starts.group_count())
+        // a salvaged column holds a record per group, so its length bounds the groups
+        let groups = if self.salvaged() {
+            self.starts.group_count()
+        } else {
+            0
+        };
+        (0..groups)
             .filter(|&g| self.is_suspect_group(g))
-            .map(move |g| g * GROUP..((g + 1) * GROUP).min(n))
+            .filter_map(move |g| {
+                let start = g.checked_mul(GROUP)?;
+                Some(start..start.saturating_add(GROUP).min(n))
+            })
     }
 }
 

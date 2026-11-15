@@ -130,6 +130,7 @@
 
 ### 🚀 Features
 
+- `Commander::keyed`, `Keyed` and `KeyStream` (CLT-72): elements of a keyed array by key, through a bounded key cache per array (`KEY_CACHE_ENTRIES_MAX`) fed by `index_of`, key reads and the `keys` stream. A `Removed` event, a `BadIndex` answer to a request under the element or a reconnect drops entries. Depends on `ww_keyed`.
 - The dynamic client knows `keyed!` items (API-67) and answers `Error::Other` naming CLT-72 for them until key paths exist.
 - "documentation updated" (EVO-69): a device that reconnects with the same API and other docs is logged so (`DeviceApiInfo::docs_updated_since`), and a skipped definition the host has with other docs is put back by its shape and logged, not refused.
 - Observers of an element of a resource array (API-63) end when the device removes it: a `StreamSideband::Close` at an observed level's path gives its observers `ObserveEvent::Ended`, then `StreamError::Closed`; `configure` on them fails, and observing the path again starts a new level. The dynamic client observes an element by its path (`DynResource::index`).

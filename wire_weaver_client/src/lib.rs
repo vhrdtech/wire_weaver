@@ -43,6 +43,7 @@ pub use client::dynamic::{
     DynMultiArgs, DynMultiValue, DynResource, DynResourceKind, DynSink, DynStream,
 };
 pub use client::introspect::{Introspect, decode_introspection};
+pub use client::keyed::{KEY_CACHE_ENTRIES_MAX, KeyStream, Keyed};
 pub use client::multi::{self, MultiCall, MultiRead, MultiWrite};
 pub use client::positioned::{
     AckMode, Cause, DEFAULT_STREAM_QUEUE_BYTES, DEFAULT_WINDOW, PositionedStream, Run, Second,

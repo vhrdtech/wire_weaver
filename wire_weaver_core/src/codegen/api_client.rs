@@ -535,6 +535,8 @@ fn level_method(
 ) -> TokenStream {
     let api_bundle = ctx.api_bundle;
     let id = item.id.0;
+    // the level's own chain, before this item's id: a keyed! companion reaches its array from it
+    let level_chain_base = index_chain;
     let index_chain_push_pre =
         index_chain.push_back(quote! { self. }, quote! { ResourceIndex::new(UNib32(#id)) });
     let (index_chain_push, maybe_index_arg) = match &item.multiplicity {
@@ -639,14 +641,19 @@ fn level_method(
             false,
             matches!(flow, FlowControl::Credit),
         ),
-        // TODO(CLT-72): flow_by, flow_key and flow_keys of a keyed! companion
-        ApiItemKindOwned::Keys { .. } => {
-            let msg = format!(
-                "keyed! `{}`: a client of a keyed array is not generated yet (CLT-72)",
-                item.ident
-            );
+        ApiItemKindOwned::Keys { .. } => handle_keys(
+            ctx,
+            api_level,
+            item,
+            level_chain_base,
+            index_chain_push,
+            path_mode,
+            gid_paths,
+        )
+        .unwrap_or_else(|e| {
+            let msg = format!("keyed! `{}`: {e:#}", item.ident);
             quote! { compile_error!(#msg); }
-        }
+        }),
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());
@@ -690,6 +697,146 @@ fn level_method(
             }
         }
     }
+}
+
+/// A `keyed!` companion (CLT-72): `<array>_by(&key)` (the element's client, or its index for an array of
+/// properties or streams), `<array>_key(index)` and `<array>_keys()`, each also `_blocking`, through
+/// `wire_weaver_client::Keyed` and the connection's key cache.
+fn handle_keys(
+    ctx: &Ctx,
+    api_level: &ApiLevelOwned,
+    keys: &ApiItemOwned,
+    mut level_chain: IndexChain,
+    index_chain_push: TokenStream,
+    path_mode: ClientPathMode,
+    gid_paths: &GidPaths,
+) -> anyhow::Result<TokenStream> {
+    let api_bundle = ctx.api_bundle;
+    let ApiItemKindOwned::Keys { of, key, .. } = &keys.kind else {
+        anyhow::bail!("not a keyed! item");
+    };
+    let level_of_keys = ww_self::keys::keys_level(api_level, keys)?;
+    let array = api_level
+        .items
+        .iter()
+        .find(|item| item.id == *of)
+        .ok_or_else(|| anyhow::anyhow!("no item {} in the level", of.0))?;
+    let of_id = of.0;
+    let key_ty = ty_def(api_bundle, key, true, TyPos::Arg)?;
+    let index_ty = ty_def(
+        api_bundle,
+        &ww_self::keys::index_ty(array),
+        true,
+        TyPos::Arg,
+    )?;
+    let (index_arg, index_u32) = match array.multiplicity {
+        Multiplicity::Array {
+            index_type_idx: Some(_),
+        } => (quote! { index: #index_ty }, quote! { index.into() }),
+        _ => (quote! { index: u32 }, quote! { index }),
+    };
+    let array_ident = &array.ident;
+    let keyed_fn = Ident::new(&format!("{array_ident}_keyed"), Span::call_site());
+    let by = Ident::new(&format!("{array_ident}_by"), Span::call_site());
+    let by_blocking = Ident::new(&format!("{array_ident}_by_blocking"), Span::call_site());
+    let key_fn = Ident::new(&format!("{array_ident}_key"), Span::call_site());
+    let key_blocking = Ident::new(&format!("{array_ident}_key_blocking"), Span::call_site());
+    let keys_fn = Ident::new(&format!("{array_ident}_keys"), Span::call_site());
+    let keys_blocking = Ident::new(&format!("{array_ident}_keys_blocking"), Span::call_site());
+    let args_fn = Ident::new(&format!("{array_ident}_index_of_args"), Span::call_site());
+    let args_structs = args_structs(api_bundle, &level_of_keys, false);
+    let args_ident = crate::codegen::api_common::args_struct_ident("index_of", false);
+
+    // the element's client, as the array's own accessor makes it
+    let (handle_ty, handle) = if let ApiItemKindOwned::Trait { .. } = &array.kind {
+        let level = array.get_as_level(api_bundle)?;
+        let p0 = level_chain.push_back(
+            quote! { self. },
+            quote! { ResourceIndex::new(UNib32(#of_id)) },
+        );
+        let p1 = level_chain.push_back(quote! {}, quote! { ResourceIndex::new(UNib32(index)) });
+        let push = quote! { #p0 #p1 };
+        if let Some(shared) = shared_for(ctx.shared, api_bundle, level) {
+            let client = &shared.client;
+            (
+                quote! { #client<'_> },
+                quote! {
+                    #push
+                    #client { index_chain: index_chain.to_vec(), cmd: &self.cmd }
+                },
+            )
+        } else {
+            let mod_name = util::mod_name(level, api_bundle);
+            let client_struct_name = client_struct_name(&mod_name.to_string());
+            (
+                quote! { #mod_name::#client_struct_name<'_> },
+                quote! {
+                    #push
+                    #mod_name::#client_struct_name { index_chain, cmd: &self.cmd }
+                },
+            )
+        }
+    } else {
+        (quote! { u32 }, quote! { index })
+    };
+    let path_kind = path_kind(path_mode, gid_paths);
+    let by_doc = format!(
+        " The element of `{array_ident}` with `key`, `None` when the device has none: the device is asked once \
+         (`index_of`), later calls take the index from the connection's key cache."
+    );
+    let key_doc = format!(
+        " Key of the element of `{array_ident}` at `index`, read from the device; the key cache learns it."
+    );
+    let keys_doc = format!(
+        " Elements of `{array_ident}` as they appear and go away (`keys` stream); the key cache follows them."
+    );
+    Ok(quote! {
+        fn #keyed_fn(&self) -> Result<wire_weaver_client::Keyed<'_>, wire_weaver_client::Error> {
+            #index_chain_push
+            let path_kind = #path_kind;
+            self.cmd.keyed(path_kind, #of_id)
+        }
+
+        fn #args_fn(key: &#key_ty) -> Result<Vec<u8>, wire_weaver_client::Error> {
+            #args_structs
+            let args = #args_ident { key: key.clone() };
+            Ok(args.to_ww_bytes_owned()?)
+        }
+
+        #[doc = #by_doc]
+        pub async fn #by(&self, key: &#key_ty) -> Result<Option<#handle_ty>, wire_weaver_client::Error> {
+            let args = Self::#args_fn(key);
+            let index = self.#keyed_fn()?.index_of::<#key_ty, #index_ty>(key, args).await?;
+            Ok(index.map(|index| { #handle }))
+        }
+
+        #[doc = #by_doc]
+        pub fn #by_blocking(&self, key: &#key_ty) -> Result<Option<#handle_ty>, wire_weaver_client::Error> {
+            let args = Self::#args_fn(key);
+            let index = self.#keyed_fn()?.index_of_blocking::<#key_ty, #index_ty>(key, args)?;
+            Ok(index.map(|index| { #handle }))
+        }
+
+        #[doc = #key_doc]
+        pub async fn #key_fn(&self, #index_arg) -> Result<#key_ty, wire_weaver_client::Error> {
+            self.#keyed_fn()?.key(#index_u32).await
+        }
+
+        #[doc = #key_doc]
+        pub fn #key_blocking(&self, #index_arg) -> Result<#key_ty, wire_weaver_client::Error> {
+            self.#keyed_fn()?.key_blocking(#index_u32)
+        }
+
+        #[doc = #keys_doc]
+        pub async fn #keys_fn(&self) -> Result<wire_weaver_client::KeyStream<#index_ty, #key_ty>, wire_weaver_client::Error> {
+            self.#keyed_fn()?.keys().await
+        }
+
+        #[doc = #keys_doc]
+        pub fn #keys_blocking(&self) -> Result<wire_weaver_client::KeyStream<#index_ty, #key_ty>, wire_weaver_client::Error> {
+            self.#keyed_fn()?.keys_blocking()
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]

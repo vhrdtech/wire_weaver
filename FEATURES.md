@@ -1492,9 +1492,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   paging). Each connection's host API version and client app version are kept for skew checks.
   See `docs/api/large_messages.md`, tests in `tests/large_messages`.
 - 📋 **CLT-71 `Scaled` as a quantity in the dynamic client** — a `ww_si::Scaled<U, T>` (STD-116) read as a `DynQuantity`: its unit from the type, its `RunScale` as the prefix, so `ww` and Python show `154112·1/15360 s` and convert it like a `Fixed`; writing one from a quantity picks the device's current scale or refuses. Today both show and take it as the struct `{ value, scale: { num, den, pow2 } }`.
-- 📋 **CLT-72 Client of a keyed array** · `v0.5` — `device.flow_by(&key)`, `flow_key(i)`, `flow_keys()`, a bounded
+- 🚧 **CLT-72 Client of a keyed array** · `v0.5` — `device.flow_by(&key)`, `flow_key(i)`, `flow_keys()`, a bounded
   key cache per keyed array fed by `index_of`, `key` reads and the `keys` stream; keys in dynamic, Python and `ww`
-  paths (`flow[{proto: Tcp, ..}].packets`) (API-67).
+  paths (`flow[{proto: Tcp, ..}].packets`) (API-67). Done: the generated client (sync and async) and the key cache
+  (`wire_weaver_client::Keyed`), tests in `tests/keyed`. Missing: the dynamic client, Python and `ww` key paths.
 - 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
   `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.

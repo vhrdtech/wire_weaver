@@ -100,6 +100,8 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
         // late error return, to have more ergonomic dev.fn_name().call()?; instead of dev.fn_name()?.call()?;
         self.postpone_err?;
 
+        // a keyed array's element the device refuses is forgotten (CLT-72)
+        let keyed = self.transport_cmd_tx.keys.elements(&self.path_kind);
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
@@ -108,6 +110,7 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
+        self.transport_cmd_tx.keys.answered(&keyed, &rx_or_recv_err);
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         Ok(E::decode_reply(&response))
     }
@@ -127,6 +130,8 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     fn blocking_call_inner(self) -> Result<Result<T, E>, Error> {
         self.postpone_err?;
 
+        // a keyed array's element the device refuses is forgotten (CLT-72)
+        let keyed = self.transport_cmd_tx.keys.elements(&self.path_kind);
         // send call to a remote device through transport layer
         let done_rx = self.transport_cmd_tx.send_call_request_blocking(
             self.path_kind,
@@ -138,6 +143,7 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
         let rx_or_recv_err = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning)?;
+        self.transport_cmd_tx.keys.answered(&keyed, &rx_or_recv_err);
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         Ok(E::decode_reply(&response))
     }

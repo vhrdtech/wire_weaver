@@ -59,6 +59,8 @@ pub(crate) struct ApiCompat {
 struct Node {
     ident: String,
     is_array: bool,
+    /// A `keyed!` companion (CLT-72): the ids after it name items of its fixed level, `ww_self::keys`.
+    is_keys: bool,
     since: Option<Since>,
     verdict: Verdict,
     children: HashMap<u32, Node>,
@@ -160,6 +162,7 @@ impl ApiCompat {
             let node = Node {
                 ident: item.ident.clone(),
                 is_array: item.is_array(),
+                is_keys: matches!(item.kind, ApiItemKindOwned::Keys { .. }),
                 since,
                 verdict: verdict(&path, item),
                 children: HashMap::new(),
@@ -202,6 +205,20 @@ impl ApiCompat {
                 _ => Some(&node.verdict),
             };
             level = &node.children;
+            if node.is_keys {
+                // the companion's item, and the index of `key[]`: the companion's own verdict holds for them
+                if let Some(id) = path.next() {
+                    let item = match id.get().0 {
+                        ww_self::keys::INDEX_OF => "index_of",
+                        ww_self::keys::KEY => "key[]",
+                        ww_self::keys::KEYS => "keys",
+                        _ => return None,
+                    };
+                    name.push('.');
+                    name.push_str(item);
+                }
+                break;
+            }
         }
         Some(Resolved {
             name,

@@ -85,6 +85,7 @@ ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
 ww_hub_api = { workspace = true, features = ["std"], optional = true }
+ww_keyed = { workspace = true, features = ["std"] }
 ww_link = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true # the runtime dir for holders' lock files, sockets with `local_socket`
 ww_lz4 = { workspace = true, features = ["std"] }

@@ -3,6 +3,7 @@ use crate::Introspect;
 use crate::PreparedCall;
 use crate::PreparedDisconnect;
 use crate::Stream;
+use crate::client::keyed::KeyCaches;
 use crate::client::observe::{
     LevelRoute, LevelUpdate, ObserveConfig, ObserveRegistry, Pending, PreparedObserve, send_pending,
 };
@@ -75,6 +76,8 @@ pub struct Commander {
     streams: StreamRegistry,
     sinks: SinkRegistry,
     consts: ConstCache,
+    /// Keys of keyed arrays the client learned (CLT-72), see [Commander::keyed].
+    pub(crate) keys: KeyCaches,
     observes: ObserveRegistry,
     /// The configuration and the stopped event loop's command channel, for [Commander::reconnect]; None for a
     /// Commander made by hand or connected with `connect_blocking`.
@@ -103,6 +106,8 @@ pub struct TransportCommander {
     pub(crate) streams: StreamRegistry,
     /// Values of `const` items read on this connection, see [Commander::prepare_const_read]
     pub(crate) consts: ConstCache,
+    /// Keys of keyed arrays, forgotten when a request under an element is answered `BadIndex`
+    pub(crate) keys: KeyCaches,
     /// Observed trait levels, see [Commander::prepare_observe]
     pub(crate) observes: ObserveRegistry,
 }
@@ -116,6 +121,7 @@ pub(crate) struct WeakTransport {
     priority: Priority,
     streams: StreamRegistry,
     consts: ConstCache,
+    keys: KeyCaches,
     observes: ObserveRegistry,
 }
 
@@ -127,6 +133,7 @@ impl WeakTransport {
             priority: self.priority,
             streams: self.streams.clone(),
             consts: self.consts.clone(),
+            keys: self.keys.clone(),
             observes: self.observes.clone(),
         })
     }
@@ -152,6 +159,7 @@ pub(crate) struct WeakCommander {
     streams: StreamRegistry,
     sinks: SinkRegistry,
     consts: ConstCache,
+    keys: KeyCaches,
     observes: ObserveRegistry,
     #[cfg(feature = "clock_sync")]
     clock_sync: Option<Weak<crate::clock_sync::auto::Shared>>,
@@ -178,6 +186,7 @@ impl WeakCommander {
             streams: self.streams.clone(),
             sinks: self.sinks.clone(),
             consts: self.consts.clone(),
+            keys: self.keys.clone(),
             observes: self.observes.clone(),
             // the keeper holds the Reconnect itself
             reconnect: None,
@@ -218,6 +227,7 @@ impl Commander {
             streams: StreamRegistry::default(),
             sinks: SinkRegistry::default(),
             consts: ConstCache::default(),
+            keys: KeyCaches::default(),
             observes: ObserveRegistry::default(),
             reconnect: None,
             last_clone: Arc::new(()),
@@ -360,6 +370,7 @@ impl Commander {
             priority: self.default_priority,
             streams: self.streams.clone(),
             consts: self.consts.clone(),
+            keys: self.keys.clone(),
             observes: self.observes.clone(),
         }
     }
@@ -501,6 +512,7 @@ impl Commander {
             });
         };
         self.clear_const_cache();
+        self.keys.clear();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         self.note_docs_updated(&info);
         if info.user_api_hash.no_docs != self.connected_device.user_api_hash.no_docs {
@@ -531,6 +543,7 @@ impl Commander {
             });
         };
         self.clear_const_cache();
+        self.keys.clear();
         let info = reconnect.run(&self.transport_cmd_tx).await?;
         self.note_docs_updated(&info);
         if info.user_api_hash.no_docs == self.connected_device.user_api_hash.no_docs {
@@ -972,6 +985,7 @@ impl Commander {
             streams: self.streams.clone(),
             sinks: self.sinks.clone(),
             consts: self.consts.clone(),
+            keys: self.keys.clone(),
             observes: self.observes.clone(),
             #[cfg(feature = "clock_sync")]
             clock_sync: self.clock_sync.as_ref().map(Arc::downgrade),
@@ -1132,7 +1146,10 @@ impl Commander {
     /// The request path for `path`: a trait client's base path in place of a global one, or a global path the
     /// device's introspection data resolves to an absolute one (SRV-53, then true), or the global path as it goes on
     /// the wire.
-    fn to_ww_client_server_path(&self, path: PathKind<'_>) -> Result<(PathKindOwned, bool), Error> {
+    pub(crate) fn to_ww_client_server_path(
+        &self,
+        path: PathKind<'_>,
+    ) -> Result<(PathKindOwned, bool), Error> {
         if matches!(path, PathKind::Absolute { .. }) && self.base_path.is_some() {
             return Err(Error::User(
                 "CommandSender configured as trait attachment, but used with absolute path".into(),
@@ -1352,6 +1369,7 @@ impl TransportCommander {
             priority: self.priority,
             streams: self.streams.clone(),
             consts: self.consts.clone(),
+            keys: self.keys.clone(),
             observes: self.observes.clone(),
         }
     }

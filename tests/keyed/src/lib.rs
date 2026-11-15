@@ -1,6 +1,7 @@
 //! Server of a keyed array (SRV-62): the Dissector of `keyed_api` answers `index_of`, `key[i]`, a multi read of all
-//! keys and the `keys` stream, from a blocking `no_alloc` server and an async one, through the host event loop.
-//! Requests are built by hand: the generated client of a keyed array is CLT-72.
+//! keys and the `keys` stream, from a blocking `no_alloc` server and an async one, through the host event loop, to
+//! requests built by hand. The generated and dynamic clients (CLT-72) address flows a device created in shuffled
+//! order by their keys.
 
 #[cfg(test)]
 mod tests {
@@ -23,10 +24,10 @@ mod tests {
     use ww_keyed::KeyEvent;
     use ww_si::origins::DeviceMicros;
 
-    /// Flows by index; `None` is a free index.
+    /// Flows by index, each with its byte count; `None` is a free index.
     #[derive(Default)]
     struct Table {
-        flows: Vec<Option<FlowKey>>,
+        flows: Vec<Option<(FlowKey, u64)>>,
     }
 
     impl Table {
@@ -54,7 +55,9 @@ mod tests {
                 key: FlowKey,
             ) -> RpcResult<Option<UNib32>> {
                 let table = self.table.lock().unwrap();
-                let found = (0u32..).zip(&table.flows).find(|(_, flow)| flow.as_ref() == Some(&key));
+                let found = (0u32..)
+                    .zip(&table.flows)
+                    .find(|(_, flow)| flow.as_ref().map(|(k, _)| k) == Some(&key));
                 Ready(found.map(|(i, _)| UNib32(i)))
             }
 
@@ -64,8 +67,8 @@ mod tests {
                 index_chain: [ResourceIndex; 1],
             ) -> GetResult<FlowKey, ()> {
                 let table = self.table.lock().unwrap();
-                let key = table.flows[index_chain[0].get().0 as usize].clone();
-                Value(key.expect("valid indices are the occupied ones"))
+                let flow = table.flows[index_chain[0].get().0 as usize].clone();
+                Value(flow.expect("valid indices are the occupied ones").0)
             }
 
             /// Drops every flow and announces each on the `keys` stream.
@@ -84,9 +87,11 @@ mod tests {
             $($async)? fn get_flow_bytes(
                 &mut self,
                 _cx: &mut Context<'_, impl $out>,
-                _index_chain: [ResourceIndex; 1],
+                index_chain: [ResourceIndex; 1],
             ) -> GetResult<ww_si::Bytes<u64>, ()> {
-                Unimplemented.into()
+                let table = self.table.lock().unwrap();
+                let flow = &table.flows[index_chain[0].get().0 as usize];
+                Value(ww_si::Bytes::new(flow.as_ref().expect("valid indices are the occupied ones").1))
             }
 
             $($async)? fn flow_packets(
@@ -227,18 +232,18 @@ mod tests {
     fn table() -> Arc<Mutex<Table>> {
         Arc::new(Mutex::new(Table {
             flows: vec![
-                Some(key(5000, 10)),
+                Some((key(5000, 10), 0)),
                 None,
-                Some(key(5001, 20)),
-                Some(key(5002, 30)),
+                Some((key(5001, 20), 0)),
+                Some((key(5002, 30), 0)),
             ],
         }))
     }
 
-    fn start_blocking(path: &str) -> TestDevice {
+    fn start_blocking(path: &str, table: Arc<Mutex<Table>>) -> TestDevice {
         let _ = tracing_subscriber::fmt::try_init();
         let server = blocking_server::Server {
-            table: table(),
+            table,
             valid: vec![],
         };
         tests_common::start_device(
@@ -250,10 +255,10 @@ mod tests {
         )
     }
 
-    fn start_async(path: &str) -> TestDevice {
+    fn start_async(path: &str, table: Arc<Mutex<Table>>) -> TestDevice {
         let _ = tracing_subscriber::fmt::try_init();
         let server = async_server::Server {
-            table: table(),
+            table,
             valid: vec![],
         };
         tests_common::start_device_async(
@@ -419,7 +424,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn blocking_no_alloc_server() {
-        let device = start_blocking("keyed/blocking");
+        let device = start_blocking("keyed/blocking", table());
         let client = connect(&device).await;
         index_of_and_key(client.cmd()).await;
         multi_read_keys(client.cmd()).await;
@@ -434,7 +439,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn async_alloc_server() {
-        let device = start_async("keyed/async");
+        let device = start_async("keyed/async", table());
         let client = connect(&device).await;
         index_of_and_key(client.cmd()).await;
         multi_read_keys(client.cmd()).await;
@@ -462,5 +467,228 @@ mod tests {
         };
         let path: Vec<u32> = path.iter().map(|p| p.unwrap().get().0).collect();
         assert_eq!(path, [FLOW_KEYS, KEYS]);
+    }
+
+    mod std_client {
+        use wire_weaver_client::{ClientConfig, Commander, WwClient};
+
+        pub struct Client {
+            pub cmd: Commander,
+        }
+
+        impl WwClient for Client {
+            fn default_config() -> ClientConfig {
+                ClientConfig::default()
+            }
+
+            fn try_from_cmd(cmd: Commander) -> Result<Self, wire_weaver_client::Error> {
+                Ok(Self { cmd })
+            }
+        }
+
+        mod api_client {
+            wire_weaver::ww_codegen!(
+                keyed_api :: Dissector for super::Client,
+                client = "std_client",
+                debug_to_file = "../../target/tests_keyed_client.rs"
+            );
+        }
+    }
+
+    use std_client::Client;
+
+    /// Flows of the shuffled table: key, byte count; the first `REMOVED` were removed again.
+    const FLOWS: u16 = 12;
+    const REMOVED: u16 = 3;
+
+    fn flow(i: u16) -> (FlowKey, u64) {
+        (key(6000 + i, 100 + u64::from(i)), 1000 * u64::from(i) + 7)
+    }
+
+    /// A device that met `FLOWS` flows in an order of its own (a fixed xorshift shuffle) and removed `REMOVED` of
+    /// them: no flow's index is its number.
+    fn shuffled_table() -> Arc<Mutex<Table>> {
+        let mut order: Vec<u16> = (0..FLOWS).collect();
+        let mut state = 0x2545_f491_u32;
+        for i in (1..order.len()).rev() {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            order.swap(i, state as usize % (i + 1));
+        }
+        let mut flows: Vec<_> = order.iter().map(|&i| Some(flow(i))).collect();
+        for slot in flows.iter_mut() {
+            if slot
+                .as_ref()
+                .is_some_and(|(k, _)| (0..REMOVED).any(|i| flow(i).0 == *k))
+            {
+                *slot = None;
+            }
+        }
+        assert!(
+            order
+                .iter()
+                .enumerate()
+                .any(|(at, &i)| at != usize::from(i)),
+            "the shuffle moved flows"
+        );
+        Arc::new(Mutex::new(Table { flows }))
+    }
+
+    /// Counts the `index_of` calls that reach the device.
+    fn count_index_of(device: &TestDevice) -> Arc<std::sync::atomic::AtomicU32> {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let calls = Arc::new(AtomicU32::new(0));
+        let counter = calls.clone();
+        device.filter_requests(move |bytes| {
+            if let Ok(req) = ww_client_server::Request::from_ww_bytes(bytes)
+                && let ww_client_server::RequestKind::Call { .. } = req.kind
+                && let PathKind::Absolute { path } = req.path_kind
+                && path
+                    .iter()
+                    .map(|p| p.unwrap().get().0)
+                    .eq([FLOW_KEYS, INDEX_OF])
+            {
+                counter.fetch_add(1, Ordering::Relaxed);
+            }
+            false
+        });
+        calls
+    }
+
+    fn calls(counter: &std::sync::atomic::AtomicU32) -> u32 {
+        counter.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Every flow by its key, whatever index the device gave it; a removed one is `None`. Asked once per key.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn client_by_key() {
+        let device = start_blocking("keyed/client", shuffled_table());
+        let index_of = count_index_of(&device);
+        let client = Client::config(|c| c.in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        for round in 0..2 {
+            for i in 0..FLOWS {
+                let (key, bytes) = flow(i);
+                let found = client.flow_by(&key).await.unwrap();
+                if i < REMOVED {
+                    assert!(found.is_none(), "flow {i} was removed");
+                    continue;
+                }
+                let handle = found.expect("a live flow");
+                assert_eq!(handle.read_bytes().read().await.unwrap().get(), bytes);
+                let index = handle.index_chain[1].get().0;
+                assert_eq!(client.flow_key(index).await.unwrap(), key);
+            }
+            // a removed key is asked again each time, a found one only once
+            assert_eq!(
+                calls(&index_of),
+                u32::from(FLOWS) + u32::from(REMOVED) * round
+            );
+        }
+    }
+
+    /// The blocking client against the async server, same as [client_by_key].
+    #[test]
+    fn client_by_key_blocking() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let device = start_async("keyed/client_blocking", shuffled_table());
+        let index_of = count_index_of(&device);
+        let client = Client::config(|c| c.in_process_path(device.path()))
+            .connect_blocking()
+            .expect("connect");
+        for _ in 0..2 {
+            for i in REMOVED..FLOWS {
+                let (key, bytes) = flow(i);
+                let handle = client.flow_by_blocking(&key).unwrap().expect("a live flow");
+                assert_eq!(handle.read_bytes().blocking_read().unwrap().get(), bytes);
+                let index = handle.index_chain[1].get().0;
+                assert_eq!(client.flow_key_blocking(index).unwrap(), key);
+            }
+        }
+        assert_eq!(calls(&index_of), u32::from(FLOWS - REMOVED));
+        let refused = client.flow_key_blocking(1000);
+        assert!(
+            matches!(
+                refused,
+                Err(Error::RemoteError(ErrorOwned {
+                    kind: ErrorKindOwned::BadIndex,
+                    ..
+                }))
+            ),
+            "{refused:?}"
+        );
+    }
+
+    /// The cache learns from the `keys` stream and forgets on `Removed` and on a `BadIndex` answer.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cache_follows_the_device() {
+        let table = shuffled_table();
+        let device = start_blocking("keyed/cache", table.clone());
+        let index_of = count_index_of(&device);
+        let client = Client::config(|c| c.in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let mut keys = client.flow_keys().await.unwrap();
+
+        // announced: found without asking
+        let (new, bytes) = (key(7000, 1), 99);
+        let index = {
+            let mut table = table.lock().unwrap();
+            table.flows.push(Some((new.clone(), bytes)));
+            table.flows.len() as u32 - 1
+        };
+        let added = KeyEvent::Added {
+            index: UNib32(index),
+            key: new.clone(),
+        };
+        let mut scratch = [0u8; 128];
+        device.send(
+            blocking_server::api_impl::stream_data_ser()
+                .flow_keys(&added, &mut scratch)
+                .unwrap(),
+        );
+        assert_eq!(keys.recv().await.unwrap(), added);
+        let handle = client.flow_by(&new).await.unwrap().expect("announced");
+        assert_eq!(handle.read_bytes().read().await.unwrap().get(), bytes);
+        assert_eq!(calls(&index_of), 0);
+
+        // removed: asked again
+        table.lock().unwrap().flows[index as usize] = None;
+        let removed = KeyEvent::Removed {
+            index: UNib32(index),
+        };
+        device.send(
+            blocking_server::api_impl::stream_data_ser()
+                .flow_keys(&removed, &mut scratch)
+                .unwrap(),
+        );
+        assert_eq!(keys.recv().await.unwrap(), removed);
+        assert!(client.flow_by(&new).await.unwrap().is_none());
+        assert_eq!(calls(&index_of), 1);
+
+        // gone without a word: the element's BadIndex forgets it
+        let (live, _) = flow(REMOVED);
+        let handle = client.flow_by(&live).await.unwrap().expect("a live flow");
+        assert_eq!(calls(&index_of), 2);
+        let at = handle.index_chain[1].get().0 as usize;
+        table.lock().unwrap().flows[at] = None;
+        let refused = handle.read_bytes().read().await;
+        assert!(
+            matches!(
+                refused,
+                Err(Error::RemoteError(ErrorOwned {
+                    kind: ErrorKindOwned::BadIndex,
+                    ..
+                }))
+            ),
+            "{refused:?}"
+        );
+        assert!(client.flow_by(&live).await.unwrap().is_none());
+        assert_eq!(calls(&index_of), 3);
     }
 }

@@ -74,6 +74,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             return Ok(T::from_ww_bytes_owned(&response)?);
         }
 
+        // a keyed array's element the device refuses is forgotten (CLT-72)
+        let keyed = self.transport_cmd_tx.keys.elements(&path_kind);
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
@@ -82,6 +84,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
 
         // await return value from a remote device (routed through rx dispatcher)
         let rx_or_recv_err = done_rx.await.map_err(|_| Error::RxDispatcherNotRunning)?;
+        self.transport_cmd_tx.keys.answered(&keyed, &rx_or_recv_err);
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         let reply: T = T::from_ww_bytes_owned(&response)?;
         if self.cache {
@@ -100,6 +103,8 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
             return Ok(T::from_ww_bytes_owned(&response)?);
         }
 
+        // a keyed array's element the device refuses is forgotten (CLT-72)
+        let keyed = self.transport_cmd_tx.keys.elements(&path_kind);
         // send call to a remote device through transport layer
         let done_rx = self
             .transport_cmd_tx
@@ -109,6 +114,7 @@ impl<T: DeserializeShrinkWrapOwned + Debug> PreparedRead<T> {
         let rx_or_recv_err = done_rx
             .blocking_recv()
             .map_err(|_| Error::RxDispatcherNotRunning)?;
+        self.transport_cmd_tx.keys.answered(&keyed, &rx_or_recv_err);
         let response = rx_or_recv_err?; // timeout is handled by rx dispatcher
         let reply: T = T::from_ww_bytes_owned(&response)?;
         if self.cache {

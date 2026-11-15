@@ -6407,6 +6407,7 @@ dependencies = [
  "ww_framer",
  "ww_global",
  "ww_hub_api",
+ "ww_keyed",
  "ww_link",
  "ww_local_socket",
  "ww_lz4",

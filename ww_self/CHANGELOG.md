@@ -166,6 +166,7 @@
 
 ### 🚀 Features
 
+- `keys::item_name`: the names of a key companion's fixed items (STD-125).
 - `keys::keys_level` (API-67) builds a `Keys` item's level, `index_of`, `ro key[]` and the `keys` stream of `ww_keyed::KeyEvent`, for every consumer; `keys::index_ty`, `keys::is_keyable`, `NumericAnyTypeOwned` re-exported.
 - `order::canonical_order` (EVO-75): renumbers a bundle's types, traits and crates in an order that depends only on its definitions (first use from the root, then by crate and path), so two bundles of the same definitions compare equal wherever the source declared them. A crate snapshot's root items (its trait list) are sorted by name; an API root keeps its items and ids.
 - `inline::inline_skipped_by_signature` puts skipped definitions back with any lookup by signature (`inline::BySignature`), not only the definition cache in a directory, for the superseded definitions of embedded snapshots (EVO-68). `definition_cache::file_name` and `definition_cache::decode` give an entry's file name and read its bytes, checked against the signature, without a directory.

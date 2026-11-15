@@ -234,6 +234,25 @@ pub fn track_number(link: u32, stream: u32) -> u32 {
     1 + link * 7 + stream
 }
 
+/// Stable key of a link's stream, the [ww_tape::track_key] of its name path `link[link].<stream>` in [LinkTap](crate::LinkTap).
+///
+/// # Panics
+///
+/// When `stream` is not one of [ids]' streams.
+pub fn track_key(link: u32, stream: u32) -> u64 {
+    let name = STREAM_NAMES
+        .get(stream as usize)
+        .expect("stream is one of ids' streams");
+    ww_tape::track_key(
+        ww_tape::api_root_id(api().crate_id),
+        &[
+            Segment::Name("link"),
+            Segment::Index(link),
+            Segment::Name(name),
+        ],
+    )
+}
+
 /// Link id and stream id of a track number, the reverse of [track_number].
 pub fn track_of(number: u32) -> Option<(u32, u32)> {
     let n = number.checked_sub(1)?;
@@ -272,15 +291,6 @@ const STREAM_NAMES: [&str; 7] = [
     "rx_messages",
     "client_map",
 ];
-
-/// Name path of stream `stream` of link `link`, `link[link].<stream>`: what its track key hashes.
-fn link_stream_path(link: u32, stream: u32) -> [Segment<'static>; 3] {
-    [
-        Segment::Name("link"),
-        Segment::Index(link),
-        Segment::Name(STREAM_NAMES[stream as usize]),
-    ]
-}
 
 impl Default for Recorder {
     fn default() -> Self {
@@ -651,7 +661,7 @@ impl Inner {
                 let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
                 add(&Describe::Track(TrackDef {
                     number: UNib32(track_number(link, stream)),
-                    key: ww_tape::track_key(api_root, &link_stream_path(link, stream)),
+                    key: track_key(link, stream),
                     clock: UNib32(HOST_CLOCK),
                     dimensions: RefVec::Slice { slice: &[] },
                     api,

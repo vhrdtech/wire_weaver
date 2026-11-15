@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `track_key(link, stream)`: the stable key of a link's stream track (STD-125).
 - `Medium::InProcessWebSocket` for sessions over `wire_weaver_client`'s simulated WebSocket (TR-22), appended.
 - `Medium::InProcessUdp` for sessions over `wire_weaver_client`'s simulated UDP (TR-21), appended, so older captures still decode.
 - `Medium::LocalSocket` for sessions over a local socket (TR-16), appended, so older captures still decode.

@@ -165,10 +165,15 @@ pub use describe::{
 };
 #[cfg(feature = "std")]
 pub use describe::{
-    ClockDefOwned, ClockMapOwned, DescribeOwned, DimensionOwned, ProducerOwned, TrackDefOwned,
-    TrackKindOwned, TypeRefOwned, TypedItemOwned,
+    ClockDefOwned, ClockMapOwned, DescribeOwned, DimensionOwned, KeySegmentOwned, ProducerOwned,
+    TrackDefOwned, TrackKindOwned, TypeRefOwned, TypedItemOwned,
 };
 pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
+
+#[cfg(feature = "bundle")]
+mod name_path;
+#[cfg(feature = "bundle")]
+pub use name_path::{NamePathError, key_in_bundle, name_path};
 
 pub mod summary;
 pub use summary::{EventFields, EventNode, Summary, SummaryError, SummaryHead};

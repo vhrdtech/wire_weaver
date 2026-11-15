@@ -177,33 +177,33 @@ fn entries_of_blocks() {
         (0xfeed, 4096, 3, 10, 30, 45)
     );
 
-    // a summary block's head fields, at the offsets the summary blocks put them
-    let mut sb = vec![0u8; 100];
-    put_header(&mut sb, BlockKind::Other(SUMMARY_KIND), 100, 2, 9);
-    sb[32..40].copy_from_slice(&0xabcu64.to_le_bytes());
-    put_u32(&mut sb, 40, 5);
-    sb[44] = 2;
-    sb[45] = 3;
-    sb[56..64].copy_from_slice(&512u64.to_le_bytes());
-    sb[64..72].copy_from_slice(&1024u64.to_le_bytes());
-    sb[72..80].copy_from_slice(&(-7i64).to_le_bytes());
-    sb[80..88].copy_from_slice(&70i64.to_le_bytes());
-    sb[88..96].copy_from_slice(&75i64.to_le_bytes());
-    seal(&mut sb);
-    let e = IndexEntry::of_block(10, &Block::read(&sb).unwrap()).unwrap();
+    // a summary block: the fields of its head
+    let fields = crate::summary::EventFields {
+        flags: false,
+        latest_end: true,
+    };
+    let mut tree = crate::summary::EventTree::new(0xabc, 5, fields, 512);
+    for i in 0..3000i64 {
+        tree.push(i * 10 - 7, i * 10 + 5, 0).unwrap();
+    }
+    tree.finish().unwrap();
+    let blocks = tree.take_blocks();
+    let sb = &blocks[0];
+    let block = Block::read(sb).unwrap();
+    let h = block.summary().unwrap().head();
+    let e = IndexEntry::of_block(10, &block).unwrap();
     assert_eq!(
-        (
-            e.kind.to_u8(),
-            e.track_id,
-            e.track_number,
-            e.tree,
-            e.level,
-            e.first_item,
-            e.count
-        ),
-        (6, 0xabc, 5, 2, 3, 512, 1024)
+        (e.kind, e.len as usize, e.track_id, e.track_number),
+        (BlockKind::Summary, sb.len(), 0xabc, 5)
     );
-    assert_eq!((e.first_tick, e.last_tick, e.latest_end), (-7, 70, 75));
+    assert_eq!((e.tree, e.level), (1, h.level));
+    assert_eq!((e.first_item, e.count), (h.first_item, h.items));
+    assert_eq!(e.first_item, 512);
+    assert_eq!(e.first_tick, -7);
+    assert_eq!(
+        (e.first_tick, e.last_tick, e.latest_end),
+        (h.first_tick, h.last_tick, h.latest_end)
+    );
 
     let ix = write(
         &IndexHead {

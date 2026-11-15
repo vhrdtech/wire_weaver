@@ -853,6 +853,17 @@ fn summaries_fill_alignment_gaps() {
             summaries.push(b.bytes().to_vec());
         }
     }
+    // the final index lists every summary block under its track, with its level
+    let r = crate::TapeReader::open(&file[..]).unwrap();
+    let listed: Vec<_> = r
+        .track_entries(0, 7)
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.kind == BlockKind::Summary)
+        .collect();
+    assert_eq!(listed.len(), summaries.len());
+    assert!(listed.iter().all(|e| e.tree == 2));
+    assert!(listed.iter().any(|e| e.level > 0));
     let levels = series_levels(&summaries);
     assert_eq!(
         levels.keys().filter(|k| k.0 == 0).count(),

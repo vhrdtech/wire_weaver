@@ -90,9 +90,6 @@ pub struct IndexEntry {
     pub latest_end: i64,
 }
 
-/// Summary block head fields the index takes (kind 6): bytes 32..96 after the block header.
-const SUMMARY_HEAD_END: usize = 96;
-
 impl IndexEntry {
     /// The entry of the good block `bytes` at `offset` in its piece; None for blocks an index doesn't list (index,
     /// finish, tail, piece head and parity blocks).
@@ -123,16 +120,19 @@ impl IndexEntry {
                     return Some(Self::of_chunk(offset, bytes.len(), &c.head()));
                 }
             }
-            BlockKind::Other(SUMMARY_KIND) if bytes.len() >= SUMMARY_HEAD_END + CRC_LEN => {
-                e.track_id = get_u64(bytes, 32);
-                e.track_number = get_u32(bytes, 40);
-                e.tree = bytes[44];
-                e.level = bytes[45];
-                e.first_item = get_u64(bytes, 56);
-                e.count = get_u64(bytes, 64);
-                e.first_tick = get_u64(bytes, 72) as i64;
-                e.last_tick = get_u64(bytes, 80) as i64;
-                e.latest_end = get_u64(bytes, 88) as i64;
+            BlockKind::Summary => {
+                if let Some(s) = block.summary() {
+                    let h = s.head();
+                    e.track_id = h.track_id;
+                    e.track_number = h.track_number;
+                    e.tree = h.tree.to_u8();
+                    e.level = h.level;
+                    e.first_item = h.first_item;
+                    e.count = h.items;
+                    e.first_tick = h.first_tick;
+                    e.last_tick = h.last_tick;
+                    e.latest_end = h.latest_end;
+                }
             }
             _ => {}
         }
@@ -201,9 +201,6 @@ impl IndexEntry {
         }
     }
 }
-
-/// Block kind of summary blocks, whose head fields an index entry takes.
-pub(crate) const SUMMARY_KIND: u8 = 6;
 
 /// A checkpoint or a final index.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

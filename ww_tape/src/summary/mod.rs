@@ -93,7 +93,7 @@ impl Tree {
         }
     }
 
-    fn to_u8(self) -> u8 {
+    pub(crate) fn to_u8(self) -> u8 {
         match self {
             Tree::Events => 1,
             Tree::Series => 2,

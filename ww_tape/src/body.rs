@@ -1,4 +1,4 @@
-//! Coded bodies of records and describe blocks ([FLAG_BODY_CODED](crate::FLAG_BODY_CODED)).
+//! Coded bodies of records and describe blocks ([crate::FLAG_BODY_CODED]).
 //!
 //! ```text
 //! u8    codec (BodyCodec): 0 stored, 1 lz4 block

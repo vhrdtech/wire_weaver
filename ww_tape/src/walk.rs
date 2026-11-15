@@ -1,20 +1,6 @@
 //! What a reader walking blocks in order keeps: the current run, the last seq, the layout's gap rules.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
+use core::num::NonZeroU64;
 
 use shrink_wrap::prelude::*;
 
@@ -74,7 +60,7 @@ pub(crate) struct RunState {
     /// Length and CRC of the last data block taken
     last_bytes: Option<(usize, u32)>,
     gap_max: u64,
-    resume_align: u64,
+    resume_align: NonZeroU64,
 }
 
 impl RunState {
@@ -85,7 +71,7 @@ impl RunState {
             last_seq: None,
             last_bytes: None,
             gap_max: 0,
-            resume_align: 1,
+            resume_align: NonZeroU64::MIN,
         }
     }
 
@@ -100,7 +86,9 @@ impl RunState {
             "a layout's gap rules are within GAP_MAX_MAX and GAP_PROBES_MAX"
         );
         self.gap_max = u64::from(layout.gap_max.get());
-        self.resume_align = u64::from(layout.resume_align.get()).max(1);
+        // a valid layout's resume_align is 1 and up
+        self.resume_align =
+            NonZeroU64::new(u64::from(layout.resume_align.get())).unwrap_or(NonZeroU64::MIN);
     }
 
     pub(crate) fn gap_max(&self) -> u64 {
@@ -191,15 +179,17 @@ impl RunState {
     /// The places past a blank or bad stretch starting at `start` a reader probes for the data going on, ascending,
     /// none at or before `from`: multiples of [Layout::resume_align] within [Layout::gap_max] of `start`. (The
     /// first non-blank byte is the caller's to probe.)
-    /// At most [crate::GAP_PROBES_MAX] + 1, since a valid layout's `gap_max / resume_align` is within it.
+    /// At most [crate::GAP_PROBES_MAX] + 1 (a valid layout's `gap_max / resume_align` is within it), and none past
+    /// `u64::MAX`.
     pub(crate) fn probes(&self, start: u64, from: u64) -> impl Iterator<Item = u64> + use<> {
         let (align, gap_max) = (self.resume_align, self.gap_max);
+        // places past u64::MAX don't exist: the gap ends there
         let end = start.saturating_add(gap_max);
         let first = (from.max(start) / align)
-            .saturating_add(1)
-            .saturating_mul(align);
-        (0..)
-            .map(move |i: u64| first.saturating_add(i.saturating_mul(align)))
+            .checked_add(1)
+            .and_then(|n| n.checked_mul(align.get()));
+        (0..=u64::from(crate::GAP_PROBES_MAX))
+            .map_while(move |i| first?.checked_add(i.checked_mul(align.get())?))
             .take_while(move |p| *p <= end && gap_max > 0)
     }
 }
@@ -226,4 +216,51 @@ pub(crate) fn layout_in(b: &Block<'_>) -> Option<Layout> {
             _ => None,
         })
         .last()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use exact_units::Bytes;
+
+    fn walk(gap_max: u32, resume_align: u32) -> RunState {
+        let mut w = RunState::new(Medium::File);
+        w.set_layout(&Layout {
+            gap_max: Bytes::new(gap_max),
+            resume_align: Bytes::new(resume_align),
+            ..Layout::UNALIGNED
+        });
+        w
+    }
+
+    #[test]
+    fn probes_are_the_resume_places_in_the_gap() {
+        let w = walk(2048, 512);
+        assert_eq!(
+            w.probes(1000, 1000).collect::<Vec<_>>(),
+            [1024, 1536, 2048, 2560]
+        );
+        assert_eq!(w.probes(1000, 2100).collect::<Vec<_>>(), [2560]);
+        assert_eq!(walk(0, 1).probes(0, 0).count(), 0);
+    }
+
+    /// A gap reaching past u64::MAX ends there: the probes stop, they don't repeat u64::MAX.
+    #[test]
+    fn probes_near_the_end_of_u64_stop() {
+        let w = walk(4096, 1);
+        let near = u64::MAX - 5;
+        assert_eq!(
+            w.probes(near, near).take(10_000).collect::<Vec<_>>(),
+            [near + 1, near + 2, near + 3, near + 4, near + 5]
+        );
+    }
+
+    #[test]
+    fn probes_are_at_most_the_cap() {
+        let w = walk(crate::GAP_PROBES_MAX, 1);
+        assert_eq!(
+            w.probes(0, 0).take(100_000).count(),
+            crate::GAP_PROBES_MAX as usize
+        );
+    }
 }

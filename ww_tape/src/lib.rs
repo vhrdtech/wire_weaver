@@ -88,6 +88,9 @@ pub use chunk::{
     EndMode,
 };
 
+pub mod samples;
+pub use samples::{Element, SampleShape};
+
 mod varint;
 pub use varint::{ivar_len, uvar_len};
 

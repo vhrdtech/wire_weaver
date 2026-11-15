@@ -37,6 +37,22 @@
 //! id 0. A final index longer than [INDEX_LEN_MAX] is several final blocks, chained like checkpoints, each holding
 //! whole tracks in ascending track id order.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use crate::chunk::{get_u16, get_u32, get_u64, put_u32};
 use crate::{
     Block, BlockError, BlockId, BlockKind, CRC, CRC_LEN, ChunkHead, HEADER_LEN, VERSION, put_header,

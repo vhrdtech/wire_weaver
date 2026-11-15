@@ -58,6 +58,22 @@
 //! archived pieces, never a time column. No outer codec is assigned yet: a reader refuses every outer-coded column as
 //! a column in a codec it doesn't know. Inner codec ids stop at 127.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAX_BLOCK_LEN};
 
 /// The CRC of chunk blocks: the same CRC-32C as every block, with a 16-entry table for the large payloads.

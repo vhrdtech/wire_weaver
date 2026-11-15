@@ -1,5 +1,21 @@
 //! The ALP decoder: every read of the column checked, a malformed group an error.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use super::{ALP_GROUP, DECIMAL, DICT_BITS_MAX, DICT_MAX, F32, F64, Float, LEFT_MAX, RD};
 use crate::bitpack::{self, packed_len};
 use crate::samples::{Element, Sample, SampleError};

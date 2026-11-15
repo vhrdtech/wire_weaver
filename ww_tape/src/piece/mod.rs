@@ -47,6 +47,22 @@
 //! Offsets are from the start of the piece. Ids are opaque: a piece id is 16 bytes, a result id 32 (the producer's,
 //! e.g. a SHA-256 of a run record); all zeros is none.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use crate::chunk::{get_u32, get_u64, put_u32};
 use crate::index::{IndexError, NONE, seal};
 use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, RunTag, put_header};

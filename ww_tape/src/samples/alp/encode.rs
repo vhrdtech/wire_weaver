@@ -1,5 +1,21 @@
 //! The ALP encoder: sampling, then per group the smallest of the decimal form and the two `rd` forms.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use super::{
     ALP_GROUP, DECIMAL, DICT_BITS_MAX, DICT_MAX, F10, F32, F64, Float, IF10, LEFT_MAX, RD, e_max,
 };

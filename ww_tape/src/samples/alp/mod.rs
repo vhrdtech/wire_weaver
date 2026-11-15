@@ -39,6 +39,22 @@
 //! The encoder's choices are integer comparisons of bit counts, and its arithmetic is IEEE 754 multiplication, which
 //! every platform and SIMD path rounds the same: the same values give the same bytes everywhere.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 mod decode;
 mod encode;
 #[cfg(test)]

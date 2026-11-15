@@ -4,6 +4,22 @@
 //! b w, its high half values 4..8 from byte b w + w / 2 (a nibble further at odd widths), each within 16 bytes. Byte
 //! t of lane i takes byte `first + t` (`lo`) and `first + 1 + t` (`hi`, only for widths over 25, where a value can
 //! span 5 bytes) of its half; an index past the half is 0x80, which the shuffle turns into 0.
+
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
 #![expect(
     unsafe_code,
     reason = "core::arch loads, stores and calls into target_feature functions"

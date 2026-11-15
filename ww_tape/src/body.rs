@@ -11,6 +11,22 @@
 //! takes the block as one whose body it doesn't know ([Block::body_known] false). Chunk blocks are never coded: their
 //! columns are read in place.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use crate::{
     Block, BlockError, BlockKind, CRC, CRC_LEN, FLAG_BODY_CODED, HEADER_LEN, MAX_BLOCK_LEN, varint,
 };

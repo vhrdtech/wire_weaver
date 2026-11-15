@@ -1,5 +1,21 @@
 //! The levels of a summary tree as a writer fills them: open nodes, batches of finished nodes, blocks to encode.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use super::{FANOUT_SHIFT, NODE_SHIFT_MAX, SummaryError, batch_nodes};
 
 /// A node that merges with the node right after it.

@@ -1,5 +1,21 @@
 //! Encoding a chunk's payloads into its two columns.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use super::{GROUP, LENGTHS, RECORD_LEN};
 use crate::bitpack;
 use crate::chunk::{Codec, ColumnKind, ColumnSpec};

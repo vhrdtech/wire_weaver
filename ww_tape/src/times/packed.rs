@@ -4,6 +4,22 @@
 //! Durations: per group a minimum (u64), a width (u8) and an offset (u32), then `duration - minimum`. Flags: per group
 //! the OR of its flags (u32) and an offset (u32), then the flags at the width the OR needs.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use super::TimesError;
 #[cfg(feature = "std")]
 use super::groups::group_count;

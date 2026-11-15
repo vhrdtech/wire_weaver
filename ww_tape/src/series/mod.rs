@@ -69,6 +69,22 @@
 //! The batch's time column (`Series<Timed<T>>`) is not stored: the grid gives every sample's tick. A host checks it
 //! against the grid and starts a segment where the device's samples left it (a gap, a restart).
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 #[cfg(test)]
 mod tests;
 #[cfg(feature = "alloc")]

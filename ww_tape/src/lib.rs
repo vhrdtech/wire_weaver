@@ -93,8 +93,27 @@
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
 //! One exception: an [lz4] payload column is identical only for one `lz4_flex` version on targets of the
 //! same pointer width and endianness (decoding is unaffected).
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(unsafe_code)]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::unreachable,
+        clippy::panic,
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects,
+        clippy::as_conversions,
+        clippy::cast_lossless,
+        clippy::cast_possible_truncation,
+        clippy::cast_possible_wrap,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        reason = "tests fail by panicking and compute expected values freely"
+    )
+)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -128,6 +147,8 @@ pub use chunk::{
     EndMode,
 };
 
+pub mod from_file;
+pub use from_file::{BoundError, FromFile};
 pub mod lz4;
 #[cfg(feature = "alloc")]
 pub mod payloads;

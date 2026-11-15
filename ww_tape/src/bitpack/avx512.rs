@@ -3,6 +3,22 @@
 //!
 //! 16 values are 2 w bytes, so block b starts byte aligned at 2 b w. Lane i takes the 4 bytes from its value's first
 //! byte (`lo`) and the 4 after them (`hi`); the funnel shift by the value's bit offset in its first byte joins them.
+
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
 #![expect(
     unsafe_code,
     reason = "core::arch loads, stores and calls into target_feature functions"

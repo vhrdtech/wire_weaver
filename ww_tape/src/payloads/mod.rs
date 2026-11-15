@@ -36,6 +36,22 @@
 //! suspect; an lz4 column with a byte in a bad segment makes every item suspect, its payloads read as decoded when
 //! the block still decodes to its stated length, else empty.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 mod encode;
 #[cfg(test)]
 mod tests;

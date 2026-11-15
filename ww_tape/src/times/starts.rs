@@ -1,5 +1,21 @@
 //! The starts column: implicit, or a linear frame of reference per group of 128.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::unreachable,
+    clippy::panic,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_lossless,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    reason = "STD-131: hardening of this module in progress"
+)]
+
 use super::groups::{Groups, Layout, WidthAt, get_i64, get_u32, group_count, group_len};
 use super::{TimeMode, TimesError};
 use crate::bitpack::{self, GROUP, Kernel};

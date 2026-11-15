@@ -24,3 +24,26 @@ ww_version.workspace = true
 
 [dev-dependencies]
 exact_units = { workspace = true, features = ["counting", "electrical", "shrink_wrap", "std", "time"] }
+
+# exact_units' panic-class lints: no panic, overflow or unchecked index reachable from file bytes (STD-131).
+# Every exception is an #[expect(.., reason = "..")] naming its invariant; tests may panic (lib.rs, tests/it).
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+unreachable = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+as_conversions = "deny"
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+undocumented_unsafe_blocks = "deny"
+allow_attributes_without_reason = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"

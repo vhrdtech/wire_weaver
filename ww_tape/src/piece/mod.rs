@@ -89,9 +89,16 @@ impl PieceId {
         Self::derive("ww_tape piece id", &[&hash.0, &id.0])
     }
 
-    /// The id of the first piece of `result`: as [Self::after] over the result id alone ("ww_tape first piece").
+    /// The id of the first piece of chain 0 of `result`: [Self::first_of] `(result, 0)`.
     pub fn first(result: &ResultId) -> PieceId {
-        Self::derive("ww_tape first piece", &[&result.0])
+        Self::first_of(result, 0)
+    }
+
+    /// The id of the first piece of chain `chain` of `result` (several chains of one result, such as one per
+    /// source): as [Self::after] over the result id and the chain number, u64 little endian ("ww_tape first
+    /// piece").
+    pub fn first_of(result: &ResultId, chain: u64) -> PieceId {
+        Self::derive("ww_tape first piece", &[&result.0, &chain.to_le_bytes()])
     }
 
     /// The first 16 bytes of BLAKE3 in key derivation mode over `parts`; never all zeros.

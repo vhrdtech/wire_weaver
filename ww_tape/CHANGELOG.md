@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `PieceId::first` is `first_of(result, 0)`: its bytes change; `PieceId::first_of` names the first piece of each chain (STD-129).
 - `Block::records` of an lz4-coded body gives `BlockError::Coded`: read the records of `Block::decode` (STD-129).
 - Header bytes 24..28 hold the run tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).
 - `PieceHead` gains `prev_run`: the run before the piece head on the medium, piece head bytes 92..96 (STD-129).

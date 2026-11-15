@@ -135,6 +135,27 @@ fn piece_ids_follow_the_chain() {
     assert!(!a.is_none() && !b.is_none());
 }
 
+#[test]
+fn chains_of_one_result_start_apart() {
+    let result = ResultId([1; 32]);
+    assert_eq!(PieceId::first(&result), PieceId::first_of(&result, 0));
+    let firsts: Vec<PieceId> = (0..4).map(|c| PieceId::first_of(&result, c)).collect();
+    for (i, a) in firsts.iter().enumerate() {
+        assert_eq!(
+            *a,
+            PieceId::first_of(&result, i as u64),
+            "the same chain, the same id"
+        );
+        assert!(firsts[i + 1..].iter().all(|b| b != a), "chain {i}");
+    }
+    assert_ne!(
+        PieceId::first_of(&result, 1),
+        PieceId::first_of(&ResultId([2; 32]), 1)
+    );
+    // pinned: a chain's first id is part of the format
+    assert_eq!(PieceId::first_of(&result, 1).0[..4], [241, 163, 28, 235]);
+}
+
 fn summary(seq: u64, end: Option<FinishState>) -> PieceSummary {
     let id = |s: u64| PieceId([s as u8 + 1; 16]);
     let hash = |s: u64| ContentHash([s as u8 + 100; 32]);

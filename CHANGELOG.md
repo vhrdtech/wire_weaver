@@ -12,7 +12,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - `ww_tape` format v2 describe (STD-117): clocks with exact rates, clock maps, typed describe items, track dimensions, i64 ticks per clock, canonical describe order. See the `ww_tape`, `ww_tap` and `wire_weaver_client` changelogs.
-- exact_units taken up to 1b23330 (NUM-46 `Ratio64`, NUM-47, NUM-48, NUM-43, IO-17): `ww_tape` clock map slopes are `Ratio64`s. See the `ww_tape` changelog.
+- exact_units taken up to 424b8df (NUM-46 `Ratio64`, NUM-47, NUM-48, NUM-43, IO-17, IO-18): `ww_tape` clock map slopes are `Ratio64`s. See the `ww_tape` changelog.
 
 - Priority in 3 bits plus a reserved bit (EVO-76): `wire_weaver::Priority` has 8 levels as CAN and Cyphal carry, `NORMAL` 2, urgent from 4; `ww_client_server::Request` carries `priority: U3` and `reserved: bool` in the 4 bits the nibble took, so a default request keeps its bytes. Wire break, nothing in use. See the `wire_weaver`, `ww_client_server`, `wire_weaver_client`, `wire_weaver_core` and `ww_device` changelogs.
 - The book's Evolution chapter is rewritten as a story at three levels: a short Basic page (`evolution/overview.md`), then versions and wire lines (new `versions.md`), what can change (`rules.md`), the checker, units, several lines and the crate layers with the generations from the wire line (EVO-71), and a Nomicon page on padding bits, shape and docs signatures, superseded definitions and old snapshots (new `inside_the_checker.md`). Links into the moved sections follow, also in the checker's messages (see the `wire_weaver_evolution`, `wire_weaver_cli` and `wire_weaver_core` changelogs).

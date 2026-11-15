@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 5f052f4ecde1425523bdccdd5358bd2110ae180bf6a90b814781f133e4f40f49
+// shrink_wrap sha256: f0181d577d26c1e68aabf549be156b59308861f5755a791d37a87ddf75bbdb4f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -6094,6 +6094,47 @@
             "The sequence number.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "An exact positive value of `U` known at run time, held as a [Magnitude]: a clock\'s rate",
+        "`MagnitudeOf<Per<Tick, Second>>` (60000/1001 tick/s) and its resolution `MagnitudeOf<Second>` (1/32768 s). The",
+        "unit is in the type, so a rate is never passed as a resolution; the value is canonical, so two spellings of one",
+        "rate are `==`.",
+        "",
+        "Free to and from a [Magnitude] ([new](Self::new), [magnitude](Self::magnitude), `From` both ways), and on the",
+        "wire exactly the magnitude\'s bytes (`transparent`): a field declared as a plain `Magnitude` reads the same bytes.",
+        "`{}` writes the exact value in its unit as an [Exact] does (`59.[940059] tick/s`, `30.517578125 µs`), a value with",
+        "π or a root as the magnitude\'s factor (`1·π/180 rad`).",
+        "",
+        "```",
+        "# #[cfg(all(feature = \"time\", feature = \"counting\"))] {",
+        "use exact_units::{Magnitude, MagnitudeOf, units::{Per, Second, Tick}};",
+        "",
+        "// NTSC\'s frame clock and a 32 kHz watch crystal",
+        "let rate = MagnitudeOf::<Per<Tick, Second>>::new(Magnitude::ratio(60_000, 1001));",
+        "let resolution = MagnitudeOf::<Second>::new(Magnitude::ratio(1, 32_768));",
+        "assert_eq!(rate.to_string(), \"59.[940059] tick/s\");",
+        "assert_eq!(resolution.to_string(), \"30.517578125 µs\");",
+        "// the tick\'s length is the rate\'s reciprocal",
+        "let tick = rate.recip::<Per<Second, Tick>>().unwrap();",
+        "assert_eq!(format!(\"{tick:#}\"), \"0.01668[3] s/tick\");",
+        "assert_eq!(rate.magnitude(), Magnitude::ratio(60_000, 1001));",
+        "# }",
+        "```",
+        "",
+        "A rate passed as a resolution doesn\'t compile:",
+        "",
+        "```compile_fail",
+        "use exact_units::{Magnitude, MagnitudeOf, units::{Per, Second, Tick}};",
+        "let rate = MagnitudeOf::<Per<Tick, Second>>::new(Magnitude::ratio(60_000, 1001));",
+        "let _: MagnitudeOf<Second> = rate;",
+        "```",
+    ], ident: "MagnitudeOf", generics: [
+        (ident: "U", kind: Type),
+    ], fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 146), docs: [
+            "The value in `U`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The pressure around the sensor, known only at run time: what gauge pressure is measured against.",
     ], ident: "AmbientPressure", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "AmbientPressure"), name: "ambient pressure", how: RunTime))))))), crate_idx: 0),
@@ -6185,6 +6226,42 @@
         "The unit\'s own zero: 0 K, 0 Pa (vacuum), the zero of an angle.",
     ], ident: "UnitZero", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: Some((transparent: false, marker: Some(Reference((id: (crate_name: "exact_units", name: "UnitZero"), name: "", how: Exact))))))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A positive fraction `num / den` of two `u64`s in lowest terms: a fitted slope, such as a clock map\'s",
+        "1000000007/999999931, that a [Magnitude] can\'t hold (a prime past 2³², more than 16 primes) and a",
+        "[RunScale](crate::RunScale) can\'t either (odd parts past `u32`). One form per value, so `==`, `Hash` and `Ord` are",
+        "those of the value.",
+        "",
+        "[apply](Self::apply) and [apply_rounded](Self::apply_rounded) rescale an `i64` with one `i128` multiply and one",
+        "division: `|x| · num` is below 2⁶³ · 2⁶⁴ = 2¹²⁷, so the intermediate never overflows, and only a result past `i64`",
+        "is refused.",
+        "",
+        "```",
+        "use exact_units::{Ratio64, Rounding};",
+        "",
+        "let slope = Ratio64::new(1_000_000_007, 999_999_931).unwrap();",
+        "assert_eq!(slope, Ratio64::new(2_000_000_014, 1_999_999_862).unwrap());",
+        "assert_eq!(slope.parts(), (1_000_000_007, 999_999_931));",
+        "// 10⁹ ticks of one clock in the other: 1000000076.000005776.., not whole",
+        "assert_eq!(slope.apply(1_000_000_000), None);",
+        "assert_eq!(slope.apply_rounded(1_000_000_000, Rounding::Floor), Some(1_000_000_076));",
+        "assert_eq!(slope.apply_rounded(1_000_000_000, Rounding::Ceil), Some(1_000_000_077));",
+        "assert_eq!(slope.apply(999_999_931), Some(1_000_000_007));",
+        "// past i64 the rescale is refused",
+        "assert_eq!(slope.apply_rounded(i64::MAX, Rounding::Floor), None);",
+        "assert_eq!(Ratio64::new(3, 0), None);",
+        "```",
+        "",
+        "On the wire (`final_structure`): `num` and `den` as [UVlq64]; a form that isn\'t the canonical one (a part of 0,",
+        "a common factor) doesn\'t decode, so a value has one encoding.",
+    ], ident: "Ratio64", generics: [], fields: Named([
+        (ident: Some("num"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+            "The numerator, at least 1, coprime to `den`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("den"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
+            "The denominator, at least 1.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "An exact positive scale known at run time: `num / den · 2^pow2`, `num` and `den` odd and coprime `u32`s, `pow2`",
         "within ±127. One form per value, so `==` and `Ord` are those of the value: `RunScale::ratio(2002, 120_000)` is",
         "`RunScale::ratio(1001, 60_000)`.",
@@ -6259,7 +6336,7 @@
         (ident: Some("value"), default: None, since: None, ty: Param(1), docs: [
             "The number of steps.",
         ], slot: None, series_opaque: false),
-        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 410), docs: [
+        (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 412), docs: [
             "The step.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -6289,7 +6366,7 @@
         (docs: [
             "These prefixes only: `mmHg` takes milli and nothing else.",
         ], ident: "Only", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 412), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 414), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -6320,7 +6397,7 @@
             "The unit\'s code in UCUM (`\"Ohm\"`, `\"m/s2\"`, `\"By\"`), `None` where it has none or none is recorded: such a unit",
             "isn\'t written in [Notation::Ucum](crate::Notation::Ucum).",
         ], slot: None, series_opaque: false),
-        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 413), docs: [
+        (ident: Some("prefixes"), default: None, since: None, ty: OutOfLine(type_idx: 415), docs: [
             "Which prefixes the unit takes in text: `km` is a kilometre, but `min` is no milli-inch.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -6361,7 +6438,7 @@
         (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "The crate and marker that declare it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 414), docs: [
+        (ident: Some("names"), default: None, since: None, ty: OutOfLine(type_idx: 416), docs: [
             "How it is written.",
         ], slot: None, series_opaque: false),
         (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 139), docs: [
@@ -6374,7 +6451,7 @@
         (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 146), docs: [
             "The exact factor to coherent SI: ° is π/180 rad, eV 1.602176634·10⁻¹⁹ J.",
         ], slot: None, series_opaque: false),
-        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 415), docs: [
+        (ident: Some("provenance"), default: None, since: None, ty: OutOfLine(type_idx: 417), docs: [
             "Whether the scale is the unit\'s definition or a value a source prints.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -6402,7 +6479,7 @@
         (docs: [
             "A named unit, described in full: one no table at hand lists, or a tree that reads alone.",
         ], ident: "Def", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 416), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 418), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "A named unit a table lists, by its identity: `exact_units::Volt`, a device\'s own `my_api::Rpm`.",
@@ -6412,25 +6489,25 @@
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 417)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 417)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 419)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 419)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 417)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 417)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 419)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 419)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 417)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 419)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 417)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 419)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

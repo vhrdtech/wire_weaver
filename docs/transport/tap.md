@@ -79,8 +79,8 @@ varints. Record times are signed i64 ticks of the track's clock, each delta agai
 clock, so a block reads alone and one clock costs no bit. No wall time is in a block.
 
 A **describe** block carries, in a canonical order: the producer, the API bundles, the clocks (number, stable key,
-exact rate and resolution as `Magnitude`s, origin: free-running, boot, Unix epoch, media start or run start), the
-clock maps (segments `b = b0 + (a - a0) · num/den` with an error bound: the tap maps its own clock to the wall clock
+exact rate and resolution as `Magnitude`s, origin: free-running, boot, Unix epoch, media start, run start, or the next epoch of a counter, fixed by an exact offset map), the
+clock maps (segments `b = b0 + (a - a0) · slope`, the slope an exact_units `Ratio64`, with an error bound, strictly increasing across segments: the tap maps its own clock to the wall clock
 read at its start), a `TrackDef` per track (number, stable key, clock, dimensions that are part of its identity, API,
 resource path, optional item type, label, whether it is sticky) and typed items (any wire_weaver value by bundle
 hash and type path), then the newest record of every sticky track. It is written at the start, when a track is

@@ -174,22 +174,24 @@ fn corrupt_blocks_are_refused() {
 
 const HOST: u32 = 1;
 const WALL: u32 = 2;
+/// The host counter's next epoch.
+const EPOCH: u32 = 3;
+
+const EPOCH_START: [MapSegment; 1] = [MapSegment::offset(4_000_000_000_000_000_000, 0)];
 
 const SEGMENTS: [MapSegment; 2] = [
     MapSegment {
         a0: 0,
         a1: Some(1_000_000),
         b0: 1_763_164_800_000_000_000,
-        num: 1,
-        den: 1,
+        slope: Ratio64::ONE,
         error: 500,
     },
     MapSegment {
         a0: 1_000_000,
         a1: None,
         b0: 1_763_164_800_001_000_020,
-        num: 1_000_000_007,
-        den: 999_999_931,
+        slope: Ratio64::new(1_000_000_007, 999_999_931).unwrap(),
         error: 800,
     },
 ];
@@ -258,6 +260,21 @@ fn sample_describe() -> Vec<Describe<'static>> {
             bytes: RefVec::Slice { slice: &[9; 40] },
         },
         Describe::Producer(Producer { name: "test" }),
+        Describe::Map(ClockMap {
+            from: UNib32(HOST),
+            to: UNib32(EPOCH),
+            segments: RefVec::Slice {
+                slice: &EPOCH_START,
+            },
+        }),
+        Describe::Clock(ClockDef {
+            number: UNib32(EPOCH),
+            key: clock_key(api_root_id("host", 0), &[], 17) ^ 1,
+            rate: Magnitude::pow10(9),
+            resolution: Magnitude::ratio(1, 32768),
+            origin: ClockOrigin::Epoch,
+            label: "host epoch 1",
+        }),
     ]
 }
 
@@ -275,28 +292,63 @@ fn describe_records_round_trip() {
 
 #[test]
 fn map_segments() {
+    use Rounding::{Ceil, Floor, NearestEven};
     let [exact, fitted] = SEGMENTS;
-    assert_eq!(exact.map(-1), None);
-    assert_eq!(exact.map(10), Some(1_763_164_800_000_000_010));
-    assert_eq!(exact.map(1_000_000), None);
-    assert_eq!(fitted.map(1_000_000), Some(fitted.b0));
+    assert_eq!(exact.map(-1, Floor), None);
+    assert_eq!(exact.map(10, Floor), Some(1_763_164_800_000_000_010));
+    assert_eq!(exact.map(1_000_000, Floor), None);
+    assert_eq!(fitted.map(1_000_000, Floor), Some(fitted.b0));
     // 999_999_931 ticks of a 1_000_000_007 / 999_999_931 slope are 1_000_000_007
-    assert_eq!(
-        fitted.map(1_000_000 + 999_999_931),
-        Some(fitted.b0 + 1_000_000_007)
-    );
-    assert_eq!(
-        MapSegment::new(0, None, 0, 6, 4, 0).map(|s| (s.num, s.den)),
-        Some((3, 2))
-    );
-    assert_eq!(MapSegment::new(0, None, 0, 0, 1, 0), None);
-    assert_eq!(MapSegment::new(5, Some(5), 0, 1, 1, 0), None);
-    // a slope that isn't reduced, or a zero one, is refused on reading
-    for (num, den) in [(2, 2), (0, 1), (1, 0)] {
-        let s = MapSegment { num, den, ..exact };
+    let whole = 1_000_000 + 999_999_931;
+    for r in [Floor, Ceil, NearestEven] {
+        assert_eq!(fitted.map(whole, r), Some(fitted.b0 + 1_000_000_007));
+    }
+    // 10^9 ticks are 1000000076.000005776..: the rounding is the caller's
+    let a = 1_000_000 + 1_000_000_000;
+    assert_eq!(fitted.map(a, Floor), Some(fitted.b0 + 1_000_000_076));
+    assert_eq!(fitted.map(a, Ceil), Some(fitted.b0 + 1_000_000_077));
+    assert_eq!(fitted.map(a, NearestEven), Some(fitted.b0 + 1_000_000_076));
+    // a result past i64 is refused
+    assert_eq!(MapSegment::offset(0, i64::MAX).map(1, Floor), None);
+    assert_eq!(MapSegment::new(5, Some(5), 0, Ratio64::ONE, 0), None);
+
+    // the same bytes with plain parts: a slope that isn't reduced, a zero part or an empty range is refused
+    #[derive_shrink_wrap(borrowed, derive(Debug))]
+    struct Raw {
+        a0: i64,
+        a1: Option<i64>,
+        b0: i64,
+        num: UVlq64,
+        den: UVlq64,
+        error: u64,
+    }
+    let raw = |a1, num, den| {
         let mut scratch = [0u8; 64];
-        let bytes = s.to_ww_bytes(&mut scratch).unwrap();
-        assert!(MapSegment::from_ww_bytes(bytes).is_err(), "{num}/{den}");
+        let r = Raw {
+            a0: 5,
+            a1,
+            b0: 7,
+            num: UVlq64(num),
+            den: UVlq64(den),
+            error: 3,
+        };
+        r.to_ww_bytes(&mut scratch).unwrap().to_vec()
+    };
+    let good = MapSegment::from_ww_bytes(&raw(Some(9), 3, 2)).unwrap();
+    assert_eq!(
+        good,
+        MapSegment::new(5, Some(9), 7, Ratio64::new(3, 2).unwrap(), 3).unwrap()
+    );
+    for (a1, num, den) in [
+        (Some(9), 2, 2),
+        (Some(9), 0, 1),
+        (Some(9), 1, 0),
+        (Some(5), 1, 1),
+    ] {
+        assert!(
+            MapSegment::from_ww_bytes(&raw(a1, num, den)).is_err(),
+            "{a1:?} {num}/{den}"
+        );
     }
 }
 
@@ -355,9 +407,14 @@ fn describe_set_is_canonical() {
             Rank::Bundle,
             Rank::Clock(HOST),
             Rank::Clock(WALL),
+            Rank::Clock(EPOCH),
             Rank::Map {
                 from: HOST,
                 to: WALL
+            },
+            Rank::Map {
+                from: HOST,
+                to: EPOCH
             },
             Rank::Track(4),
             Rank::Other,
@@ -418,6 +475,99 @@ fn sticky_records_are_on_their_tracks_clock() {
         write(5, HOST),
         Err(DescribeError::UnknownTrack { track: 5 })
     );
+}
+
+fn map(from: u32, to: u32, segments: &'static [MapSegment]) -> Describe<'static> {
+    Describe::Map(ClockMap {
+        from: UNib32(from),
+        to: UNib32(to),
+        segments: RefVec::Slice { slice: segments },
+    })
+}
+
+/// A map is strictly increasing over all its segments: refused on insert and on decode when a segment overlaps the
+/// one before, follows one without an end, or starts at or below its last value.
+#[test]
+fn maps_increase_across_segments() {
+    let fitted = SEGMENTS[1];
+    assert!(segments_increasing(SEGMENTS));
+    let last = SEGMENTS[0].last().unwrap();
+    assert_eq!(last, SEGMENTS[0].b0 + 999_999);
+    static AT_LAST: [MapSegment; 2] = [
+        SEGMENTS[0],
+        MapSegment {
+            b0: 1_763_164_800_000_999_999,
+            ..SEGMENTS[1]
+        },
+    ];
+    static OVERLAP: [MapSegment; 2] = [
+        SEGMENTS[0],
+        MapSegment {
+            a0: 999_999,
+            ..SEGMENTS[1]
+        },
+    ];
+    static AFTER_OPEN: [MapSegment; 2] = [SEGMENTS[1], SEGMENTS[1]];
+    let mut set = DescribeSet::new();
+    assert_eq!(set.insert(&map(HOST, WALL, &SEGMENTS)), Ok(()));
+    for bad in [&AT_LAST[..], &OVERLAP, &AFTER_OPEN] {
+        let d = map(HOST, WALL, bad);
+        assert_eq!(
+            set.insert(&d),
+            Err(DescribeError::MapNotIncreasing {
+                from: HOST,
+                to: WALL
+            })
+        );
+        let mut scratch = [0u8; 256];
+        let bytes = d.to_ww_bytes(&mut scratch).unwrap();
+        assert!(Describe::from_ww_bytes(bytes).is_err());
+        assert!(DescribeOwned::from_ww_bytes_owned(bytes).is_err());
+    }
+    // one above the last value is fine
+    static ABOVE: [MapSegment; 2] = [
+        SEGMENTS[0],
+        MapSegment {
+            b0: 1_763_164_800_001_000_000,
+            ..SEGMENTS[1]
+        },
+    ];
+    assert_eq!(set.insert(&map(HOST, WALL, &ABOVE)), Ok(()));
+    assert_eq!(fitted.last(), None);
+}
+
+/// An epoch clock needs an exact offset map from the previous epoch's clock; a fitted one doesn't do.
+#[test]
+fn epoch_clocks_need_an_exact_offset() {
+    let without: Vec<_> = sample_describe()
+        .into_iter()
+        .filter(|d| {
+            d.rank()
+                != (Rank::Map {
+                    from: HOST,
+                    to: EPOCH,
+                })
+        })
+        .collect();
+    let mut set = describe_set(without);
+    assert_eq!(
+        set.check(),
+        Err(DescribeError::EpochUnmapped { clock: EPOCH })
+    );
+    static FITTED: [MapSegment; 1] = [MapSegment {
+        a0: 0,
+        a1: None,
+        b0: 0,
+        slope: Ratio64::ONE,
+        error: 5,
+    }];
+    set.insert(&map(HOST, EPOCH, &FITTED)).unwrap();
+    assert_eq!(
+        set.check(),
+        Err(DescribeError::EpochUnmapped { clock: EPOCH })
+    );
+    set.insert(&map(HOST, EPOCH, &EPOCH_START)).unwrap();
+    assert_eq!(set.check(), Ok(()));
 }
 
 /// A clock's resolution is at least one of its ticks: `resolution · rate >= 1`.

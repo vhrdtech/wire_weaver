@@ -1,6 +1,6 @@
 //! What describe records say: the producer, clocks, clock maps, tracks, API bundles and typed items.
 
-use exact_units::Magnitude;
+use exact_units::{Magnitude, Ratio64, Rounding};
 use shrink_wrap::prelude::*;
 
 #[cfg(feature = "std")]
@@ -58,7 +58,8 @@ pub struct ClockDef<'i> {
 pub enum ClockOrigin {
     /// A counter with no known start.
     Free,
-    /// A device's boot; the boot count is the epoch in the clock's key.
+    /// A device's boot; the boot count is the epoch in the clock's key. A restart is a new clock of this origin with
+    /// no exact relation to the one before: only an estimated [ClockMap] relates them.
     Boot,
     /// The Unix epoch, 1970-01-01T00:00:00 UTC.
     UnixEpoch,
@@ -66,24 +67,30 @@ pub enum ClockOrigin {
     MediaStart,
     /// The start of the producer's run.
     RunStart,
+    /// The next epoch of the same counter: a long capture at fine ticks is cut into clock epochs so ticks stay in
+    /// i64. Tick 0 is fixed by an exact offset [ClockMap] (slope 1, error 0) from the previous epoch's clock, which a
+    /// [DescribeSet](crate::DescribeSet) requires. Unlike a restart ([Self::Boot]), the two clocks are one counter.
+    Epoch,
 }
 
 /// A map from clock [from](Self::from) to clock [to](Self::to): segments in ascending, non-overlapping order.
 ///
-/// A tick in no segment is unmapped. A jump (NTP step, restart, drift correction) starts a new segment. A map written
-/// here is known when the describe set is written (a wall clock reading at the start); a map estimated over time is
-/// a track whose items are [MapSegment]s.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
+/// A map is strictly increasing over all its segments, or item order would flip between the clocks: each segment
+/// starts above the last value the one before maps to. A tick in no segment is unmapped. A forward jump (NTP step,
+/// drift correction) starts a new segment; a backward step is a gap or a new clock, never a decreasing segment. A
+/// map written here is known when the describe set is written (a wall clock reading at the start); a map estimated
+/// over time is a track whose items are [MapSegment]s.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone), validate = map_increasing)]
 pub struct ClockMap<'i> {
     pub from: UNib32,
     pub to: UNib32,
     pub segments: RefVec<'i, MapSegment>,
 }
 
-/// `b = b0 + (a - a0) · num / den` for `a` in `[a0, a1)` (`a1` None: to the end), within `± error` ticks of `to`.
+/// `b = b0 + (a - a0) · slope` for `a` in `[a0, a1)` (`a1` None: to the end), within `± error` ticks of `to`.
 ///
-/// The slope is a positive reduced fraction of `to` ticks per `from` tick: a map is strictly increasing. It stays a
-/// plain fraction, not a [Magnitude], since a fitted ratio such as `1000000007/999999931` has primes a `Magnitude`
+/// The slope is a positive reduced fraction of `to` ticks per `from` tick ([Ratio64]), so a map is strictly
+/// increasing. It is not a [Magnitude], since a fitted ratio such as `1000000007/999999931` has primes a `Magnitude`
 /// can't hold.
 #[derive_shrink_wrap(
     borrowed,
@@ -95,64 +102,131 @@ pub struct MapSegment {
     pub a0: i64,
     pub a1: Option<i64>,
     pub b0: i64,
-    pub num: u64,
-    pub den: u64,
+    pub slope: Ratio64,
     /// Bound of the error, in ticks of `to`.
     pub error: u64,
 }
 
 impl MapSegment {
-    /// A segment with the slope `num / den` reduced; None for a zero slope or an empty range.
-    pub fn new(a0: i64, a1: Option<i64>, b0: i64, num: u64, den: u64, error: u64) -> Option<Self> {
-        if num == 0 || den == 0 || a1.is_some_and(|a1| a1 <= a0) {
+    /// A segment; None for an empty range.
+    pub fn new(a0: i64, a1: Option<i64>, b0: i64, slope: Ratio64, error: u64) -> Option<Self> {
+        if a1.is_some_and(|a1| a1 <= a0) {
             return None;
         }
-        let g = gcd(num, den);
         Some(MapSegment {
             a0,
             a1,
             b0,
-            num: num / g,
-            den: den / g,
+            slope,
             error,
         })
     }
 
     /// An offset: `b = b0 + (a - a0)`, slope 1, exact.
-    pub fn offset(a0: i64, b0: i64) -> Self {
+    pub const fn offset(a0: i64, b0: i64) -> Self {
         MapSegment {
             a0,
             a1: None,
             b0,
-            num: 1,
-            den: 1,
+            slope: Ratio64::ONE,
             error: 0,
         }
     }
 
-    /// `a` mapped, rounded toward minus infinity; None outside the segment or when the result leaves i64.
-    pub fn map(&self, a: i64) -> Option<i64> {
+    /// The last value the segment maps to, at `a1 - 1`, rounded down; None for a segment to the end or past i64.
+    pub fn last(&self) -> Option<i64> {
+        self.map(self.a1?.checked_sub(1)?, Rounding::Floor)
+    }
+
+    /// Whether `b = b0 + (a - a0)` exactly: slope 1, error 0.
+    pub fn is_exact_offset(&self) -> bool {
+        self.slope == Ratio64::ONE && self.error == 0
+    }
+
+    /// `a` mapped, rounded by `rounding`; None outside the segment or when `a - a0` or the result leaves i64.
+    pub fn map(&self, a: i64, rounding: Rounding) -> Option<i64> {
         if a < self.a0 || self.a1.is_some_and(|a1| a >= a1) {
             return None;
         }
-        let d = i128::from(a) - i128::from(self.a0);
-        let b = i128::from(self.b0) + (d * i128::from(self.num)).div_euclid(i128::from(self.den));
-        i64::try_from(b).ok()
+        let d = a.checked_sub(self.a0)?;
+        self.b0.checked_add(self.slope.apply_rounded(d, rounding)?)
     }
 
     fn validate(&self) -> Result<(), shrink_wrap::Error> {
-        match MapSegment::new(self.a0, self.a1, self.b0, self.num, self.den, self.error) {
-            Some(s) if s == *self => Ok(()),
-            _ => Err(shrink_wrap::Error::SubtypeOutOfRange),
+        match self.a1 {
+            Some(a1) if a1 <= self.a0 => Err(shrink_wrap::Error::SubtypeOutOfRange),
+            _ => Ok(()),
         }
     }
 }
 
-const fn gcd(mut a: u64, mut b: u64) -> u64 {
-    while b != 0 {
-        (a, b) = (b, a % b);
+/// Whether segments in this order make a strictly increasing map: each starts at or after the end of the one before
+/// (which has an end) and above the last value it maps to.
+pub fn segments_increasing(segments: impl IntoIterator<Item = MapSegment>) -> bool {
+    increasing(segments.into_iter().map(Some))
+}
+
+/// [segments_increasing] over segments read one by one, None for one that didn't read.
+fn increasing(segments: impl Iterator<Item = Option<MapSegment>>) -> bool {
+    let mut prev: Option<MapSegment> = None;
+    for s in segments {
+        let Some(s) = s else { return false };
+        if let Some(p) = prev {
+            let (Some(a1), Some(last)) = (p.a1, p.last()) else {
+                return false;
+            };
+            if s.a0 < a1 || s.b0 <= last {
+                return false;
+            }
+        }
+        prev = Some(s);
     }
-    a
+    true
+}
+
+/// The segments of a [ClockMap], borrowed or owned, for its check on decode.
+trait MapSegments {
+    fn segment_list(&self) -> impl Iterator<Item = Option<MapSegment>>;
+}
+
+impl MapSegments for ClockMap<'_> {
+    fn segment_list(&self) -> impl Iterator<Item = Option<MapSegment>> {
+        self.segments.iter().map(Result::ok)
+    }
+}
+
+#[cfg(feature = "std")]
+impl MapSegments for ClockMapOwned {
+    fn segment_list(&self) -> impl Iterator<Item = Option<MapSegment>> {
+        self.segments.iter().copied().map(Some)
+    }
+}
+
+impl ClockMap<'_> {
+    /// Whether the map is strictly increasing over all its segments ([segments_increasing]).
+    pub fn is_increasing(&self) -> bool {
+        increasing(self.segment_list())
+    }
+
+    /// Whether the map is an exact offset: at least one segment, each of slope 1 and error 0.
+    pub fn is_exact_offset(&self) -> bool {
+        let mut any = false;
+        for s in self.segment_list() {
+            match s {
+                Some(s) if s.is_exact_offset() => any = true,
+                _ => return false,
+            }
+        }
+        any
+    }
+}
+
+fn map_increasing(m: &impl MapSegments) -> Result<(), shrink_wrap::Error> {
+    if increasing(m.segment_list()) {
+        Ok(())
+    } else {
+        Err(shrink_wrap::Error::SubtypeOutOfRange)
+    }
 }
 
 /// A type in an API bundle: the bundle's hash, the crate the type is defined in and its path in that crate

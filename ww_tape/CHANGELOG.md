@@ -12,10 +12,12 @@
 ### 🚀 Features
 
 - `Describe::Clock` (`ClockDef`: number, key, exact rate and resolution as `Magnitude`, `ClockOrigin`, label), `clock_key`, `UNIX_CLOCK_KEY` (STD-117).
-- `Describe::Map`: `ClockMap` of `MapSegment`s with a reduced slope and an error bound, `MapSegment::map` (STD-117).
+- `Describe::Map`: `ClockMap` of `MapSegment`s, slope an exact_units `Ratio64`, error bound; `MapSegment::map` takes a `Rounding` (STD-117).
 - `Describe::Item`: any wire_weaver value by `TypeRef` (bundle hash, crate, type path) (STD-117).
 - `DescribeSet`: describe records in canonical order (`Describe::rank`), written as describe blocks with sticky records; same input, same bytes (STD-117).
 - `DescribeSet` refuses a clock resolution under one tick and a sticky record off its track's clock (STD-117).
+- `ClockOrigin::Epoch`: a counter's next epoch, needing an exact offset map from the one before (STD-117).
+- A `ClockMap` must increase strictly across its segments, checked on decode and by `DescribeSet` (STD-117).
 - Golden file `golden/v2.hex` and a test that two writes of the same input are byte-identical (STD-117).
 
 ### 🚀 Features

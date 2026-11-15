@@ -28,6 +28,10 @@ pub enum DescribeError {
         clock: u32,
         track_clock: u32,
     },
+    /// A map that isn't strictly increasing over its segments.
+    MapNotIncreasing { from: u32, to: u32 },
+    /// An [Epoch](crate::ClockOrigin::Epoch) clock no exact offset map leads to.
+    EpochUnmapped { clock: u32 },
     /// A record longer than a block can be.
     TooLong { len: usize },
 }
@@ -47,6 +51,16 @@ impl core::fmt::Display for DescribeError {
                 write!(f, "clock {clock}: resolution under one tick")
             }
             DescribeError::UnknownTrack { track } => write!(f, "track {track} is not described"),
+            DescribeError::MapNotIncreasing { from, to } => {
+                write!(
+                    f,
+                    "map from clock {from} to {to} is not strictly increasing"
+                )
+            }
+            DescribeError::EpochUnmapped { clock } => write!(
+                f,
+                "epoch clock {clock}: no exact offset map from the previous epoch's clock"
+            ),
             DescribeError::WrongClock {
                 track,
                 clock,
@@ -104,6 +118,10 @@ pub struct DescribeSet {
     named: BTreeMap<(Rank, Vec<u8>), Vec<u32>>,
     /// The clock of every track.
     track_clocks: BTreeMap<u32, u32>,
+    /// Clocks of origin [Epoch](crate::ClockOrigin::Epoch).
+    epoch_clocks: BTreeSet<u32>,
+    /// Every map by its clocks, and whether it is an exact offset.
+    maps: BTreeMap<(u32, u32), bool>,
 }
 
 /// Whether `c`'s resolution is at least one tick: `resolution · rate >= 1`, exactly where both are rational.
@@ -124,7 +142,7 @@ impl DescribeSet {
     }
 
     /// Add `d`, replacing a record with the same key. Refused: a track whose dimensions aren't canonical, a clock
-    /// whose resolution is under one tick.
+    /// whose resolution is under one tick, a map that isn't strictly increasing.
     pub fn insert(&mut self, d: &Describe<'_>) -> Result<(), DescribeError> {
         let bytes = encode(d)?;
         let rank = d.rank();
@@ -151,10 +169,26 @@ impl DescribeSet {
         {
             return Err(DescribeError::Resolution { clock: c.number.0 });
         }
+        if let Describe::Map(m) = d
+            && !m.is_increasing()
+        {
+            return Err(DescribeError::MapNotIncreasing {
+                from: m.from.0,
+                to: m.to.0,
+            });
+        }
         let key = (rank, sub);
         match d {
             Describe::Clock(c) => {
                 self.clocks.insert(c.number.0);
+                if c.origin == crate::ClockOrigin::Epoch {
+                    self.epoch_clocks.insert(c.number.0);
+                } else {
+                    self.epoch_clocks.remove(&c.number.0);
+                }
+            }
+            Describe::Map(m) => {
+                self.maps.insert((m.from.0, m.to.0), m.is_exact_offset());
             }
             Describe::Track(t) => {
                 self.track_clocks.insert(t.number.0, t.clock.0);
@@ -183,11 +217,20 @@ impl DescribeSet {
         self.records.values().map(Vec::as_slice)
     }
 
-    /// Every clock a track or map names is described.
+    /// Every clock a track or map names is described, and an exact offset map leads to every epoch clock.
     pub fn check(&self) -> Result<(), DescribeError> {
         for clock in self.named.values().flatten() {
             if !self.clocks.contains(clock) {
                 return Err(DescribeError::UnknownClock { clock: *clock });
+            }
+        }
+        for clock in &self.epoch_clocks {
+            let mapped = self
+                .maps
+                .iter()
+                .any(|(&(from, to), &exact)| to == *clock && from != *clock && exact);
+            if !mapped {
+                return Err(DescribeError::EpochUnmapped { clock: *clock });
             }
         }
         Ok(())

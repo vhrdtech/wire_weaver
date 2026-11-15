@@ -334,7 +334,7 @@ impl Decoder {
                     .segments
                     .iter()
                     .filter_map(Result::ok)
-                    .find_map(|s| s.map(0));
+                    .find_map(|s| s.map(0, ww_tape::Rounding::Floor));
                 self.wall_ns_at_zero = at_zero.and_then(|t| u64::try_from(t).ok());
             }
             Describe::Bundle { hash, bytes } => {

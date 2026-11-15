@@ -571,3 +571,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - NUM-31, NUM-32, NUM-33, NUM-34, NUM-35, NUM-42, UNIT-6, UNIT-12, UNIT-14, UNIT-19, PT-8, LVL-8, LVL-9, LVL-10, LVL-12, LVL-13, IO-16 | exact_units features landed between the previous and this session's `cargo update -p exact_units` (f2051438 to c132f587); not used by wire_weaver yet.
 - NUM-40, NUM-41, CPX-7 | exact_units features landed with the take-up from c132f58 to 58cc839: exact_units' own, no wire_weaver side yet.
 - NUM-38, NUM-39, UNIT-13, IO-11, IO-14, IO-15 | exact_units features landed with the take-up from d6a7256 to 7b6cc3c: exact_units' own, no wire_weaver side yet.
+- NUM-43, NUM-46, NUM-47, NUM-48, IO-17 | exact_units features landed with the take-up from 7b6cc3c to 1b23330: exact_units' own; ww_tape's clock map slope is NUM-46's `Ratio64` (STD-117).

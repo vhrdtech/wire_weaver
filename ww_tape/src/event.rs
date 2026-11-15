@@ -10,22 +10,6 @@
 //! same form is the item of a [Sticky](crate::Sticky) record of an events track, so a reader joining late gets the
 //! whole event.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use crate::{Ends, EventsDef, uvar_len, varint};
 
 /// An event as a record's item carries it: the start is the record's time.
@@ -93,11 +77,10 @@ impl<'p> EventRecord<'p> {
             (Ends::Instants, Some(_)) => return Err(EventRecordError::EndOnInstants),
             (Ends::Spans, end) => {
                 let end = end.unwrap_or(start);
-                let d = i128::from(end) - i128::from(start);
-                Some(
-                    u64::try_from(d)
-                        .map_err(|_| EventRecordError::EndBeforeStart { start, end })?,
-                )
+                if end < start {
+                    return Err(EventRecordError::EndBeforeStart { start, end });
+                }
+                Some(end.abs_diff(start))
             }
             (Ends::Unknown(_), _) => return Err(EventRecordError::UnknownEnds),
         };
@@ -112,7 +95,11 @@ impl<'p> EventRecord<'p> {
     /// Bytes of the item for a record starting at `start` on a track of `def`.
     pub fn encoded_len(&self, def: EventsDef, start: i64) -> Result<usize, EventRecordError> {
         let (d, f) = self.fields(def, start)?;
-        Ok(d.map_or(0, uvar_len) + f.map_or(0, |f| uvar_len(u64::from(f))) + self.payload.len())
+        // past usize: more than any buffer holds
+        d.map_or(0, uvar_len)
+            .checked_add(f.map_or(0, |f| uvar_len(u64::from(f))))
+            .and_then(|n| n.checked_add(self.payload.len()))
+            .ok_or(EventRecordError::Full { needed: usize::MAX })
     }
 
     /// Write the item for a record starting at `start` on a track of `def` into `out`; returns its length. Fits
@@ -124,19 +111,17 @@ impl<'p> EventRecord<'p> {
         out: &mut [u8],
     ) -> Result<usize, EventRecordError> {
         let needed = self.encoded_len(def, start)?;
-        if out.len() < needed {
-            return Err(EventRecordError::Full { needed });
-        }
+        let full = EventRecordError::Full { needed };
         let (d, f) = self.fields(def, start)?;
-        let mut at = 0;
-        if let Some(d) = d {
-            at += varint::put_uvar(&mut out[at..], d).ok_or(EventRecordError::Full { needed })?;
+        let mut rest = out.get_mut(..needed).ok_or(full)?;
+        for v in [d, f.map(u64::from)].into_iter().flatten() {
+            let n = varint::put_uvar(rest, v).ok_or(full)?;
+            rest = core::mem::take(&mut rest).get_mut(n..).ok_or(full)?;
         }
-        if let Some(f) = f {
-            at += varint::put_uvar(&mut out[at..], u64::from(f))
-                .ok_or(EventRecordError::Full { needed })?;
+        if rest.len() != self.payload.len() {
+            return Err(full);
         }
-        out[at..needed].copy_from_slice(self.payload);
+        rest.copy_from_slice(self.payload);
         Ok(needed)
     }
 

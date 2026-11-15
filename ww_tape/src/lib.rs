@@ -71,15 +71,16 @@ pub use ww_version::{FullVersion, Version};
 
 mod describe;
 pub use describe::{
-    ClockDef, ClockMap, ClockOrigin, Describe, Dimension, MapSegment, NO_CLOCK, Producer, Rank,
-    TrackDef, TypeRef, TypedItem, UNIX_CLOCK_KEY, clock_key, segments_increasing, track_id,
+    ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension, MapSegment,
+    NO_CLOCK, Producer, Rank, TrackDef, TypeRef, TypedItem, UNIX_CLOCK_KEY, clock_key,
+    segments_increasing, track_id,
 };
 #[cfg(feature = "std")]
 pub use describe::{
     ClockDefOwned, ClockMapOwned, DescribeOwned, DimensionOwned, ProducerOwned, TrackDefOwned,
     TypeRefOwned, TypedItemOwned,
 };
-pub use exact_units::{Magnitude, Ratio64, Rounding};
+pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
 
 mod varint;
 pub use varint::{ivar_len, uvar_len};

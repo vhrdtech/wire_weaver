@@ -14,6 +14,6 @@ std = ["exact_units/std", "shrink_wrap/std", "ww_version/std"]
 
 [dependencies]
 crc.workspace = true
-exact_units = { workspace = true, features = ["shrink_wrap"] }
+exact_units = { workspace = true, features = ["counting", "shrink_wrap", "time"] }
 shrink_wrap.workspace = true
 ww_version.workspace = true

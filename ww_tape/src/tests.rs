@@ -242,16 +242,16 @@ fn sample_describe() -> Vec<Describe<'static>> {
         Describe::Clock(ClockDef {
             number: UNib32(WALL),
             key: UNIX_CLOCK_KEY,
-            rate: Magnitude::pow10(9),
-            resolution: Magnitude::pow10(-6),
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::pow10(-6).into(),
             origin: ClockOrigin::UnixEpoch,
             label: "wall",
         }),
         Describe::Clock(ClockDef {
             number: UNib32(HOST),
             key: clock_key(api_root_id("host", 0), &[], 17),
-            rate: Magnitude::pow10(9),
-            resolution: Magnitude::ratio(1, 32768),
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::ratio(1, 32768).into(),
             origin: ClockOrigin::Boot,
             label: "host",
         }),
@@ -270,8 +270,8 @@ fn sample_describe() -> Vec<Describe<'static>> {
         Describe::Clock(ClockDef {
             number: UNib32(EPOCH),
             key: clock_key(api_root_id("host", 0), &[], 17) ^ 1,
-            rate: Magnitude::pow10(9),
-            resolution: Magnitude::ratio(1, 32768),
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::ratio(1, 32768).into(),
             origin: ClockOrigin::Epoch,
             label: "host epoch 1",
         }),
@@ -573,12 +573,12 @@ fn epoch_clocks_need_an_exact_offset() {
 /// A clock's resolution is at least one of its ticks: `resolution · rate >= 1`.
 #[test]
 fn clock_resolution_at_least_a_tick() {
-    let clock = |rate, resolution| {
+    let clock = |rate: Magnitude, resolution: Magnitude| {
         Describe::Clock(ClockDef {
             number: UNib32(1),
             key: 1,
-            rate,
-            resolution,
+            rate: rate.into(),
+            resolution: resolution.into(),
             origin: ClockOrigin::Free,
             label: "c",
         })

@@ -605,16 +605,16 @@ impl Inner {
             number: UNib32(HOST_CLOCK),
             // a run of the recorder is a clock of its own
             key: ww_tape::clock_key(api_root, &[], st.wall_ns_at_zero),
-            rate: Magnitude::pow10(9),
-            resolution: Magnitude::pow10(-9),
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::pow10(-9).into(),
             origin: ClockOrigin::RunStart,
             label: "tap",
         }));
         add(&Describe::Clock(ClockDef {
             number: UNib32(WALL_CLOCK),
             key: ww_tape::UNIX_CLOCK_KEY,
-            rate: Magnitude::pow10(9),
-            resolution: Magnitude::pow10(-9),
+            rate: Magnitude::pow10(9).into(),
+            resolution: Magnitude::pow10(-9).into(),
             origin: ClockOrigin::UnixEpoch,
             label: "wall",
         }));

@@ -1,6 +1,7 @@
 //! What describe records say: the producer, clocks, clock maps, tracks, API bundles and typed items.
 
-use exact_units::{Magnitude, Ratio64, Rounding};
+use exact_units::units::{Per, Second, Tick};
+use exact_units::{MagnitudeOf, Ratio64, Rounding};
 use shrink_wrap::prelude::*;
 
 #[cfg(feature = "std")]
@@ -44,14 +45,21 @@ pub struct ClockDef<'i> {
     /// Stable identity across files and runs, see [clock_key].
     pub key: u64,
     /// Ticks per second, exact (`60000/1001`, `125 MHz`).
-    pub rate: Magnitude,
+    pub rate: ClockRate,
     /// Seconds between two values the clock can really give, exact: `1/32768` for a 32 kHz counter read as
     /// nanoseconds. At least one tick.
-    pub resolution: Magnitude,
+    pub resolution: ClockResolution,
     pub origin: ClockOrigin,
     /// A name for people (`host`, `dev[3].boot[17]`).
     pub label: &'i str,
 }
+
+/// A clock's rate: ticks per second, exact. On the wire exactly its [Magnitude](exact_units::Magnitude).
+pub type ClockRate = MagnitudeOf<Per<Tick, Second>>;
+
+/// A clock's resolution: seconds between two values it can really give, exact. On the wire exactly its
+/// [Magnitude](exact_units::Magnitude).
+pub type ClockResolution = MagnitudeOf<Second>;
 
 /// What tick 0 of a clock is, as an identity, never as a number.
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy), ww_repr = u4)]
@@ -90,7 +98,7 @@ pub struct ClockMap<'i> {
 /// `b = b0 + (a - a0) · slope` for `a` in `[a0, a1)` (`a1` None: to the end), within `± error` ticks of `to`.
 ///
 /// The slope is a positive reduced fraction of `to` ticks per `from` tick ([Ratio64]), so a map is strictly
-/// increasing. It is not a [Magnitude], since a fitted ratio such as `1000000007/999999931` has primes a `Magnitude`
+/// increasing. It is not a [Magnitude](exact_units::Magnitude), since a fitted ratio such as `1000000007/999999931` has primes a `Magnitude`
 /// can't hold.
 #[derive_shrink_wrap(
     borrowed,

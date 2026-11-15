@@ -126,7 +126,7 @@ pub struct DescribeSet {
 
 /// Whether `c`'s resolution is at least one tick: `resolution · rate >= 1`, exactly where both are rational.
 fn resolution_ok(c: &crate::ClockDef<'_>) -> bool {
-    let Ok(ticks) = c.rate.checked_mul(c.resolution) else {
+    let Ok(ticks) = c.rate.magnitude().checked_mul(c.resolution.magnitude()) else {
         return false;
     };
     match ticks.to_ratio() {

@@ -47,23 +47,7 @@
 //! Offsets are from the start of the piece. Ids are opaque: a piece id is 16 bytes, a result id 32 (the producer's,
 //! e.g. a SHA-256 of a run record); all zeros is none.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
-use crate::chunk::{get_u32, get_u64, put_u32};
+use crate::bytes::{array, le_i64, le_u8, le_u32, le_u64, put, put_i64, put_u32, put_u64};
 use crate::index::{IndexError, NONE, seal};
 use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, RunTag, put_header};
 
@@ -72,9 +56,13 @@ pub const TAIL_LEN: usize = 164;
 /// Bytes of the fixed part of a piece head body.
 const HEAD_FIXED_LEN: usize = 112;
 const HEAD_TRACK_LEN: usize = 32;
+/// Where a piece head's tracks start.
+const HEAD_TRACKS_AT: usize = HEADER_LEN + HEAD_FIXED_LEN;
 /// Bytes of the fixed part of a finish body.
 const FINISH_FIXED_LEN: usize = 144;
 const FINISH_TRACK_LEN: usize = 56;
+/// Where a finish block's tracks start.
+const FINISH_TRACKS_AT: usize = HEADER_LEN + FINISH_FIXED_LEN;
 
 const FLAG_HAS_PREV: u32 = 1;
 const FLAG_PIECE: u8 = 1;
@@ -124,7 +112,9 @@ impl PieceId {
             h.update(p);
         }
         let mut out = [0u8; 16];
-        out.copy_from_slice(&h.finalize().as_bytes()[..16]);
+        for (o, b) in out.iter_mut().zip(h.finalize().as_bytes()) {
+            *o = *b;
+        }
         if out == [0; 16] {
             out[0] = 1;
         }
@@ -216,9 +206,28 @@ pub struct PieceHead {
     pub prev_run: RunTag,
 }
 
+/// Bytes of a block of `fixed` bytes of body and `tracks` rows of `row` bytes; `usize::MAX`, longer than any block,
+/// when that overflows.
+const fn block_len_of(fixed: usize, tracks: usize, row: usize) -> usize {
+    HEADER_LEN
+        .saturating_add(fixed)
+        .saturating_add(tracks.saturating_mul(row))
+        .saturating_add(CRC_LEN)
+}
+
 /// Bytes of a piece head block with `tracks`.
 pub const fn piece_head_len(tracks: usize) -> usize {
-    HEADER_LEN + HEAD_FIXED_LEN + tracks * HEAD_TRACK_LEN + CRC_LEN
+    block_len_of(HEAD_FIXED_LEN, tracks, HEAD_TRACK_LEN)
+}
+
+/// The first `len` bytes of `buf` for a block of `tracks` rows: at most a block's length, `buf` long enough.
+fn block_buf(buf: &mut [u8], len: usize, tracks: usize) -> Result<(&mut [u8], u32), IndexError> {
+    let count = u32::try_from(tracks)
+        .ok()
+        .filter(|_| len <= crate::MAX_BLOCK_LEN)
+        .ok_or(IndexError::Invalid("longer than a block"))?;
+    let b = buf.get_mut(..len).ok_or(IndexError::Full { needed: len })?;
+    Ok((b, count))
 }
 
 /// Write a piece head block into `buf`; returns its length.
@@ -229,107 +238,126 @@ pub fn write_piece_head(
     tracks: &[TrackStart],
 ) -> Result<usize, IndexError> {
     let len = piece_head_len(tracks.len());
-    if len > crate::MAX_BLOCK_LEN {
-        return Err(IndexError::Invalid("piece head longer than a block"));
-    }
-    if buf.len() < len {
-        return Err(IndexError::Full { needed: len });
-    }
-    let b = &mut buf[..len];
-    put_header(b, BlockKind::PieceHead, len, tracks.len() as u32, id);
-    b[HEADER_LEN..].fill(0);
-    put_ident(b, 32, 48, 80, &head.ident);
-    put_u32(b, 92, head.prev_run.get());
-    if let Some((hash, id)) = head.prev {
-        put_u32(b, 88, FLAG_HAS_PREV);
-        b[96..128].copy_from_slice(&hash.0);
-        b[128..144].copy_from_slice(&id.0);
-    }
-    for (i, t) in tracks.iter().enumerate() {
-        let at = HEADER_LEN + HEAD_FIXED_LEN + i * HEAD_TRACK_LEN;
-        b[at..at + 8].copy_from_slice(&t.track_id.to_le_bytes());
-        put_u32(b, at + 8, t.track_number);
-        b[at + 16..at + 24].copy_from_slice(&t.next_item.to_le_bytes());
-        b[at + 24..at + 32].copy_from_slice(&t.from_tick.to_le_bytes());
-    }
+    let (b, count) = block_buf(buf, len, tracks.len())?;
+    put_header(b, BlockKind::PieceHead, len, count, id);
+    fill_piece_head(b, head, tracks).ok_or(IndexError::Invalid("piece head layout"))?;
     seal(b);
     Ok(len)
 }
 
-fn put_ident(b: &mut [u8], id_at: usize, result_at: usize, seq_at: usize, ident: &PieceIdent) {
-    b[id_at..id_at + 16].copy_from_slice(&ident.id.0);
-    b[result_at..result_at + 32].copy_from_slice(&ident.result.0);
-    b[seq_at..seq_at + 8].copy_from_slice(&ident.seq.to_le_bytes());
-}
-
-fn get_ident(b: &[u8], id_at: usize, result_at: usize, seq_at: usize) -> PieceIdent {
-    PieceIdent {
-        id: PieceId(arr(b, id_at)),
-        result: ResultId(arr(b, result_at)),
-        seq: get_u64(b, seq_at),
+/// The body of the piece head block `b`, sized for `tracks`.
+fn fill_piece_head(b: &mut [u8], head: &PieceHead, tracks: &[TrackStart]) -> Option<()> {
+    b.get_mut(HEADER_LEN..)?.fill(0);
+    put_ident(b, 32, 48, 80, &head.ident)?;
+    put_u32(b, 92, head.prev_run.get())?;
+    if let Some((hash, id)) = head.prev {
+        put_u32(b, 88, FLAG_HAS_PREV)?;
+        put(b, 96, hash.0)?;
+        put(b, 128, id.0)?;
     }
+    let rows = b
+        .get_mut(HEAD_TRACKS_AT..)?
+        .as_chunks_mut::<HEAD_TRACK_LEN>()
+        .0
+        .iter_mut();
+    for (row, t) in rows.zip(tracks) {
+        put_u64(row, 0, t.track_id)?;
+        put_u32(row, 8, t.track_number)?;
+        put_u64(row, 16, t.next_item)?;
+        put_i64(row, 24, t.from_tick)?;
+    }
+    Some(())
 }
 
-fn arr<const N: usize>(b: &[u8], at: usize) -> [u8; N] {
-    b[at..at + N].try_into().expect("N bytes")
+fn put_ident(
+    b: &mut [u8],
+    id_at: usize,
+    result_at: usize,
+    seq_at: usize,
+    ident: &PieceIdent,
+) -> Option<()> {
+    put(b, id_at, ident.id.0)?;
+    put(b, result_at, ident.result.0)?;
+    put_u64(b, seq_at, ident.seq)
 }
 
-/// Check a good block is of `kind` and holds `fixed` bytes of body plus `per` bytes for each of its count; returns
-/// the count.
-fn body(block: &Block<'_>, kind: BlockKind, fixed: usize, per: usize) -> Result<usize, IndexError> {
+fn get_ident(b: &[u8], id_at: usize, result_at: usize, seq_at: usize) -> Option<PieceIdent> {
+    Some(PieceIdent {
+        id: PieceId(array(b, id_at)?),
+        result: ResultId(array(b, result_at)?),
+        seq: le_u64(b, seq_at)?,
+    })
+}
+
+/// Check a good block is of `kind` and holds `fixed` bytes of body plus `row` bytes for each of its count; returns
+/// the rows.
+fn body<'b>(
+    block: &Block<'b>,
+    kind: BlockKind,
+    fixed: usize,
+    row: usize,
+) -> Result<&'b [u8], IndexError> {
     if block.kind != kind || !block.body_known() {
         return Err(IndexError::Kind);
     }
-    let n = block.record_count as usize;
-    let want = n
-        .checked_mul(per)
-        .and_then(|x| x.checked_add(HEADER_LEN + fixed + CRC_LEN));
-    if want != Some(block.len()) {
+    let n = usize::try_from(block.record_count).ok();
+    if n.map(|n| block_len_of(fixed, n, row)) != Some(block.len()) {
         return Err(IndexError::BadHead);
     }
-    Ok(n)
+    let at = HEADER_LEN.checked_add(fixed);
+    let end = block.len().checked_sub(CRC_LEN);
+    at.zip(end)
+        .and_then(|(at, end)| block.bytes().get(at..end))
+        .ok_or(IndexError::BadHead)
 }
 
 /// A piece head block read in place.
 #[derive(Copy, Clone, Debug)]
 pub struct PieceHeadBlock<'b> {
-    bytes: &'b [u8],
-    tracks: usize,
+    head: PieceHead,
+    /// The tracks, [HEAD_TRACK_LEN] bytes each
+    rows: &'b [u8],
 }
 
 impl<'b> PieceHeadBlock<'b> {
     /// The piece head of a good block.
     pub fn read(block: &Block<'b>) -> Result<Self, IndexError> {
-        let tracks = body(block, BlockKind::PieceHead, HEAD_FIXED_LEN, HEAD_TRACK_LEN)?;
-        Ok(PieceHeadBlock {
-            bytes: block.bytes(),
-            tracks,
-        })
+        let rows = body(block, BlockKind::PieceHead, HEAD_FIXED_LEN, HEAD_TRACK_LEN)?;
+        let head = read_piece_head(block.bytes()).ok_or(IndexError::BadHead)?;
+        Ok(PieceHeadBlock { head, rows })
     }
 
     pub fn head(&self) -> PieceHead {
-        let b = self.bytes;
-        let prev = (get_u32(b, 88) & FLAG_HAS_PREV != 0)
-            .then(|| (ContentHash(arr(b, 96)), PieceId(arr(b, 128))));
-        PieceHead {
-            ident: get_ident(b, 32, 48, 80),
-            prev,
-            prev_run: RunTag::from_u32(get_u32(b, 92)),
-        }
+        self.head
     }
 
     pub fn tracks(&self) -> impl Iterator<Item = TrackStart> + '_ {
-        (0..self.tracks).map(|i| {
-            let at = HEADER_LEN + HEAD_FIXED_LEN + i * HEAD_TRACK_LEN;
-            let b = self.bytes;
-            TrackStart {
-                track_id: get_u64(b, at),
-                track_number: get_u32(b, at + 8),
-                next_item: get_u64(b, at + 16),
-                from_tick: get_u64(b, at + 24) as i64,
-            }
-        })
+        self.rows
+            .as_chunks::<HEAD_TRACK_LEN>()
+            .0
+            .iter()
+            .map_while(|row| {
+                Some(TrackStart {
+                    track_id: le_u64(row, 0)?,
+                    track_number: le_u32(row, 8)?,
+                    next_item: le_u64(row, 16)?,
+                    from_tick: le_i64(row, 24)?,
+                })
+            })
     }
+}
+
+fn read_piece_head(b: &[u8]) -> Option<PieceHead> {
+    let prev = if le_u32(b, 88)? & FLAG_HAS_PREV != 0 {
+        Some((ContentHash(array(b, 96)?), PieceId(array(b, 128)?)))
+    } else {
+        None
+    };
+    Some(PieceHead {
+        ident: get_ident(b, 32, 48, 80)?,
+        prev,
+        prev_run: RunTag::from_u32(le_u32(b, 92)?),
+    })
 }
 
 /// The fixed part of a finish block.
@@ -351,15 +379,15 @@ pub struct Finish {
 
 /// Bytes of a finish block with `tracks`.
 pub const fn finish_len(tracks: usize) -> usize {
-    HEADER_LEN + FINISH_FIXED_LEN + tracks * FINISH_TRACK_LEN + CRC_LEN
+    block_len_of(FINISH_FIXED_LEN, tracks, FINISH_TRACK_LEN)
 }
 
-fn opt(v: Option<u64>) -> [u8; 8] {
-    v.unwrap_or(NONE).to_le_bytes()
+fn opt(v: Option<u64>) -> u64 {
+    v.unwrap_or(NONE)
 }
 
-fn get_opt(b: &[u8], at: usize) -> Option<u64> {
-    Some(get_u64(b, at)).filter(|v| *v != NONE)
+fn get_opt(b: &[u8], at: usize) -> Option<Option<u64>> {
+    le_u64(b, at).map(|v| Some(v).filter(|v| *v != NONE))
 }
 
 /// Write a finish block into `buf`; returns its length.
@@ -370,91 +398,102 @@ pub fn write_finish(
     tracks: &[TrackRange],
 ) -> Result<usize, IndexError> {
     let len = finish_len(tracks.len());
-    if len > crate::MAX_BLOCK_LEN {
-        return Err(IndexError::Invalid("finish longer than a block"));
-    }
-    if buf.len() < len {
-        return Err(IndexError::Full { needed: len });
-    }
-    let b = &mut buf[..len];
-    put_header(b, BlockKind::Finish, len, tracks.len() as u32, id);
-    b[HEADER_LEN..].fill(0);
-    b[32] = finish.state.to_u8();
-    b[40..72].copy_from_slice(&finish.hash.0);
-    b[72..80].copy_from_slice(&opt(finish.checkpoint));
-    b[80..88].copy_from_slice(&opt(finish.final_index));
-    b[88..96].copy_from_slice(&opt(finish.describe));
-    if let Some(ident) = &finish.ident {
-        put_ident(b, 96, 128, 160, ident);
-        put_u32(b, 168, u32::from(FLAG_PIECE));
-    }
-    b[112..128].copy_from_slice(&finish.next.unwrap_or(PieceId::NONE).0);
-    for (i, t) in tracks.iter().enumerate() {
-        let at = HEADER_LEN + FINISH_FIXED_LEN + i * FINISH_TRACK_LEN;
-        b[at..at + 8].copy_from_slice(&t.track_id.to_le_bytes());
-        put_u32(b, at + 8, t.track_number);
-        put_u32(b, at + 12, t.chunks);
-        b[at + 16..at + 24].copy_from_slice(&t.first_item.to_le_bytes());
-        b[at + 24..at + 32].copy_from_slice(&t.items.to_le_bytes());
-        b[at + 32..at + 40].copy_from_slice(&t.first_tick.to_le_bytes());
-        b[at + 40..at + 48].copy_from_slice(&t.last_tick.to_le_bytes());
-        b[at + 48..at + 56].copy_from_slice(&t.latest_end.to_le_bytes());
-    }
+    let (b, count) = block_buf(buf, len, tracks.len())?;
+    put_header(b, BlockKind::Finish, len, count, id);
+    fill_finish(b, finish, tracks).ok_or(IndexError::Invalid("finish layout"))?;
     seal(b);
     Ok(len)
+}
+
+/// The body of the finish block `b`, sized for `tracks`.
+fn fill_finish(b: &mut [u8], finish: &Finish, tracks: &[TrackRange]) -> Option<()> {
+    b.get_mut(HEADER_LEN..)?.fill(0);
+    put(b, 32, [finish.state.to_u8()])?;
+    put(b, 40, finish.hash.0)?;
+    put_u64(b, 72, opt(finish.checkpoint))?;
+    put_u64(b, 80, opt(finish.final_index))?;
+    put_u64(b, 88, opt(finish.describe))?;
+    if let Some(ident) = &finish.ident {
+        put_ident(b, 96, 128, 160, ident)?;
+        put_u32(b, 168, u32::from(FLAG_PIECE))?;
+    }
+    put(b, 112, finish.next.unwrap_or(PieceId::NONE).0)?;
+    let rows = b
+        .get_mut(FINISH_TRACKS_AT..)?
+        .as_chunks_mut::<FINISH_TRACK_LEN>()
+        .0
+        .iter_mut();
+    for (row, t) in rows.zip(tracks) {
+        put_u64(row, 0, t.track_id)?;
+        put_u32(row, 8, t.track_number)?;
+        put_u32(row, 12, t.chunks)?;
+        put_u64(row, 16, t.first_item)?;
+        put_u64(row, 24, t.items)?;
+        put_i64(row, 32, t.first_tick)?;
+        put_i64(row, 40, t.last_tick)?;
+        put_i64(row, 48, t.latest_end)?;
+    }
+    Some(())
 }
 
 /// A finish block read in place.
 #[derive(Copy, Clone, Debug)]
 pub struct FinishBlock<'b> {
-    bytes: &'b [u8],
-    tracks: usize,
+    finish: Finish,
+    /// The tracks, [FINISH_TRACK_LEN] bytes each
+    rows: &'b [u8],
 }
 
 impl<'b> FinishBlock<'b> {
     /// The finish of a good block.
     pub fn read(block: &Block<'b>) -> Result<Self, IndexError> {
-        let tracks = body(block, BlockKind::Finish, FINISH_FIXED_LEN, FINISH_TRACK_LEN)?;
-        if FinishState::from_u8(block.bytes()[32]).is_none() {
-            return Err(IndexError::BadHead);
-        }
-        Ok(FinishBlock {
-            bytes: block.bytes(),
-            tracks,
-        })
+        let rows = body(block, BlockKind::Finish, FINISH_FIXED_LEN, FINISH_TRACK_LEN)?;
+        let finish = read_finish(block.bytes()).ok_or(IndexError::BadHead)?;
+        Ok(FinishBlock { finish, rows })
     }
 
     pub fn finish(&self) -> Finish {
-        let b = self.bytes;
-        let piece = get_u32(b, 168) & u32::from(FLAG_PIECE) != 0;
-        let next = PieceId(arr(b, 112));
-        Finish {
-            state: FinishState::from_u8(b[32]).expect("checked in read"),
-            hash: ContentHash(arr(b, 40)),
-            checkpoint: get_opt(b, 72),
-            final_index: get_opt(b, 80),
-            describe: get_opt(b, 88),
-            ident: piece.then(|| get_ident(b, 96, 128, 160)),
-            next: (!next.is_none()).then_some(next),
-        }
+        self.finish
     }
 
     pub fn tracks(&self) -> impl Iterator<Item = TrackRange> + '_ {
-        (0..self.tracks).map(|i| {
-            let at = HEADER_LEN + FINISH_FIXED_LEN + i * FINISH_TRACK_LEN;
-            let b = self.bytes;
-            TrackRange {
-                track_id: get_u64(b, at),
-                track_number: get_u32(b, at + 8),
-                chunks: get_u32(b, at + 12),
-                first_item: get_u64(b, at + 16),
-                items: get_u64(b, at + 24),
-                first_tick: get_u64(b, at + 32) as i64,
-                last_tick: get_u64(b, at + 40) as i64,
-                latest_end: get_u64(b, at + 48) as i64,
-            }
-        })
+        self.rows
+            .as_chunks::<FINISH_TRACK_LEN>()
+            .0
+            .iter()
+            .map_while(|row| {
+                Some(TrackRange {
+                    track_id: le_u64(row, 0)?,
+                    track_number: le_u32(row, 8)?,
+                    chunks: le_u32(row, 12)?,
+                    first_item: le_u64(row, 16)?,
+                    items: le_u64(row, 24)?,
+                    first_tick: le_i64(row, 32)?,
+                    last_tick: le_i64(row, 40)?,
+                    latest_end: le_i64(row, 48)?,
+                })
+            })
     }
+}
+
+/// The fixed part of the finish block `b`; None when its state is none this reader knows.
+fn read_finish(b: &[u8]) -> Option<Finish> {
+    let piece = le_u32(b, 168)? & u32::from(FLAG_PIECE) != 0;
+    let next = PieceId(array(b, 112)?);
+    let ident = if piece {
+        Some(get_ident(b, 96, 128, 160)?)
+    } else {
+        None
+    };
+    Some(Finish {
+        state: FinishState::from_u8(le_u8(b, 32)?)?,
+        hash: ContentHash(array(b, 40)?),
+        checkpoint: get_opt(b, 72)?,
+        final_index: get_opt(b, 80)?,
+        describe: get_opt(b, 88)?,
+        ident,
+        next: (!next.is_none()).then_some(next),
+    })
 }
 
 /// What a tail block says.
@@ -477,22 +516,29 @@ impl Tail {
     ///
     /// When `buf` is shorter than [TAIL_LEN].
     pub fn write(&self, buf: &mut [u8], id: BlockId) -> usize {
-        assert!(buf.len() >= TAIL_LEN, "a tail is {TAIL_LEN} bytes");
-        let b = &mut buf[..TAIL_LEN];
-        put_header(b, BlockKind::Tail, TAIL_LEN, 0, id);
-        b[HEADER_LEN..].fill(0);
-        b[32..40].copy_from_slice(&self.piece_len.to_le_bytes());
-        b[40..48].copy_from_slice(&self.finish_offset.to_le_bytes());
-        put_u32(b, 48, self.finish_len);
-        b[52] = self.state.to_u8();
-        b[56..88].copy_from_slice(&self.hash.0);
-        if let Some(ident) = &self.ident {
-            b[53] = FLAG_PIECE;
-            put_ident(b, 88, 120, 152, ident);
-        }
-        b[104..120].copy_from_slice(&self.next.unwrap_or(PieceId::NONE).0);
-        seal(b);
+        let written = buf.get_mut(..TAIL_LEN).and_then(|b| {
+            put_header(b, BlockKind::Tail, TAIL_LEN, 0, id);
+            self.fill(b)?;
+            seal(b);
+            Some(())
+        });
+        assert!(written.is_some(), "a tail is {TAIL_LEN} bytes");
         TAIL_LEN
+    }
+
+    /// The body of the tail block `b`, [TAIL_LEN] bytes.
+    fn fill(&self, b: &mut [u8]) -> Option<()> {
+        b.get_mut(HEADER_LEN..)?.fill(0);
+        put_u64(b, 32, self.piece_len)?;
+        put_u64(b, 40, self.finish_offset)?;
+        put_u32(b, 48, self.finish_len)?;
+        put(b, 52, [self.state.to_u8()])?;
+        put(b, 56, self.hash.0)?;
+        if let Some(ident) = &self.ident {
+            put(b, 53, [FLAG_PIECE])?;
+            put_ident(b, 88, 120, 152, ident)?;
+        }
+        put(b, 104, self.next.unwrap_or(PieceId::NONE).0)
     }
 
     /// Read a tail from its [TAIL_LEN] bytes (a file's last ones), CRC checked.
@@ -505,25 +551,35 @@ impl Tail {
         if b.len() != TAIL_LEN || block.record_count != 0 {
             return Err(IndexError::BadHead);
         }
-        let state = FinishState::from_u8(b[52]).ok_or(IndexError::BadHead)?;
-        let piece_len = get_u64(b, 32);
-        let finish_offset = get_u64(b, 40);
-        let finish_len = get_u32(b, 48);
+        Self::read_body(b).ok_or(IndexError::BadHead)
+    }
+
+    /// The tail in the good tail block `b`; None when its state is unknown or its offsets don't fit the piece.
+    fn read_body(b: &[u8]) -> Option<Self> {
+        let state = FinishState::from_u8(le_u8(b, 52)?)?;
+        let piece_len = le_u64(b, 32)?;
+        let finish_offset = le_u64(b, 40)?;
+        let finish_len = le_u32(b, 48)?;
         let fits = finish_offset
-            .checked_add(u64::from(finish_len))
-            .and_then(|end| end.checked_add(TAIL_LEN as u64))
-            .is_some_and(|end| end <= piece_len);
+            .checked_add(u64::from(finish_len))?
+            .checked_add(u64::try_from(TAIL_LEN).ok()?)?
+            <= piece_len;
         if !fits {
-            return Err(IndexError::BadHead);
+            return None;
         }
-        let next = PieceId(arr(b, 104));
-        Ok(Tail {
+        let next = PieceId(array(b, 104)?);
+        let ident = if le_u8(b, 53)? & FLAG_PIECE != 0 {
+            Some(get_ident(b, 88, 120, 152)?)
+        } else {
+            None
+        };
+        Some(Tail {
             piece_len,
             finish_offset,
             finish_len,
             state,
-            hash: ContentHash(arr(b, 56)),
-            ident: (b[53] & FLAG_PIECE != 0).then(|| get_ident(b, 88, 120, 152)),
+            hash: ContentHash(array(b, 56)?),
+            ident,
             next: (!next.is_none()).then_some(next),
         })
     }

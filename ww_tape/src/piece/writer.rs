@@ -1,25 +1,10 @@
 //! [PieceChain]: a recording written as a chain of piece files, cut at chunk boundaries.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use super::{PieceHead, PieceId, PieceIdent, ResultId, TrackStart};
+use crate::index::IndexError;
 use crate::writer::{Finished, SyncPolicy, TapeWriter, WriteError};
 use crate::{ChunkHead, ColumnSpec, IndexPolicy};
 
@@ -134,18 +119,25 @@ impl PieceChain {
             self.cut_now()?;
         }
         self.writer()?.write_chunk(head, columns)?;
-        self.chunks += 1;
+        // a count against the cut policy: past u64::MAX chunks it stays due
+        self.chunks = self.chunks.saturating_add(1);
         Ok(())
     }
 
     /// Cut to a new piece now.
     pub fn cut_now(&mut self) -> Result<(), WriteError> {
-        let next_path = self.dir.join(piece_name(self.seq + 1));
+        let seq = self
+            .seq
+            .checked_add(1)
+            .ok_or(WriteError::Index(IndexError::Invalid(
+                "piece seq past u64::MAX",
+            )))?;
+        let next_path = self.dir.join(piece_name(seq));
         let current = self.writer.take().ok_or(WriteError::Failed)?;
         let (done, next) = current.cut(&next_path)?;
         self.writer = Some(next);
         self.finished.push(done);
-        self.seq += 1;
+        self.seq = seq;
         self.chunks = 0;
         self.started = Instant::now();
         Ok(())

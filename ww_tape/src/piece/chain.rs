@@ -1,21 +1,5 @@
 //! [check_chain]: how the pieces at hand of one recording link up.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use alloc::vec::Vec;
 
 use super::{ContentHash, FinishState, PieceId, PieceIdent};
@@ -81,36 +65,37 @@ impl ChainReport {
 
 /// Order `pieces` of one recording by sequence number and check each link both ways.
 pub fn check_chain(pieces: &[PieceSummary]) -> ChainReport {
-    let mut idx: Vec<usize> = (0..pieces.len()).collect();
-    idx.sort_by_key(|&i| (pieces[i].ident.seq, i));
-    let mut order: Vec<usize> = Vec::with_capacity(idx.len());
+    let mut idx: Vec<(usize, &PieceSummary)> = pieces.iter().enumerate().collect();
+    idx.sort_by_key(|(i, p)| (p.ident.seq, *i));
+    let mut order: Vec<(usize, &PieceSummary)> = Vec::with_capacity(idx.len());
     let mut strays = Vec::new();
-    for i in idx {
+    for (i, p) in idx {
         let same_seq = order
             .last()
-            .is_some_and(|&l| pieces[l].ident.seq == pieces[i].ident.seq);
+            .is_some_and(|(_, l)| l.ident.seq == p.ident.seq);
         let other_result = order
             .first()
-            .is_some_and(|&f| pieces[f].ident.result != pieces[i].ident.result);
+            .is_some_and(|(_, f)| f.ident.result != p.ident.result);
         if same_seq || other_result {
             strays.push(i);
         } else {
-            order.push(i);
+            order.push((i, p));
         }
     }
     let links = order
-        .windows(2)
-        .map(|w| link(&pieces[w[0]], &pieces[w[1]]))
+        .iter()
+        .zip(order.iter().skip(1))
+        .map(|((_, a), (_, b))| link(a, b))
         .collect();
-    let head_cut = order.first().is_some_and(|&f| pieces[f].prev.is_some());
-    let end = match order.last().and_then(|&l| pieces[l].end) {
+    let head_cut = order.first().is_some_and(|(_, f)| f.prev.is_some());
+    let end = match order.last().and_then(|(_, l)| l.end) {
         None => ChainEnd::Open,
         Some((FinishState::Complete, ..)) => ChainEnd::Complete,
         Some((FinishState::Continued, ..)) => ChainEnd::TailCut,
         Some((FinishState::Aborted, ..)) => ChainEnd::Aborted,
     };
     ChainReport {
-        order,
+        order: order.into_iter().map(|(i, _)| i).collect(),
         head_cut,
         links,
         end,
@@ -119,7 +104,8 @@ pub fn check_chain(pieces: &[PieceSummary]) -> ChainReport {
 }
 
 fn link(a: &PieceSummary, b: &PieceSummary) -> ChainLink {
-    let missing = b.ident.seq - a.ident.seq - 1;
+    // `order` holds distinct seqs, ascending: b's is past a's
+    let missing = b.ident.seq.abs_diff(a.ident.seq).saturating_sub(1);
     if missing > 0 {
         return ChainLink::Gap { missing };
     }

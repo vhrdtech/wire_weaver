@@ -89,6 +89,39 @@
 //! at most [GAP_CHECKS_MAX] (4) whole blocks whose header says they go on with the data. On a raw medium ([Medium])
 //! blank space longer than `gap_max` is the end of data; a piece there is one run (`TapeWriter::adopt_block`).
 //!
+//! **Limits.** Every count, length, offset or layout value a reader takes from the bytes is bounded before it sizes
+//! an allocation, a slice or a loop ([FromFile]): by a length already in hand (the block's, a table's) or by one of
+//! these caps. A value past its cap is damage, refused with an error; no file a writer of this crate writes is.
+//!
+//! | Cap | Value | Bounds |
+//! |---|---|---|
+//! | [MAX_BLOCK_LEN] | 64 MiB | a block's length |
+//! | [DECODED_BODY_MAX](body::DECODED_BODY_MAX) | 64 MiB - 36 | a coded body's decoded length |
+//! | [LZ4_DECODED_MAX](lz4::LZ4_DECODED_MAX) | 64 MiB | an lz4 column's decoded length |
+//! | [MAX_BLOCK_CLOCKS] | 16 | the clocks of one block's clock table |
+//! | [MAX_RECORD_HEAD] | 25 | a record head's bytes |
+//! | [MAX_CLOCK_TABLE] | 81 | a clock table's bytes |
+//! | [MAX_COLUMNS](chunk::MAX_COLUMNS) | 255 | a chunk's columns |
+//! | [SEGMENT_SHIFT_MAX](chunk::SEGMENT_SHIFT_MAX) | 24 | a chunk's segment shift (16 MiB segments) |
+//! | [MAX_SEGMENTS](chunk::MAX_SEGMENTS) | 16384 | a chunk's segments |
+//! | [Codec::SERIES_ITEMS_MAX](chunk::Codec::SERIES_ITEMS_MAX) | 65535 | the items of a chunk with a series payloads column |
+//! | [WIDTH_MAX](bitpack::WIDTH_MAX) | 64 | a bit width ([bitpack::Width]) |
+//! | [KERNEL_WIDTH_MAX](bitpack::KERNEL_WIDTH_MAX) | 32 | a bit width the 32-bit kernels unpack |
+//! | [SLOPE_MAX](times::SLOPE_MAX) | 2^55 | a start group's slope (Q16 ticks per item) |
+//! | [INDEX_LEN_MAX](index::INDEX_LEN_MAX) | 1 MiB | an index block a writer makes, and a reader looks for from the end |
+//! | [CHECKPOINT_ENTRIES_MAX](index::CHECKPOINT_ENTRIES_MAX) | 14562 | entries a writer puts in a checkpoint index block |
+//! | [NODE_SHIFT_MAX](summary::NODE_SHIFT_MAX) | 62 | a summary node's items, as a power of 2 |
+//! | [LEVEL_MAX](summary::LEVEL_MAX) | 15 | a summary tree's level |
+//! | [SCALE_LEN_MAX](summary::SCALE_LEN_MAX) | 64 | a series summary's scale bytes |
+//! | [FACTOR_MAX](summary::FACTOR_MAX) | 2^53 | a factor to the common scale |
+//! | [SeriesSummarySpec::BASE_SHIFT_MAX](summary::SeriesSummarySpec::BASE_SHIFT_MAX) | 24 | a series summary's base node, as a power of 2 |
+//! | [SERIES_CHANNELS_MAX](series::SERIES_CHANNELS_MAX) | 65535 | a series track's channels |
+//! | [GAP_MAX_MAX] | 64 MiB | a layout's gap |
+//! | [GAP_PROBES_MAX] | 8192 | the resume places a reader probes in one gap |
+//! | [GAP_CHECKS_MAX] | 4 | the blocks a reader checks whole past one gap |
+//! | [DESCRIBE_SEEK_BLOCKS_MAX] | 64 | the blocks a reader skips looking for a describe copy |
+//! | [DEFERRED_BYTES_MAX](writer::DEFERRED_BYTES_MAX) | 1 MiB | the deferred blocks a writer keeps |
+//!
 //! The same input gives the same bytes: blocks hold no wall time, describe records go in canonical order
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
 //! One exception: an [lz4] payload column is identical only for one `lz4_flex` version on targets of the

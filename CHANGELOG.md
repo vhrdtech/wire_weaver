@@ -91,8 +91,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape` format provisions (STD-129, breaking): run tags, gaps on raw media, duplicates, describe copies, coded bodies, reserved codes. See the `ww_tape`, `ww_tap` and `wire_weaver_client` changelogs.
 - Crate snapshots list traits, types and crates in a canonical order, not source order (EVO-77): moving or reordering code no longer makes a snapshot stale. The `ww_stdlib`, `ww_global`, `ww_tap` and exact_units snapshots are saved again, order only; nothing is in use, so this needs no compatibility step. See the `wire_weaver_core` and `wire_weaver_snapshots` changelogs.
 - Zero-cost check (TEST-34): `just zero-cost BASE_DIR` compares API bundle digests and firmware section hashes of a base checkout and this tree. A development tool, no crate changes.
-- `ww_tape` hardening (STD-131): no panics on file bytes, checked arithmetic, `FromFile` and named caps; float codecs other than ALP move to the benchmarks. See the `ww_tape` changelog.
 - `ww_tape` sample codecs (STD-119): raw device formats, delta bit-packing and lz4 payloads, read in place. See the `ww_tape` changelog.
+- `ww_tape` hardening (STD-131): no panics on file bytes, checked arithmetic, `FromFile` and named caps; float codecs other than ALP move to the benchmarks; `ww_tape_fuzz` builds hostile blocks per decoder and replays its seeds in `just test`. See the `ww_tape` changelog.
 
 ### Added
 

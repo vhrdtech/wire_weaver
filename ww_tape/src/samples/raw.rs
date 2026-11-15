@@ -39,7 +39,7 @@ const fn width<T: Sample>() -> usize {
 
 /// The low `bits` bits set: none for 0, all for 64 and up.
 #[inline(always)]
-const fn mask(bits: u32) -> u64 {
+pub(super) const fn mask(bits: u32) -> u64 {
     // a shift by 64 (bits 0) is None: no bit set
     match u64::MAX.checked_shr(u64::BITS.saturating_sub(bits)) {
         Some(m) => m,
@@ -135,7 +135,7 @@ pub(super) fn decode_be<T: Sample>(
 
 /// Sign-extend the low `bits` of `v`, `bits` 1 to 64.
 #[inline(always)]
-const fn sign_extend(v: u64, bits: u32) -> i64 {
+pub(super) const fn sign_extend(v: u64, bits: u32) -> i64 {
     let sh = u64::BITS.wrapping_sub(bits);
     v.wrapping_shl(sh).cast_signed().wrapping_shr(sh)
 }

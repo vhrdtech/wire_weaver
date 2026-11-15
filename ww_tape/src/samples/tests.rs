@@ -551,6 +551,16 @@ fn random_columns_never_panic() {
 }
 
 #[test]
+fn grouped_columns_stay_under_4_gib() {
+    // 2^29 u64 values are 4 GiB of data, past what a table end addresses: refused, not a panic in encode
+    let s = SampleShape::scalar(Element::U64);
+    for c in [Codec::DELTA, Codec::DELTA2] {
+        assert_eq!(max_encoded_len(c, s, 1 << 29), Err(SampleError::BadShape));
+        assert!(max_encoded_len(c, s, 1 << 20).is_ok());
+    }
+}
+
+#[test]
 fn raw_ranges_past_the_bytes_are_errors() {
     let short = [0u8; 3];
     assert_eq!(

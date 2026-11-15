@@ -1,27 +1,11 @@
 //! Delta codecs: first- or second-order differences, frame of reference, bit-packed per group of [DELTA_GROUP]
 //! samples on the shared [bitpack](crate::bitpack) primitive.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
-use super::{DELTA_GROUP, Sample, SampleError};
+use super::raw::{mask, sign_extend};
+use super::{
+    DELTA_GROUP, ENTRY, GroupJob, GroupReader, GroupWriter, Sample, SampleError, decode_grouped,
+};
 use crate::bitpack;
-use core::ops::Range;
-
-use super::ENTRY;
 
 /// How a delta codec sees values.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -30,48 +14,21 @@ pub(super) struct Flavor {
     pub order: u8,
 }
 
-#[inline(always)]
-const fn mask(bits: u32) -> u64 {
-    if bits >= 64 {
-        u64::MAX
-    } else {
-        (1u64 << bits) - 1
-    }
-}
-
-/// Sign-extend the low `bits` of `v`.
-#[inline(always)]
-fn signed(v: u64, bits: u32) -> i64 {
-    ((v << (64 - bits)) as i64) >> (64 - bits)
-}
-
-/// Bytes of a lane's header in a group: first value, first difference (order 2), the minimum, the width byte.
-const fn header_len(order: u8, bytes: usize) -> usize {
-    bytes * (1 + order as usize) + 1
-}
-
-/// The most bytes `count` samples of `values` scalars of `w` bits code into.
+/// The most bytes `count` samples of `values` scalars of `w` bits code into: the table and, per group and lane, the
+/// header (first value, first difference for order 2, minimum, width byte) with a spare byte, and the values at
+/// full width. None past what the table's `u32` ends can address.
 pub(super) fn max_len(order: u8, count: usize, values: usize, w: u32) -> Option<usize> {
     let groups = count.div_ceil(DELTA_GROUP);
     let lanes = values.checked_div(count).unwrap_or(0);
-    let headers = groups
-        .checked_mul(lanes)?
-        .checked_mul(header_len(order, (w / 8) as usize) + 1)?;
-    let packed = values.checked_mul((w / 8) as usize)?;
-    (groups * ENTRY).checked_add(headers)?.checked_add(packed)
-}
-
-fn put(out: &mut [u8], at: &mut usize, v: u64, bytes: usize) {
-    out[*at..*at + bytes].copy_from_slice(&v.to_le_bytes()[..bytes]);
-    *at += bytes;
-}
-
-fn get(src: &[u8], at: &mut usize, bytes: usize) -> Option<u64> {
-    let b = src.get(*at..*at + bytes)?;
-    let mut w = [0u8; 8];
-    w[..bytes].copy_from_slice(b);
-    *at += bytes;
-    Some(u64::from_le_bytes(w))
+    let bytes = usize::try_from(w / 8).ok()?;
+    let header = usize::from(order)
+        .checked_add(1)?
+        .checked_mul(bytes)?
+        .checked_add(2)?;
+    let headers = groups.checked_mul(lanes)?.checked_mul(header)?;
+    let data = values.checked_mul(bytes)?.checked_add(headers)?;
+    u32::try_from(data).ok()?;
+    groups.checked_mul(ENTRY)?.checked_add(data)
 }
 
 /// Code `values` (samples of `lanes` scalars) into `out`, sized by [max_len]; returns the bytes written.
@@ -80,65 +37,91 @@ pub(super) fn encode<T: Sample>(
     values: &[T],
     lanes: usize,
     out: &mut [u8],
-) -> usize {
-    let w = T::ELEMENT.scalar_bits();
-    let bytes = (w / 8) as usize;
-    let m = mask(w);
-    let count = values.len() / lanes;
-    let groups = count.div_ceil(DELTA_GROUP);
-    let table = groups * ENTRY;
-    let mut at = table;
-    let mut residuals = [0u64; DELTA_GROUP];
-    for g in 0..groups {
-        let group = &values[g * DELTA_GROUP * lanes..count.min((g + 1) * DELTA_GROUP) * lanes];
-        let n = group.len() / lanes;
+) -> Result<usize, SampleError> {
+    let full = SampleError::Full { needed: out.len() };
+    let count = values
+        .len()
+        .checked_div(lanes)
+        .ok_or(SampleError::BadShape)?;
+    let table = count
+        .div_ceil(DELTA_GROUP)
+        .checked_mul(ENTRY)
+        .ok_or(SampleError::BadShape)?;
+    let (entries, data) = out.split_at_mut_checked(table).ok_or(full)?;
+    let mut w = GroupWriter { out: data, at: 0 };
+    let group_values = DELTA_GROUP
+        .checked_mul(lanes)
+        .ok_or(SampleError::BadShape)?;
+    for (group, entry) in values
+        .chunks(group_values)
+        .zip(entries.as_chunks_mut::<ENTRY>().0)
+    {
         for l in 0..lanes {
-            let mut lane = [0u64; DELTA_GROUP];
-            for (x, v) in lane.iter_mut().zip(group[l..].iter().step_by(lanes)) {
-                *x = v.to_bits();
-            }
-            let lane = &lane[..n];
-            put(out, &mut at, lane[0], bytes);
-            // differences, wrapping in w bits, then of them again for order 2
-            let mut d = [0u64; DELTA_GROUP];
-            for j in 1..n {
-                d[j - 1] = lane[j].wrapping_sub(lane[j - 1]) & m;
-            }
-            let mut k = n - 1;
-            if flavor.order == 2 {
-                put(out, &mut at, if n > 1 { d[0] } else { 0 }, bytes);
-                for j in 1..k {
-                    d[j - 1] = d[j].wrapping_sub(d[j - 1]) & m;
-                }
-                k = k.saturating_sub(1);
-            }
-            let d = &d[..k];
-            let min = d.iter().map(|x| signed(*x, w)).min().unwrap_or(0);
-            let mut top = 0u64;
-            for (r, x) in residuals.iter_mut().zip(d) {
-                *r = x.wrapping_sub(min as u64) & m;
-                top |= *r;
-            }
-            let width = bitpack::width_of(top);
-            put(out, &mut at, min as u64 & m, bytes);
-            out[at] = width as u8;
-            at += 1;
-            at += bitpack::pack(&mut out[at..], residuals[..k].iter().copied(), width);
+            encode_lane(flavor, &mut w, group.iter().skip(l).step_by(lanes)).ok_or(full)?;
         }
-        let end = u32::try_from(at - table).expect("a column under 4 GiB");
-        out[g * ENTRY..(g + 1) * ENTRY].copy_from_slice(&end.to_le_bytes());
+        // max_len keeps the data under 4 GiB
+        *entry = u32::try_from(w.at).ok().ok_or(full)?.to_le_bytes();
     }
-    at
+    table.checked_add(w.at).ok_or(full)
+}
+
+/// Code a group's lane: its header and its differences minus the minimum, bit-packed.
+fn encode_lane<'v, T: Sample + 'v>(
+    flavor: Flavor,
+    w: &mut GroupWriter<'_>,
+    lane: impl Iterator<Item = &'v T>,
+) -> Option<()> {
+    let bits = T::ELEMENT.scalar_bits();
+    let bytes = size_of::<T>();
+    let m = mask(bits);
+    let mut vals = [0u64; DELTA_GROUP];
+    let mut n = 0usize;
+    for (x, v) in vals.iter_mut().zip(lane) {
+        *x = v.to_bits();
+        n = n.checked_add(1)?;
+    }
+    let vals = vals.get(..n)?;
+    w.uint(*vals.first()?, bytes)?;
+    // differences, wrapping in the scalar's bits, then of them again for order 2
+    let mut d = [0u64; DELTA_GROUP];
+    for (o, (a, b)) in d.iter_mut().zip(vals.iter().zip(vals.iter().skip(1))) {
+        *o = b.wrapping_sub(*a) & m;
+    }
+    // the differences: one fewer than the values, none of a single value
+    let mut k = n.saturating_sub(1);
+    if flavor.order == 2 {
+        let first_delta = if k > 0 { *d.first()? } else { 0 };
+        w.uint(first_delta, bytes)?;
+        let mut dd = [0u64; DELTA_GROUP];
+        for (o, (a, b)) in dd.iter_mut().zip(d.iter().zip(d.iter().skip(1))) {
+            *o = b.wrapping_sub(*a) & m;
+        }
+        d = dd;
+        k = k.saturating_sub(1);
+    }
+    let d = d.get(..k)?;
+    // no difference: minimum 0
+    let min = d
+        .iter()
+        .map(|x| sign_extend(*x, bits))
+        .min()
+        .unwrap_or(0)
+        .cast_unsigned();
+    let mut residuals = [0u64; DELTA_GROUP];
+    let mut top = 0u64;
+    for (r, x) in residuals.iter_mut().zip(d) {
+        *r = x.wrapping_sub(min) & m;
+        top |= *r;
+    }
+    let width = bitpack::width_of(top);
+    w.uint(min & m, bytes)?;
+    w.u8(u8::try_from(width).ok()?)?;
+    w.packed(residuals.iter().copied(), k, width)
 }
 
 /// Check the group table of a column of `count` samples.
 pub(super) fn check_table(bytes: &[u8], count: usize) -> Result<(), SampleError> {
     super::check_table(bytes, count.div_ceil(DELTA_GROUP))
-}
-
-/// The bytes of group `g` in the column, None when the table doesn't hold it.
-pub(super) fn group_range(bytes: &[u8], count: usize, g: usize) -> Option<Range<usize>> {
-    super::table_entry(bytes, count.div_ceil(DELTA_GROUP), g)
 }
 
 /// Decode samples from `first` on into `out` (whole samples of `lanes` scalars) from a column whose table was
@@ -151,89 +134,92 @@ pub(super) fn decode<T: Sample>(
     first: usize,
     out: &mut [T],
 ) -> Result<(), SampleError> {
-    let n = out.len() / lanes;
-    let mut s = first;
-    while s < first + n {
-        let g = s / DELTA_GROUP;
-        let g_first = g * DELTA_GROUP;
-        let g_count = count.min(g_first + DELTA_GROUP) - g_first;
-        let skip = s - g_first;
-        let take = (first + n - s).min(g_count - skip);
-        let range = group_range(bytes, count, g).ok_or(SampleError::Corrupt { group: g })?;
-        // the bytes after the group stay in reach of the unpack kernels
-        let src = &bytes[range.start..];
-        let dst = &mut out[(s - first) * lanes..(s - first + take) * lanes];
-        decode_group(flavor, src, range.len(), g_count, lanes, skip, dst)
-            .ok_or(SampleError::Corrupt { group: g })?;
-        s += take;
-    }
-    Ok(())
+    decode_grouped(bytes, count, lanes, first, out, DELTA_GROUP, |job| {
+        decode_group(flavor, lanes, job)
+    })
 }
 
-/// Decode a group of `g_count` samples whose `len` bytes start `src`, handing out the samples `skip..` into `dst`;
-/// None when it is malformed.
-fn decode_group<T: Sample>(
-    flavor: Flavor,
-    src: &[u8],
-    len: usize,
-    g_count: usize,
-    lanes: usize,
-    skip: usize,
-    dst: &mut [T],
-) -> Option<()> {
-    let w = T::ELEMENT.scalar_bits();
-    let bytes = (w / 8) as usize;
-    let take = dst.len() / lanes;
-    let k = g_count.saturating_sub(usize::from(flavor.order));
-    let group = &src[..len];
-    let mut at = 0;
+/// Decode a group, handing out the samples asked for; None when it is malformed.
+fn decode_group<T: Sample>(flavor: Flavor, lanes: usize, job: GroupJob<'_, '_, T>) -> Option<()> {
+    let GroupJob {
+        rest,
+        len,
+        count,
+        skip,
+        dst,
+    } = job;
+    let bits = T::ELEMENT.scalar_bits();
+    let bytes = size_of::<T>();
+    let take = dst.len().checked_div(lanes)?;
+    // a value takes the residuals before it: the samples asked for are within the group
+    if skip.checked_add(take)? > count.min(DELTA_GROUP) {
+        return None;
+    }
+    // the residuals: one per value past the order, none in a group shorter than it
+    let k = count.saturating_sub(usize::from(flavor.order));
+    let mut r = GroupReader {
+        bytes: rest.get(..len)?,
+        at: 0,
+    };
     let mut residuals = [0u64; DELTA_GROUP];
     for l in 0..lanes {
-        let first = get(group, &mut at, bytes)?;
-        let first_delta = if flavor.order == 2 {
-            get(group, &mut at, bytes)?
-        } else {
-            0
-        };
-        let min = get(group, &mut at, bytes)?;
-        let width = u32::from(*group.get(at)?);
-        at += 1;
-        if width > w {
+        let first = r.uint(bytes)?;
+        let first_delta = if flavor.order == 2 { r.uint(bytes)? } else { 0 };
+        let min = r.uint(bytes)?;
+        let width = u32::from(r.u8()?);
+        if width > bits {
             return None;
         }
-        let packed = bitpack::packed_len(k, width);
-        if at + packed > len {
-            return None;
-        }
-        let lane_src = &src[at..];
-        at += packed;
-        let need = skip + take;
-        if need == 0 {
+        // the bytes after the lane stay in reach of the unpack kernels
+        let lane_src = rest.get(r.at..)?;
+        r.take(bitpack::packed_len(k, width))?;
+        if take == 0 {
             continue;
         }
         bitpack::unpack_u64(lane_src, width, &mut residuals);
-        let mut v = first;
-        let mut d = first_delta;
-        let emit = |i: usize, v: u64, dst: &mut [T]| {
-            if i >= skip {
-                dst[(i - skip) * lanes + l] = T::from_bits(v);
-            }
-        };
-        emit(0, v, dst);
-        if flavor.order == 1 {
-            for i in 1..need {
-                v = v.wrapping_add(residuals[i - 1].wrapping_add(min));
-                emit(i, v, dst);
-            }
+        let header = [first, first_delta, min];
+        if lanes == 1 {
+            rebuild(flavor, header, &residuals, skip, dst.iter_mut());
         } else {
-            for i in 1..need {
-                if i >= 2 {
-                    d = d.wrapping_add(residuals[i - 2].wrapping_add(min));
-                }
-                v = v.wrapping_add(d);
-                emit(i, v, dst);
-            }
+            let slots = dst.chunks_exact_mut(lanes).filter_map(|s| s.get_mut(l));
+            rebuild(flavor, header, &residuals, skip, slots);
         }
     }
-    (at == len).then_some(())
+    (r.at == len).then_some(())
+}
+
+/// Rebuild a lane from its header (first value, first difference, minimum) and residuals, writing the values from
+/// `skip` on into `slots`. Value `i` takes the first `i` residuals, so `skip` and the slots are at most
+/// [DELTA_GROUP] together. Differences wrap in the scalar's bits: the format's meaning.
+#[inline(always)]
+fn rebuild<'o, T: Sample + 'o>(
+    flavor: Flavor,
+    [first, first_delta, min]: [u64; 3],
+    residuals: &[u64; DELTA_GROUP],
+    skip: usize,
+    slots: impl Iterator<Item = &'o mut T>,
+) {
+    let mut res = residuals.iter().map(|r| r.wrapping_add(min));
+    let mut v = first;
+    if flavor.order == 1 {
+        for step in res.by_ref().take(skip) {
+            v = v.wrapping_add(step);
+        }
+        for (o, step) in slots.zip(res) {
+            *o = T::from_bits(v);
+            v = v.wrapping_add(step);
+        }
+    } else {
+        // `d` is the difference to the next value
+        let mut d = first_delta;
+        for step in res.by_ref().take(skip) {
+            v = v.wrapping_add(d);
+            d = d.wrapping_add(step);
+        }
+        for (o, step) in slots.zip(res) {
+            *o = T::from_bits(v);
+            v = v.wrapping_add(d);
+            d = d.wrapping_add(step);
+        }
+    }
 }

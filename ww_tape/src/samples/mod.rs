@@ -354,7 +354,7 @@ pub fn encode<T: Sample>(
         Kind::Le => Ok(raw::encode_le(values, out)),
         Kind::Be => Ok(raw::encode_be(values, out)),
         Kind::Packed(packing) => raw::encode_packed(values, packing, out),
-        Kind::Delta(flavor) => Ok(delta::encode(flavor, values, lanes, out)),
+        Kind::Delta(flavor) => delta::encode(flavor, values, lanes, out),
         Kind::Alp => alp::encode(values, lanes, out),
     }
 }
@@ -424,6 +424,139 @@ fn table_entry(bytes: &[u8], groups: usize, g: usize) -> Option<Range<usize>> {
     };
     let to = end_of(g)?;
     (from <= to).then_some(from..to)
+}
+
+/// Reads a group's bytes front to back; None past the end.
+struct GroupReader<'b> {
+    bytes: &'b [u8],
+    at: usize,
+}
+
+impl<'b> GroupReader<'b> {
+    fn take(&mut self, n: usize) -> Option<&'b [u8]> {
+        let end = self.at.checked_add(n)?;
+        let b = self.bytes.get(self.at..end)?;
+        self.at = end;
+        Some(b)
+    }
+
+    fn u8(&mut self) -> Option<u8> {
+        self.take(1)?.first().copied()
+    }
+
+    /// `n` bytes (at most 8), little endian.
+    fn uint(&mut self, n: usize) -> Option<u64> {
+        let mut w = [0u8; 8];
+        w.get_mut(..n)?.copy_from_slice(self.take(n)?);
+        Some(u64::from_le_bytes(w))
+    }
+}
+
+/// Writes into a buffer the encoder sized; None when it would run past it.
+struct GroupWriter<'o> {
+    out: &'o mut [u8],
+    at: usize,
+}
+
+impl GroupWriter<'_> {
+    fn bytes(&mut self, b: &[u8]) -> Option<()> {
+        let end = self.at.checked_add(b.len())?;
+        self.out.get_mut(self.at..end)?.copy_from_slice(b);
+        self.at = end;
+        Some(())
+    }
+
+    fn u8(&mut self, v: u8) -> Option<()> {
+        self.bytes(&[v])
+    }
+
+    /// The low `n` bytes of `v`, little endian.
+    fn uint(&mut self, v: u64, n: usize) -> Option<()> {
+        self.bytes(v.to_le_bytes().get(..n)?)
+    }
+
+    /// The first `n` of `vals` packed at `width` bits (at most 64).
+    fn packed(&mut self, vals: impl IntoIterator<Item = u64>, n: usize, width: u32) -> Option<()> {
+        let end = self.at.checked_add(crate::bitpack::packed_len(n, width))?;
+        crate::bitpack::pack(
+            self.out.get_mut(self.at..end)?,
+            vals.into_iter().take(n),
+            width,
+        );
+        self.at = end;
+        Some(())
+    }
+}
+
+/// A group of a grouped column to decode: its bytes, its samples and the ones asked for.
+struct GroupJob<'b, 'o, T> {
+    /// The column from the group's start on: the unpack kernels may read past the group.
+    rest: &'b [u8],
+    /// Bytes of the group.
+    len: usize,
+    /// Samples in the group.
+    count: usize,
+    /// Samples of the group before the first one asked for.
+    skip: usize,
+    /// Where the samples asked for go, whole samples of interleaved lanes.
+    dst: &'o mut [T],
+}
+
+/// Decode samples from `first` on into `out` (whole samples of `lanes` scalars) from a grouped column of `count`
+/// samples in groups of `group_len`, a group at a time through `group`, which is None for a malformed group.
+fn decode_grouped<T: Sample>(
+    bytes: &[u8],
+    count: usize,
+    lanes: usize,
+    first: usize,
+    out: &mut [T],
+    group_len: usize,
+    mut group: impl FnMut(GroupJob<'_, '_, T>) -> Option<()>,
+) -> Result<(), SampleError> {
+    let groups = count
+        .checked_div(group_len)
+        .map(|_| count.div_ceil(group_len))
+        .ok_or(SampleError::BadShape)?;
+    let n = out.len().checked_div(lanes).ok_or(SampleError::BadShape)?;
+    let end = first.checked_add(n).ok_or(SampleError::OutOfRange)?;
+    let mut s = first;
+    while s < end {
+        let g = s.checked_div(group_len).ok_or(SampleError::BadShape)?;
+        let corrupt = SampleError::Corrupt { group: g };
+        // s is past g · group_len and under end: none of these overflow, each is checked all the same
+        let g_first = g.checked_mul(group_len).ok_or(SampleError::OutOfRange)?;
+        let g_end = g_first
+            .checked_add(group_len)
+            .ok_or(SampleError::OutOfRange)?;
+        let g_count = count.min(g_end).saturating_sub(g_first);
+        let skip = s.checked_sub(g_first).ok_or(SampleError::OutOfRange)?;
+        let left = end.checked_sub(s).ok_or(SampleError::OutOfRange)?;
+        let take = left.min(g_count.saturating_sub(skip));
+        if take == 0 {
+            return Err(SampleError::OutOfRange);
+        }
+        let range = table_entry(bytes, groups, g).ok_or(corrupt)?;
+        let rest = bytes.get(range.start..).ok_or(corrupt)?;
+        let at = s
+            .checked_sub(first)
+            .and_then(|i| i.checked_mul(lanes))
+            .ok_or(SampleError::OutOfRange)?;
+        let dst = take
+            .checked_mul(lanes)
+            .and_then(|len| at.checked_add(len))
+            .and_then(|to| out.get_mut(at..to))
+            .ok_or(SampleError::OutOfRange)?;
+        group(GroupJob {
+            rest,
+            len: range.len(),
+            count: g_count,
+            skip,
+            dst,
+        })
+        .ok_or(corrupt)?;
+        s = s.checked_add(take).ok_or(SampleError::OutOfRange)?;
+    }
+    Ok(())
 }
 
 /// A sample column read in place: its codec, shape and count, checked against its bytes.

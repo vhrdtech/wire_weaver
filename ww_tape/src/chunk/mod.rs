@@ -39,7 +39,18 @@
 //!
 //! Codec ids name how a column is coded: [Codec::RAW] is the column as plain little-endian values or bytes, ids 1 to
 //! 15 are the event time codec's ([crate::times]), 16 to 47 the sample codecs' ([crate::samples]), 48 lz4 payloads
-//! ([crate::lz4]).
+//! ([crate::lz4]), 49 [Codec::SERIES] reserved.
+//!
+//! A reader refuses a column whose kind or codec it doesn't know, and still reads the chunk's other columns: each
+//! reader ([EventTimes](crate::times::EventTimes), [Payloads](crate::payloads::Payloads),
+//! [Samples](crate::samples::Samples)) takes the columns of its kinds and leaves the rest. Kind 7 is reserved
+//! ([ColumnKind::PAYLOAD_LEAF]).
+//!
+//! **Reserved, not built:** [Codec::SERIES] (49) is a [ColumnKind::Payloads] column holding one shrink_wrap
+//! `Series<T>` of the chunk's items, so items of a fixed-size struct are stored as columns of their fields. Such a
+//! column stands alone: a [ColumnKind::PayloadLengths] column beside it is an error, the chunk holds at most 65535
+//! items and the series' count is the head's count. Until it is built, [Payloads](crate::payloads::Payloads)
+//! refuses it as a codec it doesn't know.
 //!
 //! Bit 7 of the codec byte ([Codec::OUTER]) marks an outer-coded column: its bytes are an outer codec u8, the decoded
 //! length (uvar) and the outer-coded bytes, and the inner codec (bits 0..6, [Codec::inner]) applies to the decoded
@@ -78,6 +89,10 @@ impl Codec {
     /// Plain little-endian values (starts and ends as i64, flags as u32, lengths as u32, samples in the track's
     /// element type) or plain bytes (payload).
     pub const RAW: Codec = Codec(0);
+    /// Reserved: a payloads column holding one shrink_wrap `Series<T>` of the chunk's items (module docs).
+    pub const SERIES: Codec = Codec(49);
+    /// Most items of a chunk whose payloads column is in [Codec::SERIES].
+    pub const SERIES_ITEMS_MAX: u32 = 65_535;
     /// Bit 7 of the codec byte: the column is outer-coded (module docs).
     pub const OUTER: u8 = 0x80;
 
@@ -112,6 +127,10 @@ pub enum ColumnKind {
 }
 
 impl ColumnKind {
+    /// Reserved, kind 7: one leaf of the items' payload struct, its param the leaf's index. Read as
+    /// [ColumnKind::Other] until it is built, so a reader refuses it.
+    pub const PAYLOAD_LEAF: ColumnKind = ColumnKind::Other(7);
+
     pub fn from_u8(v: u8) -> Self {
         match v {
             1 => ColumnKind::Starts,

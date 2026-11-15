@@ -32,6 +32,11 @@ pub enum Element {
 }
 
 impl Element {
+    /// Reserved, code 13: a sample that is a struct of leaves of different element types, the leaf list a later field
+    /// of [SeriesDef](crate::SeriesDef). A reader that doesn't know it refuses the track ([SeriesDef::check](
+    /// crate::SeriesDef::check)) and every column and summary of it, never misreads it.
+    pub const LEAVES: Element = Element::Unknown(13);
+
     /// Every element, by code.
     pub const ALL: [Element; 13] = [
         Element::I8,

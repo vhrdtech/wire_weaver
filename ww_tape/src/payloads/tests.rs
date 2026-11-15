@@ -417,3 +417,66 @@ fn an_outer_coded_column_is_refused_alone() {
     ));
     check(&Payloads::read(&c).unwrap().unwrap(), &w);
 }
+
+/// The rule of the chunk module: a column of a kind or codec this reader doesn't know is refused, by the reader of
+/// its kind, and the chunk's other columns still read.
+#[test]
+fn unknown_columns_are_refused_alone() {
+    let w: Vec<Vec<u8>> = (0..20u8).map(|i| std::vec![i; 3]).collect();
+    let starts: Vec<i64> = (0..20).collect();
+    let times = EncodedTimes::encode(&starts, None, None).unwrap();
+    let p = EncodedPayloads::encode(w.iter().map(Vec::as_slice)).unwrap();
+    let extra = [7u8, 7, 7];
+    let unknown = |kind: ColumnKind| {
+        (
+            ColumnSpec {
+                kind,
+                codec: Codec::RAW,
+                param: 0,
+                len: extra.len(),
+            },
+            &extra[..],
+        )
+    };
+    // columns of unknown kinds beside the good ones, the reserved payload leaf kind among them
+    let cols = times.columns().chain(p.columns()).chain([
+        unknown(ColumnKind::Other(9)),
+        unknown(ColumnKind::PAYLOAD_LEAF),
+    ]);
+    let b = write(&times.head.chunk_head(7, 2, 0), cols);
+    let c = Block::read(&b).unwrap().chunk().unwrap();
+    let kinds: Vec<ColumnKind> = c.columns().map(|c| c.kind).collect();
+    assert!(kinds.contains(&ColumnKind::Other(9)) && kinds.contains(&ColumnKind::Other(7)));
+    assert_eq!(EventTimes::read(&c).unwrap().len(), 20);
+    check(&Payloads::read(&c).unwrap().unwrap(), &w);
+
+    // a payloads column in a codec this reader doesn't know, and in the reserved series codec, with or without the
+    // lengths column beside it: refused, the times still read
+    for (codec, lengths) in [
+        (Codec(60), true),
+        (Codec::SERIES, true),
+        (Codec::SERIES, false),
+    ] {
+        let cols = times
+            .columns()
+            .chain(
+                p.columns()
+                    .into_iter()
+                    .filter(|c| lengths || c.0.kind == ColumnKind::Payloads),
+            )
+            .map(|(mut c, b)| {
+                if c.kind == ColumnKind::Payloads {
+                    c.codec = codec;
+                }
+                (c, b)
+            });
+        let b = write(&times.head.chunk_head(7, 2, 0), cols);
+        let c = Block::read(&b).unwrap().chunk().unwrap();
+        assert_eq!(
+            Payloads::read(&c).err(),
+            Some(PayloadsError::UnknownCodec(ColumnKind::Payloads, codec)),
+            "{codec:?} lengths {lengths}"
+        );
+        assert_eq!(EventTimes::read(&c).unwrap().len(), 20);
+    }
+}

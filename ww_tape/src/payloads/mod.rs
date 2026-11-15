@@ -16,7 +16,8 @@
 //! **Payloads** ([ColumnKind::Payloads]) are the items' bytes back to back, in item order: [Codec::RAW], read in
 //! place, or [Codec::LZ4], decoded once when the chunk is opened. The encoder takes lz4 when it is smaller.
 //!
-//! A chunk has both columns or neither (every payload empty). Numbers are little endian, unaligned.
+//! A chunk has both columns or neither (every payload empty). Numbers are little endian, unaligned. A payloads column
+//! in the reserved [Codec::SERIES] stands alone; this reader refuses it ([PayloadsError::UnknownCodec]).
 //!
 //! A group's lengths are in one form only: the minimum is the group's shortest payload (so the smallest packed value
 //! is 0), the width the bits the largest packed value needs, and the bits after the last value in its last byte 0.
@@ -563,6 +564,11 @@ fn columns<'b>(chunk: &Chunk<'b>) -> Result<Option<(Column<'b>, Column<'b>)>, Pa
         if slot.replace(c).is_some() {
             return Err(PayloadsError::Unexpected(c.kind));
         }
+    }
+    if let Some(p) = payloads
+        && p.codec == Codec::SERIES
+    {
+        return Err(PayloadsError::UnknownCodec(p.kind, p.codec));
     }
     let (l, p) = match (lengths, payloads) {
         (None, None) => return Ok(None),

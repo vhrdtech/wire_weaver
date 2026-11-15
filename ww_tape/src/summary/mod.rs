@@ -41,7 +41,8 @@
 //!  48 u16  fields: the statistics stored (EventFields, SeriesStats bits)
 //!  50 u16  channels of a series, 1 and up; 0 for events
 //!  52 u16  scale length: bytes of the scale after the head, 1 to SCALE_LEN_MAX for a series, 0 for events
-//!  54 u16  reserved, 0
+//!  54 u16  first channel or leaf of this block: reserved, 0 (the block's channels start at channel 0); a reader
+//!          refuses another value
 //!  56 u64  first item: the first item the block covers (the first node's first item, or later in a partial node)
 //!  64 u64  items the block covers, 1 and up; the nodes are those holding items [first, first + items)
 //!  72 i64  first tick: the first covered item's start

@@ -1286,7 +1286,11 @@ fn series_block_scale_is_checked() {
         (52, 3),
         (52, 0xff),
         (53, 0xff),
+        // the first channel or leaf of the block, reserved
         (54, 1),
+        (55, 1),
+        // the reserved leaves element
+        (47, Element::LEAVES.code()),
         (97, 0xff),
     ] {
         let mut x = b.clone();

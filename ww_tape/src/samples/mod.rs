@@ -19,6 +19,7 @@
 //! | 33 | [Codec::DELTA2] | integers | differences of differences, as [Codec::DELTA] |
 //! | 34 | [Codec::FLOAT_DELTA] | floats | [Codec::DELTA] of the bits as ordered integers |
 //! | 35 | [Codec::FLOAT_DELTA2] | floats | [Codec::DELTA2] of the bits as ordered integers |
+//! | 36 | [Codec::RUNS] | `U8`, `U16`, `U32`, `Bool` | reserved: run-coded discrete lanes, refused until built |
 //!
 //! The raw device formats (0 to 22) are what a device sends, stored as it is and converted on read (a packed value
 //! of a signed element is sign-extended); any sample reads in place. Value `i` of an `_LSB` column is bits
@@ -112,6 +113,8 @@ impl Codec {
     pub const FLOAT_DELTA: Codec = Codec(34);
     /// Floats as ordered integers, differences of differences bit-packed per group.
     pub const FLOAT_DELTA2: Codec = Codec(35);
+    /// Reserved: run-coded discrete lanes (`U8`, `U16`, `U32`, `Bool`); a reader refuses it until it is built.
+    pub const RUNS: Codec = Codec(36);
 }
 
 /// Samples per group of the XOR codecs.

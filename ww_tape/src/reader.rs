@@ -650,7 +650,7 @@ impl<S: ByteSource> TapeReader<S> {
         let mut at = 0u64;
         let mut buf = vec![0u8; 1 << 20];
         while at < end {
-            let n = ((end - at) as usize).min(buf.len());
+            let n = read_len(end - at, buf.len());
             self.src
                 .read_at(p.start + at, &mut buf[..n])
                 .map_err(ReadError::Source)?;
@@ -661,9 +661,27 @@ impl<S: ByteSource> TapeReader<S> {
     }
 }
 
+/// How much of `left` bytes fits one read into a `buf`-byte buffer; `left` may pass `usize::MAX` on 32-bit targets.
+fn read_len(left: u64, buf: usize) -> usize {
+    left.min(buf as u64) as usize
+}
+
 fn set_scanned(p: &mut PieceInfo, n: u64) {
     match &mut p.found {
         Found::Checkpoint { scanned } | Found::Scan { scanned } => *scanned = n,
         Found::Tail => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_len;
+
+    #[test]
+    fn read_len_takes_the_buffer_past_4_gib() {
+        assert_eq!(read_len((1 << 32) + 5, 4096), 4096);
+        assert_eq!(read_len(1 << 32, usize::MAX), (1u64 << 32) as usize);
+        assert_eq!(read_len(5, 4096), 5);
+        assert_eq!(read_len(u64::MAX, 1 << 20), 1 << 20);
     }
 }

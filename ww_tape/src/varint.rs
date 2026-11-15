@@ -73,10 +73,6 @@ impl<'b> Reader<'b> {
     }
 
     /// A `uvar` that is a count, a length or an offset: see [FromFile].
-    #[allow(
-        dead_code,
-        reason = "STD-131: the modules move to it as they are hardened"
-    )]
     pub fn uvar_file(&mut self) -> Option<FromFile<u64>> {
         self.uvar().map(FromFile::new)
     }

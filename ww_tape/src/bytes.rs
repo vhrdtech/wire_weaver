@@ -4,11 +4,6 @@
 //! length, an offset or a layout value is read with a `file_*` reader, which hands it out as a [FromFile]: it reaches
 //! a slice length, a loop bound or an allocation only through a named cap or a known length.
 
-#![allow(
-    dead_code,
-    reason = "STD-131: the modules move to these readers as they are hardened"
-)]
-
 use crate::FromFile;
 
 const _: () = assert!(usize::BITS <= u64::BITS, "a usize widens to a u64");

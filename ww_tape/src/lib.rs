@@ -71,9 +71,9 @@ pub use ww_version::{FullVersion, Version};
 
 mod describe;
 pub use describe::{
-    ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension, MapSegment,
-    NO_CLOCK, Producer, Rank, TrackDef, TypeRef, TypedItem, UNIX_CLOCK_KEY, clock_key,
-    segments_increasing, track_id,
+    ALIGNMENT, ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension,
+    Layout, MapSegment, NO_CLOCK, Producer, Rank, TrackDef, TypeRef, TypedItem, UNIX_CLOCK_KEY,
+    clock_key, segments_increasing, track_id,
 };
 #[cfg(feature = "std")]
 pub use describe::{
@@ -81,6 +81,12 @@ pub use describe::{
     TypeRefOwned, TypedItemOwned,
 };
 pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
+
+pub mod chunk;
+pub use chunk::{
+    Chunk, ChunkError, ChunkHead, ChunkHeadError, ChunkWriter, Codec, ColumnKind, ColumnSpec,
+    EndMode,
+};
 
 mod varint;
 pub use varint::{ivar_len, uvar_len};
@@ -124,6 +130,13 @@ pub enum BlockKind {
     /// Records of any tracks, interleaved.
     Records,
     Describe,
+    /// One chunk of one event track ([chunk]).
+    Events,
+    /// One chunk of one fixed-rate series ([chunk]).
+    Series,
+    /// Reserved for parity blocks (one per group of blocks, for archives on poor media); none are written yet, and a
+    /// reader skips them like a kind it doesn't know.
+    Parity,
     /// A kind this reader doesn't know: its body isn't read.
     Other(u8),
 }
@@ -133,6 +146,9 @@ impl BlockKind {
         match v {
             1 => BlockKind::Records,
             2 => BlockKind::Describe,
+            3 => BlockKind::Events,
+            4 => BlockKind::Series,
+            5 => BlockKind::Parity,
             other => BlockKind::Other(other),
         }
     }
@@ -141,6 +157,9 @@ impl BlockKind {
         match self {
             BlockKind::Records => 1,
             BlockKind::Describe => 2,
+            BlockKind::Events => 3,
+            BlockKind::Series => 4,
+            BlockKind::Parity => 5,
             BlockKind::Other(v) => v,
         }
     }
@@ -450,6 +469,8 @@ pub enum BlockError {
     BadMagic,
     BadLength(u32),
     BadCrc,
+    /// The head of a chunk block is bad.
+    Chunk(ChunkHeadError),
     /// The clock table or the records don't parse up to the end, or there are more or fewer than the header says.
     BadRecords,
 }
@@ -463,6 +484,8 @@ pub struct Block<'b> {
     pub seq: u64,
     pub record_count: u32,
     bytes: &'b [u8],
+    /// False for a chunk block handed out by [Block::salvage] whose payload doesn't match its CRCs.
+    intact: bool,
 }
 
 /// A record of a [Block], borrowed from it.
@@ -490,6 +513,25 @@ pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
     Ok(len as usize)
 }
 
+/// Renumber the whole, good block `block` to `seq` and rewrite its CRCs, so a writer that places blocks later than it
+/// made them (a summary or index block filling the gap before an aligned chunk) keeps seqs ascending in the file.
+pub fn set_seq(block: &mut [u8], seq: u64) -> Result<(), BlockError> {
+    let b = Block::read(block)?;
+    if b.len() != block.len() {
+        return Err(BlockError::BadLength(block.len() as u32));
+    }
+    let chunk = b.is_chunk() && b.body_known();
+    block[16..24].copy_from_slice(&seq.to_le_bytes());
+    if chunk {
+        chunk::restamp(block);
+    } else {
+        let len = block.len();
+        let crc = CRC.checksum(&block[..len - CRC_LEN]);
+        block[len - CRC_LEN..].copy_from_slice(&crc.to_le_bytes());
+    }
+    Ok(())
+}
+
 /// The clock table at the start of a body: the slots and where the records start in `body`.
 fn read_clock_table(body: &[u8]) -> Option<(Slots, usize)> {
     let mut rd = varint::Reader(body);
@@ -514,14 +556,44 @@ fn read_clock_table(body: &[u8]) -> Option<(Slots, usize)> {
 
 impl<'b> Block<'b> {
     /// Read the block at the start of `bytes`; bytes after it are not looked at ([Block::len] says where it ends).
+    ///
+    /// A chunk block is checked by its head CRC, its segment CRCs and its block CRC, in one pass over the payload.
     pub fn read(bytes: &'b [u8]) -> Result<Self, BlockError> {
+        let (block, chunk) = Self::read_unchecked(bytes)?;
+        match chunk {
+            Some(c) if c.check_payload() => Ok(block),
+            Some(_) => Err(BlockError::BadCrc),
+            None => {
+                let len = block.len();
+                let crc =
+                    u32::from_le_bytes(bytes[len - CRC_LEN..len].try_into().expect("4 bytes"));
+                if CRC.checksum(&bytes[..len - CRC_LEN]) != crc {
+                    return Err(BlockError::BadCrc);
+                }
+                block.check_records()?;
+                Ok(block)
+            }
+        }
+    }
+
+    /// Read a block as [Self::read] does, but take a chunk block whose payload is damaged as long as its head is good
+    /// (head CRC, ranges): [Self::is_intact] is then false and [Chunk::bad_segments] says what is lost.
+    pub fn salvage(bytes: &'b [u8]) -> Result<Self, BlockError> {
+        let (mut block, chunk) = Self::read_unchecked(bytes)?;
+        match chunk {
+            Some(c) => {
+                block.intact = c.check_payload();
+                Ok(block)
+            }
+            None => Self::read(bytes),
+        }
+    }
+
+    /// The header, and for a chunk block its head checked; no CRC over the payload yet.
+    fn read_unchecked(bytes: &'b [u8]) -> Result<(Self, Option<Chunk<'b>>), BlockError> {
         let len = block_len(bytes)?;
         if bytes.len() < len {
             return Err(BlockError::Short { needed: len });
-        }
-        let crc = u32::from_le_bytes(bytes[len - CRC_LEN..len].try_into().expect("4 bytes"));
-        if CRC.checksum(&bytes[..len - CRC_LEN]) != crc {
-            return Err(BlockError::BadCrc);
         }
         let block = Block {
             version: bytes[4],
@@ -529,22 +601,53 @@ impl<'b> Block<'b> {
             record_count: u32::from_le_bytes(bytes[12..16].try_into().expect("4 bytes")),
             seq: u64::from_le_bytes(bytes[16..24].try_into().expect("8 bytes")),
             bytes: &bytes[..len],
+            intact: true,
         };
-        if !block.body_known() {
-            return Ok(block);
+        if block.body_known() && block.is_chunk() {
+            let chunk = Chunk::read_head(block.bytes).map_err(BlockError::Chunk)?;
+            return Ok((block, Some(chunk)));
         }
-        if block.clock_table().is_none() {
+        Ok((block, None))
+    }
+
+    /// The records parse to the end and are as many as the header says.
+    fn check_records(&self) -> Result<(), BlockError> {
+        if !self.has_records() {
+            return Ok(());
+        }
+        if self.clock_table().is_none() {
             return Err(BlockError::BadRecords);
         }
         let mut n = 0u32;
-        for r in block.records() {
+        for r in self.records() {
             r?;
             n += 1;
         }
-        if n != block.record_count {
+        if n != self.record_count {
             return Err(BlockError::BadRecords);
         }
-        Ok(block)
+        Ok(())
+    }
+
+    /// Whether the block is good throughout. Only [Self::salvage] hands out one that isn't.
+    pub fn is_intact(&self) -> bool {
+        self.intact
+    }
+
+    fn is_chunk(&self) -> bool {
+        matches!(self.kind, BlockKind::Events | BlockKind::Series)
+    }
+
+    fn has_records(&self) -> bool {
+        self.body_known() && matches!(self.kind, BlockKind::Records | BlockKind::Describe)
+    }
+
+    /// The chunk of an events or series block whose body this reader knows.
+    pub fn chunk(&self) -> Option<Chunk<'b>> {
+        if !(self.body_known() && self.is_chunk()) {
+            return None;
+        }
+        Chunk::read_head(self.bytes).ok()
     }
 
     /// The whole block, header and CRC included.
@@ -569,7 +672,7 @@ impl<'b> Block<'b> {
     /// The clock table and where the records start in the block; None when this reader doesn't know the body or
     /// the table doesn't parse.
     fn clock_table(&self) -> Option<(Slots, usize)> {
-        if !self.body_known() {
+        if !self.has_records() {
             return None;
         }
         let (slots, at) = read_clock_table(&self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN])?;
@@ -579,10 +682,10 @@ impl<'b> Block<'b> {
     /// Whether this reader knows the block's body: its version and kind. A block it doesn't know has no
     /// [records](Self::records) for it and is skipped.
     pub fn body_known(&self) -> bool {
-        self.version == VERSION && !matches!(self.kind, BlockKind::Other(_))
+        self.version == VERSION && !matches!(self.kind, BlockKind::Other(_) | BlockKind::Parity)
     }
 
-    /// The records, none for a block whose body this reader doesn't know ([Self::body_known]).
+    /// The records, none for a chunk block or a block whose body this reader doesn't know ([Self::body_known]).
     pub fn records(&self) -> Records<'b> {
         let (slots, body) = match self.clock_table() {
             Some((slots, at)) => (slots, &self.bytes[at..self.bytes.len() - CRC_LEN]),

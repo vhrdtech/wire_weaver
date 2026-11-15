@@ -4,6 +4,9 @@
 
 ### ⚠️ Breaking
 
+- Header bytes 24..32 hold a chunk block's payload offset and head CRC; `BlockError::Chunk` for a bad chunk head (STD-118).
+- `WriteError` gains `Block` and `Chunk`; `Describe` gains `Layout`, which takes variant 6 (STD-118).
+
 - Format version 2 (STD-117): record times are signed i64 ticks of the track's clock (`Record::at: Option<ClockTime>`), deltas coded per clock after a clock table in the body; header bytes 24..32 are reserved, `Block::t_base` is gone.
 - `BlockWriter::new` takes the block's clocks instead of a time base; `push` / `push_with` take a `ClockTime`, describe records go through `push_describe` / `push_describe_with`.
 - `BlockKind::Data` is `BlockKind::Records`; `Producer` has only its name: `wall_ns_at_zero` is a wall clock and a `ClockMap` (STD-117).
@@ -11,6 +14,10 @@
 
 ### 🚀 Features
 
+- Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead`, typed columns with codec ids, read in place (STD-118).
+- A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).
+- `Describe::Layout` and `TapeWriter::set_alignment`: chunk payloads on 4 KiB boundaries, deferred blocks filling the gaps (STD-118).
+- `set_seq` renumbers a block; `BlockKind::Parity` reserved, not written (STD-118).
 - `Describe::Clock` (`ClockDef`: number, key, exact rate and resolution as `Magnitude`, `ClockOrigin`, label), `clock_key`, `UNIX_CLOCK_KEY` (STD-117).
 - `Describe::Map`: `ClockMap` of `MapSegment`s, slope an exact_units `Ratio64`, error bound; `MapSegment::map` takes a `Rounding` (STD-117).
 - `Describe::Item`: any wire_weaver value by `TypeRef` (bundle hash, crate, type path) (STD-117).

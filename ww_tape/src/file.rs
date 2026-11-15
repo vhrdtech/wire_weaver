@@ -110,7 +110,11 @@ pub enum Recovery {
     /// preallocated space) reads as the file up to there. The default.
     #[default]
     Prefix,
-    /// Salvage: report a bad block and read on at the next block magic after it ([FileError::Bad]); no seq check.
+    /// Salvage: report a bad block and read on at the next block magic one byte after its start ([FileError::Bad]);
+    /// no seq check. A chunk block whose head is good (head CRC) but whose payload isn't is handed out instead, with
+    /// [Block::is_intact] false and its bad segments marked ([crate::Chunk::bad_segments]), and the walk goes on
+    /// after it by its length. Any byte may start a block, also in a file aligned for its chunk payloads: a block is
+    /// taken only when its CRCs match.
     Resync,
 }
 
@@ -243,7 +247,18 @@ impl<R: Read> FileBlocks<R> {
                             // re-borrow to tie the block to self
                             return Some(Ok(Block::read(&self.buf[..len]).expect("just read")));
                         }
-                        Err(e) => e,
+                        // a chunk block with a good head: its length holds, the payload is handed out with its bad
+                        // segments marked, and the walk goes on after it without looking for a magic in the payload
+                        Err(e) => match self.salvaged_seq(len) {
+                            Some(seq) => {
+                                self.last_seq = Some(seq);
+                                self.current = len;
+                                return Some(Ok(
+                                    Block::salvage(&self.buf[..len]).expect("just read")
+                                ));
+                            }
+                            None => e,
+                        },
                     },
                     // the rest of the file is in `buf`: a block magic in it means the length was damaged
                     Ok(false)
@@ -268,15 +283,33 @@ impl<R: Read> FileBlocks<R> {
         }))
     }
 
-    /// The next good block, None at the end; what was cut or skipped is handed to `on_error`.
+    /// The next good block, None at the end; what was cut or skipped is handed to `on_error`, a salvaged chunk block
+    /// ([Block::is_intact] false) as [FileError::Bad].
     pub fn next_good(&mut self, mut on_error: impl FnMut(FileError)) -> Option<Block<'_>> {
         loop {
             match self.next_block()? {
-                Ok(_) => break,
+                Ok(b) if b.is_intact() => break,
+                Ok(b) => {
+                    let skipped = b.len() as u64;
+                    on_error(FileError::Bad {
+                        offset: self.offset,
+                        error: BlockError::BadCrc,
+                        skipped,
+                    });
+                }
                 Err(e) => on_error(e),
             }
         }
         Some(Block::read(&self.buf[..self.current]).expect("just read"))
+    }
+
+    /// In [Recovery::Resync], the seq of the damaged chunk block at the start of `buf` (`len` bytes) when its head
+    /// is good.
+    fn salvaged_seq(&self, len: usize) -> Option<u64> {
+        if self.recovery != Recovery::Resync {
+            return None;
+        }
+        Block::salvage(&self.buf[..len]).ok().map(|b| b.seq)
     }
 
     fn cut(&mut self, why: Cut) -> FileError {

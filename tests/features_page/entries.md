@@ -453,6 +453,7 @@ feature tracker.
 - STD-1 | Request and event model | `ww_client_server`, the messages every call is made of. | std_library/ww_client_server.md
 - STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#tape-blocks
 - STD-117 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | transport/tap.md#tape-blocks
+- STD-118 | Tape chunk blocks | Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment. | transport/tap.md#tape-blocks
 
 # Examples
 

@@ -1,5 +1,5 @@
-//! The ww_tape file reader on any bytes: it never panics, every block it gives is a good one, and the prefix walk is
-//! the start of what the salvage walk gives. Describe records of a good block decode or fail, never panic.
+//! The ww_tape file reader on any bytes: it never panics, every block it gives is a good one (or, in the salvage walk,
+//! a chunk with a good head), and the prefix walk is the start of what the salvage walk gives. Describe records of a good block decode or fail, never panic.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
@@ -13,7 +13,12 @@ fn walk(data: &[u8], recovery: Recovery) -> Vec<Vec<u8>> {
     while let Some(b) = rd.next_block() {
         if let Ok(b) = b {
             let bytes = b.bytes().to_vec();
-            assert!(Block::read(&bytes).is_ok());
+            if b.is_intact() {
+                assert!(Block::read(&bytes).is_ok());
+            } else {
+                assert_eq!(recovery, Recovery::Resync);
+                assert!(Block::salvage(&bytes).is_ok_and(|b| !b.is_intact()));
+            }
             for r in b.records().flatten() {
                 if r.at.is_none() {
                     _ = Describe::from_ww_bytes(r.item);

@@ -66,9 +66,9 @@ conformance-update:
     CONFORMANCE=update cargo nextest run -p conformance corpus
     CONFORMANCE=update cargo nextest run -p conformance report
 
-# Rewrite ww_tape's golden file (golden/v2.hex) after a deliberate format change (STD-117)
+# Rewrite ww_tape's golden files (golden/v2.hex, golden/v2-chunks.hex) after a deliberate format change (STD-117, STD-118)
 tape-golden-update:
-    WW_TAPE_GOLDEN=update cargo nextest run -p ww_tape deterministic_and_golden
+    WW_TAPE_GOLDEN=update cargo nextest run -p ww_tape golden
 
 # Fill in the golden bytes of new dispatch_golden cases ("request"/"reply"/an event "?") from the sync server (TEST-31)
 dispatch-golden-update:
@@ -408,3 +408,13 @@ fuzz-shrink-wrap-series-type:
 [working-directory('fuzz')]
 fuzz-shrink-wrap-nesting:
     cargo +nightly fuzz run shrink-wrap-nesting -- -max_len=4096
+
+# Fuzz the ww_tape file reader: prefix and salvage walks over any bytes
+[working-directory('fuzz')]
+fuzz-tape-reader:
+    cargo +nightly fuzz run tape-reader -- -max_len=65536
+
+# Fuzz ww_tape chunk blocks: reading and salvage on any bytes, a flipped bit costs one segment (STD-118)
+[working-directory('fuzz')]
+fuzz-tape-chunk:
+    cargo +nightly fuzz run tape-chunk -- -max_len=262144

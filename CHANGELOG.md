@@ -77,6 +77,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Compressed streams: the device declares the codec, the host decodes it (EVO-73). `StreamOpen` carries one `raw` bit instead of the host's codec offer, `StreamCodec` reads a newer codec as `Unknown` and the host then opens the stream again with `raw`. Wire break; see the `ww_client_server`, `ww_stream`, `wire_weaver_core` and `wire_weaver_client` changelogs.
 - `ww_recorder`, `ww_can_bus`, `ww_i2c` and `ww_dfu` each split their single `lib.rs` into topic modules, every public path kept the same via re-exports (P2401#13nov-0647b). See those crates' changelogs.
 - `docs/features_today.md` no longer reads `exact_units`' `FEATURES.md` from the git checkout `Cargo.lock` pins: a feature landing there turned the next wire_weaver landing red for a tracker this repository doesn't own. The Standard library area now links to `exact_units`' own feature tracker instead of listing its items (P2401#15nov-1304). See the `tests/features_page/entries.md` diff; `FEATURES.md`'s DOC-9 says what the page covers now.
+- `ww_tape` chunk blocks (STD-118): self-locating heads, 4 KiB aligned payloads, CRC per 64 KiB segment, salvage of damaged chunks. See the `ww_tape` changelog.
 
 ### Added
 

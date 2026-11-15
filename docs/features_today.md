@@ -472,6 +472,7 @@ feature tracker.
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
 - **[Tape blocks](transport/tap.md#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
 - **[Tape clocks and describe](transport/tap.md#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
+- **[Tape chunk blocks](transport/tap.md#tape-blocks)**: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

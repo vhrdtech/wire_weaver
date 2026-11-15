@@ -109,6 +109,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "tape-chunk"
+path = "src/tape_chunk.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "link-hello"
 path = "src/link_hello.rs"
 test = false

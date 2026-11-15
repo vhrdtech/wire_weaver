@@ -734,6 +734,8 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
         (1, VERSION + 1, 1),
         (2, VERSION, 9),
         (3, VERSION, 1),
+        // parity: reserved, not read
+        (4, VERSION, 5),
     ] {
         let mut buf = [0u8; 64];
         let mut w = BlockWriter::new(&mut buf, BlockKind::Records, seq, &[C1]);
@@ -757,7 +759,13 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
     }
     assert_eq!(
         seen,
-        [(0, true, 1), (1, false, 0), (2, false, 0), (3, true, 1)]
+        [
+            (0, true, 1),
+            (1, false, 0),
+            (2, false, 0),
+            (3, true, 1),
+            (4, false, 0)
+        ]
     );
     assert_eq!(BlockKind::from_u8(9), BlockKind::Other(9));
 
@@ -773,6 +781,7 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
         Clock(ClockDef<'i>),
         Map(ClockMap<'i>),
         Item(TypedItem<'i>),
+        Layout(Layout),
         Index {
             first_seq: u64,
         },
@@ -783,7 +792,7 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
         .unwrap();
     assert!(matches!(
         Describe::from_ww_bytes(bytes),
-        Ok(Describe::Unknown(6))
+        Ok(Describe::Unknown(7))
     ));
 }
 

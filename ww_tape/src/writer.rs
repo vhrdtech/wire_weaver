@@ -52,6 +52,10 @@ pub enum WriteError {
     Failed,
     /// `create` of a file that is already there.
     Exists(PathBuf),
+    /// A deferred block isn't a good block.
+    Block(crate::BlockError),
+    /// A chunk doesn't encode.
+    Chunk(crate::ChunkError),
 }
 
 impl core::fmt::Display for WriteError {
@@ -63,6 +67,8 @@ impl core::fmt::Display for WriteError {
                 "an earlier write or sync failed, the file takes no more blocks"
             ),
             WriteError::Exists(p) => write!(f, "{} exists", p.display()),
+            WriteError::Block(e) => write!(f, "not a good block: {e:?}"),
+            WriteError::Chunk(e) => write!(f, "chunk doesn't encode: {e:?}"),
         }
     }
 }
@@ -81,7 +87,21 @@ pub struct TapeWriter {
     failed: bool,
     blocks: u64,
     bytes: u64,
+    /// Length of the file before this writer appended to it
+    start: u64,
+    /// 0 or [crate::ALIGNMENT]: where chunk payloads go
+    alignment: u32,
+    /// Seq of the next block placed by the writer: after the last block written
+    next_seq: u64,
+    /// Small blocks waiting for the gap before an aligned chunk payload
+    deferred: Vec<Vec<u8>>,
+    deferred_bytes: usize,
+    /// Reused for encoding chunk blocks
+    chunk_buf: Vec<u8>,
 }
+
+/// Most bytes of deferred blocks a [TapeWriter] keeps before writing them out anyway.
+pub const DEFERRED_BYTES_MAX: usize = 1 << 20;
 
 impl TapeWriter {
     /// A new file at `path`, written as `path.partial` until [Self::finish]; fails if `path` is there.
@@ -111,7 +131,12 @@ impl TapeWriter {
             .create(true)
             .open(path)
             .map_err(io_err("opening the file"))?;
-        let w = Self::new(file, path, None, policy);
+        let mut w = Self::new(file, path, None, policy);
+        w.start = w
+            .file
+            .metadata()
+            .map_err(io_err("reading the file's length"))?
+            .len();
         if !existed {
             w.file.sync_all().map_err(io_err("syncing the new file"))?;
             sync_dir(path).map_err(io_err("syncing the directory"))?;
@@ -130,6 +155,12 @@ impl TapeWriter {
             failed: false,
             blocks: 0,
             bytes: 0,
+            start: 0,
+            alignment: 0,
+            next_seq: 0,
+            deferred: Vec::new(),
+            deferred_bytes: 0,
+            chunk_buf: Vec::new(),
         }
     }
 
@@ -146,8 +177,27 @@ impl TapeWriter {
         self.bytes
     }
 
-    /// Append one whole block (its bytes as [crate::Block::bytes] gives them), then sync if the policy says so.
-    pub fn write_block(&mut self, block: &[u8]) -> Result<(), WriteError> {
+    /// Place chunk payloads on multiples of `alignment` (0 or [crate::ALIGNMENT]), counted from the start of the file;
+    /// the file's describe set says so with a [crate::Layout] record.
+    ///
+    /// # Panics
+    ///
+    /// When `alignment` is neither 0 nor [crate::ALIGNMENT].
+    pub fn set_alignment(&mut self, alignment: u32) {
+        assert!(
+            alignment == 0 || alignment == crate::ALIGNMENT,
+            "alignment is 0 or ALIGNMENT"
+        );
+        self.alignment = alignment;
+    }
+
+    /// Seq the writer gives the next block it places itself ([Self::write_chunk], [Self::defer_block]): one after
+    /// the last block written.
+    pub fn next_seq(&self) -> u64 {
+        self.next_seq
+    }
+
+    fn write_raw(&mut self, block: &[u8]) -> Result<(), WriteError> {
         self.check()?;
         if let Err(error) = self.file.write_all(block) {
             self.failed = true;
@@ -159,12 +209,89 @@ impl TapeWriter {
         self.blocks += 1;
         self.bytes += block.len() as u64;
         self.unsynced += 1;
+        if block.len() >= 24 {
+            let seq = u64::from_le_bytes(block[16..24].try_into().expect("8 bytes"));
+            self.next_seq = seq.wrapping_add(1);
+        }
         let due = match self.policy {
             SyncPolicy::None => false,
             SyncPolicy::EveryBlocks(n) => self.unsynced >= n.max(1),
             SyncPolicy::Interval(t) => self.last_sync.elapsed() >= t,
         };
         if due { self.sync() } else { Ok(()) }
+    }
+
+    /// A small block (summary, index) that may wait for the gap in front of the next aligned chunk payload. It is
+    /// renumbered when placed ([crate::set_seq]), so seqs ascend in the file. In an unaligned file it is written at
+    /// once; past [DEFERRED_BYTES_MAX] waiting, all are.
+    pub fn defer_block(&mut self, block: Vec<u8>) -> Result<(), WriteError> {
+        self.check()?;
+        crate::Block::read(&block).map_err(WriteError::Block)?;
+        if self.alignment == 0 {
+            return self.place(block);
+        }
+        self.deferred_bytes += block.len();
+        self.deferred.push(block);
+        if self.deferred_bytes > DEFERRED_BYTES_MAX {
+            self.flush_deferred()?;
+        }
+        Ok(())
+    }
+
+    /// Write every deferred block now.
+    pub fn flush_deferred(&mut self) -> Result<(), WriteError> {
+        for b in core::mem::take(&mut self.deferred) {
+            self.place(b)?;
+        }
+        self.deferred_bytes = 0;
+        Ok(())
+    }
+
+    fn place(&mut self, mut block: Vec<u8>) -> Result<(), WriteError> {
+        crate::set_seq(&mut block, self.next_seq).map_err(WriteError::Block)?;
+        self.write_raw(&block)
+    }
+
+    /// Encode and append a chunk block numbered [Self::next_seq]. In an aligned file its payload lands on a multiple
+    /// of the alignment: deferred blocks fill the gap in front of it while they fit, in the order they came, the
+    /// rest of the gap is zeros in its head.
+    pub fn write_chunk(
+        &mut self,
+        head: &crate::ChunkHead,
+        columns: &[(crate::ColumnSpec, &[u8])],
+    ) -> Result<(), WriteError> {
+        self.check()?;
+        let payload: usize = columns.iter().map(|(c, _)| c.len).sum();
+        let head_len = crate::chunk::chunk_head_len(columns.len(), payload);
+        if self.alignment != 0 {
+            let mut gap =
+                crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment);
+            while let Some(next) = self.deferred.first()
+                && next.len() <= gap
+            {
+                let b = self.deferred.remove(0);
+                self.deferred_bytes -= b.len();
+                gap -= b.len();
+                self.place(b)?;
+            }
+        }
+        let padding =
+            crate::chunk::chunk_padding(self.start + self.bytes, head_len, self.alignment);
+        let specs: Vec<crate::ColumnSpec> = columns.iter().map(|(c, _)| *c).collect();
+        let len = crate::chunk::chunk_len(&specs, padding);
+        let mut buf = core::mem::take(&mut self.chunk_buf);
+        buf.resize(len, 0);
+        let r = crate::chunk::write_chunk(&mut buf, self.next_seq, head, columns, padding)
+            .map_err(WriteError::Chunk)
+            .and_then(|n| self.write_raw(&buf[..n]));
+        self.chunk_buf = buf;
+        r
+    }
+
+    /// Append one whole block (its bytes as [crate::Block::bytes] gives them, its seq as made), then sync if the
+    /// policy says so.
+    pub fn write_block(&mut self, block: &[u8]) -> Result<(), WriteError> {
+        self.write_raw(block)
     }
 
     /// Sync now if blocks wait and the interval of [SyncPolicy::Interval] is up; call it when no blocks come.
@@ -194,8 +321,10 @@ impl TapeWriter {
         Ok(())
     }
 
-    /// Sync, give a new file its name and sync the directory; the path of the finished file.
+    /// Write the deferred blocks, sync, give a new file its name and sync the directory; the path of the finished
+    /// file.
     pub fn finish(mut self) -> Result<PathBuf, WriteError> {
+        self.flush_deferred()?;
         self.sync()?;
         if let Some(partial) = self.partial.take() {
             std::fs::rename(&partial, &self.path).map_err(io_err("renaming the finished file"))?;

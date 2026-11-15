@@ -24,6 +24,41 @@ pub enum Describe<'i> {
     Map(ClockMap<'i>),
     /// Any wire_weaver value, typed by its bundle and type path: a run record, a media reference, settings.
     Item(TypedItem<'i>),
+    /// How the file's blocks are placed; a file whose describe set has none is not aligned.
+    Layout(Layout),
+}
+
+/// How blocks are placed in a file.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy),
+    validate = Layout::validate
+)]
+pub struct Layout {
+    /// 0, or [ALIGNMENT]: every chunk block's payload starts at a multiple of it in the file, its head and smaller
+    /// blocks filling the gap before it. Series files are aligned, event files not.
+    pub alignment: u32,
+}
+
+/// The alignment of an aligned file: 4 KiB, a page and a direct I/O block.
+pub const ALIGNMENT: u32 = 4096;
+
+impl Layout {
+    /// Not aligned.
+    pub const UNALIGNED: Layout = Layout { alignment: 0 };
+    /// Chunk payloads on 4 KiB boundaries.
+    pub const ALIGNED: Layout = Layout {
+        alignment: ALIGNMENT,
+    };
+
+    fn validate(&self) -> Result<(), shrink_wrap::Error> {
+        if self.alignment == 0 || self.alignment == ALIGNMENT {
+            Ok(())
+        } else {
+            Err(shrink_wrap::Error::SubtypeOutOfRange)
+        }
+    }
 }
 
 /// Who writes the blocks.
@@ -347,6 +382,7 @@ impl TrackDef<'_> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rank {
     Producer,
+    Layout,
     Bundle,
     Clock(u32),
     Map {
@@ -359,11 +395,12 @@ pub enum Rank {
 }
 
 impl Describe<'_> {
-    /// Its place in the canonical order: producer, bundles, clocks, maps, tracks by number, then typed items. Within
+    /// Its place in the canonical order: producer, layout, bundles, clocks, maps, tracks by number, then typed items. Within
     /// a rank bundles go by hash and typed items by their encoded bytes ([DescribeSet](crate::DescribeSet)).
     pub fn rank(&self) -> Rank {
         match self {
             Describe::Producer(_) => Rank::Producer,
+            Describe::Layout(_) => Rank::Layout,
             Describe::Bundle { .. } => Rank::Bundle,
             Describe::Clock(c) => Rank::Clock(c.number.0),
             Describe::Map(m) => Rank::Map {

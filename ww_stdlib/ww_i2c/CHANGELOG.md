@@ -126,6 +126,7 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚙️ Miscellaneous Tasks
 
+- The API snapshot is re-saved after the split into topic modules: the same traits and types, in source order only.
 - Split the single `lib.rs` into topic modules (`error`, `monitor`, `watch`), each re-exported at the crate root
   so every public path stays the same; `ww api check` reports no change. `I2cCapabilities` and the transaction
   types stay in `lib.rs` next to the `I2c` trait: their `MaxLen`/`Range` bounds share its size consts

@@ -1,15 +1,19 @@
-//! XOR float codecs: Gorilla and Chimp control bits, in groups of [XOR_GROUP] samples.
+//! XOR float codecs, bench-only: Gorilla and Chimp control bits, in groups of [XOR_GROUP] samples, after a table of
+//! group ends as ww_tape's grouped codecs have. Not part of the ww_tape format (ids 24 and 25 are reserved there).
 
-use super::{Sample, SampleError, XOR_GROUP};
-use core::ops::Range;
+use ww_tape::Sample;
+
+/// Samples per group.
+pub const XOR_GROUP: usize = 1024;
+
+/// Bytes of a group table entry.
+const ENTRY: usize = 4;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub(super) enum Flavor {
+pub enum Flavor {
     Gorilla,
     Chimp,
 }
-
-use super::ENTRY;
 
 /// Chimp's leading zeros, rounded down, by index.
 const CHIMP_LEADING: [u32; 8] = [0, 8, 12, 16, 18, 20, 22, 24];
@@ -43,7 +47,7 @@ const fn chimp_threshold(w: u32) -> u32 {
 
 /// The most bytes `count` samples of `values` scalars of `w` bits code into: the table, the worst case of both
 /// flavours (`w` plus 14 bits a value) and a byte of padding per group.
-pub(super) fn max_len(count: usize, values: usize, w: u32) -> Option<usize> {
+pub fn max_len(count: usize, values: usize, w: u32) -> Option<usize> {
     let groups = count.div_ceil(XOR_GROUP);
     let bits = values.checked_mul(w as usize + 14)?;
     (groups * (ENTRY + 1)).checked_add(bits.div_ceil(8))
@@ -262,12 +266,7 @@ fn get_chimp(rd: &mut BitReader<'_>, lane: &mut Lane, w: u32) -> Option<u64> {
 }
 
 /// Code `values` (samples of `lanes` scalars) into `out`, sized by [max_len]; returns the bytes written.
-pub(super) fn encode<T: Sample>(
-    flavor: Flavor,
-    values: &[T],
-    lanes: usize,
-    out: &mut [u8],
-) -> usize {
+pub fn encode<T: Sample>(flavor: Flavor, values: &[T], lanes: usize, out: &mut [u8]) -> usize {
     let w = T::ELEMENT.scalar_bits();
     let count = values.len() / lanes;
     let groups = count.div_ceil(XOR_GROUP);
@@ -302,26 +301,27 @@ pub(super) fn encode<T: Sample>(
     groups * ENTRY + wr.at
 }
 
-/// Check the group table of a column of `count` samples.
-pub(super) fn check_table(bytes: &[u8], count: usize) -> Result<(), SampleError> {
-    super::check_table(bytes, count.div_ceil(XOR_GROUP))
+/// The bytes of group `g` of a column of `count` samples, None when the table doesn't hold it.
+fn group_range(bytes: &[u8], count: usize, g: usize) -> Option<core::ops::Range<usize>> {
+    let table = count.div_ceil(XOR_GROUP) * ENTRY;
+    let end_of = |i: usize| -> Option<usize> {
+        let e: [u8; ENTRY] = bytes.get(i * ENTRY..(i + 1) * ENTRY)?.try_into().ok()?;
+        Some(table + u32::from_le_bytes(e) as usize)
+    };
+    let from = if g == 0 { table } else { end_of(g - 1)? };
+    let to = end_of(g)?;
+    (from <= to && to <= bytes.len()).then_some(from..to)
 }
 
-/// The bytes of group `g` in the column; the table was checked.
-pub(super) fn group_range(bytes: &[u8], count: usize, g: usize) -> Range<usize> {
-    super::table_range(bytes, count.div_ceil(XOR_GROUP), g)
-}
-
-/// Decode samples from `first` on into `out` (whole samples of `lanes` scalars) from a column whose table was
-/// checked.
-pub(super) fn decode<T: Sample>(
+/// Decode samples from `first` on into `out` (whole samples of `lanes` scalars); None when the column is malformed.
+pub fn decode<T: Sample>(
     flavor: Flavor,
     bytes: &[u8],
     count: usize,
     lanes: usize,
     first: usize,
     out: &mut [T],
-) -> Result<(), SampleError> {
+) -> Option<()> {
     let w = T::ELEMENT.scalar_bits();
     let n = out.len() / lanes;
     let mut s = first;
@@ -335,17 +335,16 @@ pub(super) fn decode<T: Sample>(
         let dst = &mut out[(s - first) * lanes..(s - first + take) * lanes];
         decode_group(
             flavor,
-            &bytes[group_range(bytes, count, g)],
+            bytes.get(group_range(bytes, count, g)?)?,
             g_count,
             lanes,
             w,
             skip,
             dst,
-        )
-        .ok_or(SampleError::Corrupt { group: g })?;
+        )?;
         s += take;
     }
-    Ok(())
+    Some(())
 }
 
 /// Decode a group of `g_count` samples, handing out the samples `skip..` into `dst`; None when its bits are

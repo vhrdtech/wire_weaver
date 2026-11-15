@@ -1,9 +1,13 @@
-//! `ww_tape_benchmarks`: every float sample codec of `ww_tape` on simulated, decoded and sensor data, against the same
-//! quantities stored as fixed-point integers with `DELTA`. Prints a Markdown table: ratio to the raw floats, and
-//! encode and decode time per value on one core.
+//! `ww_tape_benchmarks`: the float sample codec of `ww_tape` (ALP) and the bench-only float codecs (Gorilla, Chimp,
+//! delta on ordered float bits) on simulated, decoded and sensor data, against the same quantities stored as
+//! fixed-point integers with `DELTA`. Prints a Markdown table: ratio to the raw floats, and encode and decode time per
+//! value on one core.
 
 mod data;
+mod float_delta;
+mod xor;
 
+use anyhow::Context;
 use clap::Parser;
 use data::{Columns, DataSet};
 use std::hint::black_box;
@@ -26,8 +30,127 @@ struct Args {
     repeats: usize,
 }
 
+/// A codec the bench runs: one of ww_tape's, or a bench-only float codec.
+#[derive(Copy, Clone, Debug)]
+enum Coder {
+    Tape(Codec),
+    Xor(xor::Flavor),
+    /// ww_tape's `DELTA` or `DELTA2` on the floats' bits as ordered integers.
+    FloatDelta(Codec),
+}
+
 /// The float codecs, in table order after the fixed-point row.
-const FLOAT_CODECS: [(Codec, &str); 1] = [(Codec::ALP, "ALP")];
+const FLOAT_CODECS: [(Coder, &str); 5] = [
+    (Coder::Xor(xor::Flavor::Gorilla), "GORILLA"),
+    (Coder::Xor(xor::Flavor::Chimp), "CHIMP"),
+    (Coder::FloatDelta(Codec::DELTA), "FLOAT_DELTA"),
+    (Coder::FloatDelta(Codec::DELTA2), "FLOAT_DELTA2"),
+    (Coder::Tape(Codec::ALP), "ALP"),
+];
+
+/// `values` as unsigned integers of the floats' width: their ordered bits.
+fn ordered<T: Sample, U: Sample>(values: &[T], out: &mut Vec<U>) {
+    let w = T::ELEMENT.scalar_bits();
+    out.clear();
+    out.extend(
+        values
+            .iter()
+            .map(|v| U::from_bits(float_delta::to_ordered(v.to_bits(), w))),
+    );
+}
+
+/// Scratch buffers of one coder, sized for a chunk.
+struct Scratch {
+    u32s: Vec<u32>,
+    u64s: Vec<u64>,
+}
+
+impl Coder {
+    fn max_len(self, shape: SampleShape, count: usize, lanes: usize) -> anyhow::Result<usize> {
+        let w = shape.element.scalar_bits();
+        let n = match self {
+            Coder::Tape(c) => {
+                max_encoded_len(c, shape, count).map_err(|e| anyhow::anyhow!("{e:?}"))?
+            }
+            Coder::Xor(_) => xor::max_len(count, count * lanes, w).context("too long")?,
+            Coder::FloatDelta(c) => max_encoded_len(c, int_shape(shape)?, count)
+                .map_err(|e| anyhow::anyhow!("{e:?}"))?,
+        };
+        Ok(n)
+    }
+
+    fn encode<T: Sample>(
+        self,
+        shape: SampleShape,
+        lanes: usize,
+        values: &[T],
+        out: &mut [u8],
+        s: &mut Scratch,
+    ) -> anyhow::Result<usize> {
+        let e = |e| anyhow::anyhow!("{e:?}");
+        match self {
+            Coder::Tape(c) => encode(c, shape, values, out).map_err(e),
+            Coder::Xor(f) => Ok(xor::encode(f, values, lanes, out)),
+            Coder::FloatDelta(c) => {
+                let int = int_shape(shape)?;
+                if int.element == Element::U32 {
+                    ordered(values, &mut s.u32s);
+                    encode(c, int, &s.u32s, out).map_err(e)
+                } else {
+                    ordered(values, &mut s.u64s);
+                    encode(c, int, &s.u64s, out).map_err(e)
+                }
+            }
+        }
+    }
+
+    fn decode<T: Sample>(
+        self,
+        shape: SampleShape,
+        lanes: usize,
+        bytes: &[u8],
+        out: &mut [T],
+        s: &mut Scratch,
+    ) -> anyhow::Result<()> {
+        let e = |e| anyhow::anyhow!("{e:?}");
+        let count = out.len() / lanes;
+        match self {
+            Coder::Tape(c) => Samples::new(c, shape, count, bytes)
+                .and_then(|col| col.decode(0, out))
+                .map_err(e),
+            Coder::Xor(f) => xor::decode(f, bytes, count, lanes, 0, out).context("corrupt column"),
+            Coder::FloatDelta(c) => {
+                let int = int_shape(shape)?;
+                let w = shape.element.scalar_bits();
+                let col = Samples::new(c, int, count, bytes).map_err(e)?;
+                if int.element == Element::U32 {
+                    s.u32s.resize(out.len(), 0);
+                    col.decode(0, &mut s.u32s).map_err(e)?;
+                    for (o, v) in out.iter_mut().zip(&s.u32s) {
+                        *o = T::from_bits(float_delta::from_ordered(u64::from(*v), w));
+                    }
+                } else {
+                    s.u64s.resize(out.len(), 0);
+                    col.decode(0, &mut s.u64s).map_err(e)?;
+                    for (o, v) in out.iter_mut().zip(&s.u64s) {
+                        *o = T::from_bits(float_delta::from_ordered(*v, w));
+                    }
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+/// The unsigned integer shape of a float shape's bits.
+fn int_shape(shape: SampleShape) -> anyhow::Result<SampleShape> {
+    let element = match shape.element {
+        Element::F32 => Element::U32,
+        Element::F64 => Element::U64,
+        e => anyhow::bail!("delta on ordered float bits takes F32 or F64, not {e:?}"),
+    };
+    Ok(SampleShape { element, ..shape })
+}
 
 /// One codec on one set.
 struct Run {
@@ -38,7 +161,7 @@ struct Run {
 
 /// Code every chunk of `cols` and decode it back, checking every bit; the fastest of `repeats` passes.
 fn run<T: Sample>(
-    codec: Codec,
+    codec: Coder,
     shape: SampleShape,
     cols: &[Vec<T>],
     chunk: usize,
@@ -54,15 +177,18 @@ fn run<T: Sample>(
     let values: usize = pieces.iter().map(|p| p.len()).sum();
     let mut coded: Vec<Vec<u8>> = pieces
         .iter()
-        .map(|p| Ok(vec![0u8; max_encoded_len(codec, shape, p.len() / lanes)?]))
-        .collect::<Result<_, ww_tape::SampleError>>()
-        .map_err(|e| anyhow::anyhow!("{e:?}"))?;
+        .map(|p| Ok(vec![0u8; codec.max_len(shape, p.len() / lanes, lanes)?]))
+        .collect::<anyhow::Result<_>>()?;
+    let mut scratch = Scratch {
+        u32s: Vec::with_capacity(chunk * lanes),
+        u64s: Vec::with_capacity(chunk * lanes),
+    };
     let mut lens = vec![0usize; pieces.len()];
     let mut encode_ns = f64::MAX;
     for _ in 0..repeats {
         let start = Instant::now();
         for ((p, out), len) in pieces.iter().zip(&mut coded).zip(&mut lens) {
-            *len = encode(codec, shape, p, out).map_err(|e| anyhow::anyhow!("{e:?}"))?;
+            *len = codec.encode(shape, lanes, p, out, &mut scratch)?;
         }
         encode_ns = encode_ns.min(start.elapsed().as_nanos() as f64 / values as f64);
     }
@@ -71,19 +197,25 @@ fn run<T: Sample>(
     for _ in 0..repeats {
         let start = Instant::now();
         for ((p, out), len) in pieces.iter().zip(&coded).zip(&lens) {
-            let s = Samples::new(codec, shape, p.len() / lanes, &out[..*len])
-                .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-            s.decode(0, &mut back[..p.len()])
-                .map_err(|e| anyhow::anyhow!("{e:?}"))?;
+            codec.decode(
+                shape,
+                lanes,
+                &out[..*len],
+                &mut back[..p.len()],
+                &mut scratch,
+            )?;
             black_box(&back);
         }
         decode_ns = decode_ns.min(start.elapsed().as_nanos() as f64 / values as f64);
     }
     for ((p, out), len) in pieces.iter().zip(&coded).zip(&lens) {
-        let s = Samples::new(codec, shape, p.len() / lanes, &out[..*len])
-            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
-        s.decode(0, &mut back[..p.len()])
-            .map_err(|e| anyhow::anyhow!("{e:?}"))?;
+        codec.decode(
+            shape,
+            lanes,
+            &out[..*len],
+            &mut back[..p.len()],
+            &mut scratch,
+        )?;
         anyhow::ensure!(
             back.iter()
                 .zip(p.iter())
@@ -109,7 +241,7 @@ fn raw(cols: &Columns) -> (usize, usize) {
     (values, values * bytes)
 }
 
-fn run_cols(codec: Codec, channels: u32, cols: &Columns, a: &Args) -> anyhow::Result<Run> {
+fn run_cols(codec: Coder, channels: u32, cols: &Columns, a: &Args) -> anyhow::Result<Run> {
     let shape = |e| SampleShape::new(e, channels);
     match cols {
         Columns::F32(c) => run(codec, shape(Element::F32), c, a.chunk, a.repeats),
@@ -131,7 +263,7 @@ fn row(set: &str, codec: &str, raw_bytes: usize, values: usize, r: &Run) {
 
 fn bench(set: &DataSet, a: &Args) -> anyhow::Result<()> {
     let (values, raw_bytes) = raw(&set.floats);
-    let fixed = run_cols(Codec::DELTA, set.channels, &set.fixed, a)?;
+    let fixed = run_cols(Coder::Tape(Codec::DELTA), set.channels, &set.fixed, a)?;
     row(
         &set.name,
         &format!("DELTA of {}", set.fixed_note),

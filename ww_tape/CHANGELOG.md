@@ -23,6 +23,8 @@
 - Tape pieces: piece head (kind 10), `TapeWriter::cut`, `PieceChain` cutting by size, chunks or time, `check_chain` (STD-123).
 - `TapeReader` over a `ByteSource` (slice, `Vec`, `File`): pieces from tails, checkpoints or a bounded scan; builds for wasm32 (STD-124).
 - The writer repeats the newest describe blocks about every 128 MiB and in each piece's head and backup (STD-123).
+- Index, finish, tail, piece head and repeated describe blocks carry the last counted seq and stay out of seq order (STD-122).
+- `TapeWriter::defer_block` refuses structural blocks; `set_seq` rewrites an index block's head CRC (STD-122).
 - Golden file `golden/v2-index.hex`; fuzz target `tape-index` (STD-122, STD-124).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).

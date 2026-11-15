@@ -56,10 +56,13 @@ for a version still being worked on: once a version is released, its snapshot ne
 (the pre-commit hook [below](#a-released-snapshot-never-changes) refuses it).
 
 Traits and types are compared by their definitions, not by where the source declares them. Moving types or a
-`#[ww_trait]` from `lib.rs` into a `pub mod`, re-exported at the same paths, numbers them in another order in the
-bundle, and the check still says `no changes`: both sides are put into one order before they are compared (the order
-of first use from the API root, then the types nothing uses by their path in the crate, EVO-75). `ww api save` keeps
-the snapshot file as it was saved then, so a released snapshot stays untouched.
+`#[ww_trait]` from `lib.rs` into a `pub mod`, re-exported at the same paths, or writing them in another order, gives
+the same snapshot: a crate snapshot lists its traits by name, and its traits, types and dependency crates in one
+canonical order, that of first use from the traits, then the types nothing uses by their path in the crate (EVO-77).
+The items of a trait, the fields of a struct and the variants of an enum keep the order the source gives them, as
+that order is the API. Both sides are put into the same order again before they are compared (EVO-75), so a snapshot
+saved by an older `ww` in its source order is still `no changes`, and `ww api save` keeps such a file as it was
+saved, so a released snapshot stays untouched.
 
 ## Reading a report
 

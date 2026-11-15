@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `load_crate`, `load_root` and `CrateCache`'s versions of them return the traits, types and crates of a snapshot in canonical order (EVO-77): the trait list by name, then first use, then path. A snapshot no longer changes when code moves between files or is reordered. Snapshots saved before differ in order only; `ww api check` still reads them as `no changes`.
 - Server codegen (EVO-76): a multi request's per-item `Request` copies the new `reserved` bit beside `priority`, so generated servers need the matching `ww_client_server`. Handlers and `ww api scaffold` output don't change.
 - Server codegen (EVO-73): the `StreamOpen` arms of a counted stream bind `raw` instead of `codecs` and call `ww_stream::codec::CountedState::open_session` / `resume_session`, so generated servers need the matching `ww_client_server` and `ww_stream`. Handlers and `ww api scaffold` output don't change.
 - Generated servers and clients carry resource paths as `ww_client_server::ResourceIndex` (STD-115, the protocol's paths are typed): the index chain a handler of an item under a resource array takes is `[ResourceIndex; N]` (`index_chain[0].get().0` for the number), as are the `index_chain` arguments of `mark_changed_*` and `element_removed_*` (observe, API-63), the generated `valid_indices_*` functions and a sub-level client's `index_chain` field (`Vec<ResourceIndex>` for a shared one, CLT-68). `ww api scaffold` prints `_index_chain: [ww_client_server::ResourceIndex; N]`. The bytes on the wire are the same.

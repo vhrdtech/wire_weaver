@@ -2267,17 +2267,8 @@ fn moving_definitions_into_modules_changes_nothing() {
         in_modules.root.items
     );
     let encode = |bundle: &ww_self::ApiBundleOwned| ww_self::snapshot::encode(bundle).unwrap();
-    assert_ne!(
-        encode(&in_lib_rs),
-        encode(&in_modules),
-        "the layouts give the same order, nothing is tested"
-    );
-    let canonical = |bundle: &ww_self::ApiBundleOwned| {
-        let mut bundle = bundle.clone();
-        ww_self::order::canonical_order(&mut bundle);
-        encode(&bundle)
-    };
-    assert_eq!(canonical(&in_lib_rs), canonical(&in_modules));
+    // the snapshots are in canonical order already (EVO-77)
+    assert_eq!(encode(&in_lib_rs), encode(&in_modules));
 
     for (save_in, check_in) in [
         (
@@ -2303,4 +2294,116 @@ fn moving_definitions_into_modules_changes_nothing() {
     c.write_module("types", &LAYOUT_TYPES.replace("pub x: u8", "pub x: u16"));
     let err = check_current(c.path()).1.unwrap_err();
     assert!(err.contains("The source differs from"), "{err}");
+}
+
+/// The crate of [moving_definitions_into_modules_changes_nothing] with every list it has written the other way
+/// round: types, the sub-trait before its status type, a trait and a type no root reaches, `pub mod`s and
+/// re-exports.
+const ORDER_TYPES_REVERSED: &str = r#"
+#[derive_shrink_wrap]
+pub struct Unused {
+    pub x: u8,
+}
+
+#[derive_shrink_wrap]
+pub struct Spare {
+    pub y: u8,
+}
+
+#[derive_shrink_wrap(ww_repr = u4)]
+pub enum Mode {
+    Off,
+    On,
+}
+
+#[derive_shrink_wrap]
+pub struct Config {
+    pub gain: u8,
+    pub mode: Mode,
+}
+"#;
+
+const ORDER_CHANNEL_REVERSED: &str = r#"
+#[derive_shrink_wrap]
+pub struct Status {
+    pub on: bool,
+}
+
+#[ww_trait]
+pub trait Spare2 {
+    fn spare() -> Spare;
+}
+
+#[ww_trait]
+pub trait Channel {
+    fn mode() -> Mode;
+    fn status() -> Status;
+}
+"#;
+
+/// A crate snapshot depends on the crate's API only (EVO-77): the same definitions in `lib.rs` or in `pub mod`s,
+/// each in two orders, are byte-identical snapshots. The items inside a trait and the fields of a type keep their
+/// order, which is the API's.
+#[test]
+fn snapshot_does_not_depend_on_layout_or_item_order() {
+    let types = LAYOUT_TYPES.replace(
+        "#[derive_shrink_wrap]\npub struct Unused",
+        "#[derive_shrink_wrap]\npub struct Spare {\n    pub y: u8,\n}\n\n#[derive_shrink_wrap]\npub struct Unused",
+    );
+    let channel = format!(
+        "{LAYOUT_CHANNEL}\n#[ww_trait]\npub trait Spare2 {{\n    fn spare() -> Spare;\n}}\n"
+    );
+    let modules_lib_rs = format!(
+        "pub mod types;\npub use types::{{Config, Mode, Spare, Unused}};\npub mod channel;\n\
+         pub use channel::{{Channel, Spare2, Status}};\n{LAYOUT_API}"
+    );
+    let modules_reversed_lib_rs = format!(
+        "{LAYOUT_API}pub use channel::{{Status, Spare2, Channel}};\npub mod channel;\n\
+         pub use types::{{Unused, Spare, Mode, Config}};\npub mod types;\n"
+    );
+    let layouts = [
+        ("lib.rs", format!("{types}{channel}{LAYOUT_API}"), vec![]),
+        (
+            "lib.rs reversed",
+            format!("{LAYOUT_API}{ORDER_CHANNEL_REVERSED}{ORDER_TYPES_REVERSED}"),
+            vec![],
+        ),
+        (
+            "modules",
+            modules_lib_rs,
+            vec![
+                ("types", types.clone()),
+                ("channel", format!("use crate::types::*;\n{channel}")),
+            ],
+        ),
+        (
+            "modules reversed",
+            modules_reversed_lib_rs,
+            vec![
+                ("types", ORDER_TYPES_REVERSED.to_owned()),
+                (
+                    "channel",
+                    format!("use crate::types::*;\n{ORDER_CHANNEL_REVERSED}"),
+                ),
+            ],
+        ),
+    ];
+    let c = TestCrate::new("orders");
+    let mut encoded = vec![];
+    for (name, lib_rs, modules) in &layouts {
+        let _ = std::fs::remove_dir_all(c.path().join("src"));
+        std::fs::create_dir_all(c.path().join("src")).unwrap();
+        c.write("0.1.0", lib_rs);
+        for (module, source) in modules {
+            c.write_module(module, source);
+        }
+        let bundle = wire_weaver_core::load_crate(c.path()).unwrap();
+        let traits: Vec<_> = bundle.root.items.iter().map(|i| i.ident.as_str()).collect();
+        assert_eq!(traits, ["Api", "Channel", "Spare2"], "{name}");
+        encoded.push((name, ww_self::snapshot::encode(&bundle).unwrap()));
+    }
+    let (first, bytes) = &encoded[0];
+    for (name, other) in &encoded[1..] {
+        assert_eq!(bytes, other, "{first} and {name} give different snapshots");
+    }
 }

@@ -90,6 +90,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape` payload codec (STD-126): bit-packed payload lengths, raw or lz4 payloads, salvage item by item. See the `ww_tape` changelog.
 - `ww_tape` series summaries across a change of scale (STD-128): nodes at a common scale, each block states its scale. See the `ww_tape` changelog.
 - `ww_tape` format provisions (STD-129, breaking): run tags, gaps on raw media, duplicates, describe copies, coded bodies, reserved codes. See the `ww_tape`, `ww_tap` and `wire_weaver_client` changelogs.
+- Crate snapshots list traits, types and crates in a canonical order, not source order (EVO-77): moving or reordering code no longer makes a snapshot stale. The `ww_stdlib`, `ww_global`, `ww_tap` and exact_units snapshots are saved again, order only; nothing is in use, so this needs no compatibility step. See the `wire_weaver_core` and `wire_weaver_snapshots` changelogs.
 
 ### Added
 

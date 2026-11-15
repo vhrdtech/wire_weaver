@@ -28,9 +28,12 @@ use ww_version::{FullVersionOwned, WireVersion};
 /// [ApiLevelLocationOwned::SkippedFullVersion]), instead of carrying full definitions.
 ///
 /// Returned bundle layout:
-/// * `root` is named after the crate, contains crate-level docs, and one [ApiItemKindOwned::Trait] item per trait
-///   in source order (empty for crates with data types only).
+/// * `root` is named after the crate, contains crate-level docs, and one [ApiItemKindOwned::Trait] item per trait,
+///   sorted by name (empty for crates with data types only).
 /// * `ext_crates[0]` is the crate itself.
+/// * Traits, types and crates are in [canonical order](ww_self::order::canonical_order) (EVO-77): a snapshot
+///   depends only on the crate's API, not on the file or the order its items are written in. The items of each
+///   trait, the fields of a struct and the variants of an enum keep their source order, which is the API's.
 /// * `wire` is the crate's wire version: the `[package.metadata.wire_weaver] wire = ..` of its `Cargo.toml` (EVO-26,
 ///   EVO-31), or in a test crate its `#[ww_api_root(wire = ..)]`; `None` without either.
 ///   `ext_wire` has it for every crate in `ext_crates` that declares one.
@@ -261,7 +264,7 @@ fn dedup<T: PartialEq>(items: Vec<T>) -> Vec<T> {
 }
 
 /// The bundle of a snapshot from what [load_crate] or [load_root] walked: other crates' traits and types skipped,
-/// what nothing uses dropped (except this crate's own types with `keep_own_types`).
+/// what nothing uses dropped (except this crate's own types with `keep_own_types`), the rest in canonical order.
 fn snapshot_bundle(
     scratch: &mut Scratch,
     docs: Vec<String>,
@@ -302,6 +305,7 @@ fn snapshot_bundle(
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, keep_own_types);
+    ww_self::order::canonical_order(&mut bundle);
     Ok((bundle, notes))
 }
 
@@ -910,7 +914,8 @@ mod tests {
             .iter()
             .map(|c| c.crate_id.as_str())
             .collect();
-        assert_eq!(crates, ["ww_uart", "exact_units", "ww_si", "ww_error"]);
+        // in the order of first use from the root (EVO-77)
+        assert_eq!(crates, ["ww_uart", "ww_si", "exact_units", "ww_error"]);
 
         // own types in-line, exact_units, ww_si and ww_error ones only referenced, nothing they refer to is left over
         for location in &bundle.types {
@@ -1704,7 +1709,7 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(skipped, ["Volt", "units::Volt", "Quantity", "units::Per"]);
+        assert_eq!(skipped, ["Volt", "Quantity", "units::Volt", "units::Per"]);
 
         // saved and restored as `ww api save` and wire_weaver_snapshots do
         let saved = ron::to_string(&units).unwrap();
@@ -1734,7 +1739,7 @@ mod tests {
             .collect();
         assert_eq!(
             defs,
-            ["Volt 1", "units::Volt 0", "Quantity 1", "units::Per 0"]
+            ["Volt 1", "Quantity 1", "units::Volt 0", "units::Per 0"]
         );
     }
 

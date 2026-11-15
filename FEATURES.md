@@ -2065,6 +2065,16 @@ Unicast Data0 to one node over the same bus is TR-6.
   no saved snapshot, introspection data or wire byte changes. Chosen over a layout-independent walker order, which
   would have renumbered every existing snapshot. `wire_weaver_evolution` test
   `moving_definitions_into_modules_changes_nothing`, `docs/evolution/checker_tool.md`.
+- ✅ **EVO-77 Crate snapshots in a stable order** · `v0.5` — `load_crate` and `load_root` numbered a crate's traits,
+  types and dependency crates in the order the walker reached them in the source, so moving code between files or
+  reordering it made a saved snapshot stale with the same API (the `ww_i2c` split reordered `ww_i2c_0_1_0.ron`). A
+  snapshot now ends in `ww_self::order::canonical_order` (EVO-75's order): the crate's trait list sorted by name, then
+  traits, types and crates in the order of first use from it, then what nothing uses by crate and path, every
+  `trait_idx`, `type_idx` and `crate_idx` remapped. Items of a trait or root, fields and variants keep their source
+  order and ids. Device introspection data is not a crate snapshot and keeps the walker's order, so generated code
+  and wire bytes don't change. The snapshots of `just save-snapshots` were saved once more, order only. Tests
+  `wire_weaver_evolution` `snapshot_does_not_depend_on_layout_or_item_order`,
+  `moving_definitions_into_modules_changes_nothing`; `docs/evolution/checker_tool.md`.
 - ✅ **EVO-1 Evolution rules** in `docs/evolution/rules.md`: crate layers and version bumping.
 - ✅ **EVO-2 SHA signatures** of APIs and types, hashing only the major version (or `0.minor`), version independent.
 - ✅ **EVO-3 Crate version recorded in bundles**.

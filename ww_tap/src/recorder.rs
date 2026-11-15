@@ -22,8 +22,8 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
     Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, RunTag, Sticky, TrackDef,
-    Version,
+    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, RunTag, Segment, Sticky,
+    TrackDef, Version,
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -272,6 +272,15 @@ const STREAM_NAMES: [&str; 7] = [
     "rx_messages",
     "client_map",
 ];
+
+/// Name path of stream `stream` of link `link`, `link[link].<stream>`: what its track key hashes.
+fn link_stream_path(link: u32, stream: u32) -> [Segment<'static>; 3] {
+    [
+        Segment::Name("link"),
+        Segment::Index(link),
+        Segment::Name(STREAM_NAMES[stream as usize]),
+    ]
+}
 
 impl Default for Recorder {
     fn default() -> Self {
@@ -603,7 +612,7 @@ impl Inner {
             name: &self.config.name,
         }));
         let api = api();
-        let api_root = ww_tape::api_root_id(api.crate_id, api.version.major.0);
+        let api_root = ww_tape::api_root_id(api.crate_id);
         add(&Describe::Clock(ClockDef {
             number: UNib32(HOST_CLOCK),
             // a run of the recorder is a clock of its own
@@ -642,12 +651,13 @@ impl Inner {
                 let label = format!("link[{link}].{}", STREAM_NAMES[stream as usize]);
                 add(&Describe::Track(TrackDef {
                     number: UNib32(track_number(link, stream)),
-                    key: ww_tape::track_key(api_root, &[ids::LINK, link, stream]),
+                    key: ww_tape::track_key(api_root, &link_stream_path(link, stream)),
                     clock: UNib32(HOST_CLOCK),
                     dimensions: RefVec::Slice { slice: &[] },
                     api,
                     bundle: RefVec::Slice { slice: &[] },
                     path: RefVec::Slice { slice: &path },
+                    keys: RefVec::Slice { slice: &[] },
                     item: None,
                     label: &label,
                     sticky: stream == ids::SESSION,

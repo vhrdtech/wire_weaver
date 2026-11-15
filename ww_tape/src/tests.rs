@@ -269,10 +269,21 @@ const SEGMENTS: [MapSegment; 2] = [
     },
 ];
 
+/// Name path of the sample track: `link[{3}].tx_frames`, `link` keyed, its key one byte.
+const NAME_PATH: [Segment<'static>; 3] = [
+    Segment::Name("link"),
+    Segment::Key(&[3]),
+    Segment::Name("tx_frames"),
+];
+
 /// One record of every kind: a producer, a bundle, a host clock and the wall clock with a map between them, a track
-/// with dimensions and an item type, and a typed item.
+/// with dimensions, a key and an item type, and a typed item.
 fn sample_describe() -> Vec<Describe<'static>> {
     const PATH: [UNib32; 3] = [UNib32(1), UNib32(3), UNib32(0)];
+    const KEYS: [KeySegment<'static>; 1] = [KeySegment {
+        at: UNib32(1),
+        bytes: RefVec::Slice { slice: &[3] },
+    }];
     const DIMS: [Dimension<'static>; 2] = [
         Dimension {
             name: "input",
@@ -297,12 +308,13 @@ fn sample_describe() -> Vec<Describe<'static>> {
         }),
         Describe::Track(TrackDef {
             number: UNib32(4),
-            key: track_key(api_root_id("ww_tap", 0), &[1, 3, 0]),
+            key: track_key(api_root_id("ww_tap"), &NAME_PATH),
             clock: UNib32(HOST),
             dimensions: RefVec::Slice { slice: &DIMS },
             api: FullVersion::new("ww_tap", Version::new(0, 1, 0)),
             bundle: RefVec::Slice { slice: &[1, 2] },
             path: RefVec::Slice { slice: &PATH },
+            keys: RefVec::Slice { slice: &KEYS },
             item: Some(item_type),
             label: "link[3].tx.frames",
             sticky: true,
@@ -323,7 +335,7 @@ fn sample_describe() -> Vec<Describe<'static>> {
         }),
         Describe::Clock(ClockDef {
             number: UNib32(HOST),
-            key: clock_key(api_root_id("host", 0), &[], 17),
+            key: clock_key(api_root_id("host"), &[], 17),
             rate: Magnitude::pow10(9).into(),
             resolution: Magnitude::ratio(1, 32768).into(),
             origin: ClockOrigin::Boot,
@@ -343,7 +355,7 @@ fn sample_describe() -> Vec<Describe<'static>> {
         }),
         Describe::Clock(ClockDef {
             number: UNib32(EPOCH),
-            key: clock_key(api_root_id("host", 0), &[], 17) ^ 1,
+            key: clock_key(api_root_id("host"), &[], 17) ^ 1,
             rate: Magnitude::pow10(9).into(),
             resolution: Magnitude::ratio(1, 32768).into(),
             origin: ClockOrigin::Epoch,
@@ -427,8 +439,45 @@ fn map_segments() {
 }
 
 #[test]
+fn track_key_segments() {
+    let root = api_root_id("ww_tap");
+    let key = |segments: &[Segment<'_>]| track_key(root, segments);
+    // tag and length keep the segments apart
+    assert_ne!(
+        key(&[Segment::Name("a"), Segment::Name("b")]),
+        key(&[Segment::Name("ab")])
+    );
+    assert_ne!(key(&[Segment::Name("\u{3}")]), key(&[Segment::Key(&[3])]));
+    assert_ne!(
+        key(&[Segment::Index(3)]),
+        key(&[Segment::Key(&[3, 0, 0, 0])])
+    );
+    assert_ne!(key(&[]), track_key(api_root_id("ww_tapx"), &[]));
+    // a const fn: a firmware writer's keys are constants
+    const LINK_RX: u64 = track_key(
+        api_root_id("ww_tap"),
+        &[
+            Segment::Name("link"),
+            Segment::Index(0),
+            Segment::Name("rx_frames"),
+        ],
+    );
+    assert_eq!(
+        LINK_RX,
+        key(&[
+            Segment::Name("link"),
+            Segment::Index(0),
+            Segment::Name("rx_frames")
+        ])
+    );
+    // the hash is part of the format: recordings keep their ids
+    assert_eq!(api_root_id("ww_tap"), 0x18cd_d9fe_1470_3049);
+    assert_eq!(key(&NAME_PATH), 0xd060_2e4e_94a3_be63);
+}
+
+#[test]
 fn track_identity() {
-    let key = track_key(api_root_id("ww_tap", 0), &[1, 3, 0]);
+    let key = track_key(api_root_id("ww_tap"), &NAME_PATH);
     assert_eq!(track_id(key, []), key);
     let d = |name, value| Dimension { name, value };
     let a = track_id(key, [d("input", "cam1")]);

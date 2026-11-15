@@ -30,6 +30,8 @@
 - `OpenOptions` gains `medium`, `start` and `layout`; `PieceInfo` gains `gaps` and `replaced` (STD-129).
 - `Layout` gains `gap_max` and `resume_align`, its fields are `Bytes<u32>`; `FileError` gains `Gap` and `Stale`, `Cut` gains `Stale` (STD-129).
 - Block makers take a `BlockId` (run and seq) instead of a seq; `set_seq` is `set_id`; `DescribeSet::write_blocks` counts a `&mut BlockId` (STD-129).
+- `track_key` and `clock_key` hash a name path of `Segment`s (names, indices, keys' bytes); `api_root_id` takes the crate name only (STD-125).
+- `TrackDef` gains `keys: RefVec<KeySegment>`, the keys of keyed arrays on its path (STD-125).
 - Series summary blocks state their scale (head bytes 52..54, `Magnitude` after the head); `SeriesStart` takes `segment` instead of `first_tick` (STD-128).
 - `summary_len` returns a `Result`; `StatColumn::value` is `get`, None past the end; `SeriesSummaries::pending` returns `SeriesNode`s (STD-128).
 

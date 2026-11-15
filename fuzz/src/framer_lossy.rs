@@ -156,7 +156,11 @@ fuzz_target!(|data: &[u8]| {
             eprintln!("stage {frame:02x?}: {report:?}");
         }
         if report.is_err() {
-            panic!("frame of {} B does not fit, free {}", frame.len(), rx.free());
+            panic!(
+                "frame of {} B does not fit, free {}",
+                frame.len(),
+                rx.free()
+            );
         }
         loop {
             rx.reassemble();

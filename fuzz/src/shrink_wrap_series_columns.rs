@@ -56,7 +56,8 @@ fn run(u: &mut Unstructured) -> arbitrary::Result<()> {
             check::numeric128(&mut buf, u.arbitrary()?, &values);
         }
         2 | 3 => {
-            let codec = [None, Some(FloatCodec::Plain), Some(FloatCodec::Xor)][u.int_in_range(0..=2usize)?];
+            let codec = [None, Some(FloatCodec::Plain), Some(FloatCodec::Xor)]
+                [u.int_in_range(0..=2usize)?];
             let items = items(u)?;
             check::float::<f32>(&mut buf, &items, codec);
             check::float::<f64>(&mut buf, &items, codec);
@@ -66,7 +67,10 @@ fn run(u: &mut Unstructured) -> arbitrary::Result<()> {
             let alphabet = u.int_in_range(1..=u32::MAX)?;
             let n = u.int_in_range(0..=MAX_ITEMS)?;
             let values: Vec<u32> = (0..n)
-                .map(|_| u.int_in_range(0..=alphabet.min(4)).map(|v| if v == 4 { alphabet } else { v }))
+                .map(|_| {
+                    u.int_in_range(0..=alphabet.min(4))
+                        .map(|v| if v == 4 { alphabet } else { v })
+                })
                 .collect::<Result<_, _>>()?;
             check::run(&mut buf, kind, &values, u.arbitrary()?);
         }

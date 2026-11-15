@@ -54,12 +54,20 @@ fuzz_target!(|data: &[u8]| {
     let msg = match u.int_in_range(0..=2).unwrap_or(2) {
         0 => MsgOwned::Text {
             size: TailSize(0),
-            s: u.arbitrary::<String>().unwrap_or_default().chars().take(1000).collect(),
+            s: u.arbitrary::<String>()
+                .unwrap_or_default()
+                .chars()
+                .take(1000)
+                .collect(),
         },
         1 => MsgOwned::Pair(
             u.arbitrary().unwrap_or(0),
             TailSize(0),
-            u.arbitrary::<Vec<u8>>().unwrap_or_default().into_iter().take(100).collect(),
+            u.arbitrary::<Vec<u8>>()
+                .unwrap_or_default()
+                .into_iter()
+                .take(100)
+                .collect(),
         ),
         _ => MsgOwned::Nothing,
     };
@@ -105,5 +113,8 @@ fuzz_target!(|data: &[u8]| {
     }
     let mut longer = bytes;
     longer.extend_from_slice(&garbage);
-    assert_eq!(MsgOwned::from_ww_bytes_owned(&longer).expect("bounded"), back);
+    assert_eq!(
+        MsgOwned::from_ww_bytes_owned(&longer).expect("bounded"),
+        back
+    );
 });

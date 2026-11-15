@@ -21,7 +21,10 @@ fuzz_target!(|data: &[u8]| {
     for role in [Role::Host, Role::Device] {
         if let Some((h, at)) = hello::rtt::find(data, role) {
             assert!(at.end <= data.len());
-            assert_eq!(hello::rtt::find(&hello::rtt::frame(&h), role).map(|(h, _)| h), Some(h));
+            assert_eq!(
+                hello::rtt::find(&hello::rtt::frame(&h), role).map(|(h, _)| h),
+                Some(h)
+            );
         }
     }
     if let Some(h) = hello::ws::find(data) {

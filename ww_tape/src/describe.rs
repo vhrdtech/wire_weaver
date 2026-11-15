@@ -76,8 +76,10 @@ pub enum ClockOrigin {
     /// The start of the producer's run.
     RunStart,
     /// The next epoch of the same counter: a long capture at fine ticks is cut into clock epochs so ticks stay in
-    /// i64. Tick 0 is fixed by an exact offset [ClockMap] (slope 1, error 0) from the previous epoch's clock, which a
-    /// [DescribeSet](crate::DescribeSet) requires. Unlike a restart ([Self::Boot]), the two clocks are one counter.
+    /// i64. Its epoch link fixes tick 0: a [ClockMap] from this clock to the previous epoch's clock with one segment
+    /// from tick 0 to the end, slope 1, error 0 and `b0 > 0`, so tick 0 here is tick `b0` there
+    /// ([ClockMap::is_epoch_link]); a [DescribeSet](crate::DescribeSet) requires it. Unlike a restart
+    /// ([Self::Boot]), the two clocks are one counter.
     Epoch,
 }
 
@@ -216,16 +218,20 @@ impl ClockMap<'_> {
         increasing(self.segment_list())
     }
 
-    /// Whether the map is an exact offset: at least one segment, each of slope 1 and error 0.
-    pub fn is_exact_offset(&self) -> bool {
-        let mut any = false;
-        for s in self.segment_list() {
-            match s {
-                Some(s) if s.is_exact_offset() => any = true,
-                _ => return false,
+    /// Whether the map is an epoch link ([ClockOrigin::Epoch]): from the new epoch's clock to the previous one's,
+    /// one segment from tick 0 to the end, slope 1, error 0, `b0 > 0`.
+    pub fn is_epoch_link(&self) -> bool {
+        let mut segments = self.segment_list();
+        match (segments.next(), segments.next()) {
+            (Some(Some(s)), None) => {
+                s.is_exact_offset()
+                    && s.a0 == 0
+                    && s.a1.is_none()
+                    && s.b0 > 0
+                    && self.from != self.to
             }
+            _ => false,
         }
-        any
     }
 }
 

@@ -17,7 +17,7 @@
 - `DescribeSet`: describe records in canonical order (`Describe::rank`), written as describe blocks with sticky records; same input, same bytes (STD-117).
 - `DescribeSet` refuses a clock resolution under one tick and a sticky record off its track's clock (STD-117).
 - `ClockDef.rate` is a `ClockRate` (`MagnitudeOf<Per<Tick, Second>>`), `resolution` a `ClockResolution` (`MagnitudeOf<Second>`): same bytes (STD-117).
-- `ClockOrigin::Epoch`: a counter's next epoch, needing an exact offset map from the one before (STD-117).
+- `ClockOrigin::Epoch`: a counter's next epoch, linked by an exact offset map to the previous epoch's clock (STD-117).
 - A `ClockMap` must increase strictly across its segments, checked on decode and by `DescribeSet` (STD-117).
 - Golden file `golden/v2.hex` and a test that two writes of the same input are byte-identical (STD-117).
 

@@ -30,7 +30,8 @@ pub enum DescribeError {
     },
     /// A map that isn't strictly increasing over its segments.
     MapNotIncreasing { from: u32, to: u32 },
-    /// An [Epoch](crate::ClockOrigin::Epoch) clock no exact offset map leads to.
+    /// An [Epoch](crate::ClockOrigin::Epoch) clock without its epoch link: a map from it to the previous epoch's
+    /// clock, one exact offset segment from tick 0 to the end with `b0 > 0` ([ClockMap::is_epoch_link](crate::ClockMap::is_epoch_link)).
     EpochUnmapped { clock: u32 },
     /// A record longer than a block can be.
     TooLong { len: usize },
@@ -59,7 +60,7 @@ impl core::fmt::Display for DescribeError {
             }
             DescribeError::EpochUnmapped { clock } => write!(
                 f,
-                "epoch clock {clock}: no exact offset map from the previous epoch's clock"
+                "epoch clock {clock}: no epoch link (an exact offset map from it to the previous epoch's clock)"
             ),
             DescribeError::WrongClock {
                 track,
@@ -120,7 +121,7 @@ pub struct DescribeSet {
     track_clocks: BTreeMap<u32, u32>,
     /// Clocks of origin [Epoch](crate::ClockOrigin::Epoch).
     epoch_clocks: BTreeSet<u32>,
-    /// Every map by its clocks, and whether it is an exact offset.
+    /// Every map by its clocks, and whether it is an epoch link.
     maps: BTreeMap<(u32, u32), bool>,
 }
 
@@ -188,7 +189,7 @@ impl DescribeSet {
                 }
             }
             Describe::Map(m) => {
-                self.maps.insert((m.from.0, m.to.0), m.is_exact_offset());
+                self.maps.insert((m.from.0, m.to.0), m.is_epoch_link());
             }
             Describe::Track(t) => {
                 self.track_clocks.insert(t.number.0, t.clock.0);
@@ -217,7 +218,7 @@ impl DescribeSet {
         self.records.values().map(Vec::as_slice)
     }
 
-    /// Every clock a track or map names is described, and an exact offset map leads to every epoch clock.
+    /// Every clock a track or map names is described, and every epoch clock has its epoch link.
     pub fn check(&self) -> Result<(), DescribeError> {
         for clock in self.named.values().flatten() {
             if !self.clocks.contains(clock) {
@@ -228,7 +229,7 @@ impl DescribeSet {
             let mapped = self
                 .maps
                 .iter()
-                .any(|(&(from, to), &exact)| to == *clock && from != *clock && exact);
+                .any(|(&(from, _), &link)| from == *clock && link);
             if !mapped {
                 return Err(DescribeError::EpochUnmapped { clock: *clock });
             }

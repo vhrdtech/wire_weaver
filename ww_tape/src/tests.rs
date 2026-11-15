@@ -177,7 +177,8 @@ const WALL: u32 = 2;
 /// The host counter's next epoch.
 const EPOCH: u32 = 3;
 
-const EPOCH_START: [MapSegment; 1] = [MapSegment::offset(4_000_000_000_000_000_000, 0)];
+/// The epoch link: tick 0 of [EPOCH] is tick 4e18 of [HOST].
+const EPOCH_START: [MapSegment; 1] = [MapSegment::offset(0, 4_000_000_000_000_000_000)];
 
 const SEGMENTS: [MapSegment; 2] = [
     MapSegment {
@@ -261,8 +262,8 @@ fn sample_describe() -> Vec<Describe<'static>> {
         },
         Describe::Producer(Producer { name: "test" }),
         Describe::Map(ClockMap {
-            from: UNib32(HOST),
-            to: UNib32(EPOCH),
+            from: UNib32(EPOCH),
+            to: UNib32(HOST),
             segments: RefVec::Slice {
                 slice: &EPOCH_START,
             },
@@ -413,8 +414,8 @@ fn describe_set_is_canonical() {
                 to: WALL
             },
             Rank::Map {
-                from: HOST,
-                to: EPOCH
+                from: EPOCH,
+                to: HOST
             },
             Rank::Track(4),
             Rank::Other,
@@ -536,38 +537,64 @@ fn maps_increase_across_segments() {
     assert_eq!(fitted.last(), None);
 }
 
-/// An epoch clock needs an exact offset map from the previous epoch's clock; a fitted one doesn't do.
+/// An epoch clock needs its epoch link: a map from it to the previous epoch's clock, one exact offset segment from
+/// tick 0 to the end with `b0 > 0`. The reverse direction, a fitted segment, a bounded one or a second one don't do.
 #[test]
-fn epoch_clocks_need_an_exact_offset() {
+fn epoch_clocks_need_their_link() {
     let without: Vec<_> = sample_describe()
         .into_iter()
         .filter(|d| {
             d.rank()
                 != (Rank::Map {
-                    from: HOST,
-                    to: EPOCH,
+                    from: EPOCH,
+                    to: HOST,
                 })
         })
         .collect();
-    let mut set = describe_set(without);
-    assert_eq!(
-        set.check(),
-        Err(DescribeError::EpochUnmapped { clock: EPOCH })
-    );
+    let set = describe_set(without);
+    let unmapped = Err(DescribeError::EpochUnmapped { clock: EPOCH });
+    assert_eq!(set.check(), unmapped);
+    let seg = MapSegment::offset(0, 4_000);
+    static REVERSED: [MapSegment; 1] = [MapSegment::offset(4_000, 0)];
     static FITTED: [MapSegment; 1] = [MapSegment {
-        a0: 0,
-        a1: None,
-        b0: 0,
-        slope: Ratio64::ONE,
         error: 5,
+        ..MapSegment::offset(0, 4_000)
     }];
-    set.insert(&map(HOST, EPOCH, &FITTED)).unwrap();
-    assert_eq!(
-        set.check(),
-        Err(DescribeError::EpochUnmapped { clock: EPOCH })
-    );
-    set.insert(&map(HOST, EPOCH, &EPOCH_START)).unwrap();
-    assert_eq!(set.check(), Ok(()));
+    static SLOPED: [MapSegment; 1] = [MapSegment {
+        slope: Ratio64::new(1001, 1000).unwrap(),
+        ..MapSegment::offset(0, 4_000)
+    }];
+    static LATE: [MapSegment; 1] = [MapSegment::offset(1, 4_000)];
+    static AT_ZERO: [MapSegment; 1] = [MapSegment::offset(0, 0)];
+    static BOUNDED: [MapSegment; 1] = [MapSegment {
+        a1: Some(10),
+        ..MapSegment::offset(0, 4_000)
+    }];
+    static TWO: [MapSegment; 2] = [
+        MapSegment {
+            a1: Some(10),
+            ..MapSegment::offset(0, 4_000)
+        },
+        MapSegment::offset(10, 5_000),
+    ];
+    for (from, to, segments) in [
+        (HOST, EPOCH, &REVERSED[..]),
+        (EPOCH, HOST, &FITTED),
+        (EPOCH, HOST, &SLOPED),
+        (EPOCH, HOST, &LATE),
+        (EPOCH, HOST, &AT_ZERO),
+        (EPOCH, HOST, &BOUNDED),
+        (EPOCH, HOST, &TWO),
+        (EPOCH, HOST, &[]),
+    ] {
+        let mut s = set.clone();
+        s.insert(&map(from, to, segments)).unwrap();
+        assert_eq!(s.check(), unmapped, "{from} -> {to}: {segments:?}");
+    }
+    let mut s = set.clone();
+    s.insert(&map(EPOCH, HOST, &EPOCH_START)).unwrap();
+    assert_eq!(s.check(), Ok(()));
+    assert!(seg.is_exact_offset());
 }
 
 /// A clock's resolution is at least one of its ticks: `resolution · rate >= 1`.

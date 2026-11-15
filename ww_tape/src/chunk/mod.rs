@@ -38,8 +38,8 @@
 //! [Chunk::column_damaged].
 //!
 //! Codec ids name how a column is coded: [Codec::RAW] is the column as plain little-endian values or bytes, ids 1 to
-//! 15 are the event time codec's ([crate::times]), 16 to 47 the sample codecs' ([crate::samples]), 48 lz4 payloads
-//! ([crate::lz4]), 49 [Codec::SERIES] reserved.
+//! 3 are the event time codec's ([crate::times]), 4 payload lengths ([crate::payloads]), 16 to 47 the sample codecs'
+//! ([crate::samples]), 48 lz4 payloads ([crate::lz4]), 49 [Codec::SERIES] reserved.
 //!
 //! A reader refuses a column whose kind or codec it doesn't know, and still reads the chunk's other columns: each
 //! reader ([EventTimes](crate::times::EventTimes), [Payloads](crate::payloads::Payloads),

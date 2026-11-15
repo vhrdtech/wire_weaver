@@ -454,11 +454,11 @@ feature tracker.
 - STD-42 | Tape blocks | `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of. | transport/tap.md#tape-blocks
 - STD-117 | Tape clocks and describe | Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes. | transport/tap.md#tape-blocks
 - STD-118 | Tape chunk blocks | Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment. | transport/tap.md#tape-blocks
+- STD-120 | Tape event times | Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD. | transport/tap.md#tape-blocks
 - STD-121 | Tape summary blocks | A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items. | transport/tap.md#tape-blocks
 - STD-122 | Tape index, finish and tail | Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk. | transport/tap.md#index-finish-and-tail
 - STD-123 | Tape pieces | One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut. | transport/tap.md#tape-pieces
 - STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | transport/tap.md#reading-by-position
-- STD-120 | Tape event times | Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD. | transport/tap.md#tape-blocks
 
 # Examples
 

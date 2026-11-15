@@ -14,6 +14,7 @@ fn piece_head_round_trip() {
     let head = PieceHead {
         ident: ident(3),
         prev: Some((ContentHash([7; 32]), PieceId([3; 16]))),
+        prev_run: crate::RunTag::writable(0x1234_abcd),
     };
     let tracks = [
         TrackStart {
@@ -41,6 +42,7 @@ fn piece_head_round_trip() {
     let first = PieceHead {
         ident: ident(0),
         prev: None,
+        prev_run: crate::RunTag::NONE,
     };
     let n = write_piece_head(&mut buf, id(0), &first, &[]).unwrap();
     let block = Block::read(&buf[..n]).unwrap();

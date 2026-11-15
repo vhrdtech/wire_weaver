@@ -616,6 +616,7 @@ impl TapeWriter {
             &PieceHead {
                 ident,
                 prev: Some((done.finished.hash, head.ident.id)),
+                prev_run: done.run,
             },
             &tracks,
         )?;

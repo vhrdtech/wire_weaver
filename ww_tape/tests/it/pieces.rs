@@ -462,8 +462,13 @@ fn every_block_of_a_chain_carries_its_run() {
     let run = RunTag::of_piece(&PieceId::first(&ResultId([0x42; 32])));
     assert!(run.is_run());
     let mut seqs = vec![];
-    for p in &paths {
+    for (i, p) in paths.iter().enumerate() {
         let bytes = std::fs::read(p).unwrap();
+        let r = TapeReader::open(&bytes[..]).unwrap();
+        let (head, _) = r.pieces()[0].head.clone().unwrap();
+        // a cut names the run going on; the first piece follows nothing
+        let before = if i == 0 { RunTag::NONE } else { run };
+        assert_eq!(head.prev_run, before);
         let mut rd = FileBlocks::new(&bytes[..]);
         while let Some(b) = rd.next_block() {
             let b = b.unwrap();

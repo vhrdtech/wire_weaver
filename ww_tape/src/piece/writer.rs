@@ -65,6 +65,7 @@ impl PieceChain {
                     seq: 0,
                 },
                 prev: None,
+                prev_run: crate::RunTag::NONE,
             },
             tracks,
         )?;

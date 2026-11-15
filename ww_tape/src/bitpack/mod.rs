@@ -189,15 +189,23 @@ fn has_avx512() -> bool {
     false
 }
 
-/// `src` when it holds `reach` bytes, else its first bytes copied into `buf` with zeros after them.
-fn reach<'a>(src: &'a [u8], reach: usize, buf: &'a mut [u8; REACH_MAX]) -> &'a [u8] {
-    debug_assert!(reach <= REACH_MAX, "reach {reach} over {REACH_MAX}");
+/// Call `f` on `src` when it holds `reach` bytes, else on its first bytes copied to the stack with zeros after them.
+#[inline(always)]
+fn with_reach<R>(src: &[u8], reach: usize, f: impl FnOnce(&[u8]) -> R) -> R {
     if src.len() >= reach {
-        return src;
+        f(src)
+    } else {
+        short(src, reach, f)
     }
+}
+
+#[cold]
+#[inline(never)]
+fn short<R>(src: &[u8], reach: usize, f: impl FnOnce(&[u8]) -> R) -> R {
+    debug_assert!(reach <= REACH_MAX, "reach {reach} over {REACH_MAX}");
+    let mut buf = [0u8; REACH_MAX];
     buf[..src.len()].copy_from_slice(src);
-    buf[src.len()..reach].fill(0);
-    &buf[..reach]
+    f(&buf[..reach])
 }
 
 /// Bytes the scalar unpack of a full group reaches: a 16-byte load at the last value's first byte.
@@ -231,15 +239,14 @@ pub fn unpack_u32_with(kernel: Kernel, src: &[u8], width: u32, out: &mut [u32; G
         out.fill(0);
         return;
     }
-    let mut buf = [0u8; REACH_MAX];
     match kernel {
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx2 => avx2::unpack(reach(src, avx2::reach(width), &mut buf), width, out),
+        Kernel::Avx2 => with_reach(src, avx2::reach(width), |s| avx2::unpack(s, width, out)),
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx512 => avx512::unpack(reach(src, avx512::reach(width), &mut buf), width, out),
+        Kernel::Avx512 => with_reach(src, avx512::reach(width), |s| avx512::unpack(s, width, out)),
         #[cfg(target_arch = "aarch64")]
-        Kernel::Neon => neon::unpack(reach(src, neon::reach(width), &mut buf), width, out),
-        _ => unpack_scalar(reach(src, scalar_reach(width), &mut buf), width, out),
+        Kernel::Neon => with_reach(src, neon::reach(width), |s| neon::unpack(s, width, out)),
+        _ => with_reach(src, scalar_reach(width), |s| unpack_scalar(s, width, out)),
     }
 }
 
@@ -269,15 +276,15 @@ pub fn unpack_u64(src: &[u8], width: u32, out: &mut [u64; GROUP]) {
         }
         return;
     }
-    let mut buf = [0u8; REACH_MAX];
-    let src = reach(src, scalar_reach(width), &mut buf);
     let m = mask64(width);
-    for (j, o) in out.iter_mut().enumerate() {
-        let bit = j * width as usize;
-        let b = bit >> 3;
-        let w = u128::from_le_bytes(src[b..b + 16].try_into().expect("16 bytes"));
-        *o = ((w >> (bit & 7)) as u64) & m;
-    }
+    with_reach(src, scalar_reach(width), |src| {
+        for (j, o) in out.iter_mut().enumerate() {
+            let bit = j * width as usize;
+            let b = bit >> 3;
+            let w = u128::from_le_bytes(src[b..b + 16].try_into().expect("16 bytes"));
+            *o = ((w >> (bit & 7)) as u64) & m;
+        }
+    });
 }
 
 /// The line of value j: `(j × slope) >> 16`, wrapping, with an arithmetic shift (slope in Q16).
@@ -322,36 +329,25 @@ pub fn decode_line_with(
         }
         return;
     }
-    let mut buf = [0u8; REACH_MAX];
     match kernel {
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx2 if width > 0 => avx2::decode(
-            reach(src, avx2::reach(width), &mut buf),
-            width,
-            base,
-            slope,
-            out,
-        ),
+        Kernel::Avx2 if width > 0 => with_reach(src, avx2::reach(width), |s| {
+            avx2::decode(s, width, base, slope, out)
+        }),
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx512 if width > 0 => avx512::decode(
-            reach(src, avx512::reach(width), &mut buf),
-            width,
-            base,
-            slope,
-            out,
-        ),
+        Kernel::Avx512 if width > 0 => with_reach(src, avx512::reach(width), |s| {
+            avx512::decode(s, width, base, slope, out)
+        }),
         #[cfg(target_arch = "aarch64")]
-        Kernel::Neon if width > 0 => neon::decode(
-            reach(src, neon::reach(width), &mut buf),
-            width,
-            base,
-            slope,
-            out,
-        ),
+        Kernel::Neon if width > 0 => with_reach(src, neon::reach(width), |s| {
+            neon::decode(s, width, base, slope, out)
+        }),
         _ => {
             let mut r = [0u32; GROUP];
             if width > 0 {
-                unpack_scalar(reach(src, scalar_reach(width), &mut buf), width, &mut r);
+                with_reach(src, scalar_reach(width), |s| {
+                    unpack_scalar(s, width, &mut r)
+                });
             }
             // a running sum of the slope: no multiply per value
             let mut p = 0i64;

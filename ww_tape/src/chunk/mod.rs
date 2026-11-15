@@ -35,8 +35,8 @@
 //! usually a single segment; a codec may still salvage items from it by checking its own group headers against
 //! [Chunk::column_damaged].
 //!
-//! Codec ids name how a column is coded; this crate reads and writes the block, not the codecs. [Codec::RAW] is the
-//! column as plain little-endian values or bytes.
+//! Codec ids name how a column is coded: [Codec::RAW] is the column as plain little-endian values or bytes, ids 1 to
+//! 15 are the event time codec's ([crate::times]).
 
 use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, VERSION};
 
@@ -130,7 +130,7 @@ impl ColumnKind {
 pub enum EndMode {
     /// Every item is an instant: no ends column.
     Absent,
-    /// The end of item i is the start of item i + 1; the ends column holds only the last item's end.
+    /// The end of item i is the start of item i + 1, the last item's end is the head's latest end: no ends column.
     NextStart,
     /// The ends column holds each item's duration.
     Durations,

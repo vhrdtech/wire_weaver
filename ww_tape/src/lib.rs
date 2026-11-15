@@ -93,6 +93,7 @@ pub use summary::{EventFields, EventNode, Summary, SummaryError, SummaryHead};
 
 pub mod bitpack;
 pub mod chunk;
+pub mod times;
 pub use chunk::{
     Chunk, ChunkError, ChunkHead, ChunkHeadError, ChunkWriter, Codec, ColumnKind, ColumnSpec,
     EndMode,

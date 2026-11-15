@@ -403,7 +403,8 @@ impl<'b> IndexBlock<'b> {
             return Err(IndexError::Kind);
         }
         let at = get_u32(header, 24) as usize;
-        if at < HEADER_LEN + INDEX_FIXED_LEN || at + CRC_LEN > len {
+        if at < HEADER_LEN + INDEX_FIXED_LEN || at.checked_add(CRC_LEN).is_none_or(|end| end > len)
+        {
             return Err(IndexError::BadHeadCrc);
         }
         Ok(at)

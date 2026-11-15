@@ -302,7 +302,8 @@ impl<S: ByteSource> TapeReader<S> {
 
     /// The whole block at `offset`, if one is there within `hi` and at most `max` long; not checked yet.
     fn block_bytes(&self, offset: u64, hi: u64, max: usize) -> R<Result<Vec<u8>, BlockError>, S> {
-        if offset + HEADER_LEN as u64 > hi {
+        let room = hi.saturating_sub(offset);
+        if room < HEADER_LEN as u64 {
             return Ok(Err(BlockError::Short { needed: HEADER_LEN }));
         }
         let header = self.read(offset, HEADER_LEN)?;
@@ -311,7 +312,7 @@ impl<S: ByteSource> TapeReader<S> {
             Ok(l) => return Ok(Err(BlockError::BadLength(l as u32))),
             Err(e) => return Ok(Err(e)),
         };
-        if offset + len as u64 > hi {
+        if room < len as u64 {
             return Ok(Err(BlockError::Short { needed: len }));
         }
         Ok(Ok(self.read(offset, len)?))
@@ -576,9 +577,10 @@ impl<S: ByteSource> TapeReader<S> {
         let mut out = Vec::new();
         let mut at = p.finish.as_ref().and_then(|(f, _)| f.final_index);
         while let Some(off) = at {
-            let abs = p.start + off;
-            let header = self.read(abs, HEADER_LEN.min((p.end - abs) as usize))?;
+            let abs = in_piece(p, off, HEADER_LEN)?;
+            let header = self.read(abs, HEADER_LEN)?;
             let head_len = IndexBlock::head_len(&header).map_err(ReadError::Index)?;
+            in_piece(p, off, head_len)?;
             let head = self.read(abs, head_len)?;
             let ix = IndexBlock::read_head(&head).map_err(ReadError::Index)?;
             if ix.kind() != IndexKind::Final || ix.self_offset() != off {
@@ -586,7 +588,8 @@ impl<S: ByteSource> TapeReader<S> {
             }
             if let Some(list) = ix.track(track_id) {
                 let (from, n) = ix.track_range(&list);
-                let bytes = self.read(abs + from as u64, n)?;
+                let at = in_piece(p, off.saturating_add(from as u64), n)?;
+                let bytes = self.read(at, n)?;
                 out.extend(ix.track_entries(&list, &bytes).map_err(ReadError::Index)?);
             }
             at = ix.prev().filter(|p| *p < off);
@@ -599,14 +602,10 @@ impl<S: ByteSource> TapeReader<S> {
     fn for_final(&self, p: &PieceInfo, mut f: impl FnMut(&IndexBlock<'_>)) -> R<(), S> {
         let mut at = p.finish.as_ref().and_then(|(fin, _)| fin.final_index);
         while let Some(off) = at {
-            let b = match self.good_block(p.start + off, p.end)? {
+            let abs = in_piece(p, off, HEADER_LEN)?;
+            let b = match self.good_block(abs, p.end)? {
                 Ok(b) => b,
-                Err(error) => {
-                    return Err(ReadError::Block {
-                        offset: p.start + off,
-                        error,
-                    });
-                }
+                Err(error) => return Err(ReadError::Block { offset: abs, error }),
             };
             let block = Block::read(&b).expect("checked");
             let ix = IndexBlock::read(&block).map_err(ReadError::Index)?;
@@ -626,15 +625,14 @@ impl<S: ByteSource> TapeReader<S> {
         entry: &IndexEntry,
         buf: &'b mut Vec<u8>,
     ) -> R<Block<'b>, S> {
-        let offset = self.pieces[i].start + entry.offset;
-        if offset + u64::from(entry.len) > self.len {
+        let p = &self.pieces[i];
+        let len = entry.len as usize;
+        let Ok(offset) = in_piece::<S::Error>(p, entry.offset, len) else {
             return Err(ReadError::Block {
-                offset,
-                error: BlockError::Short {
-                    needed: entry.len as usize,
-                },
+                offset: p.start.saturating_add(entry.offset),
+                error: BlockError::Short { needed: len },
             });
-        }
+        };
         buf.resize(entry.len as usize, 0);
         self.src.read_at(offset, buf).map_err(ReadError::Source)?;
         Block::read(buf).map_err(|error| ReadError::Block { offset, error })
@@ -659,6 +657,14 @@ impl<S: ByteSource> TapeReader<S> {
         }
         Ok(*h.finalize().as_bytes() == fin.hash.0)
     }
+}
+
+/// Where `n` bytes at `off` from the start of piece `p` begin in the source, when they lie within the piece.
+fn in_piece<E>(p: &PieceInfo, off: u64, n: usize) -> Result<u64, ReadError<E>> {
+    p.start
+        .checked_add(off)
+        .filter(|abs| abs.checked_add(n as u64).is_some_and(|end| end <= p.end))
+        .ok_or(ReadError::Index(IndexError::BadHead))
 }
 
 /// How much of `left` bytes fits one read into a `buf`-byte buffer; `left` may pass `usize::MAX` on 32-bit targets.

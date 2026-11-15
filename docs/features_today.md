@@ -474,6 +474,9 @@ feature tracker.
 - **[Tape clocks and describe](transport/tap.md#tape-blocks)**: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.
 - **[Tape chunk blocks](transport/tap.md#tape-blocks)**: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.
 - **[Tape summary blocks](transport/tap.md#tape-blocks)**: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.
+- **[Tape index, finish and tail](transport/tap.md#index-finish-and-tail)**: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.
+- **[Tape pieces](transport/tap.md#tape-pieces)**: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.
+- **[Positional tape reader](transport/tap.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

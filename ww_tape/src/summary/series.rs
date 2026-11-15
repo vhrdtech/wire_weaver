@@ -1,21 +1,5 @@
 //! Series summaries: the statistics a series track declares, per channel and node, and how they merge.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
@@ -43,6 +27,47 @@ pub(super) fn components(element: Element) -> u8 {
 /// Whether `element` is a complex pair.
 pub(super) fn is_complex(element: Element) -> bool {
     element.parts() == 2
+}
+
+/// `v` rounded to the nearest f64: sums, means and minimum or maximum read as a float.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "rounding to the nearest f64 is the result asked for"
+)]
+fn u64_f64(v: u64) -> f64 {
+    v as f64
+}
+
+/// `v` rounded to the nearest f64.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "rounding to the nearest f64 is the result asked for"
+)]
+fn i64_f64(v: i64) -> f64 {
+    v as f64
+}
+
+/// `v` rounded to the nearest f64: an exact integer sum stored as the format's f64.
+#[cfg(feature = "std")]
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "the format stores sums as f64: rounding to the nearest is its meaning"
+)]
+fn i128_f64(v: i128) -> f64 {
+    v as f64
+}
+
+/// `v` rounded to the nearest f32: the format stores powers as f32.
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "the format stores powers as f32: rounding to the nearest is its meaning"
+)]
+fn f64_f32(v: f64) -> f32 {
+    v as f32
 }
 
 /// The statistics a series track keeps per channel and node. Each merges from two adjacent nodes without the samples.
@@ -112,8 +137,26 @@ impl Stat {
         }
     }
 
+    /// The statistic's bit in the fields word: `1 <<` its place in [Self::ALL].
     fn bit(self) -> u16 {
-        1 << Stat::ALL.iter().position(|s| *s == self).expect("in ALL")
+        match self {
+            Stat::Min => 1,
+            Stat::Max => 1 << 1,
+            Stat::Sum => 1 << 2,
+            Stat::SumSq => 1 << 3,
+            Stat::Clipped => 1 << 4,
+            Stat::Flags => 1 << 5,
+            Stat::PowerMean => 1 << 6,
+            Stat::PowerMax => 1 << 7,
+        }
+    }
+
+    /// Bytes per channel and node: [Self::width] times [Self::components].
+    fn node_len(self, element: Element) -> usize {
+        match self {
+            Stat::Min | Stat::Max | Stat::Sum | Stat::SumSq if is_complex(element) => 16,
+            _ => self.width(),
+        }
     }
 }
 
@@ -174,12 +217,12 @@ impl SeriesStats {
         })
     }
 
-    /// Bytes per channel and node.
+    /// Bytes per channel and node: at most 8 statistics of 16 bytes.
     pub(super) fn node_len(self, element: Element) -> usize {
         Stat::ALL
             .into_iter()
             .filter(|s| self.has(*s))
-            .map(|s| s.width() * usize::from(s.components(element)))
+            .map(|s| s.node_len(element))
             .sum()
     }
 }
@@ -239,7 +282,7 @@ pub enum Value {
 impl Value {
     pub(super) fn from_bits(element: Element, bits: u64) -> Self {
         match kind(element) {
-            ValueKind::Signed => Value::I64(bits as i64),
+            ValueKind::Signed => Value::I64(bits.cast_signed()),
             ValueKind::Unsigned => Value::U64(bits),
             ValueKind::Float => Value::F64(f64::from_bits(bits)),
         }
@@ -247,7 +290,7 @@ impl Value {
 
     pub(super) fn to_bits(self) -> u64 {
         match self {
-            Value::I64(v) => v as u64,
+            Value::I64(v) => v.cast_unsigned(),
             Value::U64(v) => v,
             Value::F64(v) => v.to_bits(),
         }
@@ -256,8 +299,8 @@ impl Value {
     /// The value as f64, rounded to nearest.
     pub fn as_f64(self) -> f64 {
         match self {
-            Value::I64(v) => v as f64,
-            Value::U64(v) => v as f64,
+            Value::I64(v) => i64_f64(v),
+            Value::U64(v) => u64_f64(v),
             Value::F64(v) => v,
         }
     }
@@ -336,7 +379,7 @@ impl Value {
                     .ok_or(ScaleError::Overflow)?,
             ),
             Value::U64(v) => Value::U64(v.checked_mul(k).ok_or(ScaleError::Overflow)?),
-            Value::F64(v) => Value::F64(v * k as f64),
+            Value::F64(v) => Value::F64(v * u64_f64(k)),
         })
     }
 
@@ -393,21 +436,30 @@ impl ChannelStats {
     /// Merge `next` (`next_samples` samples, right after this one's `samples`) into this one. Merging in item order,
     /// one node at a time, gives the same bits as the writer's parent node.
     pub fn merge(&mut self, next: &ChannelStats, samples: u64, next_samples: u64) {
-        for c in 0..2 {
-            self.min[c] = self.min[c].pick(next.min[c], true);
-            self.max[c] = self.max[c].pick(next.max[c], false);
-            self.sum[c] += next.sum[c];
-            self.sum_sq[c] += next.sum_sq[c];
+        for (a, b) in self.min.iter_mut().zip(next.min) {
+            *a = a.pick(b, true);
         }
-        self.clipped += next.clipped;
+        for (a, b) in self.max.iter_mut().zip(next.max) {
+            *a = a.pick(b, false);
+        }
+        for (a, b) in self.sum.iter_mut().zip(next.sum) {
+            *a += b;
+        }
+        for (a, b) in self.sum_sq.iter_mut().zip(next.sum_sq) {
+            *a += b;
+        }
+        // a count of samples: a damaged block's count stops at u64::MAX instead of wrapping
+        self.clipped = self.clipped.saturating_add(next.clipped);
         self.flags |= next.flags;
-        let total = samples + next_samples;
-        if total > 0 {
-            let a = f64::from(self.power_mean) * samples as f64;
-            let b = f64::from(next.power_mean) * next_samples as f64;
-            self.power_mean = ((a + b) / total as f64) as f32;
+        // the counts as f64: exact up to 2^53 samples, so the mean is the same as with an integer total
+        let (n, next_n) = (u64_f64(samples), u64_f64(next_samples));
+        let total = n + next_n;
+        if total > 0.0 {
+            let a = f64::from(self.power_mean) * n;
+            let b = f64::from(next.power_mean) * next_n;
+            self.power_mean = f64_f32((a + b) / total);
         }
-        self.power_max = fmax(f64::from(self.power_max), f64::from(next.power_max)) as f32;
+        self.power_max = f64_f32(fmax(f64::from(self.power_max), f64::from(next.power_max)));
     }
 
     /// The statistics with every stored number times `k`: from a scale to a scale `k` times finer. Minimum and
@@ -421,17 +473,22 @@ impl ChannelStats {
             return Err(ScaleError::Overflow);
         }
         let mut s = *self;
-        let kf = k as f64;
-        for c in 0..2 {
-            if !self.min[c].no_samples(self.max[c]) {
-                s.min[c] = self.min[c].times(k)?;
-                s.max[c] = self.max[c].times(k)?;
+        // k <= 2^53: exact as an f64
+        let kf = u64_f64(k);
+        for (min, max) in s.min.iter_mut().zip(&mut s.max) {
+            if !min.no_samples(*max) {
+                *min = min.times(k)?;
+                *max = max.times(k)?;
             }
-            s.sum[c] = self.sum[c] * kf;
-            s.sum_sq[c] = self.sum_sq[c] * (kf * kf);
         }
-        s.power_mean = (f64::from(self.power_mean) * (kf * kf)) as f32;
-        s.power_max = (f64::from(self.power_max) * (kf * kf)) as f32;
+        for v in &mut s.sum {
+            *v *= kf;
+        }
+        for v in &mut s.sum_sq {
+            *v *= kf * kf;
+        }
+        s.power_mean = f64_f32(f64::from(self.power_mean) * (kf * kf));
+        s.power_max = f64_f32(f64::from(self.power_max) * (kf * kf));
         Ok(s)
     }
 
@@ -505,7 +562,10 @@ impl SeriesNode {
 
 #[cfg(feature = "std")]
 mod scalar {
-    use super::{ChannelStats, Element, SeriesStats, Value, components, fmax, is_complex};
+    use super::{
+        ChannelStats, Element, SeriesStats, Value, components, f64_f32, fmax, i128_f64, is_complex,
+        u64_f64,
+    };
 
     /// A sample scalar the series writer takes: the Rust type of the scalar of an [Element].
     pub trait Scalar: Copy + PartialOrd + 'static + private::Sealed {
@@ -531,7 +591,7 @@ mod scalar {
     }
 
     macro_rules! int_scalar {
-        ($t:ty, $ty:ident, $kind:ident, $wide:ty, $exact:expr) => {
+        ($t:ty, $ty:ident, $kind:ident, $wide:ty, $exact:expr, $to_f64:path, $($lint:path),+) => {
             impl private::Sealed for $t {}
             impl Scalar for $t {
                 const TYPE: Element = Element::$ty;
@@ -541,7 +601,7 @@ mod scalar {
                 const INT: bool = true;
                 #[inline(always)]
                 fn to_f64(self) -> f64 {
-                    self as f64
+                    $to_f64(self)
                 }
                 #[inline(always)]
                 fn to_i128(self) -> i128 {
@@ -550,25 +610,93 @@ mod scalar {
                 fn value(self) -> Value {
                     Value::$kind(<$wide>::from(self))
                 }
+                #[expect($($lint),+, reason = "saturating, NaN to 0, is the meaning: what `as` does")]
                 fn from_f64(v: f64, up: bool) -> Self {
-                    // `as` saturates and maps NaN to 0
                     if up { v.ceil() as $t } else { v.floor() as $t }
                 }
             }
         };
     }
 
-    int_scalar!(i8, I8, I64, i64, true);
-    int_scalar!(i16, I16, I64, i64, true);
-    int_scalar!(i32, I32, I64, i64, true);
-    int_scalar!(i64, I64, I64, i64, false);
-    int_scalar!(u8, U8, U64, u64, true);
-    int_scalar!(u16, U16, U64, u64, true);
-    int_scalar!(u32, U32, U64, u64, true);
-    int_scalar!(u64, U64, U64, u64, false);
+    int_scalar!(
+        i8,
+        I8,
+        I64,
+        i64,
+        true,
+        f64::from,
+        clippy::cast_possible_truncation
+    );
+    int_scalar!(
+        i16,
+        I16,
+        I64,
+        i64,
+        true,
+        f64::from,
+        clippy::cast_possible_truncation
+    );
+    int_scalar!(
+        i32,
+        I32,
+        I64,
+        i64,
+        true,
+        f64::from,
+        clippy::cast_possible_truncation
+    );
+    int_scalar!(
+        i64,
+        I64,
+        I64,
+        i64,
+        false,
+        super::i64_f64,
+        clippy::cast_possible_truncation
+    );
+    int_scalar!(
+        u8,
+        U8,
+        U64,
+        u64,
+        true,
+        f64::from,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    );
+    int_scalar!(
+        u16,
+        U16,
+        U64,
+        u64,
+        true,
+        f64::from,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    );
+    int_scalar!(
+        u32,
+        U32,
+        U64,
+        u64,
+        true,
+        f64::from,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    );
+    int_scalar!(
+        u64,
+        U64,
+        U64,
+        u64,
+        false,
+        super::u64_f64,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    );
 
     macro_rules! float_scalar {
-        ($t:ty, $ty:ident) => {
+        ($t:ty, $ty:ident, $from_f64:path) => {
             impl private::Sealed for $t {}
             impl Scalar for $t {
                 const TYPE: Element = Element::$ty;
@@ -588,57 +716,45 @@ mod scalar {
                     Value::F64(f64::from(self))
                 }
                 fn from_f64(v: f64, _up: bool) -> Self {
-                    v as $t
+                    $from_f64(v)
                 }
             }
         };
     }
 
-    float_scalar!(f32, F32);
-    float_scalar!(f64, F64);
+    float_scalar!(f32, F32, super::f64_f32);
+    float_scalar!(f64, F64, core::convert::identity);
 
-    /// Running statistics of one channel over the open level-0 node.
+    /// Running statistics of one component of one channel over the open level-0 node.
+    ///
+    /// Integer sums are exact: a node holds at most `2^BASE_SHIFT_MAX` (2^24) samples, so a sum of 64-bit values stays
+    /// under 2^88 and a sum of squares of values up to 32 bits under 2^88, far inside an i128; the wrapping ops never
+    /// wrap.
     #[derive(Copy, Clone, Debug)]
-    pub(super) struct Acc<T> {
-        min: [Option<T>; 2],
-        max: [Option<T>; 2],
-        isum: [i128; 2],
-        fsum: [f64; 2],
-        isq: [i128; 2],
-        fsq: [f64; 2],
-        ipow: i128,
-        fpow: f64,
-        pmax: f64,
-        clipped: u64,
-        pub(super) flags: u32,
+    struct Part<T> {
+        min: Option<T>,
+        max: Option<T>,
+        isum: i128,
+        fsum: f64,
+        isq: i128,
+        fsq: f64,
     }
 
-    impl<T: Scalar> Acc<T> {
-        pub(super) const NEW: Self = Acc {
-            min: [None; 2],
-            max: [None; 2],
-            isum: [0; 2],
-            fsum: [0.0; 2],
-            isq: [0; 2],
-            fsq: [0.0; 2],
-            ipow: 0,
-            fpow: 0.0,
-            pmax: f64::NAN,
-            clipped: 0,
-            flags: 0,
+    impl<T: Scalar> Part<T> {
+        const NEW: Self = Part {
+            min: None,
+            max: None,
+            isum: 0,
+            fsum: 0.0,
+            isq: 0,
+            fsq: 0.0,
         };
 
-        /// Add the samples of component `c` (every `stride`-th scalar of `xs`).
+        /// Add component `c` of every frame of `stride` scalars of `xs`.
         #[inline(always)]
-        pub(super) fn add_component(
-            &mut self,
-            xs: &[T],
-            stride: usize,
-            c: usize,
-            stats: SeriesStats,
-        ) {
+        fn add(&mut self, xs: &[T], stride: usize, c: usize, stats: SeriesStats) {
             if stats.min || stats.max {
-                let (mut lo, mut hi) = (self.min[c], self.max[c]);
+                let (mut lo, mut hi) = (self.min, self.max);
                 for &x in xs.iter().skip(c).step_by(stride) {
                     // NaN compares with nothing, itself included
                     if x.partial_cmp(&x).is_none() {
@@ -651,7 +767,7 @@ mod scalar {
                         hi = Some(x);
                     }
                 }
-                (self.min[c], self.max[c]) = (lo, hi);
+                (self.min, self.max) = (lo, hi);
             }
             if stats.sum || stats.sum_sq {
                 if T::INT {
@@ -659,37 +775,81 @@ mod scalar {
                     let mut fq = 0.0f64;
                     for &x in xs.iter().skip(c).step_by(stride) {
                         let v = x.to_i128();
-                        s += v;
+                        s = s.wrapping_add(v);
                         if T::SQ_EXACT {
-                            q += v * v;
+                            q = q.wrapping_add(v.wrapping_mul(v));
                         } else {
                             let f = x.to_f64();
                             fq += f * f;
                         }
                     }
-                    self.isum[c] += s;
-                    self.isq[c] += q;
-                    self.fsq[c] += fq;
+                    self.isum = self.isum.wrapping_add(s);
+                    self.isq = self.isq.wrapping_add(q);
+                    self.fsq += fq;
                 } else {
                     for &x in xs.iter().skip(c).step_by(stride) {
                         let f = x.to_f64();
-                        self.fsum[c] += f;
-                        self.fsq[c] += f * f;
+                        self.fsum += f;
+                        self.fsq += f * f;
                     }
                 }
+            }
+        }
+    }
+
+    /// Running statistics of one channel over the open level-0 node.
+    #[derive(Copy, Clone, Debug)]
+    pub(super) struct Acc<T> {
+        parts: [Part<T>; 2],
+        /// Sum of the powers of an integer element: exact, as the sums of [Part]
+        ipow: i128,
+        fpow: f64,
+        pmax: f64,
+        clipped: u64,
+        pub(super) flags: u32,
+    }
+
+    impl<T: Scalar> Acc<T> {
+        pub(super) const NEW: Self = Acc {
+            parts: [Part::NEW; 2],
+            ipow: 0,
+            fpow: 0.0,
+            pmax: f64::NAN,
+            clipped: 0,
+            flags: 0,
+        };
+
+        /// Add the first `components` components of the channel whose first scalar is the first of `xs`, in frames
+        /// of `stride` scalars.
+        #[inline(always)]
+        pub(super) fn add_components(
+            &mut self,
+            xs: &[T],
+            stride: usize,
+            components: usize,
+            stats: SeriesStats,
+        ) {
+            for (c, part) in self.parts.iter_mut().take(components).enumerate() {
+                part.add(xs, stride, c, stats);
             }
         }
 
         /// Add the power `I² + Q²` of the complex samples at `at` in each frame of `stride` scalars of `xs`.
         pub(super) fn add_power(&mut self, xs: &[T], stride: usize, at: usize) {
+            debug_assert!(
+                stride.checked_sub(at).is_some_and(|room| room >= 2),
+                "a complex pair at {at} inside a frame of {stride}"
+            );
             for frame in xs.chunks_exact(stride) {
-                let pair = &frame[at..at + 2];
-                let (i, q) = (pair[0], pair[1]);
+                let Some(&[i, q]) = frame.get(at..).and_then(|f| f.first_chunk::<2>()) else {
+                    continue;
+                };
                 let p = if T::SQ_EXACT {
+                    // values up to 32 bits: a power under 2^65, a node's sum under 2^89
                     let (i, q) = (i.to_i128(), q.to_i128());
-                    let p = i * i + q * q;
-                    self.ipow += p;
-                    p as f64
+                    let p = i.wrapping_mul(i).wrapping_add(q.wrapping_mul(q));
+                    self.ipow = self.ipow.wrapping_add(p);
+                    i128_f64(p)
                 } else {
                     let (i, q) = (i.to_f64(), q.to_f64());
                     let p = i * i + q * q;
@@ -712,46 +872,53 @@ mod scalar {
             hi: T,
         ) {
             for frame in xs.chunks_exact(stride) {
-                if frame[at..at + components]
-                    .iter()
-                    .any(|&x| !(lo < x && x < hi))
-                {
-                    self.clipped += 1;
+                let Some(sample) = frame.get(at..).and_then(|f| f.get(..components)) else {
+                    continue;
+                };
+                if sample.iter().any(|&x| !(lo < x && x < hi)) {
+                    // at most a node's 2^24 samples
+                    self.clipped = self.clipped.saturating_add(1);
                 }
             }
         }
 
         pub(super) fn stats(&self, element: Element, samples: u64) -> ChannelStats {
             let mut s = ChannelStats::empty(element);
-            for c in 0..usize::from(components(element)) {
-                if let Some(v) = self.min[c] {
-                    s.min[c] = v.value();
+            let slots = s
+                .min
+                .iter_mut()
+                .zip(&mut s.max)
+                .zip(s.sum.iter_mut().zip(&mut s.sum_sq));
+            let parts = self.parts.iter().take(usize::from(components(element)));
+            for (part, ((min, max), (sum, sum_sq))) in parts.zip(slots) {
+                if let Some(v) = part.min {
+                    *min = v.value();
                 }
-                if let Some(v) = self.max[c] {
-                    s.max[c] = v.value();
+                if let Some(v) = part.max {
+                    *max = v.value();
                 }
                 if T::INT {
-                    s.sum[c] = self.isum[c] as f64;
-                    s.sum_sq[c] = if T::SQ_EXACT {
-                        self.isq[c] as f64
+                    *sum = i128_f64(part.isum);
+                    *sum_sq = if T::SQ_EXACT {
+                        i128_f64(part.isq)
                     } else {
-                        self.fsq[c]
+                        part.fsq
                     };
                 } else {
-                    s.sum[c] = self.fsum[c];
-                    s.sum_sq[c] = self.fsq[c];
+                    *sum = part.fsum;
+                    *sum_sq = part.fsq;
                 }
             }
             s.clipped = self.clipped;
             s.flags = self.flags;
             if is_complex(element) && samples > 0 {
                 let p = if T::SQ_EXACT {
-                    self.ipow as f64
+                    i128_f64(self.ipow)
                 } else {
                     self.fpow
                 };
-                s.power_mean = (p / samples as f64) as f32;
-                s.power_max = self.pmax as f32;
+                s.power_mean = f64_f32(p / u64_f64(samples));
+                s.power_max = f64_f32(self.pmax);
             }
             s
         }
@@ -796,6 +963,14 @@ mod builder {
         track_number: u32,
         element: Element,
         channels: u16,
+        /// Scalars per sample of one channel: 1, or 2 for a complex element
+        components: usize,
+        /// Scalars per frame: channels times components
+        stride: usize,
+        /// Bytes of a node in a block
+        node_len: usize,
+        /// `2^base_shift - 1`: an item's place in its level-0 node
+        node_mask: u64,
         spec: SeriesSummarySpec,
         origin: u64,
         timeline: SeriesTimeline,
@@ -872,12 +1047,26 @@ mod builder {
                 None => (T::LOWEST, T::HIGHEST),
                 Some(c) => (T::from_f64(c.low, false), T::from_f64(c.high, true)),
             };
-            let node_len = spec.stats.node_len(element) * usize::from(channels);
+            let too_wide = SummaryError::Invalid("a frame or node past usize");
+            let components = usize::from(components(element));
+            let stride = usize::from(channels)
+                .checked_mul(components)
+                .ok_or(too_wide)?;
+            let node_len = spec
+                .stats
+                .node_len(element)
+                .checked_mul(usize::from(channels))
+                .ok_or(too_wide)?;
             Ok(SeriesSummaries {
                 track_id: start.track_id,
                 track_number: start.track_number,
                 element,
                 channels,
+                components,
+                stride,
+                node_len,
+                // base_shift is at most BASE_SHIFT_MAX, checked above
+                node_mask: !(u64::MAX << spec.base_shift),
                 spec,
                 origin: start.first_item,
                 timeline,
@@ -901,11 +1090,10 @@ mod builder {
 
         /// Keep blocks within `bytes` (default [SERIES_BLOCK_BYTES]); call before the first sample.
         pub fn set_max_block_bytes(&mut self, bytes: usize) {
-            let node_len = self.spec.stats.node_len(self.element) * usize::from(self.channels);
             self.levels = Levels::new(
                 self.origin,
                 self.spec.base_shift,
-                node_len,
+                self.node_len,
                 bytes.saturating_sub(SCALE_LEN_MAX),
             );
         }
@@ -942,24 +1130,35 @@ mod builder {
         /// Add samples: whole frames of `channels × components` scalars, interleaved; `flags` ORs into the nodes they
         /// fall in. Samples that are not whole frames are refused.
         pub fn push(&mut self, samples: &[T], flags: u32) -> Result<(), SummaryError> {
-            let stride = usize::from(self.channels) * usize::from(components(self.element));
+            let stride = self.stride;
+            let partial = SummaryError::PartialFrame { stride };
             if stride == 0 || !samples.len().is_multiple_of(stride) {
-                return Err(SummaryError::PartialFrame { stride });
+                return Err(partial);
             }
+            let past = SummaryError::Invalid("sample index past u64");
             let mut rest = samples;
-            let node = 1u64 << self.spec.base_shift;
             while !rest.is_empty() {
-                let to_boundary = node - (self.next_item & (node - 1));
-                // at most 2^BASE_SHIFT_MAX samples to the boundary
-                let frames = (rest.len() / stride).min(to_boundary as usize);
-                let (now, later) = rest.split_at(frames * stride);
+                // the samples left in the open node: 1 to 2^BASE_SHIFT_MAX
+                let to_boundary = (!self.next_item & self.node_mask)
+                    .checked_add(1)
+                    .ok_or(past)?;
+                // a boundary past usize is farther than any slice
+                let to_boundary = usize::try_from(to_boundary).unwrap_or(usize::MAX);
+                let frames = rest
+                    .len()
+                    .checked_div(stride)
+                    .ok_or(partial)?
+                    .min(to_boundary);
+                let (now, later) = rest
+                    .split_at_checked(frames.checked_mul(stride).ok_or(partial)?)
+                    .ok_or(partial)?;
                 self.add(now, flags);
-                self.next_item = self
-                    .next_item
-                    .checked_add(frames as u64)
-                    .ok_or(SummaryError::Invalid("sample index past u64"))?;
+                self.next_item = u64::try_from(frames)
+                    .ok()
+                    .and_then(|n| self.next_item.checked_add(n))
+                    .ok_or(past)?;
                 rest = later;
-                if self.next_item & (node - 1) == 0 {
+                if self.next_item & self.node_mask == 0 {
                     self.close_node()?;
                     self.encode()?;
                 }
@@ -968,43 +1167,49 @@ mod builder {
         }
 
         fn add(&mut self, xs: &[T], flags: u32) {
-            let comps = usize::from(components(self.element));
-            let stride = usize::from(self.channels) * comps;
+            let comps = self.components;
+            let stride = self.stride;
             let stats = self.spec.stats;
-            for (ch, acc) in self.acc.iter_mut().enumerate() {
-                for c in 0..comps {
-                    acc.add_component(&xs[ch * comps..], stride, c, stats);
-                }
+            // channel `ch` starts at scalar ch · comps of every frame: the channels' starts step by comps
+            let starts = (0..stride).step_by(comps);
+            for (acc, at) in self.acc.iter_mut().zip(starts) {
+                // no frames: nothing to add
+                acc.add_components(xs.get(at..).unwrap_or_default(), stride, comps, stats);
                 if is_complex(self.element) && (stats.power_mean || stats.power_max) {
-                    acc.add_power(xs, stride, ch * comps);
+                    acc.add_power(xs, stride, at);
                 }
                 if stats.clipped {
-                    acc.add_clipped(xs, stride, ch * comps, comps, self.lo, self.hi);
+                    acc.add_clipped(xs, stride, at, comps, self.lo, self.hi);
                 }
                 acc.flags |= flags;
             }
         }
 
         /// The open level-0 node's samples since the last change of scale, at their scale, and their count.
-        fn acc_node(&self) -> (SeriesNode, u64) {
-            let samples = self.next_item - self.acc_from;
+        fn acc_node(&self) -> Result<(SeriesNode, u64), SummaryError> {
+            let samples =
+                self.next_item
+                    .checked_sub(self.acc_from)
+                    .ok_or(SummaryError::Invalid(
+                        "open node starts past the next sample",
+                    ))?;
             let channels = self
                 .acc
                 .iter()
                 .map(|a| a.stats(self.element, samples))
                 .collect();
-            (
+            Ok((
                 SeriesNode {
                     scale: self.scale,
                     channels,
                 },
                 samples,
-            )
+            ))
         }
 
         /// The open level-0 node so far: the part before the last change of scale merged with the samples since.
         fn open_node(&self) -> Result<Option<SeriesNode>, SummaryError> {
-            let (node, samples) = self.acc_node();
+            let (node, samples) = self.acc_node()?;
             Ok(match (&self.part, samples) {
                 (None, 0) => None,
                 (None, _) => Some(node),
@@ -1019,13 +1224,16 @@ mod builder {
 
         /// Move the samples since the last change of scale into the open node's earlier part.
         fn flush_acc(&mut self) -> Result<(), SummaryError> {
-            let (node, samples) = self.acc_node();
+            let (node, samples) = self.acc_node()?;
             if samples > 0 {
                 self.part = Some(match self.part.take() {
                     None => (node, samples),
                     Some((mut p, n)) => {
                         p.merge(&node, n, samples).map_err(SummaryError::Scale)?;
-                        (p, n + samples)
+                        let n = n
+                            .checked_add(samples)
+                            .ok_or(SummaryError::Invalid("open node past u64 samples"))?;
+                        (p, n)
                     }
                 });
                 self.acc.fill(Acc::NEW);
@@ -1041,13 +1249,20 @@ mod builder {
                 .part
                 .take()
                 .ok_or(SummaryError::Invalid("no open node to close"))?;
-            let idx = (self.next_item - 1) >> self.spec.base_shift;
+            let idx = self
+                .last_node()
+                .ok_or(SummaryError::Invalid("no sample to close"))?;
             self.levels.push(0, idx, node, self.next_item)
         }
 
         /// Whether the open level-0 node holds samples.
         fn node_open(&self) -> bool {
-            self.next_item > self.origin && self.next_item & ((1 << self.spec.base_shift) - 1) != 0
+            self.next_item > self.origin && self.next_item & self.node_mask != 0
+        }
+
+        /// The level-0 node of the last sample; None before the first.
+        fn last_node(&self) -> Option<u64> {
+            Some(self.next_item.checked_sub(1)? >> self.spec.base_shift)
         }
 
         /// Write the open nodes of every level, partial ones included, as blocks. Call it once, after the last
@@ -1085,13 +1300,17 @@ mod builder {
                 for n in &mut nodes {
                     n.rescale(scale).map_err(SummaryError::Scale)?;
                 }
-                let last_tick = self.tick(first_item + items - 1)?;
+                let last = items
+                    .checked_sub(1)
+                    .and_then(|n| first_item.checked_add(n))
+                    .ok_or(SummaryError::Invalid("a batch of no items"))?;
+                let last_tick = self.tick(last)?;
                 let head = SummaryHead {
                     track_id: self.track_id,
                     track_number: self.track_number,
                     tree: Tree::Series,
                     level,
-                    node_shift: self.levels.shift(level),
+                    node_shift: self.levels.shift(level)?,
                     layout: Layout::Series {
                         element: self.element,
                         channels: self.channels,
@@ -1134,7 +1353,9 @@ mod builder {
                 && let Some(open) = self.open_node()?
             {
                 if nodes.is_empty() {
-                    first = (self.next_item - 1) >> self.spec.base_shift;
+                    first = self
+                        .last_node()
+                        .ok_or(SummaryError::Invalid("an open node of no samples"))?;
                 }
                 nodes.push(open);
             }

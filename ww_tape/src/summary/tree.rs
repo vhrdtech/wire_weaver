@@ -1,21 +1,5 @@
 //! The item tree of an event track as a writer builds it.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use super::levels::{LevelNode, Levels};
 use super::{
     EVENT_BASE_SHIFT, EventFields, EventNode, Layout, SummaryError, SummaryHead, Tree, summary_len,
@@ -126,7 +110,10 @@ impl EventTree {
             .next_item
             .checked_add(run.count)
             .ok_or(SummaryError::Invalid("item numbers past u64"))?;
-        if (self.next_item >> shift) != ((end - 1) >> shift) {
+        let last = end
+            .checked_sub(1)
+            .ok_or(SummaryError::Invalid("a run of no items"))?;
+        if (self.next_item >> shift) != (last >> shift) {
             return Err(SummaryError::Invalid("a run across a level-0 node"));
         }
         let node = EventNode {
@@ -166,8 +153,15 @@ impl EventTree {
             .take()
             .ok_or(SummaryError::Invalid("no open node to close"))?;
         self.last_tick = Some(acc.last_tick);
-        let idx = (self.next_item - 1) >> EVENT_BASE_SHIFT;
+        let idx = self
+            .last_node()
+            .ok_or(SummaryError::Invalid("no item to close"))?;
         self.levels.push(0, idx, acc, self.next_item)
+    }
+
+    /// The level-0 node of the last item; None before the first.
+    fn last_node(&self) -> Option<u64> {
+        Some(self.next_item.checked_sub(1)? >> EVENT_BASE_SHIFT)
     }
 
     /// Write the open nodes of every level, partial ones included, as blocks. Call it once, after the last item.
@@ -181,25 +175,22 @@ impl EventTree {
 
     fn encode(&mut self) -> Result<(), SummaryError> {
         for out in self.levels.take_output() {
-            let first = out.nodes.first().expect("a batch holds nodes");
-            let last = out.nodes.last().expect("a batch holds nodes");
+            let empty = SummaryError::Invalid("a batch holds nodes");
+            let (Some(first), Some(last)) = (out.nodes.first(), out.nodes.last()) else {
+                return Err(empty);
+            };
             let head = SummaryHead {
                 track_id: self.track_id,
                 track_number: self.track_number,
                 tree: Tree::Events,
                 level: out.level,
-                node_shift: self.levels.shift(out.level),
+                node_shift: self.levels.shift(out.level)?,
                 layout: Layout::Events(self.fields),
                 first_item: out.first_item,
                 items: out.items,
                 first_tick: first.first_tick,
                 last_tick: last.last_tick,
-                latest_end: out
-                    .nodes
-                    .iter()
-                    .map(|n| n.latest_end)
-                    .max()
-                    .expect("a batch holds nodes"),
+                latest_end: out.nodes.iter().map(|n| n.latest_end).max().ok_or(empty)?,
             };
             let mut buf = vec![0u8; summary_len(&head)?];
             let len = write_event_summary(
@@ -226,8 +217,10 @@ impl EventTree {
         if level == 0
             && let Some(acc) = self.acc
         {
-            if nodes.is_empty() {
-                first = (self.next_item - 1) >> EVENT_BASE_SHIFT;
+            if nodes.is_empty()
+                && let Some(n) = self.last_node()
+            {
+                first = n;
             }
             nodes.push(acc);
         }

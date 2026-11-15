@@ -816,6 +816,35 @@ fn node_items_at_the_top_of_the_item_numbers() {
     assert_eq!((past.node_count(), past.node_items(0)), (0, None));
 }
 
+/// An event tree whose items end at the top of the item numbers: the last node's end, `(n + 1) << shift`, is past
+/// u64.
+#[test]
+fn event_tree_at_the_top_of_the_item_numbers() {
+    let first = u64::MAX - 100;
+    let mut t = EventTree::new(1, 1, EventFields::default(), first);
+    for i in 0..50 {
+        t.push(i, i, 0).unwrap();
+    }
+    t.finish().unwrap();
+    let blocks = t.take_blocks();
+    assert!(!blocks.is_empty());
+    for b in &blocks {
+        let h = Summary::read(b).unwrap().head();
+        assert_eq!((h.first_item, h.items), (first, 50));
+    }
+}
+
+/// Merging statistics read from a damaged block: a clipped count near u64::MAX stops there instead of overflowing.
+#[test]
+fn merge_of_huge_clipped_counts() {
+    let mut a = ChannelStats::empty(Element::I16);
+    a.clipped = u64::MAX - 1;
+    let mut b = a;
+    b.clipped = 5;
+    a.merge(&b, u64::MAX, u64::MAX);
+    assert_eq!(a.clipped, u64::MAX);
+}
+
 /// A series head whose scale length or level is past its cap is refused before anything is sized by it.
 #[test]
 fn series_head_caps() {

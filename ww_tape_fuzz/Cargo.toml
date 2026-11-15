@@ -1,0 +1,13 @@
+[package]
+name = "ww_tape_fuzz"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Fuzz target bodies, hostile block builders and seed replay for ww_tape's decoders"
+
+[dependencies]
+shrink_wrap = { workspace = true, features = ["std"] }
+ww_tape = { workspace = true, features = ["std"] }

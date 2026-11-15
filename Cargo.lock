@@ -7056,6 +7056,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_tape_fuzz"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+ "ww_tape",
+]
+
+[[package]]
 name = "ww_timebase"
 version = "0.1.0"
 dependencies = [

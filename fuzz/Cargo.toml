@@ -16,6 +16,7 @@ ww_link = { path = "../ww_link", features = ["std"] }
 ww_self = { path = "../ww_self" }
 ww_stream = { path = "../ww_stream", features = ["std"] }
 ww_tape = { path = "../ww_tape" }
+ww_tape_fuzz = { path = "../ww_tape_fuzz" }
 
 [[bin]]
 name = "framer-tx-rx"

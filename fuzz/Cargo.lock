@@ -256,6 +256,7 @@ dependencies = [
  "ww_self",
  "ww_stream",
  "ww_tape",
+ "ww_tape_fuzz",
 ]
 
 [[package]]
@@ -964,6 +965,14 @@ dependencies = [
  "lz4_flex",
  "shrink_wrap",
  "ww_version",
+]
+
+[[package]]
+name = "ww_tape_fuzz"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+ "ww_tape",
 ]
 
 [[package]]

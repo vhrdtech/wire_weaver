@@ -316,3 +316,43 @@ fn the_positional_reader_reads_past_a_gap() {
     // describe block and 10 records blocks
     assert_eq!(r.entries(0).unwrap().len(), 11);
 }
+
+/// A block written twice (a rewrite after a failed write, two copies merged) is a duplicate, not a cut, for the
+/// positional reader too: the same bytes are dropped, other bytes replace the earlier copy.
+#[test]
+fn a_duplicate_block_is_not_a_cut() {
+    let card = run(NEW, RunTag::NONE, Layout::UNALIGNED, 6);
+    let at = block_start(&card, 4);
+    let again = card[block_start(&card, 3)..at].to_vec();
+    let dup = [&card[..at], &again, &card[at..]].concat();
+    let r = TapeReader::open_with(&dup[..], raw()).unwrap();
+    let p = &r.pieces()[0];
+    assert_eq!((p.end, p.cut), (dup.len() as u64, None));
+    assert!(p.replaced.is_empty());
+    assert_eq!(
+        r.entries(0).unwrap().len(),
+        7,
+        "describe and 6 records, the copy dropped"
+    );
+    let (got, errors) = walk(&dup, Medium::Raw);
+    assert_eq!((got, errors.len()), (seqs(NEW, 1..7), 0));
+    // other bytes under the same id: the later copy wins, reported
+    let other = {
+        let mut buf = [0u8; 256];
+        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, BlockId::new(NEW, 3), &[1]);
+        b.push(9, ClockTime::new(1, 3), &[b"rewritten"]).unwrap();
+        let len = b.finish();
+        buf[..len].to_vec()
+    };
+    let rewritten = [&card[..at], &other, &card[at..]].concat();
+    let r = TapeReader::open_with(&rewritten[..], raw()).unwrap();
+    let p = &r.pieces()[0];
+    assert_eq!((p.cut, p.replaced.as_slice()), (None, &[at as u64][..]));
+    assert_eq!(r.entries(0).unwrap().len(), 7);
+    let (got, errors) = walk(&rewritten, Medium::Raw);
+    assert_eq!(got, [seqs(NEW, 1..4), seqs(NEW, 3..7)].concat());
+    assert!(
+        matches!(errors[..], [FileError::Replaced { seq: 3, .. }]),
+        "{errors:?}"
+    );
+}

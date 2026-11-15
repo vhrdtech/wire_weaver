@@ -211,6 +211,9 @@ pub struct PieceInfo {
     /// Blank or bad stretches a scan read past, the run's data going on after them within the layout's
     /// [gap](Layout::gap_max): offset and length of each.
     pub gaps: Vec<(u64, u64)>,
+    /// Blocks a scan took in place of the block before them: the same run and seq with other bytes (the later copy
+    /// wins); their offsets. A copy with the same bytes is dropped silently.
+    pub replaced: Vec<u64>,
     /// Entries a scan or the checkpoint chain gave, in file order; None for a piece read by its tail
     entries: Option<Vec<IndexEntry>>,
 }
@@ -227,6 +230,7 @@ impl PieceInfo {
             found,
             cut: None,
             gaps: Vec::new(),
+            replaced: Vec::new(),
             entries: Some(Vec::new()),
         }
     }
@@ -526,12 +530,24 @@ impl<S: ByteSource> TapeReader<S> {
         piece.end = piece.end.max(from);
         let scan_start = from;
         while at < hi {
+            let mut replaces = false;
             let taken = match self.good_block(at, hi)? {
-                Ok(b) => {
-                    let ok =
-                        walk.verdict(&Block::read(&b).expect("checked"), true) == Verdict::Take;
-                    ok.then_some(b)
-                }
+                Ok(b) => match walk.verdict(&Block::read(&b).expect("checked"), true) {
+                    Verdict::Take => Some(b),
+                    // the same block again: dropped
+                    Verdict::Duplicate { same: true } => {
+                        at += b.len() as u64;
+                        piece.end = at;
+                        continue;
+                    }
+                    // other bytes under the same id: the later copy wins
+                    Verdict::Duplicate { same: false } => {
+                        replaces = true;
+                        piece.replaced.push(at);
+                        Some(b)
+                    }
+                    Verdict::Stale(_) | Verdict::Backwards { .. } => None,
+                },
                 Err(_) => None,
             };
             let Some(bytes) = taken else {
@@ -581,6 +597,9 @@ impl<S: ByteSource> TapeReader<S> {
                     if let Some(e) = IndexEntry::of_block(at - piece.start, &block)
                         && let Some(list) = piece.entries.as_mut()
                     {
+                        if replaces {
+                            list.pop();
+                        }
                         list.push(e);
                     }
                 }

@@ -724,3 +724,28 @@ fn a_raw_piece_is_one_run() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Adopting keeps lost blocks visible: two blocks missing from the producer's stream leave a jump of two in the
+/// writer's seqs; a producer restart (another run) leaves none.
+#[test]
+fn adopting_keeps_lost_blocks_visible() {
+    let dir = std::env::temp_dir().join(format!("ww_tape_media_lost_{}", std::process::id()));
+    _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut w = TapeWriter::create(&dir.join("l.wwt"), SyncPolicy::None).unwrap();
+    for seq in [0, 1, 2, 5, 6] {
+        w.adopt_block(&records(BlockId::new(OLD, seq))).unwrap();
+    }
+    // the producer restarted: its new run counts from 0 again
+    for seq in [0, 1] {
+        w.adopt_block(&records(BlockId::new(NEW, seq))).unwrap();
+    }
+    let bytes = std::fs::read(w.current_path()).unwrap();
+    drop(w);
+    std::fs::remove_dir_all(&dir).unwrap();
+    let (got, errors) = walk(&bytes, Medium::Raw);
+    assert!(errors.is_empty(), "{errors:?}");
+    let seqs: Vec<u64> = got.iter().map(|(_, s)| *s).collect();
+    assert_eq!(seqs, [0, 1, 2, 5, 6, 7, 8]);
+    assert!(got.iter().all(|(r, _)| *r == got[0].0));
+}

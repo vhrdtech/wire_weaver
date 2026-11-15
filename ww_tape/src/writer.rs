@@ -149,6 +149,8 @@ pub struct TapeWriter {
     data_placed: bool,
     /// The last counted block written: its id, length, CRC and offset, to tell a block written again
     last_counted: Option<(BlockId, usize, [u8; 4], u64)>,
+    /// Id of the last block [Self::adopt_block] took, as its producer numbered it
+    adopted: Option<BlockId>,
 }
 
 /// What a finished piece is.
@@ -242,6 +244,7 @@ impl TapeWriter {
             data_copy_due: true,
             data_placed: false,
             last_counted: None,
+            adopted: None,
         }
     }
 
@@ -599,12 +602,27 @@ impl TapeWriter {
     /// piece there is one run: a writer for raw media passes a producer's blocks (a tap's, of its own run) this way. A
     /// block passed twice gets two seqs, both data. Index, finish, tail and piece head blocks are the writer's own:
     /// refused with [WriteError::Index].
+    ///
+    /// Lost blocks stay visible: a jump in the producer's seq (a subscriber that fell behind) leaves the same jump in
+    /// the writer's, so a reader of the adopted run sees the gap. A block of another producer run is a restart, with
+    /// no gap.
     pub fn adopt_block(&mut self, block: &[u8]) -> Result<(), WriteError> {
-        let kind = crate::Block::read(block).map_err(WriteError::Block)?.kind;
+        let b = crate::Block::read(block).map_err(WriteError::Block)?;
+        let (kind, theirs) = (b.kind, BlockId::new(b.run, b.seq));
         if crate::index::is_structural(kind) {
             return Err(WriteError::Index(IndexError::Invalid(
                 "index, finish, tail and piece head blocks are written by the writer",
             )));
+        }
+        let free = b.is_copy();
+        if !free {
+            if let Some(last) = self.adopted
+                && last.run == theirs.run
+            {
+                let lost = theirs.seq.saturating_sub(last.seq).saturating_sub(1);
+                self.next_seq = self.next_seq.wrapping_add(lost);
+            }
+            self.adopted = Some(theirs);
         }
         let mut own = block.to_vec();
         crate::set_id(&mut own, self.next_id()).map_err(WriteError::Block)?;

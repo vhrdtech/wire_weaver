@@ -3480,6 +3480,18 @@ Unicast Data0 to one node over the same bus is TR-6.
   Since STD-102 (`ww_si` on exact_units' integer kernel) it is a gate: `just no-float-guard`, part of `just test`,
   fails on any forbidden symbol (`--guard-strict` is the default). All 16 builds are clean: 0 f64, 0 128-bit and 0
   slow-path symbols; the no-float group has 0 f32 helpers and 0 VFP instructions.
+- ✅ **TEST-34 Zero-cost check** · `v0.5` — proves a change leaves every API bundle and every firmware byte as it
+  was: `just zero-cost BASE_DIR` (`examples_mcu/fw_budget --snapshot DIR [--tree PATH] [--boards B1,B2]` on a base
+  checkout the caller made and on this tree, then `--compare A B`, `src/zero_cost.rs`). Bundles: of every API crate
+  (`tests/*_api`, `examples/*_api`, `ww_stdlib/*`, the evolution fixtures, root crates with `api_snapshots/`), the
+  snapshot `ww api save` writes and the bundle of each root or trait `ww api ast` prints, each by the tree's own
+  `ww`, kept under `DIR/bundles/` for a `diff -r`. Firmware: size and hash of `.text`, `.rodata` and `.data` of every
+  bin of every `examples_mcu` board, in the feature sets of `just check-examples-mcu`, and of the flash budget
+  fixture (TEST-30, Cortex-M0+, sync and `use_async`), at `fw-z` and `fw-3`. Each tree is copied into one staging
+  directory per checkout (`~/.cache/ww-zero-cost/`, `--stage DIR`) and built there, since v0 symbol names hash the
+  absolute path of a dependency outside a board's workspace and two checkouts would order code differently; only
+  changed files are written, so the second tree builds incrementally. `--compare` fails on any digest that changed or is in one
+  snapshot only, naming the crate, or the board, build, profile, bin and section.
 
 ## Dropped and superseded
 

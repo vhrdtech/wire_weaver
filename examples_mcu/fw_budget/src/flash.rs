@@ -88,9 +88,8 @@ pub fn run(targets: &[String], filter: &Filter, qemu_dir: &Path) -> Res<()> {
     Ok(())
 }
 
-fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<()> {
-    let mode = if async_ { "use_async" } else { "sync" };
-    eprintln!("building the qemu-flash-* bins for {target} at {profile}, {mode}");
+/// The `qemu-flash-*` bins of `mcu_qemu`: the floor, the base and every pair of [KINDS] and [OBSERVED].
+pub(crate) fn bins() -> Vec<String> {
     let mut bins: Vec<String> = vec!["qemu-flash-floor".into(), "qemu-flash-base-only".into()];
     for (bin, _) in KINDS {
         bins.push(format!("{bin}8"));
@@ -98,6 +97,13 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
     }
     bins.push("qemu-flash-observed".into());
     bins.extend(OBSERVED.iter().map(|(bin, _)| bin.to_string()));
+    bins
+}
+
+fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<()> {
+    let mode = if async_ { "use_async" } else { "sync" };
+    eprintln!("building the qemu-flash-* bins for {target} at {profile}, {mode}");
+    let bins = bins();
     let mut cmd = cargo(qemu_dir);
     cmd.args(["build", "--profile", profile, "--target", target]);
     for bin in &bins {

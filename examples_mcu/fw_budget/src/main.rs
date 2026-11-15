@@ -11,6 +11,8 @@
 //! cargo run --release -- --requests [--qemu-host HOST] [--cycles [--probe-host HOST]] # per request of a server (TEST-30)
 //!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds;
 //!     `--profiles fw-s` builds at opt-level "s" instead, which neither runs by default
+//! cargo run --release -- --snapshot DIR [--tree PATH] [--stage DIR] [--boards B1,B2]   # bundle and firmware digests, see zero_cost.rs
+//! cargo run --release -- --compare A B               # fails on any digest that differs (TEST-34)
 //! cargo run --release -- [--profile fw-z|fw-3|fw-s] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
@@ -26,6 +28,7 @@ mod elf_diff;
 mod flash;
 mod no_f64_guard;
 mod requests;
+mod zero_cost;
 
 use object::{Object, ObjectSection, ObjectSymbol};
 use std::collections::BTreeMap;
@@ -75,6 +78,17 @@ struct Args {
     /// `--flash` / `--requests`: only these profiles and modes (`sync`, `use_async`); empty is all.
     profiles: Vec<String>,
     modes: Vec<String>,
+    /// Write the zero-cost snapshot (TEST-34) of `tree` into this directory instead of running anything.
+    snapshot: Option<PathBuf>,
+    /// `--snapshot`: the checkout to snapshot; this repository when not given.
+    tree: Option<PathBuf>,
+    /// `--snapshot`: where the tree is copied to and built; one directory per checkout of this repository in the
+    /// user's cache when not given.
+    stage: Option<PathBuf>,
+    /// `--snapshot`: only the builds of these boards; empty is all, `none` no firmware.
+    boards: Vec<String>,
+    /// Compare two zero-cost snapshots (TEST-34) instead of running anything.
+    compare: Option<(PathBuf, PathBuf)>,
 }
 
 fn parse_args() -> Res<Args> {
@@ -96,6 +110,11 @@ fn parse_args() -> Res<Args> {
         top: 25,
         profiles: Vec::new(),
         modes: Vec::new(),
+        snapshot: None,
+        tree: None,
+        stage: None,
+        boards: Vec::new(),
+        compare: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -123,6 +142,15 @@ fn parse_args() -> Res<Args> {
                     .split(',')
                     .map(str::to_string)
                     .collect()
+            }
+            "--snapshot" => args.snapshot = Some(value("--snapshot")?.into()),
+            "--tree" => args.tree = Some(value("--tree")?.into()),
+            "--stage" => args.stage = Some(value("--stage")?.into()),
+            "--boards" => args.boards = value("--boards")?.split(',').map(str::to_string).collect(),
+            "--compare" => {
+                let a = value("--compare")?;
+                let b = value("--compare")?;
+                args.compare = Some((a.into(), b.into()));
             }
             "--modes" => args.modes = value("--modes")?.split(',').map(str::to_string).collect(),
             "--targets" => {
@@ -264,6 +292,23 @@ fn run(args: &Args) -> Res<()> {
         );
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    if let Some((a, b)) = &args.compare {
+        return zero_cost::compare(a, b);
+    }
+    if let Some(dir) = &args.snapshot {
+        let tree = args.tree.clone().unwrap_or_else(|| root.join(".."));
+        let stage = match &args.stage {
+            Some(stage) => stage.clone(),
+            None => zero_cost::default_stage(&root.join("..").canonicalize()?)?,
+        };
+        std::fs::create_dir_all(dir)?;
+        let scope = zero_cost::Scope {
+            tree: &tree,
+            stage: &stage,
+            boards: &args.boards,
+        };
+        return zero_cost::snapshot(dir, &scope);
+    }
     let qemu_dir = root.join("mcu_qemu");
     if args.elf {
         return run_elf(args, &qemu_dir);
@@ -525,7 +570,10 @@ pub(crate) fn board_cycles_of(
     // the bin idles in wfi after `done`, so `timeout` always ends probe-rs: its output counts once `done` is in it
     let out = cmd.stderr(Stdio::inherit()).output()?;
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
-    if !text.lines().any(|l| l.contains("INFO ] done") || l.ends_with(" done")) {
+    if !text
+        .lines()
+        .any(|l| l.contains("INFO ] done") || l.ends_with(" done"))
+    {
         return Err(format!(
             "no result from the board in {TIMEOUT_S} s (is {chip} behind the probe?), probe-rs: {}",
             out.status

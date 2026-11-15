@@ -368,6 +368,14 @@ flash-attribute elf *args:
 dispatch-budget *args:
     cargo run -q --release -- --requests {{ args }}
 
+# Zero-cost check (TEST-34): API bundle digests and firmware section hashes (every examples_mcu board, `fw-z` and
+# `fw-3`) of BASE_DIR, a checkout the caller made, and of this tree, compared; `--boards B1,B2` or `none` builds fewer
+[working-directory('examples_mcu/fw_budget')]
+zero-cost base_dir *args:
+    cargo run -q --release -- --snapshot ../../target/zero-cost/base --tree {{ absolute_path(base_dir) }} {{ args }}
+    cargo run -q --release -- --snapshot ../../target/zero-cost/head {{ args }}
+    cargo run -q --release -- --compare ../../target/zero-cost/base ../../target/zero-cost/head
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

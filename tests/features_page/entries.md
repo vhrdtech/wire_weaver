@@ -511,6 +511,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - TR-13 | A fixed bug (RTT server panic on the first request), not a feature.
 - TEST-32 | A firmware size tool for the project's own development, not a feature of WireWeaver.
 - TEST-33 | A firmware guard for the project's own development (lists the float and 128-bit code a build links), not a feature of WireWeaver.
+- TEST-34 | A check for the project's own development (bundle and firmware bytes before and after a change), not a feature of WireWeaver.
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.
 - EVO-74 | A crate-walker fix (a `#[ww_trait]` moved into its own `pub mod` kept its root item), test maintenance, not a feature.
 - EVO-43 | The wire change behind measured constants in a scale: the user-visible side is NUM-10.

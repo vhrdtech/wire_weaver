@@ -34,6 +34,7 @@ pub(crate) fn render_with_values(
         path: vec![],
         values,
         params: &[],
+        level: None,
     };
     printer.header();
     printer.visit_api_level(&bundle.root);
@@ -52,6 +53,7 @@ pub(crate) fn render_types(bundle: &ApiBundleOwned, skip_docs: bool) -> String {
         path: vec![],
         values: &HashMap::new(),
         params: &[],
+        level: None,
     };
     printer.types();
     printer.out
@@ -105,6 +107,8 @@ struct TreePrinter<'a> {
     values: &'a HashMap<Vec<u32>, String>,
     /// Parameters of the generic definition being printed, to name them in its fields (API-43).
     params: &'a [GenericParamOwned],
+    /// The level whose items are being visited, for the `keyed!` companions of its arrays (EVO-78).
+    level: Option<&'a ApiLevelOwned>,
 }
 
 fn ids(omitted: &Option<Vec<shrink_wrap::UNib32>>) -> Vec<u32> {
@@ -115,10 +119,12 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
     // Items are drawn by visit_api_item, which needs to know whether each one is last.
     // Level docs are shown by the header (root) or replaced by the item's own docs (nested traits).
     fn visit_api_level(&mut self, level: &'a ApiLevelOwned) {
+        let parent = self.level.replace(level);
         for (idx, item) in level.items.iter().enumerate() {
             self.is_last = idx + 1 == level.items.len();
             self.visit_api_item(item);
         }
+        self.level = parent;
     }
 
     fn visit_api_item(&mut self, item: &'a ApiItemOwned) {
@@ -348,11 +354,17 @@ impl TreePrinter<'_> {
                 self.ident(item);
                 _ = write!(self.out, ": {}", self.trait_name(trait_idx.0));
             }
-            // TODO(EVO-78): `flow[] keyed by FlowKey` on the array's own line
-            ApiItemKindOwned::Keys { key, .. } => {
+            ApiItemKindOwned::Keys { of, key, .. } => {
                 _ = write!(self.out, "{} ", style("keyed").true_color(0xCF, 0x8E, 0x6D));
                 self.ident(item);
-                _ = write!(self.out, " by {}", self.ty(key));
+                let array = self
+                    .level
+                    .and_then(|level| level.items.iter().find(|i| i.id == *of))
+                    .map_or_else(
+                        || format!("<no item {}>", of.0),
+                        |i| escape(&i.ident).into_owned(),
+                    );
+                _ = write!(self.out, ": {array} by {}", self.ty(key));
             }
         }
         if let Some(since) = &item.since {
@@ -367,7 +379,16 @@ impl TreePrinter<'_> {
         }
     }
 
-    /// Resource name, followed by `[]` or `[IndexType]` for arrays of resources.
+    /// The key type of the array `item` of the current level, when a `keyed!` companion keys it (EVO-78).
+    fn key_of(&self, item: &ApiItemOwned) -> Option<String> {
+        self.level?.items.iter().find_map(|i| match &i.kind {
+            ApiItemKindOwned::Keys { of, key, .. } if *of == item.id => Some(self.ty(key)),
+            _ => None,
+        })
+    }
+
+    /// Resource name, followed by `[]` or `[IndexType]` for arrays of resources, and `keyed by Key` for a keyed
+    /// one.
     fn ident(&mut self, item: &ApiItemOwned) {
         _ = write!(self.out, "{}", style(escape(&item.ident)).bold());
         if let Multiplicity::Array { index_type_idx } = &item.multiplicity {
@@ -378,6 +399,9 @@ impl TreePrinter<'_> {
                 None => String::new(),
             };
             _ = write!(self.out, "[{index_ty}]");
+            if let Some(key) = self.key_of(item) {
+                _ = write!(self.out, " {} {key}", style("keyed by").dim());
+            }
         }
     }
 
@@ -662,6 +686,24 @@ mod tests {
     fn traits_api() -> ApiBundleOwned {
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/traits_api");
         wire_weaver_core::load(&path, Some("Traits".into()), false).unwrap()
+    }
+
+    /// A keyed array says its key on its own line, the companion names the array (EVO-78).
+    #[test]
+    fn renders_keyed_arrays() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/keyed_api");
+        let bundle = wire_weaver_core::load(&path, Some("Dissector".into()), false).unwrap();
+        let tree = render(&bundle, true);
+        let expected = "\
+trait Dissector keyed_api@0.1.0
+├─ 0 impl flow[] keyed by FlowKey: keyed_api::Flow
+│  ├─ 0 ro property bytes: Fixed<Byte, One, u64, Unbounded>
+│  └─ 1 stream packets: Vec<u8>
+├─ 1 keyed flow_keys: flow by FlowKey
+└─ 2 fn clear()
+";
+        assert_eq!(tree, expected);
     }
 
     #[test]

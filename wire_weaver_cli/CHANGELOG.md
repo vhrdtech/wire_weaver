@@ -10,7 +10,7 @@
 ### 🚀 Features
 
 - `ww tap` shows a block whose coded body doesn't decode, its records lost (STD-129).
-- `ww api` trees show a `keyed!` item as `keyed flow_keys by FlowKey` (API-67).
+- `ww api` trees show a keyed array as `flow[] keyed by FlowKey`, its companion as `keyed flow_keys: flow by FlowKey` (API-67, EVO-78).
 - `ww capture` files end with an index, a finish block with a BLAKE3 content hash and a tail (STD-122).
 - `ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]` rewrites the pinned references of a crate's current snapshot to the source's, keeping its format, for a frozen fixture that follows its dependencies by path (EVO-70).
 - `ww api check --strict` and `ww api scaffold --strict` (new flag on scaffold) refuse a `#[no_unit_hint]` with no reason or an empty one (TOOL-35), naming the item and the reasoned form to write instead (`#[no_unit_hint = "reason"]`, or `#[no_unit_hint(arg = "reason", ..)]` per method argument); `--require-current` alone does not (the documented `tests/evolution.rs` template uses it and external users aren't forced into writing a reason). `ww api scaffold`'s `load_with_hints` call now also takes the unreasoned silences.

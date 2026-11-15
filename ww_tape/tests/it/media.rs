@@ -665,3 +665,62 @@ fn a_gap_after_the_newest_checkpoint_is_read_past() {
         (&[(offset, len)][..], None, file.len() as u64)
     );
 }
+
+/// On a raw medium a piece is one run: a producer's blocks of their own run after a writer's piece head read as stale
+/// data, so the piece ends at its head; adopted into the writer's run they read whole, as they do in a file either way.
+#[test]
+fn a_raw_piece_is_one_run() {
+    let dir = std::env::temp_dir().join(format!("ww_tape_media_adopt_{}", std::process::id()));
+    _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    // the producer's run: its describe set, then records
+    let producer = run(OLD, RunTag::NONE, Layout::UNALIGNED.on_sd_card(), 10);
+    let mut rd = FileBlocks::new(&producer[..]);
+    let mut blocks = vec![];
+    while let Some(Ok(b)) = rd.next_block() {
+        if b.kind != BlockKind::PieceHead {
+            blocks.push(b.bytes().to_vec());
+        }
+    }
+    for adopt in [false, true] {
+        let path = dir.join(format!("{adopt}.wwt"));
+        let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+        let result = ResultId([3; 32]);
+        let head = PieceHead {
+            ident: PieceIdent {
+                id: PieceId::first(&result),
+                result,
+                seq: 0,
+            },
+            prev: None,
+            prev_run: RunTag::NONE,
+        };
+        w.begin_piece(&head, &[]).unwrap();
+        for b in &blocks {
+            if adopt {
+                w.adopt_block(b).unwrap();
+            } else {
+                w.write_block(b).unwrap();
+            }
+        }
+        let bytes = std::fs::read(w.current_path()).unwrap();
+        drop(w);
+        let (as_file, errors) = walk(&bytes, Medium::File);
+        assert_eq!((as_file.len(), errors.len()), (10, 0));
+        let (got, errors) = walk(&bytes, Medium::Raw);
+        let r = TapeReader::open_with(&bytes[..], raw()).unwrap();
+        if adopt {
+            assert_eq!((got.len(), errors.len()), (10, 0), "{errors:?}");
+            assert_eq!(r.pieces()[0].cut, None);
+        } else {
+            let head_len = piece_head_len(0) as u64;
+            assert!(got.is_empty());
+            assert!(
+                matches!(errors[..], [FileError::Cut { offset, why: Cut::Stale { run } }] if offset == head_len && run == OLD),
+                "{errors:?}"
+            );
+            assert_eq!(r.pieces()[0].cut, Some(head_len));
+        }
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

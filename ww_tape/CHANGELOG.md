@@ -41,6 +41,7 @@
 
 ### 🚀 Features
 
+- `TapeWriter::adopt_block` renumbers a producer's block into the writer's run: a raw-medium piece is one run (STD-129).
 - Reserved, refused until built: `Codec::SERIES` (49), `Codec::RUNS` (36), `Element::LEAVES` (13), `ColumnKind::PAYLOAD_LEAF` (7), summary head bytes 54..56 (STD-129).
 - `TapeWriter` copies the describe set after a piece's first data block; `TapeReader::describe_set` takes the next good copy (STD-129).
 - `EventRecord`: an events track's record item, duration and flags as its `EventsDef` says, then the payload (STD-129).

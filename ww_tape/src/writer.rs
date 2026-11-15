@@ -594,6 +594,24 @@ impl TapeWriter {
         self.after_block()
     }
 
+    /// Append a block of any run as the writer's own: renumbered into the writer's run and next seq ([crate::set_id]),
+    /// then as [Self::write_block]. On a raw medium a run starts only at a piece head naming the run before it, so a
+    /// piece there is one run: a writer for raw media passes a producer's blocks (a tap's, of its own run) this way. A
+    /// block passed twice gets two seqs, both data. Index, finish, tail and piece head blocks are the writer's own:
+    /// refused with [WriteError::Index].
+    pub fn adopt_block(&mut self, block: &[u8]) -> Result<(), WriteError> {
+        let kind = crate::Block::read(block).map_err(WriteError::Block)?.kind;
+        if crate::index::is_structural(kind) {
+            return Err(WriteError::Index(IndexError::Invalid(
+                "index, finish, tail and piece head blocks are written by the writer",
+            )));
+        }
+        let mut own = block.to_vec();
+        crate::set_id(&mut own, self.next_id()).map_err(WriteError::Block)?;
+        self.write_raw(&own)?;
+        self.after_block()
+    }
+
     /// Sync now if blocks wait and the interval of [SyncPolicy::Interval] is up; call it when no blocks come.
     pub fn tick(&mut self) -> Result<(), WriteError> {
         self.check()?;

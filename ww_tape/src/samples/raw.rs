@@ -1,6 +1,10 @@
 //! Raw device formats: little and big endian, packed 1, 10, 12 and 24 bits.
+//!
+//! An `_LSB` column is the [bitpack] layout (horizontal, LSB first), so it packs and unpacks with the shared primitive
+//! and its vector kernels; `_MSB` columns have their own loop.
 
 use super::{Sample, SampleError};
+use crate::bitpack;
 
 /// Bytes of one value of `T`.
 #[inline(always)]
@@ -69,34 +73,30 @@ pub(super) fn encode_packed<T: Sample>(
     let scalar_bits = T::ELEMENT.scalar_bits();
     let signed = T::ELEMENT.is_signed();
     let mask = (1u64 << bits) - 1;
-    out.fill(0);
     for (i, v) in values.iter().enumerate() {
         let raw = v.to_bits();
         let fits = if signed {
-            let s = sign_extend(raw, scalar_bits);
             let half = 1i64 << (bits - 1);
-            (-half..half).contains(&s)
+            (-half..half).contains(&sign_extend(raw, scalar_bits))
         } else {
             raw <= mask
         };
         if !fits {
             return Err(SampleError::ValueTooWide { index: i });
         }
-        let v = raw & mask;
+    }
+    if !msb {
+        bitpack::pack(out, values.iter().map(|v| v.to_bits()), bits);
+        return Ok(out.len());
+    }
+    out.fill(0);
+    for (i, v) in values.iter().enumerate() {
         let bit = i * bits as usize;
-        let at = bit / 8;
-        let sh = (bit % 8) as u32;
+        let (at, sh) = (bit / 8, (bit % 8) as u32);
         let n = (sh + bits).div_ceil(8) as usize;
-        if msb {
-            let word = (v << (64 - bits - sh)).to_be_bytes();
-            for (o, b) in out[at..at + n].iter_mut().zip(word) {
-                *o |= b;
-            }
-        } else {
-            let word = (v << sh).to_le_bytes();
-            for (o, b) in out[at..at + n].iter_mut().zip(word) {
-                *o |= b;
-            }
+        let word = ((v.to_bits() & mask) << (64 - bits - sh)).to_be_bytes();
+        for (o, b) in out[at..at + n].iter_mut().zip(word) {
+            *o |= b;
         }
     }
     Ok(out.len())
@@ -110,21 +110,60 @@ pub(super) fn decode_packed<T: Sample>(
     first: usize,
     out: &mut [T],
 ) {
-    match (bits, msb, signed) {
-        (1, _, _) => unpack::<1, false, false, T>(bytes, first, out),
-        (10, false, false) => unpack::<10, false, false, T>(bytes, first, out),
-        (10, false, true) => unpack::<10, false, true, T>(bytes, first, out),
-        (10, true, false) => unpack::<10, true, false, T>(bytes, first, out),
-        (10, true, true) => unpack::<10, true, true, T>(bytes, first, out),
-        (12, false, false) => unpack::<12, false, false, T>(bytes, first, out),
-        (12, false, true) => unpack::<12, false, true, T>(bytes, first, out),
-        (12, true, false) => unpack::<12, true, false, T>(bytes, first, out),
-        (12, true, true) => unpack::<12, true, true, T>(bytes, first, out),
-        (24, false, false) => unpack::<24, false, false, T>(bytes, first, out),
-        (24, false, true) => unpack::<24, false, true, T>(bytes, first, out),
-        (24, true, false) => unpack::<24, true, false, T>(bytes, first, out),
-        (24, true, true) => unpack::<24, true, true, T>(bytes, first, out),
-        _ => unreachable!("packed widths are 1, 10, 12 and 24 (codec table)"),
+    if !msb {
+        return if signed {
+            unpack_lsb::<true, T>(bytes, bits, first, out)
+        } else {
+            unpack_lsb::<false, T>(bytes, bits, first, out)
+        };
+    }
+    match (bits, signed) {
+        (10, false) => unpack::<10, true, false, T>(bytes, first, out),
+        (10, true) => unpack::<10, true, true, T>(bytes, first, out),
+        (12, false) => unpack::<12, true, false, T>(bytes, first, out),
+        (12, true) => unpack::<12, true, true, T>(bytes, first, out),
+        (24, false) => unpack::<24, true, false, T>(bytes, first, out),
+        (24, true) => unpack::<24, true, true, T>(bytes, first, out),
+        _ => unreachable!("MSB widths are 10, 12 and 24 (codec table)"),
+    }
+}
+
+/// Unpack `out.len()` values of `bits` bits from value `first` on in the [bitpack] layout: single reads up to the
+/// next group of [bitpack::GROUP] values, whole groups with the vector kernels (a group starts on a byte: `GROUP · bits`
+/// is a multiple of 8), single reads for the rest.
+fn unpack_lsb<const SIGNED: bool, T: Sample>(bytes: &[u8], bits: u32, first: usize, out: &mut [T]) {
+    let g = bitpack::GROUP;
+    let value = |raw: u64| {
+        T::from_bits(if SIGNED {
+            sign_extend(raw, bits) as u64
+        } else {
+            raw
+        })
+    };
+    let head = (first.next_multiple_of(g) - first).min(out.len());
+    let (head_out, rest) = out.split_at_mut(head);
+    for (k, o) in head_out.iter_mut().enumerate() {
+        *o = value(bitpack::read(bytes, first + k, bits));
+    }
+    let mut at = first + head;
+    let mut group = [0u32; bitpack::GROUP];
+    let mut chunks = rest.chunks_exact_mut(g);
+    for chunk in &mut chunks {
+        bitpack::unpack_u32(&bytes[at * bits as usize / 8..], bits, &mut group);
+        // sign extension in 32 bits, which vectorises (packed widths are at most 24)
+        let sh = 32 - bits;
+        for (o, raw) in chunk.iter_mut().zip(group) {
+            let v = if SIGNED {
+                (((raw << sh) as i32) >> sh) as i64 as u64
+            } else {
+                u64::from(raw)
+            };
+            *o = T::from_bits(v);
+        }
+        at += g;
+    }
+    for (k, o) in chunks.into_remainder().iter_mut().enumerate() {
+        *o = value(bitpack::read(bytes, at + k, bits));
     }
 }
 

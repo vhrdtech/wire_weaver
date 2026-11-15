@@ -477,6 +477,7 @@ feature tracker.
 - **[Tape index, finish and tail](transport/tap.md#index-finish-and-tail)**: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.
 - **[Tape pieces](transport/tap.md#tape-pieces)**: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.
 - **[Positional tape reader](transport/tap.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
+- **[Tape event times](transport/tap.md#tape-blocks)**: Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

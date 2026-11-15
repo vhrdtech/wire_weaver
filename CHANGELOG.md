@@ -82,6 +82,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape::TypeRef` and `TypedItem` are `Eq` and `Hash`, through a new `Hash` on `shrink_wrap::RefVec`. See the `ww_tape` and `shrink_wrap` changelogs.
 - `ww_tape` v2 index, finish, tail, tape pieces and a positional reader for WASM (STD-122, STD-123, STD-124). See the `ww_tape` changelog.
 - The docs highlighter (DOC-11) is vendored from ww_lsp, checked by `tests/docs_highlight`; it now marks `sink!`, `batched` and every exact_units alias and origin.
+- `ww_tape` event time codec (STD-120): starts as a linear frame of reference per 128 items, three end modes, packed flags, SIMD bit-pack kernels, salvage. See the `ww_tape` changelog.
 
 ### Added
 

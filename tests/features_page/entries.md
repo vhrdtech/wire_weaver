@@ -458,6 +458,7 @@ feature tracker.
 - STD-122 | Tape index, finish and tail | Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk. | transport/tap.md#index-finish-and-tail
 - STD-123 | Tape pieces | One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut. | transport/tap.md#tape-pieces
 - STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | transport/tap.md#reading-by-position
+- STD-120 | Tape event times | Event times stored at about 1.5 bytes per periodic item and 3.8 for bursty ones, searched and decoded in place with SIMD. | transport/tap.md#tape-blocks
 
 # Examples
 

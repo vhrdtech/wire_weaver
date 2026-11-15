@@ -6280,6 +6280,12 @@ the producer added them in.</p>
 <td>XOR with the lane's previous value, Chimp's control bits</td>
 </tr>
 <tr>
+<td style="text-align: right;">26</td>
+<td><code>ALP</code></td>
+<td>floats</td>
+<td>decimals as integers, frame of reference, bit-packed; other floats by their front bits through a dictionary</td>
+</tr>
+<tr>
 <td style="text-align: right;">32, 33</td>
 <td><code>DELTA</code>, <code>DELTA2</code></td>
 <td>integers</td>
@@ -6303,44 +6309,374 @@ the producer added them in.</p>
 <li><strong>Raw device formats</strong> (0 to 22) are what a device sends, stored as it is: the reader converts only the samples it reads, and any sample reads in place. An <code>_LSB</code> column holds value <code>i</code> at bits <code>i·w</code> up of the column read as one little-endian number; an <code>_MSB</code> column counts bits from the top of byte 0. A packed value of a signed element is sign-extended.</li>
 <li><strong>XOR codecs</strong> (24, 25) are lossless for every bit pattern, NaN payloads and the sign of zero included. They code groups of 1024 samples, lane by lane.</li>
 <li><strong>Delta codecs</strong> (32 to 35) code groups of 128 samples on the bit-pack primitive the event time codec uses (<code>ww_tape::bitpack</code>). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.</li>
-<li><strong>Groups.</strong> Both grouped families start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: <code>Samples::group_bytes</code> names a group's bytes, to check against <code>Chunk::range_damaged</code>.</li>
+<li><strong>ALP</strong> (26) follows ALP (Afroozeh, Kuffó and Boncz, SIGMOD 2024) in groups of 128 samples. Floats that began as decimals (a reading times 0.1, a price, a value printed and parsed back) are stored as integers: per group and lane one exponent <code>e</code> and factor <code>f</code>, each value <code>d</code> such that <code>d × 10^f × 10^-e</code> gives its bits back exactly, the <code>d</code>s minus their minimum bit-packed. Values that don't come back bit for bit (NaN payloads, <code>-0.0</code>, infinities, more digits) are kept whole as exceptions inside the group. Other floats take ALP's second scheme, <code>rd</code>: up to 16 front bits through a dictionary of up to 8 entries, the rest bit-packed without the low zero bits the group shares. The encoder keeps per group the smallest form, so a group never grows by more than 7 bytes over raw; the layout is in the <code>ww_tape::samples::alp</code> docs.</li>
+<li><strong>Groups.</strong> The grouped codecs start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: <code>Samples::group_bytes</code> names a group's bytes, to check against <code>Chunk::range_damaged</code>.</li>
 </ul>
-<p>Which codec fits depends on the data. On a motor simulation (every variable of <code>motor_sim</code>, 25 kHz) and on decoded speech, lossless float coding gave these ratios against raw:</p>
+<p>For data a device controls, fixed-point numbers are the default (an exact_units <code>Fixed</code> in an integer column with <code>DELTA</code>, see <a href="../../serdes/series/">series</a>): they take the fewest bits and decode fastest. The float codecs are for float sources nobody controls. The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.</p>
+<p><code>just bench-sample-codecs</code> measures every float codec on four kinds of data, each next to the same quantity stored as fixed-point integers with <code>DELTA</code> (first row of each set). Ratio is to the raw floats, in chunks of 4096 samples; times are per value on one core (AMD Ryzen AI 9 HX 370, AVX-512 kernels):</p>
+<ul>
+<li><strong>motor_sim</strong>: every variable of <code>motor_sim</code>'s VESC preset (github.com/vhrdtech/motor_sim at 35eab07, the commit <code>Cargo.lock</code> names) for 1 s at 25 kHz, driven from its rotor angle with a fan load, as <code>f32</code> and as <code>f64</code> (its <code>f32</code> variables widened). Fixed point: <code>i32</code> at the finest power-of-ten step that keeps 24 bits at each variable's peak.</li>
+<li><strong>speech</strong>: Roosevelt's Pearl Harbor address (Wikimedia Commons, public domain, <code>Roosevelt_Pearl_Harbor.ogg</code>, SHA-1 <code>90239988...</code>), decoded to <code>f32</code> by lewton. Fixed point: lewton's 16-bit PCM of the same decode.</li>
+<li><strong>ADC</strong>: 12-bit counts of 4 slow noisy channels, 250 000 samples each, turned into floats as firmware does: <code>counts × 3.3/4096</code> and <code>counts × 0.1</code>. Fixed point: the counts.</li>
+</ul>
 <table>
 <thead>
 <tr>
 <th>Data</th>
-<th style="text-align: right;"><code>GORILLA</code></th>
-<th style="text-align: right;"><code>CHIMP</code></th>
-<th style="text-align: right;"><code>FLOAT_DELTA</code></th>
-<th style="text-align: right;"><code>FLOAT_DELTA2</code></th>
+<th>Codec</th>
+<th style="text-align: right;">Ratio</th>
+<th style="text-align: right;">Bits/value</th>
+<th style="text-align: right;">Encode ns</th>
+<th style="text-align: right;">Decode ns</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>motor, <code>f32</code></td>
-<td style="text-align: right;">1.18</td>
-<td style="text-align: right;">1.38</td>
-<td style="text-align: right;">1.21</td>
-<td style="text-align: right;">1.23</td>
+<td>motor_sim <code>f32</code></td>
+<td><code>DELTA</code> of <code>i32</code></td>
+<td style="text-align: right;">3.10</td>
+<td style="text-align: right;">10.3</td>
+<td style="text-align: right;">2.1</td>
+<td style="text-align: right;">0.66</td>
 </tr>
 <tr>
-<td>motor, <code>f64</code></td>
-<td style="text-align: right;">2.32</td>
-<td style="text-align: right;">2.28</td>
-<td style="text-align: right;">2.68</td>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">1.49</td>
+<td style="text-align: right;">21.5</td>
+<td style="text-align: right;">5.4</td>
+<td style="text-align: right;">2.42</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">1.74</td>
+<td style="text-align: right;">18.4</td>
+<td style="text-align: right;">7.0</td>
+<td style="text-align: right;">3.78</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.93</td>
+<td style="text-align: right;">16.6</td>
+<td style="text-align: right;">2.3</td>
+<td style="text-align: right;">0.86</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.99</td>
+<td style="text-align: right;">16.1</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">1.02</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">1.64</td>
+<td style="text-align: right;">19.5</td>
+<td style="text-align: right;">14.1</td>
+<td style="text-align: right;">1.17</td>
+</tr>
+<tr>
+<td>motor_sim <code>f64</code></td>
+<td><code>DELTA</code> of <code>i32</code></td>
+<td style="text-align: right;">6.20</td>
+<td style="text-align: right;">10.3</td>
+<td style="text-align: right;">2.1</td>
+<td style="text-align: right;">0.65</td>
+</tr>
+<tr>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">2.51</td>
+<td style="text-align: right;">25.5</td>
+<td style="text-align: right;">5.9</td>
+<td style="text-align: right;">2.60</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">2.50</td>
+<td style="text-align: right;">25.6</td>
+<td style="text-align: right;">11.3</td>
 <td style="text-align: right;">2.87</td>
 </tr>
 <tr>
-<td>speech, <code>f32</code></td>
-<td style="text-align: right;">2.31</td>
-<td style="text-align: right;">1.83</td>
-<td style="text-align: right;">0.99</td>
-<td style="text-align: right;">0.99</td>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.50</td>
+<td style="text-align: right;">42.6</td>
+<td style="text-align: right;">2.4</td>
+<td style="text-align: right;">1.29</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.56</td>
+<td style="text-align: right;">41.1</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">1.28</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">2.51</td>
+<td style="text-align: right;">25.5</td>
+<td style="text-align: right;">17.6</td>
+<td style="text-align: right;">1.24</td>
+</tr>
+<tr>
+<td>speech <code>f32</code>, 2 channels</td>
+<td><code>DELTA</code> of <code>i16</code> PCM</td>
+<td style="text-align: right;">3.43</td>
+<td style="text-align: right;">9.3</td>
+<td style="text-align: right;">2.3</td>
+<td style="text-align: right;">0.71</td>
+</tr>
+<tr>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">1.02</td>
+<td style="text-align: right;">31.3</td>
+<td style="text-align: right;">5.7</td>
+<td style="text-align: right;">2.30</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">1.23</td>
+<td style="text-align: right;">26.0</td>
+<td style="text-align: right;">8.2</td>
+<td style="text-align: right;">5.59</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.10</td>
+<td style="text-align: right;">29.1</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">0.96</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.10</td>
+<td style="text-align: right;">29.0</td>
+<td style="text-align: right;">2.7</td>
+<td style="text-align: right;">1.13</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">1.16</td>
+<td style="text-align: right;">27.6</td>
+<td style="text-align: right;">15.7</td>
+<td style="text-align: right;">1.27</td>
+</tr>
+<tr>
+<td>ADC × 3.3/4096 <code>f32</code></td>
+<td><code>DELTA</code> of the counts</td>
+<td style="text-align: right;">7.31</td>
+<td style="text-align: right;">4.4</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">0.65</td>
+</tr>
+<tr>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">1.51</td>
+<td style="text-align: right;">21.3</td>
+<td style="text-align: right;">5.6</td>
+<td style="text-align: right;">2.71</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">1.76</td>
+<td style="text-align: right;">18.2</td>
+<td style="text-align: right;">10.5</td>
+<td style="text-align: right;">6.87</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.84</td>
+<td style="text-align: right;">17.4</td>
+<td style="text-align: right;">2.4</td>
+<td style="text-align: right;">0.81</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.73</td>
+<td style="text-align: right;">18.5</td>
+<td style="text-align: right;">2.6</td>
+<td style="text-align: right;">1.08</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">1.59</td>
+<td style="text-align: right;">20.2</td>
+<td style="text-align: right;">15.1</td>
+<td style="text-align: right;">1.17</td>
+</tr>
+<tr>
+<td>ADC × 3.3/4096 <code>f64</code></td>
+<td><code>DELTA</code> of the counts</td>
+<td style="text-align: right;">14.63</td>
+<td style="text-align: right;">4.4</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">0.65</td>
+</tr>
+<tr>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">1.36</td>
+<td style="text-align: right;">47.1</td>
+<td style="text-align: right;">7.9</td>
+<td style="text-align: right;">3.19</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">1.57</td>
+<td style="text-align: right;">40.8</td>
+<td style="text-align: right;">13.1</td>
+<td style="text-align: right;">7.28</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.37</td>
+<td style="text-align: right;">46.7</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">1.32</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.34</td>
+<td style="text-align: right;">47.8</td>
+<td style="text-align: right;">2.7</td>
+<td style="text-align: right;">1.28</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">1.32</td>
+<td style="text-align: right;">48.6</td>
+<td style="text-align: right;">21.9</td>
+<td style="text-align: right;">1.59</td>
+</tr>
+<tr>
+<td>ADC × 0.1 <code>f32</code></td>
+<td><code>DELTA</code> of the counts</td>
+<td style="text-align: right;">7.31</td>
+<td style="text-align: right;">4.4</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">0.65</td>
+</tr>
+<tr>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">1.53</td>
+<td style="text-align: right;">21.0</td>
+<td style="text-align: right;">5.5</td>
+<td style="text-align: right;">2.67</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">1.81</td>
+<td style="text-align: right;">17.7</td>
+<td style="text-align: right;">10.5</td>
+<td style="text-align: right;">6.85</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.84</td>
+<td style="text-align: right;">17.4</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">0.83</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.73</td>
+<td style="text-align: right;">18.6</td>
+<td style="text-align: right;">2.6</td>
+<td style="text-align: right;">0.96</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">4.67</td>
+<td style="text-align: right;">6.9</td>
+<td style="text-align: right;">8.5</td>
+<td style="text-align: right;">0.81</td>
+</tr>
+<tr>
+<td>ADC × 0.1 <code>f64</code></td>
+<td><code>DELTA</code> of the counts</td>
+<td style="text-align: right;">14.63</td>
+<td style="text-align: right;">4.4</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">0.65</td>
+</tr>
+<tr>
+<td></td>
+<td><code>GORILLA</code></td>
+<td style="text-align: right;">1.38</td>
+<td style="text-align: right;">46.5</td>
+<td style="text-align: right;">7.8</td>
+<td style="text-align: right;">3.15</td>
+</tr>
+<tr>
+<td></td>
+<td><code>CHIMP</code></td>
+<td style="text-align: right;">1.59</td>
+<td style="text-align: right;">40.3</td>
+<td style="text-align: right;">13.1</td>
+<td style="text-align: right;">7.27</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA</code></td>
+<td style="text-align: right;">1.37</td>
+<td style="text-align: right;">46.7</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">1.36</td>
+</tr>
+<tr>
+<td></td>
+<td><code>FLOAT_DELTA2</code></td>
+<td style="text-align: right;">1.34</td>
+<td style="text-align: right;">47.8</td>
+<td style="text-align: right;">2.7</td>
+<td style="text-align: right;">1.32</td>
+</tr>
+<tr>
+<td></td>
+<td><code>ALP</code></td>
+<td style="text-align: right;">9.02</td>
+<td style="text-align: right;">7.1</td>
+<td style="text-align: right;">8.9</td>
+<td style="text-align: right;">0.72</td>
 </tr>
 </tbody>
 </table>
-<p>The delta codecs decoded at 1 to 3 ns per value, the XOR codecs at 2 to 9 (x86-64, one core). The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.</p>
+<p>What the numbers say:</p>
+<ul>
+<li>Fixed point is 1.6 to 9.3 times smaller than the best float codec and decodes fastest; on the motor its step keeps more precision than the <code>f32</code>s it replaces.</li>
+<li><code>ALP</code> is the float codec for floats that began as decimals: 2.5 to 5.7 times smaller than the others there, decoding at bit-pack speed (0.7 to 0.8 ns). On widened <code>f32</code>s it matches <code>GORILLA</code>; on floats with full mantissas it ranges from 6 % ahead of the delta codecs (speech) to 18 % behind them (motor <code>f32</code>).</li>
+<li>The XOR codecs win on two sets, by 6 % (speech) and 15 % (ADC × 3.3/4096 <code>f64</code>), both <code>CHIMP</code>, and decode 2 to 10 times slower than the bit-packed codecs.</li>
+<li>A writer that tries <code>ALP</code> and <code>FLOAT_DELTA</code> on each chunk and keeps the smaller is the best float codec on four of the seven sets and within 13 % of the best on the others.</li>
+</ul>
+<p>The bench runs in about 20 s: <code>just bench-sample-codecs</code> fetches the speech file into <code>target/bench-data</code> once, checks its hash, and prints the table; <code>--chunk</code> and <code>--repeats</code> change the chunk size and the timed passes. Its code is <code>ww_tape_benchmarks</code>.</p>
 <h3 id="series-tracks">Series tracks<a class="headerlink" href="#series-tracks" title="Permanent link">&para;</a></h3>
 <p>A series track holds samples at an exact period with no time per sample. Its <code>TrackDef</code> kind is a <code>SeriesDef</code>: the type of one value as the API declares it (a <code>TypeRef</code> to an exact_units <code>Fixed&lt;Ampere, Milli, i32&gt;</code>, a <code>ww_si</code> quantity or a plain float), the stored element and channels derived from that type, the period in ticks per sample as an exact <code>Ratio64</code> (48 kHz on a 1 ns clock is <code>62500/3</code>), the scale of the stored numbers as a <code>Magnitude</code> (<code>10⁻³</code> for that <code>Fixed</code>), the summaries the writer builds (<code>SeriesSummarySpec</code>) and, for samples kept in a media file, the stream. <code>SeriesDef::of::&lt;Fixed&lt;Ampere, Milli, i32&gt;&gt;(..)</code> takes the element and the scale from the type (<code>ww_tape::SeriesValue</code>).</p>
 <p>The track's records are its <code>SeriesSegment</code>s, at the tick of their first sample: one at the start and one at every gap, restart or change of scale. A segment names its first sample's index, a time grid (sample <code>i</code> is at <code>grid_tick + (i - grid_index) · period</code>, rounded down) and the scale from there on. A gap starts a new grid after the last tick of the one before; a prefix change of an autoranging device keeps the grid, so no sample time moves by rounding. The track is sticky, so every describe set repeats its newest segment and each piece holds the segment its samples start in. A series chunk never spans two segments, so its numbers are at one scale and its head's first and last tick are its samples' on the grid.</p>

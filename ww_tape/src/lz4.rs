@@ -28,12 +28,18 @@ const LEN_BYTES: usize = 4;
 /// Longest decoded column a reader takes: a whole block's worth, [MAX_BLOCK_LEN](crate::MAX_BLOCK_LEN).
 pub const LZ4_DECODED_MAX: usize = crate::MAX_BLOCK_LEN;
 
+/// Most bytes one byte of an lz4 block decodes to: a match token and its length bytes add 255 bytes per byte.
+const EXPANSION_MAX: usize = 255;
+/// Bytes a block of nothing but literals can hold past [EXPANSION_MAX] times its length.
+const EXPANSION_SLACK: usize = 16;
+
 /// Why an lz4 column can't be read or written.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Lz4Error {
     /// The column is shorter than its length field.
     Short,
-    /// The decoded length is over [LZ4_DECODED_MAX].
+    /// The decoded length is over [LZ4_DECODED_MAX], or over what the column's block can decode to (255 times its
+    /// bytes and 16).
     TooLong { len: usize },
     /// The output buffer is shorter than needed ([lz4_max_len] to encode, [lz4_decoded_len] to decode).
     Full { needed: usize },
@@ -62,7 +68,8 @@ pub fn lz4_encode(raw: &[u8], out: &mut [u8]) -> Result<usize, Lz4Error> {
     Ok(LEN_BYTES + n)
 }
 
-/// The decoded length an lz4 column states, checked against [LZ4_DECODED_MAX].
+/// The decoded length an lz4 column states, checked against [LZ4_DECODED_MAX] and against the block's length, so
+/// a short column can't make a reader allocate more than its block can fill.
 pub fn lz4_decoded_len(column: &[u8]) -> Result<usize, Lz4Error> {
     let len: [u8; LEN_BYTES] = column
         .get(..LEN_BYTES)
@@ -70,7 +77,8 @@ pub fn lz4_decoded_len(column: &[u8]) -> Result<usize, Lz4Error> {
         .try_into()
         .expect("4 bytes");
     let len = u32::from_le_bytes(len) as usize;
-    if len > LZ4_DECODED_MAX {
+    let block = column.len() - LEN_BYTES;
+    if len > LZ4_DECODED_MAX || len > EXPANSION_MAX * block + EXPANSION_SLACK {
         return Err(Lz4Error::TooLong { len });
     }
     Ok(len)
@@ -121,6 +129,23 @@ mod tests {
     #[test]
     fn rejects_bad_columns() {
         assert_eq!(lz4_decoded_len(&[1, 2]), Err(Lz4Error::Short));
+        // a 5-byte column can't ask for 64 MiB, nor for more than its one block byte decodes to
+        let max = (LZ4_DECODED_MAX as u32).to_le_bytes();
+        assert_eq!(
+            lz4_decoded_len(&[max[0], max[1], max[2], max[3], 0]),
+            Err(Lz4Error::TooLong {
+                len: LZ4_DECODED_MAX
+            })
+        );
+        assert_eq!(lz4_decoded_len(&[15, 1, 0, 0, 0]), Ok(271));
+        assert_eq!(
+            lz4_decoded_len(&[16, 1, 0, 0, 0]),
+            Err(Lz4Error::TooLong { len: 272 })
+        );
+        // the most compressible input stays within the bound
+        let zeros = vec![0u8; 1 << 20];
+        let col = round(&zeros);
+        assert!(zeros.len() <= EXPANSION_MAX * (col.len() - LEN_BYTES) + EXPANSION_SLACK);
         assert_eq!(
             lz4_decoded_len(&[0, 0, 0, 0x10]),
             Err(Lz4Error::TooLong { len: 0x1000_0000 })

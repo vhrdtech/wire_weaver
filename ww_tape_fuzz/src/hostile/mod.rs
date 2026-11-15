@@ -25,6 +25,7 @@ pub use file::file;
 pub use index::index;
 pub use payloads::payloads;
 pub use records::records;
+pub(crate) use samples::CODECS;
 pub use samples::samples;
 pub use series::series;
 pub use summary::summary;

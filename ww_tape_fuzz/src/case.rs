@@ -125,3 +125,56 @@ pub fn run(target: fn(&[u8]), data: &[u8]) -> (Outcome, Duration) {
     };
     (outcome, took)
 }
+
+impl Outcome {
+    /// Where the case failed: the panic's `file:line`, `alloc` for an allocation over the cap; None when it passed.
+    pub fn place(&self) -> Option<&str> {
+        match self {
+            Outcome::Ok => None,
+            Outcome::Panic(at, _) => Some(at),
+            Outcome::Alloc(_) => Some("alloc"),
+        }
+    }
+}
+
+/// Passes of [minimize] over an input at most.
+const MINIMIZE_PASSES_MAX: usize = 8;
+
+/// `input` made as short and as plain as it gets while `target` still fails at the same place: cut from the end,
+/// bytes set to 0, bytes removed. An input that passes comes back as it is.
+pub fn minimize(target: fn(&[u8]), input: &[u8]) -> Vec<u8> {
+    let Some(place) = run(target, input).0.place().map(str::to_owned) else {
+        return input.to_vec();
+    };
+    let fails = |data: &[u8]| run(target, data).0.place() == Some(place.as_str());
+    let mut best = input.to_vec();
+    for _ in 0..MINIMIZE_PASSES_MAX {
+        let before = best.clone();
+        while !best.is_empty() && fails(&best[..best.len() - 1]) {
+            best.pop();
+        }
+        for i in 0..best.len() {
+            if best[i] != 0 {
+                let mut t = best.clone();
+                t[i] = 0;
+                if fails(&t) {
+                    best = t;
+                }
+            }
+        }
+        let mut i = 0;
+        while i < best.len() {
+            let mut t = best.clone();
+            t.remove(i);
+            if fails(&t) {
+                best = t;
+            } else {
+                i += 1;
+            }
+        }
+        if best == before {
+            break;
+        }
+    }
+    best
+}

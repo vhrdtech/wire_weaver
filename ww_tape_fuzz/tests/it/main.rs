@@ -1,7 +1,9 @@
-//! The hostile block builders and the fuzz targets of ww_tape_fuzz, each case under a cap on single allocations.
+//! The hostile block builders, the seed files and the case runner of ww_tape_fuzz, each case under a cap on single
+//! allocations.
 
 mod builders;
 mod limits;
+mod seeds;
 
 use ww_tape_fuzz::case::Capped;
 

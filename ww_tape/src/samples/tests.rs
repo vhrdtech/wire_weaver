@@ -258,6 +258,13 @@ fn columns_are_checked() {
         Samples::new(Codec(47), shape, 3, &[0; 6]).unwrap_err(),
         SampleError::Unsupported { .. }
     ));
+    // an outer-coded column: no outer codec is known, whatever the inner one
+    for inner in [Codec::RAW, Codec::BIG_ENDIAN] {
+        assert!(matches!(
+            Samples::new(Codec(inner.0 | Codec::OUTER), shape, 3, &[0; 6]).unwrap_err(),
+            SampleError::Unsupported { .. }
+        ));
+    }
     assert_eq!(
         Samples::new(Codec::RAW, SampleShape::new(Element::U16, 0), 3, &[0; 6]).unwrap_err(),
         SampleError::BadShape

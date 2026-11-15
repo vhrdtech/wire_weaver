@@ -379,3 +379,41 @@ fn payloads_deterministic_and_golden() {
         "the format changed: bytes differ from golden/v2-payloads.hex"
     );
 }
+
+/// An outer-coded column ([Codec::OUTER]) is refused by its reader, no outer codec being known, and the chunk's other
+/// columns still read.
+#[test]
+fn an_outer_coded_column_is_refused_alone() {
+    let w: Vec<Vec<u8>> = (0..20u8).map(|i| std::vec![i; 3]).collect();
+    let starts: Vec<i64> = (0..20).collect();
+    let times = EncodedTimes::encode(&starts, None, None).unwrap();
+    let p = EncodedPayloads::encode(w.iter().map(Vec::as_slice)).unwrap();
+    let outer = |kind: ColumnKind| {
+        let cols = times.columns().chain(p.columns()).map(|(mut c, b)| {
+            if c.kind == kind {
+                c.codec = Codec(c.codec.0 | Codec::OUTER);
+            }
+            (c, b)
+        });
+        write(&times.head.chunk_head(7, 2, 0), cols)
+    };
+
+    let b = outer(ColumnKind::Payloads);
+    let c = Block::read(&b).unwrap().chunk().unwrap();
+    let col = c.find(ColumnKind::Payloads, 0).unwrap();
+    assert!(col.codec.is_outer());
+    assert_eq!(col.codec.inner(), Codec::RAW);
+    assert_eq!(
+        Payloads::read(&c).err(),
+        Some(PayloadsError::UnknownCodec(ColumnKind::Payloads, col.codec))
+    );
+    assert_eq!(EventTimes::read(&c).unwrap().len(), 20);
+
+    let b = outer(ColumnKind::Starts);
+    let c = Block::read(&b).unwrap().chunk().unwrap();
+    assert!(matches!(
+        EventTimes::read(&c),
+        Err(crate::times::TimesError::UnknownCodec(ColumnKind::Starts, codec)) if codec.is_outer()
+    ));
+    check(&Payloads::read(&c).unwrap().unwrap(), &w);
+}

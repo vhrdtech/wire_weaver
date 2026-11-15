@@ -29,6 +29,7 @@
 
 ### 🚀 Features
 
+- `Codec::OUTER`, `is_outer`, `inner`: bit 7 of a column's codec byte marks an outer-coded column, refused until a codec exists (STD-129).
 - Header flag `FLAG_BODY_CODED`: records and describe bodies coded stored or lz4 (`code_body`, `BodyCodec`, `Block::decode`), off by default (STD-129).
 - The same (run, seq) twice is a duplicate, not a cut: same bytes dropped, other bytes the later wins (STD-129).
 - Header flag `FLAG_COPY` marks describe copies a writer makes; `Block::flags`, `is_copy`, `crc`; `mark_copy` (STD-129).

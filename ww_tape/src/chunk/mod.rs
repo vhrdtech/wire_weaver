@@ -40,6 +40,12 @@
 //! Codec ids name how a column is coded: [Codec::RAW] is the column as plain little-endian values or bytes, ids 1 to
 //! 15 are the event time codec's ([crate::times]), 16 to 47 the sample codecs' ([crate::samples]), 48 lz4 payloads
 //! ([crate::lz4]).
+//!
+//! Bit 7 of the codec byte ([Codec::OUTER]) marks an outer-coded column: its bytes are an outer codec u8, the decoded
+//! length (uvar) and the outer-coded bytes, and the inner codec (bits 0..6, [Codec::inner]) applies to the decoded
+//! bytes. An outer-coded column is not read in place nor salvaged by segment, so it suits payload columns and
+//! archived pieces, never a time column. No outer codec is assigned yet: a reader refuses every outer-coded column as
+//! a column in a codec it doesn't know. Inner codec ids stop at 127.
 
 use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAX_BLOCK_LEN};
 
@@ -72,6 +78,18 @@ impl Codec {
     /// Plain little-endian values (starts and ends as i64, flags as u32, lengths as u32, samples in the track's
     /// element type) or plain bytes (payload).
     pub const RAW: Codec = Codec(0);
+    /// Bit 7 of the codec byte: the column is outer-coded (module docs).
+    pub const OUTER: u8 = 0x80;
+
+    /// Whether the column is outer-coded: bit 7 set.
+    pub const fn is_outer(self) -> bool {
+        self.0 & Self::OUTER != 0
+    }
+
+    /// The codec of the column's bytes, or of the decoded bytes of an outer-coded column: bits 0..6.
+    pub const fn inner(self) -> Codec {
+        Codec(self.0 & !Self::OUTER)
+    }
 }
 
 /// What a column holds.

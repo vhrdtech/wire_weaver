@@ -151,6 +151,59 @@ impl KeyCaches {
     }
 }
 
+/// The cache of one keyed array, for what follows announcements and reads away from a [Keyed] (a [KeyStream], the
+/// dynamic client's paths through the companion).
+#[derive(Clone)]
+pub(crate) struct KeyNotes {
+    caches: KeyCaches,
+    array: ArrayPath,
+}
+
+impl KeyNotes {
+    pub(crate) fn learn(&self, index: u32, key: Vec<u8>) {
+        self.caches
+            .with(&self.array, |cache| cache.learn(index, key));
+    }
+
+    pub(crate) fn forget(&self, index: u32) {
+        self.caches.with(&self.array, |cache| cache.forget(index));
+    }
+
+    fn index(&self, key: &[u8]) -> Option<u32> {
+        self.caches
+            .with(&self.array, |cache| cache.by_key.get(key).copied())
+    }
+
+    fn key(&self, index: u32) -> Option<Vec<u8>> {
+        self.caches
+            .with(&self.array, |cache| cache.by_index.get(&index).cloned())
+    }
+
+    /// Follows an announcement of the `keys` stream.
+    fn note<I: Clone + Into<u32>, K: SerializeShrinkWrapOwned>(&self, event: &KeyEvent<I, K>) {
+        match event {
+            KeyEvent::Added { index, key } => {
+                // a key the host can't serialize again can't be looked up either
+                if let Ok(bytes) = key.to_ww_bytes_owned() {
+                    self.learn(index.clone().into(), bytes);
+                }
+            }
+            KeyEvent::Removed { index } => self.forget(index.clone().into()),
+            // an announcement of a newer device: nothing the cache can follow
+            KeyEvent::Unknown(_) => {}
+        }
+    }
+
+    /// Follows a read of `key[index]`: learns the key, or forgets the index the device refused.
+    pub(crate) fn key_read<T: std::ops::Deref<Target = [u8]>>(&self, index: u32, result: &Result<T, Error>) {
+        match result {
+            Ok(key) => self.learn(index, key.to_vec()),
+            Err(_) if is_bad_index(result) => self.forget(index),
+            Err(_) => {}
+        }
+    }
+}
+
 fn is_bad_index<T>(result: &Result<T, Error>) -> bool {
     matches!(result, Err(Error::RemoteError(e)) if matches!(e.kind, ErrorKindOwned::BadIndex))
 }
@@ -161,9 +214,9 @@ pub struct Keyed<'c> {
     cmd: &'c Commander,
     /// Path of the companion as the client names it, before the Commander resolves it.
     keys: PathKindOwned,
-    /// The array's path, resolved: what the cache is kept by. `None` when the path can't be resolved, then the
-    /// requests fail with the reason.
-    array: Option<ArrayPath>,
+    /// The array's cache, by its resolved path. `None` when the path can't be resolved, then the requests fail with
+    /// the reason.
+    notes: Option<KeyNotes>,
 }
 
 impl Commander {
@@ -181,14 +234,17 @@ impl Commander {
         Ok(Keyed {
             cmd: self,
             keys,
-            array,
+            notes: array.map(|array| KeyNotes {
+                caches: self.keys.clone(),
+                array,
+            }),
         })
     }
 }
 
 impl Keyed<'_> {
-    fn array(&self) -> Option<&ArrayPath> {
-        self.array.as_ref()
+    pub(crate) fn notes(&self) -> Option<&KeyNotes> {
+        self.notes.as_ref()
     }
 
     /// Path of an item of the companion's level, and of an index under it.
@@ -200,38 +256,32 @@ impl Keyed<'_> {
 
     /// Index of the element with `key` (its shrink_wrap bytes) the client learned, without asking the device.
     pub fn cached_index(&self, key: &[u8]) -> Option<u32> {
-        let array = self.array()?;
-        self.cmd
-            .keys
-            .with(array, |cache| cache.by_key.get(key).copied())
+        self.notes()?.index(key)
     }
 
     /// Key (shrink_wrap bytes) of the element at `index` the client learned, without asking the device.
     pub fn cached_key(&self, index: u32) -> Option<Vec<u8>> {
-        let array = self.array()?;
-        self.cmd
-            .keys
-            .with(array, |cache| cache.by_index.get(&index).cloned())
+        self.notes()?.key(index)
     }
 
     /// Notes that the element at `index` has `key` (its shrink_wrap bytes).
     pub fn learn(&self, index: u32, key: Vec<u8>) {
-        if let Some(array) = self.array() {
-            self.cmd.keys.with(array, |cache| cache.learn(index, key));
+        if let Some(notes) = self.notes() {
+            notes.learn(index, key);
         }
     }
 
     /// Notes that the element at `index` is gone.
     pub fn forget(&self, index: u32) {
-        if let Some(array) = self.array() {
-            self.cmd.keys.with(array, |cache| cache.forget(index));
+        if let Some(notes) = self.notes() {
+            notes.forget(index);
         }
     }
 
     /// Notes what an announcement on the `keys` stream says.
     pub fn note<I: Clone + Into<u32>, K: SerializeShrinkWrapOwned>(&self, event: &KeyEvent<I, K>) {
-        if let Some(array) = self.array() {
-            note(&self.cmd.keys, array, event);
+        if let Some(notes) = self.notes() {
+            notes.note(event);
         }
     }
 
@@ -339,12 +389,10 @@ impl Keyed<'_> {
         index: u32,
         result: Result<TailBytesOwned, Error>,
     ) -> Result<Vec<u8>, Error> {
-        if is_bad_index(&result) {
-            self.forget(index);
+        if let Some(notes) = self.notes() {
+            notes.key_read(index, &result);
         }
-        let key = result?.0;
-        self.learn(index, key.clone());
-        Ok(key)
+        Ok(result?.0)
     }
 
     /// Key of the element at `index`, read from the device, see [Self::key_bytes].
@@ -400,8 +448,7 @@ impl Keyed<'_> {
     fn key_stream<I, K>(&self, stream: Stream<KeyEvent<I, K>>) -> KeyStream<I, K> {
         KeyStream {
             stream,
-            caches: self.cmd.keys.clone(),
-            array: self.array.clone(),
+            notes: self.notes.clone(),
             _phantom: PhantomData,
         }
     }
@@ -416,8 +463,7 @@ fn decode_index<I: DeserializeShrinkWrapOwned + Into<u32>>(
 /// The `keys` stream of a keyed array: what the device announces, which the connection's key cache follows.
 pub struct KeyStream<I, K> {
     stream: Stream<KeyEvent<I, K>>,
-    caches: KeyCaches,
-    array: Option<ArrayPath>,
+    notes: Option<KeyNotes>,
     _phantom: PhantomData<(I, K)>,
 }
 
@@ -460,32 +506,9 @@ where
     }
 
     fn note(&self, event: &KeyEvent<I, K>) {
-        if let Some(array) = &self.array {
-            note(&self.caches, array, event);
+        if let Some(notes) = &self.notes {
+            notes.note(event);
         }
-    }
-}
-
-/// The cache of `array` follows an announcement of its `keys` stream.
-fn note<I: Clone + Into<u32>, K: SerializeShrinkWrapOwned>(
-    caches: &KeyCaches,
-    array: &ArrayPath,
-    event: &KeyEvent<I, K>,
-) {
-    match event {
-        KeyEvent::Added { index, key } => {
-            // a key the host can't serialize again can't be looked up either
-            if let Ok(bytes) = key.to_ww_bytes_owned() {
-                let index = index.clone().into();
-                caches.with(array, |cache| cache.learn(index, bytes));
-            }
-        }
-        KeyEvent::Removed { index } => {
-            let index = index.clone().into();
-            caches.with(array, |cache| cache.forget(index));
-        }
-        // an announcement of a newer device: nothing the cache can follow
-        KeyEvent::Unknown(_) => {}
     }
 }
 

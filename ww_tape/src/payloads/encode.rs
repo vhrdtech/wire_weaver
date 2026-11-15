@@ -28,12 +28,19 @@ impl core::fmt::Display for EncodeError {
             EncodeError::TooLong { len } => {
                 write!(f, "{len} bytes of payloads, over {LZ4_DECODED_MAX}")
             }
-            EncodeError::Lz4(e) => write!(f, "lz4: {e:?}"),
+            EncodeError::Lz4(_) => write!(f, "lz4 encoder refused the payloads"),
         }
     }
 }
 
-impl core::error::Error for EncodeError {}
+impl core::error::Error for EncodeError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            EncodeError::Lz4(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 /// A chunk's payloads encoded: the lengths column and the payloads column.
 #[derive(Clone, Debug, PartialEq, Eq)]

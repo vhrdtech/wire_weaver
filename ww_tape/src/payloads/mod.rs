@@ -86,12 +86,19 @@ impl core::fmt::Display for PayloadsError {
             PayloadsError::Unexpected(k) => write!(f, "{k:?} column twice"),
             PayloadsError::UnknownCodec(k, c) => write!(f, "{k:?} column in unknown codec {}", c.0),
             PayloadsError::Corrupt { kind, what } => write!(f, "{kind:?} column: {what}"),
-            PayloadsError::Lz4(e) => write!(f, "lz4 payloads: {e:?}"),
+            PayloadsError::Lz4(_) => write!(f, "lz4 payloads column doesn't decode"),
         }
     }
 }
 
-impl core::error::Error for PayloadsError {}
+impl core::error::Error for PayloadsError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            PayloadsError::Lz4(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 fn le_u32(b: &[u8], at: usize) -> Option<u32> {
     let bytes = b.get(at..at.checked_add(4)?)?;

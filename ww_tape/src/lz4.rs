@@ -47,6 +47,21 @@ pub enum Lz4Error {
     Corrupt,
 }
 
+impl core::fmt::Display for Lz4Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Lz4Error::Short => write!(f, "column shorter than its length field"),
+            Lz4Error::TooLong { len } => {
+                write!(f, "decoded length {len} over what the column holds")
+            }
+            Lz4Error::Full { needed } => write!(f, "output buffer shorter than {needed} bytes"),
+            Lz4Error::Corrupt => write!(f, "malformed block, or another decoded length"),
+        }
+    }
+}
+
+impl core::error::Error for Lz4Error {}
+
 /// The most bytes [lz4_encode] writes for `len` bytes.
 pub const fn lz4_max_len(len: usize) -> usize {
     LEN_BYTES + lz4_flex::block::get_maximum_output_size(len)

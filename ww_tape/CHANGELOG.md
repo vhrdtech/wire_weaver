@@ -46,6 +46,7 @@
 - `payloads`: an events chunk's payload lengths, bit-packed per group, and payloads, raw or lz4 when smaller (STD-126).
 - `Payloads::salvage`: a damaged chunk's payloads read item by item, only damaged ones marked suspect (STD-126).
 - Golden file `golden/v2-payloads.hex` and fuzz target `tape-payloads` (STD-126).
+- `Lz4Error` implements `Display` and `core::error::Error`; payload errors name it as their source (STD-126).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).
 - `Describe::Layout` and `TapeWriter::set_alignment`: chunk payloads on 4 KiB boundaries, deferred blocks filling the gaps (STD-118).

@@ -3261,10 +3261,12 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **STD-81 Database columns with units** — `sqlx` and `diesel` column types for `Fixed` (integer at the fixed
   scale) and `AnyQuantity`, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
   features.
-- 📋 **STD-125 `ww_tape` track identity by name path** · `v0.5` — `api_root_id` from the crate name only,
-  `track_key` over name segments (resource names, array indices, keys' shrink_wrap bytes for keyed arrays),
-  `TrackDef.keys`, `clock_key` on the same path, identity names of renamed resources (INT-17), so two runs that
-  number things differently give the same ids (API-67).
+- 🚧 **STD-125 `ww_tape` track identity by name path** · `v0.5` — `api_root_id` from the crate name only,
+  `track_key` and `clock_key` over name segments (resource names, array indices, keys' shrink_wrap bytes for keyed
+  arrays), `TrackDef.keys`, `name_path`/`key_in_bundle` from a bundle (feature `bundle`), `ww_tap::track_key`, so
+  two runs that number things differently give the same ids (API-67); `tests/tape_identity`,
+  [docs](docs/transport/tap.md#track-identity). Missing: identity names of renamed resources (INT-17), and a
+  resource moved to another trait keeps its id only once the bundle carries its old name path.
 ## Examples (`EX`)
 
 - ✅ **EX-1 Host examples**: `blinky` (+ evolved API), `all_gpio`, `uart`, `blinky_py` (hand-written pyo3 wrapper).

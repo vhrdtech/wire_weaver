@@ -469,6 +469,7 @@ feature tracker.
 - STD-127 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | transport/tap.md#series-tracks
 - STD-129 | Tape runs and media provisions | Tapes on SD cards and raw NAND read past gaps, never take stale blocks for data, and survive a damaged describe set. | transport/tap.md#runs-media-and-damage
 - STD-126 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | transport/tap.md#payload-codec
+- STD-125 | Tape track identity by name | A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids. | transport/tap.md#track-identity
 - STD-128 | Tape summaries across scales | Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one. | transport/tap.md#tape-blocks
 - STD-130 | Tape ALP float codec | Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place. | transport/tap.md#sample-codecs
 - STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | transport/tap.md#tape-blocks

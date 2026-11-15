@@ -100,7 +100,7 @@ pub use chunk::{
 };
 
 pub mod samples;
-pub use samples::{Element, SampleShape};
+pub use samples::{Element, Sample, SampleError, SampleShape, Samples};
 
 pub mod index;
 pub use index::{IndexBlock, IndexEntry, IndexError, IndexHead, IndexKind, IndexPolicy};

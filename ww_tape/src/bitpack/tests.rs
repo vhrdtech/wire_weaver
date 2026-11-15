@@ -114,6 +114,10 @@ fn bits_past_the_slice_read_as_zero() {
 #[test]
 fn the_best_kernel_runs_here() {
     assert!(Kernel::best().is_available());
-    #[cfg(target_arch = "aarch64")]
-    assert_eq!(Kernel::best(), Kernel::Neon);
+    // NEON only where the build has it: aarch64 soft-float targets lack it
+    let neon = cfg!(all(target_arch = "aarch64", target_feature = "neon"));
+    assert_eq!(Kernel::Neon.is_available(), neon);
+    if neon {
+        assert_eq!(Kernel::best(), Kernel::Neon);
+    }
 }

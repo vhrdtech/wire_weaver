@@ -4,7 +4,7 @@
 //! 64), so a group of n values takes [packed_len]`(n, width)` bytes. One value reads with one unaligned load
 //! ([read]); a whole group unpacks with a hand-written kernel ([unpack_u32], [decode_line]): AVX-512 (VBMI and VBMI2
 //! byte permutes and funnel shifts) or AVX2 (byte shuffles and variable shifts) on x86-64, chosen at run time with
-//! `std` and at build time without it, NEON `tbl` on aarch64, and scalar code elsewhere. Every kernel gives the same
+//! `std` and at build time without it, NEON `tbl` on aarch64 targets built with NEON (not the soft-float ones), and scalar code elsewhere. Every kernel gives the same
 //! values as the scalar code. Widths over 32 take the scalar path.
 //!
 //! Reads never go past the slice they are given. A slice that ends less than the kernel's reach after a group (the
@@ -17,7 +17,7 @@
 mod avx2;
 #[cfg(target_arch = "x86_64")]
 mod avx512;
-#[cfg(target_arch = "aarch64")]
+#[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
 mod neon;
 #[cfg(test)]
 mod tests;
@@ -133,7 +133,7 @@ pub enum Kernel {
     Avx2,
     /// x86-64 AVX-512 F, BW, VBMI and VBMI2.
     Avx512,
-    /// aarch64 NEON.
+    /// aarch64 NEON, on targets built with it.
     Neon,
 }
 
@@ -152,7 +152,7 @@ impl Kernel {
             Kernel::Scalar => true,
             Kernel::Avx2 => has_avx2(),
             Kernel::Avx512 => has_avx512(),
-            Kernel::Neon => cfg!(target_arch = "aarch64"),
+            Kernel::Neon => cfg!(all(target_arch = "aarch64", target_feature = "neon")),
         }
     }
 }
@@ -250,7 +250,7 @@ pub fn unpack_u32_with(kernel: Kernel, src: &[u8], width: u32, out: &mut [u32; G
         Kernel::Avx2 => with_reach(src, avx2::reach(width), |s| avx2::unpack(s, width, out)),
         #[cfg(target_arch = "x86_64")]
         Kernel::Avx512 => with_reach(src, avx512::reach(width), |s| avx512::unpack(s, width, out)),
-        #[cfg(target_arch = "aarch64")]
+        #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
         Kernel::Neon => with_reach(src, neon::reach(width), |s| neon::unpack(s, width, out)),
         _ => with_reach(src, scalar_reach(width), |s| unpack_scalar(s, width, out)),
     }
@@ -344,7 +344,7 @@ pub fn decode_line_with(
         Kernel::Avx512 if width > 0 => with_reach(src, avx512::reach(width), |s| {
             avx512::decode(s, width, base, slope, out)
         }),
-        #[cfg(target_arch = "aarch64")]
+        #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
         Kernel::Neon if width > 0 => with_reach(src, neon::reach(width), |s| {
             neon::decode(s, width, base, slope, out)
         }),

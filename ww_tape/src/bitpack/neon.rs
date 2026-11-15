@@ -94,7 +94,8 @@ pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
         src.len() >= reach(w),
         "group shorter than the kernel's reach"
     );
-    // SAFETY: NEON is a baseline feature of every aarch64 target, and src holds reach(w) bytes.
+    // SAFETY: this module is built only with target_feature = "neon", so the CPU running it has NEON, and src
+    // holds reach(w) bytes.
     unsafe { steps(src, w, |s, a, b| store8(out, s, a, b)) }
 }
 

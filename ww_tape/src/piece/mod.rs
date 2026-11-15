@@ -7,8 +7,8 @@
 //! ids.
 //!
 //! A writer cuts a recording into pieces at chunk boundaries ([PieceChain]). The head names the
-//! previous piece by its content hash and its id; the previous piece's tail names this piece's id, chosen at the cut
-//! ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the result id, its
+//! previous piece by its content hash and its id; the previous piece's tail names this piece's id, derived at the cut
+//! from the previous piece's id and the content hash in its finish ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the result id, its
 //! sequence number in the chain and, per track, where its items continue (head) and the items and ticks it holds
 //! (finish). A chain whose first piece is gone reads as head cut, not as damage.
 //!

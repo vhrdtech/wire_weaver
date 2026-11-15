@@ -542,11 +542,11 @@ impl TapeWriter {
                 "a continued piece ends by cut",
             )));
         }
-        self.end(state, None).map(|e| e.finished)
+        self.end(state).map(|e| e.finished)
     }
 
     /// End this piece as [FinishState::Continued] and start the next piece of the chain at `next_path`: its id
-    /// [PieceId::after] this one's, its head naming this piece, the track starts moved on by this piece's chunks,
+    /// [PieceId::after] this one's id and final content hash (the finish's), its head naming this piece, the track starts moved on by this piece's chunks,
     /// then the newest describe blocks. Seqs go on from this piece; policies and alignment carry over.
     pub fn cut(self, next_path: &Path) -> Result<(Finished, TapeWriter), WriteError> {
         let Some((head, starts)) = self.head.clone() else {
@@ -558,9 +558,11 @@ impl TapeWriter {
             (self.policy, self.alignment, self.indexer.policy());
         let tracks = self.indexer.next_starts(&starts);
         let describe = self.describe.clone();
-        let hash = self.hash.clone().finalize();
-        let next_id = PieceId::after(head.ident.id, &ContentHash(*hash.as_bytes()));
-        let done = self.end(FinishState::Continued, Some(next_id))?;
+        let done = self.end(FinishState::Continued)?;
+        let next_id = done
+            .finished
+            .next
+            .expect("a continued piece with a head names the next");
         let mut next = TapeWriter::create(next_path, policy)?;
         next.alignment = alignment;
         next.indexer = Indexer::new(index_policy);
@@ -582,7 +584,9 @@ impl TapeWriter {
         Ok((done.finished, next))
     }
 
-    fn end(mut self, state: FinishState, next: Option<PieceId>) -> Result<Ended, WriteError> {
+    /// End the piece in `state`; a continued piece with a head names the next piece's id, [PieceId::after] its own
+    /// and the content hash in its finish.
+    fn end(mut self, state: FinishState) -> Result<Ended, WriteError> {
         self.flush_deferred()?;
         let describe = self.replay_describe()?;
         let mut prev = None;
@@ -595,6 +599,9 @@ impl TapeWriter {
         }
         let hash = ContentHash(*self.hash.clone().finalize().as_bytes());
         let ident = self.head.as_ref().map(|(h, _)| h.ident);
+        let next = ident
+            .filter(|_| state == FinishState::Continued)
+            .map(|i| PieceId::after(i.id, &hash));
         let finish = Finish {
             state,
             hash,

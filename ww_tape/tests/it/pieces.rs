@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use ww_tape::chunk::ChunkHead;
 use ww_tape::index::IndexPolicy;
-use ww_tape::piece::{ChainEnd, ChainLink, check_chain};
+use ww_tape::piece::{ChainEnd, ChainLink, PieceId, check_chain};
 use ww_tape::reader::{Found, OpenOptions};
 use ww_tape::{
     BlockKind, BlockWriter, ClockTime, Codec, ColumnKind, ColumnSpec, Describe, DescribeSet,
@@ -339,6 +339,13 @@ fn chain_of_pieces_links_both_ways() {
             let rg = ranges.iter().find(|r| r.track_id == s.track_id).unwrap();
             assert_eq!(rg.first_item, s.next_item);
             assert!(rg.first_tick >= s.from_tick);
+        }
+        // the next id comes from this id and the content hash in the finish, exactly
+        let (finish, _) = p.finish.as_ref().unwrap();
+        if i + 1 < files.len() {
+            let next = PieceId::after(head.ident.id, &finish.hash);
+            assert_eq!(finish.next, Some(next));
+            assert_eq!(p.tail.as_ref().unwrap().next, Some(next));
         }
         summaries.push(p.summary().unwrap());
     }

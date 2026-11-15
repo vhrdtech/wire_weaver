@@ -1,5 +1,5 @@
 //! The ww_tape file reader on any bytes: it never panics, every block it gives is a good one (or, in the salvage walk,
-//! a chunk with a good head), and the prefix walk is the start of what the salvage walk gives. Describe records of a good block decode or fail, never panic.
+//! a chunk with a good head), and the salvage walk gives every block of the prefix walk, in order. Describe records of a good block decode or fail, never panic.
 //! A good records or describe block coded with each body codec decodes to the same records.
 //! Walked as a raw medium with the gap rules of an SD card too: every step still consumes bytes.
 use shrink_wrap::DeserializeShrinkWrap;
@@ -66,8 +66,14 @@ pub fn reader(data: &[u8]) {
     let salvage = walk(data, Recovery::Resync, Medium::File);
     walk(data, Recovery::Prefix, Medium::Raw);
     walk(data, Recovery::Resync, Medium::Raw);
-    assert!(salvage.len() >= prefix.len());
-    // the prefix walk stops at the first damage; up to there both read the same blocks, unless it stopped at a seq
-    // going back, which the salvage walk doesn't check
-    assert_eq!(&salvage[..prefix.len()], &prefix[..]);
+    // the salvage walk loses no block the prefix walk reads; it reads more: past damage, every block of a seq where
+    // the prefix walk keeps the later of two (Recovery::Resync has no seq check), and blocks inside a gap the prefix
+    // walk steps over to the next resume place
+    let mut rest = salvage.iter();
+    for b in &prefix {
+        assert!(
+            rest.any(|s| s == b),
+            "the salvage walk misses a block the prefix walk reads"
+        );
+    }
 }

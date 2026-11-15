@@ -35,21 +35,19 @@ pub struct Seed {
 }
 
 /// The inputs of the known failures, minimised (`ww_tape_fuzz_seeds minimize`): target, name, input in hex.
-pub const KNOWN_INPUTS: &[(&str, &str, &str)] = &[
-    (
-        "tape-reader-hostile",
-        "prefix-and-salvage-walks-differ",
-        "eb9543000000a10000000000008e3d00002600000000000000000000d34f00000000000000000000000000008900d6",
-    ),
-    (
-        "tape-times-hostile",
-        "chunk-count-unbounded",
-        "80f70000000000000000000000000000000000000000002703a94d75",
-    ),
-];
+pub const KNOWN_INPUTS: &[(&str, &str, &str)] = &[(
+    "tape-times-hostile",
+    "chunk-count-unbounded",
+    "80f70000000000000000000000000000000000000000002703a94d75",
+)];
 
 /// Inputs these tests found that failed until STD-131 fixed them: target, name (seed `fixed-<name>`), hex.
 pub const FIXED_INPUTS: &[(&str, &str, &str)] = &[
+    (
+        "tape-reader-hostile",
+        "salvage-walk-reads-inside-a-gap",
+        "eb9543000000a10000000000008e3d00002600000000000000000000d34f00000000000000000000000000008900d6",
+    ),
     (
         "tape-index-hostile",
         "reader-entries-past-the-piece",

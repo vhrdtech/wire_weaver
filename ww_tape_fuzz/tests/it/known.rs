@@ -18,31 +18,14 @@ pub struct Known {
 }
 
 /// Every known failure.
-pub const KNOWN: &[Known] = &[
-    Known {
-        target: "tape-reader-hostile",
-        seed: "known-prefix-and-salvage-walks-differ",
-        at: "ww_tape_fuzz/src/targets/reader.rs:72",
-        message: "assertion `left == right` failed: in a file whose layout allows gaps, FileBlocks' prefix walk \
-                  goes from a bad block to the next resume place, the salvage walk resyncs byte by byte and hands \
-                  out the good blocks in between (ww_tape/src/file.rs)",
-    },
-    Known {
-        target: "tape-reader",
-        seed: "fix-67e392294-duplicate-after-a-gap",
-        at: "ww_tape_fuzz/src/targets/reader.rs:72",
-        message: "assertion `left == right` failed: a block written again after a gap is handed out by the \
-                  prefix walk and dropped by the salvage walk (ww_tape/src/file.rs)",
-    },
-    Known {
-        target: "tape-times-hostile",
-        seed: "known-chunk-count-unbounded",
-        at: "ww_tape_fuzz/src/targets/hostile.rs:71",
-        message: "a chunk of 124 bytes reads as 2147483647 items: EventTimes::read and ::salvage take any count \
+pub const KNOWN: &[Known] = &[Known {
+    target: "tape-times-hostile",
+    seed: "known-chunk-count-unbounded",
+    at: "ww_tape_fuzz/src/targets/hostile.rs:71",
+    message: "a chunk of 124 bytes reads as 2147483647 items: EventTimes::read and ::salvage take any count \
                   from the head in the implicit time mode (ww_tape/src/times/starts.rs), so a reader's loop over \
                   the items is not bounded by the bytes it read",
-    },
-];
+}];
 
 /// Whether `outcome` of a case of `target` fails at a known place of that target.
 pub fn is_known(target: &str, outcome: &Outcome) -> bool {

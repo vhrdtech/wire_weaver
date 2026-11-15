@@ -152,6 +152,15 @@ The track's records are its `SeriesSegment`s, at the tick of their first sample:
 
 `ww_tape::SeriesTimeline` collects a track's segments from its records in any order (`from_records`), checks each against its record time and the ones before, and gives any sample's tick and scale; `check_chunk` checks a chunk head against them. A received `Series<Fixed<..>>` batch goes into chunk columns as integers: each item's stored number is put into the column as is (`SeriesValue::write_parts`), and a `ww_si` quantity's prefix becomes the segment's scale, a change of prefix starting a segment where the `Series` restarts its numeric column. The wire codecs of `Series<T>` and these sample codecs are separate layers: a batch is decoded once on the host and coded again for random access in the file.
 
+### Payload codec
+
+An events chunk's payloads take two columns, both or neither (`ww_tape::payloads`): `EncodedPayloads::encode` writes them from the items' bytes, `Payloads::read` reads them back by item.
+
+- **Lengths** (`ColumnKind::PayloadLengths`, codec 4, `payloads::LENGTHS`): per group of 128 items a 13-byte record (where the group's first payload starts, the group's shortest length, a width of 0 to 32 bits, where its packed lengths start), then each group's lengths less that minimum, bit-packed at its width. Payloads of one length cost the records only, and the record's start places a group's payloads without the groups before it.
+- **Payloads** (`ColumnKind::Payloads`): the items' bytes back to back, `RAW` and read in place, or `LZ4` (48) when that is smaller, decoded once when the chunk is opened.
+
+A group's lengths are stored in one form only: its minimum is its shortest length, its width the bits the largest packed value needs, and the bits after its last value are 0. A reader refuses any other, so damage to a width or a minimum can't make a group read as other lengths of the same total. `Payloads::salvage` reads a chunk whose payload CRC failed: each group of lengths is checked against its neighbours, and only the items of a group that fails, or raw items with a byte in a bad segment, are suspect (`Payloads::is_suspect`). A damaged lz4 column makes every item suspect.
+
 ## Decoding
 
 `wire_weaver_client::tap::Decoder` takes blocks, live or from a file (`ww_tape::FileBlocks`), and gives out

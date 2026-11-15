@@ -151,6 +151,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "tape-payloads"
+path = "src/tape_payloads.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "link-hello"
 path = "src/link_hello.rs"
 test = false

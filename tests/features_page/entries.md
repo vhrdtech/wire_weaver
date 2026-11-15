@@ -461,6 +461,7 @@ feature tracker.
 - STD-124 | Positional tape reader | Reads tapes by offset from any byte source, also in the browser over HTTP range requests. | transport/tap.md#reading-by-position
 - STD-119 | Tape sample codecs | Series columns stored as the device sends them, or coded lossless as XOR floats or bit-packed deltas, read in place by any range. | transport/tap.md#sample-codecs
 - STD-127 | Tape series tracks | A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float. | transport/tap.md#series-tracks
+- STD-126 | Tape payload codec | Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk. | transport/tap.md#payload-codec
 
 # Examples
 

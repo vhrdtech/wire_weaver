@@ -108,6 +108,8 @@ pub use chunk::{
 };
 
 pub mod lz4;
+#[cfg(feature = "alloc")]
+pub mod payloads;
 pub mod samples;
 pub use samples::{Element, Sample, SampleError, SampleShape, Samples};
 

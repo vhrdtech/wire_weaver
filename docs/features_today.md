@@ -480,6 +480,7 @@ feature tracker.
 - **[Positional tape reader](transport/tap.md#reading-by-position)**: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.
 - **[Tape sample codecs](transport/tap.md#sample-codecs)**: Series columns stored as the device sends them, or coded lossless as XOR floats or bit-packed deltas, read in place by any range.
 - **[Tape series tracks](transport/tap.md#series-tracks)**: A series track says its sample type, scale and exact period; segments mark gaps and prefix changes, and a received `Series<Fixed>` batch becomes chunk columns without a float.
+- **[Tape payload codec](transport/tap.md#payload-codec)**: Event payloads with bit-packed lengths, raw or lz4, salvaged item by item from a damaged chunk.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

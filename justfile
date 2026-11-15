@@ -446,3 +446,8 @@ fuzz-tape-samples:
 [working-directory('fuzz')]
 fuzz-tape-series:
     cargo +nightly fuzz run tape-series -- -max_len=4096
+
+# Fuzz ww_tape's payload codec: reads and salvage on any bytes, round trips, damaged columns (STD-126)
+[working-directory('fuzz')]
+fuzz-tape-payloads:
+    cargo +nightly fuzz run tape-payloads -- -max_len=65536

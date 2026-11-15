@@ -17,25 +17,10 @@
 //! Index entries of a finished piece are read when asked for: all of them ([TapeReader::entries]) or one track's
 //! ([TapeReader::track_entries]: the final index's head and that track's entries, each checked by its own CRC).
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use alloc::vec;
 use alloc::vec::Vec;
 
+use crate::bytes::le_u8;
 use crate::index::{HEAD_LEN_PREFIX, INDEX_LEN_MAX, IndexBlock, IndexEntry, IndexError, IndexKind};
 use crate::piece::{
     ChainReport, Finish, FinishBlock, PieceHead, PieceHeadBlock, PieceSummary, TAIL_LEN, Tail,
@@ -70,7 +55,7 @@ impl ByteSource for [u8] {
     type Error = OutOfRange;
 
     fn size(&self) -> Result<u64, OutOfRange> {
-        Ok(self.len() as u64)
+        Ok(wide(self.len()))
     }
 
     fn read_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), OutOfRange> {
@@ -100,7 +85,7 @@ impl ByteSource for Vec<u8> {
     type Error = OutOfRange;
 
     fn size(&self) -> Result<u64, OutOfRange> {
-        Ok(self.len() as u64)
+        Ok(wide(self.len()))
     }
 
     fn read_at(&self, offset: u64, buf: &mut [u8]) -> Result<(), OutOfRange> {
@@ -134,8 +119,11 @@ impl ByteSource for std::fs::File {
             match std::os::windows::fs::FileExt::seek_read(self, buf, offset)? {
                 0 => return Err(std::io::ErrorKind::UnexpectedEof.into()),
                 n => {
-                    buf = &mut buf[n..];
-                    offset += n as u64;
+                    let past_end = || std::io::Error::from(std::io::ErrorKind::InvalidData);
+                    buf = core::mem::take(&mut buf)
+                        .get_mut(n..)
+                        .ok_or_else(past_end)?;
+                    offset = offset.checked_add(wide(n)).ok_or_else(past_end)?;
                 }
             }
         }
@@ -155,6 +143,8 @@ pub enum ReadError<E> {
     Block { offset: u64, error: BlockError },
     /// The piece has no finish block, so no content hash.
     Unfinished,
+    /// No piece has this number: the reader has fewer.
+    NoPiece(usize),
 }
 
 impl<E: core::fmt::Debug> core::fmt::Display for ReadError<E> {
@@ -164,6 +154,7 @@ impl<E: core::fmt::Debug> core::fmt::Display for ReadError<E> {
             ReadError::Index(e) => write!(f, "index or piece block: {e:?}"),
             ReadError::Block { offset, error } => write!(f, "block at byte {offset}: {error:?}"),
             ReadError::Unfinished => write!(f, "the piece has no finish block"),
+            ReadError::NoPiece(i) => write!(f, "no piece {i}"),
         }
     }
 }
@@ -275,6 +266,80 @@ impl PieceInfo {
     }
 }
 
+/// `n` as a `u64`.
+pub(crate) fn wide(n: usize) -> u64 {
+    const { assert!(usize::BITS <= u64::BITS, "a usize fits a u64") };
+    u64::try_from(n).unwrap_or(u64::MAX)
+}
+
+/// `n` as the `u32` of [BlockError::BadLength]; `u32::MAX` for a longer one, over any block's length either way.
+pub(crate) fn report_len(n: usize) -> u32 {
+    u32::try_from(n).unwrap_or(u32::MAX)
+}
+
+/// The header fields of `b`, with no bytes: `Block { bytes, ..head }` puts them back on the bytes `b` was read from,
+/// without a second check.
+pub(crate) fn header_of(b: &Block<'_>) -> Block<'static> {
+    Block {
+        version: b.version,
+        kind: b.kind,
+        seq: b.seq,
+        run: b.run,
+        flags: b.flags,
+        record_count: b.record_count,
+        bytes: &[],
+        intact: b.intact,
+    }
+}
+
+/// A block checked once, its bytes owned: lent out as a [Block] again without a second check.
+#[derive(Clone, Debug)]
+pub(crate) struct OwnedBlock {
+    bytes: Vec<u8>,
+    /// The header of the block `bytes` holds whole
+    head: Block<'static>,
+}
+
+impl OwnedBlock {
+    /// Check `bytes` as one whole block.
+    pub(crate) fn read(bytes: Vec<u8>) -> Result<Self, BlockError> {
+        let b = Block::read(&bytes)?;
+        if b.len() != bytes.len() {
+            return Err(BlockError::BadLength(report_len(bytes.len())));
+        }
+        let head = header_of(&b);
+        Ok(OwnedBlock { bytes, head })
+    }
+
+    pub(crate) fn block(&self) -> Block<'_> {
+        Block {
+            bytes: &self.bytes,
+            ..self.head
+        }
+    }
+
+    pub(crate) fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub(crate) fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+/// Longest read a [TapeReader] makes at once: a block's length. A longer length the bytes state is damage.
+const READ_LEN_MAX: usize = MAX_BLOCK_LEN;
+
+/// Bytes [TapeReader::newest_index] and the blank checks read at once.
+const WINDOW: usize = 64 * 1024;
+
+/// Bytes [TapeReader::verify] hashes per read.
+const VERIFY_STEP: usize = 1 << 20;
+
 /// A tape read by positional reads, see the [module docs](self).
 pub struct TapeReader<S> {
     src: S,
@@ -362,7 +427,21 @@ impl<S: ByteSource> TapeReader<S> {
         check_chain(&s)
     }
 
+    fn piece(&self, i: usize) -> R<&PieceInfo, S> {
+        self.pieces.get(i).ok_or(ReadError::NoPiece(i))
+    }
+
+    /// `n` bytes at `offset`: at most [READ_LEN_MAX], within the source.
     fn read(&self, offset: u64, n: usize) -> R<Vec<u8>, S> {
+        let within = offset
+            .checked_add(wide(n))
+            .is_some_and(|end| end <= self.len);
+        if n > READ_LEN_MAX || !within {
+            return Err(ReadError::Block {
+                offset,
+                error: BlockError::Short { needed: n },
+            });
+        }
         let mut buf = vec![0u8; n];
         self.src
             .read_at(offset, &mut buf)
@@ -370,55 +449,57 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(buf)
     }
 
-    /// The whole block at `offset`, if one is there within `hi` and at most `max` long; not checked yet.
-    fn block_bytes(&self, offset: u64, hi: u64, max: usize) -> R<Result<Vec<u8>, BlockError>, S> {
-        let room = hi.saturating_sub(offset);
-        if room < HEADER_LEN as u64 {
+    /// The whole block at `offset`, if one is there within `hi` and at most `max` long, and where it ends; not
+    /// checked yet.
+    fn block_bytes(
+        &self,
+        offset: u64,
+        hi: u64,
+        max: usize,
+    ) -> R<Result<(Vec<u8>, u64), BlockError>, S> {
+        if hi.saturating_sub(offset) < wide(HEADER_LEN) {
             return Ok(Err(BlockError::Short { needed: HEADER_LEN }));
         }
         let header = self.read(offset, HEADER_LEN)?;
         let len = match block_len(&header) {
             Ok(l) if l <= max => l,
-            Ok(l) => return Ok(Err(BlockError::BadLength(l as u32))),
+            Ok(l) => return Ok(Err(BlockError::BadLength(report_len(l)))),
             Err(e) => return Ok(Err(e)),
         };
-        if room < len as u64 {
+        let Some(end) = offset.checked_add(wide(len)).filter(|end| *end <= hi) else {
             return Ok(Err(BlockError::Short { needed: len }));
-        }
-        Ok(Ok(self.read(offset, len)?))
+        };
+        Ok(Ok((self.read(offset, len)?, end)))
     }
 
-    /// A good block at `offset` within `hi`, or why not.
-    fn good_block(&self, offset: u64, hi: u64) -> R<Result<Vec<u8>, BlockError>, S> {
-        let bytes = match self.block_bytes(offset, hi, MAX_BLOCK_LEN)? {
-            Ok(b) => b,
-            Err(e) => return Ok(Err(e)),
-        };
-        Ok(match Block::read(&bytes) {
-            Ok(_) => Ok(bytes),
+    /// A good block at `offset` within `hi` and where it ends, or why not.
+    fn good_block(&self, offset: u64, hi: u64) -> R<Result<(OwnedBlock, u64), BlockError>, S> {
+        Ok(match self.block_bytes(offset, hi, MAX_BLOCK_LEN)? {
+            Ok((bytes, end)) => OwnedBlock::read(bytes).map(|b| (b, end)),
             Err(e) => Err(e),
         })
     }
 
     /// The finished piece whose tail ends at `hi`, when its tail and finish are good.
     fn by_tail(&self, hi: u64) -> R<Option<PieceInfo>, S> {
-        if hi < TAIL_LEN as u64 {
+        let Some(tail_at) = hi.checked_sub(wide(TAIL_LEN)) else {
             return Ok(None);
-        }
-        let tb = self.read(hi - TAIL_LEN as u64, TAIL_LEN)?;
+        };
+        let tb = self.read(tail_at, TAIL_LEN)?;
         let Ok(tail) = Tail::read(&tb) else {
             return Ok(None);
         };
-        if tail.piece_len > hi {
+        let Some(start) = hi.checked_sub(tail.piece_len) else {
             return Ok(None);
-        }
-        let start = hi - tail.piece_len;
-        let fb = match self.good_block(start + tail.finish_offset, hi)? {
-            Ok(b) if b.len() == tail.finish_len as usize => b,
+        };
+        let Some(finish_at) = start.checked_add(tail.finish_offset) else {
+            return Ok(None);
+        };
+        let fb = match self.good_block(finish_at, hi)? {
+            Ok((b, _)) if wide(b.len()) == u64::from(tail.finish_len) => b,
             _ => return Ok(None),
         };
-        let block = Block::read(&fb).expect("checked");
-        let Ok(fin) = FinishBlock::read(&block) else {
+        let Ok(fin) = FinishBlock::read(&fb.block()) else {
             return Ok(None);
         };
         let finish = fin.finish();
@@ -436,11 +517,10 @@ impl<S: ByteSource> TapeReader<S> {
     }
 
     fn head_at(&self, offset: u64, hi: u64) -> R<Option<(PieceHead, Vec<TrackStart>)>, S> {
-        let Ok(b) = self.good_block(offset, hi)? else {
+        let Ok((b, _)) = self.good_block(offset, hi)? else {
             return Ok(None);
         };
-        let block = Block::read(&b).expect("checked");
-        Ok(PieceHeadBlock::read(&block)
+        Ok(PieceHeadBlock::read(&b.block())
             .ok()
             .map(|h| (h.head(), h.tracks().collect())))
     }
@@ -448,37 +528,56 @@ impl<S: ByteSource> TapeReader<S> {
     /// The pieces of the unfinished stretch ending at `hi`: from the newest index block in reach, else scanned from
     /// the start.
     fn recover(&self, hi: u64, options: OpenOptions) -> R<Vec<PieceInfo>, S> {
-        let Some((at, bytes)) = self.newest_index(hi, options.scan_back_max)? else {
-            return self.scan(0, hi, PieceInfo::new(0, Found::Scan { scanned: 0 }));
-        };
-        let block = Block::read(&bytes).expect("checked");
-        let ix = IndexBlock::read(&block).expect("checked");
-        let Some(start) = at.checked_sub(ix.self_offset()) else {
-            return self.scan(0, hi, PieceInfo::new(0, Found::Scan { scanned: 0 }));
-        };
+        let lo = hi.saturating_sub(options.scan_back_max);
+        let mut below = hi;
+        while let Some((at, ob, end)) = self.newest_index(hi, lo, below)? {
+            let block = ob.block();
+            let Ok(ix) = IndexBlock::read(&block) else {
+                below = at;
+                continue;
+            };
+            return match at.checked_sub(ix.self_offset()) {
+                Some(start) => self.by_checkpoint(hi, start, at, end, &ix),
+                None => self.scan(0, hi, PieceInfo::new(0, Found::Scan { scanned: 0 })),
+            };
+        }
+        self.scan(0, hi, PieceInfo::new(0, Found::Scan { scanned: 0 }))
+    }
+
+    /// The piece at `start` whose newest checkpoint `ix` is at `at` (ending at `end`), the stretch after it to `hi`
+    /// scanned.
+    fn by_checkpoint(
+        &self,
+        hi: u64,
+        start: u64,
+        at: u64,
+        end: u64,
+        ix: &IndexBlock<'_>,
+    ) -> R<Vec<PieceInfo>, S> {
         let mut piece = PieceInfo::new(start, Found::Checkpoint { scanned: 0 });
         piece.head = self.head_at(start, hi)?;
         let mut lists = vec![ix.entries().collect::<Vec<_>>()];
         let mut prev = ix.prev();
-        let mut newest = ix.self_offset();
+        // offset in the piece and in the source of the oldest good checkpoint
+        let (mut newest, mut newest_at) = (ix.self_offset(), at);
         let mut chain_whole = true;
         while let Some(off) = prev {
-            let ok = off < newest
-                && match self.good_block(start + off, at)? {
-                    Ok(b) => {
-                        let blk = Block::read(&b).expect("checked");
-                        match IndexBlock::read(&blk) {
-                            Ok(p) if p.kind() == ix.kind() && p.self_offset() == off => {
-                                lists.push(p.entries().collect());
-                                prev = p.prev();
-                                newest = off;
-                                true
-                            }
-                            _ => false,
+            let older = start.checked_add(off).filter(|_| off < newest);
+            let ok = match older {
+                Some(off_at) => match self.good_block(off_at, at)? {
+                    Ok((b, _)) => match IndexBlock::read(&b.block()) {
+                        Ok(p) if p.kind() == ix.kind() && p.self_offset() == off => {
+                            lists.push(p.entries().collect());
+                            prev = p.prev();
+                            (newest, newest_at) = (off, off_at);
+                            true
                         }
-                    }
+                        _ => false,
+                    },
                     Err(_) => false,
-                };
+                },
+                None => false,
+            };
             if !ok {
                 chain_whole = false;
                 break;
@@ -489,7 +588,7 @@ impl<S: ByteSource> TapeReader<S> {
             // the chain broke: what is before the oldest good checkpoint is scanned
             let scanned = self.scan(
                 start,
-                start + newest,
+                newest_at,
                 PieceInfo::new(start, Found::Scan { scanned: 0 }),
             )?;
             let mut early: Vec<IndexEntry> = scanned
@@ -508,7 +607,7 @@ impl<S: ByteSource> TapeReader<S> {
             walk.set_layout(&layout);
         }
         piece.entries = Some(entries);
-        self.scan_with(at + bytes.len() as u64, hi, piece, walk)
+        self.scan_with(end, hi, piece, walk)
     }
 
     /// The newest [Layout] the describe blocks among `entries` (of the piece at `start`, within `hi`) state.
@@ -521,9 +620,8 @@ impl<S: ByteSource> TapeReader<S> {
             let Some(at) = start.checked_add(e.offset) else {
                 continue;
             };
-            if let Ok(b) = self.good_block(at, hi)?
-                && let Ok(block) = Block::read(&b)
-                && let Some(layout) = crate::walk::layout_in(&block)
+            if let Ok((b, _)) = self.good_block(at, hi)?
+                && let Some(layout) = crate::walk::layout_in(&b.block())
             {
                 return Ok(Some(layout));
             }
@@ -531,33 +629,34 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(None)
     }
 
-    /// The newest good index block that ends within `hi`, looked for backwards over at most `max` bytes.
-    fn newest_index(&self, hi: u64, max: u64) -> R<Option<(u64, Vec<u8>)>, S> {
-        const WINDOW: u64 = 64 * 1024;
-        let lo = hi.saturating_sub(max);
-        let mut end = hi;
+    /// The newest good index block that starts in `lo..below` and ends within `hi`, where it starts and ends; looked
+    /// for backwards [WINDOW] bytes at a time.
+    fn newest_index(&self, hi: u64, lo: u64, below: u64) -> R<Option<(u64, OwnedBlock, u64)>, S> {
+        // a magic starting just before a window's end reaches into the next window's bytes
+        const MAGIC_REST: usize = MAGIC.len() - 1;
+        let mut end = below.min(hi);
         while end > lo {
-            let from = end.saturating_sub(WINDOW).max(lo);
-            let to = (end + MAGIC.len() as u64 - 1).min(hi);
-            let win = self.read(from, (to - from) as usize)?;
-            let mut i = (end - from) as usize;
-            while i > 0 {
-                i -= 1;
-                if win.len() < i + MAGIC.len() || win[i..i + MAGIC.len()] != MAGIC {
+            let from = end.saturating_sub(wide(WINDOW)).max(lo);
+            let to = end.saturating_add(wide(MAGIC_REST)).min(hi);
+            let win = self.read(from, read_len(to.saturating_sub(from), WINDOW + MAGIC_REST))?;
+            let starts = read_len(end.saturating_sub(from), WINDOW);
+            for i in (0..starts).rev() {
+                if !win.get(i..).is_some_and(|w| w.starts_with(&MAGIC)) {
                     continue;
                 }
-                let at = from + i as u64;
-                let Ok(bytes) = self.block_bytes(at, hi, INDEX_LEN_MAX)? else {
+                let Some(at) = from.checked_add(wide(i)) else {
                     continue;
                 };
-                if bytes[4] != VERSION || BlockKind::from_u8(bytes[5]) != BlockKind::Index {
+                let Ok((bytes, end)) = self.block_bytes(at, hi, INDEX_LEN_MAX)? else {
+                    continue;
+                };
+                let index = le_u8(&bytes, 4) == Some(VERSION)
+                    && le_u8(&bytes, 5).map(BlockKind::from_u8) == Some(BlockKind::Index);
+                if !index {
                     continue;
                 }
-                let good = Block::read(&bytes)
-                    .ok()
-                    .is_some_and(|b| IndexBlock::read(&b).is_ok());
-                if good {
-                    return Ok(Some((at, bytes)));
+                if let Ok(b) = OwnedBlock::read(bytes) {
+                    return Ok(Some((at, b, end)));
                 }
             }
             end = from;
@@ -582,17 +681,16 @@ impl<S: ByteSource> TapeReader<S> {
         let mut out = Vec::new();
         let mut at = from;
         piece.end = piece.end.max(from);
-        let scan_start = from;
         // offset in the piece of the last block taken that is in the seq order: the one a replacement replaces
         let mut last_counted: Option<u64> = None;
         while at < hi {
             let mut replaces = false;
             let taken = match self.good_block(at, hi)? {
-                Ok(b) => match walk.verdict(&Block::read(&b).expect("checked"), true) {
-                    Verdict::Take => Some(b),
+                Ok((b, end)) => match walk.verdict(&b.block(), true) {
+                    Verdict::Take => Some((b, end)),
                     // the same block again: dropped
                     Verdict::Duplicate { same: true } => {
-                        at += b.len() as u64;
+                        at = end;
                         piece.end = at;
                         continue;
                     }
@@ -600,15 +698,17 @@ impl<S: ByteSource> TapeReader<S> {
                     Verdict::Duplicate { same: false } => {
                         replaces = true;
                         piece.replaced.push(at);
-                        Some(b)
+                        Some((b, end))
                     }
                     Verdict::Stale(_) | Verdict::Backwards { .. } => None,
                 },
                 Err(_) => None,
             };
-            let Some(bytes) = taken else {
-                if let Some(next) = self.past_gap(at, hi, &walk)? {
-                    piece.gaps.push((at, next - at));
+            let Some((ob, end)) = taken else {
+                if let Some(next) = self.past_gap(at, hi, &walk)?
+                    && let Some(len) = next.checked_sub(at)
+                {
+                    piece.gaps.push((at, len));
                     at = next;
                     continue;
                 }
@@ -623,21 +723,22 @@ impl<S: ByteSource> TapeReader<S> {
                 }
                 break;
             };
-            let block = Block::read(&bytes).expect("checked");
+            let block = ob.block();
             walk.take(&block);
-            let len = bytes.len() as u64;
             if replaces
                 && let Some(gone) = last_counted
                 && let Some(list) = piece.entries.as_mut()
             {
                 list.retain(|e| e.offset != gone);
             }
+            // the piece starts at or before every block of it the scan takes
+            let in_piece = at.checked_sub(piece.start);
             if !is_free(&block) {
-                last_counted = at.checked_sub(piece.start);
+                last_counted = in_piece;
             }
             match block.kind {
                 BlockKind::PieceHead if at != piece.start => {
-                    set_scanned(&mut piece, at - scan_start);
+                    set_scanned(&mut piece, since(at, from));
                     out.push(piece);
                     piece = PieceInfo::new(at, Found::Scan { scanned: 0 });
                     last_counted = None;
@@ -653,32 +754,33 @@ impl<S: ByteSource> TapeReader<S> {
                 BlockKind::Finish => {
                     if let Ok(f) = FinishBlock::read(&block) {
                         piece.finish = Some((f.finish(), f.tracks().collect()));
-                        piece.finish_offset = Some(at - piece.start);
+                        piece.finish_offset = in_piece;
                     }
                 }
                 BlockKind::Tail => {
-                    piece.tail = Tail::read(&bytes).ok();
-                    piece.end = at + len;
-                    set_scanned(&mut piece, at + len - scan_start);
+                    piece.tail = Tail::read(block.bytes()).ok();
+                    piece.end = end;
+                    set_scanned(&mut piece, since(end, from));
                     out.push(piece);
-                    piece = PieceInfo::new(at + len, Found::Scan { scanned: 0 });
+                    piece = PieceInfo::new(end, Found::Scan { scanned: 0 });
                     last_counted = None;
-                    at += len;
+                    at = end;
                     continue;
                 }
                 _ => {
-                    if let Some(e) = IndexEntry::of_block(at - piece.start, &block)
+                    if let Some(off) = in_piece
+                        && let Some(e) = IndexEntry::of_block(off, &block)
                         && let Some(list) = piece.entries.as_mut()
                     {
                         list.push(e);
                     }
                 }
             }
-            at += len;
+            at = end;
             piece.end = at;
         }
-        let n = piece.end.max(at) - scan_start;
-        set_scanned(&mut piece, n);
+        let scanned = since(piece.end.max(at), from);
+        set_scanned(&mut piece, scanned);
         if piece.end > piece.start || piece.cut.is_some() || out.is_empty() {
             out.push(piece);
         }
@@ -704,7 +806,7 @@ impl<S: ByteSource> TapeReader<S> {
             .chain(walk.probes(at, first));
         let mut checks = 0;
         for c in candidates {
-            if hi.saturating_sub(c) < HEADER_LEN as u64 {
+            if hi.saturating_sub(c) < wide(HEADER_LEN) {
                 break;
             }
             let Some(head) = Head::read(&self.read(c, HEADER_LEN)?) else {
@@ -716,10 +818,9 @@ impl<S: ByteSource> TapeReader<S> {
             if checks == GAP_CHECKS_MAX {
                 break;
             }
-            checks += 1;
-            if let Ok(b) = self.good_block(c, hi)?
-                && let Ok(block) = Block::read(&b)
-                && walk.resumes(&block)
+            checks = checks.saturating_add(1);
+            if let Ok((b, _)) = self.good_block(c, hi)?
+                && walk.resumes(&b.block())
             {
                 return Ok(Some(c));
             }
@@ -727,39 +828,29 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(None)
     }
 
-    /// The first byte from `at` to `end` that isn't blank, read 64 KiB at a time.
+    /// The first byte from `at` to `end` that isn't blank, read [WINDOW] bytes at a time.
     fn non_blank(&self, mut at: u64, end: u64) -> R<Option<u64>, S> {
-        while at < end {
-            let n = read_len(end - at, 64 * 1024);
+        while let Some(left) = end.checked_sub(at).filter(|n| *n > 0) {
+            let n = read_len(left, WINDOW);
             let bytes = self.read(at, n)?;
             if let Some(i) = bytes.iter().position(|b| !crate::is_blank(*b)) {
-                return Ok(Some(at + i as u64));
+                return Ok(at.checked_add(wide(i)));
             }
-            at += n as u64;
+            // n is at most left: at stays within end
+            at = at.saturating_add(wide(n));
         }
         Ok(None)
     }
 
     /// Whether everything from `at` to `hi` is blank ([crate::is_blank]: preallocated space, an erased medium): the
     /// end, not damage.
-    fn blank(&self, mut at: u64, hi: u64) -> R<bool, S> {
-        while at < hi {
-            let n = (hi - at).min(64 * 1024);
-            if !self
-                .read(at, n as usize)?
-                .iter()
-                .all(|b| crate::is_blank(*b))
-            {
-                return Ok(false);
-            }
-            at += n;
-        }
-        Ok(true)
+    fn blank(&self, at: u64, hi: u64) -> R<bool, S> {
+        Ok(self.non_blank(at, hi)?.is_none())
     }
 
     /// Every block of piece `i` its index or scan knows, in file order; offsets from the piece's start.
     pub fn entries(&self, i: usize) -> R<Vec<IndexEntry>, S> {
-        let p = &self.pieces[i];
+        let p = self.piece(i)?;
         if let Some(e) = &p.entries {
             return Ok(e.clone());
         }
@@ -774,7 +865,7 @@ impl<S: ByteSource> TapeReader<S> {
     /// The blocks of track `track_id` in piece `i` (0: record and describe blocks), in file order. A finished piece
     /// reads only the final index's head and that track's entries.
     pub fn track_entries(&self, i: usize, track_id: u64) -> R<Vec<IndexEntry>, S> {
-        let p = &self.pieces[i];
+        let p = self.piece(i)?;
         if let Some(e) = &p.entries {
             return Ok(e
                 .iter()
@@ -796,7 +887,11 @@ impl<S: ByteSource> TapeReader<S> {
             }
             if let Some(list) = ix.track(track_id) {
                 let (from, n) = ix.track_range(&list);
-                let at = in_piece(p, off.saturating_add(from as u64), n)?;
+                // a track's entries lie in the index block
+                if n > MAX_BLOCK_LEN {
+                    return Err(ReadError::Index(IndexError::BadEntries));
+                }
+                let at = in_piece(p, off.saturating_add(wide(from)), n)?;
                 let bytes = self.read(at, n)?;
                 out.extend(ix.track_entries(&list, &bytes).map_err(ReadError::Index)?);
             }
@@ -814,7 +909,7 @@ impl<S: ByteSource> TapeReader<S> {
     /// whole. Damage is a reason to look further, never an error.
     pub fn describe_set(&self, i: usize) -> R<Vec<(u64, Vec<u8>)>, S> {
         let describe: Vec<IndexEntry> = self
-            .track_entries(i, crate::DESCRIBE_TRACK as u64)?
+            .track_entries(i, u64::from(crate::DESCRIBE_TRACK))?
             .into_iter()
             .filter(|e| e.kind == BlockKind::Describe)
             .collect();
@@ -834,7 +929,8 @@ impl<S: ByteSource> TapeReader<S> {
             }
         }
         // a scan stops at the first damaged block, the head's set too: the copy after the first data block is past it
-        match (self.pieces[i].cut, self.pieces[i].cut_walk) {
+        let p = self.piece(i)?;
+        match (p.cut, p.cut_walk) {
             (Some(cut), Some(walk)) => self.describe_past(i, cut, walk),
             _ => Ok(Vec::new()),
         }
@@ -844,28 +940,26 @@ impl<S: ByteSource> TapeReader<S> {
     /// headers: at most [DESCRIBE_SEEK_BLOCKS_MAX] blocks, only of the runs `walk` goes on with (never an earlier
     /// life's behind the end of data), never past the piece's stretch or into the next piece.
     fn describe_past(&self, i: usize, cut: u64, mut walk: RunState) -> R<Vec<(u64, Vec<u8>)>, S> {
-        let p = &self.pieces[i];
-        let hi = match self.pieces.get(i + 1) {
+        let p = self.piece(i)?;
+        let hi = match i.checked_add(1).and_then(|j| self.pieces.get(j)) {
             Some(next) => next.start,
             None => self.len,
         };
         let mut set = SetReader::default();
         let mut at = cut;
         for _ in 0..DESCRIBE_SEEK_BLOCKS_MAX {
-            if hi.saturating_sub(at) < HEADER_LEN as u64 {
+            if hi.saturating_sub(at) < wide(HEADER_LEN) {
                 break;
             }
             let Ok(len) = block_len(&self.read(at, HEADER_LEN)?) else {
                 break;
             };
-            let Some(end) = at.checked_add(len as u64).filter(|e| *e <= hi) else {
+            let Some(end) = at.checked_add(wide(len)).filter(|e| *e <= hi) else {
                 break;
             };
             match self.good_block(at, hi)? {
-                Ok(b) => {
-                    let Ok(block) = Block::read(&b) else {
-                        break;
-                    };
+                Ok((b, _)) => {
+                    let block = b.block();
                     if !matches!(
                         walk.verdict(&block, true),
                         Verdict::Take | Verdict::Duplicate { .. }
@@ -875,7 +969,10 @@ impl<S: ByteSource> TapeReader<S> {
                     walk.take(&block);
                     match block.kind {
                         BlockKind::Describe => {
-                            if set.add(at - p.start, block.flags, &b) {
+                            let Some(off) = at.checked_sub(p.start) else {
+                                break;
+                            };
+                            if set.add(off, block.flags, block.bytes()) {
                                 return Ok(set.blocks);
                             }
                         }
@@ -897,11 +994,10 @@ impl<S: ByteSource> TapeReader<S> {
         while let Some(off) = at {
             let abs = in_piece(p, off, HEADER_LEN)?;
             let b = match self.good_block(abs, p.end)? {
-                Ok(b) => b,
+                Ok((b, _)) => b,
                 Err(error) => return Err(ReadError::Block { offset: abs, error }),
             };
-            let block = Block::read(&b).expect("checked");
-            let ix = IndexBlock::read(&block).map_err(ReadError::Index)?;
+            let ix = IndexBlock::read(&b.block()).map_err(ReadError::Index)?;
             if ix.kind() != IndexKind::Final || ix.self_offset() != off {
                 return Err(ReadError::Index(IndexError::BadHead));
             }
@@ -918,35 +1014,50 @@ impl<S: ByteSource> TapeReader<S> {
         entry: &IndexEntry,
         buf: &'b mut Vec<u8>,
     ) -> R<Block<'b>, S> {
-        let p = &self.pieces[i];
-        let len = entry.len as usize;
+        let p = self.piece(i)?;
+        let at = p.start.saturating_add(entry.offset);
+        // a block is never longer: the entry is damaged
+        let Some(len) = usize::try_from(entry.len)
+            .ok()
+            .filter(|len| *len <= MAX_BLOCK_LEN)
+        else {
+            return Err(ReadError::Block {
+                offset: at,
+                error: BlockError::BadLength(entry.len),
+            });
+        };
         let Ok(offset) = in_piece::<S::Error>(p, entry.offset, len) else {
             return Err(ReadError::Block {
-                offset: p.start.saturating_add(entry.offset),
+                offset: at,
                 error: BlockError::Short { needed: len },
             });
         };
-        buf.resize(entry.len as usize, 0);
+        buf.resize(len, 0);
         self.src.read_at(offset, buf).map_err(ReadError::Source)?;
         Block::read(buf).map_err(|error| ReadError::Block { offset, error })
     }
 
     /// Whether piece `i`'s bytes before its finish block hash to the finish's content hash.
     pub fn verify(&self, i: usize) -> R<bool, S> {
-        let p = &self.pieces[i];
+        let p = self.piece(i)?;
         let (Some((fin, _)), Some(end)) = (&p.finish, p.finish_offset) else {
             return Err(ReadError::Unfinished);
         };
         let mut h = blake3::Hasher::new();
+        let mut buf = vec![0u8; VERIFY_STEP];
         let mut at = 0u64;
-        let mut buf = vec![0u8; 1 << 20];
-        while at < end {
-            let n = read_len(end - at, buf.len());
-            self.src
-                .read_at(p.start + at, &mut buf[..n])
-                .map_err(ReadError::Source)?;
-            h.update(&buf[..n]);
-            at += n as u64;
+        while let Some(left) = end.checked_sub(at).filter(|n| *n > 0) {
+            let n = read_len(left, VERIFY_STEP);
+            let abs = in_piece(p, at, n)?;
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "read_len is at most VERIFY_STEP, the buffer's length"
+            )]
+            let chunk = &mut buf[..n];
+            self.src.read_at(abs, chunk).map_err(ReadError::Source)?;
+            h.update(chunk);
+            // n is at most left: at stays within end
+            at = at.saturating_add(wide(n));
         }
         Ok(*h.finalize().as_bytes() == fin.hash.0)
     }
@@ -969,7 +1080,7 @@ impl SetReader {
             self.clear();
             return false;
         }
-        self.next = offset.checked_add(bytes.len() as u64);
+        self.next = offset.checked_add(wide(bytes.len()));
         self.blocks.push((offset, bytes.to_vec()));
         flags & FLAG_SET_LAST != 0
     }
@@ -984,13 +1095,19 @@ impl SetReader {
 fn in_piece<E>(p: &PieceInfo, off: u64, n: usize) -> Result<u64, ReadError<E>> {
     p.start
         .checked_add(off)
-        .filter(|abs| abs.checked_add(n as u64).is_some_and(|end| end <= p.end))
+        .filter(|abs| abs.checked_add(wide(n)).is_some_and(|end| end <= p.end))
         .ok_or(ReadError::Index(IndexError::BadHead))
 }
 
 /// How much of `left` bytes fits one read into a `buf`-byte buffer; `left` may pass `usize::MAX` on 32-bit targets.
 fn read_len(left: u64, buf: usize) -> usize {
-    left.min(buf as u64) as usize
+    usize::try_from(left).map_or(buf, |left| left.min(buf))
+}
+
+/// Bytes a scan went from `from` to `to`, a place it reached going forward.
+fn since(to: u64, from: u64) -> u64 {
+    debug_assert!(to >= from, "a scan only goes forward");
+    to.saturating_sub(from)
 }
 
 fn set_scanned(p: &mut PieceInfo, n: u64) {

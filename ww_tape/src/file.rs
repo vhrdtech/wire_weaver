@@ -2,6 +2,7 @@
 
 use std::io::{self, Read};
 
+use crate::reader::{OwnedBlock, header_of, report_len, wide};
 use crate::walk::{Head, RunState, Verdict};
 use crate::{
     Block, BlockError, GAP_CHECKS_MAX, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank,
@@ -11,18 +12,7 @@ use crate::{
 /// bytes that came, so a damaged length never allocates what it says.
 const READ_STEP: usize = 64 * 1024;
 
-/// `n` as a `u64`.
-fn wide(n: usize) -> u64 {
-    const { assert!(usize::BITS <= u64::BITS, "a usize fits a u64") };
-    u64::try_from(n).unwrap_or(u64::MAX)
-}
-
-/// `n` as the `u32` of [BlockError::BadLength]; `u32::MAX` for a longer one, over any block's length either way.
-fn report_len(n: usize) -> u32 {
-    u32::try_from(n).unwrap_or(u32::MAX)
-}
-
-/// A checked block's header, kept apart from its bytes: the bytes are lent again without a second check.
+/// A checked block's header and length, kept apart from its bytes: the bytes are lent again without a second check.
 #[derive(Copy, Clone, Debug)]
 struct Checked {
     /// The header fields, with no bytes
@@ -33,16 +23,7 @@ struct Checked {
 impl Checked {
     fn of(b: &Block<'_>) -> Self {
         Checked {
-            head: Block {
-                version: b.version,
-                kind: b.kind,
-                seq: b.seq,
-                run: b.run,
-                flags: b.flags,
-                record_count: b.record_count,
-                bytes: &[],
-                intact: b.intact,
-            },
+            head: header_of(b),
             len: b.len(),
         }
     }
@@ -56,15 +37,11 @@ impl Checked {
 
 /// An owned block, e.g. one handed over by a producer, checked once when made.
 #[derive(Clone, Debug)]
-pub struct BlockBuf {
-    bytes: Vec<u8>,
-    /// The header of the block `bytes` holds whole
-    head: Block<'static>,
-}
+pub struct BlockBuf(OwnedBlock);
 
 impl PartialEq for BlockBuf {
     fn eq(&self, other: &Self) -> bool {
-        self.bytes == other.bytes
+        self.bytes() == other.bytes()
     }
 }
 
@@ -73,28 +50,19 @@ impl Eq for BlockBuf {}
 impl BlockBuf {
     /// Check `bytes` as one whole block.
     pub fn new(bytes: Vec<u8>) -> Result<Self, BlockError> {
-        let b = Block::read(&bytes)?;
-        if b.len() != bytes.len() {
-            return Err(BlockError::BadLength(report_len(bytes.len())));
-        }
-        let head = Checked::of(&b).head;
-        Ok(BlockBuf { bytes, head })
+        OwnedBlock::read(bytes).map(BlockBuf)
     }
 
     pub fn block(&self) -> Block<'_> {
-        // the block is the whole of the bytes, checked in new
-        Block {
-            bytes: &self.bytes,
-            ..self.head
-        }
+        self.0.block()
     }
 
     pub fn bytes(&self) -> &[u8] {
-        &self.bytes
+        self.0.bytes()
     }
 
     pub fn into_bytes(self) -> Vec<u8> {
-        self.bytes
+        self.0.into_bytes()
     }
 }
 

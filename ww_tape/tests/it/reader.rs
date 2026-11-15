@@ -87,3 +87,47 @@ fn entry_past_the_piece_is_an_error() {
         );
     }
 }
+
+#[test]
+fn a_piece_number_past_the_pieces_is_an_error() {
+    let bytes = finish_only(0);
+    let r = TapeReader::open(&bytes[..]).unwrap();
+    let n = r.pieces().len();
+    assert!(matches!(r.entries(n), Err(ReadError::NoPiece(i)) if i == n));
+    assert!(matches!(r.track_entries(n, 0), Err(ReadError::NoPiece(_))));
+    assert!(matches!(
+        r.describe_set(usize::MAX),
+        Err(ReadError::NoPiece(_))
+    ));
+    assert!(matches!(r.verify(n), Err(ReadError::NoPiece(_))));
+}
+
+#[test]
+fn an_entry_longer_than_any_block_is_refused_before_reading() {
+    let bytes = finish_only(0);
+    let r = TapeReader::open(&bytes[..]).unwrap();
+    let entry = IndexEntry {
+        offset: 0,
+        len: u32::MAX,
+        kind: BlockKind::Series,
+        level: 0,
+        tree: 0,
+        track_id: 1,
+        track_number: 1,
+        first_item: 0,
+        count: 0,
+        first_tick: 0,
+        last_tick: 0,
+        latest_end: 0,
+    };
+    let mut buf = Vec::new();
+    let e = r.read_block(0, &entry, &mut buf);
+    assert!(matches!(
+        e,
+        Err(ReadError::Block {
+            error: ww_tape::BlockError::BadLength(u32::MAX),
+            ..
+        })
+    ));
+    assert!(buf.capacity() < 1 << 20);
+}

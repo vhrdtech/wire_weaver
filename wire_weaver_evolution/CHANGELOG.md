@@ -55,6 +55,7 @@
 
 ### 🚀 Features
 
+- `keyed!` companions in the checker (EVO-78): added, removed, key type changed; across a break matched by the array they key.
 - `ww api diff` names a `keyed!` item with its key type (API-67); its compatibility rules are EVO-78.
 - Test fixture `nucleo_g0b1re_api`: its tests require a wire-compatible verdict against its saved snapshot instead of "no changes", so a compatible change of the live `ww_stdlib` it follows by path passes and a break fails, naming it; the EVO-13 checks run on a copy with refreshed pins. New tests `compatible_stdlib_change_passes_the_fixture` and `breaking_stdlib_change_fails_the_fixture` (EVO-70).
 - `pins::refresh` rewrites a frozen snapshot's pinned references (`SkippedFullVersion` signatures) and dependency versions to what the source gives, keeping every other byte and the old format; refused on a wire break unless `accept_breaking` (EVO-70). `pins::wire_compatible` tells whether a `Report` keeps the wire (no break, no new wire line).

@@ -43,8 +43,9 @@ use shrink_wrap::{ElementSize, SerializeShrinkWrapOwned};
 use ww_self::errors::fmt_error_list;
 use ww_self::visit_mut::VisitMut;
 use ww_self::{
-    ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ClaimMode,
-    ErrorVariantOwned, FieldsOwned, FutureVersionOwned, MetaOwned, TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
+    ClaimMode, ErrorVariantOwned, FieldsOwned, FutureVersionOwned, MetaOwned, TypeLocationOwned,
+    TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
@@ -1025,6 +1026,7 @@ impl<'a> Checker<'a> {
                     ),
                 );
             }
+            self.compare_keyed(&path, (old, old_item), (new, new_item));
             self.compare_pair(&path, old_item, new_item);
         }
         for new_item in &new.items {
@@ -1049,15 +1051,17 @@ impl<'a> Checker<'a> {
         new: &'a ApiLevelOwned,
     ) {
         // the resources that keep their place on each side, moves being matched by their attribute
+        // `keyed!` companions are matched by their arrays, after them
+        let companion = |i: &ApiItemOwned| matches!(i.kind, ApiItemKindOwned::Keys { .. });
         let old_items: Vec<&'a ApiItemOwned> = old
             .items
             .iter()
-            .filter(|i| !self.moved_away(name, &i.ident))
+            .filter(|i| !self.moved_away(name, &i.ident) && !companion(i))
             .collect();
         let new_items: Vec<&'a ApiItemOwned> = new
             .items
             .iter()
-            .filter(|i| !self.moved_here(name, &i.ident))
+            .filter(|i| !self.moved_here(name, &i.ident) && !companion(i))
             .collect();
         for old_item in &old_items {
             let path = format!("{name}::{}", old_item.ident);
@@ -1081,6 +1085,101 @@ impl<'a> Checker<'a> {
                 self.adds(format!("{path} added"));
                 self.check_since(&path, new_item.since);
                 self.added.push((name.to_string(), new_item.ident.clone()));
+            }
+        }
+        self.compare_keyed_by_array(name, old, new);
+    }
+
+    /// Within a line, `old_item` and `new_item` at one position of the levels `old` and `new`, as `keyed!` companions
+    /// (EVO-78): both key the array at one position.
+    fn compare_keyed(
+        &mut self,
+        path: &str,
+        (old, old_item): (&ApiLevelOwned, &ApiItemOwned),
+        (new, new_item): (&ApiLevelOwned, &ApiItemOwned),
+    ) {
+        if let (Some(old_array), Some(new_array)) = (
+            compat::keyed_array(old, old_item),
+            compat::keyed_array(new, new_item),
+        ) && old_array.id != new_array.id
+        {
+            self.breaks(
+                Rule::Resource,
+                format!(
+                    "{path}: keys {} on the {OLD}, {} on the {NEW}",
+                    old_array.ident, new_array.ident
+                ),
+            );
+        }
+    }
+
+    /// Across a break, the `keyed!` companions of the trait `name` (EVO-78): each is the companion of its array,
+    /// matched as any resource is (its path or `#[moved_from]`), so it follows the array wherever it moved, under
+    /// the name it takes from it. One whose array has no companion on the other side is removed or added.
+    fn compare_keyed_by_array(
+        &mut self,
+        name: &str,
+        old: &'a ApiLevelOwned,
+        new: &'a ApiLevelOwned,
+    ) {
+        let keyed = |level: &'a ApiLevelOwned| {
+            level
+                .items
+                .iter()
+                .filter_map(move |item| Some((item, compat::keyed_array(level, item)?)))
+                .collect::<Vec<_>>()
+        };
+        let (old_keyed, new_keyed) = (keyed(old), keyed(new));
+        // the array of the new version an old one is, the same trait here since `keyed!` keys its own trait's array
+        let same = |old_array: &ApiItemOwned, new_array: &ApiItemOwned| {
+            let moved = self
+                .moved
+                .iter()
+                .find(|((t, i), _)| t == name && *i == old_array.ident);
+            match moved {
+                Some((_, (to_t, to_i))) => to_t == name && *to_i == new_array.ident,
+                None => {
+                    old_array.ident == new_array.ident && !self.moved_here(name, &new_array.ident)
+                }
+            }
+        };
+        let pairs: Vec<_> = old_keyed
+            .iter()
+            .map(|(old_item, old_array)| {
+                let new_item = new_keyed.iter().find(|(_, a)| same(old_array, a));
+                (*old_item, *old_array, new_item.map(|(item, _)| *item))
+            })
+            .collect();
+        let mut matched = vec![];
+        for (old_item, old_array, new_item) in pairs {
+            let path = format!("{name}::{}", old_item.ident);
+            let Some(new_item) = new_item else {
+                self.breaks(
+                    Rule::Removed,
+                    format!(
+                        "{path} removed (the keyed! companion of {})",
+                        old_array.ident
+                    ),
+                );
+                continue;
+            };
+            matched.push(new_item.id);
+            if old_item.id != new_item.id {
+                self.wire_breaks.push(format!(
+                    "{path} at position {} on the new line, was {}",
+                    new_item.id.0, old_item.id.0
+                ));
+            }
+            self.compare_pair(&path, old_item, new_item);
+        }
+        for (new_item, new_array) in &new_keyed {
+            if !matched.contains(&new_item.id) {
+                let path = format!("{name}::{}", new_item.ident);
+                self.adds(format!(
+                    "{path} added (the keyed! companion of {})",
+                    new_array.ident
+                ));
+                self.check_since(&path, new_item.since);
             }
         }
     }
@@ -1698,6 +1797,7 @@ mod tests {
     mod by_meaning;
     mod foreign_wrapper;
     mod in_place;
+    mod keyed;
     mod moved_from;
     mod root_cause;
     mod superseded;

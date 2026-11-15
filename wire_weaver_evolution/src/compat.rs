@@ -299,6 +299,19 @@ fn compare_kinds<'a>(
             )?;
         }
         (
+            // which array each one keys is a matter of the level, compared by the caller (EVO-78)
+            Keys { key, .. },
+            Keys {
+                key: device_key, ..
+            },
+        ) => {
+            // a key goes to the device in `index_of`, and back in `key[]` and the `keys` stream
+            to_device
+                .check(key, device_key)
+                .and_then(|_| to_client.check(device_key, key))
+                .map_err(|e| format!("key type: {e}"))?;
+        }
+        (
             Trait { trait_idx, .. },
             Trait {
                 trait_idx: device_trait_idx,
@@ -443,6 +456,16 @@ fn compare_trait_definitions<'a>(
         if item.is_array() != device_item.is_array() {
             return Err(format!("{}: an array on one side only", item.ident));
         }
+        if let (Some(array), Some(device_array)) = (
+            keyed_array(level, item),
+            keyed_array(device_level, device_item),
+        ) && array.ident != device_array.ident
+        {
+            return Err(format!(
+                "{}: keys {} on the {client_name}, {} on the {device_name}",
+                item.ident, array.ident, device_array.ident
+            ));
+        }
         to_device
             .with_bundle(0, client, |to_device| {
                 to_device.with_bundle(1, device, |to_device| {
@@ -468,6 +491,18 @@ fn compare_trait_definitions<'a>(
         return Err(format!("{} removed", removed.ident));
     }
     Ok(())
+}
+
+/// The array item of `level` whose elements the `keyed!` companion `item` keys (EVO-78), `None` for any other item
+/// or a dangling id.
+pub(crate) fn keyed_array<'a>(
+    level: &'a ApiLevelOwned,
+    item: &ApiItemOwned,
+) -> Option<&'a ApiItemOwned> {
+    let ApiItemKindOwned::Keys { of, .. } = &item.kind else {
+        return None;
+    };
+    level.items.iter().find(|i| i.id == *of)
 }
 
 /// (readable, writable, observable)

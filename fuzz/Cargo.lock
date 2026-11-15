@@ -201,10 +201,10 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#5d77bb43c78677d0d43206bbd41a16d8d2c9e310"
+source = "git+https://github.com/romixlab/exact_units#7b6cc3c10efea57f1438259b48f2c419a5479961"
 dependencies = [
  "serde",
- "shrink_wrap 0.2.0 (git+https://github.com/vhrdtech/wire_weaver)",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -225,7 +225,7 @@ version = "0.0.0"
 dependencies = [
  "arbitrary",
  "libfuzzer-sys",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "ww_framer",
  "ww_link",
  "ww_self",
@@ -568,34 +568,12 @@ dependencies = [
  "either",
  "paste",
  "serde",
- "shrink_wrap_derive 0.2.0",
-]
-
-[[package]]
-name = "shrink_wrap"
-version = "0.2.0"
-source = "git+https://github.com/vhrdtech/wire_weaver#3f2a3496b5c248d87711f10c6b2fd0d0f578c856"
-dependencies = [
- "either",
- "paste",
- "serde",
- "shrink_wrap_derive 0.2.0 (git+https://github.com/vhrdtech/wire_weaver)",
+ "shrink_wrap_derive",
 ]
 
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 3.0.6",
-]
-
-[[package]]
-name = "shrink_wrap_derive"
-version = "0.2.0"
-source = "git+https://github.com/vhrdtech/wire_weaver#3f2a3496b5c248d87711f10c6b2fd0d0f578c856"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -787,7 +765,7 @@ version = "0.5.0"
 dependencies = [
  "exact_units",
  "futures-core",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "wire_weaver_derive",
  "ww_error",
  "ww_version",
@@ -810,7 +788,7 @@ dependencies = [
  "ron",
  "semver",
  "serde",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "syn 3.0.6",
  "toml",
  "wire_weaver_snapshots",
@@ -868,7 +846,7 @@ dependencies = [
 name = "ww_error"
 version = "0.1.0"
 dependencies = [
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "ww_si",
 ]
 
@@ -877,7 +855,7 @@ name = "ww_framer"
 version = "0.5.0"
 dependencies = [
  "crc",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -887,14 +865,14 @@ dependencies = [
  "convert_case",
  "serde",
  "serde_json",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
 ]
 
 [[package]]
 name = "ww_link"
 version = "0.5.0"
 dependencies = [
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "wire_weaver",
  "ww_block",
  "ww_framer",
@@ -914,7 +892,7 @@ name = "ww_numeric"
 version = "0.3.0"
 dependencies = [
  "serde",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -925,7 +903,7 @@ dependencies = [
  "exact_units",
  "serde",
  "sha2",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "ww_lz4",
  "ww_numeric",
  "ww_version",
@@ -936,7 +914,7 @@ name = "ww_si"
 version = "0.5.0"
 dependencies = [
  "exact_units",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "ww_numeric",
 ]
 
@@ -956,7 +934,8 @@ name = "ww_tape"
 version = "0.1.0"
 dependencies = [
  "crc",
- "shrink_wrap 0.2.0",
+ "exact_units",
+ "shrink_wrap",
  "ww_version",
 ]
 
@@ -967,7 +946,7 @@ dependencies = [
  "hex",
  "semver",
  "serde",
- "shrink_wrap 0.2.0",
+ "shrink_wrap",
  "ww_global",
 ]
 

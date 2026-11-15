@@ -114,3 +114,7 @@ path = "src/link_hello.rs"
 test = false
 doc = false
 bench = false
+
+# exact_units takes shrink_wrap from this repository by git: use the one here, as the root workspace does
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }

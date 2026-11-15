@@ -470,3 +470,48 @@ fuzz-tape-series:
 [working-directory('fuzz')]
 fuzz-tape-payloads:
     cargo +nightly fuzz run tape-payloads -- -max_len=65536 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape records and describe blocks of hostile clock tables, record heads, lengths and coded bodies (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-records-hostile:
+    cargo +nightly fuzz run tape-records-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape chunk blocks of a hostile head: payload offset, segment shift, column table, counts, ticks (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-chunk-hostile:
+    cargo +nightly fuzz run tape-chunk-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape events chunks of hostile time group records, read and salvaged (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-times-hostile:
+    cargo +nightly fuzz run tape-times-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape events chunks of hostile payload lengths, lz4 lengths and codecs, read and salvaged (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-payloads-hostile:
+    cargo +nightly fuzz run tape-payloads-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape series chunks of hostile sample columns, counts and shapes (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-samples-hostile:
+    cargo +nightly fuzz run tape-samples-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape series tracks of hostile periods and segment records (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-series-hostile:
+    cargo +nightly fuzz run tape-series-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape summary blocks of a hostile head, scale or node values (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-summary-hostile:
+    cargo +nightly fuzz run tape-summary-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape index, finish, piece head and tail blocks of hostile offsets, directories and entries (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-index-hostile:
+    cargo +nightly fuzz run tape-index-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10
+
+# Fuzz ww_tape pieces of hostile offsets, lengths, layouts and gaps, through the positional reader and the walks (STD-131)
+[working-directory('fuzz')]
+fuzz-tape-reader-hostile:
+    cargo +nightly fuzz run tape-reader-hostile -- -max_len=256 -rss_limit_mb=1024 -malloc_limit_mb=128 -timeout=10

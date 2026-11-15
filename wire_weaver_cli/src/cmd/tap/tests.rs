@@ -260,9 +260,19 @@ async fn monitor_capture_and_explain_file_agree() {
     assert!(report.contains("add: 8"), "{report}");
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
-    // `ww capture` wrote the same bytes (then its index, finish and tail), `ww explain FILE` prints the same text
+    // `ww capture` wrote the same blocks, besides its own describe copies, index, finish and tail; `ww explain FILE`
+    // prints the same text
     assert_eq!(writer.finish().unwrap().path, path);
-    assert!(std::fs::read(&path).unwrap().starts_with(&file));
+    let written = std::fs::read(&path).unwrap();
+    let mut blocks = wire_weaver_client::ww_tape::FileBlocks::new(&written[..]);
+    let mut producer = vec![];
+    while let Some(b) = blocks.next_block() {
+        let b = b.unwrap();
+        if !b.is_copy() && !wire_weaver_client::ww_tape::index::is_structural(b.kind) {
+            producer.extend_from_slice(b.bytes());
+        }
+    }
+    assert_eq!(producer, file);
     for (view, live) in views().into_iter().zip(&live) {
         let mut replayed = vec![];
         replay(

@@ -3,7 +3,7 @@
 
 use super::TimesError;
 use crate::FromFile;
-use crate::bitpack::{self, GROUP, WIDTH_MAX};
+use crate::bitpack::{self, GROUP, Width};
 use crate::chunk::ColumnKind;
 
 /// Groups in a column of `n` items.
@@ -29,8 +29,7 @@ pub(crate) struct Layout<const R: usize> {
 /// A group's values where its record places them, checked against the column.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct Placed<'b> {
-    /// At most [WIDTH_MAX].
-    pub(crate) width: u32,
+    pub(crate) width: Width,
     /// Where the values start in the packed values, at most the column's.
     pub(crate) offset: usize,
     /// Where they end, at most the column's.
@@ -108,9 +107,9 @@ impl<'b, const R: usize> Groups<'b, R> {
     /// group past the last.
     pub(crate) fn placed(&self, g: usize) -> Option<Placed<'b>> {
         let r = self.records.get(g)?;
-        let width = (self.layout.width)(r).bounded(WIDTH_MAX).ok()?;
+        let width = Width::from_file((self.layout.width)(r)).ok()?;
         let offset = (self.layout.offset)(r).within(self.data_len).ok()?;
-        let end = offset.checked_add(bitpack::packed_len(group_len(self.n, g), width))?;
+        let end = offset.checked_add(bitpack::packed_len(group_len(self.n, g), width.bits()))?;
         if end > self.data_len {
             return None;
         }
@@ -145,7 +144,7 @@ impl<'b, const R: usize> Groups<'b, R> {
         let mut at = 0usize;
         for g in 0..self.count() {
             let r = self.record(g);
-            if (self.layout.width)(r).bounded(WIDTH_MAX).is_err() {
+            if Width::from_file((self.layout.width)(r)).is_err() {
                 return Err(self.corrupt("width over 64"));
             }
             match self.placed(g) {
@@ -231,12 +230,13 @@ pub(crate) fn encode_groups<T: Copy, const R: usize>(
     for c in values.chunks(GROUP) {
         let at = packed.len();
         let (rec, vals, width) = record(c, u32::try_from(at).ok()?)?;
-        if width > WIDTH_MAX {
-            return None;
-        }
+        let width = Width::new(width).ok()?;
         out.extend_from_slice(&rec);
-        packed.resize(at.checked_add(bitpack::packed_len(c.len(), width))?, 0);
-        bitpack::pack(packed.get_mut(at..)?, vals, width);
+        packed.resize(
+            at.checked_add(bitpack::packed_len(c.len(), width.bits()))?,
+            0,
+        );
+        width.pack(packed.get_mut(at..)?, vals).ok()?;
     }
     out.extend_from_slice(&packed);
     Some(out)

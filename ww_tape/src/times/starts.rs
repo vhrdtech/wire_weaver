@@ -7,7 +7,7 @@ use super::groups::{
 };
 use super::{TimeMode, TimesError};
 use crate::FromFile;
-use crate::bitpack::{self, GROUP, Kernel};
+use crate::bitpack::{self, GROUP, Kernel, Width};
 use crate::chunk::ColumnKind;
 use core::ops::Range;
 
@@ -77,8 +77,7 @@ struct Group<'b> {
     /// first + residual minimum: the line's base.
     base: i64,
     slope: i64,
-    /// At most 64.
-    width: u32,
+    width: Width,
     /// The residuals from their first byte on; unused at width 0.
     values: &'b [u8],
 }
@@ -100,7 +99,7 @@ impl<'b> Group<'b> {
             first,
             base: first,
             slope: 0,
-            width: 0,
+            width: Width::ZERO,
             values: &[],
         }
     }
@@ -108,11 +107,7 @@ impl<'b> Group<'b> {
     /// Item `j` as stored: base, line and residual, wrapping as the encoder's differences did.
     #[inline]
     fn value(&self, j: usize) -> i64 {
-        let r = if self.width == 0 {
-            0
-        } else {
-            bitpack::read(self.values, j, self.width)
-        };
+        let r = self.width.read(self.values, j);
         self.base
             .wrapping_add(bitpack::line(self.slope, j))
             .wrapping_add(r.cast_signed())
@@ -122,7 +117,7 @@ impl<'b> Group<'b> {
     /// positive slope; None when the band arithmetic leaves i128.
     fn band(&self, t: i64, len: usize) -> Option<(usize, usize)> {
         let s = i128::from(self.slope);
-        let span = i128::from(width_span(self.width));
+        let span = i128::from(width_span(self.width.bits()));
         let d = i128::from(t).checked_sub(i128::from(self.base))?;
         let (mut lo, mut hi) = (1usize, len);
         let below = d.checked_sub(span)?.checked_mul(1 << 16)?;
@@ -506,7 +501,10 @@ impl<'b> Starts<'b> {
             }
             Repr::Linear(lin) => {
                 let h = lin.group(g);
-                bitpack::decode_line_with(kernel, h.values, h.width, h.base, h.slope, out);
+                let r = h
+                    .width
+                    .decode_line_with(kernel, h.values, h.base, h.slope, out);
+                assert!(r.is_ok(), "{kernel:?} doesn't run on this CPU");
                 if lin.salvaged {
                     for t in out.iter_mut() {
                         *t = (*t).clamp(self.first, self.last);

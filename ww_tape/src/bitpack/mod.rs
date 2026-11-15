@@ -27,6 +27,7 @@ mod neon;
 #[cfg(test)]
 mod tests;
 
+use crate::from_file::FileInt;
 use crate::{BoundError, FromFile, bytes};
 
 /// Values in a full group.
@@ -100,9 +101,12 @@ impl Width {
         }
     }
 
-    /// A width byte read from a file, when it is at most [WIDTH_MAX].
-    pub fn from_file(bits: FromFile<u8>) -> Result<Self, BoundError> {
-        bits.bounded(WIDTH_MAX_BYTE).map(Width)
+    /// A width read from a file, when it is at most [WIDTH_MAX].
+    pub fn from_file<T: FileInt>(bits: FromFile<T>) -> Result<Self, BoundError> {
+        let b = bits.at_most(usize::from(WIDTH_MAX_BYTE))?;
+        // b is at most 64: its low byte is all of it
+        let [low, ..] = b.to_le_bytes();
+        Ok(Width(low))
     }
 
     /// The bits needed to hold `x`: [width_of].

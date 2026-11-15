@@ -9,7 +9,7 @@ use super::TimesError;
 use super::groups::encode_groups;
 use super::groups::{Groups, Layout, Placed, group_len, width_span};
 use crate::FromFile;
-use crate::bitpack::{self, GROUP};
+use crate::bitpack::{self, GROUP, Width};
 use crate::chunk::ColumnKind;
 
 /// Bytes of a durations group record.
@@ -137,11 +137,7 @@ impl<'b> Durations<'b> {
         let Some(p) = self.usable(g) else {
             return 0;
         };
-        let r = if p.width == 0 {
-            0
-        } else {
-            bitpack::read(p.values, i % GROUP, p.width)
-        };
+        let r = p.width.read(p.values, i % GROUP);
         // the format's sum: minimum plus packed value, wrapping as the encoder's difference did
         let d = self.min(g).wrapping_add(r);
         if self.salvaged { d.min(self.max) } else { d }
@@ -162,7 +158,7 @@ impl<'b> Durations<'b> {
             return self.max;
         };
         self.min(g)
-            .saturating_add(width_span(p.width))
+            .saturating_add(width_span(p.width.bits()))
             .min(self.max)
     }
 
@@ -181,9 +177,9 @@ impl<'b> Durations<'b> {
             return;
         };
         let mut d = [0i64; GROUP];
-        let src = if p.width == 0 { &[][..] } else { p.values };
         // durations are u64 end - start, wrapping: the same bits as an i64
-        bitpack::decode_line(src, p.width, self.min(g).cast_signed(), 0, &mut d);
+        p.width
+            .decode_line(p.values, self.min(g).cast_signed(), 0, &mut d);
         if self.salvaged {
             for d in d.iter_mut() {
                 *d = d.cast_unsigned().min(self.max).cast_signed();
@@ -253,11 +249,8 @@ impl<'b> Flags<'b> {
         let Some(p) = self.usable(g) else {
             return 0;
         };
-        if p.width == 0 {
-            return 0;
-        }
         // the width is the bits of a u32 OR
-        let f = low_u32(bitpack::read(p.values, i % GROUP, p.width));
+        let f = low_u32(p.width.read(p.values, i % GROUP));
         if self.salvaged {
             f & flags_or(self.groups.record(g))
         } else {
@@ -291,9 +284,12 @@ impl<'b> Flags<'b> {
     pub fn decode_group(&self, g: usize, out: &mut [u32; GROUP]) -> usize {
         let or = self.group_or(g);
         match self.usable(g) {
-            Some(p) if p.width > 0 => {
-                // the width is the bits of a u32 OR: at most the kernels' 32
-                bitpack::unpack_u32(p.values, p.width, out);
+            Some(p) if p.width != Width::ZERO => {
+                let r = p.width.unpack_u32(p.values, out);
+                assert!(
+                    r.is_ok(),
+                    "the width of a u32 OR is at most the kernels' 32"
+                );
                 if self.salvaged {
                     for f in out.iter_mut() {
                         *f &= or;

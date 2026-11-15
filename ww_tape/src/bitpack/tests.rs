@@ -134,8 +134,8 @@ fn widths_over_the_maximum_are_refused() {
         })
     );
     assert!(Width::new(u32::MAX).is_err());
-    assert_eq!(Width::from_file(FromFile::new(64)), Ok(Width::MAX));
-    assert!(Width::from_file(FromFile::new(65)).is_err());
+    assert_eq!(Width::from_file(FromFile::new(64u8)), Ok(Width::MAX));
+    assert!(Width::from_file(FromFile::new(65u8)).is_err());
     assert_eq!(Width::of(u64::MAX), Width::MAX);
     assert_eq!(Width::of(0), Width::ZERO);
     let src = [0xffu8; 600];

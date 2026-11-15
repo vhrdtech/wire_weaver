@@ -42,7 +42,7 @@ mod tests;
 
 pub use encode::{EncodeError, EncodedPayloads};
 
-use crate::bitpack::{self, GROUP};
+use crate::bitpack::{self, GROUP, Width};
 use crate::chunk::{Chunk, Codec, Column, ColumnKind};
 use crate::lz4::{Lz4Error, lz4_decode, lz4_decoded_len};
 use crate::times::u32_to_usize;
@@ -109,7 +109,7 @@ impl core::error::Error for PayloadsError {
 struct Record {
     base: usize,
     min: usize,
-    width: u32,
+    width: Width,
     offset: usize,
 }
 
@@ -174,7 +174,9 @@ impl<'b> Lengths<'b> {
         let [b0, b1, b2, b3, m0, m1, m2, m3, w, o0, o1, o2, o3] = *r;
         let width = FromFile::new(w)
             .bounded(WIDTH_MAX)
-            .or(Err("width over 32"))?;
+            .ok()
+            .and_then(|w| Width::new(u32::from(w)).ok())
+            .ok_or("width over 32")?;
         let offset = FromFile::new(u32::from_le_bytes([o0, o1, o2, o3]))
             .within(self.data_len)
             .or(Err("packed lengths past the column"))?;
@@ -189,7 +191,7 @@ impl<'b> Lengths<'b> {
         Ok(Record {
             base,
             min,
-            width: u32::from(width),
+            width,
             offset,
         })
     }
@@ -203,7 +205,7 @@ impl<'b> Lengths<'b> {
         let r = self.record(g)?;
         let end = r
             .offset
-            .checked_add(bitpack::packed_len(self.group_len(g), r.width))?;
+            .checked_add(bitpack::packed_len(self.group_len(g), r.width.bits()))?;
         (end <= self.data_len).then_some(end)
     }
 
@@ -211,11 +213,11 @@ impl<'b> Lengths<'b> {
     fn unpack(&self, g: usize, out: &mut [u32; GROUP]) -> Option<Record> {
         self.packed_end(g)?;
         let r = self.record(g)?;
-        if r.width == 0 {
+        if r.width == Width::ZERO {
             out.fill(0);
         } else {
-            // the width is at most 32, the kernels' widest
-            bitpack::unpack_u32(self.data.get(r.offset..)?, r.width, out);
+            // checked_record keeps widths of at most 32, the kernels' widest
+            r.width.unpack_u32(self.data.get(r.offset..)?, out).ok()?;
         }
         Some(r)
     }
@@ -227,20 +229,20 @@ impl<'b> Lengths<'b> {
         let r = self.unpack(g, &mut v)?;
         let len = self.group_len(g);
         let vals = v.get(..len)?;
-        if r.width > 0 {
+        if r.width != Width::ZERO {
             let min = vals.iter().copied().min()?;
             let max = vals.iter().copied().max()?;
-            let packed = bitpack::packed_len(len, r.width);
+            let packed = bitpack::packed_len(len, r.width.bits());
             let spare = packed
                 .checked_mul(8)?
-                .checked_sub(len.checked_mul(u32_to_usize(r.width))?)?;
+                .checked_sub(len.checked_mul(u32_to_usize(r.width.bits()))?)?;
             let last = *self
                 .data
                 .get(r.offset.checked_add(packed)?.checked_sub(1)?)?;
             // the bits after the last value are 0
             let tail_zero =
                 spare == 0 || last.checked_shr(8u32.checked_sub(spare_bits(spare)?)?)? == 0;
-            if min != 0 || bitpack::width_of(u64::from(max)) != r.width || !tail_zero {
+            if min != 0 || Width::of(u64::from(max)) != r.width || !tail_zero {
                 return None;
             }
         }

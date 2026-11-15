@@ -827,7 +827,7 @@ fn restamp(block: &mut [u8], id: BlockId, set: u16) -> Result<(), BlockError> {
     bytes::put_u64(block, 16, id.seq).ok_or(short)?;
     bytes::put_u32(block, 24, id.run.get()).ok_or(short)?;
     if chunk {
-        chunk::restamp(block);
+        chunk::restamp(block).map_err(BlockError::Chunk)?;
     } else {
         if index {
             index::restamp_head(block);

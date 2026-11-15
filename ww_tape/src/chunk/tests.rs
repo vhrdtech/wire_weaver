@@ -368,7 +368,7 @@ fn restamp_refuses_a_head_out_of_range() {
     let (head, cols) = events(0, 3);
     let good = encode(&head, &event_columns(&cols), 1, 0);
     let mut bytes = good.clone();
-    assert_eq!(try_restamp(&mut bytes), Ok(()));
+    assert_eq!(restamp(&mut bytes), Ok(()));
     assert_eq!(
         bytes, good,
         "a restamp of an unchanged header changes nothing"
@@ -376,15 +376,12 @@ fn restamp_refuses_a_head_out_of_range() {
     let mut bad = good.clone();
     bad[80] = SEGMENT_SHIFT_MAX + 1;
     let before = bad.clone();
-    assert!(matches!(
-        try_restamp(&mut bad),
-        Err(ChunkHeadError::Bound(_))
-    ));
+    assert!(matches!(restamp(&mut bad), Err(ChunkHeadError::Bound(_))));
     assert_eq!(bad, before);
     let mut bad = good.clone();
     bad[32..36].copy_from_slice(&u32::MAX.to_le_bytes());
-    assert_eq!(try_restamp(&mut bad), Err(ChunkHeadError::BadHeadCrc));
-    assert_eq!(try_restamp(&mut [0u8; 8]), Err(ChunkHeadError::BadHeadCrc));
+    assert_eq!(restamp(&mut bad), Err(ChunkHeadError::BadHeadCrc));
+    assert_eq!(restamp(&mut [0u8; 8]), Err(ChunkHeadError::BadHeadCrc));
 }
 
 /// A describe block, small records blocks deferred into the gaps, and chunks, through [TapeWriter].

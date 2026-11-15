@@ -526,22 +526,9 @@ impl<'b> ChunkWriter<'b> {
 }
 
 /// Rewrite the head CRC and the block CRC of a good chunk block whose header changed (its seq), from the segment
-/// CRCs it holds: no pass over the payload.
-///
-/// # Panics
-///
-/// When `block` is not a chunk block whose head was read as good ([try_restamp] says why).
-pub(crate) fn restamp(block: &mut [u8]) {
-    let r = try_restamp(block);
-    assert!(
-        r.is_ok(),
-        "restamp of a chunk block the caller read as good: {r:?}"
-    );
-}
-
-/// [restamp], or why the block's head is out of range (its head CRC is not checked: the header changed). Nothing
-/// is written on an error.
-pub(crate) fn try_restamp(block: &mut [u8]) -> Result<(), ChunkHeadError> {
+/// CRCs it holds: no pass over the payload. An error says why the block's head is out of range (its head CRC is not
+/// checked: the header changed); nothing is written then.
+pub(crate) fn restamp(block: &mut [u8]) -> Result<(), ChunkHeadError> {
     let payload_at = payload_offset(block)?;
     let l = Layout::of(block, payload_at)?;
     let payload = block

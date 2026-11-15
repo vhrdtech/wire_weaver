@@ -20,20 +20,6 @@ pub struct Known {
 /// Every known failure.
 pub const KNOWN: &[Known] = &[
     Known {
-        target: "tape-index-hostile",
-        seed: "known-reader-entries-past-the-piece",
-        at: "ww_tape_fuzz/src/targets/index.rs:51",
-        message: "assertion failed: p.start + e.offset < data.len() as u64: TapeReader::entries \
-                  (ww_tape/src/reader.rs:761) hands out a final index's entries unchecked against the piece",
-    },
-    Known {
-        target: "tape-reader-hostile",
-        seed: "known-reader-entries-past-the-piece",
-        at: "ww_tape_fuzz/src/targets/index.rs:51",
-        message: "assertion failed: p.start + e.offset < data.len() as u64: TapeReader::entries \
-                  (ww_tape/src/reader.rs:761) hands out a final index's entries unchecked against the piece",
-    },
-    Known {
         target: "tape-reader-hostile",
         seed: "known-prefix-and-salvage-walks-differ",
         at: "ww_tape_fuzz/src/targets/reader.rs:72",
@@ -55,13 +41,6 @@ pub const KNOWN: &[Known] = &[
         message: "a chunk of 124 bytes reads as 2147483647 items: EventTimes::read and ::salvage take any count \
                   from the head in the implicit time mode (ww_tape/src/times/starts.rs), so a reader's loop over \
                   the items is not bounded by the bytes it read",
-    },
-    Known {
-        target: "tape-summary-hostile",
-        seed: "known-node-items-overflow",
-        at: "ww_tape/src/summary/mod.rs:245",
-        message: "attempt to subtract with overflow: SummaryHead::node_items on a head Summary::read took \
-                  (ww_tape/src/summary/mod.rs:243..245, item range past the node)",
     },
 ];
 

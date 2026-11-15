@@ -37,6 +37,20 @@ pub struct Seed {
 /// The inputs of the known failures, minimised (`ww_tape_fuzz_seeds minimize`): target, name, input in hex.
 pub const KNOWN_INPUTS: &[(&str, &str, &str)] = &[
     (
+        "tape-reader-hostile",
+        "prefix-and-salvage-walks-differ",
+        "eb9543000000a10000000000008e3d00002600000000000000000000d34f00000000000000000000000000008900d6",
+    ),
+    (
+        "tape-times-hostile",
+        "chunk-count-unbounded",
+        "80f70000000000000000000000000000000000000000002703a94d75",
+    ),
+];
+
+/// Inputs these tests found that failed until STD-131 fixed them: target, name (seed `fixed-<name>`), hex.
+pub const FIXED_INPUTS: &[(&str, &str, &str)] = &[
+    (
         "tape-index-hostile",
         "reader-entries-past-the-piece",
         "00ef86000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b6",
@@ -47,19 +61,14 @@ pub const KNOWN_INPUTS: &[(&str, &str, &str)] = &[
         "000011000000000000000000000000000000a10000003300000000000000000072",
     ),
     (
-        "tape-reader-hostile",
-        "prefix-and-salvage-walks-differ",
-        "eb9543000000a10000000000008e3d00002600000000000000000000d34f00000000000000000000000000008900d6",
-    ),
-    (
-        "tape-times-hostile",
-        "chunk-count-unbounded",
-        "80f70000000000000000000000000000000000000000002703a94d75",
-    ),
-    (
         "tape-summary-hostile",
         "node-items-overflow",
         "00000000000000000000000000000000000000000000006b003b",
+    ),
+    (
+        "tape-reader-hostile",
+        "reader-entries-past-the-piece-2",
+        "c07a113987eed2e835e80f8c7db504afa55aa13c2341339c50117a5b4efb0be472b186398442d67290a057c7d0c48c2bd12b8110c47f7451c6fd1c660edf6e17bd752d8944c9c2d616e0f9257a475697",
     ),
 ];
 
@@ -528,13 +537,15 @@ pub fn all() -> Vec<Seed> {
             out.extend(stream(name, 0x5eed_0000_0000_0001 + i as u64 * 0x9e37_79b9));
         }
     }
-    for (target, name, hex) in KNOWN_INPUTS {
-        let target = crate::targets::ALL
-            .iter()
-            .find(|(t, _)| t == target)
-            .expect("a known target")
-            .0;
-        out.push(seed(target, format!("known-{name}"), unhex(hex)));
+    for (inputs, prefix) in [(KNOWN_INPUTS, "known"), (FIXED_INPUTS, "fixed")] {
+        for (target, name, hex) in inputs {
+            let target = crate::targets::ALL
+                .iter()
+                .find(|(t, _)| t == target)
+                .expect("a known target")
+                .0;
+            out.push(seed(target, format!("{prefix}-{name}"), unhex(hex)));
+        }
     }
     out
 }

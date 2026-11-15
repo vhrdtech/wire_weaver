@@ -842,14 +842,14 @@ impl<S: ByteSource> TapeReader<S> {
     pub fn entries(&self, i: usize) -> R<Vec<IndexEntry>, S> {
         let p = self.piece(i)?;
         if let Some(e) = &p.entries {
-            return Ok(e.clone());
+            return within_piece(p, e.clone());
         }
         let mut out = Vec::new();
         self.for_final(p, |ix| {
             out.extend(ix.entries());
         })?;
         out.sort_by_key(|e| e.offset);
-        Ok(out)
+        within_piece(p, out)
     }
 
     /// The blocks of track `track_id` in piece `i` (0: record and describe blocks), in file order. A finished piece
@@ -857,11 +857,8 @@ impl<S: ByteSource> TapeReader<S> {
     pub fn track_entries(&self, i: usize, track_id: u64) -> R<Vec<IndexEntry>, S> {
         let p = self.piece(i)?;
         if let Some(e) = &p.entries {
-            return Ok(e
-                .iter()
-                .filter(|e| e.track_id == track_id)
-                .copied()
-                .collect());
+            let track = e.iter().filter(|e| e.track_id == track_id).copied();
+            return within_piece(p, track.collect());
         }
         let mut out = Vec::new();
         let mut at = p.finish.as_ref().and_then(|(f, _)| f.final_index);
@@ -888,7 +885,7 @@ impl<S: ByteSource> TapeReader<S> {
             at = ix.prev().filter(|p| *p < off);
         }
         out.sort_by_key(|e| e.offset);
-        Ok(out)
+        within_piece(p, out)
     }
 
     /// The describe set of piece `i`: the first whole set of describe blocks in it (one marked [FLAG_SET_FIRST]
@@ -1087,6 +1084,22 @@ fn in_piece<E>(p: &PieceInfo, off: u64, n: usize) -> Result<u64, ReadError<E>> {
         .checked_add(off)
         .filter(|abs| abs.checked_add(wide(n)).is_some_and(|end| end <= p.end))
         .ok_or(ReadError::Index(IndexError::BadHead))
+}
+
+/// `entries` of piece `p` (from its index or a scan's checkpoints), when every block they name lies in the piece; an
+/// index naming a block past it is damaged.
+fn within_piece<E>(
+    p: &PieceInfo,
+    entries: Vec<IndexEntry>,
+) -> Result<Vec<IndexEntry>, ReadError<E>> {
+    let fits = |e: &IndexEntry| {
+        usize::try_from(e.len).is_ok_and(|len| in_piece::<E>(p, e.offset, len).is_ok())
+    };
+    if entries.iter().all(fits) {
+        Ok(entries)
+    } else {
+        Err(ReadError::Index(IndexError::BadEntries))
+    }
 }
 
 /// How much of `left` bytes fits one read into a `buf`-byte buffer; `left` may pass `usize::MAX` on 32-bit targets.

@@ -121,3 +121,65 @@ fn the_best_kernel_runs_here() {
         assert_eq!(Kernel::best(), Kernel::Neon);
     }
 }
+
+#[test]
+fn widths_over_the_maximum_are_refused() {
+    assert_eq!(Width::new(64), Ok(Width::MAX));
+    assert_eq!(Width::MAX.bits(), WIDTH_MAX);
+    assert_eq!(
+        Width::new(65),
+        Err(BoundError {
+            value: 65,
+            bound: 64
+        })
+    );
+    assert!(Width::new(u32::MAX).is_err());
+    assert_eq!(Width::from_file(FromFile::new(64)), Ok(Width::MAX));
+    assert!(Width::from_file(FromFile::new(65)).is_err());
+    assert_eq!(Width::of(u64::MAX), Width::MAX);
+    assert_eq!(Width::of(0), Width::ZERO);
+    let src = [0xffu8; 600];
+    let mut o = [0u32; GROUP];
+    assert_eq!(
+        Width::new(33).unwrap().unpack_u32(&src, &mut o),
+        Err(BitpackError::Width(BoundError {
+            value: 33,
+            bound: 32
+        }))
+    );
+    if !Kernel::Neon.is_available() {
+        let w = Width::new(8).unwrap();
+        assert_eq!(
+            w.unpack_u32_with(Kernel::Neon, &src, &mut o),
+            Err(BitpackError::Kernel(Kernel::Neon))
+        );
+        let mut d = [0i64; GROUP];
+        assert_eq!(
+            w.decode_line_with(Kernel::Neon, &src, 0, 0, &mut d),
+            Err(BitpackError::Kernel(Kernel::Neon))
+        );
+    }
+}
+
+#[test]
+fn a_short_output_is_an_error() {
+    let w = Width::new(12).unwrap();
+    // 3 values need 5 bytes: the tail doesn't fit
+    assert_eq!(w.pack(&mut [0u8; 4], [1, 2, 3]), Err(BitpackError::Full));
+    // 6 values need 9 bytes: a whole 8-byte word doesn't fit
+    assert_eq!(w.pack(&mut [0u8; 8], [1; 6]), Err(BitpackError::Full));
+    assert_eq!(w.pack(&mut [0u8; 9], [1; 6]), Ok(9));
+}
+
+#[test]
+fn huge_indices_and_counts_do_not_overflow() {
+    // index × width past usize::MAX overflowed: such a bit is past the end and reads as 0
+    let b = [0xffu8; 32];
+    assert_eq!(read(&b, usize::MAX, 64), 0);
+    assert_eq!(read(&b, usize::MAX / 8 + 1, 9), 0);
+    // n × width past usize::MAX overflowed: the length is more than any slice
+    assert_eq!(packed_len(usize::MAX, 64), usize::MAX);
+    assert_eq!(packed_len(usize::MAX, 1), usize::MAX.div_ceil(8));
+    assert_eq!(packed_len(9, 7), 8);
+    assert_eq!(packed_len(GROUP, 64), 1024);
+}

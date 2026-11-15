@@ -15,23 +15,7 @@
 //! smaller" choice can differ with it. The workspace pins `lz4_flex` to an exact version for that reason; the golden
 //! file checks it. Decoding is the same everywhere.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
-use crate::Codec;
+use crate::{Codec, FromFile};
 
 impl Codec {
     /// The column's bytes as one lz4 block after their decoded length.
@@ -81,48 +65,70 @@ impl core::error::Error for Lz4Error {}
 
 /// The most bytes [lz4_encode] writes for `len` bytes.
 pub const fn lz4_max_len(len: usize) -> usize {
-    LEN_BYTES + lz4_flex::block::get_maximum_output_size(len)
+    LEN_BYTES.saturating_add(lz4_flex::block::get_maximum_output_size(len))
 }
 
 /// Code `raw` into `out` (at least [lz4_max_len] bytes); returns the bytes written.
 pub fn lz4_encode(raw: &[u8], out: &mut [u8]) -> Result<usize, Lz4Error> {
+    let too_long = Lz4Error::TooLong { len: raw.len() };
     if raw.len() > LZ4_DECODED_MAX {
-        return Err(Lz4Error::TooLong { len: raw.len() });
+        return Err(too_long);
     }
+    let Ok(len) = u32::try_from(raw.len()) else {
+        return Err(too_long);
+    };
     let needed = lz4_max_len(raw.len());
+    let full = Lz4Error::Full { needed };
     if out.len() < needed {
-        return Err(Lz4Error::Full { needed });
+        return Err(full);
     }
-    let len = u32::try_from(raw.len()).expect("LZ4_DECODED_MAX fits a u32");
-    out[..LEN_BYTES].copy_from_slice(&len.to_le_bytes());
-    let n = lz4_flex::block::compress_into(raw, &mut out[LEN_BYTES..needed])
+    let (head, rest) = out.split_first_chunk_mut::<LEN_BYTES>().ok_or(full)?;
+    *head = len.to_le_bytes();
+    let block = rest
+        .get_mut(..lz4_flex::block::get_maximum_output_size(raw.len()))
+        .ok_or(full)?;
+    #[expect(
+        clippy::expect_used,
+        reason = "the block slice is lz4_flex's maximum output size for raw"
+    )]
+    let n = lz4_flex::block::compress_into(raw, block)
         .expect("the output holds lz4_flex's maximum output size");
-    Ok(LEN_BYTES + n)
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "n is at most the block slice's length, which follows LEN_BYTES in out"
+    )]
+    let written = LEN_BYTES + n;
+    Ok(written)
 }
 
 /// The decoded length an lz4 column states, checked against [LZ4_DECODED_MAX] and against the block's length, so
 /// a short column can't make a reader allocate more than its block can fill.
 pub fn lz4_decoded_len(column: &[u8]) -> Result<usize, Lz4Error> {
-    let len: [u8; LEN_BYTES] = column
-        .get(..LEN_BYTES)
-        .ok_or(Lz4Error::Short)?
-        .try_into()
-        .expect("4 bytes");
-    let len = u32::from_le_bytes(len) as usize;
-    let block = column.len() - LEN_BYTES;
-    if len > LZ4_DECODED_MAX || len > EXPANSION_MAX * block + EXPANSION_SLACK {
-        return Err(Lz4Error::TooLong { len });
-    }
-    Ok(len)
+    let (len, block) = split(column)?;
+    let fills = EXPANSION_MAX
+        .saturating_mul(block.len())
+        .saturating_add(EXPANSION_SLACK);
+    len.at_most(LZ4_DECODED_MAX.min(fills))
+        .map_err(|e| Lz4Error::TooLong {
+            // the value is a u32: it fits a usize wherever the crate builds
+            len: usize::try_from(e.value).unwrap_or(usize::MAX),
+        })
+}
+
+/// The decoded length an lz4 column states, and its block.
+fn split(column: &[u8]) -> Result<(FromFile<u32>, &[u8]), Lz4Error> {
+    let (len, block) = column
+        .split_first_chunk::<LEN_BYTES>()
+        .ok_or(Lz4Error::Short)?;
+    Ok((FromFile::new(u32::from_le_bytes(*len)), block))
 }
 
 /// Decode an lz4 column into `out` (at least [lz4_decoded_len] bytes); returns the decoded length.
 pub fn lz4_decode(column: &[u8], out: &mut [u8]) -> Result<usize, Lz4Error> {
     let len = lz4_decoded_len(column)?;
-    if out.len() < len {
-        return Err(Lz4Error::Full { needed: len });
-    }
-    match lz4_flex::block::decompress_into(&column[LEN_BYTES..], &mut out[..len]) {
+    let (_, block) = split(column)?;
+    let out = out.get_mut(..len).ok_or(Lz4Error::Full { needed: len })?;
+    match lz4_flex::block::decompress_into(block, out) {
         Ok(n) if n == len => Ok(len),
         _ => Err(Lz4Error::Corrupt),
     }

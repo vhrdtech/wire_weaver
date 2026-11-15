@@ -179,7 +179,8 @@ fn groups_decode_alone() {
     let mut bytes = encode_vec(Codec::ALP, shape, &s);
     let col = Samples::new(Codec::ALP, shape, s.len(), &bytes).unwrap();
     assert_eq!(col.group_count(), 20);
-    let (samples, range) = col.group_bytes(1);
+    let (samples, range) = col.group_bytes(1).unwrap();
+    assert_eq!(col.group_bytes(20), None);
     assert_eq!(samples, 128..256);
     // damage the middle group: the others still decode
     for b in &mut bytes[range.clone()] {
@@ -244,6 +245,36 @@ fn columns_are_checked() {
     assert_eq!(
         s.decode(0, &mut [0f32; 3]),
         Err(SampleError::Corrupt { group: 0 })
+    );
+    assert_eq!(s.sample_bytes(0..usize::MAX), None);
+}
+
+#[test]
+fn count_is_bounded_by_the_bytes() {
+    // one group with an end past the bytes: a bound error, not a later read past them
+    let f = SampleShape::scalar(Element::F32);
+    assert_eq!(
+        Samples::new(Codec::ALP, f, 1, &[0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0]).unwrap_err(),
+        SampleError::Bound(crate::BoundError {
+            value: u64::from(u32::MAX),
+            bound: 4
+        })
+    );
+    // a count read from a file: every group needs a table entry and a byte per lane
+    let u = SampleShape::new(Element::U16, 3);
+    let bytes = encode_vec(Codec::DELTA, u, &[1u16, 2, 3]);
+    assert!(Samples::new(Codec::DELTA, u, 1, &bytes).is_ok());
+    for count in [1000, usize::MAX / 4] {
+        assert_eq!(
+            Samples::new(Codec::DELTA, u, count, &bytes).unwrap_err(),
+            SampleError::BadLength { len: bytes.len() },
+            "{count}"
+        );
+    }
+    let wide = SampleShape::new(Element::F64, 1000);
+    assert_eq!(
+        Samples::new(Codec::ALP, wide, 1, &[4, 0, 0, 0, 1, 0, 0, 0]).unwrap_err(),
+        SampleError::BadLength { len: 8 }
     );
 }
 
@@ -391,14 +422,11 @@ fn samples_golden() {
     add(col(Codec::PACKED10_MSB, s(Element::I16), &tens));
     add(col(Codec::PACKED24_LSB, s(Element::I32), &i32s));
     add(col(Codec::PACKED24_MSB, s(Element::I32), &i32s));
-    add(col(Codec::ALP, s(Element::F64), &f64s));
-    add(col(Codec::ALP, s(Element::F32), &f32s));
-    add(col(Codec::ALP, s(Element::F64), &any[..40]));
-    add(col(
-        Codec::ALP,
-        SampleShape::new(Element::ComplexF32, 1),
-        &f32s,
-    ));
+    let c = Codec::ALP;
+    add(col(c, s(Element::F64), &f64s));
+    add(col(c, s(Element::F32), &f32s));
+    add(col(c, s(Element::F64), &any[..40]));
+    add(col(c, SampleShape::new(Element::ComplexF32, 1), &f32s));
     // decimals, the data ALP codes as integers: IEEE division gives the same values everywhere
     let cents: Vec<f64> = wave.iter().map(|v| *v as f64 / 100.0).collect();
     let cents32: Vec<f32> = wave.iter().map(|v| *v as f32 / 100.0).collect();

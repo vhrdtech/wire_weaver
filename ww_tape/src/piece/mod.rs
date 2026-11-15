@@ -6,7 +6,7 @@
 //! written back to back are one valid tape. A file a writer started without a piece head is one piece too, with no
 //! ids.
 //!
-//! A writer cuts a recording into pieces at chunk boundaries ([PieceChain](crate::PieceChain)). The head names the
+//! A writer cuts a recording into pieces at chunk boundaries ([PieceChain]). The head names the
 //! previous piece by its content hash and its id; the previous piece's tail names this piece's id, chosen at the cut
 //! ([PieceId::after]), so the chain is checked both ways ([check_chain]). Each piece carries the result id, its
 //! sequence number in the chain and, per track, where its items continue (head) and the items and ticks it holds

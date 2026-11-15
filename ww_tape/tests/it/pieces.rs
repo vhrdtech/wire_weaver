@@ -522,3 +522,62 @@ fn a_describe_copy_is_marked() {
     assert!(marks[1..].iter().all(|m| m == &[true, true]), "{marks:?}");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+/// Track 0's chunk `k` of 8192 items: 64 KiB of raw starts.
+fn big_chunk(k: u64) -> (ChunkHead, Vec<u8>) {
+    let n = 8192u64;
+    let first = k * n;
+    let starts: Vec<u8> = (first..first + n)
+        .flat_map(|i| (i as i64).to_le_bytes())
+        .collect();
+    let head = ChunkHead {
+        kind: BlockKind::Events,
+        track_id: 0x1000,
+        track_number: 1,
+        first_item: first,
+        count: n as u32,
+        first_tick: first as i64,
+        last_tick: (first + n - 1) as i64,
+        latest_end: (first + n - 1) as i64,
+        time_mode: 0,
+        end_mode: EndMode::Absent,
+    };
+    (head, starts)
+}
+
+/// The describe repeat set on a writer carries over to the next piece of a cut.
+#[test]
+fn the_describe_repeat_carries_over_a_cut() {
+    let dir = scratch("repeat_cut");
+    let mut w = TapeWriter::create(&dir.join("a.wwt"), SyncPolicy::None).unwrap();
+    w.set_index_policy(IndexPolicy::NONE);
+    w.set_describe_repeat(64 << 10);
+    let result = ResultId([8; 32]);
+    let head = ww_tape::PieceHead {
+        ident: ww_tape::PieceIdent {
+            id: PieceId::first(&result),
+            result,
+            seq: 0,
+        },
+        prev: None,
+        prev_run: RunTag::NONE,
+    };
+    w.begin_piece(&head, &[]).unwrap();
+    for b in describe_blocks(Layout::UNALIGNED, w.next_id()) {
+        w.write_block(&b).unwrap();
+    }
+    let (_, mut next) = w.cut(&dir.join("b.wwt")).unwrap();
+    for k in 0..4 {
+        let (h, c) = big_chunk(k);
+        next.write_chunk(&h, &column(&c)).unwrap();
+    }
+    let f = next.finish().unwrap();
+    let bytes = std::fs::read(f.path).unwrap();
+    let copies = walk(&bytes)
+        .iter()
+        .filter(|b| b.2 == BlockKind::Describe)
+        .count();
+    // the copy at its start, a repeat after each chunk of over 64 KiB, the backup; 2 with the default repeat
+    assert_eq!(copies, 6);
+    std::fs::remove_dir_all(&dir).unwrap();
+}

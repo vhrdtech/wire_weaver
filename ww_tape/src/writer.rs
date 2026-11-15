@@ -230,7 +230,8 @@ impl TapeWriter {
         }
     }
 
-    /// Write the newest describe blocks again after about this many bytes ([DESCRIBE_REPEAT_BYTES] by default).
+    /// Write the newest describe blocks again after about this many bytes ([DESCRIBE_REPEAT_BYTES] by default; 512 MiB
+    /// or 1 GiB trade copies for space). It carries over to the next piece of a [cut](Self::cut).
     pub fn set_describe_repeat(&mut self, bytes: u64) {
         self.describe_repeat = bytes;
     }
@@ -586,15 +587,19 @@ impl TapeWriter {
 
     /// End this piece as [FinishState::Continued] and start the next piece of the chain at `next_path`: its id
     /// [PieceId::after] this one's id and final content hash (the finish's), its head naming this piece, the track starts moved on by this piece's chunks,
-    /// then the newest describe blocks. Seqs go on from this piece; policies and alignment carry over.
+    /// then the newest describe blocks. Seqs go on from this piece; policies, alignment and the describe repeat carry over.
     pub fn cut(self, next_path: &Path) -> Result<(Finished, TapeWriter), WriteError> {
         let Some((head, starts)) = self.head.clone() else {
             return Err(WriteError::Index(IndexError::Invalid(
                 "a cut needs a piece head",
             )));
         };
-        let (policy, alignment, index_policy) =
-            (self.policy, self.alignment, self.indexer.policy());
+        let (policy, alignment, index_policy, describe_repeat) = (
+            self.policy,
+            self.alignment,
+            self.indexer.policy(),
+            self.describe_repeat,
+        );
         let tracks = self.indexer.next_starts(&starts);
         let describe = self.describe.clone();
         let done = self.end(FinishState::Continued)?;
@@ -605,6 +610,7 @@ impl TapeWriter {
         let mut next = TapeWriter::create(next_path, policy)?;
         next.alignment = alignment;
         next.indexer = Indexer::new(index_policy);
+        next.describe_repeat = describe_repeat;
         next.next_seq = done.next_seq;
         next.run = done.run;
         let ident = PieceIdent {

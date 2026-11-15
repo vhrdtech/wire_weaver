@@ -21,7 +21,12 @@ const WINDOW: usize = 32;
 const NONE: u8 = 0xff;
 
 /// Bytes the kernel reads from a group's start: step 15's window at 15 w.
-pub(super) const fn reach(w: u32) -> usize {
+#[expect(
+    clippy::as_conversions,
+    clippy::arithmetic_side_effects,
+    reason = "a u8 width: at most 15 × 255 + 32; From is not const"
+)]
+pub(super) const fn reach(w: u8) -> usize {
     (STEPS - 1) * w as usize + WINDOW
 }
 
@@ -40,10 +45,23 @@ struct Table {
     hi_needed: bool,
 }
 
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "b < WINDOW = 32 on that arm"
+)]
 const fn window_index(b: usize) -> u8 {
     if b < WINDOW { b as u8 } else { NONE }
 }
 
+#[expect(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    reason = "evaluated at build time into TABLES: an index, overflow or cast out of range fails the build"
+)]
 const fn table(w: usize) -> Table {
     let mut t = Table {
         lo: [[NONE; 16]; 2],
@@ -73,6 +91,10 @@ const fn table(w: usize) -> Table {
 }
 
 /// `TABLES[w]` for widths 0..=32.
+#[expect(
+    clippy::indexing_slicing,
+    reason = "evaluated at build time: an index out of range fails the build"
+)]
 static TABLES: [Table; 33] = {
     let mut t = [table(0); 33];
     let mut w = 1;
@@ -88,7 +110,7 @@ static TABLES: [Table; 33] = {
 /// # Panics
 ///
 /// When `w` is outside 1..=32 or `src` is shorter than [reach].
-pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+pub(super) fn unpack(src: &[u8], w: u8, out: &mut [u32; GROUP]) {
     assert!((1..=32).contains(&w), "width {w} outside 1..=32");
     assert!(
         src.len() >= reach(w),
@@ -101,6 +123,11 @@ pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
 
 #[target_feature(enable = "neon")]
 #[inline]
+#[expect(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    reason = "s < STEPS, from steps_with's loop: (s + 1) STEP <= GROUP"
+)]
 fn store8(out: &mut [u32; GROUP], s: usize, a: uint32x4_t, b: uint32x4_t) {
     let o = &mut out[s * STEP..(s + 1) * STEP];
     // SAFETY: o is 8 writable u32; vst1q_u32_x2 writes 8.
@@ -112,7 +139,7 @@ fn store8(out: &mut [u32; GROUP], s: usize, a: uint32x4_t, b: uint32x4_t) {
 /// # Panics
 ///
 /// As [unpack].
-pub(super) fn decode(src: &[u8], w: u32, base: i64, slope: i64, out: &mut [i64; GROUP]) {
+pub(super) fn decode(src: &[u8], w: u8, base: i64, slope: i64, out: &mut [i64; GROUP]) {
     assert!((1..=32).contains(&w), "width {w} outside 1..=32");
     assert!(
         src.len() >= reach(w),
@@ -146,8 +173,12 @@ fn load_i32x4(v: &[i32; 4]) -> int32x4_t {
 /// `src` holds [reach]`(w)` bytes.
 #[target_feature(enable = "neon")]
 #[inline]
-unsafe fn steps(src: &[u8], w: u32, f: impl FnMut(usize, uint32x4_t, uint32x4_t)) {
-    let t = &TABLES[w as usize];
+#[expect(
+    clippy::indexing_slicing,
+    reason = "w <= 32, asserted by unpack and decode: TABLES has a row per width 0..=32"
+)]
+unsafe fn steps(src: &[u8], w: u8, f: impl FnMut(usize, uint32x4_t, uint32x4_t)) {
+    let t = &TABLES[usize::from(w)];
     // SAFETY: the caller's contract.
     unsafe {
         if t.hi_needed {
@@ -163,13 +194,19 @@ unsafe fn steps(src: &[u8], w: u32, f: impl FnMut(usize, uint32x4_t, uint32x4_t)
 /// `src` holds [reach]`(w)` bytes.
 #[target_feature(enable = "neon")]
 #[inline]
+#[expect(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    reason = "s < STEPS and w <= 32: s w + WINDOW <= reach(w), the bytes src holds (unpack and decode assert it)"
+)]
 unsafe fn steps_with<const HI: bool>(
     src: &[u8],
-    w: u32,
+    w: u8,
     t: &Table,
     mut f: impl FnMut(usize, uint32x4_t, uint32x4_t),
 ) {
-    let m = vdupq_n_u32(mask32(w));
+    let m = vdupq_n_u32(mask32(u32::from(w)));
+    let w = usize::from(w);
     let (lo0, lo1) = (load_u8x16(&t.lo[0]), load_u8x16(&t.lo[1]));
     let (hi0, hi1) = (load_u8x16(&t.hi[0]), load_u8x16(&t.hi[1]));
     let (ls0, ls1) = (load_i32x4(&t.lo_sh[0]), load_i32x4(&t.lo_sh[1]));
@@ -182,7 +219,7 @@ unsafe fn steps_with<const HI: bool>(
         vandq_u32(v, m)
     };
     for s in 0..STEPS {
-        let win = &src[s * w as usize..s * w as usize + WINDOW];
+        let win = &src[s * w..s * w + WINDOW];
         // SAFETY: win is WINDOW = 32 readable bytes; vld1q_u8_x2 reads 32 with no alignment requirement.
         let win = unsafe { vld1q_u8_x2(win.as_ptr()) };
         f(
@@ -205,7 +242,7 @@ impl Line {
     #[inline]
     fn new(base: i64, slope: i64) -> Self {
         let pair = |j: i64| {
-            let v = [j.wrapping_mul(slope), (j + 1).wrapping_mul(slope)];
+            let v = [j.wrapping_mul(slope), j.wrapping_add(1).wrapping_mul(slope)];
             // SAFETY: v is 2 readable i64; vld1q_s64 reads 2.
             unsafe { vld1q_s64(v.as_ptr()) }
         };
@@ -219,6 +256,11 @@ impl Line {
     /// Writes base + (p >> 16) + r for the 8 values of step `s`.
     #[target_feature(enable = "neon")]
     #[inline]
+    #[expect(
+        clippy::indexing_slicing,
+        clippy::arithmetic_side_effects,
+        reason = "s < STEPS, from steps_with's loop: (s + 1) STEP <= GROUP"
+    )]
     fn put(&mut self, out: &mut [i64; GROUP], s: usize, a: uint32x4_t, b: uint32x4_t) {
         let at = |p| vreinterpretq_u64_s64(vsraq_n_s64::<16>(self.base, p));
         let o = int64x2x4_t(

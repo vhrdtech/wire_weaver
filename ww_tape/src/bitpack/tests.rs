@@ -183,3 +183,17 @@ fn huge_indices_and_counts_do_not_overflow() {
     assert_eq!(packed_len(9, 7), 8);
     assert_eq!(packed_len(GROUP, 64), 1024);
 }
+
+#[test]
+fn every_reach_fits_the_stack_copy() {
+    for w in 1..=KERNEL_WIDTH_MAX_BYTE {
+        #[cfg(target_arch = "x86_64")]
+        {
+            assert!(avx2::reach(w) <= REACH_MAX, "avx2 w {w}");
+            assert!(avx512::reach(w) <= REACH_MAX, "avx512 w {w}");
+        }
+        #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
+        assert!(neon::reach(w) <= REACH_MAX, "neon w {w}");
+    }
+    assert_eq!(scalar_reach(WIDTH_MAX_BYTE), REACH_MAX);
+}

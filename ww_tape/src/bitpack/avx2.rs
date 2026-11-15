@@ -5,21 +5,6 @@
 //! t of lane i takes byte `first + t` (`lo`) and `first + 1 + t` (`hi`, only for widths over 25, where a value can
 //! span 5 bytes) of its half; an index past the half is 0x80, which the shuffle turns into 0.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
 #![expect(
     unsafe_code,
     reason = "core::arch loads, stores and calls into target_feature functions"
@@ -33,10 +18,15 @@ use core::arch::x86_64::*;
 const BLOCKS: usize = GROUP / 8;
 /// Widest value whose 4 gathered bytes always hold it: its bit offset in its first byte (at most 7) plus the width
 /// is at most 32. Wider ones gather a fifth byte with a second shuffle.
-const WIDTH_ONE_SHUFFLE_MAX: u32 = 25;
+const WIDTH_ONE_SHUFFLE_MAX: u8 = 25;
 
 /// Bytes the kernel reads from a group's start: block 15's high half, 16 bytes at 15 w + w / 2.
-pub(super) const fn reach(w: u32) -> usize {
+#[expect(
+    clippy::as_conversions,
+    clippy::arithmetic_side_effects,
+    reason = "a u8 width: at most 15 × 255 + 127 + 16; From is not const"
+)]
+pub(super) const fn reach(w: u8) -> usize {
     let w = w as usize;
     (BLOCKS - 1) * w + w / 2 + 16
 }
@@ -51,6 +41,13 @@ struct Tables {
     sh_hi: [[u32; 8]; 33],
 }
 
+#[expect(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::as_conversions,
+    clippy::cast_possible_truncation,
+    reason = "evaluated at build time into TABLES: an index, overflow or cast out of range fails the build"
+)]
 const fn tables() -> Tables {
     let mut t = Tables {
         lo: [[0; 32]; 33],
@@ -95,7 +92,7 @@ static TABLES: Tables = tables();
 /// # Panics
 ///
 /// When `w` is outside 1..=32, `src` is shorter than [reach] or the CPU lacks AVX2.
-pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+pub(super) fn unpack(src: &[u8], w: u8, out: &mut [u32; GROUP]) {
     assert!((1..=32).contains(&w), "width {w} outside 1..=32");
     assert!(
         src.len() >= reach(w),
@@ -117,7 +114,7 @@ pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
 /// # Panics
 ///
 /// As [unpack].
-pub(super) fn decode(src: &[u8], w: u32, base: i64, slope: i64, out: &mut [i64; GROUP]) {
+pub(super) fn decode(src: &[u8], w: u8, base: i64, slope: i64, out: &mut [i64; GROUP]) {
     assert!((1..=32).contains(&w), "width {w} outside 1..=32");
     assert!(
         src.len() >= reach(w),
@@ -145,10 +142,16 @@ struct Ctx {
     m: __m256i,
 }
 
+/// The registers for width `w`, 1 to 32 ([unpack] and [decode] assert it).
 #[target_feature(enable = "avx2")]
 #[inline]
-fn ctx(w: u32) -> Ctx {
-    let w = w as usize;
+#[expect(
+    clippy::indexing_slicing,
+    reason = "w <= 32, asserted by unpack and decode: TABLES has a row per width 0..=32"
+)]
+fn ctx(w: u8) -> Ctx {
+    let m = mask32(u32::from(w)).cast_signed();
+    let w = usize::from(w);
     // SAFETY: each row is 32 bytes, one full 256-bit load; loadu has no alignment requirement.
     unsafe {
         Ctx {
@@ -157,7 +160,7 @@ fn ctx(w: u32) -> Ctx {
             hi: _mm256_loadu_si256(TABLES.hi[w].as_ptr().cast()),
             sh: _mm256_loadu_si256(TABLES.sh[w].as_ptr().cast()),
             sh_hi: _mm256_loadu_si256(TABLES.sh_hi[w].as_ptr().cast()),
-            m: _mm256_set1_epi32(mask32(w as u32) as i32),
+            m: _mm256_set1_epi32(m),
         }
     }
 }
@@ -172,8 +175,13 @@ fn ctx(w: u32) -> Ctx {
 unsafe fn block<const WIDE: bool>(src: &[u8], b: usize, c: &Ctx) -> __m256i {
     debug_assert!(b < BLOCKS, "block {b} out of range");
     let p = src.as_ptr();
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "b < BLOCKS and w <= 32: b w + w / 2 is under reach(w)"
+    )]
+    let (at_lo, at_hi) = (b * c.w, b * c.w + c.w / 2);
     // SAFETY: b w + w / 2 + 16 <= reach(w) <= src.len() (the caller's contract); loadu has no alignment requirement.
-    let x = unsafe { _mm256_loadu2_m128i(p.add(b * c.w + c.w / 2).cast(), p.add(b * c.w).cast()) };
+    let x = unsafe { _mm256_loadu2_m128i(p.add(at_hi).cast(), p.add(at_lo).cast()) };
     let lo = _mm256_srlv_epi32(_mm256_shuffle_epi8(x, c.lo), c.sh);
     if WIDE {
         let hi = _mm256_sllv_epi32(_mm256_shuffle_epi8(x, c.hi), c.sh_hi);
@@ -187,13 +195,15 @@ unsafe fn block<const WIDE: bool>(src: &[u8], b: usize, c: &Ctx) -> __m256i {
 ///
 /// `src` holds [reach]`(w)` bytes.
 #[target_feature(enable = "avx2")]
-unsafe fn unpack_k<const WIDE: bool>(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+unsafe fn unpack_k<const WIDE: bool>(src: &[u8], w: u8, out: &mut [u32; GROUP]) {
     let c = ctx(w);
     for b in 0..BLOCKS {
         // SAFETY: the caller's contract is block's.
         let v = unsafe { block::<WIDE>(src, b, &c) };
+        #[expect(clippy::arithmetic_side_effects, reason = "b < BLOCKS: 8 b < GROUP")]
+        let at = 8 * b;
         // SAFETY: b < BLOCKS, so words 8 b .. 8 b + 8 lie inside out; storeu has no alignment requirement.
-        unsafe { _mm256_storeu_si256(out.as_mut_ptr().add(8 * b).cast(), v) };
+        unsafe { _mm256_storeu_si256(out.as_mut_ptr().add(at).cast(), v) };
     }
 }
 
@@ -203,7 +213,7 @@ unsafe fn unpack_k<const WIDE: bool>(src: &[u8], w: u32, out: &mut [u32; GROUP])
 #[target_feature(enable = "avx2")]
 unsafe fn decode_k<const WIDE: bool>(
     src: &[u8],
-    w: u32,
+    w: u8,
     base: i64,
     slope: i64,
     out: &mut [i64; GROUP],
@@ -226,10 +236,15 @@ unsafe fn decode_k<const WIDE: bool>(
         let t1 = _mm256_add_epi64(_mm256_add_epi64(base, _mm256_srli_epi64::<16>(p1)), r1);
         p0 = _mm256_add_epi64(p0, step);
         p1 = _mm256_add_epi64(p1, step);
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "b < BLOCKS: 8 b + 4 < GROUP"
+        )]
+        let (at0, at1) = (8 * b, 8 * b + 4);
         // SAFETY: b < BLOCKS, so i64s 8 b .. 8 b + 8 lie inside out; storeu has no alignment requirement.
         unsafe {
-            _mm256_storeu_si256(o.add(8 * b).cast(), t0);
-            _mm256_storeu_si256(o.add(8 * b + 4).cast(), t1);
+            _mm256_storeu_si256(o.add(at0).cast(), t0);
+            _mm256_storeu_si256(o.add(at1).cast(), t1);
         }
     }
 }

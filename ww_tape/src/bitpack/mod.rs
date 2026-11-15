@@ -491,14 +491,13 @@ fn unpack32(kernel: Kernel, src: &[u8], width: u8, out: &mut [u32; GROUP]) {
         out.fill(0);
         return;
     }
-    let w = u32::from(width);
     match kernel {
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx2 => with_reach(src, avx2::reach(w), |s| avx2::unpack(s, w, out)),
+        Kernel::Avx2 => with_reach(src, avx2::reach(width), |s| avx2::unpack(s, width, out)),
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx512 => with_reach(src, avx512::reach(w), |s| avx512::unpack(s, w, out)),
+        Kernel::Avx512 => with_reach(src, avx512::reach(width), |s| avx512::unpack(s, width, out)),
         #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-        Kernel::Neon => with_reach(src, neon::reach(w), |s| neon::unpack(s, w, out)),
+        Kernel::Neon => with_reach(src, neon::reach(width), |s| neon::unpack(s, width, out)),
         _ => with_reach(src, scalar_reach(width), |s| unpack_scalar(s, width, out)),
     }
 }
@@ -557,19 +556,18 @@ fn decode(kernel: Kernel, src: &[u8], width: u8, base: i64, slope: i64, out: &mu
         }
         return;
     }
-    let w = u32::from(width);
     match kernel {
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx2 if width > 0 => with_reach(src, avx2::reach(w), |s| {
-            avx2::decode(s, w, base, slope, out)
+        Kernel::Avx2 if width > 0 => with_reach(src, avx2::reach(width), |s| {
+            avx2::decode(s, width, base, slope, out)
         }),
         #[cfg(target_arch = "x86_64")]
-        Kernel::Avx512 if width > 0 => with_reach(src, avx512::reach(w), |s| {
-            avx512::decode(s, w, base, slope, out)
+        Kernel::Avx512 if width > 0 => with_reach(src, avx512::reach(width), |s| {
+            avx512::decode(s, width, base, slope, out)
         }),
         #[cfg(all(target_arch = "aarch64", target_feature = "neon"))]
-        Kernel::Neon if width > 0 => with_reach(src, neon::reach(w), |s| {
-            neon::decode(s, w, base, slope, out)
+        Kernel::Neon if width > 0 => with_reach(src, neon::reach(width), |s| {
+            neon::decode(s, width, base, slope, out)
         }),
         _ => {
             let mut r = [0u32; GROUP];

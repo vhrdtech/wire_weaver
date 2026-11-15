@@ -4,21 +4,6 @@
 //! 16 values are 2 w bytes, so block b starts byte aligned at 2 b w. Lane i takes the 4 bytes from its value's first
 //! byte (`lo`) and the 4 after them (`hi`); the funnel shift by the value's bit offset in its first byte joins them.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
 #![expect(
     unsafe_code,
     reason = "core::arch loads, stores and calls into target_feature functions"
@@ -32,7 +17,12 @@ use core::arch::x86_64::*;
 const BLOCKS: usize = GROUP / 16;
 
 /// Bytes the kernel reads from a group's start: block 7's 64-byte load at 14 w.
-pub(super) const fn reach(w: u32) -> usize {
+#[expect(
+    clippy::as_conversions,
+    clippy::arithmetic_side_effects,
+    reason = "a u8 width: at most 14 × 255 + 64; From is not const"
+)]
+pub(super) const fn reach(w: u8) -> usize {
     2 * (BLOCKS - 1) * w as usize + 64
 }
 
@@ -41,7 +31,7 @@ pub(super) const fn reach(w: u32) -> usize {
 /// # Panics
 ///
 /// When `w` is outside 1..=32, `src` is shorter than [reach] or the CPU lacks the AVX-512 features.
-pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+pub(super) fn unpack(src: &[u8], w: u8, out: &mut [u32; GROUP]) {
     assert!((1..=32).contains(&w), "width {w} outside 1..=32");
     assert!(
         src.len() >= reach(w),
@@ -57,7 +47,7 @@ pub(super) fn unpack(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
 /// # Panics
 ///
 /// As [unpack].
-pub(super) fn decode(src: &[u8], w: u32, base: i64, slope: i64, out: &mut [i64; GROUP]) {
+pub(super) fn decode(src: &[u8], w: u8, base: i64, slope: i64, out: &mut [i64; GROUP]) {
     assert!((1..=32).contains(&w), "width {w} outside 1..=32");
     assert!(
         src.len() >= reach(w),
@@ -80,17 +70,17 @@ struct Ctx {
 
 #[target_feature(enable = "avx512f")]
 #[inline]
-fn ctx(w: u32) -> Ctx {
+fn ctx(w: u8) -> Ctx {
     let iw = _mm512_mullo_epi32(
         _mm512_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
-        _mm512_set1_epi32(w as i32),
+        _mm512_set1_epi32(i32::from(w)),
     );
     // first byte of value i, copied into the 4 bytes of its lane, plus 0..3 (lo) and 4..7 (hi)
     let first = _mm512_mullo_epi32(_mm512_srli_epi32::<3>(iw), _mm512_set1_epi32(0x0101_0101));
     // bytes past 2 w hold no bits of the block, so an index wrapped to 0..63 only fills discarded bits
     let wrap = _mm512_set1_epi32(0x3f3f_3f3f);
     Ctx {
-        w: w as usize,
+        w: usize::from(w),
         lo: _mm512_and_si512(
             _mm512_add_epi32(first, _mm512_set1_epi32(0x0302_0100)),
             wrap,
@@ -100,7 +90,7 @@ fn ctx(w: u32) -> Ctx {
             wrap,
         ),
         sh: _mm512_and_si512(iw, _mm512_set1_epi32(7)),
-        m: _mm512_set1_epi32(mask32(w) as i32),
+        m: _mm512_set1_epi32(mask32(u32::from(w)).cast_signed()),
     }
 }
 
@@ -113,8 +103,13 @@ fn ctx(w: u32) -> Ctx {
 #[inline]
 unsafe fn block(src: &[u8], b: usize, c: &Ctx) -> __m512i {
     debug_assert!(b < BLOCKS, "block {b} out of range");
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "b < BLOCKS and w <= 32: 2 b w is under reach(w)"
+    )]
+    let at = 2 * b * c.w;
     // SAFETY: 2 b w + 64 <= reach(w) <= src.len() (the caller's contract); loadu has no alignment requirement.
-    let x = unsafe { _mm512_loadu_si512(src.as_ptr().add(2 * b * c.w).cast()) };
+    let x = unsafe { _mm512_loadu_si512(src.as_ptr().add(at).cast()) };
     let lo = _mm512_permutexvar_epi8(c.lo, x);
     let hi = _mm512_permutexvar_epi8(c.hi, x);
     _mm512_and_si512(_mm512_shrdv_epi32(lo, hi, c.sh), c.m)
@@ -124,13 +119,15 @@ unsafe fn block(src: &[u8], b: usize, c: &Ctx) -> __m512i {
 ///
 /// `src` holds [reach]`(w)` bytes.
 #[target_feature(enable = "avx512f,avx512bw,avx512vbmi,avx512vbmi2")]
-unsafe fn unpack_k(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
+unsafe fn unpack_k(src: &[u8], w: u8, out: &mut [u32; GROUP]) {
     let c = ctx(w);
     for b in 0..BLOCKS {
         // SAFETY: the caller's contract is block's.
         let v = unsafe { block(src, b, &c) };
+        #[expect(clippy::arithmetic_side_effects, reason = "b < BLOCKS: 16 b < GROUP")]
+        let at = 16 * b;
         // SAFETY: b < BLOCKS, so words 16 b .. 16 b + 16 lie inside out; storeu has no alignment requirement.
-        unsafe { _mm512_storeu_si512(out.as_mut_ptr().add(16 * b).cast(), v) };
+        unsafe { _mm512_storeu_si512(out.as_mut_ptr().add(at).cast(), v) };
     }
 }
 
@@ -138,7 +135,7 @@ unsafe fn unpack_k(src: &[u8], w: u32, out: &mut [u32; GROUP]) {
 ///
 /// `src` holds [reach]`(w)` bytes.
 #[target_feature(enable = "avx512f,avx512bw,avx512vbmi,avx512vbmi2")]
-unsafe fn decode_k(src: &[u8], w: u32, base: i64, slope: i64, out: &mut [i64; GROUP]) {
+unsafe fn decode_k(src: &[u8], w: u8, base: i64, slope: i64, out: &mut [i64; GROUP]) {
     let c = ctx(w);
     let s = |k: i64| slope.wrapping_mul(k);
     let base = _mm512_set1_epi64(base);
@@ -155,10 +152,15 @@ unsafe fn decode_k(src: &[u8], w: u32, base: i64, slope: i64, out: &mut [i64; GR
         p = _mm512_add_epi64(p, step);
         let t1 = _mm512_add_epi64(_mm512_add_epi64(base, _mm512_srai_epi64::<16>(p)), r1);
         p = _mm512_add_epi64(p, step);
+        #[expect(
+            clippy::arithmetic_side_effects,
+            reason = "b < BLOCKS: 16 b + 8 < GROUP"
+        )]
+        let (at0, at1) = (16 * b, 16 * b + 8);
         // SAFETY: b < BLOCKS, so i64s 16 b .. 16 b + 16 lie inside out; storeu has no alignment requirement.
         unsafe {
-            _mm512_storeu_si512(o.add(16 * b).cast(), t0);
-            _mm512_storeu_si512(o.add(16 * b + 8).cast(), t1);
+            _mm512_storeu_si512(o.add(at0).cast(), t0);
+            _mm512_storeu_si512(o.add(at1).cast(), t1);
         }
     }
 }

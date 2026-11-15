@@ -61,8 +61,9 @@ the same snapshot: a crate snapshot lists its traits by name, and its traits, ty
 canonical order, that of first use from the traits, then the types nothing uses by their path in the crate (EVO-77).
 The items of a trait, the fields of a struct and the variants of an enum keep the order the source gives them, as
 that order is the API. Both sides are put into the same order again before they are compared (EVO-75), so a snapshot
-saved by an older `ww` in its source order is still `no changes`, and `ww api save` keeps such a file as it was
-saved, so a released snapshot stays untouched.
+saved by an older `ww` in its source order is still `no changes`. `ww api save` writes such a file once more in
+canonical order (`reformatted`); one already in a release tag is left out of the commit, as the hook
+[below](#a-released-snapshot-never-changes) refuses it.
 
 ## Reading a report
 

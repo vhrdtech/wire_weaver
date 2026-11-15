@@ -2407,3 +2407,32 @@ fn snapshot_does_not_depend_on_layout_or_item_order() {
         assert_eq!(bytes, other, "{first} and {name} give different snapshots");
     }
 }
+
+/// A snapshot saved in another order (by a `ww` before EVO-77, in source order) is the same definitions: the check
+/// says `no changes`, and `ww api save` writes it once in canonical order, then leaves it.
+#[test]
+fn snapshot_in_another_order_is_saved_again_once() {
+    let c = TestCrate::new("old_order");
+    write_in_lib_rs(&c);
+    let canonical = wire_weaver_core::load_crate(c.path()).unwrap();
+    let mut old_order = canonical.clone();
+    old_order.root.items.reverse();
+    for (id, item) in old_order.root.items.iter_mut().enumerate() {
+        item.id = shrink_wrap::UNib32(id as u32);
+    }
+    let path = c.snapshot("test_api_0_1_0.ron");
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &path,
+        wire_weaver_snapshots::render_ron(&old_order).unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::Reformatted);
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        wire_weaver_snapshots::render_ron(&canonical).unwrap()
+    );
+    assert_eq!(save_one(c.path(), false).status, SaveStatus::UpToDate);
+}

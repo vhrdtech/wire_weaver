@@ -2072,8 +2072,10 @@ Unicast Data0 to one node over the same bus is TR-6.
   traits, types and crates in the order of first use from it, then what nothing uses by crate and path, every
   `trait_idx`, `type_idx` and `crate_idx` remapped. Items of a trait or root, fields and variants keep their source
   order and ids. Device introspection data is not a crate snapshot and keeps the walker's order, so generated code
-  and wire bytes don't change. The snapshots of `just save-snapshots` were saved once more, order only. Tests
+  and wire bytes don't change. `ww api save` writes a snapshot saved in another order once more (`reformatted`);
+  the snapshots of `just save-snapshots` were saved again that way, order only. Tests
   `wire_weaver_evolution` `snapshot_does_not_depend_on_layout_or_item_order`,
+  `snapshot_in_another_order_is_saved_again_once`,
   `moving_definitions_into_modules_changes_nothing`; `docs/evolution/checker_tool.md`.
 - ✅ **EVO-1 Evolution rules** in `docs/evolution/rules.md`: crate layers and version bumping.
 - ✅ **EVO-2 SHA signatures** of APIs and types, hashing only the major version (or `0.minor`), version independent.

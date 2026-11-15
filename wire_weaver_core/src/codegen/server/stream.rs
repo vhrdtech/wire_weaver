@@ -118,7 +118,14 @@ fn stream_ser_level(
         let mut index_chain = index_chain;
         let id = item.id;
         let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
-        let let_index_chain = let_index_chain(index_chain, id.0, is_array);
+        // a key companion's `keys` stream is item KEYS of the companion's level (API-67)
+        let tail = if let ApiItemKindOwned::Keys { .. } = item.kind {
+            let keys = ww_self::keys::KEYS;
+            Some(quote! { ResourceIndex::new(UNib32(#keys)) })
+        } else {
+            is_array.then(|| quote! { ResourceIndex::new(UNib32(index)) })
+        };
+        let let_index_chain = let_index_chain(index_chain, id.0, tail);
         let maybe_index_arg = maybe_quote(is_array, quote! { index: u32, });
 
         if let ApiItemKindOwned::Trait { trait_idx, .. } = &item.kind {
@@ -183,6 +190,7 @@ fn stream_ser_level(
                 delivery: Delivery::Plain,
                 ..
             } => (ty, "stream"),
+            ApiItemKindOwned::Keys { event_ty, .. } => (event_ty, "stream"),
             ApiItemKindOwned::StreamFn { ty, delivery, .. } => {
                 methods_ts.extend(positioned_ser_methods(
                     bundle,
@@ -760,21 +768,21 @@ fn sideband_ser_methods(
     }
 }
 
-fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> TokenStream {
-    match (index_chain.is_empty(), is_array) {
-        (false, false) => {
+/// `let index_chain = [..]` of the item `id`, followed by `tail` (an array's `index`, a key companion's stream id).
+fn let_index_chain(mut index_chain: IndexChain, id: u32, tail: Option<TokenStream>) -> TokenStream {
+    match (index_chain.is_empty(), tail) {
+        (false, None) => {
             index_chain.push_back(quote! { self. }, quote! { ResourceIndex::new(UNib32(#id)) })
         }
-        (false, true) => {
+        (false, Some(tail)) => {
             let op1 =
                 index_chain.push_back(quote! { self. }, quote! { ResourceIndex::new(UNib32(#id)) });
-            let op2 =
-                index_chain.push_back(quote! {}, quote! { ResourceIndex::new(UNib32(index)) });
+            let op2 = index_chain.push_back(quote! {}, tail);
             quote! { #op1 #op2 }
         }
-        (true, false) => quote! { let index_chain = [ResourceIndex::new(UNib32(#id))]; },
-        (true, true) => {
-            quote! { let index_chain = [ResourceIndex::new(UNib32(#id)), ResourceIndex::new(UNib32(index))]; }
+        (true, None) => quote! { let index_chain = [ResourceIndex::new(UNib32(#id))]; },
+        (true, Some(tail)) => {
+            quote! { let index_chain = [ResourceIndex::new(UNib32(#id)), #tail]; }
         }
     }
 }

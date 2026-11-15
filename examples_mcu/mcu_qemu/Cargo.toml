@@ -44,6 +44,8 @@ foc_observe_api = { path = "../../examples/foc_observe_api", default-features = 
 dfu_api = { path = "../../tests/dfu_api", default-features = false }
 flash_budget_api = { path = "../../tests/flash_budget_api", default-features = false }
 ww_dfu = { path = "../../ww_stdlib/ww_dfu", default-features = false }
+# KeyEvent of the qemu-flash-keyed server's `keys` stream (SRV-62)
+ww_keyed = { path = "../../ww_stdlib/ww_keyed", default-features = false }
 
 # Cortex-M0 has no compare-and-swap: ww_stream's atomics go through critical sections there (the units budget is also
 # built for thumbv6m, TEST-27)
@@ -365,6 +367,20 @@ bench = false
 [[bin]]
 name = "qemu-flash-globals16"
 path = "src/bin/flash_globals16.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-arrayed"
+path = "src/bin/flash_arrayed.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-keyed"
+path = "src/bin/flash_keyed.rs"
 test = false
 doctest = false
 bench = false

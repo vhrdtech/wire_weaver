@@ -2038,6 +2038,7 @@ name = "flash_budget_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+ "ww_keyed",
  "ww_si",
 ]
 
@@ -2998,6 +2999,21 @@ dependencies = [
  "hashbrown 0.16.1",
  "portable-atomic",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "keyed"
+version = "0.1.0"
+dependencies = [
+ "keyed_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_keyed",
+ "ww_si",
 ]
 
 [[package]]

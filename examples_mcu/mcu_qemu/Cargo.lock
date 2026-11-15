@@ -334,6 +334,7 @@ name = "flash_budget_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+ "ww_keyed",
  "ww_si",
 ]
 
@@ -429,6 +430,7 @@ dependencies = [
  "ww_framer",
  "ww_gpio",
  "ww_i2c",
+ "ww_keyed",
  "ww_link",
  "ww_si",
  "ww_spi",
@@ -1071,6 +1073,13 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver",
  "ww_si",
+]
+
+[[package]]
+name = "ww_keyed"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
 ]
 
 [[package]]

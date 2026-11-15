@@ -141,12 +141,13 @@ pub(crate) fn convert_api_item_keyed(
     })
 }
 
-/// A key companion named like another item of its trait (`flow_keys` next to `keyed!(flow by ..)`) is refused.
+/// A key companion named like another item of its trait (`flow_keys` next to `keyed!(flow by ..)`) is refused, and
+/// so is an item named like a handler of the companion (`flow_index_of`, `flow_key`, SRV-62).
 pub(crate) fn reject_keys_ident_collisions(items: &[ApiItemOwned]) -> Result<()> {
     for keys in items {
-        if !matches!(keys.kind, ApiItemKindOwned::Keys { .. }) {
+        let ApiItemKindOwned::Keys { of, .. } = &keys.kind else {
             continue;
-        }
+        };
         if let Some(other) = items
             .iter()
             .find(|item| item.ident == keys.ident && item.id != keys.id)
@@ -155,6 +156,21 @@ pub(crate) fn reject_keys_ident_collisions(items: &[ApiItemOwned]) -> Result<()>
                 "keyed! companion `{}` has the same name as item {} of the same trait: rename that item",
                 keys.ident,
                 other.id.0
+            ));
+        }
+        let Some(array) = items.iter().find(|item| item.id == *of) else {
+            continue;
+        };
+        let handlers = [
+            format!("{}_index_of", array.ident),
+            format!("{}_key", array.ident),
+        ];
+        if let Some(other) = items.iter().find(|item| handlers.contains(&item.ident)) {
+            return Err(anyhow!(
+                "item {} `{}` is named like a handler of keyed! companion `{}`: rename that item",
+                other.id.0,
+                other.ident,
+                keys.ident
             ));
         }
     }
@@ -454,6 +470,11 @@ mod tests {
                 "keyed_collision",
                 "ww_impl!(flow[]: Flow);\nkeyed!(flow by u32);\nfn flow_keys();",
                 "same name as item 2",
+            ),
+            (
+                "keyed_handler_collision",
+                "ww_impl!(flow[]: Flow);\nkeyed!(flow by u32);\nfn flow_index_of();",
+                "named like a handler of keyed! companion `flow_keys`",
             ),
             (
                 "keyed_syntax",

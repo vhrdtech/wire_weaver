@@ -1392,6 +1392,12 @@ fn collect_item_paths(
                 out,
             );
             level_path.pop();
+        } else if let ApiItemKindOwned::Keys { .. } = item.kind {
+            if let Ok((keys, _)) = keys_level_of(level, item) {
+                level_path.push(item.ident.clone());
+                out.extend(keys_handler_items(&keys).map(|ident| dotted(level_path, ident)));
+                level_path.pop();
+            }
         } else {
             out.push(dotted(level_path, &item.ident));
         }
@@ -1432,6 +1438,13 @@ fn level_awaits(
             flow: FlowControl::Credit,
             ..
         } => cx.use_async,
+        ApiItemKindOwned::Keys { .. } => keys_level_of(level, item).is_ok_and(|(keys, _)| {
+            level_path.push(item.ident.clone());
+            let awaits = keys_handler_items(&keys)
+                .any(|ident| cx.handlers.is_async(&dotted(level_path, ident)));
+            level_path.pop();
+            awaits
+        }),
         _ => cx.handlers.is_async(&dotted(level_path, &item.ident)),
     })
 }
@@ -1575,6 +1588,7 @@ fn level_matchers(
     let handlers = present.map(|item| match &item.multiplicity {
         Multiplicity::Flat => level_matcher(
             api_bundle,
+            api_level,
             item,
             level_name_chain,
             index_chain,
@@ -1582,18 +1596,6 @@ fn level_matchers(
             cx,
         ),
         Multiplicity::Array { .. } => {
-            let mut index_chain_with_this_index = index_chain;
-            let maybe_index_chain_push =
-                index_chain_with_this_index.push_back(quote! {}, quote! { index });
-            let lm = level_matcher(
-                api_bundle,
-                item,
-                level_name_chain,
-                index_chain_with_this_index,
-                util::mod_name(api_level, api_bundle),
-                cx,
-            );
-
             let valid_indices = Ident::new(
                 format!(
                     "valid_indices_{level_name_chain}_{}",
@@ -1602,51 +1604,17 @@ fn level_matchers(
                 .as_str(),
                 Span::call_site(),
             );
-            let maybe_index_chain_arg = index_chain.fun_argument_call();
-            let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
-            let validate_index = quote! {
-                if !self.#valid_indices(#maybe_index_chain_arg).contains(index.get().0) {
-                    return ww_err(wr, d, #es_index, ErrorKindDiscriminants::BadIndex);
-                }
-            };
-            let es = fixed_err_seq("LEVEL_INDEX_EXPECTED");
-            let ser_indices = ser_value(
-                cx.multi_req,
-                quote! { indices },
-                fixed_err_seq("LEVEL_INDICES_SER"),
-            );
-            let ev_kind_builder = cx.prepare_event_kind_builder();
-            let read_indices = if cx.no_alloc {
-                let es_ser = fixed_err_seq("LEVEL_INDICES_SER");
-                quote! {
-                    let indices = self.#valid_indices(#maybe_index_chain_arg);
-                    return ww_client_server::dispatch::reply_value(wr, d, &indices, #es_ser);
-                }
-            } else {
-                quote! {
-                    let indices = self.#valid_indices(#maybe_index_chain_arg);
-                    #ev_kind_builder
-                    #ser_indices
-                    return WrAction::WrittenOk;
-                }
-            };
-            quote! {
-                match path_iter.next().copied() {
-                    Some(index) => {
-                        // let index = index #check_err_on_no_alloc;
-                        #validate_index
-                        #maybe_index_chain_push
-                        #lm
-                    }
-                    None => {
-                        if let RequestKind::Read /* ValidIndices */ = request.kind {
-                            #read_indices
-                        } else {
-                            ww_err(wr, d, #es, ErrorKindDiscriminants::ExpectedArrayIndexGotNone)
-                        }
-                    }
-                }
-            }
+            array_arm(&valid_indices, index_chain, cx, |index_chain| {
+                level_matcher(
+                    api_bundle,
+                    api_level,
+                    item,
+                    level_name_chain,
+                    index_chain,
+                    util::mod_name(api_level, api_bundle),
+                    cx,
+                )
+            })
         }
     });
     quote! {
@@ -1658,8 +1626,66 @@ fn level_matchers(
     }
 }
 
+/// The arm of an array item: the index from the path, checked against `valid_indices`, then `inner` with the index
+/// pushed onto the chain; without an index, a read answers the valid indices.
+fn array_arm(
+    valid_indices: &Ident,
+    index_chain: IndexChain,
+    cx: &ApiServerCGContext<'_>,
+    inner: impl FnOnce(IndexChain) -> TokenStream,
+) -> TokenStream {
+    let mut index_chain_with_this_index = index_chain;
+    let maybe_index_chain_push = index_chain_with_this_index.push_back(quote! {}, quote! { index });
+    let lm = inner(index_chain_with_this_index);
+    let maybe_index_chain_arg = index_chain.fun_argument_call();
+    let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
+    let validate_index = quote! {
+        if !self.#valid_indices(#maybe_index_chain_arg).contains(index.get().0) {
+            return ww_err(wr, d, #es_index, ErrorKindDiscriminants::BadIndex);
+        }
+    };
+    let es = fixed_err_seq("LEVEL_INDEX_EXPECTED");
+    let ser_indices = ser_value(
+        cx.multi_req,
+        quote! { indices },
+        fixed_err_seq("LEVEL_INDICES_SER"),
+    );
+    let ev_kind_builder = cx.prepare_event_kind_builder();
+    let read_indices = if cx.no_alloc {
+        let es_ser = fixed_err_seq("LEVEL_INDICES_SER");
+        quote! {
+            let indices = self.#valid_indices(#maybe_index_chain_arg);
+            return ww_client_server::dispatch::reply_value(wr, d, &indices, #es_ser);
+        }
+    } else {
+        quote! {
+            let indices = self.#valid_indices(#maybe_index_chain_arg);
+            #ev_kind_builder
+            #ser_indices
+            return WrAction::WrittenOk;
+        }
+    };
+    quote! {
+        match path_iter.next().copied() {
+            Some(index) => {
+                #validate_index
+                #maybe_index_chain_push
+                #lm
+            }
+            None => {
+                if let RequestKind::Read /* ValidIndices */ = request.kind {
+                    #read_indices
+                } else {
+                    ww_err(wr, d, #es, ErrorKindDiscriminants::ExpectedArrayIndexGotNone)
+                }
+            }
+        }
+    }
+}
+
 fn level_matcher(
     api_bundle: &CodegenBundle,
+    api_level: &ApiLevelOwned,
     api_item: &ApiItemOwned,
     level_name_chain: &str,
     index_chain: IndexChain,
@@ -1709,14 +1735,15 @@ fn level_matcher(
         ApiItemKindOwned::FlowSink { ty, flow } => {
             handle_stream(api_bundle, index_chain, cx, &ident, ty, false, Some(*flow))
         }
-        // TODO(SRV-62): dispatch of a keyed! companion
-        ApiItemKindOwned::Keys { .. } => {
-            let msg = format!(
-                "keyed! `{}`: a server of a keyed array is not generated yet (SRV-62)",
-                api_item.ident
-            );
-            quote! { compile_error!(#msg) }
-        }
+        ApiItemKindOwned::Keys { .. } => handle_keys(
+            api_bundle,
+            api_level,
+            api_item,
+            level_name_chain,
+            index_chain,
+            &mod_ident,
+            cx,
+        ),
         ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = Ident::new(
                 format!("process_{level_name_chain}_{}", api_item.ident).as_str(),
@@ -1733,6 +1760,140 @@ fn level_matcher(
             quote! {
                 self.#process_fn_name(#maybe_index_chain_arg path_iter, wr, d, cx)#maybe_await
             }
+        }
+    }
+}
+
+/// The fixed level of the key companion `keys` of `level` (`ww_self::keys`) and the array it keys.
+fn keys_level_of<'l>(
+    level: &'l ApiLevelOwned,
+    keys: &ApiItemOwned,
+) -> Result<(ApiLevelOwned, &'l ApiItemOwned), ww_self::keys::KeysError> {
+    let level_of_keys = ww_self::keys::keys_level(level, keys)?;
+    let ApiItemKindOwned::Keys { of, .. } = &keys.kind else {
+        return Err(ww_self::keys::KeysError::NotKeys);
+    };
+    let array = level
+        .items
+        .iter()
+        .find(|item| item.id == *of)
+        .ok_or(ww_self::keys::KeysError::NoSuchItem { of: of.0 })?;
+    Ok((level_of_keys, array))
+}
+
+/// Idents of the items of a key companion's level that have handlers: `index_of` and `key`, not the `keys` stream.
+fn keys_handler_items(level_of_keys: &ApiLevelOwned) -> impl Iterator<Item = &str> {
+    level_of_keys
+        .items
+        .iter()
+        .filter(|item| item.id.0 != ww_self::keys::KEYS)
+        .map(|item| item.ident.as_str())
+}
+
+/// Module of the args structs of a key companion (`index_of(key)`): one per companion, since each has its own key.
+fn keys_mod_name(parent_mod: &Ident, keys: &ApiItemOwned) -> Ident {
+    Ident::new(&format!("{parent_mod}_{}", keys.ident), Span::call_site())
+}
+
+/// Dispatch of a key companion, `keyed!(flow by FlowKey)` (SRV-62): its level from `ww_self::keys`, answered by the
+/// handlers `flow_index_of` and `get_flow_key` (always get/set, whatever the `property_model`), the key array's indices
+/// checked by the array's own `valid_indices_..`, and a `keys` stream opened and closed by the generated code alone
+/// (the device sends on it with `flow_keys_send`).
+fn handle_keys(
+    api_bundle: &CodegenBundle,
+    api_level: &ApiLevelOwned,
+    keys: &ApiItemOwned,
+    level_name_chain: &str,
+    index_chain: IndexChain,
+    parent_mod: &Ident,
+    cx: &ApiServerCGContext<'_>,
+) -> TokenStream {
+    let (level_of_keys, array) = match keys_level_of(api_level, keys) {
+        Ok(found) => found,
+        Err(e) => {
+            let msg = format!("keyed! `{}`: {e}", keys.ident);
+            return quote! { compile_error!(#msg) };
+        }
+    };
+    // the handlers of an array of traits are prefixed like the companion's: `flow_index_of` of `Flow::index_of`
+    if let ApiItemKindOwned::Trait { .. } = array.kind
+        && let Some(clash) = array
+            .get_as_level(api_bundle)
+            .expect("an array of traits has its level")
+            .items
+            .iter()
+            .find(|item| keys_handler_items(&level_of_keys).any(|ident| ident == item.ident))
+    {
+        let msg = format!(
+            "keyed!({} by ..): the trait of `{}` has an item `{}`, whose handler is named like the companion's: rename it",
+            array.ident, array.ident, clash.ident
+        );
+        return quote! { compile_error!(#msg) };
+    }
+    let get_set = PropertyModel::default();
+    let mut kcx = ApiServerCGContext {
+        property_model: &get_set,
+        ..cx.clone()
+    };
+    kcx.ident_prefix = Some(match &cx.ident_prefix {
+        Some(prefix) => format!("{prefix}_{}", array.ident),
+        None => array.ident.clone(),
+    });
+    kcx.level_path.push(keys.ident.clone());
+    let mod_ident = keys_mod_name(parent_mod, keys);
+    let valid_indices = Ident::new(
+        &format!(
+            "valid_indices_{level_name_chain}_{}",
+            array.ident.to_case(Case::Snake)
+        ),
+        Span::call_site(),
+    );
+    let es_kind = item_err_seq("", "KIND_NOT_TAKEN");
+    let arms = level_of_keys.items.iter().map(|item| {
+        let id = Lit::Int(LitInt::new(&format!("{}u32", item.id.0), Span::call_site()));
+        let ident = Ident::new(&item.ident, Span::call_site());
+        let handler = match &item.kind {
+            ApiItemKindOwned::Method {
+                args, return_ty, ..
+            } => handle_method(
+                api_bundle,
+                index_chain,
+                &mod_ident,
+                &kcx,
+                &ident,
+                args,
+                return_ty,
+            ),
+            ApiItemKindOwned::Property { ty, access, .. } => {
+                array_arm(&valid_indices, index_chain, &kcx, |index_chain| {
+                    handle_property(api_bundle, index_chain, &kcx, &ident, ty, &None, *access)
+                })
+            }
+            // a plain stream without a session: nothing for a handler to decide
+            _ => quote! {
+                match &request.kind {
+                    RequestKind::StreamOpen { resume: None, .. } => {
+                        ww_client_server::dispatch::reply_open_plain(wr, d, RpcResult::Ready(()))
+                    }
+                    RequestKind::StreamSideband { sideband: StreamSideband::Unknown(_) } => {
+                        ww_err(wr, d, #es_kind, ErrorKindDiscriminants::OperationNotSupported)
+                    }
+                    RequestKind::StreamSideband { .. } => WrAction::Acknowledged,
+                    _ => ww_err(wr, d, #es_kind, ErrorKindDiscriminants::OperationNotSupported),
+                }
+            },
+        };
+        quote! { #id => { #handler } }
+    });
+    let es_path = fixed_err_seq("LEVEL_BAD_PATH");
+    let es_level = fixed_err_seq("LEVEL_NOT_SUPPORTED");
+    quote! {
+        match path_iter.next().copied() {
+            Some(id) => match id.get().0 {
+                #(#arms)*
+                _ => ww_err(wr, d, #es_path, ErrorKindDiscriminants::BadPath),
+            },
+            None => ww_err(wr, d, #es_level, ErrorKindDiscriminants::OperationNotSupported),
         }
     }
 }
@@ -3080,9 +3241,24 @@ fn args_structs_recursive(
                 #args_structs
             }
         });
-        seen.push(mod_name);
+        seen.push(mod_name.clone());
     }
     for item in &api_level.items {
+        if let ApiItemKindOwned::Keys { .. } = &item.kind
+            && let Ok((keys, _)) = keys_level_of(api_level, item)
+        {
+            let keys_mod = keys_mod_name(&mod_name, item);
+            if !seen.contains(&keys_mod) {
+                let args_structs = api_common::args_structs(api_bundle, &keys, no_alloc);
+                ts.extend(quote! {
+                    mod #keys_mod {
+                        use wire_weaver::shrink_wrap::prelude::*;
+                        #args_structs
+                    }
+                });
+                seen.push(keys_mod);
+            }
+        }
         let ApiItemKindOwned::Trait { .. } = &item.kind else {
             continue;
         };
@@ -3283,6 +3459,23 @@ fn deferred_method_return_ser_methods(
             ts.extend(deferred_method_return_ser_methods(
                 api_bundle,
                 level,
+                Some(&prefixed),
+                no_alloc,
+                method_model,
+            ));
+            continue;
+        }
+        // a key companion's handlers are prefixed with the array: `flow_index_of`
+        if let ApiItemKindOwned::Keys { .. } = item.kind
+            && let Ok((keys, array)) = keys_level_of(api_level, item)
+        {
+            let prefixed = match ident_prefix {
+                Some(prefix) => format!("{prefix}_{}", array.ident),
+                None => array.ident.clone(),
+            };
+            ts.extend(deferred_method_return_ser_methods(
+                api_bundle,
+                &keys,
                 Some(&prefixed),
                 no_alloc,
                 method_model,

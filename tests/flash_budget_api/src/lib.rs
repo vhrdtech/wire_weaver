@@ -16,6 +16,8 @@
 //! - `Globals8` / `Globals16` (SRV-53): [Base] and 8 or 16 traits of one method each (`GlobalTraitN`), served with
 //!   introspection off, so the device answers `GlobalFull` paths to them itself: the cost of one more trait in its
 //!   global path lookup, on top of its level.
+//! - [Arrayed] / [Keyed] (SRV-62): [Base] and a read-only property array, keyed in [Keyed]: the cost of one
+//!   `keyed!`, its `index_of` and `key[]` dispatch (the `keys` stream's send helper is linked only where used).
 //! - [Observed4] / [Batched4]: [Base] and 4 observed properties, plain or `+batched`. [Batched4] is built twice, with
 //!   samples and with `observe_samples = false` (SRV-56), what that switch saves and what the `Batched` slots cost.
 //!
@@ -654,4 +656,19 @@ pub trait Batched4 {
     property!(ro+observe+batched x1: i32);
     property!(ro+observe+batched x2: i32);
     property!(ro+observe+batched x3: i32);
+}
+
+/// [Base] and a read-only property array, the reference of [Keyed].
+#[ww_api_root]
+pub trait Arrayed {
+    ww_impl!(base: Base);
+    property!(ro item[]: Code);
+}
+
+/// [Arrayed] with its array keyed (SRV-62): the difference is what one `keyed!` costs, `index_of` and `key[]`.
+#[ww_api_root]
+pub trait Keyed {
+    ww_impl!(base: Base);
+    property!(ro item[]: Code);
+    keyed!(item by Code);
 }

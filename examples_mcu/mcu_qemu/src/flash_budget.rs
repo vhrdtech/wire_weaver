@@ -146,6 +146,26 @@ macro_rules! streams {
     )*};
 }
 
+/// The valid indices and getter of the `item[]` array of `flash_budget_api::Arrayed` and `Keyed`.
+macro_rules! item_array {
+    () => {
+        #[inline(never)]
+        fn valid_indices_root_item(&mut self) -> ValidIndices<'_> {
+            $crate::flash_budget::black_box(ValidIndices::range_u32(0..4))
+        }
+
+        #[inline(never)]
+        fn get_item(
+            &mut self,
+            _cx: &mut Context<'_, impl Out>,
+            index_chain: [ww_client_server::ResourceIndex; 1],
+        ) -> GetResult<flash_budget_api::Code, ()> {
+            let index = $crate::flash_budget::black_box(index_chain[0].get().0);
+            $crate::flash_budget::black_box(GetResult::Value(flash_budget_api::Code(index as u16)))
+        }
+    };
+}
+
 /// The handlers of `flash_budget_api::Base` at `base`.
 macro_rules! base_handlers {
     () => {

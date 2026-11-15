@@ -14,9 +14,11 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std"]
+std = ["wire_weaver/std", "ww_keyed/std", "ww_si/std"]
 
 [dependencies]
 wire_weaver = { workspace = true }
+# KeyEvent of the `Keyed` root's `keys` stream
+ww_keyed = { workspace = true }
 # a `+batched` property's wire form names `ww_si::Timed`
 ww_si = { workspace = true, features = ["i32"] }

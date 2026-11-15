@@ -474,13 +474,7 @@ impl Scaffold<'_> {
                     self.flow(item, &name, item_index_len, *flow)?;
                     self.stream(item, &name, item_index_len, ty, false)?
                 }
-                // TODO(SRV-62): handlers of a keyed! companion
-                ApiItemKindOwned::Keys { .. } => {
-                    return Err(anyhow!(
-                        "keyed! `{}`: server handlers of a keyed array are not generated yet (SRV-62)",
-                        item.ident
-                    ));
-                }
+                ApiItemKindOwned::Keys { .. } => self.keys(level, item, prefix, index_len, path)?,
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }
@@ -524,6 +518,57 @@ impl Scaffold<'_> {
             )?;
         }
         Ok(())
+    }
+
+    /// Handlers of the key companion `keys` (SRV-62): `<array>_index_of` and `get_<array>_key`, always get/set; the
+    /// key array takes the array's own valid indices and the `keys` stream needs no handler.
+    fn keys(
+        &mut self,
+        level: &ApiLevelOwned,
+        keys: &ApiItemOwned,
+        prefix: Option<&str>,
+        index_len: usize,
+        path: &str,
+    ) -> Result<()> {
+        let level_of_keys = ww_self::keys::keys_level(level, keys)?;
+        let ApiItemKindOwned::Keys { of, .. } = &keys.kind else {
+            unreachable!("keys_level accepted a Keys item")
+        };
+        let array = level
+            .items
+            .iter()
+            .find(|item| item.id == *of)
+            .expect("keys_level found the array");
+        let array_name = match prefix {
+            Some(prefix) => format!("{prefix}_{}", array.ident),
+            None => array.ident.clone(),
+        };
+        let at = format!(
+            "{path}{}{}",
+            if path.is_empty() { "" } else { "." },
+            keys.ident
+        );
+        writeln!(
+            self.handlers,
+            "// keyed!({} by ..): `{}_keys_send` announces each element on the `keys` stream\n",
+            array.ident, array_name
+        )?;
+        let property_model = std::mem::take(&mut self.property_model);
+        let result = level_of_keys.items.iter().try_for_each(|item| {
+            let name = format!("{array_name}_{}", item.ident);
+            self.current = format!("{at}.{}", item.ident);
+            match &item.kind {
+                ApiItemKindOwned::Method {
+                    args, return_ty, ..
+                } => self.method(item, &name, index_len, args, return_ty),
+                ApiItemKindOwned::Property { ty, access, .. } => {
+                    self.property(item, &name, index_len + 1, ty, *access, &None)
+                }
+                _ => Ok(()),
+            }
+        });
+        self.property_model = property_model;
+        result
     }
 
     fn valid_indices(

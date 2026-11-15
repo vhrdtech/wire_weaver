@@ -34,6 +34,9 @@ const KINDS: [(&str, &str); 7] = [
     ),
 ];
 
+/// The same array, plain and keyed (SRV-62): the reference bin, the keyed one.
+const KEYED: (&str, &str) = ("qemu-flash-arrayed", "qemu-flash-keyed");
+
 /// Something checked in a server bin: symbols whose demangled name contains one of `symbols`, and strings found
 /// anywhere in the ELF's flash.
 struct Check {
@@ -88,7 +91,7 @@ pub fn run(targets: &[String], filter: &Filter, qemu_dir: &Path) -> Res<()> {
     Ok(())
 }
 
-/// The `qemu-flash-*` bins of `mcu_qemu`: the floor, the base and every pair of [KINDS] and [OBSERVED].
+/// The `qemu-flash-*` bins of `mcu_qemu`: the floor, the base and every pair of [KINDS], [OBSERVED] and [KEYED].
 pub(crate) fn bins() -> Vec<String> {
     let mut bins: Vec<String> = vec!["qemu-flash-floor".into(), "qemu-flash-base-only".into()];
     for (bin, _) in KINDS {
@@ -97,6 +100,7 @@ pub(crate) fn bins() -> Vec<String> {
     }
     bins.push("qemu-flash-observed".into());
     bins.extend(OBSERVED.iter().map(|(bin, _)| bin.to_string()));
+    bins.extend([KEYED.0.to_owned(), KEYED.1.to_owned()]);
     bins
 }
 
@@ -159,6 +163,12 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
             bytes as i64 - observed as i64
         );
     }
+    let (arrayed, keyed) = (size(KEYED.0)?, size(KEYED.1)?);
+    println!(
+        "  {:<46} {:>7} B",
+        "one keyed! on an array (SRV-62)",
+        keyed as i64 - arrayed as i64
+    );
     for check in &CHECKS {
         let elf = dir.join(check.bin);
         let (syms, bytes) = crate::symbols(&elf, check.symbols)?;

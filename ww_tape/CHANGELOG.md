@@ -31,6 +31,7 @@
 
 ### 🐛 Fixes
 
+- On a raw medium blank space longer than the gap ends the walk; the rest of the medium isn't read (STD-129).
 - Gap probing is bounded: `Layout::is_valid`, `GAP_MAX_MAX`, `GAP_PROBES_MAX`, `GAP_CHECKS_MAX`; probes read header by header (STD-129).
 - A duplicate of the last block after a gap resumes the data instead of cutting it (STD-129).
 

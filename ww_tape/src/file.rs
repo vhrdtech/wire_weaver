@@ -167,7 +167,8 @@ pub enum Recovery {
 
 /// Reads blocks one after the other from a byte stream into one reused buffer, see [Recovery] for what happens at
 /// damage and [Medium] for where a new run may start. Blank bytes ([is_blank]: 0x00 or 0xFF) where the next block
-/// would start, up to the end, are the end (preallocated space, an erased or trimmed medium).
+/// would start, up to the end, are the end (preallocated space, an erased or trimmed medium); on a raw medium so are
+/// blank bytes longer than the layout's [gap](crate::Layout::gap_max), and nothing after them is read.
 pub struct FileBlocks<R> {
     rd: R,
     recovery: Recovery,
@@ -268,14 +269,22 @@ impl<R: Read> FileBlocks<R> {
         self.offset += n as u64;
     }
 
-    /// Pass over blank bytes from here: true when they run to the end of the file.
+    /// Pass over blank bytes from here: true when they are the end, running to the end of the file or, on a raw
+    /// medium, longer than the layout's gap (what follows is no data of this run, and isn't read).
     fn skip_blank(&mut self) -> Result<bool, FileError> {
+        let start = self.offset;
         loop {
             let n = self.buf[..self.filled]
                 .iter()
                 .position(|b| !is_blank(*b))
                 .unwrap_or(self.filled);
             self.consume(n);
+            if self.walk.medium == Medium::Raw
+                && self.offset.saturating_sub(start) > self.walk.gap_max()
+            {
+                self.done = true;
+                return Ok(true);
+            }
             if self.filled > 0 {
                 return Ok(false);
             }

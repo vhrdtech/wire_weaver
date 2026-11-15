@@ -512,3 +512,64 @@ fn a_gap_costs_one_header_per_resume_place() {
         "{errors:?}"
     );
 }
+
+/// Counts the bytes a stream reader takes.
+struct CountedRead<'a> {
+    bytes: &'a [u8],
+    read: u64,
+}
+
+impl std::io::Read for CountedRead<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.bytes.read(buf)?;
+        self.read += n as u64;
+        Ok(n)
+    }
+}
+
+/// Erased space after the end of data on a raw medium is the end once it is longer than the gap: neither reader reads
+/// the rest of the medium, and stale data after it is no cut.
+#[test]
+fn erased_space_past_the_gap_ends_a_raw_walk() {
+    let sd = Layout::UNALIGNED.on_sd_card();
+    let card = run(NEW, RunTag::NONE, sd, 6);
+    let at = card.len() as u64;
+    let mut bytes = card.clone();
+    bytes.resize(card.len() + (16 << 20), 0xFF);
+    bytes.extend(records(BlockId::new(OLD, 9)));
+    let src = Counted {
+        bytes: &bytes,
+        reads: 0.into(),
+        read_bytes: 0.into(),
+    };
+    let r = TapeReader::open_with(&src, raw()).unwrap();
+    let p = &r.pieces()[0];
+    assert_eq!((p.end, p.cut), (at, None));
+    let most = at * 4 + 2 * u64::from(ww_tape::SD_GAP_MAX) + (1 << 20);
+    assert!(
+        src.read_bytes.get() <= most,
+        "{} bytes read, at most {most}",
+        src.read_bytes.get()
+    );
+    let mut rd = CountedRead {
+        bytes: &bytes,
+        read: 0,
+    };
+    let mut fb = FileBlocks::new(&mut rd).on(Medium::Raw);
+    let mut n = 0;
+    while let Some(b) = fb.next_block() {
+        b.unwrap();
+        n += 1;
+    }
+    drop(fb);
+    assert_eq!(
+        n,
+        walk(&card, Medium::Raw).0.len() + 2,
+        "piece head, describe, records"
+    );
+    assert!(
+        rd.read <= at + u64::from(ww_tape::SD_GAP_MAX) + (1 << 20),
+        "{} bytes read",
+        rd.read
+    );
+}

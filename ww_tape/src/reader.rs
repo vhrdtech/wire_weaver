@@ -565,7 +565,12 @@ impl<S: ByteSource> TapeReader<S> {
                     at = next;
                     continue;
                 }
-                if !self.blank(at, hi)? {
+                // on a raw medium blank space longer than a gap is the end, whatever follows it
+                let end = match walk.medium {
+                    Medium::File => hi,
+                    Medium::Raw => at.saturating_add(walk.gap_max()).saturating_add(1).min(hi),
+                };
+                if !self.blank(at, end)? {
                     piece.cut = Some(at);
                 }
                 break;

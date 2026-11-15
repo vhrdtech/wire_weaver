@@ -128,7 +128,7 @@ The **medium** decides where a reader starts. A file is read from its start, or 
 | SD card or eMMC (`on_sd_card`) | 4 MiB | 512 bytes, a sector |
 | raw NAND (`on_raw_nand`) | two erase blocks | one page |
 
-A reader's cost per gap is bounded. A valid `Layout` has a `gap_max` of at most 64 MiB (`GAP_MAX_MAX`) and at most 8192 resume places in it (`GAP_PROBES_MAX`, `gap_max / resume_align`); a describe record of any other layout doesn't decode. Past a blank or bad stretch a reader reads one block header per resume place, and checks a block whole only when its header says it goes on with the data, at most 4 times per gap (`GAP_CHECKS_MAX`). When none of them does, the stretch is the end of data.
+A reader's cost per gap is bounded. A valid `Layout` has a `gap_max` of at most 64 MiB (`GAP_MAX_MAX`) and at most 8192 resume places in it (`GAP_PROBES_MAX`, `gap_max / resume_align`); a describe record of any other layout doesn't decode. Past a blank or bad stretch a reader reads one block header per resume place, and checks a block whole only when its header says it goes on with the data, at most 4 times per gap (`GAP_CHECKS_MAX`). When none of them does, the stretch is the end of data. On a raw medium, blank space longer than `gap_max` is the end too, and a reader reads nothing after it: an erased 64 GB card costs one gap's worth of reads.
 
 A writer on raw NAND programs each page once, in page order: at a sync it pads the rest of the page with 0xFF and starts the next block on the next page. The padding reads as a gap, so the format needs nothing else; the cost is up to one page per sync. Keeping MLC paired pages of unsynced writes apart from synced data is the medium layer's task.
 

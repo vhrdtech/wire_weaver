@@ -3,6 +3,7 @@
 ### 🐛 Fixes
 
 - The tap decoder tells a describe copy by its header mark, not by its seq, and counts lost blocks per run (STD-129).
+- The tap decoder reads the records of blocks with a coded body (STD-129).
 
 
 ### ⚠️ Breaking

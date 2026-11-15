@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `Block::records` of an lz4-coded body gives `BlockError::Coded`: read the records of `Block::decode` (STD-129).
 - Header bytes 24..28 hold the run tag in every block, 28..32 the head CRC; chunk payload and index entries offsets move to 32..36 (STD-129).
 - `PieceHead` gains `prev_run`: the run before the piece head on the medium, piece head bytes 92..96 (STD-129).
 - Within a run a describe block is in seq order unless marked a copy; `FileError` gains `Replaced` (STD-129).
@@ -28,6 +29,7 @@
 
 ### 🚀 Features
 
+- Header flag `FLAG_BODY_CODED`: records and describe bodies coded stored or lz4 (`code_body`, `BodyCodec`, `Block::decode`), off by default (STD-129).
 - The same (run, seq) twice is a duplicate, not a cut: same bytes dropped, other bytes the later wins (STD-129).
 - Header flag `FLAG_COPY` marks describe copies a writer makes; `Block::flags`, `is_copy`, `crc`; `mark_copy` (STD-129).
 - `TapeReader` keeps to runs and reads past gaps (`PieceInfo::gaps`); `OpenOptions::medium` walks a raw medium forward from `start` (STD-129).

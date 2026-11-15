@@ -138,7 +138,10 @@ pub(crate) fn layout_in(b: &Block<'_>) -> Option<Layout> {
     if b.kind != BlockKind::Describe {
         return None;
     }
-    b.records()
+    let mut buf = alloc::vec::Vec::new();
+    b.decode(&mut buf)
+        .ok()?
+        .records()
         .filter_map(Result::ok)
         .filter(|r| r.track == crate::DESCRIBE_TRACK)
         .filter_map(|r| match Describe::from_ww_bytes(r.item) {

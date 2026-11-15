@@ -17,7 +17,8 @@
 //!   0   4  magic "WWTP"
 //!   4  u8  version, 2
 //!   5  u8  kind: 1 records, 2 describe (BlockKind)
-//!   6 u16  flags: bit 1 copy (FLAG_COPY); others 0 (a reader ignores bits it doesn't know)
+//!   6 u16  flags: bit 0 body coded (FLAG_BODY_CODED, records and describe blocks only), bit 1 copy (FLAG_COPY);
+//!          others 0 (a reader ignores bits it doesn't know)
 //!   8 u32  len: the whole block, header and CRC included
 //!  12 u32  records in the block
 //!  16 u64  seq: the block number in its run, from 0, +1 per block; a gap is lost blocks. Index, finish, tail and
@@ -39,6 +40,8 @@
 //!        absent for track 0
 //!   uvar item length, the item's bytes
 //! ```
+//!
+//! With [FLAG_BODY_CODED] that body is coded: a codec byte, its decoded length and the coded bytes ([body]).
 //!
 //! So time deltas are coded per clock, a block reads alone (its first time per clock is absolute) and one clock costs
 //! no bit in the head. No wall clock is in a block: wall time is a clock of its own, mapped to the others.
@@ -136,6 +139,8 @@ pub mod reader;
 #[cfg(feature = "alloc")]
 pub use reader::{ByteSource, OpenOptions, PieceInfo, ReadError, TapeReader};
 
+pub mod body;
+pub use body::{BodyCodec, CodeError, code_body, coded_len_max};
 mod run;
 pub use run::{BlockId, Medium, RunTag};
 mod varint;
@@ -168,6 +173,9 @@ pub const MAX_BLOCK_LEN: usize = 64 << 20;
 /// repeat, the backup before a piece's finish, the start of the next piece). It carries the seq of the block before
 /// it and takes no part in the seq order; a reader that read the original takes nothing new from it.
 pub const FLAG_COPY: u16 = 1 << 1;
+/// Header flag: the body of a records or describe block is coded ([body]); on another kind the body is one this
+/// reader doesn't know. Off unless a writer codes the block with [code_body].
+pub const FLAG_BODY_CODED: u16 = 1 << 0;
 /// Bytes of the CRC at the end of a block.
 pub const CRC_LEN: usize = 4;
 /// Track 0: the producer's own, describe records.
@@ -566,6 +574,8 @@ pub enum BlockError {
     Summary(SummaryError),
     /// The clock table or the records don't parse up to the end, or there are more or fewer than the header says.
     BadRecords,
+    /// The records of a coded body are read from [Block::decode].
+    Coded,
 }
 
 /// A block read from bytes, CRC checked. Records are read in place, see [Block::records].
@@ -734,7 +744,11 @@ impl<'b> Block<'b> {
 
     /// The records parse to the end and are as many as the header says.
     fn check_records(&self) -> Result<(), BlockError> {
-        if !self.has_records() {
+        let records = matches!(self.kind, BlockKind::Records | BlockKind::Describe);
+        if self.version == VERSION && records && self.is_coded() && self.coded().is_none() {
+            return Err(BlockError::BadRecords);
+        }
+        if !self.has_records() || self.plain_body().is_none() {
             return Ok(());
         }
         if self.clock_table().is_none() {
@@ -814,23 +828,72 @@ impl<'b> Block<'b> {
         (0..slots.map_or(0, |s| s.n as usize)).filter_map(move |i| Some(slots?.clocks[i]))
     }
 
-    /// The clock table and where the records start in the block; None when this reader doesn't know the body or
-    /// the table doesn't parse.
+    /// The clock table and where the records start in the block; None when this reader doesn't know the body, the
+    /// body is coded other than [stored](BodyCodec::STORED) or the table doesn't parse.
     fn clock_table(&self) -> Option<(Slots, usize)> {
         if !self.has_records() {
             return None;
         }
-        let (slots, at) = read_clock_table(&self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN])?;
-        Some((slots, HEADER_LEN + at))
+        let (body, at) = self.plain_body()?;
+        let (slots, table) = read_clock_table(body)?;
+        Some((slots, at + table))
     }
 
-    /// Whether this reader knows the block's body: its version and kind. A block it doesn't know has no
-    /// [records](Self::records) for it and is skipped.
+    /// The body as stored and where it starts in the block: None for a body coded other than stored.
+    fn plain_body(&self) -> Option<(&'b [u8], usize)> {
+        let body = &self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN];
+        if !self.is_coded() {
+            return Some((body, HEADER_LEN));
+        }
+        let c = body::coded(body)?;
+        (c.codec == BodyCodec::STORED)
+            .then(|| (c.bytes, self.bytes.len() - CRC_LEN - c.bytes.len()))
+    }
+
+    fn is_coded(&self) -> bool {
+        self.flags & FLAG_BODY_CODED != 0
+    }
+
+    /// The parts of a coded records or describe body; None for any other block, or one that doesn't parse.
+    fn coded(&self) -> Option<body::Coded<'b>> {
+        let records = matches!(self.kind, BlockKind::Records | BlockKind::Describe);
+        if !(self.is_coded() && records) {
+            return None;
+        }
+        body::coded(&self.bytes[HEADER_LEN..self.bytes.len() - CRC_LEN])
+    }
+
+    /// The codec of a coded records or describe body ([FLAG_BODY_CODED]); None for a plain body.
+    pub fn body_codec(&self) -> Option<BodyCodec> {
+        self.coded().map(|c| c.codec)
+    }
+
+    /// The block with its records readable in place: itself, unless its body is coded with lz4, which is decoded
+    /// into `buf` as a plain block (the flag cleared, its length and CRC new; the block's place in a file is the
+    /// coded one's).
+    #[cfg(feature = "alloc")]
+    pub fn decode<'d>(&self, buf: &'d mut alloc::vec::Vec<u8>) -> Result<Block<'d>, BlockError>
+    where
+        'b: 'd,
+    {
+        match self.coded() {
+            Some(c) if c.codec == BodyCodec::LZ4 && self.body_known() => {
+                body::decode_into(self, &c, buf)
+            }
+            _ => Ok(*self),
+        }
+    }
+
+    /// Whether this reader knows the block's body: its version and kind, and for a coded body the codec. A block it
+    /// doesn't know has no [records](Self::records) for it and is skipped.
     pub fn body_known(&self) -> bool {
-        self.version == VERSION && !matches!(self.kind, BlockKind::Other(_) | BlockKind::Parity)
+        self.version == VERSION
+            && !matches!(self.kind, BlockKind::Other(_) | BlockKind::Parity)
+            && (!self.is_coded() || self.coded().is_some_and(|c| c.codec.is_known()))
     }
 
-    /// The records, none for a chunk block or a block whose body this reader doesn't know ([Self::body_known]).
+    /// The records, none for a chunk block or a block whose body this reader doesn't know ([Self::body_known]). A
+    /// body coded with lz4 gives [BlockError::Coded]: read the records of [Self::decode].
     pub fn records(&self) -> Records<'b> {
         let (slots, body) = match self.clock_table() {
             Some((slots, at)) => (slots, &self.bytes[at..self.bytes.len() - CRC_LEN]),
@@ -840,6 +903,7 @@ impl<'b> Block<'b> {
             body,
             slots,
             failed: false,
+            coded: self.has_records() && self.plain_body().is_none(),
         }
     }
 }
@@ -849,6 +913,8 @@ pub struct Records<'b> {
     body: &'b [u8],
     slots: Slots,
     failed: bool,
+    /// The body is coded: one [BlockError::Coded] and no records.
+    coded: bool,
 }
 
 impl<'b> Records<'b> {
@@ -882,6 +948,11 @@ impl<'b> Iterator for Records<'b> {
     type Item = Result<Record<'b>, BlockError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.coded {
+            self.coded = false;
+            self.failed = true;
+            return Some(Err(BlockError::Coded));
+        }
         if self.body.is_empty() || self.failed {
             return None;
         }

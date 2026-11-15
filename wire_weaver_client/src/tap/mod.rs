@@ -50,6 +50,10 @@ pub(crate) fn trace_events(
         if block.kind != ww_tape::BlockKind::Records {
             return true;
         }
+        let mut plain = Vec::new();
+        let Ok(block) = block.decode(&mut plain) else {
+            return true;
+        };
         for r in block.records().flatten() {
             let Some((l, stream)) = track_of(r.track) else {
                 continue;

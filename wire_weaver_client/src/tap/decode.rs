@@ -288,7 +288,10 @@ impl Decoder {
         }
         self.next_seq = Some(block.seq + 1);
         // a block stores its records track by track: back in time order, so a reply comes after its request
-        let mut records: Vec<_> = block.records().filter_map(Result::ok).collect();
+        // a coded body is read from its decoded form; one that doesn't decode gives no records, as damage would
+        let mut plain = Vec::new();
+        let decoded = block.decode(&mut plain).unwrap_or(*block);
+        let mut records: Vec<_> = decoded.records().filter_map(Result::ok).collect();
         records.sort_by_key(|r| r.at.map(|at| at.ticks));
         for r in records {
             let Some(at) = r.at else {

@@ -1,6 +1,6 @@
 //! The case runner: an allocation over the cap and a panic are outcomes of the case, not of the test.
 
-use crate::{ALLOC_MAX, Outcome, run};
+use ww_tape_fuzz::case::{ALLOC_MAX, Outcome, run};
 
 fn allocates_over_the_cap(_: &[u8]) {
     let v: Vec<u8> = Vec::with_capacity(ALLOC_MAX + 1);

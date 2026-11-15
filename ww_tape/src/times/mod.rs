@@ -63,6 +63,9 @@ mod starts;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "alloc")]
+pub(crate) use groups::encode_groups;
+pub(crate) use groups::u32_to_usize;
 pub use packed::{Durations, Flags};
 pub use starts::{Iter, SLOPE_MAX, Starts};
 
@@ -209,7 +212,7 @@ impl<'b> EventTimes<'b> {
                 what: "column past the payload",
             })
         };
-        let n = groups::items(head.count);
+        let n = u32_to_usize(head.count);
         let s = starts.ok_or(TimesError::Missing(ColumnKind::Starts))?;
         codec(&s, STARTS)?;
         let starts = Starts::parse(

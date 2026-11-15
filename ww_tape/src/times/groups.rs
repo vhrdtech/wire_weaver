@@ -221,13 +221,13 @@ pub(crate) const fn width_span(width: u32) -> u64 {
 /// Write a column of `values` (one per item): per group the record `record(group values, offset)` returns with
 /// the group's packed values and their width, then the packed values. None when the packed values pass a u32
 /// offset or a width is over 64.
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub(crate) fn encode_groups<T: Copy, const R: usize>(
     values: &[T],
-    mut record: impl FnMut(&[T], u32) -> Option<([u8; R], std::vec::Vec<u64>, u32)>,
-) -> Option<std::vec::Vec<u8>> {
-    let mut out = std::vec::Vec::with_capacity(group_count(values.len()).checked_mul(R)?);
-    let mut packed = std::vec::Vec::new();
+    mut record: impl FnMut(&[T], u32) -> Option<([u8; R], alloc::vec::Vec<u64>, u32)>,
+) -> Option<alloc::vec::Vec<u8>> {
+    let mut out = alloc::vec::Vec::with_capacity(group_count(values.len()).checked_mul(R)?);
+    let mut packed = alloc::vec::Vec::new();
     for c in values.chunks(GROUP) {
         let at = packed.len();
         let (rec, vals, width) = record(c, u32::try_from(at).ok()?)?;
@@ -242,18 +242,15 @@ pub(crate) fn encode_groups<T: Copy, const R: usize>(
     Some(out)
 }
 
-const _: () = assert!(
-    usize::BITS >= u32::BITS,
-    "a chunk's u32 item count fits a usize"
-);
+const _: () = assert!(usize::BITS >= u32::BITS, "a u32 fits a usize");
 
-/// A chunk's item count as a usize.
-pub(crate) const fn items(count: u32) -> usize {
+/// A u32 count, length or offset as a usize.
+pub(crate) const fn u32_to_usize(v: u32) -> usize {
     #[expect(
         clippy::as_conversions,
         reason = "usize is at least 32 bits, asserted above; From is not const"
     )]
-    let n = count as usize;
+    let n = v as usize;
     n
 }
 

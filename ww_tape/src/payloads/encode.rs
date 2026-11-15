@@ -1,25 +1,11 @@
 //! Encoding a chunk's payloads into its two columns.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
-use super::{GROUP, LENGTHS, RECORD_LEN};
+use super::{LENGTHS, RECORD_LEN};
 use crate::bitpack;
+use crate::bytes;
 use crate::chunk::{Codec, ColumnKind, ColumnSpec};
 use crate::lz4::{LZ4_DECODED_MAX, Lz4Error, lz4_encode, lz4_max_len};
+use crate::times::encode_groups;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -79,10 +65,15 @@ impl EncodedPayloads {
             if len > LZ4_DECODED_MAX {
                 return Err(EncodeError::TooLong { len });
             }
-            if lens.len() >= u32::MAX as usize {
+            // the count stays a u32
+            if !u32::try_from(lens.len()).is_ok_and(|n| n < u32::MAX) {
                 return Err(EncodeError::TooMany);
             }
-            lens.push(u32::try_from(item.len()).map_err(|_| EncodeError::TooLong { len })?);
+            // at most the running total, at most LZ4_DECODED_MAX
+            let Ok(item_len) = u32::try_from(item.len()) else {
+                return Err(EncodeError::TooLong { len });
+            };
+            lens.push(item_len);
             raw.extend_from_slice(item);
         }
         if lens.is_empty() {
@@ -132,37 +123,21 @@ impl EncodedPayloads {
 
 /// The lengths column of `lens`; None when the payloads or the packed lengths don't fit u32 offsets.
 fn encode_lengths(lens: &[u32]) -> Option<Vec<u8>> {
-    let groups: Vec<(u32, u32)> = lens
-        .chunks(GROUP)
-        .map(|g| {
-            let min = g.iter().copied().min().unwrap_or(0);
-            let max = g.iter().copied().max().unwrap_or(0);
-            (min, bitpack::width_of(u64::from(max - min)))
-        })
-        .collect();
-    let records = groups.len() * RECORD_LEN;
-    let packed: usize = lens
-        .chunks(GROUP)
-        .zip(&groups)
-        .map(|(g, (_, w))| bitpack::packed_len(g.len(), *w))
-        .sum();
-    let mut out = vec![0u8; records + packed];
-    let (mut base, mut offset) = (0u32, 0usize);
-    for (i, (g, (min, width))) in lens.chunks(GROUP).zip(&groups).enumerate() {
-        let r = i * RECORD_LEN;
-        let offset32 = u32::try_from(offset).ok()?;
-        out[r..r + 4].copy_from_slice(&base.to_le_bytes());
-        out[r + 4..r + 8].copy_from_slice(&min.to_le_bytes());
-        out[r + 8] = *width as u8;
-        out[r + 9..r + 13].copy_from_slice(&offset32.to_le_bytes());
-        offset += bitpack::pack(
-            &mut out[records + offset..],
-            g.iter().map(|l| u64::from(l - min)),
-            *width,
-        );
+    let mut base = 0u32;
+    encode_groups(lens, |g, offset| {
+        let min = g.iter().copied().fold(u32::MAX, u32::min);
+        let max = g.iter().copied().fold(0, u32::max);
+        let width = bitpack::width_of(u64::from(max.abs_diff(min)));
+        let mut rec = [0u8; RECORD_LEN];
+        bytes::put_u32(&mut rec, 0, base)?;
+        bytes::put_u32(&mut rec, 4, min)?;
+        bytes::put(&mut rec, 8, [u8::try_from(width).ok()?])?;
+        bytes::put_u32(&mut rec, 9, offset)?;
         for l in g {
             base = base.checked_add(*l)?;
         }
-    }
-    Some(out)
+        // every length is at least the minimum: the difference is exact
+        let vals = g.iter().map(|l| u64::from(l.wrapping_sub(min))).collect();
+        Some((rec, vals, width))
+    })
 }

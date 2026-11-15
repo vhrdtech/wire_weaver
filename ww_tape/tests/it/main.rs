@@ -2,3 +2,4 @@
 
 mod pieces;
 mod reader;
+mod series;

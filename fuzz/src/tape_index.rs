@@ -4,7 +4,9 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use ww_tape::index::{IndexBlock, IndexEntry, IndexHead, IndexKind, index_len, track_count, write_index};
+use ww_tape::index::{
+    IndexBlock, IndexEntry, IndexHead, IndexKind, index_len, track_count, write_index,
+};
 use ww_tape::piece::{FinishBlock, PieceHeadBlock};
 use ww_tape::{Block, BlockKind, HEADER_LEN, Tail, TapeReader};
 
@@ -91,7 +93,11 @@ fuzz_target!(|data: &[u8]| {
     } else {
         IndexKind::Checkpoint
     };
-    let tracks = if kind == IndexKind::Final { track_count(&entries) } else { 0 };
+    let tracks = if kind == IndexKind::Final {
+        track_count(&entries)
+    } else {
+        0
+    };
     let mut buf = vec![0u8; index_len(entries.len(), tracks)];
     let head = IndexHead {
         kind,
@@ -102,13 +108,19 @@ fuzz_target!(|data: &[u8]| {
     let b = Block::read(&buf[..n]).expect("written good");
     let ix = IndexBlock::read(&b).expect("an index");
     assert_eq!(ix.entries().collect::<Vec<_>>(), entries);
-    assert_eq!((ix.kind(), ix.self_offset(), ix.prev()), (kind, head.self_offset, head.prev));
+    assert_eq!(
+        (ix.kind(), ix.self_offset(), ix.prev()),
+        (kind, head.self_offset, head.prev)
+    );
     let len = IndexBlock::head_len(&buf[..HEADER_LEN]).expect("a head");
     let only = IndexBlock::read_head(&buf[..len]).expect("a head");
     let mut again = vec![];
     for t in only.tracks() {
         let (from, n) = only.track_range(&t);
-        again.extend(only.track_entries(&t, &buf[from..from + n]).expect("good entries"));
+        again.extend(
+            only.track_entries(&t, &buf[from..from + n])
+                .expect("good entries"),
+        );
     }
     if kind == IndexKind::Final {
         assert_eq!(again, entries);

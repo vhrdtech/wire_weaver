@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- The recorder's tracks are `TrackKind::Events` instants in the describe set (STD-127).
 - Tape v2 (STD-117): record times count `HOST_CLOCK` (ns since the recorder started), mapped to `WALL_CLOCK` in the describe set; `RecorderConfig::describe_every` is gone: describe blocks are no longer repeated by time.
 
 - `Framer::U2` has a `prefix: FramerPrefix` field (`None`, `Seq`; `#[default = None]`, so older sessions still decode) and `FramerChecksum` a `Crc32IsoHdlc { full }` variant, for `ww_link`'s UDP framing and the USB frame counter diagnostic (TR-15). Code building `Framer::U2` adds `prefix`.

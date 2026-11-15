@@ -6,6 +6,9 @@ use shrink_wrap::prelude::*;
 
 #[cfg(feature = "std")]
 use crate::FullVersionOwned;
+use crate::series::SeriesDef;
+#[cfg(feature = "std")]
+use crate::series::SeriesDefOwned;
 use crate::{FNV_OFFSET, FullVersion, fnv1a};
 
 /// What a describe block says, one per record on track 0.
@@ -318,12 +321,67 @@ pub struct TrackDef<'i> {
     pub bundle: RefVec<'i, u8>,
     /// Resource path of the track's stream in the API: `ww_trait` ids, array indices included.
     pub path: RefVec<'i, UNib32>,
-    /// The item type when the path doesn't give it (a producer's result, a map track); None: the stream's type.
+    /// The item type when the path doesn't give it (a producer's result, a map track); None: the stream's type. None
+    /// for a series: [SeriesDef::sample] names the type of its values.
     pub item: Option<TypeRef<'i>>,
     /// A name for people (`link[1].rx.frames`); readers go by `path`.
     pub label: &'i str,
-    /// The newest record of this track is repeated in every describe set.
+    /// The newest record of this track is repeated in every describe set. Always set for a series, whose records are
+    /// its [SeriesSegment](crate::series::SeriesSegment)s: each piece then holds the segment its samples are in.
     pub sticky: bool,
+    /// How the track's items are stored: events or a fixed-rate series.
+    pub kind: TrackKind<'i>,
+}
+
+/// How a track's items are stored.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone), ww_repr = u4)]
+pub enum TrackKind<'i> {
+    /// Items with a start tick, an optional end, an optional flags word and a payload: in record blocks or in events
+    /// chunks ([BlockKind::Events](crate::BlockKind::Events)).
+    Events(EventsDef),
+    /// Samples at an exact period, no time per sample: in series chunks ([BlockKind::Series](crate::BlockKind::Series)),
+    /// timed by the track's [SeriesSegment](crate::series::SeriesSegment) records.
+    Series(SeriesDef<'i>),
+}
+
+/// An events track: what its chunks may hold besides starts and payloads.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Clone, Copy, Hash)
+)]
+pub struct EventsDef {
+    pub ends: Ends,
+    /// Items carry a `u32` flags word (severity in its low bits), which summaries OR together.
+    pub flags: bool,
+}
+
+impl EventsDef {
+    /// Instants without flags: what a track of plain records is.
+    pub const INSTANTS: EventsDef = EventsDef {
+        ends: Ends::Instants,
+        flags: false,
+    };
+}
+
+/// Whether events have an end.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq, Clone, Copy, Hash), ww_repr = u4)]
+pub enum Ends {
+    /// Every item is an instant: chunks have no ends ([EndMode::Absent](crate::EndMode::Absent)).
+    Instants,
+    /// Items are spans `[start, end)`; an instant among them has `end == start`.
+    Spans,
+}
+
+impl Ends {
+    /// Whether an events chunk of this track may store ends as `mode` says.
+    pub fn allows(self, mode: crate::EndMode) -> bool {
+        match self {
+            Ends::Instants => mode == crate::EndMode::Absent,
+            Ends::Spans => true,
+            Ends::Unknown(_) => false,
+        }
+    }
 }
 
 /// A name and value of a track's identity.
@@ -358,7 +416,32 @@ pub fn track_id<'a>(key: u64, dimensions: impl IntoIterator<Item = Dimension<'a>
     h.unwrap_or(key)
 }
 
-impl TrackDef<'_> {
+impl<'i> TrackDef<'i> {
+    /// The series definition of a series track, None for an events track.
+    pub fn series(&self) -> Option<&SeriesDef<'i>> {
+        match &self.kind {
+            TrackKind::Series(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Check what the kind asks of the track: a series is sticky, names its sample type in its definition (not in
+    /// [Self::item]) and has a valid [SeriesDef].
+    pub fn check_kind(&self) -> Result<(), crate::SeriesError> {
+        let Some(s) = self.series() else {
+            return Ok(());
+        };
+        if !self.sticky {
+            return Err(crate::SeriesError::Def("a series track is sticky"));
+        }
+        if self.item.is_some() {
+            return Err(crate::SeriesError::Def(
+                "a series names its sample type in its definition, not as the item",
+            ));
+        }
+        s.check()
+    }
+
     /// Id of the track's identity, see [track_id].
     pub fn id(&self) -> u64 {
         track_id(self.key, self.dimensions.iter().filter_map(Result::ok))

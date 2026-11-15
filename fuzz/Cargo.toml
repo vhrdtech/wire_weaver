@@ -144,6 +144,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "tape-series"
+path = "src/tape_series.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "link-hello"
 path = "src/link_hello.rs"
 test = false

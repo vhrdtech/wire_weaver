@@ -85,6 +85,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - The docs highlighter (DOC-11) is vendored from ww_lsp, checked by `tests/docs_highlight`; it now marks `sink!`, `batched` and every exact_units alias and origin.
 - `ww_tape` event time codec (STD-120): starts as a linear frame of reference per 128 items, three end modes, packed flags, SIMD bit-pack kernels, salvage. See the `ww_tape` changelog.
 - `ww_tape` describe copies (STD-122): a reader takes no sticky state from them, so `ww explain` no longer prints a stale session at a capture's end. See the `ww_tape` and `wire_weaver_client` changelogs.
+- `ww_tape` series tracks (STD-127): `TrackDef` kinds, `SeriesDef` from exact_units types, segment records for gaps and prefix changes. See the `ww_tape` and `ww_tap` changelogs.
 
 ### Added
 

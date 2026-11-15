@@ -4,6 +4,8 @@
 
 ### ⚠️ Breaking
 
+- `TrackDef` gains `kind: TrackKind` (events with `Ends` and flags, or a series); set `TrackKind::Events(EventsDef::INSTANTS)` for plain records (STD-127).
+- `DescribeSet::insert` refuses a series track that isn't sticky or names an item type: `DescribeError::Kind` (STD-127).
 - `TapeWriter::finish` returns `Finished` and ends the file with a final index, describe backup, finish and tail block (STD-122).
 - `EndMode::NextStart` chunks have no ends column: the last item ends at the head's latest end (STD-120).
 - Header bytes 24..32 hold a chunk block's payload offset and head CRC; `BlockError::Chunk` for a bad chunk head (STD-118).
@@ -17,6 +19,9 @@
 
 ### 🚀 Features
 
+- `SeriesDef`: sample type by `TypeRef`, element and channels, exact period, scale, summaries, media stream; `SeriesValue` derives them from `Fixed` (STD-127).
+- `SeriesSegment` records (first index, time grid, scale) and `SeriesTimeline`: ticks, scales and chunk checks, damaged records refused (STD-127).
+- Golden file `golden/v2-series.hex`; fuzz target `tape-series` (STD-127).
 - Summary blocks (`BlockKind::Summary`, kind 6): event item tree (`EventTree`) and mergeable series summaries (`SeriesSummaries`), read in place (STD-121).
 - `SeriesSummarySpec`, `SeriesStats`, `ClipRange`: a series track's summary declaration as shrink_wrap types (STD-121).
 - Index blocks (kind 7): checkpoints with a back chain every 4 MiB (`IndexPolicy`), a final index sorted by track (STD-122).

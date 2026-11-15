@@ -234,6 +234,7 @@ fn sample_describe() -> Vec<Describe<'static>> {
             item: Some(item_type),
             label: "link[3].tx.frames",
             sticky: true,
+            kind: TrackKind::Events(EventsDef::INSTANTS),
         }),
         Describe::Map(ClockMap {
             from: UNib32(HOST),

@@ -648,6 +648,7 @@ impl Inner {
                     item: None,
                     label: &label,
                     sticky: stream == ids::SESSION,
+                    kind: ww_tape::TrackKind::Events(ww_tape::EventsDef::INSTANTS),
                 }));
             }
         }

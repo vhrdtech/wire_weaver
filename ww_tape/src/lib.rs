@@ -86,13 +86,13 @@ pub use ww_version::{FullVersion, Version};
 mod describe;
 pub use describe::{
     ALIGNMENT, ClockDef, ClockMap, ClockOrigin, ClockRate, ClockResolution, Describe, Dimension,
-    Layout, MapSegment, NO_CLOCK, Producer, Rank, TrackDef, TypeRef, TypedItem, UNIX_CLOCK_KEY,
-    clock_key, segments_increasing, track_id,
+    Ends, EventsDef, Layout, MapSegment, NO_CLOCK, Producer, Rank, TrackDef, TrackKind, TypeRef,
+    TypedItem, UNIX_CLOCK_KEY, clock_key, segments_increasing, track_id,
 };
 #[cfg(feature = "std")]
 pub use describe::{
     ClockDefOwned, ClockMapOwned, DescribeOwned, DimensionOwned, ProducerOwned, TrackDefOwned,
-    TypeRefOwned, TypedItemOwned,
+    TrackKindOwned, TypeRefOwned, TypedItemOwned,
 };
 pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
 
@@ -110,6 +110,13 @@ pub use chunk::{
 pub mod lz4;
 pub mod samples;
 pub use samples::{Element, Sample, SampleError, SampleShape, Samples};
+
+pub mod series;
+#[cfg(feature = "alloc")]
+pub use series::SeriesTimeline;
+pub use series::{MediaStream, SeriesDef, SeriesError, SeriesSegment, SeriesValue};
+#[cfg(feature = "std")]
+pub use series::{MediaStreamOwned, SeriesDefOwned};
 
 pub mod index;
 pub use index::{IndexBlock, IndexEntry, IndexError, IndexHead, IndexKind, IndexPolicy};

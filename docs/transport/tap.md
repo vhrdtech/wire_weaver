@@ -82,7 +82,7 @@ A **describe** block carries, in a canonical order: the producer, the API bundle
 exact rate and resolution as `Magnitude`s, origin: free-running, boot, Unix epoch, media start, run start, or the next epoch of a counter, fixed by an exact offset map), the
 clock maps (segments `b = b0 + (a - a0) · slope`, the slope an exact_units `Ratio64`, with an error bound, strictly increasing across segments: the tap maps its own clock to the wall clock
 read at its start), a `TrackDef` per track (number, stable key, clock, dimensions that are part of its identity, API,
-resource path, optional item type, label, whether it is sticky) and typed items (any wire_weaver value by bundle
+resource path, optional item type, label, whether it is sticky, and its kind: events, with or without ends and flags, or a [series](#series-tracks)) and typed items (any wire_weaver value by bundle
 hash and type path), then the newest record of every sticky track. It is written at the start, when a track is
 added, when a consumer joins and after a loss, never by time, so a consumer that joins late decodes from its first
 block. `ww_tape::DescribeSet` keeps the records in that order, so the same input gives the same bytes whatever order
@@ -143,6 +143,14 @@ Which codec fits depends on the data. On a motor simulation (every variable of `
 | speech, `f32` | 2.31 | 1.83 | 0.99 | 0.99 |
 
 The delta codecs decoded at 1 to 3 ns per value, the XOR codecs at 2 to 9 (x86-64, one core). The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.
+
+### Series tracks
+
+A series track holds samples at an exact period with no time per sample. Its `TrackDef` kind is a `SeriesDef`: the type of one value as the API declares it (a `TypeRef` to an exact_units `Fixed<Ampere, Milli, i32>`, a `ww_si` quantity or a plain float), the stored element and channels derived from that type, the period in ticks per sample as an exact `Ratio64` (48 kHz on a 1 ns clock is `62500/3`), the scale of the stored numbers as a `Magnitude` (`10⁻³` for that `Fixed`), the summaries the writer builds (`SeriesSummarySpec`) and, for samples kept in a media file, the stream. `SeriesDef::of::<Fixed<Ampere, Milli, i32>>(..)` takes the element and the scale from the type (`ww_tape::SeriesValue`).
+
+The track's records are its `SeriesSegment`s, at the tick of their first sample: one at the start and one at every gap, restart or change of scale. A segment names its first sample's index, a time grid (sample `i` is at `grid_tick + (i - grid_index) · period`, rounded down) and the scale from there on. A gap starts a new grid after the last tick of the one before; a prefix change of an autoranging device keeps the grid, so no sample time moves by rounding. The track is sticky, so every describe set repeats its newest segment and each piece holds the segment its samples start in. A series chunk never spans two segments, so its numbers are at one scale and its head's first and last tick are its samples' on the grid.
+
+`ww_tape::SeriesTimeline` collects a track's segments from its records in any order (`from_records`), checks each against its record time and the ones before, and gives any sample's tick and scale; `check_chunk` checks a chunk head against them. A received `Series<Fixed<..>>` batch goes into chunk columns as integers: each item's stored number is put into the column as is (`SeriesValue::write_parts`), and a `ww_si` quantity's prefix becomes the segment's scale, a change of prefix starting a segment where the `Series` restarts its numeric column. The wire codecs of `Series<T>` and these sample codecs are separate layers: a batch is decoded once on the host and coded again for random access in the file.
 
 ## Decoding
 

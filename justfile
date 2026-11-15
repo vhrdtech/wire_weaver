@@ -441,3 +441,8 @@ fuzz-tape-times:
 [working-directory('fuzz')]
 fuzz-tape-samples:
     cargo +nightly fuzz run tape-samples -- -max_len=65536
+
+# Fuzz ww_tape series tracks: track kinds and segment records from any bytes, damaged segment records (STD-127)
+[working-directory('fuzz')]
+fuzz-tape-series:
+    cargo +nightly fuzz run tape-series -- -max_len=4096

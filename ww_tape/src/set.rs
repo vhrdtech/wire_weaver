@@ -35,6 +35,11 @@ pub enum DescribeError {
     EpochUnmapped { clock: u32 },
     /// A record longer than a block can be.
     TooLong { len: usize },
+    /// A track's kind breaks a rule ([TrackDef::check_kind](crate::TrackDef::check_kind)).
+    Kind {
+        track: u32,
+        error: crate::SeriesError,
+    },
 }
 
 impl core::fmt::Display for DescribeError {
@@ -73,6 +78,7 @@ impl core::fmt::Display for DescribeError {
             DescribeError::TooLong { len } => {
                 write!(f, "record of {len} bytes is longer than a block")
             }
+            DescribeError::Kind { track, error } => write!(f, "track {track}: {error:?}"),
         }
     }
 }
@@ -160,6 +166,10 @@ impl DescribeSet {
                 if !t.dimensions_canonical() {
                     return Err(DescribeError::Dimensions { track: t.number.0 });
                 }
+                t.check_kind().map_err(|error| DescribeError::Kind {
+                    track: t.number.0,
+                    error,
+                })?;
                 vec![t.clock.0]
             }
             Describe::Map(m) => vec![m.from.0, m.to.0],

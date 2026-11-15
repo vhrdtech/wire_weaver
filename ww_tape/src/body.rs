@@ -11,24 +11,9 @@
 //! takes the block as one whose body it doesn't know ([Block::body_known] false). Chunk blocks are never coded: their
 //! columns are read in place.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use crate::{
-    Block, BlockError, BlockKind, CRC, CRC_LEN, FLAG_BODY_CODED, HEADER_LEN, MAX_BLOCK_LEN, varint,
+    Block, BlockError, BlockKind, CRC, CRC_LEN, FLAG_BODY_CODED, HEADER_LEN, MAX_BLOCK_LEN, bytes,
+    varint,
 };
 
 /// The codec of a coded body, the byte after the header.
@@ -71,7 +56,7 @@ pub(crate) struct Coded<'b> {
 pub(crate) fn coded(body: &[u8]) -> Option<Coded<'_>> {
     let (&codec, rest) = body.split_first()?;
     let mut rd = varint::Reader(rest);
-    let decoded_len = usize::try_from(rd.uvar()?).ok()?;
+    let decoded_len = rd.uvar_file()?.at_most(DECODED_BODY_MAX).ok()?;
     let bytes = rd.0;
     let codec = BodyCodec(codec);
     let fits = match codec {
@@ -84,7 +69,7 @@ pub(crate) fn coded(body: &[u8]) -> Option<Coded<'_>> {
         }
         _ => true,
     };
-    (fits && decoded_len <= DECODED_BODY_MAX).then_some(Coded {
+    fits.then_some(Coded {
         codec,
         decoded_len,
         bytes,
@@ -103,11 +88,17 @@ pub enum CodeError {
     UnknownCodec(BodyCodec),
     /// `out` is shorter than [coded_len_max] of the block.
     Full { needed: usize },
+    /// The coded block would be longer than [MAX_BLOCK_LEN]: a stored body of a block near it.
+    TooLong { len: usize },
 }
+
+/// Bytes of the codec and the longest decoded length in front of the coded bytes.
+const CODED_HEAD_MAX: usize = 1 + 10;
 
 /// The most bytes [code_body] writes for a block of `len` bytes.
 pub const fn coded_len_max(len: usize) -> usize {
-    len + 1 + 10 + lz4_flex::block::get_maximum_output_size(len)
+    len.saturating_add(CODED_HEAD_MAX)
+        .saturating_add(lz4_flex::block::get_maximum_output_size(len))
 }
 
 /// Write the records or describe block `block` with its body coded by `codec` into `out` (at least
@@ -115,8 +106,11 @@ pub const fn coded_len_max(len: usize) -> usize {
 /// it is, not coded. The run, seq, other flags and record count stay.
 pub fn code_body(block: &[u8], codec: BodyCodec, out: &mut [u8]) -> Result<usize, CodeError> {
     let b = Block::read(block).map_err(CodeError::Block)?;
+    let bad_length = CodeError::Block(BlockError::BadLength(
+        u32::try_from(block.len()).unwrap_or(u32::MAX),
+    ));
     if b.len() != block.len() {
-        return Err(CodeError::Block(BlockError::BadLength(block.len() as u32)));
+        return Err(bad_length);
     }
     let records = matches!(b.kind, BlockKind::Records | BlockKind::Describe);
     if !(records && b.body_known() && b.body_codec().is_none()) {
@@ -126,33 +120,59 @@ pub fn code_body(block: &[u8], codec: BodyCodec, out: &mut [u8]) -> Result<usize
         return Err(CodeError::UnknownCodec(codec));
     }
     let needed = coded_len_max(block.len());
-    if out.len() < needed {
-        return Err(CodeError::Full { needed });
-    }
-    let body = &block[HEADER_LEN..block.len() - CRC_LEN];
-    out[..HEADER_LEN].copy_from_slice(&block[..HEADER_LEN]);
-    let mut pos = HEADER_LEN;
-    out[pos] = codec.0;
-    pos += 1;
-    pos +=
-        varint::put_uvar(&mut out[pos..], body.len() as u64).ok_or(CodeError::Full { needed })?;
-    pos += if codec == BodyCodec::LZ4 {
-        lz4_flex::block::compress_into(body, &mut out[pos..needed])
-            .expect("the output holds lz4_flex's maximum output size")
+    let full = CodeError::Full { needed };
+    let out = out.get_mut(..needed).ok_or(full)?;
+    let (header, rest) = block.split_first_chunk::<HEADER_LEN>().ok_or(bad_length)?;
+    let (body, _) = rest.split_last_chunk::<CRC_LEN>().ok_or(bad_length)?;
+    let Ok(body_len) = u64::try_from(body.len()) else {
+        return Err(bad_length);
+    };
+    let (out_header, coded) = out.split_first_chunk_mut::<HEADER_LEN>().ok_or(full)?;
+    *out_header = *header;
+    let (codec_byte, after) = coded.split_first_mut().ok_or(full)?;
+    *codec_byte = codec.0;
+    let len_len = varint::put_uvar(after, body_len).ok_or(full)?;
+    let area = after.get_mut(len_len..).ok_or(full)?;
+    let coded_len = if codec == BodyCodec::LZ4 {
+        // the area runs to coded_len_max of the whole block, past lz4_flex's maximum output size for the body
+        #[expect(
+            clippy::expect_used,
+            reason = "out is cut to coded_len_max, which leaves the area lz4_flex's maximum output size"
+        )]
+        let n = lz4_flex::block::compress_into(body, area)
+            .expect("the output holds lz4_flex's maximum output size");
+        n
     } else {
-        out[pos..pos + body.len()].copy_from_slice(body);
+        area.get_mut(..body.len())
+            .ok_or(full)?
+            .copy_from_slice(body);
         body.len()
     };
-    if codec == BodyCodec::LZ4 && pos + CRC_LEN >= block.len() {
-        out[..block.len()].copy_from_slice(block);
+    // header, codec byte, length, coded bytes and CRC
+    let len = [1, len_len, coded_len, CRC_LEN]
+        .into_iter()
+        .try_fold(HEADER_LEN, usize::checked_add)
+        .ok_or(full)?;
+    if codec == BodyCodec::LZ4 && len >= block.len() {
+        out.get_mut(..block.len())
+            .ok_or(full)?
+            .copy_from_slice(block);
         return Ok(block.len());
     }
-    let len = pos + CRC_LEN;
+    if len > MAX_BLOCK_LEN {
+        return Err(CodeError::TooLong { len });
+    }
+    let Ok(len32) = u32::try_from(len) else {
+        return Err(CodeError::TooLong { len });
+    };
     let flags = b.flags | FLAG_BODY_CODED;
-    out[6..8].copy_from_slice(&flags.to_le_bytes());
-    out[8..12].copy_from_slice(&(len as u32).to_le_bytes());
-    let crc = CRC.checksum(&out[..pos]);
-    out[pos..len].copy_from_slice(&crc.to_le_bytes());
+    bytes::put_u16(out, 6, flags).ok_or(full)?;
+    bytes::put_u32(out, 8, len32).ok_or(full)?;
+    let (coded_block, crc) = out
+        .get_mut(..len)
+        .and_then(|b| b.split_last_chunk_mut::<CRC_LEN>())
+        .ok_or(full)?;
+    *crc = CRC.checksum(coded_block).to_le_bytes();
     Ok(len)
 }
 
@@ -163,20 +183,36 @@ pub(crate) fn decode_into<'d>(
     c: &Coded<'_>,
     buf: &'d mut alloc::vec::Vec<u8>,
 ) -> Result<Block<'d>, BlockError> {
-    let len = HEADER_LEN + c.decoded_len + CRC_LEN;
+    // decoded_len is at most DECODED_BODY_MAX: the block is at most MAX_BLOCK_LEN
+    let len = [c.decoded_len, CRC_LEN]
+        .into_iter()
+        .try_fold(HEADER_LEN, usize::checked_add)
+        .filter(|l| *l <= MAX_BLOCK_LEN)
+        .ok_or(BlockError::BadRecords)?;
+    let Ok(len32) = u32::try_from(len) else {
+        return Err(BlockError::BadRecords);
+    };
+    let header = b
+        .bytes()
+        .first_chunk::<HEADER_LEN>()
+        .ok_or(BlockError::BadLength(len32))?;
     buf.clear();
     buf.resize(len, 0);
-    buf[..HEADER_LEN].copy_from_slice(&b.bytes()[..HEADER_LEN]);
+    bytes::put(buf, 0, *header).ok_or(BlockError::BadLength(len32))?;
     let flags = b.flags & !FLAG_BODY_CODED;
-    buf[6..8].copy_from_slice(&flags.to_le_bytes());
-    buf[8..12].copy_from_slice(&(len as u32).to_le_bytes());
-    let end = len - CRC_LEN;
-    match lz4_flex::block::decompress_into(c.bytes, &mut buf[HEADER_LEN..end]) {
+    bytes::put_u16(buf, 6, flags).ok_or(BlockError::BadLength(len32))?;
+    bytes::put_u32(buf, 8, len32).ok_or(BlockError::BadLength(len32))?;
+    let (plain, crc) = buf
+        .split_last_chunk_mut::<CRC_LEN>()
+        .ok_or(BlockError::BadLength(len32))?;
+    let body = plain
+        .get_mut(HEADER_LEN..)
+        .ok_or(BlockError::BadLength(len32))?;
+    match lz4_flex::block::decompress_into(c.bytes, body) {
         Ok(n) if n == c.decoded_len => {}
         _ => return Err(BlockError::BadRecords),
     }
-    let crc = CRC.checksum(&buf[..end]);
-    buf[end..].copy_from_slice(&crc.to_le_bytes());
+    *crc = CRC.checksum(plain).to_le_bytes();
     let buf: &'d [u8] = buf;
     Block::read(buf)
 }
@@ -264,6 +300,30 @@ mod tests {
         assert_eq!(records(&b), records(&Block::read(&plain).unwrap()));
         let mut buf = Vec::new();
         assert_eq!(b.decode(&mut buf).unwrap().bytes(), &coded[..]);
+    }
+
+    #[test]
+    fn a_stored_body_past_the_longest_block_is_refused() {
+        // one record filling a block of MAX_BLOCK_LEN: storing it adds a codec byte and a length
+        let mut buf = vec![0u8; MAX_BLOCK_LEN];
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]).unwrap();
+        w.push_with(5, ClockTime::new(1, 0), |b| Some(b.len()))
+            .unwrap();
+        assert_eq!(w.free(), 0);
+        let len = w.finish();
+        let plain = &buf[..len];
+        assert_eq!(plain.len(), MAX_BLOCK_LEN);
+        let mut out = vec![0u8; coded_len_max(plain.len())];
+        assert_eq!(
+            code_body(plain, BodyCodec::STORED, &mut out),
+            Err(CodeError::TooLong {
+                len: MAX_BLOCK_LEN + 5
+            })
+        );
+        // lz4 shrinks the zeros, and the block reads back
+        let n = code_body(plain, BodyCodec::LZ4, &mut out).unwrap();
+        let b = Block::read(&out[..n]).unwrap();
+        assert_eq!(b.body_codec(), Some(BodyCodec::LZ4));
     }
 
     #[test]

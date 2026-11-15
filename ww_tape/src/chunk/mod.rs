@@ -36,7 +36,8 @@
 //! [Chunk::column_damaged].
 //!
 //! Codec ids name how a column is coded: [Codec::RAW] is the column as plain little-endian values or bytes, ids 1 to
-//! 15 are the event time codec's ([crate::times]).
+//! 15 are the event time codec's ([crate::times]), 16 to 47 the sample codecs' ([crate::samples]), 48 lz4 payloads
+//! ([crate::lz4]).
 
 use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, VERSION};
 

@@ -293,6 +293,14 @@ pub(crate) fn seal(buf: &mut [u8]) {
     buf[len - CRC_LEN..].copy_from_slice(&crc.to_le_bytes());
 }
 
+/// Rewrite the head CRC of the good index block `block` after its header changed (its seq).
+pub(crate) fn restamp_head(block: &mut [u8]) {
+    if let Ok(at) = IndexBlock::head_len(block) {
+        let crc = head_crc(block, at);
+        put_u32(block, 28, crc);
+    }
+}
+
 fn head_crc(b: &[u8], entries_at: usize) -> u32 {
     let mut d = CRC.digest();
     d.update(&b[..28]);

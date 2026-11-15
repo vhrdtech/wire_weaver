@@ -243,3 +243,61 @@ fn damaged_heads_are_refused() {
         }
     }
 }
+
+/// Renumbering an index block rewrites its head CRC too, so its head still reads.
+#[test]
+fn renumbered_index_block_reads() {
+    let entries: Vec<_> = (0..3).map(|i| entry(i, 100 * i)).collect();
+    for kind in [IndexKind::Checkpoint, IndexKind::Final] {
+        let head = IndexHead {
+            kind,
+            self_offset: 900,
+            prev: None,
+        };
+        let mut bytes = write(&head, &entries);
+        crate::set_seq(&mut bytes, 77).unwrap();
+        let block = Block::read(&bytes).unwrap();
+        assert_eq!(block.seq, 77);
+        assert_eq!(IndexBlock::read(&block).unwrap().entry_count(), 3);
+        let head_len = IndexBlock::head_len(&bytes).unwrap();
+        assert!(IndexBlock::read_head(&bytes[..head_len]).is_ok());
+    }
+}
+
+/// Index, finish, tail and piece head blocks are the writer's own: not taken as deferred blocks.
+#[test]
+fn structural_blocks_are_not_deferred() {
+    let dir = std::env::temp_dir().join(format!("ww_tape_index_defer_{}", std::process::id()));
+    _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut w = crate::TapeWriter::create(&dir.join("t.wwt"), crate::SyncPolicy::None).unwrap();
+    let head = IndexHead {
+        kind: IndexKind::Checkpoint,
+        self_offset: 0,
+        prev: None,
+    };
+    let index = write(&head, &[entry(1, 0)]);
+    assert!(matches!(
+        w.defer_block(index),
+        Err(crate::WriteError::Index(IndexError::Invalid(_)))
+    ));
+    let mut tail = [0u8; crate::piece::TAIL_LEN];
+    crate::piece::Tail {
+        piece_len: 1000,
+        finish_offset: 0,
+        finish_len: 200,
+        state: crate::FinishState::Complete,
+        hash: crate::piece::ContentHash([0; 32]),
+        ident: None,
+        next: None,
+    }
+    .write(&mut tail, 0);
+    assert!(w.defer_block(tail.to_vec()).is_err());
+    let mut buf = [0u8; 64];
+    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[1]);
+    b.push(1, ClockTime::new(1, 5), &[b"x"]).unwrap();
+    let len = b.finish();
+    w.defer_block(buf[..len].to_vec()).unwrap();
+    w.finish().unwrap();
+    _ = std::fs::remove_dir_all(&dir);
+}

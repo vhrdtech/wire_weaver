@@ -406,12 +406,18 @@ impl TapeWriter {
         self.write_raw(&b)
     }
 
-    /// A small block (summary, index) that may wait for the gap in front of the next aligned chunk payload. It is
+    /// A small summary or data block that may wait for the gap in front of the next aligned chunk payload. It is
     /// renumbered when placed ([crate::set_seq]), so seqs ascend in the file. In an unaligned file it is written at
-    /// once; past [DEFERRED_BYTES_MAX] waiting, all are.
+    /// once; past [DEFERRED_BYTES_MAX] waiting, all are. Index, finish, tail and piece head blocks are the writer's
+    /// own: refused with [WriteError::Index].
     pub fn defer_block(&mut self, block: Vec<u8>) -> Result<(), WriteError> {
         self.check()?;
-        crate::Block::read(&block).map_err(WriteError::Block)?;
+        let b = crate::Block::read(&block).map_err(WriteError::Block)?;
+        if crate::index::is_structural(b.kind) {
+            return Err(WriteError::Index(IndexError::Invalid(
+                "index, finish, tail and piece head blocks are written by the writer",
+            )));
+        }
         if self.alignment == 0 {
             return self.place(block);
         }

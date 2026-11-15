@@ -560,18 +560,23 @@ pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
     Ok(len as usize)
 }
 
-/// Renumber the whole, good block `block` to `seq` and rewrite its CRCs, so a writer that places blocks later than it
-/// made them (a summary or index block filling the gap before an aligned chunk) keeps seqs ascending in the file.
+/// Renumber the whole, good block `block` to `seq` and rewrite its CRCs (an index block's head CRC too), so a writer
+/// that places blocks later than it made them (a summary block filling the gap before an aligned chunk) keeps seqs
+/// ascending in the file.
 pub fn set_seq(block: &mut [u8], seq: u64) -> Result<(), BlockError> {
     let b = Block::read(block)?;
     if b.len() != block.len() {
         return Err(BlockError::BadLength(block.len() as u32));
     }
     let chunk = b.is_chunk() && b.body_known();
+    let index = b.kind == BlockKind::Index && b.body_known();
     block[16..24].copy_from_slice(&seq.to_le_bytes());
     if chunk {
         chunk::restamp(block);
     } else {
+        if index {
+            index::restamp_head(block);
+        }
         let len = block.len();
         let crc = CRC.checksum(&block[..len - CRC_LEN]);
         block[len - CRC_LEN..].copy_from_slice(&crc.to_le_bytes());

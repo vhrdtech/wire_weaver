@@ -639,6 +639,14 @@ fn level_method(
             false,
             matches!(flow, FlowControl::Credit),
         ),
+        // TODO(CLT-72): flow_by, flow_key and flow_keys of a keyed! companion
+        ApiItemKindOwned::Keys { .. } => {
+            let msg = format!(
+                "keyed! `{}`: a client of a keyed array is not generated yet (CLT-72)",
+                item.ident
+            );
+            quote! { compile_error!(#msg); }
+        }
         ApiItemKindOwned::Trait { .. } => {
             let level = item.get_as_level(api_bundle).expect("api level");
             let level_entry_fn_name = Ident::new(&item.ident, Span::call_site());

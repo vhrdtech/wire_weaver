@@ -423,6 +423,14 @@ fn item_signature(bundle: &ApiBundleOwned, item: &ApiItemOwned) -> String {
             }
             s
         }
+        // TODO(EVO-78): name the keyed array instead of its id
+        ApiItemKindOwned::Keys { of, key, .. } => {
+            format!(
+                "keyed! {ident}: item {} by {}",
+                of.0,
+                type_name(bundle, key)
+            )
+        }
         ApiItemKindOwned::Trait { trait_idx, .. } => {
             let crate_name = |crate_idx: u32| bundle.crate_name(crate_idx).unwrap_or("?");
             let name = match bundle.traits.get(trait_idx.0 as usize) {

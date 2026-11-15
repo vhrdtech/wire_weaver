@@ -32,6 +32,8 @@ pub mod generics;
 #[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]
+pub mod keys;
+#[cfg(feature = "std")]
 pub mod order;
 #[cfg(feature = "std")]
 mod series;
@@ -388,6 +390,19 @@ pub enum ApiItemKind<'i> {
         /// [Batching::Untimed] (its wire item is `Series<T>`, already `ty`) and for a stream that isn't batched.
         #[default = None]
         batch_item_ty: Option<Type<'i>>,
+    },
+    /// Key companion of a resource array (API-67), `keyed!(flow by FlowKey)`: a client addresses the elements of the
+    /// array item `of` by a key. Its operations are a fixed level of three items that [keys::keys_level] builds
+    /// from this one: `index_of(key)`, a read-only `key[]` property and a `keys` stream of `ww_keyed::KeyEvent`s.
+    /// See `docs/api/arrays.md`.
+    Keys {
+        /// Id of the array item in the same level whose elements are keyed.
+        of: UNib32,
+        /// The key type.
+        key: Type<'i>,
+        /// `ww_keyed::KeyEvent<I, K>` of the array's index type and the key, the item of the `keys` stream:
+        /// computed once when the model is built, so a dynamic decoder finds its definition.
+        event_ty: Type<'i>,
     },
     // Reserved, no useful info keeping reserved items after IDs are calculated
 }

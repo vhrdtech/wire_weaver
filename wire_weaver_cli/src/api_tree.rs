@@ -348,6 +348,12 @@ impl TreePrinter<'_> {
                 self.ident(item);
                 _ = write!(self.out, ": {}", self.trait_name(trait_idx.0));
             }
+            // TODO(EVO-78): `flow[] keyed by FlowKey` on the array's own line
+            ApiItemKindOwned::Keys { key, .. } => {
+                _ = write!(self.out, "{} ", style("keyed").true_color(0xCF, 0x8E, 0x6D));
+                self.ident(item);
+                _ = write!(self.out, " by {}", self.ty(key));
+            }
         }
         if let Some(since) = &item.since {
             _ = write!(self.out, " {}", style(format!("since {since:?}")).dim());

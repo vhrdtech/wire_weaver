@@ -1709,6 +1709,14 @@ fn level_matcher(
         ApiItemKindOwned::FlowSink { ty, flow } => {
             handle_stream(api_bundle, index_chain, cx, &ident, ty, false, Some(*flow))
         }
+        // TODO(SRV-62): dispatch of a keyed! companion
+        ApiItemKindOwned::Keys { .. } => {
+            let msg = format!(
+                "keyed! `{}`: a server of a keyed array is not generated yet (SRV-62)",
+                api_item.ident
+            );
+            quote! { compile_error!(#msg) }
+        }
         ApiItemKindOwned::Trait { .. } => {
             let process_fn_name = Ident::new(
                 format!("process_{level_name_chain}_{}", api_item.ident).as_str(),

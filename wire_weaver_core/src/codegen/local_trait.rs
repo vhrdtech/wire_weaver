@@ -173,6 +173,9 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
             ApiItemKindOwned::Trait { .. } => {
                 skipped.push(format!("`{}` (nested trait level)", item.ident));
             }
+            ApiItemKindOwned::Keys { .. } => {
+                skipped.push(format!("`{}` (keyed! companion)", item.ident));
+            }
         }
     }
     (fns, skipped)

@@ -500,6 +500,7 @@ fn kind_name(kind: &ApiItemKindOwned) -> &'static str {
             ..
         } => "a reliable stream",
         ApiItemKindOwned::Trait { .. } => "a trait",
+        ApiItemKindOwned::Keys { .. } => "a keyed! companion",
     }
 }
 

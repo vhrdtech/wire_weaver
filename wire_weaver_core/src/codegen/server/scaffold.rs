@@ -474,6 +474,13 @@ impl Scaffold<'_> {
                     self.flow(item, &name, item_index_len, *flow)?;
                     self.stream(item, &name, item_index_len, ty, false)?
                 }
+                // TODO(SRV-62): handlers of a keyed! companion
+                ApiItemKindOwned::Keys { .. } => {
+                    return Err(anyhow!(
+                        "keyed! `{}`: server handlers of a keyed array are not generated yet (SRV-62)",
+                        item.ident
+                    ));
+                }
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }

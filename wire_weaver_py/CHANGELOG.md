@@ -12,6 +12,7 @@
 
 ### 🚀 Features
 
+- `keyed!` items show as `keyed flow_keys: by FlowKey` in a node's signature (API-67).
 - A `Coded` byte that is a spare code of its codec (`0x7F` of `MuLawSingleZero`, exact_units codec-niche) raises, naming the code and the codec, as the device's decode refuses it (EVO-49).
 - A `Coded` value (a G.711 μ-law byte, exact_units LVL-6) reads as the `ww.Quantity` it means, with the code in `ww.Quantity.code`; a `ww.Quantity` written into one is encoded exactly (STD-109).
 - `Quantity.origin` (CLT-65): the origin's name read from a `Point<O, Fixed<U, ..>>` (`"Celsius"`, `"BoardTemp"`,

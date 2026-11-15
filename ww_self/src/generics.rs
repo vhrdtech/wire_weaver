@@ -173,6 +173,7 @@ impl<'a> Validator<'a> {
                     .chain(return_ty.as_ref())
                     .chain(batch_item_ty.as_ref())
                     .collect(),
+                ApiItemKindOwned::Keys { key, event_ty, .. } => vec![key, event_ty],
                 ApiItemKindOwned::Trait { .. } => vec![],
             };
             for ty in types {
@@ -876,6 +877,10 @@ impl Instantiator {
                     if let Some(ty) = write_err_ty {
                         self.ty(bundle, ty)?;
                     }
+                }
+                ApiItemKindOwned::Keys { key, event_ty, .. } => {
+                    self.ty(bundle, key)?;
+                    self.ty(bundle, event_ty)?;
                 }
                 ApiItemKindOwned::Stream { .. }
                 | ApiItemKindOwned::FlowSink { .. }

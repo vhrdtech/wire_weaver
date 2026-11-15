@@ -178,6 +178,13 @@ impl DynResource {
                     flow: None,
                 },
                 ApiItemKindOwned::Trait { .. } => unreachable!("traits are levels"),
+                // TODO(CLT-72): the companion's level (ww_self::keys::keys_level) and key paths
+                ApiItemKindOwned::Keys { .. } => {
+                    return Err(Error::Other(format!(
+                        "`{}`: keyed! arrays are not reachable from the dynamic client yet (CLT-72)",
+                        self.path
+                    )));
+                }
             },
             (_, None) => unreachable!("only the API root has no item"),
         })

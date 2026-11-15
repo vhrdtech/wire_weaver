@@ -126,6 +126,7 @@
 
 ### 🚀 Features
 
+- The dynamic client knows `keyed!` items (API-67) and answers `Error::Other` naming CLT-72 for them until key paths exist.
 - "documentation updated" (EVO-69): a device that reconnects with the same API and other docs is logged so (`DeviceApiInfo::docs_updated_since`), and a skipped definition the host has with other docs is put back by its shape and logged, not refused.
 - Observers of an element of a resource array (API-63) end when the device removes it: a `StreamSideband::Close` at an observed level's path gives its observers `ObserveEvent::Ended`, then `StreamError::Closed`; `configure` on them fails, and observing the path again starts a new level. The dynamic client observes an element by its path (`DynResource::index`).
 - `ItemTime` (CLT-70): what an item's time can be (`Second`, a full `TimePoint`), and `ww_si` re-exported for generated code.

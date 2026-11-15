@@ -180,6 +180,9 @@ fn item_signature(res: &DynResource, item: &ApiItemOwned) -> String {
             let level = item.get_as_level(bundle).map(|l| l.trait_name.clone());
             format!("{name}{array}: {}", level.unwrap_or_default())
         }
+        ApiItemKindOwned::Keys { key, .. } => {
+            format!("keyed {name}: by {}", type_name(key, bundle))
+        }
     }
 }
 

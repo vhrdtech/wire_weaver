@@ -175,6 +175,10 @@ macro_rules! define_visitor {
                         v.visit_type(ty);
                     }
                 }
+                ApiItemKindOwned::Keys { key, event_ty, .. } => {
+                    v.visit_type(key);
+                    v.visit_type(event_ty);
+                }
                 ApiItemKindOwned::Trait { .. } => {}
             }
         }

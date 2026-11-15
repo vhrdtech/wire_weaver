@@ -356,3 +356,44 @@ fn a_duplicate_block_is_not_a_cut() {
         "{errors:?}"
     );
 }
+
+/// A block written again after padding to the next sector (a rewrite after a failed program) resumes the data like
+/// its next block does: same bytes dropped, other bytes taking its place, for both readers.
+#[test]
+fn a_duplicate_after_a_gap_resumes_the_data() {
+    let sd = Layout::UNALIGNED.on_sd_card();
+    let card = run(NEW, RunTag::NONE, sd, 10);
+    let (from, at) = (block_start(&card, 3), block_start(&card, 4));
+    let other = {
+        let mut buf = [0u8; 256];
+        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, BlockId::new(NEW, 3), &[1]);
+        b.push(9, ClockTime::new(1, 3), &[b"rewritten"]).unwrap();
+        let len = b.finish();
+        buf[..len].to_vec()
+    };
+    for (again, replaced) in [(card[from..at].to_vec(), false), (other, true)] {
+        let mut padded = card[..at].to_vec();
+        while !padded.len().is_multiple_of(512) {
+            padded.push(0xFF);
+        }
+        let gap = (at as u64, (padded.len() - at) as u64);
+        let bytes = [&padded[..], &again, &card[at..]].concat();
+        let (got, errors) = walk(&bytes, Medium::Raw);
+        let want = if replaced {
+            [seqs(NEW, 1..4), seqs(NEW, 3..11)].concat()
+        } else {
+            seqs(NEW, 1..11)
+        };
+        assert_eq!(got, want);
+        assert!(
+            matches!(errors[0], FileError::Gap { offset, len } if (offset, len) == gap),
+            "{errors:?}"
+        );
+        assert_eq!(errors.len(), 1 + usize::from(replaced), "{errors:?}");
+        let r = TapeReader::open_with(&bytes[..], raw()).unwrap();
+        let p = &r.pieces()[0];
+        assert_eq!((p.end, p.cut), (bytes.len() as u64, None));
+        assert_eq!(p.gaps, [gap]);
+        assert_eq!(p.replaced.len(), usize::from(replaced));
+    }
+}

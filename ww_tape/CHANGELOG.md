@@ -29,6 +29,10 @@
 - `BlockKind::Data` is `BlockKind::Records`; `Producer` has only its name: `wall_ns_at_zero` is a wall clock and a `ClockMap` (STD-117).
 - `TrackDef` names its `clock`, carries `dimensions` (part of its identity, `track_id`) and an optional item type `item` (STD-117).
 
+### 🐛 Fixes
+
+- A duplicate of the last block after a gap resumes the data instead of cutting it (STD-129).
+
 ### 🚀 Features
 
 - Reserved, refused until built: `Codec::SERIES` (49), `Codec::RUNS` (36), `Element::LEAVES` (13), `ColumnKind::PAYLOAD_LEAF` (7), summary head bytes 54..56 (STD-129).

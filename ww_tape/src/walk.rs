@@ -107,9 +107,13 @@ impl RunState {
     }
 
     /// Whether a good block found past a gap goes on with the data: the current run's next block (a seq after the
-    /// last, or a block that takes no part in the order), or a run that may start there.
+    /// last, or a block that takes no part in the order), the last block again (a rewrite after a failed program,
+    /// same bytes or not), or a run that may start there.
     pub(crate) fn resumes(&self, b: &Block<'_>) -> bool {
-        self.verdict(b, true) == Verdict::Take
+        matches!(
+            self.verdict(b, true),
+            Verdict::Take | Verdict::Duplicate { .. }
+        )
     }
 
     /// The places past a blank or bad stretch starting at `start` a reader probes for the data going on, ascending,

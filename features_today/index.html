@@ -6480,6 +6480,9 @@ feature tracker.</p>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape clocks and describe</a></strong>: Clocks with exact rates, clock maps, typed items and track dimensions in tapes; deterministic bytes.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape chunk blocks</a></strong>: Self-locating chunk blocks, 4 KiB aligned payloads and a CRC per 64 KiB segment, so damage costs one segment.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape summary blocks</a></strong>: A stored item tree for events and mergeable min, max, sum and power summaries for series, so an overview reads a few hundred KB, never the items.</li>
+<li><strong><a href="../transport/tap/#index-finish-and-tail">Tape index, finish and tail</a></strong>: Checkpoint and final indexes, a BLAKE3 content hash and a tail found from the end: a crash costs the open chunk.</li>
+<li><strong><a href="../transport/tap/#tape-pieces">Tape pieces</a></strong>: One recording as a chain of complete files, linked both ways; a deleted first piece reads as head cut.</li>
+<li><strong><a href="../transport/tap/#reading-by-position">Positional tape reader</a></strong>: Reads tapes by offset from any byte source, also in the browser over HTTP range requests.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>

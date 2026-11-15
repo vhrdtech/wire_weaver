@@ -2,7 +2,7 @@
 
 use std::io::{self, Read};
 
-use crate::reader::{OwnedBlock, header_of, report_len, wide};
+use crate::reader::{OwnedBlock, report_len, wide};
 use crate::walk::{Head, RunState, Verdict};
 use crate::{
     Block, BlockError, GAP_CHECKS_MAX, HEADER_LEN, MAGIC, Medium, RunTag, block_len, is_blank,
@@ -23,15 +23,14 @@ struct Checked {
 impl Checked {
     fn of(b: &Block<'_>) -> Self {
         Checked {
-            head: header_of(b),
+            head: b.detach(),
             len: b.len(),
         }
     }
 
     /// The block on the bytes it was checked on, at the start of `buf`; None when `buf` is shorter.
     fn on(self, buf: &[u8]) -> Option<Block<'_>> {
-        let bytes = buf.get(..self.len)?;
-        Some(Block { bytes, ..self.head })
+        self.head.on(buf.get(..self.len)?)
     }
 }
 

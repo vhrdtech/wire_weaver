@@ -277,21 +277,6 @@ pub(crate) fn report_len(n: usize) -> u32 {
     u32::try_from(n).unwrap_or(u32::MAX)
 }
 
-/// The header fields of `b`, with no bytes: `Block { bytes, ..head }` puts them back on the bytes `b` was read from,
-/// without a second check.
-pub(crate) fn header_of(b: &Block<'_>) -> Block<'static> {
-    Block {
-        version: b.version,
-        kind: b.kind,
-        seq: b.seq,
-        run: b.run,
-        flags: b.flags,
-        record_count: b.record_count,
-        bytes: &[],
-        intact: b.intact,
-    }
-}
-
 /// A block checked once, its bytes owned: lent out as a [Block] again without a second check.
 #[derive(Clone, Debug)]
 pub(crate) struct OwnedBlock {
@@ -307,15 +292,18 @@ impl OwnedBlock {
         if b.len() != bytes.len() {
             return Err(BlockError::BadLength(report_len(bytes.len())));
         }
-        let head = header_of(&b);
+        let head = b.detach();
         Ok(OwnedBlock { bytes, head })
     }
 
+    #[expect(
+        clippy::expect_used,
+        reason = "OwnedBlock::read checked these bytes as one whole block, at least HEADER_LEN + CRC_LEN long"
+    )]
     pub(crate) fn block(&self) -> Block<'_> {
-        Block {
-            bytes: &self.bytes,
-            ..self.head
-        }
+        self.head
+            .on(&self.bytes)
+            .expect("OwnedBlock::read checked these bytes as one whole block")
     }
 
     pub(crate) fn bytes(&self) -> &[u8] {

@@ -892,6 +892,44 @@ impl<'b> Block<'b> {
         }
     }
 
+    /// The block's header, with no bytes: [Block::on] lends it again on the bytes it was read from, without a
+    /// second check.
+    pub(crate) fn detach(&self) -> Block<'static> {
+        Block {
+            version: self.version,
+            kind: self.kind,
+            seq: self.seq,
+            run: self.run,
+            flags: self.flags,
+            record_count: self.record_count,
+            bytes: &[],
+            covered: &[],
+            body: &[],
+            crc: self.crc,
+            intact: self.intact,
+        }
+    }
+
+    /// A [Block::detach]ed header on `bytes`, the whole block it was read from; None when `bytes` is too short for
+    /// a block.
+    pub(crate) fn on<'c>(&self, bytes: &'c [u8]) -> Option<Block<'c>> {
+        let (covered, _) = bytes.split_last_chunk::<CRC_LEN>()?;
+        let (_, body) = covered.split_first_chunk::<HEADER_LEN>()?;
+        Some(Block {
+            version: self.version,
+            kind: self.kind,
+            seq: self.seq,
+            run: self.run,
+            flags: self.flags,
+            record_count: self.record_count,
+            bytes,
+            covered,
+            body,
+            crc: self.crc,
+            intact: self.intact,
+        })
+    }
+
     /// The header, and for a chunk block its head checked; no CRC over the payload yet.
     fn read_unchecked(bytes: &'b [u8]) -> Result<(Self, Option<Chunk<'b>>), BlockError> {
         let len = block_len(bytes)?;

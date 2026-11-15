@@ -1036,46 +1036,5 @@ fn column_offset(entry: &[u8; COLUMN_ENTRY_LEN]) -> crate::FromFile<u32> {
     crate::FromFile::new(u32::from_le_bytes([o0, o1, o2, o3]))
 }
 
-/// A little-endian u32 at `at` (fields of piece and finish blocks).
-///
-/// # Panics
-///
-/// When `buf` is shorter than `at + 4`.
-pub(crate) fn get_u32(buf: &[u8], at: usize) -> u32 {
-    let v = le_u32(buf, at);
-    assert!(
-        v.is_some(),
-        "4 bytes at {at} of a {}-byte buffer",
-        buf.len()
-    );
-    v.unwrap_or_default()
-}
-
-/// A little-endian u64 at `at`.
-///
-/// # Panics
-///
-/// When `buf` is shorter than `at + 8`.
-pub(crate) fn get_u64(buf: &[u8], at: usize) -> u64 {
-    let v = le_u64(buf, at);
-    assert!(
-        v.is_some(),
-        "8 bytes at {at} of a {}-byte buffer",
-        buf.len()
-    );
-    v.unwrap_or_default()
-}
-
-/// Write `v` little-endian at `at`.
-///
-/// # Panics
-///
-/// When `buf` is shorter than `at + 4`.
-pub(crate) fn put_u32(buf: &mut [u8], at: usize, v: u32) {
-    let len = buf.len();
-    let written = crate::bytes::put_u32(buf, at, v);
-    assert!(written.is_some(), "4 bytes at {at} of a {len}-byte buffer");
-}
-
 #[cfg(test)]
 mod tests;

@@ -82,8 +82,13 @@ impl Layout {
     }
 
     /// This layout on raw NAND with erase blocks of `erase_block` and pages of `page` bytes: gaps up to two erase
-    /// blocks, resumed on pages (ONFI 6.0 §3.1). A writer there pads to the page at a sync and programs each page
-    /// once, in order; the padding reads as a gap.
+    /// blocks, resumed on pages (ONFI 6.0 §3.1).
+    ///
+    /// A writer on raw NAND programs each page once, in page order: at a sync it pads the rest of the page with FFh
+    /// and starts the next block on the next page, never appending into a programmed page. A reader takes the padding
+    /// as a blank stretch followed by the run's next block, a gap, not the end; the cost is up to one page per sync.
+    /// On MLC NAND a power cut can also corrupt an earlier, synced page paired with the one being programmed: keeping
+    /// paired pages of unsynced writes apart from synced data is the medium layer's, not the format's.
     pub const fn on_raw_nand(self, erase_block: u32, page: u32) -> Layout {
         Layout {
             gap_max: Bytes::new(erase_block.saturating_mul(2)),

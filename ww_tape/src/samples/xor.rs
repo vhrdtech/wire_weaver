@@ -9,8 +9,7 @@ pub(super) enum Flavor {
     Chimp,
 }
 
-/// Bytes of the group table entry.
-const ENTRY: usize = 4;
+use super::ENTRY;
 
 /// Chimp's leading zeros, rounded down, by index.
 const CHIMP_LEADING: [u32; 8] = [0, 8, 12, 16, 18, 20, 22, 24];
@@ -303,40 +302,14 @@ pub(super) fn encode<T: Sample>(
     groups * ENTRY + wr.at
 }
 
-/// Check the group table of a column of `count` samples: ascending ends, the last one the stream's length.
+/// Check the group table of a column of `count` samples.
 pub(super) fn check_table(bytes: &[u8], count: usize) -> Result<(), SampleError> {
-    let bad = SampleError::BadLength { len: bytes.len() };
-    let groups = count.div_ceil(XOR_GROUP);
-    let table = groups.checked_mul(ENTRY).ok_or(bad)?;
-    if bytes.len() < table {
-        return Err(bad);
-    }
-    let mut prev = 0usize;
-    for e in bytes[..table].as_chunks::<ENTRY>().0 {
-        let end = u32::from_le_bytes(*e) as usize;
-        if end < prev {
-            return Err(bad);
-        }
-        prev = end;
-    }
-    if prev != bytes.len() - table {
-        return Err(bad);
-    }
-    Ok(())
+    super::check_table(bytes, count.div_ceil(XOR_GROUP))
 }
 
-/// The bytes of group `g` in the column, table included in the offsets; the table was checked.
+/// The bytes of group `g` in the column; the table was checked.
 pub(super) fn group_range(bytes: &[u8], count: usize, g: usize) -> Range<usize> {
-    let table = count.div_ceil(XOR_GROUP) * ENTRY;
-    let end_of = |i: usize| {
-        u32::from_le_bytes(
-            bytes[i * ENTRY..(i + 1) * ENTRY]
-                .try_into()
-                .expect("4 bytes"),
-        ) as usize
-    };
-    let from = if g == 0 { 0 } else { end_of(g - 1) };
-    table + from..table + end_of(g)
+    super::table_range(bytes, count.div_ceil(XOR_GROUP), g)
 }
 
 /// Decode samples from `first` on into `out` (whole samples of `lanes` scalars) from a column whose table was

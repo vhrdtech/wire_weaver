@@ -292,6 +292,43 @@ fn check_type<T: Sample>(element: Element) -> Result<(), SampleError> {
     }
 }
 
+/// Bytes of a group table entry.
+const ENTRY: usize = 4;
+
+/// Check the table of a grouped column of `groups` groups: ascending ends, the last one the length after the table.
+fn check_table(bytes: &[u8], groups: usize) -> Result<(), SampleError> {
+    let bad = SampleError::BadLength { len: bytes.len() };
+    let table = groups.checked_mul(ENTRY).ok_or(bad)?;
+    if bytes.len() < table {
+        return Err(bad);
+    }
+    let mut prev = 0usize;
+    for e in bytes[..table].as_chunks::<ENTRY>().0 {
+        let end = u32::from_le_bytes(*e) as usize;
+        if end < prev {
+            return Err(bad);
+        }
+        prev = end;
+    }
+    if prev != bytes.len() - table {
+        return Err(bad);
+    }
+    Ok(())
+}
+
+/// The bytes of group `g` of a grouped column whose table was checked.
+fn table_range(bytes: &[u8], groups: usize, g: usize) -> Range<usize> {
+    let table = groups * ENTRY;
+    let end_of = |i: usize| {
+        let e: [u8; ENTRY] = bytes[i * ENTRY..(i + 1) * ENTRY]
+            .try_into()
+            .expect("4 bytes");
+        u32::from_le_bytes(e) as usize
+    };
+    let from = if g == 0 { 0 } else { end_of(g - 1) };
+    table + from..table + end_of(g)
+}
+
 /// A sample column read in place: its codec, shape and count, checked against its bytes.
 #[derive(Copy, Clone, Debug)]
 pub struct Samples<'b> {

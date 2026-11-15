@@ -123,6 +123,13 @@ doc = false
 bench = false
 
 [[bin]]
+name = "tape-index"
+path = "src/tape_index.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
 name = "link-hello"
 path = "src/link_hello.rs"
 test = false

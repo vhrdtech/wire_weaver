@@ -160,6 +160,8 @@ check-core:
     @cargo check -p ww_si --no-default-features --features=f32,u16,defmt
     # Fixed on a firmware: no number type of NumericValue beyond what it enables (u64 storage without the u64 feature)
     @cargo check -p ww_si --no-default-features --features=time,information,counting,dimensionless,u16
+    # the ww_tape positional reader builds for the browser, without std (STD-124)
+    @cargo check -p ww_tape --no-default-features --features=alloc --target wasm32-unknown-unknown
 
 # cargo check mcu workspace
 [working-directory('mcu')]
@@ -423,3 +425,8 @@ fuzz-tape-chunk:
 [working-directory('fuzz')]
 fuzz-tape-summary:
     cargo +nightly fuzz run tape-summary -- -max_len=16384
+
+# Fuzz ww_tape index, finish, tail and piece head blocks and the positional reader on any bytes (STD-122, STD-124)
+[working-directory('fuzz')]
+fuzz-tape-index:
+    cargo +nightly fuzz run tape-index -- -max_len=65536

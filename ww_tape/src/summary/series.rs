@@ -1,5 +1,9 @@
 //! Series summaries: the statistics a series track declares, per channel and node, and how they merge.
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
+use exact_units::Magnitude;
 use shrink_wrap::prelude::*;
 
 use crate::Element;
@@ -253,6 +257,83 @@ impl Value {
     }
 }
 
+/// Why statistics at two scales can't be brought to one.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ScaleError {
+    /// No scale both are whole multiples of: their ratio isn't a fraction of integers (a power of π, a half
+    /// exponent), or the common scale is out of a [Magnitude]'s range.
+    NoCommonScale,
+    /// A factor to the common scale past [FACTOR_MAX], or a minimum or maximum past its 64-bit type there.
+    Overflow,
+}
+
+/// Largest factor from a scale to the common scale: every factor is then exact as an f64.
+pub const FACTOR_MAX: u64 = 1 << 53;
+
+/// The largest scale `a` and `b` are both whole multiples of: `10⁻⁶` for `10⁻³` and `10⁻⁶`, `1/1000` for `1/1000` and
+/// `1024`. The scale statistics of samples at both scales are kept in, so minimum and maximum stay exact integers.
+pub fn common_scale(a: Magnitude, b: Magnitude) -> Result<Magnitude, ScaleError> {
+    if a == b {
+        return Ok(a);
+    }
+    // a / b = p / q in lowest terms, so a = (b / q) · p and b = (b / q) · q
+    let (_p, q) = a
+        .checked_div(b)
+        .ok()
+        .and_then(|r| r.to_ratio())
+        .ok_or(ScaleError::NoCommonScale)?;
+    let q = u64::try_from(q).ok().ok_or(ScaleError::NoCommonScale)?;
+    Magnitude::checked_ratio(1, q)
+        .and_then(|r| b.checked_mul(r))
+        .ok()
+        .ok_or(ScaleError::NoCommonScale)
+}
+
+/// `scale / common` as a whole number, at most [FACTOR_MAX].
+pub fn scale_factor(scale: Magnitude, common: Magnitude) -> Result<u64, ScaleError> {
+    if scale == common {
+        return Ok(1);
+    }
+    let (n, d) = scale
+        .checked_div(common)
+        .ok()
+        .and_then(|r| r.to_ratio())
+        .ok_or(ScaleError::NoCommonScale)?;
+    if d != 1 {
+        return Err(ScaleError::NoCommonScale);
+    }
+    u64::try_from(n)
+        .ok()
+        .filter(|n| *n <= FACTOR_MAX)
+        .ok_or(ScaleError::Overflow)
+}
+
+impl Value {
+    /// The value times `k`, exact for integers.
+    fn times(self, k: u64) -> Result<Value, ScaleError> {
+        Ok(match self {
+            Value::I64(v) => Value::I64(
+                i128::from(v)
+                    .checked_mul(i128::from(k))
+                    .and_then(|x| i64::try_from(x).ok())
+                    .ok_or(ScaleError::Overflow)?,
+            ),
+            Value::U64(v) => Value::U64(v.checked_mul(k).ok_or(ScaleError::Overflow)?),
+            Value::F64(v) => Value::F64(v * k as f64),
+        })
+    }
+
+    /// Whether `self` (a minimum) and `max` are of no samples: the minimum above the maximum, as
+    /// [ChannelStats::empty] has them. NaN for floats rescales to NaN, so floats never count as empty here.
+    fn no_samples(self, max: Value) -> bool {
+        match (self, max) {
+            (Value::I64(a), Value::I64(b)) => a > b,
+            (Value::U64(a), Value::U64(b)) => a > b,
+            _ => false,
+        }
+    }
+}
+
 /// Larger of two floats, NaN left out; the first on a tie, so the result is the same on every platform.
 fn fmax(a: f64, b: f64) -> f64 {
     if a.is_nan() || b > a { b } else { a }
@@ -310,6 +391,98 @@ impl ChannelStats {
             self.power_mean = ((a + b) / total as f64) as f32;
         }
         self.power_max = fmax(f64::from(self.power_max), f64::from(next.power_max)) as f32;
+    }
+
+    /// The statistics with every stored number times `k`: from a scale to a scale `k` times finer. Minimum and
+    /// maximum stay exact integers (an error past their 64-bit type), sums are multiplied by `k`, sums of squares
+    /// and powers by `k²`; clipped counts and flags don't depend on the scale.
+    pub fn rescaled(&self, k: u64) -> Result<Self, ScaleError> {
+        if k == 1 {
+            return Ok(*self);
+        }
+        if k > FACTOR_MAX {
+            return Err(ScaleError::Overflow);
+        }
+        let mut s = *self;
+        let kf = k as f64;
+        for c in 0..2 {
+            if !self.min[c].no_samples(self.max[c]) {
+                s.min[c] = self.min[c].times(k)?;
+                s.max[c] = self.max[c].times(k)?;
+            }
+            s.sum[c] = self.sum[c] * kf;
+            s.sum_sq[c] = self.sum_sq[c] * (kf * kf);
+        }
+        s.power_mean = (f64::from(self.power_mean) * (kf * kf)) as f32;
+        s.power_max = (f64::from(self.power_max) * (kf * kf)) as f32;
+        Ok(s)
+    }
+
+    /// Merge `next` (at `next_scale`, `next_samples` samples, right after this one's `samples` at `scale`) into this
+    /// one at the common scale of the two ([common_scale]), which it returns. On an error this one is left as it was.
+    pub fn merge_scaled(
+        &mut self,
+        scale: Magnitude,
+        next: &ChannelStats,
+        next_scale: Magnitude,
+        samples: u64,
+        next_samples: u64,
+    ) -> Result<Magnitude, ScaleError> {
+        let common = common_scale(scale, next_scale)?;
+        let mut a = self.rescaled(scale_factor(scale, common)?)?;
+        let b = next.rescaled(scale_factor(next_scale, common)?)?;
+        a.merge(&b, samples, next_samples);
+        *self = a;
+        Ok(common)
+    }
+}
+
+/// A node of a series: per channel its statistics, all at one scale.
+#[cfg(feature = "alloc")]
+#[derive(Clone, Debug, PartialEq)]
+pub struct SeriesNode {
+    /// What a stored number (minimum, maximum, sum) is worth in the sample type's unit; squares and powers are at
+    /// its square.
+    pub scale: Magnitude,
+    /// One per channel.
+    pub channels: Vec<ChannelStats>,
+}
+
+#[cfg(feature = "alloc")]
+impl SeriesNode {
+    /// The node at `scale`, which must be a whole fraction of its own ([scale_factor]). On an error it is left as it
+    /// was.
+    pub fn rescale(&mut self, scale: Magnitude) -> Result<(), ScaleError> {
+        let k = scale_factor(self.scale, scale)?;
+        if k != 1 {
+            self.channels = self
+                .channels
+                .iter()
+                .map(|c| c.rescaled(k))
+                .collect::<Result<_, _>>()?;
+        }
+        self.scale = scale;
+        Ok(())
+    }
+
+    /// Merge `next` (`next_samples` samples, right after this one's `samples`, as many channels) into this one, both
+    /// at their [common_scale] first. On an error this one is left as it was.
+    pub fn merge(
+        &mut self,
+        next: &SeriesNode,
+        samples: u64,
+        next_samples: u64,
+    ) -> Result<(), ScaleError> {
+        let common = common_scale(self.scale, next.scale)?;
+        let mut b = next.clone();
+        b.rescale(common)?;
+        let mut a = self.clone();
+        a.rescale(common)?;
+        for (x, y) in a.channels.iter_mut().zip(&b.channels) {
+            x.merge(y, samples, next_samples);
+        }
+        *self = a;
+        Ok(())
     }
 }
 
@@ -575,30 +748,32 @@ pub use builder::{SERIES_BLOCK_BYTES, SeriesStart, SeriesSummaries};
 
 #[cfg(feature = "std")]
 mod builder {
+    use exact_units::Magnitude;
+
     use super::scalar::Acc;
-    use super::{ChannelStats, Scalar, SeriesSummarySpec, components, is_complex};
+    use super::{
+        ChannelStats, Scalar, SeriesNode, SeriesSummarySpec, common_scale, components, is_complex,
+    };
     use crate::summary::levels::{LevelNode, Levels, Output};
-    use crate::summary::{Layout, SummaryError, SummaryHead, Tree, write_series_summary};
-    use crate::{Element, Ratio64, SampleShape};
-    use exact_units::Rounding;
+    use crate::summary::{
+        Layout, SCALE_LEN_MAX, SummaryError, SummaryHead, Tree, summary_len, write_series_summary,
+    };
+    use crate::{Element, Ratio64, SampleShape, SeriesSegment, SeriesTimeline};
 
-    /// A level's node of a series: one [ChannelStats] per channel.
-    #[derive(Clone, Debug)]
-    struct Node(Vec<ChannelStats>);
-
-    impl LevelNode for Node {
-        fn merge(&mut self, next: &Self, items: u64, next_items: u64) {
-            for (a, b) in self.0.iter_mut().zip(&next.0) {
-                a.merge(b, items, next_items);
-            }
+    impl LevelNode for SeriesNode {
+        fn merge(&mut self, next: &Self, items: u64, next_items: u64) -> Result<(), SummaryError> {
+            SeriesNode::merge(self, next, items, next_items).map_err(SummaryError::Scale)
         }
     }
 
     /// Builds the summary tree of one series track as samples come, and encodes its summary blocks.
     ///
     /// Samples go in as interleaved frames ([Self::push]): per sample every channel, per channel every component.
-    /// Finished blocks wait in [Self::take_blocks] for
+    /// A segment ([Self::segment]) may change the scale of the numbers from the next sample on; a node holding
+    /// samples of two scales is kept at their [common_scale](super::common_scale), so every node's minimum and maximum
+    /// are exact in the sample type's unit. Finished blocks wait in [Self::take_blocks] for
     /// [TapeWriter::defer_block](crate::TapeWriter::defer_block); [Self::finish] writes the partial nodes at the end.
+    /// After an error the summaries are no longer whole: drop them.
     pub struct SeriesSummaries<T: Scalar> {
         track_id: u64,
         track_number: u32,
@@ -606,17 +781,24 @@ mod builder {
         channels: u16,
         spec: SeriesSummarySpec,
         origin: u64,
-        first_tick: i64,
-        period: Ratio64,
+        timeline: SeriesTimeline,
+        /// Scale of the samples from [Self::acc_from] on
+        scale: Magnitude,
+        /// Common scale of every sample so far
+        common: Magnitude,
         lo: T,
         hi: T,
+        /// The open level-0 node's samples since [Self::acc_from]
         acc: Vec<Acc<T>>,
+        acc_from: u64,
+        /// The open level-0 node's samples before [Self::acc_from], at an earlier scale, and their count
+        part: Option<(SeriesNode, u64)>,
         next_item: u64,
-        levels: Levels<Node>,
+        levels: Levels<SeriesNode>,
         blocks: Vec<Vec<u8>>,
     }
 
-    /// Where a series starts: its track, its samples and the tick of its first sample.
+    /// Where a series starts: its track, its samples and the segment of its first sample.
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     pub struct SeriesStart {
         /// [TrackDef::id](crate::TrackDef::id).
@@ -627,8 +809,8 @@ mod builder {
         pub shape: SampleShape,
         /// Index of the first sample in the track (a later tape piece starts past 0).
         pub first_item: u64,
-        /// Tick of the first sample.
-        pub first_tick: i64,
+        /// The segment the first sample is in: its grid and scale.
+        pub segment: SeriesSegment,
         /// Ticks from one sample to the next, exact.
         pub period: Ratio64,
     }
@@ -646,7 +828,8 @@ mod builder {
                 ));
             }
             let channels = u16::try_from(start.shape.channels.0)
-                .map_err(|_e| SummaryError::Invalid("more than 65535 channels"))?;
+                .ok()
+                .ok_or(SummaryError::Invalid("more than 65535 channels"))?;
             if channels == 0 {
                 return Err(SummaryError::Invalid("a series has no channels"));
             }
@@ -661,6 +844,13 @@ mod builder {
             if (spec.stats.power_mean || spec.stats.power_max) && !is_complex(element) {
                 return Err(SummaryError::Invalid("power of a real element"));
             }
+            if start.segment.first_index > start.first_item {
+                return Err(SummaryError::Invalid(
+                    "the first sample is before its segment",
+                ));
+            }
+            let mut timeline = SeriesTimeline::new(start.period);
+            timeline.push(start.segment).map_err(SummaryError::Series)?;
             let (lo, hi) = match spec.clip {
                 None => (T::LOWEST, T::HIGHEST),
                 Some(c) => (T::from_f64(c.low, false), T::from_f64(c.high, true)),
@@ -673,17 +863,20 @@ mod builder {
                 channels,
                 spec,
                 origin: start.first_item,
-                first_tick: start.first_tick,
-                period: start.period,
+                timeline,
+                scale: start.segment.scale,
+                common: start.segment.scale,
                 lo,
                 hi,
                 acc: vec![Acc::NEW; usize::from(channels)],
+                acc_from: start.first_item,
+                part: None,
                 next_item: start.first_item,
                 levels: Levels::new(
                     start.first_item,
                     spec.base_shift,
                     node_len,
-                    SERIES_BLOCK_BYTES,
+                    SERIES_BLOCK_BYTES - SCALE_LEN_MAX,
                 ),
                 blocks: Vec::new(),
             })
@@ -692,12 +885,41 @@ mod builder {
         /// Keep blocks within `bytes` (default [SERIES_BLOCK_BYTES]); call before the first sample.
         pub fn set_max_block_bytes(&mut self, bytes: usize) {
             let node_len = self.spec.stats.node_len(self.element) * usize::from(self.channels);
-            self.levels = Levels::new(self.origin, self.spec.base_shift, node_len, bytes);
+            self.levels = Levels::new(
+                self.origin,
+                self.spec.base_shift,
+                node_len,
+                bytes.saturating_sub(SCALE_LEN_MAX),
+            );
         }
 
         /// The next sample's index.
         pub fn next_item(&self) -> u64 {
             self.next_item
+        }
+
+        /// The segments seen so far.
+        pub fn timeline(&self) -> &SeriesTimeline {
+            &self.timeline
+        }
+
+        /// Start segment `s` at the next sample ([Self::next_item]): a new grid (a gap, a restart) or a new scale (a
+        /// prefix change). Refused when it doesn't start at the next sample, breaks a rule of [SeriesTimeline], or
+        /// its scale has no common scale with the ones before.
+        pub fn segment(&mut self, s: SeriesSegment) -> Result<(), SummaryError> {
+            if s.first_index != self.next_item {
+                return Err(SummaryError::Invalid(
+                    "a segment that doesn't start at the next sample",
+                ));
+            }
+            let common = common_scale(self.common, s.scale).map_err(SummaryError::Scale)?;
+            self.timeline.push(s).map_err(SummaryError::Series)?;
+            if s.scale != self.scale {
+                self.flush_acc()?;
+                self.scale = s.scale;
+                self.common = common;
+            }
+            Ok(())
         }
 
         /// Add samples: whole frames of `channels × components` scalars, interleaved; `flags` ORs into the nodes they
@@ -716,13 +938,17 @@ mod builder {
             let node = 1u64 << self.spec.base_shift;
             while !rest.is_empty() {
                 let to_boundary = node - (self.next_item & (node - 1));
+                // at most 2^BASE_SHIFT_MAX samples to the boundary
                 let frames = (rest.len() / stride).min(to_boundary as usize);
                 let (now, later) = rest.split_at(frames * stride);
                 self.add(now, flags);
-                self.next_item += frames as u64;
+                self.next_item = self
+                    .next_item
+                    .checked_add(frames as u64)
+                    .ok_or(SummaryError::Invalid("sample index past u64"))?;
                 rest = later;
                 if self.next_item & (node - 1) == 0 {
-                    self.close_node();
+                    self.close_node()?;
                     self.encode()?;
                 }
             }
@@ -747,20 +973,64 @@ mod builder {
             }
         }
 
+        /// The open level-0 node's samples since the last change of scale, at their scale, and their count.
+        fn acc_node(&self) -> (SeriesNode, u64) {
+            let samples = self.next_item - self.acc_from;
+            let channels = self
+                .acc
+                .iter()
+                .map(|a| a.stats(self.element, samples))
+                .collect();
+            (
+                SeriesNode {
+                    scale: self.scale,
+                    channels,
+                },
+                samples,
+            )
+        }
+
+        /// The open level-0 node so far: the part before the last change of scale merged with the samples since.
+        fn open_node(&self) -> Result<Option<SeriesNode>, SummaryError> {
+            let (node, samples) = self.acc_node();
+            Ok(match (&self.part, samples) {
+                (None, 0) => None,
+                (None, _) => Some(node),
+                (Some((p, _)), 0) => Some(p.clone()),
+                (Some((p, n)), _) => {
+                    let mut p = p.clone();
+                    p.merge(&node, *n, samples).map_err(SummaryError::Scale)?;
+                    Some(p)
+                }
+            })
+        }
+
+        /// Move the samples since the last change of scale into the open node's earlier part.
+        fn flush_acc(&mut self) -> Result<(), SummaryError> {
+            let (node, samples) = self.acc_node();
+            if samples > 0 {
+                self.part = Some(match self.part.take() {
+                    None => (node, samples),
+                    Some((mut p, n)) => {
+                        p.merge(&node, n, samples).map_err(SummaryError::Scale)?;
+                        (p, n + samples)
+                    }
+                });
+                self.acc.fill(Acc::NEW);
+            }
+            self.acc_from = self.next_item;
+            Ok(())
+        }
+
         /// Close the open level-0 node (full, or partial at the end) and hand it up.
-        fn close_node(&mut self) {
-            let shift = self.spec.base_shift;
-            let idx = (self.next_item - 1) >> shift;
-            let from = (idx << shift).max(self.origin);
-            let samples = self.next_item - from;
-            let node = Node(
-                self.acc
-                    .iter()
-                    .map(|a| a.stats(self.element, samples))
-                    .collect(),
-            );
-            self.acc.fill(Acc::NEW);
-            self.levels.push(0, idx, node, self.next_item);
+        fn close_node(&mut self) -> Result<(), SummaryError> {
+            self.flush_acc()?;
+            let (node, _) = self
+                .part
+                .take()
+                .ok_or(SummaryError::Invalid("no open node to close"))?;
+            let idx = (self.next_item - 1) >> self.spec.base_shift;
+            self.levels.push(0, idx, node, self.next_item)
         }
 
         /// Whether the open level-0 node holds samples.
@@ -772,18 +1042,15 @@ mod builder {
         /// sample.
         pub fn finish(&mut self) -> Result<(), SummaryError> {
             if self.node_open() {
-                self.close_node();
+                self.close_node()?;
             }
-            self.levels.finish(self.next_item);
+            self.levels.finish(self.next_item)?;
             self.encode()
         }
 
         fn tick(&self, item: u64) -> Result<i64, SummaryError> {
-            let d = i64::try_from(item - self.origin)
-                .map_err(|_e| SummaryError::Invalid("sample index past i64"))?;
-            self.period
-                .apply_rounded(d, Rounding::Floor)
-                .and_then(|t| self.first_tick.checked_add(t))
+            self.timeline
+                .tick(item)
                 .ok_or(SummaryError::Invalid("sample tick past i64"))
         }
 
@@ -793,8 +1060,19 @@ mod builder {
                     level,
                     first_item,
                     items,
-                    nodes,
+                    mut nodes,
                 } = out;
+                // one scale per block: the common scale of its nodes
+                let mut scale = nodes
+                    .first()
+                    .map(|n| n.scale)
+                    .ok_or(SummaryError::Invalid("a batch holds nodes"))?;
+                for n in &nodes {
+                    scale = common_scale(scale, n.scale).map_err(SummaryError::Scale)?;
+                }
+                for n in &mut nodes {
+                    n.rescale(scale).map_err(SummaryError::Scale)?;
+                }
                 let last_tick = self.tick(first_item + items - 1)?;
                 let head = SummaryHead {
                     track_id: self.track_id,
@@ -806,6 +1084,7 @@ mod builder {
                         element: self.element,
                         channels: self.channels,
                         stats: self.spec.stats,
+                        scale,
                     },
                     first_item,
                     items,
@@ -813,8 +1092,9 @@ mod builder {
                     last_tick,
                     latest_end: last_tick,
                 };
-                let refs: Vec<&[ChannelStats]> = nodes.iter().map(|n| n.0.as_slice()).collect();
-                let mut buf = vec![0u8; crate::summary::summary_len(&head)];
+                let refs: Vec<&[ChannelStats]> =
+                    nodes.iter().map(|n| n.channels.as_slice()).collect();
+                let mut buf = vec![0u8; summary_len(&head)?];
                 let len = write_series_summary(&mut buf, 0, &head, &refs)?;
                 buf.truncate(len);
                 self.blocks.push(buf);
@@ -829,25 +1109,19 @@ mod builder {
         }
 
         /// What a live reader takes from memory for `level`: the number of the first node not in a block yet, and the
-        /// nodes from it on, per channel; the last may be partial (the open node).
-        pub fn pending(&self, level: u8) -> (u64, Vec<Vec<ChannelStats>>) {
-            let (mut first, nodes) = self.levels.pending(level);
-            let mut nodes: Vec<Vec<ChannelStats>> = nodes.into_iter().map(|n| n.0).collect();
-            let shift = self.spec.base_shift;
-            if level == 0 && self.node_open() {
-                let idx = (self.next_item - 1) >> shift;
-                let from = (idx << shift).max(self.origin);
+        /// nodes from it on, each at its own scale; the last may be partial (the open node).
+        pub fn pending(&self, level: u8) -> Result<(u64, Vec<SeriesNode>), SummaryError> {
+            let (mut first, mut nodes) = self.levels.pending(level);
+            if level == 0
+                && self.node_open()
+                && let Some(open) = self.open_node()?
+            {
                 if nodes.is_empty() {
-                    first = idx;
+                    first = (self.next_item - 1) >> self.spec.base_shift;
                 }
-                nodes.push(
-                    self.acc
-                        .iter()
-                        .map(|a| a.stats(self.element, self.next_item - from))
-                        .collect(),
-                );
+                nodes.push(open);
             }
-            (first, nodes)
+            Ok((first, nodes))
         }
     }
 }

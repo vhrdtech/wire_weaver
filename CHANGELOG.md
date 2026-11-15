@@ -87,6 +87,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape` describe copies (STD-122): a reader takes no sticky state from them, so `ww explain` no longer prints a stale session at a capture's end. See the `ww_tape` and `wire_weaver_client` changelogs.
 - `ww_tape` series tracks (STD-127): `TrackDef` kinds, `SeriesDef` from exact_units types, segment records for gaps and prefix changes. See the `ww_tape` and `ww_tap` changelogs.
 - `ww_tape` payload codec (STD-126): bit-packed payload lengths, raw or lz4 payloads, salvage item by item. See the `ww_tape` changelog.
+- `ww_tape` series summaries across a change of scale (STD-128): nodes at a common scale, each block states its scale. See the `ww_tape` changelog.
 
 ### Added
 

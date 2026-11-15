@@ -10,10 +10,22 @@
 //!   An overview of a track reads only the level whose nodes are about as many as the pixels, never the items.
 //! - **Series summaries** ([Tree::Series]): nodes of `2^base_shift` samples at level 0 ([SeriesSummarySpec]). A node
 //!   holds per channel the statistics the track declares ([SeriesStats]); no ticks, since a series' sample ticks
-//!   follow from its first tick and period.
+//!   follow from its segments' grids and period.
 //!
 //! Every statistic merges: a parent is its 16 children merged ([EventNode::merge], [ChannelStats::merge]), in item
 //! order, so a reader building coarser bins (a view cache) gets what the writer would have written.
+//!
+//! # Scales
+//!
+//! A series segment may change the scale of the stored numbers (an autoranging device changes prefix), and nodes run
+//! over sample indexes, so a node may hold samples of two scales. Such a node is kept at their common scale
+//! ([common_scale]: the largest scale both are whole multiples of, `10⁻⁶` for `10⁻³` and `10⁻⁶`): every number of the
+//! coarser samples is multiplied by a whole factor, so minimum and maximum stay exact integers and sums don't mix
+//! scales ([ChannelStats::rescaled], [SeriesNode::merge]). A summary block states its scale: the common scale of
+//! all its nodes, which it stores at that scale, so a block is read alone, without the segment records. Merging nodes
+//! of two blocks (a view cache across a change of scale) goes through [SeriesNode::merge], which brings both to their
+//! common scale first; two scales with no common scale (a ratio that isn't a fraction of integers) are refused, never
+//! mixed.
 //!
 //! A summary block ([BlockKind::Summary]) holds a batch of consecutive nodes of one level of one track. The block
 //! header's count (bytes 12..16) is the number of nodes; bytes 24..32 stay reserved, zero:
@@ -28,13 +40,16 @@
 //!  47  u8  element of a series' samples (Element code), 0 for events
 //!  48 u16  fields: the statistics stored (EventFields, SeriesStats bits)
 //!  50 u16  channels of a series, 1 and up; 0 for events
-//!  52 u32  reserved, 0
+//!  52 u16  scale length: bytes of the scale after the head, 1 to SCALE_LEN_MAX for a series, 0 for events
+//!  54 u16  reserved, 0
 //!  56 u64  first item: the first item the block covers (the first node's first item, or later in a partial node)
 //!  64 u64  items the block covers, 1 and up; the nodes are those holding items [first, first + items)
 //!  72 i64  first tick: the first covered item's start
 //!  80 i64  last tick: the last covered item's start, at least the first tick
 //!  88 i64  latest end: the largest end of a covered item, at least the last tick
-//!  96 ...  body: columns of n values each, n the node count, little-endian, back to back
+//!  96 ...  scale of a series: what a stored minimum, maximum or sum is worth in the sample type's unit, as the
+//!          shrink_wrap bytes of an exact_units Magnitude (10⁻³ is fa 00); squares and powers are at its square
+//! 96+s ... body: columns of n values each, n the node count, little-endian, back to back
 //! len-4 u32 CRC over bytes 0..len-4, as in every block
 //! ```
 //!
@@ -49,11 +64,19 @@
 //! Summary blocks are small (a few KiB) and rebuilt from the data when lost. In an aligned file the writer places them
 //! in the gap before the next aligned chunk payload ([TapeWriter::defer_block](crate::TapeWriter::defer_block)).
 
-use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, VERSION};
+use exact_units::Magnitude;
+use shrink_wrap::prelude::*;
+
+use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, SeriesError, VERSION};
 
 mod series;
 use crate::Element;
-pub use series::{ChannelStats, ClipRange, SeriesStats, SeriesSummarySpec, Stat, Value};
+#[cfg(feature = "alloc")]
+pub use series::SeriesNode;
+pub use series::{
+    ChannelStats, ClipRange, FACTOR_MAX, ScaleError, SeriesStats, SeriesSummarySpec, Stat, Value,
+    common_scale, scale_factor,
+};
 #[cfg(feature = "std")]
 pub use series::{SERIES_BLOCK_BYTES, Scalar, SeriesStart, SeriesSummaries};
 use series::{components, is_complex};
@@ -74,6 +97,8 @@ pub const EVENT_BASE_SHIFT: u8 = 11;
 pub const FANOUT_SHIFT: u8 = 4;
 /// Largest node shift: a node holds at most 2^62 items.
 pub const NODE_SHIFT_MAX: u8 = 62;
+/// Most bytes of a series block's scale: a power of 10 takes 2, one with two more primes about 10.
+pub const SCALE_LEN_MAX: usize = 64;
 
 /// Which kind of tree a summary block belongs to.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -162,12 +187,18 @@ pub struct SummaryHead {
 
 /// What a summary block stores per node, by its tree.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "a head is read once per block; a boxed scale would cost Copy"
+)]
 pub enum Layout {
     Events(EventFields),
     Series {
         element: Element,
         channels: u16,
         stats: SeriesStats,
+        /// What a stored minimum, maximum or sum of every node in the block is worth in the sample type's unit.
+        scale: Magnitude,
     },
 }
 
@@ -205,6 +236,7 @@ impl SummaryHead {
                 element,
                 channels,
                 stats,
+                ..
             } => stats.node_len(element) * usize::from(channels),
         }
     }
@@ -244,6 +276,7 @@ impl SummaryHead {
                     element,
                     channels,
                     stats,
+                    ..
                 },
             ) => {
                 if u32::from(self.node_shift) < u32::from(FANOUT_SHIFT) * u32::from(self.level) {
@@ -279,14 +312,34 @@ pub enum SummaryError {
     TooLong { len: usize },
     /// The head breaks a rule of the format, or the body is not as long as the head says.
     Invalid(&'static str),
+    /// A series block's scale doesn't encode or decode.
+    ScaleBytes(shrink_wrap::Error),
+    /// Statistics at two scales can't be brought to one.
+    Scale(ScaleError),
+    /// A segment a series writer was handed breaks a rule of the series' timeline.
+    Series(SeriesError),
+}
+
+/// The scale bytes of a block with `head`: empty for an event tree.
+fn scale_bytes<'a>(
+    head: &SummaryHead,
+    buf: &'a mut [u8; SCALE_LEN_MAX],
+) -> Result<&'a [u8], SummaryError> {
+    match head.layout {
+        Layout::Events(_) => Ok(&[]),
+        Layout::Series { scale, .. } => scale.to_ww_bytes(buf).map_err(SummaryError::ScaleBytes),
+    }
 }
 
 /// Bytes of a summary block with `head`.
-pub fn summary_len(head: &SummaryHead) -> usize {
-    let nodes = usize::try_from(head.node_count()).unwrap_or(usize::MAX);
-    nodes
-        .saturating_mul(head.node_len())
-        .saturating_add(HEADER_LEN + SUMMARY_FIXED_LEN + CRC_LEN)
+pub fn summary_len(head: &SummaryHead) -> Result<usize, SummaryError> {
+    let mut scale = [0u8; SCALE_LEN_MAX];
+    let scale_len = scale_bytes(head, &mut scale)?.len();
+    usize::try_from(head.node_count())
+        .ok()
+        .and_then(|n| n.checked_mul(head.node_len()))
+        .and_then(|n| n.checked_add(HEADER_LEN + SUMMARY_FIXED_LEN + scale_len + CRC_LEN))
+        .ok_or(SummaryError::TooLong { len: usize::MAX })
 }
 
 fn put_u16(buf: &mut [u8], at: usize, v: u16) {
@@ -301,16 +354,25 @@ fn put_u64(buf: &mut [u8], at: usize, v: u64) {
     buf[at..at + 8].copy_from_slice(&v.to_le_bytes());
 }
 
-fn get_u16(buf: &[u8], at: usize) -> u16 {
-    u16::from_le_bytes(buf[at..at + 2].try_into().expect("2 bytes"))
+/// The `N` bytes at `at`, None past the end.
+fn get<const N: usize>(buf: &[u8], at: usize) -> Option<[u8; N]> {
+    buf.get(at..at.checked_add(N)?)?.try_into().ok()
 }
 
-fn get_u32(buf: &[u8], at: usize) -> u32 {
-    u32::from_le_bytes(buf[at..at + 4].try_into().expect("4 bytes"))
+fn get_u8(buf: &[u8], at: usize) -> Option<u8> {
+    buf.get(at).copied()
 }
 
-fn get_u64(buf: &[u8], at: usize) -> u64 {
-    u64::from_le_bytes(buf[at..at + 8].try_into().expect("8 bytes"))
+fn get_u16(buf: &[u8], at: usize) -> Option<u16> {
+    get(buf, at).map(u16::from_le_bytes)
+}
+
+fn get_u32(buf: &[u8], at: usize) -> Option<u32> {
+    get(buf, at).map(u32::from_le_bytes)
+}
+
+fn get_u64(buf: &[u8], at: usize) -> Option<u64> {
+    get(buf, at).map(u64::from_le_bytes)
 }
 
 /// Writes one summary block into a buffer: the head at [Self::new], the columns ([Self::body_mut]), the CRC at
@@ -318,13 +380,15 @@ fn get_u64(buf: &[u8], at: usize) -> u64 {
 pub struct SummaryWriter<'b> {
     buf: &'b mut [u8],
     nodes: usize,
+    /// Where the body starts: after the head and the scale
+    body_at: usize,
 }
 
 impl<'b> SummaryWriter<'b> {
     /// Write the header and head of a summary block with `head`, its body zero until filled in.
     pub fn new(buf: &'b mut [u8], seq: u64, head: &SummaryHead) -> Result<Self, SummaryError> {
         head.check()?;
-        let len = summary_len(head);
+        let len = summary_len(head)?;
         if len > MAX_BLOCK_LEN {
             return Err(SummaryError::TooLong { len });
         }
@@ -351,23 +415,34 @@ impl<'b> SummaryWriter<'b> {
                 element,
                 channels,
                 stats,
+                ..
             } => (element.code(), stats.bits(), channels),
         };
         buf[47] = element;
         put_u16(buf, 48, fields);
         put_u16(buf, 50, channels);
+        let mut scale = [0u8; SCALE_LEN_MAX];
+        let scale = scale_bytes(head, &mut scale)?;
+        put_u16(buf, 52, scale.len() as u16);
+        let at = HEADER_LEN + SUMMARY_FIXED_LEN;
+        let body_at = at + scale.len();
+        buf[at..body_at].copy_from_slice(scale);
         put_u64(buf, 56, head.first_item);
         put_u64(buf, 64, head.items);
         put_u64(buf, 72, head.first_tick as u64);
         put_u64(buf, 80, head.last_tick as u64);
         put_u64(buf, 88, head.latest_end as u64);
-        Ok(SummaryWriter { buf, nodes })
+        Ok(SummaryWriter {
+            buf,
+            nodes,
+            body_at,
+        })
     }
 
     /// The body: the columns back to back, [Summary::body] order.
     pub fn body_mut(&mut self) -> &mut [u8] {
         let end = self.buf.len() - CRC_LEN;
-        &mut self.buf[HEADER_LEN + SUMMARY_FIXED_LEN..end]
+        &mut self.buf[self.body_at..end]
     }
 
     /// Nodes in the block.
@@ -395,21 +470,34 @@ pub struct Summary<'b> {
 impl<'b> Summary<'b> {
     /// Read and check the head of the summary block `block` (exactly its bytes, CRC checked by the caller).
     pub(crate) fn read(block: &'b [u8]) -> Result<Self, SummaryError> {
+        let short = SummaryError::Invalid("shorter than the head");
         let len = block.len();
-        if len < HEADER_LEN + SUMMARY_FIXED_LEN + CRC_LEN {
-            return Err(SummaryError::Invalid("shorter than the head"));
+        let body_end = len.checked_sub(CRC_LEN).ok_or(short)?;
+        if body_end < HEADER_LEN + SUMMARY_FIXED_LEN {
+            return Err(short);
         }
-        if get_u64(block, 24) != 0 || get_u32(block, 52) != 0 {
+        let u8_at = |at| get_u8(block, at).ok_or(short);
+        let u16_at = |at| get_u16(block, at).ok_or(short);
+        let u32_at = |at| get_u32(block, at).ok_or(short);
+        let u64_at = |at| get_u64(block, at).ok_or(short);
+        if u64_at(24)? != 0 || u16_at(54)? != 0 {
             return Err(SummaryError::Invalid("reserved bytes not zero"));
         }
-        let tree = Tree::from_u8(block[44]).ok_or(SummaryError::Invalid("unknown tree"))?;
-        let fields = get_u16(block, 48);
-        let channels = get_u16(block, 50);
+        let tree = Tree::from_u8(u8_at(44)?).ok_or(SummaryError::Invalid("unknown tree"))?;
+        let fields = u16_at(48)?;
+        let channels = u16_at(50)?;
+        let scale_len = usize::from(u16_at(52)?);
+        let scale_at = HEADER_LEN + SUMMARY_FIXED_LEN;
+        let body_at = scale_at + scale_len;
+        let scale_bytes = block
+            .get(scale_at..body_at.min(body_end))
+            .filter(|b| b.len() == scale_len)
+            .ok_or(SummaryError::Invalid("scale past the end"))?;
         let layout = match tree {
             Tree::Events => {
-                if block[47] != 0 || channels != 0 {
+                if u8_at(47)? != 0 || channels != 0 || scale_len != 0 {
                     return Err(SummaryError::Invalid(
-                        "element or channels in an event tree",
+                        "element, channels or scale in an event tree",
                     ));
                 }
                 Layout::Events(
@@ -418,35 +506,40 @@ impl<'b> Summary<'b> {
                 )
             }
             Tree::Series => Layout::Series {
-                element: Element::from_code(block[47])
+                element: Element::from_code(u8_at(47)?)
                     .ok_or(SummaryError::Invalid("unknown element"))?,
                 channels,
                 stats: SeriesStats::from_bits(fields)
                     .ok_or(SummaryError::Invalid("unknown statistics"))?,
+                scale: read_scale(scale_bytes)?,
             },
         };
         let head = SummaryHead {
-            track_id: get_u64(block, 32),
-            track_number: get_u32(block, 40),
+            track_id: u64_at(32)?,
+            track_number: u32_at(40)?,
             tree,
-            level: block[45],
-            node_shift: block[46],
+            level: u8_at(45)?,
+            node_shift: u8_at(46)?,
             layout,
-            first_item: get_u64(block, 56),
-            items: get_u64(block, 64),
-            first_tick: get_u64(block, 72) as i64,
-            last_tick: get_u64(block, 80) as i64,
-            latest_end: get_u64(block, 88) as i64,
+            first_item: u64_at(56)?,
+            items: u64_at(64)?,
+            first_tick: u64_at(72)? as i64,
+            last_tick: u64_at(80)? as i64,
+            latest_end: u64_at(88)? as i64,
         };
         head.check()?;
         let nodes = head.node_count();
-        if nodes != u64::from(get_u32(block, 12)) {
+        if nodes != u64::from(u32_at(12)?) {
             return Err(SummaryError::Invalid(
                 "node count differs from the head's items",
             ));
         }
-        let body = &block[HEADER_LEN + SUMMARY_FIXED_LEN..len - CRC_LEN];
-        let nodes = nodes as usize;
+        let body = block
+            .get(body_at..body_end)
+            .ok_or(SummaryError::Invalid("body length differs from the head"))?;
+        let nodes = usize::try_from(nodes)
+            .ok()
+            .ok_or(SummaryError::Invalid("more nodes than fit in memory"))?;
         if nodes.checked_mul(head.node_len()) != Some(body.len()) {
             return Err(SummaryError::Invalid("body length differs from the head"));
         }
@@ -455,6 +548,14 @@ impl<'b> Summary<'b> {
 
     pub fn head(&self) -> SummaryHead {
         self.head
+    }
+
+    /// The scale of a series block's numbers, None in an event tree.
+    pub fn scale(&self) -> Option<Magnitude> {
+        match self.head.layout {
+            Layout::Series { scale, .. } => Some(scale),
+            Layout::Events(_) => None,
+        }
     }
 
     /// Nodes in the block.
@@ -467,9 +568,9 @@ impl<'b> Summary<'b> {
         self.body
     }
 
-    fn word(&self, column: usize, width: usize, i: usize) -> &'b [u8] {
-        let at = column * width * self.nodes + i * width;
-        &self.body[at..at + width]
+    /// The `N` bytes of value `i` of the column at byte `column_at`, None past the body.
+    fn word<const N: usize>(&self, column_at: usize, i: usize) -> Option<[u8; N]> {
+        get(self.body, column_at.checked_add(i.checked_mul(N)?)?)
     }
 
     /// Node `i` of an event tree (0 is the first node); None past the last or in a series.
@@ -481,18 +582,18 @@ impl<'b> Summary<'b> {
             return None;
         }
         let n = self.nodes;
-        let first_tick = i64::from_le_bytes(self.word(0, 8, i).try_into().expect("8 bytes"));
-        let last_tick = i64::from_le_bytes(self.word(1, 8, i).try_into().expect("8 bytes"));
+        let first_tick = i64::from_le_bytes(self.word(0, i)?);
+        let last_tick = i64::from_le_bytes(self.word(8 * n, i)?);
         let mut at = 16 * n;
         let flags = if f.flags {
-            let v = get_u32(self.body, at + 4 * i);
+            let v = u32::from_le_bytes(self.word(at, i)?);
             at += 4 * n;
             v
         } else {
             0
         };
         let latest_end = if f.latest_end {
-            get_u64(self.body, at + 8 * i) as i64
+            i64::from_le_bytes(self.word(at, i)?)
         } else {
             last_tick
         };
@@ -504,12 +605,14 @@ impl<'b> Summary<'b> {
         })
     }
 
-    /// The column of `stat` for `channel` and `component` of a series, None when the block doesn't hold it.
+    /// The column of `stat` for `channel` and `component` of a series, at the block's [scale](Self::scale); None
+    /// when the block doesn't hold it.
     pub fn series_column(&self, stat: Stat, channel: u16, component: u8) -> Option<StatColumn<'b>> {
         let Layout::Series {
             element,
             channels,
             stats,
+            ..
         } = self.head.layout
         else {
             return None;
@@ -532,16 +635,22 @@ impl<'b> Summary<'b> {
         }
         let width = stat.width();
         let col = usize::from(channel) * usize::from(components) + usize::from(component);
-        let from = (at + col * width) * self.nodes;
+        let from = at
+            .checked_add(col.checked_mul(width)?)?
+            .checked_mul(self.nodes)?;
+        let bytes = self
+            .body
+            .get(from..from.checked_add(width.checked_mul(self.nodes)?)?)?;
         Some(StatColumn {
             stat,
             element,
-            bytes: &self.body[from..from + width * self.nodes],
+            bytes,
         })
     }
 
-    /// The statistics of `channel` in node `i` of a series; None past the last node or channel, or in an event tree.
-    /// Statistics the block doesn't hold read as their [ChannelStats::empty] values.
+    /// The statistics of `channel` in node `i` of a series, at the block's [scale](Self::scale); None past the last
+    /// node or channel, or in an event tree. Statistics the block doesn't hold read as their [ChannelStats::empty]
+    /// values.
     pub fn channel_stats(&self, channel: u16, i: usize) -> Option<ChannelStats> {
         let Layout::Series {
             element, channels, ..
@@ -553,7 +662,10 @@ impl<'b> Summary<'b> {
             return None;
         }
         let mut s = ChannelStats::empty(element);
-        let get = |stat, c| self.series_column(stat, channel, c).map(|col| col.value(i));
+        let get = |stat, c| {
+            self.series_column(stat, channel, c)
+                .and_then(|col| col.get(i))
+        };
         for c in 0..components(element) {
             let k = usize::from(c);
             if let Some(v) = get(Stat::Min, c) {
@@ -583,6 +695,40 @@ impl<'b> Summary<'b> {
         }
         Some(s)
     }
+
+    /// Node `i` of a series, every channel, at the block's scale; None past the last node or in an event tree.
+    #[cfg(feature = "alloc")]
+    pub fn series_node(&self, i: usize) -> Option<SeriesNode> {
+        let Layout::Series {
+            channels, scale, ..
+        } = self.head.layout
+        else {
+            return None;
+        };
+        let channels = (0..channels)
+            .map(|ch| self.channel_stats(ch, i))
+            .collect::<Option<_>>()?;
+        Some(SeriesNode { scale, channels })
+    }
+}
+
+/// The scale of a series block: a Magnitude that takes exactly its bytes, written the one way it is written.
+fn read_scale(bytes: &[u8]) -> Result<Magnitude, SummaryError> {
+    if bytes.is_empty() {
+        return Err(SummaryError::Invalid("a series block without a scale"));
+    }
+    let scale = Magnitude::from_ww_bytes(bytes).map_err(SummaryError::ScaleBytes)?;
+    let mut again = [0u8; SCALE_LEN_MAX];
+    if scale
+        .to_ww_bytes(&mut again)
+        .map_err(SummaryError::ScaleBytes)?
+        != bytes
+    {
+        return Err(SummaryError::Invalid(
+            "scale bytes not as the scale writes them",
+        ));
+    }
+    Ok(scale)
 }
 
 /// One statistic of one channel and component over the nodes of a summary block.
@@ -603,24 +749,19 @@ impl StatColumn<'_> {
         self.bytes.is_empty()
     }
 
-    /// The value of node `i`: minimum and maximum by the element's kind, sums and powers as [Value::F64], counts and
-    /// flags as [Value::U64].
-    ///
-    /// # Panics
-    ///
-    /// When `i` is not below [Self::len].
-    pub fn value(&self, i: usize) -> Value {
-        let w = self.stat.width();
-        let b = &self.bytes[i * w..i * w + w];
-        match self.stat {
-            Stat::Min | Stat::Max => Value::from_bits(self.element, get_u64(b, 0)),
-            Stat::Sum | Stat::SumSq => Value::F64(f64::from_bits(get_u64(b, 0))),
-            Stat::Clipped => Value::U64(get_u64(b, 0)),
-            Stat::Flags => Value::U64(u64::from(get_u32(b, 0))),
+    /// The value of node `i`, None past the last: minimum and maximum by the element's kind, sums and powers as
+    /// [Value::F64], counts and flags as [Value::U64].
+    pub fn get(&self, i: usize) -> Option<Value> {
+        let at = i.checked_mul(self.stat.width())?;
+        Some(match self.stat {
+            Stat::Min | Stat::Max => Value::from_bits(self.element, get_u64(self.bytes, at)?),
+            Stat::Sum | Stat::SumSq => Value::F64(f64::from_bits(get_u64(self.bytes, at)?)),
+            Stat::Clipped => Value::U64(get_u64(self.bytes, at)?),
+            Stat::Flags => Value::U64(u64::from(get_u32(self.bytes, at)?)),
             Stat::PowerMean | Stat::PowerMax => {
-                Value::F64(f64::from(f32::from_bits(get_u32(b, 0))))
+                Value::F64(f64::from(f32::from_bits(get_u32(self.bytes, at)?)))
             }
-        }
+        })
     }
 }
 
@@ -709,6 +850,7 @@ pub fn write_series_summary(
         element,
         channels,
         stats,
+        ..
     } = head.layout
     else {
         return Err(SummaryError::Invalid("not a series"));

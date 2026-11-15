@@ -1,12 +1,15 @@
 //! ww_tape summary blocks on any bytes, and trees built from the input: reading never panics, every accessor of a
-//! good summary block stays in bounds, and every block a builder writes reads back with its nodes covering the items.
+//! good summary block stays in bounds, and every block a builder writes reads back with its nodes covering the items,
+//! also across prefix changes of a series, whose nodes then merge at a common scale.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use ww_tape::summary::{
     EventTree, ItemRun, SeriesStart, SeriesStats, SeriesSummaries, SeriesSummarySpec, Stat,
 };
-use ww_tape::{Block, Element, EventFields, Ratio64, SampleShape, set_seq};
+use ww_tape::{
+    Block, Element, EventFields, Magnitude, Ratio64, SampleShape, SeriesSegment, set_seq,
+};
 
 /// Look at everything a summary block read from `data` gives.
 fn walk(data: &[u8]) {
@@ -18,18 +21,20 @@ fn walk(data: &[u8]) {
         let (first, items) = h.node_items(i as u64);
         assert!(items >= 1 && first >= h.first_item);
         let _ = s.event_node(i);
+        let _ = s.series_node(i);
         for ch in 0..4 {
             let _ = s.channel_stats(ch, i);
             for stat in Stat::ALL {
                 for c in 0..3 {
                     if let Some(col) = s.series_column(stat, ch, c) {
                         assert_eq!(col.len(), s.node_count());
-                        let _ = col.value(i);
+                        assert!(col.get(i).is_some());
                     }
                 }
             }
         }
     }
+    assert_eq!(s.scale().is_some(), s.event_node(0).is_none());
     let mut copy = b.bytes().to_vec();
     set_seq(&mut copy, b.seq.wrapping_add(1)).expect("a good block renumbers");
     assert!(Block::read(&copy).is_ok());
@@ -112,7 +117,7 @@ fuzz_target!(|data: &[u8]| {
         track_number: 2,
         shape,
         first_item: first,
-        first_tick: -5,
+        segment: SeriesSegment::start(first, -5, Magnitude::pow10(-3)),
         period: Ratio64::new(3, 2).expect("a ratio"),
     };
     let spec = SeriesSummarySpec {
@@ -122,12 +127,36 @@ fuzz_target!(|data: &[u8]| {
     };
     let mut s = SeriesSummaries::<i16>::new(start, spec).expect("a valid spec");
     s.set_max_block_bytes(512);
+    let mut segment = start.segment;
     for (i, part) in xs
         .chunks(lanes * (1 + usize::from(data[3] % 5)))
         .enumerate()
     {
+        // a prefix change (milli, micro, nano) where a part's first number says so
+        if part.first().is_some_and(|x| x % 5 == 0) && s.next_item() > first {
+            let e = -3 - 3 * (part[0] / 5).rem_euclid(3) as i8;
+            segment = segment.rescaled(s.next_item(), Magnitude::pow10(e));
+            s.segment(segment).expect("an i16 rescaled to nano fits");
+        }
         s.push(part, i as u32).expect("pushes");
     }
     s.finish().expect("finishes");
-    check(&s.take_blocks(), first, first + (xs.len() / lanes) as u64);
+    let blocks = s.take_blocks();
+    check(&blocks, first, first + (xs.len() / lanes) as u64);
+    // every node of every block merges with every other at their common scale
+    let nodes: Vec<_> = blocks
+        .iter()
+        .flat_map(|b| {
+            let s = Block::read(b).expect("written good").summary().expect("a summary");
+            (0..s.node_count())
+                .map(|i| s.series_node(i).expect("a series node"))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if let Some((head, rest)) = nodes.split_first() {
+        let mut all = head.clone();
+        for n in rest {
+            all.merge(n, 1, 1).expect("decimal scales merge");
+        }
+    }
 });

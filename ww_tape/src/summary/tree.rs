@@ -7,8 +7,9 @@ use super::{
 };
 
 impl LevelNode for EventNode {
-    fn merge(&mut self, next: &Self, _items: u64, _next_items: u64) {
+    fn merge(&mut self, next: &Self, _items: u64, _next_items: u64) -> Result<(), SummaryError> {
         EventNode::merge(self, next);
+        Ok(())
     }
 }
 
@@ -136,26 +137,29 @@ impl EventTree {
         }
         self.next_item = end;
         if end.is_multiple_of(1 << shift) {
-            self.close_node();
+            self.close_node()?;
             self.encode()?;
         }
         Ok(())
     }
 
     /// Hand the open level-0 node up.
-    fn close_node(&mut self) {
-        let acc = self.acc.take().expect("a node is open");
+    fn close_node(&mut self) -> Result<(), SummaryError> {
+        let acc = self
+            .acc
+            .take()
+            .ok_or(SummaryError::Invalid("no open node to close"))?;
         self.last_tick = Some(acc.last_tick);
         let idx = (self.next_item - 1) >> EVENT_BASE_SHIFT;
-        self.levels.push(0, idx, acc, self.next_item);
+        self.levels.push(0, idx, acc, self.next_item)
     }
 
     /// Write the open nodes of every level, partial ones included, as blocks. Call it once, after the last item.
     pub fn finish(&mut self) -> Result<(), SummaryError> {
         if self.acc.is_some() {
-            self.close_node();
+            self.close_node()?;
         }
-        self.levels.finish(self.next_item);
+        self.levels.finish(self.next_item)?;
         self.encode()
     }
 
@@ -181,7 +185,7 @@ impl EventTree {
                     .max()
                     .expect("a batch holds nodes"),
             };
-            let mut buf = vec![0u8; summary_len(&head)];
+            let mut buf = vec![0u8; summary_len(&head)?];
             let len = write_event_summary(&mut buf, 0, &head, &out.nodes)?;
             buf.truncate(len);
             self.blocks.push(buf);

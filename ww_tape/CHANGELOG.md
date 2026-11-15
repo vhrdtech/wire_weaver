@@ -4,6 +4,8 @@
 
 ### ⚠️ Breaking
 
+- Series summary blocks state their scale (head bytes 52..54, `Magnitude` after the head); `SeriesStart` takes `segment` instead of `first_tick` (STD-128).
+- `summary_len` returns a `Result`; `StatColumn::value` is `get`, None past the end; `SeriesSummaries::pending` returns `SeriesNode`s (STD-128).
 - `TrackDef` gains `kind: TrackKind` (events with `Ends` and flags, or a series); set `TrackKind::Events(EventsDef::INSTANTS)` for plain records (STD-127).
 - `DescribeSet::insert` refuses a series track that isn't sticky or names an item type: `DescribeError::Kind` (STD-127).
 - `TapeWriter::finish` returns `Finished` and ends the file with a final index, describe backup, finish and tail block (STD-122).
@@ -19,6 +21,7 @@
 
 ### 🚀 Features
 
+- Series summaries across prefix changes: nodes at their common scale, exact min and max; `SeriesSummaries::segment`, `SeriesNode::merge` (STD-128).
 - `SeriesDef`: sample type by `TypeRef`, element and channels, exact period, scale, summaries, media stream; `SeriesValue` derives them from `Fixed` (STD-127).
 - `SeriesSegment` records (first index, time grid, scale) and `SeriesTimeline`: ticks, scales and chunk checks, damaged records refused (STD-127).
 - Golden file `golden/v2-series.hex`; fuzz target `tape-series` (STD-127).

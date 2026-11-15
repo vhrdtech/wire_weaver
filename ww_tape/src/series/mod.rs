@@ -30,6 +30,11 @@
 //! tick are its first and last sample's on the segment's grid ([SeriesTimeline::check_chunk]), and its numbers are at
 //! one scale. A writer seals the open chunk at a segment.
 //!
+//! Summary nodes run over sample indexes, so a node may span a change of scale. It is kept at the common scale of its
+//! samples, every number of the coarser ones multiplied by a whole factor, and each summary block states its scale
+//! ([summary](crate::summary#scales)). The writer takes each segment with
+//! [SeriesSummaries::segment](crate::summary::SeriesSummaries::segment).
+//!
 //! # Sample codecs and `Series<T>` codecs
 //!
 //! Two layers code the same numbers for different readers:

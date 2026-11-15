@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::*;
-use crate::{Block, BlockError, Ratio64, SampleShape};
+use crate::{Block, BlockError, Ratio64, SampleShape, SeriesSegment};
 
 /// xorshift64*: workloads without a dependency.
 struct Rng(u64);
@@ -328,7 +328,7 @@ fn series_blocks<T: Scalar>(
         track_number: 2,
         shape,
         first_item,
-        first_tick: 1000,
+        segment: SeriesSegment::start(first_item, 1000, Magnitude::ONE),
         period: Ratio64::new(62_500, 3).unwrap(),
     };
     let mut s = SeriesSummaries::<T>::new(start, spec).unwrap();
@@ -660,7 +660,7 @@ fn series_refuses_bad_specs() {
         track_number: 1,
         shape,
         first_item: 0,
-        first_tick: 0,
+        segment: SeriesSegment::start(0, 0, Magnitude::ONE),
         period: Ratio64::ONE,
     };
     let s = |shape, spec| SeriesSummaries::<i16>::new(start(shape), spec).err();
@@ -784,7 +784,7 @@ fn summaries_fill_alignment_gaps() {
             track_number: 1,
             shape,
             first_item: 0,
-            first_tick: 0,
+            segment: SeriesSegment::start(0, 0, Magnitude::pow10(-3)),
             period: Ratio64::int(1000).unwrap(),
         };
         let mut s =
@@ -900,7 +900,7 @@ fn summary_golden() {
             track_number: 3,
             shape,
             first_item: 30,
-            first_tick: -100,
+            segment: SeriesSegment::start(30, -100, Magnitude::pow10(-3)),
             period: Ratio64::new(62_500, 3).unwrap(),
         };
         let mut s =
@@ -909,7 +909,12 @@ fn summary_golden() {
         let xs: Vec<i16> = (0..300 * 4)
             .map(|i| ((i * 7919) % 65_536 - 32_768) as i16)
             .collect();
-        s.push(&xs, 0x10).unwrap();
+        // a prefix change from milli to micro at sample 170, mid-node
+        let (a, b) = xs.split_at((170 - 30) * 4);
+        s.push(a, 0x10).unwrap();
+        let micro = start.segment.rescaled(170, Magnitude::pow10(-6));
+        s.segment(micro).unwrap();
+        s.push(b, 0x10).unwrap();
         s.finish().unwrap();
         blocks.extend(s.take_blocks());
         blocks
@@ -934,4 +939,362 @@ fn summary_golden() {
         hex == want,
         "the format changed: bytes differ from golden/v2-summary.hex"
     );
+}
+
+#[test]
+fn common_scales_and_factors() {
+    let (milli, micro) = (Magnitude::pow10(-3), Magnitude::pow10(-6));
+    assert_eq!(common_scale(milli, micro), Ok(micro));
+    assert_eq!(common_scale(micro, milli), Ok(micro));
+    assert_eq!(scale_factor(milli, micro), Ok(1000));
+    // 1/1000 and 1/1024: 1/128000, factors 128 and 125
+    let k = Magnitude::pow2(-10);
+    let c = common_scale(milli, k).unwrap();
+    assert_eq!(c, Magnitude::ratio(1, 128_000));
+    assert_eq!(
+        (scale_factor(milli, c), scale_factor(k, c)),
+        (Ok(128), Ok(125))
+    );
+    assert_eq!(
+        common_scale(Magnitude::ONE, Magnitude::ratio(1024, 1)),
+        Ok(Magnitude::ONE)
+    );
+    assert_eq!(
+        common_scale(Magnitude::ONE, Magnitude::PI),
+        Err(ScaleError::NoCommonScale)
+    );
+    assert_eq!(
+        scale_factor(micro, milli),
+        Err(ScaleError::NoCommonScale),
+        "not whole"
+    );
+    assert_eq!(
+        scale_factor(Magnitude::pow10(20), Magnitude::ONE),
+        Err(ScaleError::Overflow),
+        "past 2^53"
+    );
+    // statistics of no samples rescale to themselves; integer ends that leave their type are refused
+    let empty = ChannelStats::empty(Element::I32);
+    assert!(same_bits(&empty.rescaled(1000).unwrap(), &empty));
+    let mut big = empty;
+    big.min[0] = Value::I64(i64::MAX / 10);
+    big.max[0] = Value::I64(i64::MAX / 10);
+    assert_eq!(big.rescaled(100), Err(ScaleError::Overflow));
+    assert_eq!(
+        big.rescaled(10).unwrap().max[0],
+        Value::I64(i64::MAX / 10 * 10)
+    );
+}
+
+/// Every node read back with the scale of its block: (level, node) to (first item, items, block scale, node).
+fn scaled_nodes(blocks: &[Vec<u8>]) -> BTreeMap<(u8, u64), (u64, u64, Magnitude, SeriesNode)> {
+    let mut m = BTreeMap::new();
+    for b in blocks {
+        let s = Block::read(b).unwrap().summary().unwrap();
+        let h = s.head();
+        for i in 0..s.node_count() {
+            let (first, items) = h.node_items(i as u64);
+            let node = s.series_node(i).unwrap();
+            assert_eq!(Some(node.scale), s.scale());
+            let old = m.insert(
+                (h.level, h.first_node() + i as u64),
+                (first, items, node.scale, node),
+            );
+            assert!(old.is_none(), "node written twice");
+        }
+    }
+    m
+}
+
+fn int(v: Value) -> i128 {
+    match v {
+        Value::I64(x) => i128::from(x),
+        Value::U64(x) => i128::from(x),
+        Value::F64(x) => panic!("a float {x}"),
+    }
+}
+
+/// A series whose scale changes at random samples (prefix changes, a binary prefix too): at every level each node's
+/// statistics, read with its block's scale, equal a naive model of the samples in the sample type's unit; minimum
+/// and maximum exactly. Every parent equals its children merged across their scales.
+#[test]
+fn series_prefix_changes_match_naive_model_in_the_unit() {
+    let mut rng = Rng(7);
+    let scales = [
+        Magnitude::pow10(-3),
+        Magnitude::pow10(-6),
+        Magnitude::pow10(-9),
+        Magnitude::pow2(-10),
+    ];
+    // the model's unit: a scale every sample's number is a whole multiple of
+    let g = scales
+        .into_iter()
+        .reduce(|a, b| common_scale(a, b).unwrap())
+        .unwrap();
+    let k = |s: Magnitude| i128::from(scale_factor(s, g).unwrap());
+    for (shape, base_shift, first_item, changes, frames) in [
+        (SampleShape::scalar(Element::I16), 4, 0u64, 40, 9000usize),
+        (SampleShape::new(Element::ComplexI16, 2), 5, 1000, 12, 6000),
+        (SampleShape::new(Element::I16, 3), 4, 77, 1, 3000),
+        (SampleShape::scalar(Element::I16), 4, 5, 2000, 4000),
+    ] {
+        let element = shape.element;
+        let comps = usize::from(series::components(element));
+        let channels = shape.channels.0 as usize;
+        let stride = channels * comps;
+        let data: Vec<i16> = (0..frames * stride).map(|_| rng.next() as i16).collect();
+        let end = first_item + frames as u64;
+        // change points, ascending and distinct, past the first sample
+        let mut at: Vec<u64> = (0..changes)
+            .map(|_| first_item + 1 + rng.below(frames as u64 - 1))
+            .collect();
+        at.sort_unstable();
+        at.dedup();
+        let first = SeriesSegment::start(first_item, 0, scales[0]);
+        let start = SeriesStart {
+            track_id: 9,
+            track_number: 1,
+            shape,
+            first_item,
+            segment: first,
+            period: Ratio64::new(62_500, 3).unwrap(),
+        };
+        let mut s =
+            SeriesSummaries::<i16>::new(start, spec(base_shift, SeriesStats::all(element), None))
+                .unwrap();
+        s.set_max_block_bytes(600);
+        let mut scale_of = vec![scales[0]; frames];
+        let mut flags_of = vec![0u32; frames];
+        let mut blocks = vec![];
+        let mut seg = first;
+        let mut from = first_item;
+        let mut k_push = 0usize;
+        for &to in at.iter().chain([&end]) {
+            // pushes of uneven sizes up to the next change
+            while from < to {
+                let n = (1 + rng.below(70)).min(to - from);
+                let (a, b) = (
+                    (from - first_item) as usize,
+                    (from - first_item + n) as usize,
+                );
+                let f = 1u32 << (k_push % 9);
+                flags_of[a..b].fill(f);
+                scale_of[a..b].fill(seg.scale);
+                s.push(&data[a * stride..b * stride], f).unwrap();
+                blocks.extend(s.take_blocks());
+                from += n;
+                k_push += 1;
+            }
+            if to < end {
+                seg = seg.rescaled(to, scales[rng.below(4) as usize]);
+                s.segment(seg).unwrap();
+            }
+        }
+        for (i, scale) in scale_of.iter().enumerate() {
+            assert_eq!(s.timeline().scale(first_item + i as u64), Some(*scale));
+        }
+        s.finish().unwrap();
+        blocks.extend(s.take_blocks());
+        let got = scaled_nodes(&blocks);
+        let mixed = got.values().filter(|v| !scales.contains(&v.2)).count();
+        assert!(changes < 10 || mixed > 0, "some blocks hold two scales");
+        // a block's scale is the common scale of its samples
+        for b in &blocks {
+            let sm = Block::read(b).unwrap().summary().unwrap();
+            let h = sm.head();
+            let r = (h.first_item - first_item) as usize
+                ..(h.first_item + h.items - first_item) as usize;
+            let want = scale_of[r]
+                .iter()
+                .copied()
+                .reduce(|a, b| common_scale(a, b).unwrap())
+                .unwrap();
+            assert_eq!(
+                sm.scale(),
+                Some(want),
+                "block L{} at {}",
+                h.level,
+                h.first_item
+            );
+        }
+        for (&(level, n), (fi, items, bscale, node)) in &got {
+            let r = (fi - first_item) as usize..(fi + items - first_item) as usize;
+            let kb = k(*bscale);
+            let kbf = kb as f64;
+            for (ch, st) in node.channels.iter().enumerate() {
+                // the samples of the node in the model's unit
+                let val = |f: usize, c: usize| {
+                    i128::from(data[f * stride + ch * comps + c]) * k(scale_of[f])
+                };
+                for c in 0..comps {
+                    let xs: Vec<i128> = r.clone().map(|f| val(f, c)).collect();
+                    let tag = format!("L{level} n{n} ch{ch} c{c}");
+                    assert_eq!(int(st.min[c]) * kb, *xs.iter().min().unwrap(), "min {tag}");
+                    assert_eq!(int(st.max[c]) * kb, *xs.iter().max().unwrap(), "max {tag}");
+                    let sum: i128 = xs.iter().sum();
+                    assert_eq!(st.sum[c] * kbf, sum as f64, "sum {tag}");
+                    let sq: f64 = xs.iter().map(|x| (*x as f64).powi(2)).sum();
+                    assert!(close(st.sum_sq[c] * kbf * kbf, sq, 1e-12), "sum_sq {tag}");
+                }
+                let clipped = r
+                    .clone()
+                    .filter(|&f| {
+                        (0..comps).any(|c| {
+                            let x = data[f * stride + ch * comps + c];
+                            x == i16::MIN || x == i16::MAX
+                        })
+                    })
+                    .count() as u64;
+                assert_eq!(st.clipped, clipped, "clipped L{level} n{n}");
+                assert_eq!(st.flags, flags_of[r.clone()].iter().fold(0, |a, b| a | b));
+                if comps == 2 {
+                    let p: Vec<f64> = r
+                        .clone()
+                        .map(|f| (val(f, 0) as f64).powi(2) + (val(f, 1) as f64).powi(2))
+                        .collect();
+                    let mean = p.iter().sum::<f64>() / p.len() as f64;
+                    let pmax = p.iter().copied().fold(f64::NAN, f64::max);
+                    let kk = kbf * kbf;
+                    assert!(
+                        close(f64::from(st.power_mean) * kk, mean, 1e-6),
+                        "power mean L{level} n{n}"
+                    );
+                    assert!(
+                        close(f64::from(st.power_max) * kk, pmax, 1e-6),
+                        "power max L{level} n{n}"
+                    );
+                }
+            }
+            if level > 0 {
+                // the children merged across their scales
+                let mut m: Option<(SeriesNode, u64)> = None;
+                for c in n << FANOUT_SHIFT..(n + 1) << FANOUT_SHIFT {
+                    let Some((_, ci, _, cn)) = got.get(&(level - 1, c)) else {
+                        continue;
+                    };
+                    m = Some(match m {
+                        None => (cn.clone(), *ci),
+                        Some((mut a, ai)) => {
+                            a.merge(cn, ai, *ci).unwrap();
+                            (a, ai + ci)
+                        }
+                    });
+                }
+                let (mut m, _) = m.unwrap();
+                let mut p = node.clone();
+                let c = common_scale(m.scale, p.scale).unwrap();
+                m.rescale(c).unwrap();
+                p.rescale(c).unwrap();
+                for (a, b) in m.channels.iter().zip(&p.channels) {
+                    assert_eq!((a.min, a.max), (b.min, b.max), "L{level} n{n}");
+                    assert_eq!((a.sum, a.clipped, a.flags), (b.sum, b.clipped, b.flags));
+                    for c in 0..comps {
+                        assert!(close(a.sum_sq[c], b.sum_sq[c], 1e-12));
+                    }
+                    assert!(close(
+                        f64::from(a.power_mean),
+                        f64::from(b.power_mean),
+                        1e-6
+                    ));
+                    assert!(close(f64::from(a.power_max), f64::from(b.power_max), 1e-6));
+                }
+            }
+        }
+        // the open tail a live reader takes from memory is at its own scale
+        let (_, pending) = s.pending(0).unwrap();
+        assert!(pending.is_empty(), "nothing pending after finish");
+    }
+}
+
+/// A change of scale that can't be kept exactly is an error, never a silent mix.
+#[test]
+fn series_scale_changes_refused() {
+    let start = |first: SeriesSegment| SeriesStart {
+        track_id: 1,
+        track_number: 1,
+        shape: SampleShape::scalar(Element::I64),
+        first_item: 0,
+        segment: first,
+        period: Ratio64::ONE,
+    };
+    let sp = spec(4, SeriesStats::all(Element::I64), None);
+    let first = SeriesSegment::start(0, 0, Magnitude::ONE);
+    let mut s = SeriesSummaries::<i64>::new(start(first), sp).unwrap();
+    s.push(&[1, 2, 3], 0).unwrap();
+    assert_eq!(
+        s.segment(first.rescaled(3, Magnitude::PI)),
+        Err(SummaryError::Scale(ScaleError::NoCommonScale))
+    );
+    assert!(
+        matches!(
+            s.segment(first.rescaled(2, Magnitude::pow10(-3))),
+            Err(SummaryError::Invalid(_))
+        ),
+        "a segment not at the next sample"
+    );
+    // a value that doesn't fit i64 at the finer scale
+    s.push(&[i64::MAX / 2], 0).unwrap();
+    s.segment(first.rescaled(4, Magnitude::pow10(-3))).unwrap();
+    s.push(&[5], 0).unwrap();
+    assert_eq!(s.finish(), Err(SummaryError::Scale(ScaleError::Overflow)));
+    // a pending open node across the change reports it too
+    let mut s = SeriesSummaries::<i64>::new(start(first), sp).unwrap();
+    s.push(&[i64::MAX / 2], 0).unwrap();
+    s.segment(first.rescaled(1, Magnitude::pow10(-3))).unwrap();
+    s.push(&[5], 0).unwrap();
+    assert_eq!(
+        s.pending(0).err(),
+        Some(SummaryError::Scale(ScaleError::Overflow))
+    );
+    // a first sample before its segment
+    let late = SeriesSegment::start(10, 0, Magnitude::ONE);
+    assert!(SeriesSummaries::<i64>::new(start(late), sp).is_err());
+}
+
+/// A series block's scale: refused when missing, cut, or not as a scale writes it.
+#[test]
+fn series_block_scale_is_checked() {
+    let shape = SampleShape::scalar(Element::I16);
+    let first = SeriesSegment::start(0, 0, Magnitude::pow10(-3));
+    let mut s = SeriesSummaries::<i16>::new(
+        SeriesStart {
+            track_id: 1,
+            track_number: 1,
+            shape,
+            first_item: 0,
+            segment: first,
+            period: Ratio64::ONE,
+        },
+        spec(4, SeriesStats::all(shape.element), None),
+    )
+    .unwrap();
+    s.push(&[1i16; 40], 0).unwrap();
+    s.finish().unwrap();
+    let b = s.take_blocks().remove(0);
+    let sm = Block::read(&b).unwrap().summary().unwrap();
+    assert_eq!(sm.scale(), Some(Magnitude::pow10(-3)));
+    assert_eq!(&b[52..54], &[2, 0], "a power of ten takes 2 bytes");
+    assert_eq!(&b[96..98], &[0xfa, 0x00]);
+    let restamp = |x: &mut Vec<u8>| {
+        let n = x.len();
+        let crc = crate::CRC.checksum(&x[..n - 4]);
+        x[n - 4..].copy_from_slice(&crc.to_le_bytes());
+    };
+    for (at, v) in [
+        (52usize, 0u8),
+        (52, 1),
+        (52, 3),
+        (52, 0xff),
+        (53, 0xff),
+        (54, 1),
+        (97, 0xff),
+    ] {
+        let mut x = b.clone();
+        x[at] = v;
+        restamp(&mut x);
+        assert!(
+            matches!(Block::read(&x), Err(BlockError::Summary(_))),
+            "byte {at} = {v}"
+        );
+    }
 }

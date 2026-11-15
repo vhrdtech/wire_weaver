@@ -1,11 +1,11 @@
 //! The levels of a summary tree as a writer fills them: open nodes, batches of finished nodes, blocks to encode.
 
-use super::{FANOUT_SHIFT, NODE_SHIFT_MAX, batch_nodes};
+use super::{FANOUT_SHIFT, NODE_SHIFT_MAX, SummaryError, batch_nodes};
 
 /// A node that merges with the node right after it.
 pub(super) trait LevelNode: Clone {
     /// Merge `next` (`next_items` items) into this node (`items` items).
-    fn merge(&mut self, next: &Self, items: u64, next_items: u64);
+    fn merge(&mut self, next: &Self, items: u64, next_items: u64) -> Result<(), SummaryError>;
 }
 
 /// A batch of consecutive nodes of one level, ready to encode as a block.
@@ -75,7 +75,7 @@ impl<N: LevelNode> Levels<N> {
 
     /// Hand in node `idx` of `level`, finished (or the last, partial, at the end); `end` is one past the last item
     /// seen. Merges it into its parent and finishes the parent with its last child.
-    pub fn push(&mut self, level: u8, idx: u64, node: N, end: u64) {
+    pub fn push(&mut self, level: u8, idx: u64, node: N, end: u64) -> Result<(), SummaryError> {
         let l = usize::from(level);
         if self.levels.len() <= l {
             self.levels.resize_with(l + 1, Level::new);
@@ -92,7 +92,7 @@ impl<N: LevelNode> Levels<N> {
         if (idx + 1).is_multiple_of(self.batch) {
             self.emit(level, end);
         }
-        let Some(node) = parent else { return };
+        let Some(node) = parent else { return Ok(()) };
         if self.levels.len() <= l + 1 {
             self.levels.resize_with(l + 2, Level::new);
         }
@@ -100,15 +100,16 @@ impl<N: LevelNode> Levels<N> {
         match &mut self.levels[l + 1].open {
             Some((pidx, open, n)) => {
                 debug_assert_eq!(*pidx, p, "children arrive in order");
-                open.merge(&node, *n, items);
+                open.merge(&node, *n, items)?;
                 *n += items;
             }
             slot @ None => *slot = Some((p, node, items)),
         }
         if (idx + 1).is_multiple_of(1 << FANOUT_SHIFT) {
             let (p, open, _) = self.levels[l + 1].open.take().expect("opened above");
-            self.push(level + 1, p, open, end);
+            self.push(level + 1, p, open, end)?;
         }
+        Ok(())
     }
 
     /// The batch of `level` as a block to encode.
@@ -129,12 +130,12 @@ impl<N: LevelNode> Levels<N> {
 
     /// Finish every level at `end` (the level-0 node holding the last item already handed in): the open nodes go in
     /// as partial nodes, every batch becomes a block, up to the first level with a single node.
-    pub fn finish(&mut self, end: u64) {
+    pub fn finish(&mut self, end: u64) -> Result<(), SummaryError> {
         let mut l = 0;
         while l < self.levels.len() {
             let level = l as u8;
             if let Some((p, open, _)) = self.levels[l].open.take() {
-                self.push(level, p, open, end);
+                self.push(level, p, open, end)?;
             }
             if !self.levels[l].batch.is_empty() {
                 self.emit(level, end);
@@ -148,6 +149,7 @@ impl<N: LevelNode> Levels<N> {
         for lv in &mut self.levels {
             lv.open = None;
         }
+        Ok(())
     }
 
     /// Blocks to encode, oldest first.

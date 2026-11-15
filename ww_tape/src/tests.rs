@@ -880,14 +880,21 @@ fn prefix_of_a_capture_with_a_flipped_byte() {
     }
 }
 
-/// Zeros after the last block (preallocated space) are the end; anything else there is a cut.
+/// Blank bytes after the last block (zeros of preallocated space, 0xFF of erased NAND, both on an SD card) are the
+/// end; anything else there is a cut.
 #[test]
-fn zeros_at_the_end_are_the_end() {
-    let (mut file, _) = tape(3);
-    file.extend_from_slice(&[0u8; 100_000]);
-    assert_eq!(read_all(&file, Recovery::Prefix), (vec![0, 1, 2], 0));
-    file.push(1);
-    assert_eq!(read_all(&file, Recovery::Prefix), (vec![0, 1, 2], 1));
+fn blank_at_the_end_is_the_end() {
+    for blank in [vec![0u8; 100_000], vec![0xFF; 100_000], [[0u8; 512], [0xFF; 512]].concat()] {
+        let (mut file, _) = tape(3);
+        file.extend_from_slice(&blank);
+        assert_eq!(read_all(&file, Recovery::Prefix), (vec![0, 1, 2], 0));
+        let r = TapeReader::open(&file[..]).unwrap();
+        assert_eq!(r.pieces().last().unwrap().cut, None, "blank is no damage");
+        file.push(1);
+        assert_eq!(read_all(&file, Recovery::Prefix), (vec![0, 1, 2], 1));
+        let r = TapeReader::open(&file[..]).unwrap();
+        assert!(r.pieces().last().unwrap().cut.is_some());
+    }
 }
 
 /// A data block whose seq goes back is a cut; a describe block may go back (another producer run appended).

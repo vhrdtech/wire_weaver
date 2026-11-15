@@ -2,7 +2,7 @@
 
 use std::io::Read;
 
-use crate::{Block, BlockError, BlockKind, HEADER_LEN, MAGIC, block_len};
+use crate::{Block, BlockError, BlockKind, HEADER_LEN, MAGIC, block_len, is_blank};
 
 /// An owned block, e.g. one handed over by a producer, checked once when made.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -120,7 +120,8 @@ pub enum Recovery {
 }
 
 /// Reads blocks one after the other from a byte stream into one reused buffer, see [Recovery] for what happens at
-/// damage. Zeros where the next block would start, up to the end, are the end (preallocated space).
+/// damage. Blank bytes ([is_blank]: 0x00 or 0xFF) where the next block would start, up to the end, are the end
+/// (preallocated space, an erased or trimmed medium).
 pub struct FileBlocks<R> {
     rd: R,
     recovery: Recovery,
@@ -191,10 +192,10 @@ impl<R: Read> FileBlocks<R> {
         self.offset += n as u64;
     }
 
-    /// Whether everything from here to the end of the file is zeros (consumed if so).
-    fn zeros_to_end(&mut self) -> Result<bool, FileError> {
+    /// Whether everything from here to the end of the file is blank (consumed if so).
+    fn blank_to_end(&mut self) -> Result<bool, FileError> {
         loop {
-            if self.buf[..self.filled].iter().any(|b| *b != 0) {
+            if !self.buf[..self.filled].iter().all(|b| is_blank(*b)) {
                 return Ok(false);
             }
             let n = self.filled;
@@ -221,9 +222,9 @@ impl<R: Read> FileBlocks<R> {
             Ok(false) => return None,
             Err(e) => return Some(Err(e)),
         }
-        // a block starts with the magic, never with a zero
-        if self.buf[0] == 0 {
-            match self.zeros_to_end() {
+        // a block starts with the magic, never with a blank byte
+        if is_blank(self.buf[0]) {
+            match self.blank_to_end() {
                 Ok(true) => return None,
                 Ok(false) => {}
                 Err(e) => return Some(Err(e)),

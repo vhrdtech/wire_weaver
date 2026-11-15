@@ -234,6 +234,13 @@ impl BlockKind {
     }
 }
 
+/// Whether `b` is a blank byte: 0x00 (zeros, preallocated space, a trimmed SD card or eMMC) or 0xFF (erased NAND,
+/// an SD card erased to ones). A block starts with `W` (0x57), never with a blank byte, and a stretch of blank bytes
+/// (any mix of the two) where a block would start is no block.
+pub const fn is_blank(b: u8) -> bool {
+    b == 0x00 || b == 0xFF
+}
+
 /// FNV-1a, 64 bit.
 pub const fn fnv1a(mut h: u64, bytes: &[u8]) -> u64 {
     let mut i = 0;

@@ -481,7 +481,7 @@ impl<S: ByteSource> TapeReader<S> {
             let bytes = match self.good_block(at, hi)? {
                 Ok(b) => b,
                 Err(_) => {
-                    if !self.zeros(at, hi)? {
+                    if !self.blank(at, hi)? {
                         piece.cut = Some(at);
                     }
                     break;
@@ -537,11 +537,12 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(out)
     }
 
-    /// Whether everything from `at` to `hi` is zeros (preallocated space): the end, not damage.
-    fn zeros(&self, mut at: u64, hi: u64) -> R<bool, S> {
+    /// Whether everything from `at` to `hi` is blank ([crate::is_blank]: preallocated space, an erased medium): the
+    /// end, not damage.
+    fn blank(&self, mut at: u64, hi: u64) -> R<bool, S> {
         while at < hi {
             let n = (hi - at).min(64 * 1024);
-            if self.read(at, n as usize)?.iter().any(|b| *b != 0) {
+            if !self.read(at, n as usize)?.iter().all(|b| crate::is_blank(*b)) {
                 return Ok(false);
             }
             at += n;

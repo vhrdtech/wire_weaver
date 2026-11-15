@@ -65,6 +65,8 @@
 //!
 //! The same input gives the same bytes: blocks hold no wall time, describe records go in canonical order
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
+//! One exception: an [lz4] payload column is identical only for one `lz4_flex` version on targets of the
+//! same pointer width and endianness (decoding is unaffected).
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(unsafe_code)]
 

@@ -78,7 +78,8 @@ hex = { version = "0.4", default-features = false }
 hex-literal = "1"
 interprocess = { version = "2.4", features = ["tokio"] }
 libc = "0.2"
-lz4_flex = { version = "0.14", default-features = false, features = ["safe-decode", "checked-decode"] }
+# exact: ww_tape lz4 payload columns must compress to the same bytes (ww_tape/src/lz4.rs)
+lz4_flex = { version = "=0.14.0", default-features = false, features = ["safe-decode", "checked-decode"] }
 nusb = { version = "0.2", features = ["tokio"] }
 portable-atomic = { version = "1.15", default-features = false, features = ["require-cas"] }
 proc-macro2 = "1.0"

@@ -7,7 +7,13 @@
 //!
 //! A writer picks it per chunk for a payload column ([ColumnKind::Payloads](crate::ColumnKind::Payloads)) when it
 //! makes the column smaller; the payload lengths column stays as it is, so item `i`'s payload is found in the decoded
-//! bytes. The same bytes in give the same bytes out for one `lz4_flex` version; the golden file pins it.
+//! bytes.
+//!
+//! Encoding is deterministic only for one `lz4_flex` version on targets of the same pointer width and endianness:
+//! `lz4_flex` hashes 5 bytes on 64-bit targets and 4 on 32-bit ones and reads words in native byte order, so a column
+//! of 65535 bytes or more can compress to other bytes on a 32-bit or big-endian writer, and a writer's "lz4 when
+//! smaller" choice can differ with it. The workspace pins `lz4_flex` to an exact version for that reason; the golden
+//! file checks it. Decoding is the same everywhere.
 
 use crate::Codec;
 

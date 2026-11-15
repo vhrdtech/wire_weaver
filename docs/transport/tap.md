@@ -125,6 +125,7 @@ A series chunk's sample columns (`ColumnKind::Samples`) are coded by the column'
 | 21, 22 | `PACKED24_LSB`, `PACKED24_MSB` | integers of 32 bits and more | 24 bits per value |
 | 24 | `GORILLA` | floats | XOR with the lane's previous value, Gorilla's control bits |
 | 25 | `CHIMP` | floats | XOR with the lane's previous value, Chimp's control bits |
+| 26 | `ALP` | floats | decimals as integers, frame of reference, bit-packed; other floats by their front bits through a dictionary |
 | 32, 33 | `DELTA`, `DELTA2` | integers | differences (or differences of differences), minus their minimum, bit-packed |
 | 34, 35 | `FLOAT_DELTA`, `FLOAT_DELTA2` | floats | the same on the float bits mapped to ordered integers |
 | 48 | `LZ4` | payload columns | one lz4 block after its decoded length (`ww_tape::lz4`) |
@@ -132,17 +133,70 @@ A series chunk's sample columns (`ColumnKind::Samples`) are coded by the column'
 - **Raw device formats** (0 to 22) are what a device sends, stored as it is: the reader converts only the samples it reads, and any sample reads in place. An `_LSB` column holds value `i` at bits `i·w` up of the column read as one little-endian number; an `_MSB` column counts bits from the top of byte 0. A packed value of a signed element is sign-extended.
 - **XOR codecs** (24, 25) are lossless for every bit pattern, NaN payloads and the sign of zero included. They code groups of 1024 samples, lane by lane.
 - **Delta codecs** (32 to 35) code groups of 128 samples on the bit-pack primitive the event time codec uses (`ww_tape::bitpack`). Per lane, a group holds the first value, the minimum difference and a width, then the differences minus that minimum at that width, so a ramp or a constant costs no bits per sample.
-- **Groups.** Both grouped families start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: `Samples::group_bytes` names a group's bytes, to check against `Chunk::range_damaged`.
+- **ALP** (26) follows ALP (Afroozeh, Kuffó and Boncz, SIGMOD 2024) in groups of 128 samples. Floats that began as decimals (a reading times 0.1, a price, a value printed and parsed back) are stored as integers: per group and lane one exponent `e` and factor `f`, each value `d` such that `d × 10^f × 10^-e` gives its bits back exactly, the `d`s minus their minimum bit-packed. Values that don't come back bit for bit (NaN payloads, `-0.0`, infinities, more digits) are kept whole as exceptions inside the group. Other floats take ALP's second scheme, `rd`: up to 16 front bits through a dictionary of up to 8 entries, the rest bit-packed without the low zero bits the group shares. The encoder keeps per group the smallest form, so a group never grows by more than 7 bytes over raw; the layout is in the `ww_tape::samples::alp` docs.
+- **Groups.** The grouped codecs start the column with a table of where each group ends, and every group restarts its prediction. A range decodes from its group's start, and damage costs only the groups it touches: `Samples::group_bytes` names a group's bytes, to check against `Chunk::range_damaged`.
 
-Which codec fits depends on the data. On a motor simulation (every variable of `motor_sim`, 25 kHz) and on decoded speech, lossless float coding gave these ratios against raw:
+For data a device controls, fixed-point numbers are the default (an exact_units `Fixed` in an integer column with `DELTA`, see [series](../serdes/series.md)): they take the fewest bits and decode fastest. The float codecs are for float sources nobody controls. The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.
 
-| Data | `GORILLA` | `CHIMP` | `FLOAT_DELTA` | `FLOAT_DELTA2` |
-|---|---:|---:|---:|---:|
-| motor, `f32` | 1.18 | 1.38 | 1.21 | 1.23 |
-| motor, `f64` | 2.32 | 2.28 | 2.68 | 2.87 |
-| speech, `f32` | 2.31 | 1.83 | 0.99 | 0.99 |
+`just bench-sample-codecs` measures every float codec on four kinds of data, each next to the same quantity stored as fixed-point integers with `DELTA` (first row of each set). Ratio is to the raw floats, in chunks of 4096 samples; times are per value on one core (AMD Ryzen AI 9 HX 370, AVX-512 kernels):
 
-The delta codecs decoded at 1 to 3 ns per value, the XOR codecs at 2 to 9 (x86-64, one core). The codec id is stored per chunk, so a writer may try several on a chunk and keep the smallest.
+- **motor_sim**: every variable of `motor_sim`'s VESC preset (github.com/vhrdtech/motor_sim at 35eab07, the commit `Cargo.lock` names) for 1 s at 25 kHz, driven from its rotor angle with a fan load, as `f32` and as `f64` (its `f32` variables widened). Fixed point: `i32` at the finest power-of-ten step that keeps 24 bits at each variable's peak.
+- **speech**: Roosevelt's Pearl Harbor address (Wikimedia Commons, public domain, `Roosevelt_Pearl_Harbor.ogg`, SHA-1 `90239988...`), decoded to `f32` by lewton. Fixed point: lewton's 16-bit PCM of the same decode.
+- **ADC**: 12-bit counts of 4 slow noisy channels, 250 000 samples each, turned into floats as firmware does: `counts × 3.3/4096` and `counts × 0.1`. Fixed point: the counts.
+
+| Data | Codec | Ratio | Bits/value | Encode ns | Decode ns |
+|---|---|---:|---:|---:|---:|
+| motor_sim `f32` | `DELTA` of `i32` | 3.10 | 10.3 | 2.1 | 0.66 |
+| | `GORILLA` | 1.49 | 21.5 | 5.4 | 2.42 |
+| | `CHIMP` | 1.74 | 18.4 | 7.0 | 3.78 |
+| | `FLOAT_DELTA` | 1.93 | 16.6 | 2.3 | 0.86 |
+| | `FLOAT_DELTA2` | 1.99 | 16.1 | 2.5 | 1.02 |
+| | `ALP` | 1.64 | 19.5 | 14.1 | 1.17 |
+| motor_sim `f64` | `DELTA` of `i32` | 6.20 | 10.3 | 2.1 | 0.65 |
+| | `GORILLA` | 2.51 | 25.5 | 5.9 | 2.60 |
+| | `CHIMP` | 2.50 | 25.6 | 11.3 | 2.87 |
+| | `FLOAT_DELTA` | 1.50 | 42.6 | 2.4 | 1.29 |
+| | `FLOAT_DELTA2` | 1.56 | 41.1 | 2.5 | 1.28 |
+| | `ALP` | 2.51 | 25.5 | 17.6 | 1.24 |
+| speech `f32`, 2 channels | `DELTA` of `i16` PCM | 3.43 | 9.3 | 2.3 | 0.71 |
+| | `GORILLA` | 1.02 | 31.3 | 5.7 | 2.30 |
+| | `CHIMP` | 1.23 | 26.0 | 8.2 | 5.59 |
+| | `FLOAT_DELTA` | 1.10 | 29.1 | 2.5 | 0.96 |
+| | `FLOAT_DELTA2` | 1.10 | 29.0 | 2.7 | 1.13 |
+| | `ALP` | 1.16 | 27.6 | 15.7 | 1.27 |
+| ADC × 3.3/4096 `f32` | `DELTA` of the counts | 7.31 | 4.4 | 2.2 | 0.65 |
+| | `GORILLA` | 1.51 | 21.3 | 5.6 | 2.71 |
+| | `CHIMP` | 1.76 | 18.2 | 10.5 | 6.87 |
+| | `FLOAT_DELTA` | 1.84 | 17.4 | 2.4 | 0.81 |
+| | `FLOAT_DELTA2` | 1.73 | 18.5 | 2.6 | 1.08 |
+| | `ALP` | 1.59 | 20.2 | 15.1 | 1.17 |
+| ADC × 3.3/4096 `f64` | `DELTA` of the counts | 14.63 | 4.4 | 2.2 | 0.65 |
+| | `GORILLA` | 1.36 | 47.1 | 7.9 | 3.19 |
+| | `CHIMP` | 1.57 | 40.8 | 13.1 | 7.28 |
+| | `FLOAT_DELTA` | 1.37 | 46.7 | 2.5 | 1.32 |
+| | `FLOAT_DELTA2` | 1.34 | 47.8 | 2.7 | 1.28 |
+| | `ALP` | 1.32 | 48.6 | 21.9 | 1.59 |
+| ADC × 0.1 `f32` | `DELTA` of the counts | 7.31 | 4.4 | 2.2 | 0.65 |
+| | `GORILLA` | 1.53 | 21.0 | 5.5 | 2.67 |
+| | `CHIMP` | 1.81 | 17.7 | 10.5 | 6.85 |
+| | `FLOAT_DELTA` | 1.84 | 17.4 | 2.5 | 0.83 |
+| | `FLOAT_DELTA2` | 1.73 | 18.6 | 2.6 | 0.96 |
+| | `ALP` | 4.67 | 6.9 | 8.5 | 0.81 |
+| ADC × 0.1 `f64` | `DELTA` of the counts | 14.63 | 4.4 | 2.2 | 0.65 |
+| | `GORILLA` | 1.38 | 46.5 | 7.8 | 3.15 |
+| | `CHIMP` | 1.59 | 40.3 | 13.1 | 7.27 |
+| | `FLOAT_DELTA` | 1.37 | 46.7 | 2.5 | 1.36 |
+| | `FLOAT_DELTA2` | 1.34 | 47.8 | 2.7 | 1.32 |
+| | `ALP` | 9.02 | 7.1 | 8.9 | 0.72 |
+
+What the numbers say:
+
+- Fixed point is 1.6 to 9.3 times smaller than the best float codec and decodes fastest; on the motor its step keeps more precision than the `f32`s it replaces.
+- `ALP` is the float codec for floats that began as decimals: 2.5 to 5.7 times smaller than the others there, decoding at bit-pack speed (0.7 to 0.8 ns). On widened `f32`s it matches `GORILLA`; on floats with full mantissas it ranges from 6 % ahead of the delta codecs (speech) to 18 % behind them (motor `f32`).
+- The XOR codecs win on two sets, by 6 % (speech) and 15 % (ADC × 3.3/4096 `f64`), both `CHIMP`, and decode 2 to 10 times slower than the bit-packed codecs.
+- A writer that tries `ALP` and `FLOAT_DELTA` on each chunk and keeps the smaller is the best float codec on four of the seven sets and within 13 % of the best on the others.
+
+The bench runs in about 20 s: `just bench-sample-codecs` fetches the speech file into `target/bench-data` once, checks its hash, and prints the table; `--chunk` and `--repeats` change the chunk size and the timed passes. Its code is `ww_tape_benchmarks`.
 
 ### Series tracks
 

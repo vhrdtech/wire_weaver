@@ -1,4 +1,5 @@
 use super::*;
+use crate::tests::id;
 
 /// xorshift64*, a fixed seed per test.
 pub(super) struct Rng(pub(super) u64);
@@ -477,7 +478,7 @@ fn samples_golden() {
     ];
     let specs: Vec<_> = cols.iter().map(|c| c.0).collect();
     let mut block = vec![0u8; crate::chunk::chunk_len(&specs, 0)];
-    let len = crate::chunk::write_chunk(&mut block, 1, &head, &cols, 0).unwrap();
+    let len = crate::chunk::write_chunk(&mut block, id(1), &head, &cols, 0).unwrap();
     block.truncate(len);
     let read = crate::Block::read(&block).unwrap();
     let chunk = read.chunk().unwrap();

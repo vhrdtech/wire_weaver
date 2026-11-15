@@ -87,15 +87,19 @@ impl Indexer {
                 || self.pending.len() >= CHECKPOINT_ENTRIES_MAX)
     }
 
-    /// The checkpoint index block listing the pending entries, to be placed at `offset` as block `seq`.
-    pub(crate) fn checkpoint(&mut self, offset: u64, seq: u64) -> Result<Vec<u8>, IndexError> {
+    /// The checkpoint index block listing the pending entries, to be placed at `offset` as block `id`.
+    pub(crate) fn checkpoint(
+        &mut self,
+        offset: u64,
+        id: crate::BlockId,
+    ) -> Result<Vec<u8>, IndexError> {
         let head = IndexHead {
             kind: IndexKind::Checkpoint,
             self_offset: offset,
             prev: self.last_checkpoint,
         };
         let mut buf = vec![0u8; index_len(self.pending.len(), 0)];
-        write_index(&mut buf, seq, &head, &self.pending)?;
+        write_index(&mut buf, id, &head, &self.pending)?;
         self.pending.clear();
         self.since = 0;
         self.last_checkpoint = Some(offset);
@@ -128,12 +132,12 @@ impl Indexer {
         parts
     }
 
-    /// The final index block of `part`, placed at `offset` as block `seq`, after the one at `prev`.
+    /// The final index block of `part`, placed at `offset` as block `id`, after the one at `prev`.
     pub(crate) fn final_block(
         part: &[IndexEntry],
         offset: u64,
         prev: Option<u64>,
-        seq: u64,
+        id: crate::BlockId,
     ) -> Result<Vec<u8>, IndexError> {
         let head = IndexHead {
             kind: IndexKind::Final,
@@ -141,7 +145,7 @@ impl Indexer {
             prev,
         };
         let mut buf = vec![0u8; index_len(part.len(), track_count(part))];
-        write_index(&mut buf, seq, &head, part)?;
+        write_index(&mut buf, id, &head, part)?;
         Ok(buf)
     }
 

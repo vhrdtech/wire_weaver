@@ -17,7 +17,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use crate::index::{INDEX_LEN_MAX, IndexBlock, IndexEntry, IndexError, IndexKind};
+use crate::index::{HEAD_LEN_PREFIX, INDEX_LEN_MAX, IndexBlock, IndexEntry, IndexError, IndexKind};
 use crate::piece::{
     ChainReport, Finish, FinishBlock, PieceHead, PieceHeadBlock, PieceSummary, TAIL_LEN, Tail,
     TrackRange, TrackStart, check_chain,
@@ -577,8 +577,8 @@ impl<S: ByteSource> TapeReader<S> {
         let mut out = Vec::new();
         let mut at = p.finish.as_ref().and_then(|(f, _)| f.final_index);
         while let Some(off) = at {
-            let abs = in_piece(p, off, HEADER_LEN)?;
-            let header = self.read(abs, HEADER_LEN)?;
+            let abs = in_piece(p, off, HEAD_LEN_PREFIX)?;
+            let header = self.read(abs, HEAD_LEN_PREFIX)?;
             let head_len = IndexBlock::head_len(&header).map_err(ReadError::Index)?;
             in_piece(p, off, head_len)?;
             let head = self.read(abs, head_len)?;

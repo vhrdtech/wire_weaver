@@ -1,6 +1,7 @@
 //! A series track written and read back with ww_tape alone: its definition, its segments (a start, an autorange
 //! prefix change, a gap) and its samples, from `Series<Fixed<..>>` batches to chunk columns without a float.
 
+use crate::id;
 use std::path::PathBuf;
 
 use exact_units::prefix::{Micro, Milli};
@@ -113,7 +114,7 @@ fn encode_value<T: SerializeShrinkWrap>(v: &T) -> Vec<u8> {
     v.to_ww_bytes(&mut buf).unwrap().to_vec()
 }
 
-fn describe_blocks(first: &SeriesSegment, seq: &mut u64) -> Vec<Vec<u8>> {
+fn describe_blocks(first: &SeriesSegment, seq: &mut ww_tape::BlockId) -> Vec<Vec<u8>> {
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "series" }))
         .unwrap();
@@ -158,7 +159,7 @@ fn describe_blocks(first: &SeriesSegment, seq: &mut u64) -> Vec<Vec<u8>> {
 /// The records block of one segment.
 fn segment_block(s: &SeriesSegment, seq: u64) -> Vec<u8> {
     let mut buf = [0u8; 256];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, seq, &[CLOCK]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(seq), &[CLOCK]);
     let item = encode_value(s);
     let tick = s.first_tick(period()).unwrap();
     w.push(TRACK, ClockTime::new(CLOCK, tick), &[&item])
@@ -207,7 +208,7 @@ fn write(path: &std::path::Path) {
     let mut w = TapeWriter::create(path, SyncPolicy::None).unwrap();
     w.set_alignment(ww_tape::ALIGNMENT);
     let first = series_def().first_segment(START);
-    let mut seq = 0;
+    let mut seq = id(0);
     for b in describe_blocks(&first, &mut seq) {
         w.write_block(&b).unwrap();
     }

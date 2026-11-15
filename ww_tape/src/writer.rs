@@ -31,7 +31,7 @@ use crate::piece::{
     ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail, TrackStart,
     finish_len, piece_head_len, write_finish, write_piece_head,
 };
-use crate::{BlockKind, IndexError};
+use crate::{BlockId, BlockKind, IndexError, RunTag};
 
 /// When a [TapeWriter] syncs the data to the disk, besides at [TapeWriter::finish].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,6 +110,8 @@ pub struct TapeWriter {
     alignment: u32,
     /// Seq of the next block placed by the writer: after the last block written
     next_seq: u64,
+    /// Run of the blocks the writer makes: its own, or the run of the last counted block written
+    run: RunTag,
     /// Small blocks waiting for the gap before an aligned chunk payload
     deferred: Vec<Vec<u8>>,
     deferred_bytes: usize,
@@ -211,6 +213,7 @@ impl TapeWriter {
             start: 0,
             alignment: 0,
             next_seq: 0,
+            run: RunTag::random(),
             deferred: Vec::new(),
             deferred_bytes: 0,
             chunk_buf: Vec::new(),
@@ -238,8 +241,20 @@ impl TapeWriter {
     }
 
     /// Start the file as a piece of a chain: the piece head block, first in the file, then (for a piece after the
-    /// first) the describe blocks of the piece before, so the piece reads alone.
+    /// first) the describe blocks of the piece before, so the piece reads alone. The run of a chain's first piece is
+    /// [RunTag::of_piece] its id, so the same input gives the same bytes.
     pub fn begin_piece(
+        &mut self,
+        head: &PieceHead,
+        tracks: &[TrackStart],
+    ) -> Result<(), WriteError> {
+        if head.prev.is_none() {
+            self.run = RunTag::of_piece(&head.ident.id);
+        }
+        self.write_piece_head(head, tracks)
+    }
+
+    fn write_piece_head(
         &mut self,
         head: &PieceHead,
         tracks: &[TrackStart],
@@ -251,7 +266,7 @@ impl TapeWriter {
             )));
         }
         let mut buf = vec![0u8; piece_head_len(tracks.len())];
-        let n = write_piece_head(&mut buf, self.structural_seq(), head, tracks)
+        let n = write_piece_head(&mut buf, self.structural_id(), head, tracks)
             .map_err(WriteError::Index)?;
         self.write_raw(&buf[..n])?;
         self.head = Some((*head, tracks.to_vec()));
@@ -297,10 +312,33 @@ impl TapeWriter {
         self.next_seq
     }
 
-    /// Seq of the blocks the file structure adds (index, finish, tail, piece head, repeated describe blocks): the
+    /// Run and seq of the next block the writer places itself, see [Self::next_seq]: what a caller gives a block it
+    /// makes for [Self::write_block].
+    pub fn next_id(&self) -> BlockId {
+        BlockId::new(self.run, self.next_seq)
+    }
+
+    /// The run of the blocks the writer makes: random for a new writer, [RunTag::of_piece] for a chain's first piece,
+    /// else the run of the last counted block written.
+    pub fn run(&self) -> RunTag {
+        self.run
+    }
+
+    /// Make the blocks from here on part of run `run` (a deterministic producer's own tag), its seqs from 0.
+    ///
+    /// # Panics
+    ///
+    /// When `run` is not one a writer may use ([RunTag::is_run]).
+    pub fn set_run(&mut self, run: RunTag) {
+        assert!(run.is_run(), "a run tag is neither 0 nor u32::MAX");
+        self.run = run;
+        self.next_seq = 0;
+    }
+
+    /// Id of the blocks the file structure adds (index, finish, tail, piece head, repeated describe blocks): the
     /// seq of the last counted block before them, 0 before the first.
-    fn structural_seq(&self) -> u64 {
-        self.next_seq.saturating_sub(1)
+    fn structural_id(&self) -> BlockId {
+        BlockId::new(self.run, self.next_seq.saturating_sub(1))
     }
 
     fn write_raw(&mut self, block: &[u8]) -> Result<(), WriteError> {
@@ -322,9 +360,9 @@ impl TapeWriter {
         self.unsynced += 1;
         // blocks the file structure adds are not counted: seq stays the producer's count of its own blocks
         let counted = !self.replaying && !crate::index::is_structural(BlockKind::from_u8(block[5]));
-        if counted && block.len() >= 24 {
-            let seq = u64::from_le_bytes(block[16..24].try_into().expect("8 bytes"));
-            self.next_seq = seq.wrapping_add(1);
+        if counted && let Some(id) = block_id(block) {
+            self.run = id.run;
+            self.next_seq = id.seq.wrapping_add(1);
         }
         let due = match self.policy {
             SyncPolicy::None => false,
@@ -361,10 +399,10 @@ impl TapeWriter {
         let at = self.offset();
         self.replaying = true;
         let blocks = core::mem::take(&mut self.describe);
-        let seq = self.structural_seq();
+        let id = self.structural_id();
         let r = blocks.iter().try_for_each(|b| {
             let mut b = b.clone();
-            crate::set_seq(&mut b, seq).map_err(WriteError::Block)?;
+            crate::set_id(&mut b, id).map_err(WriteError::Block)?;
             self.write_raw(&b)
         });
         self.describe = blocks;
@@ -401,13 +439,13 @@ impl TapeWriter {
         }
         let b = self
             .indexer
-            .checkpoint(self.offset(), self.structural_seq())
+            .checkpoint(self.offset(), self.structural_id())
             .map_err(WriteError::Index)?;
         self.write_raw(&b)
     }
 
     /// A small summary or data block that may wait for the gap in front of the next aligned chunk payload. It is
-    /// renumbered when placed ([crate::set_seq]), so seqs ascend in the file. In an unaligned file it is written at
+    /// renumbered into the writer's run when placed ([crate::set_id]), so seqs ascend in the file. In an unaligned file it is written at
     /// once; past [DEFERRED_BYTES_MAX] waiting, all are. Index, finish, tail and piece head blocks are the writer's
     /// own: refused with [WriteError::Index].
     pub fn defer_block(&mut self, block: Vec<u8>) -> Result<(), WriteError> {
@@ -439,7 +477,7 @@ impl TapeWriter {
     }
 
     fn place(&mut self, mut block: Vec<u8>) -> Result<(), WriteError> {
-        crate::set_seq(&mut block, self.next_seq).map_err(WriteError::Block)?;
+        crate::set_id(&mut block, self.next_id()).map_err(WriteError::Block)?;
         self.write_raw(&block)
     }
 
@@ -476,7 +514,7 @@ impl TapeWriter {
         let len = crate::chunk::chunk_len(&specs, padding);
         let mut buf = core::mem::take(&mut self.chunk_buf);
         buf.resize(len, 0);
-        let r = crate::chunk::write_chunk(&mut buf, self.next_seq, head, columns, padding)
+        let r = crate::chunk::write_chunk(&mut buf, self.next_id(), head, columns, padding)
             .map_err(WriteError::Chunk)
             .and_then(|n| self.write_raw(&buf[..n]));
         self.chunk_buf = buf;
@@ -484,8 +522,9 @@ impl TapeWriter {
         self.after_block()
     }
 
-    /// Append one whole block (its bytes as [crate::Block::bytes] gives them, its seq as made), then sync if the
-    /// policy says so.
+    /// Append one whole block (its bytes as [crate::Block::bytes] gives them, its run and seq as made, see
+    /// [Self::next_id]), then sync if the policy says so. A block of another run starts that run: the blocks the
+    /// writer makes from there on are in it.
     pub fn write_block(&mut self, block: &[u8]) -> Result<(), WriteError> {
         self.write_raw(block)?;
         self.after_block()
@@ -567,12 +606,13 @@ impl TapeWriter {
         next.alignment = alignment;
         next.indexer = Indexer::new(index_policy);
         next.next_seq = done.next_seq;
+        next.run = done.run;
         let ident = PieceIdent {
             id: next_id,
             result: head.ident.result,
             seq: head.ident.seq + 1,
         };
-        next.begin_piece(
+        next.write_piece_head(
             &PieceHead {
                 ident,
                 prev: Some((done.finished.hash, head.ident.id)),
@@ -592,7 +632,7 @@ impl TapeWriter {
         let mut prev = None;
         for part in self.indexer.final_parts() {
             let at = self.offset();
-            let b = Indexer::final_block(&part, at, prev, self.structural_seq())
+            let b = Indexer::final_block(&part, at, prev, self.structural_id())
                 .map_err(WriteError::Index)?;
             self.write_raw(&b)?;
             prev = Some(at);
@@ -613,7 +653,7 @@ impl TapeWriter {
         };
         let ranges = self.indexer.track_ranges();
         let mut buf = vec![0u8; finish_len(ranges.len())];
-        let n = write_finish(&mut buf, self.structural_seq(), &finish, &ranges)
+        let n = write_finish(&mut buf, self.structural_id(), &finish, &ranges)
             .map_err(WriteError::Index)?;
         let finish_offset = self.offset();
         self.write_raw(&buf[..n])?;
@@ -627,7 +667,7 @@ impl TapeWriter {
             next,
         };
         let mut tb = [0u8; TAIL_LEN];
-        tail.write(&mut tb, self.structural_seq());
+        tail.write(&mut tb, self.structural_id());
         self.write_raw(&tb)?;
         self.sync()?;
         if let Some(partial) = self.partial.take() {
@@ -643,6 +683,7 @@ impl TapeWriter {
                 next,
             },
             next_seq: self.next_seq,
+            run: self.run,
         })
     }
 
@@ -660,10 +701,18 @@ impl TapeWriter {
     }
 }
 
-/// A piece just ended and the seq after its last block.
+/// A piece just ended, and the run and seq after its last block.
 struct Ended {
     finished: Finished,
     next_seq: u64,
+    run: RunTag,
+}
+
+/// Run and seq of the block whose bytes start `block`, None when it is shorter than a header.
+fn block_id(block: &[u8]) -> Option<BlockId> {
+    let seq = u64::from_le_bytes(block.get(16..24)?.try_into().ok()?);
+    let run = u32::from_le_bytes(block.get(24..28)?.try_into().ok()?);
+    Some(BlockId::new(RunTag::from_u32(run), seq))
 }
 
 /// `NAME.partial` next to `NAME`.

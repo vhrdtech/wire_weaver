@@ -8,7 +8,8 @@ use ww_tape::summary::{
     EventTree, ItemRun, SeriesStart, SeriesStats, SeriesSummaries, SeriesSummarySpec, Stat,
 };
 use ww_tape::{
-    Block, Element, EventFields, Magnitude, Ratio64, SampleShape, SeriesSegment, set_seq,
+    Block, BlockId, Element, EventFields, Magnitude, Ratio64, RunTag, SampleShape, SeriesSegment,
+    set_id,
 };
 
 /// Look at everything a summary block read from `data` gives.
@@ -36,7 +37,11 @@ fn walk(data: &[u8]) {
     }
     assert_eq!(s.scale().is_some(), s.event_node(0).is_none());
     let mut copy = b.bytes().to_vec();
-    set_seq(&mut copy, b.seq.wrapping_add(1)).expect("a good block renumbers");
+    let id = BlockId::new(
+        RunTag::from_u32(b.run.get().wrapping_add(1)),
+        b.seq.wrapping_add(1),
+    );
+    set_id(&mut copy, id).expect("a good block renumbers");
     assert!(Block::read(&copy).is_ok());
 }
 
@@ -147,7 +152,10 @@ fuzz_target!(|data: &[u8]| {
     let nodes: Vec<_> = blocks
         .iter()
         .flat_map(|b| {
-            let s = Block::read(b).expect("written good").summary().expect("a summary");
+            let s = Block::read(b)
+                .expect("written good")
+                .summary()
+                .expect("a summary");
             (0..s.node_count())
                 .map(|i| s.series_node(i).expect("a series node"))
                 .collect::<Vec<_>>()

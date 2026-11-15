@@ -24,7 +24,11 @@ fn read_all(p: &Payloads<'_>, want: Option<&[Vec<u8>]>) {
     assert!(p.get(p.len()).is_none());
     assert_eq!(p.iter().len(), p.len());
     for (i, it) in p.iter().enumerate() {
-        assert_eq!((Some(it.bytes), it.suspect), (p.get(i), p.is_suspect(i)), "iter item {i}");
+        assert_eq!(
+            (Some(it.bytes), it.suspect),
+            (p.get(i), p.is_suspect(i)),
+            "iter item {i}"
+        );
     }
     let _ = p.suspect_items().count();
 }
@@ -71,11 +75,19 @@ fuzz_target!(|data: &[u8]| {
     let cols: Vec<_> = times.columns().chain(enc.columns()).collect();
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
-    let len =
-        write_chunk(&mut buf, 1, &times.head.chunk_head(1, 1, 0), &cols, 0).expect("a valid chunk");
+    let len = write_chunk(
+        &mut buf,
+        ww_tape::BlockId::new(ww_tape::RunTag::writable(1), 1),
+        &times.head.chunk_head(1, 1, 0),
+        &cols,
+        0,
+    )
+    .expect("a valid chunk");
     let block = Block::read(&buf[..len]).expect("written good");
     let chunk = block.chunk().expect("a chunk");
-    let p = Payloads::read(&chunk).expect("written payloads read").expect("columns");
+    let p = Payloads::read(&chunk)
+        .expect("written payloads read")
+        .expect("columns");
     for (i, w) in items.iter().enumerate() {
         assert_eq!(p.get(i), Some(w.as_slice()));
         assert!(!p.is_suspect(i));

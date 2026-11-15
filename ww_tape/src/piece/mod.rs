@@ -48,8 +48,8 @@
 //! e.g. a SHA-256 of a run record); all zeros is none.
 
 use crate::chunk::{get_u32, get_u64, put_u32};
-use crate::index::{IndexError, NONE, put_header, seal};
-use crate::{Block, BlockKind, CRC_LEN, HEADER_LEN};
+use crate::index::{IndexError, NONE, seal};
+use crate::{Block, BlockId, BlockKind, CRC_LEN, HEADER_LEN, put_header};
 
 /// Bytes of a tail block.
 pub const TAIL_LEN: usize = 164;
@@ -196,7 +196,7 @@ pub const fn piece_head_len(tracks: usize) -> usize {
 /// Write a piece head block into `buf`; returns its length.
 pub fn write_piece_head(
     buf: &mut [u8],
-    seq: u64,
+    id: BlockId,
     head: &PieceHead,
     tracks: &[TrackStart],
 ) -> Result<usize, IndexError> {
@@ -208,7 +208,7 @@ pub fn write_piece_head(
         return Err(IndexError::Full { needed: len });
     }
     let b = &mut buf[..len];
-    put_header(b, BlockKind::PieceHead, len, tracks.len() as u32, seq);
+    put_header(b, BlockKind::PieceHead, len, tracks.len() as u32, id);
     b[HEADER_LEN..].fill(0);
     put_ident(b, 32, 48, 80, &head.ident);
     if let Some((hash, id)) = head.prev {
@@ -335,7 +335,7 @@ fn get_opt(b: &[u8], at: usize) -> Option<u64> {
 /// Write a finish block into `buf`; returns its length.
 pub fn write_finish(
     buf: &mut [u8],
-    seq: u64,
+    id: BlockId,
     finish: &Finish,
     tracks: &[TrackRange],
 ) -> Result<usize, IndexError> {
@@ -347,7 +347,7 @@ pub fn write_finish(
         return Err(IndexError::Full { needed: len });
     }
     let b = &mut buf[..len];
-    put_header(b, BlockKind::Finish, len, tracks.len() as u32, seq);
+    put_header(b, BlockKind::Finish, len, tracks.len() as u32, id);
     b[HEADER_LEN..].fill(0);
     b[32] = finish.state.to_u8();
     b[40..72].copy_from_slice(&finish.hash.0);
@@ -446,10 +446,10 @@ impl Tail {
     /// # Panics
     ///
     /// When `buf` is shorter than [TAIL_LEN].
-    pub fn write(&self, buf: &mut [u8], seq: u64) -> usize {
+    pub fn write(&self, buf: &mut [u8], id: BlockId) -> usize {
         assert!(buf.len() >= TAIL_LEN, "a tail is {TAIL_LEN} bytes");
         let b = &mut buf[..TAIL_LEN];
-        put_header(b, BlockKind::Tail, TAIL_LEN, 0, seq);
+        put_header(b, BlockKind::Tail, TAIL_LEN, 0, id);
         b[HEADER_LEN..].fill(0);
         b[32..40].copy_from_slice(&self.piece_len.to_le_bytes());
         b[40..48].copy_from_slice(&self.finish_offset.to_le_bytes());

@@ -1095,7 +1095,12 @@ mod builder {
                 let refs: Vec<&[ChannelStats]> =
                     nodes.iter().map(|n| n.channels.as_slice()).collect();
                 let mut buf = vec![0u8; summary_len(&head)?];
-                let len = write_series_summary(&mut buf, 0, &head, &refs)?;
+                let len = write_series_summary(
+                    &mut buf,
+                    crate::BlockId::new(crate::RunTag::NONE, 0),
+                    &head,
+                    &refs,
+                )?;
                 buf.truncate(len);
                 self.blocks.push(buf);
             }

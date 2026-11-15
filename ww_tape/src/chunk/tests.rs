@@ -1,7 +1,8 @@
 use super::*;
+use crate::tests::id;
 use crate::{
-    Block, BlockError, BlockWriter, ClockTime, Describe, DescribeSet, FileBlocks, FileError,
-    Layout, Producer, Recovery, SyncPolicy, TapeWriter, set_seq,
+    Block, BlockError, BlockId, BlockWriter, ClockTime, Describe, DescribeSet, FileBlocks,
+    FileError, Layout, Producer, Recovery, RunTag, SyncPolicy, TapeWriter, set_id,
 };
 
 fn raw(kind: ColumnKind, param: u16, bytes: &[u8]) -> (ColumnSpec, &[u8]) {
@@ -87,7 +88,7 @@ fn series_columns(cols: &[Vec<u8>]) -> Vec<(ColumnSpec, &[u8])> {
 fn encode(head: &ChunkHead, cols: &[(ColumnSpec, &[u8])], seq: u64, padding: usize) -> Vec<u8> {
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = vec![0u8; chunk_len(&specs, padding)];
-    let n = write_chunk(&mut buf, seq, head, cols, padding).unwrap();
+    let n = write_chunk(&mut buf, id(seq), head, cols, padding).unwrap();
     assert_eq!(n, buf.len());
     buf
 }
@@ -137,7 +138,7 @@ fn events_chunk_round_trip() {
     let p = chunk.payload();
     assert!(p[p.len() - PAYLOAD_PADDING..].iter().all(|b| *b == 0));
     // head: header, fixed part, 4 columns, 1 segment CRC
-    assert_eq!(chunk.payload_offset(), 32 + 48 + 4 * 8 + 4);
+    assert_eq!(chunk.payload_offset(), 32 + 52 + 4 * 8 + 4);
 }
 
 #[test]
@@ -148,7 +149,7 @@ fn chunk_heads_are_checked_on_write() {
     let bad = |h: ChunkHead, c: &[(ColumnSpec, &[u8])]| {
         let mut b = vec![0u8; 4096];
         matches!(
-            write_chunk(&mut b, 0, &h, c, 0),
+            write_chunk(&mut b, id(0), &h, c, 0),
             Err(ChunkError::Invalid(_))
         )
     };
@@ -216,7 +217,7 @@ fn chunk_heads_are_checked_on_write() {
         &series_columns(&scols)
     ));
     assert!(matches!(
-        write_chunk(&mut buf[..100], 0, &head, &columns, 0),
+        write_chunk(&mut buf[..100], id(0), &head, &columns, 0),
         Err(ChunkError::Full { .. })
     ));
 }
@@ -319,14 +320,17 @@ fn padding_puts_the_payload_on_the_alignment() {
 fn renumbered_blocks_stay_good() {
     let (head, cols) = series(0, 70_000);
     let mut bytes = encode(&head, &series_columns(&cols), 1, 33);
-    set_seq(&mut bytes, 42).unwrap();
-    assert_eq!(Block::read(&bytes).unwrap().seq, 42);
+    let other = BlockId::new(RunTag::writable(9), 42);
+    set_id(&mut bytes, other).unwrap();
+    let b = Block::read(&bytes).unwrap();
+    assert_eq!((b.run, b.seq), (other.run, 42));
     let mut buf = [0u8; 64];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 3, &[1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]);
     w.push(1, ClockTime::new(1, 5), &[b"x"]).unwrap();
     let len = w.finish();
-    set_seq(&mut buf[..len], 4).unwrap();
-    assert_eq!(Block::read(&buf[..len]).unwrap().seq, 4);
+    set_id(&mut buf[..len], other.next()).unwrap();
+    let b = Block::read(&buf[..len]).unwrap();
+    assert_eq!((b.run, b.seq), (other.run, 43));
 }
 
 /// A describe block, small records blocks deferred into the gaps, and chunks, through [TapeWriter].
@@ -338,7 +342,7 @@ fn write_tape(path: &std::path::Path, layout: Layout) -> Vec<u8> {
     set.insert(&Describe::Producer(Producer { name: "test" }))
         .unwrap();
     set.insert(&Describe::Layout(layout)).unwrap();
-    let mut seq = 0;
+    let mut seq = id(0);
     let mut blocks = vec![];
     set.write_blocks(&mut seq, 4096, &[], |b| blocks.push(b.to_vec()))
         .unwrap();
@@ -347,7 +351,7 @@ fn write_tape(path: &std::path::Path, layout: Layout) -> Vec<u8> {
     }
     let small = |n: i64| {
         let mut buf = [0u8; 128];
-        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[1]);
+        let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[1]);
         b.push(2, ClockTime::new(1, n), &[&[n as u8; 20]]).unwrap();
         let len = b.finish();
         buf[..len].to_vec()

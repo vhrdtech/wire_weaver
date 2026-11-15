@@ -1,4 +1,5 @@
 use super::*;
+use crate::tests::id;
 use crate::{BlockWriter, ClockTime, EndMode};
 
 fn entry(track_id: u64, offset: u64) -> IndexEntry {
@@ -24,7 +25,7 @@ fn write(head: &IndexHead, entries: &[IndexEntry]) -> Vec<u8> {
         IndexKind::Final => track_count(entries),
     };
     let mut buf = vec![0u8; index_len(entries.len(), tracks)];
-    let n = write_index(&mut buf, 5, head, entries).unwrap();
+    let n = write_index(&mut buf, id(5), head, entries).unwrap();
     assert_eq!(n, buf.len());
     buf
 }
@@ -48,7 +49,7 @@ fn checkpoint_round_trip() {
     assert_eq!((ix.self_offset(), ix.prev()), (2500, Some(400)));
     assert_eq!(ix.entries().collect::<Vec<_>>(), entries);
     assert_eq!(ix.tracks().count(), 0);
-    assert_eq!(bytes.len(), 32 + 24 + 5 * 72 + 4);
+    assert_eq!(bytes.len(), 32 + 28 + 5 * 72 + 4);
     let first = IndexHead { prev: None, ..head };
     let ix_bytes = write(&first, &entries);
     assert_eq!(
@@ -78,8 +79,8 @@ fn final_index_reads_one_track_from_its_head() {
         [0, 3, 7, 9]
     );
 
-    let head_len = IndexBlock::head_len(&bytes[..HEADER_LEN]).unwrap();
-    assert_eq!(head_len, 32 + 24 + 4 * 24);
+    let head_len = IndexBlock::head_len(&bytes[..HEAD_LEN_PREFIX]).unwrap();
+    assert_eq!(head_len, 32 + 28 + 4 * 24);
     let only_head = IndexBlock::read_head(&bytes[..head_len]).unwrap();
     assert_eq!(only_head.entries().count(), 0, "entries aren't in the head");
     let list = only_head.track(7).unwrap();
@@ -116,12 +117,12 @@ fn final_index_must_be_sorted() {
     };
     let mut buf = vec![0u8; 4096];
     assert!(matches!(
-        write_index(&mut buf, 0, &head, &entries),
+        write_index(&mut buf, id(0), &head, &entries),
         Err(IndexError::Invalid(_))
     ));
     let short = &mut [0u8; 40][..];
     assert!(matches!(
-        write_index(short, 0, &head, &[]),
+        write_index(short, id(0), &head, &[]),
         Err(IndexError::Full { .. })
     ));
 }
@@ -129,7 +130,7 @@ fn final_index_must_be_sorted() {
 #[test]
 fn entries_of_blocks() {
     let mut buf = [0u8; 128];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 3, &[1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(3), &[1]);
     w.push(2, ClockTime::new(1, 5), &[b"x"]).unwrap();
     w.push(4, ClockTime::new(1, 6), &[b"y"]).unwrap();
     let len = w.finish();
@@ -162,7 +163,7 @@ fn entries_of_blocks() {
         &col[..],
     )];
     let mut cb = vec![0u8; crate::chunk::chunk_len(&[cols[0].0], 0)];
-    let n = crate::chunk::write_chunk(&mut cb, 1, &head, &cols, 0).unwrap();
+    let n = crate::chunk::write_chunk(&mut cb, id(1), &head, &cols, 0).unwrap();
     let e = IndexEntry::of_block(4000, &Block::read(&cb[..n]).unwrap()).unwrap();
     assert_eq!(e, IndexEntry::of_chunk(4000, n, &head));
     assert_eq!(
@@ -255,7 +256,7 @@ fn renumbered_index_block_reads() {
             prev: None,
         };
         let mut bytes = write(&head, &entries);
-        crate::set_seq(&mut bytes, 77).unwrap();
+        crate::set_id(&mut bytes, id(77)).unwrap();
         let block = Block::read(&bytes).unwrap();
         assert_eq!(block.seq, 77);
         assert_eq!(IndexBlock::read(&block).unwrap().entry_count(), 3);
@@ -291,10 +292,10 @@ fn structural_blocks_are_not_deferred() {
         ident: None,
         next: None,
     }
-    .write(&mut tail, 0);
+    .write(&mut tail, id(0));
     assert!(w.defer_block(tail.to_vec()).is_err());
     let mut buf = [0u8; 64];
-    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[1]);
+    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[1]);
     b.push(1, ClockTime::new(1, 5), &[b"x"]).unwrap();
     let len = b.finish();
     w.defer_block(buf[..len].to_vec()).unwrap();

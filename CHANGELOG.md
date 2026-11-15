@@ -89,6 +89,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape` series tracks (STD-127): `TrackDef` kinds, `SeriesDef` from exact_units types, segment records for gaps and prefix changes. See the `ww_tape` and `ww_tap` changelogs.
 - `ww_tape` payload codec (STD-126): bit-packed payload lengths, raw or lz4 payloads, salvage item by item. See the `ww_tape` changelog.
 - `ww_tape` series summaries across a change of scale (STD-128): nodes at a common scale, each block states its scale. See the `ww_tape` changelog.
+- `ww_tape` run tags (STD-129): every block names its writer's run in header bytes 24..28; block makers take a `BlockId`. See the `ww_tape` and `ww_tap` changelogs.
 
 ### Added
 

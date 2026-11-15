@@ -186,7 +186,12 @@ impl EventTree {
                     .expect("a batch holds nodes"),
             };
             let mut buf = vec![0u8; summary_len(&head)?];
-            let len = write_event_summary(&mut buf, 0, &head, &out.nodes)?;
+            let len = write_event_summary(
+                &mut buf,
+                crate::BlockId::new(crate::RunTag::NONE, 0),
+                &head,
+                &out.nodes,
+            )?;
             buf.truncate(len);
             self.blocks.push(buf);
         }

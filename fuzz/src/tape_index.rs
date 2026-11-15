@@ -8,7 +8,7 @@ use ww_tape::index::{
     IndexBlock, IndexEntry, IndexHead, IndexKind, index_len, track_count, write_index,
 };
 use ww_tape::piece::{FinishBlock, PieceHeadBlock};
-use ww_tape::{Block, BlockKind, HEADER_LEN, Tail, TapeReader};
+use ww_tape::{Block, BlockKind, Tail, TapeReader};
 
 /// Look at everything the block decoders give for `data`.
 fn decode(data: &[u8]) {
@@ -104,7 +104,13 @@ fuzz_target!(|data: &[u8]| {
         self_offset: u64::from(flag),
         prev: (flag & 2 == 2).then_some(7),
     };
-    let n = write_index(&mut buf, 1, &head, &entries).expect("a valid index");
+    let n = write_index(
+        &mut buf,
+        ww_tape::BlockId::new(ww_tape::RunTag::writable(1), 1),
+        &head,
+        &entries,
+    )
+    .expect("a valid index");
     let b = Block::read(&buf[..n]).expect("written good");
     let ix = IndexBlock::read(&b).expect("an index");
     assert_eq!(ix.entries().collect::<Vec<_>>(), entries);
@@ -112,7 +118,7 @@ fuzz_target!(|data: &[u8]| {
         (ix.kind(), ix.self_offset(), ix.prev()),
         (kind, head.self_offset, head.prev)
     );
-    let len = IndexBlock::head_len(&buf[..HEADER_LEN]).expect("a head");
+    let len = IndexBlock::head_len(&buf[..ww_tape::index::HEAD_LEN_PREFIX]).expect("a head");
     let only = IndexBlock::read_head(&buf[..len]).expect("a head");
     let mut again = vec![];
     for t in only.tracks() {

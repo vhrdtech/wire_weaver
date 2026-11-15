@@ -1,11 +1,13 @@
 //! ww_tape chunk blocks on any bytes, and on chunks built from the input with one byte flipped: reading and salvaging
 //! never panic, a salvaged chunk's head reads back, a byte flipped in the payload of a good chunk costs exactly the
-//! segment it is in, and a renumbered good block stays good.
+//! segment it is in, and a block given another run and seq stays good.
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use ww_tape::chunk::{chunk_len, write_chunk};
-use ww_tape::{Block, BlockKind, ChunkHead, Codec, ColumnKind, ColumnSpec, EndMode, set_seq};
+use ww_tape::{
+    Block, BlockId, BlockKind, ChunkHead, Codec, ColumnKind, ColumnSpec, EndMode, RunTag, set_id,
+};
 
 /// Look at everything a block read or salvaged from `data` gives.
 fn walk(data: &[u8]) {
@@ -27,11 +29,13 @@ fn walk(data: &[u8]) {
     }
     if let Ok(b) = Block::read(data) {
         let mut copy = b.bytes().to_vec();
-        set_seq(&mut copy, b.seq.wrapping_add(1)).expect("a good block renumbers");
-        assert_eq!(
-            Block::read(&copy).expect("still good").seq,
-            b.seq.wrapping_add(1)
+        let id = BlockId::new(
+            RunTag::from_u32(b.run.get().wrapping_add(1)),
+            b.seq.wrapping_add(1),
         );
+        set_id(&mut copy, id).expect("a good block renumbers");
+        let again = Block::read(&copy).expect("still good");
+        assert_eq!((again.run, again.seq), (id.run, id.seq));
     }
 }
 
@@ -86,7 +90,14 @@ fuzz_target!(|data: &[u8]| {
     };
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
-    let len = write_chunk(&mut buf, 3, &head, &cols, 0).expect("a valid chunk");
+    let len = write_chunk(
+        &mut buf,
+        BlockId::new(RunTag::writable(3), 3),
+        &head,
+        &cols,
+        0,
+    )
+    .expect("a valid chunk");
     let block = Block::read(&buf[..len]).expect("written good");
     let chunk = block.chunk().expect("a chunk");
     assert_eq!(chunk.head(), head);

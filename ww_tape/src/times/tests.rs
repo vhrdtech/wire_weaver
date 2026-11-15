@@ -1,6 +1,7 @@
 use super::*;
 use crate::Block;
 use crate::chunk::{ColumnSpec, chunk_len, write_chunk};
+use crate::tests::id;
 use std::vec::Vec;
 
 /// xorshift64*, fixed seeds.
@@ -36,7 +37,7 @@ pub(crate) fn block(starts: &[i64], ends: Option<&[i64]>, flags: Option<&[u32]>)
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = std::vec![0u8; chunk_len(&specs, 0)];
     let head = enc.head.chunk_head(9, 1, 1000);
-    let len = write_chunk(&mut buf, 1, &head, &cols, 0).expect("a valid chunk");
+    let len = write_chunk(&mut buf, id(1), &head, &cols, 0).expect("a valid chunk");
     buf.truncate(len);
     buf
 }
@@ -596,7 +597,7 @@ fn read_refuses_wrong_shapes() {
     let write = |head: crate::ChunkHead, cols: &[(ColumnSpec, &[u8])]| {
         let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
         let mut buf = std::vec![0u8; chunk_len(&specs, 0)];
-        let len = write_chunk(&mut buf, 1, &head, cols, 0).unwrap();
+        let len = write_chunk(&mut buf, id(1), &head, cols, 0).unwrap();
         buf.truncate(len);
         buf
     };

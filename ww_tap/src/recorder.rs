@@ -21,8 +21,9 @@ use std::time::{Duration, Instant, SystemTime};
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::SerializeShrinkWrap;
 use ww_tape::{
-    Block, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
-    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, Sticky, TrackDef, Version,
+    Block, BlockId, BlockKind, BlockState, BlockWriter, ClockDef, ClockMap, ClockOrigin, ClockTime,
+    Describe, DescribeSet, FullVersion, Magnitude, MapSegment, Producer, RunTag, Sticky, TrackDef,
+    Version,
 };
 
 use crate::{Dir, Frame, LinkEvent, Message, Session, Tap, ids};
@@ -212,7 +213,8 @@ struct LinkState {
 struct State {
     pool: Vec<Arc<ChunkBuf>>,
     current: Option<Current>,
-    seq: u64,
+    /// Run and seq of the next block: a random run per recorder
+    next: BlockId,
     links: Vec<LinkState>,
     bundles: Vec<(Vec<u8>, Vec<u8>)>,
     sinks: Vec<Sink>,
@@ -302,7 +304,7 @@ impl Recorder {
             state: Mutex::new(State {
                 pool: Vec::new(),
                 current: None,
-                seq: 0,
+                next: BlockId::new(RunTag::random(), 0),
                 links: Vec::new(),
                 bundles: Vec::new(),
                 sinks: Vec::new(),
@@ -498,10 +500,10 @@ impl Inner {
         let Some(mut buf) = self.take_block(st) else {
             return false;
         };
-        let seq = st.seq;
-        st.seq += 1;
+        let id = st.next;
+        st.next = id.next();
         let b = Arc::get_mut(&mut buf).expect("free block");
-        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, seq, &[HOST_CLOCK]);
+        let w = BlockWriter::new(&mut b.bytes, BlockKind::Records, id, &[HOST_CLOCK]);
         st.current = Some(Current {
             state: w.into_state(),
             buf,
@@ -667,7 +669,7 @@ impl Inner {
             })
             .collect();
         let mut blocks = Vec::new();
-        let written = set.write_blocks(&mut st.seq, self.config.block_size, &sticky, |b| {
+        let written = set.write_blocks(&mut st.next, self.config.block_size, &sticky, |b| {
             blocks.push(b.to_vec());
         });
         if let Err(e) = written {

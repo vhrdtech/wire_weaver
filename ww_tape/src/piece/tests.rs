@@ -1,4 +1,5 @@
 use super::*;
+use crate::tests::id;
 
 fn ident(seq: u64) -> PieceIdent {
     PieceIdent {
@@ -29,7 +30,7 @@ fn piece_head_round_trip() {
         },
     ];
     let mut buf = vec![0u8; piece_head_len(2)];
-    let n = write_piece_head(&mut buf, 40, &head, &tracks).unwrap();
+    let n = write_piece_head(&mut buf, id(40), &head, &tracks).unwrap();
     assert_eq!(n, 32 + 112 + 64 + 4);
     let block = Block::read(&buf).unwrap();
     assert_eq!((block.kind, block.seq), (BlockKind::PieceHead, 40));
@@ -41,7 +42,7 @@ fn piece_head_round_trip() {
         ident: ident(0),
         prev: None,
     };
-    let n = write_piece_head(&mut buf, 0, &first, &[]).unwrap();
+    let n = write_piece_head(&mut buf, id(0), &first, &[]).unwrap();
     let block = Block::read(&buf[..n]).unwrap();
     assert_eq!(PieceHeadBlock::read(&block).unwrap().head(), first);
 }
@@ -68,7 +69,7 @@ fn finish_and_tail_round_trip() {
         latest_end: 950,
     }];
     let mut buf = vec![0u8; finish_len(1)];
-    let n = write_finish(&mut buf, 77, &finish, &tracks).unwrap();
+    let n = write_finish(&mut buf, id(77), &finish, &tracks).unwrap();
     let block = Block::read(&buf[..n]).unwrap();
     let f = FinishBlock::read(&block).unwrap();
     assert_eq!(f.finish(), finish);
@@ -81,7 +82,7 @@ fn finish_and_tail_round_trip() {
         state: FinishState::Complete,
         ..finish
     };
-    let n = write_finish(&mut buf, 77, &plain, &[]).unwrap();
+    let n = write_finish(&mut buf, id(77), &plain, &[]).unwrap();
     let block = Block::read(&buf[..n]).unwrap();
     assert_eq!(FinishBlock::read(&block).unwrap().finish(), plain);
 
@@ -95,7 +96,7 @@ fn finish_and_tail_round_trip() {
         next: finish.next,
     };
     let mut tb = [0u8; TAIL_LEN];
-    assert_eq!(tail.write(&mut tb, 78), TAIL_LEN);
+    assert_eq!(tail.write(&mut tb, id(78)), TAIL_LEN);
     assert_eq!(Tail::read(&tb).unwrap(), tail);
     for at in 0..TAIL_LEN {
         let mut bad = tb;
@@ -107,7 +108,7 @@ fn finish_and_tail_round_trip() {
         finish_offset: 6 << 20,
         ..tail
     };
-    wrong.write(&mut tb, 78);
+    wrong.write(&mut tb, id(78));
     assert!(Tail::read(&tb).is_err());
     // offsets whose sum overflows u64
     let wraps = Tail {
@@ -116,7 +117,7 @@ fn finish_and_tail_round_trip() {
         finish_len: 180,
         ..tail
     };
-    wraps.write(&mut tb, 78);
+    wraps.write(&mut tb, id(78));
     assert_eq!(Tail::read(&tb), Err(IndexError::BadHead));
 }
 

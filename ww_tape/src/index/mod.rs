@@ -9,19 +9,20 @@
 //!
 //! Offsets are counted from the start of the piece (its [piece head](crate::piece), or where its writer started), so
 //! a piece keeps its index when pieces are concatenated. The block header's count is the number of entries; bytes
-//! 24..32 hold where the entries start and a CRC of the head, as in a chunk block:
+//! 28..32 hold a CRC of the head, and the body starts with where the entries start, as in a chunk block:
 //!
 //! ```text
 //! off size field
-//!  24 u32  entries offset from the block start
+//!  24 u32  run tag, as in every block
 //!  28 u32  head CRC: CRC-32C over bytes 0..28, then 32..entries offset
-//!  32 u64  self offset: where this block starts in the piece
-//!  40 u64  previous index block of the piece (a checkpoint's previous checkpoint, a final block's previous final
+//!  32 u32  entries offset from the block start
+//!  36 u32  tracks n in the directory, 0 in a checkpoint
+//!  40 u64  self offset: where this block starts in the piece
+//!  48 u64  previous index block of the piece (a checkpoint's previous checkpoint, a final block's previous final
 //!          block), u64::MAX for none
-//!  48 u16  flags: bit 0 final (entries sorted by track id, then offset; a directory of tracks follows)
-//!  50 u16  entry length, 72 (a reader takes longer entries and reads their first 72 bytes)
-//!  52 u32  tracks n in the directory, 0 in a checkpoint
-//!  56 ...  n × track: id u64, first entry u32, entry count u32, CRC-32C of its entries u32, reserved u32
+//!  56 u16  flags: bit 0 final (entries sorted by track id, then offset; a directory of tracks follows)
+//!  58 u16  entry length, 72 (a reader takes longer entries and reads their first 72 bytes)
+//!  60 ...  n × track: id u64, first entry u32, entry count u32, CRC-32C of its entries u32, reserved u32
 //!  ...     entries, each:
 //!            0 u64 offset of the block in the piece    8 u32 its length        12 u8 its block kind
 //!           13 u8  summary level (0 for other kinds)   14 u8 summary tree      15 u8 reserved
@@ -37,14 +38,19 @@
 //! whole tracks in ascending track id order.
 
 use crate::chunk::{get_u16, get_u32, get_u64, put_u32};
-use crate::{Block, BlockError, BlockKind, CRC, CRC_LEN, ChunkHead, HEADER_LEN, MAGIC, VERSION};
+use crate::{
+    Block, BlockError, BlockId, BlockKind, CRC, CRC_LEN, ChunkHead, HEADER_LEN, VERSION, put_header,
+};
 
 /// Bytes of one index entry.
 pub const ENTRY_LEN: usize = 72;
 /// Bytes of one track in a final index's directory.
 pub const TRACK_LEN: usize = 24;
-/// Bytes of the fixed part of an index head (32..56).
-pub const INDEX_FIXED_LEN: usize = 24;
+/// Bytes of the fixed part of an index head (32..60).
+pub const INDEX_FIXED_LEN: usize = 28;
+/// Bytes at the start of an index block that say how long its head is ([IndexBlock::head_len]): the header and the
+/// entries offset.
+pub const HEAD_LEN_PREFIX: usize = HEADER_LEN + 4;
 /// Longest index block a writer makes (1 MiB) and a reader scanning back from the end of a file looks for.
 pub const INDEX_LEN_MAX: usize = 1 << 20;
 /// Most entries in a checkpoint index block.
@@ -272,17 +278,6 @@ pub const fn index_len(entries: usize, tracks: usize) -> usize {
     HEADER_LEN + INDEX_FIXED_LEN + tracks * TRACK_LEN + entries * ENTRY_LEN + CRC_LEN
 }
 
-/// Start a block of `kind` and `len` with `records` and `seq` in `buf`: the 32-byte header, its bytes 24..32 zero.
-pub(crate) fn put_header(buf: &mut [u8], kind: BlockKind, len: usize, records: u32, seq: u64) {
-    buf[..HEADER_LEN].fill(0);
-    buf[0..4].copy_from_slice(&MAGIC);
-    buf[4] = VERSION;
-    buf[5] = kind.to_u8();
-    put_u32(buf, 8, len as u32);
-    put_u32(buf, 12, records);
-    buf[16..24].copy_from_slice(&seq.to_le_bytes());
-}
-
 /// Write the CRC of the block `buf` (exactly its bytes).
 pub(crate) fn seal(buf: &mut [u8]) {
     let len = buf.len();
@@ -309,7 +304,7 @@ fn head_crc(b: &[u8], entries_at: usize) -> u32 {
 /// must be sorted by track id, then offset.
 pub fn write_index(
     buf: &mut [u8],
-    seq: u64,
+    id: BlockId,
     head: &IndexHead,
     entries: &[IndexEntry],
 ) -> Result<usize, IndexError> {
@@ -335,18 +330,18 @@ pub fn write_index(
         return Err(IndexError::Full { needed: len });
     }
     let buf = &mut buf[..len];
-    put_header(buf, BlockKind::Index, len, entries.len() as u32, seq);
+    put_header(buf, BlockKind::Index, len, entries.len() as u32, id);
     let entries_at = HEADER_LEN + INDEX_FIXED_LEN + tracks * TRACK_LEN;
-    put_u32(buf, 24, entries_at as u32);
-    buf[32..40].copy_from_slice(&head.self_offset.to_le_bytes());
-    buf[40..48].copy_from_slice(&head.prev.unwrap_or(NONE).to_le_bytes());
+    put_u32(buf, 32, entries_at as u32);
+    put_u32(buf, 36, tracks as u32);
+    buf[40..48].copy_from_slice(&head.self_offset.to_le_bytes());
+    buf[48..56].copy_from_slice(&head.prev.unwrap_or(NONE).to_le_bytes());
     let flags = match head.kind {
         IndexKind::Checkpoint => 0,
         IndexKind::Final => FLAG_FINAL,
     };
-    buf[48..50].copy_from_slice(&flags.to_le_bytes());
-    buf[50..52].copy_from_slice(&(ENTRY_LEN as u16).to_le_bytes());
-    put_u32(buf, 52, tracks as u32);
+    buf[56..58].copy_from_slice(&flags.to_le_bytes());
+    buf[58..60].copy_from_slice(&(ENTRY_LEN as u16).to_le_bytes());
     for (i, e) in entries.iter().enumerate() {
         let at = entries_at + i * ENTRY_LEN;
         e.encode(&mut buf[at..at + ENTRY_LEN]);
@@ -400,14 +395,19 @@ impl<'b> IndexBlock<'b> {
         })
     }
 
-    /// Bytes of the head of the index block whose first [HEADER_LEN] bytes are `header`: what [Self::read_head]
+    /// Bytes of the head of the index block whose first [HEAD_LEN_PREFIX] bytes are `header`: what [Self::read_head]
     /// needs.
     pub fn head_len(header: &[u8]) -> Result<usize, IndexError> {
         let len = crate::block_len(header)?;
+        if header.len() < HEAD_LEN_PREFIX {
+            return Err(IndexError::Block(BlockError::Short {
+                needed: HEAD_LEN_PREFIX,
+            }));
+        }
         if header[4] != VERSION || BlockKind::from_u8(header[5]) != BlockKind::Index {
             return Err(IndexError::Kind);
         }
-        let at = get_u32(header, 24) as usize;
+        let at = get_u32(header, 32) as usize;
         if at < HEADER_LEN + INDEX_FIXED_LEN || at.checked_add(CRC_LEN).is_none_or(|end| end > len)
         {
             return Err(IndexError::BadHeadCrc);
@@ -429,9 +429,9 @@ impl<'b> IndexBlock<'b> {
             return Err(IndexError::BadHeadCrc);
         }
         let len = get_u32(bytes, 8) as usize;
-        let flags = get_u16(bytes, 48);
-        let entry_len = get_u16(bytes, 50) as usize;
-        let tracks = get_u32(bytes, 52) as usize;
+        let flags = get_u16(bytes, 56);
+        let entry_len = get_u16(bytes, 58) as usize;
+        let tracks = get_u32(bytes, 36) as usize;
         let entries = get_u32(bytes, 12) as usize;
         let kind = if flags & FLAG_FINAL != 0 {
             IndexKind::Final
@@ -481,12 +481,12 @@ impl<'b> IndexBlock<'b> {
 
     /// Where this block starts in its piece.
     pub fn self_offset(&self) -> u64 {
-        get_u64(self.bytes, 32)
+        get_u64(self.bytes, 40)
     }
 
     /// The previous index block of the same kind in the piece.
     pub fn prev(&self) -> Option<u64> {
-        Some(get_u64(self.bytes, 40)).filter(|o| *o != NONE)
+        Some(get_u64(self.bytes, 48)).filter(|o| *o != NONE)
     }
 
     /// The block's whole length.

@@ -28,7 +28,7 @@
 //! mixed.
 //!
 //! A summary block ([BlockKind::Summary]) holds a batch of consecutive nodes of one level of one track. The block
-//! header's count (bytes 12..16) is the number of nodes; bytes 24..32 stay reserved, zero:
+//! header's count (bytes 12..16) is the number of nodes; bytes 28..32 stay reserved, zero:
 //!
 //! ```text
 //! off size field
@@ -67,7 +67,7 @@
 use exact_units::Magnitude;
 use shrink_wrap::prelude::*;
 
-use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, SeriesError, VERSION};
+use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAX_BLOCK_LEN, SeriesError};
 
 mod series;
 use crate::Element;
@@ -386,7 +386,11 @@ pub struct SummaryWriter<'b> {
 
 impl<'b> SummaryWriter<'b> {
     /// Write the header and head of a summary block with `head`, its body zero until filled in.
-    pub fn new(buf: &'b mut [u8], seq: u64, head: &SummaryHead) -> Result<Self, SummaryError> {
+    pub fn new(
+        buf: &'b mut [u8],
+        id: crate::BlockId,
+        head: &SummaryHead,
+    ) -> Result<Self, SummaryError> {
         head.check()?;
         let len = summary_len(head)?;
         if len > MAX_BLOCK_LEN {
@@ -398,12 +402,7 @@ impl<'b> SummaryWriter<'b> {
         let nodes = head.node_count() as usize;
         let buf = &mut buf[..len];
         buf.fill(0);
-        buf[0..4].copy_from_slice(&MAGIC);
-        buf[4] = VERSION;
-        buf[5] = BlockKind::Summary.to_u8();
-        put_u32(buf, 8, len as u32);
-        put_u32(buf, 12, nodes as u32);
-        put_u64(buf, 16, seq);
+        crate::put_header(buf, BlockKind::Summary, len, nodes as u32, id);
         put_u64(buf, 32, head.track_id);
         put_u32(buf, 40, head.track_number);
         buf[44] = head.tree.to_u8();
@@ -480,7 +479,7 @@ impl<'b> Summary<'b> {
         let u16_at = |at| get_u16(block, at).ok_or(short);
         let u32_at = |at| get_u32(block, at).ok_or(short);
         let u64_at = |at| get_u64(block, at).ok_or(short);
-        if u64_at(24)? != 0 || u16_at(54)? != 0 {
+        if u32_at(28)? != 0 || u16_at(54)? != 0 {
             return Err(SummaryError::Invalid("reserved bytes not zero"));
         }
         let tree = Tree::from_u8(u8_at(44)?).ok_or(SummaryError::Invalid("unknown tree"))?;
@@ -800,14 +799,14 @@ impl EventNode {
 /// Encode an event tree block of `nodes` (one per node of `head`, in order) into `buf`; returns its length.
 pub fn write_event_summary(
     buf: &mut [u8],
-    seq: u64,
+    id: crate::BlockId,
     head: &SummaryHead,
     nodes: &[EventNode],
 ) -> Result<usize, SummaryError> {
     let Layout::Events(f) = head.layout else {
         return Err(SummaryError::Invalid("not an event tree"));
     };
-    let mut w = SummaryWriter::new(buf, seq, head)?;
+    let mut w = SummaryWriter::new(buf, id, head)?;
     let n = w.nodes();
     if nodes.len() != n {
         return Err(SummaryError::Invalid("node count differs from the head"));
@@ -842,7 +841,7 @@ pub fn write_event_summary(
 /// length.
 pub fn write_series_summary(
     buf: &mut [u8],
-    seq: u64,
+    id: crate::BlockId,
     head: &SummaryHead,
     nodes: &[&[ChannelStats]],
 ) -> Result<usize, SummaryError> {
@@ -855,7 +854,7 @@ pub fn write_series_summary(
     else {
         return Err(SummaryError::Invalid("not a series"));
     };
-    let mut w = SummaryWriter::new(buf, seq, head)?;
+    let mut w = SummaryWriter::new(buf, id, head)?;
     let n = w.nodes();
     if nodes.len() != n || nodes.iter().any(|c| c.len() != usize::from(channels)) {
         return Err(SummaryError::Invalid(

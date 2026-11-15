@@ -20,10 +20,11 @@
 //!   6 u16  flags, 0 (a reader ignores bits it doesn't know)
 //!   8 u32  len: the whole block, header and CRC included
 //!  12 u32  records in the block
-//!  16 u64  seq: the producer's block number, +1 per block; a gap is lost blocks. Index, finish, tail and piece
-//!          head blocks, and describe blocks a writer repeats, carry the seq of the block before them and are not
-//!          counted (index::is_structural)
-//!  24 u64  reserved, 0
+//!  16 u64  seq: the block number in its run, from 0, +1 per block; a gap is lost blocks. Index, finish, tail and
+//!          piece head blocks, and describe blocks a writer repeats, carry the seq of the block before them and are
+//!          not counted (index::is_structural)
+//!  24 u32  run tag (RunTag): the same in every block of one writer's unbroken append, never 0 nor FFFFFFFFh
+//!  28 u32  head CRC in chunk and index blocks (their own docs), else 0
 //!  32 ...  body
 //! len-4 u32 crc over bytes 0..len-4
 //! ```
@@ -134,6 +135,8 @@ pub mod reader;
 #[cfg(feature = "alloc")]
 pub use reader::{ByteSource, OpenOptions, PieceInfo, ReadError, TapeReader};
 
+mod run;
+pub use run::{BlockId, RunTag};
 mod varint;
 pub use varint::{ivar_len, uvar_len};
 
@@ -330,7 +333,7 @@ impl<'b> BlockWriter<'b> {
     /// # Panics
     ///
     /// When `clocks` breaks those rules or `buf` doesn't hold the header, the clock table and the CRC.
-    pub fn new(buf: &'b mut [u8], kind: BlockKind, seq: u64, clocks: &[u32]) -> Self {
+    pub fn new(buf: &'b mut [u8], kind: BlockKind, id: BlockId, clocks: &[u32]) -> Self {
         assert!(
             clocks.len() <= MAX_BLOCK_CLOCKS,
             "at most {MAX_BLOCK_CLOCKS} clocks in a block"
@@ -351,12 +354,7 @@ impl<'b> BlockWriter<'b> {
         );
         let usable = buf.len().min(MAX_BLOCK_LEN);
         let buf = &mut buf[..usable];
-        buf[0..4].copy_from_slice(&MAGIC);
-        buf[4] = VERSION;
-        buf[5] = kind.to_u8();
-        buf[6..8].copy_from_slice(&0u16.to_le_bytes());
-        buf[16..24].copy_from_slice(&seq.to_le_bytes());
-        buf[24..32].copy_from_slice(&0u64.to_le_bytes());
+        put_header(buf, kind, 0, 0, id);
         let mut pos = HEADER_LEN;
         pos += varint::put_uvar(&mut buf[pos..], clocks.len() as u64);
         let mut slots = Slots {
@@ -525,6 +523,19 @@ impl BlockState {
     }
 }
 
+/// Write the 32-byte header of a block of `kind`, `len` bytes and `count` records with `id` into `buf`: flags and
+/// bytes 28..32 zero.
+pub(crate) fn put_header(buf: &mut [u8], kind: BlockKind, len: usize, count: u32, id: BlockId) {
+    buf[..HEADER_LEN].fill(0);
+    buf[0..4].copy_from_slice(&MAGIC);
+    buf[4] = VERSION;
+    buf[5] = kind.to_u8();
+    buf[8..12].copy_from_slice(&(len as u32).to_le_bytes());
+    buf[12..16].copy_from_slice(&count.to_le_bytes());
+    buf[16..24].copy_from_slice(&id.seq.to_le_bytes());
+    buf[24..28].copy_from_slice(&id.run.get().to_le_bytes());
+}
+
 /// Why a block can't be read.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockError {
@@ -550,6 +561,8 @@ pub struct Block<'b> {
     pub version: u8,
     pub kind: BlockKind,
     pub seq: u64,
+    /// The run the block belongs to, as written: a reader decides whether it is the current one.
+    pub run: RunTag,
     pub record_count: u32,
     bytes: &'b [u8],
     /// False for a chunk block handed out by [Block::salvage] whose payload doesn't match its CRCs.
@@ -581,17 +594,18 @@ pub fn block_len(bytes: &[u8]) -> Result<usize, BlockError> {
     Ok(len as usize)
 }
 
-/// Renumber the whole, good block `block` to `seq` and rewrite its CRCs (an index block's head CRC too), so a writer
-/// that places blocks later than it made them (a summary block filling the gap before an aligned chunk) keeps seqs
-/// ascending in the file.
-pub fn set_seq(block: &mut [u8], seq: u64) -> Result<(), BlockError> {
+/// Give the whole, good block `block` the run and seq of `id` and rewrite its CRCs (a chunk or index block's head CRC
+/// too), so a writer that places blocks later than it made them (a summary block filling the gap before an aligned
+/// chunk) keeps seqs ascending in the file and every block in its run.
+pub fn set_id(block: &mut [u8], id: BlockId) -> Result<(), BlockError> {
     let b = Block::read(block)?;
     if b.len() != block.len() {
         return Err(BlockError::BadLength(block.len() as u32));
     }
     let chunk = b.is_chunk() && b.body_known();
     let index = b.kind == BlockKind::Index && b.body_known();
-    block[16..24].copy_from_slice(&seq.to_le_bytes());
+    block[16..24].copy_from_slice(&id.seq.to_le_bytes());
+    block[24..28].copy_from_slice(&id.run.get().to_le_bytes());
     if chunk {
         chunk::restamp(block);
     } else {
@@ -676,6 +690,9 @@ impl<'b> Block<'b> {
             kind: BlockKind::from_u8(bytes[5]),
             record_count: u32::from_le_bytes(bytes[12..16].try_into().expect("4 bytes")),
             seq: u64::from_le_bytes(bytes[16..24].try_into().expect("8 bytes")),
+            run: RunTag::from_u32(u32::from_le_bytes(
+                bytes[24..28].try_into().expect("4 bytes"),
+            )),
             bytes: &bytes[..len],
             intact: true,
         };

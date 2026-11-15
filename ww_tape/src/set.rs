@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use shrink_wrap::prelude::*;
 
 use crate::{
-    BlockKind, BlockWriter, CRC_LEN, ClockTime, Describe, HEADER_LEN, MAX_BLOCK_CLOCKS,
+    BlockId, BlockKind, BlockWriter, CRC_LEN, ClockTime, Describe, HEADER_LEN, MAX_BLOCK_CLOCKS,
     MAX_BLOCK_LEN, MAX_CLOCK_TABLE, MAX_RECORD_HEAD, Rank,
 };
 
@@ -248,11 +248,11 @@ impl DescribeSet {
     }
 
     /// Write the set as describe blocks of at most `block_len_max` bytes (a longer record gets a block of its own),
-    /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*seq` on, which is
-    /// left at the next number; `out` takes each block.
+    /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*id` on in its run,
+    /// which is left at the next number; `out` takes each block.
     pub fn write_blocks(
         &self,
-        seq: &mut u64,
+        id: &mut BlockId,
         block_len_max: usize,
         sticky: &[Sticky<'_>],
         mut out: impl FnMut(&[u8]),
@@ -303,8 +303,8 @@ impl DescribeSet {
             }
             let clocks: Vec<u32> = clocks.into_iter().collect();
             let mut buf = vec![0u8; size];
-            let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, *seq, &clocks);
-            *seq += 1;
+            let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, *id, &clocks);
+            *id = id.next();
             for (s, item) in &entries[i..j] {
                 let pushed = match s {
                     Some(s) => w.push(s.track, s.at, &[item]),

@@ -2,25 +2,27 @@
 //!
 //! An events chunk ([BlockKind::Events]) holds up to a few thousand items of an event track, a series chunk
 //! ([BlockKind::Series]) a run of samples of a fixed-rate series. The block header's count (bytes 12..16) is the
-//! chunk's item or sample count; bytes 24..32 hold where the payload starts and a CRC of the head:
+//! chunk's item or sample count; bytes 28..32 hold a CRC of the head, and the body starts with where the payload
+//! starts:
 //!
 //! ```text
 //! off size field
-//!  24 u32  payload offset from the block start (in an aligned file a multiple of the alignment in the file)
+//!  24 u32  run tag, as in every block
 //!  28 u32  head CRC: CRC-32C over bytes 0..28, then 32..payload offset
-//!  32 u64  track id, the identity hash of the track (TrackDef::id): the chunk places itself without the describe set
-//!  40 u32  track number (TrackDef::number)
-//!  44  u8  segment shift: the payload is checked in segments of 2^shift bytes (16: 64 KiB)
-//!  45  u8  columns n, 1 and up
-//!  46  u8  time mode, the time codec's (events; 0 in series chunks)
-//!  47  u8  end mode (events: EndMode; 0 in series chunks)
+//!  32 u32  payload offset from the block start (in an aligned file a multiple of the alignment in the file)
+//!  36 u32  track number (TrackDef::number)
+//!  40 u64  track id, the identity hash of the track (TrackDef::id): the chunk places itself without the describe set
 //!  48 u64  first item number of the track (sample index in a series)
 //!  56 i64  first tick: the first item's start (the first sample's tick)
 //!  64 i64  last tick: the last item's start (the last sample's tick); at least the first
 //!  72 i64  latest end: the largest end of any item, at least the last tick; the last tick when every item is an
 //!          instant (EndMode::Absent) and in a series chunk. An overlap query and a rebuilt index need no decode of the
 //!          ends column.
-//!  80 ...  n × column: kind u8, codec u8, param u16, offset u32 (from the payload start; the first 0, ascending)
+//!  80  u8  segment shift: the payload is checked in segments of 2^shift bytes (16: 64 KiB)
+//!  81  u8  columns n, 1 and up
+//!  82  u8  time mode, the time codec's (events; 0 in series chunks)
+//!  83  u8  end mode (events: EndMode; 0 in series chunks)
+//!  84 ...  n × column: kind u8, codec u8, param u16, offset u32 (from the payload start; the first 0, ascending)
 //!     ...  segment CRCs: one u32 per segment of the payload, CRC-32C of its bytes
 //!     ...  zeros up to the payload offset
 //!  payload: the columns back to back, then 16 zero bytes, so an unaligned 16-byte load at any column byte stays in
@@ -39,14 +41,14 @@
 //! 15 are the event time codec's ([crate::times]), 16 to 47 the sample codecs' ([crate::samples]), 48 lz4 payloads
 //! ([crate::lz4]).
 
-use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAGIC, MAX_BLOCK_LEN, VERSION};
+use crate::{BlockKind, CRC_LEN, HEADER_LEN, MAX_BLOCK_LEN};
 
 /// The CRC of chunk blocks: the same CRC-32C as every block, with a 16-entry table for the large payloads.
 const CRC16: crc::Crc<u32, crc::Table<16>> =
     crc::Crc::<u32, crc::Table<16>>::new(&crc::CRC_32_ISCSI);
 
-/// Bytes of the fixed part of the chunk head (32..80).
-pub const CHUNK_FIXED_LEN: usize = 48;
+/// Bytes of the fixed part of the chunk head (32..84).
+pub const CHUNK_FIXED_LEN: usize = 52;
 /// Bytes of one column entry.
 pub const COLUMN_ENTRY_LEN: usize = 8;
 /// Zero bytes after the columns.
@@ -283,7 +285,7 @@ impl<'b> ChunkWriter<'b> {
     /// the payload ([chunk_padding]).
     pub fn new(
         buf: &'b mut [u8],
-        seq: u64,
+        id: crate::BlockId,
         head: &ChunkHead,
         columns: &[ColumnSpec],
         padding: usize,
@@ -304,19 +306,14 @@ impl<'b> ChunkWriter<'b> {
         let head_len = chunk_head_len(columns.len(), payload);
         let payload_at = head_len + padding;
         buf.fill(0);
-        buf[0..4].copy_from_slice(&MAGIC);
-        buf[4] = VERSION;
-        buf[5] = head.kind.to_u8();
-        put_u32(buf, 8, len as u32);
-        put_u32(buf, 12, head.count);
-        buf[16..24].copy_from_slice(&seq.to_le_bytes());
-        put_u32(buf, 24, payload_at as u32);
-        buf[32..40].copy_from_slice(&head.track_id.to_le_bytes());
-        put_u32(buf, 40, head.track_number);
-        buf[44] = SEGMENT_SHIFT;
-        buf[45] = columns.len() as u8;
-        buf[46] = head.time_mode;
-        buf[47] = head.end_mode.to_u8();
+        crate::put_header(buf, head.kind, len, head.count, id);
+        put_u32(buf, 32, payload_at as u32);
+        put_u32(buf, 36, head.track_number);
+        buf[40..48].copy_from_slice(&head.track_id.to_le_bytes());
+        buf[80] = SEGMENT_SHIFT;
+        buf[81] = columns.len() as u8;
+        buf[82] = head.time_mode;
+        buf[83] = head.end_mode.to_u8();
         buf[48..56].copy_from_slice(&head.first_item.to_le_bytes());
         buf[56..64].copy_from_slice(&head.first_tick.to_le_bytes());
         buf[64..72].copy_from_slice(&head.last_tick.to_le_bytes());
@@ -392,9 +389,9 @@ impl<'b> ChunkWriter<'b> {
 /// CRCs it holds: no pass over the payload.
 pub(crate) fn restamp(block: &mut [u8]) {
     let len = block.len();
-    let payload_at = get_u32(block, 24) as usize;
-    let columns = block[45] as usize;
-    let shift = block[44];
+    let payload_at = get_u32(block, 32) as usize;
+    let columns = block[81] as usize;
+    let shift = block[80];
     let table = HEADER_LEN + CHUNK_FIXED_LEN + columns * COLUMN_ENTRY_LEN;
     let payload_len = len - CRC_LEN - payload_at;
     let seg = 1usize << shift;
@@ -420,7 +417,7 @@ pub(crate) fn restamp(block: &mut [u8]) {
 /// Write a whole chunk block with `columns` copied in; returns its length.
 pub fn write_chunk(
     buf: &mut [u8],
-    seq: u64,
+    id: crate::BlockId,
     head: &ChunkHead,
     columns: &[(ColumnSpec, &[u8])],
     padding: usize,
@@ -440,7 +437,7 @@ pub fn write_chunk(
         }
         specs[i] = *spec;
     }
-    let mut w = ChunkWriter::new(buf, seq, head, &specs[..columns.len()], padding)?;
+    let mut w = ChunkWriter::new(buf, id, head, &specs[..columns.len()], padding)?;
     for (i, (_, bytes)) in columns.iter().enumerate() {
         w.column_mut(i).copy_from_slice(bytes);
     }
@@ -575,15 +572,22 @@ impl<'b> Chunk<'b> {
         let len = block.len();
         let kind = BlockKind::from_u8(block[5]);
         let min = HEADER_LEN + CHUNK_FIXED_LEN;
-        let payload_at = get_u32(block, 24) as usize;
-        if payload_at < min || payload_at + PAYLOAD_PADDING + CRC_LEN > len {
+        if len < min + PAYLOAD_PADDING + CRC_LEN {
+            return Err(ChunkHeadError::BadHeadCrc);
+        }
+        let payload_at = get_u32(block, 32) as usize;
+        if payload_at < min
+            || payload_at
+                .checked_add(PAYLOAD_PADDING + CRC_LEN)
+                .is_none_or(|end| end > len)
+        {
             return Err(ChunkHeadError::BadHeadCrc);
         }
         if head_crc(block, payload_at) != get_u32(block, 28) {
             return Err(ChunkHeadError::BadHeadCrc);
         }
-        let shift = block[44];
-        let columns = block[45] as usize;
+        let shift = block[80];
+        let columns = block[81] as usize;
         if !(SEGMENT_SHIFT_MIN..=SEGMENT_SHIFT_MAX).contains(&shift) || columns == 0 {
             return Err(ChunkHeadError::BadHead);
         }
@@ -602,7 +606,7 @@ impl<'b> Chunk<'b> {
         let head = chunk.head();
         let column_kinds =
             (0..columns).map(|i| ColumnKind::from_u8(block[min + i * COLUMN_ENTRY_LEN]));
-        if EndMode::from_u8(block[47]).is_none() || check_head(&head, column_kinds).is_err() {
+        if EndMode::from_u8(block[83]).is_none() || check_head(&head, column_kinds).is_err() {
             return Err(ChunkHeadError::BadHead);
         }
         let mut prev = 0usize;
@@ -631,15 +635,15 @@ impl<'b> Chunk<'b> {
         let b = self.block;
         ChunkHead {
             kind: self.kind,
-            track_id: get_u64(b, 32),
-            track_number: get_u32(b, 40),
+            track_id: get_u64(b, 40),
+            track_number: get_u32(b, 36),
             first_item: get_u64(b, 48),
             count: get_u32(b, 12),
             first_tick: get_u64(b, 56) as i64,
             last_tick: get_u64(b, 64) as i64,
             latest_end: get_u64(b, 72) as i64,
-            time_mode: b[46],
-            end_mode: EndMode::from_u8(b[47]).unwrap_or(EndMode::Absent),
+            time_mode: b[82],
+            end_mode: EndMode::from_u8(b[83]).unwrap_or(EndMode::Absent),
         }
     }
 

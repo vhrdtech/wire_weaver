@@ -1,6 +1,14 @@
 use super::*;
 use shrink_wrap::prelude::*;
 
+/// The run of blocks made by the tests.
+pub(crate) const TEST_RUN: RunTag = RunTag::writable(0x7465_7374);
+
+/// Block `seq` of [TEST_RUN].
+pub(crate) fn id(seq: u64) -> BlockId {
+    BlockId::new(TEST_RUN, seq)
+}
+
 const C1: u32 = 1;
 const C3: u32 = 3;
 
@@ -11,7 +19,7 @@ fn at(clock: u32, ticks: i64) -> ClockTime {
 #[test]
 fn write_and_read_back() {
     let mut buf = [0u8; 256];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 7, &[C1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(7), &[C1]);
     w.push(1, at(C1, 1_000), &[b"ab"]).unwrap();
     w.push(300, at(C1, 900), &[b"c", b"de"]).unwrap();
     w.push_with(2, at(C1, 5_000), |b| {
@@ -61,7 +69,7 @@ fn write_and_read_back() {
 #[test]
 fn deltas_per_clock() {
     let mut buf = [0u8; 256];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[C1, C3]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[C1, C3]);
     let big = 1_700_000_000_000_000_000i64;
     w.push(1, at(C1, 10), &[b"a"]).unwrap();
     w.push(2, at(C3, big), &[b"b"]).unwrap();
@@ -100,7 +108,7 @@ fn deltas_per_clock() {
 #[test]
 fn describe_records_have_no_time() {
     let mut buf = [0u8; 64];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, 0, &[]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]);
     w.push_describe(&[b"xy"]).unwrap();
     let len = w.finish();
     assert_eq!(len, HEADER_LEN + 1 + 1 + 1 + 2 + CRC_LEN);
@@ -122,14 +130,14 @@ fn describe_records_have_no_time() {
 #[should_panic(expected = "clock is one the block was started with")]
 fn a_record_on_a_clock_not_in_the_block_panics() {
     let mut buf = [0u8; 64];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[C1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[C1]);
     _ = w.push(1, at(C3, 0), &[]);
 }
 
 #[test]
 fn full_leaves_the_block_as_it_was() {
     let mut buf = [0u8; HEADER_LEN + 2 + CRC_LEN + 6];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[C1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[C1]);
     w.push(1, at(C1, 0), &[b"abc"]).unwrap();
     assert_eq!(w.push(1, at(C1, 0), &[b"ab"]), Err(Full));
     assert_eq!(w.push_with(1, at(C1, 0), |_| None), Err(Full));
@@ -140,7 +148,7 @@ fn full_leaves_the_block_as_it_was() {
 #[test]
 fn push_with_big_item_moves_down() {
     let mut buf = vec![0u8; 4096];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, 0, &[C1]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(0), &[C1]);
     let item: Vec<u8> = (0..200).map(|i| i as u8).collect();
     w.push_with(1, at(C1, 10), |b| {
         b[..200].copy_from_slice(&item);
@@ -157,7 +165,7 @@ fn push_with_big_item_moves_down() {
 #[test]
 fn corrupt_blocks_are_refused() {
     let mut buf = [0u8; 64];
-    let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, 0, &[]);
+    let mut w = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]);
     w.push_describe(&[b"x"]).unwrap();
     let len = w.finish();
     let mut bad = buf;
@@ -454,7 +462,7 @@ fn sticky_records_are_on_their_tracks_clock() {
             at: at(clock, 0),
             item: b"s",
         }];
-        set.write_blocks(&mut 0, 1024, &sticky, |_| {})
+        set.write_blocks(&mut id(0), 1024, &sticky, |_| {})
     };
     assert_eq!(write(4, HOST), Ok(()));
     assert_eq!(
@@ -673,12 +681,12 @@ fn describe_set_as_blocks() {
     ];
     for block_len_max in [64, 4096] {
         let mut blocks = vec![];
-        let mut seq = 10;
+        let mut seq = id(10);
         set.write_blocks(&mut seq, block_len_max, &sticky, |b| {
             blocks.push(b.to_vec())
         })
         .unwrap();
-        assert_eq!(seq, 10 + blocks.len() as u64);
+        assert_eq!(seq, id(10 + blocks.len() as u64));
         assert_eq!(blocks.len() > 1, block_len_max == 64);
         let mut records = vec![];
         for b in &blocks {
@@ -701,7 +709,7 @@ fn resync_skips_bad_and_reports_cut() {
     let mut file = Vec::new();
     for seq in 0..3u64 {
         let mut buf = [0u8; 64];
-        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, seq, &[C1]);
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(seq), &[C1]);
         w.push(1, at(C1, seq as i64), &[&[seq as u8; 5]]).unwrap();
         let len = w.finish();
         file.extend_from_slice(&buf[..len]);
@@ -739,7 +747,7 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
         (4, VERSION, 5),
     ] {
         let mut buf = [0u8; 64];
-        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, seq, &[C1]);
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(seq), &[C1]);
         w.push(1, at(C1, seq as i64), &[&[seq as u8; 5]]).unwrap();
         let len = w.finish();
         buf[4] = version;
@@ -803,7 +811,7 @@ fn tape(n: u64) -> (Vec<u8>, Vec<usize>) {
     let mut ends = vec![];
     for seq in 0..n {
         let mut buf = [0u8; 128];
-        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, seq, &[C1]);
+        let mut w = BlockWriter::new(&mut buf, BlockKind::Records, id(seq), &[C1]);
         for i in 0..=seq % 3 {
             w.push(
                 1 + i as u32,
@@ -893,12 +901,12 @@ fn seq_going_back() {
         buf[..len].to_vec()
     };
     let file: Vec<u8> = [
-        block(BlockKind::Records, 5),
-        block(BlockKind::Records, 6),
-        block(BlockKind::Describe, 0),
-        block(BlockKind::Records, 1),
-        block(BlockKind::Records, 1),
-        block(BlockKind::Records, 2),
+        block(BlockKind::Records, id(5)),
+        block(BlockKind::Records, id(6)),
+        block(BlockKind::Describe, id(0)),
+        block(BlockKind::Records, id(1)),
+        block(BlockKind::Records, id(1)),
+        block(BlockKind::Records, id(2)),
     ]
     .concat();
     let mut rd = FileBlocks::new(&file[..]);
@@ -943,7 +951,7 @@ fn writer_partial_then_renamed() {
     // appended: the second run's blocks start with a describe block
     let mut w = TapeWriter::append(&path, SyncPolicy::default()).unwrap();
     let mut buf = [0u8; 64];
-    let len = BlockWriter::new(&mut buf, BlockKind::Describe, 0, &[]).finish();
+    let len = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).finish();
     w.write_block(&buf[..len]).unwrap();
     w.tick().unwrap();
     w.finish().unwrap();
@@ -972,7 +980,7 @@ fn pass_through_capture_reads_to_the_end() {
     });
     w.set_describe_repeat(2048);
     let mut buf = [0u8; 64];
-    let len = BlockWriter::new(&mut buf, BlockKind::Describe, 0, &[]).finish();
+    let len = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).finish();
     w.write_block(&buf[..len]).unwrap();
     let (file, ends) = tape(60);
     let mut start = 0;
@@ -980,7 +988,7 @@ fn pass_through_capture_reads_to_the_end() {
         // the producer numbers its blocks 1 and up after its describe block
         let mut b = file[start..*end].to_vec();
         let seq = Block::read(&b).unwrap().seq;
-        set_seq(&mut b, seq + 1).unwrap();
+        set_id(&mut b, id(seq + 1)).unwrap();
         w.write_block(&b).unwrap();
         start = *end;
     }
@@ -1053,7 +1061,7 @@ fn write_sample_tape(path: &std::path::Path, describe: Vec<Describe<'static>>) -
         at: at(HOST, 7),
         item: b"session",
     }];
-    let mut seq = 0;
+    let mut seq = id(0);
     let mut blocks = vec![];
     set.write_blocks(&mut seq, 4096, &sticky, |b| blocks.push(b.to_vec()))
         .unwrap();

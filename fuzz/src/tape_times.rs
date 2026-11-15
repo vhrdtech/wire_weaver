@@ -98,8 +98,14 @@ fuzz_target!(|data: &[u8]| {
     let cols: Vec<_> = enc.columns().collect();
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = vec![0u8; chunk_len(&specs, 0)];
-    let len =
-        write_chunk(&mut buf, 1, &enc.head.chunk_head(1, 1, 0), &cols, 0).expect("a valid chunk");
+    let len = write_chunk(
+        &mut buf,
+        ww_tape::BlockId::new(ww_tape::RunTag::writable(1), 1),
+        &enc.head.chunk_head(1, 1, 0),
+        &cols,
+        0,
+    )
+    .expect("a valid chunk");
     let block = Block::read(&buf[..len]).expect("written good");
     let chunk = block.chunk().expect("a chunk");
     let times = EventTimes::read(&chunk).expect("written times read");

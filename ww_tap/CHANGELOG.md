@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- The recorder's blocks carry a random run tag per recorder, counted from seq 0 (STD-129).
 - The recorder's tracks are `TrackKind::Events` instants in the describe set (STD-127).
 - Tape v2 (STD-117): record times count `HOST_CLOCK` (ns since the recorder started), mapped to `WALL_CLOCK` in the describe set; `RecorderConfig::describe_every` is gone: describe blocks are no longer repeated by time.
 

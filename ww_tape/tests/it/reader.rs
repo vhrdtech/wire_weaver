@@ -1,5 +1,6 @@
 //! The positional reader over crafted bytes: offsets from the file never panic or loop.
 
+use crate::id;
 use ww_tape::index::IndexEntry;
 use ww_tape::piece::{ContentHash, Finish, FinishState, TAIL_LEN, Tail, finish_len, write_finish};
 use ww_tape::reader::ReadError;
@@ -16,7 +17,7 @@ fn tail(piece_len: u64, finish_offset: u64, finish_len: u32) -> [u8; TAIL_LEN] {
         next: None,
     };
     let mut b = [0u8; TAIL_LEN];
-    t.write(&mut b, 0);
+    t.write(&mut b, id(0));
     b
 }
 
@@ -39,7 +40,7 @@ fn finish_only(final_index: u64) -> Vec<u8> {
         next: None,
     };
     let mut bytes = vec![0u8; finish_len(0)];
-    let n = write_finish(&mut bytes, 0, &finish, &[]).unwrap();
+    let n = write_finish(&mut bytes, id(0), &finish, &[]).unwrap();
     bytes.truncate(n);
     bytes.extend(tail((n + TAIL_LEN) as u64, 0, n as u32));
     bytes

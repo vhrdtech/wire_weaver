@@ -1,5 +1,6 @@
 use super::*;
 use crate::chunk::{ColumnSpec, chunk_len, write_chunk};
+use crate::tests::id;
 use crate::times::{EncodedTimes, EventTimes};
 use crate::{Block, ChunkHead};
 use std::vec::Vec;
@@ -42,7 +43,7 @@ fn write<'a>(head: &ChunkHead, cols: impl Iterator<Item = (ColumnSpec, &'a [u8])
     let cols: Vec<_> = cols.collect();
     let specs: Vec<ColumnSpec> = cols.iter().map(|c| c.0).collect();
     let mut buf = std::vec![0u8; chunk_len(&specs, 0)];
-    let len = write_chunk(&mut buf, 1, head, &cols, 0).unwrap();
+    let len = write_chunk(&mut buf, id(1), head, &cols, 0).unwrap();
     buf.truncate(len);
     buf
 }

@@ -7,9 +7,9 @@ use ww_tape::index::IndexPolicy;
 use ww_tape::piece::{ChainEnd, ChainLink, PieceId, check_chain};
 use ww_tape::reader::{Found, OpenOptions};
 use ww_tape::{
-    BlockKind, BlockWriter, ClockTime, Codec, ColumnKind, ColumnSpec, Describe, DescribeSet,
-    EndMode, FileBlocks, FinishState, Layout, PieceChain, Producer, Recovery, ResultId, SyncPolicy,
-    TapeReader, TapeWriter,
+    BlockId, BlockKind, BlockWriter, ClockTime, Codec, ColumnKind, ColumnSpec, Describe,
+    DescribeSet, EndMode, FileBlocks, FinishState, Layout, PieceChain, Producer, Recovery,
+    ResultId, RunTag, SyncPolicy, TapeReader, TapeWriter,
 };
 
 /// A fresh scratch directory.
@@ -20,21 +20,22 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-fn describe_blocks(layout: Layout) -> Vec<Vec<u8>> {
+/// Describe blocks numbered from `first` on.
+fn describe_blocks(layout: Layout, first: BlockId) -> Vec<Vec<u8>> {
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "pieces" }))
         .unwrap();
     set.insert(&Describe::Layout(layout)).unwrap();
-    let mut seq = 0;
+    let mut seq = first;
     let mut blocks = vec![];
     set.write_blocks(&mut seq, 4096, &[], |b| blocks.push(b.to_vec()))
         .unwrap();
     blocks
 }
 
-fn records(seq: u64, n: i64) -> Vec<u8> {
+fn records(id: BlockId, n: i64) -> Vec<u8> {
     let mut buf = [0u8; 256];
-    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, seq, &[1]);
+    let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id, &[1]);
     b.push(9, ClockTime::new(1, n), &[&[n as u8; 30]]).unwrap();
     let len = b.finish();
     buf[..len].to_vec()
@@ -79,7 +80,7 @@ fn write_tape(w: &mut TapeWriter, rounds: u64) {
         bytes: 2048,
         interval: None,
     });
-    for b in describe_blocks(Layout::UNALIGNED) {
+    for b in describe_blocks(Layout::UNALIGNED, w.next_id()) {
         w.write_block(&b).unwrap();
     }
     for k in 0..rounds {
@@ -87,8 +88,7 @@ fn write_tape(w: &mut TapeWriter, rounds: u64) {
             let (h, c) = chunk(t, k);
             w.write_chunk(&h, &column(&c)).unwrap();
         }
-        let seq = w.next_seq();
-        w.write_block(&records(seq, k as i64)).unwrap();
+        w.write_block(&records(w.next_id(), k as i64)).unwrap();
     }
 }
 
@@ -284,7 +284,7 @@ fn write_chain(dir: &Path) -> Vec<PathBuf> {
         },
     )
     .unwrap();
-    for b in describe_blocks(Layout::UNALIGNED) {
+    for b in describe_blocks(Layout::UNALIGNED, chain.writer().unwrap().next_id()) {
         chain.write_block(&b).unwrap();
     }
     for k in 0..6 {
@@ -412,14 +412,14 @@ fn index_golden() {
         },
     )
     .unwrap();
-    for b in describe_blocks(Layout::UNALIGNED) {
+    for b in describe_blocks(Layout::UNALIGNED, chain.writer().unwrap().next_id()) {
         chain.write_block(&b).unwrap();
     }
     for k in 0..2 {
         let (h, c) = chunk(0, k);
         chain.write_chunk(&h, &column(&c)).unwrap();
-        let seq = chain.writer().unwrap().next_seq();
-        chain.write_block(&records(seq, k as i64)).unwrap();
+        let id = chain.writer().unwrap().next_id();
+        chain.write_block(&records(id, k as i64)).unwrap();
     }
     chain.cut_now().unwrap();
     let (h, c) = chunk(0, 2);
@@ -452,4 +452,36 @@ fn index_golden() {
         hex == want,
         "the format changed: bytes differ from golden/v2-index.hex"
     );
+}
+
+#[test]
+fn every_block_of_a_chain_carries_its_run() {
+    let dir = scratch("runs");
+    let paths = write_chain(&dir);
+    assert!(paths.len() > 1, "the chain was cut");
+    let run = RunTag::of_piece(&PieceId::first(&ResultId([0x42; 32])));
+    assert!(run.is_run());
+    let mut seqs = vec![];
+    for p in &paths {
+        let bytes = std::fs::read(p).unwrap();
+        let mut rd = FileBlocks::new(&bytes[..]);
+        while let Some(b) = rd.next_block() {
+            let b = b.unwrap();
+            assert_eq!(
+                b.run,
+                run,
+                "{:?} at {} of {}",
+                b.kind,
+                rd.offset(),
+                p.display()
+            );
+            if listed(b.kind) {
+                seqs.push(b.seq);
+            }
+        }
+    }
+    // the describe blocks a cut writes again repeat the seq before them; data blocks count on across pieces
+    seqs.dedup();
+    assert!(seqs.windows(2).all(|w| w[0] < w[1]), "{seqs:?}");
+    std::fs::remove_dir_all(&dir).unwrap();
 }

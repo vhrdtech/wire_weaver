@@ -72,8 +72,10 @@ bundle, so `ww explain FILE` explains the requests and replies of a capture on a
 ### Tape blocks
 
 `ww_tape` is the generic block format the tap writes; nothing in it knows the tap. A block is a 32 byte header
-(magic `WWTP`, version, kind, length, record count, the producer's block number), a body and a CRC-32C, as long as
-its records and never padded. The body of a records or describe block starts with a clock table (the clocks its
+(magic `WWTP`, version, kind, length, record count, the block number in its run, the run tag), a body and a CRC-32C,
+as long as its records and never padded. A run is one writer's unbroken append (a producer start, a device boot): its
+blocks carry the same random 32-bit run tag (`ww_tape::RunTag`, never 0 nor FFFFFFFFh, derived from the piece id
+for a piece chain so the same input gives the same bytes), and their numbers count from 0. The body of a records or describe block starts with a clock table (the clocks its
 records count), then records: a head (track and clock slot), a time delta, a length and the item bytes, as LEB128
 varints. Record times are signed i64 ticks of the track's clock, each delta against the previous record on the same
 clock, so a block reads alone and one clock costs no bit. No wall time is in a block.

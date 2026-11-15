@@ -130,10 +130,11 @@ impl<'p> EventRecord<'p> {
         let (d, f) = self.fields(def, start)?;
         let mut at = 0;
         if let Some(d) = d {
-            at += varint::put_uvar(&mut out[at..], d);
+            at += varint::put_uvar(&mut out[at..], d).ok_or(EventRecordError::Full { needed })?;
         }
         if let Some(f) = f {
-            at += varint::put_uvar(&mut out[at..], u64::from(f));
+            at += varint::put_uvar(&mut out[at..], u64::from(f))
+                .ok_or(EventRecordError::Full { needed })?;
         }
         out[at..needed].copy_from_slice(self.payload);
         Ok(needed)

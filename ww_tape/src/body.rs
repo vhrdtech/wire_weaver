@@ -134,7 +134,8 @@ pub fn code_body(block: &[u8], codec: BodyCodec, out: &mut [u8]) -> Result<usize
     let mut pos = HEADER_LEN;
     out[pos] = codec.0;
     pos += 1;
-    pos += varint::put_uvar(&mut out[pos..], body.len() as u64);
+    pos +=
+        varint::put_uvar(&mut out[pos..], body.len() as u64).ok_or(CodeError::Full { needed })?;
     pos += if codec == BodyCodec::LZ4 {
         lz4_flex::block::compress_into(body, &mut out[pos..needed])
             .expect("the output holds lz4_flex's maximum output size")

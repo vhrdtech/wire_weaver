@@ -1147,16 +1147,23 @@ fn varints() {
     use varint::*;
     for v in [0u64, 1, 127, 128, 300, u32::MAX as u64, u64::MAX] {
         let mut b = [0u8; 10];
-        let n = put_uvar(&mut b, v);
+        let n = put_uvar(&mut b, v).unwrap();
         assert_eq!(n, uvar_len(v));
+        assert_eq!(put_uvar(&mut b[..n - 1], v), None, "a short buffer");
         assert_eq!(Reader(&b[..n]).uvar(), Some(v));
     }
     for v in [0i64, -1, 1, -64, 64, i64::MIN, i64::MAX] {
         let mut b = [0u8; 10];
-        let n = put_ivar(&mut b, v);
+        let n = put_ivar(&mut b, v).unwrap();
         assert_eq!(n, ivar_len(v));
         assert_eq!(Reader(&b[..n]).ivar(), Some(v));
     }
+    // 11 bytes of continuation: not a uvar
+    assert_eq!(Reader(&[0x80; 11]).uvar(), None);
+    assert_eq!(
+        Reader(&[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x02]).uvar(),
+        None
+    );
 }
 
 /// A tape of the sample describe set, a sticky record and a records block on two clocks, written through

@@ -147,6 +147,7 @@ pub use chunk::{
     EndMode,
 };
 
+mod bytes;
 pub mod from_file;
 pub use from_file::{BoundError, FromFile};
 pub mod lz4;
@@ -459,14 +460,16 @@ impl<'b> BlockWriter<'b> {
         let buf = &mut buf[..usable];
         put_header(buf, kind, 0, 0, id);
         let mut pos = HEADER_LEN;
-        pos += varint::put_uvar(&mut buf[pos..], clocks.len() as u64);
+        pos += varint::put_uvar(&mut buf[pos..], clocks.len() as u64)
+            .ok_or(BlockStartError::BufferTooSmall { needed })?;
         let mut slots = Slots {
             clocks: [0; MAX_BLOCK_CLOCKS],
             last: [0; MAX_BLOCK_CLOCKS],
             n: clocks.len() as u8,
         };
         for (i, c) in clocks.iter().enumerate() {
-            pos += varint::put_uvar(&mut buf[pos..], u64::from(*c));
+            pos += varint::put_uvar(&mut buf[pos..], u64::from(*c))
+                .ok_or(BlockStartError::BufferTooSmall { needed })?;
             slots.clocks[i] = *c;
         }
         Ok(BlockWriter {
@@ -573,13 +576,13 @@ impl<'b> BlockWriter<'b> {
         let len = encode(&mut self.buf[item_at..end]).ok_or(Full)?;
         let len_len = uvar_len(len as u64);
         let mut pos = self.state.pos;
-        pos += varint::put_uvar(&mut self.buf[pos..], head);
+        pos += varint::put_uvar(&mut self.buf[pos..], head).ok_or(Full)?;
         if let Some(dt) = dt {
-            pos += varint::put_ivar(&mut self.buf[pos..], dt);
+            pos += varint::put_ivar(&mut self.buf[pos..], dt).ok_or(Full)?;
         }
         let real_item_at = pos + len_len;
         self.buf.copy_within(item_at..item_at + len, real_item_at);
-        varint::put_uvar(&mut self.buf[pos..], len as u64);
+        varint::put_uvar(&mut self.buf[pos..], len as u64).ok_or(Full)?;
         self.state.pos = real_item_at + len;
         self.state.records += 1;
         Ok(())

@@ -17,8 +17,9 @@
 //!   0   4  magic "WWTP"
 //!   4  u8  version, 2
 //!   5  u8  kind: 1 records, 2 describe (BlockKind)
-//!   6 u16  flags: bit 0 body coded (FLAG_BODY_CODED, records and describe blocks only), bit 1 copy (FLAG_COPY);
-//!          others 0 (a reader ignores bits it doesn't know)
+//!   6 u16  flags: bit 0 body coded (FLAG_BODY_CODED, records and describe blocks only), bit 1 copy (FLAG_COPY),
+//!          bits 2 and 3 first and last block of a describe set (FLAG_SET_FIRST, FLAG_SET_LAST); others 0 (a
+//!          reader ignores bits it doesn't know)
 //!   8 u32  len: the whole block, header and CRC included
 //!  12 u32  records in the block
 //!  16 u64  seq: the block number in its run, from 0, +1 per block; a gap is lost blocks. Index, finish, tail and
@@ -182,6 +183,12 @@ pub const MAX_BLOCK_LEN: usize = 64 << 20;
 /// repeat, the backup before a piece's finish, the start of the next piece). It carries the seq of the block before
 /// it and takes no part in the seq order; a reader that read the original takes nothing new from it.
 pub const FLAG_COPY: u16 = 1 << 1;
+/// Header flag: the first block of a describe set. With [FLAG_SET_LAST] it tells a whole set from part of one: a set
+/// is whole when a block marked first is followed, back to back, by blocks up to one marked last (the same block for
+/// a set of one block). [DescribeSet::write_blocks] marks them.
+pub const FLAG_SET_FIRST: u16 = 1 << 2;
+/// Header flag: the last block of a describe set, see [FLAG_SET_FIRST].
+pub const FLAG_SET_LAST: u16 = 1 << 3;
 /// Header flag: the body of a records or describe block is coded ([body]); on another kind the body is one this
 /// reader doesn't know. Off unless a writer codes the block with [code_body].
 pub const FLAG_BODY_CODED: u16 = 1 << 0;
@@ -515,6 +522,12 @@ impl<'b> BlockWriter<'b> {
     }
 
     /// Write the header's length and count and the CRC; returns the block's length (`&buf[..len]` is the block).
+    /// Set the header flags (0 when not set), before [Self::finish]: [FLAG_SET_FIRST] and [FLAG_SET_LAST] on the
+    /// describe blocks of a set made without [DescribeSet::write_blocks].
+    pub fn set_flags(&mut self, flags: u16) {
+        self.buf[6..8].copy_from_slice(&flags.to_le_bytes());
+    }
+
     pub fn finish(self) -> usize {
         let pos = self.state.pos;
         let len = pos + CRC_LEN;

@@ -50,7 +50,7 @@ impl Head {
 }
 
 /// The run and seq of the blocks taken so far, and the gap rules of the newest [Layout] read.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct RunState {
     pub(crate) medium: Medium,
     run: Option<RunTag>,

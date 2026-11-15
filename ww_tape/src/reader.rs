@@ -27,8 +27,8 @@ use crate::piece::{
 };
 use crate::walk::{Head, RunState, Verdict, is_free};
 use crate::{
-    Block, BlockError, BlockKind, GAP_CHECKS_MAX, HEADER_LEN, Layout, MAGIC, MAX_BLOCK_LEN, Medium,
-    VERSION, block_len,
+    Block, BlockError, BlockKind, FLAG_SET_FIRST, FLAG_SET_LAST, GAP_CHECKS_MAX, HEADER_LEN,
+    Layout, MAGIC, MAX_BLOCK_LEN, Medium, VERSION, block_len,
 };
 
 /// Most blocks [TapeReader::describe_set] skips past a scan's cut looking for a describe copy: the damaged head set,
@@ -220,6 +220,8 @@ pub struct PieceInfo {
     pub replaced: Vec<u64>,
     /// Entries a scan or the checkpoint chain gave, in file order; None for a piece read by its tail
     entries: Option<Vec<IndexEntry>>,
+    /// The walk where a scan was cut: the runs and seqs a block past the cut must go on with
+    cut_walk: Option<RunState>,
 }
 
 impl PieceInfo {
@@ -236,6 +238,7 @@ impl PieceInfo {
             gaps: Vec::new(),
             replaced: Vec::new(),
             entries: Some(Vec::new()),
+            cut_walk: None,
         }
     }
 
@@ -574,6 +577,7 @@ impl<S: ByteSource> TapeReader<S> {
                 };
                 if !self.blank(at, end)? {
                     piece.cut = Some(at);
+                    piece.cut_walk = Some(walk);
                 }
                 break;
             };
@@ -760,60 +764,50 @@ impl<S: ByteSource> TapeReader<S> {
         Ok(out)
     }
 
-    /// The describe set of piece `i`: the describe blocks written back to back at its head, or, when one of them is
-    /// damaged or missing, the next run of describe blocks that reads whole (the writer's copies: after the first
-    /// data block, the repeats, the backup before the finish). In a piece a scan stopped in, the blocks past the stop
-    /// are looked through too ([DESCRIBE_SEEK_BLOCKS_MAX]). Offsets in the piece and the blocks, in file order; empty
-    /// when no run reads whole. Damage is a reason to look further, never an error.
+    /// The describe set of piece `i`: the first whole set of describe blocks in it (one marked [FLAG_SET_FIRST]
+    /// followed back to back by blocks up to one marked [FLAG_SET_LAST]): the head's, or, when one of its blocks is
+    /// damaged or missing, the writer's next copy (after the first data block, the repeats, the backup before the
+    /// finish). In a piece a scan stopped in, the blocks of its runs past the stop are looked through too
+    /// ([DESCRIBE_SEEK_BLOCKS_MAX]). Offsets in the piece and the blocks, in file order; empty when no set reads
+    /// whole. Damage is a reason to look further, never an error.
     pub fn describe_set(&self, i: usize) -> R<Vec<(u64, Vec<u8>)>, S> {
         let describe: Vec<IndexEntry> = self
             .track_entries(i, crate::DESCRIBE_TRACK as u64)?
             .into_iter()
             .filter(|e| e.kind == BlockKind::Describe)
             .collect();
-        let mut runs: Vec<&[IndexEntry]> = Vec::new();
-        let mut from = 0;
-        for k in 1..=describe.len() {
-            let apart = describe
-                .get(k)
-                .zip(describe.get(k - 1))
-                .is_none_or(|(e, prev)| {
-                    prev.offset.saturating_add(u64::from(prev.len)) != e.offset
-                });
-            if apart {
-                runs.push(&describe[from..k]);
-                from = k;
-            }
-        }
         let mut buf = Vec::new();
-        'runs: for run in runs {
-            let mut set = Vec::with_capacity(run.len());
-            for e in run {
-                match self.read_block(i, e, &mut buf) {
-                    Ok(_) => set.push((e.offset, buf.clone())),
-                    Err(ReadError::Block { .. }) => continue 'runs,
-                    Err(other) => return Err(other),
+        let mut set = SetReader::default();
+        for e in &describe {
+            let flags = match self.read_block(i, e, &mut buf) {
+                Ok(b) => b.flags,
+                Err(ReadError::Block { .. }) => {
+                    set.clear();
+                    continue;
                 }
+                Err(other) => return Err(other),
+            };
+            if set.add(e.offset, flags, &buf) {
+                return Ok(set.blocks);
             }
-            return Ok(set);
         }
         // a scan stops at the first damaged block, the head's set too: the copy after the first data block is past it
-        match self.pieces[i].cut {
-            Some(cut) => self.describe_past(i, cut),
-            None => Ok(Vec::new()),
+        match (self.pieces[i].cut, self.pieces[i].cut_walk) {
+            (Some(cut), Some(walk)) => self.describe_past(i, cut, walk),
+            _ => Ok(Vec::new()),
         }
     }
 
-    /// The first run of describe blocks that reads whole after `cut` in piece `i`, the blocks before it skipped by
-    /// the lengths in their headers: at most [DESCRIBE_SEEK_BLOCKS_MAX] blocks, never past the piece's stretch or into
-    /// the next piece.
-    fn describe_past(&self, i: usize, cut: u64) -> R<Vec<(u64, Vec<u8>)>, S> {
+    /// The first whole describe set after `cut` in piece `i`, the blocks before it skipped by the lengths in their
+    /// headers: at most [DESCRIBE_SEEK_BLOCKS_MAX] blocks, only of the runs `walk` goes on with (never an earlier
+    /// life's behind the end of data), never past the piece's stretch or into the next piece.
+    fn describe_past(&self, i: usize, cut: u64, mut walk: RunState) -> R<Vec<(u64, Vec<u8>)>, S> {
         let p = &self.pieces[i];
         let hi = match self.pieces.get(i + 1) {
             Some(next) => next.start,
             None => self.len,
         };
-        let mut set = Vec::new();
+        let mut set = SetReader::default();
         let mut at = cut;
         for _ in 0..DESCRIBE_SEEK_BLOCKS_MAX {
             if hi.saturating_sub(at) < HEADER_LEN as u64 {
@@ -827,21 +821,32 @@ impl<S: ByteSource> TapeReader<S> {
             };
             match self.good_block(at, hi)? {
                 Ok(b) => {
-                    let kind = Block::read(&b).expect("checked").kind;
-                    if kind == BlockKind::Describe {
-                        set.push((at - p.start, b));
-                    } else if !set.is_empty() {
-                        return Ok(set);
-                    } else if matches!(kind, BlockKind::PieceHead | BlockKind::Tail) {
+                    let Ok(block) = Block::read(&b) else {
+                        break;
+                    };
+                    if !matches!(
+                        walk.verdict(&block, true),
+                        Verdict::Take | Verdict::Duplicate { .. }
+                    ) {
                         break;
                     }
+                    walk.take(&block);
+                    match block.kind {
+                        BlockKind::Describe => {
+                            if set.add(at - p.start, block.flags, &b) {
+                                return Ok(set.blocks);
+                            }
+                        }
+                        BlockKind::PieceHead | BlockKind::Tail => break,
+                        _ => set.clear(),
+                    }
                 }
-                // a run with a damaged block isn't whole
+                // a set with a damaged block isn't whole
                 Err(_) => set.clear(),
             }
             at = end;
         }
-        Ok(set)
+        Ok(Vec::new())
     }
 
     /// Call `f` with each final index block of finished piece `p`, newest first.
@@ -902,6 +907,34 @@ impl<S: ByteSource> TapeReader<S> {
             at += n as u64;
         }
         Ok(*h.finalize().as_bytes() == fin.hash.0)
+    }
+}
+
+/// A describe set read block by block, see [TapeReader::describe_set].
+#[derive(Default)]
+struct SetReader {
+    blocks: Vec<(u64, Vec<u8>)>,
+    /// Where the open set's next block starts
+    next: Option<u64>,
+}
+
+impl SetReader {
+    /// Add the good describe block `bytes` at `offset` with header `flags`; true once the set is whole.
+    fn add(&mut self, offset: u64, flags: u16, bytes: &[u8]) -> bool {
+        if flags & FLAG_SET_FIRST != 0 {
+            self.clear();
+        } else if self.blocks.is_empty() || self.next != Some(offset) {
+            self.clear();
+            return false;
+        }
+        self.next = offset.checked_add(bytes.len() as u64);
+        self.blocks.push((offset, bytes.to_vec()));
+        flags & FLAG_SET_LAST != 0
+    }
+
+    fn clear(&mut self) {
+        self.blocks.clear();
+        self.next = None;
     }
 }
 

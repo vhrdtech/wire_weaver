@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Describe sets mark their first and last block (`FLAG_SET_FIRST`, `FLAG_SET_LAST`); only a whole set counts as one (STD-129).
 - `PieceChain::create` takes the chain number: each chain of a result gets its own piece ids and run tag (STD-129).
 - `PieceId::first` is `first_of(result, 0)`: its bytes change; `PieceId::first_of` names the first piece of each chain (STD-129).
 - `Block::records` of an lz4-coded body gives `BlockError::Coded`: read the records of `Block::decode` (STD-129).

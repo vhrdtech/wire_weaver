@@ -22,13 +22,18 @@ fn scratch(name: &str) -> PathBuf {
 
 /// Describe blocks numbered from `first` on.
 fn describe_blocks(layout: Layout, first: BlockId) -> Vec<Vec<u8>> {
+    describe_blocks_max(layout, first, 4096)
+}
+
+/// The describe set of [describe_blocks] in blocks of at most `max` bytes.
+fn describe_blocks_max(layout: Layout, first: BlockId, max: usize) -> Vec<Vec<u8>> {
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "pieces" }))
         .unwrap();
     set.insert(&Describe::Layout(layout)).unwrap();
     let mut seq = first;
     let mut blocks = vec![];
-    set.write_blocks(&mut seq, 4096, &[], |b| blocks.push(b.to_vec()))
+    set.write_blocks(&mut seq, max, &[], |b| blocks.push(b.to_vec()))
         .unwrap();
     blocks
 }
@@ -760,6 +765,64 @@ fn a_replaced_block_leaves_the_index() {
         let listed: Vec<u64> = r.entries(0).unwrap().iter().map(|e| e.offset).collect();
         assert_eq!(listed, walked);
         assert_eq!(seqs, [id.seq, id.seq + 1, id.seq + 2, id.seq + 3]);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Every describe set in `bytes` a walk reads, as the offsets of its blocks: a set opens at a block marked first and
+/// closes at one marked last; a describe block outside such a run is listed alone.
+fn describe_runs(bytes: &[u8]) -> Vec<Vec<(u64, bool)>> {
+    let mut runs: Vec<Vec<(u64, bool)>> = vec![];
+    let mut open = false;
+    for (at, _, kind) in walk(bytes) {
+        if kind != BlockKind::Describe {
+            open = false;
+            continue;
+        }
+        let b = ww_tape::Block::read(&bytes[at as usize..]).unwrap();
+        if b.flags & ww_tape::FLAG_SET_FIRST != 0 || !open {
+            runs.push(vec![]);
+        }
+        runs.last_mut().unwrap().push((at, b.is_copy()));
+        open = b.flags & ww_tape::FLAG_SET_LAST == 0;
+    }
+    runs
+}
+
+/// A head describe set of two blocks, either damaged, in a scanned piece: the set read is the copy, both blocks,
+/// never the head's good block alone.
+#[test]
+fn part_of_a_describe_set_is_not_the_set() {
+    let dir = scratch("part_set");
+    let path = dir.join("p.wwt");
+    let mut w = TapeWriter::create(&path, SyncPolicy::None).unwrap();
+    w.set_index_policy(IndexPolicy::NONE);
+    let originals = describe_blocks_max(Layout::UNALIGNED, w.next_id(), 64);
+    assert_eq!(originals.len(), 2);
+    for b in &originals {
+        w.write_block(b).unwrap();
+    }
+    for n in 0..20 {
+        w.write_block(&records(w.next_id(), n)).unwrap();
+    }
+    drop(w);
+    let bytes = std::fs::read(dir.join("p.wwt.partial")).unwrap();
+    let runs = describe_runs(&bytes);
+    assert_eq!(runs.len(), 2, "the head's set and the copy: {runs:?}");
+    let copy_at = runs[1][0].0;
+    for k in 0..2 {
+        let mut damaged = bytes.clone();
+        damaged[runs[0][k].0 as usize + 40] ^= 1;
+        let rd = TapeReader::open(&damaged[..]).unwrap();
+        assert_eq!(rd.pieces()[0].cut, Some(runs[0][k].0));
+        let set = rd.describe_set(0).unwrap();
+        let at: Vec<u64> = set.iter().map(|(o, _)| *o).collect();
+        assert_eq!(
+            at,
+            runs[1].iter().map(|r| r.0).collect::<Vec<_>>(),
+            "block {k} damaged"
+        );
+        assert_eq!(at[0], copy_at);
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -251,7 +251,8 @@ impl DescribeSet {
 
     /// Write the set as describe blocks of at most `block_len_max` bytes (a longer record gets a block of its own),
     /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*id` on in its run,
-    /// which is left at the next number; `out` takes each block.
+    /// which is left at the next number; `out` takes each block. The first block is marked [crate::FLAG_SET_FIRST], the
+    /// last [crate::FLAG_SET_LAST], so a reader tells the whole set from part of it.
     pub fn write_blocks(
         &self,
         id: &mut BlockId,
@@ -314,6 +315,13 @@ impl DescribeSet {
                 };
                 pushed.expect("block sized to fit its records");
             }
+            let first = if i == 0 { crate::FLAG_SET_FIRST } else { 0 };
+            let last = if j == entries.len() {
+                crate::FLAG_SET_LAST
+            } else {
+                0
+            };
+            w.set_flags(first | last);
             let len = w.finish();
             out(&buf[..len]);
             i = j;

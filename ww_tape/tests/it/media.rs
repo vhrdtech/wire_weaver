@@ -573,3 +573,30 @@ fn erased_space_past_the_gap_ends_a_raw_walk() {
         rd.read
     );
 }
+
+/// On a raw medium a piece whose head describe set is damaged and whose run ends there, with an earlier life's
+/// describe set behind it, has no describe set: the stale one is never taken for it.
+#[test]
+fn a_stale_describe_set_is_not_the_pieces() {
+    let set = |run: RunTag| {
+        let mut s = DescribeSet::new();
+        s.insert(&Describe::Producer(Producer { name: "media" }))
+            .unwrap();
+        s.insert(&Describe::Layout(Layout::UNALIGNED)).unwrap();
+        let mut id = BlockId::new(run, 0);
+        let mut out = vec![];
+        s.write_blocks(&mut id, 64, &[], |b| out.push(b.to_vec()))
+            .unwrap();
+        assert_eq!(out.len(), 2);
+        out
+    };
+    let mut card = piece_head(NEW, RunTag::NONE);
+    let new = set(NEW);
+    let damaged_at = card.len() + new[0].len();
+    card.extend(new.concat());
+    card[damaged_at + 40] ^= 1;
+    card.extend(set(OLD).concat());
+    let r = TapeReader::open_with(&card[..], raw()).unwrap();
+    assert_eq!(r.pieces()[0].cut, Some(damaged_at as u64));
+    assert!(r.describe_set(0).unwrap().is_empty());
+}

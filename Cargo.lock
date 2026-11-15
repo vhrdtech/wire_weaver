@@ -6346,6 +6346,7 @@ name = "wire_weaver_client"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "crc",
  "either",
  "exact_units",
  "futures-lite",

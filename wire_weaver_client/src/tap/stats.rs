@@ -177,6 +177,8 @@ pub struct Stats {
     pub blocks: u64,
     /// Blocks missing by their seq.
     pub blocks_lost: u64,
+    /// Blocks whose coded body doesn't decode.
+    pub blocks_bad: u64,
     /// Records the producer reported lost ([ww_tap::LinkEvent::Lost]).
     pub records_lost: u64,
     /// Producer time the window covers, ns.

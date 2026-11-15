@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use wire_weaver::shrink_wrap::RefVec;
 use ww_tap::{Framer, Medium};
-use ww_tape::{FileBlocks, SyncPolicy, TapeWriter};
+use ww_tape::{BlockKind, BodyCodec, FileBlocks, SyncPolicy, TapeWriter};
 
 use super::*;
 use crate::tap::{Layers, LinkEvent, Recorder, RecorderConfig, Tap, host_session};
@@ -53,5 +53,67 @@ fn describe_backup_is_not_a_new_session() {
         });
     }
     assert_eq!(seen, ["session 0", "session 3", "disconnected"]);
+    // a reader that starts at the backup never read the run's own describe blocks: the copy's session is news
+    let bytes = std::fs::read(&path).unwrap();
+    let mut blocks = FileBlocks::new(&bytes[..]);
+    let mut all = vec![];
+    while let Some(b) = blocks.next_good(|e| panic!("{e}")) {
+        all.push(b.bytes().to_vec());
+    }
+    let copy = |b: &Vec<u8>| ww_tape::Block::read(b).unwrap().is_copy();
+    let last = all.iter().rposition(copy).unwrap();
+    let first = all[..=last].iter().rposition(|b| !copy(b)).unwrap() + 1;
+    let mut decoder = Decoder::default();
+    for b in &all[first..] {
+        decoder.feed(&ww_tape::Block::read(b).unwrap());
+    }
+    decoder.finish();
+    let mut seen = vec![];
+    while let Some(d) = decoder.next() {
+        if let What::Session(s) = d.what {
+            seen.push(s.device_info.len());
+        }
+    }
+    assert_eq!(seen, [0]);
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A records block whose lz4 body doesn't decode is reported, not taken for an empty block.
+#[test]
+fn a_bad_coded_body_is_reported() {
+    let (recorder, _clock) = Recorder::with_fake_clock(RecorderConfig::default());
+    let sub = recorder.subscribe(Layers::ALL, 64);
+    let mut link = recorder.link();
+    link.session(&host_session(Medium::InProcessUsb, Framer::None, 64, "dev"));
+    for _ in 0..20 {
+        link.link_event(&LinkEvent::Disconnected {
+            reason: "again and again",
+            keep_streams: false,
+        });
+    }
+    recorder.flush();
+    let mut records = None;
+    while let Some(chunk) = sub.try_recv() {
+        if chunk.block().kind == BlockKind::Records {
+            records = Some(chunk.bytes().to_vec());
+        }
+    }
+    let plain = records.unwrap();
+    let mut coded = vec![0u8; ww_tape::coded_len_max(plain.len())];
+    let n = ww_tape::code_body(&plain, BodyCodec::LZ4, &mut coded).unwrap();
+    coded.truncate(n);
+    // the decoded length after the codec byte: another one than the lz4 bytes give, the CRC made good again
+    coded[33] = 0x7f;
+    let crc = crc::Crc::<u32>::new(&crc::CRC_32_ISCSI).checksum(&coded[..n - 4]);
+    coded[n - 4..].copy_from_slice(&crc.to_le_bytes());
+    let block = ww_tape::Block::read(&coded).unwrap();
+    let mut decoder = Decoder::default();
+    decoder.feed(&block);
+    let d = decoder.next().unwrap();
+    assert!(
+        matches!(d.what, What::BadBody { seq, .. } if seq == block.seq),
+        "{:?}",
+        d.what
+    );
+    assert_eq!(decoder.stats.blocks_bad, 1);
 }

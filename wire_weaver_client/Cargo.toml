@@ -101,6 +101,7 @@ ww_timebase = { workspace = true, features = ["std"], optional = true }
 ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+crc.workspace = true
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "test-util"] }
 trybuild = "1"
 wire_weaver_core = { workspace = true }

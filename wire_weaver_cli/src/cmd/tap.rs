@@ -422,6 +422,16 @@ impl Monitor {
                     style(format!("{blocks} blocks lost (the reader fell behind)")).red()
                 );
             }
+            What::BadBody { seq, error } => {
+                _ = writeln!(
+                    s,
+                    "{head} {}",
+                    style(format!(
+                        "block {seq}: its coded body doesn't decode ({error:?}), its records are lost"
+                    ))
+                    .red()
+                );
+            }
             What::Frame(f) => {
                 if self.view.layer != Layer::Frame {
                     return None;

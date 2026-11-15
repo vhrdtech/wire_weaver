@@ -75,6 +75,11 @@ pub enum What {
     BlocksLost {
         blocks: u64,
     },
+    /// Block `seq` has a coded body that doesn't decode (`error`): its records are not seen.
+    BadBody {
+        seq: u64,
+        error: ww_tape::BlockError,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -209,6 +214,8 @@ pub struct Decoder {
     next_seq: Option<u64>,
     /// Run of the blocks fed last
     run: Option<ww_tape::RunTag>,
+    /// Run whose own describe blocks were fed: a copy of them adds nothing
+    described: Option<ww_tape::RunTag>,
     wall_ns_at_zero: Option<u64>,
     /// Time of the newest record fed, for what has no time of its own (lost blocks).
     last_t: u64,
@@ -231,6 +238,7 @@ impl Decoder {
             lookup: None,
             next_seq: None,
             run: None,
+            described: None,
             wall_ns_at_zero: None,
             last_t: 0,
             out: VecDeque::new(),
@@ -268,8 +276,13 @@ impl Decoder {
     pub fn feed(&mut self, block: &Block<'_>) {
         self.stats.blocks += 1;
         // a copy a writer made (a repeat, the backup before the finish, the next piece's start): its sticky records
-        // are the state of the run it copies, older than the records read since
+        // are the state of the run it copies, older than the records read since that run's own describe blocks; a
+        // reader that starts at the copy takes them
         let copy = block.is_copy();
+        if block.kind == BlockKind::Describe && !copy {
+            self.described = Some(block.run);
+        }
+        let stale_sticky = copy && self.described == Some(block.run);
         // seq counts per run: a new run starts counting again
         if self.run != Some(block.run) {
             self.run = Some(block.run);
@@ -288,9 +301,23 @@ impl Decoder {
         }
         self.next_seq = Some(block.seq + 1);
         // a block stores its records track by track: back in time order, so a reply comes after its request
-        // a coded body is read from its decoded form; one that doesn't decode gives no records, as damage would
+        // a coded body is read from its decoded form; one that doesn't decode gives no records, and says so
         let mut plain = Vec::new();
-        let decoded = block.decode(&mut plain).unwrap_or(*block);
+        let decoded = match block.decode(&mut plain) {
+            Ok(d) => d,
+            Err(error) => {
+                self.stats.blocks_bad += 1;
+                self.out.push_back(Decoded {
+                    link: None,
+                    t: self.last_t,
+                    what: What::BadBody {
+                        seq: block.seq,
+                        error,
+                    },
+                });
+                return;
+            }
+        };
         let mut records: Vec<_> = decoded.records().filter_map(Result::ok).collect();
         records.sort_by_key(|r| r.at.map(|at| at.ticks));
         for r in records {
@@ -300,7 +327,7 @@ impl Decoder {
                 }
                 continue;
             };
-            if copy {
+            if stale_sticky {
                 continue;
             }
             // the tap clock counts ns from the recorder's start: a time before it isn't the tap's

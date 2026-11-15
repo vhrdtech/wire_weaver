@@ -261,7 +261,7 @@ async fn monitor_capture_and_explain_file_agree() {
     let live = live.map(|b| String::from_utf8(b).unwrap());
 
     // `ww capture` wrote the same bytes, `ww explain FILE` prints the same text
-    assert_eq!(writer.finish().unwrap(), path);
+    assert_eq!(writer.finish().unwrap().path, path);
     assert_eq!(std::fs::read(&path).unwrap(), file);
     for (view, live) in views().into_iter().zip(&live) {
         let mut replayed = vec![];

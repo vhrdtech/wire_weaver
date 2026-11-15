@@ -409,10 +409,12 @@ fn aligned_file_puts_payloads_on_pages_and_fills_gaps() {
     use BlockKind::*;
     // the deferred blocks 1 and 2 fill the gap before the events chunk, 3 that before the second series chunk; 4
     // has no chunk after it and goes at the end
+    // then the writer's describe backup, final index, finish and tail
     assert_eq!(
         kinds,
         [
-            Describe, Series, Records, Records, Events, Records, Series, Records
+            Describe, Series, Records, Records, Events, Records, Series, Records, Describe, Index,
+            Finish, Tail
         ]
     );
     for (_, _, _, payload, _) in &blocks {
@@ -425,7 +427,8 @@ fn aligned_file_puts_payloads_on_pages_and_fills_gaps() {
     assert_eq!(
         kinds,
         [
-            Describe, Series, Records, Records, Events, Records, Series, Records
+            Describe, Series, Records, Records, Events, Records, Series, Records, Describe, Index,
+            Finish, Tail
         ]
     );
     assert!(plain.len() < file.len());

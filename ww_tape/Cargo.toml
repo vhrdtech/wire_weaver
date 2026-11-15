@@ -9,10 +9,13 @@ repository.workspace = true
 
 [features]
 default = ["std"]
+# the positional reader (TapeReader over a ByteSource) and the piece chain check, without std (WASM)
+alloc = []
 # owned describe records, DescribeSet, file reading and writing
-std = ["exact_units/std", "shrink_wrap/std", "ww_version/std"]
+std = ["alloc", "blake3/std", "exact_units/std", "shrink_wrap/std", "ww_version/std"]
 
 [dependencies]
+blake3.workspace = true
 crc.workspace = true
 exact_units = { workspace = true, features = ["counting", "shrink_wrap", "time"] }
 shrink_wrap.workspace = true

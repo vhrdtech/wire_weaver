@@ -65,6 +65,9 @@
 //! ([DescribeSet] with `std`) and blocks are cut by size, not by time, unless the producer seals them on a timer.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 #[cfg(feature = "std")]
 pub use ww_version::FullVersionOwned;
 pub use ww_version::{FullVersion, Version};
@@ -94,6 +97,20 @@ pub use chunk::{
 pub mod samples;
 pub use samples::{Element, SampleShape};
 
+pub mod index;
+pub use index::{IndexBlock, IndexEntry, IndexError, IndexHead, IndexKind, IndexPolicy};
+pub mod piece;
+#[cfg(feature = "std")]
+pub use piece::{ChainOptions, CutPolicy, PieceChain};
+pub use piece::{
+    ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, ResultId, TAIL_LEN, Tail,
+    TrackRange, TrackStart,
+};
+#[cfg(feature = "alloc")]
+pub mod reader;
+#[cfg(feature = "alloc")]
+pub use reader::{ByteSource, OpenOptions, PieceInfo, ReadError, TapeReader};
+
 mod varint;
 pub use varint::{ivar_len, uvar_len};
 
@@ -108,7 +125,7 @@ pub use set::{DescribeError, DescribeSet, Sticky};
 #[cfg(feature = "std")]
 pub mod writer;
 #[cfg(feature = "std")]
-pub use writer::{SyncPolicy, TapeWriter, WriteError};
+pub use writer::{Finished, SyncPolicy, TapeWriter, WriteError};
 
 /// `WWTP`
 pub const MAGIC: [u8; 4] = *b"WWTP";
@@ -145,6 +162,14 @@ pub enum BlockKind {
     /// Reserved for parity blocks (one per group of blocks, for archives on poor media); none are written yet, and a
     /// reader skips them like a kind it doesn't know.
     Parity,
+    /// A checkpoint or final index of the piece's blocks ([index]).
+    Index,
+    /// How a piece ended, with its content hash ([piece]).
+    Finish,
+    /// The fixed-size last block of a piece ([piece]).
+    Tail,
+    /// The first block of a piece of a chain ([piece]).
+    PieceHead,
     /// A kind this reader doesn't know: its body isn't read.
     Other(u8),
 }
@@ -158,6 +183,10 @@ impl BlockKind {
             4 => BlockKind::Series,
             5 => BlockKind::Parity,
             6 => BlockKind::Summary,
+            7 => BlockKind::Index,
+            8 => BlockKind::Finish,
+            9 => BlockKind::Tail,
+            10 => BlockKind::PieceHead,
             other => BlockKind::Other(other),
         }
     }
@@ -170,6 +199,10 @@ impl BlockKind {
             BlockKind::Series => 4,
             BlockKind::Parity => 5,
             BlockKind::Summary => 6,
+            BlockKind::Index => 7,
+            BlockKind::Finish => 8,
+            BlockKind::Tail => 9,
+            BlockKind::PieceHead => 10,
             BlockKind::Other(v) => v,
         }
     }

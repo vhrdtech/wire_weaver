@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- `TapeWriter::finish` returns `Finished` and ends the file with a final index, describe backup, finish and tail block (STD-122).
 - Header bytes 24..32 hold a chunk block's payload offset and head CRC; `BlockError::Chunk` for a bad chunk head (STD-118).
 - `BlockError` gains `Summary` for a bad summary block head or body (STD-121).
 - `WriteError` gains `Block` and `Chunk`; `Describe` gains `Layout`, which takes variant 6 (STD-118).
@@ -17,6 +18,12 @@
 
 - Summary blocks (`BlockKind::Summary`, kind 6): event item tree (`EventTree`) and mergeable series summaries (`SeriesSummaries`), read in place (STD-121).
 - `SeriesSummarySpec`, `SeriesStats`, `ClipRange`: a series track's summary declaration as shrink_wrap types (STD-121).
+- Index blocks (kind 7): checkpoints with a back chain every 4 MiB (`IndexPolicy`), a final index sorted by track (STD-122).
+- Finish (kind 8) with BLAKE3 content hash and per-track ranges, fixed-size tail (kind 9) found from the file's end (STD-122).
+- Tape pieces: piece head (kind 10), `TapeWriter::cut`, `PieceChain` cutting by size, chunks or time, `check_chain` (STD-123).
+- `TapeReader` over a `ByteSource` (slice, `Vec`, `File`): pieces from tails, checkpoints or a bounded scan; builds for wasm32 (STD-124).
+- The writer repeats the newest describe blocks about every 128 MiB and in each piece's head and backup (STD-123).
+- Golden file `golden/v2-index.hex`; fuzz target `tape-index` (STD-122, STD-124).
 - Chunk blocks (`BlockKind::Events`, `Series`): self-locating `ChunkHead` (track, first item, tick range, latest end), typed columns with codec ids, read in place (STD-118).
 - A CRC-32C per 64 KiB payload segment; `Block::salvage` and `Recovery::Resync` hand out damaged chunks with bad segments marked (STD-118).
 - `Describe::Layout` and `TapeWriter::set_alignment`: chunk payloads on 4 KiB boundaries, deferred blocks filling the gaps (STD-118).

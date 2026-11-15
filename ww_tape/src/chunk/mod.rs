@@ -251,19 +251,19 @@ const fn segments(payload_len: usize, shift: u8) -> usize {
     payload_len.div_ceil(1 << shift)
 }
 
-fn put_u32(buf: &mut [u8], at: usize, v: u32) {
+pub(crate) fn put_u32(buf: &mut [u8], at: usize, v: u32) {
     buf[at..at + 4].copy_from_slice(&v.to_le_bytes());
 }
 
-fn get_u16(buf: &[u8], at: usize) -> u16 {
+pub(crate) fn get_u16(buf: &[u8], at: usize) -> u16 {
     u16::from_le_bytes(buf[at..at + 2].try_into().expect("2 bytes"))
 }
 
-fn get_u32(buf: &[u8], at: usize) -> u32 {
+pub(crate) fn get_u32(buf: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(buf[at..at + 4].try_into().expect("4 bytes"))
 }
 
-fn get_u64(buf: &[u8], at: usize) -> u64 {
+pub(crate) fn get_u64(buf: &[u8], at: usize) -> u64 {
     u64::from_le_bytes(buf[at..at + 8].try_into().expect("8 bytes"))
 }
 

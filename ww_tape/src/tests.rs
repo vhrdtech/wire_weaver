@@ -732,7 +732,7 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
     for (seq, version, kind) in [
         (0u64, VERSION, 1u8),
         (1, VERSION + 1, 1),
-        (2, VERSION, 9),
+        (2, VERSION, 200),
         (3, VERSION, 1),
         // parity: reserved, not read
         (4, VERSION, 5),
@@ -767,7 +767,7 @@ fn unknown_versions_kinds_and_describe_variants_are_skipped() {
             (4, false, 0)
         ]
     );
-    assert_eq!(BlockKind::from_u8(9), BlockKind::Other(9));
+    assert_eq!(BlockKind::from_u8(200), BlockKind::Other(200));
 
     // a variant appended later, as a newer producer writes it
     #[derive_shrink_wrap(derive(Debug), ww_repr = u4)]
@@ -931,8 +931,9 @@ fn writer_partial_then_renamed() {
     assert!(!path.exists(), "named only when finished");
     assert_eq!(std::fs::read(w.current_path()).unwrap(), file);
     assert_eq!((w.blocks(), w.bytes()), (4, file.len() as u64));
-    assert_eq!(w.finish().unwrap(), path);
-    assert_eq!(std::fs::read(&path).unwrap(), file);
+    assert_eq!(w.finish().unwrap().path, path);
+    // the final index, finish and tail after the blocks
+    assert!(std::fs::read(&path).unwrap().starts_with(&file));
     assert!(!writer::partial_name(&path).exists());
     assert!(matches!(
         TapeWriter::create(&path, SyncPolicy::None),
@@ -946,7 +947,11 @@ fn writer_partial_then_renamed() {
     w.tick().unwrap();
     w.finish().unwrap();
     let (seqs, errors) = read_all(&std::fs::read(&path).unwrap(), Recovery::Prefix);
-    assert_eq!((seqs, errors), (vec![0, 1, 2, 3, 0], 0));
+    // each run ends with its final index, finish and tail; the second also backs up its describe block
+    assert_eq!(
+        (seqs, errors),
+        (vec![0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4], 0)
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
@@ -1012,8 +1017,10 @@ fn write_sample_tape(path: &std::path::Path, describe: Vec<Describe<'static>>) -
     }
     w.finish().unwrap();
     let bytes = std::fs::read(path).unwrap();
-    assert_eq!(bytes, blocks.concat());
-    bytes
+    // the writer's final index, describe backup, finish and tail follow; their golden file is golden/v2-index.hex
+    let written = blocks.concat();
+    assert!(bytes.starts_with(&written));
+    written
 }
 
 fn to_hex_lines(tape: &[u8]) -> String {

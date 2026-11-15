@@ -80,6 +80,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `docs/features_today.md` no longer reads `exact_units`' `FEATURES.md` from the git checkout `Cargo.lock` pins: a feature landing there turned the next wire_weaver landing red for a tracker this repository doesn't own. The Standard library area now links to `exact_units`' own feature tracker instead of listing its items (P2401#15nov-1304). See the `tests/features_page/entries.md` diff; `FEATURES.md`'s DOC-9 says what the page covers now.
 - `ww_tape` chunk blocks (STD-118): self-locating heads, 4 KiB aligned payloads, CRC per 64 KiB segment, salvage of damaged chunks. See the `ww_tape` changelog.
 - `ww_tape::TypeRef` and `TypedItem` are `Eq` and `Hash`, through a new `Hash` on `shrink_wrap::RefVec`. See the `ww_tape` and `shrink_wrap` changelogs.
+- `ww_tape` v2 index, finish, tail, tape pieces and a positional reader for WASM (STD-122, STD-123, STD-124). See the `ww_tape` changelog.
 
 ### Added
 

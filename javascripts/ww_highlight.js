@@ -1,11 +1,13 @@
 // WireWeaver-specific syntax highlighting on top of the already-highlighted ```rust blocks
 // (Pygments, run by pymdownx.highlight at build time). Adds classes to tokens Pygments'
-// generic Rust lexer has no idea about: property!/method!/stream! and their ro/rw/wo/observe
-// access modes, WireWeaver attributes, and exact_units' unit/prefix/wrapper names. Colours are
-// in stylesheets/vhrd.css, reusing the theme's --md-code-hl-*-color variables.
+// generic Rust lexer has no idea about: property!/method!/stream!/sink! and their
+// ro/rw/wo/observe/batched access modes, WireWeaver attributes, and exact_units' unit/prefix/
+// origin/wrapper names. Colours are in ww_highlight.css, reusing the theme's
+// --md-code-hl-*-color variables.
 //
-// The token lists live in ww_tokens.json next to this file, kept separate so ww_lsp and an
-// editor grammar can reuse them without parsing JS.
+// The token lists live in ww_tokens.json next to this file, written by `ww_lsp tokens --json`
+// from the same names ww_lsp's semantic tokens use. ww_lsp (crates/ww_highlight) owns these
+// three files; a docs site vendors copies of them.
 (() => {
   const SCRIPT_URL = document.currentScript && document.currentScript.src;
   const DATA_URL = SCRIPT_URL ? new URL("ww_tokens.json", SCRIPT_URL) : "ww_tokens.json";

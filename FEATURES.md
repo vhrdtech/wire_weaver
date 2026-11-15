@@ -839,6 +839,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `streams` suites run against such servers with a `no_alloc` one as the byte reference (`tests_common::Twin`);
   `ww api scaffold --alloc` prints the owned signatures. Prerequisite of the hub API (SRV-28)
   (`docs/transport/hub.md#servers-on-std-no_alloc-false`).
+- ✅ **API-67 Keyed resource arrays** · `v0.5` — `keyed!(flow by FlowKey)` after an array `flow[]` (traits,
+  properties, streams, sinks) lets a client address its elements by a key instead of the index the device gave
+  them. One item at its position, `ww_self::ApiItemKind::Keys { of, key, event_ty }`; its operations are a fixed
+  level built by `ww_self::keys::keys_level` for every consumer: `index_of(key) -> Option<I>`, `ro key[I]` and a
+  `keys` stream of `ww_keyed::KeyEvent<I, K>` (`Added { index, key }`, `Removed { index }`), `I` the array's index
+  type (`UNib32` for `name[]`). No new request kind or wire format; an API without `keyed!` has the same bundle.
+  Refused: no array before it, a method, a flat item, a second `keyed!` of one array, a float anywhere in the key,
+  a name clash with `<array>_keys`. Done: the model, parsing and checks (`tests/keyed_api`, the Dissector),
+  conformance cases `stdlib.keyed.*`, evolution and `ww api` (EVO-78), the server (SRV-62), the client
+  (CLT-72).
+  [Docs](docs/api/arrays.md).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /
@@ -870,17 +881,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   server before a handler is called and visible in introspection (`docs/api/arrays.md`). Lengths of lists and
   strings inside a resource's type are bounded with `MaxLen` (SW-19). Observed levels under an array have a pool of
   element tables (API-63) and don't need the bound; with it, a firmware could size the pool to the array.
-- 🚧 **API-67 Keyed resource arrays** · `v0.5` — `keyed!(flow by FlowKey)` after an array `flow[]` (traits,
-  properties, streams, sinks) lets a client address its elements by a key instead of the index the device gave
-  them. One item at its position, `ww_self::ApiItemKind::Keys { of, key, event_ty }`; its operations are a fixed
-  level built by `ww_self::keys::keys_level` for every consumer: `index_of(key) -> Option<I>`, `ro key[I]` and a
-  `keys` stream of `ww_keyed::KeyEvent<I, K>` (`Added { index, key }`, `Removed { index }`), `I` the array's index
-  type (`UNib32` for `name[]`). No new request kind or wire format; an API without `keyed!` has the same bundle.
-  Refused: no array before it, a method, a flat item, a second `keyed!` of one array, a float anywhere in the key,
-  a name clash with `<array>_keys`. Done: the model, parsing and checks (`tests/keyed_api`, the Dissector),
-  conformance cases `stdlib.keyed.*`, evolution and `ww api` (EVO-78), the server (SRV-62). Missing: client
-  (CLT-72).
-  [Docs](docs/api/arrays.md).
 - 📋 **API-66 Staged and timed actions** — nothing applies several writes together or at a given time: a motor's
   torque and an ADC's gain on one device, or three joints of a leg on a bus (CBUS-1). `#[staged]` properties written
   into a shadow and applied by a commit (or a bus sync), and a request run at a shared time (`ww_timebase`), refused
@@ -1486,16 +1486,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
     Follow-ups: SRV-48 (errors and the caller's context), SRV-49 (the forwarding server), CLT-58 (levels, arrays,
     observing), SRV-46 (peer identity).
+- ✅ **CLT-72 Client of a keyed array** · `v0.5` — `device.flow_by(&key)` gives an element's client by its key
+  (the index for an array of properties, streams or sinks), `flow_key(i)` and `flow_keys()`, sync and async (API-67).
+  A key cache per keyed array, shared by the connection's clones (`wire_weaver_client::Keyed`, at most 1024 keys),
+  learns from `index_of`, `key` reads and the `keys` stream and forgets on `Removed`, a `BadIndex` answer and a
+  reconnect. Keys in dynamic client and `ww` paths as a Rust expression of the key type
+  (`DynResource::walk_on`, `flow[FlowKey { .. }].packets`), in Python `dev.flow[key]`, `dev.flow.by(key)`. Tests in
+  `tests/keyed` (a device that met its flows in shuffled order) and `wire_weaver_py/tests/test_keyed.py`.
+  Partial keys are CLT-73. [Docs](docs/api/arrays.md#keyed-arrays-on-the-client).
 - ✅ **CLT-55 Large messages** — the client's message size limit from `ClientConfig` instead of a 16 KiB constant,
   the agreed limit from link setup used by both sides with an error naming both, growable reply buffers for
   `no_alloc = false` servers, and a documented idiom for result sets bigger than a message (a stream of rows, or
   paging). Each connection's host API version and client app version are kept for skew checks.
   See `docs/api/large_messages.md`, tests in `tests/large_messages`.
 - 📋 **CLT-71 `Scaled` as a quantity in the dynamic client** — a `ww_si::Scaled<U, T>` (STD-116) read as a `DynQuantity`: its unit from the type, its `RunScale` as the prefix, so `ww` and Python show `154112·1/15360 s` and convert it like a `Fixed`; writing one from a quantity picks the device's current scale or refuses. Today both show and take it as the struct `{ value, scale: { num, den, pow2 } }`.
-- 🚧 **CLT-72 Client of a keyed array** · `v0.5` — `device.flow_by(&key)`, `flow_key(i)`, `flow_keys()`, a bounded
-  key cache per keyed array fed by `index_of`, `key` reads and the `keys` stream; keys in dynamic, Python and `ww`
-  paths (`flow[{proto: Tcp, ..}].packets`) (API-67). Done: the generated client (sync and async) and the key cache
-  (`wire_weaver_client::Keyed`), tests in `tests/keyed`. Missing: the dynamic client, Python and `ww` key paths.
+- 💡 **CLT-73 Partial keys in paths** — `flow[{proto: Tcp, ..}]` in `ww`, dynamic client and Python paths: the
+  elements whose key matches the given fields, from the `key[]` multi read or the `keys` stream, instead of one
+  full key (CLT-72). Needs a rule for several matches (all of them for `ww stream`, an error for one element).
 - 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
   `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.

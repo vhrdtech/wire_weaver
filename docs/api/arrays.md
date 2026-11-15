@@ -98,3 +98,46 @@ prints the handlers.
 One `keyed!` costs 316 B of flash on a Cortex-M0 at `fw-z` in a blocking server, 276 to 784 B on M0 and M3 at
 `fw-z` and `fw-3`, blocking and async (TEST-30, `qemu-flash-keyed` against `qemu-flash-arrayed`). The `keys`
 stream's send helper is not counted: it is linked only where it is used.
+
+### Keyed arrays on the client
+
+The generated client finds an element by its key (CLT-72):
+
+```rust
+if let Some(flow) = client.flow_by(&key).await? {
+    let bytes = flow.read_bytes().read().await?;
+}
+let key = client.flow_key(3).await?;    // the key of flow 3
+let mut keys = client.flow_keys().await?; // KeyEvent::Added and Removed as they happen
+```
+
+`flow_by` returns the element's client, `None` when the device has no element with that key; it returns the index
+for an array of properties, streams or sinks. Each has a `_blocking` twin. The key type needs `Clone`.
+
+`flow_by` asks the device's `index_of` once per key and keeps the answer in the connection's key cache, shared by
+every clone of the client: later lookups send nothing. Keys the client sees otherwise go into the cache too: a
+`flow_key` read, an `Added` on the `keys` stream. An entry goes away on a `Removed`, on a `BadIndex` answer to a
+request through that index, and on a reconnect; the cache holds at most 1024 keys per keyed array and forgets the
+oldest first. A key not found is asked again each time. Between a flow's removal and the next request through its
+index, a cached index can already belong to another flow: a client that must not touch the wrong element keeps the
+`keys` stream open, so the `Removed` drops it at once.
+
+The dynamic client, `ww` and Python take a key in a path. In `ww` and the dynamic client
+(`DynResource::walk_on`) the brackets hold the key as a Rust expression of its type, all fields given:
+
+```sh
+ww stream 'flow[FlowKey { proto: Proto::Tcp, src: Endpoint { addr: [10, 0, 0, 1], port: Port(6000) },
+    dst: Endpoint { addr: [10, 0, 0, 2], port: Port(443) }, first_seen: Point { coord: 100 } }].packets'
+```
+
+A time point in a key is written as its `coord` (`Point { coord: 100 }`) for now. A number in brackets is an index.
+
+In Python an int indexes and anything else is a key, in the form any argument takes:
+
+```python
+key = {"proto": "Tcp", "src": {"addr": [10, 0, 0, 1], "port": 6000},
+       "dst": {"addr": [10, 0, 0, 2], "port": 443}, "first_seen": {"coord": 100}}
+dev.flow[key].bytes.read()  # KeyError when the device has no such flow
+dev.flow.by(key)            # None instead
+dev.flow.key_type           # "FlowKey"
+```

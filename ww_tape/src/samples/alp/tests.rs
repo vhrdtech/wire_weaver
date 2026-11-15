@@ -234,3 +234,27 @@ fn rejects_malformed_groups() {
     shifted.truncate(shifted.len() - 2);
     assert!(decodes(&shifted));
 }
+
+#[test]
+fn constants_match_the_tables() {
+    assert_eq!(F10.len(), usize::from(F64::E_MAX) + 1);
+    assert_eq!(IF10.len(), usize::from(F64::E_MAX) + 1);
+    assert_eq!(F10_32.len(), usize::from(F32::E_MAX) + 1);
+    assert_eq!(IF10_32.len(), usize::from(F32::E_MAX) + 1);
+    assert_eq!(F64::BYTES * 8, F64::BITS as usize);
+    assert_eq!(F32::BYTES * 8, F32::BITS as usize);
+    assert_eq!(F32::D_MIN, i64::from(i32::MIN));
+    assert_eq!(F32::D_MAX, i64::from(i32::MAX));
+    // the encoder weighs every left width
+    assert_eq!(encode::LEFT_WIDTHS, LEFT_MAX as usize + 1);
+}
+
+#[test]
+fn columns_stay_under_4_gib() {
+    // 2^29 f64 values are 4 GiB of data, past what a table end addresses
+    assert_eq!(
+        max_encoded_len(Codec::ALP, F64S, 1 << 29),
+        Err(crate::SampleError::BadShape)
+    );
+    assert!(max_encoded_len(Codec::ALP, F64S, 1 << 20).is_ok());
+}

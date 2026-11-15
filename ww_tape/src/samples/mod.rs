@@ -444,6 +444,10 @@ impl<'b> GroupReader<'b> {
         self.take(1)?.first().copied()
     }
 
+    fn u16(&mut self) -> Option<u16> {
+        self.take(2)?.first_chunk().copied().map(u16::from_le_bytes)
+    }
+
     /// `n` bytes (at most 8), little endian.
     fn uint(&mut self, n: usize) -> Option<u64> {
         let mut w = [0u8; 8];

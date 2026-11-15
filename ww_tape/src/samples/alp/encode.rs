@@ -1,26 +1,14 @@
 //! The ALP encoder: sampling, then per group the smallest of the decimal form and the two `rd` forms.
-
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
+//!
+//! Costs are counts of bits or bytes that saturate at the type's maximum, which no form is chosen at; every other
+//! step is checked, and a step that can't be taken makes the encoder report the buffer full.
 
 use super::{
-    ALP_GROUP, DECIMAL, DICT_BITS_MAX, DICT_MAX, F10, F32, F64, Float, IF10, LEFT_MAX, RD, e_max,
+    ALP_GROUP, DECIMAL, DICT_BITS_MAX, DICT_MAX, F10, F32, F64, Float, IF10, LEFT_MAX, RD,
 };
 use crate::bitpack::{self, packed_len};
-use crate::samples::{ENTRY, Element, Sample, SampleError};
+use crate::samples::raw::mask;
+use crate::samples::{ENTRY, Element, GroupWriter, Sample, SampleError};
 
 /// Most groups the first sampling level looks at per column and lane (the paper's `m`, section 4).
 const SAMPLE_GROUPS: usize = 8;
@@ -30,6 +18,8 @@ const SAMPLE_GROUPS_PER: (usize, usize) = (8, 100);
 const SAMPLE_VALUES: usize = 32;
 /// Combinations kept from the first level (the paper's `k`).
 const COMBOS_MAX: usize = 5;
+/// Left widths of `rd` the first level weighs: 0 to [LEFT_MAX].
+pub(super) const LEFT_WIDTHS: usize = 17;
 /// Lanes whose first-level plan the encoder keeps for the whole column.
 const PLANS_KEPT: usize = 8;
 /// `2^52 + 2^51`: added and taken away, it rounds a double below 2^51 to an integer (section 3.1).
@@ -42,6 +32,12 @@ const ROUND_MAX: f64 = 2_251_799_813_685_248.0;
 struct Combo {
     e: u8,
     f: u8,
+}
+
+/// Pick `j` of `s` equidistant picks among `n`: `j · n / s`.
+#[inline(always)]
+fn spread(j: usize, n: usize, s: usize) -> Option<usize> {
+    j.checked_mul(n)?.checked_div(s)
 }
 
 /// Lane `l` of samples of `lanes` scalars.
@@ -59,13 +55,13 @@ impl<T: Sample> Lane<'_, T> {
         self.values.get(at).map(|v| v.to_bits())
     }
 
-    /// Up to [SAMPLE_VALUES] equidistant values of the `n` samples from `first`.
-    fn sample(&self, first: usize, n: usize, out: &mut [u64; SAMPLE_VALUES]) -> usize {
+    /// Up to [SAMPLE_VALUES] equidistant values of the `n` samples from `first`; None past the values.
+    fn sample(&self, first: usize, n: usize, out: &mut [u64; SAMPLE_VALUES]) -> Option<usize> {
         let s = n.min(SAMPLE_VALUES);
         for (j, o) in out.iter_mut().take(s).enumerate() {
-            *o = self.get(first + j * n / s).unwrap_or(0);
+            *o = self.get(first.checked_add(spread(j, n, s)?)?)?;
         }
-        s
+        Some(s)
     }
 }
 
@@ -76,6 +72,11 @@ fn enc<F: Float>(bits: u64, c: Combo) -> Option<i64> {
     if !(x > -ROUND_MAX && x < ROUND_MAX) {
         return None;
     }
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "x is inside ±ROUND_MAX (2^51), checked above: the rounded value is an integer an i64 holds"
+    )]
     let d = ((x + SWEET) - SWEET) as i64;
     (F::D_MIN..=F::D_MAX).contains(&d).then_some(d)
 }
@@ -93,7 +94,7 @@ fn decimal_cost<F: Float>(sample: &[u64], c: Combo, bound: u64) -> u64 {
     let Some(m) = F::factors(c.e, c.f) else {
         return u64::MAX;
     };
-    let exception_bits = 8 + u64::from(F::BITS);
+    let exception_bits = u64::from(F::BITS).saturating_add(8);
     let (mut lo, mut hi, mut exceptions) = (i64::MAX, i64::MIN, 0u64);
     for &bits in sample {
         match encode_value::<F>(bits, c, m) {
@@ -102,8 +103,8 @@ fn decimal_cost<F: Float>(sample: &[u64], c: Combo, bound: u64) -> u64 {
                 hi = hi.max(d);
             }
             None => {
-                exceptions += 1;
-                if exceptions * exception_bits >= bound {
+                exceptions = exceptions.saturating_add(exception_bits);
+                if exceptions >= bound {
                     return u64::MAX;
                 }
             }
@@ -112,15 +113,17 @@ fn decimal_cost<F: Float>(sample: &[u64], c: Combo, bound: u64) -> u64 {
     let width = if lo > hi {
         0
     } else {
-        bitpack::width_of(hi.wrapping_sub(lo) as u64)
+        bitpack::width_of(hi.wrapping_sub(lo).cast_unsigned())
     };
-    sample.len() as u64 * u64::from(width) + exceptions * exception_bits
+    u64::try_from(sample.len())
+        .map_or(u64::MAX, |n| n.saturating_mul(u64::from(width)))
+        .saturating_add(exceptions)
 }
 
 /// The best combination for `sample` over every exponent and factor; ties go to the lower exponent, then factor.
 fn best_combo<F: Float>(sample: &[u64]) -> (Combo, u64) {
     let mut best = (Combo::default(), u64::MAX);
-    for e in 0..=e_max::<F>() {
+    for e in 0..=F::E_MAX {
         for f in 0..=e {
             let c = Combo { e, f };
             let cost = decimal_cost::<F>(sample, c, best.1);
@@ -132,14 +135,13 @@ fn best_combo<F: Float>(sample: &[u64]) -> (Combo, u64) {
     best
 }
 
-/// The left part of a value: its top `left` bits.
+/// The left part of a value: its top `left` bits, None when that is more than 16.
 #[inline(always)]
-fn left_of<F: Float>(bits: u64, left: u32) -> u16 {
+fn left_of<F: Float>(bits: u64, left: u32) -> Option<u16> {
     if left == 0 {
-        0
-    } else {
-        (bits >> (F::BITS - left)) as u16
+        return Some(0);
     }
+    u16::try_from(bits.checked_shr(F::BITS.checked_sub(left)?)?).ok()
 }
 
 /// A skewed dictionary: the most frequent left parts first (ties to the smaller value), with their counts.
@@ -151,18 +153,13 @@ struct Dict {
 
 impl Dict {
     /// The dictionary of `lefts`, which it sorts.
-    fn of(lefts: &mut [u16]) -> Self {
+    fn of(lefts: &mut [u16]) -> Option<Self> {
         lefts.sort_unstable();
         let mut d = Dict::default();
-        let mut i = 0;
-        while let Some(&v) = lefts.get(i) {
-            let run = lefts
-                .get(i..)
-                .map_or(0, |r| r.iter().take_while(|x| **x == v).count());
-            i += run;
-            d.offer(v, run as u32);
+        for run in lefts.chunk_by(|a, b| a == b) {
+            d.offer(*run.first()?, u32::try_from(run.len()).ok()?);
         }
-        d
+        Some(d)
     }
 
     /// Keep `v` among the most frequent; values come ascending, so an equal count keeps the earlier, smaller one.
@@ -170,26 +167,34 @@ impl Dict {
         let Some(at) = self.counts.iter().position(|c| *c < count) else {
             return;
         };
-        self.entries.copy_within(at..DICT_MAX - 1, at + 1);
-        self.counts.copy_within(at..DICT_MAX - 1, at + 1);
-        if let (Some(e), Some(c)) = (self.entries.get_mut(at), self.counts.get_mut(at)) {
-            *e = v;
-            *c = count;
+        if let (Some(entries), Some(counts)) =
+            (self.entries.get_mut(at..), self.counts.get_mut(at..))
+        {
+            // the entries from `at` move down one, the last drops out
+            entries.rotate_right(1);
+            counts.rotate_right(1);
+            if let (Some(e), Some(c)) = (entries.first_mut(), counts.first_mut()) {
+                *e = v;
+                *c = count;
+            }
         }
     }
 
     /// Values covered by the first `2^code_bits` entries.
-    fn covered(&self, code_bits: u32) -> u32 {
-        self.counts.iter().take(1 << code_bits).sum()
+    fn covered(&self, code_bits: u32) -> Option<u32> {
+        self.counts
+            .iter()
+            .take(1usize.checked_shl(code_bits)?)
+            .try_fold(0u32, |sum, c| sum.checked_add(*c))
     }
 
     /// The code of `v` in the first `2^code_bits` entries.
     fn code(&self, v: u16, code_bits: u32) -> Option<u8> {
         self.entries
             .iter()
-            .take(1 << code_bits)
+            .take(1usize.checked_shl(code_bits)?)
             .position(|e| *e == v)
-            .map(|p| p as u8)
+            .and_then(|p| u8::try_from(p).ok())
     }
 }
 
@@ -201,50 +206,43 @@ struct RdShape {
     code_bits: u32,
 }
 
-/// Bytes of an `rd` lane of `n` values of `bits` bits with `exceptions` left parts outside the dictionary.
-const fn rd_len(n: usize, bits: u32, s: RdShape, exceptions: usize) -> usize {
-    4 + 2 * (1 << s.code_bits)
-        + 1
-        + packed_len(n, s.code_bits)
-        + packed_len(n, bits - s.left - s.zeros)
-        + exceptions * 3
+/// Bytes of an `rd` lane of `n` values of `bits` bits with `exceptions` left parts outside the dictionary: scheme,
+/// left, zeros, code bits, the dictionary, the exception count, codes, right parts, positions and left parts.
+fn rd_len(n: usize, bits: u32, s: RdShape, exceptions: usize) -> Option<usize> {
+    let dict = 1usize.checked_shl(s.code_bits)?.checked_mul(2)?;
+    let right = bits.checked_sub(s.left)?.checked_sub(s.zeros)?;
+    dict.checked_add(5)?
+        .checked_add(packed_len(n, s.code_bits))?
+        .checked_add(packed_len(n, right))?
+        .checked_add(exceptions.checked_mul(3)?)
 }
 
 /// The right parts' common trailing zeros of `vals` at `left` bits: all of the right part when they are all zero.
-fn zeros_of<F: Float>(vals: &[u64], left: u32) -> u32 {
-    let right = F::BITS - left;
-    let any = vals.iter().fold(0u64, |a, b| a | b) & right_mask(right);
-    any.trailing_zeros().min(right)
-}
-
-/// The low `right` bits set.
-const fn right_mask(right: u32) -> u64 {
-    if right >= 64 {
-        u64::MAX
-    } else {
-        (1u64 << right) - 1
-    }
+fn zeros_of<F: Float>(vals: &[u64], left: u32) -> Option<u32> {
+    let right = F::BITS.checked_sub(left)?;
+    let any = vals.iter().fold(0u64, |a, b| a | b) & mask(right);
+    Some(any.trailing_zeros().min(right))
 }
 
 /// The smallest dictionary for `n` values at `left` bits and `zeros`: the shape and its bytes.
-fn rd_best(dict: &Dict, n: usize, bits: u32, left: u32, zeros: u32) -> (RdShape, usize) {
+fn rd_best(dict: &Dict, n: usize, bits: u32, left: u32, zeros: u32) -> Option<(RdShape, usize)> {
     let shape = |code_bits| RdShape {
         left,
         zeros,
         code_bits,
     };
     if left == 0 {
-        return (shape(0), rd_len(n, bits, shape(0), 0));
+        return Some((shape(0), rd_len(n, bits, shape(0), 0)?));
     }
     let mut best = (shape(0), usize::MAX);
     for code_bits in 0..=DICT_BITS_MAX {
-        let exceptions = n - dict.covered(code_bits) as usize;
-        let len = rd_len(n, bits, shape(code_bits), exceptions);
+        let covered = usize::try_from(dict.covered(code_bits)?).ok()?;
+        let len = rd_len(n, bits, shape(code_bits), n.checked_sub(covered)?)?;
         if len < best.1 {
             best = (shape(code_bits), len);
         }
     }
-    best
+    Some(best)
 }
 
 /// What the first sampling level decides for a lane of a column.
@@ -260,34 +258,45 @@ struct Plan {
 /// The first sampling level (section 3.2): the best combination of 8 % of the groups, at most [SAMPLE_GROUPS], the
 /// [COMBOS_MAX] most frequent kept (ties to the higher exponent, then factor); and the `rd` left width that costs
 /// the fewest bits on the same samples (section 3.4).
-fn first_level<F: Float, T: Sample>(lane: &Lane<'_, T>, count: usize) -> Plan {
+fn first_level<F: Float, T: Sample>(lane: &Lane<'_, T>, count: usize) -> Option<Plan> {
     let groups = count.div_ceil(ALP_GROUP);
-    let picks = (groups * SAMPLE_GROUPS_PER.0)
+    let picks = groups
+        .checked_mul(SAMPLE_GROUPS_PER.0)?
         .div_ceil(SAMPLE_GROUPS_PER.1)
         .clamp(1, SAMPLE_GROUPS);
     let mut found = [(Combo::default(), 0u32); SAMPLE_GROUPS];
     let mut decimal_bytes = 0usize;
-    let mut rd_bytes = [0usize; LEFT_MAX as usize + 1];
+    // bytes of `rd` per left width
+    let mut rd_bytes = [0usize; LEFT_WIDTHS];
     let left_max = LEFT_MAX.min(F::BITS);
     for j in 0..picks {
-        let g = j * groups / picks;
-        let first = g * ALP_GROUP;
+        let first = spread(j, groups, picks)?.checked_mul(ALP_GROUP)?;
+        let n = count
+            .min(first.checked_add(ALP_GROUP)?)
+            .checked_sub(first)?;
         let mut sample = [0u64; SAMPLE_VALUES];
-        let s = lane.sample(first, count.min(first + ALP_GROUP) - first, &mut sample);
-        let sample = sample.get(..s).unwrap_or_default();
+        let s = lane.sample(first, n, &mut sample)?;
+        let sample = sample.get(..s)?;
         let (c, cost) = best_combo::<F>(sample);
-        decimal_bytes += 6 + F::BYTES + (cost as usize).div_ceil(8);
+        // a decimal lane's bytes as the first level weighs them: 6 header bytes, the base and the bits
+        let cost_bytes = usize::try_from(cost).map_or(usize::MAX, |b| b.div_ceil(8));
+        decimal_bytes = decimal_bytes
+            .saturating_add(F::BYTES)
+            .saturating_add(6)
+            .saturating_add(cost_bytes);
         if let Some(slot) = found.iter_mut().find(|x| x.1 == 0 || x.0 == c) {
-            *slot = (c, slot.1 + 1);
+            *slot = (c, slot.1.saturating_add(1));
         }
-        for (left, total) in rd_bytes.iter_mut().enumerate().take(left_max as usize + 1) {
+        for left in 0..=left_max {
             let mut lefts = [0u16; SAMPLE_VALUES];
             for (o, b) in lefts.iter_mut().zip(sample) {
-                *o = left_of::<F>(*b, left as u32);
+                *o = left_of::<F>(*b, left)?;
             }
-            let dict = Dict::of(lefts.get_mut(..s).unwrap_or_default());
-            let zeros = zeros_of::<F>(sample, left as u32);
-            *total += rd_best(&dict, s, F::BITS, left as u32, zeros).1;
+            let dict = Dict::of(lefts.get_mut(..s)?)?;
+            let zeros = zeros_of::<F>(sample, left)?;
+            let len = rd_best(&dict, s, F::BITS, left, zeros)?.1;
+            let total = rd_bytes.get_mut(usize::try_from(left).ok()?)?;
+            *total = total.saturating_add(len);
         }
     }
     found.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
@@ -297,21 +306,23 @@ fn first_level<F: Float, T: Sample>(lane: &Lane<'_, T>, count: usize) -> Plan {
         left: 0,
         rd_only: false,
     };
-    for (o, (c, _)) in plan.combos.iter_mut().zip(found.iter().filter(|x| x.1 > 0)) {
-        *o = *c;
-        plan.k += 1;
-    }
+    plan.k = plan
+        .combos
+        .iter_mut()
+        .zip(found.iter().filter(|x| x.1 > 0))
+        .map(|(o, (c, _))| *o = *c)
+        .count();
     let (left, rd) = rd_bytes
         .iter()
         .enumerate()
-        .take(left_max as usize + 1)
+        .take(usize::try_from(left_max).ok()?.checked_add(1)?)
         .fold(
             (0, usize::MAX),
             |best, (l, b)| if *b < best.1 { (l, *b) } else { best },
         );
-    plan.left = left as u32;
+    plan.left = u32::try_from(left).ok()?;
     plan.rd_only = rd < decimal_bytes;
-    plan
+    Some(plan)
 }
 
 /// The second sampling level (section 3.2): the best of the kept combinations on a group's sample, stopping when
@@ -325,55 +336,19 @@ fn second_level<F: Float>(plan: &Plan, sample: &[u64]) -> Combo {
         return first;
     }
     let mut best = (first, decimal_cost::<F>(sample, first, u64::MAX));
-    let mut worse = 0;
+    let mut worse_before = false;
     for &c in rest {
         let cost = decimal_cost::<F>(sample, c, best.1);
         if cost < best.1 {
             best = (c, cost);
-            worse = 0;
+            worse_before = false;
+        } else if worse_before {
+            break;
         } else {
-            worse += 1;
-            if worse == 2 {
-                break;
-            }
+            worse_before = true;
         }
     }
     best.0
-}
-
-/// Writes into the buffer [super::max_len] sized; None when it would run past it.
-struct Writer<'o> {
-    out: &'o mut [u8],
-    at: usize,
-}
-
-impl Writer<'_> {
-    fn bytes(&mut self, b: &[u8]) -> Option<()> {
-        let end = self.at.checked_add(b.len())?;
-        self.out.get_mut(self.at..end)?.copy_from_slice(b);
-        self.at = end;
-        Some(())
-    }
-
-    fn u8(&mut self, v: u8) -> Option<()> {
-        self.bytes(&[v])
-    }
-
-    /// The low `n` bytes of `v`, little endian.
-    fn uint(&mut self, v: u64, n: usize) -> Option<()> {
-        self.bytes(v.to_le_bytes().get(..n)?)
-    }
-
-    fn packed(&mut self, vals: impl IntoIterator<Item = u64>, n: usize, width: u32) -> Option<()> {
-        let end = self.at.checked_add(packed_len(n, width))?;
-        bitpack::pack(
-            self.out.get_mut(self.at..end)?,
-            vals.into_iter().take(n),
-            width,
-        );
-        self.at = end;
-        Some(())
-    }
 }
 
 /// A group's lane as the decimal form: the integers, exceptions in place as residual 0.
@@ -387,7 +362,7 @@ struct Decimal {
 }
 
 impl Decimal {
-    fn new<F: Float>(vals: &[u64; ALP_GROUP], n: usize, c: Combo) -> Self {
+    fn new<F: Float>(vals: &[u64; ALP_GROUP], n: usize, c: Combo) -> Option<Self> {
         let mut x = Decimal {
             c,
             base: 0,
@@ -399,10 +374,10 @@ impl Decimal {
         let Some(m) = F::factors(c.e, c.f) else {
             // no combination of the sampling is outside the tables; were one, every value is an exception
             for (i, p) in x.positions.iter_mut().take(n).enumerate() {
-                *p = i as u8;
+                *p = u8::try_from(i).ok()?;
             }
             x.exceptions = n;
-            return x;
+            return Some(x);
         };
         let (mut lo, mut hi) = (i64::MAX, i64::MIN);
         let mut ok = [false; ALP_GROUP];
@@ -412,39 +387,46 @@ impl Decimal {
                 lo = lo.min(v);
                 hi = hi.max(v);
             } else if let Some(p) = x.positions.get_mut(x.exceptions) {
-                *p = i as u8;
-                x.exceptions += 1;
+                *p = u8::try_from(i).ok()?;
+                x.exceptions = x.exceptions.checked_add(1)?;
             }
         }
         if lo <= hi {
             x.base = lo;
-            x.width = bitpack::width_of(hi.wrapping_sub(lo) as u64);
+            x.width = bitpack::width_of(hi.wrapping_sub(lo).cast_unsigned());
         }
         for (d, ok) in x.d.iter_mut().zip(ok).take(n) {
             if !ok {
                 *d = x.base;
             }
         }
-        x
+        Some(x)
     }
 
-    fn len(&self, n: usize, bytes: usize) -> usize {
-        1 + 1 + 1 + bytes + 1 + 1 + packed_len(n, self.width) + self.exceptions * (1 + bytes)
+    /// Bytes of the lane: scheme, e, f, base, width, exception count, the packed values and the exceptions.
+    fn len(&self, n: usize, bytes: usize) -> Option<usize> {
+        bytes
+            .checked_add(5)?
+            .checked_add(packed_len(n, self.width))?
+            .checked_add(self.exceptions.checked_mul(bytes.checked_add(1)?)?)
     }
 
     fn write(
         &self,
-        w: &mut Writer<'_>,
+        w: &mut GroupWriter<'_>,
         vals: &[u64; ALP_GROUP],
         n: usize,
         bytes: usize,
     ) -> Option<()> {
         w.bytes(&[DECIMAL, self.c.e, self.c.f])?;
-        w.uint(self.base as u64, bytes)?;
-        w.bytes(&[self.width as u8, self.exceptions as u8])?;
+        w.uint(self.base.cast_unsigned(), bytes)?;
+        w.bytes(&[
+            u8::try_from(self.width).ok()?,
+            u8::try_from(self.exceptions).ok()?,
+        ])?;
         let base = self.base;
         w.packed(
-            self.d.iter().map(|d| d.wrapping_sub(base) as u64),
+            self.d.iter().map(|d| d.wrapping_sub(base).cast_unsigned()),
             n,
             self.width,
         )?;
@@ -459,7 +441,7 @@ impl Decimal {
 
 /// A group's lane as `rd` of `shape`.
 fn write_rd<F: Float>(
-    w: &mut Writer<'_>,
+    w: &mut GroupWriter<'_>,
     vals: &[u64; ALP_GROUP],
     n: usize,
     shape: RdShape,
@@ -470,35 +452,47 @@ fn write_rd<F: Float>(
         zeros,
         code_bits,
     } = shape;
-    let right = F::BITS - left;
-    let mask = right_mask(right);
-    w.bytes(&[RD, left as u8, zeros as u8, code_bits as u8])?;
-    for e in dict.entries.iter().take(1 << code_bits) {
+    let right = F::BITS.checked_sub(left)?;
+    let right_mask = mask(right);
+    w.bytes(&[
+        RD,
+        u8::try_from(left).ok()?,
+        u8::try_from(zeros).ok()?,
+        u8::try_from(code_bits).ok()?,
+    ])?;
+    for e in dict.entries.iter().take(1usize.checked_shl(code_bits)?) {
         w.bytes(&e.to_le_bytes())?;
     }
     let vals = vals.get(..n)?;
-    let code = |b: &u64| dict.code(left_of::<F>(*b, left), code_bits);
-    let exceptions = vals.iter().filter(|b| code(b).is_none()).count();
-    w.u8(exceptions as u8)?;
+    let mut lefts = [0u16; ALP_GROUP];
+    for (o, b) in lefts.iter_mut().zip(vals) {
+        *o = left_of::<F>(*b, left)?;
+    }
+    let lefts = lefts.get(..n)?;
+    let code = |l: &u16| dict.code(*l, code_bits);
+    let exceptions = lefts.iter().filter(|l| code(l).is_none()).count();
+    w.u8(u8::try_from(exceptions).ok()?)?;
+    // an exception's slot holds code 0; its left part is patched in after the codes
     w.packed(
-        vals.iter().map(|b| u64::from(code(b).unwrap_or(0))),
+        lefts.iter().map(|l| u64::from(code(l).unwrap_or(0))),
         n,
         code_bits,
     )?;
+    // a shift past the scalar leaves no right bit
     w.packed(
         vals.iter()
-            .map(|b| (b & mask).checked_shr(zeros).unwrap_or(0)),
+            .map(|b| (b & right_mask).checked_shr(zeros).unwrap_or(0)),
         n,
-        right - zeros,
+        right.checked_sub(zeros)?,
     )?;
-    for (i, b) in vals.iter().enumerate() {
-        if code(b).is_none() {
-            w.u8(i as u8)?;
+    for (i, l) in lefts.iter().enumerate() {
+        if code(l).is_none() {
+            w.u8(u8::try_from(i).ok()?)?;
         }
     }
-    for b in vals {
-        if code(b).is_none() {
-            w.bytes(&left_of::<F>(*b, left).to_le_bytes())?;
+    for l in lefts {
+        if code(l).is_none() {
+            w.bytes(&l.to_le_bytes())?;
         }
     }
     Some(())
@@ -507,7 +501,7 @@ fn write_rd<F: Float>(
 /// Code a group's lane: the smallest of the decimal form (unless `rd` won the column), `rd` at the column's left
 /// width and `rd` with no left part; ties in that order.
 fn write_lane<F: Float>(
-    w: &mut Writer<'_>,
+    w: &mut GroupWriter<'_>,
     plan: &Plan,
     vals: &[u64; ALP_GROUP],
     n: usize,
@@ -515,11 +509,11 @@ fn write_lane<F: Float>(
     let group = vals.get(..n)?;
     let plain_shape = RdShape {
         left: 0,
-        zeros: zeros_of::<F>(group, 0),
+        zeros: zeros_of::<F>(group, 0)?,
         code_bits: 0,
     };
-    let plain = rd_len(n, F::BITS, plain_shape, 0);
-    let zeros = zeros_of::<F>(group, plan.left);
+    let plain = rd_len(n, F::BITS, plain_shape, 0)?;
+    let zeros = zeros_of::<F>(group, plan.left)?;
     let rd_floor = rd_len(
         n,
         F::BITS,
@@ -529,26 +523,33 @@ fn write_lane<F: Float>(
             code_bits: 0,
         },
         0,
-    );
-    let decimal = (!plan.rd_only).then(|| {
+    )?;
+    let decimal = if plan.rd_only {
+        None
+    } else {
         let mut sample = [0u64; SAMPLE_VALUES];
         let s = n.min(SAMPLE_VALUES);
         for (j, o) in sample.iter_mut().take(s).enumerate() {
-            *o = vals.get(j * n / s).copied().unwrap_or(0);
+            *o = *vals.get(spread(j, n, s)?)?;
         }
-        let c = second_level::<F>(plan, sample.get(..s).unwrap_or_default());
-        Decimal::new::<F>(vals, n, c)
-    });
-    let decimal_len = decimal.as_ref().map_or(usize::MAX, |d| d.len(n, F::BYTES));
-    let rd = (plan.left > 0 && decimal_len > rd_floor).then(|| {
+        let c = second_level::<F>(plan, sample.get(..s)?);
+        Some(Decimal::new::<F>(vals, n, c)?)
+    };
+    let decimal_len = match &decimal {
+        Some(d) => d.len(n, F::BYTES)?,
+        None => usize::MAX,
+    };
+    let rd = if plan.left > 0 && decimal_len > rd_floor {
         let mut lefts = [0u16; ALP_GROUP];
         for (o, b) in lefts.iter_mut().zip(group) {
-            *o = left_of::<F>(*b, plan.left);
+            *o = left_of::<F>(*b, plan.left)?;
         }
-        let dict = Dict::of(lefts.get_mut(..n).unwrap_or_default());
-        let (shape, len) = rd_best(&dict, n, F::BITS, plan.left, zeros);
-        (dict, shape, len)
-    });
+        let dict = Dict::of(lefts.get_mut(..n)?)?;
+        let (shape, len) = rd_best(&dict, n, F::BITS, plan.left, zeros)?;
+        Some((dict, shape, len))
+    } else {
+        None
+    };
     let rd_bytes = rd.as_ref().map_or(usize::MAX, |r| r.2);
     match (decimal, rd) {
         (Some(d), _) if decimal_len <= rd_bytes && decimal_len <= plain => {
@@ -561,34 +562,36 @@ fn write_lane<F: Float>(
 
 fn encode_with<F: Float, T: Sample>(values: &[T], lanes: usize, out: &mut [u8]) -> Option<usize> {
     let count = values.len().checked_div(lanes)?;
-    let groups = count.div_ceil(ALP_GROUP);
-    let table = groups.checked_mul(ENTRY)?;
-    let mut w = Writer { out, at: table };
+    let table = count.div_ceil(ALP_GROUP).checked_mul(ENTRY)?;
+    let (entries, data) = out.split_at_mut_checked(table)?;
+    let mut w = GroupWriter { out: data, at: 0 };
     // the first level runs once per lane; lanes past the cache run it again per group, giving the same plan
     let mut plans: [Option<Plan>; PLANS_KEPT] = [const { None }; PLANS_KEPT];
-    for g in 0..groups {
-        let first = g * ALP_GROUP;
-        let n = count.min(first + ALP_GROUP) - first;
+    for (g, entry) in entries.as_chunks_mut::<ENTRY>().0.iter_mut().enumerate() {
+        let first = g.checked_mul(ALP_GROUP)?;
+        let n = count
+            .min(first.checked_add(ALP_GROUP)?)
+            .checked_sub(first)?;
         for l in 0..lanes {
             let lane = Lane { values, lanes, l };
             let mut vals = [0u64; ALP_GROUP];
             for (j, v) in vals.iter_mut().take(n).enumerate() {
-                *v = lane.get(first + j)?;
+                *v = lane.get(first.checked_add(j)?)?;
             }
             match plans.get_mut(l) {
                 Some(slot) => {
-                    let plan = slot.get_or_insert_with(|| first_level::<F, T>(&lane, count));
-                    write_lane::<F>(&mut w, plan, &vals, n)?;
+                    if slot.is_none() {
+                        *slot = Some(first_level::<F, T>(&lane, count)?);
+                    }
+                    write_lane::<F>(&mut w, slot.as_ref()?, &vals, n)?;
                 }
-                None => write_lane::<F>(&mut w, &first_level::<F, T>(&lane, count), &vals, n)?,
+                None => write_lane::<F>(&mut w, &first_level::<F, T>(&lane, count)?, &vals, n)?,
             }
         }
-        let end = u32::try_from(w.at - table).ok()?;
-        w.out
-            .get_mut(g * ENTRY..(g + 1) * ENTRY)?
-            .copy_from_slice(&end.to_le_bytes());
+        // max_len keeps the data under 4 GiB
+        *entry = u32::try_from(w.at).ok()?.to_le_bytes();
     }
-    Some(w.at)
+    table.checked_add(w.at)
 }
 
 /// Code `values` (samples of `lanes` scalars) into `out`, sized by [super::max_len]; returns the bytes written.

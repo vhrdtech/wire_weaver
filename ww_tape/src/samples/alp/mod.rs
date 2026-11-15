@@ -39,22 +39,6 @@
 //! The encoder's choices are integer comparisons of bit counts, and its arithmetic is IEEE 754 multiplication, which
 //! every platform and SIMD path rounds the same: the same values give the same bytes everywhere.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 mod decode;
 mod encode;
 #[cfg(test)]
@@ -101,7 +85,9 @@ trait Float {
     /// Bits of the scalar.
     const BITS: u32;
     /// Bytes of the scalar.
-    const BYTES: usize = (Self::BITS / 8) as usize;
+    const BYTES: usize;
+    /// Largest exponent: the last entry of the element's tables.
+    const E_MAX: u8;
     /// Smallest and largest integer a decimal lane holds: the scalar's signed range.
     const D_MIN: i64;
     const D_MAX: i64;
@@ -121,6 +107,8 @@ struct F64;
 
 impl Float for F64 {
     const BITS: u32 = 64;
+    const BYTES: usize = 8;
+    const E_MAX: u8 = 21;
     const D_MIN: i64 = i64::MIN;
     const D_MAX: i64 = i64::MAX;
     type M = (f64, f64);
@@ -135,7 +123,14 @@ impl Float for F64 {
 
     #[inline(always)]
     fn dec(d: i64, (f, e): Self::M) -> u64 {
-        (d as f64 * f * e).to_bits()
+        // no From for i64 to f64
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "ALP_dec rounds the integer to the nearest double, as IEEE 754 does on every platform"
+        )]
+        let d = d as f64;
+        (d * f * e).to_bits()
     }
 
     #[inline(always)]
@@ -146,8 +141,10 @@ impl Float for F64 {
 
 impl Float for F32 {
     const BITS: u32 = 32;
-    const D_MIN: i64 = i32::MIN as i64;
-    const D_MAX: i64 = i32::MAX as i64;
+    const BYTES: usize = 4;
+    const E_MAX: u8 = 10;
+    const D_MIN: i64 = -2_147_483_648;
+    const D_MAX: i64 = 2_147_483_647;
     type M = (f32, f32);
 
     #[inline(always)]
@@ -160,42 +157,38 @@ impl Float for F32 {
 
     #[inline(always)]
     fn dec(d: i64, (f, e): Self::M) -> u64 {
-        u64::from((d as f32 * f * e).to_bits())
+        // one rounding, i64 to f32, as the encoder checked; no From for it
+        #[expect(
+            clippy::as_conversions,
+            clippy::cast_precision_loss,
+            reason = "ALP_dec rounds the integer to the nearest float, as IEEE 754 does on every platform"
+        )]
+        let d = d as f32;
+        u64::from((d * f * e).to_bits())
     }
 
     #[inline(always)]
     fn widen(bits: u64) -> f64 {
-        f64::from(f32::from_bits(bits as u32))
+        f64::from(<f32 as crate::samples::Sample>::from_bits(bits))
     }
 }
 
-/// Largest exponent of `F`: the last entry of its tables.
-const fn e_max<F: Float>() -> u8 {
-    if F::BITS == 32 {
-        (F10_32.len() - 1) as u8
-    } else {
-        (F10.len() - 1) as u8
-    }
-}
-
-/// Bytes of a lane that keeps the bits as they are: `rd` with no left part, a one-entry dictionary, no exception.
-const fn plain_lane_len(n: usize, bytes: usize) -> usize {
-    4 + 2 + 1 + n * bytes
-}
+/// Bytes of a lane that keeps the bits as they are, besides the bits: `rd` with no left part (scheme, left bits,
+/// zeros, code bits), a one-entry dictionary, no exception.
+const PLAIN_LANE_HEAD: usize = 7;
 
 /// The most bytes `count` samples of `values` scalars of `w` bits code into: the table and, per group and lane,
-/// [plain_lane_len], which the encoder never exceeds.
+/// [PLAIN_LANE_HEAD] and the bits, which the encoder never exceeds. None past what the table's `u32` ends can
+/// address.
 pub(super) fn max_len(count: usize, values: usize, w: u32) -> Option<usize> {
     let groups = count.div_ceil(ALP_GROUP);
     let lanes = values.checked_div(count).unwrap_or(0);
-    let heads = groups
-        .checked_mul(lanes)?
-        .checked_mul(plain_lane_len(0, 0))?;
-    let data = values.checked_mul((w / 8) as usize)?;
-    groups
-        .checked_mul(ENTRY)?
-        .checked_add(heads)?
-        .checked_add(data)
+    let heads = groups.checked_mul(lanes)?.checked_mul(PLAIN_LANE_HEAD)?;
+    let data = values
+        .checked_mul(usize::try_from(w / 8).ok()?)?
+        .checked_add(heads)?;
+    u32::try_from(data).ok()?;
+    groups.checked_mul(ENTRY)?.checked_add(data)
 }
 
 /// Check the group table of a column of `count` samples.

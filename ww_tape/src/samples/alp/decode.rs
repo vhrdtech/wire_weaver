@@ -1,50 +1,9 @@
 //! The ALP decoder: every read of the column checked, a malformed group an error.
 
-#![allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::unreachable,
-    clippy::panic,
-    clippy::indexing_slicing,
-    clippy::arithmetic_side_effects,
-    clippy::as_conversions,
-    clippy::cast_lossless,
-    clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
-    clippy::cast_precision_loss,
-    clippy::cast_sign_loss,
-    reason = "STD-131: hardening of this module in progress"
-)]
-
 use super::{ALP_GROUP, DECIMAL, DICT_BITS_MAX, DICT_MAX, F32, F64, Float, LEFT_MAX, RD};
 use crate::bitpack::{self, packed_len};
-use crate::samples::{Element, Sample, SampleError};
-
-/// Reads a group's bytes front to back.
-struct Reader<'b> {
-    bytes: &'b [u8],
-    at: usize,
-}
-
-impl<'b> Reader<'b> {
-    fn take(&mut self, n: usize) -> Option<&'b [u8]> {
-        let end = self.at.checked_add(n)?;
-        let b = self.bytes.get(self.at..end)?;
-        self.at = end;
-        Some(b)
-    }
-
-    fn u8(&mut self) -> Option<u8> {
-        self.take(1)?.first().copied()
-    }
-
-    /// `n` bytes (at most 8), little endian.
-    fn uint(&mut self, n: usize) -> Option<u64> {
-        let mut w = [0u8; 8];
-        w.get_mut(..n)?.copy_from_slice(self.take(n)?);
-        Some(u64::from_le_bytes(w))
-    }
-}
+use crate::samples::raw::sign_extend;
+use crate::samples::{Element, GroupJob, GroupReader, Sample, SampleError, decode_grouped};
 
 /// Exception positions: ascending, below `n`.
 fn positions(p: &[u8], n: usize) -> Option<()> {
@@ -54,7 +13,7 @@ fn positions(p: &[u8], n: usize) -> Option<()> {
         if i < next || i >= n {
             return None;
         }
-        next = i + 1;
+        next = i.checked_add(1)?;
     }
     Some(())
 }
@@ -62,7 +21,7 @@ fn positions(p: &[u8], n: usize) -> Option<()> {
 /// A decimal lane after its scheme byte into `out`; `rest` is the column from the group's start on, so the unpack
 /// kernels may read past the lane.
 fn decimal<F: Float>(
-    r: &mut Reader<'_>,
+    r: &mut GroupReader<'_>,
     rest: &[u8],
     n: usize,
     out: &mut [u64; ALP_GROUP],
@@ -71,8 +30,7 @@ fn decimal<F: Float>(
     let f = r.u8()?;
     let m = F::factors(e, f)?;
     let bits = F::BITS;
-    let base = r.uint(F::BYTES)?;
-    let base = ((base << (64 - bits)) as i64) >> (64 - bits);
+    let base = sign_extend(r.uint(F::BYTES)?, bits);
     let width = u32::from(r.u8()?);
     let x = usize::from(r.u8()?);
     if width > bits || x > n {
@@ -98,7 +56,7 @@ fn decimal<F: Float>(
 
 /// An `rd` lane after its scheme byte into `out`; `rest` as in [decimal].
 fn rd<F: Float>(
-    r: &mut Reader<'_>,
+    r: &mut GroupReader<'_>,
     rest: &[u8],
     n: usize,
     out: &mut [u64; ALP_GROUP],
@@ -109,12 +67,12 @@ fn rd<F: Float>(
     if left > LEFT_MAX || code_bits > DICT_BITS_MAX {
         return None;
     }
-    let right = F::BITS - left;
+    let right = F::BITS.checked_sub(left)?;
     let packed = right.checked_sub(zeros)?;
-    let fits = |v: u16| u32::from(v) >> left == 0;
+    let fits = |v: u16| u32::from(v).checked_shr(left).is_none_or(|top| top == 0);
     let mut dict = [0u16; DICT_MAX];
-    for e in dict.iter_mut().take(1 << code_bits) {
-        let v = r.uint(2)? as u16;
+    for e in dict.iter_mut().take(1usize.checked_shl(code_bits)?) {
+        let v = r.u16()?;
         if !fits(v) {
             return None;
         }
@@ -132,6 +90,7 @@ fn rd<F: Float>(
     bitpack::unpack_u32(codes_src, code_bits, &mut codes);
     bitpack::unpack_u64(right_src, packed, out);
     if zeros > 0 {
+        // a shift past the scalar leaves no right bit
         for o in out.iter_mut() {
             *o = o.checked_shl(zeros).unwrap_or(0);
         }
@@ -139,7 +98,8 @@ fn rd<F: Float>(
     // left << right; 0 when the left part is empty (right is the whole scalar)
     let glue = |l: u16| u64::from(l).checked_shl(right).unwrap_or(0);
     for (o, c) in out.iter_mut().zip(codes) {
-        *o |= glue(dict.get(c as usize & (DICT_MAX - 1)).copied().unwrap_or(0));
+        // a code has at most DICT_BITS_MAX bits: always a dictionary entry
+        *o |= glue(*dict.get(usize::try_from(c).ok()?)?);
     }
     let p = r.take(x)?;
     positions(p, n)?;
@@ -156,25 +116,24 @@ fn rd<F: Float>(
     Some(())
 }
 
-/// Decode a group of `n` samples, `len` bytes from the start of `rest` (the column from the group on), handing
-/// out samples `skip..` into `dst`; None when it is malformed.
-fn decode_group<F: Float, T: Sample>(
-    rest: &[u8],
-    len: usize,
-    n: usize,
-    lanes: usize,
-    skip: usize,
-    dst: &mut [T],
-) -> Option<()> {
-    let mut r = Reader {
+/// Decode a group, handing out the samples asked for; None when it is malformed.
+fn decode_group<F: Float, T: Sample>(lanes: usize, job: GroupJob<'_, '_, T>) -> Option<()> {
+    let GroupJob {
+        rest,
+        len,
+        count,
+        skip,
+        dst,
+    } = job;
+    let mut r = GroupReader {
         bytes: rest.get(..len)?,
         at: 0,
     };
     let mut vals = [0u64; ALP_GROUP];
     for l in 0..lanes {
         match r.u8()? {
-            DECIMAL => decimal::<F>(&mut r, rest, n, &mut vals)?,
-            RD => rd::<F>(&mut r, rest, n, &mut vals)?,
+            DECIMAL => decimal::<F>(&mut r, rest, count, &mut vals)?,
+            RD => rd::<F>(&mut r, rest, count, &mut vals)?,
             _ => return None,
         }
         for (o, v) in dst
@@ -189,39 +148,6 @@ fn decode_group<F: Float, T: Sample>(
     (r.at == len).then_some(())
 }
 
-fn decode_with<F: Float, T: Sample>(
-    bytes: &[u8],
-    count: usize,
-    lanes: usize,
-    first: usize,
-    out: &mut [T],
-) -> Result<(), SampleError> {
-    let groups = count.div_ceil(ALP_GROUP);
-    let n = out.len().checked_div(lanes).ok_or(SampleError::BadShape)?;
-    let end = first.checked_add(n).ok_or(SampleError::OutOfRange)?;
-    let mut s = first;
-    while s < end {
-        let g = s / ALP_GROUP;
-        let corrupt = SampleError::Corrupt { group: g };
-        let g_first = g * ALP_GROUP;
-        let g_count = count.min(g_first + ALP_GROUP).saturating_sub(g_first);
-        let skip = s - g_first;
-        let take = (end - s).min(g_count.saturating_sub(skip));
-        if take == 0 {
-            return Err(SampleError::OutOfRange);
-        }
-        let range = super::super::table_entry(bytes, groups, g).ok_or(corrupt)?;
-        let rest = bytes.get(range.start..).ok_or(corrupt)?;
-        let at = (s - first) * lanes;
-        let dst = out
-            .get_mut(at..at + take * lanes)
-            .ok_or(SampleError::OutOfRange)?;
-        decode_group::<F, T>(rest, range.len(), g_count, lanes, skip, dst).ok_or(corrupt)?;
-        s += take;
-    }
-    Ok(())
-}
-
 /// Decode samples from `first` on into `out` (whole samples of `lanes` scalars) from a column whose table was
 /// checked.
 pub(in crate::samples) fn decode<T: Sample>(
@@ -232,8 +158,12 @@ pub(in crate::samples) fn decode<T: Sample>(
     out: &mut [T],
 ) -> Result<(), SampleError> {
     match T::ELEMENT {
-        Element::F32 => decode_with::<F32, T>(bytes, count, lanes, first, out),
-        Element::F64 => decode_with::<F64, T>(bytes, count, lanes, first, out),
+        Element::F32 => decode_grouped(bytes, count, lanes, first, out, ALP_GROUP, |job| {
+            decode_group::<F32, T>(lanes, job)
+        }),
+        Element::F64 => decode_grouped(bytes, count, lanes, first, out, ALP_GROUP, |job| {
+            decode_group::<F64, T>(lanes, job)
+        }),
         element => Err(SampleError::Unsupported {
             codec: crate::Codec::ALP,
             element,

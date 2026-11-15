@@ -4987,6 +4987,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#runs-media-and-damage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Runs, media and damage
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sample-codecs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5970,6 +5981,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#runs-media-and-damage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Runs, media and damage
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#sample-codecs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6194,13 +6216,15 @@ create and after the rename; the data synced by a <code>SyncPolicy</code> (none,
 <code>fdatasync</code> on Linux, <code>F_FULLFSYNC</code> on macOS, <code>FlushFileBuffers</code> on Windows); and a failed write or sync is the end of
 the file, never retried (after a failed <code>fsync</code> Linux may drop the dirty pages, and a retry succeeds without them).
 <code>ww_tape::FileBlocks</code> reads the longest valid prefix: it stops at the first block with a bad magic, length or CRC,
-a cut one or one whose seq goes back, and says where; zeros at the end are the end. <code>Recovery::Resync</code> reads on past
+a cut one or one whose seq goes back, and says where; blank bytes at the end (all 0x00 or all 0xFF) are the end. <code>Recovery::Resync</code> reads on past
 damage instead. A capture ends with an index, a finish block and a tail (<a href="#index-finish-and-tail">below</a>); cutting a recording into several files is <a href="#tape-pieces">tape pieces</a>; preallocating space is not built yet. The describe blocks carry the device's API
 bundle, so <code>ww explain FILE</code> explains the requests and replies of a capture on any PC, without the device.</p>
 <h3 id="tape-blocks">Tape blocks<a class="headerlink" href="#tape-blocks" title="Permanent link">&para;</a></h3>
 <p><code>ww_tape</code> is the generic block format the tap writes; nothing in it knows the tap. A block is a 32 byte header
-(magic <code>WWTP</code>, version, kind, length, record count, the producer's block number), a body and a CRC-32C, as long as
-its records and never padded. The body of a records or describe block starts with a clock table (the clocks its
+(magic <code>WWTP</code>, version, kind, length, record count, the block number in its run, the run tag), a body and a CRC-32C,
+as long as its records and never padded. A run is one writer's unbroken append (a producer start, a device boot): its
+blocks carry the same random 32-bit run tag (<code>ww_tape::RunTag</code>, never 0 nor FFFFFFFFh, derived from the piece id
+for a piece chain so the same input gives the same bytes), and their numbers count from 0. The body of a records or describe block starts with a clock table (the clocks its
 records count), then records: a head (track and clock slot), a time delta, a length and the item bytes, as LEB128
 varints. Record times are signed i64 ticks of the track's clock, each delta against the previous record on the same
 clock, so a block reads alone and one clock costs no bit. No wall time is in a block.</p>
@@ -6219,12 +6243,80 @@ the producer added them in.</p>
 <p>A file states in its describe set how its blocks are placed (<code>Layout</code>, alignment 0 or 4096; none means 0). In an aligned file (series files) every chunk payload starts on a 4 KiB boundary: the chunk's head sits in front of it, small blocks waiting for a place (<code>TapeWriter::defer_block</code>) fill the gap before the head, and what is left is zeros inside the head. Recovery looks for a block at every byte, aligned or not, and takes one only when its CRCs match.</p>
 <h3 id="index-finish-and-tail">Index, finish and tail<a class="headerlink" href="#index-finish-and-tail" title="Permanent link">&para;</a></h3>
 <p>A writer lists what it places. Every few MiB (<code>ww_tape::IndexPolicy</code>, 4 MiB by default; by time only when asked, since that makes the bytes depend on the clock) it writes a checkpoint <strong>index</strong> block: one 72-byte entry per block placed since the previous checkpoint (offset, length, kind, track id and number, first item number, item count, first and last tick, latest end; a summary block's level and tree), and a pointer back at that checkpoint. Chunk, summary, record and describe blocks are all listed; record and describe blocks carry no track id or ticks. In an aligned file a checkpoint goes into the gap before the next chunk payload. Blocks the file structure adds (index, finish, tail, piece head, and describe blocks the writer repeats) carry the seq of the block before them and are not counted, so seq stays the producer's count of its own blocks and a pass-through capture keeps its order. A crash costs at most the chunks not yet written, and a reader rescans only the stretch after the newest checkpoint.</p>
-<p><code>TapeWriter::finish</code> ends the file: a backup of the newest describe blocks, a <strong>final index</strong> listing every block again sorted by track, with a directory of tracks in its head and a CRC per track's entries (a reader of one track out of thousands reads the head and that track's list), the <strong>finish</strong> block (complete, continued or aborted; the BLAKE3 content hash of every byte before it; where the newest checkpoint, the final index and the describe backup are; per track the chunks, items and ticks the file holds) and a fixed-size <strong>tail</strong> of 164 bytes as the last bytes of the file, which says where the file's piece starts and where its finish is. Offsets count from the start of the piece, so the index stays valid when files are concatenated. The writer also writes the newest describe blocks again about every 128 MiB. A lost index block costs a scan to the neighbouring checkpoint; a lost tail or finish only the content-hash check.</p>
+<p><code>TapeWriter::finish</code> ends the file: a backup of the newest describe blocks, a <strong>final index</strong> listing every block again sorted by track, with a directory of tracks in its head and a CRC per track's entries (a reader of one track out of thousands reads the head and that track's list), the <strong>finish</strong> block (complete, continued or aborted; the BLAKE3 content hash of every byte before it; where the newest checkpoint, the final index and the describe backup are; per track the chunks, items and ticks the file holds) and a fixed-size <strong>tail</strong> of 164 bytes as the last bytes of the file, which says where the file's piece starts and where its finish is. Offsets count from the start of the piece, so the index stays valid when files are concatenated. The writer also writes the newest describe blocks again as copies (<a href="#runs-media-and-damage">below</a>). A lost index block costs a scan to the neighbouring checkpoint; a lost tail or finish only the content-hash check.</p>
 <h3 id="tape-pieces">Tape pieces<a class="headerlink" href="#tape-pieces" title="Permanent link">&para;</a></h3>
 <p>A recording can be cut into <strong>pieces</strong>, each a complete file that reads alone: a piece head block, the describe blocks, the data with its checkpoints, the final index, the finish and the tail. <code>ww_tape::PieceChain</code> writes <code>dir/00000000.wwt</code>, <code>00000001.wwt</code>, ... and cuts before a chunk by size, chunk count or age (<code>CutPolicy</code>); <code>TapeWriter::cut</code> cuts by hand. The head names the result, the piece's sequence number, its id, the previous piece's content hash and id, and per track where its items continue; the previous piece's finish and tail name this piece's id, derived at the cut from the previous piece's id and the content hash in its finish, so the chain is checked both ways (<code>ww_tape::piece::check_chain</code>). Pieces written back to back are one valid tape. A chain whose first pieces were deleted (a rolling window) reads as <em>head cut</em>, not as damage; one whose last piece has no tail is open (being written, or cut off by a crash).</p>
 <h3 id="reading-by-position">Reading by position<a class="headerlink" href="#reading-by-position" title="Permanent link">&para;</a></h3>
-<p><code>ww_tape::TapeReader</code> reads a tape through a <code>ByteSource</code>, anything with a size that reads bytes at an offset: a byte slice, a <code>File</code>, or an HTTP resource read by range requests. It needs no file system and no threads, so it builds for <code>wasm32-unknown-unknown</code> (feature <code>alloc</code> without <code>std</code>). It finds the pieces from the end: a good tail gives a piece's start and finish, and the previous piece's tail sits just before that start, so concatenated pieces cost one small read each. A piece without a tail is found from its newest checkpoint, looked for backwards from the end, and the stretch after it is read block by block; a piece without any checkpoint is read from the start. <code>entries</code> and <code>track_entries</code> give where a piece's blocks are, <code>read_block</code> reads and checks one, <code>verify</code> checks the content hash, <code>chain</code> how the pieces link up.</p>
+<p><code>ww_tape::TapeReader</code> reads a tape through a <code>ByteSource</code>, anything with a size that reads bytes at an offset: a byte slice, a <code>File</code>, or an HTTP resource read by range requests. It needs no file system and no threads, so it builds for <code>wasm32-unknown-unknown</code> (feature <code>alloc</code> without <code>std</code>). It finds the pieces from the end: a good tail gives a piece's start and finish, and the previous piece's tail sits just before that start, so concatenated pieces cost one small read each. A piece without a tail is found from its newest checkpoint, looked for backwards from the end, and the stretch after it is read block by block; a piece without any checkpoint is read from the start. <code>entries</code> and <code>track_entries</code> give where a piece's blocks are, <code>read_block</code> reads and checks one, <code>describe_set</code> gives the piece's describe set, <code>verify</code> checks the content hash, <code>chain</code> how the pieces link up. A raw medium is read forward instead (<code>OpenOptions::medium</code>, <a href="#runs-media-and-damage">below</a>).</p>
 <p>The header and the CRC at the end stay the same in every version: a later version changes only the body, and a reader skips a block of a version or kind it doesn't know by its length, as it skips describe records of a kind it doesn't know.</p>
+<h3 id="runs-media-and-damage">Runs, media and damage<a class="headerlink" href="#runs-media-and-damage" title="Permanent link">&para;</a></h3>
+<p>A <strong>run</strong> is one writer's unbroken append: a producer start, a device boot, one pass of an importer. Every block of a run carries the same run tag in header bytes 24..28, and its seq counts from 0. A writer picks the tag at random, except for the first piece of a chain, whose tag is derived from the piece id so the same input gives the same bytes. A piece head names the run that ended before it (<code>PieceHead::prev_run</code>). A reader keeps to one run at a time: a block of another run is stale data, unless a run may start there. In a file a new run starts at a describe block (another producer appended) or a piece head; on a raw medium only at a piece head that names the current run as the one before it. A piece on a raw medium is therefore one run: a writer that carries a producer's blocks, each with the producer's own run, renumbers them into its own run with <code>TapeWriter::adopt_block</code>. Lost blocks stay visible: a jump in the producer's seq leaves the same jump in the writer's, and a producer restart (another run) leaves none. Passed through with <code>write_block</code>, they read whole from a file but as stale data on a raw medium.</p>
+<p>The <strong>medium</strong> decides where a reader starts. A file is read from its start, or its pieces are found from its end. A raw medium (an SD card, raw NAND, a partition, <code>Medium::Raw</code>) may hold blocks of earlier recordings behind the end of the current data, so a reader walks it forward from its start or from a hint and never trusts what it finds at the end. For example, a card recorded twice holds the second recording's blocks followed by the tail of the first: the first recording's run tag ends the walk.</p>
+<p><strong>Blank</strong> space is bytes that are all 0x00 or 0xFF, as an erased or preallocated medium reads. A blank or damaged stretch is a <strong>gap</strong>, not the end, when the current run's next block follows it within the layout's <code>gap_max</code>, found at the first non-blank byte or at a multiple of <code>resume_align</code>. The describe set states both in its <code>Layout</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Medium</th>
+<th><code>gap_max</code></th>
+<th><code>resume_align</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>file (<code>Layout::UNALIGNED</code>, <code>ALIGNED</code>)</td>
+<td>0: no gaps</td>
+<td>1</td>
+</tr>
+<tr>
+<td>SD card or eMMC (<code>on_sd_card</code>)</td>
+<td>4 MiB</td>
+<td>512 bytes, a sector</td>
+</tr>
+<tr>
+<td>raw NAND (<code>on_raw_nand</code>)</td>
+<td>two erase blocks</td>
+<td>one page</td>
+</tr>
+</tbody>
+</table>
+<p>A reader's cost per gap is bounded. A valid <code>Layout</code> has a <code>gap_max</code> of at most 64 MiB (<code>GAP_MAX_MAX</code>) and at most 8192 resume places in it (<code>GAP_PROBES_MAX</code>, <code>gap_max / resume_align</code>); a describe record of any other layout doesn't decode. Past a blank or bad stretch a reader reads one block header per resume place, and checks a block whole only when its header says it goes on with the data, at most 4 times per gap (<code>GAP_CHECKS_MAX</code>). When none of them does, the stretch is the end of data. On a raw medium, blank space longer than <code>gap_max</code> is the end too, and a reader reads nothing after it: an erased 64 GB card costs one gap's worth of reads.</p>
+<p>A writer on raw NAND programs each page once, in page order: at a sync it pads the rest of the page with 0xFF and starts the next block on the next page. The padding reads as a gap, so the format needs nothing else; the cost is up to one page per sync. Keeping MLC paired pages of unsynced writes apart from synced data is the medium layer's task.</p>
+<p>The same run and seq twice is a <strong>duplicate</strong>, not a cut: a writer that retried a write may leave a block twice. With the same bytes the second one is dropped; with other bytes the later one is taken and reported (<code>FileError::Replaced</code>, <code>PieceInfo::replaced</code>).</p>
+<p>Header <strong>flags</strong> (bytes 6..8) mark three things. Bit 1 (<code>FLAG_COPY</code>) marks a describe block the writer wrote again, which carries the seq of the block before it and adds nothing to a reader that read the original. Bit 0 (<code>FLAG_BODY_CODED</code>) marks a records or describe body as coded: a codec byte (0 stored, 1 lz4), the decoded length and the coded bytes. Coding is off unless a writer calls <code>ww_tape::code_body</code>; a reader decodes with <code>Block::decode</code> and takes a body of a codec it doesn't know as a body it doesn't know. Chunk blocks are never coded, since their columns are read in place. Bits 2 and 3 (<code>FLAG_SET_FIRST</code>, <code>FLAG_SET_LAST</code>) mark the first and the last block of a describe set, so a reader tells a whole set from part of one. A set is whole when a block marked first is followed, back to back, by blocks up to one marked last; a set of one block carries both marks. <code>DescribeSet::write_blocks</code> sets them.</p>
+<p><strong>Describe copies</strong> keep a piece readable when its head describe set is damaged. The writer copies the newest describe blocks right after the piece's first records or chunk block, then about every 128 MiB (<code>TapeWriter::set_describe_repeat</code>), and once more before the finish. A piece so holds one describe set while it holds no data, two from its first data block on, one more per repeat, and one more once finished. The writer copies only a whole set, never one whose last block hasn't come yet. <code>TapeReader::describe_set</code> returns the head's set, or the next one that reads whole; past a scan's stop it looks only at blocks of the runs the piece goes on with, so a stale set of an earlier recording behind the end of data is never taken.</p>
+<p>The <strong>item of an events record</strong> whose track has spans or flags is an <code>EventRecord</code>: the duration (spans only), the flags (only when the track has flags), then the payload, the record's time being the start. A track of plain instants carries the payload alone. Sticky records of events tracks carry the same item.</p>
+<p>A chunk column whose codec byte has bit 7 set is <strong>outer-coded</strong>: an outer codec byte, the decoded length, then the bytes the inner codec (bits 0..6) applies to after decoding. No outer codec exists yet, so every reader refuses such a column. In general a reader refuses a column whose kind or codec it doesn't know and still reads the chunk's other columns.</p>
+<p>Some numbers are reserved so later features need no format change; today's readers refuse each:</p>
+<table>
+<thead>
+<tr>
+<th>Reserved</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>payload codec 49 (<code>Codec::SERIES</code>)</td>
+<td>a payloads column holding one shrink_wrap <code>Series&lt;T&gt;</code> of the chunk's items, alone, at most 65535 items</td>
+</tr>
+<tr>
+<td>sample codec 36 (<code>Codec::RUNS</code>)</td>
+<td>run-coded discrete lanes (<code>U8</code>, <code>U16</code>, <code>U32</code>, <code>Bool</code>)</td>
+</tr>
+<tr>
+<td>element 13 (<code>Element::LEAVES</code>)</td>
+<td>a sample that is a struct of leaves of different element types</td>
+</tr>
+<tr>
+<td>column kind 7 (<code>ColumnKind::PAYLOAD_LEAF</code>)</td>
+<td>one leaf of the items' payload struct, the param naming the leaf</td>
+</tr>
+<tr>
+<td>summary head bytes 54..56</td>
+<td>the first channel or leaf of the block, 0 today</td>
+</tr>
+</tbody>
+</table>
 <h3 id="sample-codecs">Sample codecs<a class="headerlink" href="#sample-codecs" title="Permanent link">&para;</a></h3>
 <p>A series chunk's sample columns (<code>ColumnKind::Samples</code>) are coded by the column's codec id; what a sample is comes from the track: <code>ww_tape::SampleShape</code>, an <code>Element</code> (<code>I8</code> to <code>U64</code>, <code>F32</code>, <code>F64</code>, <code>ComplexI16</code>, <code>ComplexF32</code>, <code>Bool</code>; its code, 0 to 12, is how other blocks name it) and the channels interleaved in the column. <code>ww_tape::Samples</code> reads a column in place and decodes any range of samples; <code>ww_tape::samples::encode</code> writes one. Every codec gives the same bytes for the same values.</p>
 <table>

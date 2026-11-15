@@ -1,0 +1,12 @@
+[package]
+name = "docs_highlight"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Checks the docs site's vendored WireWeaver highlighter (DOC-11) against the ww_lsp Cargo.lock pins."
+
+[dev-dependencies]
+ww_highlight.workspace = true

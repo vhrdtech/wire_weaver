@@ -106,6 +106,9 @@ windows-sys = "0.61"
 # exact_units lives in its own repository, taken by git: Cargo.lock pins the commit (`cargo update -p exact_units`
 # moves it); the commented-out [patch."https://github.com/romixlab/exact_units"] below builds against a local checkout
 exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
+# the docs site's WireWeaver highlighter (DOC-11), vendored into docs/ and checked by tests/docs_highlight: by git
+# from ww_lsp, which owns it; Cargo.lock pins the commit
+ww_highlight = { git = "https://github.com/romixlab/ww_lsp" }
 
 # framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
 shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }

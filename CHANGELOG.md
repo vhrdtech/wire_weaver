@@ -81,6 +81,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape` chunk blocks (STD-118): self-locating heads, 4 KiB aligned payloads, CRC per 64 KiB segment, salvage of damaged chunks. See the `ww_tape` changelog.
 - `ww_tape::TypeRef` and `TypedItem` are `Eq` and `Hash`, through a new `Hash` on `shrink_wrap::RefVec`. See the `ww_tape` and `shrink_wrap` changelogs.
 - `ww_tape` v2 index, finish, tail, tape pieces and a positional reader for WASM (STD-122, STD-123, STD-124). See the `ww_tape` changelog.
+- The docs highlighter (DOC-11) is vendored from ww_lsp, checked by `tests/docs_highlight`; it now marks `sink!`, `batched` and every exact_units alias and origin.
 
 ### Added
 

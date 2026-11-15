@@ -201,48 +201,45 @@ impl DynResource {
         self.companion().ok().map(|c| &c.key_ty)
     }
 
-    /// The `index_of` request of `key`: its bytes, its arguments, and how to read the answer as an index.
-    fn index_of_request(
-        &self,
-        key: &ValueOwned,
-    ) -> Result<
-        (
-            &Companion,
-            Vec<u8>,
-            Vec<u8>,
-            impl FnOnce(&[u8]) -> Result<Option<u32>, Error>,
-        ),
-        Error,
-    > {
+    /// The `index_of` request of `key`: the companion, the key's bytes and the arguments.
+    fn index_of_request(&self, key: &ValueOwned) -> Result<(&Companion, Vec<u8>, Vec<u8>), Error> {
         let companion = self.companion()?;
-        let bundle = &self.bundle;
         let key_bytes = key
-            .ser_shrink_wrap_dyn(&companion.key_ty, bundle)
+            .ser_shrink_wrap_dyn(&companion.key_ty, &self.bundle)
             .map_err(|e| Error::Other(format!("'{}' key: {e:#}", self.path)))?;
-        let ApiItemKindOwned::Method {
-            args, return_ty, ..
-        } = &companion.index_of().kind
-        else {
+        let ApiItemKindOwned::Method { args, .. } = &companion.index_of().kind else {
             unreachable!("index_of is a method");
         };
-        let args = ValueOwned::ser_args_dyn(std::slice::from_ref(key), args, bundle)
+        let args = ValueOwned::ser_args_dyn(std::slice::from_ref(key), args, &self.bundle)
             .map_err(|e| Error::Other(format!("'{}' key: {e:#}", self.path)))?;
-        let return_ty = return_ty.clone().expect("index_of returns an index");
-        let bundle = bundle.clone();
-        let decode = move |bytes: &[u8]| {
-            let value = ValueOwned::des_shrink_wrap_dyn(bytes, &return_ty, &bundle)
-                .map_err(|e| Error::Other(format!("index_of: {e:#}")))?;
-            match value {
-                ValueOwned::Option(None) => Ok(None),
-                ValueOwned::Option(Some(index)) => index_number(&index)
-                    .map(Some)
-                    .ok_or_else(|| Error::Other(format!("index_of: {index:?} is not an index"))),
-                other => Err(Error::Other(format!(
-                    "index_of: {other:?} is not an Option"
-                ))),
-            }
+        Ok((companion, key_bytes, args))
+    }
+
+    /// `index_of`'s answer, an `Option` of the array's index type, as an index.
+    fn decode_index(&self, bytes: &[u8]) -> Result<Option<u32>, Error> {
+        let companion = self.companion()?;
+        let ApiItemKindOwned::Method {
+            return_ty: Some(return_ty),
+            ..
+        } = &companion.index_of().kind
+        else {
+            unreachable!("index_of is a method returning an index");
         };
-        Ok((companion, key_bytes, args, decode))
+        let value = ValueOwned::des_shrink_wrap_dyn(bytes, return_ty, &self.bundle)
+            .map_err(|e| Error::Other(format!("'{}' index_of: {e:#}", self.path)))?;
+        match value {
+            ValueOwned::Option(None) => Ok(None),
+            ValueOwned::Option(Some(index)) => index_number(&index).map(Some).ok_or_else(|| {
+                Error::Other(format!(
+                    "'{}' index_of: {index:?} is not an index",
+                    self.path
+                ))
+            }),
+            other => Err(Error::Other(format!(
+                "'{}' index_of: {other:?} is not an Option",
+                self.path
+            ))),
+        }
     }
 
     /// The element of a keyed array with `key`, `None` when the device has none: the device is asked once
@@ -252,10 +249,10 @@ impl DynResource {
         cmd: &Commander,
         key: &ValueOwned,
     ) -> Result<Option<DynResource>, Error> {
-        let (companion, key_bytes, args, decode) = self.index_of_request(key)?;
+        let (companion, key_bytes, args) = self.index_of_request(key)?;
         let index = companion
             .keyed(cmd)?
-            .index_of_with(key_bytes, Ok(args), decode)
+            .index_of_with(key_bytes, Ok(args), |b| self.decode_index(b))
             .await?;
         index.map(|index| self.index(index)).transpose()
     }
@@ -266,10 +263,10 @@ impl DynResource {
         cmd: &Commander,
         key: &ValueOwned,
     ) -> Result<Option<DynResource>, Error> {
-        let (companion, key_bytes, args, decode) = self.index_of_request(key)?;
+        let (companion, key_bytes, args) = self.index_of_request(key)?;
         let index = companion
             .keyed(cmd)?
-            .index_of_with_blocking(key_bytes, Ok(args), decode)?;
+            .index_of_with_blocking(key_bytes, Ok(args), |b| self.decode_index(b))?;
         index.map(|index| self.index(index)).transpose()
     }
 

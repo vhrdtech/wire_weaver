@@ -1624,6 +1624,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aeda16ab4059c5fd2a83f2b9c9e9c981327b18aa8e3b313f7e6563799d4f093e"
 
 [[package]]
+name = "docs_highlight"
+version = "0.1.0"
+dependencies = [
+ "ww_highlight",
+]
+
+[[package]]
 name = "docsplay"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6645,6 +6652,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_highlight"
+version = "0.1.0"
+source = "git+https://github.com/romixlab/ww_lsp#c23b587dcc04da48b6747b263a4943864ec49096"
+dependencies = [
+ "serde_json",
+ "ww_lsp_core",
+]
+
+[[package]]
 name = "ww_hub"
 version = "0.5.0"
 dependencies = [
@@ -6755,6 +6771,16 @@ dependencies = [
  "ww_i2c",
  "ww_si",
  "ww_spi",
+]
+
+[[package]]
+name = "ww_lsp_core"
+version = "0.1.0"
+source = "git+https://github.com/romixlab/ww_lsp#c23b587dcc04da48b6747b263a4943864ec49096"
+dependencies = [
+ "exact_units",
+ "proc-macro2",
+ "syn 2.0.119",
 ]
 
 [[package]]

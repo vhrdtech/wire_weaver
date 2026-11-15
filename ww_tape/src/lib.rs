@@ -40,6 +40,10 @@
 //! So time deltas are coded per clock, a block reads alone (its first time per clock is absolute) and one clock costs
 //! no bit in the head. No wall clock is in a block: wall time is a clock of its own, mapped to the others.
 //!
+//! A record's clock is always its track's ([TrackDef::clock]). The slot repeats it on purpose, so a block's times read
+//! without the describe set; a writer keeps the two in agreement, and a reader may take a record whose slot names
+//! another clock than its track's for damage.
+//!
 //! The header and the CRC at the end are the same in every version, so any reader can check a block and skip it by its
 //! length. A later version bumps the version byte and changes only the body; new block kinds and flag bits are added
 //! the same way. A reader takes such a block as it is ([Block::body_known] false, no records) and goes on with the
@@ -322,7 +326,8 @@ impl<'b> BlockWriter<'b> {
         self.buf.len() - CRC_LEN - self.state.pos
     }
 
-    /// Add a record on `track` at `at` whose item is `parts` back to back.
+    /// Add a record on `track` at `at` whose item is `parts` back to back; `at`'s clock is the track's
+    /// [TrackDef::clock].
     ///
     /// # Panics
     ///

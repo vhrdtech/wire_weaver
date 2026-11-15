@@ -15,6 +15,7 @@
 - `Describe::Map`: `ClockMap` of `MapSegment`s with a reduced slope and an error bound, `MapSegment::map` (STD-117).
 - `Describe::Item`: any wire_weaver value by `TypeRef` (bundle hash, crate, type path) (STD-117).
 - `DescribeSet`: describe records in canonical order (`Describe::rank`), written as describe blocks with sticky records; same input, same bytes (STD-117).
+- `DescribeSet` refuses a clock resolution under one tick and a sticky record off its track's clock (STD-117).
 - Golden file `golden/v2.hex` and a test that two writes of the same input are byte-identical (STD-117).
 
 ### 🚀 Features

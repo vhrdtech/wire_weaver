@@ -248,7 +248,7 @@ fn sample_describe() -> Vec<Describe<'static>> {
         Describe::Clock(ClockDef {
             number: UNib32(HOST),
             key: clock_key(api_root_id("host", 0), &[], 17),
-            rate: Magnitude::ratio(60_000, 1001),
+            rate: Magnitude::pow10(9),
             resolution: Magnitude::ratio(1, 32768),
             origin: ClockOrigin::Boot,
             label: "host",
@@ -383,21 +383,104 @@ fn describe_set_needs_its_clocks() {
         set.check(),
         Err(DescribeError::UnknownClock { clock: WALL })
     );
+}
+
+/// A record's clock is its track's (T11): a sticky record on another clock, or on a track not described, is refused.
+#[test]
+fn sticky_records_are_on_their_tracks_clock() {
     let set = describe_set(sample_describe());
-    let sticky = [Sticky {
-        track: 4,
-        at: at(9, 0),
-        item: b"s",
-    }];
-    let r = set.write_blocks(&mut 0, 1024, &sticky, |_| {});
-    assert_eq!(r, Err(DescribeError::UnknownClock { clock: 9 }));
+    let write = |track, clock| {
+        let sticky = [Sticky {
+            track,
+            at: at(clock, 0),
+            item: b"s",
+        }];
+        set.write_blocks(&mut 0, 1024, &sticky, |_| {})
+    };
+    assert_eq!(write(4, HOST), Ok(()));
+    assert_eq!(
+        write(4, WALL),
+        Err(DescribeError::WrongClock {
+            track: 4,
+            clock: WALL,
+            track_clock: HOST
+        })
+    );
+    assert_eq!(
+        write(4, 9),
+        Err(DescribeError::WrongClock {
+            track: 4,
+            clock: 9,
+            track_clock: HOST
+        })
+    );
+    assert_eq!(
+        write(5, HOST),
+        Err(DescribeError::UnknownTrack { track: 5 })
+    );
+}
+
+/// A clock's resolution is at least one of its ticks: `resolution · rate >= 1`.
+#[test]
+fn clock_resolution_at_least_a_tick() {
+    let clock = |rate, resolution| {
+        Describe::Clock(ClockDef {
+            number: UNib32(1),
+            key: 1,
+            rate,
+            resolution,
+            origin: ClockOrigin::Free,
+            label: "c",
+        })
+    };
+    let mut set = DescribeSet::new();
+    let ns = Magnitude::pow10(9);
+    // exactly one tick, more than one, a 32 kHz counter read in ns, an NTSC frame clock
+    for (rate, resolution) in [
+        (ns, Magnitude::pow10(-9)),
+        (ns, Magnitude::pow10(-6)),
+        (ns, Magnitude::ratio(1, 32768)),
+        (
+            Magnitude::ratio(60_000, 1001),
+            Magnitude::ratio(1001, 60_000),
+        ),
+    ] {
+        assert_eq!(
+            set.insert(&clock(rate, resolution)),
+            Ok(()),
+            "{rate} {resolution}"
+        );
+    }
+    for (rate, resolution) in [
+        (ns, Magnitude::pow10(-10)),
+        (
+            Magnitude::ratio(60_000, 1001),
+            Magnitude::ratio(1000, 60_000),
+        ),
+        (Magnitude::pow10(3), Magnitude::new(1, 4000, 0, 0, 1)),
+    ] {
+        assert_eq!(
+            set.insert(&clock(rate, resolution)),
+            Err(DescribeError::Resolution { clock: 1 }),
+            "{rate} {resolution}"
+        );
+    }
 }
 
 /// A describe set written as blocks: definitions on track 0, then the sticky records on their tracks and clocks;
 /// split over several blocks when they are small.
 #[test]
 fn describe_set_as_blocks() {
-    let set = describe_set(sample_describe());
+    let mut set = describe_set(sample_describe());
+    let Describe::Track(t) = &sample_describe()[1] else {
+        unreachable!("the second sample is a track")
+    };
+    let on_wall = TrackDef {
+        number: UNib32(9),
+        clock: UNib32(WALL),
+        ..t.clone()
+    };
+    set.insert(&Describe::Track(on_wall)).unwrap();
     let sticky = [
         Sticky {
             track: 9,

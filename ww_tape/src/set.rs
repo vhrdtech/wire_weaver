@@ -18,6 +18,16 @@ pub enum DescribeError {
     Dimensions { track: u32 },
     /// A track, map or sticky record names a clock the set has no [Describe::Clock] for.
     UnknownClock { clock: u32 },
+    /// A clock's resolution is under one tick (`resolution · rate < 1`), or not a time step at all.
+    Resolution { clock: u32 },
+    /// A sticky record on a track the set has no [Describe::Track] for.
+    UnknownTrack { track: u32 },
+    /// A sticky record on another clock than its track's.
+    WrongClock {
+        track: u32,
+        clock: u32,
+        track_clock: u32,
+    },
     /// A record longer than a block can be.
     TooLong { len: usize },
 }
@@ -33,6 +43,18 @@ impl core::fmt::Display for DescribeError {
                 )
             }
             DescribeError::UnknownClock { clock } => write!(f, "clock {clock} is not described"),
+            DescribeError::Resolution { clock } => {
+                write!(f, "clock {clock}: resolution under one tick")
+            }
+            DescribeError::UnknownTrack { track } => write!(f, "track {track} is not described"),
+            DescribeError::WrongClock {
+                track,
+                clock,
+                track_clock,
+            } => write!(
+                f,
+                "track {track}: record on clock {clock}, the track counts clock {track_clock}"
+            ),
             DescribeError::TooLong { len } => {
                 write!(f, "record of {len} bytes is longer than a block")
             }
@@ -80,6 +102,20 @@ pub struct DescribeSet {
     clocks: BTreeSet<u32>,
     /// Clocks named by tracks and maps.
     named: BTreeMap<(Rank, Vec<u8>), Vec<u32>>,
+    /// The clock of every track.
+    track_clocks: BTreeMap<u32, u32>,
+}
+
+/// Whether `c`'s resolution is at least one tick: `resolution · rate >= 1`, exactly where both are rational.
+fn resolution_ok(c: &crate::ClockDef<'_>) -> bool {
+    let Ok(ticks) = c.rate.checked_mul(c.resolution) else {
+        return false;
+    };
+    match ticks.to_ratio() {
+        Some((num, den)) => num >= den,
+        // irrational (π in it) or too wide for u128: never exactly 1, so the approximation decides
+        None => ticks.checked_to_f64().is_some_and(|t| t >= 1.0),
+    }
 }
 
 impl DescribeSet {
@@ -87,7 +123,8 @@ impl DescribeSet {
         Self::default()
     }
 
-    /// Add `d`, replacing a record with the same key.
+    /// Add `d`, replacing a record with the same key. Refused: a track whose dimensions aren't canonical, a clock
+    /// whose resolution is under one tick.
     pub fn insert(&mut self, d: &Describe<'_>) -> Result<(), DescribeError> {
         let bytes = encode(d)?;
         let rank = d.rank();
@@ -109,9 +146,20 @@ impl DescribeSet {
             Describe::Map(m) => vec![m.from.0, m.to.0],
             _ => vec![],
         };
+        if let Describe::Clock(c) = d
+            && !resolution_ok(c)
+        {
+            return Err(DescribeError::Resolution { clock: c.number.0 });
+        }
         let key = (rank, sub);
-        if let Describe::Clock(c) = d {
-            self.clocks.insert(c.number.0);
+        match d {
+            Describe::Clock(c) => {
+                self.clocks.insert(c.number.0);
+            }
+            Describe::Track(t) => {
+                self.track_clocks.insert(t.number.0, t.clock.0);
+            }
+            _ => {}
         }
         if named.is_empty() {
             self.named.remove(&key);
@@ -146,7 +194,7 @@ impl DescribeSet {
     }
 
     /// Write the set as describe blocks of at most `block_len_max` bytes (a longer record gets a block of its own),
-    /// the `sticky` records after the definitions in order of track. Blocks are numbered from `*seq` on, which is
+    /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*seq` on, which is
     /// left at the next number; `out` takes each block.
     pub fn write_blocks(
         &self,
@@ -159,8 +207,15 @@ impl DescribeSet {
         let mut sticky: Vec<&Sticky<'_>> = sticky.iter().collect();
         sticky.sort_by_key(|s| s.track);
         for s in &sticky {
-            if !self.clocks.contains(&s.at.clock) {
-                return Err(DescribeError::UnknownClock { clock: s.at.clock });
+            let Some(&track_clock) = self.track_clocks.get(&s.track) else {
+                return Err(DescribeError::UnknownTrack { track: s.track });
+            };
+            if s.at.clock != track_clock {
+                return Err(DescribeError::WrongClock {
+                    track: s.track,
+                    clock: s.at.clock,
+                    track_clock,
+                });
             }
         }
         let entries: Vec<(Option<&Sticky<'_>>, &[u8])> = self

@@ -333,6 +333,20 @@ Making a property `+batched` (API-39) or not changes its observe slot (a `Batche
 the API crate. The times of the samples travel in the `PropertyUpdate` event, not in a slot, so adding resources to a
 level with `+batched` properties follows the usual rules.
 
+### Keyed arrays
+
+A `keyed!(flow by FlowKey)` companion ([keyed arrays](../api/arrays.md), EVO-78) is a resource with an id of its own,
+checked as one:
+
+* Adding it after the last resource is compatible, a new wire revision, as any new resource. Removing it is a break.
+* The key travels both ways (`index_of` takes one, `key[]` and the `keys` stream return one), so a key type changes
+  only as a type read by both versions does: a field appended with `#[default]` to an unsized key is compatible,
+  another field type or another type is a break.
+* Within a wire line it keys the array at the same position on both versions; keying another array is a break.
+* Across a wire break it is matched by the array it keys, not by its name or position: it follows the array to a new
+  position or, with the array's `#[moved_from]`, to a new name (its own name follows, `conn_keys` for `conn`). The
+  companion of another array is another resource: the old one is removed.
+
 ### Optional items
 
 `#[optional]` / `#[optional(group)]` on a method, property, stream or `ww_impl!` (API-16, API-54) is not on the wire:

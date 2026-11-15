@@ -881,7 +881,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   type (`UNib32` for `name[]`). No new request kind or wire format; an API without `keyed!` has the same bundle.
   Refused: no array before it, a method, a flat item, a second `keyed!` of one array, a float anywhere in the key,
   a name clash with `<array>_keys`. Done: the model, parsing and checks (`tests/keyed_api`, the Dissector),
-  conformance cases `stdlib.keyed.*`. Missing: server (SRV-62), client (CLT-72), evolution and `ww api` (EVO-78).
+  conformance cases `stdlib.keyed.*`, evolution and `ww api` (EVO-78). Missing: server (SRV-62), client (CLT-72).
   [Docs](docs/api/arrays.md).
 - 📋 **API-66 Staged and timed actions** — nothing applies several writes together or at a given time: a motor's
   torque and an ADC's gain on one device, or three joints of a leg on a bus (CBUS-1). `#[staged]` properties written
@@ -2153,8 +2153,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   `fw-z` sync (+260), 13474 → 13778 B async (+304), 16794 → 17106 B / 17614 → 18030 B at `fw-3` (+312 / +416); an
   image that already reads bit fields (4 observed properties) moves by -60..+72 B. No device or host uses the
   format.
-- 📋 **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in `ww api diff` and the checker (added, removed, key
-  type changed, the array it keys moved) and `flow[] keyed by FlowKey` in `ww api` trees (API-67).
+- ✅ **EVO-78 Evolution of keyed arrays** · `v0.5` — `keyed!` in the checker: adding one is compatible, removing
+  one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
+  companion is matched by the array it keys, so it follows a moved or `#[moved_from]`-renamed array. `ww api diff`
+  prints `keyed!(flow by FlowKey)`; `ww api` trees print `flow[] keyed by FlowKey` on the array line (API-67).
+  Tests in `wire_weaver_evolution/src/tests/keyed.rs`, the tree of `tests/keyed_api`.
+  [Docs](docs/evolution/rules.md#keyed-arrays).
 - ✅ **EVO-14 Priority nibble in `Request`** · `v0.5.x` — **wire break** of `ww_client_server`'s `Request`: a
   `priority: Nibble` after `seq` (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of `Request` carry the new bytes with `"wire_change": "EVO-14 / ..."`.

@@ -1008,7 +1008,9 @@ fn writer_partial_then_renamed() {
     // appended: the second run's blocks start with a describe block
     let mut w = TapeWriter::append(&path, SyncPolicy::default()).unwrap();
     let mut buf = [0u8; 64];
-    let len = BlockWriter::new(&mut buf, BlockKind::Describe, w.next_id(), &[]).finish();
+    let mut d = BlockWriter::new(&mut buf, BlockKind::Describe, w.next_id(), &[]);
+    d.set_flags(FLAG_SET_FIRST | FLAG_SET_LAST);
+    let len = d.finish();
     w.write_block(&buf[..len]).unwrap();
     w.tick().unwrap();
     w.finish().unwrap();
@@ -1037,8 +1039,10 @@ fn pass_through_capture_reads_to_the_end() {
     });
     w.set_describe_repeat(2048);
     let mut buf = [0u8; 64];
-    // the producer's run: its describe block, then its records
-    let len = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]).finish();
+    // the producer's run: its describe set of one block, then its records
+    let mut d = BlockWriter::new(&mut buf, BlockKind::Describe, id(0), &[]);
+    d.set_flags(FLAG_SET_FIRST | FLAG_SET_LAST);
+    let len = d.finish();
     w.write_block(&buf[..len]).unwrap();
     let (file, ends) = tape(60);
     let mut start = 0;

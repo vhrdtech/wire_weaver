@@ -132,11 +132,11 @@ pub struct TapeWriter {
     hash: blake3::Hasher,
     /// The piece head written first, and its track starts
     head: Option<(PieceHead, Vec<TrackStart>)>,
-    /// The newest run of describe blocks written back to back, for the head of a next piece, the repeats and the
-    /// backup before the finish
+    /// The newest whole describe set (first to last mark), for the head of a next piece, the repeats and the backup
+    /// before the finish
     describe: Vec<Vec<u8>>,
-    /// The last block placed was a describe block of the newest run
-    describe_open: bool,
+    /// The blocks of a describe set written so far, not yet up to its last block: never copied
+    describe_open: Vec<Vec<u8>>,
     /// Describe blocks written again by the writer itself don't start a new run
     replaying: bool,
     /// Bytes placed since the newest describe blocks
@@ -235,7 +235,7 @@ impl TapeWriter {
             hash: blake3::Hasher::new(),
             head: None,
             describe: Vec::new(),
-            describe_open: false,
+            describe_open: Vec::new(),
             replaying: false,
             since_describe: 0,
             describe_repeat: DESCRIBE_REPEAT_BYTES,
@@ -422,22 +422,30 @@ impl TapeWriter {
         }
     }
 
-    /// Keep the newest run of describe blocks.
+    /// Keep the newest whole describe set: blocks from one marked [crate::FLAG_SET_FIRST] up to one marked
+    /// [crate::FLAG_SET_LAST], back to back. A set another block interrupts is dropped.
     fn note_describe(&mut self, block: &[u8]) {
         let describe = block.len() > 5 && BlockKind::from_u8(block[5]) == BlockKind::Describe;
         if !describe {
-            self.describe_open = false;
+            self.describe_open.clear();
             return;
         }
         self.since_describe = 0;
         if self.replaying {
             return;
         }
-        if !self.describe_open {
-            self.describe.clear();
-            self.describe_open = true;
+        let flags = block
+            .get(6..8)
+            .map_or(0, |f| u16::from_le_bytes([f[0], f[1]]));
+        if flags & crate::FLAG_SET_FIRST != 0 {
+            self.describe_open.clear();
+        } else if self.describe_open.is_empty() {
+            return;
         }
-        self.describe.push(block.to_vec());
+        self.describe_open.push(block.to_vec());
+        if flags & crate::FLAG_SET_LAST != 0 {
+            self.describe = core::mem::take(&mut self.describe_open);
+        }
     }
 
     /// Write the newest describe blocks again with the seq of the last counted block, not counted themselves; the
@@ -457,7 +465,6 @@ impl TapeWriter {
         });
         self.describe = blocks;
         self.replaying = false;
-        self.describe_open = false;
         r.map(|()| Some(at))
     }
 
@@ -475,9 +482,11 @@ impl TapeWriter {
                 self.index_due = true;
             }
         }
-        // a second describe set as soon as the piece holds data, so a damaged head set doesn't make it unreadable
-        let early = self.data_copy_due && self.data_placed && !self.describe.is_empty();
-        if early || (self.since_describe >= self.describe_repeat && !self.describe_open) {
+        // a second describe set as soon as the piece holds data, so a damaged head set doesn't make it unreadable;
+        // never inside a set being written, which would split it
+        let open = !self.describe_open.is_empty();
+        let early = self.data_copy_due && self.data_placed && !self.describe.is_empty() && !open;
+        if early || (self.since_describe >= self.describe_repeat && !open) {
             if early {
                 self.data_copy_due = false;
             }

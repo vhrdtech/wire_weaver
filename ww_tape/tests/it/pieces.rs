@@ -789,6 +789,47 @@ fn describe_runs(bytes: &[u8]) -> Vec<Vec<(u64, bool)>> {
     runs
 }
 
+/// A describe set of two blocks written after the first records: the writer copies it only once its last block is
+/// in, so every copy, the backup and the next piece's head carry both blocks.
+#[test]
+fn copies_carry_the_whole_describe_set() {
+    let dir = scratch("whole_set");
+    let mut w = TapeWriter::create(&dir.join("a.wwt"), SyncPolicy::None).unwrap();
+    w.set_index_policy(IndexPolicy::NONE);
+    w.set_describe_repeat(4 << 10);
+    let result = ResultId([9; 32]);
+    let head = ww_tape::PieceHead {
+        ident: ww_tape::PieceIdent {
+            id: PieceId::first(&result),
+            result,
+            seq: 0,
+        },
+        prev: None,
+        prev_run: RunTag::NONE,
+    };
+    w.begin_piece(&head, &[]).unwrap();
+    w.write_block(&records(w.next_id(), 0)).unwrap();
+    let set = describe_blocks_max(Layout::UNALIGNED, w.next_id(), 64);
+    assert_eq!(set.len(), 2);
+    for b in &set {
+        w.write_block(b).unwrap();
+    }
+    for n in 1..100 {
+        w.write_block(&records(w.next_id(), n)).unwrap();
+    }
+    let (done, next) = w.cut(&dir.join("b.wwt")).unwrap();
+    let finished = next.finish().unwrap();
+    for path in [done.path, finished.path] {
+        let bytes = std::fs::read(&path).unwrap();
+        let runs = describe_runs(&bytes);
+        assert!(runs.len() >= 2, "{runs:?}");
+        for run in &runs {
+            assert_eq!(run.len(), 2, "{path:?}: {runs:?}");
+        }
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// A head describe set of two blocks, either damaged, in a scanned piece: the set read is the copy, both blocks,
 /// never the head's good block alone.
 #[test]

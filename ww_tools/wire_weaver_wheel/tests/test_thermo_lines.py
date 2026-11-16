@@ -118,15 +118,17 @@ def test_one_script_every_line(thermo_hub, line):
         # way, read as a Quantity shown in its own origin (CLT-65): 21.5 °C, not the Fixed's raw Kelvin reading
         assert float(dev.read_once()["temp"]) == pytest.approx(21.5)
 
+        # renamed `amp_gain` on line 3, the same resource by its `#[moved_from]` (STD-125)
+        gain = dev.amp_gain if line == 3 else dev.gain
         # whole steps on line 1, hundredths on lines 2 and 3: 1.5 is refused before sending where it isn't exact
-        dev.gain.write(ww.Quantity("2", "Ratio"))
-        assert float(dev.gain.read()) == 2.0
+        gain.write(ww.Quantity("2", "Ratio"))
+        assert float(gain.read()) == 2.0
         if line == 1:
             with pytest.raises(ValueError, match="Fixed"):
-                dev.gain.write(ww.Quantity("1.5", "Ratio"))
+                gain.write(ww.Quantity("1.5", "Ratio"))
         else:
-            dev.gain.write(ww.Quantity("1.5", "Ratio"))
-            assert float(dev.gain.read()) == 1.5
+            gain.write(ww.Quantity("1.5", "Ratio"))
+            assert float(gain.read()) == 1.5
 
         # a stream up and a sink down; Mode::Triggered only where the enum has it (line 1)
         with dev.samples as stream, dev.commands as sink:

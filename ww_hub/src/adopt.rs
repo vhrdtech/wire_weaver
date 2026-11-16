@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tracing::{debug, info};
-use wire_weaver_client::adopt::HandoverOwned;
+use wire_weaver_client::adopt::{ADOPT_COMMIT_TIMEOUT, HandoverOwned};
 use ww_hub_api::AdoptErrorOwned;
 
 use crate::Hub;
@@ -99,7 +99,16 @@ pub(crate) async fn commit(
     let tunnel = hub.client_like(client);
     let queue = TunnelQueue::new();
     let (in_flight, streams) = (handover.link.in_flight.len(), handover.link.streams.len());
-    let handle = match device::adopt(hub, handover, slot, tunnel, queue.clone()).await {
+    let adopt = device::adopt(hub, handover, slot, tunnel, queue.clone());
+    // the holder waits for this answer: give it before the holder gives up
+    let adopted = tokio::time::timeout(ADOPT_COMMIT_TIMEOUT, adopt)
+        .await
+        .unwrap_or_else(|_| {
+            Err(format!(
+                "opening {key} didn't finish within {ADOPT_COMMIT_TIMEOUT:?}"
+            ))
+        });
+    let handle = match adopted {
         Ok(handle) => handle,
         Err(why) => {
             hub.client_left(tunnel);

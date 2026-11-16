@@ -17,6 +17,7 @@
 
 ### 🐛 Fixes
 
+- A live handover's commit waits for the hub's answer, `adopt::ADOPT_COMMIT_WAIT`, instead of the 1 s default (CLT-44): a loaded hub opening the device was taken as gone, and the holder's paused calls failed.
 - The cache of downloaded APIs is written whole and renamed into place: a reader never sees half a file.
 - A common error answered as the protocol's error event is checked against the item's `#[errors(..)]` list like the device's own error (STD-16); before, it bypassed the strict check.
 - The tap decoder takes sticky records from a describe copy unless it read that run's own describe blocks (STD-129).

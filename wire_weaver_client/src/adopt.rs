@@ -16,6 +16,16 @@ use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOw
 /// This crate's version: a handover is adopted by the same major.minor ([same_minor]).
 pub const CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Longest the hub takes over `Adopt::commit` (opening the device, waiting for its claim): it answers within this,
+/// an error when the open didn't finish. The holder waits [ADOPT_COMMIT_WAIT] for that answer, so it learns the
+/// outcome instead of guessing it, and a hub that dies meanwhile is known by its connection closing.
+pub const ADOPT_COMMIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// How long the holder waits for the hub's answer to `Adopt::commit`: [ADOPT_COMMIT_TIMEOUT] and a second for the
+/// answer to arrive.
+pub const ADOPT_COMMIT_WAIT: std::time::Duration =
+    ADOPT_COMMIT_TIMEOUT.saturating_add(std::time::Duration::from_secs(1));
+
 /// Longest handover accepted: far above a real one (a few kB with every seq in flight).
 pub const MAX_SNAPSHOT_LEN: usize = 256 * 1024;
 const MAX_PATH_LEN: usize = 64;

@@ -9,7 +9,7 @@ use ww_local_socket::{Preamble, Target};
 
 use super::{HubClient, ensure_running};
 use crate::CallError;
-use crate::adopt::HandoverOwned;
+use crate::adopt::{ADOPT_COMMIT_WAIT, HandoverOwned};
 use crate::local_socket::{OpenError, Tunnel};
 
 /// Why a step with the hub didn't go through.
@@ -83,9 +83,16 @@ impl HubSide {
             .map_err(refused)
     }
 
-    /// `Adopt::commit`, once this program let go of the device.
+    /// `Adopt::commit`, once this program let go of the device: the hub answers within
+    /// [crate::adopt::ADOPT_COMMIT_TIMEOUT], or is gone when its connection closes.
     pub(crate) async fn commit(&self, id: u64) -> Result<(), Refused> {
-        self.hub.adopt().commit(id).call().await.map_err(refused)
+        self.hub
+            .adopt()
+            .commit(id)
+            .with_timeout(ADOPT_COMMIT_WAIT)
+            .call()
+            .await
+            .map_err(refused)
     }
 
     /// The tunnel this program goes on through, to the adopted link.

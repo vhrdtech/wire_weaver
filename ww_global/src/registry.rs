@@ -1,4 +1,5 @@
-use crate::{ENTRIES, GlobalTypeId};
+use crate::ENTRIES;
+use ww_version::GlobalTypeId;
 
 /// What a registry id stands for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

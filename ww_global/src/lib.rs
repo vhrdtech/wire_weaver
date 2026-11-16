@@ -3,12 +3,11 @@
 //! `wire_weaver_gid.json`, see the README for the ranges and rules.
 #![no_std]
 
-mod gid;
 mod registry;
 mod trait_hash;
 
-pub use gid::GlobalTypeId;
 pub use registry::{Entry, EntryKind, crate_id, entry, trait_id};
 pub use trait_hash::trait_hash;
+use ww_version::GlobalTypeId;
 
 include!(concat!(env!("OUT_DIR"), "/gid.rs"));

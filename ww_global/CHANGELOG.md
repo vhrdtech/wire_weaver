@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* `GlobalTypeId` moved to `ww_version`: use `ww_version::GlobalTypeId`. `ww_global` keeps the ledger, `trait_hash` and the id constants, and depends on `ww_version`. Its `std`, `defmt` and `serde` features are gone. Same wire.
 * Global ids are `GlobalTypeId` instead of `UNib32`.
 * Id 0 follows its crate's rename (STD-26): `ww_log_bare_metal` is `ww_log` now, the constant `WW_LOG_BARE_METAL`
   is `WW_LOG`. Same id, same wire.

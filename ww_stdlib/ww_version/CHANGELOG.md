@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* `GlobalTypeId` is defined here instead of in `ww_global`, so `ww_version` has no edge to the id ledger. Same wire.
 * `CompactVersion::global_type_id: UNib32` is now `gid: GlobalTypeId`.
 * `Debug` for `FullVersion` prints `crate@version` instead of `crate version`.
 

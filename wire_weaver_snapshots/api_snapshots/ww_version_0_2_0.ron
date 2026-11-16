@@ -1,25 +1,7 @@
 // ww_version 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e2c8bdf90ca670bfd44fdd5d125e146324ee5925c9c111fe22e7fdf744259a6e
+// shrink_wrap sha256: 616e6e9b92fdca08fb31acd8804ed56833f6684064c2a93b4981c98104c02721
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_version", items: [], compact_id: None, meta: None), types: [
-    SkippedFullVersion(crate_idx: 1, type_name: "GlobalTypeId", signature: [
-        150,
-        222,
-        149,
-        213,
-        118,
-        138,
-        81,
-        115,
-        150,
-        222,
-        149,
-        213,
-        118,
-        138,
-        81,
-        115,
-    ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Hash of the [ApiBundle] used to compare if client and server API\'s are identical.",
         "See also [ApiHashPair]",
@@ -40,10 +22,10 @@
         "So it\'s beneficial to remove them, but still use full version when interacting with a device.",
         "Second hash allows to load full version from cache, while retaining compatibility guarantees.",
     ], ident: "ApiHashPair", generics: [], fields: Named([
-        (ident: Some("no_docs"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+        (ident: Some("no_docs"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Hash of the [ApiBundle] with all the doc strings removed.",
         ], slot: None, series_opaque: false),
-        (ident: Some("with_docs"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+        (ident: Some("with_docs"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
             "Hash of the [ApiBundle] with all the doc strings kept.",
             "If there are no doc strings, this array is empty.",
         ], slot: None, series_opaque: false),
@@ -52,10 +34,13 @@
         "Compact version for traits-based requests that are made often or through limited bandwidth interfaces.",
         "Type id is globally unique across all crates, tracked manually via [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).",
     ], ident: "CompactVersion", generics: [], fields: Named([
-        (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
+        (ident: Some("gid"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "GlobalTypeId", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "FullVersion", generics: [], fields: Named([
         (ident: Some("crate_id"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
@@ -115,8 +100,6 @@
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_global", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
 ], root_omitted: None, wire: Some((line: 1, revision: 0)), ext_wire: Some([
-    Some((line: 1, revision: 0)),
     Some((line: 1, revision: 0)),
 ]))

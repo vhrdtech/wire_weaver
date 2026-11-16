@@ -2,7 +2,9 @@
 
 use core::fmt::{Debug, Formatter};
 use shrink_wrap::prelude::*;
-pub use ww_global::GlobalTypeId;
+
+mod gid;
+pub use gid::GlobalTypeId;
 
 mod api_hash;
 mod wire;

@@ -1283,7 +1283,7 @@ pub fn table() -> Vec<Typed> {
                 reserved: false,
                 path_kind: ww_client_server::PathKindOwned::GlobalCompact {
                     gid: wire_weaver::ww_version::CompactVersion::new(
-                        ww_global::GlobalTypeId::new(5),
+                        wire_weaver::ww_version::GlobalTypeId::new(5),
                         0,
                         2,
                         1,

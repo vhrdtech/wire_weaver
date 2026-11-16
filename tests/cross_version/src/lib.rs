@@ -139,7 +139,7 @@ mod tests {
                     // an id no server knows: the generated code answers TraitNotFound, as an old one did to any id
                     let mut old = request.make_owned()?;
                     if let PathKindOwned::GlobalCompact { gid, .. } = &mut old.path_kind {
-                        gid.gid = ww_global::GlobalTypeId::new(4000);
+                        gid.gid = wire_weaver::ww_version::GlobalTypeId::new(4000);
                     }
                     let mut old = old.to_ww_bytes_owned()?;
                     let seq = Request::peek_seq(bytes)?;

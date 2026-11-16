@@ -136,7 +136,7 @@ mod tests {
                 reserved: false,
                 path_kind: PathKind::GlobalCompact {
                     gid: CompactVersion {
-                        gid: ww_global::GlobalTypeId::new(u32::MAX),
+                        gid: wire_weaver::ww_version::GlobalTypeId::new(u32::MAX),
                         major: UNib32(u32::MAX),
                         minor: UNib32(u32::MAX),
                         patch: UNib32(u32::MAX),

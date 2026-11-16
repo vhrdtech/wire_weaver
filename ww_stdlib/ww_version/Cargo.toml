@@ -13,9 +13,9 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["shrink_wrap/std", "semver/std", "dep:hex", "hex/std", "ww_global/std"]
-defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_global/defmt"]
-serde = ["dep:serde", "shrink_wrap/serde", "ww_global/serde"]
+std = ["shrink_wrap/std", "semver/std", "dep:hex", "hex/std"]
+defmt = ["dep:defmt", "shrink_wrap/defmt"]
+serde = ["dep:serde", "shrink_wrap/serde"]
 semver = ["dep:semver"]
 
 [dependencies]
@@ -24,7 +24,6 @@ hex = { workspace = true, optional = true }
 semver = { version = "1", default-features = false, optional = true }
 serde = { workspace = true, optional = true }
 shrink_wrap.workspace = true
-ww_global.workspace = true
 
 [dev-dependencies]
 hex-literal.workspace = true

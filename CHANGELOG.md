@@ -104,6 +104,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `ww_tape` track identity by name path (STD-125): `track_key` over names, indices and keys, `TrackDef.keys`. See the `ww_tape` and `ww_tap` changelogs.
 - The borrowed derive no longer pads an empty `RefVec<u8>` field to a byte (SW-81): such a value read back corrupt or failed. See the `shrink_wrap` changelog.
 - `ww_timebase` and `ww_client_server` leave `ww_stdlib/` for the repo root, beside `ww_link` and `ww_framer` (architecture-layers.md R5): they are framework by content, not standard APIs; names and versions unchanged, their `repository` metadata now points at `wire_weaver` instead of `ww_stdlib`. See the `ww_timebase` and `ww_client_server` changelogs.
+- `GlobalTypeId` moves from `ww_global` into `ww_version`, which no longer depends on the id ledger. Same wire. See the `ww_version` and `ww_global` changelogs.
 
 ### Added
 

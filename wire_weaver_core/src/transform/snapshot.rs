@@ -1781,9 +1781,14 @@ mod tests {
             root.join("ww_timebase"),
             exact_units_dir(),
         ];
+        // host tools without an API, skipped as `just save-snapshots` skips them
+        let no_api = ["ww_std_cli", "ww_report", "ww_pin_probe"];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
             let path = entry.unwrap().path();
-            if path.join("Cargo.toml").exists() {
+            let host_tool = path
+                .file_name()
+                .is_some_and(|name| no_api.iter().any(|n| name == *n));
+            if path.join("Cargo.toml").exists() && !host_tool {
                 crate_paths.push(path);
             }
         }

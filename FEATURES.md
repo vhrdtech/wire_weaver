@@ -2767,12 +2767,16 @@ Unicast Data0 to one node over the same bus is TR-6.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
 - ✅ **TOOL-36 Commands register themselves** · `v0.5` — each `ww` command registers a `CommandDef` with `inventory`
   (`wire_weaver_cli::registry`): its `clap` command, the global flags it shows, how it connects, its log level, its
-  own tap and the plugin it forwards to; the root command, help, completion and the run loop come from the registry.
+  own tap and the command it forwards to (in process when the binary links it, else the plugin); the root command, help, completion and the run loop come from the registry.
   `wire_weaver_cli` is a library of the generic commands with no standard library API crate among its dependencies,
   `ww_std_cli` (`ww_stdlib/ww_std_cli`) holds `board`, `counters`, `dfu`, `pins`, `report` and the device parts of
   `info` and `sync` (`InfoExtension`, `SyncExtension`), and the binary `ww` (`ww_tools/ww`) links both. Tests compare
   the registered commands with the expected list in both crates and in the binary's help.
   [Docs](docs/cli_reference.md#plugins).
+- 🚧 **TOOL-38 `ww` links its own repos' commands** · `v0.5` — the `ww` binary and the wire_weaver wheel compile in
+  the commands of logring and chunky_mcu_updater (`ww logring`, `ww chunky`, `ww dfu flash`), so a debug tool works
+  with no plugin; plugins stay for third-party tools. A forward (`dfu flash` to `chunky flash`) runs a registered
+  command in process with the device flags typed before and after it, and completes with it.
 - 📋 **TOOL-37 `ww udev` prints the rule** — the command exists and is documented but stops with an error naming
   this item (was a `todo!()` panic): it should print a udev rule for WireWeaver USB devices to pipe into
   `/etc/udev/rules.d/`.

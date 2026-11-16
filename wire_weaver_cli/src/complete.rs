@@ -15,8 +15,8 @@ use std::path::Path;
 use wire_weaver_client::DeviceInfo;
 
 /// The command line for completion: `factory`'s, one subcommand per plugin found on `PATH` (`ww-NAME`), and the
-/// subcommands that forward to a plugin ([`crate::registry::Forward`]: `dfu flash`, which `ww-chunky flash`
-/// answers). A plugin completes its own arguments: it is asked for the words of the command line being completed,
+/// subcommands that forward to another command ([`crate::registry::Forward`]: `dfu flash`, which `chunky flash`
+/// answers). A forward to a registered command completes as that command does; a plugin completes its own arguments: it is asked for the words of the command line being completed,
 /// and what it answers is put into the command as its flags and values, which the completion engine then filters
 /// by the word being completed.
 pub fn with_plugins(factory: impl Fn() -> Command) -> Command {
@@ -32,8 +32,9 @@ pub fn with_plugins(factory: impl Fn() -> Command) -> Command {
             let prefix: Vec<&str> = std::iter::once(def.name)
                 .chain(forward.path.iter().copied())
                 .collect();
-            cmd = at_path(cmd, &prefix, |stub| {
-                plugin_stub(stub, &prefix, forward.plugin, forward.lead, &taken)
+            cmd = at_path(cmd, &prefix, |stub| match forward.registered() {
+                Some(target) => registered_stub(stub, def.name_at(forward), target, forward.lead),
+                None => plugin_stub(stub, &prefix, forward.plugin, forward.lead, &taken),
             });
         }
     }
@@ -57,6 +58,24 @@ fn at_path(cmd: Command, path: &[&str], f: impl FnOnce(Command) -> Command) -> C
         [] => f(cmd),
         [first, rest @ ..] => cmd.mut_subcommand(*first, |sc| at_path(sc, rest, f)),
     }
+}
+
+/// The subcommand of the registered command `target` at `lead` (`chunky flash`), in place of `stub` (`dfu flash`):
+/// its arguments and help, under the stub's name `name`.
+fn registered_stub(
+    stub: Command,
+    name: &'static str,
+    target: &crate::registry::CommandDef,
+    lead: &[&str],
+) -> Command {
+    let mut found = (target.command)();
+    for word in lead {
+        let Some(sub) = found.find_subcommand(word) else {
+            return stub;
+        };
+        found = sub.clone();
+    }
+    found.name(name)
 }
 
 /// `stub` (the command a plugin answers for), with the flags and values `plugin` offers for the command line being
@@ -556,6 +575,35 @@ pub fn settings_page_sizes() -> Vec<CompletionCandidate> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn target_command() -> Command {
+        Command::new("chunky").subcommand(
+            Command::new("flash")
+                .about("Update a chunky device")
+                .arg(clap::Arg::new("fw_version").long("fw-version")),
+        )
+    }
+
+    fn target_run(
+        _: crate::registry::Run<'_>,
+    ) -> crate::registry::BoxFuture<'_, anyhow::Result<crate::registry::Ran>> {
+        Box::pin(async { Ok(crate::registry::Ran::DONE) })
+    }
+
+    /// A forward to a registered command completes with that command's subcommand, under the forward's name.
+    #[test]
+    fn a_registered_forward_completes_as_its_target() {
+        let target = crate::registry::CommandDef::new("chunky", 0, target_command, target_run);
+        let stub = registered_stub(Command::new("flash"), "flash", &target, &["flash"]);
+        assert_eq!(stub.get_name(), "flash");
+        assert!(
+            stub.get_arguments()
+                .any(|a| a.get_long() == Some("fw-version"))
+        );
+        // a lead the target doesn't have leaves the stub as it was
+        let stub = registered_stub(Command::new("flash"), "flash", &target, &["nope"]);
+        assert!(stub.get_arguments().next().is_none());
+    }
 
     const WORDBREAKS: &str = "\"'><=;|&(:@";
 

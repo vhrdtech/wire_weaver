@@ -119,8 +119,9 @@ impl Connection {
     pub const SELECTION: Self = Connection::Selection { save_config: false };
 }
 
-/// The subcommand at `path` under a command forwards its arguments to the plugin `ww-<plugin>`, as `lead` and then
-/// the words typed (`ww dfu flash ARGS..` runs `ww-chunky flash ARGS..`): the completion asks the plugin for them.
+/// The subcommand at `path` under a command forwards its arguments to the command `plugin`, as `lead` and then the
+/// words typed (`ww dfu flash ARGS..` runs `ww chunky flash ARGS..`): in this process when the binary links a
+/// command of that name ([`forward`]), else the plugin `ww-<plugin>`. The completion asks the same one.
 #[derive(Clone, Copy, Debug)]
 pub struct Forward {
     /// The subcommand's words after the command's name (`&["flash"]` for `ww dfu flash`).
@@ -232,6 +233,12 @@ impl CommandDef {
         CommandDef { forwards, ..self }
     }
 
+    /// The name of the subcommand `forward` stands at: the last word of its path, the command's own name for an
+    /// empty path.
+    pub(crate) fn name_at(&self, forward: &Forward) -> &'static str {
+        forward.path.last().copied().unwrap_or(self.name)
+    }
+
     /// The global flags a subcommand path shows: its own entry, else `parent`.
     pub(crate) fn globals_of(&self, path: &str, parent: GlobalFlags) -> GlobalFlags {
         self.globals
@@ -253,6 +260,129 @@ pub fn commands() -> Vec<&'static CommandDef> {
 /// The registered command of that name.
 pub fn find(name: &str) -> Option<&'static CommandDef> {
     inventory::iter::<CommandDef>().find(|c| c.name == name)
+}
+
+impl Forward {
+    /// The registered command the forward runs in this process, when the binary links one named `plugin`.
+    pub fn registered(&self) -> Option<&'static CommandDef> {
+        find(self.plugin)
+    }
+
+    /// The command line of the forwarded command: `plugin`, `lead`, then the words typed.
+    pub(crate) fn command_line(&self, args: &[std::ffi::OsString]) -> Vec<std::ffi::OsString> {
+        std::iter::once(self.plugin)
+            .chain(self.lead.iter().copied())
+            .map(std::ffi::OsString::from)
+            .chain(args.iter().cloned())
+            .collect()
+    }
+}
+
+/// Runs `forward` with the words typed after its subcommand (`ww dfu flash ARGS..`): the registered command in this
+/// process when the binary links it, with the device selection of `run` and a connection of its own; else the plugin
+/// `ww-<plugin>` instead of this process (`missing` is the error when there is none). A parse error or `--help` of
+/// the registered command ends the process, as `ww`'s own command line does.
+pub async fn forward(
+    run: Run<'_>,
+    forward: &Forward,
+    args: &[std::ffi::OsString],
+    missing: impl FnOnce() -> anyhow::Error,
+) -> Result<Ran> {
+    let Some(def) = forward.registered() else {
+        let mut plugin_args: Vec<std::ffi::OsString> =
+            forward.lead.iter().map(std::ffi::OsString::from).collect();
+        plugin_args.extend(args.iter().cloned());
+        let env = crate::plugin::selection_env(run.selection(), run.no_config);
+        match crate::plugin::run(forward.plugin, &plugin_args, &env, missing)? {}
+    };
+    let root = forwarded_matches(run.selection(), run.no_config, forward, args)
+        .unwrap_or_else(|e| e.exit());
+    let (_, matches) = root
+        .subcommand()
+        .expect("the forwarded command line names the command");
+    let matches = matches.clone();
+    let selection = Selection::resolve(&root, false)?;
+    let connection = (def.connection)(&matches)?;
+    let device_use = match connection {
+        Connection::Device(device_use) => Some(device_use),
+        Connection::None | Connection::Selection { .. } => None,
+    };
+    let mut device = match device_use {
+        Some(device_use) if !device_use.on_demand => {
+            Some(connect_device(&selection, device_use, run.meta, None, run.stop.clone()).await?)
+        }
+        _ => None,
+    };
+    let forwarded = Run {
+        matches,
+        selection: Some(&selection),
+        no_config: root.get_flag("no_config"),
+        device: &mut device,
+        meta: run.meta,
+        tap: None,
+        stop: run.stop.clone(),
+        program: run.program,
+        device_use,
+        recorder: None,
+        flag_tap: None,
+    };
+    let ran = (def.run)(forwarded).await?;
+    if ran.disconnect
+        && let Some(device) = device
+    {
+        device.disconnect().asynch().await?;
+    }
+    Ok(ran)
+}
+
+/// `ww`'s command line for `forward` with the words typed after its subcommand: `ww <plugin> <lead>.. <words>..`,
+/// with the device flags given before the forwarding subcommand (`outer`'s, from the command line) in front, except
+/// those given again among the words, which win as they do for a plugin.
+fn forwarded_matches(
+    outer: &Selection,
+    no_config: bool,
+    forward: &Forward,
+    args: &[std::ffi::OsString],
+) -> Result<ArgMatches, clap::Error> {
+    let program = program().name;
+    let tail = forward.command_line(args);
+    let after = crate::cli::root_command().try_get_matches_from(
+        std::iter::once(std::ffi::OsString::from(program)).chain(tail.clone()),
+    )?;
+    let typed_after = |id: &str| {
+        matches!(
+            after.value_source(id),
+            Some(clap::parser::ValueSource::CommandLine)
+        )
+    };
+    let root = crate::cli::root_command();
+    let long_of = |id: &str| {
+        root.get_arguments()
+            .find(|a| a.get_id() == id)
+            .and_then(|a| a.get_long())
+            .map(str::to_owned)
+    };
+    let mut line = vec![std::ffi::OsString::from(program)];
+    for setting in &outer.settings {
+        if matches!(setting.source, crate::device::Source::Flag)
+            && !typed_after(setting.key)
+            && let Some(long) = long_of(setting.key)
+        {
+            line.push(format!("--{long}={}", setting.value).into());
+        }
+    }
+    if let Some(config) = &outer.explicit_file
+        && !typed_after("config")
+    {
+        let mut flag = std::ffi::OsString::from("--config=");
+        flag.push(config);
+        line.push(flag);
+    }
+    if no_config && !typed_after("no_config") {
+        line.push("--no-config".into());
+    }
+    line.extend(tail);
+    root.try_get_matches_from(line)
 }
 
 /// What a command runs on: its arguments, the device selection and connection the registry set up for it, and
@@ -559,4 +689,66 @@ fn init_logging(max_level: LevelFilter) {
 pub fn selection_from_env() -> Result<Selection> {
     let matches = crate::cli::root_command().try_get_matches_from([program().name, "list"])?;
     Selection::resolve(&matches, false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A forward to `ww info`, a command this crate registers.
+    const TO_INFO: Forward = Forward {
+        path: &["go"],
+        plugin: "info",
+        lead: &[],
+    };
+
+    /// The device selection of `ww FLAGS.. list`, without a ww.toml.
+    fn outer(flags: &[&str]) -> Selection {
+        let line = ["ww", "--no-config"].iter().chain(flags).chain(&["list"]);
+        let matches = crate::cli::root_command()
+            .try_get_matches_from(line)
+            .expect("ww parses the command line");
+        Selection::resolve(&matches, false).expect("a selection")
+    }
+
+    fn forwarded(outer: &Selection, words: &[&str]) -> ArgMatches {
+        let words: Vec<std::ffi::OsString> = words.iter().map(Into::into).collect();
+        forwarded_matches(outer, true, &TO_INFO, &words).expect("the forwarded command line parses")
+    }
+
+    /// Device flags before the forwarding command reach the forwarded one, next to those typed after it.
+    #[test]
+    fn flags_before_and_after_both_count() {
+        let root = forwarded(&outer(&["-s", "0B135A01"]), &["--label", "bench"]);
+        assert_eq!(root.subcommand_name(), Some("info"));
+        let selection = Selection::resolve(&root, false).expect("a selection");
+        assert_eq!(selection.get("serial"), Some("0B135A01"));
+        assert_eq!(selection.get("label"), Some("bench"));
+    }
+
+    /// A flag typed again after the forwarding command wins, as it does for a plugin, and is no duplicate.
+    #[test]
+    fn a_flag_typed_after_wins() {
+        let root = forwarded(&outer(&["-s", "AAAA"]), &["-s", "BBBB"]);
+        let selection = Selection::resolve(&root, false).expect("a selection");
+        assert_eq!(selection.get("serial"), Some("BBBB"));
+    }
+
+    /// The forwarded command's own errors are its own: an unknown flag is refused.
+    #[test]
+    fn an_unknown_flag_is_refused() {
+        let words = vec![std::ffi::OsString::from("--no-such-flag")];
+        let err = forwarded_matches(&outer(&[]), true, &TO_INFO, &words).expect_err("unknown flag");
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+    }
+
+    #[test]
+    fn a_registered_target_is_found() {
+        assert!(TO_INFO.registered().is_some());
+        let to_plugin = Forward {
+            plugin: "no-such-command",
+            ..TO_INFO
+        };
+        assert!(to_plugin.registered().is_none());
+    }
 }

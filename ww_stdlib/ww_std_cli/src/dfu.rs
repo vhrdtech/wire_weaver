@@ -1,5 +1,5 @@
 //! `ww dfu`: firmware update steps through `ww_dfu` global traits, on any device whatever its API and version
-//! (API-20, CLT-10); whole updates of a chunky device (CLT-33) are the `ww-chunky` plugin's `flash`.
+//! (API-20, CLT-10); whole updates of a chunky device (CLT-33) are `ww chunky flash` (linked, or the `ww-chunky` plugin).
 
 use std::ffi::OsString;
 
@@ -62,8 +62,8 @@ pub(crate) enum DeviceDfu {
 
     /// Update a chunky device (`chunky_ww`): send what changed, reboot into the trial, wait for its confirm
     ///
-    /// Runs `ww-chunky flash` (the `ww-chunky` plugin, from the chunky_mcu_updater repository, found on PATH) with
-    /// these arguments and the device selection; `ww dfu flash --help` shows its help. It reads what the device holds,
+    /// Runs `ww chunky flash` (from the chunky_mcu_updater repository: linked into the ww binary, or the `ww-chunky`
+    /// plugin found on PATH) with these arguments and the device selection; `ww dfu flash --help` shows its help. It reads what the device holds,
     /// plans a delta against it (chunks the device has are copied on the device, only the rest goes over the wire),
     /// sends the steps, has the device verify and stage the image, reboots it into a trial and waits until the new
     /// firmware confirms itself, or the device reverts to the old one.
@@ -71,7 +71,7 @@ pub(crate) enum DeviceDfu {
     /// Example: ww dfu flash target/thumbv7em-none-eabihf/release/b135_fw -s 0B135A01
     #[command(disable_help_flag = true)]
     Flash {
-        /// Arguments of `ww-chunky flash`
+        /// Arguments of `ww chunky flash`
         #[arg(
             trailing_var_arg = true,
             allow_hyphen_values = true,
@@ -116,7 +116,7 @@ pub(crate) async fn dfu(
     let purpose = match &cmd {
         DeviceDfu::Status => None,
         DeviceDfu::Reboot { .. } => Some("ww dfu reboot".to_string()),
-        DeviceDfu::Flash { .. } => unreachable!("flash runs the ww-chunky plugin"),
+        DeviceDfu::Flash { .. } => unreachable!("flash runs `chunky flash`"),
         DeviceDfu::Confirm => Some("ww dfu confirm".to_string()),
         DeviceDfu::Revert => Some("ww dfu revert".to_string()),
     };
@@ -145,7 +145,7 @@ pub(crate) async fn dfu(
 async fn run(cmd: DeviceDfu, device: DynClient) -> Result<()> {
     match cmd {
         DeviceDfu::Reboot { into } => reboot(into, &device).await,
-        DeviceDfu::Flash { .. } => unreachable!("flash runs the ww-chunky plugin"),
+        DeviceDfu::Flash { .. } => unreachable!("flash runs `chunky flash`"),
         DeviceDfu::Status => status(&device).await,
         DeviceDfu::Confirm => {
             let dfu = Dfu::new(&device);
@@ -315,6 +315,14 @@ mod tests {
     }
 }
 
+/// `ww dfu flash ARGS..` is `ww chunky flash ARGS..`: in process when the binary links `chunky_ww_cli`, else the
+/// `ww-chunky` plugin.
+const FLASH: Forward = Forward {
+    path: &["flash"],
+    plugin: "chunky",
+    lead: &["flash"],
+};
+
 /// `ww dfu`.
 fn command() -> clap::Command {
     DfuCommand::augment_subcommands(clap::Command::new("dfu"))
@@ -327,7 +335,7 @@ fn connection(matches: &clap::ArgMatches) -> Result<Connection> {
     let cmd = DfuCommand::from_arg_matches(matches)?;
     Ok(match cmd.needs_device() {
         true => Connection::Device(DeviceUse::TRAITS_ONLY),
-        // the boot ROMs are found by their own USB ids; `flash` hands the selection to the ww-chunky plugin
+        // the boot ROMs are found by their own USB ids; `flash` hands the selection to `chunky flash`
         false => Connection::SELECTION,
     })
 }
@@ -341,15 +349,13 @@ fn run_command(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
                 crate::stm32dfu::stm32dfu(stm32_cmd, run.selection()).await?
             }
             DfuCommand::Device(DeviceDfu::Flash { args }) => {
-                let mut plugin_args = vec!["flash".into()];
-                plugin_args.extend(args);
-                let env = wire_weaver_cli::plugin::selection_env(run.selection(), run.no_config);
-                match wire_weaver_cli::plugin::run("chunky", &plugin_args, &env, || {
+                return wire_weaver_cli::registry::forward(run, &FLASH, &args, || {
                     anyhow!(
-                        "`ww dfu flash` runs the ww-chunky plugin, which is not on PATH: install it with `just install` in \
-                         chunky_mcu_updater (or `cargo install --git https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`)"
+                        "`ww dfu flash` runs `chunky flash`, which this ww doesn't link, and the ww-chunky plugin is not \
+                         on PATH: install the ww of ww_tools, or ww-chunky with `just install` in chunky_mcu_updater"
                     )
-                })? {}
+                })
+                .await;
             }
             DfuCommand::Device(dfu_cmd) => {
                 let resets_device = dfu_cmd.resets_device();
@@ -372,5 +378,5 @@ inventory::submit! {
     CommandDef::new("dfu", 120, command, run_command)
         .globals(&[("", GlobalFlags::DeviceAndTap), ("rp", GlobalFlags::Device), ("stm32", GlobalFlags::Device)])
         .connection(connection)
-        .forwards(&[Forward { path: &["flash"], plugin: "chunky", lead: &["flash"] }])
+        .forwards(&[FLASH])
 }

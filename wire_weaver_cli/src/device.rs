@@ -226,7 +226,7 @@ impl Selection {
         self.get("rtt")
     }
 
-    fn get(&self, key: &str) -> Option<&str> {
+    pub(crate) fn get(&self, key: &str) -> Option<&str> {
         self.settings
             .iter()
             .find(|s| s.key == key)

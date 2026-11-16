@@ -1,0 +1,21 @@
+[package]
+name = "global_paths_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Framework-only fixture for the global trait path dispatch bench (API-20, R10): a local trait at index 0 and ww_timebase::Clock (a real ww_global id) at index 1, used by examples_mcu/mcu_qemu qemu-global-paths"
+
+# Wire version of the API (EVO-31): link setup decides on its line, `#[since]` names its revisions
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_timebase/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_timebase.workspace = true

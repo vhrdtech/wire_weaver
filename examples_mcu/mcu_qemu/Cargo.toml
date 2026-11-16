@@ -41,9 +41,11 @@ ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = [
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
-dfu_api = { path = "../../tests/dfu_api", default-features = false }
+global_paths_api = { path = "../../tests/global_paths_api", default-features = false }
 flash_budget_api = { path = "../../tests/flash_budget_api", default-features = false }
-ww_dfu = { path = "../../ww_stdlib/ww_dfu", default-features = false }
+# `qemu-global-paths`'s GlobalCompact match case needs a trait with a real ww_global id; ww_timebase is framework (R5)
+ww_timebase = { path = "../../ww_stdlib/ww_timebase", default-features = false }
+ww_date_time = { path = "../../ww_stdlib/ww_date_time", default-features = false }
 # KeyEvent of the qemu-flash-keyed server's `keys` stream (SRV-62)
 ww_keyed = { path = "../../ww_stdlib/ww_keyed", default-features = false }
 

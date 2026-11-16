@@ -272,14 +272,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dfu_api"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
- "ww_dfu",
-]
-
-[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -344,6 +336,14 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver",
  "ww_si",
+]
+
+[[package]]
+name = "global_paths_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -416,17 +416,17 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
- "dfu_api",
  "flash_budget_api",
  "foc_observe_api",
+ "global_paths_api",
  "panic-semihosting",
  "portable-atomic",
  "static_cell",
  "wire_weaver",
+ "ww_block",
  "ww_bus_slave",
  "ww_client_server",
- "ww_crc",
- "ww_dfu",
+ "ww_date_time",
  "ww_framer",
  "ww_gpio",
  "ww_i2c",
@@ -435,6 +435,7 @@ dependencies = [
  "ww_si",
  "ww_spi",
  "ww_stream",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -994,6 +995,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "wire_weaver",
+ "ww_error",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_bus_slave"
 version = "0.5.0"
 dependencies = [
@@ -1014,18 +1025,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_crc"
-version = "0.5.0"
-dependencies = [
- "crc",
-]
-
-[[package]]
-name = "ww_dfu"
+name = "ww_date_time"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
- "ww_si",
+ "exact_units",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -1041,8 +1045,8 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
+ "crc",
  "shrink_wrap",
- "ww_crc",
 ]
 
 [[package]]
@@ -1085,6 +1089,7 @@ version = "0.5.0"
 dependencies = [
  "shrink_wrap",
  "wire_weaver",
+ "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -1146,6 +1151,15 @@ dependencies = [
  "portable-atomic",
  "wire_weaver",
  "ww_client_server",
+ "ww_si",
+]
+
+[[package]]
+name = "ww_timebase"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_date_time",
  "ww_si",
 ]
 

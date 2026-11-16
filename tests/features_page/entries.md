@@ -260,6 +260,7 @@ layer checks on connect that both ends speak the same protocol.
 - TR-1 | Framer | Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames. | transport/ww_framer.md
 - TR-2 | Link layer | Link setup, device info and protocol version exchange. | transport/ww_link.md
 - TR-15 | Frame counter and setup token | Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need. | transport/ww_link.md#setup-token
+- TR-31 | One CRC crate | The framer, link, block, settings and stream crates share one CRC table per algorithm, its size picked once per firmware. | transport/ww_framer.md#checksum-and-tail
 - TR-21 | Simulated UDP | UDP datagrams without the kernel for tests: the paused clock decides which messages share a datagram, so a transcript has the same bytes on every run. | transport/udp.md#simulated-udp-in-tests
 - TR-22 | Simulated WebSocket | WebSocket over an in-memory pipe for tests: the paused clock decides the order of both ends' frames, so a transcript is the same on every run. | transport/websocket.md#simulated-websocket-in-tests
 - TR-23 | USB vendor descriptor constants | The USB class, subclass and vendor-specific descriptor bytes a WireWeaver USB device writes live in `ww_link`, shared by every USB stack so they write the same bytes. | transport/usb_internals.md#device-layout

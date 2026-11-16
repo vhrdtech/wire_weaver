@@ -1899,6 +1899,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   retries exactly. `tests/dfu_scenarios` runs its UDP scenarios on it: their transcripts no longer depend on how
   loaded the machine is (a burst split across datagrams, a link setup retry shifting every frame counter after a
   reboot). `in_process::tests::host_and_device_talk_over_simulated_udp`, `ww_tap::Medium::InProcessUdp`.
+- ✅ **TR-31 `ww_crc`, one CRC crate** · `v0.5` — the CRCs of `ww_framer`, `ww_link`, `ww_block`, `ww_settings`
+  and `ww_stream` are statics of `ww_crc` (`CRC32_ISO_HDLC`, `CRC32C`, `CRC16_USB`, `CRC16_IBM_SDLC`, `CRC8_SMBUS`),
+  so a firmware links one table per algorithm, its size picked once with `table-256` or `table-slice16` (bitwise
+  without; the crates' `std` features turn on `table-slice16`). `ww_link` no longer depends on `ww_block` for its
+  UDP CRC-32. Docs: `docs/transport/ww_framer.md#checksum-and-tail`; tests in `ww_crc` at every table size.
 - ✅ **TR-22 Simulated WebSocket** · `v0.5` — `in_process::ws_device` (features `in_process` and `ws`,
   `docs/transport/websocket.md#simulated-websocket-in-tests`): the `ws` transport's own client and `ww_device::ws` over
   an in-memory pipe (`WsPort`), so tests on tokio's paused clock decide the order of both ends' frames.
@@ -3162,8 +3167,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   `written` stream, and the counted `read_runs` stream. Who may claim is the firmware's choice per link
   (`Common(Refused)`). Tier T1 of logring's design (its PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
   docs page `docs/std_library/ww_block.md` and the round trip `tests/block_sd` done, the scaffold compiles; the
-  first server is the logring's. `crc32`/`crc32_update` are table-driven, table size (none, `crc-table-256`,
-  `crc-table-slice16`) picked by cargo feature.
+  first server is the logring's. `crc32`/`crc32_update` are `ww_crc`'s `CRC32_ISO_HDLC` (TR-31), table size
+  (none, `table-256`, `table-slice16`) picked by `ww_crc`'s cargo features.
 - 🚧 **STD-40 `ww_sd`** · `v0.5.x` — raw SD card access over WireWeaver: `SdCard` with `capabilities`, `state`, the
   `detect` stream, raw `registers` (CID, CSD, OCR, RCA, SCR, SD Status), `reinit` with a per-step `InitReport`, and
   `command`: one raw command with an optional data phase, answering response bytes, `CardStatus` bits, the

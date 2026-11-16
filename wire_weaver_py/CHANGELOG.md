@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- The wheel embeds the API snapshots of every crate in its build's lock: ww_stdlib devices are understood offline (EVO-80).
 - `Opaque` (EVO-80): a value whose type has no snapshot on this host, with `crate`, `version`, `name`, `signature` and `bytes`; sending one is refused.
 
 ### ⚠️ Breaking

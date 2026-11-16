@@ -6718,6 +6718,7 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_hub",
+ "ww_snapshots",
 ]
 
 [[package]]
@@ -6735,6 +6736,7 @@ version = "0.5.0"
 dependencies = [
  "pyo3",
  "wire_weaver_py",
+ "ww_snapshots",
 ]
 
 [[package]]
@@ -6749,6 +6751,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "wire_weaver_cli",
+ "ww_snapshots",
  "ww_std_cli",
 ]
 

@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `ww` embeds the API snapshots of every crate in its build's lock, and `ww api cache PATH...` / `ww api fetch CRATE VERSION` fill `~/.wire_weaver/snapshots/` (EVO-80).
 - `ww` prints an opaque value with its crate, version and bytes, and names `ww api fetch` (EVO-80).
 
 ### ⚠️ Breaking

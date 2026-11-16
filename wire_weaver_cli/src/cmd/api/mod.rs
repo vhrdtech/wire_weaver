@@ -5,6 +5,7 @@ pub use line::LineCommand;
 mod line;
 mod save;
 mod scaffold;
+mod snapshots;
 
 use anyhow::Result;
 use wire_weaver_core::ServerScaffoldConfig;
@@ -203,10 +204,34 @@ pub enum ApiCommand {
         #[arg(long, value_hint = ValueHint::FilePath)]
         current: PathBuf,
 
-        /// The directory to keep them in, the crate's `api_snapshots/superseded/` (for exact_units,
-        /// `wire_weaver_snapshots/other_repos/superseded/`)
+        /// The directory to keep them in, the crate's `api_snapshots/superseded/`
         #[arg(long, value_hint = ValueHint::DirPath)]
         into: PathBuf,
+    },
+    /// Copy the API snapshots of every crate under the given paths into this user's cache
+    ///
+    /// Each crate's `api_snapshots/*.ron` and `api_snapshots/superseded/*.ww` are checked and copied into
+    /// `~/.wire_weaver/snapshots/`, so a device built with those crates is understood without their sources at hand
+    /// (a checkout of ww_stdlib, a product's API crates). A path may also be an `api_snapshots/` directory itself.
+    Cache {
+        /// Directories to look for crates under: a checkout, a workspace, one crate
+        #[arg(required = true, value_hint = ValueHint::DirPath)]
+        paths: Vec<PathBuf>,
+    },
+    /// Fetch the API snapshot of a crate version into this user's cache
+    ///
+    /// Looks through what this host has first (snapshots embedded in ww, the cache, Cargo's sources on this machine),
+    /// then crates.io and the GitHub repository `~/.wire_weaver/sources.toml` names for the crate. A miss remembered
+    /// from an earlier fetch is forgotten first. WW_OFFLINE=1, or `offline = true` in sources.toml, turns the fetch
+    /// off.
+    Fetch {
+        /// The crate: `ww_adc`
+        #[arg(value_name = "CRATE")]
+        crate_name: String,
+
+        /// Its version: `0.3.0`
+        #[arg(value_name = "VERSION")]
+        crate_version: String,
     },
     /// Refresh the pinned references of a frozen snapshot to what the source gives (EVO-70)
     ///
@@ -318,6 +343,11 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
         ApiCommand::KeepSuperseded { old, current, into } => {
             save::keep_superseded(old, current, into)
         }
+        ApiCommand::Cache { paths } => snapshots::cache(paths),
+        ApiCommand::Fetch {
+            crate_name,
+            crate_version,
+        } => snapshots::fetch(crate_name, crate_version),
         ApiCommand::RefreshPins {
             path,
             snapshot,

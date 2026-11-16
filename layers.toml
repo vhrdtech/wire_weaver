@@ -1,7 +1,7 @@
-# R9 layer lint (tests/layers_lint): the target layer, 0 to 6, of every crate in every workspace of
-# this repo -- the root workspace, mcu/, examples_mcu/*, fuzz/ and wire_weaver_tool/ -- per
-# ~/git/tpm/prj/P2401-wireweaver/design/architecture-layers.md section 5. A crate the test finds
-# through `cargo metadata` but not listed here fails it.
+# Layer lint (TEST-36, tests/layers_lint): the target layer, 0 to 6, of every crate in every workspace
+# of this repo: the root workspace, mcu/, examples_mcu/*, fuzz/ and wire_weaver_tool/
+# (docs/evolution/crate_layers.md). A crate the test finds through `cargo metadata` but not listed
+# here fails it.
 #
 # Layer 1 (exact_units) and layer 7 (applications: logring, eventfull, firmware repos) are not
 # workspace crates of this repo, so they never appear here.

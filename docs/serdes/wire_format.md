@@ -137,7 +137,10 @@ without `read`, takes no level for it: read nested values with `read` there too.
 
 `bool`, `U1`..`U64` and `I2`..`I64` are bit-aligned, `Nibble`, `UNib32` and `INib32` nibble-aligned, everything else
 byte-aligned. Byte arrays, strings and `Unsized` values are all byte-aligned, to keep the code and the computations
-small. Unused bits are set to zero and can be reclaimed when evolving a type:
+small. A list aligns as its elements do, so an empty list (`Vec<u8>` / `RefVec<u8>` included) writes only its length
+in the FIFO and no alignment: a field after it that starts mid-byte shares the byte of the field before the list. A
+string is one byte-aligned value, so an empty string still aligns. Unused bits are set to zero and can be reclaimed
+when evolving a type:
 
 ```rust
 fn version1() {

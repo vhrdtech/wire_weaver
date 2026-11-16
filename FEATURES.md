@@ -250,6 +250,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   message the writers produce decodes as before. Checked against a bit-level model in every reader state of 1 to
   3 byte buffers (`buf_reader.rs` `bounds_every_state_every_read`) and by round trips of random messages
   (`shrink_wrap/tests/rev_nibble_bounds.rs`).
+- ✅ **SW-81 An empty byte list writes no alignment in the borrowed derive**: a `RefVec<u8>` field of a borrowed
+  type (`ser_shrink_wrap_vec_u8`) wrote a padding byte for an empty list that started mid-byte, where every other
+  writer and every reader take nothing; a field after it that starts mid-byte was read one byte early (a `ww_tape`
+  `TrackDef` with an empty `bundle` failed with `OutOfBoundsReadUN`, a bool after the list read back wrong). The
+  borrowed derive now writes the owned derive's bytes; bytes written before the fix still read where they did.
+  Tests `shrink_wrap/tests/empty_byte_list.rs` (a property test: borrowed and owned give the same bytes), conformance
+  cases `struct.bytes.empty_end`, `struct.bytes.empty_mid`, `struct.bytes.mid`.
 - ✅ **SW-35 Exact `ElementSize` of enums**: a `sized` / `self_describing` enum reports the discriminant plus one
   variant (`ElementSize::one_of`) instead of the sum of all variants without the discriminant; `sized` with variants
   of different sizes is a compile error; user types inside arrays, tuples, ranges and options are counted. Same wire

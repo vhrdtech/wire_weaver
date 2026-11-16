@@ -76,6 +76,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-39 | Byte-wise `memcpy` | Measured savings and downsides of a tiny `memcpy` for very small targets. | serdes/code_size.md#build-settings
 - SW-35 | Exact sizes of enums | `sized` enums report the discriminant plus one variant; variants of different sizes are a compile error. | serdes/size_assumptions.md#enums
 - SW-40 | Strict bit reads | Malformed data near the end of a buffer is an error, never a misread. | serdes/wire_format.md
+- SW-81 | Empty lists take no padding | An empty byte list writes only its length, so the borrowed and owned types give the same bytes. | serdes/wire_format.md#alignment
 - SW-9, DER-4 | Bytes to the end | `TailBytes` takes the rest of the buffer, written without a length; only allowed last. | types.md#special-types
 - SW-18 | Size of the rest of a value | `TailSize<N>`, filled in after writing, so a reader can skip a value or bound it. | serdes/special_types.md#tailsizen-the-size-of-the-rest-of-a-value
 - SW-61 | Lists written in place | `RefVecBuilder` writes a list into the buffer one element at a time, from a loop or an iterator, with no slice and the same bytes. | serdes/special_types.md#refvecbuilder-lists-written-in-place

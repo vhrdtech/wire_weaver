@@ -316,6 +316,12 @@ pub fn table() -> Vec<Typed> {
             },
         )
         .borrowed(borrowed!(Outer<'_>)),
+        case("struct.bytes.empty_end", BytesEndOwned { a: true, b: vec![] })
+            .borrowed(borrowed!(BytesEnd<'_>)),
+        case("struct.bytes.empty_mid", BytesMidOwned { a: true, b: vec![], c: true })
+            .borrowed(borrowed!(BytesMid<'_>)),
+        case("struct.bytes.mid", BytesMidOwned { a: true, b: vec![7], c: true })
+            .borrowed(borrowed!(BytesMid<'_>)),
         case(
             "struct.flags.relocated",
             FlaggedOwned {

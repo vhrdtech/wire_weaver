@@ -87,22 +87,18 @@ impl<'i> RefVec<'i, u8> {
         RefVec::Slice { slice }
     }
 
+    /// Write the list as `#[derive_shrink_wrap]` does for a `Vec<u8>` field of the borrowed form: the same bytes
+    /// as [ser_shrink_wrap](SerializeShrinkWrap::ser_shrink_wrap), so an empty list writes no alignment either.
     pub fn ser_shrink_wrap_vec_u8(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        let len = self.len();
-        let element_count = len;
-        // len == size in bytes when serialized, so this works
-        wr.write_rev_len(element_count)?;
         match self {
-            RefVec::Slice { slice, .. } => {
-                wr.write_raw_slice(slice)?;
-            }
+            RefVec::Slice { slice, .. } => write_plain_list(wr, slice),
             RefVec::Buf { buf, .. } => {
                 let mut buf = *buf;
-                let slice = buf.read_raw_slice(len)?;
-                wr.write_raw_slice(slice)?;
+                // checked when the list was read, see DeserializeShrinkWrap below
+                let slice = buf.read_raw_slice(self.len())?;
+                write_plain_list(wr, slice)
             }
         }
-        Ok(())
     }
 
     pub fn as_slice(&self) -> &[u8] {

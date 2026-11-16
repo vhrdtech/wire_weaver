@@ -1366,3 +1366,29 @@ fn typed_items_hash() {
         .collect();
     assert_eq!(set.len(), 2);
 }
+
+/// A track with an empty bundle and path, no item and not sticky reads back: the empty bundle starts mid-byte,
+/// after the API version's bits (SW-81).
+#[test]
+fn bare_track_round_trips() {
+    let d = Describe::Track(TrackDef {
+        number: UNib32(1),
+        key: 7,
+        clock: UNib32(1),
+        dimensions: RefVec::Slice { slice: &[] },
+        api: FullVersion::new("ww_tap", Version::new(0, 1, 0)),
+        bundle: RefVec::Slice { slice: &[] },
+        path: RefVec::Slice { slice: &[] },
+        item: None,
+        label: "x",
+        sticky: false,
+        kind: TrackKind::Events(EventsDef::INSTANTS),
+    });
+    let mut buf = [0u8; 256];
+    let bytes = d.to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(Describe::from_ww_bytes(bytes), Ok(d.clone()));
+    assert_eq!(
+        DescribeOwned::from_ww_bytes_owned(bytes).map(|o| o.to_ww_bytes_owned()),
+        Ok(Ok(bytes.to_vec()))
+    );
+}

@@ -1022,10 +1022,8 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
- "defmt",
- "serde",
  "serde_json",
- "shrink_wrap",
+ "ww_version",
 ]
 
 [[package]]
@@ -1088,7 +1086,6 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "shrink_wrap",
- "ww_global",
 ]
 
 [[package]]

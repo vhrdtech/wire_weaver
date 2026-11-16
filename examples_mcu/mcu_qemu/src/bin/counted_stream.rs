@@ -1,8 +1,7 @@
 //! Dispatch cost of a counted stream under a 2-level indexed resource (R10): `tests/counted_stream_api`'s
 //! `group[].item[].event`, a framework-only fixture with the same shape (array under array, one counted event
 //! stream at the leaf) `ww_gpio::Bank`/`Pin` had before this bench moved off the stdlib GPIO API (`qemu-ww-gpio`
-//! before the rename). Smaller too (`just zero-cost`, `streams` feature): `fw-z` .text 17192 -> 15204 B (-1988),
-//! .rodata 1912 -> 1788 B (-124); `fw-3` .text 27116 -> 23176 B (-3940), .rodata 1616 -> 1560 B (-56).
+//! before the rename), its stream counted as `ww_gpio::Pin::event` is.
 #![no_main]
 #![no_std]
 
@@ -13,6 +12,7 @@ use cortex_m_rt::entry;
 use cortex_m_semihosting::{debug, hio};
 use wire_weaver::prelude::*;
 use counted_stream_api::Edge;
+use ww_client_server::stream::StreamHead;
 use ww_stream::tx::Counted;
 
 #[entry]
@@ -29,7 +29,7 @@ fn main() -> ! {
     let r = api_server::stream_data_ser()
         .group(0)
         .item(0)
-        .event(&Edge::Rising, &mut scratch);
+        .event(&StreamHead::at(0), &Edge::Rising, &mut scratch);
     writeln!(stdout, "{r:02x?}").unwrap();
 
     let event = [1u8, 2, 3];
@@ -84,16 +84,6 @@ impl ServerState {
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _index_chain: [ww_client_server::ResourceIndex; 2],
     ) {
-    }
-
-    fn sideband_group_item_event(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index_chain: [ww_client_server::ResourceIndex; 2],
-        _sideband: ww_client_server::StreamSideband,
-    ) -> Option<ww_client_server::StreamSideband> {
-        // TODO: None sends no reply
-        None
     }
 
     /// One state for every item: the stream never opens on this fixture.

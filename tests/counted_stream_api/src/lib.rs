@@ -18,7 +18,10 @@ pub trait Group {
 
 #[ww_trait]
 pub trait Item {
-    stream!(event: Edge);
+    /// Edges of this item as they happen: opening the stream starts them, closing it stops them. A counted stream,
+    /// as `ww_gpio::Pin::event` is, so the host learns exactly how many events the device dropped.
+    #[stream(Edge, counted)]
+    fn event();
 }
 
 #[derive_shrink_wrap(

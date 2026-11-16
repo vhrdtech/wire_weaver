@@ -115,6 +115,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - `examples_mcu/mcu_qemu`'s `qemu-global-paths` bench uses a framework-only fixture, `tests/global_paths_api` (`alpha` plus `ww_timebase::Clock`, kept for its real `ww_global` compact id), instead of `ww_dfu` (R10, `architecture-layers.md`).
 - `examples_mcu/mcu_qemu`'s `qemu-counted-stream` bench (renamed from `qemu-ww-gpio`) uses a framework-only fixture, `tests/counted_stream_api` (`group[].item[].event`, a counted stream under a 2-level index), instead of `ww_gpio` (R10, `architecture-layers.md`).
 - `tests/thermo_api` 6.0.0 (breaking, R7): `indication` on every root (`wire_v1`, `wire_v2`, `wire_v3`) is a local `common::Indication`, not `ww_indication::Indication` (`ww_stdlib` is leaving this repo); a trait-identity change, so each root takes a new wire line (`wire_v1` w1.2 -> w5.0, `wire_v2` w2.1 -> w6.0, `wire_v3` w3.0 -> w7.0, chosen past the sentinel line 4 `tests/thermo`'s `a_fourth_line_is_refused` already uses). Nothing in use.
+- Snapshots found by crate name and version through `ww_snapshots` (EVO-80); `wire_weaver_snapshots` is gone. See the `ww_snapshots`, `wire_weaver_core`, `wire_weaver_evolution`, `wire_weaver_client`, `wire_weaver_cli`, `wire_weaver_py` and `ww_self` changelogs.
 
 ### Added
 

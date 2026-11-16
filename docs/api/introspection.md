@@ -30,7 +30,7 @@ A device with introspection off answers with `Close` alone, and the client repor
 client joins the data events in order, so the chunk size is not part of the format.
 
 Traits and types known from the API snapshots of `ww_stdlib` and the framework are left out of what a device sends,
-and the client puts them back (`wire_weaver_snapshots`). What is left is mostly the device's own API and its doc
+and the client puts them back (`ww_snapshots`, [finding snapshots](../evolution/snapshots.md)). What is left is mostly the device's own API and its doc
 comments: on a real board the docs are the larger part.
 
 ## API hashes and the cache

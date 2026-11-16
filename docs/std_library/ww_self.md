@@ -149,11 +149,12 @@ both signatures, the likely cause and the fix: rebuild (reflash) both sides from
 device's firmware once on the host's machine so that its definitions get into the cache. Entries are a few hundred
 bytes each and are never changed; deleting the directory only loses the ability to talk to such devices.
 
-The embedded snapshots keep such definitions too (EVO-68): when `ww api save` refreshes the snapshot of a version not
+The saved snapshots keep such definitions too (EVO-68): when `ww api save` refreshes the snapshot of a version not
 published in place, each definition of the crate's own whose signature with docs changes is kept in the same format,
-in `api_snapshots/superseded/`, and `wire_weaver_snapshots::superseded` finds it by either signature. A refresh that
-happened before is made up for with `ww api keep-superseded`, from the earlier snapshot in git history. A host looks there before
-the cache (`inline_skipped_or_cached`), so a device built before the refresh is understood on any machine;
+in the crate's `api_snapshots/superseded/`, and `ww_snapshots::Resolver::superseded` finds it by either signature,
+wherever the snapshot came from. A refresh that happened before is made up for with `ww api keep-superseded`, from
+the earlier snapshot in git history. A host looks there before the cache (`Resolver::inline_skipped`), so a device
+built before the refresh is understood on any machine;
 `ww_self::inline::inline_skipped_by_signature` takes any such lookup. See
 [superseded definitions](../evolution/inside_the_checker.md#superseded-definitions-evo-68).
 
@@ -174,5 +175,6 @@ remapping.
 hands it to both the server (introspection data a device can send) and client codegen; `wire_weaver_client` uses
 it for the dynamic client, compatibility/evolution checks against a cached bundle, and the generated client's own
 layout; `wire_weaver_cli` and `wire_weaver_py` walk it to print an API tree, introspect a live device, and expose
-it to Python. `wire_weaver_snapshots` stores published crates' bundles so devices can skip their definitions and
-hosts can still resolve and verify them via the signatures above.
+it to Python. `ww_snapshots` finds a crate version's saved bundle (embedded, cached, in Cargo's sources or fetched,
+[finding snapshots](../evolution/snapshots.md)) so devices can skip its definitions and hosts still resolve and
+verify them via the signatures above.

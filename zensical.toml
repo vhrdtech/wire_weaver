@@ -86,6 +86,7 @@ nav = [
                     "evolution/versions.md",
                     "evolution/rules.md",
                     "evolution/checker_tool.md",
+                    "evolution/snapshots.md",
                     "evolution/units_by_meaning.md",
                     "evolution/multi_line_host.md",
                     "evolution/crate_layers.md"

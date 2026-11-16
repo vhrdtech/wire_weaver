@@ -194,6 +194,13 @@ version had and its current snapshot of the same version no longer has, in `DIR`
 that happened before, with the earlier snapshot taken from git history. See
 [superseded definitions](evolution/inside_the_checker.md#superseded-definitions-evo-68).
 
+`ww api cache PATH...` copies the snapshots of every crate under a path (a checkout of `ww_stdlib`, a product's API
+crates, or an `api_snapshots/` directory itself) into this user's cache, `~/.wire_weaver/snapshots/`, each checked
+first. `ww api fetch CRATE VERSION` finds one crate version's snapshot through everything this host has (the
+snapshots embedded in `ww`, the cache, Cargo's sources), then crates.io and the GitHub repository
+`~/.wire_weaver/sources.toml` names for the crate, and says where it found it; `WW_OFFLINE=1` turns the fetch off.
+See [finding snapshots](evolution/snapshots.md).
+
 `ww api refresh-pins CRATE [--snapshot FILE] [--accept-breaking] [--dry-run]` rewrites the pinned references of the
 snapshot of a crate's current version (the signatures of other crates' definitions it leaves out, and those crates'
 versions) to what the source gives, keeping every other byte, for a frozen fixture that follows its dependencies by
@@ -219,15 +226,19 @@ exactly the one that was left out, which catches a crate changed without bumping
 when it compares its API with a device's: a skipped trait or type with the same crate version but a different
 signature makes the resources using it incompatible.
 
-Snapshots of `ww_global` and the `ww_stdlib` crates are embedded into the `wire_weaver_snapshots` crate, used by
-codegen and by `wire_weaver_client` (and so by `ww`). A device leaves traits and types known from them out of its
-introspection data, referring to them by crate version, name and signature, which makes it much smaller (e.g.
-`examples/all_gpio_api` goes from 4363 to 72 bytes). A definition is only left out if it is exactly the one in the
-snapshot, e.g. an unpublished crate version that changed after its snapshot was saved stays in-line. The API hash is
-calculated over the data as sent. Generated clients embed their own API in the same form. A client puts the left out
-definitions back from its own snapshots after download or loading from cache, checking signatures; one it doesn't know (e.g. from a newer `ww_stdlib` crate) stays skipped, and resources using it
-are only checked by crate version and signature. In this repo, `just save-snapshots` saves the snapshots and copies
-them into `wire_weaver_snapshots/api_snapshots/`; a `wire_weaver_core` test fails if any of them is out of date. A snapshot is RON for people to read, its header holds the SHA-256 of the shrink_wrap bytes it stands for (`// shrink_wrap sha256: ..`); `wire_weaver_snapshots` encodes the RON at build time, fails on a mismatch, and embeds only the bytes.
+A device leaves traits and types known from the snapshots of the crates it uses out of its introspection data,
+referring to them by crate version, name and signature, which makes it much smaller (e.g. `examples/all_gpio_api`
+goes from 4363 to 72 bytes). Codegen leaves a definition out only when the dependency's own `api_snapshots/` (in its
+source directory, found through `Cargo.lock`) has exactly the same one: an unpublished crate version that changed
+after its snapshot was saved stays in-line. The API hash is calculated over the data as sent. Generated clients embed
+their own API in the same form. A host puts the left-out definitions back after download or loading from cache,
+checking signatures, through `ww_snapshots` ([finding snapshots](evolution/snapshots.md)): the snapshots embedded in
+`ww` and the Python wheel, the cache `~/.wire_weaver/snapshots/`, Cargo's sources on the machine, then crates.io or
+the crate's repository. One found nowhere stays skipped: its resources are checked by crate version and signature
+only, and a value of it is opaque. In this repo, `just save-snapshots` saves the snapshots of `ww_global`, `ww_tap`
+and every `ww_stdlib` crate into their own `api_snapshots/`; a `wire_weaver_core` test fails if any is out of date. A
+snapshot is RON for people to read, its header holds the SHA-256 of the shrink_wrap bytes it stands for
+(`// shrink_wrap sha256: ..`); every reader encodes the RON and refuses a mismatch, and `ww` embeds only the bytes.
 
 ```
 $ ww api save ww_stdlib/ww_uart

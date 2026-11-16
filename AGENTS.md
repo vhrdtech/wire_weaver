@@ -107,7 +107,7 @@ just test             # everything (test-all: nextest, feature-set runs, Python 
 just lint             # what CI checks besides tests: fmt, cargo sort -w -g, typos, clippy and rustdoc -D warnings, C
 just install          # build ww (--profile deploy) and install it (through our internal release tool when present, else cargo install)
 just build-docs       # build the docs site and check its links
-just save-snapshots   # API snapshots of ww_global, ww_tap, ww_stdlib/* and exact_units into wire_weaver_snapshots
+just save-snapshots   # API snapshots of ww_global, ww_tap and ww_stdlib/* into each crate's own api_snapshots/
 just conformance-update   # fill in golden bytes of new conformance cases
 just jobs=4 test --changed   # caps CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS at 4 for that run (also test-all, lint, check); unset leaves them inherited
 ```
@@ -217,10 +217,14 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   project-local equivalent.
 - **`ww_self/`**, **`ww_global/`**: the API model AST (introspection, snapshots) and the global type ID registry;
   versioned like API crates (`docs/evolution/crate_layers.md`).
-- **`wire_weaver_snapshots/`**: API snapshots of the crates `just save-snapshots` covers; codegen leaves types known
-  from them out of a device's introspection data and the client puts them back. After changing a type there, run
-  `just save-snapshots` (a test fails otherwise). It refreshes the crate's current version, right only for a version
-  never published (`cargo info --registry crates-io <crate>`): bump a published one first.
+- **`ww_snapshots/`**: finds API snapshots by crate name and version (`docs/evolution/snapshots.md`): sets embedded at
+  build time (`ww`, the Python wheel), `~/.wire_weaver/snapshots/`, Cargo's sources on disk, then crates.io or the
+  crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, the one such dependency: rustls
+  needs a crypto provider and no pure-Rust one is audited yet). Every crate keeps its own `api_snapshots/`; codegen
+  leaves types known from a dependency's out of a device's introspection data and the client puts them back. After
+  changing a type in `ww_global`, `ww_tap` or `ww_stdlib/*`, run `just save-snapshots` (a test fails otherwise). It
+  refreshes the crate's current version, right only for a version never published (`cargo info --registry crates-io
+  <crate>`): bump a published one first.
 - **`examples/`**: paired `<name>_api` (trait and types, `no_std`) and `<name>` (server and client) crates, the
   project shape users copy (`docs/api/folder_structure.md`); `examples_mcu/` has firmware per board.
 - **`tests/`**: one integration-test crate per feature, each with a `<name>_api` companion: the best place for minimal
@@ -271,8 +275,9 @@ part of its SemVer contract. Use `ww api check` / `ww api diff` rather than eyeb
 breaks the wire. Which devices and hosts that affects comes from our internal device/host tracking; nothing listed
 means a break costs only its CHANGELOG entry and its `EVO-n` item.
 
-Pinned signatures (the `nucleo_g0b1re_api` evolution fixture's, `wire_weaver_snapshots`') are refreshed by the
-tool, `just save-snapshots` (it calls `just refresh-fixture-pins`), never edited by hand.
+Pinned signatures (the `nucleo_g0b1re_api` evolution fixture's) are refreshed by the tool, `just save-snapshots` (it
+calls `just refresh-fixture-pins`), never edited by hand; `tests/stdlib_evolution` reads the stdlib's pins from the
+snapshot files.
 
 `ElementSize::Sized { size_bits }` is the bits of the value's own fields, padding excluded (`struct { a: bool, b: u8 }`
 is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.

@@ -67,8 +67,9 @@ A snapshot (`api_snapshots/<crate>_<major>_<minor>_<patch>.ron`) holds the crate
 trait or type of another crate that the API uses (a `ww_stdlib` trait, a `ww_si` unit) is not copied in: the snapshot
 names it by its crate, the crate's version and a signature, and leaves the definition out. A device's introspection
 data does the same, so a device doesn't spend flash on definitions every host already knows. The definitions are
-found again by signature: in the snapshots built into the checker and `ww` (`wire_weaver_snapshots`), in the source
-the checker walked, and in the [definition cache](../std_library/ww_self.md#the-definition-cache) of a host.
+found again by signature: in the `api_snapshots/` of the crates the checker walked, in the snapshots `ww` embeds and
+the other sources of a host ([finding snapshots](snapshots.md)), and in the
+[definition cache](../std_library/ww_self.md#the-definition-cache) of a host.
 
 That makes the signature the identity of a definition, and three things follow from it. A definition can change
 without its crate version changing; the snapshot that defined it is refreshed and the old definition would be gone; a
@@ -142,21 +143,21 @@ ww_stdlib/ww_indication/api_snapshots/superseded/ww_indication_0_1_0-trait-Indic
 * A file holds the same bytes the [definition cache](../std_library/ww_self.md#the-definition-cache) keeps for a
   device's definitions: the definition and everything it refers to, in-line, which its signature is the hash of, so a
   file that was changed fails to load.
-* `just save-snapshots` copies them into `wire_weaver_snapshots`, which builds them in next to the snapshots
-  (`wire_weaver_snapshots::superseded`), and the checker finds a definition by its signature there when the snapshot
-  of its crate version has another one: a trait changed in place is then compared resource by resource, a type field
+* They stay in the crate's `api_snapshots/superseded/`, next to its snapshots, and travel with them: `ww` embeds
+  them, the cache keeps them, a fetch takes them. The checker finds a definition by its signature there
+  (`ww_snapshots::Resolver::superseded`) when the snapshot of its crate version has another one: a trait changed in place is then compared resource by resource, a type field
   by field, as above. A client putting a device's definitions back finds them the same way.
 * Commit the files with the refreshed snapshots.
-* The old definitions of the other crates it refers to must be known when the refresh runs (the snapshots built into
-  `ww`, or what an earlier refresh kept): otherwise `ww api save` warns that the definition can't be kept.
+* The old definitions of the other crates it refers to must be known when the refresh runs (the walked crates'
+  snapshots, what an earlier refresh kept, or the snapshots `ww` embeds): otherwise `ww api save` warns that the definition can't be kept.
 
 A refresh that happened before these files existed is made up for from git history: take the earlier snapshot and
 keep what the current one no longer has.
 
 ```sh
-git show 8446b3979:wire_weaver_snapshots/other_repos/exact_units_0_1_0.ron > old.ron
-ww api keep-superseded old.ron --current wire_weaver_snapshots/other_repos/exact_units_0_1_0.ron \
-    --into wire_weaver_snapshots/other_repos/superseded
+git show <earlier-commit>:ww_stdlib/ww_error/api_snapshots/ww_error_0_1_0.ron > old.ron
+ww api keep-superseded old.ron --current ww_stdlib/ww_error/api_snapshots/ww_error_0_1_0.ron \
+    --into ww_stdlib/ww_error/api_snapshots/superseded
 ```
 
 The earlier snapshot must parse with today's model, and the definitions of other crates it refers to must be known,
@@ -193,7 +194,7 @@ ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api
 * In this repository `just refresh-fixture-pins` runs it, and `just save-snapshots` calls that at its end.
 * No signature bytes are edited by hand: the fixture's tests require a wire-compatible verdict against the live
   `ww_stdlib` (not "no changes"), the older-format checks run on a copy with refreshed pins, and
-  `wire_weaver_snapshots`' `signatures_from_before_marker_definitions` reads its pins from the snapshot files.
+  `tests/stdlib_evolution`'s `signatures_from_before_marker_definitions` reads its pins from the snapshot files.
 * The tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture` and
   `breaking_stdlib_change_fails_the_fixture` in `wire_weaver_evolution` hold this in place.
 

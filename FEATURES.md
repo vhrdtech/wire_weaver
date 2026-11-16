@@ -2101,6 +2101,22 @@ Unicast Data0 to one node over the same bus is TR-6.
 
 ## Evolution, versioning and compatibility (`EVO`)
 
+- ✅ **EVO-80 Snapshots resolved by crate name and version** · `v0.5` — the central copy `wire_weaver_snapshots` is
+  gone: every crate keeps its own `api_snapshots/`, and `ww_snapshots::Resolver` finds a snapshot through a chain:
+  sets an application embedded at build time (`ww_snapshots::build::workspace_set` in `build.rs`, every crate with
+  `api_snapshots/` in the lock; `ww` and the Python wheel embed theirs), directories the caller named (codegen and
+  `ww api save`/`check`: the walked crates' `api_snapshots/` and nothing else, so a build is deterministic), the cache
+  `~/.wire_weaver/snapshots/` (`ww api cache PATH...`), Cargo's sources on disk through `Cargo.lock` and `CARGO_HOME`,
+  then a fetch from crates.io or the crate's GitHub repository (`~/.wire_weaver/sources.toml`, `WW_OFFLINE=1`,
+  `ww api fetch CRATE VERSION`; hosts only, the checker never fetches). Every file is checked against its SHA-256
+  header and crate version, every size and count is bounded (`ww_snapshots::limits`), and a definition is put back
+  only when its shape signature matches what the device sent. A value whose type has no definition anywhere is
+  `ww_self::Value::Opaque` (crate, version, name, signature, bytes), printed by `ww` with a hint, `ww.Opaque` in
+  Python, refused when sent. `just save-snapshots` saves `ww_global`, `ww_tap` and `ww_stdlib/*` in place;
+  exact_units keeps its snapshot in its own repository. `docs/evolution/snapshots.md`; tests `ww_snapshots`,
+  `tests/stdlib_evolution` (`snapshots_can_be_inlined`, `superseded_definitions_load`,
+  `signatures_from_before_marker_definitions`), `wire_weaver_client` `compat`, `ww_self`
+  `generics::instance_of_skipped_definition_stays`.
 - ✅ **EVO-74 A `#[ww_trait]` moved into its own `pub mod` kept its root item** · `v0.5` — found splitting
   `ww_stdlib` crates into topic modules (P2401#13nov-0647b): `load_crate`'s whole-crate snapshot path scanned only
   `entry.lib_rs_ast.items` (the crate root file's own top-level items) for a trait to give its own
@@ -2139,8 +2155,8 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **EVO-4 Global traits referenced by hash**, global type registry (`ww_global`): one id per `crate::Trait` for every
   public `ww_stdlib` trait, by hand in `wire_weaver_gid.json`, renames keep the id through `aliases`, ids never
   reused (`retired`), `assigned_ids.lock` append-only and checked; `ww api check` flags a changed id (API-20).
-- ✅ **EVO-5 API snapshots** of `ww_global` and `ww_stdlib` (`wire_weaver_snapshots`, `ww api save`), left out of
-  introspection data and put back by the client.
+- ✅ **EVO-5 API snapshots** of `ww_global` and `ww_stdlib` (each crate's `api_snapshots/`, `ww api save`), left out
+  of introspection data and put back by the client (found as EVO-80 says).
 - ✅ **EVO-6 Evolution checker and report**: `ww api check` / `ww api diff` (`docs/evolution/checker_tool.md`).
 - ✅ **EVO-9 Skipped definitions from another revision** · `v0.5.x` — codegen keeps every definition it leaves out
   of a device's introspection data in `~/.wire_weaver/definitions/` by signature; a host that doesn't find a skipped
@@ -2353,7 +2369,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   latest. The crate's whole-crate files from before it had several roots are read as earlier snapshots of the root
   on their line with the same trait name (`snapshot_files::root_snapshots`); a root with no earlier snapshot while
   the crate has older ones is saved with a warning naming what was looked for and what is there. Crates with one
-  root or none and `ww_stdlib` keep whole-crate files; per-root files in `wire_weaver_snapshots` and `just
+  root or none and `ww_stdlib` keep whole-crate files; per-root files for `ww_snapshots` and `just
   save-snapshots` are EVO-46, `ww api check` of such a crate EVO-39. Docs:
   `docs/evolution/checker_tool.md#several-api-roots-in-one-crate`; tests `wire_weaver_evolution` `snapshots_per_root`,
   `crate_snapshot_is_a_roots_previous_one`, `renamed_root_is_saved_with_a_warning`, `wire_weaver_core`
@@ -2423,13 +2439,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   since API-46) goes unreported, and the model names a trait by crate and name only. The walker notes each trait's
   module (`SourceNotes::trait_modules`, EVO-42), but snapshots don't record it. Report a changed path as a move,
   `Rule::Signature`, Rust only, for types now and for traits once snapshots carry their module.
-- 📋 **EVO-46 Per-root snapshots for stdlib and `wire_weaver_snapshots`** · `v0.5` — a `ww_stdlib` (or `ww_global`,
-  `ww_tap`) crate with a `roots` table has no whole-crate snapshot today: `load_crate` refuses it, so
-  `wire_weaver_snapshots` can't embed it, `just save-snapshots` saves only its per-root files (which the build script
-  skips, EVO-38), and a device's skipped items from it can't be put back by crate version. Decide how such a crate is
-  embedded (a whole-crate snapshot of its shared types and traits next to the per-root files, or the per-root files
-  keyed by crate and root), then make `wire_weaver_snapshots`, its `get`/`all`/`files` and `just save-snapshots`
-  take it.
+- 📋 **EVO-46 Per-root snapshots for stdlib crates** · `v0.5` — a `ww_stdlib` (or `ww_global`, `ww_tap`) crate with a
+  `roots` table has no whole-crate snapshot today: `load_crate` refuses it, `just save-snapshots` saves only its
+  per-root files (which `ww_snapshots` leaves out, EVO-38), and a device's skipped items from it can't be put back by
+  crate version. Decide how such a crate's snapshots are found (a whole-crate snapshot of its shared types and traits
+  next to the per-root files, or the per-root files keyed by crate and root), then make `ww_snapshots::Resolver`,
+  `Dir::files` and `ww_snapshots::build` take it.
 - ✅ **EVO-33 Checker findings on a new line read cleanly** · `v0.5` — found by the EVO-28 bench's line break: the root's
   own unchanged sub-trait (`Channel`) is reported as a wire break of its own, with the old crate version as the new
   label (`thermo_api@1.2.0` for 2.1.0); a resource replaced in place reads as a rename with another argument
@@ -2505,9 +2520,9 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **EVO-68 Superseded definitions** · `v0.5` — EVO-67 for a dependency's trait, and after its snapshot was
   refreshed in place: `ww api save` keeps each own definition whose signature a refresh in place changes, in the
   definition cache's format (`api_snapshots/superseded/<crate>_<version>-<kind>-<name>-<signature>.ww`,
-  `wire_weaver_evolution::superseded`), `just save-snapshots` copies them into `wire_weaver_snapshots`, which embeds
-  them (`wire_weaver_snapshots::superseded`, also used by `inline_skipped` and `inline_skipped_or_cached`), and the
-  checker finds a definition by signature there and compares a trait changed in place resource by resource. Found by
+  `wire_weaver_evolution::superseded`), they stay with the crate's snapshots wherever `ww_snapshots` finds those
+  (`Resolver::superseded`, also used by `Resolver::inline_skipped`; EVO-80), and the checker finds a definition by
+  signature there and compares a trait changed in place resource by resource. Found by
   `tests/thermo_api`'s frozen line snapshots, which name `ww_indication::Indication` by a signature that changed
   with `ww_error::CommonError` (same bytes): they read as needing a new wire line once both snapshots were refreshed
   (`docs/evolution/inside_the_checker.md#superseded-definitions-evo-68`; `wire_weaver_evolution` tests
@@ -2536,7 +2551,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   and dependency versions to the source's, keeping its format, refused on a wire break unless `--accept-breaking`;
   `just refresh-fixture-pins` runs it on the `nucleo_g0b1re_api` fixture, which follows the live `ww_stdlib` by path
   on purpose, and `just save-snapshots` calls it. The fixture's tests require a wire-compatible verdict instead of
-  "no changes", the EVO-13 checks run on a copy with refreshed pins, and `wire_weaver_snapshots`'
+  "no changes", the EVO-13 checks run on a copy with refreshed pins, and `tests/stdlib_evolution`'s
   `signatures_from_before_marker_definitions` reads its pins from the snapshot files: no signature bytes are edited
   by hand (`docs/evolution/inside_the_checker.md#a-snapshot-saved-by-an-older-wire_weaver-evo-70`; `wire_weaver_evolution`
   tests `old_format_snapshot_passes_against_unchanged_source`, `compatible_stdlib_change_passes_the_fixture`,
@@ -2585,7 +2600,6 @@ Unicast Data0 to one node over the same bus is TR-6.
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
-- 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
 - ✅ **EVO-17 Units compared by meaning** · `v0.5` — markers with a definition in the model (INT-13) are compared by
   it: the unit and scale of a `Fixed` multiplied into one step (dimension and exact factor), so another spelling of
   the same step is compatible (`Milli` → `Pow10<-3>`, `Volt, Milli` → `MilliVolt, One`, listed as `same value`), and
@@ -3618,6 +3632,8 @@ Unicast Data0 to one node over the same bus is TR-6.
 
 ## Dropped and superseded
 
+- **EVO-8 Snapshots of crates.io crates** — superseded by EVO-80: a host fetches a published crate's snapshot from
+  its `.crate` archive on crates.io, or from the crate's repository.
 - **SW-80 A small-field bit read without the word read** — dropped (Roman, 14 Nov 2026): real firmware links the bit
   reader anyway. It was a read for bit fields of 8 bits or less that would spare a firmware without wider ones
   shrink_wrap's word read (about 250 B on a Cortex-M0+, since EVO-76 linked by every server for `Request`'s 3-bit

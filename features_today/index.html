@@ -6664,6 +6664,7 @@ feature tracker.</p>
 <li><strong><a href="../transport/tap/#track-identity">Tape track identity by name</a></strong>: A track's key hashes its resource names and the keys of keyed arrays, so two runs that number things differently give the same ids.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape summaries across scales</a></strong>: Series summaries stay exact when an autoranging device changes prefix: each block states its scale, nodes merge at a common one.</li>
 <li><strong><a href="../transport/tap/#sample-codecs">Tape ALP float codec</a></strong>: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.</li>
+<li><strong><a href="../transport/tap/#tape-blocks">Tape summary kernels</a></strong>: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape hardening</a></strong>: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>

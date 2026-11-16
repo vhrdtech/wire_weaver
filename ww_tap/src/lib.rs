@@ -257,7 +257,7 @@ pub enum FramerChecksum {
     Crc16IbmSdlc {
         full: bool,
     },
-    /// `CrcChecksum<Crc32IsoHdlc, FULL>` (`ww_link::LinkCrc32` is the same algorithm): split messages always, Full
+    /// `CrcChecksum<Crc32IsoHdlc, FULL>` (`ww_link::UdpChecksum` is the one with `full`): split messages always, Full
     /// ones when `full`.
     Crc32IsoHdlc {
         full: bool,

@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f73ff5835b1189fa593b531e52381bbfa44b4a2caa86f9e13630c4f25952d6c9
+// shrink_wrap sha256: cdf7c477e8ae4cd36321ee3fb242a8a8f19ad0c77ad6f4cc7aead0b211001cc0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -146,7 +146,7 @@
             (ident: Some("full"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
-            "`CrcChecksum<Crc32IsoHdlc, FULL>` (`ww_link::LinkCrc32` is the same algorithm): split messages always, Full",
+            "`CrcChecksum<Crc32IsoHdlc, FULL>` (`ww_link::UdpChecksum` is the one with `full`): split messages always, Full",
             "ones when `full`.",
         ], ident: "Crc32IsoHdlc", fields: Named([
             (ident: Some("full"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),

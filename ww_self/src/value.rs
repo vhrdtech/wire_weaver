@@ -561,7 +561,9 @@ fn opaque_field(
     api_bundle: &ApiBundleOwned,
 ) -> Result<ValueOwned> {
     if !matches!(ty.is_unsized(api_bundle), Ok(true)) {
-        bail!("{skipped} has no definition on this host, and its size is needed to read what follows");
+        bail!(
+            "{skipped} has no definition on this host, and its size is needed to read what follows"
+        );
     }
     let len = rd.read_rev_len()?;
     let mut rd = rd.split(len)?;

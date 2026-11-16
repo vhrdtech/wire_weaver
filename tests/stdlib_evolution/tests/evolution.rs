@@ -5,9 +5,10 @@
 //! `cargo test -p <crate> --no-default-features --features ..` when the dependency sat on the crate itself. Kept
 //! here instead, where nothing needs those crates narrow. `WW_API_SAVE=1 cargo test -p stdlib_evolution --test
 //! evolution <crate>` saves that crate's current version's snapshot (`ww api save ww_stdlib/<crate>` does the
-//! same). `ww_link` is checked here too: its link setup payloads (`DeviceInfo`, `LinkSetup`, ...) are on its wire
-//! line, whose line is the link generation of the frozen hello (EVO-71), so a break there asks for `w2.0` and the
-//! hello follows.
+//! same, or `ww api save <crate>` for one at the repo root). `ww_link` is checked here too: its link setup
+//! payloads (`DeviceInfo`, `LinkSetup`, ...) are on its wire line, whose line is the link generation of the frozen
+//! hello (EVO-71), so a break there asks for `w2.0` and the hello follows. `ww_client_server` and `ww_timebase`
+//! left `ww_stdlib/` for the repo root (R5) but are still checked here, as `ww_link` is.
 
 use std::path::Path;
 use wire_weaver_evolution::Check;
@@ -58,7 +59,7 @@ fn ww_can_bus() {
 
 #[test]
 fn ww_client_server() {
-    check("ww_client_server");
+    check_at(Path::new("ww_client_server"));
 }
 
 #[test]
@@ -178,7 +179,7 @@ fn ww_spi() {
 
 #[test]
 fn ww_timebase() {
-    check("ww_timebase");
+    check_at(Path::new("ww_timebase"));
 }
 
 #[test]

@@ -16,6 +16,7 @@ members = [
     "wire_weaver_py",
     "wire_weaver_snapshots",
     "ww_bus_slave",
+    "ww_client_server",
     "ww_clock_sync",
     "ww_defmt_logger",
     "ww_device",
@@ -36,6 +37,7 @@ members = [
     "ww_tape",
     "ww_tape_benchmarks",
     "ww_tape_fuzz",
+    "ww_timebase",
 ]
 
 exclude = [
@@ -147,19 +149,20 @@ ww_stm32_dfu = { package = "stm32_dfu_host", version = "0.1.0", path = "./stm32_
 ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false }
 
 # framework-level base types, each crate has its own version
+ww_client_server = { version = "0.2.0", path = "./ww_client_server", default-features = false }
 ww_global = { version = "0.2.0", path = "./ww_global" }
 ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = false }
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_tape = { version = "0.1.0", path = "./ww_tape", default-features = false }
+ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
 
 # ww_stdlib, each crate has its own version
 ww_adc = { version = "0.3.0", path = "./ww_stdlib/ww_adc", default-features = false }
 ww_block = { version = "0.1.0", path = "./ww_stdlib/ww_block", default-features = false }
 ww_board_info = { version = "0.3.0", path = "./ww_stdlib/ww_board_info", default-features = false }
 ww_can_bus = { version = "0.1.0", path = "./ww_stdlib/ww_can_bus", default-features = false }
-ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_counters = { version = "0.1.0", path = "./ww_stdlib/ww_counters", default-features = false }
 ww_date_time = { version = "0.1.0", path = "./ww_stdlib/ww_date_time", default-features = false }
 ww_dfu = { version = "0.1.0", path = "./ww_stdlib/ww_dfu", default-features = false }
@@ -184,7 +187,6 @@ ww_sd = { version = "0.1.0", path = "./ww_stdlib/ww_sd", default-features = fals
 ww_si = { version = "0.5.0", path = "./ww_stdlib/ww_si", default-features = false }
 ww_signal_generator = { version = "0.1.0", path = "./ww_stdlib/ww_signal_generator", default-features = false }
 ww_spi = { version = "0.1.0", path = "./ww_stdlib/ww_spi", default-features = false }
-ww_timebase = { version = "0.1.0", path = "./ww_stdlib/ww_timebase", default-features = false }
 ww_uart = { version = "0.1.0", path = "./ww_stdlib/ww_uart", default-features = false }
 ww_uid = { version = "0.1.0", path = "./ww_stdlib/ww_uid", default-features = false }
 ww_user_info = { version = "0.1.0", path = "./ww_stdlib/ww_user_info", default-features = false }

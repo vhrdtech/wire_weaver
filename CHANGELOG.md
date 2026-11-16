@@ -103,6 +103,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Layer lint (R9, TEST-36): `/layers.toml` gives every crate of every workspace in the repo a target layer, 0 to 6 (the architecture layers plan); `tests/layers_lint` reads each workspace's `cargo metadata` and fails on a crate missing from the table or an un-allow-listed edge from a lower layer to a higher one. 22 of today's upward edges are allow-listed under the refactor (R4, R7, R8) that removes them.
 - `ww_tape` track identity by name path (STD-125): `track_key` over names, indices and keys, `TrackDef.keys`. See the `ww_tape` and `ww_tap` changelogs.
 - The borrowed derive no longer pads an empty `RefVec<u8>` field to a byte (SW-81): such a value read back corrupt or failed. See the `shrink_wrap` changelog.
+- `ww_timebase` and `ww_client_server` leave `ww_stdlib/` for the repo root, beside `ww_link` and `ww_framer` (architecture-layers.md R5): they are framework by content, not standard APIs; names and versions unchanged, their `repository` metadata now points at `wire_weaver` instead of `ww_stdlib`. See the `ww_timebase` and `ww_client_server` changelogs.
 
 ### Added
 

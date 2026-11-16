@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Client-server API model data types for both no_std and std."
 edition.workspace = true
 license.workspace = true
-repository = "https://github.com/vhrdtech/ww_stdlib"
+repository.workspace = true
 
 [package.metadata.wire_weaver]
 # its line is the GENERATION in the link setup hello (EVO-23): a wire break bumps it

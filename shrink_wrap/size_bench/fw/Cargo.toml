@@ -55,7 +55,7 @@ final = []
 
 [dependencies]
 shrink_wrap = { path = "../../shrink_wrap", default-features = false }
-ww_client_server = { path = "../../../ww_stdlib/ww_client_server", default-features = false, optional = true }
+ww_client_server = { path = "../../../ww_client_server", default-features = false, optional = true }
 
 # Same as fpga_tools tools/busgen/fw (QERV softcore, 8 KB of RAM for code, data and stack)
 [profile.release]

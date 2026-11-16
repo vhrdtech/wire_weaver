@@ -33,12 +33,9 @@
 * `ww_sd` - Raw SD card access: state, registers, init report, raw commands with response, status bits and timing.
 * `ww_indication` - Device indication LED control API.
 
-### Meta
-
-* `ww_client_server` - Client-server API model data types for both no_std and std.
-
-`ww_self` (API model AST for introspection) and `ww_global` (ID registry) are part of the framework itself and live in
-the [WireWeaver](https://github.com/vhrdtech/wire_weaver) repo root.
+`ww_self` (API model AST for introspection), `ww_global` (ID registry), `ww_client_server` (the client-server API
+model) and `ww_timebase` (device clock and time synchronisation) are part of the framework itself and live in the
+[WireWeaver](https://github.com/vhrdtech/wire_weaver) repo root.
 
 ## What is a global trait?
 

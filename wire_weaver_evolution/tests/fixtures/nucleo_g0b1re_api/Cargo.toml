@@ -53,4 +53,4 @@ ww_dfu = { path = "../../../../ww_stdlib/ww_dfu", default-features = false }
 ww_pin_diag = { path = "../../../../ww_stdlib/ww_pin_diag", default-features = false }
 # `leds` and `clock`: LD4's indication, the clock a host steers onto UTC
 ww_indication = { path = "../../../../ww_stdlib/ww_indication", default-features = false }
-ww_timebase = { path = "../../../../ww_stdlib/ww_timebase", default-features = false }
+ww_timebase = { path = "../../../../ww_timebase", default-features = false }

@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚙️ Miscellaneous Tasks
+
+- Crate moved from `ww_stdlib/ww_client_server` to the repo root, beside `ww_link` and `ww_framer` (architecture-layers.md R5): framework by content, not a standard API. Name and version unchanged; `repository` now points at `wire_weaver` instead of `ww_stdlib`.
+
 ### ⚠️ Breaking
 
 - Wire (EVO-76): `Request::priority` is a `U3` (`wire_weaver::Priority`, 8 levels, `NORMAL` 2, urgent from 4) followed by a new `reserved: bool`, the same 4 bits after `seq` that the `Nibble` took. The reserved bit is written `false` and ignored on read, kept for a later use beside the priority. A default request has the same bytes as before (`NORMAL`'s 3 bits and the reserved 0 are the old `NORMAL` nibble); other levels read differently, so hosts, devices and hubs are rebuilt together. Code building a `Request` by hand writes `priority: Priority::NORMAL.to_wire(), reserved: false`. `Request::peek_priority` reads the 3 bits. Flash: a server with no other bit field links shrink_wrap's word read for it, the one-method floor on a Cortex-M0+ is 260 B larger at `opt-level = "z"` (12558 → 12818 B, `just flash-budget`); images that read bit fields already move by -60..+72 B.

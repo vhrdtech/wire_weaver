@@ -27,7 +27,7 @@ panic-semihosting = { version = "0.7", features = ["exit"] }
 static_cell = "2.1"
 
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
-ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
+ww_client_server = { path = "../../ww_client_server", default-features = false }
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_framer = { path = "../../ww_framer" }
 ww_link = { path = "../../ww_link" }

@@ -1764,13 +1764,14 @@ mod tests {
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        // as `just save-snapshots`: ww_global, the link tap's records, exact_units, ww_stdlib; each crate with the
-        // directory its snapshots are saved in
+        // as `just save-snapshots`: ww_global, the link tap's records, ww_timebase, exact_units, ww_stdlib; each
+        // crate with the directory its snapshots are saved in
         let own = |path: std::path::PathBuf| (path.join("api_snapshots"), path);
         let ww_si = root.join("ww_stdlib").join("ww_si");
         let mut crate_paths = vec![
             own(root.join("ww_global")),
             own(root.join("ww_tap")),
+            own(root.join("ww_timebase")),
             // in its own repository: from the source ww_si uses, saved here
             (
                 root.join("wire_weaver_snapshots").join("other_repos"),
@@ -1779,8 +1780,7 @@ mod tests {
         ];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
             let path = entry.unwrap().path();
-            // ww_client_server is the protocol itself, not used in APIs
-            if path.join("Cargo.toml").exists() && !path.ends_with("ww_client_server") {
+            if path.join("Cargo.toml").exists() {
                 crate_paths.push(own(path));
             }
         }

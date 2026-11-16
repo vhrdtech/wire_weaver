@@ -30,7 +30,8 @@ agreeing on anything else: `ww info` reads the firmware info of any device that 
 
 All crates are `no_std` by default; the `std` feature adds owned types (`..Owned`, `String` instead of `&str`) for
 host code. Most of them live under `ww_stdlib/` in this repo (canonical home: `vhrdtech/ww_stdlib`); the framework
-crates `ww_self` and `ww_global` live in the `wire_weaver` repo root, versioned the same way.
+crates `ww_self`, `ww_global`, `ww_client_server` and `ww_timebase` live in the `wire_weaver` repo root, each still
+versioned on its own.
 
 ## Picking crates
 
@@ -62,7 +63,8 @@ queried at runtime, one `configure()` call per bus, common errors, typed `ww_si`
   block capture
 * [`ww_pwm`](ww_pwm.md) — `Pwm`, `PwmCapture`: PWM outputs, pulse and frequency measurement
 * [`ww_onewire`](ww_onewire.md) — `OneWire`: reset, ROM search, addressed transactions, strong pull-up
-* [`ww_timebase`](ww_timebase.md) — `Clock`: device time, clock sync (master/slave), time of day
+* [`ww_timebase`](ww_timebase.md) — `Clock`: device time, clock sync (master/slave), time of day (repo root, not
+  `ww_stdlib/`)
 * [`ww_logic_analyzer`](ww_logic_analyzer.md) — `LogicAnalyzer`, `LogicStream`: timestamped capture of many digital
   channels
 * [`ww_signal_generator`](ww_signal_generator.md) — `PatternGenerator`, `WaveformGenerator`: digital pattern
@@ -116,7 +118,7 @@ Used by the codegen and introspection; an API crate rarely depends on these dire
 * [`ww_version`](ww_version.md) — `Version`, `FullVersion` (SemVer, with pre and build strings), `CompactVersion`
   (a global type id and the version numbers): how an API is identified on the wire
 * [`ww_client_server`](ww_client_server.md) — `Request`, `Event`, `Error`: the protocol every generated server and
-  client speaks underneath a device's own API
+  client speaks underneath a device's own API (repo root, not `ww_stdlib/`)
 * [`ww_self`](ww_self.md) — `ApiBundle`, `ApiLevel`, `Type`, `Value`: WireWeaver's model of an API and its types,
   for introspection and dynamic access (repo root, not `ww_stdlib/`)
 

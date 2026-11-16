@@ -1,5 +1,7 @@
 //! Every public `#[ww_trait]` / `#[ww_api_root]` in `ww_stdlib` has an id in `ww_global/wire_weaver_gid.json` (or is
 //! listed in its `no_id`), and every trait entry of a `ww_stdlib` crate names a trait that exists (or is retired).
+//! `ww_client_server` and `ww_timebase` left `ww_stdlib/` for the repo root (R5) but are walked here too, so their
+//! traits (`ww_timebase::Clock`) stay covered.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -42,12 +44,19 @@ fn traits_in(items: &[syn::Item], crate_name: &str, out: &mut BTreeSet<String>) 
     }
 }
 
-/// `crate::Trait` of every public API trait in `ww_stdlib`, and the crate names.
+/// `crate::Trait` of every public API trait in `ww_stdlib`, plus `ww_client_server` and `ww_timebase` which left
+/// `ww_stdlib/` for the repo root (R5), and the crate names.
 fn stdlib_traits() -> (BTreeSet<String>, BTreeSet<String>) {
-    let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../ww_stdlib");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let stdlib = root.join("ww_stdlib");
     let (mut traits, mut crates) = (BTreeSet::new(), BTreeSet::new());
-    for entry in std::fs::read_dir(&stdlib).unwrap() {
-        let dir = entry.unwrap().path();
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(&stdlib)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    dirs.push(root.join("ww_client_server"));
+    dirs.push(root.join("ww_timebase"));
+    for dir in dirs {
         let Ok(manifest) = std::fs::read_to_string(dir.join("Cargo.toml")) else {
             continue;
         };

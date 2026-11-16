@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚙️ Miscellaneous Tasks
+
+- Crate moved from `ww_stdlib/ww_timebase` to the repo root, beside `ww_link` and `ww_framer` (architecture-layers.md R5): framework by content, not a standard API. Name and version unchanged; `repository` now points at `wire_weaver` instead of `ww_stdlib`.
+
 ### ⚠️ Breaking
 
 - Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).

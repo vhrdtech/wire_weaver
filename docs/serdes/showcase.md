@@ -5,7 +5,7 @@ level: advanced
 # Showcase
 
 A tour of `shrink_wrap` tricks, from plain bit-packing to self-referential types, illustrated with real code from
-`wire_weaver` itself and from the `ww_stdlib` crates (`ww_version`, `ww_date_time`, `ww_client_server`, `ww_self`).
+`wire_weaver` itself and from crates built on it (`ww_version`, `ww_date_time`, `ww_client_server`, `ww_self`).
 Every byte sequence shown below was produced by actually running the snippet - none of it is hand-waved.
 
 Read [ShrinkWrap](shrink_wrap.md), [derive](derive.md) and [size assumptions](size_assumptions.md) first if you

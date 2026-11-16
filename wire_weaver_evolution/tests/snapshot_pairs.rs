@@ -1,7 +1,7 @@
-//! Every saved snapshot of `ww_global`, `ww_tap` and the `ww_stdlib` crates, checked against the snapshot of the
-//! version before it, as `ww api check <snapshot>` does: both the crate and the wire version must be bumped enough
-//! (EVO-27). A wrong wire version on an older snapshot, or a released snapshot that changed, shows here, not only
-//! when someone runs the check by hand.
+//! Every saved snapshot of `ww_global`, `ww_tap`, `ww_client_server`, `ww_timebase` and the `ww_stdlib` crates,
+//! checked against the snapshot of the version before it, as `ww api check <snapshot>` does: both the crate and
+//! the wire version must be bumped enough (EVO-27). A wrong wire version on an older snapshot, or a released
+//! snapshot that changed, shows here, not only when someone runs the check by hand.
 
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
@@ -9,7 +9,12 @@ use wire_weaver_evolution::{Check, Outcome};
 
 /// The crate directories `just save-snapshots` saves snapshots of.
 fn snapshot_crates(root: &Path) -> Vec<PathBuf> {
-    let mut crates = vec![root.join("ww_global"), root.join("ww_tap")];
+    let mut crates = vec![
+        root.join("ww_global"),
+        root.join("ww_tap"),
+        root.join("ww_client_server"),
+        root.join("ww_timebase"),
+    ];
     let mut stdlib: Vec<PathBuf> = std::fs::read_dir(root.join("ww_stdlib"))
         .unwrap()
         .map(|entry| entry.unwrap().path())

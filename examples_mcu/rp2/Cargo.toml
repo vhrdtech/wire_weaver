@@ -44,7 +44,7 @@ blinky_api = { path = "../../examples/blinky_api", default-features = false }
 wire_weaver_usb_embassy = { path = "../../mcu/wire_weaver_usb_embassy", optional = true }
 ww_device = { path = "../../ww_device", features = ["defmt", "embassy-time"] }
 wire_weaver = { path = "../../wire_weaver", default-features = false, features = ["defmt"] }
-ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features = false }
+ww_client_server = { path = "../../ww_client_server", default-features = false }
 defmt_log_api = { path = "../../examples/defmt_log_api", optional = true }
 ww_defmt_logger = { path = "../../ww_defmt_logger", features = ["rtt"], optional = true }
 ww_log = { path = "../../ww_stdlib/ww_log", default-features = false, features = ["defmt"], optional = true }

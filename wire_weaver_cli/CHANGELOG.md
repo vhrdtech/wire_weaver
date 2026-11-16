@@ -3,6 +3,7 @@
 ### ⚠️ Breaking
 
 - The `ww` binary is the crate `ww` in `ww_tools/ww` (TOOL-36): `cargo install --git .. ww`, `cargo build -p ww`; `wire_weaver_cli` is a library only.
+- `ww api keep-superseded` resolves the definitions of other crates through `ww_snapshots::Resolver::global()` (EVO-80).
 - `ww dfu status` talks `ww_dfu` on wire `w2.0` (EVO-65): it prints the running image's security counter next to its version and the security floor (was the version floor), and a device on the old `w1` line is no longer understood.
 - `ww api save` refreshes the snapshot of the crate's current version when the source changed, instead of refusing without `--force` (EVO-12); `--force` now only saves a version not bumped enough since the previous version's snapshot. An older version's snapshot is never written. A released version's snapshot still never changes: bump the version first.
 - `--elf` is one global flag now (TOOL-20): `ww counters --elf X` and `ww report --elf X` work as before, `--elf` also goes before the subcommand, and with `--rtt` it gives the RTT control block. `WW_ELF` and the `elf` key in `ww.toml` are for the control block only; `counters` and `report` still look up the ELF by build id unless `--elf` is on the command line.

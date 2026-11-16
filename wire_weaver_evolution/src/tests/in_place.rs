@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::compat::tests::add_known;
+use ww_snapshots::Resolver;
 
 /// The dependency, `err_dep` 0.1.0, with `arg` of `InvalidArgument` as `arg`.
 fn dep(arg: &str) -> String {
@@ -63,7 +64,7 @@ fn compare_defined(
     definitions: &[&ApiBundleOwned],
 ) -> Result<Report, String> {
     let none = Recorded::default();
-    compare_recorded(old, &none, new, &none, &[], definitions)
+    compare_recorded(&Resolver::new(), old, &none, new, &none, &[], definitions)
 }
 
 /// `arg: u8` -> `arg: ArgIndex` in place: compatible, the same bytes, in the method's return and the type, both ways.

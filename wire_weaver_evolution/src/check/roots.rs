@@ -19,6 +19,7 @@ use crate::snapshot_files::{
 };
 use crate::{Bump, Change, Move, own_traits, own_type_paths, suggest};
 use wire_weaver_core::CrateCache;
+use ww_snapshots::Resolver;
 
 /// What [Check::run] found for a crate with several API roots (`[package.metadata.wire_weaver.roots]`, EVO-37):
 /// each root compared with its own latest snapshot (EVO-39).
@@ -110,6 +111,7 @@ impl Check {
         let mut moves = vec![];
         let mut modules = BTreeMap::new();
         let mut definitions = vec![];
+        let mut crate_dirs = vec![];
         for (root, wire) in roots {
             let (bundle, notes) = cache
                 .load_root_with_notes(&self.path, root)
@@ -138,8 +140,10 @@ impl Check {
             }
             modules.insert(root.clone(), notes.trait_modules);
             definitions.push(notes.definitions);
+            crate_dirs.extend(notes.crate_dirs);
             loaded.push((root.clone(), *wire, bundle));
         }
+        let resolver = &super::resolver_for(&crate_dirs);
         let bundles: Vec<&ApiBundleOwned> = loaded.iter().map(|(_, _, b)| b).collect();
         // what every root's walk saw of other crates
         let definitions: Vec<&ApiBundleOwned> = definitions.iter().collect();
@@ -163,9 +167,14 @@ impl Check {
             current_required: self.require_current,
         };
         if let Some(against) = &self.against {
-            outcome
-                .roots
-                .push(self.against_root(against, loaded, &own, &moves, &definitions)?);
+            outcome.roots.push(self.against_root(
+                resolver,
+                against,
+                loaded,
+                &own,
+                &moves,
+                &definitions,
+            )?);
             return Ok(Outcome::Roots(Box::new(outcome)));
         }
         // what each root reaches, w0 roots and roots without a snapshot too, by path in the crate: two roots may
@@ -187,6 +196,7 @@ impl Check {
         for (root, wire, bundle) in loaded {
             let all = root_snapshots(&dir, &own.crate_id, &root, wire.line.0)?;
             let one = self.root_outcome(
+                resolver,
                 &root,
                 bundle,
                 all,
@@ -209,6 +219,7 @@ impl Check {
     /// The root `against`, a root's snapshot file, is of, compared with it.
     fn against_root(
         &self,
+        resolver: &Resolver,
         against: &Path,
         loaded: Vec<(String, WireVersion, ApiBundleOwned)>,
         own: &FullVersionOwned,
@@ -240,11 +251,10 @@ impl Check {
         };
         let old = read(against)?;
         let report = compare_checked(
+            resolver,
             &self.crate_snapshots_dir(),
-            &old.bundle,
-            &old.recorded,
-            &bundle,
-            &Recorded::default(),
+            (&old.bundle, &old.recorded),
+            (&bundle, &Recorded::default()),
             moves,
             definitions,
         )?;
@@ -276,6 +286,7 @@ impl Check {
     #[allow(clippy::too_many_arguments)]
     fn root_outcome(
         &self,
+        resolver: &Resolver,
         root: &str,
         source: ApiBundleOwned,
         all: Vec<RootSnapshot>,
@@ -298,7 +309,7 @@ impl Check {
         let Some(latest) = older.pop() else {
             let previous_line = match design_line {
                 true => None,
-                false => previous_line(dir, root, &source, moves, definitions)?,
+                false => previous_line(resolver, dir, root, &source, moves, definitions)?,
             };
             return Ok(Outcome::NoSnapshot(Box::new(NoSnapshot {
                 crate_id: own.crate_id,
@@ -323,11 +334,10 @@ impl Check {
             old.bundle.ext_crates[0].version = version.clone();
         }
         let report = compare_checked(
+            resolver,
             dir,
-            &old.bundle,
-            &old.recorded,
-            &source,
-            &Recorded::default(),
+            (&old.bundle, &old.recorded),
+            (&source, &Recorded::default()),
             moves,
             definitions,
         )?;
@@ -368,11 +378,10 @@ impl Check {
             && let Some(previous) = older.pop()
         {
             let report = compare_checked(
+                resolver,
                 dir,
-                &previous.snapshot.bundle,
-                &previous.snapshot.recorded,
-                &old.bundle,
-                &old.recorded,
+                (&previous.snapshot.bundle, &previous.snapshot.recorded),
+                (&old.bundle, &old.recorded),
                 moves,
                 definitions,
             )?;
@@ -784,6 +793,7 @@ impl fmt::Display for SharedChange {
 /// (`moves`) names is checked, and resources of the same name elsewhere are proposed. Information besides a
 /// [NoSnapshot]: a new line has nothing to keep compatible with. `None` without such a snapshot.
 fn previous_line(
+    resolver: &Resolver,
     dir: &Path,
     root: &str,
     source: &ApiBundleOwned,
@@ -814,11 +824,10 @@ fn previous_line(
     };
     let old = read(&file.path)?;
     let report = compare_checked(
+        resolver,
         dir,
-        &old.bundle,
-        &old.recorded,
-        source,
-        &Recorded::default(),
+        (&old.bundle, &old.recorded),
+        (source, &Recorded::default()),
         moves,
         definitions,
     )?;

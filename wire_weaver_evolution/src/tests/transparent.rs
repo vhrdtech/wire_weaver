@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::compat::compare_items;
+use ww_snapshots::Resolver;
 
 /// The wrapper, its markers, and an API using `arg` for a method argument (the host writes it), `prop` for a
 /// read-only property (the device writes it) and `field` for a struct field.
@@ -285,7 +286,7 @@ fn prepared_bundles() {
 #[test]
 fn snapshot_ron_round_trip() {
     let source = load("0.1.0", &same(MICROS));
-    let text = wire_weaver_snapshots::render_ron(&source).unwrap();
+    let text = ww_snapshots::file::render_ron(&source).unwrap();
     assert!(text.contains("transparent: true"), "{text}");
     let (read, recorded) = Recorded::parse(&text).unwrap();
     assert_eq!(bytes(&read, true).unwrap(), bytes(&source, true).unwrap());
@@ -294,14 +295,30 @@ fn snapshot_ron_round_trip() {
         "{:?}",
         recorded.unrecorded()
     );
-    let report =
-        compare_recorded(&read, &recorded, &source, &Recorded::default(), &[], &[]).unwrap();
+    let report = compare_recorded(
+        &Resolver::new(),
+        &read,
+        &recorded,
+        &source,
+        &Recorded::default(),
+        &[],
+        &[],
+    )
+    .unwrap();
     assert_eq!(report.change, Change::None, "{report:#?}");
     // and the compatible change from a plain field, against the saved snapshot
     let plain = load("0.1.0", &same("u64"));
     let (plain, recorded) =
-        Recorded::parse(&wire_weaver_snapshots::render_ron(&plain).unwrap()).unwrap();
-    let report =
-        compare_recorded(&plain, &recorded, &source, &Recorded::default(), &[], &[]).unwrap();
+        Recorded::parse(&ww_snapshots::file::render_ron(&plain).unwrap()).unwrap();
+    let report = compare_recorded(
+        &Resolver::new(),
+        &plain,
+        &recorded,
+        &source,
+        &Recorded::default(),
+        &[],
+        &[],
+    )
+    .unwrap();
     assert_eq!(report.change, Change::Compatible, "{report:#?}");
 }

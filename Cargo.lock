@@ -5175,6 +5175,7 @@ name = "stdlib_evolution"
 version = "0.1.0"
 dependencies = [
  "wire_weaver_evolution",
+ "ww_snapshots",
 ]
 
 [[package]]
@@ -6590,6 +6591,7 @@ dependencies = [
  "ww_numeric",
  "ww_settings",
  "ww_si",
+ "ww_snapshots",
  "ww_stream",
  "ww_timebase",
 ]
@@ -6699,9 +6701,9 @@ dependencies = [
  "serde",
  "shrink_wrap",
  "wire_weaver_core",
- "wire_weaver_snapshots",
  "ww_numeric",
  "ww_self",
+ "ww_snapshots",
  "ww_version",
 ]
 

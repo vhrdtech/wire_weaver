@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- The checker resolves snapshots through `ww_snapshots::Resolver` (EVO-80): the walked crates' `api_snapshots/` first, then the process's `Resolver::global()`. `compare_recorded`, `verify_move`, `superseded::keep_superseded` and `compat::normalize_references` take a resolver, `compat::Bounds` and `TypeCheck` carry one (`Resolver::global()` by default); `compare` and `compare_moved` use the global one. `wire_weaver_snapshots` is no longer a dependency.
 - `ww api save` (`Check::save`) writes the current version's snapshot again when it holds the same definitions in another order (EVO-77), status `Reformatted`: a snapshot saved before snapshots were in canonical order is rewritten once, then stays. A file in a release tag is then refused by the pre-commit hook; leave it unstaged.
 - `compat::normalize_references` returns both signatures (`ww_self::signature::Signatures`) per reference instead of the signature with docs alone (EVO-70).
 - `Comparison`, `NoSnapshot` and `RootsOutcome` have a new public field `unreasoned: Vec<UnreasonedSilence>` (TOOL-35), new `Outcome::unreasoned()` mirroring `hints()`: struct literals and exhaustive matches add it.

@@ -93,9 +93,13 @@ pub(crate) fn keep_superseded(old: PathBuf, current: PathBuf, into: PathBuf) -> 
             .map_err(|e| anyhow!("{}: {e}", path.display()))
     };
     let (old, current) = (read(&old)?, read(&current)?);
-    let (kept, warnings) =
-        wire_weaver_evolution::superseded::keep_superseded(&into, &old, &current)
-            .map_err(|e| anyhow!(e))?;
+    let (kept, warnings) = wire_weaver_evolution::superseded::keep_superseded(
+        ww_snapshots::Resolver::global(),
+        &into,
+        &old,
+        &current,
+    )
+    .map_err(|e| anyhow!(e))?;
     for warning in &warnings {
         println!("{} {warning}", style("warning:").yellow());
     }

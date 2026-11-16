@@ -27,6 +27,7 @@ use ww_self::{
     Length, MarkerDefOwned, OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned,
     ValueOwned, VariantOwned,
 };
+use ww_snapshots::Resolver;
 use ww_version::{FullVersionOwned, WireVersion};
 
 use crate::Rule;
@@ -36,7 +37,6 @@ pub type Side<'a> = (&'a ApiBundleOwned, &'a ApiItemOwned, &'static str);
 /// Checks that the resource on the client side can be used with the one on the device side.
 /// How [TypeCheck] treats a reader whose [MaxLen](TypeOwned::MaxLen) is smaller than the writer's: values the
 /// writer can produce are then rejected by the reader (with an error, the bytes are the same).
-#[derive(Default)]
 pub struct Bounds<'a> {
     /// A smaller max length on the reader is an error when this bundle is the writer (the old version of a crate:
     /// lowering a bound breaks data the old version writes).
@@ -57,9 +57,29 @@ pub struct Bounds<'a> {
     pub own_types_by_name: bool,
     /// Generic definitions one side has and the other doesn't, see [TypeCheck::missing].
     pub missing: Vec<String>,
-    /// Where definitions left out by a signature no embedded snapshot holds are looked up, see
-    /// [TypeCheck::definitions].
+    /// Where definitions left out by a signature no snapshot holds are looked up, see [TypeCheck::definitions].
     pub definitions: &'a [&'a ApiBundleOwned],
+    /// Where the snapshots of the crates both sides refer to come from, see [TypeCheck::resolver].
+    pub resolver: &'a Resolver,
+}
+
+impl Default for Bounds<'_> {
+    /// No strict writer, nothing found yet, no definitions, the process's [Resolver::global].
+    fn default() -> Self {
+        Bounds {
+            strict_writer: None,
+            narrower: vec![],
+            lowered: false,
+            rule: None,
+            unwrapped: vec![],
+            root: None,
+            skip_signatures: false,
+            own_types_by_name: false,
+            missing: vec![],
+            definitions: &[],
+            resolver: Resolver::global(),
+        }
+    }
 }
 
 /// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
@@ -143,12 +163,14 @@ pub fn compare_items<'a>(
         .strict_bounds(strict(client))
         .compare_signatures(!bounds.skip_signatures)
         .own_types_by_name(bounds.own_types_by_name)
-        .definitions(bounds.definitions);
+        .definitions(bounds.definitions)
+        .resolver(bounds.resolver);
     let mut to_client = TypeCheck::new(device, client, device_name, client_name)
         .strict_bounds(strict(device))
         .compare_signatures(!bounds.skip_signatures)
         .own_types_by_name(bounds.own_types_by_name)
-        .definitions(bounds.definitions);
+        .definitions(bounds.definitions)
+        .resolver(bounds.resolver);
     let result = compare_kinds(
         (client, client_item, client_name),
         (device, device_item, device_name),
@@ -176,6 +198,7 @@ fn compare_kinds<'a>(
     (to_device, to_client): (&mut TypeCheck<'a>, &mut TypeCheck<'a>),
 ) -> Result<(), String> {
     use ApiItemKindOwned::*;
+    let resolver = to_device.resolver;
     match (&client_item.kind, &device_item.kind) {
         (
             // error lists don't matter here: nothing on the wire, only the client checks them (API-32)
@@ -336,8 +359,8 @@ fn compare_kinds<'a>(
             };
             if skipped(client, trait_idx.0) || skipped(device, device_trait_idx.0) {
                 let (signature, device_signature) = (
-                    trait_signature(client, trait_idx.0),
-                    trait_signature(device, device_trait_idx.0),
+                    trait_signature(resolver, client, trait_idx.0),
+                    trait_signature(resolver, device, device_trait_idx.0),
                 );
                 // one crate version defined differently on each side (changed without a version bump, a version
                 // not published): compared by the two definitions when both are known (EVO-67, EVO-68)
@@ -345,6 +368,7 @@ fn compare_kinds<'a>(
                     && identity.0 == device_identity.0
                     && signature != device_signature
                     && let Some((client, level)) = trait_definition(
+                        resolver,
                         client,
                         trait_idx.0,
                         &identity,
@@ -352,6 +376,7 @@ fn compare_kinds<'a>(
                         to_device.definitions,
                     )
                     && let Some((device, device_level)) = trait_definition(
+                        resolver,
                         device,
                         device_trait_idx.0,
                         &device_identity,
@@ -393,9 +418,10 @@ fn compare_kinds<'a>(
 }
 
 /// The definition of the trait `trait_idx` (`identity` with `signature`) of `bundle` and the bundle it is in: in-line
-/// in `bundle`, or for one left out, the definition with that signature in the embedded snapshot of its crate version,
+/// in `bundle`, or for one left out, the definition with that signature in the snapshot of its crate version,
 /// in `definitions` (the source's, EVO-67) or among the superseded ones (EVO-68).
 fn trait_definition<'a>(
+    resolver: &'a Resolver,
     bundle: &'a ApiBundleOwned,
     trait_idx: u32,
     identity: &Identity,
@@ -414,17 +440,17 @@ fn trait_definition<'a>(
             let found = in_line(candidate, idx)?;
             (trait_identity(candidate, idx as u32)
                 .is_some_and(|(v, name)| v == identity.0 && name == identity.1)
-                && trait_named(candidate, idx as u32, signature))
+                && trait_named(resolver, candidate, idx as u32, signature))
             .then_some(found)
         })
     };
-    known(identity.0)
+    known(resolver, identity.0)
         .into_iter()
         .chain(definitions.iter().copied())
         .find_map(defined_in)
         .or_else(|| {
             in_line(
-                superseded(Kind::Trait, identity.0, &identity.1, signature)?,
+                superseded(resolver, Kind::Trait, identity.0, &identity.1, signature)?,
                 0,
             )
         })
@@ -736,13 +762,17 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// Signature of a trait as two sides compare it (EVO-69): the shape signature, calculated for an in-line one
-/// (definitions it refers to that are skipped are looked up in embedded snapshots), the shape part of the reference
+/// (definitions it refers to that are skipped are looked up in their crates' snapshots), the shape part of the reference
 /// for a skipped one. An 8-byte reference saved before EVO-69 is a signature with docs; [normalize_references] turns
 /// it into the shape signature where the definition it names is known.
-fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
+fn trait_signature(
+    resolver: &Resolver,
+    bundle: &ApiBundleOwned,
+    trait_idx: u32,
+) -> Option<Vec<u8>> {
     match bundle.traits.get(trait_idx as usize)? {
         ApiLevelLocationOwned::InLine { .. } => {
-            signature::trait_signatures(bundle, trait_idx, &|v| known(v))
+            signature::trait_signatures(bundle, trait_idx, &|v| known(resolver, v))
                 .ok()
                 .map(|s| s.shape)
         }
@@ -754,10 +784,10 @@ fn trait_signature(bundle: &ApiBundleOwned, trait_idx: u32) -> Option<Vec<u8>> {
 }
 
 /// Signature of a type as two sides compare it, see [trait_signature].
-fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
+fn type_signature(resolver: &Resolver, bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { .. } => {
-            signature::type_signatures(bundle, type_idx, &|v| known(v))
+            signature::type_signatures(bundle, type_idx, &|v| known(resolver, v))
                 .ok()
                 .map(|s| s.shape)
         }
@@ -768,14 +798,24 @@ fn type_signature(bundle: &ApiBundleOwned, type_idx: u32) -> Option<Vec<u8>> {
 }
 
 /// Whether the in-line trait `trait_idx` of `bundle` is the definition `reference` names, docs aside.
-fn trait_named(bundle: &ApiBundleOwned, trait_idx: u32, reference: &[u8]) -> bool {
-    signature::trait_signatures(bundle, trait_idx, &|v| known(v))
+fn trait_named(
+    resolver: &Resolver,
+    bundle: &ApiBundleOwned,
+    trait_idx: u32,
+    reference: &[u8],
+) -> bool {
+    signature::trait_signatures(bundle, trait_idx, &|v| known(resolver, v))
         .is_ok_and(|s| s.matches(reference).is_same_shape())
 }
 
 /// Whether the in-line type `type_idx` of `bundle` is the definition `reference` names, docs aside.
-fn type_named(bundle: &ApiBundleOwned, type_idx: u32, reference: &[u8]) -> bool {
-    signature::type_signatures(bundle, type_idx, &|v| known(v))
+fn type_named(
+    resolver: &Resolver,
+    bundle: &ApiBundleOwned,
+    type_idx: u32,
+    reference: &[u8],
+) -> bool {
+    signature::type_signatures(bundle, type_idx, &|v| known(resolver, v))
         .is_ok_and(|s| s.matches(reference).is_same_shape())
 }
 
@@ -785,13 +825,14 @@ pub type Referenced = (Kind, FullVersionOwned, String);
 /// Turns every reference of `bundle` (the signature bytes of a `Skipped*` location) into the shape signature of the
 /// definition it names, so that two sides compare definitions, never doc comments or the form of a reference (EVO-69):
 /// 16 bytes are cut to their shape part, and an 8-byte one saved before EVO-69 (a signature with docs) is looked up
-/// among the definitions known here: the embedded snapshot of its crate version, `definitions` (the source's,
+/// among the definitions known here: the snapshot of its crate version, `definitions` (the source's,
 /// EVO-67) and the superseded ones (EVO-68). One found nowhere is left as it is. Returns both signatures of the
 /// definition each reference names, where known: two sides whose shapes agree and whose signatures with docs differ
 /// have other docs of a dependency.
 pub fn normalize_references(
     bundle: &mut ApiBundleOwned,
     definitions: &[&ApiBundleOwned],
+    resolver: &Resolver,
 ) -> std::collections::HashMap<Referenced, signature::Signatures> {
     let mut docs = std::collections::HashMap::new();
     let mut resolved = vec![];
@@ -807,7 +848,7 @@ pub fn normalize_references(
             resolved.push((
                 Kind::Type,
                 idx,
-                resolve_reference(&key, signature, definitions),
+                resolve_reference(&key, signature, definitions, resolver),
             ));
             if let Some((shape, Some(with_docs))) = &resolved.last().unwrap().2 {
                 docs.insert(
@@ -832,7 +873,7 @@ pub fn normalize_references(
             resolved.push((
                 Kind::Trait,
                 idx,
-                resolve_reference(&key, signature, definitions),
+                resolve_reference(&key, signature, definitions, resolver),
             ));
             if let Some((shape, Some(with_docs))) = &resolved.last().unwrap().2 {
                 docs.insert(
@@ -874,6 +915,7 @@ fn resolve_reference(
     (kind, version, name): &Referenced,
     reference: &[u8],
     definitions: &[&ApiBundleOwned],
+    resolver: &Resolver,
 ) -> Option<(Vec<u8>, Option<Vec<u8>>)> {
     if let Some(docs) = signature::docs_part(reference) {
         return Some((
@@ -903,15 +945,15 @@ fn resolve_reference(
             })?,
         };
         match kind {
-            Kind::Type => signature::type_signatures(bundle, idx as u32, &|v| known(v)),
-            Kind::Trait => signature::trait_signatures(bundle, idx as u32, &|v| known(v)),
+            Kind::Type => signature::type_signatures(bundle, idx as u32, &|v| known(resolver, v)),
+            Kind::Trait => signature::trait_signatures(bundle, idx as u32, &|v| known(resolver, v)),
         }
         .ok()
     };
-    let candidates = known(version)
+    let candidates = known(resolver, version)
         .into_iter()
         .chain(definitions.iter().copied())
-        .chain(superseded(*kind, version, name, reference))
+        .chain(superseded(resolver, *kind, version, name, reference))
         .filter_map(in_line);
     for candidate in candidates {
         match candidate.matches(reference) {
@@ -961,7 +1003,7 @@ pub struct TypeCheck<'a> {
     pub root: Option<RootCause>,
     /// Arguments, fields and variants leading to the type being checked, for [Self::unwrapped].
     path: Vec<String>,
-    /// The writer's and the reader's bundle with skipped definitions put back from the embedded snapshots, made the
+    /// The writer's and the reader's bundle with skipped definitions put back from their crates' snapshots, made the
     /// first time a marker is compared by its definition (EVO-17). Indices of the bundle stay valid in it.
     defs: [OnceCell<ApiBundleOwned>; 2],
     /// What the next [Self::check_fields] calls its fields in messages: `argument` for the arguments of a method
@@ -973,6 +1015,8 @@ pub struct TypeCheck<'a> {
     own_types_by_name: bool,
     /// See [Self::definitions].
     definitions: &'a [&'a ApiBundleOwned],
+    /// See [Self::resolver].
+    resolver: &'a Resolver,
 }
 
 /// Type with out-of-line references resolved.
@@ -1008,6 +1052,7 @@ impl<'a> TypeCheck<'a> {
             compare_signatures: true,
             own_types_by_name: false,
             missing: vec![],
+            resolver: Resolver::global(),
             definitions: &[],
         }
     }
@@ -1160,7 +1205,9 @@ impl<'a> TypeCheck<'a> {
                 check_same_origin("type", (&w, self.writer), (&r, self.reader))
                     .inspect_err(|_| self.note_root("type", &w))?;
                 let signature = |bundle, ty: &TypeOwned| match ty {
-                    TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
+                    TypeOwned::OutOfLine { type_idx } => {
+                        type_signature(self.resolver, bundle, type_idx.0)
+                    }
                     _ => None,
                 };
                 let (w_signature, r_signature) =
@@ -1299,6 +1346,7 @@ impl<'a> TypeCheck<'a> {
     /// without a version bump, so the two sides disagree on its signature; the side that doesn't match the
     /// embedded snapshot can still be resolved from the source it was walked from).
     fn generic_def_known(&self, bundle: &'a ApiBundleOwned, type_idx: u32) -> bool {
+        let resolver = self.resolver;
         match bundle.types.get(type_idx as usize) {
             Some(TypeLocationOwned::InLine { .. }) => true,
             Some(TypeLocationOwned::SkippedFullVersion {
@@ -1310,10 +1358,12 @@ impl<'a> TypeCheck<'a> {
                     return false;
                 };
                 let identity: Identity<'a> = (version, Cow::Borrowed(type_name.as_str()));
-                known(version)
+                known(resolver, version)
                     .into_iter()
                     .chain(self.definitions.iter().copied())
-                    .any(|candidate| defined_in(candidate, &identity, signature).is_some())
+                    .any(|candidate| {
+                        defined_in(resolver, candidate, &identity, signature).is_some()
+                    })
             }
             None => false,
         }
@@ -1370,7 +1420,7 @@ impl<'a> TypeCheck<'a> {
                 if matches!(
                     bundle.types.get(type_idx.0 as usize),
                     Some(TypeLocationOwned::SkippedFullVersion { .. })
-                ) && skipped_def(bundle, type_idx.0).is_none() =>
+                ) && skipped_def(self.resolver, bundle, type_idx.0).is_none() =>
             {
                 skipped_name(bundle, type_idx.0)
             }
@@ -1416,8 +1466,8 @@ impl<'a> TypeCheck<'a> {
         check_same_origin("type", (&w, self.writer), (&r, self.reader))
             .inspect_err(|_| self.note_root("type", &w))?;
         let (w_signature, r_signature) = (
-            type_signature(self.writer, wi),
-            type_signature(self.reader, ri),
+            type_signature(self.resolver, self.writer, wi),
+            type_signature(self.resolver, self.reader, ri),
         );
         // same crate version, signatures differ (changed without a version bump, a version not published,
         // EVO-67): compared by the two definitions when both are known, instead of requiring equal
@@ -1468,7 +1518,7 @@ impl<'a> TypeCheck<'a> {
                 ra.len()
             ));
         }
-        let markers = type_def(self.writer, wi)
+        let markers = type_def(self.resolver, self.writer, wi)
             .map(marker_params)
             .unwrap_or_default();
         // the markers and every other argument are all checked, so a scale and a storage type that changed together
@@ -1634,7 +1684,7 @@ impl<'a> TypeCheck<'a> {
         if w_def != r_def || wi.args.len() != ri.args.len() {
             return Ok(());
         }
-        let Some(def) = type_def(self.writer, wi.type_idx.0) else {
+        let Some(def) = type_def(self.resolver, self.writer, wi.type_idx.0) else {
             return Ok(());
         };
         self.check_markers(&w_def.1, &marker_params(def), &wi.args, &ri.args)
@@ -1878,7 +1928,7 @@ impl<'a> TypeCheck<'a> {
     }
 
     /// The definition of `ty` (`identity` with `signature`) of `bundle` and the bundle it is in: in-line in `bundle`,
-    /// or for one left out, the definition with that signature in the embedded snapshot of its crate version or in
+    /// or for one left out, the definition with that signature in the snapshot of its crate version or in
     /// [Self::definitions].
     fn definition(
         &self,
@@ -1890,15 +1940,17 @@ impl<'a> TypeCheck<'a> {
         let TypeOwned::OutOfLine { type_idx } = ty else {
             return None;
         };
+        let resolver = self.resolver;
         match bundle.types.get(type_idx.0 as usize)? {
             TypeLocationOwned::InLine { ty, .. } => Some((bundle, ty)),
-            TypeLocationOwned::SkippedFullVersion { .. } => known(identity.0)
+            TypeLocationOwned::SkippedFullVersion { .. } => known(resolver, identity.0)
                 .into_iter()
                 .chain(self.definitions.iter().copied())
-                .find_map(|candidate| defined_in(candidate, identity, signature))
+                .find_map(|candidate| defined_in(resolver, candidate, identity, signature))
                 .or_else(|| {
                     // replaced by an in-place refresh of its snapshot (EVO-68)
-                    let found = superseded(Kind::Type, identity.0, &identity.1, signature)?;
+                    let found =
+                        superseded(resolver, Kind::Type, identity.0, &identity.1, signature)?;
                     match found.types.first()? {
                         TypeLocationOwned::InLine { ty, .. } => Some((found, ty)),
                         TypeLocationOwned::SkippedFullVersion { .. } => None,
@@ -1907,11 +1959,18 @@ impl<'a> TypeCheck<'a> {
         }
     }
 
-    /// Bundles with other crates' definitions in-line, where one left out by a signature no embedded snapshot holds
+    /// Bundles with other crates' definitions in-line, where one left out by a signature no snapshot holds
     /// is looked up: a crate version changed without a version bump, the definitions of the source it was walked from
     /// (`wire_weaver_core::SourceNotes::definitions`, EVO-67).
     pub fn definitions(mut self, definitions: &'a [&'a ApiBundleOwned]) -> Self {
         self.definitions = definitions;
+        self
+    }
+
+    /// Where the snapshots of the crates both sides refer to come from: the walked crates' own `api_snapshots/` in
+    /// the checker, a host's sources in a client ([Resolver::global], the default).
+    pub fn resolver(mut self, resolver: &'a Resolver) -> Self {
+        self.resolver = resolver;
         self
     }
 
@@ -1950,7 +2009,7 @@ impl<'a> TypeCheck<'a> {
         {
             true => self.defs[side].get_or_init(|| {
                 let mut inlined = bundle.clone();
-                inline_known(&mut inlined);
+                inline_known(self.resolver, &mut inlined);
                 inlined
             }),
             false => bundle,
@@ -2068,11 +2127,11 @@ impl<'a> TypeCheck<'a> {
     /// compared as any two instances then. `None` when neither side is a transparent wrapper.
     fn check_wrappers(&mut self, w: &TypeOwned, r: &TypeOwned) -> Option<Result<(), String>> {
         let (writer, reader) = (self.writer, self.reader);
-        let w_wrapper = match wrapper(writer, w) {
+        let w_wrapper = match wrapper(self.resolver, writer, w) {
             Ok(wrapper) => wrapper,
             Err(e) => return Some(Err(e)),
         };
-        let r_wrapper = match wrapper(reader, r) {
+        let r_wrapper = match wrapper(self.resolver, reader, r) {
             Ok(wrapper) => wrapper,
             Err(e) => return Some(Err(e)),
         };
@@ -2406,6 +2465,7 @@ impl Wrapper<'_, '_> {
 
 /// `ty` as a transparent wrapper, `None` when it is not one (or its definition is not known here).
 fn wrapper<'b, 'c: 'b>(
+    resolver: &'c Resolver,
     bundle: &'c ApiBundleOwned,
     ty: &'b TypeOwned,
 ) -> Result<Option<Wrapper<'b, 'c>>, String> {
@@ -2413,7 +2473,8 @@ fn wrapper<'b, 'c: 'b>(
         Ok(s.transparent_field().map_err(|e| e.to_string())?.ty.clone())
     };
     if let TypeOwned::Instance { type_idx, args } = ty {
-        let Some(def @ TypeOwned::Struct(def_struct)) = type_def(bundle, type_idx.0) else {
+        let Some(def @ TypeOwned::Struct(def_struct)) = type_def(resolver, bundle, type_idx.0)
+        else {
             return Ok(None);
         };
         if !def_struct.is_transparent() {
@@ -2450,7 +2511,7 @@ fn wrapper<'b, 'c: 'b>(
         // left out by the snapshot of another crate that defines it (EVO-15): its definition is in that snapshot,
         // its field refers to that snapshot's types
         (TypeOwned::OutOfLine { type_idx }, ResolvedTy::Skipped(_)) => {
-            match skipped_def(bundle, type_idx.0) {
+            match skipped_def(resolver, bundle, type_idx.0) {
                 Some((snapshot, TypeOwned::Struct(s))) if s.is_transparent() => {
                     return Ok(Some(Wrapper {
                         name: s.ident.clone(),
@@ -2472,7 +2533,7 @@ fn wrapper<'b, 'c: 'b>(
     let (def, bounds) = match &s.instance_of {
         Some(instance_of) => {
             let idx = instance_of.type_idx.0;
-            let bounds = type_def(bundle, idx)
+            let bounds = type_def(resolver, bundle, idx)
                 .map(|def| bounds_of(bundle, def, &instance_of.args))
                 .unwrap_or_default();
             (
@@ -2576,6 +2637,7 @@ fn is_fixed(krate: &str, qualified_name: &str) -> bool {
 
 /// The in-line definition of the type `identity` with `signature` in `bundle`, and `bundle`.
 fn defined_in<'b>(
+    resolver: &Resolver,
     bundle: &'b ApiBundleOwned,
     identity: &Identity,
     signature: &[u8],
@@ -2588,7 +2650,7 @@ fn defined_in<'b>(
             TypeLocationOwned::InLine { ty, .. }
                 if user_type_identity(bundle, ty)
                     .is_some_and(|(v, name)| v == identity.0 && name == identity.1)
-                    && type_named(bundle, idx as u32, signature) =>
+                    && type_named(resolver, bundle, idx as u32, signature) =>
             {
                 Some((bundle, ty))
             }
@@ -2596,43 +2658,58 @@ fn defined_in<'b>(
         })
 }
 
-/// The embedded snapshot of a crate version, see [wire_weaver_snapshots::get]; in tests, also one a test added with
-/// `tests::add_known` (a crate of the test's own, which no embedded snapshot can be).
-fn known(version: &FullVersionOwned) -> Option<&'static ApiBundleOwned> {
+/// The snapshot of a crate version `resolver` finds ([Resolver::snapshot]); in tests, also one a test added with
+/// `tests::add_known` (a crate of the test's own, which no snapshot file can be).
+fn known<'a>(resolver: &'a Resolver, version: &FullVersionOwned) -> Option<&'a ApiBundleOwned> {
     #[cfg(test)]
     if let Some(snapshot) = tests::known(version) {
         return Some(snapshot);
     }
-    wire_weaver_snapshots::get(version)
+    resolver.snapshot(version)
 }
 
 /// The canonical bundle of a definition a snapshot refreshed in place replaced, found by its signature (EVO-68), see
-/// [wire_weaver_snapshots::superseded]; in tests, also one a test added with `tests::add_superseded`.
-fn superseded(
+/// [Resolver::superseded]; in tests, also one a test added with `tests::add_superseded`.
+fn superseded<'a>(
+    resolver: &'a Resolver,
     kind: Kind,
     version: &FullVersionOwned,
     name: &str,
     signature: &[u8],
-) -> Option<&'static ApiBundleOwned> {
+) -> Option<&'a ApiBundleOwned> {
     #[cfg(test)]
     if let Some(found) = tests::superseded(kind, version, name, signature) {
         return Some(found);
     }
-    wire_weaver_snapshots::superseded(kind, version, name, signature)
+    resolver.superseded(kind, version, name, signature)
 }
 
-/// `bundle` with its skipped definitions put back from the embedded snapshots, or the superseded ones by signature.
-pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) {
+/// `bundle` with its skipped definitions put back from the snapshots `resolver` finds, or the superseded ones by
+/// signature.
+pub(crate) fn inline_known(resolver: &Resolver, bundle: &mut ApiBundleOwned) {
     let by_signature = |kind, version: &FullVersionOwned, name: &str, signature: &[u8]| {
-        Ok(superseded(kind, version, name, signature).cloned())
+        Ok(superseded(resolver, kind, version, name, signature).cloned())
     };
-    ww_self::inline::inline_skipped_by_signature(bundle, &|v| known(v), Some(&by_signature));
+    ww_self::inline::inline_skipped_by_signature(
+        bundle,
+        &|v| known(resolver, v),
+        Some(&by_signature),
+    );
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
     use std::cell::RefCell;
+
+    /// The snapshots of this workspace's crates through its `Cargo.lock` (the stdlib's, exact_units'), without the
+    /// machine's cache: what a test that puts `ww_si` definitions back resolves with.
+    pub(crate) fn workspace_resolver() -> Resolver {
+        Resolver::new().with_cargo_scan(ww_snapshots::CargoScan {
+            workspace: Some(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
+            cargo_home: ww_snapshots::cargo::default_cargo_home().ok(),
+        })
+    }
 
     thread_local! {
         static KNOWN: RefCell<Vec<&'static ApiBundleOwned>> = const { RefCell::new(vec![]) };
@@ -2694,24 +2771,29 @@ pub(crate) mod tests {
 }
 
 /// The definition of type `type_idx`: in-line, or for a skipped one (a `ww_si` type in an API) the definition with the
-/// same name and signature in the embedded snapshots of its crate. Field types of a definition from a snapshot refer
+/// same name and signature in the snapshot of its crate. Field types of a definition from a snapshot refer
 /// to that snapshot, only its own parameters can be read here.
-fn type_def(bundle: &ApiBundleOwned, type_idx: u32) -> Option<&TypeOwned> {
+fn type_def<'b>(
+    resolver: &'b Resolver,
+    bundle: &'b ApiBundleOwned,
+    type_idx: u32,
+) -> Option<&'b TypeOwned> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { ty, .. } => Some(ty),
         TypeLocationOwned::SkippedFullVersion { .. } => {
-            skipped_def(bundle, type_idx).map(|(_, ty)| ty)
+            skipped_def(resolver, bundle, type_idx).map(|(_, ty)| ty)
         }
     }
 }
 
 /// The definition of the skipped type `type_idx` from the embedded snapshot of its crate (see [type_def]), with that
 /// snapshot: the bundle the definition's own field types refer to. `None` for an in-line type, or a definition no
-/// embedded snapshot has.
-fn skipped_def(
+/// snapshot has.
+fn skipped_def<'b>(
+    resolver: &'b Resolver,
     bundle: &ApiBundleOwned,
     type_idx: u32,
-) -> Option<(&'static ApiBundleOwned, &'static TypeOwned)> {
+) -> Option<(&'b ApiBundleOwned, &'b TypeOwned)> {
     match bundle.types.get(type_idx as usize)? {
         TypeLocationOwned::InLine { .. } => None,
         TypeLocationOwned::SkippedFullVersion {
@@ -2720,7 +2802,7 @@ fn skipped_def(
             signature: expected,
         } => {
             let version = bundle.crate_version(crate_idx.0).ok()?;
-            let in_snapshot = known(version).and_then(|snapshot| {
+            let in_snapshot = known(resolver, version).and_then(|snapshot| {
                 snapshot
                     .types
                     .iter()
@@ -2730,7 +2812,7 @@ fn skipped_def(
                             if user_type_identity(snapshot, ty)
                                 .is_some_and(|(_, name)| name == type_name.as_str())
                                 && (expected.is_empty()
-                                    || type_named(snapshot, idx as u32, expected)) =>
+                                    || type_named(resolver, snapshot, idx as u32, expected)) =>
                         {
                             Some((snapshot, ty))
                         }
@@ -2739,7 +2821,7 @@ fn skipped_def(
             });
             // replaced by an in-place refresh of the snapshot (EVO-68)
             in_snapshot.or_else(|| {
-                let found = superseded(Kind::Type, version, type_name, expected)?;
+                let found = superseded(resolver, Kind::Type, version, type_name, expected)?;
                 match found.types.first()? {
                     TypeLocationOwned::InLine { ty, .. } => Some((found, ty)),
                     TypeLocationOwned::SkippedFullVersion { .. } => None,

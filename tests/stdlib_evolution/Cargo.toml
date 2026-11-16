@@ -10,3 +10,4 @@ description = "Checks every ww_stdlib crate, ww_link, ww_client_server and ww_ti
 
 [dev-dependencies]
 wire_weaver_evolution = { workspace = true, features = ["source"] }
+ww_snapshots.workspace = true

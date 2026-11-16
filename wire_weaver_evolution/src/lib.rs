@@ -54,6 +54,7 @@ use crate::compat::{
 };
 use crate::recorded::{Recorded, Unrecorded};
 pub use compat::SignatureChange;
+use ww_snapshots::Resolver;
 
 #[cfg(feature = "source")]
 mod check;
@@ -414,6 +415,7 @@ impl Report {
 /// version defined differently on each side (changed without a version bump) is compared by its two definitions
 /// (EVO-67). `&[]` for none.
 pub fn compare_recorded(
+    resolver: &Resolver,
     old: &ApiBundleOwned,
     old_recorded: &Recorded,
     new: &ApiBundleOwned,
@@ -424,7 +426,7 @@ pub fn compare_recorded(
     let mut unrecorded = old_recorded.unrecorded();
     unrecorded.extend(new_recorded.unrecorded());
     if unrecorded.is_empty() {
-        return compare_with(old, new, true, moves, definitions);
+        return compare_with(resolver, old, new, true, moves, definitions);
     }
     let old = Recorded::leave_out(old, &unrecorded)?;
     let new = Recorded::leave_out(new, &unrecorded)?;
@@ -432,15 +434,16 @@ pub fn compare_recorded(
     let signatures = unrecorded
         .iter()
         .all(|u| !ww_self::signature::includes(&u.owner, &u.field));
-    let mut report = compare_with(&old, &new, signatures, moves, definitions)?;
+    let mut report = compare_with(resolver, &old, &new, signatures, moves, definitions)?;
     report.unrecorded = unrecorded.into_iter().collect();
     Ok(report)
 }
 
 /// Compare an old version of a crate with a new one. Both are crate bundles, as loaded by
-/// `wire_weaver_core::load_crate` and saved by `ww api save`.
+/// `wire_weaver_core::load_crate` and saved by `ww api save`. The snapshots of the crates they refer to come from
+/// [Resolver::global]; [compare_recorded] takes the resolver to use.
 pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, String> {
-    compare_with(old, new, true, &[], &[])
+    compare_with(Resolver::global(), old, new, true, &[], &[])
 }
 
 /// [compare] with the new version's `#[moved_from]` attributes (EVO-40), which `wire_weaver_core` reads from the
@@ -456,18 +459,20 @@ pub fn compare_moved(
     new: &ApiBundleOwned,
     moves: &[Move],
 ) -> Result<Report, String> {
-    compare_with(old, new, true, moves, &[])
+    compare_with(Resolver::global(), old, new, true, moves, &[])
 }
 
 /// Verifies one `#[moved_from]` of `new` against `line`, a snapshot of the line it names (EVO-40), as
 /// [compare_moved] does for the moves from the old version's line: for those [Report::unverified_moves] lists. The
 /// errors found, each naming the attribute.
 pub fn verify_move(
+    resolver: &Resolver,
     line: &ApiBundleOwned,
     new: &ApiBundleOwned,
     moved: &Move,
 ) -> Result<(), Vec<String>> {
-    let report = compare_moved(line, new, std::slice::from_ref(moved)).map_err(|e| vec![e])?;
+    let report = compare_with(resolver, line, new, true, std::slice::from_ref(moved), &[])
+        .map_err(|e| vec![e])?;
     let mut errors = report.moved_from_errors;
     if !report.unverified_moves.is_empty() {
         let wire = line.wire.map_or("none".to_string(), |w| w.to_string());
@@ -484,6 +489,7 @@ pub fn verify_move(
 
 /// [compare_moved], checking definitions one side left out by their signatures when `signatures`.
 fn compare_with(
+    resolver: &Resolver,
     old: &ApiBundleOwned,
     new: &ApiBundleOwned,
     signatures: bool,
@@ -506,8 +512,8 @@ fn compare_with(
     new.ext_crates[0] = old_version.clone();
     // other crates' definitions by their shape: a dependency's doc fix is a note, never a change (EVO-69)
     let mut old = old.clone();
-    let old_docs = compat::normalize_references(&mut old, definitions);
-    let new_docs = compat::normalize_references(&mut new, definitions);
+    let old_docs = compat::normalize_references(&mut old, definitions, resolver);
+    let new_docs = compat::normalize_references(&mut new, definitions, resolver);
     let notes = docs_notes(&old_docs, &new_docs);
     let old = &old;
     // the format a snapshot was saved in is not part of the definitions
@@ -534,6 +540,7 @@ fn compare_with(
         unverified_moves: vec![],
         missing: vec![],
         definitions,
+        resolver,
     };
     checker.compare_wire();
     checker.compare_traits();
@@ -689,6 +696,8 @@ struct Checker<'a> {
     /// Generic definitions one side uses and has no definition of ([compat::TypeCheck::missing]): the versions
     /// can't be compared.
     missing: Vec<String>,
+    /// Where the snapshots of the crates both sides refer to come from, see [compat::TypeCheck::resolver].
+    resolver: &'a Resolver,
 }
 
 impl<'a> Checker<'a> {
@@ -887,6 +896,7 @@ impl<'a> Checker<'a> {
             skip_signatures: !self.signatures,
             own_types_by_name: true,
             definitions: self.definitions,
+            resolver: self.resolver,
             ..Bounds::default()
         };
         compare_items(
@@ -1194,6 +1204,7 @@ impl<'a> Checker<'a> {
             skip_signatures: !self.signatures,
             own_types_by_name: self.across,
             definitions: self.definitions,
+            resolver: self.resolver,
             ..Bounds::default()
         };
         let result = compare_items(
@@ -2851,23 +2862,5 @@ mod tests {
                 new: "#[errors(Common, Nack)]".into(),
             }]
         );
-    }
-
-    /// Consecutive versions of each crate in the embedded snapshots follow the rules.
-    #[test]
-    fn embedded_snapshots_evolve_correctly() {
-        let mut by_crate: HashMap<&str, Vec<&ApiBundleOwned>> = HashMap::new();
-        for (version, bundle) in wire_weaver_snapshots::all() {
-            by_crate.entry(&version.crate_id).or_default().push(bundle);
-        }
-        for bundles in by_crate.values_mut() {
-            bundles.sort_by_key(|b| triplet(&b.ext_crates[0].version));
-            for pair in bundles.windows(2) {
-                let report = compare(pair[0], pair[1]).unwrap();
-                report
-                    .check_version()
-                    .unwrap_or_else(|e| panic!("{e}: {:?}", report.breaking));
-            }
-        }
     }
 }

@@ -203,7 +203,9 @@ fn prepared_bundles() {
     let prepared = |src: &str| {
         let mut bundle = load_with("0.1.0", src, &ww_si_dep());
         // markers come back in-line with their definitions (INT-13), still compared by crate and name
-        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut bundle);
+        let not_inlined = crate::compat::tests::workspace_resolver()
+            .inline_skipped(&mut bundle)
+            .not_inlined;
         assert!(
             not_inlined.iter().all(|n| !n.name.ends_with("Fixed")),
             "{not_inlined:?}"

@@ -58,7 +58,7 @@ impl TestCrate {
         let version = bundle.crate_version(0).unwrap();
         let dir = self.dir.join(SNAPSHOTS_DIR);
         std::fs::create_dir_all(&dir).unwrap();
-        let text = wire_weaver_snapshots::render_ron(&bundle).unwrap();
+        let text = ww_snapshots::file::render_ron(&bundle).unwrap();
         std::fs::write(
             dir.join(format!("{}.ron", version.filename_friendly())),
             text,
@@ -2423,17 +2423,13 @@ fn snapshot_in_another_order_is_saved_again_once() {
     }
     let path = c.snapshot("test_api_0_1_0.ron");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(
-        &path,
-        wire_weaver_snapshots::render_ron(&old_order).unwrap(),
-    )
-    .unwrap();
+    std::fs::write(&path, ww_snapshots::file::render_ron(&old_order).unwrap()).unwrap();
 
     assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
     assert_eq!(save_one(c.path(), false).status, SaveStatus::Reformatted);
     assert_eq!(
         std::fs::read_to_string(&path).unwrap(),
-        wire_weaver_snapshots::render_ron(&canonical).unwrap()
+        ww_snapshots::file::render_ron(&canonical).unwrap()
     );
     assert_eq!(save_one(c.path(), false).status, SaveStatus::UpToDate);
 }

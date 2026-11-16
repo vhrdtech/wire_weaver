@@ -155,7 +155,7 @@ fn mars_climate_orbiter() {
 fn mars_climate_orbiter_at_connect_time() {
     let prepared = |src: &str| {
         let mut bundle = load_with("0.1.0", src, &ww_si_dep());
-        wire_weaver_snapshots::inline_skipped(&mut bundle);
+        crate::compat::tests::workspace_resolver().inline_skipped(&mut bundle);
         ww_self::generics::prepare(&mut bundle).unwrap();
         bundle
     };

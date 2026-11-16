@@ -4,9 +4,8 @@
 //! crates' snapshots, frozen API lines and devices built before still name the crate's traits and types by their old
 //! signatures, so each own definition whose signature the refresh changes is kept: its canonical bundle (the
 //! definition first, everything it refers to in-line, the bytes its signature hashes), as the definition cache stores
-//! one ([ww_self::definition_cache]), in `api_snapshots/superseded/`. `just save-snapshots` copies them into
-//! `wire_weaver_snapshots`, which finds them by signature
-//! ([wire_weaver_snapshots::superseded]), and the checker compares the two definitions by the evolution rules.
+//! one ([ww_self::definition_cache]), in `api_snapshots/superseded/`. A host finds them there by signature
+//! ([ww_snapshots::Resolver::superseded]), and the checker compares the two definitions by the evolution rules.
 
 use std::path::{Path, PathBuf};
 
@@ -15,6 +14,7 @@ use ww_self::signature::{self, no_resolve};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
 
 use crate::compat;
+use ww_snapshots::Resolver;
 
 /// The directory in a crate's `api_snapshots/` that keeps superseded definitions.
 pub const SUPERSEDED_DIR: &str = "superseded";
@@ -39,6 +39,7 @@ pub struct Superseded {
 /// or which the source no longer has, to be kept in `dir`. Also what couldn't be kept and why: a definition of
 /// another crate the old one refers to that is known nowhere any more.
 pub(crate) fn superseded(
+    resolver: &Resolver,
     dir: &Path,
     old: &ApiBundleOwned,
     definitions: &ApiBundleOwned,
@@ -46,10 +47,10 @@ pub(crate) fn superseded(
     let Ok(own) = old.crate_version(0) else {
         return (vec![], vec![]);
     };
-    // the other crates' definitions it refers to, by the signatures it recorded: from the embedded snapshots, or
-    // kept by their own refresh
+    // the other crates' definitions it refers to, by the signatures it recorded: from their snapshots, or kept by
+    // their own refresh
     let mut inlined = old.clone();
-    compat::inline_known(&mut inlined);
+    compat::inline_known(resolver, &mut inlined);
     let mut kept = vec![];
     let mut warnings = vec![];
     for (kind, idx, name) in own_definitions(&inlined, own) {
@@ -106,6 +107,7 @@ pub(crate) fn superseded(
 /// refresh in place does, in `dir` (`api_snapshots/superseded/`). Writes the ones not kept yet and returns them, with
 /// what couldn't be kept and why. `ww api keep-superseded` calls it.
 pub fn keep_superseded(
+    resolver: &Resolver,
     dir: &Path,
     old: &ApiBundleOwned,
     current: &ApiBundleOwned,
@@ -124,8 +126,8 @@ pub fn keep_superseded(
         ));
     }
     let mut definitions = current.clone();
-    compat::inline_known(&mut definitions);
-    let (kept, warnings) = superseded(dir, old, &definitions);
+    compat::inline_known(resolver, &mut definitions);
+    let (kept, warnings) = superseded(resolver, dir, old, &definitions);
     let mut written = vec![];
     for kept in kept {
         if kept.path.exists() {

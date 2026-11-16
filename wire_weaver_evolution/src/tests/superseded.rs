@@ -9,6 +9,7 @@ use super::*;
 use crate::compat::tests::{add_known, add_superseded};
 use crate::superseded::{Superseded, superseded};
 use std::path::Path;
+use ww_snapshots::Resolver;
 
 /// `err_dep` 0.1.0, with `arg` of `InvalidArgument` as `arg`.
 fn err_dep(arg: &str) -> String {
@@ -84,7 +85,8 @@ fn refreshed_in_place(
     // ww_error's refresh first, as `just save-snapshots` saves in name order: ww_indication's old trait refers to
     // its old error, which only the kept definition has once ww_error's snapshot is refreshed
     for ((old_snapshot, _), (new_snapshot, new_notes)) in [(old.err, new.err), (old.ind, new.ind)] {
-        let (found, warnings) = superseded(dir, &old_snapshot, &new_notes.definitions);
+        let (found, warnings) =
+            superseded(&Resolver::new(), dir, &old_snapshot, &new_notes.definitions);
         // without err_dep's kept error, ind_dep's old trait can't be made whole, and says so
         match keep || found.iter().any(|f| f.name == "CommonError") {
             true => assert!(warnings.is_empty(), "{warnings:#?}"),
@@ -112,7 +114,7 @@ fn compare_defined(
     definitions: &[&ApiBundleOwned],
 ) -> Result<Report, String> {
     let none = Recorded::default();
-    compare_recorded(old, &none, new, &none, &[], definitions)
+    compare_recorded(&Resolver::new(), old, &none, new, &none, &[], definitions)
 }
 
 /// A refresh in place keeps each own definition whose signature it changes, under the old signature: the error

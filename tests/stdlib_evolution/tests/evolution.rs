@@ -8,7 +8,8 @@
 //! same, or `ww api save <crate>` for one at the repo root). `ww_link` is checked here too: its link setup
 //! payloads (`DeviceInfo`, `LinkSetup`, ...) are on its wire line, whose line is the link generation of the frozen
 //! hello (EVO-71), so a break there asks for `w2.0` and the hello follows. `ww_client_server` and `ww_timebase`
-//! left `ww_stdlib/` for the repo root (R5) but are still checked here, as `ww_link` is.
+//! left `ww_stdlib/` for the repo root (R5) but are still checked here, as `ww_link` is. `ww_global` and `ww_tap`
+//! are checked here too, and consecutive saved versions of every crate.
 
 use std::path::Path;
 use wire_weaver_evolution::Check;
@@ -35,6 +36,52 @@ fn check_at(path: &Path) {
 #[test]
 fn ww_link() {
     check_at(Path::new("ww_link"));
+}
+
+#[test]
+fn ww_global() {
+    check_at(Path::new("ww_global"));
+}
+
+#[test]
+fn ww_tap() {
+    check_at(Path::new("ww_tap"));
+}
+
+/// Consecutive versions in each crate's `api_snapshots/` follow the rules: ww_global, ww_tap, ww_link and the stdlib.
+#[test]
+fn saved_snapshots_evolve_correctly() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let mut crate_dirs = vec![
+        root.join("ww_global"),
+        root.join("ww_tap"),
+        root.join("ww_link"),
+    ];
+    for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
+        let path = entry.unwrap().path();
+        if path.join("Cargo.toml").exists() {
+            crate_dirs.push(path);
+        }
+    }
+    for crate_dir in crate_dirs {
+        let dir = ww_snapshots::Dir::of_crate(&crate_dir);
+        let mut snapshots: Vec<_> = dir
+            .files()
+            .unwrap()
+            .into_iter()
+            .map(|(version, path)| {
+                let bundle = wire_weaver_evolution::snapshot_files::parse(&path).unwrap();
+                (version, bundle)
+            })
+            .collect();
+        snapshots.sort_by_key(|(v, _)| (v.version.major.0, v.version.minor.0, v.version.patch.0));
+        for pair in snapshots.windows(2) {
+            let report = wire_weaver_evolution::compare(&pair[0].1, &pair[1].1).unwrap();
+            report
+                .check_version()
+                .unwrap_or_else(|e| panic!("{}: {e}: {:?}", crate_dir.display(), report.breaking));
+        }
+    }
 }
 
 #[test]

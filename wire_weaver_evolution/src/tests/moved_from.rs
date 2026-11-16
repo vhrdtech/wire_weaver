@@ -2,6 +2,7 @@
 //! `#[moved_from]` names. A resource of the same name elsewhere is only proposed, never taken for the same one.
 
 use super::*;
+use ww_snapshots::Resolver;
 
 /// The crate `lib_rs` at crate version `version`, with its own `#[moved_from]`.
 fn load_moved(version: &str, lib_rs: &str) -> (ApiBundleOwned, Vec<Move>) {
@@ -302,9 +303,9 @@ fn moved_from_that_doesnt_hold_is_refused() {
     // and `verify_move` checks it against line 2
     let (w2, _) = load_moved("0.1.0", W2);
     let (w3_1, moves) = load_moved("0.2.0", &next);
-    assert_eq!(verify_move(&w2, &w3_1, &moves[0]), Ok(()));
+    assert_eq!(verify_move(&Resolver::new(), &w2, &w3_1, &moves[0]), Ok(()));
     let (w3_1, moves) = load_moved("0.2.0", &nothing.replace("w3.0", "w3.1"));
-    let e = verify_move(&w2, &w3_1, &moves[0]).unwrap_err();
+    let e = verify_move(&Resolver::new(), &w2, &w3_1, &moves[0]).unwrap_err();
     assert!(e[0].contains("has no Api::self_check"), "{e:?}");
 }
 

@@ -788,8 +788,13 @@ mod tests {
             .unwrap();
         assert_eq!(dirs.len(), 1, "{dirs:?}");
         assert!(dirs[0].join("Cargo.toml").is_file());
+        // its checkout under CARGO_HOME, or the path a `[patch]` of this workspace puts it at while developing both
+        let patched = sources
+            .patched_dir(&root.join("Cargo.lock"), "exact_units")
+            .unwrap();
         assert!(
-            dirs[0].starts_with(default_cargo_home().unwrap().join("git").join("checkouts")),
+            dirs[0].starts_with(default_cargo_home().unwrap().join("git").join("checkouts"))
+                || Some(&dirs[0]) == patched.as_ref(),
             "{dirs:?}"
         );
     }

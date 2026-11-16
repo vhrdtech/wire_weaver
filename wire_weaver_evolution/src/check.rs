@@ -9,6 +9,7 @@ pub use roots::{RemovedRoot, RootOutcome, RootsOutcome, SharedChange};
 use wire_weaver_core::SourceNotes;
 pub use wire_weaver_core::{CrateCache, UnitHint, UnreasonedSilence};
 use ww_self::{ApiBundleOwned, snapshot};
+use ww_snapshots::Resolver;
 use ww_version::{VersionOwned, WireVersion};
 
 use crate::recorded::Recorded;
@@ -86,7 +87,7 @@ impl Check {
     }
 
     /// Snapshots of the crate are in `dir` instead of its `api_snapshots/`: for a crate whose source isn't where its
-    /// snapshots are kept (exact_units, from its own repository, saved in wire_weaver_snapshots).
+    /// snapshots are kept.
     pub fn snapshots_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.snapshots_dir = Some(dir.into());
         self
@@ -123,7 +124,7 @@ impl Check {
                 return self.run_roots(&roots, cache);
             }
         }
-        let (new, new_recorded, new_label, dir, hints, unreasoned, moves, definitions) =
+        let (new, new_recorded, new_label, dir, hints, unreasoned, moves, definitions, crate_dirs) =
             if is_snapshot {
                 let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
                 let new = read(&self.path)?;
@@ -136,6 +137,7 @@ impl Check {
                     vec![],
                     vec![],
                     None,
+                    vec![],
                 )
             } else {
                 let (new, notes) = cache
@@ -154,9 +156,11 @@ impl Check {
                     notes.unreasoned,
                     moves,
                     definitions,
+                    notes.crate_dirs,
                 )
             };
         let definitions: Vec<&ApiBundleOwned> = definitions.iter().collect();
+        let resolver = &resolver_for(&crate_dirs);
         // w0, the design line (EVO-41): no snapshot is required, what one shows is information
         let design_line = new.wire.is_some_and(|w| w.is_design_line());
         let mut warnings = match design_line && !is_snapshot {
@@ -165,7 +169,7 @@ impl Check {
         };
         warnings.extend(unreached_moves(&[&new], &moves));
         if self.require_current && !is_snapshot && self.against.is_none() && !design_line {
-            return self.run_current(new, hints, unreasoned, &moves, &definitions);
+            return self.run_current(resolver, new, hints, unreasoned, &moves, &definitions);
         }
         let old = match &self.against {
             Some(against) => read(against)?,
@@ -204,11 +208,10 @@ impl Check {
             }
         };
         let report = compare_checked(
+            resolver,
             &dir,
-            &old.bundle,
-            &old.recorded,
-            &new,
-            &new_recorded,
+            (&old.bundle, &old.recorded),
+            (&new, &new_recorded),
             &moves,
             &definitions,
         )?;
@@ -232,6 +235,7 @@ impl Check {
     /// [run](Self::run) with [require_current](Self::require_current), `source` loaded from the crate.
     fn run_current(
         &self,
+        resolver: &Resolver,
         source: ApiBundleOwned,
         hints: Vec<UnitHint>,
         unreasoned: Vec<UnreasonedSilence>,
@@ -261,11 +265,10 @@ impl Check {
             })));
         };
         let report = compare_checked(
+            resolver,
             &dir,
-            &current.bundle,
-            &current.recorded,
-            &source,
-            &Recorded::default(),
+            (&current.bundle, &current.recorded),
+            (&source, &Recorded::default()),
             moves,
             definitions,
         )?;
@@ -274,11 +277,10 @@ impl Check {
             Some(previous) if report.change == Change::None => {
                 // the current snapshot is the source's, with the same `#[moved_from]`
                 let report = compare_checked(
+                    resolver,
                     &dir,
-                    &previous.bundle,
-                    &previous.recorded,
-                    &current.bundle,
-                    &current.recorded,
+                    (&previous.bundle, &previous.recorded),
+                    (&current.bundle, &current.recorded),
                     moves,
                     definitions,
                 )?;
@@ -371,6 +373,7 @@ impl Check {
             .load_crate_with_notes(&self.path)
             .map_err(|e| format!("{e:#}"))?;
         let moves = own_moves(&bundle, &notes);
+        let resolver = &resolver_for(&notes.crate_dirs);
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
         let dir = self.crate_snapshots_dir();
         let path = dir.join(format!("{}.ron", own.filename_friendly()));
@@ -378,23 +381,24 @@ impl Check {
             let warnings = design_line_warnings(&self.path, &bundle)?;
             return Ok(not_saved(path, bundle, None, warnings));
         }
-        // with the hash of the shrink_wrap bytes the RON stands for: the build of wire_weaver_snapshots re-encodes the
-        // RON and fails when it differs, which proves the round trip lossless
-        let contents = wire_weaver_snapshots::render_ron(&bundle)?;
+        // with the hash of the shrink_wrap bytes the RON stands for: every reader re-encodes the RON and refuses the
+        // file when it differs, which proves the round trip lossless
+        let contents = ww_snapshots::file::render_ron(&bundle)?;
         let previous = latest_snapshot(&dir, &bundle, &own.version, false)?;
         let previous = self.check_bump(
+            resolver,
             previous,
             &bundle,
-            &moves,
-            &[&notes.definitions],
+            (&moves, &[&notes.definitions]),
             None,
             force,
         )?;
-        let status = existing_status(&path, &bundle, &contents)?;
+        let status = existing_status(resolver, &path, &bundle, &contents)?;
         // a refresh in place keeps the definitions it replaces (EVO-68)
         let (superseded, warnings) = match status {
             SaveStatus::Refreshed | SaveStatus::Reformatted => match read(&path) {
                 Ok(old) => superseded::superseded(
+                    resolver,
                     &dir.join(superseded::SUPERSEDED_DIR),
                     &old.bundle,
                     &notes.definitions,
@@ -426,6 +430,7 @@ impl Check {
             .load_root_with_notes(&self.path, root)
             .map_err(|e| format!("{e:#}"))?;
         let moves = own_moves(&bundle, &notes);
+        let resolver = &resolver_for(&notes.crate_dirs);
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?.clone();
         let version = own.version.clone();
         let dir = self.crate_snapshots_dir();
@@ -434,7 +439,7 @@ impl Check {
             let warnings = design_line_warnings(&self.path, &bundle)?;
             return Ok(not_saved(path, bundle, Some(root.to_string()), warnings));
         }
-        let contents = wire_weaver_snapshots::render_root_ron(&bundle, root)?;
+        let contents = ww_snapshots::file::render_root_ron(&bundle, root)?;
         let all = root_snapshots(&dir, &own.crate_id, root, wire.line.0)?;
         if let Some(newer) = all.iter().find(|s| key(&s.version) > key(&version)) {
             return Err(format!(
@@ -462,10 +467,10 @@ impl Check {
             )?);
         }
         let previous = self.check_bump(
+            resolver,
             previous,
             &bundle,
-            &moves,
-            &[&notes.definitions],
+            (&moves, &[&notes.definitions]),
             Some(root),
             force,
         )?;
@@ -478,7 +483,7 @@ impl Check {
                 (previous_path.clone(), SaveStatus::UpToDate)
             }
             _ => {
-                let status = existing_status(&path, &bundle, &contents)?;
+                let status = existing_status(resolver, &path, &bundle, &contents)?;
                 (path, status)
             }
         };
@@ -498,10 +503,10 @@ impl Check {
     /// version not bumped enough unless `force`. `root` names the API root of a crate with several.
     fn check_bump(
         &self,
+        resolver: &Resolver,
         previous: Option<Snapshot>,
         bundle: &ApiBundleOwned,
-        moves: &[Move],
-        definitions: &[&ApiBundleOwned],
+        (moves, definitions): (&[Move], &[&ApiBundleOwned]),
         root: Option<&str>,
         force: bool,
     ) -> Result<Option<(PathBuf, Report)>, String> {
@@ -509,11 +514,10 @@ impl Check {
             return Ok(None);
         };
         let report = compare_checked(
+            resolver,
             &self.crate_snapshots_dir(),
-            &previous.bundle,
-            &previous.recorded,
-            bundle,
-            &Recorded::default(),
+            (&previous.bundle, &previous.recorded),
+            (bundle, &Recorded::default()),
             moves,
             definitions,
         )?;
@@ -1106,16 +1110,32 @@ fn not_saved(
 /// ([Report::unverified_moves]) verified against the latest snapshot in `dir` of the line it names: what doesn't hold
 /// goes to [Report::moved_from_errors], one without a snapshot of its line to [Report::warnings]. `definitions` as for
 /// [compare_recorded], those of the source a side was loaded from.
+/// The resolver a check compares with: the walked crates' own `api_snapshots/` (`crate_dirs`,
+/// `SourceNotes::crate_dirs`) first, then what a host on this machine has ([Resolver::global]) for a frozen snapshot
+/// that names a crate the walk didn't reach; never the network.
+pub(crate) fn resolver_for<P: AsRef<Path>>(crate_dirs: impl IntoIterator<Item = P>) -> Resolver {
+    Resolver::new()
+        .with_crate_dirs(crate_dirs)
+        .with_fallback(Resolver::global())
+}
+
 pub(crate) fn compare_checked(
+    resolver: &Resolver,
     dir: &Path,
-    old: &ApiBundleOwned,
-    old_recorded: &Recorded,
-    new: &ApiBundleOwned,
-    new_recorded: &Recorded,
+    (old, old_recorded): (&ApiBundleOwned, &Recorded),
+    (new, new_recorded): (&ApiBundleOwned, &Recorded),
     moves: &[Move],
     definitions: &[&ApiBundleOwned],
 ) -> Result<Report, String> {
-    let mut report = compare_recorded(old, old_recorded, new, new_recorded, moves, definitions)?;
+    let mut report = compare_recorded(
+        resolver,
+        old,
+        old_recorded,
+        new,
+        new_recorded,
+        moves,
+        definitions,
+    )?;
     if report.unverified_moves.is_empty() {
         return Ok(report);
     }
@@ -1152,7 +1172,7 @@ pub(crate) fn compare_checked(
             ));
             continue;
         };
-        if let Err(errors) = verify_move(&line.bundle, new, &moved) {
+        if let Err(errors) = verify_move(resolver, &line.bundle, new, &moved) {
             for e in errors {
                 report
                     .moved_from_errors
@@ -1197,6 +1217,7 @@ pub(crate) fn own_moves(bundle: &ApiBundleOwned, notes: &SourceNotes) -> Vec<Mov
 
 /// Whether the snapshot file at `path`, of the same version as `bundle`, needs writing.
 fn existing_status(
+    resolver: &Resolver,
     path: &Path,
     bundle: &ApiBundleOwned,
     contents: &str,
@@ -1209,6 +1230,7 @@ fn existing_status(
             let same = old.as_ref().is_some_and(|old| {
                 old.bundle.ww_self_version == bundle.ww_self_version
                     && compare_recorded(
+                        resolver,
                         &old.bundle,
                         &old.recorded,
                         bundle,

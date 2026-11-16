@@ -67,6 +67,8 @@ enum Source {
     Dir(Dir),
     Cache(Dir),
     Cargo(CargoScan),
+    /// Another resolver asked after the sources before it, with what it remembers.
+    Fallback(&'static Resolver),
 }
 
 /// A source expanded for one lookup.
@@ -75,6 +77,7 @@ enum Place<'s> {
     /// A directory, and whether it is the cache.
     Dir(&'s Dir, bool),
     Cargo(&'s CargoScan),
+    Fallback(&'static Resolver),
 }
 
 /// Where the resolver looks for crates in Cargo's sources on this machine.
@@ -203,6 +206,13 @@ impl Resolver {
         self
     }
 
+    /// Adds another resolver, asked after the sources before it: the checker puts the walked crates' directories
+    /// before [Self::global], so what the process already found or looked for in vain is not looked for again.
+    pub fn with_fallback(mut self, resolver: &'static Resolver) -> Self {
+        self.sources.push(Source::Fallback(resolver));
+        self
+    }
+
     /// The sources with their position, the embedded sets expanded.
     fn places(&self) -> Vec<(usize, Place<'_>)> {
         let mut places = vec![];
@@ -215,6 +225,7 @@ impl Resolver {
                 Source::Dir(dir) => places.push((index, Place::Dir(dir, false))),
                 Source::Cache(dir) => places.push((index, Place::Dir(dir, true))),
                 Source::Cargo(scan) => places.push((index, Place::Cargo(scan))),
+                Source::Fallback(resolver) => places.push((index, Place::Fallback(resolver))),
             }
         }
         places
@@ -320,6 +331,16 @@ impl Resolver {
                         }
                     }
                 }
+                Place::Fallback(resolver) => {
+                    if first {
+                        if let Some(bundle) = resolver.snapshot(version) {
+                            let origin = resolver.origin(version).unwrap_or(Origin::Set(index));
+                            found.push((origin, bundle.clone()));
+                        }
+                    } else {
+                        found.extend(resolver.every_snapshot(version, false));
+                    }
+                }
             }
             if first && !found.is_empty() {
                 return found;
@@ -346,7 +367,8 @@ impl Resolver {
         }
     }
 
-    /// Directories of `version` in Cargo's sources (`scan`) that have an `api_snapshots/`.
+    /// Directories of `version` in Cargo's sources (`scan`) that have an `api_snapshots/`: what the workspace's
+    /// `Cargo.lock` places, else what a scan of `CARGO_HOME` finds.
     fn cargo_dirs(&self, scan: &CargoScan, version: &FullVersionOwned) -> Vec<PathBuf> {
         let v = &version.version;
         let semver = semver::Version::new(v.major.0.into(), v.minor.0.into(), v.patch.0.into());
@@ -360,7 +382,9 @@ impl Resolver {
                 Err(e) => debug!("no Cargo.lock to go by: {e:#}"),
             }
         }
-        if let Some(home) = &scan.cargo_home {
+        if dirs.is_empty()
+            && let Some(home) = &scan.cargo_home
+        {
             dirs.extend(cargo::scan_fetched(home, &version.crate_id, &semver));
         }
         dirs.dedup();
@@ -456,6 +480,12 @@ impl Resolver {
                     .iter()
                     .map(|d| Dir::of_crate(d))
                     .collect(),
+                Place::Fallback(resolver) => {
+                    if let Some(found) = resolver.superseded(kind, version, name, reference) {
+                        return Some(found.clone());
+                    }
+                    continue;
+                }
             };
             for dir in dirs {
                 match dir.superseded(kind, version, name, reference) {
@@ -529,6 +559,7 @@ impl std::fmt::Debug for Source {
             Source::Dir(dir) => write!(f, "Dir({})", dir.path().display()),
             Source::Cache(dir) => write!(f, "Cache({})", dir.path().display()),
             Source::Cargo(scan) => write!(f, "Cargo({scan:?})"),
+            Source::Fallback(_) => write!(f, "Fallback"),
         }
     }
 }

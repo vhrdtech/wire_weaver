@@ -53,9 +53,7 @@ ww_timebase = { workspace = true, features = ["std"] }
 io_timebase_api.workspace = true
 tap_api.workspace = true
 tests_common.workspace = true
-user_info_api.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
 ww_date_time = { workspace = true, features = ["std"] }
 ww_stream.workspace = true
-ww_user_info = { workspace = true, features = ["std"] }

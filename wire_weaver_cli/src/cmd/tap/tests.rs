@@ -2,7 +2,7 @@
 //! the real framers on both ends), printed live the way `ww monitor` prints it, captured the way `ww capture` writes
 //! it, and the capture read back the way `ww explain FILE` reads it: the same text.
 
-use super::test_support::{Shared, replayed, tapped_session};
+use super::test_support::{Shared, replayed, replayed_view, tapped_session};
 use super::*;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::ObserveMode;
@@ -618,7 +618,7 @@ async fn observe_requests_replies_and_updates_are_decoded() {
 async fn global_trait_calls_are_named_and_decoded() {
     for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
         let device = global_clock::demo_device(&format!("cli/tap_{name}"));
-        let (printed, path) = tapped_session(name, &device, traits_only, async |client| {
+        let (printed, path) = tapped_session(name, device.path(), traits_only, async |client| {
             let clock = global_clock::ClockClient::new(client);
             clock.now().call().await.unwrap();
         })

@@ -598,6 +598,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "camino"
+version = "1.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbad30e4b4c14a39e3cc8aed085a12a327257c316619c93581e017bc52be591"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "cargo-platform"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd0061da739915fae12ea00e16397555ed4371a6bb285431aab930f61b0aa4ba"
+dependencies = [
+ "serde",
+ "serde_core",
+]
+
+[[package]]
+name = "cargo_metadata"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef987d17b0a113becdd19d3d0022d04d7ef41f9efe4f3fb63ac44ba61df3ade9"
+dependencies = [
+ "camino",
+ "cargo-platform",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "cargo_toml"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -901,7 +934,6 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_core",
  "ww_client_server",
- "ww_global",
  "ww_keyed",
  "ww_link",
  "ww_numeric",
@@ -1007,6 +1039,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
 
 [[package]]
+name = "counted_stream_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "counters"
 version = "0.1.0"
 dependencies = [
@@ -1110,31 +1149,30 @@ version = "0.1.0"
 dependencies = [
  "cross_version_api",
  "cross_version_old_api",
+ "global_boot_api",
  "tests_common",
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_dfu",
  "ww_global",
- "ww_si",
 ]
 
 [[package]]
 name = "cross_version_api"
 version = "0.4.0"
 dependencies = [
+ "global_boot_api",
  "wire_weaver",
- "ww_dfu",
 ]
 
 [[package]]
 name = "cross_version_old_api"
 version = "0.3.0"
 dependencies = [
+ "global_boot_api",
  "wire_weaver",
- "ww_dfu",
 ]
 
 [[package]]
@@ -1599,6 +1637,7 @@ name = "dispatch_golden"
 version = "0.1.0"
 dependencies = [
  "dispatch_golden_api",
+ "global_fixture_api",
  "hex",
  "serde",
  "serde_json",
@@ -1608,15 +1647,14 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_user_info",
 ]
 
 [[package]]
 name = "dispatch_golden_api"
 version = "0.1.0"
 dependencies = [
+ "global_fixture_api",
  "wire_weaver",
- "ww_user_info",
 ]
 
 [[package]]
@@ -2078,7 +2116,7 @@ name = "follow_reboot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dfu_lean_app_api",
+ "follow_reboot_api",
  "picoboot_host",
  "semver",
  "stm32_dfu_host",
@@ -2088,8 +2126,13 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
- "ww_dfu",
- "ww_si",
+]
+
+[[package]]
+name = "follow_reboot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]
@@ -2282,12 +2325,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "global_boot_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
+name = "global_fixture_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "global_ids"
 version = "0.1.0"
 dependencies = [
  "syn 3.0.3",
  "toml",
  "ww_global",
+]
+
+[[package]]
+name = "global_paths_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -3062,6 +3127,15 @@ version = "0.1.0"
 dependencies = [
  "wire_weaver",
  "ww_si",
+]
+
+[[package]]
+name = "layers_lint"
+version = "0.1.0"
+dependencies = [
+ "cargo_metadata",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -4821,8 +4895,6 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_client_server",
- "ww_indication",
- "ww_si",
 ]
 
 [[package]]
@@ -4830,7 +4902,6 @@ name = "shared_sub_level_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
- "ww_indication",
 ]
 
 [[package]]
@@ -5201,8 +5272,8 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 name = "tap_api"
 version = "0.1.0"
 dependencies = [
+ "global_fixture_api",
  "wire_weaver",
- "ww_user_info",
 ]
 
 [[package]]
@@ -5355,7 +5426,7 @@ name = "thermo"
 version = "0.1.0"
 dependencies = [
  "tests_common",
- "thermo_api 4.0.0",
+ "thermo_api 6.0.0",
  "thermo_devices",
  "thiserror 2.0.20",
  "tokio",
@@ -5365,7 +5436,6 @@ dependencies = [
  "wire_weaver_core",
  "wire_weaver_evolution",
  "ww_client_server",
- "ww_indication",
  "ww_si",
 ]
 
@@ -5389,11 +5459,10 @@ dependencies = [
 
 [[package]]
 name = "thermo_api"
-version = "4.0.0"
+version = "6.0.0"
 dependencies = [
  "wire_weaver",
  "wire_weaver_evolution",
- "ww_indication",
  "ww_si",
 ]
 
@@ -5404,7 +5473,7 @@ dependencies = [
  "tests_common",
  "thermo_api 1.0.0",
  "thermo_api 2.0.0",
- "thermo_api 4.0.0",
+ "thermo_api 6.0.0",
  "wire_weaver",
  "ww_client_server",
  "ww_hub",
@@ -6320,6 +6389,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wire_line_fixture_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "wire_weaver_evolution",
+]
+
+[[package]]
 name = "wire_line_old_api"
 version = "0.3.0"
 dependencies = [
@@ -6353,6 +6430,7 @@ dependencies = [
  "human-repr",
  "indicatif",
  "inventory",
+ "io_timebase_api",
  "ron",
  "rustix",
  "semver",
@@ -6371,6 +6449,7 @@ dependencies = [
  "wire_weaver_core",
  "wire_weaver_evolution",
  "ww_client_server",
+ "ww_date_time",
  "ww_hub",
  "ww_hub_api",
  "ww_numeric",
@@ -6378,7 +6457,6 @@ dependencies = [
  "ww_si",
  "ww_stream",
  "ww_timebase",
- "ww_user_info",
 ]
 
 [[package]]
@@ -6550,9 +6628,9 @@ dependencies = [
 name = "ww_block"
 version = "0.1.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "wire_weaver",
+ "ww_crc",
  "ww_error",
  "ww_si",
 ]
@@ -6618,6 +6696,13 @@ dependencies = [
  "wire_weaver",
  "ww_error",
  "ww_si",
+]
+
+[[package]]
+name = "ww_crc"
+version = "0.5.0"
+dependencies = [
+ "crc",
 ]
 
 [[package]]
@@ -6700,9 +6785,9 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "shrink_wrap",
+ "ww_crc",
 ]
 
 [[package]]
@@ -6710,10 +6795,8 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case 0.11.0",
- "defmt 1.1.1",
- "serde",
  "serde_json",
- "shrink_wrap",
+ "ww_version",
 ]
 
 [[package]]
@@ -6830,7 +6913,6 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver",
- "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -7022,11 +7104,11 @@ dependencies = [
 name = "ww_settings"
 version = "0.5.0"
 dependencies = [
- "crc",
  "defmt 1.1.1",
  "embassy-futures",
  "embedded-storage-async",
  "shrink_wrap",
+ "ww_crc",
  "ww_settings",
  "ww_settings_derive",
 ]
@@ -7112,13 +7194,13 @@ version = "0.5.0"
 dependencies = [
  "atomic-waker",
  "cnt",
- "crc",
  "defmt 1.1.1",
  "embedded-sdmmc-types",
  "embedded-storage-async",
  "portable-atomic",
  "wire_weaver",
  "ww_client_server",
+ "ww_crc",
  "ww_lz4",
  "ww_si",
 ]
@@ -7216,7 +7298,6 @@ dependencies = [
  "semver",
  "serde",
  "shrink_wrap",
- "ww_global",
 ]
 
 [[package]]

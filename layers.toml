@@ -266,6 +266,11 @@ ww_pin_probe = 6
 ww_pwm = 6
 ww_recorder = 6
 ww_report = 6
+ww_std_cli = 6
+
+# Layer 7: the shipped tools, everything of every layer built in
+ww = 7
+wire_weaver_wheel = 7
 ww_sd = 6
 ww_signal_generator = 6
 ww_spi = 6
@@ -278,11 +283,6 @@ ww_user_info = 6
 # lands the refactor removing it.
 
 [[allow]]
-from = "thermo"
-to = "ww_indication"
-refactor = "R7"
-
-[[allow]]
 from = "thermo_api"
 to = "ww_indication"
 refactor = "R7"
@@ -293,46 +293,7 @@ to = "ww_indication"
 refactor = "R7"
 
 [[allow]]
-from = "wire_weaver_cli"
-to = "ww_board_info"
-refactor = "R8"
-
-[[allow]]
-from = "wire_weaver_cli"
-to = "ww_counters"
-refactor = "R8"
-
-[[allow]]
-from = "wire_weaver_cli"
-to = "ww_dfu"
-refactor = "R8"
-
-[[allow]]
-from = "wire_weaver_cli"
-to = "ww_indication"
-refactor = "R8"
-
-[[allow]]
-from = "wire_weaver_cli"
-to = "ww_pin_probe"
-refactor = "R8"
-
-[[allow]]
-from = "wire_weaver_cli"
-to = "ww_report"
-refactor = "R8"
-
-[[allow]]
-from = "wire_weaver_cli"
-to = "ww_user_info"
-refactor = "R8"
-
-[[allow]]
 from = "ww_tape"
 to = "ww_self"
 refactor = "R11"
 
-[[allow]]
-from = "wire_weaver_cli"
-to = "user_info_api"
-refactor = "R8"

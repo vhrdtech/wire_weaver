@@ -1806,6 +1806,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#keyed-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5928,6 +5939,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#keyed-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -6114,6 +6136,57 @@ separately.</p>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">rw</span><span class="w"> </span><span class="n">rgb_led</span><span class="p">[]:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]);</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
 </span></code></pre></div>
+<h2 id="keyed-arrays">Keyed arrays<a class="headerlink" href="#keyed-arrays" title="Permanent link">&para;</a></h2>
+<p>An index says where an element sits on one device, in one run: a packet dissector gives flow 3 to whatever traffic
+it met third. <code>keyed!</code> lets a client address the elements by a key of their own instead:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Dissector</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">flow</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Flow</span><span class="p">);</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">keyed</span><span class="o">!</span><span class="p">(</span><span class="n">flow</span><span class="w"> </span><span class="n">by</span><span class="w"> </span><span class="n">FlowKey</span><span class="p">);</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>keyed!</code> follows the array it keys (traits, properties, streams or sinks) and takes an item id at its position, like
+any other item. The key is any wire_weaver type without a float in it. The API crate and the server crate depend on
+<code>ww_keyed</code>, whose <code>KeyEvent</code> the generated code names.</p>
+<p>The companion is a fixed set of operations, the same for every keyed array, at the path of <code>flow_keys</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Id</th>
+<th>Item</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>fn index_of(key: FlowKey) -&gt; Option&lt;I&gt;</code></td>
+<td>the index of the element with that key</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>property!(ro key[I]: FlowKey)</code></td>
+<td>the key of an element; all of them in one multi read</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>stream!(keys: KeyEvent&lt;I, FlowKey&gt;)</code></td>
+<td><code>Added { index, key }</code> when an element appears, <code>Removed { index }</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>I</code> is the array's own index type, <code>UNib32</code> for <code>flow[]</code>.</p>
+<p>On the device the companion takes two handlers, <code>flow_index_of(cx, key) -&gt; RpcResult&lt;Option&lt;I&gt;&gt;</code> and
+<code>get_flow_key(cx, index_chain) -&gt; GetResult&lt;FlowKey, ()&gt;</code> (always a getter, whatever the <code>property_model</code>); the
+server keeps its key table, as it keeps the flows. The key array's indices are the array's own, checked by
+<code>valid_indices_root_flow</code>, so <code>get_flow_key</code> is only called for an index the device has. The <code>keys</code> stream needs no
+handler: the generated code opens and closes it, and the device announces each element with
+<code>stream_data_ser().flow_keys_send(&amp;KeyEvent::Added { index, key }, cx)</code> (<code>flow_keys_send_blocking</code> in a blocking
+server). An index may go to another key only after its <code>Removed</code>. <code>ww api scaffold</code>
+prints the handlers.</p>
+<p>One <code>keyed!</code> costs 316 B of flash on a Cortex-M0 at <code>fw-z</code> in a blocking server, 276 to 784 B on M0 and M3 at
+<code>fw-z</code> and <code>fw-3</code>, blocking and async (TEST-30, <code>qemu-flash-keyed</code> against <code>qemu-flash-arrayed</code>). The <code>keys</code>
+stream's send helper is not counted: it is linked only where it is used.</p>
 
 
 

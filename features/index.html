@@ -7065,9 +7065,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   API traits get low ids straight in <code>ww_global</code>, assigned by hand like the stdlib ones (up to 63 for traits in hot
   bus frames: one byte as <code>UNib32</code>), and the codegen looks them up by crate and trait name. Chorus (CBUS-1) names
   traits on a bus by these ids. Later: a range for outside users and delegated blocks for private projects.</li>
-<li>📋 <strong>SRV-62 Server of a keyed array</strong> · <code>v0.5</code> — handlers <code>&lt;array&gt;_index_of</code> and <code>&lt;array&gt;_key</code>, a
-  <code>&lt;array&gt;_keys_send</code> helper for <code>KeyEvent</code>s, valid indices from the array's own, printed by <code>ww api scaffold</code>; the
-  flash cost of one <code>keyed!</code> in the flash budget (API-67). Until then a server of a keyed API doesn't compile.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
 <li>⛔ <strong>API-23 Index chain array → named arguments</strong> · <code>v0.5.x</code> — stalled. Generating ad-hoc structs with named index
@@ -7084,7 +7081,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   type (<code>UNib32</code> for <code>name[]</code>). No new request kind or wire format; an API without <code>keyed!</code> has the same bundle.
   Refused: no array before it, a method, a flat item, a second <code>keyed!</code> of one array, a float anywhere in the key,
   a name clash with <code>&lt;array&gt;_keys</code>. Done: the model, parsing and checks (<code>tests/keyed_api</code>, the Dissector),
-  conformance cases <code>stdlib.keyed.*</code>, evolution and <code>ww api</code> (EVO-78). Missing: server (SRV-62), client (CLT-72).
+  conformance cases <code>stdlib.keyed.*</code>, evolution and <code>ww api</code> (EVO-78), the server (SRV-62). Missing: client
+  (CLT-72).
   <a href="../docs/api/arrays/">Docs</a>.</li>
 <li>📋 <strong>API-66 Staged and timed actions</strong> — nothing applies several writes together or at a given time: a motor's
   torque and an ADC's gain on one device, or three joints of a leg on a bus (CBUS-1). <code>#[staged]</code> properties written
@@ -7579,6 +7577,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>client_server.request.multi_read</code>, <code>.sink_write</code>, <code>.sideband_ack</code>; <code>tests/lean_server</code> refuses them without the features. Observe was
   measured too and left in (96 B at the floor). See <code>docs/serdes/code_size.md#request-kinds-a-firmware-leaves-out-multi-and-streams</code>.</p>
 </li>
+<li>✅ <strong>SRV-62 Server of a keyed array</strong> · <code>v0.5</code> — a <code>keyed!(flow by FlowKey)</code> companion (API-67) is served from
+  its fixed level: handlers <code>flow_index_of</code> and <code>get_flow_key</code> (a getter whatever the <code>property_model</code>), the key
+  array's indices from the array's own <code>valid_indices_root_flow</code>, a <code>keys</code> stream the generated code opens and closes
+  without a handler, <code>stream_data_ser().flow_keys_send</code> (<code>_blocking</code>) to announce a <code>ww_keyed::KeyEvent</code>; <code>ww api
+  scaffold</code> prints the handlers. An item named like a companion handler is refused. Flash of one <code>keyed!</code> (TEST-30,
+  <code>qemu-flash-keyed</code> against <code>qemu-flash-arrayed</code>): 316 B on thumbv6m at <code>fw-z</code>, sync; 276-784 B on thumbv6m and
+  thumbv7m at <code>fw-z</code> and <code>fw-3</code>, sync and <code>use_async</code>. <code>tests/keyed</code> (blocking <code>no_alloc</code> and async servers:
+  <code>index_of</code>, <code>key[i]</code>, a multi read of all keys, the <code>keys</code> stream), <a href="../docs/api/arrays/#keyed-arrays">docs</a>.</li>
 <li>📋 <strong>SRV-59 Marking an element's change from another task</strong> — <code>ObserveSignal</code> (SRV-25) has a bit per observable
   property of the flat levels; a property of a level under resource arrays (API-63) is marked on the server,
   <code>mark_changed_&lt;name&gt;(index_chain)</code>, so an interrupt or another task can't mark it without the server state. Needs a
@@ -9673,8 +9679,8 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   servers of the roots of <code>tests/flash_budget_api</code> (<code>qemu-flash-*</code> in <code>examples_mcu/mcu_qemu</code>, <code>thumbv6m-none-eabi</code>,
   <code>fw-z</code> and <code>fw-3</code>, sync and <code>use_async</code>) and prints the floor, the bytes of one more resource of each kind (calls
   with and without arguments, properties, streams, calls with types of their own, traits reached by a global path
-  with introspection off; 16 against 8 at the root) and checks for the observe <code>Series</code> codec, <code>shrink_wrap::Error</code>'s
-  <code>Debug</code> names and the trait path lookup by name with its names in flash.
+  with introspection off; 16 against 8 at the root), one <code>keyed!</code> on an array (SRV-62) and checks for the observe
+  <code>Series</code> codec, <code>shrink_wrap::Error</code>'s <code>Debug</code> names and the trait path lookup by name with its names in flash.
   Baseline of 3 Nov 2026 at <code>fw-z</code>, sync: floor 26,286 B, 52-496 B per resource by kind (mean 245 B), 438 B for a
   call with its own types; the <code>Series</code> codec is in every server (3,796 B). <code>just dispatch-budget</code> (<code>--requests</code>,
   <code>qemu-dispatch-requests</code>) adds the instructions per request of the <code>BaseOnly</code> server on a Cortex-M3 under QEMU,

@@ -6342,6 +6342,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 <ul>
+<li><strong><a href="../api/arrays/#keyed-arrays">Server of a keyed array</a></strong>: <code>ww api scaffold</code> prints two handlers per <code>keyed!</code>, the generated code answers the rest.</li>
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>
 <li><strong><a href="../transport/ww_framer/#latency-and-priority">Replies by priority</a></strong>: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; <code>Sink::flush</code> sends what waits now. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/errors/#where-on-the-device-an-error-came-from">Errors that say where</a></strong>: A device's error names the site that raised it, by a number that is the same in every firmware.</li>

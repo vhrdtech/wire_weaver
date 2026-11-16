@@ -255,7 +255,7 @@ upload-examples-mcu-usb-stm32h725ig:
 # Build ww and install it
 install:
     cargo build --profile deploy --locked -p ww
-    # With our internal release tool on PATH: install through it (kept-releases stack, one copy on PATH); otherwise: cargo install
+    # With the internal release tool on PATH: install through it (kept-releases stack, one copy on PATH); otherwise: cargo install
     if command -v tpm >/dev/null; then tpm install target/deploy/ww; else cargo install --locked --path ww_tools/ww; fi
 
 # Old name of install, kept for people and docs

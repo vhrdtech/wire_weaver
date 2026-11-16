@@ -16,7 +16,7 @@ From a local checkout of this repository:
 just install
 ```
 
-With our internal release tool on PATH, it builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. `just install` works anywhere: without that tool it runs `cargo install --locked --path ww_tools/ww` instead.
+With the internal release tool on PATH, it builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. `just install` works anywhere: without that tool it runs `cargo install --locked --path ww_tools/ww` instead.
 
 ### Shell completions
 

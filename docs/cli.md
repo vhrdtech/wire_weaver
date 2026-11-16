@@ -17,7 +17,7 @@ cargo install --git https://github.com/vhrdtech/wire_weaver ww
 ```
 
 From a local checkout of the repository, `just install` builds `ww` with the `deploy` profile and installs
-it. It works anywhere: with our internal release tool on PATH it goes into the kept-releases stack in
+it. It works anywhere: with the internal release tool on PATH it goes into the kept-releases stack in
 `~/.local/bin` (the only `ww` on `PATH`), otherwise through `cargo install --locked --path ww_tools/ww`.
 `just deploy` pulls main first and checks `ww --version`.
 

@@ -42,8 +42,8 @@ use std::time::{Duration, Instant};
 
 use crate::index::{IndexPolicy, Indexer};
 use crate::piece::{
-    ContentHash, Finish, FinishState, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail, TrackStart,
-    finish_len, piece_head_len, write_finish, write_piece_head,
+    ContentHash, Finish, FinishState, PIECE_ALIGN, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail,
+    TrackStart, finish_len, finish_padding, piece_head_len, write_finish, write_piece_head,
 };
 use crate::reader::{ReadError, wide};
 pub use crate::sink::partial_name;
@@ -1050,15 +1050,22 @@ impl<S: TapeSink> TapeWriter<S> {
             next,
         };
         let ranges = self.indexer.track_ranges();
-        let mut buf = vec![0u8; finish_len(ranges.len())];
-        let n = write_finish(&mut buf, self.structural_id(), &finish, &ranges)
-            .map_err(WriteError::Index)?;
         let finish_offset = self.offset();
+        // the piece ends, after its tail, on a multiple of PIECE_ALIGN
+        let padding = finish_padding(finish_offset, ranges.len());
+        let mut buf = vec![0u8; finish_len(ranges.len()).saturating_add(padding)];
+        let n = write_finish(&mut buf, self.structural_id(), &finish, &ranges, padding)
+            .map_err(WriteError::Index)?;
         buf.truncate(n);
         self.write_raw(&buf)?;
         let too_long = WriteError::Index(IndexError::Invalid("a piece past u64::MAX bytes"));
+        let piece_len = self.offset().checked_add(wide(TAIL_LEN)).ok_or(too_long)?;
+        assert!(
+            piece_len.is_multiple_of(u64::from(PIECE_ALIGN)),
+            "the finish padding ends the piece on {PIECE_ALIGN} bytes"
+        );
         let tail = Tail {
-            piece_len: self.offset().checked_add(wide(TAIL_LEN)).ok_or(too_long)?,
+            piece_len,
             finish_offset,
             finish_len: u32::try_from(n)
                 .ok()

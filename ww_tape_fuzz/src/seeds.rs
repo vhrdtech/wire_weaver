@@ -306,7 +306,7 @@ fn finish_only(final_index: u64, piece_len: Option<u64>) -> Vec<u8> {
         next: None,
     };
     let mut b = vec![0u8; finish_len(0)];
-    let n = write_finish(&mut b, BlockId::new(SESSION, 0), &finish, &[]).expect("a finish");
+    let n = write_finish(&mut b, BlockId::new(SESSION, 0), &finish, &[], 0).expect("a finish");
     b.truncate(n);
     let len = piece_len.unwrap_or((n + TAIL_LEN) as u64);
     b.extend(tail(len, 0, n as u32));

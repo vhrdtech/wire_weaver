@@ -201,8 +201,9 @@ pub(crate) fn finish_block(
         ident: d.bool().then(|| ident(d)),
         next: None,
     };
-    let mut buf = vec![0u8; finish_len(tracks.len())];
-    let n = write_finish(&mut buf, id, &finish, &tracks).expect("a valid finish");
+    let padding = [0, 1, 512][d.below(3)];
+    let mut buf = vec![0u8; finish_len(tracks.len()) + padding];
+    let n = write_finish(&mut buf, id, &finish, &tracks, padding).expect("a valid finish");
     buf.truncate(n);
     buf
 }
@@ -217,6 +218,7 @@ pub(crate) fn finish_fields<'c>(d: &mut Draw<'_>, tracks: usize, len: &'c [u64])
         Field::new(88, 8, caps),
         Field::new(160, 8, &[]),
         Field::new(168, 4, &[1]),
+        Field::new(172, 4, &[4095, 4096, u32::MAX as u64]),
     ];
     let at = 176 + d.below(tracks + 1) * 56;
     f.extend([

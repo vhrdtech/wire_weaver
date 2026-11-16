@@ -447,6 +447,35 @@ fn chain_of_pieces_links_both_ways() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Finished pieces are multiples of 4 KiB long, so they clone back to back into one file: `std::io::copy` between
+/// files is `copy_file_range` on Linux, which shares extents on btrfs and XFS and copies elsewhere.
+#[test]
+fn finished_pieces_clone_back_to_back() {
+    let dir = scratch("clone");
+    let paths = write_chain(&dir, 0);
+    assert_eq!(paths.len(), 3);
+    let joined = dir.join("joined.wwt");
+    let mut out = std::fs::File::create_new(&joined).unwrap();
+    let mut starts = vec![];
+    for p in &paths {
+        let len = std::fs::metadata(p).unwrap().len();
+        assert_eq!(len % 4096, 0, "{} is {len} bytes", p.display());
+        starts.push(out.metadata().unwrap().len());
+        std::io::copy(&mut std::fs::File::open(p).unwrap(), &mut out).unwrap();
+    }
+    drop(out);
+    let all = std::fs::read(&joined).unwrap();
+    let r = TapeReader::open(&all[..]).unwrap();
+    assert_eq!(
+        r.pieces().iter().map(|p| p.start).collect::<Vec<_>>(),
+        starts
+    );
+    assert!(r.pieces().iter().all(|p| p.found == Found::Tail));
+    assert!(r.chain().is_whole());
+    assert!((0..3).all(|i| r.verify(i).unwrap()));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// One file of finished pieces with an unfinished one after them (being written, or cut off by a crash): the
 /// finished ones are found by their tails, the last one from its checkpoints and a scan, wherever it was cut.
 #[test]
@@ -464,7 +493,11 @@ fn finished_pieces_then_an_unfinished_one() {
         .find(|(_, _, k)| *k == BlockKind::Finish)
         .unwrap();
     // at every block boundary before the tail, and inside the padded finish
-    let mut cuts: Vec<u64> = blocks.iter().map(|(at, _, _)| *at).filter(|at| *at > 0).collect();
+    let mut cuts: Vec<u64> = blocks
+        .iter()
+        .map(|(at, _, _)| *at)
+        .filter(|at| *at > 0)
+        .collect();
     cuts.extend([finish_at + 200, last.len() as u64 - 100]);
     for cut in cuts {
         let all = [&done[..], &last[..cut as usize]].concat();
@@ -472,16 +505,24 @@ fn finished_pieces_then_an_unfinished_one() {
         let p = r.pieces();
         assert_eq!(p.len(), 3, "cut at {cut}");
         assert!(
-            p[..2].iter().all(|p| p.found == Found::Tail && p.tail.is_some()),
+            p[..2]
+                .iter()
+                .all(|p| p.found == Found::Tail && p.tail.is_some()),
             "cut at {cut}: {:?}",
-            p.iter().map(|p| (p.start, p.found, p.end)).collect::<Vec<_>>()
+            p.iter()
+                .map(|p| (p.start, p.found, p.end))
+                .collect::<Vec<_>>()
         );
         assert_eq!(p[2].start, done.len() as u64, "cut at {cut}");
         assert!(p[2].tail.is_none(), "cut at {cut}");
         // cut inside its tail, the piece has its finish: it ended, and only the tail is lost
         let ended = cut > finish_at + 200;
         assert_eq!(p[2].finish.is_some(), ended, "cut at {cut}");
-        let end = if ended { ChainEnd::Complete } else { ChainEnd::Open };
+        let end = if ended {
+            ChainEnd::Complete
+        } else {
+            ChainEnd::Open
+        };
         assert_eq!(r.chain().end, end, "cut at {cut}");
         assert!((0..2).all(|i| r.verify(i).unwrap()));
         let events = r

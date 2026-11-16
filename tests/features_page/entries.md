@@ -476,6 +476,7 @@ feature tracker.
 - STD-133 | Tape summary kernels | Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results. | transport/tap.md#tape-blocks
 - STD-131 | Tape hardening | Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap. | transport/tap.md#tape-blocks
 - STD-132 | Tape resume and additions | A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy. | tape/recovery.md#resuming-after-a-crash
+- STD-134 | Tape pieces on 4 KiB | Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte. | tape/index.md#pieces-and-chains
 
 # Examples
 

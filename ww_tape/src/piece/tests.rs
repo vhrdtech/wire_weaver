@@ -70,13 +70,17 @@ fn finish_and_tail_round_trip() {
         last_tick: 900,
         latest_end: 950,
     }];
-    let mut buf = vec![0u8; finish_len(1)];
-    let n = write_finish(&mut buf, id(77), &finish, &tracks).unwrap();
-    let block = Block::read(&buf[..n]).unwrap();
-    let f = FinishBlock::read(&block).unwrap();
-    assert_eq!(f.finish(), finish);
-    assert_eq!(f.tracks().collect::<Vec<_>>(), tracks);
+    let mut buf = vec![0u8; finish_len(1) + 4095];
+    for padding in [0, 1, 1000, 4095] {
+        let n = write_finish(&mut buf, id(77), &finish, &tracks, padding).unwrap();
+        assert_eq!(n, finish_len(1) + padding);
+        let block = Block::read(&buf[..n]).unwrap();
+        let f = FinishBlock::read(&block).unwrap();
+        assert_eq!(f.finish(), finish);
+        assert_eq!(f.tracks().collect::<Vec<_>>(), tracks);
+    }
     assert_eq!(tracks[0].end_item(), 16192);
+    assert!(write_finish(&mut buf, id(77), &finish, &tracks, 4096).is_err());
 
     let plain = Finish {
         ident: None,
@@ -84,7 +88,7 @@ fn finish_and_tail_round_trip() {
         state: FinishState::Complete,
         ..finish
     };
-    let n = write_finish(&mut buf, id(77), &plain, &[]).unwrap();
+    let n = write_finish(&mut buf, id(77), &plain, &[], 0).unwrap();
     let block = Block::read(&buf[..n]).unwrap();
     assert_eq!(FinishBlock::read(&block).unwrap().finish(), plain);
 
@@ -230,4 +234,43 @@ fn chains_are_checked_both_ways() {
     ]);
     assert_eq!(r.order, [0]);
     assert_eq!(r.strays, [1, 2]);
+}
+
+#[test]
+fn finish_padding_ends_the_piece_on_4_kib() {
+    for tracks in [0, 1, 3, 70] {
+        for offset in [0, 1, 100, 4095, 4096, 12345, (1 << 40) + 7, u64::MAX - 5] {
+            let pad = finish_padding(offset, tracks);
+            assert!(pad < 4096);
+            let end = offset.wrapping_add((finish_len(tracks) + pad + TAIL_LEN) as u64);
+            assert_eq!(end % 4096, 0, "{tracks} tracks at {offset}");
+        }
+    }
+}
+
+#[test]
+fn finish_padding_is_checked_against_the_length() {
+    let finish = Finish {
+        state: FinishState::Complete,
+        hash: ContentHash([3; 32]),
+        checkpoint: None,
+        final_index: None,
+        describe: None,
+        ident: None,
+        next: None,
+    };
+    let mut buf = vec![0u8; finish_len(0) + 64];
+    let n = write_finish(&mut buf, id(5), &finish, &[], 64).unwrap();
+    // a padding field that disagrees with the block's length, CRC made good again
+    for padding in [0u32, 63, 65, 4095, 4096, u32::MAX] {
+        let mut b = buf[..n].to_vec();
+        b[172..176].copy_from_slice(&padding.to_le_bytes());
+        crate::index::seal(&mut b);
+        let block = Block::read(&b).unwrap();
+        assert_eq!(
+            FinishBlock::read(&block).err(),
+            Some(IndexError::BadHead),
+            "padding {padding}"
+        );
+    }
 }

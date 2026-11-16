@@ -40,7 +40,7 @@ fn finish_only(final_index: u64) -> Vec<u8> {
         next: None,
     };
     let mut bytes = vec![0u8; finish_len(0)];
-    let n = write_finish(&mut bytes, id(0), &finish, &[]).unwrap();
+    let n = write_finish(&mut bytes, id(0), &finish, &[], 0).unwrap();
     bytes.truncate(n);
     bytes.extend(tail((n + TAIL_LEN) as u64, 0, n as u32));
     bytes

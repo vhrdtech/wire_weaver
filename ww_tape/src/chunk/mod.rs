@@ -314,10 +314,14 @@ pub const fn chunk_padding(offset: u64, head_len: usize, alignment: u32) -> Opti
         return None;
     };
     // only the low bits count: the end modulo 2^64 has them
-    let end = offset.wrapping_add(len_u64(head_len));
-    // alignment is a power of two: the distance to the next multiple is the low bits of -end
+    Some(to_boundary(offset.wrapping_add(len_u64(head_len)), mask))
+}
+
+/// Bytes from `end` to the next multiple of the power of two `mask + 1`; at most `mask`.
+pub(crate) const fn to_boundary(end: u64, mask: u32) -> usize {
+    // the distance to the next multiple is the low bits of -end
     let [b0, b1, b2, b3, ..] = end.wrapping_neg().to_le_bytes();
-    Some(u32_len(u32::from_le_bytes([b0, b1, b2, b3]) & mask))
+    u32_len(u32::from_le_bytes([b0, b1, b2, b3]) & mask)
 }
 
 /// Bytes of a whole chunk block: head, `padding`, payload and CRC; saturating at `usize::MAX`, a length over

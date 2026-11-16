@@ -62,8 +62,9 @@
 //! doesn't know reads as [Describe::Unknown] and is skipped.
 //!
 //! Numbers are little endian; `uvar` is LEB128 (7 bits per byte, low bits first, at most 10 bytes), `ivar` zigzag
-//! then `uvar`, as in the logring format. Blocks are as long as their records, never padded: a file is blocks
-//! appended back to back, a live feed sends one block per message.
+//! then `uvar`, as in the logring format. Blocks are as long as their records, never padded, except a piece's finish
+//! block, which ends the piece on 4 KiB ([piece]): a file is blocks appended back to back, a live feed sends one block
+//! per message.
 //!
 //! A **describe** block carries records on track 0 only, each a [Describe]: the [Producer], the API bundles, every
 //! [ClockDef], [ClockMap] and [TrackDef] in use and typed items ([TypedItem]: a run record, a media reference), in
@@ -211,8 +212,8 @@ pub mod piece;
 #[cfg(feature = "std")]
 pub use piece::{ChainOptions, CutPolicy, PieceChain};
 pub use piece::{
-    ContentHash, Finish, FinishState, OwnerId, PieceHead, PieceId, PieceIdent, TAIL_LEN, Tail,
-    TrackRange, TrackStart,
+    ContentHash, Finish, FinishState, OwnerId, PIECE_ALIGN, PieceHead, PieceId, PieceIdent,
+    TAIL_LEN, Tail, TrackRange, TrackStart,
 };
 #[cfg(feature = "alloc")]
 pub mod reader;

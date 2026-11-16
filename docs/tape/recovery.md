@@ -53,8 +53,8 @@ makes every item of the chunk suspect, since the column decodes as a whole.
 1. It creates the file as `NAME.partial` and syncs the file and its directory, so the name can't vanish in a crash.
 2. It syncs the data by a policy: never, every N blocks, or at most an interval apart (1 s by default). What a crash can
    lose is bounded by the policy.
-3. At the finish it writes the final index, the describe backup, the finish block and the tail, then renames the file to
-   `NAME` and syncs the directory again.
+3. At the finish it writes the final index, the describe backup, the finish block (padded so the piece ends on 4 KiB)
+   and the tail, then renames the file to `NAME` and syncs the directory again.
 
 A failed write or sync ends the file. The writer reports it and refuses every later write; it never retries, because
 after a failed `fsync` Linux may drop the unwritten pages, and a second `fsync` then succeeds without them. A file that
@@ -67,7 +67,9 @@ from the newest checkpoint and then by a scan that stops at the first bad block.
 last block the producer wrote, and cuts off the rest: a torn block, and the checkpoint, copy or end sequence the writer
 had placed after that block. It then places those again by the same rules, so a resumed piece ends with the same bytes,
 and the same content hash, as one written without the crash. The producer passes the same writer options it wrote the
-piece with (`TapeWriter::options` gives them), and writes again from the sequence number `next_seq` reports.
+piece with (`TapeWriter::options` gives them), and writes again from the sequence number `next_seq` reports. A piece
+found with its finish (a crash after the finish, before the rename) is opened again the same way: its finish and tail
+are cut off, and the next finish pads the piece to 4 KiB again.
 
 The resume checks those options against the layout the piece's describe set states, before it cuts or writes anything.
 Options with another chunk alignment would place blocks the way the file says it doesn't, and a reader trusts the
@@ -118,6 +120,11 @@ Where a new session may start depends on the **medium**:
 
 A raw medium is therefore read forward, from its start or from a hint the medium layer gives, never from its end, where
 a stale tail could pass for the newest piece.
+
+A finished piece is a multiple of 4 KiB long on a raw medium too, so a piece that starts on a 4 KiB boundary ends on
+one. The medium's layout record is unchanged by it: `gap_max` and `resume_align` say where a writer goes on after a
+blank or bad stretch, and a piece appended after a finished one starts on a resume place whenever `resume_align`
+divides 4 KiB (a 512-byte sector).
 
 ### Blank space and gaps
 

@@ -8,6 +8,7 @@
 
 ### ⚠️ Breaking
 
+- Finished pieces end on 4 KiB: the finish block carries zero padding, stated at offset 172; `write_finish` takes `padding` (STD-134).
 - `ChainOptions` is `{ writer: WriterOptions, cut: CutPolicy }`; `TapeWriter` and `PieceChain` are generic over their sink, files by default (STD-132).
 - `TapeReader::describe_set` returns `DescribeBlocks`: the newest whole set, not the first, plus additions and lost blocks (STD-132).
 - Writers place checkpoints and describe copies after deferred blocks too, never inside an open describe set (STD-132).

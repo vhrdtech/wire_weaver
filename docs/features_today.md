@@ -495,6 +495,7 @@ feature tracker.
 - **[Tape summary kernels](transport/tap.md#tape-blocks)**: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.
 - **[Tape hardening](transport/tap.md#tape-blocks)**: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.
 - **[Tape resume and additions](tape/recovery.md#resuming-after-a-crash)**: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.
+- **[Tape pieces on 4 KiB](tape/index.md#pieces-and-chains)**: Finished tape pieces end on a 4 KiB boundary, so many pieces clone back to back into one file without copying a byte.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

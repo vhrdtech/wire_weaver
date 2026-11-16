@@ -966,8 +966,14 @@ fn summaries_fill_alignment_gaps() {
     let (file, ends) = write("summaries.wwtape", true);
     std::fs::remove_dir_all(&dir).unwrap();
     assert_eq!(ends, plain_ends, "every summary block went into a gap");
+    // both pieces end on 4 KiB: the finishes' offsets tell what is before them
+    let finish_at = |f: &[u8]| {
+        crate::Tail::read(&f[f.len() - crate::TAIL_LEN..])
+            .unwrap()
+            .finish_offset
+    };
     assert!(
-        file.len() > plain.len(),
+        finish_at(&file) > finish_at(&plain),
         "the last summaries follow the last chunk"
     );
     let mut rd = FileBlocks::new(&file[..]);

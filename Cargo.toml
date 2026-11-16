@@ -36,6 +36,7 @@ members = [
     "ww_tap",
     "ww_tape",
     "ww_tape_benchmarks",
+    "ww_tape_bundle",
     "ww_tape_fuzz",
     "ww_timebase",
     "ww_tools/*",
@@ -174,6 +175,7 @@ ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }
 ww_tape = { version = "0.1.0", path = "./ww_tape", default-features = false }
+ww_tape_bundle = { version = "0.1.0", path = "./ww_tape_bundle" }
 ww_timebase = { version = "0.1.0", path = "./ww_timebase", default-features = false }
 
 # ww_stdlib, each crate has its own version

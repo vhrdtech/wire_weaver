@@ -38,6 +38,7 @@ ww_lz4 = 4
 ww_snapshots = 4
 ww_api = 4
 ww_self = 4
+ww_tape_bundle = 4
 
 # Layer 5 — framework runtime and host (incl. its tests, examples and benches)
 args_evolution = 5

@@ -5379,6 +5379,7 @@ dependencies = [
  "ww_si",
  "ww_tap",
  "ww_tape",
+ "ww_tape_bundle",
 ]
 
 [[package]]
@@ -7400,6 +7401,15 @@ dependencies = [
  "lewton",
  "libm",
  "motor_sim",
+ "ww_tape",
+]
+
+[[package]]
+name = "ww_tape_bundle"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ww_self",
  "ww_tape",
 ]
 

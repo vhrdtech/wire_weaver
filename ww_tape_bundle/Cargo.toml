@@ -1,0 +1,35 @@
+[package]
+name = "ww_tape_bundle"
+version = "0.1.0"
+authors.workspace = true
+description = "Name paths and keys of ww_tape tracks from an API bundle (ww_self): name_path, key_in_bundle"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+ww_self.workspace = true
+ww_tape = { workspace = true, features = ["std"] }
+
+# ww_tape's panic-class lints: no panic, overflow or unchecked index reachable from bundle or tape bytes (STD-131).
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+unreachable = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+as_conversions = "deny"
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+undocumented_unsafe_blocks = "deny"
+allow_attributes_without_reason = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"

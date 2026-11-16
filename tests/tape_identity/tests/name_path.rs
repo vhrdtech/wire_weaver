@@ -4,7 +4,8 @@ use keyed_api::{Endpoint, FlowKey, Port, Proto};
 use std::path::Path;
 use wire_weaver::prelude::SerializeShrinkWrapOwned;
 use ww_si::origins::DeviceMicros;
-use ww_tape::{NamePathError, Segment, api_root_id, key_in_bundle, name_path, track_key};
+use ww_tape::{Segment, api_root_id, track_key};
+use ww_tape_bundle::{NamePathError, key_in_bundle, name_path};
 
 fn bundle(dir: &str, root: &str) -> ww_self::ApiBundleOwned {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -1,5 +1,6 @@
 //! A million hostile blocks per decoder group (pieces of blocks for the positional reader) from a fixed-seed xorshift
-//! stream: no panic and no allocation over the cap, but the known failures.
+//! stream: no panic and no allocation over the cap, but the known failures. Each stream runs as [SHARDS] tests, each
+//! the cases of one slice of it, so no single test holds seconds of CPU on a loaded machine.
 
 use crate::Times;
 use crate::known::is_known;
@@ -14,6 +15,8 @@ const CASES: usize = 1_000_000;
 const PIECES: usize = 25_000;
 /// Bytes of each input: enough for every draw of a builder.
 const INPUT_LEN: usize = 96;
+/// Tests per stream: shard `k` runs the cases `k * cases / SHARDS .. (k + 1) * cases / SHARDS` of the one stream.
+const SHARDS: usize = 10;
 
 /// xorshift64, from a fixed seed.
 struct XorShift(u64);
@@ -36,16 +39,21 @@ impl XorShift {
     }
 }
 
-/// Run `target` on `cases` inputs of the stream seeded by `seed`.
-fn stream(name: &str, target: fn(&[u8]), seed: u64, cases: usize) {
+/// Run `target` on shard `shard` of [SHARDS] of the `cases` inputs of the stream seeded by `seed`: the inputs
+/// before it are drawn and skipped, so every shard sees the cases it would see in one run of the whole stream.
+fn stream(name: &str, target: fn(&[u8]), seed: u64, cases: usize, shard: usize) {
+    let slice = shard * cases / SHARDS..(shard + 1) * cases / SHARDS;
     let mut rng = XorShift(seed);
     let mut input = [0u8; INPUT_LEN];
     let mut times = Times::default();
     let mut known = 0usize;
     // unknown failures by place: how many, the first input
     let mut failures: std::collections::BTreeMap<String, (usize, String)> = Default::default();
-    for case in 0..cases {
+    for case in 0..slice.end {
         rng.fill(&mut input);
+        if case < slice.start {
+            continue;
+        }
         // short inputs too: draws past the end are 0
         let len = INPUT_LEN - (input[INPUT_LEN - 1] as usize % 32);
         let data = &input[..len];
@@ -67,8 +75,8 @@ fn stream(name: &str, target: fn(&[u8]), seed: u64, cases: usize) {
             .or_insert_with(|| (0, data.iter().map(|b| format!("{b:02x}")).collect()))
             .0 += 1;
     }
-    times.report(name);
-    eprintln!("{name}: {known} known failures");
+    times.report(&format!("{name} shard {shard}"));
+    eprintln!("{name} shard {shard}: {known} known failures");
     assert!(
         failures.is_empty(),
         "{name}: unknown failures (place: count, first input):\n{}",
@@ -82,11 +90,29 @@ fn stream(name: &str, target: fn(&[u8]), seed: u64, cases: usize) {
 
 macro_rules! streams {
     ($($test:ident: $name:literal => $target:path, $seed:literal, $cases:expr;)*) => {$(
-        #[test]
-        fn $test() {
-            stream($name, $target, $seed, $cases);
+        mod $test {
+            use super::*;
+
+            fn shard(k: usize) {
+                stream($name, $target, $seed, $cases, k);
+            }
+
+            shards!(shard_0 0, shard_1 1, shard_2 2, shard_3 3, shard_4 4, shard_5 5, shard_6 6, shard_7 7, shard_8 8, shard_9 9);
         }
     )*};
+}
+
+/// One test per shard, `shard_<k>`; as many as [SHARDS].
+macro_rules! shards {
+    ($($test:ident $k:literal),*) => {
+        const _: () = assert!([$($k),*].len() == SHARDS, "a test per shard");
+        $(
+            #[test]
+            fn $test() {
+                shard($k);
+            }
+        )*
+    };
 }
 
 streams! {

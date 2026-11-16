@@ -1,13 +1,13 @@
 //! The Rust derive's side of every case: the value as the Rust type `#[derive_shrink_wrap]` generates (owned),
 //! encoded with `SerializeShrinkWrapOwned` and compared with the golden bytes decoded with
-//! `DeserializeShrinkWrapOwned`; where the borrowed type differs, the golden bytes also go through it and back.
+//! `DeserializeShrinkWrapOwned`. The borrowed types are a consumer of their own, `crate::borrowed`.
 //!
 //! A case here has the name of its corpus case; the corpus test checks both lists have the same names.
 
 use conformance_api::*;
 use core::fmt::Debug;
 use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::series::{Series, SeriesOwned};
+use wire_weaver::shrink_wrap::series::SeriesOwned;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{
     ArrayString, ArrayVec, DeserializeShrinkWrapOwned, Error as SwError, SerializeShrinkWrapOwned,
@@ -38,16 +38,12 @@ fn compare<T: Debug>(
         Err(e) => Decoded::Failed(format!("{e:?}")),
     }
 }
-type RoundTrip = fn(&[u8]) -> Result<Vec<u8>, SwError>;
-
 pub struct Typed {
     pub name: &'static str,
     /// The value's bytes, or why it can't be encoded.
     pub encode: Enc,
     /// The golden bytes decoded and compared with the value.
     pub decode: Dec,
-    /// The bytes decoded with the borrowed type and encoded again.
-    pub borrowed: Option<RoundTrip>,
 }
 
 fn case<T>(name: &'static str, value: T) -> Typed
@@ -61,7 +57,6 @@ where
         decode: Box::new(move |bytes| {
             compare(T::from_ww_bytes_owned(bytes), |got| *got == value, &value)
         }),
-        borrowed: None,
     }
 }
 
@@ -81,7 +76,6 @@ where
                 &want,
             )
         }),
-        borrowed: None,
     }
 }
 
@@ -107,7 +101,6 @@ where
                 .map_err(|e| format!("{e:?}"))
         }),
         decode: Box::new(move |bytes| compare(T::from_ww_bytes(bytes), |got| *got == value, value)),
-        borrowed: None,
     }
 }
 
@@ -123,25 +116,6 @@ fn case_head_tail(name: &'static str, value: HtRecord<'static>) -> Typed {
         decode: Box::new(move |bytes| {
             compare(HtRecord::from_head_tail(bytes), |got| *got == value, value)
         }),
-        borrowed: None,
-    }
-}
-
-/// Decode with the borrowed type `$b`, encode again.
-macro_rules! borrowed {
-    ($b:ty) => {
-        |bytes: &[u8]| -> Result<Vec<u8>, SwError> {
-            let v = <$b>::from_ww_bytes(bytes)?;
-            let mut buf = vec![0u8; bytes.len() * 2 + 64];
-            Ok(v.to_ww_bytes(&mut buf)?.to_vec())
-        }
-    };
-}
-
-impl Typed {
-    fn borrowed(mut self, f: RoundTrip) -> Self {
-        self.borrowed = Some(f);
-        self
     }
 }
 
@@ -314,14 +288,10 @@ pub fn table() -> Vec<Typed> {
                 items: vec![inner(1, ""), inner(2, "x")],
                 after: 0xAA,
             },
-        )
-        .borrowed(borrowed!(Outer<'_>)),
-        case("struct.bytes.empty_end", BytesEndOwned { a: true, b: vec![] })
-            .borrowed(borrowed!(BytesEnd<'_>)),
-        case("struct.bytes.empty_mid", BytesMidOwned { a: true, b: vec![], c: true })
-            .borrowed(borrowed!(BytesMid<'_>)),
-        case("struct.bytes.mid", BytesMidOwned { a: true, b: vec![7], c: true })
-            .borrowed(borrowed!(BytesMid<'_>)),
+        ),
+        case("struct.bytes.empty_end", BytesEndOwned { a: true, b: vec![] }),
+        case("struct.bytes.empty_mid", BytesMidOwned { a: true, b: vec![], c: true }),
+        case("struct.bytes.mid", BytesMidOwned { a: true, b: vec![7], c: true }),
         case(
             "struct.flags.relocated",
             FlaggedOwned {
@@ -334,8 +304,7 @@ pub fn table() -> Vec<Typed> {
                 },
                 late: Some(300),
             },
-        )
-        .borrowed(borrowed!(Flagged<'_>)),
+        ),
         case(
             "struct.flags.relocated_other",
             FlaggedOwned {
@@ -349,7 +318,7 @@ pub fn table() -> Vec<Typed> {
                 late: None,
             },
         ),
-        case("struct.tuple", PairOwned(7, Some(s("hi")))).borrowed(borrowed!(Pair<'_>)),
+        case("struct.tuple", PairOwned(7, Some(s("hi")))),
         case("struct.tuple.none", PairOwned(0, None)),
         case("struct.tuple.plain", Rgb(1, 2, 3)),
         case("struct.unit", Marker),
@@ -423,21 +392,19 @@ pub fn table() -> Vec<Typed> {
                 samples: Some(vec![-1, 0, 1000]),
                 on: Some(true),
             },
-        )
-        .borrowed(borrowed!(Sparse<'_>)),
-        case("struct.recursive.list", tree()).borrowed(borrowed!(Tree<'_>)),
+        ),
+        case("struct.recursive.list", tree()),
         case(
             "struct.recursive.box",
             ExprOwned::Add(
                 Box::new(ExprOwned::Lit(2)),
                 Box::new(ExprOwned::Neg(Box::new(ExprOwned::Lit(3)))),
             ),
-        )
-        .borrowed(borrowed!(Expr<'_>)),
+        ),
         // enums
         case("enum.unit", ShapeOwned::Empty),
         case("enum.tuple", ShapeOwned::Circle(5)),
-        case("enum.struct", shape_rect()).borrowed(borrowed!(Shape<'_>)),
+        case("enum.struct", shape_rect()),
         case("enum.explicit_discriminant", ShapeOwned::Far),
         case("enum.unknown_variant", ShapeOwned::Unknown(10)),
         case("enum.appended_variant", ShapeV2Owned::Polygon(vec![1, 2])),
@@ -556,8 +523,7 @@ pub fn table() -> Vec<Typed> {
                     ok: false,
                 },
             ]),
-        )
-        .borrowed(borrowed!(Series<'_, Sample>)),
+        ),
         // #[wire(W)] (DER-19)
         case(
             "wire.struct",
@@ -603,8 +569,7 @@ pub fn table() -> Vec<Typed> {
                     value: -2048,
                 },
             ]),
-        )
-        .borrowed(borrowed!(Series<'_, WiredSample>)),
+        ),
         // the derive's field attributes behind cfg_attr (API-60)
         case(
             "cfg_attr.v1",
@@ -643,8 +608,7 @@ pub fn table() -> Vec<Typed> {
                 label: s("hi"),
                 end: 7,
             },
-        )
-        .borrowed(borrowed!(PlainFields<'_>)),
+        ),
         case(
             "transparent.fields",
             WrappedFieldsOwned {
@@ -655,8 +619,7 @@ pub fn table() -> Vec<Typed> {
                 label: LabelOwned(s("hi")),
                 end: 7,
             },
-        )
-        .borrowed(borrowed!(WrappedFields<'_>)),
+        ),
         case(
             "transparent.sized.plain",
             PlainSized {
@@ -714,8 +677,7 @@ pub fn table() -> Vec<Typed> {
         case(
             "transparent.series",
             SeriesOwned(vec![Count(1), Count(2), Count(3), Count(100)]),
-        )
-        .borrowed(borrowed!(Series<'_, Count>)),
+        ),
         case(
             "transparent.series.struct.plain",
             SeriesOwned(vec![
@@ -735,8 +697,7 @@ pub fn table() -> Vec<Typed> {
                     volts: volts(2.0),
                 },
             ]),
-        )
-        .borrowed(borrowed!(Series<'_, WrappedSample>)),
+        ),
         // not in the API model
         case_head_tail(
             "head_tail.struct",
@@ -1821,20 +1782,5 @@ impl crate::Consumer for Derive {
             Decoded::Differs(e) => Ok(Err(e)),
             Decoded::Failed(e) => Err(e),
         })
-    }
-
-    fn extra(&self, case: &crate::corpus::Case) -> Result<(), String> {
-        let Some(round_trip) = self.get(&case.name).and_then(|t| t.borrowed) else {
-            return Ok(());
-        };
-        let golden = case.golden();
-        match round_trip(&golden) {
-            Ok(bytes) if bytes == golden => Ok(()),
-            Ok(bytes) => Err(format!(
-                "borrowed type: {}",
-                crate::corpus::bytes_mismatch(&bytes, &golden)
-            )),
-            Err(e) => Err(format!("borrowed type: {e:?}")),
-        }
     }
 }

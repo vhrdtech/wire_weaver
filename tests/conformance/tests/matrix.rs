@@ -124,6 +124,17 @@ fn derive() {
     conformance::run_all(&Derive::default());
 }
 
+/// TEST-37: the borrowed type of every case writes the golden bytes again, and every property has one.
+#[test]
+fn borrowed() {
+    let missing = conformance::borrowed::missing_properties();
+    assert!(
+        missing.is_empty(),
+        "properties without a borrowed type in conformance::borrowed: {missing:?}"
+    );
+    conformance::run_all(&conformance::borrowed::Borrowed::default());
+}
+
 #[test]
 fn dynamic() {
     conformance::run_all(&Dynamic);

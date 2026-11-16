@@ -291,7 +291,8 @@
       "name": "max_len.str.over_bound",
       "type": "max_len_str",
       "value": "abcde",
-      "direction": "reject_value"
+      "direction": "reject_value",
+      "gaps": {"borrowed": "by design: this consumer writes what it read, and a value that must not encode has no bytes to read (TEST-37)"}
     },
     {
       "name": "max_len.str.over_bound_bytes",
@@ -954,7 +955,7 @@
       "type": "wired",
       "value": {"small": 9, "count": 0, "raw": 0, "last": false},
       "direction": "reject_value",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "gaps": {"borrowed": "by design: this consumer writes what it read, and a value that must not encode has no bytes to read (TEST-37)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "9 doesn't fit I4: an error on write, never a cut value"
     },
     {
@@ -970,7 +971,7 @@
       "type": "wired_signed",
       "value": {"count": -2147483649, "last": false},
       "direction": "reject_value",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "gaps": {"borrowed": "by design: this consumer writes what it read, and a value that must not encode has no bytes to read (TEST-37)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "i32::MIN - 1 doesn't fit INib32: an error on write, never a cut value"
     },
     {
@@ -1025,7 +1026,7 @@
       "type": "HtRecord",
       "value": {"ch": 7, "maybe": 772, "list": [2571, 2], "name": "ab", "on": true},
       "bytes": "0780020002008004030b0a02006162",
-      "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
+      "gaps": {"borrowed": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
     },
     {
       "name": "device_info.ordinary",

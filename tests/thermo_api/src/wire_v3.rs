@@ -10,7 +10,7 @@
 //! - `uptime` is in milliseconds in a `u64`, was whole seconds in a `u32`: a host model in seconds can't hold it.
 
 use super::common::{Channel, Command, Config, Indication, Mode, RateError, Sample, SelfTestError};
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::origins::Celsius;
 use ww_si::prefix::{Centi, Milli};
 use ww_si::units::{Item, Kelvin, Ratio, Sample as SampleUnit, Second};

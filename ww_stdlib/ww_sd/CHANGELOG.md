@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
+
 ### 🚀 Features
 
 - New crate (STD-40): `SdCard`, raw access to an SD card over WireWeaver.

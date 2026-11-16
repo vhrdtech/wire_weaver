@@ -1,6 +1,6 @@
 //! API of the borrowed stream error tests (API-35): stream functions whose error type borrows, the handler returns
 //! it borrowed from the server (`RpcResult<Result<(), OpenError<'_>>>`).
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Plain and counted stream functions, for both the sync and the async server
 #[ww_api_root]

@@ -799,8 +799,7 @@ dependencies = [
  "exact_units",
  "futures-core",
  "shrink_wrap",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -839,6 +838,7 @@ dependencies = [
  "convert_case",
  "darling",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",
@@ -857,19 +857,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive",
+ "ww_error",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "ww_api",
+ "ww_error",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
  "wire_weaver",
  "ww_global",
  "ww_si",
-]
-
-[[package]]
-name = "ww_crc"
-version = "0.5.0"
-dependencies = [
- "crc",
 ]
 
 [[package]]
@@ -884,8 +897,8 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
+ "crc",
  "shrink_wrap",
- "ww_crc",
 ]
 
 [[package]]
@@ -893,8 +906,9 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
+ "serde",
  "serde_json",
- "ww_version",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -903,6 +917,7 @@ version = "0.5.0"
 dependencies = [
  "shrink_wrap",
  "wire_weaver",
+ "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -954,7 +969,6 @@ dependencies = [
  "portable-atomic",
  "wire_weaver",
  "ww_client_server",
- "ww_crc",
  "ww_si",
 ]
 
@@ -989,6 +1003,7 @@ dependencies = [
  "semver",
  "serde",
  "shrink_wrap",
+ "ww_global",
 ]
 
 [[package]]

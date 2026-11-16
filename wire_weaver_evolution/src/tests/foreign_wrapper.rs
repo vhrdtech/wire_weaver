@@ -8,7 +8,7 @@ use crate::compat::tests::add_known;
 /// The other crate: `Lease`, a wrapper of a plain number, and `Timeout`, a wrapper of a wrapper of that crate (its
 /// field refers to that crate's snapshot, not to the API's bundle).
 const DEP: &str = r#"
-    use wire_weaver::prelude::*;
+    use ww_api::prelude::*;
 
     #[derive_shrink_wrap(transparent)]
     pub struct Lease(pub u32);

@@ -7,10 +7,10 @@
 //! corpus marks them for the consumers that can't read them.
 
 use core::ops::{Range, RangeInclusive};
-use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::head_tail::List;
-use wire_weaver::shrink_wrap::series::Series;
-use wire_weaver::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
+use ww_api::prelude::*;
+use ww_api::shrink_wrap::head_tail::List;
+use ww_api::shrink_wrap::series::Series;
+use ww_api::shrink_wrap::tail_bytes::{TailBytes, TailBytesOwned};
 
 #[ww_trait]
 trait Conformance {

@@ -1,6 +1,6 @@
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Two user settings kept across a reboot by `ww_settings` (see `examples/settings` and
 /// `docs/api/settings.md`): written only once changed and left alone for a debounce window, not on

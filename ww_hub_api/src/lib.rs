@@ -7,7 +7,7 @@
 //! uses them to find out what hub runs and to have an older one replaced (SRV-30). Everything else evolves by the
 //! usual rules (`docs/evolution/rules.md`), area by area in its own sub-trait.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait Hub {

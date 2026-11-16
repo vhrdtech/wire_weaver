@@ -8,7 +8,7 @@
 //! only when the value actually changed (flash wear), so a host may write the same value again freely. A device
 //! that cannot save returns `Fault`, one that cannot interrupt a flash operation `Busy`.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_error::CommonError;
 pub use ww_si::{Bytes, Range, units::Byte};
 

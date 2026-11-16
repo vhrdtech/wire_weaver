@@ -20,10 +20,10 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std"]
+std = ["ww_api/std", "ww_si/std"]
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true
 ww_si = { workspace = true, features = ["time", "thermal", "dimensionless", "counting"] }
 
 [dev-dependencies]

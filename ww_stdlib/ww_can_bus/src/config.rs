@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::prefix::One;
 use ww_si::units;
 use ww_si::{Baud, Fixed, Hertz, Overflow, Prefix, Rounding, Second};

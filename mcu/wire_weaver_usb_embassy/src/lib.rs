@@ -50,7 +50,6 @@ pub type UsbFraming = ww_link::UsbSeqFraming;
 /// Number of endpoints this crate allocates, can be used to calculate required buffer lengths
 pub const ENDPOINTS_USED: usize = 2;
 
-use wire_weaver::ww_version;
 const SELF_VERSION: FullVersion = full_version!();
 /// `wwue` names this crate on the wire, see [ww_link::usb_self_id_version_descriptor].
 const SELF_VERSION_BYTES: [u8; 7] = usb_self_id_version_descriptor(

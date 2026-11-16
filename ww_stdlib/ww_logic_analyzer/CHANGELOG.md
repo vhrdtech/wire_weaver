@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire line `w2.0`: it follows `ww_gpio`'s `w2.0` (EVO-64), whose `Level` this crate re-exports. Its typed numbers (EVO-59, below) ride the same new line.
 - `TransitionsChunk::edges` is a `Series<'i, u32>` instead of a `DeltaOfDelta<'i, u32>` (removed from shrink_wrap).
   On 128 edges it takes 8 B instead of 23 B for a steady clock, 76 B / 129 B with one sample of jitter, 300 B / 398 B

@@ -10,9 +10,9 @@ license = "MIT"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std", "ww_indication/std"]
+std = ["ww_api/std", "ww_si/std", "ww_indication/std"]
 
 [dependencies]
-wire_weaver = { path = "../../../wire_weaver", default-features = false }
+ww_api = { path = "../../../ww_api", default-features = false }
 ww_indication = { path = "../../../ww_stdlib/ww_indication", default-features = false }
 ww_si = { path = "../../../ww_stdlib/ww_si", default-features = false, features = ["time", "thermal", "dimensionless", "counting"] }

@@ -10,7 +10,7 @@
 //! Line 2 (`wire_v2`) breaks the wire; `tests/thermo` bundles a client of each line.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::origins::Celsius;
 use ww_si::prefix::{Centi, One};
 use ww_si::units::{Hertz, Item, Kelvin, Ratio, Sample as SampleUnit};

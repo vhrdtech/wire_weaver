@@ -2,7 +2,7 @@
 //! next to a plain `+observe` one on the same level, and a nested level with a sampler of its own.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait ObserveBatched {

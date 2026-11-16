@@ -1,6 +1,6 @@
 //! What both lines share: one Rust type each, nothing to convert between the lines.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// A raw sensor reading, as the ADC gives it.
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq, Eq))]

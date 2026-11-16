@@ -9,7 +9,7 @@
 //!
 //! How a firmware builds its table is open (see the docs page): the type only fixes what travels.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::Index;
 
 ww_si::unit! {

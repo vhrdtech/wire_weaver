@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - New wire line, `w2.0` (STD-113, EVO-61): numbers are typed instead of bare integers (AGENTS.md
   "Numbers are typed"). `SearchState::last_discrepancy` is `IndexFrom1<RomBit, u8, Range<1, 64>>` instead of a plain
   `u8` (`RomBit` a counted marker of this crate, declared with `unit!`): the added bound is the wire break, since

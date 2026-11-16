@@ -47,7 +47,7 @@ impl TestCrate {
             ),
         )
         .unwrap();
-        let lib_rs = format!("use wire_weaver::prelude::*;\n{lib_rs}");
+        let lib_rs = format!("use ww_api::prelude::*;\n{lib_rs}");
         std::fs::write(self.dir.join("src/lib.rs"), lib_rs).unwrap();
         self
     }
@@ -90,7 +90,7 @@ impl TestCrate {
         let mut lib_rs = String::new();
         for (name, source) in modules {
             lib_rs.push_str(&format!("pub mod {name};\n"));
-            let source = format!("use wire_weaver::prelude::*;\n{source}");
+            let source = format!("use ww_api::prelude::*;\n{source}");
             std::fs::write(self.dir.join(format!("src/{name}.rs")), source).unwrap();
         }
         std::fs::write(self.dir.join("src/lib.rs"), lib_rs).unwrap();
@@ -99,7 +99,7 @@ impl TestCrate {
 
     /// `src/<name>.rs`, for a `pub mod <name>;` of `lib.rs`.
     fn write_module(&self, name: &str, source: &str) -> &Self {
-        let source = format!("use wire_weaver::prelude::*;\n{source}");
+        let source = format!("use ww_api::prelude::*;\n{source}");
         std::fs::write(self.dir.join(format!("src/{name}.rs")), source).unwrap();
         self
     }
@@ -553,9 +553,9 @@ fn fixture_with_changed_uid(name: &str, edit: impl Fn(String) -> String) -> Test
         uid.join("Cargo.toml"),
         format!(
             "[package]\nname = \"ww_uid\"\nversion = \"0.1.0\"\nedition = \"2024\"\npublish = false\n\n\
-             [package.metadata.wire_weaver]\nwire = \"w1.0\"\n\n[features]\nstd = [\"wire_weaver/std\"]\n\
-             defmt = [\"wire_weaver/defmt\"]\n\n[dependencies]\n\
-             wire_weaver = {{ path = \"{}/wire_weaver\", default-features = false }}\n",
+             [package.metadata.wire_weaver]\nwire = \"w1.0\"\n\n[features]\nstd = [\"ww_api/std\"]\n\
+             defmt = [\"ww_api/defmt\"]\n\n[dependencies]\n\
+             ww_api = {{ path = \"{}/ww_api\", default-features = false }}\n",
             repo().display()
         ),
     )
@@ -917,7 +917,7 @@ fn write_dep(name: &str, version: &str, id_ty: &str) -> PathBuf {
     std::fs::write(
         dir.join("src/lib.rs"),
         format!(
-            "use wire_weaver::prelude::*;\n\n#[derive_shrink_wrap]\npub struct Shared {{\n    pub id: {id_ty},\n}}\n"
+            "use ww_api::prelude::*;\n\n#[derive_shrink_wrap]\npub struct Shared {{\n    pub id: {id_ty},\n}}\n"
         ),
     )
     .unwrap();
@@ -1431,7 +1431,7 @@ fn design_line_in_a_publishable_crate_warns() {
     .unwrap();
     std::fs::write(
         c.path().join("src/lib.rs"),
-        "use wire_weaver::prelude::*;\n#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n",
+        "use ww_api::prelude::*;\n#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n",
     )
     .unwrap();
     let outcome = Check::new(c.path()).strict(true).run().unwrap();

@@ -28,6 +28,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - A new wire line, `w2.0` (EVO-56): every size, duration, rate, id and counter typed instead of a
   bare integer, and `State::Formatting::percent` bounded, per the stdlib units survey
   (`prj/P2401-wireweaver/design/stdlib-units-survey.md`). Crate version stays `0.1.0` (never published).

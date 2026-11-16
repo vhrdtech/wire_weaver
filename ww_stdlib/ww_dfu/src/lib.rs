@@ -136,7 +136,7 @@ pub use error::Error;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wire_weaver::prelude::*;
+    use ww_api::prelude::*;
     use ww_si::units::{Chunk, Step};
     use ww_si::{Bytes, Count, Fixed, Index, Range};
 

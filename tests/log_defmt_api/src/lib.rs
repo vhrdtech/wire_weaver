@@ -1,7 +1,7 @@
 //! Test API root for `ww_log`: both traits, and methods that make the device log, used by `tests/log_defmt`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_log::Severity;
 
 #[ww_api_root]

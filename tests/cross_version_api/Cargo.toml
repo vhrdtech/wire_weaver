@@ -13,8 +13,8 @@ wire = "w2.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "global_boot_api/std"]
+std = ["ww_api/std", "global_boot_api/std"]
 
 [dependencies]
 global_boot_api = { workspace = true }
-wire_weaver = { workspace = true }
+ww_api = { workspace = true }

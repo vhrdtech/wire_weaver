@@ -15,7 +15,7 @@ wire = "w2.0"
 default = ["std"]
 # every architecture's fault record, the host has to read all of them
 std = [
-    "wire_weaver/std",
+    "ww_api/std",
     "ww_date_time/std",
     "ww_si/std",
     "ww_version/std",
@@ -24,7 +24,7 @@ std = [
 ]
 defmt = [
     "dep:defmt",
-    "wire_weaver/defmt",
+    "ww_api/defmt",
     "ww_date_time/defmt",
     "ww_si/defmt",
     "ww_version/defmt",
@@ -40,7 +40,7 @@ riscv = []
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver = { workspace = true, default-features = false }
+ww_api = { workspace = true, default-features = false }
 ww_date_time = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "counting"] }
 ww_version = { workspace = true, default-features = false }

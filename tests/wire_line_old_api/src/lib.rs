@@ -4,7 +4,7 @@
 //! the old one is kept here under its own name, and the test device reports it as `wire_line_api` 0.3.0.
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root(wire = "w2.3")]
 pub trait WireLine {

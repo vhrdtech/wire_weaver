@@ -57,7 +57,7 @@
 pub mod host;
 
 use core::sync::atomic::{AtomicU32, Ordering};
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_error::CommonError;
 pub use ww_si::Second;
 pub use ww_si::{Count, Index, units::Word};

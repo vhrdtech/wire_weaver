@@ -12,10 +12,10 @@ repository.workspace = true
 wire = "w1.0"
 
 [features]
-std = ["wire_weaver/std", "ww_settings/std"]
-defmt = ["wire_weaver/defmt", "ww_settings/defmt", "dep:defmt"]
+std = ["ww_api/std", "ww_settings/std"]
+defmt = ["ww_api/defmt", "ww_settings/defmt", "dep:defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver = { workspace = true }
+ww_api = { workspace = true }
 ww_settings.workspace = true

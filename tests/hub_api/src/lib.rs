@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// A device several clients share through the ww hub (SRV-29), with resources one of them can claim (SRV-34).
 #[ww_api_root]

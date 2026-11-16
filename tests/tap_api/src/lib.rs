@@ -1,7 +1,7 @@
 //! Test API of the link tap's CLI tests (`ww monitor`, `ww capture`, `ww explain FILE`, TOOL-14).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait TapDemo {

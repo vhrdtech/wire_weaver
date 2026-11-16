@@ -3,7 +3,7 @@
 //! stream. See `docs/std_library/ww_gpio.md` for the full writeup with client and server examples.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_si::prefix::Milli;
 pub use ww_si::{Fixed, Index, units};
 

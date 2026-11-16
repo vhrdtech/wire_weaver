@@ -278,7 +278,7 @@ mod tests {
         };
         let mut deps = format!(
             "publish = false\n[dependencies]\n{}",
-            dep("wire_weaver", "wire_weaver")
+            dep("ww_api", "ww_api")
         );
         if keyed {
             deps += &dep("ww_keyed", "ww_stdlib/ww_keyed");
@@ -288,7 +288,7 @@ mod tests {
 
     fn load_api(name: &str, body: &str) -> Result<ApiBundleOwned> {
         let lib_rs = format!(
-            "use wire_weaver::prelude::*;\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n{body}\n}}\n\
+            "use ww_api::prelude::*;\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {{\n{body}\n}}\n\
              #[ww_trait]\npub trait Flow {{ fn close(); }}\n"
         );
         load_src_with(name, &deps(true), &lib_rs)
@@ -413,7 +413,7 @@ mod tests {
     /// The API crate depends on `ww_keyed` itself, so `wire_weaver` (and every firmware) doesn't.
     #[test]
     fn needs_ww_keyed() {
-        let lib_rs = "use wire_weaver::prelude::*;\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n\
+        let lib_rs = "use ww_api::prelude::*;\n#[ww_api_root(wire = \"w1.0\")]\npub trait Api {\n\
                       stream!(flow[]: u8);\nkeyed!(flow by u32);\n}\n";
         let err = format!(
             "{:#}",

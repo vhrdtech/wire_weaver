@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["ww_api/std"]
 
 [dependencies]
-wire_weaver = { workspace = true }
+ww_api = { workspace = true }

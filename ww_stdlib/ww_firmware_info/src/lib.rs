@@ -53,7 +53,7 @@
 //! Without the note `FirmwareInfo::BUILD_ID` is empty and hosts fall back to the newest ELF they find, with a
 //! warning.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_date_time::DateTime;
 pub use ww_si::Second;
 pub use ww_si::{Count, units::Boot};
@@ -314,4 +314,4 @@ pub const fn parse_u32(s: &str) -> u32 {
 }
 
 #[doc(hidden)]
-pub use wire_weaver::prelude::{MaxLen, RefVec};
+pub use ww_api::prelude::{MaxLen, RefVec};

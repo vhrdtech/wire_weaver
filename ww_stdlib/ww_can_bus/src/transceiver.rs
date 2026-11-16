@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::Ohm;
 
 /// Transceiver mode, see `Can::set_transceiver`.

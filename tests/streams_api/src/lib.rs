@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait Streams {
@@ -37,11 +37,11 @@ pub struct Odd<'i> {
     pub flag: bool,
 }
 
-/// `#[ww_trait]` makes a Rust trait for rustdoc (`wire_weaver::api_doc`), this fails to compile if its shape changes.
+/// `#[ww_trait]` makes a Rust trait for rustdoc (`ww_api::api_doc`), this fails to compile if its shape changes.
 #[cfg(test)]
 #[allow(dead_code)]
 fn doc_trait<T: Streams>() {
-    use wire_weaver::ww_api::api_doc::{Sink, Stream};
+    use ww_api::api_doc::{Sink, Stream};
     let _: fn() -> Stream<u8> = T::plain_stream;
     let _: fn() -> Sink<u8> = T::plain_sink;
     let _: fn() -> Stream<[u8]> = T::vec_stream;

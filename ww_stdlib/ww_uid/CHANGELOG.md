@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Reworked (STD-24, never published): one trait with the const item `IDS`, a list of up to 4 `UniqueId` whose first
   entry is the primary id (the USB serial). `UidKind` (`ChipUnique`, `Mac48`, `Eui64`, `Uuid`, `Other`) and `UidSource`
   are `pub` now (they were private, the crate could not be used); `Other` names are bounded.

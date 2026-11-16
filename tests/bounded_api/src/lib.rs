@@ -1,7 +1,7 @@
 //! Bounded lists and strings (`MaxLen`, SW-19) in every position of an API.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Largest piece `write` takes, the bound is read from this const.
 pub const MAX_PIECE: usize = 8;

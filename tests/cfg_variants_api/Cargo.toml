@@ -14,10 +14,10 @@ wire = "w1.0"
 [features]
 # a host enables every variant
 default = ["std", "wide", "float"]
-std = ["wire_weaver/std", "ww_si/std"]
+std = ["ww_api/std", "ww_si/std"]
 wide = []
 float = []
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true
 ww_si = { workspace = true, features = ["electrical"] }

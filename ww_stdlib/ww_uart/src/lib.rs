@@ -35,7 +35,7 @@
 //! much after the previous chunk's last one.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::Fixed;
 use ww_si::prefix::One;
 use ww_si::units::{Bit, Char};

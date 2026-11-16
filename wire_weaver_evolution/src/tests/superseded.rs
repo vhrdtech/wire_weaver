@@ -14,7 +14,7 @@ use std::path::Path;
 fn err_dep(arg: &str) -> String {
     format!(
         r#"
-        use wire_weaver::prelude::*;
+        use ww_api::prelude::*;
 
         #[derive_shrink_wrap(transparent)]
         pub struct ArgIndex(pub u8);
@@ -30,7 +30,7 @@ fn err_dep(arg: &str) -> String {
 
 /// `ind_dep` 0.1.0: a trait of its own whose method returns `err_dep`'s error.
 const IND_DEP: &str = r#"
-    use wire_weaver::prelude::*;
+    use ww_api::prelude::*;
     use err_dep::CommonError;
 
     #[ww_trait]

@@ -22,7 +22,7 @@
 //!
 //! Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_si::Second;
 pub use ww_si::exact_units::niche::{Niched, Null};
 use ww_si::prefix::One;

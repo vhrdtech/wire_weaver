@@ -2,7 +2,7 @@
 //! `Series` per event, timed and untimed, and methods that make the device produce.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait StreamsBatched {

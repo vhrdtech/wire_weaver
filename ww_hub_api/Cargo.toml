@@ -13,8 +13,8 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_timebase/std"]
+std = ["ww_api/std", "ww_timebase/std"]
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true
 ww_timebase.workspace = true

@@ -17,3 +17,4 @@ std = []
 
 [dependencies]
 wire_weaver = { workspace = true, features = ["std"] }
+ww_api = { workspace = true, features = ["std"] }

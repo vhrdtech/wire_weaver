@@ -2,7 +2,7 @@
 //! the device happened to give them. `keyed!(flow by FlowKey)` follows the array `flow[]` it keys.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::Bytes;
 use ww_si::origins::DeviceMicros;
 

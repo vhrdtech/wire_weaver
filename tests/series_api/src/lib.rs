@@ -2,8 +2,8 @@
 //! streams), and of structs, enums and a generic `ww_si::Timed<T>` (CLT-29).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::Series;
+use ww_api::prelude::*;
+use ww_api::shrink_wrap::Series;
 use ww_si::{Timed, Volt};
 
 #[ww_api_root]

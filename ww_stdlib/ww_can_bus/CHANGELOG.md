@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Typed numbers (STD-114, wire change EVO-62, wire `w1.0` -> `w2.0`): the bare integers of the CAN traits are exact_units types through `ww_si`, each the same bytes as its number unless named below. Users build them with `Fixed::new(n)` / `Index::new(n)` (`try_new` where bounded) and read them with `.get()`:
     - `BitTiming::prescaler` and `TimingLimits::prescaler_min` / `_max` are `Prescaler` (`Fixed<Per<Cycle, TimeQuantum>, One, u16>`); `seg1`, `seg2`, `sjw` and their limits `Fixed<units::TimeQuantum, One, _>`.
     - `Tdc::Manual::offset` and `filter`, `ProtocolStatus::tdc_value` and `XlPwm::short` / `long` / `offset` are `Fixed<units::Cycle, One, u8>` (clock periods).

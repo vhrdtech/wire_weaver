@@ -12,7 +12,7 @@
 //! writes, and [record] (feature `host`) reads and writes the record and the allowance through a boot ROM.
 
 use core::fmt;
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_date_time::DateTime;
 use ww_error::CommonError;
 

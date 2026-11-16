@@ -114,7 +114,7 @@ dependencies = [
 name = "blinky_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
 ]
 
 [[package]]
@@ -488,7 +488,7 @@ dependencies = [
 name = "defmt_log_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_log",
 ]
 
@@ -2374,8 +2374,7 @@ dependencies = [
  "defmt 1.1.1",
  "exact_units",
  "shrink_wrap",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -2414,6 +2413,7 @@ dependencies = [
  "convert_case",
  "darling 0.24.1",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",
@@ -2444,19 +2444,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive",
+ "ww_error",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "ww_api",
+ "ww_error",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
  "wire_weaver",
  "ww_global",
  "ww_si",
-]
-
-[[package]]
-name = "ww_crc"
-version = "0.5.0"
-dependencies = [
- "crc",
 ]
 
 [[package]]
@@ -2512,7 +2525,7 @@ dependencies = [
 name = "ww_firmware_info"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_date_time",
  "ww_si",
  "ww_version",
@@ -2522,8 +2535,8 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
+ "crc",
  "shrink_wrap",
- "ww_crc",
 ]
 
 [[package]]
@@ -2531,8 +2544,10 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
+ "defmt 1.1.1",
+ "serde",
  "serde_json",
- "ww_version",
+ "shrink_wrap",
 ]
 
 [[package]]
@@ -2542,6 +2557,7 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver",
+ "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -2552,7 +2568,7 @@ name = "ww_log"
 version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
- "wire_weaver",
+ "ww_api",
 ]
 
 [[package]]
@@ -2623,6 +2639,7 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "shrink_wrap",
+ "ww_global",
 ]
 
 [[package]]

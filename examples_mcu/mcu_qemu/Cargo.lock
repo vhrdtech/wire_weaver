@@ -12,6 +12,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "all_gpio_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_gpio",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -69,7 +77,7 @@ dependencies = [
 name = "bounded_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
 ]
 
 [[package]]
@@ -157,13 +165,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb6d409db102d77600a714dfa93744e379d9a7e03cbb175d64f09e14d3e921a2"
 dependencies = [
  "critical-section",
-]
-
-[[package]]
-name = "counted_stream_api"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
 ]
 
 [[package]]
@@ -271,6 +272,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dfu_api"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_dfu",
+]
+
+[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -324,7 +333,7 @@ dependencies = [
 name = "flash_budget_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_keyed",
  "ww_si",
 ]
@@ -333,16 +342,8 @@ dependencies = [
 name = "foc_observe_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_si",
-]
-
-[[package]]
-name = "global_paths_api"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
- "ww_timebase",
 ]
 
 [[package]]
@@ -410,30 +411,30 @@ checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
 name = "mcu_qemu"
 version = "0.1.0"
 dependencies = [
+ "all_gpio_api",
  "bounded_api",
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
- "counted_stream_api",
+ "dfu_api",
  "flash_budget_api",
  "foc_observe_api",
- "global_paths_api",
  "panic-semihosting",
  "portable-atomic",
  "static_cell",
  "wire_weaver",
+ "ww_block",
  "ww_bus_slave",
  "ww_client_server",
- "ww_crc",
- "ww_date_time",
+ "ww_dfu",
  "ww_framer",
+ "ww_gpio",
  "ww_i2c",
  "ww_keyed",
  "ww_link",
  "ww_si",
  "ww_spi",
  "ww_stream",
- "ww_timebase",
 ]
 
 [[package]]
@@ -935,8 +936,7 @@ dependencies = [
  "defmt",
  "exact_units",
  "shrink_wrap",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -975,6 +975,7 @@ dependencies = [
  "convert_case",
  "darling",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",
@@ -990,6 +991,26 @@ dependencies = [
  "ron",
  "ww_self",
  "ww_version",
+]
+
+[[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive",
+ "ww_error",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "ww_api",
+ "ww_error",
+ "ww_si",
 ]
 
 [[package]]
@@ -1013,18 +1034,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_crc"
-version = "0.5.0"
-dependencies = [
- "crc",
-]
-
-[[package]]
-name = "ww_date_time"
+name = "ww_dfu"
 version = "0.1.0"
 dependencies = [
- "exact_units",
- "shrink_wrap",
+ "ww_api",
+ "ww_si",
 ]
 
 [[package]]
@@ -1040,8 +1054,8 @@ dependencies = [
 name = "ww_framer"
 version = "0.5.0"
 dependencies = [
+ "crc",
  "shrink_wrap",
- "ww_crc",
 ]
 
 [[package]]
@@ -1049,15 +1063,25 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
+ "defmt",
+ "serde",
  "serde_json",
- "ww_version",
+ "shrink_wrap",
+]
+
+[[package]]
+name = "ww_gpio"
+version = "0.1.0"
+dependencies = [
+ "ww_api",
+ "ww_si",
 ]
 
 [[package]]
 name = "ww_i2c"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_si",
 ]
 
@@ -1074,6 +1098,7 @@ version = "0.5.0"
 dependencies = [
  "shrink_wrap",
  "wire_weaver",
+ "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",
@@ -1123,7 +1148,7 @@ dependencies = [
 name = "ww_spi"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_si",
 ]
 
@@ -1139,15 +1164,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ww_timebase"
-version = "0.1.0"
-dependencies = [
- "wire_weaver",
- "ww_date_time",
- "ww_si",
-]
-
-[[package]]
 name = "ww_version"
 version = "0.2.0"
 dependencies = [
@@ -1156,6 +1172,7 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "shrink_wrap",
+ "ww_global",
 ]
 
 [[package]]

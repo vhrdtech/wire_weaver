@@ -1,7 +1,7 @@
 //! Line 2: the channel moved one level down, under `probe`, and auxiliary channels as an array.
 
 use super::common::Code;
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait Thermo {

@@ -1,6 +1,6 @@
 //! Records of [LastReset](crate::LastReset).
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::{Count, Second, units::Boot};
 
 /// Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).

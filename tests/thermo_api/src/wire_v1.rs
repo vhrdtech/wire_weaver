@@ -1,7 +1,7 @@
 //! Line 1 at w1.2, the crate 1.2.0 before. `calibrate` came in w1.1, `uptime` in w1.2.
 
 use super::common::{Command, Indication, RateError};
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::origins::Celsius;
 use ww_si::prefix::{Centi, One};
 use ww_si::units::{Hertz, Item, Kelvin, Ratio, Sample as SampleUnit, Second};

@@ -16,7 +16,7 @@
 //! phase). `led_on` / `led_off` stay: LD4 solid on, off.
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// nucleo_g0b1re device
 #[ww_api_root]

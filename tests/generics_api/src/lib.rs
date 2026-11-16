@@ -7,7 +7,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::exact_units::niche::{Niched, Null};
 use ww_si::{Ampere, Fixed, Range, Timed, prefix::One, units::Ratio};
 

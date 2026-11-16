@@ -23,7 +23,7 @@
 //!
 //! Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_block::Lease;
 use ww_error::CommonError;
 use ww_si::prefix::Kilo;

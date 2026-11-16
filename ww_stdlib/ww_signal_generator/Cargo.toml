@@ -13,10 +13,10 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_adc/std", "ww_logic_analyzer/std", "ww_si/std"]
+std = ["ww_api/std", "ww_adc/std", "ww_logic_analyzer/std", "ww_si/std"]
 defmt = [
     "dep:defmt",
-    "wire_weaver/defmt",
+    "ww_api/defmt",
     "ww_adc/defmt",
     "ww_logic_analyzer/defmt",
     "ww_si/defmt",
@@ -24,7 +24,7 @@ defmt = [
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver = { workspace = true, default-features = false }
 ww_adc = { workspace = true, default-features = false }
+ww_api = { workspace = true, default-features = false }
 ww_logic_analyzer = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "electrical"] }

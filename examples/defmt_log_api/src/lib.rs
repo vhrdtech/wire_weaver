@@ -2,7 +2,7 @@
 //! on purpose. Firmware: `examples_mcu/rp2` (`rp2_usb_log`), host: `examples/defmt_log`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait DefmtLogDemo {

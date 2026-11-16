@@ -1,6 +1,6 @@
 //! API of the counted and reliable stream tests (API-30, API-31): stream functions with arguments and a result,
 //! `#[counted] stream!`, and methods that make the device produce.
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait StreamsReliable {

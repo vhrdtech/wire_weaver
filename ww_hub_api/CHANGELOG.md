@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - The API's wire version `w1.0` is declared in `Cargo.toml` (`[package.metadata.wire_weaver]`, EVO-31) instead of `#[ww_api_root(wire = ..)]`; the same wire version, no wire change. Needs a `wire_weaver_derive` with EVO-31.
 
 ### 🚀 Features

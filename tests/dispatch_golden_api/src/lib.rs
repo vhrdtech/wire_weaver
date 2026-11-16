@@ -4,7 +4,7 @@
 //! SRV-52, SRV-53) must leave the corpus green.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait DispatchGoldenTest {

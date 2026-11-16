@@ -1,7 +1,7 @@
 //! Test API with `const` items (API-36), used by `tests/consts`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait ConstsTest {

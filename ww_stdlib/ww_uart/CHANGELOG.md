@@ -8,6 +8,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Numbers (STD-113) are typed instead of bare integers (AGENTS.md "Numbers are typed"), same wire
   (`ww api check` sees every change below as wire-compatible, same bytes, so the wire stays `w1.0`; Rust code
   constructing these fields with a bare integer needs the matching typed value). `tx_pending()`,

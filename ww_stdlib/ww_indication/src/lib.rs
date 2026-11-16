@@ -12,7 +12,7 @@
 //! same animation are in phase with no epoch passed around, across hosts too (to their NTP precision). A device
 //! whose clock runs free starts an animation when its mode changes.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_si::Second;
 
 /// Device indication control: a global mode every indicator follows, with optional brightness, identify and

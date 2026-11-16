@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `Interned::Id` is `ww_si::Index<InternedStr, UNib32>` instead of a bare `UNib32` (AGENTS.md "Numbers are typed"):
   same byte(s) on the wire, `InternedStr` a counted base of this crate's own declared with `ww_si::unit!`. Depends
   on `ww_si` (`counting`) now.

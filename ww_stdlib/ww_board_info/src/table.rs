@@ -27,7 +27,7 @@
 
 use core::fmt;
 
-use wire_weaver::prelude::MaxLen;
+use ww_api::prelude::MaxLen;
 
 use crate::{MAX_REWORKS, Rework, ReworkError, ReworkId, ReworkState};
 

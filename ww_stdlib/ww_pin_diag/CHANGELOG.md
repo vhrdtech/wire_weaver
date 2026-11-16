@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `PinDiag::set` and `read`'s `point` is `Index<TestPoint, u16>` (new counted marker of this crate, not named `Point`:
   that is the struct describing one entry of `POINTS`) instead of a bare `u16` (AGENTS.md "Numbers are typed").
   Wire-compatible (`Index` is exactly its `u16` on the wire).

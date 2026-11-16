@@ -29,7 +29,7 @@ fn dep_dir(version: &str, wire: Option<&str>) -> PathBuf {
     .unwrap();
     std::fs::write(
         dir.join("src/lib.rs"),
-        "use wire_weaver::prelude::*;\n\n#[ww_trait]\npub trait Dep {\n    fn get() -> u8;\n}\n",
+        "use ww_api::prelude::*;\n\n#[ww_trait]\npub trait Dep {\n    fn get() -> u8;\n}\n",
     )
     .unwrap();
     dir
@@ -101,7 +101,7 @@ fn shared_dep_dir(version: &str, wire: &str, id_ty: &str) -> PathBuf {
     std::fs::write(
         dir.join("src/lib.rs"),
         format!(
-            "use wire_weaver::prelude::*;\n\n#[derive_shrink_wrap]\npub struct Shared {{\n    pub id: {id_ty},\n}}\n"
+            "use ww_api::prelude::*;\n\n#[derive_shrink_wrap]\npub struct Shared {{\n    pub id: {id_ty},\n}}\n"
         ),
     )
     .unwrap();

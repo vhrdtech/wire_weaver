@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire-compatible (`w3.0` unchanged): channel indices, converter resolution, capture/stream byte and
   capture-read offset counts, and sample-set counts are typed instead of bare integers (AGENTS.md "Numbers are typed",
   P2401#11nov-0948c). Every change is a transparent wrapper of the same bytes, so no wire line moves; only the Rust

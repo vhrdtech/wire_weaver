@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Reworked to a lightweight API (STD-28): `mode: Mode` (`AllOff` / `OnlyEssential` / `Normal`) is the only item a
   device must implement. `brightness: Brightness` (5 levels, one setting for all indicators), `identify(duration)`
   (blink everything to find the unit, errors on `CommonError`) and `NAMES` are now `#[optional]`.

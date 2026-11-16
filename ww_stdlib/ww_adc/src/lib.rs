@@ -53,7 +53,7 @@
 //! method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_numeric::NumericValue;
 #[cfg(feature = "std")]
 pub use ww_si::SIExprOwned;

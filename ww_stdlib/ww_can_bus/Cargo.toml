@@ -13,12 +13,12 @@ wire = "w2.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_si/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt", "ww_si/defmt"]
+std = ["ww_api/std", "ww_si/std"]
+defmt = ["dep:defmt", "ww_api/defmt", "ww_si/defmt"]
 # CAN XL (`CanXl`, `XlFrame`): 2 KiB frames, so only devices with XL carry them
 xl = []
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver = { workspace = true, default-features = false }
+ww_api = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "electrical", "dimensionless", "information", "counting"] }

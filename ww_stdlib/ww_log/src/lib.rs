@@ -42,7 +42,7 @@
 //! Both traits return [LogError].
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Most bytes of defmt frames in one [DefmtFrames] item. A frame longer than this can't be sent and is counted as
 /// lost. Raising it is compatible (the wire form doesn't change).

@@ -1,7 +1,7 @@
 //! API of the tests of observed properties under resource arrays (API-63), shaped like a media box's control API:
 //! a fixed set of browser slots, players that come and go, and one `Playback` trait reached through both arrays.
 //! Next to them a flat level, observed as before.
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait Arrays {

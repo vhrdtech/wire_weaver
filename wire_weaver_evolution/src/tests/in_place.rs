@@ -10,7 +10,7 @@ use crate::compat::tests::add_known;
 fn dep(arg: &str) -> String {
     format!(
         r#"
-        use wire_weaver::prelude::*;
+        use ww_api::prelude::*;
 
         #[derive_shrink_wrap(transparent)]
         pub struct ArgIndex(pub u8);
@@ -140,7 +140,7 @@ fn breaking_change_in_place_is_breaking_at_the_field() {
 fn generic_dep(doc: &str, extra_field: &str) -> String {
     format!(
         r#"
-        use wire_weaver::prelude::*;
+        use ww_api::prelude::*;
 
         /// {doc}
         #[derive_shrink_wrap]

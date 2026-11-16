@@ -13,7 +13,7 @@
 //! `time_map` as a change of `source`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_date_time::DateTime;
 pub use ww_si::origins::UnixMicros;
 pub use ww_si::{Micros, Ppb, Second};

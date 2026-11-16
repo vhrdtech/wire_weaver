@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait Traits {
@@ -44,12 +44,12 @@ trait Channel {
     fn run();
 }
 
-/// `#[ww_trait]` makes a Rust trait for rustdoc (`wire_weaver::api_doc`), these fail to compile if its shape changes.
+/// `#[ww_trait]` makes a Rust trait for rustdoc (`ww_api::api_doc`), these fail to compile if its shape changes.
 #[cfg(test)]
 #[allow(dead_code)]
 mod doc_trait {
     use super::*;
-    use wire_weaver::ww_api::api_doc::Property;
+    use ww_api::api_doc::Property;
 
     fn subgroup<S: Subgroup>(_: fn() -> S) {}
     fn gpio_array<G: Gpio>(_: fn(UNib32) -> G) {}

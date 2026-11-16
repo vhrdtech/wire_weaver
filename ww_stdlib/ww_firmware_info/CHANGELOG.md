@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Wire line follows `ww_date_time` `w2.0`, EVO-58: `DateTime` has bounded calendar fields (`w1.x` -> `w2.0`).
 
 ### 🚀 Features

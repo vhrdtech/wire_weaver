@@ -13,9 +13,9 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt"]
+std = ["ww_api/std"]
+defmt = ["dep:defmt", "ww_api/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver.workspace = true
+ww_api.workspace = true

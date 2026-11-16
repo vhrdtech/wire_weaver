@@ -52,7 +52,7 @@
 //! method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_si::prefix::{Milli, One};
 pub use ww_si::units::{Bit, Byte, Item, Volt};
 pub use ww_si::{Bytes, Count, Fixed, Hertz, Index, Range, Second};

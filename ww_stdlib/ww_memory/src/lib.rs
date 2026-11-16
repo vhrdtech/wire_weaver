@@ -14,7 +14,7 @@
 //! memory access. Each method lists the variants it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Memory or registers with 8-bit addresses and 8-bit words.
 #[ww_trait]

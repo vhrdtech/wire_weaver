@@ -1857,7 +1857,7 @@ mod tests {
             ),
         )
         .unwrap();
-        let lib_rs = format!("use wire_weaver::prelude::*;\n\n{lib_rs}");
+        let lib_rs = format!("use ww_api::prelude::*;\n\n{lib_rs}");
         std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
         let loaded = wire_weaver_core::load_crate_with_notes(&dir).unwrap();
         std::fs::remove_dir_all(&dir).unwrap();

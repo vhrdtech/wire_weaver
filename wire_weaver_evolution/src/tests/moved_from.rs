@@ -22,7 +22,7 @@ fn load_moved(version: &str, lib_rs: &str) -> (ApiBundleOwned, Vec<Move>) {
     .unwrap();
     std::fs::write(
         dir.join("src/lib.rs"),
-        format!("use wire_weaver::prelude::*;\n\n{lib_rs}"),
+        format!("use ww_api::prelude::*;\n\n{lib_rs}"),
     )
     .unwrap();
     let loaded = wire_weaver_core::load_crate_with_notes(&dir);

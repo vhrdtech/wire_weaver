@@ -1,7 +1,7 @@
 //! Test API root for `hub_pytest_device` (TOOL-18): one shared `counter` property, read and written by Python
 //! processes through the ww hub without real hardware (`inproc:` device, `docs/transport/hub.md`).
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait PytestDevice {

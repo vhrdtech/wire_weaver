@@ -1,7 +1,7 @@
 //! Line 1: the channel and the indication on the root.
 
 use super::common::Code;
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait Thermo {

@@ -17,7 +17,7 @@
 //! weakest drive the point has: a short-to-GND test drives high weakly and reads back, so a short loses and an
 //! external pull-down doesn't.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_gpio::{Level, Pull};
 pub use ww_interned::Interned;
 #[cfg(feature = "std")]

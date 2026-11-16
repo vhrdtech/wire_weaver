@@ -16,5 +16,5 @@ default = ["std"]
 std = ["ww_si/std"]
 
 [dependencies]
-wire_weaver.workspace = true
+ww_api.workspace = true
 ww_si.workspace = true

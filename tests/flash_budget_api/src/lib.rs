@@ -26,7 +26,7 @@
 //! each resource's own `MaxLen<_, N>` monomorphisation.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// Resources of one kind the larger of a pair of roots has more than the smaller one.
 pub const EXTRA: u32 = 8;

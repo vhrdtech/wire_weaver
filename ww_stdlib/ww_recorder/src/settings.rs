@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::{Bytes, Millis};
 
 /// Settings of the recorder, see [Recorder::settings].

@@ -12,9 +12,9 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_keyed/std", "ww_si/std"]
+std = ["ww_api/std", "ww_keyed/std", "ww_si/std"]
 
 [dependencies]
-wire_weaver = { workspace = true, features = ["std"] }
+ww_api = { workspace = true, features = ["std"] }
 ww_keyed = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["time", "information"] }

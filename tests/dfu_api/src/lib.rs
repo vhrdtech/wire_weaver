@@ -1,7 +1,7 @@
 //! A device that offers every `ww_dfu` trait, to check they go through codegen and work end to end.
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait DfuDevice {

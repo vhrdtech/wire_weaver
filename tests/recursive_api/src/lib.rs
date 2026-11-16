@@ -2,7 +2,7 @@
 //! method arguments and return values, a property and stream items.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait Recursive {

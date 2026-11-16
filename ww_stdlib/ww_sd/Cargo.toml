@@ -13,10 +13,10 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_error/std", "ww_block/std", "ww_si/std"]
+std = ["ww_api/std", "ww_error/std", "ww_block/std", "ww_si/std"]
 defmt = [
     "dep:defmt",
-    "wire_weaver/defmt",
+    "ww_api/defmt",
     "ww_error/defmt",
     "ww_block/defmt",
     "ww_si/defmt",
@@ -27,7 +27,7 @@ raw-sd-unrestricted = []
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver.workspace = true
+ww_api.workspace = true
 ww_block = { workspace = true, default-features = false }
 ww_error = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["time", "information", "counting"] }

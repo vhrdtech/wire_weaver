@@ -1,5 +1,5 @@
 //! API of the large message tests (CLT-55): a result set as one reply, as a stream function and as pages.
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::{Fixed, prefix::One, units::Row};
 
 /// How many rows to answer with.

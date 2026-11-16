@@ -3,7 +3,7 @@
 //! unit is part of every value's type, so a client converts exactly or refuses, never reinterprets.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::prefix::Milli;
 use ww_si::units::{PoundForce, Second, Times};
 use ww_si::{AnyQuantity, Fixed, Quantity};

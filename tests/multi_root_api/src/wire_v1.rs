@@ -1,7 +1,7 @@
 //! Line 1.
 
 use super::common::Code;
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait Thermo {

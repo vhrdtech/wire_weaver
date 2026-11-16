@@ -4,7 +4,7 @@
 //! methods: the benches sample and poll from the firmware.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::{Ampere, Volt};
 
 #[ww_api_root]

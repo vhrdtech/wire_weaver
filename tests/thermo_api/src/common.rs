@@ -3,7 +3,7 @@
 //!
 //! [RateError] and [Command] are on every line; the rest came with line 2's break and line 3 kept them.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::origins::Celsius;
 use ww_si::prefix::{Milli, One};
 use ww_si::units::{Hertz, Item, Kelvin, Sample as SampleUnit};

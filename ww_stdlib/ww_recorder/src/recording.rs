@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::{Bytes, Second};
 
 /// Session of a boot (counts up for the life of the card), see [Status::session] and [RecordingInfo::session].

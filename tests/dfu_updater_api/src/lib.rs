@@ -1,7 +1,7 @@
 //! The updater (bootloader with a transport, or a recovery app) of a device that updates in place live. Used by the `ww_dfu` scenario tests (`tests/dfu_scenarios`).
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait DfuUpdater {

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `PwmChannel::set_duty`, `PwmOutput::duty`, `PwmActual::duty` and `CaptureValue::DutyCycle` are `Duty16`
   (`exact_units`' "0..=65535 = 0..100 %" alias) instead of a bare `u16` (AGENTS.md "Numbers are typed").
   `PwmCapabilities::duty_bits` is `Fixed<Bit, One, u8>` (kept its name: the `Duty16` fields already read as "duty").

@@ -2,7 +2,7 @@
 //! `use`, line 1 by its path: both find `common::Channel`.
 
 use super::common::{Channel, Code};
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait Thermo {

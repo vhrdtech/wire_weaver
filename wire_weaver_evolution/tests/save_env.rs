@@ -18,7 +18,7 @@ fn assert_saves_with_env() {
     .unwrap();
     std::fs::write(
         dir.join("src/lib.rs"),
-        "use wire_weaver::prelude::*;\n#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n",
+        "use ww_api::prelude::*;\n#[ww_api_root]\npub trait Api {\n    fn led_on();\n}\n",
     )
     .unwrap();
 

@@ -50,7 +50,7 @@
 //! reported one by one on the optional `bus_errors` stream.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::prefix::{Milli, One};
 use ww_si::units::{self, Per};
 pub use ww_si::{Baud, Hertz, Ohm, Second};

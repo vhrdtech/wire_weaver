@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// API used by the dynamic client tests, covers every kind of type the dynamic serializer supports.
 #[ww_api_root]

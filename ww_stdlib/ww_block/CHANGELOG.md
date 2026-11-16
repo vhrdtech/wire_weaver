@@ -3,6 +3,7 @@
 ### ⚠️ Breaking
 
 - `crc32`/`crc32_update` compute with `ww_crc::CRC32_ISO_HDLC`, the table `ww_link` shares; the features `crc-table-256` and `crc-table-slice16` are gone: turn on `ww_crc`'s `table-256` or `table-slice16` instead (TR-31).
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 
 ### 🚀 Features
 

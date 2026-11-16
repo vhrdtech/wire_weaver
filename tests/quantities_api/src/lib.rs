@@ -7,8 +7,8 @@
 //! UNIT-8).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::Series;
+use ww_api::prelude::*;
+use ww_api::shrink_wrap::Series;
 use ww_si::codec::video::{Narrow10, NarrowSignal10, Pq};
 use ww_si::codec::{Coded, MuLaw, Transfer};
 use ww_si::origins::{Angle, Celsius};

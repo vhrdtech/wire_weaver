@@ -6,7 +6,7 @@
 //! serial number string (as lower-case hex, no separators) and a host shows in `ww list`. A host that lost a device
 //! on a reboot into a ROM bootloader sharing the same id (RP2350 BOOTSEL, STM32 DFU) finds the unit again by it.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// The unique ids of this unit.
 ///

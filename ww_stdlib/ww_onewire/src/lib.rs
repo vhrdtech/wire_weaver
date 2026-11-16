@@ -43,7 +43,7 @@
 //! (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 use ww_si::units::Pin;
 pub use ww_si::{Bytes, Index, IndexFrom1, Range, Second, Volt};
 

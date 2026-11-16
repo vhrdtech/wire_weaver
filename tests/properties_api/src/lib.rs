@@ -1,4 +1,4 @@
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait Properties {
@@ -76,11 +76,11 @@ impl Default for CustomOwned {
     }
 }
 
-/// `#[ww_trait]` makes a Rust trait for rustdoc (`wire_weaver::api_doc`), this fails to compile if its shape changes.
+/// `#[ww_trait]` makes a Rust trait for rustdoc (`ww_api::api_doc`), this fails to compile if its shape changes.
 #[cfg(test)]
 #[allow(dead_code)]
 fn doc_trait<T: Properties>() {
-    use wire_weaver::ww_api::api_doc::Property;
+    use ww_api::api_doc::Property;
     let _: fn() -> Property<u8> = T::x;
     let _: fn() -> Property<u8, ModeError> = T::mode;
     let _: fn() -> Property<Custom<'static>> = T::custom;

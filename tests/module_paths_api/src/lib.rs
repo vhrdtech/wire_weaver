@@ -9,7 +9,7 @@
 use core::marker::PhantomData;
 use core::ops::Range;
 use geometry::Point as Spot;
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait ModulePaths {
@@ -30,7 +30,7 @@ trait ModulePaths {
 }
 
 pub mod geometry {
-    use wire_weaver::prelude::*;
+    use ww_api::prelude::*;
 
     #[derive_shrink_wrap(
         borrowed,
@@ -43,7 +43,7 @@ pub mod geometry {
     }
 
     pub mod shapes {
-        use wire_weaver::prelude::*;
+        use ww_api::prelude::*;
 
         #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, PartialEq, Clone))]
         pub struct Label<'i> {
@@ -54,7 +54,7 @@ pub mod geometry {
 
 /// Equal to `geometry::Point`, a type of its own
 pub mod other {
-    use wire_weaver::prelude::*;
+    use ww_api::prelude::*;
 
     #[derive_shrink_wrap(
         borrowed,
@@ -68,7 +68,7 @@ pub mod other {
 }
 
 mod hidden {
-    use wire_weaver::prelude::*;
+    use ww_api::prelude::*;
 
     #[derive_shrink_wrap(
         borrowed,
@@ -92,7 +92,7 @@ mod hidden {
 mod private {
     /// A module other crates name as `limits`, through the `pub use` at the root
     pub mod limits {
-        use wire_weaver::prelude::*;
+        use ww_api::prelude::*;
 
         /// A value within `MIN..=MAX`, named like `core::ops::Range`
         #[derive_shrink_wrap(

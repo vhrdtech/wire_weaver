@@ -13,8 +13,8 @@ wire = "w1.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "standalone_units/std"]
+std = ["ww_api/std", "standalone_units/std"]
 
 [dependencies]
 standalone_units = { workspace = true, features = ["shrink_wrap"] }
-wire_weaver.workspace = true
+ww_api.workspace = true

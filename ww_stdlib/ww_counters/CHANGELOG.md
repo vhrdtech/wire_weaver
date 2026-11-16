@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - `Counters` carries the raw [cnt](https://crates.io/crates/cnt) buffer words, decoded on the host with the
   firmware's ELF (STD-25): `const INFO: CountersInfo` (format version, `ram` / `backup` `BufferInfo { used_words,
   capacity_words }`, `build_id`), `read(buffer: CounterBuffer, offset) -> Result<MaxLen<RefVec<UVlq32>, 64>,

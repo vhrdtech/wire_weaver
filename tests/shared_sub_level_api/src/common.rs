@@ -1,6 +1,6 @@
 //! What both lines share, unchanged.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 /// A raw sensor reading.
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, Clone, Copy, PartialEq, Eq))]

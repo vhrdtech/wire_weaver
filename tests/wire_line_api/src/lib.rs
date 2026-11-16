@@ -2,7 +2,7 @@
 //! Used by `tests/wire_line` (EVO-25) against firmware of `wire_line_old_api`.
 #![no_std]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait WireLine {

@@ -13,11 +13,11 @@ wire = "w3.0"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_error/std", "ww_si/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt", "ww_si/defmt"]
+std = ["ww_api/std", "ww_error/std", "ww_si/std"]
+defmt = ["dep:defmt", "ww_api/defmt", "ww_error/defmt", "ww_si/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-wire_weaver.workspace = true
+ww_api.workspace = true
 ww_error = { workspace = true, default-features = false }
 ww_si = { workspace = true, default-features = false, features = ["information"] }

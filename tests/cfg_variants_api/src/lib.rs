@@ -6,7 +6,7 @@
 //! firmware's build is kept under its own name, and the test device reports it as `cfg_variants_api`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait CfgVariants {

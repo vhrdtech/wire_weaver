@@ -1,6 +1,6 @@
 //! API of the argument evolution tests (EVO-22): trailing arguments with defaults, and a struct whose fields are the
 //! arguments (`#[flatten]`).
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait ArgsEvolution {

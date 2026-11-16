@@ -78,7 +78,7 @@
 //! it returns (`#[errors]`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 pub use ww_si::units::{Byte, Cycle, Item};
 pub use ww_si::{Bytes, Count, Hertz, Index, Range, Second, Volt};
 

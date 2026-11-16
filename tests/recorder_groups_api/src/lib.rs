@@ -2,7 +2,7 @@
 //! can leave every optional group out with `omit_if` (STD-34, see `docs/std_library/ww_recorder.md`).
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait RecorderGroupsTest {

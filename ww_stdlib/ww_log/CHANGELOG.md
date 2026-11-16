@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Depends on `ww_api` instead of `wire_weaver` (API-68): the crate no longer pulls the runtime in; `std`/`defmt` forward to `ww_api`.
 - Renamed from `ww_log_bare_metal` (STD-26): depend on `ww_log`, `use ww_log::...`. Its global type id 0 goes with
   it (`ww_global::WW_LOG`).
 - Reworked for the device contract (STD-26). Same crate version: never published, nothing used it.

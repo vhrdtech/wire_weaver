@@ -1,5 +1,5 @@
 //! API for multi requests (`MultiCall`, `MultiRead`, `MultiWrite`) and the malformed ones a server must survive.
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait MultiReq {

@@ -311,7 +311,7 @@ checksum = "aedcfb3409746eddb02b9e19ebda1c3394f759a152e48ee875a0844d1b955484"
 name = "foc_observe_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_si",
 ]
 
@@ -500,7 +500,7 @@ checksum = "05c8b63e8d9609db387f0324918f81d68fe27748f084ef092fb35954d0539a85"
 name = "power_stage_api"
 version = "0.1.0"
 dependencies = [
- "wire_weaver",
+ "ww_api",
  "ww_si",
 ]
 
@@ -942,8 +942,7 @@ dependencies = [
  "defmt",
  "exact_units",
  "shrink_wrap",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -982,6 +981,7 @@ dependencies = [
  "convert_case",
  "darling",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",
@@ -996,6 +996,16 @@ version = "0.5.0"
 dependencies = [
  "ron",
  "ww_self",
+ "ww_version",
+]
+
+[[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive",
+ "ww_error",
  "ww_version",
 ]
 

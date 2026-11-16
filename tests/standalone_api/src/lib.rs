@@ -7,7 +7,7 @@
 pub use standalone_units;
 use standalone_units::units::{Ampere, Volt};
 use standalone_units::{Milli, Reading, Source};
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 pub trait Standalone {

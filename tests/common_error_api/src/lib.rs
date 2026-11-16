@@ -1,6 +1,6 @@
 //! An API error enum with the common errors first (STD-16), and a method returning `CommonError` alone.
 
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_api_root]
 trait CommonErrors {

@@ -1510,6 +1510,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **CLT-73 Partial keys in paths** — `flow[{proto: Tcp, ..}]` in `ww`, dynamic client and Python paths: the
   elements whose key matches the given fields, from the `key[]` multi read or the `keys` stream, instead of one
   full key (CLT-72). Needs a rule for several matches (all of them for `ww stream`, an error for one element).
+- ✅ **CLT-74 Python module as a library and a wheel** · `v0.5` — `wire_weaver_py` is a library crate whose `init(m)`
+  fills the `wire_weaver._wire_weaver` module; the wheel is the `cdylib` crate `wire_weaver_wheel`
+  (`ww_tools/wire_weaver_wheel`, with `pyproject.toml`, the Python package, the tests and the console script).
+  [Docs](docs/python.md#installation).
 - 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
   `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
@@ -2712,6 +2716,17 @@ Unicast Data0 to one node over the same bus is TR-6.
   fault-confinement counters, `TtConfig`'s TURCF/TTOCF register fields, `XlFrame`'s protocol code and acceptance
   field) got a real one; none of them turned out to want a unit instead.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
+- ✅ **TOOL-36 Commands register themselves** · `v0.5` — each `ww` command registers a `CommandDef` with `inventory`
+  (`wire_weaver_cli::registry`): its `clap` command, the global flags it shows, how it connects, its log level, its
+  own tap and the plugin it forwards to; the root command, help, completion and the run loop come from the registry.
+  `wire_weaver_cli` is a library of the generic commands with no standard library API crate among its dependencies,
+  `ww_std_cli` (`ww_stdlib/ww_std_cli`) holds `board`, `counters`, `dfu`, `pins`, `report` and the device parts of
+  `info` and `sync` (`InfoExtension`, `SyncExtension`), and the binary `ww` (`ww_tools/ww`) links both. Tests compare
+  the registered commands with the expected list in both crates and in the binary's help.
+  [Docs](docs/cli_reference.md#plugins).
+- 📋 **TOOL-37 `ww udev` prints the rule** — the command exists and is documented but stops with an error naming
+  this item (was a `todo!()` panic): it should print a udev rule for WireWeaver USB devices to pipe into
+  `/etc/udev/rules.d/`.
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`

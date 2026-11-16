@@ -1125,8 +1125,8 @@ error. `--format json` gives the same information as JSON instead.
 ## `ww udev`
 
 Linux only. Meant to print a udev rule giving your user access to WireWeaver USB devices
-(`ww udev | sudo tee /etc/udev/rules.d/70-ww_device.rules`), but not implemented yet: the command stops with a
-`todo!()` panic. Until then write the rule by hand, see [USB](transport/usb.md).
+(`ww udev | sudo tee /etc/udev/rules.d/70-ww_device.rules`), but not implemented yet (TOOL-37): the command stops
+with an error saying so. Until then write the rule by hand, see [USB](transport/usb.md).
 
 ## `ww config`
 
@@ -1158,11 +1158,15 @@ selection like `ww` does). A `ww-*` program is run with the typed words only aft
 `ww-NAME --ww-plugin` with the line `ww-plugin 1` (remembered per path and modification time, in
 `~/.cache/ww/plugins`); any other program called `ww-something` is listed and never run by the completion. Plugins also complete on their own (`ww-chunky --help`, `COMPLETE=fish ww-chunky`).
 
-Writing one: depend on the `wire_weaver_cli` crate (it is a library too, `wire_weaver_cli::plugin`), flatten
-`DeviceArgs` into your command line, resolve it with `Selection::resolve(&matches, false)` and connect with
-`selection.client_config()`, as every `ww` command does (same flags, environment variables, `ww.toml`, hub exclusive
-claims with `take_exclusive`), and call `plugin::complete_if_requested(Cli::command)` first in `main`, which answers
-`ww`'s completion requests. `ww_chunky` in chunky_mcu_updater is the example.
+Writing one: depend on the `wire_weaver_cli` library crate; `wire_weaver_cli::plugin` is the public plugin API.
+Flatten `DeviceArgs` into the command line, resolve it with `Selection::resolve(&matches, false)` and connect with
+`selection.client_config()`, as every `ww` command does (same flags, environment variables, `ww.toml`); claim a
+device from the hub for the plugin alone with `take_exclusive`, or `connect`, which does both; show every string a
+device or the hub hands over through `Untrusted` or `escape`; and call `plugin::complete_if_requested(Cli::command)`
+first in `main`, which answers `ww`'s completion requests and the probe `--ww-plugin` with `ww-plugin 1` (the `1` is
+the version of this handshake). `ww_chunky` in chunky_mcu_updater is the example. A program that links
+`wire_weaver_cli` and `ww_std_cli` and registers its own commands (`wire_weaver_cli::registry::CommandDef`) is a
+whole `ww` with more commands, instead of a plugin.
 
 ## Untrusted device and hub strings
 

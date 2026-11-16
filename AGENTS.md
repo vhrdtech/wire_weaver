@@ -200,8 +200,10 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   WebSocket, UDP and `embassy-net` behind features), `mcu/wire_weaver_usb_embassy` (embassy-usb class).
 - **Device-side crates**: `ww_stream` (streams, observe), `ww_settings`, `ww_bus_slave` (I2C/SPI slave, SRV-26),
   `mcu/ww_ecc_flash` (`EccSafeFlash`, `docs/api/ecc_flash.md`), `ww_lz4`, `ww_tape`, `ww_defmt_logger`.
-- **Host tools**: `wire_weaver_cli` (binary `ww`, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH),
-  `ww_hub`/`ww_hub_api` (the per-user hub), `ww_clock_sync`, `ww_tap`, `wire_weaver_py` (Python),
+- **Host tools**: `wire_weaver_cli` (library: the generic `ww` commands and the registry each command registers
+  with, `registry::CommandDef`), `ww_stdlib/ww_std_cli` (the standard library's commands), `ww_tools/ww` (the `ww`
+  binary, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH), `ww_hub`/`ww_hub_api` (the per-user hub),
+  `ww_clock_sync`, `ww_tap`, `wire_weaver_py` (Python, a library) with its wheel `ww_tools/wire_weaver_wheel`,
   `wire_weaver_evolution` (the compatibility checker), `wire_weaver_tool` (egui viewer, `docs/dev_tool.md`). Nothing
   here depends on another repository by path (`just check-clean-clone`); `exact_units` comes by git, with the
   commit tracked in `Cargo.lock`, never pinned in `Cargo.toml`.

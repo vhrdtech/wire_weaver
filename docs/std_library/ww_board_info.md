@@ -266,7 +266,7 @@ read and write the bench record and the allowance the same way the flashers do: 
 
 `ww_report::rework_check` has this as a library (`scan_installed_image`, `read_board`, `board_guard`,
 `rom_info_text`, `set_allowance`), the same one [TOOL-29's flasher
-check](../cli_reference.md#checking-the-boards-reworks) uses; `wire_weaver_cli::cmd::rom` holds the `RomFlash`
+check](../cli_reference.md#checking-the-boards-reworks) uses; `ww_std_cli`'s `rom` module holds the `RomFlash`
 adapters (`PicobootRom`, `DfuseRom`) every ROM command shares. `ww dfu rp flash --follow` / `ww dfu stm32 flash
 --follow` tell an image that refused to boot (back in the ROM within about 12 s instead of as WireWeaver) from one
 that runs, and point at `ww info`.

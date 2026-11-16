@@ -26,10 +26,12 @@ pub mod cargo;
 pub mod dir;
 pub mod file;
 pub mod limits;
+mod resolver;
 mod set;
 
 pub use dir::{Dir, SNAPSHOTS_DIR, SUPERSEDED_DIR};
 pub use file::Snapshot;
+pub use resolver::{CargoScan, Origin, Resolver, embed};
 pub use set::Set;
 pub use ww_self;
 pub use ww_version;

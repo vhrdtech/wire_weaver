@@ -55,6 +55,9 @@ impl Dir {
 
     /// The checked snapshot of exactly `version`, `Ok(None)` when the directory has none.
     pub fn snapshot(&self, version: &FullVersionOwned) -> Result<Option<Snapshot>> {
+        if !file::is_plain_crate_name(&version.crate_id) {
+            bail!("`{}` is not a crate name, refused", version.crate_id);
+        }
         file::read_if_exists(&self.file_path(version))
     }
 

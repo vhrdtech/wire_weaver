@@ -7,7 +7,7 @@ use std::time::Duration;
 pub const SNAPSHOT_FILE_BYTES_MAX: u64 = 32 << 20;
 
 /// A superseded definition (`superseded/<...>.ww`): one canonical bundle, a few KB today.
-pub const SUPERSEDED_FILE_BYTES_MAX: u64 = 4 << 20;
+pub const SUPERSEDED_FILE_BYTES_MAX: u64 = ww_self::definition_cache::ENTRY_BYTES_MAX;
 
 /// Entries looked at in one `superseded/` directory.
 pub const SUPERSEDED_FILES_MAX: usize = 4096;

@@ -473,7 +473,7 @@ fn trait_key<'b>(
 }
 
 /// Index of the in-line definition of a type in `bundle`.
-fn find_type(bundle: &ApiBundleOwned, version: &FullVersionOwned, name: &str) -> Option<u32> {
+pub fn find_type(bundle: &ApiBundleOwned, version: &FullVersionOwned, name: &str) -> Option<u32> {
     bundle
         .types
         .iter()
@@ -485,7 +485,7 @@ fn find_type(bundle: &ApiBundleOwned, version: &FullVersionOwned, name: &str) ->
 }
 
 /// Index of the in-line definition of a trait in `bundle`.
-fn find_trait(bundle: &ApiBundleOwned, version: &FullVersionOwned, name: &str) -> Option<u32> {
+pub fn find_trait(bundle: &ApiBundleOwned, version: &FullVersionOwned, name: &str) -> Option<u32> {
     bundle
         .traits
         .iter()

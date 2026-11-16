@@ -244,20 +244,22 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
     let (temp, temp_ty) = field(&s, &return_ty(&read_once), b, "temp");
     assert_eq!(milli_kelvin(&quantity(&temp, &temp_ty, b)), 21_500);
 
+    // renamed `amp_gain` on line 3, the same resource by its `#[moved_from]` (STD-125)
+    let gain_name = if line == 3 { "amp_gain" } else { "gain" };
     // whole steps on line 1 and hundredths on lines 2 and 3, from the type: 1.5 is refused before sending
-    d.write_quantity("gain", q(Prefix::Unit, 2, "Ratio"))
+    d.write_quantity(gain_name, q(Prefix::Unit, 2, "Ratio"))
         .await
         .unwrap();
-    let (gain, gain_ty) = d.read("gain").await;
+    let (gain, gain_ty) = d.read(gain_name).await;
     assert_eq!(quantity(&gain, &gain_ty, b).to_f64(), 2.0);
     let before = d.requests(shared).await;
     let line_takes_hundredths = d
-        .write_quantity("gain", q(Prefix::Centi, 150, "Ratio"))
+        .write_quantity(gain_name, q(Prefix::Centi, 150, "Ratio"))
         .await;
     match line_takes_hundredths {
         Ok(()) => {
             assert_ne!(line, 1);
-            let (gain, gain_ty) = d.read("gain").await;
+            let (gain, gain_ty) = d.read(gain_name).await;
             assert_eq!(quantity(&gain, &gain_ty, b).to_f64(), 1.5);
         }
         Err(e) => {
@@ -273,7 +275,7 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
         .observable_properties()
         .unwrap()
         .into_iter()
-        .find(|(_, name, _)| name == "gain")
+        .find(|(_, name, _)| name == gain_name)
         .unwrap();
     let mut observer = d
         .root
@@ -289,12 +291,12 @@ async fn exercise(d: &Device, shared: &devices::Shared, wire: WireVersion) {
         )
         .await
         .unwrap();
-    d.write_quantity("gain", q(Prefix::Unit, 3, "Ratio"))
+    d.write_quantity(gain_name, q(Prefix::Unit, 3, "Ratio"))
         .await
         .unwrap();
     loop {
         let update = observer.recv().await.unwrap();
-        let gain = update.values.iter().find(|(n, _)| n == "gain");
+        let gain = update.values.iter().find(|(n, _)| n == gain_name);
         if gain.is_some_and(|(_, v)| quantity(v, &gain_ty, b).to_f64() == 3.0) {
             break;
         }

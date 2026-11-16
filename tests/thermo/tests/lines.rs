@@ -380,7 +380,7 @@ fn checker_agrees_on_both_bumps() {
     // line 2 -> line 3: the batched stream, the tree moved, uptime in another unit and type
     let (w3, notes) = cache.load_root_with_notes(&dir, "wire_v3::Thermo").unwrap();
     let moves: Vec<Move> = notes.moved_from.iter().map(Move::from).collect();
-    assert_eq!(moves.len(), 1, "{moves:?}");
+    assert_eq!(moves.len(), 2, "{moves:?}");
     let report = compare_moved(&w2, &w3, &moves).unwrap();
     assert_eq!(report.change, Change::Breaking);
     assert_eq!(report.wire_bump, WireBump::Line);
@@ -392,6 +392,7 @@ fn checker_agrees_on_both_bumps() {
     for broke in [
         "Thermo::samples: Batch on the new version, Sample on the old version: another type",
         "Thermo::self_test moved to Health::check_sensor",
+        "Thermo::gain moved to Thermo::amp_gain",
         "Thermo::uptime removed",
     ] {
         assert!(reasons.contains(broke), "{broke} not in:\n{reasons}");

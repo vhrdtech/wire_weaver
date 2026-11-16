@@ -138,3 +138,21 @@ fn tap_keys_match_its_bundle() {
         );
     }
 }
+
+/// A resource renamed with `#[moved_from]` within its trait across a break keeps its key: `gain` on line 2 is
+/// `amp_gain` on line 3, its identity name still `gain` (INT-17). The API root id ignores the crate's major.
+#[test]
+fn renamed_resource_keeps_its_key_across_a_break() {
+    let w2 = bundle("tests/thermo_api", "wire_v2::Thermo");
+    let w3 = bundle("tests/thermo_api", "wire_v3::Thermo");
+    let on_w2 = key_in_bundle(&w2, &[id(&w2.root, "gain")], &[]).unwrap();
+    let on_w3 = key_in_bundle(&w3, &[id(&w3.root, "amp_gain")], &[]).unwrap();
+    assert_eq!(on_w2, on_w3);
+    assert_eq!(
+        on_w3,
+        track_key(api_root_id("thermo_api"), &[Segment::Name("gain")])
+    );
+    // a resource that is not renamed keeps its key too, even if its id changed
+    let mode = |b: &ww_self::ApiBundleOwned| key_in_bundle(b, &[id(&b.root, "mode")], &[]).unwrap();
+    assert_eq!(mode(&w2), mode(&w3));
+}

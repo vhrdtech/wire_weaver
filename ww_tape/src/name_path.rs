@@ -6,7 +6,7 @@
 
 use crate::{Segment, api_root_id, track_key};
 use ww_self::keys::{KeysError, item_name, keys_level};
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Multiplicity};
+use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
 
 /// Why a numeric path has no name path in a bundle.
 #[derive(Debug)]
@@ -77,12 +77,6 @@ impl Level<'_> {
     }
 }
 
-/// The identity name of a resource.
-// TODO(STD-125): the oldest name of its `#[moved_from]` chain, `ApiItem::identity_name` (INT-17).
-fn identity_name(item: &ApiItemOwned) -> &str {
-    &item.ident
-}
-
 /// The name path of the resource at the numeric `path` in `bundle`: each item's identity name, each array index,
 /// and for an index into a keyed array its key from `keys` (path position and the key's shrink_wrap bytes, as in
 /// [TrackDef::keys](crate::TrackDef::keys)).
@@ -106,7 +100,7 @@ pub fn name_path<'a>(
         let name = match &level {
             Level::Bundle(lvl) => {
                 let lvl: &'a ApiLevelOwned = lvl;
-                identity_name(&lvl.items[find(lvl)?])
+                lvl.items[find(lvl)?].identity_name()
             }
             Level::Keys(lvl) => {
                 find(lvl)?;

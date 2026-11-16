@@ -110,7 +110,7 @@ each with a tag byte and its length, so `a.b` and `ab` never collide:
 
 | Step | Segment |
 |---|---|
-| a resource, `link`, `rx_frames` | `Name`: its name |
+| a resource, `link`, `rx_frames` | `Name`: its identity name; a resource renamed with `#[moved_from]` keeps its oldest name |
 | an index into a plain array, `link[2]` | `Index(2)` |
 | an element of a [keyed array](../api/arrays.md), `flow[{key}]` | `Key`: the key's shrink_wrap bytes, not the index |
 
@@ -126,8 +126,8 @@ first and writes the track's definition when it knows it.
 
 The key's shrink_wrap bytes change when its type gains a field, even a defaulted one, so every keyed track then gets
 a new key. Before the first long-lived recordings this is to be revisited: a canonical hash of the key's value, which
-leaves out fields at their default, would survive such a change. A renamed or moved resource gets a new name path,
-and with it a new key, even with `#[moved_from]`.
+leaves out fields at their default, would survive such a change. A resource renamed within its trait keeps its key;
+one moved to another trait gets a new name path, and with it a new key, even with `#[moved_from]`.
 
 ### Index, finish and tail
 

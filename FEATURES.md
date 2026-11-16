@@ -3233,6 +3233,12 @@ Unicast Data0 to one node over the same bus is TR-6.
   three `nucleo_g0b1re_api` (now `0.4.0`) fixture signatures and `wire_weaver_snapshots`' pinned `Clock` signature
   updated the same way earlier STD-59 drift did (`exact_units::Prefix` changed without a version bump, unpublished
   crates), and `ww_si::units::ALL`'s hardcoded count moved with the new markers.
+- ✅ **STD-125 `ww_tape` track identity by name path** · `v0.5` — `api_root_id` from the crate name only,
+  `track_key` and `clock_key` over name segments (identity names of resources, so `#[moved_from]` renames within a
+  trait keep the key (INT-17), array indices, keys' shrink_wrap bytes for keyed arrays), `TrackDef.keys`,
+  `name_path`/`key_in_bundle` from a bundle (feature `bundle`), `ww_tap::track_key`, so two runs that number things
+  differently give the same ids (API-67); `tests/tape_identity`, [docs](docs/transport/tap.md#track-identity). A
+  resource moved to another trait still gets a new key.
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric
@@ -3261,12 +3267,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - 📋 **STD-81 Database columns with units** — `sqlx` and `diesel` column types for `Fixed` (integer at the fixed
   scale) and `AnyQuantity`, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
   features.
-- 🚧 **STD-125 `ww_tape` track identity by name path** · `v0.5` — `api_root_id` from the crate name only,
-  `track_key` and `clock_key` over name segments (resource names, array indices, keys' shrink_wrap bytes for keyed
-  arrays), `TrackDef.keys`, `name_path`/`key_in_bundle` from a bundle (feature `bundle`), `ww_tap::track_key`, so
-  two runs that number things differently give the same ids (API-67); `tests/tape_identity`,
-  [docs](docs/transport/tap.md#track-identity). Missing: identity names of renamed resources (INT-17), and a
-  resource moved to another trait keeps its id only once the bundle carries its old name path.
+
 ## Examples (`EX`)
 
 - ✅ **EX-1 Host examples**: `blinky` (+ evolved API), `all_gpio`, `uart`, `blinky_py` (hand-written pyo3 wrapper).

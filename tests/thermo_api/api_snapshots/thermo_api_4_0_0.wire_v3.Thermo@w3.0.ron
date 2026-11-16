@@ -1,6 +1,6 @@
 // thermo_api 4.0.0: API root wire_v3::Thermo at wire w3.0 and what it reaches, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2bcb706674464b0a04d10b55b879bde98e30c6d780c239ea558d4bd8efd17908
+// shrink_wrap sha256: b421c950a1edf588fbc44c289166d9737e8748eaca83b562e1d51e574b2ee99a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The API of the multi-line bench (EVO-28, EVO-42), a small temperature logger, with every wire line still in use in",
     "one crate: [wire_v1] at w1.2, [wire_v2] at w2.1 and [wire_v3] at w3.0, one API root each, their wire versions in",
@@ -439,9 +439,9 @@
                 Const(Numeric(I64(100))),
                 Const(Numeric(I64(1600))),
             ])),
-        ]), access: ReadWrite(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "gain", docs: [
+        ]), access: ReadWrite(observe: true), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "amp_gain", docs: [
             "Amplifier gain, observable: the device changes it itself on overload.",
-        ], optional: None, meta: None, identity: None),
+        ], optional: None, meta: None, identity: Some("gain")),
         (id: 4, kind: Stream(ty: OutOfLine(type_idx: 8), is_up: true), multiplicity: Flat, since: None, ident: "samples", docs: [
             "Samples in batches while `mode` is `Continuous`, and a burst of consecutive samples per `Command::Trigger`.",
         ], optional: None, meta: None, identity: None),

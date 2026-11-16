@@ -55,16 +55,16 @@ impl crate::line::V3 for Client {
     }
 
     async fn gain(c: &Client) -> Result<Gain> {
-        gain(c.read_gain().read().await?)
+        gain(c.read_amp_gain().read().await?)
     }
 
     async fn set_gain(c: &Client, g: Gain) -> Result<()> {
-        Ok(c.write_gain(g).write().await?)
+        Ok(c.write_amp_gain(g).write().await?)
     }
 
     async fn observe_gain(c: &Client) -> Result<Self::GainUpdates> {
         let observer = c
-            .observe_gain(on_change(Default::default()))
+            .observe_amp_gain(on_change(Default::default()))
             .subscribe()
             .await?;
         Ok(ObserverOf { observer, f: gain })

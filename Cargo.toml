@@ -4,7 +4,7 @@ resolver = "3"
 members = [
     #    "wire_weaver_tool",
     "examples/*",
-    "shrink_wrap/*",
+    "shrink_wrap_c",
     "stm32_dfu_host",
     "tests/*",
     "wire_weaver",
@@ -126,18 +126,19 @@ ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 widestring = "1"
 windows-sys = "0.61"
 
-# exact_units lives in its own repository, taken by git: Cargo.lock pins the commit (`cargo update -p exact_units`
-# moves it); the commented-out [patch."https://github.com/romixlab/exact_units"] below builds against a local checkout
+# exact_units and shrink_wrap live in their own repositories, taken by git: Cargo.lock pins the commit
+# (`cargo update -p exact_units` / `-p shrink_wrap` moves it); to build against a local checkout, put a [patch] in
+# .cargo/config.toml of the worktree (never committed), as the commented-out one below shows
 exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
 # ww_tape_benchmarks: the motor simulation data set, by git from its own repository; Cargo.lock pins the commit
 motor_sim = { git = "https://github.com/vhrdtech/motor_sim", default-features = false }
+shrink_wrap = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap", default-features = false }
+shrink_wrap_derive = { version = "0.2.0", git = "https://github.com/romixlab/shrink_wrap" }
 # the docs site's WireWeaver highlighter (DOC-11), vendored into docs/ and checked by tests/docs_highlight: by git
 # from ww_lsp, which owns it; Cargo.lock pins the commit
 ww_highlight = { git = "https://github.com/romixlab/ww_lsp" }
 
-# framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
-shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }
-shrink_wrap_derive = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap_derive" }
+# framework crates, versioned together via [workspace.package] version
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
 wire_weaver_cli = { version = "0.5.0", path = "./wire_weaver_cli" }
 wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
@@ -146,6 +147,7 @@ wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
 wire_weaver_evolution = { version = "0.5.0", path = "./wire_weaver_evolution", default-features = false }
 wire_weaver_py = { version = "0.5.0", path = "./wire_weaver_py" }
 ww_api = { version = "0.5.0", path = "./ww_api", default-features = false }
+ww_book = { version = "0.5.0", path = "./ww_tools/ww_book" }
 ww_bus_slave = { version = "0.5.0", path = "./ww_bus_slave" }
 ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
 ww_crc = { version = "0.5.0", path = "./ww_crc" }
@@ -308,13 +310,12 @@ wire_line_fixture_api = { version = "0.1.0", path = "./tests/wire_line_fixture_a
 wire_line_old_api = { version = "0.3.0", path = "./tests/wire_line_old_api" }
 ww_tape_fuzz = { version = "0.1.0", path = "./ww_tape_fuzz" }
 
-# exact_units takes shrink_wrap from this repository by git: use the one here, so there is one shrink_wrap
-[patch."https://github.com/vhrdtech/wire_weaver"]
-shrink_wrap = { path = "./shrink_wrap/shrink_wrap" }
-
-# to develop exact_units side by side, a checkout next to this one:
+# to develop exact_units or shrink_wrap side by side, checkouts next to this one (in .cargo/config.toml):
 # [patch."https://github.com/romixlab/exact_units"]
 # exact_units = { path = "../exact_units" }
+# [patch."https://github.com/romixlab/shrink_wrap"]
+# shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
+# shrink_wrap_derive = { path = "../shrink_wrap/shrink_wrap_derive" }
 
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }

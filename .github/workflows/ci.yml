@@ -117,7 +117,6 @@ jobs:
           toolchain: nightly
           components: miri, rust-src
           cache: false
-      - run: cargo +nightly miri test -p shrink_wrap --lib cells_tests
       - run: cargo +nightly miri test -p ww_stream --features std --lib cells_tests
         env:
           MIRIFLAGS: -Zmiri-many-seeds=0..16

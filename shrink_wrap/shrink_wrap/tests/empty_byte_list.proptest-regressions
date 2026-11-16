@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc f6b83d8e6da30e22009ed33c987aa9c1d6491fc49c990f49ae124e249e64ed38 # shrinks to v = ShapeOwned { a: false, n: U3(0), head: [], opt: None, ver: VerOwned { major: 0, minor: 0, pre: None }, bundle: [], path: [], item: None, label: "", sticky: false, kind: Events(Events { ends: Instants, flags: false }), tail: [] }

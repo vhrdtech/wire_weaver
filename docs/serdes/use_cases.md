@@ -8,7 +8,7 @@ Where ShrinkWrap is used outside the RPC machinery, in two small private program
 (a mesh dashboard app and its backend watcher, which watch and connect a handful of PCs). Nothing here is `no_std`: the point is
 that a dense, evolvable format with bounded values is useful on a desktop as well, for files, streams and
 size-capped messages. Every size and byte sequence below is asserted by
-[`shrink_wrap/shrink_wrap/tests/use_cases.rs`](https://github.com/vhrdtech/wire_weaver/blob/master/shrink_wrap/shrink_wrap/tests/use_cases.rs),
+[`shrink_wrap/tests/use_cases.rs`](https://github.com/romixlab/shrink_wrap/blob/main/shrink_wrap/tests/use_cases.rs),
 which holds the same types as the snippets (the shipped code names the same items, see each section).
 
 Read [ShrinkWrap](shrink_wrap.md) and [derive](derive.md) first, this page assumes `Unsized` types, the

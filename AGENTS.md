@@ -12,7 +12,9 @@ The dense wire format is useful on `std` too (many small objects without compres
 Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.md`, `docs/serdes/derive.md` with
 `derive_reference.md`, `size_assumptions.md` and `layouts.md` (read before touching any type definition),
 `docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
-`docs/evolution/overview.md` with `versions.md` and `rules.md`. Prefer the docs (`docs/`, built with zensical) to the
+`docs/evolution/overview.md` with `versions.md` and `rules.md`. The SerDes pages but the conformance ones live in the
+shrink_wrap repository: `just book-assemble` copies them into `docs/serdes/` (git-ignored) from the checkout
+`Cargo.lock` pins (`book_sources.toml`, `ww_tools/ww_book`). Prefer the docs (`docs/`, built with zensical) to the
 source; where they are unclear, the source and its comments are authoritative.
 
 ## Numbers are typed: never a bare integer or float
@@ -84,6 +86,9 @@ model, `ww`, Python, the dynamic client, the wire bytes). `exact_units` lives in
 break on its side shows up fast, and `cargo update -p exact_units` moves it forward (a git dependency's new commit
 must land on its remote's default branch before `Cargo.lock` can name it). `ww_si` re-exports all of it, so an API
 writes `ww_si::..` and turns on the unit groups it needs as `ww_si` features (`time`, `electrical`, `counting`, ...).
+`shrink_wrap` and `shrink_wrap_derive` come the same way from their own repository (romixlab/shrink_wrap), with its
+size bench and fuzz targets; `cargo update -p shrink_wrap` moves them. To change both together, put a `[patch]` to a
+checkout in the worktree's `.cargo/config.toml` (never committed); the crate walker reads it too.
 
 ## FEATURES.md
 
@@ -180,9 +185,8 @@ writers or `ww_stdlib` types firmware uses is checked for stack, cycles and flas
 
 The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 
-- **`shrink_wrap/`**: the wire format, no dependency on the rest. `shrink_wrap` has `BufReader`/`BufWriter` and the
-  `SerializeShrinkWrap`/`DeserializeShrinkWrap` (+ `..Owned`) traits, `shrink_wrap_derive` the `#[derive_shrink_wrap]`
-  macro, `shrink_wrap_c` the C runtime. Usable standalone.
+- **`shrink_wrap_c/`**: the C runtime of the wire format (`docs/c.md`), checked against the Rust crate. The wire
+  format itself (`shrink_wrap`, `shrink_wrap_derive`) is its own repository, taken by git.
 - **`wire_weaver_derive/`**: `ww_trait`/`ww_api_root` (walk the trait and emit a Rust trait for rustdoc with
   `ww_api::api_doc` markers plus the `*_FULL_GID`/`*_COMPACT_GID`/`*_WIRE_VERSION` consts), `ww_codegen!`/`ww_impl!`
   (re-parse the marked trait's source and emit server/client code), `full_version!`/`compact_version!`.
@@ -232,7 +236,8 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   working examples of a macro argument or type (`tests/quantities_api` for units). `tests_common::start_device`
   runs the server on `ww_device::Server` in a thread through the real host event loop (`drop_requests`, `send`).
   `tests/conformance` is the conformance matrix.
-- **`fuzz/`**: framer and `shrink_wrap` fuzz targets (`just fuzz-*`).
+- **`fuzz/`**: framer, link, introspection, series and tape fuzz targets (`just fuzz-*`); shrink_wrap's are in its
+  repository.
 
 ## The core pattern
 
@@ -309,8 +314,7 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   per finished step with its changelogs. It lands on main when the user agrees; publishes, OTA and prod
   wait for the user.
 - Session commits don't bump versions. At landing, a changed crate gets its **minor** bumped (pre-1.0 the breaking
-  position), except purely additive `shrink_wrap`/`shrink_wrap_derive` changes and wire-compatible additions to API
-  crates (`ww_stdlib/*`, `*_api`), which bump patch; once per release cycle (skip it when the version is already above
+  position), except wire-compatible additions to API crates (`ww_stdlib/*`, `*_api`), which bump patch; once per release cycle (skip it when the version is already above
   `cargo info --registry crates-io <crate>`); never-published crates and docs/CI-only changes stay. Crates with
   `version.workspace = true` share the root `[workspace.package]` version; path dependencies carry the version in the
   root `[workspace.dependencies]`, also in `docs/` strings and `mcu/Cargo.lock` (`just check-mcu`). For API crates
@@ -319,7 +323,7 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   (`ww_stdlib/*` point at `vhrdtech/ww_stdlib`); every in-repo crate and every external crate used by more than one
   member is in `[workspace.dependencies]` and used as `dep.workspace = true`. A workspace entry with
   `default-features = false` makes members list the defaults they need (usually `["std"]`); the reverse doesn't work.
-  Inline exceptions: `semver` in `ww_version`, `either` in `shrink_wrap`.
+  Inline exception: `semver` in `ww_version`.
 - CLIs print version, git SHA and build time in `--version` (`tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026 18:20)`)
   from a small `build.rs` without extra crates; firmware reports the same through `fw_info`.
 

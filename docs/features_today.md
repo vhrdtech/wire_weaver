@@ -93,7 +93,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Sparse slots](serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)**: `OptionAnyVec`, a list of optional values of any types where only the present ones take space.
 - **[Lists of either-or values](serdes/special_types.md#eitheranyvec)**: `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Wire format](features.md#wire-format-shrink_wrap-sw) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Wire format (shrink_wrap)](serdes/features.md#wire-format-shrink_wrap-sw), [Derive macro (shrink_wrap)](serdes/features.md#derive-macro-shrink_wrap_derive-der), [Wire format](features.md#wire-format-shrink_wrap-sw) in the feature tracker.</p>
 
 ## API
 
@@ -544,4 +544,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - **[Flash of a server](articles/flash_budget.md)**: What a server costs in flash on a Cortex-M0+: the floor and the bytes of each more resource by kind, from a harness anyone can re-run.
 - **[Power cuts on STM32](api/ecc_flash.md)**: A flash store reset thousands of times mid-write on real hardware. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [Testing, CI and performance](features.md#testing-ci-and-performance-test), [Wire format](features.md#wire-format-shrink_wrap-sw) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Testing, CI and performance](features.md#testing-ci-and-performance-test), [Wire format (shrink_wrap)](serdes/features.md#wire-format-shrink_wrap-sw), [Testing and code size (shrink_wrap)](serdes/features.md#testing-and-code-size-test) in the feature tracker.</p>

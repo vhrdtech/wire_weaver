@@ -2,7 +2,7 @@
 
 The history of WireWeaver as a whole, from its first YAML sketches to today, newest first. For the exact changes of
 a released or upcoming crate version, read that crate's own `CHANGELOG.md` (`wire_weaver/`, `wire_weaver_core/`,
-`shrink_wrap/`, `ww_stdlib/*`, ...): they are the authoritative record from 0.4.0 on. This file summarizes, per
+`ww_stdlib/*`, ...; shrink_wrap's is in its own repository): they are the authoritative record from 0.4.0 on. This file summarizes, per
 version or era, what was added and changed, and which ideas first appeared there and are still part of WireWeaver.
 
 The project changed names several times: AML (2017-2019, before git), vhapi (2020), vhL with xPI and vhl-stdlib
@@ -11,6 +11,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- **Breaking:** shrink_wrap, shrink_wrap_derive, the size bench, fuzz targets and SerDes pages moved to romixlab/shrink_wrap; take them by git there.
+- The C runtime is `shrink_wrap_c/`; a generated server's reply size is `just size-bench-reply` (TEST-17).
+- The book assembles shrink_wrap's pages and feature tracker from its locked checkout (`ww_book`, `just book-assemble`).
+- The crate walker reads a `[patch]` from a `.cargo/config.toml` above the workspace, as Cargo does.
 - `name_path` and `key_in_bundle` move from `ww_tape`'s `bundle` feature to the new `ww_tape_bundle` crate (R11): the tape format no longer depends on `ww_self`. See the `ww_tape` and `ww_tape_bundle` changelogs.
 - `WIRE_WEAVER_HOME` moves the host's `~/.wire_weaver` (EVO-80); the workspace's tests run on a scratch one with `WW_OFFLINE=1` (a nextest setup script). See the `ww_self`, `ww_snapshots` and `wire_weaver_core` changelogs.
 - Tests read no host state (EVO-80): each test device seeds a scratch cache with its introspection data (`WW_SELF_BYTES`, `cache_introspection`), clients connect through an offline resolver. See the `wire_weaver_core`, `wire_weaver_client` and `wire_weaver_cli` changelogs.

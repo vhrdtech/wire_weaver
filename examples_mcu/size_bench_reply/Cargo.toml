@@ -1,0 +1,12 @@
+[package]
+name = "size_bench_reply"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Code size of a generated server's method reply on small CPUs, through shrink_wrap's size bench runner"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.5", features = ["derive"] }
+# shrink_wrap's size bench: the runner library, it builds and measures the images in fw/
+size_bench = { git = "https://github.com/romixlab/shrink_wrap" }

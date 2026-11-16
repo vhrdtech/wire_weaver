@@ -1,0 +1,9 @@
+# Repositories whose pages are part of the book (ww_book, `just book-assemble`): pages live with their code. Each is
+# found through a package Cargo.lock pins; `pages` and `features` are relative to that package's directory, `into` is
+# the directory under docs/ the pages go to, so their links to the rest of the book keep working.
+
+[[source]]
+package = "shrink_wrap"
+pages = "../docs"
+into = "serdes"
+features = "../FEATURES.md"

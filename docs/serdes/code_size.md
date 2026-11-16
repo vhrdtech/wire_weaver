@@ -25,8 +25,8 @@ Summary:
 
 ## The bench
 
-`just size-bench` (the `size_bench` crate in `shrink_wrap/size_bench`) builds one bare firmware image per test case
-from `shrink_wrap/size_bench/fw` and prints `.text` + `.rodata` in bytes. `just size-bench -c busgen -t rv32ic -s 30`
+`just size-bench` (the `size_bench` crate) builds one bare firmware image per test case
+from `size_bench/fw` and prints `.text` + `.rodata` in bytes. `just size-bench -c busgen -t rv32ic -s 30`
 prints the 30 largest symbols of an image instead.
 
 The build profile is the one of the softcore firmware: nightly, `build-std = ["core"]`, `panic = "immediate-abort"`,
@@ -58,6 +58,9 @@ are measured, not run.
 | `busgen` | both: a request decoded, acted on, its reply encoded |
 | `busgen_hand` | the same as `busgen` with a hand-written codec: bytes, little endian, a list is a count and its items, reading past the end gives zeros |
 | `reply` | a method's reply as `ww_codegen!` server code encodes it: a `Wave` return value alone, then the `ww_client_server::Event` around its bytes, and the error event when that fails |
+
+`reply` needs the WireWeaver framework, so it lives there: `just size-bench-reply` in the wire_weaver repository
+builds its image with the same runner (the `size_bench` library) and `size_bench_rt`.
 
 The cases with derived types are built twice: `evolvable` (the default, every type `Unsized`) and `final` (`sized`
 where the fields allow it, else `final_structure`). The two differ only where a type is nested in another, so the
@@ -509,7 +512,7 @@ Measured after SW-41, not changed. The code `ww_codegen!` generates for a server
 `ww_client_server::Event`, and `Event` pushes lengths whatever it holds (`PUSHES_LEN` is `true`: its `ErrorKind` is
 evolvable and has a size slot, `StreamData` has a `RefVec` path), so for them `finish_for` *is* `finish`. The one
 that is not is the return value of a method, serialized alone into a scratch buffer before it goes into the event
-as `TailBytes`. `reply` is that code, and with `--fw-features finish_for` the same with `finish_for::<Wave>()` for
+as `TailBytes`. `reply` (`just size-bench-reply` in wire_weaver) is that code, and with `--fw-features finish_for` the same with `finish_for::<Wave>()` for
 the return value:
 
 | return value ends with | rv32i | rv32ic | rv32ic-relax | thumbv6m |
@@ -632,7 +635,7 @@ Not `shrink_wrap`'s to fix, but worth more than each code change:
   }
   ```
 
-  `just size-bench --fw-features byte_memcpy` builds the bench with it (`shrink_wrap/size_bench/fw/src/main.rs`,
+  `just size-bench --fw-features byte_memcpy` builds the bench with it (`size_bench/fw/rt/src/lib.rs`,
   off by default, the tables above are without it); every image that copies a value is 300 to 410 bytes smaller,
   the others do not change:
 

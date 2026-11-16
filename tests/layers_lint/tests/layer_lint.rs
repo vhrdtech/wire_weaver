@@ -105,8 +105,9 @@ fn workspace_manifests(root: &Path) -> Vec<PathBuf> {
     manifests
 }
 
-/// Every local (path-sourced, i.e. not registry or git) crate name found in one workspace's
-/// `cargo metadata`, and every normal/build/dev dependency edge between two such crates. A
+/// Every local crate name found in one workspace's `cargo metadata` (path-sourced, i.e. not registry or git, and
+/// inside this repo: a `[patch]` to a checkout beside it is another repo's crate), and every normal/build/dev
+/// dependency edge between two such crates. A
 /// dependency the resolver lists more than once (several targets) collapses to one edge: the
 /// layer check only cares whether an edge exists, not how many places it comes from.
 fn local_crates_and_edges_of(manifest: &Path) -> Graph {
@@ -122,7 +123,9 @@ fn local_crates_and_edges_of(manifest: &Path) -> Graph {
     let local: BTreeSet<String> = metadata
         .packages
         .iter()
-        .filter(|package| package.source.is_none())
+        .filter(|package| {
+            package.source.is_none() && package.manifest_path.as_std_path().starts_with(repo_root())
+        })
         .map(|package| package.name.to_string())
         .collect();
 
@@ -198,8 +201,8 @@ fn api_crates_are_free_of_the_runtime() {
     let graph = collect_graph(&[root.join("Cargo.toml")]);
     let allowed = graph.normal_closure("ww_api");
     assert!(
-        allowed.contains("shrink_wrap"),
-        "ww_api's normal closure should hold shrink_wrap, found {allowed:?}"
+        allowed.contains("ww_version"),
+        "ww_api's normal closure should hold ww_version, found {allowed:?}"
     );
 
     let mut allow_used = vec![false; layers_file.api.allow.len()];
@@ -285,7 +288,7 @@ fn no_upward_crate_edges() {
     assert!(
         missing.is_empty(),
         "crate(s) found by `cargo metadata` but missing from layers.toml (every workspace crate \
-         needs a layer, 0 to 6): {missing:?}"
+         needs a layer, 2 to 6): {missing:?}"
     );
 
     let mut allow_used = vec![false; layers_file.allow.len()];

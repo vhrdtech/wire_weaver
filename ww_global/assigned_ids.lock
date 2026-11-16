@@ -49,3 +49,6 @@
 136 trait ww_pin_diag::PinDiag
 512 crate wire_weaver_usb_link
 513 crate ww_client_server
+514 trait global_boot_api::Boot
+515 trait global_boot_api::Missing
+516 trait global_fixture_api::GlobalDemo

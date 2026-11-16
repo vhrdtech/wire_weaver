@@ -2,7 +2,7 @@
 name = "wire_weaver_cli"
 version.workspace = true
 authors.workspace = true
-description = "WireWeaver command line tool"
+description = "The generic commands of the WireWeaver command line tool, and the registry a binary assembles them with"
 edition.workspace = true
 repository.workspace = true
 license.workspace = true

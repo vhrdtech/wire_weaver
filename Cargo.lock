@@ -6529,6 +6529,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "wire_weaver_cli",
+ "ww_std_cli",
 ]
 
 [[package]]

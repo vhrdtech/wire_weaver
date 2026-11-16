@@ -13,12 +13,12 @@ properties, asks any device what it is and what it counted, and tests the link.
 Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 
 ```sh
-cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli
+cargo install --git https://github.com/vhrdtech/wire_weaver ww
 ```
 
 From a local checkout of the repository, `just install` builds `ww` with the `deploy` profile and installs
 it. It works anywhere: with our internal release tool on PATH it goes into the kept-releases stack in
-`~/.local/bin` (the only `ww` on `PATH`), otherwise through `cargo install --locked --path wire_weaver_cli`.
+`~/.local/bin` (the only `ww` on `PATH`), otherwise through `cargo install --locked --path ww_tools/ww`.
 `just deploy` pulls main first and checks `ww --version`.
 
 Inside the repository it can also be run without installing, with `cargo ww <args>` (alias from

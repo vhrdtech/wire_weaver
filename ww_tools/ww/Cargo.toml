@@ -14,3 +14,4 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 wire_weaver_cli.workspace = true
+ww_std_cli.workspace = true

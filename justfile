@@ -254,9 +254,9 @@ upload-examples-mcu-usb-stm32h725ig:
 
 # Build ww and install it
 install:
-    cargo build --profile deploy --locked -p wire_weaver_cli
+    cargo build --profile deploy --locked -p ww
     # With our internal release tool on PATH: install through it (kept-releases stack, one copy on PATH); otherwise: cargo install
-    if command -v tpm >/dev/null; then tpm install target/deploy/ww; else cargo install --locked --path wire_weaver_cli; fi
+    if command -v tpm >/dev/null; then tpm install target/deploy/ww; else cargo install --locked --path ww_tools/ww; fi
 
 # Old name of install, kept for people and docs
 install-cli: install
@@ -264,7 +264,7 @@ install-cli: install
 # Build ww from a fresh clone of HEAD with nothing but this repository around (what `cargo install --git` sees)
 check-clean-clone:
     rm -rf /tmp/ww-clean-clone && git clone -q . /tmp/ww-clean-clone
-    cd /tmp/ww-clean-clone && cargo build --locked -p wire_weaver_cli
+    cd /tmp/ww-clean-clone && cargo build --locked -p ww
     rm -rf /tmp/ww-clean-clone
 
 # Bring this PC up to main: pull --ff-only, refuse on local changes, install, check ww --version against main
@@ -282,10 +282,10 @@ deploy:
 # to be embedded.
 # Pass --force to overwrite snapshots of versions that were never published.
 save-snapshots *args:
-    cargo build -q -p wire_weaver_cli
-    # ww_client_server is the protocol itself, not used in APIs: its own api_snapshots/ (kept for
-    # tests/stdlib_evolution) isn't saved or embedded by this recipe
+    cargo build -q -p ww
+    # ww_std_cli is a host tool without an API
     for crate in ww_global ww_tap ww_timebase tests/wire_line_fixture_api ww_stdlib/*/; do \
+        case "$(basename $crate)" in ww_std_cli) continue;; esac; \
         target/debug/ww api save $crate {{ args }} || exit 1; \
     done
     # exact_units lives in its own repository: from the source ww_si uses, saved here
@@ -306,7 +306,7 @@ save-snapshots *args:
 # Refresh the pinned stdlib signatures of the nucleo_g0b1re_api evolution fixture to the stdlib's current source,
 # keeping its old snapshot format (EVO-70). Refused on a wire break, unless --accept-breaking.
 refresh-fixture-pins *args:
-    cargo build -q -p wire_weaver_cli
+    cargo build -q -p ww
     target/debug/ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
 
 pre-commit:

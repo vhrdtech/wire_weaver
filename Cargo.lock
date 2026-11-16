@@ -6670,6 +6670,7 @@ dependencies = [
  "ww_global",
  "ww_numeric",
  "ww_self",
+ "ww_snapshots",
  "ww_version",
 ]
 

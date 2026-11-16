@@ -22,6 +22,7 @@
 //! No snapshot of any other crate is compiled into this crate.
 
 pub mod cache;
+pub mod cargo;
 pub mod dir;
 pub mod file;
 pub mod limits;

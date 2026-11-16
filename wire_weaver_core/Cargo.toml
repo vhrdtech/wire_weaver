@@ -33,6 +33,7 @@ wire_weaver_snapshots.workspace = true
 ww_global.workspace = true
 ww_numeric = { workspace = true, features = ["std", "serde"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
+ww_snapshots.workspace = true
 ww_version = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]

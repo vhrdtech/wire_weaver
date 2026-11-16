@@ -1,5 +1,5 @@
 use super::api::{compact_trait_id, convert_api_items};
-use super::cargo_source::{CargoSources, DepSpec, Dependent};
+use ww_snapshots::cargo::{CargoSources, DepSpec, Dependent};
 use super::cfg::{
     DepRequest, Features, all_features, dep_requests, enabled_features, eval, expand_cfg_attrs,
 };

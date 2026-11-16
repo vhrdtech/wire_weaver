@@ -723,8 +723,7 @@ version = "0.5.0"
 dependencies = [
  "exact_units",
  "shrink_wrap",
- "wire_weaver_derive",
- "ww_error",
+ "ww_api",
  "ww_version",
 ]
 
@@ -763,6 +762,7 @@ dependencies = [
  "convert_case",
  "darling",
  "pathsearch",
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "subprocess",
@@ -772,10 +772,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_api"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver_derive",
+ "ww_error",
+ "ww_version",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
  "wire_weaver",
+ "ww_error",
  "ww_global",
  "ww_si",
 ]
@@ -793,9 +804,8 @@ name = "ww_global"
 version = "0.2.0"
 dependencies = [
  "convert_case",
- "serde",
  "serde_json",
- "shrink_wrap",
+ "ww_version",
 ]
 
 [[package]]
@@ -822,6 +832,7 @@ dependencies = [
  "serde",
  "sha2",
  "shrink_wrap",
+ "ww_error",
  "ww_lz4",
  "ww_numeric",
  "ww_version",
@@ -859,7 +870,6 @@ dependencies = [
  "semver",
  "serde",
  "shrink_wrap",
- "ww_global",
 ]
 
 [[package]]

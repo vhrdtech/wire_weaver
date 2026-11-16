@@ -1,10 +1,11 @@
 //! CLT-21 end to end without hardware: a simulated rePort-like RP2350 device whose app reboots into the boot ROM
-//! (`ww_dfu::BootControl::reboot(Updater)`), comes back as a simulated BOOTSEL device under the same serial number
-//! (the chip id), takes a new image over PICOBOOT and boots it.
+//! (`follow_reboot_api::Boot::reboot(Updater)`, standing in for a real `ww_dfu::BootControl::reboot(Updater)`, R7),
+//! comes back as a simulated BOOTSEL device under the same serial number (the chip id), takes a new image over
+//! PICOBOOT and boots it.
 //!
-//! - The app is the `dfu_lean_app_api` server (`UpdateNode` + `BootControl`) on `ww_device::Server`, over the
-//!   simulated USB of `wire_weaver_client::in_process` at the path of its serial number. `UpdateNode::node` reports
-//!   the version of the image in flash.
+//! - The app is the `follow_reboot_api` server (`Node` + `Boot`) on `ww_device::Server`, over the simulated USB of
+//!   `wire_weaver_client::in_process` at the path of its serial number. `Node::node` reports the version of the
+//!   image in flash.
 //! - The boot ROM is [ww_picoboot::sim::SimRp2350], holding the flash; the app boots from it, so what the host wrote
 //!   is what runs next.
 //! - [SimBus] is what the host lists: the app or the BOOTSEL device, as a real USB bus would show them, with a short
@@ -13,6 +14,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use follow_reboot_api::{BootTarget, Error, ImageInfo, ImageVersion, NodeInfo};
 use tokio::sync::mpsc;
 use wire_weaver::prelude::*;
 use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
@@ -20,7 +22,6 @@ use wire_weaver_client::follow::Bus;
 use wire_weaver_client::in_process::{self, TokioClock};
 use wire_weaver_client::{ApiInfo, DeviceInfo, UsbLocation};
 use ww_device::{DisconnectReason, LinkConfig};
-use ww_dfu::{BootState, BootTarget, Error, LastResult, NodeInfo, Offers, Outcome, Profile, Role};
 use ww_picoboot::proto::{
     FLASH_BASE, REBOOT2_TYPE_BOOTSEL, REBOOT2_TYPE_MASK, RP2350_BOOTSEL_PID, RPI_VID,
 };
@@ -191,56 +192,12 @@ pub struct App {
 }
 
 impl App {
-    fn node_node(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> RpcResult<NodeInfo<'_>> {
+    fn node_node(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<NodeInfo> {
         Ready(NodeInfo {
-            role: Role::App,
-            profile: Profile::InPlace,
-            product: MaxLen::new("sim-rp2350").unwrap(),
-            geometry: ww_dfu::GeometryId(0),
-            seal: ww_dfu::Seal::Unsigned,
-            app: Some(ww_dfu::ImageInfo {
-                product: ww_dfu::ProductId(0),
-                version: ww_dfu::ImageVersion(self.version),
-                security_counter: ww_dfu::SecurityCounter(0),
+            app: Some(ImageInfo {
+                version: ImageVersion(self.version),
             }),
-            security_floor: ww_dfu::SecurityCounter(0),
-            manifest_digest: None,
-            boot_state: BootState::Confirmed,
-            last_result: LastResult {
-                outcome: Outcome::Nothing,
-                version: None,
-            },
-            offers: Offers {
-                boot_control: true,
-                inventory: false,
-                stage: false,
-                stage_bulk: false,
-            },
         })
-    }
-
-    fn boot_boot_state(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> RpcResult<BootState> {
-        Ready(BootState::Confirmed)
-    }
-
-    fn boot_confirm(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> RpcResult<Result<(), Error>> {
-        Ready(Ok(()))
-    }
-
-    fn boot_revert(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-    ) -> RpcResult<Result<(), Error>> {
-        Ready(Err(Error::Unsupported))
     }
 
     fn boot_reboot(
@@ -264,7 +221,7 @@ impl App {
 
 mod api_impl {
     wire_weaver::ww_codegen!(
-        dfu_lean_app_api :: DfuLeanApp for super::App,
+        follow_reboot_api :: FollowRebootApp for super::App,
         server = true, no_alloc = true, use_async = false,
         method_model = "_=immediate",
         property_model = "_=get_set",
@@ -288,7 +245,7 @@ impl WireWeaverAsyncApiBackend for Backend {
     }
 
     fn version(&self) -> ww_device::ww_link::FullVersion<'_> {
-        dfu_lean_app_api::DFU_LEAN_APP_FULL_GID
+        follow_reboot_api::FOLLOW_REBOOT_APP_FULL_GID
     }
 }
 
@@ -312,8 +269,8 @@ pub async fn run_app(
     let tx = ww_device::FramedTx::new(sink, &mut tx_buf);
     let rx = ww_device::FramedRx::new(source, &mut rx_buf);
     let config = LinkConfig::new(
-        dfu_lean_app_api::DFU_LEAN_APP_FULL_GID,
-        dfu_lean_app_api::DFU_LEAN_APP_WIRE_VERSION,
+        follow_reboot_api::FOLLOW_REBOOT_APP_FULL_GID,
+        follow_reboot_api::FOLLOW_REBOOT_APP_WIRE_VERSION,
         api_impl::api_hash(),
         api_impl::image_facts(),
         ww_client_server::COMPACT_VERSION,
@@ -382,7 +339,7 @@ impl Bus for SimBus {
                 serials: vec![self.serial.clone()],
                 user_label: String::new(),
                 api: Some(ApiInfo {
-                    gid: "dfu_lean_app_api".into(),
+                    gid: "follow_reboot_api".into(),
                     version: semver::Version::new(0, 1, 0),
                     signature: wire_weaver_client::ww_version::ApiHashOwned { hash: vec![] },
                 }),

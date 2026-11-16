@@ -2116,7 +2116,7 @@ name = "follow_reboot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dfu_lean_app_api",
+ "follow_reboot_api",
  "picoboot_host",
  "semver",
  "stm32_dfu_host",
@@ -2126,8 +2126,6 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
- "ww_dfu",
- "ww_si",
 ]
 
 [[package]]

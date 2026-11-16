@@ -1,0 +1,19 @@
+[package]
+name = "follow_reboot_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Test API of tests/follow_reboot (CLT-21, CLT-34): node() and reboot(into), the shape of a real update node's BootControl::reboot(Updater), without depending on ww_dfu."
+
+[package.metadata.wire_weaver]
+wire = "w1.0"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+
+[dependencies]
+wire_weaver = { workspace = true }

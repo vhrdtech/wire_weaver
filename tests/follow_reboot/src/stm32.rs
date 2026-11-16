@@ -5,10 +5,10 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use follow_reboot_api::BootTarget;
 use tokio::sync::mpsc;
 use wire_weaver_client::follow::Bus;
 use wire_weaver_client::{ApiInfo, DeviceInfo, UsbLocation};
-use ww_dfu::BootTarget;
 use ww_stm32_dfu::proto::{ROM_DFU_PID, ST_VID};
 use ww_stm32_dfu::sim::SimStm32Dfu;
 
@@ -150,7 +150,7 @@ impl Bus for Stm32Bus {
                 serials: vec![self.serial.clone()],
                 user_label: String::new(),
                 api: Some(ApiInfo {
-                    gid: "dfu_lean_app_api".into(),
+                    gid: "follow_reboot_api".into(),
                     version: semver::Version::new(0, 1, 0),
                     signature: wire_weaver_client::ww_version::ApiHashOwned { hash: vec![] },
                 }),

@@ -1,8 +1,8 @@
 use std::time::Duration;
 
+use follow_reboot_api::BootTarget;
 use wire_weaver_client::follow::{self, Follow, FollowError, Timeouts};
 use wire_weaver_client::{ClientConfig, Commander, WwClient};
-use ww_dfu::BootTarget;
 use ww_picoboot::image::family;
 use ww_picoboot::proto::{FLASH_BASE, REBOOT2_TYPE_FLASH_UPDATE, REBOOT2_TYPE_MASK};
 use ww_picoboot::{Image, Stage};
@@ -25,7 +25,7 @@ impl WwClient for LeanAppClient {
 
 mod api_client {
     wire_weaver::ww_codegen!(
-        dfu_lean_app_api :: DfuLeanApp for super::LeanAppClient,
+        follow_reboot_api :: FollowRebootApp for super::LeanAppClient,
         client = "std_client",
     );
 }
@@ -116,7 +116,7 @@ async fn update_through_rp2350_bootsel() {
     .unwrap();
     assert_eq!(stages, [Stage::Erase, Stage::Write, Stage::Verify]);
     assert_eq!(back.serials, std::slice::from_ref(&serial));
-    assert_eq!(back.api.as_ref().unwrap().gid, "dfu_lean_app_api");
+    assert_eq!(back.api.as_ref().unwrap().gid, "follow_reboot_api");
 
     // the boot ROM was asked to boot the image just written, as picotool does
     let reboot = dev.sim.reboot_request().unwrap();
@@ -182,7 +182,7 @@ async fn no_bootsel_reports_what_is_there() {
         .unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("no BOOTSEL device within"), "{msg}");
-    assert!(msg.contains("api=dfu_lean_app_api@0.1.0"), "{msg}");
+    assert!(msg.contains("api=follow_reboot_api@0.1.0"), "{msg}");
 }
 
 /// Rebooting the app into itself: `gone` tells the old run from the new one.

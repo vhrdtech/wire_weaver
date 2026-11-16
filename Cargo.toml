@@ -226,6 +226,7 @@ fan_api = { version = "0.1.0", path = "./tests/fan_api" }
 firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
 flash_budget_api = { version = "0.1.0", path = "./tests/flash_budget_api", default-features = false }
 foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }
+follow_reboot_api = { version = "0.1.0", path = "./tests/follow_reboot_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 global_boot_api = { version = "0.1.0", path = "./tests/global_boot_api" }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }

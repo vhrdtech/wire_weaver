@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0b490dd2352e4bb8a869d5fc6caee86290b4ea7e0906e2e44ac2e78ddaaa7bc8
+// shrink_wrap sha256: 974176d28d0fa764c1e34c6123ce47738ac2dfa03fe526b09b2e3924dc337e49
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -1783,7 +1783,7 @@
         (ident: "C", kind: Type),
     ], fields: Unnamed([]), sparse: false, path: Some([
         "codec",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Transfer))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "ITU-R BT.2020\'s Y′C′BC′R matrix (UHD, wide colour gamut): `K_R = 0.2627`, `K_B = 0.0593` (so `K_G = 0.6780`).",
     ], ident: "Bt2020", generics: [], fields: Unit, sparse: false, path: Some([
@@ -1853,7 +1853,10 @@
     ], ident: "Bt709", generics: [], fields: Unit, sparse: false, path: Some([
         "codec",
         "video",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Curve((id: (crate_name: "exact_units", name: "Bt709"), referred: Scene, unit: (crate_name: "exact_units", name: "Ratio"), scale: "1", low: "0", high: "1", segments: [
+        (from: "0", form: Affine(gain: "0.[2]", offset: "0")),
+        (from: "0.081", form: Power(gain: "1", scale: "1000/1099", shift: "99/1099", exponent: "2.[2]", offset: "0")),
+    ]))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The full-range quantizer of a Y′, R′, G′ or B′ component on 10 bits, `D = (2¹⁰ − 1)·E′ = 1023·E′` (BT.2100-3",
         "Table 9): no reserved codes, every code 0..=1023 is video data, [FullSignal10]. \"Full range\" in some software;",
@@ -1948,7 +1951,10 @@
     ], ident: "Hlg", generics: [], fields: Unit, sparse: false, path: Some([
         "codec",
         "video",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Curve((id: (crate_name: "exact_units", name: "Hlg"), referred: Scene, unit: (crate_name: "exact_units", name: "Ratio"), scale: "1", low: "0", high: "1", segments: [
+        (from: "0", form: Power(gain: "0.[3]", scale: "1", shift: "0", exponent: "2", offset: "0")),
+        (from: "0.5", form: Exp(gain: "0.05961092[3]", base: E, scale: "100000000/17883277", shift: "0.5", offset: "0.02372241")),
+    ]))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The narrow-range quantizer of a Y′, R′, G′ or B′ component on 10 bits, `D = (219·E′ + 16)·4 = 876·E′ + 64`",
         "(ITU-R BT.709-6 Part 2 item 3.4, BT.2100-3 Table 9): codes 4..=1019 are video data, [NarrowSignal10]; 0..=3 and",
@@ -2048,7 +2054,9 @@
     ], ident: "Pq", generics: [], fields: Unit, sparse: false, path: Some([
         "codec",
         "video",
-    ]), instance_of: None, extra: None)), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Curve((id: (crate_name: "exact_units", name: "Pq"), referred: Display, unit: (crate_name: "exact_units", name: "Nit"), scale: "10000", low: "0", high: "1", segments: [
+        (from: "0", form: RationalPower(m1: "0.1593017578125", m2: "78.84375", c1: "0.8359375", c2: "18.8515625", c3: "18.6875")),
+    ]))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The convention of the 1948 definition of the ampere, in force until the 2019 SI: μ₀ = 4π·10⁻⁷ N/A² exactly, with",
         "no uncertainty. What Gaussian tables and older datasheets assume; an opt-in, never a default. It gives no G and no",

@@ -19,13 +19,13 @@ macro implementation.
 
 ## Prerequisites
 
-The examples assume `wire_weaver = "0.5.0"` in `Cargo.toml` (or `shrink_wrap` alone, with
-`use shrink_wrap::prelude::*`).
+The examples assume `ww_api = "0.5.0"` in `Cargo.toml`, as in an API crate. A server or client crate has the same
+prelude through `wire_weaver`; `shrink_wrap` alone works too, with `use shrink_wrap::prelude::*`.
 
 ## Quick start
 
 ```rust
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
 struct CoordV1 {

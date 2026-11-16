@@ -12,6 +12,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ## [Unreleased]
 
 - `ww` commands register themselves (TOOL-36): `wire_weaver_cli` and the new `ww_std_cli` are libraries, the binary is the crate `ww` (`ww_tools/ww`); `wire_weaver_py` is a library and the wheel the crate `wire_weaver_wheel` (CLT-74). See the `wire_weaver_cli`, `ww_std_cli`, `ww`, `wire_weaver_py` and `wire_weaver_wheel` changelogs.
+- `ww_api`, the API crate prelude (API-68): an API crate depends on `ww_api` instead of `wire_weaver`; `wire_weaver` re-exports it and drops `ww_error` and `api_doc`; the deprecated `ww_api!` macro is gone. See the `ww_api`, `wire_weaver`, `wire_weaver_derive`, `wire_weaver_core`, `shrink_wrap` and `ww_stdlib/*` changelogs.
 - `ww_tape` ALP sample codec (STD-130): lossless floats that began as decimals stored as bit-packed integers. See the `ww_tape` changelog.
 - `ww_tape` v2 summary blocks (STD-121): a stored event item tree and mergeable series summaries. See the `ww_tape` changelog.
 - `ww_tape` format v2 describe (STD-117): clocks with exact rates, clock maps, typed describe items, track dimensions, i64 ticks per clock, canonical describe order. See the `ww_tape`, `ww_tap` and `wire_weaver_client` changelogs.

@@ -688,6 +688,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   shared sub-level clients without their `const OBSERVE` (CLT-68), observers end with `ObserveEvent::Ended`, then
   `Closed`; the dynamic client too. No wire change. Not yet: SRV-59 (marks from other tasks), API-64 (samples).
   `docs/api/observing.md#levels-under-resource-arrays`, `tests/observe_arrays`, `ww_stream/src/observe/tests.rs`.
+- ✅ **API-68 `ww_api`, the API crate prelude** · `v0.5` — an API crate depends on `ww_api`, never on the
+  `wire_weaver` runtime: `use ww_api::prelude::*` gives `#[ww_trait]`, `#[ww_api_root]`, `ww_impl!`, `ww_codegen!`,
+  `full_version!`, `compact_version!`, the `shrink_wrap` prelude, `CommonError`/`HasCommon` and `FullVersion`;
+  `ww_api::api_doc` holds the rustdoc markers. `wire_weaver` re-exports `ww_api` and its prelude includes
+  `ww_api::prelude`, so servers and clients keep `use wire_weaver::prelude::*`; the derives find `shrink_wrap` and
+  `ww_error` through `ww_api` or `wire_weaver`, `#[ww_trait]` emits `ww_api` paths. The deprecated `ww_api!` macro is
+  gone. Every API crate of the repo (`ww_stdlib/*`, `ww_hub_api`, `tests/*_api`, `examples/*_api`) is switched;
+  `tests/layers_lint` fails one whose normal dependencies reach the runtime (`layers.toml` `[api] crates`, TEST-36).
+  `docs/api/folder_structure.md`, `docs/evolution/crate_layers.md`.
 - 📋 **API-64 Every sample of an element of a resource array** — `+batched` properties of a level under resource
   arrays are observed in the other modes; `Samples` is refused with `ModeNotSupported`, as a level's batcher, outbox
   and sampler are one per level, not per element (API-63). Needs a sampler that takes the element's chain and a
@@ -2858,7 +2867,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **STD-5 `ww_gpio`**.
 - ✅ **STD-16 Common errors** — `ww_error::CommonError` (`Unsupported`, `InvalidArgument`, `InUse`, `Busy`,
   `WrongState`, `NoPower`, `Refused`, `Timeout`, `Fault`, bounded strings), re-exported as
-  `wire_weaver::prelude::CommonError`, nested first in an error enum as `#[common] Common(CommonError)` (the derive
+  `ww_api::prelude::CommonError`, nested first in an error enum as `#[common] Common(CommonError)` (the derive
   adds `From<CommonError>` and `HasCommon`); recognised by tools by its type (`ww_self::TypeOwned::is_common_error`):
   Python `RemoteError.common` with the doc line as the message, `ww api tree -t` marks it. Display by hand until
   DER-12 takes over. Every `ww_stdlib` API crate with fallible methods uses it except `ww_dfu` (its `Error` has no
@@ -3376,7 +3385,7 @@ Unicast Data0 to one node over the same bus is TR-6.
   (`evolution/rules.md`).
 - 🚧 **DOC-6 Docs for `ww_stdlib` crates and resource doc comments** · `v0.5.x` — done: `#[ww_trait]` leaves a Rust
   trait of the same name for rustdoc, with every resource and its doc comments (properties, streams, sinks and
-  sub-traits as `wire_weaver::api_doc` markers, see `api/traits.md`), checked with nightly `--cfg docsrs` on a
+  sub-traits as `ww_api::api_doc` markers, see `api/traits.md`), checked with nightly `--cfg docsrs` on a
   crates.io-shaped copy of `ww_i2c`. Missing: a docs.rs check of crates whose API uses another crate's types or
   traits (`ww_uart`, `ww_gpio`, `ww_si` types); the macro panicked on their `version = ".."` dependencies until
   API-14, try one on a crates.io-shaped copy.

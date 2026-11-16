@@ -183,13 +183,18 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 - **`shrink_wrap/`**: the wire format, no dependency on the rest. `shrink_wrap` has `BufReader`/`BufWriter` and the
   `SerializeShrinkWrap`/`DeserializeShrinkWrap` (+ `..Owned`) traits, `shrink_wrap_derive` the `#[derive_shrink_wrap]`
   macro, `shrink_wrap/c` the C runtime. Usable standalone.
-- **`wire_weaver_derive/`**: `ww_trait`/`ww_api_root` (markers, expand to nothing), `ww_codegen!`/`ww_impl!` (re-parse
-  the marked trait's source and emit server/client code), `full_version!`/`compact_version!`.
+- **`wire_weaver_derive/`**: `ww_trait`/`ww_api_root` (walk the trait and emit a Rust trait for rustdoc with
+  `ww_api::api_doc` markers plus the `*_FULL_GID`/`*_COMPACT_GID`/`*_WIRE_VERSION` consts), `ww_codegen!`/`ww_impl!`
+  (re-parse the marked trait's source and emit server/client code), `full_version!`/`compact_version!`.
+- **`ww_api/`**: what an API crate depends on, free of the runtime: the prelude (derive macros, `shrink_wrap`,
+  `ww_error`, `ww_version`) and `api_doc`. `tests/layers_lint` fails an API crate whose normal dependencies reach
+  `wire_weaver` (`layers.toml` `[api] crates`).
 - **`wire_weaver_core/`**: `transform/` turns the source into an AST (`api.rs`, `ty.rs`, `crate_walker.rs` walks
   and re-parses dependency crates, `unit_hint.rs`), `codegen/` emits server (`codegen/server`, with the scaffold),
   client (`codegen/client`) and type code (`ty_def.rs`). `method_model`/`property_model` parse the `"pattern=keyword"`
   DSL (grammars in `grammar/`). `gen_client`/`gen_server` serve `build.rs` use.
-- **`wire_weaver/`**: the user-facing crate: re-exports, `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend`
+- **`wire_weaver/`**: the runtime crate of servers and clients: re-exports `ww_api` (its prelude includes
+  `ww_api::prelude`), `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend`
   (sans-IO server traits), the handler `Context` (seq, medium, `EventOut`/`BlockingEventOut`), `RpcResult`/
   `GetResult`/`SetResult`. Generated server code is IO-free; transport is separate.
 - **`wire_weaver_client/`**: the `std` client runtime (event loop, `Commander`, the dynamic client, `quantity`);
@@ -226,9 +231,11 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 
 ## The core pattern
 
-A trait is declared with `#[ww_trait]` (`#[ww_api_root]` for the top one), a marker. Elsewhere `ww_codegen!(my_api ::
-MyTrait for MyStruct, server = true, client = "...", no_alloc = .., use_async = .., method_model = "..",
-property_model = "..")` re-parses its source and generates serdes and dispatch (server) or call builders (client).
+A trait is declared with `#[ww_trait]` (`#[ww_api_root]` for the top one) in an API crate that depends on `ww_api`
+(`use ww_api::prelude::*`), never on `wire_weaver`. In a server or client crate, which depends on `wire_weaver`,
+`ww_codegen!(my_api :: MyTrait for MyStruct, server = true, client = "...", no_alloc = .., use_async = ..,
+method_model = "..", property_model = "..")` re-parses its source and generates serdes and dispatch (server) or call
+builders (client).
 Types crossing the wire use `#[derive_shrink_wrap(..)]` (directives in `docs/serdes/derive_reference.md`). Grep
 `tests/*_api/src/lib.rs` for a worked example of any combination before writing codegen-invoking code.
 

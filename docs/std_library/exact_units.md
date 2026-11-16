@@ -55,8 +55,8 @@ in Rust source; the walker fills in `Unbounded`, and the API model, snapshots, `
 show all four arguments:
 
 ```rust
-use wire_weaver::prelude::*;
-use wire_weaver::shrink_wrap::Series;
+use ww_api::prelude::*;
+use ww_api::shrink_wrap::Series;
 use ww_si::{Fixed, Micros, Range, Timed, prefix::{Milli, One}, units::{Byte, Second}};
 
 #[ww_trait]

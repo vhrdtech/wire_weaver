@@ -136,7 +136,7 @@ place](../evolution/rules.md#moving-a-resource-to-another-place) has the rules.
 
 `#[ww_trait]` and `#[ww_api_root]` turn the trait into a Rust trait of the same name and visibility, with every
 resource and its doc comment, so an API crate's documentation on docs.rs or from `cargo doc` shows the whole API.
-Methods keep their signature, the other resources become functions returning a marker from `wire_weaver::api_doc`:
+Methods keep their signature, the other resources become functions returning a marker from `ww_api::api_doc`:
 
 ```rust
 pub trait Uart {

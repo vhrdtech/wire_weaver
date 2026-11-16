@@ -9,11 +9,13 @@ An API is shared by the device and every host program that talks to it, so it li
 ![API crates diagram](../assets/api_crates.svg)
 
 - **`my_device_api`**: the API trait and its data types, nothing else. Used by the firmware and the host, so it must
-  build for `no_std`, with an optional `std` feature for owned types (see `examples/blinky_api`).
-- **Firmware**: depends on the API crate and implements the server. WireWeaver generates the serdes and dispatch
-  code, the firmware writes the handlers (see `examples_mcu/`).
-- **Rust driver** (`my_device`): depends on the API crate with `std`. WireWeaver generates the client; a
-  hand-written, higher-level driver can sit on top of it (see `examples/blinky`).
+  build for `no_std`, with an optional `std` feature for owned types (see `examples/blinky_api`). Its one WireWeaver
+  dependency is `ww_api` (the prelude: derive macros, `shrink_wrap`, `ww_error`, `ww_version`), never the
+  `wire_weaver` runtime.
+- **Firmware**: depends on the API crate and `wire_weaver`, and implements the server. WireWeaver generates the
+  serdes and dispatch code, the firmware writes the handlers (see `examples_mcu/`).
+- **Rust driver** (`my_device`): depends on the API crate with `std` and on `wire_weaver_client`. WireWeaver
+  generates the client; a hand-written, higher-level driver can sit on top of it (see `examples/blinky`).
 - **Applications**: CLIs, GUIs, test benches and scripts depend on the Rust driver. A typed Python package wraps the
   Rust driver with PyO3 (see `examples/blinky_py`); for quick scripts without generated code, the
   [Python](../python.md) module and the [`ww` CLI](../cli.md) build the API at runtime from what the device sends.

@@ -127,6 +127,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Observing every sample](api/observing.md#every-sample-batched)**: A fast property's every sample, each at its time, in compressed batches; typed and dynamic clients, the CLI and Python.
 - **[One clock per observed level](api/observing.md#every-sample-batched)**: The samples of a level's properties share one time column per update: about a third fewer bytes and half the encoding CPU.
 - **[Observing elements of resource arrays](api/observing.md#levels-under-resource-arrays)**: Observe a property of one element of an array (`players[2].state`): updates for that element only, and a removed element ends its observers.
+- **[The API crate prelude `ww_api`](api/folder_structure.md)**: An API crate depends on `ww_api`, not the runtime: the macros, `shrink_wrap` and the common types in one prelude, checked by the layer lint.
 - **[Keyed resource arrays](api/arrays.md)**: Address the elements of an array by a key (`keyed!(flow by FlowKey)`) instead of the index the device gave them.
 - **[Observe cells](api/observing.md#cells-sampling-from-an-interrupt)**: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire.
 - **[A cheaper observe poll](articles/series.md#cpu-and-flash-on-a-microcontroller)**: The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes.

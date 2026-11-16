@@ -20,7 +20,7 @@ format for files, messages or flash records, you can use it on its own.
 Put `#[derive_shrink_wrap(..)]` on a struct or enum and it gets everything it needs to go on the wire:
 
 ```rust
-use wire_weaver::prelude::*; // or `use shrink_wrap::prelude::*;` for the crate on its own
+use ww_api::prelude::*; // or `use shrink_wrap::prelude::*;` for the crate on its own
 
 #[derive_shrink_wrap(owned, derive(Debug, PartialEq))]
 struct Sample<'i> {

@@ -60,7 +60,8 @@ breaking bump that keeps the wire connects.
 
 `Version`, `FullVersion` and `CompactVersion` all have a `const fn new(..)` (plus `Version::full` for `pre`/`build`
 and `CompactVersion`/`VersionTriplet` likewise), but code using WireWeaver's codegen rarely builds one directly.
-`wire_weaver::full_version!()` and `wire_weaver::compact_version!(Trait)` (from `wire_weaver_derive`) expand to a
+`ww_api::full_version!()` and `ww_api::compact_version!(Trait)` (from `wire_weaver_derive`, also under
+`wire_weaver`) expand to a
 `FullVersion`/`Option<CompactVersion>` built from the calling crate's own `Cargo.toml` version (`CARGO_PKG_NAME`,
 `CARGO_PKG_VERSION_*`) at compile time. `#[ww_trait]` and `#[ww_api_root]` use exactly these macros to emit a
 `<TRAIT>_FULL_GID: FullVersion` and `<TRAIT>_COMPACT_GID: Option<CompactVersion>` constant next to every API trait -

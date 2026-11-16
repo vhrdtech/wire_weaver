@@ -18,13 +18,15 @@ some framework code defines bytes on the wire although it lives in a "free to br
 |-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | 1. Wire format        | `shrink_wrap`, `shrink_wrap_derive`                                                                                                                                 | own version, changes rarely                                                 |
 | 2. Shared API & types | `exact_units` (repo root, the units and `Fixed` under `ww_si`); `ww_stdlib/*`: base types (`ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`) and traits (`ww_gpio`, `ww_i2c`, ...); framework base types `ww_global` and `ww_self` (repo root) | own version per crate, the version is the API identity                      |
-| 3. Framework          | `wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`, `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, `ww_client_server`, `ww_timebase`, ...  | shared `[workspace.package] version`, free to break Rust API                |
+| 3. Framework          | API description: `ww_api` (the API crate prelude), `wire_weaver_derive`, `wire_weaver_core`; runtime: `wire_weaver`, `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, `ww_client_server`, `ww_timebase`, ... | shared `[workspace.package] version`, free to break Rust API                |
 | 4. User API           | `my_device_api` and friends (see [folder structure](../api/folder_structure.md))                                                                                    | own version, the version is the API identity, checked on every connection |
 
-Everything above layer 1 implements ShrinkWrap's traits. Base type crates depend on `shrink_wrap` directly, trait
-crates and user API crates depend on `wire_weaver`, which re-exports `shrink_wrap`. Generated code refers to
-`shrink_wrap::...` through that re-export, so a single `shrink_wrap` version must be shared by the whole dependency
-graph of an application.
+Everything above layer 1 implements ShrinkWrap's traits. Base type crates depend on `shrink_wrap` directly. Trait
+crates and user API crates depend on `ww_api`, which re-exports `shrink_wrap`, `ww_error` and `ww_version` with the
+derive macros, and never on the runtime: `tests/layers_lint` fails an API crate (`layers.toml`'s `[api] crates`) whose
+normal dependencies reach `wire_weaver` or another runtime crate. Server and client crates depend on `wire_weaver`,
+which re-exports `ww_api`. Generated code refers to `shrink_wrap::...` through these re-exports, so a single
+`shrink_wrap` version must be shared by the whole dependency graph of an application.
 
 ## Checklist before breaking something
 

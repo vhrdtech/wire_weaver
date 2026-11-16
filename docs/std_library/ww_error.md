@@ -9,8 +9,8 @@ code handles them without knowing the crate, and tools recognise them by their t
 An API crate nests them as one `#[common] Common(CommonError)` variant of its own error enum (see below and
 [Errors](../api/errors.md#common-errors)).
 
-`wire_weaver` re-exports the crate: `wire_weaver::prelude` has `CommonError`, `CommonErrorOwned` (with `std`) and
-`HasCommon`, so an API crate needs no dependency of its own.
+`ww_api` re-exports the crate: `ww_api::prelude` (and `wire_weaver::prelude`, which includes it) has `CommonError`,
+`CommonErrorOwned` (with `std`) and `HasCommon`, so an API crate needs no dependency of its own.
 
 ## `CommonError`
 
@@ -42,7 +42,7 @@ Put `CommonError` first, marked `#[common]`, and keep the crate's own variants f
 on specifically (`Nack`, `UnsupportedSpeed` with the range):
 
 ```rust
-use wire_weaver::prelude::*;
+use ww_api::prelude::*;
 
 #[ww_trait]
 trait Sensor {
@@ -127,7 +127,7 @@ fn calibrate() -> Result<(), CommonError<'i>>;
 The list changes neither the type nor the wire: it is metadata in the API model, and from there:
 
 - a `# Errors` section, one line per entry with the variant's own doc comment (its first line, without the final
-  period; `any CommonError` for `Common` alone) — on the trait's own rustdoc (`wire_weaver::api_doc`) and on the
+  period; `any CommonError` for `Common` alone) — on the trait's own rustdoc (`ww_api::api_doc`) and on the
   generated client's method;
 - introspection: `ww api tree -t`, `ww introspect` and Python's `help()` show the same list next to the method;
 - the evolution checker: a changed `#[errors(..)]` list is reported as a *compatible* change (nothing on the wire

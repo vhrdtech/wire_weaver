@@ -99,7 +99,7 @@ hand-written `Display` for any API error.
 ## Common errors
 
 Some situations come up in almost every crate: the device doesn't support a mode, a resource is in use by something
-else, the device is busy. These are `ww_error::CommonError` (also in `wire_weaver::prelude`), nested as the first
+else, the device is busy. These are `ww_error::CommonError` (also in `ww_api::prelude`), nested as the first
 variant of a crate's error enum and marked `#[common]`:
 
 | Variant | Meaning |

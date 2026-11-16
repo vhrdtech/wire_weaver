@@ -2822,6 +2822,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#keyed-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#optional-items" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6289,6 +6300,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#keyed-arrays" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Keyed arrays
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#optional-items" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6749,6 +6771,19 @@ the API), so changing it is not a break.</p>
 <p>Making a property <code>+batched</code> (API-39) or not changes its observe slot (a <code>Batched&lt;T&gt;</code> instead of a <code>T</code>): a break of
 the API crate. The times of the samples travel in the <code>PropertyUpdate</code> event, not in a slot, so adding resources to a
 level with <code>+batched</code> properties follows the usual rules.</p>
+<h3 id="keyed-arrays">Keyed arrays<a class="headerlink" href="#keyed-arrays" title="Permanent link">&para;</a></h3>
+<p>A <code>keyed!(flow by FlowKey)</code> companion (<a href="../../api/arrays/">keyed arrays</a>, EVO-78) is a resource with an id of its own,
+checked as one:</p>
+<ul>
+<li>Adding it after the last resource is compatible, a new wire revision, as any new resource. Removing it is a break.</li>
+<li>The key travels both ways (<code>index_of</code> takes one, <code>key[]</code> and the <code>keys</code> stream return one), so a key type changes
+  only as a type read by both versions does: a field appended with <code>#[default]</code> to an unsized key is compatible,
+  another field type or another type is a break.</li>
+<li>Within a wire line it keys the array at the same position on both versions; keying another array is a break.</li>
+<li>Across a wire break it is matched by the array it keys, not by its name or position: it follows the array to a new
+  position or, with the array's <code>#[moved_from]</code>, to a new name (its own name follows, <code>conn_keys</code> for <code>conn</code>). The
+  companion of another array is another resource: the old one is removed.</li>
+</ul>
 <h3 id="optional-items">Optional items<a class="headerlink" href="#optional-items" title="Permanent link">&para;</a></h3>
 <p><code>#[optional]</code> / <code>#[optional(group)]</code> on a method, property, stream or <code>ww_impl!</code> (API-16, API-54) is not on the wire:
 an item keeps its id whether a device has it or not, and a device leaving it out answers <code>Unimplemented</code>, which a

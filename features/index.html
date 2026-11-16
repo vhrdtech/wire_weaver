@@ -7084,7 +7084,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   type (<code>UNib32</code> for <code>name[]</code>). No new request kind or wire format; an API without <code>keyed!</code> has the same bundle.
   Refused: no array before it, a method, a flat item, a second <code>keyed!</code> of one array, a float anywhere in the key,
   a name clash with <code>&lt;array&gt;_keys</code>. Done: the model, parsing and checks (<code>tests/keyed_api</code>, the Dissector),
-  conformance cases <code>stdlib.keyed.*</code>. Missing: server (SRV-62), client (CLT-72), evolution and <code>ww api</code> (EVO-78).
+  conformance cases <code>stdlib.keyed.*</code>, evolution and <code>ww api</code> (EVO-78). Missing: server (SRV-62), client (CLT-72).
   <a href="../docs/api/arrays/">Docs</a>.</li>
 <li>📋 <strong>API-66 Staged and timed actions</strong> — nothing applies several writes together or at a given time: a motor's
   torque and an ADC's gain on one device, or three joints of a leg on a bus (CBUS-1). <code>#[staged]</code> properties written
@@ -8362,8 +8362,12 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   <code>fw-z</code> sync (+260), 13474 → 13778 B async (+304), 16794 → 17106 B / 17614 → 18030 B at <code>fw-3</code> (+312 / +416); an
   image that already reads bit fields (4 observed properties) moves by -60..+72 B. No device or host uses the
   format.</li>
-<li>📋 <strong>EVO-78 Evolution of keyed arrays</strong> · <code>v0.5</code> — <code>keyed!</code> in <code>ww api diff</code> and the checker (added, removed, key
-  type changed, the array it keys moved) and <code>flow[] keyed by FlowKey</code> in <code>ww api</code> trees (API-67).</li>
+<li>✅ <strong>EVO-78 Evolution of keyed arrays</strong> · <code>v0.5</code> — <code>keyed!</code> in the checker: adding one is compatible, removing
+  one is a break, the key type is compared both ways, and keying another array is a break. Across a wire break a
+  companion is matched by the array it keys, so it follows a moved or <code>#[moved_from]</code>-renamed array. <code>ww api diff</code>
+  prints <code>keyed!(flow by FlowKey)</code>; <code>ww api</code> trees print <code>flow[] keyed by FlowKey</code> on the array line (API-67).
+  Tests in <code>wire_weaver_evolution/src/tests/keyed.rs</code>, the tree of <code>tests/keyed_api</code>.
+  <a href="../docs/evolution/rules/#keyed-arrays">Docs</a>.</li>
 <li>✅ <strong>EVO-14 Priority nibble in <code>Request</code></strong> · <code>v0.5.x</code> — <strong>wire break</strong> of <code>ww_client_server</code>'s <code>Request</code>: a
   <code>priority: Nibble</code> after <code>seq</code> (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of <code>Request</code> carry the new bytes with <code>"wire_change": "EVO-14 / ..."</code>.</li>

@@ -283,9 +283,9 @@ deploy:
 # Pass --force to overwrite snapshots of versions that were never published.
 save-snapshots *args:
     cargo build -q -p ww
-    # ww_std_cli is a host tool without an API
+    # ww_std_cli, ww_report and ww_pin_probe are host tools without an API
     for crate in ww_global ww_tap ww_timebase tests/wire_line_fixture_api ww_stdlib/*/; do \
-        case "$(basename $crate)" in ww_std_cli) continue;; esac; \
+        case "$(basename $crate)" in ww_std_cli|ww_report|ww_pin_probe) continue;; esac; \
         target/debug/ww api save $crate {{ args }} || exit 1; \
     done
     # exact_units lives in its own repository: from the source ww_si uses, saved here

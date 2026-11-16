@@ -331,16 +331,6 @@ refactor = "ww_board_info record helper crate"
 # lands the refactor removing it.
 
 [[allow]]
-from = "thermo_api"
-to = "ww_indication"
-refactor = "R7"
-
-[[allow]]
-from = "thermo_devices"
-to = "ww_indication"
-refactor = "R7"
-
-[[allow]]
 from = "ww_tape"
 to = "ww_self"
 refactor = "R11"

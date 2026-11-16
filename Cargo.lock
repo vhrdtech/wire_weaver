@@ -5446,7 +5446,6 @@ name = "thermo_api"
 version = "1.0.0"
 dependencies = [
  "ww_api",
- "ww_indication",
  "ww_si",
 ]
 
@@ -5455,7 +5454,6 @@ name = "thermo_api"
 version = "2.0.0"
 dependencies = [
  "ww_api",
- "ww_indication",
  "ww_si",
 ]
 
@@ -5479,7 +5477,6 @@ dependencies = [
  "wire_weaver",
  "ww_client_server",
  "ww_hub",
- "ww_indication",
  "ww_si",
  "ww_stream",
 ]

@@ -170,11 +170,6 @@ pub use describe::{
 };
 pub use exact_units::{Magnitude, MagnitudeOf, Ratio64, Rounding};
 
-#[cfg(feature = "bundle")]
-mod name_path;
-#[cfg(feature = "bundle")]
-pub use name_path::{NamePathError, key_in_bundle, name_path};
-
 pub mod summary;
 pub use summary::{EventFields, EventNode, Summary, SummaryError, SummaryHead};
 

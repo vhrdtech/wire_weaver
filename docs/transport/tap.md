@@ -119,9 +119,9 @@ So `link[2].rx_frames` of the tap is `track_key(api_root_id("ww_tap"), &[Name("l
 flow's tracks the same key, since its key, not its index, is hashed.
 
 `TrackDef.path` stays numeric; `TrackDef.keys` holds the key bytes for each index into a keyed array, by its
-position in `path`. With the `bundle` feature, `ww_tape::name_path` builds the name path from the API bundle, the
-numeric path and the keys, and `key_in_bundle` the key under the bundle's own crate: a reader rebuilds the name of
-every track and checks its key. A producer that sees an element of a keyed array before its key reads `key[i]`
+position in `path`. `ww_tape_bundle::name_path` builds the name path from the API bundle, the numeric path and the
+keys, and `key_in_bundle` the key under the bundle's own crate: a reader rebuilds the name of every track and checks
+its key. A producer that sees an element of a keyed array before its key reads `key[i]`
 first and writes the track's definition when it knows it.
 
 The key's shrink_wrap bytes change when its type gains a field, even a defaulted one, so every keyed track then gets

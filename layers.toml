@@ -327,12 +327,6 @@ from = "ww_board_info"
 reaches = "ww_settings_derive"
 refactor = "ww_board_info record helper crate"
 
-# Known upward edges of today, each removed by the refactor (R1..R10, design section 6) named here.
-# An edge no longer present in `cargo metadata` fails the test: drop its line in the same change that
-# lands the refactor removing it.
-
-[[allow]]
-from = "ww_tape"
-to = "ww_self"
-refactor = "R11"
-
+# Known upward edges, as `[[allow]]` entries (`from`, `to`, `refactor`), each removed by the refactor named in it.
+# None is left. An edge no longer present in `cargo metadata` fails the test: drop its entry in the same change
+# that lands the refactor removing it.

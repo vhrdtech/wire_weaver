@@ -4,6 +4,7 @@
 
 ### ⚠️ Breaking
 
+- Feature `bundle` is gone, and with it the dependency on `ww_self`: `name_path`, `key_in_bundle` and `NamePathError` are in `ww_tape_bundle` (R11).
 - `bitpack::read`, `pack`, `unpack_u32[_with]`, `unpack_u64` and `decode_line[_with]` are gone: use `bitpack::Width`'s methods (STD-131).
 - `EventTimes::read` refuses an events chunk of more than `times::ITEMS_MAX` (16 Mi) items; `TimesError` gains `Bound` (STD-131).
 - `TapeReader::entries` and `track_entries` refuse index entries naming blocks past the piece: `IndexError::BadEntries` (STD-131).
@@ -86,7 +87,7 @@
 - Blank is 0x00 or 0xFF: `is_blank`; `FileBlocks` and `TapeReader` take either after the last block as the end (STD-129).
 - `RunTag` (random, from a seed, of a piece id) and `Block::run`; `TapeWriter::next_id`, `run`, `set_run`; a chain's run is derived (STD-129).
 - `Codec::ALP` (26): lossless floats as decimals stored as bit-packed integers, or front bits through a dictionary; `samples::ALP_GROUP` (STD-130).
-- Feature `bundle`: `name_path` and `key_in_bundle` build a track's name path and key from an API bundle, renames kept (STD-125).
+- `track_key` hashes a name path; `name_path` and `key_in_bundle` build it from an API bundle in `ww_tape_bundle` (STD-125).
 - Series summaries across prefix changes: nodes at their common scale, exact min and max; `SeriesSummaries::segment`, `SeriesNode::merge` (STD-128).
 - `SeriesDef`: sample type by `TypeRef`, element and channels, exact period, scale, summaries, media stream; `SeriesValue` derives them from `Fixed` (STD-127).
 - `SeriesSegment` records (first index, time grid, scale) and `SeriesTimeline`: ticks, scales and chunk checks, damaged records refused (STD-127).

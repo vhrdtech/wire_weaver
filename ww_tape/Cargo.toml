@@ -13,17 +13,13 @@ default = ["std"]
 alloc = []
 # owned describe records, DescribeSet, file reading and writing
 std = ["alloc", "blake3/std", "exact_units/std", "shrink_wrap/std", "ww_version/std"]
-# name paths of tracks from an API bundle (ww_self): name_path, key_in_bundle
-bundle = ["std", "dep:anyhow", "dep:ww_self"]
 
 [dependencies]
-anyhow = { workspace = true, optional = true }
 blake3.workspace = true
 crc.workspace = true
 exact_units = { workspace = true, features = ["counting", "information", "shrink_wrap", "time"] }
 lz4_flex.workspace = true
 shrink_wrap.workspace = true
-ww_self = { workspace = true, optional = true }
 ww_version.workspace = true
 
 [dev-dependencies]

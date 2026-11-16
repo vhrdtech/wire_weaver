@@ -216,7 +216,8 @@ The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
   CAN, DFU, logs, ...; canonical home `vhrdtech/ww_stdlib`). Reuse or extend one of these before inventing a
   project-local equivalent.
 - **`ww_self/`**, **`ww_global/`**: the API model AST (introspection, snapshots) and the global type ID registry;
-  versioned like API crates (`docs/evolution/crate_layers.md`).
+  versioned like API crates (`docs/evolution/crate_layers.md`). `ww_tape_bundle` sits above `ww_self` and `ww_tape`:
+  the name paths and keys of tape tracks from an API bundle (the tape format itself knows no API model).
 - **`ww_snapshots/`**: finds API snapshots by crate name and version (`docs/evolution/snapshots.md`): sets embedded at
   build time (`ww`, the Python wheel), `~/.wire_weaver/snapshots/`, Cargo's sources on disk, then crates.io or the
   crate's repository (`ureq` with `rustls`; its provider `ring` is C and assembly, the one such dependency: rustls

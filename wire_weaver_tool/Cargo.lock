@@ -787,6 +787,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
+name = "elsa"
+version = "1.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9abf33c656a7256451ebb7d0082c5a471820c31269e49d807c538c252352186e"
+dependencies = [
+ "stable_deref_trait",
+]
+
+[[package]]
 name = "emath"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2918,7 +2927,19 @@ checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
  "log",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2926,6 +2947,9 @@ name = "tracing-core"
 version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
+dependencies = [
+ "once_cell",
+]
 
 [[package]]
 name = "ttf-parser"
@@ -3500,19 +3524,10 @@ dependencies = [
  "shrink_wrap 0.2.0",
  "syn 3.0.2",
  "toml",
- "wire_weaver_snapshots",
  "ww_global",
  "ww_numeric",
  "ww_self",
- "ww_version",
-]
-
-[[package]]
-name = "wire_weaver_snapshots"
-version = "0.5.0"
-dependencies = [
- "ron 0.12.2",
- "ww_self",
+ "ww_snapshots",
  "ww_version",
 ]
 
@@ -3599,6 +3614,21 @@ dependencies = [
  "exact_units",
  "shrink_wrap 0.2.0",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_snapshots"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "elsa",
+ "ron 0.12.2",
+ "semver",
+ "serde",
+ "toml",
+ "tracing",
+ "ww_self",
+ "ww_version",
 ]
 
 [[package]]

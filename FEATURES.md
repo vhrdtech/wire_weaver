@@ -3317,7 +3317,7 @@ Unicast Data0 to one node over the same bus is TR-6.
 - ✅ **STD-125 `ww_tape` track identity by name path** · `v0.5` — `api_root_id` from the crate name only,
   `track_key` and `clock_key` over name segments (identity names of resources, so `#[moved_from]` renames within a
   trait keep the key (INT-17), array indices, keys' shrink_wrap bytes for keyed arrays), `TrackDef.keys`,
-  `name_path`/`key_in_bundle` from a bundle (feature `bundle`), `ww_tap::track_key`, so two runs that number things
+  `name_path`/`key_in_bundle` from a bundle (`ww_tape_bundle`, above `ww_self`), `ww_tap::track_key`, so two runs that number things
   differently give the same ids (API-67); `tests/tape_identity`, [docs](docs/transport/tap.md#track-identity). A
   resource moved to another trait still gets a new key.
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:

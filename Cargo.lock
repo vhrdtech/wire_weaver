@@ -7382,13 +7382,11 @@ dependencies = [
 name = "ww_tape"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "blake3",
  "crc",
  "exact_units",
  "lz4_flex",
  "shrink_wrap",
- "ww_self",
  "ww_version",
 ]
 

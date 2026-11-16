@@ -1,9 +1,9 @@
 //! `ww sync --mode`: the indication mode (`ww_indication`) written on every synced device, so their animations
 //! line up on UTC. The standard library's part of `ww sync`, a [`SyncExtension`].
 
-use crate::cmd::sync::SyncExtension;
-use crate::registry::BoxFuture;
 use clap::{ArgMatches, Args, FromArgMatches, ValueEnum};
+use wire_weaver_cli::cmd::sync::SyncExtension;
+use wire_weaver_cli::registry::BoxFuture;
 use wire_weaver_client::{Commander, DynClient};
 
 #[derive(Args)]

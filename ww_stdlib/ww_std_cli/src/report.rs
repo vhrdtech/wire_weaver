@@ -14,10 +14,12 @@ use ww_report::rework_check::{
     BoardReworks, ImageReworks, RomFlash, board_guard, guard_line, read_board, scan_installed_image,
 };
 
-use crate::cmd::info::{Format, InfoExtension, Section};
-use crate::cmd::rom::{self, DfuseRom, PicobootRom, RP_SCAN, STM32_FLASH, STM32_SCAN};
-use crate::device::Selection;
-use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
+use crate::rom::{self, DfuseRom, PicobootRom, RP_SCAN, STM32_FLASH, STM32_SCAN};
+use wire_weaver_cli::cmd::info::{Format, InfoExtension, Section};
+use wire_weaver_cli::device::Selection;
+use wire_weaver_cli::registry::{
+    BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run,
+};
 
 #[derive(Args)]
 pub(crate) struct ReportArgs {

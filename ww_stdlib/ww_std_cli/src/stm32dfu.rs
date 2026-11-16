@@ -1,22 +1,22 @@
 //! `ww dfu stm32`: the STM32 system bootloader in DFU mode (ROM DFU, DfuSe), over `ww_stm32_dfu`, and following a device
 //! into it and back (CLT-34).
 
-use crate::cmd::rework_check::{ReworkCheckArgs, Rom, Titles, before_rom_flash, in_rom};
-use crate::device::Selection;
-use crate::untrusted::escape;
+use crate::rework_check::{ReworkCheckArgs, Rom, Titles, before_rom_flash, in_rom};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, Subcommand, ValueHint};
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use wire_weaver_cli::device::Selection;
+use wire_weaver_cli::untrusted::escape;
 use wire_weaver_client::follow::{Follow, Found, Timeouts, UsbBus, open_retrying};
 use wire_weaver_client::ww_stm32_dfu::layout::MemoryLayout;
 use wire_weaver_client::ww_stm32_dfu::proto::ROM_ID_ADDR;
 use wire_weaver_client::ww_stm32_dfu::usb::{self, NusbIo};
 use wire_weaver_client::ww_stm32_dfu::{Dfuse, FlashOptions, Image, Stage};
 
-use crate::cmd::rom::{DfuseRom, STM32_FLASH, STM32_SCAN};
+use crate::rom::{DfuseRom, STM32_FLASH, STM32_SCAN};
 
 #[derive(Subcommand)]
 pub(crate) enum Stm32DfuCommand {

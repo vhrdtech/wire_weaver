@@ -12,8 +12,8 @@ use wire_weaver_client::ww_stm32_dfu::Dfuse;
 use wire_weaver_client::ww_stm32_dfu::usb::{self as stm32_usb, NusbIo as DfuseNusbIo};
 use ww_report::rework_check::{FlashOp, RomFlash};
 
-use crate::device::Selection;
-use crate::untrusted::escape;
+use wire_weaver_cli::device::Selection;
+use wire_weaver_cli::untrusted::escape;
 
 /// Most of the flash the check reads looking for the table of the image in flash (RP: QSPI reads past the chip's
 /// size wrap around, an erased 64 KiB ends the search sooner).

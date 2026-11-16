@@ -7075,17 +7075,22 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "tests_common",
  "tokio",
  "tracing",
+ "user_info_api",
  "wire_weaver",
  "wire_weaver_cli",
  "wire_weaver_client",
  "ww_board_info",
+ "ww_client_server",
  "ww_counters",
  "ww_dfu",
  "ww_indication",
  "ww_pin_probe",
  "ww_report",
+ "ww_si",
+ "ww_user_info",
 ]
 
 [[package]]

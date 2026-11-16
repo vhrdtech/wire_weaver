@@ -2,8 +2,6 @@
 //! preset (TOOL-21). The layout, cursor and what is done to the points are `ww_pin_probe::live`; this draws them
 //! and turns keys into commands.
 
-use crate::untrusted::escape;
-use crate::util::StopSignal;
 use anyhow::{Result, anyhow};
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::Frame;
@@ -14,6 +12,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tokio::sync::mpsc;
+use wire_weaver_cli::untrusted::escape;
+use wire_weaver_cli::util::StopSignal;
 use ww_pin_probe::board::{Board, Role, is_anonymous};
 use ww_pin_probe::live::{Command, Cursor, Dir, Layout, Live, Slot, describe};
 use ww_pin_probe::{Level, Pins, Point, PointCaps, PointState, Pull};
@@ -608,7 +608,7 @@ mod tests {
     fn nucleo() -> Board {
         Board::load(
             &Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../ww_pin_probe/tests/data/nucleo_g0b1re.toml"),
+                .join("../../ww_pin_probe/tests/data/nucleo_g0b1re.toml"),
         )
         .unwrap()
     }

@@ -3,21 +3,21 @@
 
 use std::ffi::OsString;
 
-use crate::registry::{
-    BoxFuture, CommandDef, Connection, DeviceUse, Forward, GlobalFlags, Ran, Run,
-};
 use anyhow::{Result, anyhow};
 use clap::{FromArgMatches, Subcommand, ValueEnum};
 use console::style;
+use wire_weaver_cli::registry::{
+    BoxFuture, CommandDef, Connection, DeviceUse, Forward, GlobalFlags, Ran, Run,
+};
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
 use wire_weaver_client::{CallError, ClientMeta, DynClient, Error};
 use ww_dfu::{BootState, BootTarget, ImageVersion, NodeInfoOwned, Outcome, Profile};
 
-use crate::cmd::bootsel::BootselCommand;
-use crate::cmd::stm32dfu::Stm32DfuCommand;
-use crate::device::Selection;
+use crate::bootsel::BootselCommand;
 use crate::dfu_client::Dfu;
-use crate::untrusted::escape;
+use crate::stm32dfu::Stm32DfuCommand;
+use wire_weaver_cli::device::Selection;
+use wire_weaver_cli::untrusted::escape;
 
 #[derive(Subcommand)]
 pub(crate) enum DfuCommand {
@@ -121,7 +121,7 @@ pub(crate) async fn dfu(
         DeviceDfu::Revert => Some("ww dfu revert".to_string()),
     };
     let exclusive = match &purpose {
-        Some(purpose) => crate::plugin::take_exclusive(selection, meta, purpose).await?,
+        Some(purpose) => wire_weaver_cli::plugin::take_exclusive(selection, meta, purpose).await?,
         None => None,
     };
     // held directly: this connection's own clock steering (CLT-46) leaves the device alone meanwhile, as the hub's
@@ -334,15 +334,15 @@ fn run_command(run: Run<'_>) -> BoxFuture<'_, Result<Ran>> {
     Box::pin(async move {
         let cmd = DfuCommand::from_arg_matches(&run.matches)?;
         match cmd {
-            DfuCommand::Rp(rp_cmd) => crate::cmd::bootsel::bootsel(rp_cmd, run.selection()).await?,
+            DfuCommand::Rp(rp_cmd) => crate::bootsel::bootsel(rp_cmd, run.selection()).await?,
             DfuCommand::Stm32(stm32_cmd) => {
-                crate::cmd::stm32dfu::stm32dfu(stm32_cmd, run.selection()).await?
+                crate::stm32dfu::stm32dfu(stm32_cmd, run.selection()).await?
             }
             DfuCommand::Device(DeviceDfu::Flash { args }) => {
                 let mut plugin_args = vec!["flash".into()];
                 plugin_args.extend(args);
-                let env = crate::plugin::selection_env(run.selection(), run.no_config);
-                match crate::plugin::run("chunky", &plugin_args, &env, || {
+                let env = wire_weaver_cli::plugin::selection_env(run.selection(), run.no_config);
+                match wire_weaver_cli::plugin::run("chunky", &plugin_args, &env, || {
                     anyhow!(
                         "`ww dfu flash` runs the ww-chunky plugin, which is not on PATH: install it with `just install` in \
                          chunky_mcu_updater (or `cargo install --git https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`)"

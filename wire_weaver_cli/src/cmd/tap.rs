@@ -39,6 +39,8 @@ use wire_weaver_client::ww_tape::{
 
 mod flags;
 pub use flags::{Attached, TapFlags};
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_support;
 
 /// How deep to look.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]

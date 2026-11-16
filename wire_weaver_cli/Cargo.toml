@@ -18,6 +18,10 @@ path = "src/lib.rs"
 name = "ww"
 path = "src/main.rs"
 
+[features]
+# `cmd::tap::test_support`: a tapped in-process session for the tests of crates that register commands
+test-support = ["wire_weaver_client/in_process"]
+
 [dependencies]
 anyhow.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }

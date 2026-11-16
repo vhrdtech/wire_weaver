@@ -3,11 +3,13 @@
 //! allow|disallow` works on a board already in its boot ROM instead, storing or clearing the allowance STD-101's
 //! guard reads at boot (TOOL-30).
 
-use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use anyhow::{Result, anyhow, bail};
 use clap::{Args, FromArgMatches, Subcommand};
 use console::style;
 use wire_weaver::prelude::MaxLen;
+use wire_weaver_cli::registry::{
+    BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run,
+};
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
 use wire_weaver_client::{CallError, DynClient, Error};
 use ww_board_info::guard::StoredAllowance;
@@ -18,8 +20,8 @@ use ww_report::rework_check::{
     RomFlash, allowance_line, board_guard, read_board, scan_installed_image, set_allowance,
 };
 
-use crate::cmd::rom::{self, DfuseRom, PicobootRom, RP_SCAN, STM32_FLASH, STM32_SCAN};
-use crate::device::Selection;
+use crate::rom::{self, DfuseRom, PicobootRom, RP_SCAN, STM32_FLASH, STM32_SCAN};
+use wire_weaver_cli::device::Selection;
 
 #[derive(Subcommand)]
 pub(crate) enum BoardCommand {

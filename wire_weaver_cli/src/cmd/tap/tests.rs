@@ -2,6 +2,7 @@
 //! the real framers on both ends), printed live the way `ww monitor` prints it, captured the way `ww capture` writes
 //! it, and the capture read back the way `ww explain FILE` reads it: the same text.
 
+use super::test_support::{Shared, replayed, tapped_session};
 use super::*;
 use wire_weaver::shrink_wrap::UNib32;
 use wire_weaver_client::observe::ObserveMode;
@@ -457,21 +458,6 @@ fn sync_policies() {
     assert!(p("0s").is_err() && p("fast").is_err() && p("blocks:x").is_err());
 }
 
-/// A `Write` the test reads back.
-#[derive(Clone, Default)]
-struct Shared(Arc<std::sync::Mutex<Vec<u8>>>);
-
-impl Write for Shared {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.lock().unwrap().extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
 /// `--monitor=api --capture FILE` on a command's own client: the request and its paired reply printed, and the file
 /// read back by `ww explain FILE` as the same text.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -553,74 +539,13 @@ async fn monitor_and_capture_flags_on_a_commands_own_client() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
-/// A live tap on `device` printed as `--monitor=api` does and captured to a file: the monitor's text and the file.
-async fn tapped_session(
-    name: &str,
-    device: &tests_common::TestDevice,
-    traits_only: bool,
-    session: impl AsyncFnOnce(&DynClient),
-) -> (String, std::path::PathBuf) {
-    let dir = std::env::temp_dir().join(format!("ww_cli_tap_{name}_{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join("cap.wwtape");
-    let _ = std::fs::remove_file(&path);
-    let flags = TapFlags {
-        monitor: Some(Layer::Api),
-        tap_bytes: false,
-        tap_bits: false,
-        capture: Some(path.clone()),
-    };
-    let printed = Shared::default();
-    let attached = Attached::start_with(&flags, Box::new(printed.clone())).unwrap();
-    let config = ClientConfig::new()
-        .in_process_path(device.path())
-        .tap(attached.recorder());
-    let config = if traits_only {
-        config.traits_only()
-    } else {
-        config
-    };
-    let client = DynClient::from_config(config)
-        .connect()
-        .await
-        .expect("connect");
-    attached.add_bundles(&client);
-    session(&client).await;
-    client.disconnect().asynch().await.unwrap();
-    attached.finish().unwrap();
-    let printed = String::from_utf8(printed.0.lock().unwrap().clone()).unwrap();
-    (printed, path)
-}
-
-/// What `ww explain FILE` prints of a capture.
-fn replayed(path: &std::path::Path, layer: Layer) -> String {
-    replayed_view(path, layer, false)
-}
-
-fn replayed_view(path: &std::path::Path, layer: Layer, bytes: bool) -> String {
-    let view = ViewArgs {
-        layer,
-        bytes,
-        bits: false,
-    };
-    let mut out = vec![];
-    replay(
-        &mut FileFeed::open(path, false).unwrap(),
-        view,
-        false,
-        &mut out,
-    )
-    .unwrap();
-    String::from_utf8(out).unwrap()
-}
-
 /// TOOL-9: an `Observe` and its answer read as property names with the modes asked and granted, every update as the
 /// properties it carries with their values (two in the first one, as the device sends them together), all of it
 /// the same from a capture.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn observe_requests_replies_and_updates_are_decoded() {
     let device = demo_device("cli/tap_observe", 7);
-    let (printed, path) = tapped_session("observe", &device, false, async |client| {
+    let (printed, path) = tapped_session("observe", device.path(), false, async |client| {
         let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
         let level = root.walk("").unwrap();
         let props = level.observable_properties().unwrap();

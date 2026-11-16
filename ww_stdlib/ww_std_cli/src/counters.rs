@@ -1,7 +1,6 @@
 //! `ww counters`: the device's `cnt` counters through `ww_counters::Counters` (STD-25), decoded with the firmware's
 //! ELF found by its build id and shown with the same views as `cnt` over a probe (`cnt_view`).
 
-use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, FromArgMatches, Subcommand};
 use cnt_core::{Counters, Storage, elf};
@@ -11,6 +10,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use wire_weaver_cli::registry::{
+    BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run,
+};
 use wire_weaver_client::DynClient;
 use ww_counters::host::WwSource;
 use ww_report::clients::CountersClient;

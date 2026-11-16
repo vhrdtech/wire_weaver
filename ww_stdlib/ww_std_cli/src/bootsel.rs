@@ -1,22 +1,22 @@
 //! `ww dfu rp`: RP2040 / RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT (`ww_picoboot`), and following a device
 //! into BOOTSEL and back (CLT-21).
 
-use crate::cmd::rework_check::{ReworkCheckArgs, Rom, Titles, before_rom_flash, in_rom};
-use crate::device::Selection;
-use crate::untrusted::escape;
+use crate::rework_check::{ReworkCheckArgs, Rom, Titles, before_rom_flash, in_rom};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use wire_weaver_cli::device::Selection;
+use wire_weaver_cli::untrusted::escape;
 use wire_weaver_client::follow::{Follow, Found, UsbBus};
 use wire_weaver_client::ww_picoboot::image::family;
 use wire_weaver_client::ww_picoboot::proto::{FLASH_BASE, REBOOT_DELAY, Reboot2};
 use wire_weaver_client::ww_picoboot::usb::{self, NusbIo};
 use wire_weaver_client::ww_picoboot::{Image, Picoboot, Stage};
 
-use crate::cmd::rom::{PicobootRom, RP_SCAN};
+use crate::rom::{PicobootRom, RP_SCAN};
 
 #[derive(Subcommand)]
 pub(crate) enum BootselCommand {

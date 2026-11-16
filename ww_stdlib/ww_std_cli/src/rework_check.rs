@@ -22,9 +22,9 @@ use ww_report::rework_check::{
     verdict,
 };
 
-use crate::device::Selection;
 use crate::dfu_client::Dfu;
-use crate::untrusted::escape;
+use wire_weaver_cli::device::Selection;
+use wire_weaver_cli::untrusted::escape;
 
 #[derive(Args, Default)]
 pub(crate) struct ReworkCheckArgs {
@@ -132,7 +132,7 @@ pub(crate) async fn before_rom_flash(
         Rom::Rp => "ww dfu rp flash",
         Rom::Stm32 => "ww dfu stm32 flash",
     };
-    let exclusive = crate::plugin::take_exclusive(selection, &meta, purpose).await?;
+    let exclusive = wire_weaver_cli::plugin::take_exclusive(selection, &meta, purpose).await?;
     let client = match DynClient::from_config(config.traits_only().client_meta(meta))
         .connect()
         .await

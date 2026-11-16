@@ -1,11 +1,8 @@
 //! `ww pins`: pin tests on any device serving `ww_pin_diag::PinDiag` (TOOL-15). The tests, plan files and the
 //! device side are `ww_pin_probe`; this is the command line and the table.
 
-use crate::cmd::pins_tui;
 use crate::complete;
-use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};
-use crate::untrusted::escape;
-use crate::util::StopSignal;
+use crate::pins_tui;
 use anyhow::{Context, Result, bail};
 use clap::{Args, FromArgMatches, Subcommand, ValueEnum, ValueHint};
 use clap_complete::ArgValueCandidates;
@@ -13,6 +10,11 @@ use console::{StyledObject, measure_text_width, style};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use tracing::level_filters::LevelFilter;
+use wire_weaver_cli::registry::{
+    BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run,
+};
+use wire_weaver_cli::untrusted::escape;
+use wire_weaver_cli::util::StopSignal;
 use wire_weaver_client::DynClient;
 use ww_pin_probe::bank::BankPins;
 use ww_pin_probe::board::Board;

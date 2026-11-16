@@ -33,3 +33,12 @@ ww_dfu = { workspace = true, features = ["std"] }
 ww_indication = { workspace = true, features = ["std"] }
 ww_pin_probe.workspace = true
 ww_report.workspace = true
+# the codegen names exact_units types through this crate's re-export
+ww_si = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+tests_common.workspace = true
+user_info_api.workspace = true
+wire_weaver_cli = { workspace = true, features = ["test-support"] }
+ww_client_server.workspace = true
+ww_user_info = { workspace = true, features = ["std"] }

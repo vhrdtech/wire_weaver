@@ -105,8 +105,8 @@ gid-lock:
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
 
-# Rebuild the crash symbolizer's test ELFs from ww_report/tests/crash_fw (CLT-59); recheck the tests' addresses with `llvm-objdump -d` after
-[working-directory('ww_report/tests/crash_fw')]
+# Rebuild the crash symbolizer's test ELFs from ww_stdlib/ww_report/tests/crash_fw (CLT-59); recheck the tests' addresses with `llvm-objdump -d` after
+[working-directory('ww_stdlib/ww_report/tests/crash_fw')]
 crash-fw-elf:
     cargo build --release
     cp target/thumbv6m-none-eabi/release/crash_fw ../crash_fw.elf

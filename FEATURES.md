@@ -1430,7 +1430,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `bedrock_crash::is_return_address`) are dropped; the panic machinery is passed over to mark the panic site.
   `ww_report::crash` (`Symbolizer`, `CrashAddresses`, `CrashFrames`, serializable) for other host tools,
   `docs/std_library/device_contract.md#crash-call-chain`, tests against a real thumbv6m ELF
-  (`ww_report/tests/crash_frames.rs`, `just crash-fw-elf`).
+  (`ww_stdlib/ww_report/tests/crash_frames.rs`, `just crash-fw-elf`).
 - ✅ **CLT-28 Observing properties on the host** · `v0.5.x` — generated std clients have `observe(cfg)` per trait
   level with `+observe` properties (an `Observer` of the level's `<Trait>Update`) and `observe_<name>(mode)` per
   property, fanned out from the level: one device subscription per level covering all its observers (merged modes,

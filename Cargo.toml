@@ -128,6 +128,7 @@ ww_highlight = { git = "https://github.com/romixlab/ww_lsp" }
 shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }
 shrink_wrap_derive = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap_derive" }
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
+wire_weaver_cli = { version = "0.5.0", path = "./wire_weaver_cli" }
 wire_weaver_client = { version = "0.5.0", path = "./wire_weaver_client" }
 wire_weaver_core = { version = "0.5.0", path = "./wire_weaver_core" }
 wire_weaver_derive = { version = "0.5.0", path = "./wire_weaver_derive" }
@@ -150,6 +151,7 @@ ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
 ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }
 # CLT-34: a crate of its own like picoboot_host, to move to its own repo.
 ww_stm32_dfu = { package = "stm32_dfu_host", version = "0.1.0", path = "./stm32_dfu_host", default-features = false }
+ww_std_cli = { version = "0.5.0", path = "./ww_stdlib/ww_std_cli" }
 ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false }
 
 # framework-level base types, each crate has its own version

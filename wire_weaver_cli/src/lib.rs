@@ -12,7 +12,6 @@ pub mod cli;
 pub mod cmd;
 pub mod complete;
 pub mod device;
-mod dfu_client;
 pub mod plugin;
 pub mod registry;
 pub mod untrusted;

@@ -23,16 +23,14 @@ anyhow.workspace = true
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true
-cnt_view.workspace = true
 console.workspace = true
-# `ww pins tui`; crossterm also reads `q` on Windows (util::QuitKey)
+hex = { workspace = true, features = ["std"] }
+# crossterm reads `q` on Windows (util::QuitKey)
 crossterm.workspace = true
 human-repr = "1.1"
 indicatif = "0.18"
 inventory.workspace = true
-nusb.workspace = true
 proc-macro2.workspace = true
-ratatui.workspace = true
 ron.workspace = true
 semver.workspace = true
 serde = { workspace = true, features = ["std"] }
@@ -53,13 +51,7 @@ ww_local_socket.workspace = true
 
 wire_weaver_core.workspace = true
 wire_weaver_evolution = { workspace = true, features = ["source"] }
-ww_board_info = { workspace = true, features = ["std"] }
-ww_counters = { workspace = true, features = ["std", "host"] }
-ww_dfu = { workspace = true, features = ["std"] }
-ww_indication = { workspace = true, features = ["std"] }
 ww_numeric.workspace = true
-ww_pin_probe.workspace = true
-ww_report.workspace = true
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_timebase = { workspace = true, features = ["std"] }

@@ -10,7 +10,6 @@ use clap::{Args, FromArgMatches, Subcommand, ValueHint};
 use clap_complete::ArgValueCandidates;
 use console::style;
 use std::path::PathBuf;
-use ww_report::info::hex;
 use ww_settings::dump::{self, Dump, ItemState};
 
 #[derive(Subcommand)]
@@ -142,7 +141,7 @@ fn render_text(d: &Dump<'_>) -> String {
             rec.page,
             rec.seq,
             rec.bytes.len(),
-            hex(rec.bytes)
+            hex::encode(rec.bytes)
         )
         .unwrap();
     }
@@ -206,7 +205,7 @@ fn render_json(d: &Dump<'_>) -> String {
                 "addr": r.addr,
                 "page": r.page,
                 "seq": r.seq,
-                "bytes_hex": hex(r.bytes),
+                "bytes_hex": hex::encode(r.bytes),
             })
         })
         .collect();

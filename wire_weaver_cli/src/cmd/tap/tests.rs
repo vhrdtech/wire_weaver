@@ -298,81 +298,6 @@ mod global_clock {
     }
 }
 
-/// A device whose only resource is `ww_user_info::UserInfo`, for the isolated `ww_report` variant of TOOL-9 below:
-/// this test module's only stdlib/tooling dependency is `ww_user_info` and `ww_report` (moves with the ww_stdlib /
-/// ww_tools cut, R7).
-mod user_info_report {
-    use tests_common::TestProcessEventsAsync;
-    use wire_weaver::prelude::*;
-    use ww_user_info::UserInfoCaps;
-
-    pub struct Server {
-        pub name: String,
-    }
-
-    impl Server {
-        async fn set_user_name(
-            &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
-            value: MaxLen<&'_ str, 32>,
-        ) -> SetResult<ww_user_info::UserInfoError<'_>> {
-            self.name = value.to_string();
-            Set
-        }
-
-        async fn get_user_name(
-            &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
-        ) -> GetResult<MaxLen<&'_ str, 32>, ww_user_info::UserInfoError<'_>> {
-            Value(MaxLen::new_unchecked(&self.name))
-        }
-    }
-
-    impl api_impl::UserInfoTestConsts for Server {
-        const USER_CAPABILITIES: UserInfoCaps = UserInfoCaps {
-            name_max: ww_user_info::NameMax::bounded(32),
-            notes_max: ww_user_info::NotesMax::bounded(0),
-            persistent: false,
-        };
-    }
-
-    pub mod api_impl {
-        wire_weaver::ww_codegen!(
-            user_info_api :: UserInfoTest for super::Server,
-            server = true, no_alloc = true, use_async = true,
-            method_model = "_=immediate",
-            property_model = "_=get_set",
-            omit = ["user.notes"],
-        );
-    }
-
-    impl TestProcessEventsAsync for Server {
-        type Medium = ();
-
-        async fn process_request_bytes<'a>(
-            &mut self,
-            bytes: &[u8],
-            scratch: &'a mut [u8],
-            out: &mut impl EventOut,
-            medium: (),
-        ) -> Result<&'a [u8], ShrinkWrapError> {
-            self.process_request_bytes(bytes, scratch, out, medium)
-                .await
-        }
-    }
-
-    pub fn demo_device(path: &str) -> tests_common::TestDevice {
-        tests_common::start_device_async_usb(
-            path,
-            64,
-            Server { name: "tapped".into() },
-            user_info_api::USER_INFO_TEST_FULL_GID,
-            user_info_api::USER_INFO_TEST_WIRE_VERSION,
-            api_impl::api_hash(),
-        )
-    }
-}
-
 fn u32v(v: u32) -> ValueOwned {
     ValueOwned::Numeric(NumericValue::U32(v))
 }
@@ -762,10 +687,8 @@ async fn observe_requests_replies_and_updates_are_decoded() {
 /// TOOL-9: a call through a global trait id (`ww info` and friends) is named by the trait's crate and decoded from
 /// the snapshot the host carries, without the device API (a command that never introspects). With the device API
 /// (here from the local cache codegen fills) the client sends the trait's absolute path instead (SRV-53), named by
-/// the device's API. The framework's own cover (R7): `ww_timebase::Clock` (ww_global id 24, framework by the
-/// design), with a client generated right here, no `ww_report`. See
-/// `global_trait_calls_are_named_and_decoded_via_ww_report` below for the pre-existing `ww_user_info` + `ww_report`
-/// variant this test replaced as the only cover of the same behaviour.
+/// the device's API. The framework's own cover: `ww_timebase::Clock` (ww_global id 24), with a client generated right
+/// here. The `ww_user_info` variant through `ww_report` is in `ww_std_cli`'s tests.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn global_trait_calls_are_named_and_decoded() {
     for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
@@ -801,49 +724,6 @@ async fn global_trait_calls_are_named_and_decoded() {
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }
-
-/// TOOL-9, the `ww_user_info` + `ww_report` variant `global_trait_calls_are_named_and_decoded` replaced above as the
-/// framework's cover of the same behaviour (R7): kept logically unchanged, isolated here so this test alone depends
-/// on `ww_user_info` and `ww_report` (moves with the ww_stdlib / ww_tools cut, together with those crates).
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn global_trait_calls_are_named_and_decoded_via_ww_report() {
-    for (traits_only, name) in [(false, "global_ui"), (true, "global_traits_only_ui")] {
-        let device = user_info_report::demo_device(&format!("cli/tap_{name}"));
-        let (printed, path) = tapped_session(name, &device, traits_only, async |client| {
-            let user = ww_report::clients::UserInfoClient::new(client);
-            let n = user.read_name().read().await.unwrap();
-            assert_eq!(&*n, "tapped");
-        })
-        .await;
-        let resource = match traits_only {
-            true => "ww_user_info::UserInfo.name",
-            false => "user.name",
-        };
-        assert!(
-            printed.contains(&format!("Request Read {resource}")),
-            "{printed}"
-        );
-        assert!(
-            printed.lines().any(
-                |l| l.contains(&format!("Event Value {resource}  \"tapped\""))
-                    && l.contains("reply to #")
-            ),
-            "{printed}"
-        );
-        assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
-        if traits_only {
-            // the call went out by the trait's ww_global id (API-20): 6 bytes, the crate name alone would take 12;
-            // the name shown comes from the registry
-            let with_bytes = replayed_view(&path, Layer::Api, true);
-            let mut lines = with_bytes.lines();
-            lines.find(|l| l.contains("Request Read ww_user_info::UserInfo.name"));
-            let request_len = lines.next().unwrap().split_whitespace().skip(1).count();
-            assert_eq!(request_len, 6, "{with_bytes}");
-        }
-        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
-    }
-}
-
 /// TOOL-14: SIGTERM (a `timeout`, a service manager) ends a command with `--capture` like Ctrl-C does: the capture is
 /// finished and renamed, not left as FILE.partial.
 #[cfg(unix)]

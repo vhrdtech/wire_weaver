@@ -1085,7 +1085,10 @@ pub(crate) mod tests {
 
         let fixture = format!(
             "wire_line_fixture_api = {{ path = {:?} }}",
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../tests/wire_line_fixture_api")
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../tests/wire_line_fixture_api"
+            )
         );
         let src = r#"
             #[ww_api_root(wire = "w1.0")]

@@ -12,10 +12,10 @@
 
 #[cfg(test)]
 mod tests {
+    use global_boot_api::{BootState, BootTarget};
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{CompactVersion, FullVersion, GlobalTypeId, Version};
-    use global_boot_api::{BootState, BootTarget};
     use wire_weaver_client::{Attachment, Commander, DynClient, Error};
     use ww_client_server::ErrorKindOwned;
 
@@ -363,9 +363,8 @@ mod tests {
             "cross_version_api"
         );
 
-        let boot = BootControl::new(
-            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
-        );
+        let boot =
+            BootControl::new(client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"));
         let state = boot.boot_state().call().await.unwrap();
         assert_eq!(state, BootState::Confirmed);
         boot.reboot(BootTarget::Updater).call().await.unwrap();
@@ -450,9 +449,8 @@ mod tests {
             .gid
             .id
             .0;
-        let boot = BootControl::new(
-            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
-        );
+        let boot =
+            BootControl::new(client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"));
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
             BootState::Confirmed
@@ -518,9 +516,8 @@ mod tests {
         let (calls, device) = start_device("cross_version/pre_compact", true);
         let client = connect_traits_only(&device).await;
         let id = global_boot_api::BOOT_COMPACT_GID.unwrap().gid.id.0;
-        let boot = BootControl::new(
-            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
-        );
+        let boot =
+            BootControl::new(client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"));
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
             BootState::Confirmed
@@ -542,9 +539,8 @@ mod tests {
         // a new connection tries the compact path again
         client.cmd().disconnect().asynch().await.unwrap();
         let client = connect_traits_only(&device).await;
-        let boot = BootControl::new(
-            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
-        );
+        let boot =
+            BootControl::new(client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"));
         boot.boot_state().call().await.unwrap();
         assert_eq!(
             paths(&calls)[3..],
@@ -557,9 +553,8 @@ mod tests {
         let (calls, device) = start_introspecting_device("cross_version/srv53_traits_only");
         let client = connect_traits_only(&device).await;
         let id = global_boot_api::BOOT_COMPACT_GID.unwrap().gid.id.0;
-        let boot = BootControl::new(
-            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
-        );
+        let boot =
+            BootControl::new(client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"));
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
             BootState::Confirmed
@@ -594,9 +589,8 @@ mod tests {
         .connect()
         .await
         .expect("connect");
-        let boot = BootControl::new(
-            client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"),
-        );
+        let boot =
+            BootControl::new(client.global_attachment(global_boot_api::BOOT_FULL_GID, "Boot"));
         assert_eq!(
             boot.boot_state().call().await.unwrap(),
             BootState::Confirmed
@@ -617,10 +611,16 @@ mod tests {
             "{r:?}"
         );
         // asked once by id and once by name, the introspection data has no such trait either
-        let id = ww_global::trait_id("global_boot_api", "Missing").unwrap().id.0;
+        let id = ww_global::trait_id("global_boot_api", "Missing")
+            .unwrap()
+            .id
+            .0;
         assert_eq!(
             paths(&calls),
-            [format!("compact {id}"), "full global_boot_api::Missing".into()]
+            [
+                format!("compact {id}"),
+                "full global_boot_api::Missing".into()
+            ]
         );
     }
 }

@@ -9,7 +9,13 @@ repository.workspace = true
 
 [features]
 default = []
-std = ["alloc", "streams", "ww_client_server/std", "ww_si/std", "ww_crc?/table-slice16"]
+std = [
+    "alloc",
+    "streams",
+    "ww_client_server/std",
+    "ww_si/std",
+    "ww_crc?/table-slice16",
+]
 # counted and reliable streams and credit sinks (tx, rx, sink, codec): their wire messages are behind
 # ww_client_server's `streams` too, so a firmware with only plain streams and observe doesn't carry them
 streams = ["ww_client_server/streams"]

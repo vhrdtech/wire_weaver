@@ -95,7 +95,11 @@ mod tests {
         let data: [u8; 300] = core::array::from_fn(|i| (i as u8).wrapping_mul(37).wrapping_add(11));
         for len in 0..=data.len() {
             let d = &data[..len];
-            assert_eq!(CRC32_ISO_HDLC.checksum(d), iso_hdlc.checksum(d), "len={len}");
+            assert_eq!(
+                CRC32_ISO_HDLC.checksum(d),
+                iso_hdlc.checksum(d),
+                "len={len}"
+            );
             assert_eq!(CRC32C.checksum(d), crc32c.checksum(d), "len={len}");
             assert_eq!(CRC16_USB.checksum(d), usb.checksum(d), "len={len}");
             assert_eq!(CRC8_SMBUS.checksum(d), smbus.checksum(d), "len={len}");

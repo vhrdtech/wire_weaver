@@ -8,11 +8,11 @@
 #[cfg(test)]
 mod tests {
     use shared_sub_level_api::common::Code;
+    use shared_sub_level_api::common::Mode;
     use std::path::Path;
     use wire_weaver::prelude::*;
     use wire_weaver::ww_version::{ApiHash, ApiHashPair, WireVersion};
     use wire_weaver_client::{ClientConfig, Commander, Error, WwClient};
-    use shared_sub_level_api::common::Mode;
 
     /// The shared clients, generated once: one `ww_codegen!` per module, as for any client.
     mod channel_client {

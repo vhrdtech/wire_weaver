@@ -274,8 +274,7 @@ mod tests {
         let mut tx = LinkTx::new(&mut buf);
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // over the End's head and the whole message
-        let crc = ww_crc::CRC16_USB
-            .checksum(&[END_4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let crc = ww_crc::CRC16_USB.checksum(&[END_4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
         assert_eq!(tx.write(0, &msg), Ok(false));
         let len = tx.flush();

@@ -126,7 +126,8 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         ("global.compact_write_name", 0) => request(
             1,
             PathKind::GlobalCompact {
-                gid: GLOBAL_DEMO_COMPACT_GID.expect("global_fixture_api::GlobalDemo has a ww_global id"),
+                gid: GLOBAL_DEMO_COMPACT_GID
+                    .expect("global_fixture_api::GlobalDemo has a ww_global id"),
                 path_from_trait: RefVec::Slice {
                     slice: &ww_client_server::resource_path([1]),
                 },
@@ -138,7 +139,8 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
         ("global.compact_read_const", 0) => request(
             1,
             PathKind::GlobalCompact {
-                gid: GLOBAL_DEMO_COMPACT_GID.expect("global_fixture_api::GlobalDemo has a ww_global id"),
+                gid: GLOBAL_DEMO_COMPACT_GID
+                    .expect("global_fixture_api::GlobalDemo has a ww_global id"),
                 path_from_trait: RefVec::Slice {
                     slice: &ww_client_server::resource_path([0]),
                 },

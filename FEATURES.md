@@ -3472,7 +3472,11 @@ Unicast Data0 to one node over the same bus is TR-6.
   reads each workspace's `cargo metadata` (normal, build and dev edges) and fails on a lower-layer
   crate taking a higher one, unless `layers.toml`'s `[[allow]]` names the edge with the refactor
   (`R1`..`R10`) that removes it; a named edge that no longer exists fails too, so the allow-list
-  shrinks as the refactors land. First run: 22 allow-listed edges (`R4`, `R7`, `R8`).
+  shrinks as the refactors land. First run: 22 allow-listed edges (`R4`, `R7`, `R8`). With `R1` (API-68) the
+  lint also checks `layers.toml`'s `[api] crates`, the crates that describe an API (the stdlib API crates,
+  `ww_timebase`, `ww_hub_api`): their normal dependencies, direct or transitive, reach no layer-5 crate beyond
+  `ww_api`'s own closure, so no API crate pulls the runtime into a build; `[[api.allow]]` names what one still
+  reaches, with the refactor that removes it, and fails when no longer reached.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

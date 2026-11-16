@@ -279,6 +279,53 @@ ww_uart = 6
 ww_uid = 6
 ww_user_info = 6
 
+# API crates (R1): a crate that defines `#[ww_trait]` APIs describes an API and never runs one. Its normal
+# dependencies, direct or transitive, reach no layer-5 crate (`wire_weaver` first of all) beyond what `ww_api`'s
+# own closure holds. tests/layers_lint `api_crates_are_free_of_the_runtime` checks each crate named here.
+
+[api]
+crates = [
+    "ww_adc",
+    "ww_block",
+    "ww_board_info",
+    "ww_can_bus",
+    "ww_counters",
+    "ww_dfu",
+    "ww_firmware_info",
+    "ww_gpio",
+    "ww_hub_api",
+    "ww_i2c",
+    "ww_indication",
+    "ww_interned",
+    "ww_log",
+    "ww_logic_analyzer",
+    "ww_memory",
+    "ww_onewire",
+    "ww_pin_diag",
+    "ww_pwm",
+    "ww_recorder",
+    "ww_sd",
+    "ww_signal_generator",
+    "ww_spi",
+    "ww_timebase",
+    "ww_uart",
+    "ww_uid",
+    "ww_user_info",
+]
+
+# Runtime crates an API crate still reaches, each with the refactor that removes it; an entry no longer reached
+# fails the test. `ww_board_info::record` runs the settings store over a flash image (STD-101) and belongs in a
+# helper crate beside the API, as `ww_bus_slave` sits beside `ww_i2c`.
+[[api.allow]]
+from = "ww_board_info"
+reaches = "ww_settings"
+refactor = "ww_board_info record helper crate"
+
+[[api.allow]]
+from = "ww_board_info"
+reaches = "ww_settings_derive"
+refactor = "ww_board_info record helper crate"
+
 # Known upward edges of today, each removed by the refactor (R1..R10, design section 6) named here.
 # An edge no longer present in `cargo metadata` fails the test: drop its line in the same change that
 # lands the refactor removing it.

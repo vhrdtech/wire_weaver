@@ -6,7 +6,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "R9 layer lint: every workspace crate has a layer in layers.toml, and no crate takes one above its own layer unless layers.toml allow-lists the edge (TEST-36)."
+description = "Layer lint: every workspace crate has a layer in layers.toml, no crate takes one above its own layer unless layers.toml allow-lists the edge (TEST-36), and no API crate reaches the runtime (API-68)."
 
 [dependencies]
 

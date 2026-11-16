@@ -220,6 +220,14 @@ impl Resolver {
         places
     }
 
+    /// The directories added with [Self::with_dir] and [Self::with_crate_dirs], in order.
+    pub fn dirs(&self) -> impl Iterator<Item = &Dir> {
+        self.sources.iter().filter_map(|s| match s {
+            Source::Dir(dir) => Some(dir),
+            _ => None,
+        })
+    }
+
     /// The cache, when there is one.
     fn cache(&self) -> Option<&Dir> {
         self.sources.iter().find_map(|s| match s {

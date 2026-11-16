@@ -1413,7 +1413,9 @@ pub(crate) mod tests {
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../tests")
             .join(api_crate);
-        let full = crate::load(&crate_path, trait_name.map(String::from), false).unwrap();
+        let (full, _, _, paths) =
+            crate::load_with_hints(&crate_path, trait_name.map(String::from), false).unwrap();
+        let resolver = ww_snapshots::Resolver::new().with_crate_dirs(paths.crate_dirs());
 
         // untimed stream or a property that isn't batched: no extra wire data
         assert_eq!(batch_item_ty_of(&full, plain), None);
@@ -1443,7 +1445,7 @@ pub(crate) mod tests {
         assert_eq!(full.ext_crates[crate_idx.0 as usize].crate_id, "ww_si");
 
         // sent by a device: Timed is known from ww_si's snapshot, left out and replaced by a signature
-        let sent = crate::transform::snapshot::skip_known(&full).unwrap();
+        let sent = crate::transform::snapshot::skip_known(&full, &resolver).unwrap();
         assert!(
             sent.types
                 .iter()
@@ -1451,9 +1453,9 @@ pub(crate) mod tests {
         );
         assert!(sent.to_ww_bytes_owned().unwrap().len() < full.to_ww_bytes_owned().unwrap().len());
 
-        // on the host: put back from the embedded snapshot and instantiate with this API's own item type
+        // on the host: put back from the snapshot and instantiate with this API's own item type
         let mut received = sent;
-        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut received);
+        let not_inlined = resolver.inline_skipped(&mut received).not_inlined;
         assert!(not_inlined.is_empty(), "{not_inlined:?}");
         ww_self::generics::prepare(&mut received).unwrap();
 

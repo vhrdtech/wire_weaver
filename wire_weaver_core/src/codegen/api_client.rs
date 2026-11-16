@@ -1405,6 +1405,7 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         with_docs_hash,
     } = introspect_prepare(
         api_bundle,
+        api_bundle.crate_dirs(),
         true,
         crate::codegen::api_server::IntrospectCompression::None,
     );

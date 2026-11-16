@@ -4,6 +4,7 @@ use std::fs;
 use ww_self::definition_cache::{self, Kind};
 use ww_self::signature::{canonical_trait_bytes, canonical_type_bytes, signatures_of};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
+use ww_snapshots::Resolver;
 
 pub(crate) fn cache_api_bundle(api_bundle: &ApiBundleOwned, contains_docs: bool, hash: &[u8]) {
     if let Err(e) = cache_api_bundle_inner(api_bundle, contains_docs, hash) {
@@ -43,12 +44,31 @@ fn cache_api_bundle_inner(
 /// Store the definitions `sent` leaves out (taken from `full`, the same bundle with everything in-line) in the
 /// definition cache on this machine, by signature, so that a host here finds them when this build's snapshot of an
 /// unpublished crate is not the host's (see [ww_self::definition_cache]).
-pub(crate) fn cache_definitions(full: &ApiBundleOwned, sent: &ApiBundleOwned) {
+pub(crate) fn cache_definitions(full: &ApiBundleOwned, sent: &ApiBundleOwned, resolver: &Resolver) {
     let Some(dir) = definition_cache::default_dir() else {
         return;
     };
-    if let Err(e) = cache_definitions_in(&dir, full, sent) {
+    if let Err(e) = cache_definitions_in(&dir, full, sent, resolver) {
         eprintln!("Failed to cache definitions in {}: {e:#}", dir.display());
+    }
+}
+
+/// Copies the snapshots codegen skipped definitions against (the walked crates' `api_snapshots/`, the directories
+/// of `resolver`) into the snapshot cache on this machine, so a host here finds a dependency's snapshot by name
+/// without Cargo's sources or the network.
+pub(crate) fn cache_snapshots(resolver: &Resolver) {
+    let Some(root) = ww_snapshots::cache::default_root() else {
+        return;
+    };
+    let into = ww_snapshots::cache::snapshots_dir(&root);
+    for dir in resolver.dirs() {
+        if let Err(e) = ww_snapshots::cache::store_crate(&into, dir) {
+            eprintln!(
+                "Failed to copy {} into {}: {e:#}",
+                dir.path().display(),
+                into.path().display()
+            );
+        }
     }
 }
 
@@ -56,8 +76,9 @@ pub(crate) fn cache_definitions_in(
     dir: &std::path::Path,
     full: &ApiBundleOwned,
     sent: &ApiBundleOwned,
+    resolver: &Resolver,
 ) -> anyhow::Result<()> {
-    let resolve = |v: &_| wire_weaver_snapshots::get(v);
+    let resolve = |v: &_| resolver.snapshot(v);
     for location in &sent.types {
         let TypeLocationOwned::SkippedFullVersion {
             crate_idx,
@@ -134,14 +155,15 @@ mod tests {
     #[test]
     fn left_out_definitions_are_cached_by_signature() {
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
-        let full = crate::load(&crate_path, None, false).unwrap();
-        let sent = crate::transform::skip_known(&full).unwrap();
+        let (full, _, _, paths) = crate::load_with_hints(&crate_path, None, false).unwrap();
+        let resolver = Resolver::new().with_crate_dirs(paths.crate_dirs());
+        let sent = crate::transform::skip_known(&full, &resolver).unwrap();
         let dir = std::env::temp_dir().join(format!(
             "ww_core_definition_cache_test-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&dir);
-        cache_definitions_in(&dir, &full, &sent).unwrap();
+        cache_definitions_in(&dir, &full, &sent, &resolver).unwrap();
 
         let mut checked = 0;
         for location in &sent.types {

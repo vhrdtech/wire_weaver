@@ -29,7 +29,12 @@ pub(crate) fn introspect(
             introspect_bytes,
             no_docs_hash,
             with_docs_hash,
-        } = introspect_prepare(&device_bundle, include_docs, compression);
+        } = introspect_prepare(
+            &device_bundle,
+            api_bundle.crate_dirs(),
+            include_docs,
+            compression,
+        );
         let maybe_cfg = cfg.map(|cfg| quote! { #[cfg(#cfg)] });
         bytes_consts.extend(quote! {
             #maybe_cfg
@@ -119,17 +124,20 @@ pub(crate) struct IntrospectTs {
 
 /// Introspection bytes and API hashes.
 ///
-/// Traits and types known from embedded snapshots are left out ([crate::transform::skip_known]), both in what a device
-/// sends and in what a client embeds (a client puts them back at runtime). The API hash is calculated over these bytes.
+/// Traits and types known from the walked crates' snapshots are left out ([crate::transform::skip_known]), both in
+/// what a device sends and in what a client embeds (a client puts them back at runtime). The API hash is calculated
+/// over these bytes.
 ///
 /// With `compression` the bytes are compressed (`ww_self::compressed`) after the hashes are taken: a device's API
 /// identity doesn't depend on how it keeps its introspection data.
 pub(crate) fn introspect_prepare(
     api_bundle: &ApiBundleOwned,
+    crate_dirs: &[std::path::PathBuf],
     include_docs: bool,
     compression: IntrospectCompression,
 ) -> IntrospectTs {
-    let sent = match crate::transform::skip_known(api_bundle) {
+    let resolver = ww_snapshots::Resolver::new().with_crate_dirs(crate_dirs);
+    let sent = match crate::transform::skip_known(api_bundle, &resolver) {
         Ok(sent) => sent,
         Err(e) => {
             eprintln!(
@@ -138,7 +146,8 @@ pub(crate) fn introspect_prepare(
             api_bundle.clone()
         }
     };
-    crate::local_registry::cache_definitions(api_bundle, &sent);
+    crate::local_registry::cache_definitions(api_bundle, &sent, &resolver);
+    crate::local_registry::cache_snapshots(&resolver);
     let mut contains_docs = ContainsDocs::default();
     contains_docs.visit_api_bundle(api_bundle);
     // a left out definition's reference carries its docs signature (EVO-69): docs too, of the dependencies

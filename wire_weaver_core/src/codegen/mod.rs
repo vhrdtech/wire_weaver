@@ -28,6 +28,11 @@ impl<'a> CodegenBundle<'a> {
         }
     }
 
+    /// The directory of every crate the walk read, where their `api_snapshots/` are ([CratePaths::crate_dirs]).
+    pub(crate) fn crate_dirs(&self) -> &[std::path::PathBuf] {
+        self.crate_paths.crate_dirs()
+    }
+
     /// Wire version of the API root, what link setup decides on (EVO-25). Codegen reads it only here, so where it is
     /// declared (the root's attribute today, the crate's `Cargo.toml` later) is the bundle's business alone.
     pub(crate) fn root_wire_version(&self) -> Option<ww_version::WireVersion> {

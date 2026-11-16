@@ -1,5 +1,4 @@
 use super::api::{compact_trait_id, convert_api_items};
-use ww_snapshots::cargo::{CargoSources, DepSpec, Dependent};
 use super::cfg::{
     DepRequest, Features, all_features, dep_requests, enabled_features, eval, expand_cfg_attrs,
 };
@@ -19,6 +18,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Weak};
 use syn::{File, Item};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, ApiLevelOwned, TypeLocationOwned, TypeOwned};
+use ww_snapshots::cargo::{CargoSources, DepSpec, Dependent};
 use ww_version::{FullVersionOwned, VersionOwned, WireVersion};
 
 /// Crates whose prelude re-exports other crates, usable through it without depending on them directly: `ww_api`
@@ -205,6 +205,8 @@ pub struct CratePaths {
     paths: BTreeMap<String, Vec<String>>,
     /// Module of each trait of the API by crate and trait name, where it isn't the crate root (EVO-37).
     trait_modules: BTreeMap<(String, String), Vec<String>>,
+    /// The directory of every crate the walk read, sorted: where their `api_snapshots/` are.
+    crate_dirs: Vec<PathBuf>,
 }
 
 impl CratePaths {
@@ -222,7 +224,7 @@ impl CratePaths {
             .unwrap_or_default()
     }
 
-    /// The modules of the traits walked in `scratch`.
+    /// The modules of the traits walked in `scratch`, and the directories of the crates it read.
     fn with_trait_modules(mut self, scratch: &Scratch) -> Self {
         self.trait_modules = scratch
             .trait_modules
@@ -230,7 +232,15 @@ impl CratePaths {
             .filter(|(_, modules)| !modules.is_empty())
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
+        self.crate_dirs = scratch.crate_dirs();
         self
+    }
+
+    /// The directory of every crate the walk read (the API crate and the dependencies its types and traits come
+    /// from), sorted: codegen resolves the snapshots it leaves definitions out against through their
+    /// `api_snapshots/`, and nothing else.
+    pub fn crate_dirs(&self) -> &[PathBuf] {
+        &self.crate_dirs
     }
 
     /// Name `crate_name` by `path` in generated code: `["crate"]` for code generated inside that crate itself
@@ -295,6 +305,7 @@ impl CratePaths {
         CratePaths {
             paths,
             trait_modules: BTreeMap::new(),
+            crate_dirs: vec![],
         }
     }
 }
@@ -738,6 +749,18 @@ impl CrateCache {
 }
 
 impl Scratch {
+    /// The directory of every crate loaded so far, sorted and each once.
+    pub(crate) fn crate_dirs(&self) -> Vec<PathBuf> {
+        let mut dirs: Vec<PathBuf> = self
+            .crates
+            .values()
+            .map(|cx| cx.manifest.crate_path.clone())
+            .collect();
+        dirs.sort();
+        dirs.dedup();
+        dirs
+    }
+
     /// The walk starts from the crate at `crate_path`: the `Cargo.lock` above it pins the git and registry
     /// dependencies, and what finding them reads counts as read by the walk ([stamps]).
     fn enter(&mut self, crate_path: &Path) {

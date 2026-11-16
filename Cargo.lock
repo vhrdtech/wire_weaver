@@ -6666,7 +6666,6 @@ dependencies = [
  "shrink_wrap",
  "syn 3.0.3",
  "toml",
- "wire_weaver_snapshots",
  "ww_global",
  "ww_numeric",
  "ww_self",

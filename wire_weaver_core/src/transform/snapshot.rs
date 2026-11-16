@@ -7,7 +7,7 @@ use super::{
 use anyhow::{Context, Result, anyhow};
 use shrink_wrap::UNib32;
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use syn::{Attribute, Ident, Item, Visibility};
 use ww_self::signature::{no_resolve, trait_signatures, type_signatures};
@@ -17,7 +17,8 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
 };
-use ww_version::{FullVersionOwned, WireVersion};
+use ww_snapshots::Resolver;
+use ww_version::WireVersion;
 
 /// Load all `#[ww_trait]`/`#[ww_api_root]` traits and all `#[derive_shrink_wrap]` types and unit marker structs
 /// (`pub struct Volt;`) defined in a crate's `src/lib.rs`, in its `pub mod`s at any depth, or re-exported with
@@ -64,6 +65,9 @@ pub struct SourceNotes {
     /// signature, which an embedded snapshot may hold under another signature when that crate changed without a
     /// version bump (a version not published); the checker finds this side's definition here (EVO-67).
     pub definitions: ApiBundleOwned,
+    /// The directory of every crate the load read, sorted: where their `api_snapshots/` are, which the checker
+    /// resolves skipped definitions through first.
+    pub crate_dirs: Vec<PathBuf>,
 }
 
 /// [load_crate], also returning what else the source says ([SourceNotes]).
@@ -277,6 +281,7 @@ fn snapshot_bundle(
     let unreasoned = dedup(std::mem::take(&mut scratch.unreasoned));
     let moved_from = std::mem::take(&mut scratch.moved_from);
     let trait_modules = scratch.trait_modules.clone();
+    let crate_dirs = scratch.crate_dirs();
     let scratch = std::mem::take(&mut scratch.root_bundle);
     let ext_wire = scratch.ext_wire(wire);
     let mut bundle = ApiBundleOwned {
@@ -303,6 +308,7 @@ fn snapshot_bundle(
         moved_from,
         trait_modules,
         definitions: bundle.clone(),
+        crate_dirs,
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, keep_own_types);
@@ -503,11 +509,12 @@ fn skip_foreign(bundle: &mut ApiBundleOwned) -> Result<()> {
     })
 }
 
-/// Bundle as sent by a device: traits and types known from embedded snapshots (see [wire_weaver_snapshots]) are
-/// replaced with references to them, if they have the same definition (shape signature) as in the snapshot, docs
-/// aside: the reference carries the device's own docs signature, so a host still sees when they differ (EVO-69).
-/// Everything only used by them is dropped. The API root itself is kept in-line.
-pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
+/// Bundle as sent by a device: traits and types known from the snapshots `resolver` finds (codegen: the walked
+/// crates' own `api_snapshots/`, [CratePaths::crate_dirs](super::CratePaths::crate_dirs)) are replaced with
+/// references to them, if they have the same definition (shape signature) as in the snapshot, docs aside: the
+/// reference carries the device's own docs signature, so a host still sees when they differ (EVO-69). Everything
+/// only used by them is dropped. The API root itself is kept in-line.
+pub fn skip_known(bundle: &ApiBundleOwned, resolver: &Resolver) -> Result<ApiBundleOwned> {
     let mut bundle = bundle.clone();
     skip(&mut bundle, |bundle, entry| {
         let (crate_idx, name) = match entry {
@@ -530,7 +537,7 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
             },
         };
         let version = bundle.crate_version(crate_idx)?;
-        let Some(snapshot) = known(version) else {
+        let Some(snapshot) = resolver.snapshot(version) else {
             return Ok(None);
         };
         let (signature, known_signature) = match entry {
@@ -539,8 +546,8 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
                     return Ok(None);
                 };
                 (
-                    type_signatures(bundle, idx, &known)?,
-                    type_signatures(snapshot, known_idx, &known)?,
+                    type_signatures(bundle, idx, &|v| resolver.snapshot(v))?,
+                    type_signatures(snapshot, known_idx, &|v| resolver.snapshot(v))?,
                 )
             }
             Entry::Trait(idx) => {
@@ -548,8 +555,8 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
                     return Ok(None);
                 };
                 (
-                    trait_signatures(bundle, idx, &known)?,
-                    trait_signatures(snapshot, known_idx, &known)?,
+                    trait_signatures(bundle, idx, &|v| resolver.snapshot(v))?,
+                    trait_signatures(snapshot, known_idx, &|v| resolver.snapshot(v))?,
                 )
             }
         };
@@ -558,11 +565,6 @@ pub fn skip_known(bundle: &ApiBundleOwned) -> Result<ApiBundleOwned> {
     })?;
     drop_unused(&mut bundle, false);
     Ok(bundle)
-}
-
-/// Snapshot of a crate version embedded in [wire_weaver_snapshots], as a [ww_self::signature::Resolve] callback.
-fn known<'a>(version: &FullVersionOwned) -> Option<&'a ApiBundleOwned> {
-    wire_weaver_snapshots::get(version)
 }
 
 /// In-line definition of the type named `name` (`units::Volt`, API-46) in a snapshot of its crate.
@@ -1414,8 +1416,20 @@ mod tests {
 
     /// exact_units, from the source ww_si uses: it lives in its own repository.
     fn load_exact_units() -> ApiBundleOwned {
+        load_crate(&exact_units_dir()).unwrap()
+    }
+
+    fn exact_units_dir() -> std::path::PathBuf {
         let ww_si = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
-        load_crate(&crate::dependency_dir(&ww_si, "exact_units").unwrap()).unwrap()
+        crate::dependency_dir(&ww_si, "exact_units").unwrap()
+    }
+
+    /// The API of the crate at `relative_path` as `ww_codegen!` loads it, with the resolver codegen leaves known
+    /// definitions out with: the walked crates' own `api_snapshots/`.
+    fn walked(relative_path: &str) -> (ApiBundleOwned, Resolver) {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path);
+        let (bundle, _, _, paths) = crate::load_with_hints(&crate_path, None, false).unwrap();
+        (bundle, Resolver::new().with_crate_dirs(paths.crate_dirs()))
     }
 
     fn type_idx(bundle: &ApiBundleOwned, name: &str) -> u32 {
@@ -1565,9 +1579,8 @@ mod tests {
     #[test]
     fn known_definitions_are_left_out_and_put_back() {
         use shrink_wrap::SerializeShrinkWrapOwned;
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
-        let full = crate::load(&crate_path, None, false).unwrap();
-        let sent = skip_known(&full).unwrap();
+        let (full, resolver) = walked("../examples/uart_api");
+        let sent = skip_known(&full, &resolver).unwrap();
         assert!(
             sent.traits
                 .iter()
@@ -1581,7 +1594,7 @@ mod tests {
         assert!(sent.to_ww_bytes_owned().unwrap().len() < full.to_ww_bytes_owned().unwrap().len());
 
         let mut inlined = sent.clone();
-        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut inlined);
+        let not_inlined = resolver.inline_skipped(&mut inlined).not_inlined;
         assert!(not_inlined.is_empty(), "{not_inlined:?}");
         assert_eq!(root_signature(&inlined), root_signature(&full));
     }
@@ -1589,13 +1602,12 @@ mod tests {
     /// A definition that differs from its snapshot (e.g., changed without a version bump) is kept in-line.
     #[test]
     fn changed_definition_is_kept_in_line() {
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
-        let mut full = crate::load(&crate_path, None, false).unwrap();
+        let (mut full, resolver) = walked("../examples/uart_api");
         let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
             panic!("expected an in-line trait");
         };
         level.items[0].ident.push_str("_renamed");
-        let sent = skip_known(&full).unwrap();
+        let sent = skip_known(&full, &resolver).unwrap();
         assert!(matches!(
             sent.traits[0],
             ApiLevelLocationOwned::InLine { .. }
@@ -1607,14 +1619,13 @@ mod tests {
     #[test]
     fn definition_with_other_docs_is_left_out() {
         use ww_self::signature::Match;
-        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/uart_api");
-        let mut full = crate::load(&crate_path, None, false).unwrap();
+        let (mut full, resolver) = walked("../examples/uart_api");
         let ApiLevelLocationOwned::InLine { level, .. } = &mut full.traits[0] else {
             panic!("expected an in-line trait");
         };
         let name = level.trait_name.clone();
         level.docs.push("changed".into());
-        let sent = skip_known(&full).unwrap();
+        let sent = skip_known(&full, &resolver).unwrap();
         let ApiLevelLocationOwned::SkippedFullVersion {
             signature,
             crate_idx,
@@ -1624,10 +1635,10 @@ mod tests {
             panic!("{name} is kept in-line");
         };
         let version = sent.crate_version(crate_idx.0).unwrap().clone();
-        let snapshot = wire_weaver_snapshots::get(&version);
+        let snapshot = resolver.snapshot(&version);
         let snapshot = snapshot.unwrap_or_else(|| panic!("no snapshot of {version:?}"));
         let idx = trait_idx(snapshot, &name);
-        let known = trait_signatures(snapshot, idx, &known).unwrap();
+        let known = trait_signatures(snapshot, idx, &|v| resolver.snapshot(v)).unwrap();
         assert_eq!(known.matches(signature), Match::DocsDiffer);
     }
 
@@ -1715,7 +1726,7 @@ mod tests {
             .collect();
         assert_eq!(skipped, ["Volt", "Quantity", "units::Volt", "units::Per"]);
 
-        // saved and restored as `ww api save` and wire_weaver_snapshots do
+        // saved and restored as `ww api save` writes and a host reads
         let saved = ron::to_string(&units).unwrap();
         let restored: ApiBundleOwned = ron::from_str(&saved).unwrap();
         assert_eq!(ron::to_string(&restored).unwrap(), saved);
@@ -1760,42 +1771,39 @@ mod tests {
             .reference(true)
     }
 
-    /// Snapshots are saved for the current source of each crate, and the embedded copies are the same.
+    /// Snapshots are saved for the current source of each crate whose snapshots APIs are skipped against: ww_global,
+    /// the link tap's records, exact_units (in its own repository: from the source ww_si uses) and ww_stdlib.
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        // as `just save-snapshots`: ww_global, the link tap's records, ww_timebase, exact_units, ww_stdlib; each
-        // crate with the directory its snapshots are saved in
-        let own = |path: std::path::PathBuf| (path.join("api_snapshots"), path);
-        let ww_si = root.join("ww_stdlib").join("ww_si");
         let mut crate_paths = vec![
-            own(root.join("ww_global")),
-            own(root.join("ww_tap")),
-            own(root.join("ww_timebase")),
-            // in its own repository: from the source ww_si uses, saved here
-            (
-                root.join("wire_weaver_snapshots").join("other_repos"),
-                crate::dependency_dir(&ww_si, "exact_units").unwrap(),
-            ),
+            root.join("ww_global"),
+            root.join("ww_tap"),
+            root.join("ww_timebase"),
+            exact_units_dir(),
         ];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
             let path = entry.unwrap().path();
             if path.join("Cargo.toml").exists() {
-                crate_paths.push(own(path));
+                crate_paths.push(path);
             }
         }
         let hint =
             "run `just save-snapshots` (with --force for versions that were never published)";
-        let embedded = wire_weaver_snapshots::files();
-        let copies = root.join("wire_weaver_snapshots").join("api_snapshots");
-        let mut saved_count = 0;
-        let mut superseded_count = 0;
-        for (snapshots_dir, crate_path) in crate_paths {
+        for crate_path in crate_paths {
             let bundle = load_crate(&crate_path).unwrap();
-            let file_name = format!("{}.ron", bundle.ext_crates[0].filename_friendly());
-            let saved = std::fs::read_to_string(snapshots_dir.join(&file_name))
-                .unwrap_or_else(|e| panic!("{file_name}: {e}, {hint}"));
-            let mut saved: ApiBundleOwned = ron::from_str(&saved).unwrap();
+            let version = bundle.ext_crates[0].clone();
+            let dir = ww_snapshots::Dir::of_crate(&crate_path);
+            let saved = dir
+                .snapshot(&version)
+                .unwrap_or_else(|e| panic!("{e:#}, {hint}"))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{} has no snapshot, {hint}",
+                        dir.file_path(&version).display()
+                    )
+                });
+            let mut saved = saved.bundle;
             // records which ww_self saved it, doesn't make a snapshot out of date
             saved.ww_self_version = bundle.ww_self_version;
             // nor does the order the walker numbered the same definitions in (EVO-75)
@@ -1805,119 +1813,9 @@ mod tests {
             assert_eq!(
                 ron::to_string(&saved).unwrap(),
                 ron::to_string(&bundle).unwrap(),
-                "{file_name} is out of date, {hint}"
+                "{} is out of date, {hint}",
+                dir.file_path(&version).display()
             );
-            let (saved, superseded) = check_copies(
-                &snapshots_dir,
-                &copies,
-                embedded,
-                &wire_weaver_snapshots::superseded_files().collect::<Vec<_>>(),
-                hint,
-            );
-            saved_count += saved;
-            superseded_count += superseded;
         }
-        assert_eq!(
-            saved_count,
-            embedded.len(),
-            "stale snapshots are embedded, {hint}"
-        );
-        assert_eq!(
-            superseded_count,
-            wire_weaver_snapshots::superseded_files().count(),
-            "stale superseded definitions are embedded, {hint}"
-        );
-    }
-
-    /// Checks every file of `snapshots_dir` against its copy in `copies` and the embedded snapshots (`embedded`, file
-    /// name and rendered text) or, in its `superseded/` directory (EVO-68), the embedded superseded definitions
-    /// (`superseded`, file names): the number of snapshots and of superseded definitions checked.
-    fn check_copies(
-        snapshots_dir: &Path,
-        copies: &Path,
-        embedded: &[(&str, &str)],
-        superseded: &[&str],
-        hint: &str,
-    ) -> (usize, usize) {
-        let (mut saved_count, mut superseded_count) = (0, 0);
-        for entry in std::fs::read_dir(snapshots_dir).unwrap() {
-            let path = entry.unwrap().path();
-            let file_name = path.file_name().unwrap().to_str().unwrap();
-            // the definitions refreshes in place replaced: copied and embedded as they are
-            if path.is_dir() {
-                for kept in std::fs::read_dir(&path).unwrap() {
-                    let kept = kept.unwrap().path();
-                    let name = kept.file_name().unwrap().to_str().unwrap();
-                    assert!(
-                        superseded.contains(&name),
-                        "{file_name}/{name} is not embedded, {hint}"
-                    );
-                    assert!(
-                        std::fs::read(copies.join(file_name).join(name)).ok()
-                            == Some(std::fs::read(&kept).unwrap()),
-                        "copy of {file_name}/{name} in wire_weaver_snapshots differs, {hint}"
-                    );
-                    superseded_count += 1;
-                }
-                continue;
-            }
-            let (_, rendered) = embedded
-                .iter()
-                .find(|(name, _)| *name == file_name)
-                .unwrap_or_else(|| panic!("{file_name} is not embedded, {hint}"));
-            // only the bytes are embedded (files() renders the text from them): the copy in
-            // wire_weaver_snapshots is the saved file, and the embedded bytes are the ones it hashes to
-            let text = std::fs::read_to_string(&path).unwrap();
-            assert_eq!(
-                std::fs::read_to_string(copies.join(file_name)).unwrap(),
-                text,
-                "copy of {file_name} in wire_weaver_snapshots differs, {hint}"
-            );
-            assert_eq!(
-                ww_self::snapshot::saved_hash(rendered),
-                ww_self::snapshot::saved_hash(&text),
-                "embedded {file_name} differs, {hint}"
-            );
-            saved_count += 1;
-        }
-        (saved_count, superseded_count)
-    }
-
-    /// A crate's `api_snapshots/` with a `superseded/` directory (EVO-68) is checked file by file, the directory
-    /// against the embedded superseded definitions, not looked up as a snapshot named `superseded`.
-    #[test]
-    fn superseded_directory_is_checked_as_superseded_definitions() {
-        let base = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../target/ww_core_tests")
-            .join(format!("superseded-{}", std::process::id()));
-        let text = "// a\n// b\n// sha256: 00\n()";
-        for dir in [base.join("own"), base.join("copies")] {
-            std::fs::create_dir_all(dir.join("superseded")).unwrap();
-            std::fs::write(dir.join("dep_0_1_0.ron"), text).unwrap();
-            std::fs::write(dir.join("superseded/dep_0_1_0-type-E-00.ww"), [1, 2]).unwrap();
-        }
-        let counts = check_copies(
-            &base.join("own"),
-            &base.join("copies"),
-            &[("dep_0_1_0.ron", text)],
-            &["dep_0_1_0-type-E-00.ww"],
-            "",
-        );
-        std::fs::write(base.join("copies/superseded/dep_0_1_0-type-E-00.ww"), [3]).unwrap();
-        let changed = std::panic::catch_unwind(|| {
-            check_copies(
-                &base.join("own"),
-                &base.join("copies"),
-                &[("dep_0_1_0.ron", text)],
-                &["dep_0_1_0-type-E-00.ww"],
-                "",
-            )
-        });
-        std::fs::remove_dir_all(&base).unwrap();
-        assert_eq!(counts, (1, 1));
-        assert!(
-            changed.is_err(),
-            "a changed copy of a superseded definition is found"
-        );
     }
 }

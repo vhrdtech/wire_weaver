@@ -86,6 +86,9 @@ pub struct Stored {
 pub fn store_crate(into: &Dir, from: &Dir) -> Result<Stored> {
     let mut stored = Stored::default();
     for (version, path) in from.files()? {
+        if same_bytes(&path, &into.file_path(&version)) {
+            continue;
+        }
         match file::read(&path) {
             Ok(snapshot) => {
                 if store_snapshot(into, &snapshot)? {
@@ -100,6 +103,9 @@ pub fn store_crate(into: &Dir, from: &Dir) -> Result<Stored> {
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
+        if same_bytes(&path, &superseded_into.join(name)) {
+            continue;
+        }
         let bytes = match checked_superseded(&path) {
             Ok(bytes) => bytes,
             Err(e) => {
@@ -112,6 +118,17 @@ pub fn store_crate(into: &Dir, from: &Dir) -> Result<Stored> {
         }
     }
     Ok(stored)
+}
+
+/// Whether the file at `b` is there with the same bytes as `a`: already stored, nothing to check again. Sizes are
+/// compared first, so a file past the limits is never read whole.
+fn same_bytes(a: &Path, b: &Path) -> bool {
+    let (Ok(size_a), Ok(size_b)) = (fs::metadata(a), fs::metadata(b)) else {
+        return false;
+    };
+    size_a.len() == size_b.len()
+        && size_a.len() <= crate::limits::SNAPSHOT_FILE_BYTES_MAX
+        && fs::read(a).ok() == fs::read(b).ok()
 }
 
 /// The bytes of a superseded definition file, checked to decode and to be named by one of its own signatures.

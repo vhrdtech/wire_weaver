@@ -2128,7 +2128,8 @@ Unicast Data0 to one node over the same bus is TR-6.
   only when its shape signature matches what the device sent. A value whose type has no definition anywhere is
   `ww_self::Value::Opaque` (crate, version, name, signature, bytes), printed by `ww` with a hint, `ww.Opaque` in
   Python, refused when sent. A connection resolves through the resolver it is given (`ClientConfig::resolver`,
-  `HubConfig::resolver`, `Resolver::global()` by default); tests pass `Resolver::offline`. `just save-snapshots` saves `ww_global`, `ww_tap` and `ww_stdlib/*` in place;
+  `HubConfig::resolver`, `Resolver::global()` by default); tests pass `Resolver::offline`. `WIRE_WEAVER_HOME` moves
+  `~/.wire_weaver`; tests run on a scratch one, offline (`.config/test-home.sh`). `just save-snapshots` saves `ww_global`, `ww_tap` and `ww_stdlib/*` in place;
   exact_units keeps its snapshot in its own repository. `docs/evolution/snapshots.md`; tests `ww_snapshots`,
   `tests/stdlib_evolution` (`snapshots_can_be_inlined`, `superseded_definitions_load`,
   `signatures_from_before_marker_definitions`), `wire_weaver_client` `compat`, `ww_self`

@@ -26,9 +26,10 @@ fn cache_api_bundle_inner(
     let with_docs = if contains_docs { "+docs" } else { "" };
     // NOTE: wire_weaver_client/src/local_registry.rs uses the same naming scheme, keep in sync
     let filename = format!("{}-{hash}{with_docs}.ron", api_crate.filename_friendly());
-    let local_registry_path = std::env::home_dir()
-        .ok_or(anyhow!("no home directory"))?
-        .join(".wire_weaver");
+    let local_registry_path = ww_self::host::root().ok_or(anyhow!(
+        "no home directory and no {}",
+        ww_self::host::HOME_ENV
+    ))?;
     let file_path = local_registry_path.join(filename);
     // kept when it reads back: a file of an older ww_self format is written again
     if read_back(&file_path) {

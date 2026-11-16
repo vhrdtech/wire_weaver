@@ -28,6 +28,8 @@ pub mod fuzz_series;
 #[cfg(feature = "std")]
 pub mod generics;
 #[cfg(feature = "std")]
+pub mod host;
+#[cfg(feature = "std")]
 pub mod inline;
 #[cfg(feature = "std")]
 pub mod keys;

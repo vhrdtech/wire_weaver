@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `host::root()` and `host::HOME_ENV` (EVO-80): the host's root, `WIRE_WEAVER_HOME` or `~/.wire_weaver`; `definition_cache::default_dir` is under it.
 - `Value::Opaque` (EVO-80): the dynamic decoder gives the payload of a value whose type has no definition on this host (`inline::skipped_reached`); the serializer refuses one.
 - `definition_cache` refuses an entry over `ENTRY_BYTES_MAX` unread and a definition name that is not one (`is_plain_definition_name`) before it forms a path (EVO-80).
 - `inline::find_type` and `find_trait`, the index of a named definition in a bundle, are public (EVO-80).

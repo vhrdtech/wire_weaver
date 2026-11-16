@@ -37,9 +37,9 @@ pub const SOURCES_FILE: &str = "sources.toml";
 /// Environment variable that turns the fetch off when set to anything but empty or `0`.
 pub const OFFLINE_ENV: &str = "WW_OFFLINE";
 
-/// `~/.wire_weaver`, `None` without a home directory.
+/// The host's root, `ww_self::host::root`: `WIRE_WEAVER_HOME` or `~/.wire_weaver`; `None` without either.
 pub fn default_root() -> Option<PathBuf> {
-    Some(std::env::home_dir()?.join(".wire_weaver"))
+    ww_self::host::root()
 }
 
 /// The snapshots directory of the cache rooted at `root`.

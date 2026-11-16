@@ -80,6 +80,17 @@ A repository's archive is fetched at `ref`, the default branch when absent. Old 
 crate's `api_snapshots/`, so the default branch has every version's snapshot. Only GitHub repositories are fetched
 from; for anything else, `ww api cache` a checkout. Every fetch logs one line naming the URL.
 
+### Another root: `WIRE_WEAVER_HOME`
+
+Everything a host keeps lives under one root, `~/.wire_weaver` by default: the cache, `sources.toml`, the
+definition cache (`definitions/`) and the APIs that codegen and clients store. `WIRE_WEAVER_HOME=DIR` moves all of
+it to `DIR`, for codegen, clients, `ww` and the hub alike.
+
+The workspace's tests use both variables: `.config/test-home.sh`, a nextest setup script, points `WIRE_WEAVER_HOME`
+(and the clock-sync state directory, `WW_STATE_DIR`) at a scratch directory and sets `WW_OFFLINE=1`. No test reads or
+changes what the machine has, and none reaches the network. A test device puts its own introspection data into its
+client's cache (`tests_common::api!`), as described in [introspection](../api/introspection.md).
+
 ## Embedding snapshots in an application
 
 An application that must work offline embeds the snapshots at build time. A `build.rs` writes the set from the

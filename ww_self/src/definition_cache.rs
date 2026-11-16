@@ -51,13 +51,9 @@ pub fn is_plain_definition_name(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
 }
 
-/// `~/.wire_weaver/definitions`, `None` without a home directory.
+/// `definitions` under the host's root ([crate::host::root], `~/.wire_weaver` by default), `None` without one.
 pub fn default_dir() -> Option<PathBuf> {
-    Some(
-        std::env::home_dir()?
-            .join(".wire_weaver")
-            .join("definitions"),
-    )
+    Some(crate::host::root()?.join("definitions"))
 }
 
 /// The file name of the entry of a definition: `ww_error_0_1_0-type-CommonError-<signature>.ww`. Superseded

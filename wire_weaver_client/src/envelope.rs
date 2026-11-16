@@ -868,9 +868,10 @@ pub fn compact_trait_name(
     ))
 }
 
-/// The trait `trait_name` of crate `version` as a level, from the API snapshots this host carries
+/// The trait `trait_name` of crate `version` as a level, from the API snapshots this host finds
 /// ([crate::snapshots]): the traits a device leaves out of its introspection data, and what a request through a
-/// global trait id (`PathKind::GlobalFull`) names. `None` when the version is not embedded or has no such trait.
+/// global trait id (`PathKind::GlobalFull`) names. `None` when no snapshot of the version is found or it has no such
+/// trait.
 pub fn global_trait(version: &FullVersionOwned, trait_name: &str) -> Option<DynResource> {
     type Key = (FullVersionOwned, String);
     static CACHE: Mutex<Option<HashMap<Key, Option<DynResource>>>> = Mutex::new(None);
@@ -879,7 +880,7 @@ pub fn global_trait(version: &FullVersionOwned, trait_name: &str) -> Option<DynR
         .get_or_insert_with(HashMap::new)
         .entry((version.clone(), trait_name.to_string()))
         .or_insert_with(|| {
-            let mut bundle = crate::snapshots::get(version)?.clone();
+            let mut bundle = ww_snapshots::Resolver::global().snapshot(version)?.clone();
             crate::client::introspect::inline_known(&mut bundle).ok()?;
             let idx = bundle.traits.iter().position(|t| {
                 matches!(

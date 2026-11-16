@@ -31,6 +31,7 @@ use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned;
 use ww_client_server::ResourceIndex;
 use ww_client_server::{ErrorOwned, PathKind, PathKindOwned, Request};
 use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity};
+use ww_snapshots::Resolver;
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned, WireVersion};
 
 /// Crate, trait name and version: what decides whether a trait matches (the whole version, its snapshot gives the
@@ -226,7 +227,7 @@ pub(crate) fn find_trait(
     let omitted: Vec<u32> = api.root_omitted.iter().flatten().map(|id| id.0).collect();
     let wanted = Wanted {
         version: wanted,
-        wire: wire_weaver_snapshots::get(wanted).and_then(|s| s.wire),
+        wire: Resolver::global().snapshot(wanted).and_then(|s| s.wire),
     };
     find_in_level(api, &api.root, &omitted, &wanted, trait_name, &mut vec![])
 }
@@ -380,7 +381,7 @@ pub trait Status {
             .unwrap();
         let wanted = device.ext_crates[idx].clone();
         assert_eq!(
-            wire_weaver_snapshots::get(&wanted).and_then(|s| s.wire),
+            Resolver::global().snapshot(&wanted).and_then(|s| s.wire),
             Some(WireVersion::new(2, 0))
         );
         device.ext_crates[idx].version = VersionOwned::new(0, 4, 0);

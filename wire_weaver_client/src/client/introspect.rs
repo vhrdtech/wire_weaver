@@ -9,6 +9,7 @@ use tracing::{debug, warn};
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 use ww_client_server::PathKindOwned;
 use ww_self::ApiBundleOwned;
+use ww_snapshots::Resolver;
 use ww_version::ApiHashPairOwned;
 
 pub struct Introspect {
@@ -41,10 +42,10 @@ impl Introspect {
     ///
     /// See also: [Introspect::download]
     pub async fn get(self) -> Result<Option<ApiBundleOwned>> {
-        self.get_as_sent()
-            .await?
-            .map(|(bundle, _)| inlined(bundle))
-            .transpose()
+        match self.get_as_sent().await? {
+            Some((bundle, _)) => inlined_blocking(bundle).await.map(Some),
+            None => Ok(None),
+        }
     }
 
     /// Load introspect data from local cache at `~/.wire_weaver/` if available.
@@ -115,10 +116,10 @@ impl Introspect {
     ///
     /// See also [Introspect::get] that uses local cache.
     pub async fn download(self) -> Result<Option<ApiBundleOwned>> {
-        self.download_as_sent()
-            .await?
-            .map(|(bundle, _)| inlined(bundle))
-            .transpose()
+        match self.download_as_sent().await? {
+            Some((bundle, _)) => inlined_blocking(bundle).await.map(Some),
+            None => Ok(None),
+        }
     }
 
     /// Download introspect data from a remote device, skipping the local cache lookup, and cache it.
@@ -204,22 +205,29 @@ fn inlined(mut bundle: ApiBundleOwned) -> Result<ApiBundleOwned> {
     Ok(bundle)
 }
 
+/// [inlined] off the runtime's workers: the resolver reads files, and may fetch a snapshot, on the way.
+async fn inlined_blocking(bundle: ApiBundleOwned) -> Result<ApiBundleOwned> {
+    tokio::task::spawn_blocking(move || inlined(bundle))
+        .await
+        .context("inlining introspection data")?
+}
+
 /// Put back traits and types that a device left out of its introspection data, because they are known from
-/// snapshots (see [crate::snapshots]), or by signature from the definition cache on this machine
-/// ([ww_self::definition_cache]). The ones that are not found are logged and left skipped. Then checks the
-/// bundle and instantiates its generic types ([ww_self::generics::prepare]): introspection data comes from a
-/// device and is not trusted, a malformed one is an error.
+/// snapshots the process's resolver finds ([crate::snapshots], [Resolver::global]), or by signature from the
+/// definition cache on this machine ([ww_self::definition_cache]). The ones that are not found are logged and left
+/// skipped. Then checks the bundle and instantiates its generic types ([ww_self::generics::prepare]): introspection
+/// data comes from a device and is not trusted, a malformed one is an error.
 pub(crate) fn inline_known(bundle: &mut ApiBundleOwned) -> Result<()> {
-    inline_known_in(bundle, ww_self::definition_cache::default_dir().as_deref());
+    inline_known_with(bundle, Resolver::global());
     ww_self::generics::prepare(bundle).context("malformed introspection data")
 }
 
-/// [inline_known] with the definition cache in `cache_dir`.
-pub(crate) fn inline_known_in(
+/// [inline_known] through `resolver`, without the check that follows.
+pub(crate) fn inline_known_with(
     bundle: &mut ApiBundleOwned,
-    cache_dir: Option<&std::path::Path>,
+    resolver: &Resolver,
 ) -> ww_self::inline::Inlined {
-    let inlined = crate::snapshots::inline_skipped_or_cached(bundle, cache_dir);
+    let inlined = resolver.inline_skipped(bundle);
     for from_cache in &inlined.from_cache {
         warn!(
             "Device API has {from_cache}: likely a build from another revision of an unpublished crate, its \

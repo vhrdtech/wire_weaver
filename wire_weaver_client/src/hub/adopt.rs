@@ -43,9 +43,6 @@ pub(crate) async fn connect() -> Result<HubSide, Refused> {
         .await
         .map_err(|e| Refused::ByHub(e.to_string()))?;
     let at = socket.display().to_string();
-    // the first connect of a process parses the embedded API snapshots (~90 ms in a debug build): not on the
-    // runtime's workers, where it would hold up the link that is still running
-    let _ = tokio::task::spawn_blocking(|| crate::snapshots::all().len()).await;
     let hub = connect_hub(at)
         .await
         .map_err(|e| Refused::ByHub(format!("{e:#}")))?;

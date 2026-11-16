@@ -427,9 +427,10 @@ pub(crate) mod tests {
     /// rules; without it, the error says what happened.
     mod other_revision {
         use super::*;
-        use crate::client::introspect::inline_known_in;
+        use crate::client::introspect::inline_known_with;
         use ww_self::definition_cache::{self, Kind};
         use ww_self::signature::{SIGNATURE_LEN, canonical_type_bytes, signatures_of};
+        use ww_snapshots::{CargoScan, Resolver};
 
         /// `read`, `write` and `supply` (returns `ww_si::Volt`, `Quantity<units::Volt>`). The fixture is the marker
         /// `units::Volt`, a plain definition: one from another revision is compared by the evolution rules. A generic
@@ -439,6 +440,14 @@ pub(crate) mod tests {
         fn full() -> ApiBundleOwned {
             let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../tests/cfg_variants_api");
             wire_weaver_core::load(&dir, None, false).unwrap()
+        }
+
+        /// The snapshots of this workspace's crates, through its lock; no cache, no embedded set.
+        fn resolver() -> Resolver {
+            Resolver::new().with_cargo_scan(CargoScan {
+                workspace: Some(PathBuf::from(env!("CARGO_MANIFEST_DIR"))),
+                cargo_home: ww_snapshots::cargo::default_cargo_home().ok(),
+            })
         }
 
         fn marker_idx(bundle: &ApiBundleOwned) -> usize {
@@ -469,7 +478,8 @@ pub(crate) mod tests {
             legacy: bool,
         ) -> (ApiBundleOwned, ApiBundleOwned, Vec<u8>, Vec<u8>) {
             let full = full();
-            let sent = wire_weaver_core::transform::skip_known(&full).unwrap();
+            let resolver = resolver();
+            let sent = wire_weaver_core::transform::skip_known(&full, &resolver).unwrap();
             let mut older_full = full.clone();
             let idx = marker_idx(&older_full);
             let TypeLocationOwned::InLine {
@@ -481,8 +491,8 @@ pub(crate) mod tests {
             };
             older(marker);
             let marker_crate_idx = marker.crate_idx.0;
-            let resolve = |v: &_| crate::snapshots::get(v);
-            let bytes = canonical_type_bytes(&older_full, idx as u32, &resolve).unwrap();
+            let bytes =
+                canonical_type_bytes(&older_full, idx as u32, &|v| resolver.snapshot(v)).unwrap();
             let older_signatures = signatures_of(&bytes).unwrap();
             let older_signature = match legacy {
                 true => older_signatures.with_docs.clone(),
@@ -510,7 +520,7 @@ pub(crate) mod tests {
             assert!(!host_signature.is_empty(), "units::Volt is left out");
             assert_ne!(host_signature, older_signature);
             let mut host = sent;
-            inline_known_in(&mut host, None);
+            inline_known_with(&mut host, &resolver);
             (host, device, host_signature, older_signature)
         }
 
@@ -524,7 +534,7 @@ pub(crate) mod tests {
                 Some(&dir),
                 true,
             );
-            let inlined = inline_known_in(&mut device, Some(&dir));
+            let inlined = inline_known_with(&mut device, &resolver().with_definitions(dir.clone()));
             assert!(inlined.not_inlined.is_empty(), "{:?}", inlined.not_inlined);
             assert_eq!(inlined.from_cache.len(), 1);
             let from_cache = &inlined.from_cache[0];
@@ -549,7 +559,7 @@ pub(crate) mod tests {
                 None,
                 false,
             );
-            let inlined = inline_known_in(&mut device, None);
+            let inlined = inline_known_with(&mut device, &resolver());
             assert!(inlined.not_inlined.is_empty(), "{:?}", inlined.not_inlined);
             assert!(inlined.from_cache.is_empty(), "{:?}", inlined.from_cache);
             let names: Vec<_> = inlined
@@ -572,7 +582,7 @@ pub(crate) mod tests {
                 Some(&dir),
                 false,
             );
-            inline_known_in(&mut device, Some(&dir));
+            inline_known_with(&mut device, &resolver().with_definitions(dir.clone()));
             let compat = ApiCompat::new(&host, &device);
             assert_incompatible(&compat, &[SUPPLY], "struct Volt");
             std::fs::remove_dir_all(&dir).unwrap();
@@ -586,7 +596,7 @@ pub(crate) mod tests {
                 None,
                 false,
             );
-            let inlined = inline_known_in(&mut device, Some(&dir));
+            let inlined = inline_known_with(&mut device, &resolver().with_definitions(dir.clone()));
             assert_eq!(inlined.not_inlined.len(), 1);
             let compat = ApiCompat::new(&host, &device);
             let Verdict::Incompatible(reason) = verdict(&compat, &[SUPPLY]) else {

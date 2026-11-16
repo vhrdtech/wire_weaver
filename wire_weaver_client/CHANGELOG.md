@@ -6,6 +6,7 @@
 
 ### ⚠️ Breaking
 
+- `snapshots` is `ww_snapshots`: `Resolver::global().snapshot(v)` replaces `snapshots::get(v)`, `all()` is gone (EVO-80).
 - `tap::What` gains `BadBody`, `Stats` gains `blocks_bad`: a coded body that doesn't decode is reported (STD-129).
 
 ### 🐛 Fixes

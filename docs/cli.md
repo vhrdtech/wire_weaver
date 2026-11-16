@@ -16,10 +16,11 @@ Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 cargo install --git https://github.com/vhrdtech/wire_weaver ww
 ```
 
-From a local checkout of the repository, `just install` builds `ww` with the `deploy` profile and installs
-it. It works anywhere: with the internal release tool on PATH it goes into the kept-releases stack in
+From a local checkout of the repository, `just install` (in the root or in `ww_tools/`, whose justfile has the
+tools' recipes: install, deploy, test, lint, py) builds `ww` with the `deploy` profile and installs it. It works anywhere: with the internal release tool on PATH it goes into the kept-releases stack in
 `~/.local/bin` (the only `ww` on `PATH`), otherwise through `cargo install --locked --path ww_tools/ww`. `ww_tools/` is its own Cargo workspace: it
-links the commands of logring (`ww logring`) and chunky_mcu_updater (`ww chunky`), which take WireWeaver by git.
+links the commands of logring (`ww logring`) and chunky_mcu_updater (`ww chunky`), which take WireWeaver by git;
+the root's own recipes never build it (`just save-snapshots` uses the examples `ww_generic` and `ww_stdlib`).
 `just deploy` pulls main first and checks `ww --version`.
 
 Inside the repository it can also be run without installing, with `cargo ww <args>` (alias from

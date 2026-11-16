@@ -1,6 +1,6 @@
 """Interactive console with `wire_weaver` imported as `ww` and, when possible, a device connected as `dev`.
 
-Run from the workspace root: `just py [options]` (builds the module first), or from wire_weaver_py:
+Run from ww_tools/: `just py [options]` (builds the module first), or from wire_weaver_py:
 `uv run python -i scripts/console.py [options]`. See `--help`.
 """
 

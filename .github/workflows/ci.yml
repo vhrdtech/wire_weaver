@@ -64,7 +64,6 @@ jobs:
           components: clippy
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - run: cargo clippy --manifest-path ww_tools/Cargo.toml --workspace --all-targets --all-features -- -D warnings
 
   doc:
     name: rustdoc
@@ -107,8 +106,6 @@ jobs:
       - run: cargo test --workspace --doc
       # facade!'s compile errors (CLT-64): trybuild, ignored by nextest as it builds the crate again
       - run: cargo test -p wire_weaver_client --test facade_ui -- --ignored
-      # the shipped tools, their own workspace (ww and the wheel with logring's and chunky's commands, TOOL-38)
-      - run: cargo nextest run --manifest-path ww_tools/Cargo.toml --workspace
 
   miri:
     name: miri (observe cells)
@@ -124,6 +121,26 @@ jobs:
       - run: cargo +nightly miri test -p ww_stream --features std --lib cells_tests
         env:
           MIRIFLAGS: -Zmiri-many-seeds=0..16
+
+  # the shipped tools, their own workspace: ww and the wheel with logring's and chunky's commands (TOOL-39)
+  tools:
+    name: ww_tools
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ww_tools
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          components: clippy
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo nextest run --workspace
 
   # the conformance matrix's Python consumer (TEST-23); the derive, dynamic and C consumers run in `test`
   conformance-py:

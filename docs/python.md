@@ -35,7 +35,7 @@ uvx maturin develop --release      # or install into the active virtual environm
 
 ## Interactive console
 
-From the repository root, `just py` builds the module into `ww_tools/wire_weaver_wheel/.venv` (only when Rust sources changed)
+From `ww_tools/` (the shipped tools' workspace, with its own justfile), `just py` builds the module into `ww_tools/wire_weaver_wheel/.venv` (only when Rust sources changed)
 and opens a Python prompt with `ww` imported and the device connected as `dev`, if exactly one is found or a filter
 is given:
 

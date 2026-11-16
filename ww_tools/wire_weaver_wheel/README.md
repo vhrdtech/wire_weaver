@@ -7,7 +7,7 @@ live here; the classes and functions of the module live in `wire_weaver_py`, a l
 ```sh
 uvx maturin build --release        # wheel in target/wheels/
 uvx maturin develop --release      # or into the active virtual environment
-uv run --group dev pytest          # the tests (`just test-py` from the repository root)
+uv run --group dev pytest          # the tests (`just test-py` from ww_tools/)
 ```
 
 Documentation: `docs/python.md`.

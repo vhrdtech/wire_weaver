@@ -14,14 +14,13 @@ default:
 # (uses our internal tooling when available, otherwise falls back to the full suite).
 test *flags:
     if [ "{{flags}}" = "--changed" ]; then \
-        if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace && {{just_executable()}} test-tools; \
+        if command -v tpm >/dev/null 2>&1; then tpm test changed -- cargo nextest run --workspace; \
         else echo "tpm not found; running the full test suite instead" >&2; {{just_executable()}} test-all; fi; \
     else {{just_executable()}} test-all {{flags}}; fi
 
 # Test everything
 test-all:
     cargo nextest run --workspace --no-fail-fast
-    just test-tools
     # a firmware's SeriesStore sizes, compare and conversions, with the number types up to 32 bits only
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow
@@ -31,8 +30,6 @@ test-all:
     cargo nextest run -p ww_crc -p ww_block --no-default-features
     cargo nextest run -p ww_crc -p ww_block --no-default-features --features ww_crc/table-256
     cargo nextest run -p ww_crc --features table-slice16
-    # the conformance matrix's Python consumer (TEST-23), the Rust ones run above
-    just test-conformance-py
     # the docs site's Markdown extensions (the `bits` fence)
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
@@ -43,10 +40,6 @@ test-all:
     just test-facade-ui
     # no f32, f64 or 128-bit code from ww_si's device operations where a firmware didn't opt into floats (TEST-33)
     just no-float-guard
-
-# The shipped tools, ww_tools/ (its own workspace: ww and the wheel, with logring's and chunky's commands)
-test-tools:
-    cargo nextest run --manifest-path ww_tools/Cargo.toml --workspace --no-fail-fast
 
 # A server with ww_client_server built without `multi` and `streams`, as in a firmware, refusing the corpus's multi,
 # credit sink and Ack requests as not supported (SRV-60); alone, since a workspace build turns the features on
@@ -81,11 +74,6 @@ tape-golden-update:
 # Fill in the golden bytes of new dispatch_golden cases ("request"/"reply"/an event "?") from the sync server (TEST-31)
 dispatch-golden-update:
     DISPATCH_GOLDEN=update cargo nextest run -p dispatch_golden corpus
-
-# The conformance corpus through the Python module (wire_weaver_wheel), in its own venv (TEST-23)
-[working-directory('ww_tools/wire_weaver_wheel')]
-test-conformance-py:
-    uv run --group dev pytest -q tests/test_conformance.py
 
 # Observe cells under miri: the SeriesCells round trips, and the ring's writer and reader on two threads over many
 # interleavings (about a minute)
@@ -130,11 +118,6 @@ lint:
     cargo clippy --workspace --all-targets -- -D warnings
     cargo clippy --workspace --all-targets --all-features -- -D warnings
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
-    # ww_tools/, its own workspace
-    cargo fmt --all --check --manifest-path ww_tools/Cargo.toml
-    cargo sort -w -g --check ww_tools
-    cargo clippy --manifest-path ww_tools/Cargo.toml --workspace --all-targets --all-features -- -D warnings
-    RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path ww_tools/Cargo.toml --workspace --no-deps --all-features
     just lint-c
 
 # Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); build and run the generated fixed-layout (SW-45) and head+tail (SW-46) C readers
@@ -147,16 +130,6 @@ lint-c:
     target/fixed_layout_c
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -o target/head_tail_c shrink_wrap/shrink_wrap/tests/head_tail_c.c
     target/head_tail_c
-
-# Build the Python module (wire_weaver_wheel) into its own venv and run its tests
-[working-directory('ww_tools/wire_weaver_wheel')]
-test-py:
-    uv run --group dev pytest
-
-# Python console with `ww` imported and the device connected as `dev` (rebuilds the module if needed), `just py --help`
-[working-directory('ww_tools/wire_weaver_wheel')]
-py *args:
-    WW_CWD="{{invocation_directory()}}" uv run python -i scripts/console.py {{args}}
 
 # cargo check everything
 check: check-core check-mcu check-examples-mcu
@@ -263,49 +236,43 @@ check-examples-mcu-rp2:
 upload-examples-mcu-usb-stm32h725ig:
     mx3 fw upload --bin uart --release --rename usb_b135_uart
 
-# Build ww and install it
+# Build ww and install it: ww_tools/'s recipe (ww, the wheel and their tests live in that workspace and its justfile)
 install:
-    cargo build --profile deploy --locked --manifest-path ww_tools/Cargo.toml -p ww
-    # With the internal release tool on PATH: install through it (kept-releases stack, one copy on PATH); otherwise: cargo install
-    if command -v tpm >/dev/null; then tpm install ww_tools/target/deploy/ww; else cargo install --locked --path ww_tools/ww; fi
+    just -f ww_tools/justfile install
 
 # Old name of install, kept for people and docs
 install-cli: install
 
-# Build ww from a fresh clone of HEAD with nothing but this repository around (what `cargo install --git` sees)
-check-clean-clone:
-    rm -rf /tmp/ww-clean-clone && git clone -q . /tmp/ww-clean-clone
-    cd /tmp/ww-clean-clone && cargo build --locked --manifest-path ww_tools/Cargo.toml -p ww
-    rm -rf /tmp/ww-clean-clone
-
-# Bring this PC up to main: pull --ff-only, refuse on local changes, install, check ww --version against main
+# Bring this PC up to main and install ww: ww_tools/'s recipe
 deploy:
-    #!/usr/bin/env bash
-    set -eu
-    dirty=$(git status --porcelain)
-    if [ -n "$dirty" ]; then echo "local changes, not deploying:"; echo "$dirty"; exit 1; fi
-    git pull --ff-only
-    just install
-    ww --version | grep -q "($(git rev-parse --short HEAD)" || { echo "ww --version does not show $(git rev-parse --short HEAD):"; ww --version; exit 1; }
-    ww --version
+    just -f ww_tools/justfile deploy
 
-# Save API snapshots of ww_global, ww_tap, ww_timebase, ww_link, ww_client_server and the ww_stdlib crates into each crate's api_snapshots/.
-# Pass --force to overwrite snapshots of versions that were never published.
+# Save API snapshots of ww_global, ww_tap, ww_timebase, ww_link, ww_client_server and the wire line fixture, then of
+# the ww_stdlib crates, into each crate's api_snapshots/. Pass --force to overwrite snapshots of versions that were
+# never published.
 save-snapshots *args:
-    cargo build -q --manifest-path ww_tools/Cargo.toml -p ww
-    # ww_std_cli, ww_report and ww_pin_probe are host tools without an API
-    for crate in ww_global ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api ww_stdlib/*/; do \
-        case "$(basename $crate)" in ww_std_cli|ww_report|ww_pin_probe) continue;; esac; \
-        ww_tools/target/debug/ww api save $crate {{ args }} || exit 1; \
+    cargo build -q -p wire_weaver_cli --example ww_generic
+    for crate in ww_global ww_tap ww_timebase ww_link ww_client_server tests/wire_line_fixture_api; do \
+        target/debug/examples/ww_generic api save $crate {{ args }} || exit 1; \
     done
+    just save-stdlib-snapshots {{ args }}
     # the frozen fixture that follows the stdlib by path: its pins follow too (EVO-70)
     just refresh-fixture-pins
+
+# Save API snapshots of the ww_stdlib crates, with ww_std_cli's `ww` (generic and standard library commands)
+save-stdlib-snapshots *args:
+    cargo build -q -p ww_std_cli --example ww_stdlib
+    # ww_std_cli, ww_report and ww_pin_probe are host tools without an API
+    for crate in ww_stdlib/*/; do \
+        case "$(basename $crate)" in ww_std_cli|ww_report|ww_pin_probe) continue;; esac; \
+        target/debug/examples/ww_stdlib api save $crate {{ args }} || exit 1; \
+    done
 
 # Refresh the pinned stdlib signatures of the nucleo_g0b1re_api evolution fixture to the stdlib's current source,
 # keeping its old snapshot format (EVO-70). Refused on a wire break, unless --accept-breaking.
 refresh-fixture-pins *args:
-    cargo build -q --manifest-path ww_tools/Cargo.toml -p ww
-    ww_tools/target/debug/ww api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
+    cargo build -q -p wire_weaver_cli --example ww_generic
+    target/debug/examples/ww_generic api refresh-pins wire_weaver_evolution/tests/fixtures/nucleo_g0b1re_api {{ args }}
 
 pre-commit:
     cargo sort -w -g

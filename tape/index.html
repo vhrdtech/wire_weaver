@@ -6241,9 +6241,10 @@ top.</p>
 </span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>                ├─────────────────────────────┤
 </span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                │ final index    ◄──────┐     │ every block again, by track
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                │ describe backup       │     │
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                │ finish         ◄──┐   │     │ BLAKE3 hash of all bytes before it
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>                │ tail (164 B) ─────┴───┘     │ piece length, where the finish is
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   end of file ─► └─────────────────────────────┘
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                │ finish         ◄──┐   │     │ BLAKE3 hash of all bytes before it,
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>                │                   │   │     │ zero padding to the 4 KiB end
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>                │ tail (164 B) ─────┴───┘     │ piece length, where the finish is
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>   end of file ─► └─────────────────────────────┘ a multiple of 4 KiB from the start
 </span></code></pre></div>
 <p>A reader of a finished file starts at the end. It reads the last 164 bytes, the <strong>tail</strong>, which give the piece's length
 and where its finish block is. The <strong>finish</strong> block holds a BLAKE3 hash of every byte before it, per-track totals
@@ -6269,7 +6270,14 @@ piece also names the recording it belongs to (the owner id, opaque to <code>ww_t
 its items continue.</p>
 <p>Pieces written back to back are one valid tape: <code>cat 00000000.wwt 00000001.wwt</code> gives a file any reader takes. A reader
 finds the last piece's tail at the end, the piece's start from it, and the previous piece's tail just before that start,
-so it walks back through concatenated pieces with one small read each. A chain whose first pieces were deleted reads as
+so it walks back through concatenated pieces with one small read each. An unfinished piece after them (one being
+written, or cut off by a crash) is found from its checkpoints or by a scan, and the finished ones still by their tails.</p>
+<p>A finished piece is a multiple of 4 KiB long. The writer pads the finish block with zeros so the tail, still the last
+bytes of the piece, ends on the boundary; the padding is part of the finish block and its CRC, and the content hash
+covers the bytes before the finish as before. Files are then cloned back to back on btrfs and XFS (<code>cp --reflink</code>,
+<code>copy_file_range</code>, which <code>std::io::copy</code> uses between files on Linux): one file holds many pieces with no byte copied
+and nothing between them. Only the end is aligned: blocks inside a piece stay where the writer put them, and a piece
+without a finish ends where it ends, until a resume finishes it on a boundary. A chain whose first pieces were deleted reads as
 "head cut", not as damage.</p>
 <h3 id="reading-by-position">Reading by position<a class="headerlink" href="#reading-by-position" title="Permanent link">&para;</a></h3>
 <p><code>TapeReader</code> reads a tape through any byte source that reads at an offset: a slice in memory, a file, or an HTTP

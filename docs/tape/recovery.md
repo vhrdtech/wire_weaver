@@ -67,7 +67,13 @@ from the newest checkpoint and then by a scan that stops at the first bad block.
 last block the producer wrote, and cuts off the rest: a torn block, and the checkpoint, copy or end sequence the writer
 had placed after that block. It then places those again by the same rules, so a resumed piece ends with the same bytes,
 and the same content hash, as one written without the crash. The producer passes the same writer options it wrote the
-piece with, and writes again from the sequence number `next_seq` reports.
+piece with (`TapeWriter::options` gives them), and writes again from the sequence number `next_seq` reports.
+
+The resume checks those options against the layout the piece's describe set states, before it cuts or writes anything.
+Options with another chunk alignment would place blocks the way the file says it doesn't, and a reader trusts the
+layout when it looks for the end of the data, so the resume refuses them with an error naming both alignments. The
+layout's gap settings need no check, because the writer never leaves a gap. A piece cut off inside its first describe
+set, with no copy after it, states no layout; it resumes unchecked, and the result reports no layout.
 
 For example, a recorder loses power while writing piece 3 of a chain. On restart it calls `PieceChain::resume` with the
 directory and the chain options. The chain reads pieces 0 to 2 back from their tails, reopens `00000003.wwt.partial`,

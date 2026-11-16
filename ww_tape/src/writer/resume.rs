@@ -18,6 +18,13 @@
 //! the [WriterOptions] (give the ones it was written with), a piece resumed and given the blocks lost after the kept
 //! ones ends with the bytes, and the content hash, of a piece written without the crash.
 //!
+//! The options are checked against the [Layout](crate::Layout) the piece describes, before anything is cut off or
+//! written: a chunk alignment other than the described one is refused ([WriteError::Layout]), as it would place blocks
+//! the way the file says it doesn't. A whole describe set without a layout record describes an unaligned file. The
+//! layout's gaps (`gap_max`, `resume_align`) need no check: a writer never leaves a gap, which every layout allows.
+//! A piece with no whole describe set kept (its head cut off inside the set, no copy whole) has nothing to check
+//! against; [Resumed::layout] is then None.
+//!
 //! Every length and offset read back goes through [FromFile] and a cap ([crate::MAX_BLOCK_LEN]) or the piece's end;
 //! the walk moves on at least one byte a step, so it ends within the piece's length.
 
@@ -54,6 +61,9 @@ pub struct Resumed {
     /// The state of a finish block found (a crash after the finish, before the name): the piece was ended, and is
     /// open again.
     pub ended: Option<FinishState>,
+    /// The layout the piece describes, which the options were checked against; None when it holds no whole describe
+    /// set, and nothing was checked.
+    pub layout: Option<crate::Layout>,
 }
 
 impl Resumed {
@@ -65,6 +75,7 @@ impl Resumed {
             cut: None,
             entries: Vec::new(),
             ended: None,
+            layout: None,
         }
     }
 }
@@ -287,6 +298,20 @@ impl<S: TapeSink> TapeWriter<S> {
             w.replay(&step, &mut buf)?;
             at = step.end();
         }
+        let set = if w.describe.is_empty() {
+            prev_describe.as_deref().unwrap_or_default()
+        } else {
+            &w.describe
+        };
+        let layout = described_layout(set);
+        if let Some(described) = layout
+            && described.alignment.get() != options.alignment
+        {
+            return Err(WriteError::Layout {
+                described,
+                alignment: options.alignment,
+            });
+        }
         if size > kept_bytes {
             w.sink
                 .truncate(kept_bytes)
@@ -307,6 +332,7 @@ impl<S: TapeSink> TapeWriter<S> {
             cut,
             entries,
             ended,
+            layout,
         };
         Ok((w, resumed))
     }
@@ -487,6 +513,19 @@ fn read_layout<S: TapeSink>(
     let gaps = p.gaps.iter().copied().collect();
     let ended = p.finish.as_ref().map(|(f, _)| f.state);
     Ok((Layout { entries, gaps, end }, p.cut, ended))
+}
+
+/// The layout whole describe set `set` (good blocks) states: its last layout record, else unaligned. None for no set.
+fn described_layout(set: &[Vec<u8>]) -> Option<crate::Layout> {
+    if set.is_empty() {
+        return None;
+    }
+    let last = set
+        .iter()
+        .rev()
+        .filter_map(|b| Block::read(b).ok())
+        .find_map(|b| crate::walk::layout_in(&b));
+    Some(last.unwrap_or(crate::Layout::UNALIGNED))
 }
 
 fn too_long(len: u64) -> WriteError {

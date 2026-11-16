@@ -105,6 +105,11 @@ pub enum WriteError {
     Ended(FinishState),
     /// A describe addition ([crate::FLAG_SET_ADD]) doesn't join the current set.
     Describe(DescribeReadError),
+    /// The piece to resume describes a layout the options contradict: its chunk alignment isn't `alignment`.
+    Layout {
+        described: crate::Layout,
+        alignment: u32,
+    },
 }
 
 impl core::fmt::Display for WriteError {
@@ -126,6 +131,14 @@ impl core::fmt::Display for WriteError {
             WriteError::Read(e) => write!(f, "reading back the piece to resume: {e}"),
             WriteError::Ended(s) => write!(f, "the piece or chain ended already ({s:?})"),
             WriteError::Describe(e) => write!(f, "describe addition: {e}"),
+            WriteError::Layout {
+                described,
+                alignment,
+            } => write!(
+                f,
+                "the piece describes chunk alignment {}, the options give {alignment}",
+                described.alignment.get()
+            ),
         }
     }
 }
@@ -971,8 +984,8 @@ impl<S: TapeSink> TapeWriter<S> {
         Ok((done.finished, next))
     }
 
-    /// The options the writer runs with.
-    fn options(&self) -> WriterOptions {
+    /// The options the writer runs with: what [Self::resume] is to be given for this piece.
+    pub fn options(&self) -> WriterOptions {
         WriterOptions {
             sync: self.policy,
             index: self.indexer.policy(),

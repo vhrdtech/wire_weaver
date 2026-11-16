@@ -11,7 +11,7 @@ use ww_tape::piece::{PieceId, piece_name};
 use ww_tape::{
     ALIGNMENT, BlockKind, ChainOptions, CutPolicy, FileBlocks, Files, Layout, MemSink, MemTapes,
     PieceChain, PieceHead, PieceIdent, Recovery, ResultId, RunTag, SinkFactory, SyncPolicy,
-    TapeReader, TapeSink, TapeWriter, WriterOptions,
+    TapeReader, TapeSink, TapeWriter, WriteError, WriterOptions,
 };
 
 /// One call a test makes on a writer; each places one counted block.
@@ -32,7 +32,7 @@ enum Op {
 /// The calls of a recording: a describe set of three blocks, then `rounds` rounds of two chunks, a records block and a
 /// deferred one, the describe addition after half of them.
 fn ops(rounds: u64) -> Vec<Op> {
-    let mut out: Vec<Op> = (0..describe().len()).map(Op::Describe).collect();
+    let mut out: Vec<Op> = (0..describe(0).len()).map(Op::Describe).collect();
     for k in 0..rounds {
         if k == rounds / 2 {
             out.extend((0..added().len()).map(Op::Add));
@@ -47,10 +47,19 @@ fn ops(rounds: u64) -> Vec<Op> {
     out
 }
 
-/// The describe set of the tests, in three blocks.
-fn describe() -> Vec<Vec<u8>> {
-    let set = describe_blocks_max(Layout::UNALIGNED, id(0), 60);
+/// The describe set of the tests for a writer of `alignment`, in several blocks, as many for either alignment.
+fn describe(alignment: u32) -> Vec<Vec<u8>> {
+    let layout = if alignment == 0 {
+        Layout::UNALIGNED
+    } else {
+        Layout::ALIGNED
+    };
+    let set = describe_blocks_max(layout, id(0), 60);
     assert!(set.len() >= 2, "a set of several blocks");
+    assert_eq!(
+        set.len(),
+        describe_blocks_max(Layout::UNALIGNED, id(0), 60).len()
+    );
     set
 }
 
@@ -67,7 +76,7 @@ fn apply<S: TapeSink>(w: &mut TapeWriter<S>, op: Op) {
         Op::Describe(_) | Op::Add(_) => {
             let mut b = match op {
                 Op::Add(i) => added()[i].clone(),
-                Op::Describe(i) => describe()[i].clone(),
+                Op::Describe(i) => describe(w.options().alignment)[i].clone(),
                 _ => unreachable!("a describe call"),
             };
             ww_tape::set_id(&mut b, w.next_id()).unwrap();
@@ -240,6 +249,67 @@ fn a_piece_cut_anywhere_resumes_to_the_same_bytes() {
 #[test]
 fn an_aligned_piece_cut_anywhere_resumes_to_the_same_bytes() {
     cut_anywhere(ALIGNMENT);
+}
+
+/// A resume whose options contradict the layout the piece describes is refused before the piece is touched: an
+/// aligned piece with unaligned options and the reverse. The error names both alignments.
+#[test]
+fn a_resume_with_another_alignment_is_refused() {
+    let ops = ops(8);
+    for (written, given) in [(ALIGNMENT, 0), (0, ALIGNMENT)] {
+        let (want, _) = reference(written, &ops);
+        let cut = want.len() / 2;
+        let mut sink = MemSink::new(Path::new("p"));
+        sink.write_all(&want[..cut]).unwrap();
+        let tape = sink.tape();
+        let Err(e) = TapeWriter::resume_on(sink, options(given)) else {
+            panic!("alignment {given} on a piece written with {written} is refused");
+        };
+        match &e {
+            WriteError::Layout {
+                described,
+                alignment,
+            } => {
+                assert_eq!(described.alignment.get(), written);
+                assert_eq!(*alignment, given);
+            }
+            other => panic!("{other:?}"),
+        }
+        let text = e.to_string();
+        assert!(
+            text.contains(&written.to_string()) && text.contains(&given.to_string()),
+            "{text}"
+        );
+        assert_eq!(
+            tape.to_vec().unwrap(),
+            want[..cut],
+            "the piece is untouched"
+        );
+
+        // the options it was written with resume it, and say what was checked
+        let mut sink = MemSink::new(Path::new("p"));
+        sink.write_all(&want[..cut]).unwrap();
+        let (_, resumed) = TapeWriter::resume_on(sink, options(written)).unwrap();
+        assert_eq!(resumed.layout.map(|l| l.alignment.get()), Some(written));
+    }
+}
+
+/// A piece cut off inside its head describe set has no layout to check against: it resumes with any options, and
+/// says nothing was checked.
+#[test]
+fn a_piece_without_a_whole_describe_set_resumes_unchecked() {
+    let ops = ops(2);
+    let (want, _) = reference(0, &ops);
+    let r = TapeReader::open(&want[..]).unwrap();
+    let first = (r.track_entries(0, 0).unwrap().into_iter())
+        .find(|e| e.kind == BlockKind::Describe)
+        .unwrap();
+    // inside the second block of the head's set
+    let cut = (first.offset + u64::from(first.len) + 10) as usize;
+    let mut sink = MemSink::new(Path::new("p"));
+    sink.write_all(&want[..cut]).unwrap();
+    let (_, resumed) = TapeWriter::resume_on(sink, options(ALIGNMENT)).unwrap();
+    assert_eq!(resumed.layout, None);
 }
 
 /// [TapeWriter::resume] reopens `NAME.partial`, keeps the blocks up to the last counted one and reports them.

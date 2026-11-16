@@ -98,8 +98,12 @@ fn template(aligned: bool, head: bool) -> Vec<u8> {
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "fuzz" }))
         .expect("a producer");
-    set.insert(&Describe::Layout(Layout::UNALIGNED))
-        .expect("a layout");
+    let layout = if aligned {
+        Layout::ALIGNED
+    } else {
+        Layout::UNALIGNED
+    };
+    set.insert(&Describe::Layout(layout)).expect("a layout");
     let mut id = w.next_id();
     let mut blocks = vec![];
     set.write_blocks(&mut id, 60, &[], |b| blocks.push(b.to_vec()))

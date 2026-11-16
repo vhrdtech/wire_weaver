@@ -582,32 +582,66 @@ pub fn default_cargo_home() -> Result<PathBuf> {
 
 /// Every copy of `name` at `version` Cargo fetched under `cargo_home`, without a lock to say which one is in use:
 /// `registry/src/<index>/<name>-<version>/`, and that package in every `git/checkouts/<repo>/<rev>/`. Looks into
-/// at most [CARGO_DIRS_SCANNED_MAX] directories in all, [CARGO_TREE_DIRS_MAX] per checkout.
+/// at most [CARGO_DIRS_SCANNED_MAX] directories in all, [CARGO_TREE_DIRS_MAX] per checkout. [Fetched] scans once
+/// for many lookups.
 pub fn scan_fetched(cargo_home: &Path, name: &str, version: &semver::Version) -> Vec<PathBuf> {
-    let mut dirs = vec![];
-    let mut budget = CARGO_DIRS_SCANNED_MAX;
-    let dir_name = format!("{name}-{version}");
-    for index in list_dirs(&cargo_home.join("registry").join("src"), &mut budget) {
-        let dir = index.join(&dir_name);
-        if dir.join("Cargo.toml").is_file() {
-            dirs.push(dir);
+    Fetched::scan(cargo_home).find(name, version)
+}
+
+/// What Cargo fetched under a `CARGO_HOME`, scanned once: the registry indexes and every package of every git
+/// checkout, with the same bounds as [scan_fetched]. Its lookups read only the registry directory they name.
+#[derive(Debug, Default)]
+pub struct Fetched {
+    registry_indexes: Vec<PathBuf>,
+    checkout_packages: HashMap<(String, semver::Version), Vec<PathBuf>>,
+}
+
+impl Fetched {
+    /// Lists `cargo_home`'s registry indexes and reads the manifests of its git checkouts.
+    pub fn scan(cargo_home: &Path) -> Self {
+        let mut budget = CARGO_DIRS_SCANNED_MAX;
+        let registry_indexes = list_dirs(&cargo_home.join("registry").join("src"), &mut budget);
+        let mut checkout_packages: HashMap<(String, semver::Version), Vec<PathBuf>> =
+            HashMap::new();
+        for repo in list_dirs(&cargo_home.join("git").join("checkouts"), &mut budget) {
+            for checkout in list_dirs(&repo, &mut budget) {
+                let mut tree = CARGO_TREE_DIRS_MAX.min(budget);
+                let before = tree;
+                let packages = packages_under(&checkout, &mut tree).unwrap_or_default();
+                budget -= before - tree;
+                for package in packages {
+                    if let Some(version) = package.version {
+                        checkout_packages
+                            .entry((package.name, version))
+                            .or_default()
+                            .push(package.dir);
+                    }
+                }
+            }
+        }
+        Fetched {
+            registry_indexes,
+            checkout_packages,
         }
     }
-    for repo in list_dirs(&cargo_home.join("git").join("checkouts"), &mut budget) {
-        for checkout in list_dirs(&repo, &mut budget) {
-            let mut tree = CARGO_TREE_DIRS_MAX.min(budget);
-            let before = tree;
-            let packages = packages_under(&checkout, &mut tree).unwrap_or_default();
-            budget -= before - tree;
-            dirs.extend(
-                packages
-                    .into_iter()
-                    .filter(|p| p.name == name && p.version.as_ref() == Some(version))
-                    .map(|p| p.dir),
-            );
+
+    /// The copies of `name` at `version`: registry ones first, then checkouts, each in sorted directory order.
+    pub fn find(&self, name: &str, version: &semver::Version) -> Vec<PathBuf> {
+        let dir_name = format!("{name}-{version}");
+        let mut dirs: Vec<PathBuf> = self
+            .registry_indexes
+            .iter()
+            .map(|index| index.join(&dir_name))
+            .filter(|dir| dir.join("Cargo.toml").is_file())
+            .collect();
+        if let Some(found) = self
+            .checkout_packages
+            .get(&(name.to_owned(), version.clone()))
+        {
+            dirs.extend(found.iter().cloned());
         }
+        dirs
     }
-    dirs
 }
 
 /// The directories in `dir`, sorted; nothing once `budget` is spent.

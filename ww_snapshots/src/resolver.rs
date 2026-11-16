@@ -10,7 +10,7 @@ use anyhow::Result;
 use elsa::sync::FrozenMap;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, OnceLock, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, RwLock};
 use tracing::{debug, warn};
 use ww_self::ApiBundleOwned;
 use ww_self::definition_cache::{self, Kind};
@@ -109,6 +109,11 @@ pub struct Resolver {
     superseded: FrozenMap<SupersededKey, Box<Option<ApiBundleOwned>>>,
     origins: Mutex<HashMap<FullVersionOwned, Origin>>,
     missing: Mutex<HashSet<FullVersionOwned>>,
+    /// [Self::cargo_dirs] by source position and version: a scan of `CARGO_HOME` looks into thousands of
+    /// directories, and every superseded definition of a version asks for the same ones.
+    cargo_dirs: Mutex<HashMap<(usize, FullVersionOwned), Vec<PathBuf>>>,
+    /// What each [Source::Cargo] scan found under its `CARGO_HOME`, by source position, scanned on first need.
+    fetched: Mutex<HashMap<usize, Arc<cargo::Fetched>>>,
 }
 
 impl Default for Resolver {
@@ -128,6 +133,8 @@ impl Resolver {
             superseded: FrozenMap::new(),
             origins: Mutex::new(HashMap::new()),
             missing: Mutex::new(HashSet::new()),
+            cargo_dirs: Mutex::new(HashMap::new()),
+            fetched: Mutex::new(HashMap::new()),
         }
     }
 
@@ -332,6 +339,8 @@ impl Resolver {
     /// file arrived).
     pub fn forget_misses(&self) {
         lock(&self.missing).clear();
+        lock(&self.cargo_dirs).clear();
+        lock(&self.fetched).clear();
     }
 
     /// The snapshot of `version` in every source that has one, in chain order; only the first with `first`. A hit
@@ -362,7 +371,7 @@ impl Resolver {
                     }
                 }
                 Place::Cargo(scan) => {
-                    for crate_dir in self.cargo_dirs(scan, version) {
+                    for crate_dir in self.cargo_dirs(index, scan, version) {
                         let dir = Dir::of_crate(&crate_dir);
                         if let Some(snapshot) = read_snapshot(&dir, version) {
                             if past_cache {
@@ -418,8 +427,39 @@ impl Resolver {
     }
 
     /// Directories of `version` in Cargo's sources (`scan`) that have an `api_snapshots/`: what the workspace's
-    /// `Cargo.lock` places, else what a scan of `CARGO_HOME` finds.
-    fn cargo_dirs(&self, scan: &CargoScan, version: &FullVersionOwned) -> Vec<PathBuf> {
+    /// `Cargo.lock` places, else what a scan of `CARGO_HOME` finds. Looked for once per source `index` and version
+    /// until [Self::forget_misses].
+    fn cargo_dirs(
+        &self,
+        index: usize,
+        scan: &CargoScan,
+        version: &FullVersionOwned,
+    ) -> Vec<PathBuf> {
+        let key = (index, version.clone());
+        if let Some(dirs) = lock(&self.cargo_dirs).get(&key) {
+            return dirs.clone();
+        }
+        let dirs = self.find_cargo_dirs(index, scan, version);
+        lock(&self.cargo_dirs).insert(key, dirs.clone());
+        dirs
+    }
+
+    /// What source `index` finds under `home`, scanned once (outside the lock: two threads may both scan, one keeps
+    /// its result).
+    fn fetched(&self, index: usize, home: &Path) -> Arc<cargo::Fetched> {
+        if let Some(fetched) = lock(&self.fetched).get(&index) {
+            return fetched.clone();
+        }
+        let fetched = Arc::new(cargo::Fetched::scan(home));
+        lock(&self.fetched).entry(index).or_insert(fetched).clone()
+    }
+
+    fn find_cargo_dirs(
+        &self,
+        index: usize,
+        scan: &CargoScan,
+        version: &FullVersionOwned,
+    ) -> Vec<PathBuf> {
         let v = &version.version;
         let semver = semver::Version::new(v.major.0.into(), v.minor.0.into(), v.patch.0.into());
         let mut dirs = vec![];
@@ -435,7 +475,7 @@ impl Resolver {
         if dirs.is_empty()
             && let Some(home) = &scan.cargo_home
         {
-            dirs.extend(cargo::scan_fetched(home, &version.crate_id, &semver));
+            dirs.extend(self.fetched(index, home).find(&version.crate_id, &semver));
         }
         dirs.dedup();
         dirs.retain(|dir| Dir::of_crate(dir).exists());
@@ -516,7 +556,7 @@ impl Resolver {
         name: &str,
         reference: &[u8],
     ) -> Option<ApiBundleOwned> {
-        for (_, place) in self.places() {
+        for (index, place) in self.places() {
             let dirs = match place {
                 Place::Set(set) => {
                     if let Some(found) = set.superseded(kind, version, name, reference) {
@@ -526,7 +566,7 @@ impl Resolver {
                 }
                 Place::Dir(dir, _) => vec![dir.clone()],
                 Place::Cargo(scan) => self
-                    .cargo_dirs(scan, version)
+                    .cargo_dirs(index, scan, version)
                     .iter()
                     .map(|d| Dir::of_crate(d))
                     .collect(),
@@ -785,6 +825,45 @@ mod tests {
         let next = Resolver::new().with_cache(&cache_root);
         assert_eq!(next.snapshot(&version).unwrap().root.trait_name, "Fetched");
         assert_eq!(next.origin(&version), Some(Origin::Cache));
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Git checkouts under `CARGO_HOME` are read once per resolver, not once per lookup: a `CARGO_HOME` holds tens of
+    /// thousands of manifests, and the checker looks up many versions and superseded definitions. A checkout that
+    /// arrives later is seen after [Resolver::forget_misses].
+    #[test]
+    fn cargo_home_checkouts_are_scanned_once() {
+        let root = scratch("scan_once");
+        let home = root.join("cargo_home");
+        let checkout = home.join("git/checkouts/deps-1234/abcdef0");
+        let resolver = Resolver::new().with_cargo_scan(CargoScan {
+            workspace: None,
+            cargo_home: Some(home.clone()),
+        });
+        let write = |name: &str, trait_name: &str| {
+            let crate_dir = checkout.join(name);
+            fs::create_dir_all(&crate_dir).unwrap();
+            fs::write(
+                crate_dir.join("Cargo.toml"),
+                format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\n"),
+            )
+            .unwrap();
+            let bundle = bundle_of(name, trait_name);
+            write_snapshot(&crate_dir, &bundle);
+            bundle.ext_crates[0].clone()
+        };
+        let first = write("first", "First");
+        assert_eq!(resolver.snapshot(&first).unwrap().root.trait_name, "First");
+        let second = write("second", "Second");
+        assert!(
+            resolver.snapshot(&second).is_none(),
+            "the checkouts were read for the first lookup only"
+        );
+        resolver.forget_misses();
+        assert_eq!(
+            resolver.snapshot(&second).unwrap().root.trait_name,
+            "Second"
+        );
         fs::remove_dir_all(&root).unwrap();
     }
 }

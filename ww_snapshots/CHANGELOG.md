@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- `Resolver` scans `CARGO_HOME`'s git checkouts once, not on every lookup (`cargo::Fetched`); the checker's tests ran 10x faster (EVO-80).
+
 ### 🚀 Features
 
 - `Resolver` (EVO-80): the chain in the order sources are added, `global()` for hosts (with `fetch`), `local()` for the checker; `cargo::locate_version`; `fetch` from crates.io or GitHub, bounded and checked, misses remembered.

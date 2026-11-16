@@ -1,9 +1,9 @@
 //! The link tap in the CLI (TOOL-14, on TR-14): `ww monitor` prints what crosses the link as it happens, `ww stats`
 //! counts it, `ww capture -o FILE` saves it and `ww explain FILE` / `ww stats --file FILE` read a capture back. Live
-//! and saved data go through the same [Monitor]: a capture prints exactly as the live session did.
+//! and saved data go through the same `Monitor`: a capture prints exactly as the live session did.
 //!
-//! Where blocks come from is a [Feed]. Today that is the CLI's own connection ([LiveFeed]: the recorder of the client
-//! this process opened) or a file ([FileFeed]); a ww server's tap of every client's link (SRV-13) is one more feed.
+//! Where blocks come from is a `Feed`. Today that is the CLI's own connection (`LiveFeed`: the recorder of the client
+//! this process opened) or a file (`FileFeed`); a ww server's tap of every client's link (SRV-13) is one more feed.
 
 use crate::cmd::explain;
 use crate::registry::{BoxFuture, CommandDef, Connection, DeviceUse, GlobalFlags, Ran, Run};

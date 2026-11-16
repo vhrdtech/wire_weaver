@@ -6195,9 +6195,16 @@ late needs, such as a link's session or a series' current timing.</p>
 tracks. A producer writes a describe set at the start, when it adds a track, when a live consumer joins, and after
 blocks were lost. It never repeats one on a timer, so a slow trickle of records costs a block header each, not a
 description each. Its first and last blocks carry flags, so a reader can tell a whole set from part of one.</p>
-<p>The writer also writes the newest set again as a <strong>copy</strong>: right after the first data block, then about every 128 MiB,
-and once more before the end of the file. A copy carries a flag and adds nothing for a reader that read the original; it
-keeps a file readable when its first set is damaged. The layout is in the <a href="https://github.com/vhrdtech/wire_weaver/blob/master/ww_tape/src/describe.rs">describe module
+<p>The writer also writes the newest set again as a <strong>copy</strong>: right after the first data block, after the first checkpoint
+index (about 4 MiB in), then about every 128 MiB, and once more before the end of the file. A copy carries a flag and adds
+nothing for a reader that read the original; it keeps a file readable when its first set is damaged.</p>
+<p>A producer that adds a track mid-piece writes an <strong>addition</strong>: describe blocks with an extra flag that hold only the new
+records. The additions join the newest whole set before them, and a record replaces the one with the same key, such as
+a track with the same number. The writer keeps the merged set, so every copy after an addition carries the whole set. A
+reader asks <code>TapeReader::describe_set</code> for a piece's current set: the newest whole set, the additions after it, and the
+offsets of describe blocks that did not read. For example, a recorder that starts capturing a second camera an hour in
+writes one addition with that track; the 128 MiB repeat after it and the backup before the finish both describe both
+cameras, so the track survives even if the addition block itself is damaged. The layout is in the <a href="https://github.com/vhrdtech/wire_weaver/blob/master/ww_tape/src/describe.rs">describe module
 docs</a>.</p>
 <h3 id="record-blocks">Record blocks<a class="headerlink" href="#record-blocks" title="Permanent link">&para;</a></h3>
 <p>A <strong>record block</strong> holds records of any tracks back to back. Each record is a head (the track number and which of the
@@ -6222,18 +6229,21 @@ top.</p>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                │ series chunk   (track 5)    │
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                │ summary        (track 3)    │
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                │ ...                         │
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                │ index (checkpoint) ◄──┐     │ every 4 MiB: the blocks placed
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>                │ ...                   │     │ since the previous checkpoint,
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                │ index (checkpoint) ───┘     │ and a pointer back to it
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>                │ ...                         │
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                │ describe copy               │ about every 128 MiB
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>                │ ...                         │
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>                ├─────────────────────────────┤
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>                │ final index    ◄──────┐     │ every block again, by track
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>                │ describe backup       │     │
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>                │ finish         ◄──┐   │     │ BLAKE3 hash of all bytes before it
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                │ tail (164 B) ─────┴───┘     │ piece length, where the finish is
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>   end of file ─► └─────────────────────────────┘
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                │ index (checkpoint)          │ the first, about 4 MiB in
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>                │ describe copy               │ the set again, after it
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                │ ...                         │
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>                │ index (checkpoint) ◄──┐     │ every 4 MiB: the blocks placed
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                │ ...                   │     │ since the previous checkpoint,
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>                │ index (checkpoint) ───┘     │ and a pointer back to it
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>                │ ...                         │
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>                │ describe copy               │ about every 128 MiB
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>                │ ...                         │
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>                ├─────────────────────────────┤
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>                │ final index    ◄──────┐     │ every block again, by track
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>                │ describe backup       │     │
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>                │ finish         ◄──┐   │     │ BLAKE3 hash of all bytes before it
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>                │ tail (164 B) ─────┴───┘     │ piece length, where the finish is
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>   end of file ─► └─────────────────────────────┘
 </span></code></pre></div>
 <p>A reader of a finished file starts at the end. It reads the last 164 bytes, the <strong>tail</strong>, which give the piece's length
 and where its finish block is. The <strong>finish</strong> block holds a BLAKE3 hash of every byte before it, per-track totals

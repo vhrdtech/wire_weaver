@@ -5218,6 +5218,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#resuming-after-a-crash" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resuming after a crash
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example-a-recorder-that-lost-power" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6077,6 +6088,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#resuming-after-a-crash" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resuming after a crash
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example-a-recorder-that-lost-power" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6301,6 +6323,25 @@ makes every item of the chunk suspect, since the column decodes as a whole.</p>
 <p>A failed write or sync ends the file. The writer reports it and refuses every later write; it never retries, because
 after a failed <code>fsync</code> Linux may drop the unwritten pages, and a second <code>fsync</code> then succeeds without them. A file that
 still ends in <code>.partial</code> was never finished.</p>
+<h3 id="resuming-after-a-crash">Resuming after a crash<a class="headerlink" href="#resuming-after-a-crash" title="Permanent link">&para;</a></h3>
+<p><code>TapeWriter::resume</code> reopens <code>NAME.partial</code> and continues the same piece. It reads the piece the way <code>TapeReader</code> does,
+from the newest checkpoint and then by a scan that stops at the first bad block. It keeps every byte up to the end of the
+last block the producer wrote, and cuts off the rest: a torn block, and the checkpoint, copy or end sequence the writer
+had placed after that block. It then places those again by the same rules, so a resumed piece ends with the same bytes,
+and the same content hash, as one written without the crash. The producer passes the same writer options it wrote the
+piece with (<code>TapeWriter::options</code> gives them), and writes again from the sequence number <code>next_seq</code> reports.</p>
+<p>The resume checks those options against the layout the piece's describe set states, before it cuts or writes anything.
+Options with another chunk alignment would place blocks the way the file says it doesn't, and a reader trusts the
+layout when it looks for the end of the data, so the resume refuses them with an error naming both alignments. The
+layout's gap settings need no check, because the writer never leaves a gap. A piece cut off inside its first describe
+set, with no copy after it, states no layout; it resumes unchecked, and the result reports no layout.</p>
+<p>For example, a recorder loses power while writing piece 3 of a chain. On restart it calls <code>PieceChain::resume</code> with the
+directory and the chain options. The chain reads pieces 0 to 2 back from their tails, reopens <code>00000003.wwt.partial</code>,
+and the recorder goes on from the first block the file lacks. A crash between finishing one piece and creating the next
+resumes too: the chain creates the next piece.</p>
+<p>A writer writes through a <strong>sink</strong>: a file (<code>FileSink</code>) or memory (<code>MemSink</code>). A memory sink reads back as a byte source,
+so <code>TapeReader</code> reads a piece while it is being written, and tests drive crashes by cutting the bytes anywhere.
+<code>PieceChain</code> takes a factory that makes the sink for each piece, <code>Files</code> or <code>MemTapes</code>.</p>
 <h3 id="example-a-recorder-that-lost-power">Example: a recorder that lost power<a class="headerlink" href="#example-a-recorder-that-lost-power" title="Permanent link">&para;</a></h3>
 <p>A recorder on a PC writes a tape of several tracks, 50 MiB so far, with the default sync interval of 1 s. The power
 fails. On disk is <code>capture.wwt.partial</code>: every block up to the last sync, and perhaps part of the block being written.</p>
@@ -6383,8 +6424,8 @@ that names B as the previous run. That run, C, is taken by the next reader; A's 
 <p><strong>The first 4 KiB are lost.</strong> These hold the piece head, the describe set and perhaps the first data blocks.</p>
 <ul>
 <li>A finished file opens from its tail as usual. The final index lists every block, and every block outside the lost
-  range reads. The describe set comes from the first copy that reads whole: the one after the first data block, a 128
-  MiB repeat, or the backup before the finish. The records and chunks inside the lost range are lost, and the content
+  range reads. The describe set comes from the newest copy that reads whole: the one after the first data block, the
+  one after the first checkpoint, a 128 MiB repeat, or the backup before the finish. The records and chunks inside the lost range are lost, and the content
   hash no longer matches. The link back to the previous piece in a chain can't be checked, since the head named it; the
   link forward still can.</li>
 <li>An unfinished file with at least one checkpoint opens from its newest checkpoint, and the same holds, without the
@@ -6478,11 +6519,13 @@ point below names its source.</p>
   writes or reads it.</li>
 <li><strong>Unfinished small files.</strong> A file without a checkpoint yet, under about 4 MiB, is read by a scan from its start,
   which stops at the first bad block. Only a Resync walk reads past it.</li>
-<li><strong>Describe set near the start.</strong> Today the first describe copy follows the first data block. In an event file of
-  small blocks both can sit in the first 4 KiB, and until the 128 MiB repeat one bad sector can take both. A planned
-  writer change also places a copy at the first checkpoint, about 4 MiB in, which shrinks that window. Chunks then still
+<li><strong>Describe set near the start.</strong> The first describe copy follows the first data block. In an event file of small
+  blocks the head's set and that copy can both sit in the first 4 KiB, so one bad sector can take both. The next copy
+  follows the first checkpoint, about 4 MiB in; an unfinished file shorter than that has no other. Chunks then still
   place themselves by track id, item number and tick, but without clock rates and item types a reader can't turn ticks
   into seconds or bytes into values.</li>
+<li><strong>Lost additions in a scanned stretch.</strong> <code>describe_set</code> names a damaged addition only when an index entry or a
+  checkpoint lists it. A damaged block where a scan stopped has no known kind; the piece reports it as its cut.</li>
 <li><strong>A damaged chunk head costs the chunk.</strong> The head CRC protects the payload's CRC segments, not itself.</li>
 <li><strong>lz4 payload columns.</strong> One bad byte makes every item of the chunk suspect.</li>
 <li><strong>32-bit run tags.</strong> Stale data matches the current run by chance with probability 2⁻³² per stale run.</li>

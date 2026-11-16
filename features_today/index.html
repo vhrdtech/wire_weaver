@@ -6666,6 +6666,7 @@ feature tracker.</p>
 <li><strong><a href="../transport/tap/#sample-codecs">Tape ALP float codec</a></strong>: Floats that began as decimals stored as bit-packed integers, other floats by their front bits, lossless and read in place.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape summary kernels</a></strong>: Series summaries in one vectorised pass: complex i16 at about 5 GB/s on one core, bit for bit the same results.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape hardening</a></strong>: Tape readers take damaged or hostile files without a panic, an overflow or an unbounded allocation; every limit is a named cap.</li>
+<li><strong><a href="../tape/recovery/#resuming-after-a-crash">Tape resume and additions</a></strong>: A crashed tape piece resumes to the bytes of an uninterrupted write; tracks added mid-piece reach every later describe copy.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>

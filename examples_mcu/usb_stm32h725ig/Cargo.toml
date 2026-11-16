@@ -16,6 +16,9 @@ streams = [
     "dep:ww_gpio",
     "dep:ww_uart",
 ]
+# the units budget (`mcu_qemu/src/unit_budget.rs`) with only the plain cases / only the Fixed cases
+only-plain = []
+only-fixed = []
 
 [dependencies]
 cortex-m-rt = "0.7"

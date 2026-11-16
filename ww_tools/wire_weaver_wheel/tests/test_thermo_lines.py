@@ -21,7 +21,7 @@ import pytest
 
 import wire_weaver as ww
 
-ROOT = Path(__file__).parents[2]
+ROOT = Path(__file__).parents[3]
 READY_TIMEOUT = 10.0
 LINES = {1: (1, 2), 2: (2, 1), 3: (3, 0)}
 BURST = 3  # samples per trigger on line 3, thermo_devices::w3::BURST
@@ -160,8 +160,8 @@ def test_one_script_every_line(thermo_hub, line):
         uptime = find(dev, "uptime", "health.uptime")
         assert uptime.read().to_si() == 42.0
 
-        # a method where the device has it, at the root or in `health`
-        self_test = find(dev, "self_test", "health.self_test")
+        # a method where the device has it, at the root or renamed in `health` (its identity name stays `self_test`, INT-17)
+        self_test = find(dev, "self_test", "health.check_sensor")
         assert (self_test is None) == (line == 1)
         if self_test is not None:
             assert self_test() == ()  # Ok(()); an Err would raise

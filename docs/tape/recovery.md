@@ -215,8 +215,9 @@ The format does not do everything. These limits follow from the design:
   writes or reads it.
 - **Unfinished small files.** A file without a checkpoint yet, under about 4 MiB, is read by a scan from its start,
   which stops at the first bad block. Only a Resync walk reads past it.
-- **Describe set near the start.** The first describe copy follows the first data block. In an event file of small
-  blocks both can sit in the first 4 KiB, and until the 128 MiB repeat one bad sector can take both. Chunks then still
+- **Describe set near the start.** Today the first describe copy follows the first data block. In an event file of
+  small blocks both can sit in the first 4 KiB, and until the 128 MiB repeat one bad sector can take both. A planned
+  writer change also places a copy at the first checkpoint, about 4 MiB in, which shrinks that window. Chunks then still
   place themselves by track id, item number and tick, but without clock rates and item types a reader can't turn ticks
   into seconds or bytes into values.
 - **A damaged chunk head costs the chunk.** The head CRC protects the payload's CRC segments, not itself.

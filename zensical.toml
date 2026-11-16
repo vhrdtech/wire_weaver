@@ -180,6 +180,12 @@ nav = [
             }
         ]
     },
+    { "Tape" = [
+            "tape/index.md",
+            "tape/events_and_series.md",
+            "tape/recovery.md"
+        ]
+    },
     { "Examples and templates" = [
             "examples/examples.md",
             { "wire_weaver_template repo" = "https://github.com/vhrdtech/wire_weaver_template" },

@@ -1,7 +1,10 @@
 //! Where Cargo keeps the source of a git or registry dependency: the exact package is pinned by the `Cargo.lock` of
 //! the crate the walk started from, its source lies under `CARGO_HOME` once Cargo fetched it
-//! (`git/checkouts/<repo>-<hash>/<short rev>/`, `registry/src/<index>/<name>-<version>/`).
+//! (`git/checkouts/<repo>-<hash>/<short rev>/`, `registry/src/<index>/<name>-<version>/`). The same places answer
+//! where a crate of a given name and version is on this machine ([CargoSources::locate_version], [scan_fetched]),
+//! which is where its `api_snapshots/` are.
 
+use crate::limits::{CARGO_DIRS_SCANNED_MAX, CARGO_TREE_DIRS_MAX};
 use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -328,18 +331,48 @@ impl CargoSources {
     }
 
     fn cargo_home(&self) -> Result<PathBuf> {
-        if let Some(home) = &self.cargo_home {
-            return Ok(home.clone());
+        match &self.cargo_home {
+            Some(home) => Ok(home.clone()),
+            None => default_cargo_home(),
         }
-        if let Some(home) = std::env::var_os("CARGO_HOME") {
-            return Ok(PathBuf::from(home));
+    }
+
+    /// Directories holding `name` at `version` as the `Cargo.lock` above [Self::entry_dir] pins and places them:
+    /// Cargo's registry or git checkout for a fetched dependency, the workspace's own tree and its `[patch]`es for a
+    /// path dependency. Empty when the lock doesn't list that version; a listed source Cargo hasn't fetched is
+    /// skipped. An error without a lock. What this reads is not told to [Self::reads].
+    pub fn locate_version(
+        &mut self,
+        name: &str,
+        version: &semver::Version,
+    ) -> Result<Vec<PathBuf>> {
+        let lock = self.lock()?;
+        let mut dirs = vec![];
+        for locked in lock
+            .package
+            .iter()
+            .filter(|p| p.name == name && p.version_is(version))
+        {
+            match self.package_dir(locked) {
+                Ok(Some(dir)) => dirs.push(dir),
+                Ok(None) => {
+                    if let Some(dir) = self.patched_dir(&lock.path, name)? {
+                        dirs.push(dir);
+                    }
+                    let root = lock.path.parent().unwrap_or(Path::new("."));
+                    let mut budget = CARGO_TREE_DIRS_MAX;
+                    dirs.extend(
+                        packages_under(root, &mut budget)?
+                            .into_iter()
+                            .filter(|p| p.name == name && p.version.as_ref() == Some(version))
+                            .map(|p| p.dir),
+                    );
+                }
+                Err(e) => tracing::debug!("{name} {version}: {e:#}"),
+            }
         }
-        std::env::var_os("HOME")
-            .or_else(|| std::env::var_os("USERPROFILE"))
-            .map(|home| PathBuf::from(home).join(".cargo"))
-            .ok_or_else(|| {
-                anyhow!("neither CARGO_HOME nor HOME is set, can't find Cargo's sources")
-            })
+        dirs.dedup();
+        Ok(dirs)
     }
 
     /// Where Cargo put the source of `locked`, `None` for a path dependency.
@@ -436,8 +469,11 @@ impl CargoSources {
         if let Some(members) = self.git_members.get(checkout) {
             return Ok(members.clone());
         }
+        let mut budget = CARGO_TREE_DIRS_MAX;
         let mut members = HashMap::new();
-        collect_packages(checkout, &mut members)?;
+        for package in packages_under(checkout, &mut budget)? {
+            members.entry(package.name).or_insert(package.dir);
+        }
         let members = Rc::new(members);
         self.git_members
             .insert(checkout.to_path_buf(), members.clone());
@@ -490,32 +526,148 @@ impl CargoSources {
     }
 }
 
-#[derive(Deserialize)]
-struct NameOnly {
-    package: Option<PackageName>,
+/// `CARGO_HOME`: the environment's, else `~/.cargo`.
+pub fn default_cargo_home() -> Result<PathBuf> {
+    if let Some(home) = std::env::var_os("CARGO_HOME") {
+        return Ok(PathBuf::from(home));
+    }
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|home| PathBuf::from(home).join(".cargo"))
+        .ok_or_else(|| anyhow!("neither CARGO_HOME nor HOME is set, can't find Cargo's sources"))
+}
+
+/// Every copy of `name` at `version` Cargo fetched under `cargo_home`, without a lock to say which one is in use:
+/// `registry/src/<index>/<name>-<version>/`, and that package in every `git/checkouts/<repo>/<rev>/`. Looks into
+/// at most [CARGO_DIRS_SCANNED_MAX] directories in all, [CARGO_TREE_DIRS_MAX] per checkout.
+pub fn scan_fetched(cargo_home: &Path, name: &str, version: &semver::Version) -> Vec<PathBuf> {
+    let mut dirs = vec![];
+    let mut budget = CARGO_DIRS_SCANNED_MAX;
+    let dir_name = format!("{name}-{version}");
+    for index in list_dirs(&cargo_home.join("registry").join("src"), &mut budget) {
+        let dir = index.join(&dir_name);
+        if dir.join("Cargo.toml").is_file() {
+            dirs.push(dir);
+        }
+    }
+    for repo in list_dirs(&cargo_home.join("git").join("checkouts"), &mut budget) {
+        for checkout in list_dirs(&repo, &mut budget) {
+            let mut tree = CARGO_TREE_DIRS_MAX.min(budget);
+            let before = tree;
+            let packages = packages_under(&checkout, &mut tree).unwrap_or_default();
+            budget -= before - tree;
+            dirs.extend(
+                packages
+                    .into_iter()
+                    .filter(|p| p.name == name && p.version.as_ref() == Some(version))
+                    .map(|p| p.dir),
+            );
+        }
+    }
+    dirs
+}
+
+/// The directories in `dir`, sorted; nothing once `budget` is spent.
+fn list_dirs(dir: &Path, budget: &mut usize) -> Vec<PathBuf> {
+    if *budget == 0 {
+        return vec![];
+    }
+    *budget -= 1;
+    let mut dirs: Vec<PathBuf> = fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .map(|e| e.path())
+        .collect();
+    dirs.sort();
+    dirs
+}
+
+/// A `[package]` found under a directory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Package {
+    pub name: String,
+    /// `None` when the manifest has no plain version and no workspace above it in the same tree gives one.
+    pub version: Option<semver::Version>,
+    /// The directory with its `Cargo.toml`.
+    pub dir: PathBuf,
 }
 
 #[derive(Deserialize)]
-struct PackageName {
+struct ManifestHead {
+    package: Option<PackageHead>,
+    workspace: Option<WorkspaceHead>,
+}
+
+#[derive(Deserialize)]
+struct PackageHead {
     name: String,
+    version: Option<toml::Value>,
 }
 
-/// Every `[package]` under `dir` by name, the one closest to `dir` when a name is there twice.
-fn collect_packages(dir: &Path, packages: &mut HashMap<String, PathBuf>) -> Result<()> {
-    let mut queue = vec![dir.to_path_buf()];
+#[derive(Deserialize)]
+struct WorkspaceHead {
+    package: Option<WorkspacePackageHead>,
+}
+
+#[derive(Deserialize)]
+struct WorkspacePackageHead {
+    version: Option<String>,
+}
+
+impl PackageHead {
+    fn version(&self, workspace: Option<&semver::Version>) -> Option<semver::Version> {
+        match &self.version {
+            Some(toml::Value::String(v)) => semver::Version::parse(v).ok(),
+            Some(toml::Value::Table(t))
+                if t.get("workspace").and_then(|w| w.as_bool()) == Some(true) =>
+            {
+                workspace.cloned()
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Every `[package]` under `dir`, nearest first, looking into at most `budget` directories (what is left is left in
+/// `budget`); `.`-directories and `target` are skipped, a directory that can't be read is skipped unless it is `dir`.
+/// A `version.workspace = true` takes the version of the nearest `[workspace.package]` above it in the tree.
+pub fn packages_under(dir: &Path, budget: &mut usize) -> Result<Vec<Package>> {
+    if !dir.is_dir() {
+        return Err(anyhow!("{} is not a directory", dir.display()));
+    }
+    let mut packages = vec![];
+    let mut queue: Vec<(PathBuf, Option<semver::Version>)> = vec![(dir.to_path_buf(), None)];
     while !queue.is_empty() {
         let mut next = vec![];
-        for dir in queue {
-            let manifest = dir.join("Cargo.toml");
-            if let Ok(contents) = fs::read_to_string(&manifest)
-                && let Ok(NameOnly {
-                    package: Some(package),
-                }) = toml::from_str(&contents)
-            {
-                packages.entry(package.name).or_insert_with(|| dir.clone());
+        for (dir, mut workspace_version) in queue {
+            if *budget == 0 {
+                return Ok(packages);
+            }
+            *budget -= 1;
+            let head: Option<ManifestHead> = fs::read_to_string(dir.join("Cargo.toml"))
+                .ok()
+                .and_then(|contents| toml::from_str(&contents).ok());
+            if let Some(head) = head {
+                if let Some(workspace) = &head.workspace {
+                    workspace_version = workspace
+                        .package
+                        .as_ref()
+                        .and_then(|p| p.version.as_deref())
+                        .and_then(|v| semver::Version::parse(v).ok());
+                }
+                if let Some(package) = head.package {
+                    packages.push(Package {
+                        version: package.version(workspace_version.as_ref()),
+                        name: package.name,
+                        dir: dir.clone(),
+                    });
+                }
             }
             let mut children: Vec<PathBuf> = fs::read_dir(&dir)
-                .with_context(|| format!("Failed to read {}", dir.display()))?
+                .into_iter()
+                .flatten()
                 .flatten()
                 .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
                 .filter(|e| {
@@ -526,11 +678,11 @@ fn collect_packages(dir: &Path, packages: &mut HashMap<String, PathBuf>) -> Resu
                 .map(|e| e.path())
                 .collect();
             children.sort();
-            next.extend(children);
+            next.extend(children.into_iter().map(|c| (c, workspace_version.clone())));
         }
         queue = next;
     }
-    Ok(())
+    Ok(packages)
 }
 
 #[cfg(test)]
@@ -566,5 +718,116 @@ mod tests {
         fs::remove_dir_all(&root).unwrap();
         assert_eq!(found, Some(root.join("../units")));
         assert_eq!(missing, None);
+    }
+
+    fn ws_version(name: &str) -> semver::Version {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let manifest = fs::read_to_string(root.join(name).join("Cargo.toml")).unwrap();
+        let head: ManifestHead = toml::from_str(&manifest).unwrap();
+        let ws: ManifestHead =
+            toml::from_str(&fs::read_to_string(root.join("Cargo.toml")).unwrap()).unwrap();
+        let ws = ws.workspace.unwrap().package.unwrap().version.unwrap();
+        head.package
+            .unwrap()
+            .version(Some(&semver::Version::parse(&ws).unwrap()))
+            .unwrap()
+    }
+
+    #[test]
+    fn packages_under_the_workspace_know_inherited_versions() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut budget = CARGO_TREE_DIRS_MAX;
+        let packages = packages_under(&root, &mut budget).unwrap();
+        assert!(
+            budget > 0,
+            "the workspace tree is larger than CARGO_TREE_DIRS_MAX"
+        );
+        let own = packages.iter().find(|p| p.name == "ww_snapshots").unwrap();
+        assert_eq!(own.version, Some(ws_version("ww_snapshots")));
+        assert_eq!(own.dir, root.join("ww_snapshots"));
+        let plain = packages.iter().find(|p| p.name == "ww_self").unwrap();
+        assert_eq!(plain.version, Some(ws_version("ww_self")));
+        let mut spent = 1;
+        assert_eq!(
+            packages_under(&root, &mut spent).unwrap().len(),
+            packages.iter().filter(|p| p.dir == root).count()
+        );
+    }
+
+    #[test]
+    fn locate_version_through_the_lock_finds_path_and_git_crates() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let mut sources = CargoSources {
+            entry_dir: Some(root.join("ww_snapshots")),
+            ..Default::default()
+        };
+        let own = ws_version("ww_snapshots");
+        assert_eq!(
+            sources.locate_version("ww_snapshots", &own).unwrap(),
+            vec![root.join("ww_snapshots")]
+        );
+        assert!(
+            sources
+                .locate_version("ww_snapshots", &semver::Version::new(99, 0, 0))
+                .unwrap()
+                .is_empty()
+        );
+        // exact_units comes by git: its checkout under CARGO_HOME, fetched for this workspace to build
+        let lock: CargoLock =
+            toml::from_str(&fs::read_to_string(root.join("Cargo.lock")).unwrap()).unwrap();
+        let units = lock
+            .package
+            .iter()
+            .find(|p| p.name == "exact_units")
+            .unwrap();
+        let dirs = sources
+            .locate_version(
+                "exact_units",
+                &semver::Version::parse(&units.version).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(dirs.len(), 1, "{dirs:?}");
+        assert!(dirs[0].join("Cargo.toml").is_file());
+        assert!(
+            dirs[0].starts_with(default_cargo_home().unwrap().join("git").join("checkouts")),
+            "{dirs:?}"
+        );
+    }
+
+    #[test]
+    fn scan_fetched_finds_registry_and_checkout_copies() {
+        let home = std::env::temp_dir().join(format!("ww_scan_fetched_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&home);
+        let write = |path: PathBuf, contents: &str| {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, contents).unwrap();
+        };
+        let registry = home.join("registry/src/index.crates.io-abc/dep_api-0.2.0");
+        write(
+            registry.join("Cargo.toml"),
+            "[package]\nname = \"dep_api\"\nversion = \"0.2.0\"\n",
+        );
+        write(
+            home.join("registry/src/index.crates.io-abc/dep_api-0.3.0/Cargo.toml"),
+            "[package]\nname = \"dep_api\"\nversion = \"0.3.0\"\n",
+        );
+        let checkout = home.join("git/checkouts/deps-1234/abcdef0");
+        write(
+            checkout.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"dep_api\"]\n[workspace.package]\nversion = \"0.2.0\"\n",
+        );
+        write(
+            checkout.join("dep_api/Cargo.toml"),
+            "[package]\nname = \"dep_api\"\nversion.workspace = true\n",
+        );
+        write(
+            checkout.join("other/Cargo.toml"),
+            "[package]\nname = \"other\"\nversion = \"0.2.0\"\n",
+        );
+        let found = scan_fetched(&home, "dep_api", &semver::Version::new(0, 2, 0));
+        let none = scan_fetched(&home, "dep_api", &semver::Version::new(0, 9, 0));
+        fs::remove_dir_all(&home).unwrap();
+        assert_eq!(found, vec![registry, checkout.join("dep_api")]);
+        assert!(none.is_empty());
     }
 }

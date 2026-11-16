@@ -93,7 +93,7 @@ ww_picoboot.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
 # customary: a host knows every unit by name (DynUnit::from_name, Python's convert), firmware opts in on its own
 ww_si = { workspace = true, features = ["std", "customary"] }
-ww_snapshots.workspace = true
+ww_snapshots = { workspace = true, features = ["fetch"] }
 ww_stm32_dfu.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }

@@ -11,7 +11,8 @@
 //! 3. the cache, `~/.wire_weaver/snapshots/` ([cache]);
 //! 4. Cargo's sources on this machine ([cargo]): the workspace a `Cargo.lock` above the current directory names, then
 //!    what Cargo fetched under `CARGO_HOME`;
-//! 5. a fetch from crates.io or the crate's git repository (feature `fetch`);
+//! 5. a fetch from crates.io or the crate's git repository ([fetch], feature `fetch`; [Resolver::global] has it, the
+//!    checker's [Resolver::local] never);
 //! 6. nothing: the definition stays skipped, and a value of it is opaque.
 //!
 //! Every file read passes the checks of [mod@file] (its header's SHA-256, its own crate and version), and a definition
@@ -24,6 +25,8 @@
 pub mod cache;
 pub mod cargo;
 pub mod dir;
+#[cfg(feature = "fetch")]
+pub mod fetch;
 pub mod file;
 pub mod limits;
 mod resolver;

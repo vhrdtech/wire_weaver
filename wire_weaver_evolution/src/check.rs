@@ -1111,12 +1111,12 @@ fn not_saved(
 /// goes to [Report::moved_from_errors], one without a snapshot of its line to [Report::warnings]. `definitions` as for
 /// [compare_recorded], those of the source a side was loaded from.
 /// The resolver a check compares with: the walked crates' own `api_snapshots/` (`crate_dirs`,
-/// `SourceNotes::crate_dirs`) first, then what a host on this machine has ([Resolver::global]) for a frozen snapshot
+/// `SourceNotes::crate_dirs`) first, then what this machine has ([Resolver::local], never the network) for a frozen snapshot
 /// that names a crate the walk didn't reach; never the network.
 pub(crate) fn resolver_for<P: AsRef<Path>>(crate_dirs: impl IntoIterator<Item = P>) -> Resolver {
     Resolver::new()
         .with_crate_dirs(crate_dirs)
-        .with_fallback(Resolver::global())
+        .with_fallback(Resolver::local())
 }
 
 pub(crate) fn compare_checked(

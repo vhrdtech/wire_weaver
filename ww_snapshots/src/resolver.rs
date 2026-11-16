@@ -29,12 +29,15 @@ pub enum Origin {
     Cache,
     /// The crate's directory in Cargo's sources (its `api_snapshots/` is copied into the cache).
     Cargo(PathBuf),
+    /// Fetched from the network (and stored in the cache).
+    Fetched,
 }
 
 /// Sets registered with [embed], read by [Resolver::global].
 static EMBEDDED: RwLock<Vec<&'static Set>> = RwLock::new(Vec::new());
 
 static GLOBAL: OnceLock<Resolver> = OnceLock::new();
+static LOCAL: OnceLock<Resolver> = OnceLock::new();
 
 /// Registers a set for [Resolver::global] and every resolver built with [Resolver::with_embedded]: the application
 /// calls it at start with the `static` its build script wrote ([crate::embed]).
@@ -43,8 +46,8 @@ pub fn embed(set: &'static Set) {
         .write()
         .expect("the embedded sets lock is poisoned")
         .push(set);
-    if let Some(global) = GLOBAL.get() {
-        global.forget_misses();
+    for resolver in [GLOBAL.get(), LOCAL.get()].into_iter().flatten() {
+        resolver.forget_misses();
     }
 }
 
@@ -67,6 +70,8 @@ enum Source {
     Dir(Dir),
     Cache(Dir),
     Cargo(CargoScan),
+    #[cfg(feature = "fetch")]
+    Fetch(crate::fetch::Fetcher),
     /// Another resolver asked after the sources before it, with what it remembers.
     Fallback(&'static Resolver),
 }
@@ -77,6 +82,8 @@ enum Place<'s> {
     /// A directory, and whether it is the cache.
     Dir(&'s Dir, bool),
     Cargo(&'s CargoScan),
+    #[cfg(feature = "fetch")]
+    Fetch(&'s crate::fetch::Fetcher),
     Fallback(&'static Resolver),
 }
 
@@ -124,9 +131,23 @@ impl Resolver {
         }
     }
 
-    /// A host's resolver: [Self::with_host_sources] alone.
+    /// A host's resolver: [Self::with_host_sources], then the fetch (feature `fetch`) as `~/.wire_weaver/sources.toml`
+    /// allows it ([cache::Sources]).
     pub fn host() -> Self {
-        Self::new().with_host_sources()
+        let resolver = Self::new().with_host_sources();
+        #[cfg(feature = "fetch")]
+        let resolver = {
+            let sources = match cache::default_root().map(|root| cache::Sources::read(&root)) {
+                Some(Ok(sources)) => sources,
+                Some(Err(e)) => {
+                    warn!("{e:#}: fetching as if sources.toml were absent");
+                    cache::Sources::read_env(cache::Sources::default())
+                }
+                None => cache::Sources::read_env(cache::Sources::default()),
+            };
+            resolver.with_fetch(sources)
+        };
+        resolver
     }
 
     /// Adds what a host on this machine has, after the sources added before: the embedded sets, the cache and the
@@ -147,9 +168,15 @@ impl Resolver {
         })
     }
 
-    /// The process's [Self::host] resolver.
+    /// The process's [Self::host] resolver: what hosts (clients, `ww`, Python) resolve through.
     pub fn global() -> &'static Resolver {
         GLOBAL.get_or_init(Self::host)
+    }
+
+    /// The process's resolver over what this machine has ([Self::with_host_sources]), never the network: the
+    /// evolution checker's fallback after the walked crates' directories, so a check is the same offline.
+    pub fn local() -> &'static Resolver {
+        LOCAL.get_or_init(|| Self::new().with_host_sources())
     }
 
     /// Adds an embedded set.
@@ -206,8 +233,23 @@ impl Resolver {
         self
     }
 
+    /// Adds the network, after every source before it: crates.io, then the repository `sources` names for the crate
+    /// ([crate::fetch]). Nothing is added when `sources` say offline. What a fetch finds goes into the cache added
+    /// with [Self::with_cache], when there is one.
+    #[cfg(feature = "fetch")]
+    pub fn with_fetch(mut self, sources: cache::Sources) -> Self {
+        if sources.offline {
+            debug!("offline: no fetch");
+            return self;
+        }
+        let cache = self.cache().cloned();
+        self.sources
+            .push(Source::Fetch(crate::fetch::Fetcher::new(sources, cache)));
+        self
+    }
+
     /// Adds another resolver, asked after the sources before it: the checker puts the walked crates' directories
-    /// before [Self::global], so what the process already found or looked for in vain is not looked for again.
+    /// before [Self::local], so what the process already found or looked for in vain is not looked for again.
     pub fn with_fallback(mut self, resolver: &'static Resolver) -> Self {
         self.sources.push(Source::Fallback(resolver));
         self
@@ -225,6 +267,8 @@ impl Resolver {
                 Source::Dir(dir) => places.push((index, Place::Dir(dir, false))),
                 Source::Cache(dir) => places.push((index, Place::Dir(dir, true))),
                 Source::Cargo(scan) => places.push((index, Place::Cargo(scan))),
+                #[cfg(feature = "fetch")]
+                Source::Fetch(fetcher) => places.push((index, Place::Fetch(fetcher))),
                 Source::Fallback(resolver) => places.push((index, Place::Fallback(resolver))),
             }
         }
@@ -329,6 +373,12 @@ impl Resolver {
                                 return found;
                             }
                         }
+                    }
+                }
+                #[cfg(feature = "fetch")]
+                Place::Fetch(fetcher) => {
+                    if let Some(snapshot) = fetcher.snapshot(version) {
+                        found.push((Origin::Fetched, snapshot.bundle));
                     }
                 }
                 Place::Fallback(resolver) => {
@@ -480,6 +530,13 @@ impl Resolver {
                     .iter()
                     .map(|d| Dir::of_crate(d))
                     .collect(),
+                #[cfg(feature = "fetch")]
+                Place::Fetch(fetcher) => {
+                    if let Some(found) = fetcher.superseded(kind, version, name, reference) {
+                        return Some(found);
+                    }
+                    continue;
+                }
                 Place::Fallback(resolver) => {
                     if let Some(found) = resolver.superseded(kind, version, name, reference) {
                         return Some(found.clone());
@@ -559,6 +616,8 @@ impl std::fmt::Debug for Source {
             Source::Dir(dir) => write!(f, "Dir({})", dir.path().display()),
             Source::Cache(dir) => write!(f, "Cache({})", dir.path().display()),
             Source::Cargo(scan) => write!(f, "Cargo({scan:?})"),
+            #[cfg(feature = "fetch")]
+            Source::Fetch(_) => write!(f, "Fetch"),
             Source::Fallback(_) => write!(f, "Fallback"),
         }
     }

@@ -106,14 +106,14 @@ pub fn store_crate(into: &Dir, from: &Dir) -> Result<Stored> {
         if same_bytes(&path, &superseded_into.join(name)) {
             continue;
         }
-        let bytes = match checked_superseded(&path) {
-            Ok(bytes) => bytes,
+        let (name, bytes) = match checked_superseded(&path) {
+            Ok(checked) => checked,
             Err(e) => {
                 stored.refused.push((path, format!("{e:#}")));
                 continue;
             }
         };
-        if store_file(&superseded_into, name, &bytes)? {
+        if store_file(&superseded_into, &name, &bytes)? {
             stored.superseded += 1;
         }
     }
@@ -131,9 +131,8 @@ fn same_bytes(a: &Path, b: &Path) -> bool {
         && fs::read(a).ok() == fs::read(b).ok()
 }
 
-/// The bytes of a superseded definition file, checked to decode and to be named by one of its own signatures.
-fn checked_superseded(path: &Path) -> Result<Vec<u8>> {
-    use ww_self::definition_cache::Kind;
+/// A superseded definition file, checked ([check_superseded]): the file name to store it under and its bytes.
+fn checked_superseded(path: &Path) -> Result<(String, Vec<u8>)> {
     let len = fs::metadata(path)
         .with_context(|| path.display().to_string())?
         .len();
@@ -145,6 +144,19 @@ fn checked_superseded(path: &Path) -> Result<Vec<u8>> {
         .file_name()
         .and_then(|n| n.to_str())
         .context("file name")?;
+    let name = check_superseded(name, &bytes).with_context(|| path.display().to_string())?;
+    Ok((name, bytes))
+}
+
+/// Checks a superseded definition (EVO-68) by its file name and bytes: the bytes decode to the kind, crate version
+/// and definition the name says, and the name carries one of the signatures computed from the bytes (shape, or with
+/// docs; never trusted from the name alone). Returns the file name computed from what was checked, so a name from
+/// outside never forms a path.
+pub(crate) fn check_superseded(name: &str, bytes: &[u8]) -> Result<String> {
+    use ww_self::definition_cache::{self, Kind};
+    if bytes.len() as u64 > crate::limits::SUPERSEDED_FILE_BYTES_MAX {
+        bail!("{name}: {} bytes, refused", bytes.len());
+    }
     let kind = if name.contains("-trait-") {
         Kind::Trait
     } else {
@@ -152,21 +164,19 @@ fn checked_superseded(path: &Path) -> Result<Vec<u8>> {
     };
     let stem = name.strip_suffix(".ww").context("not a .ww file")?;
     let (rest, signature) = stem.rsplit_once('-').context("no signature in the name")?;
-    let (_, def_name) = rest
+    let (version, def_name) = rest
         .split_once(&format!("-{}-", kind.name()))
         .context("no kind in the name")?;
+    let version = file::parse_file_name(&format!("{version}.ron"))
+        .context("no crate and version in the name")?;
     let def_name = def_name.replace('.', "::");
-    let (_, signatures) =
-        ww_self::definition_cache::decode_with_signatures(kind, &def_name, &bytes)
-            .with_context(|| path.display().to_string())?;
+    let (_, signatures) = definition_cache::decode_with_signatures(kind, &def_name, bytes)?;
     let hex = |s: &[u8]| s.iter().map(|b| format!("{b:02x}")).collect::<String>();
-    if hex(&signatures.shape) != signature && hex(&signatures.with_docs) != signature {
-        bail!(
-            "{}: the bytes have neither signature the name says",
-            path.display()
-        );
-    }
-    Ok(bytes)
+    let kept = [&signatures.shape, &signatures.with_docs]
+        .into_iter()
+        .find(|s| hex(s) == signature)
+        .context("the bytes have neither signature the name says")?;
+    Ok(definition_cache::file_name(kind, &version, &def_name, kept))
 }
 
 /// Remembers that a fetch of `version` found nothing, so it isn't tried again before [crate::limits::FETCH_RETRY_AFTER].
@@ -229,17 +239,22 @@ impl Sources {
     /// Reads `root/sources.toml`; a missing file is the default. [OFFLINE_ENV] overrides `offline`.
     pub fn read(root: &Path) -> Result<Sources> {
         let path = root.join(SOURCES_FILE);
-        let mut sources = match fs::read_to_string(&path) {
+        let sources = match fs::read_to_string(&path) {
             Ok(text) => {
                 toml::from_str::<Sources>(&text).with_context(|| path.display().to_string())?
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Sources::default(),
             Err(e) => bail!("{}: {e}", path.display()),
         };
+        Ok(Self::read_env(sources))
+    }
+
+    /// `sources` with [OFFLINE_ENV] applied: set to anything but empty or `0`, it means offline.
+    pub fn read_env(mut sources: Sources) -> Sources {
         if std::env::var(OFFLINE_ENV).is_ok_and(|v| !v.is_empty() && v != "0") {
             sources.offline = true;
         }
-        Ok(sources)
+        sources
     }
 }
 

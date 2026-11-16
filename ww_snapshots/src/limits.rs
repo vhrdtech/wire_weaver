@@ -30,6 +30,12 @@ pub const ARCHIVE_UNPACKED_BYTES_MAX: u64 = 256 << 20;
 /// Entries looked at in one archive.
 pub const ARCHIVE_ENTRIES_MAX: usize = 100_000;
 
+/// Snapshot and superseded files kept in memory out of one archive.
+pub const ARCHIVE_FILES_KEPT_MAX: usize = 8192;
+
+/// A `Cargo.toml` read out of an archive, to learn which crate a directory is.
+pub const MANIFEST_BYTES_MAX: u64 = 1 << 20;
+
 /// Connecting to a host.
 pub const FETCH_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 

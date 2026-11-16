@@ -2037,7 +2037,29 @@ mod tests {
         let ty = property_ty(&b).clone();
         assert!(matches!(ty, TypeOwned::Instance { .. }));
         assert_eq!(ty.human_name(true, &b).unwrap(), "c::Timed<u16>");
-        assert!(ValueOwned::des_shrink_wrap_dyn(&[0], &ty, &b).is_err());
+        // a value of it is the payload, opaque (EVO-80); sending one is refused
+        let value = ValueOwned::des_shrink_wrap_dyn(&[0, 1], &ty, &b).unwrap();
+        let ValueOwned::Opaque(opaque) = &value else {
+            panic!("expected an opaque value, got {value:?}");
+        };
+        assert_eq!(opaque.crate_version, b.ext_crates[0]);
+        assert_eq!(opaque.type_name, "Timed");
+        assert_eq!(opaque.bytes, [0, 1]);
+        let err = value.ser_shrink_wrap_dyn(&ty, &b).unwrap_err();
+        assert!(format!("{err}").contains("can't be sent"), "{err}");
+        let err = ValueOwned::Bool(true)
+            .ser_shrink_wrap_dyn(
+                &TypeOwned::OutOfLine {
+                    type_idx: UNib32(0),
+                },
+                &b,
+            )
+            .unwrap_err();
+        assert!(
+            format!("{err}").contains("no definition on this host"),
+            "{err}"
+        );
+        assert!(crate::inline::skipped_reached(&TypeOwned::Bool, &b).is_none());
     }
 
     #[test]

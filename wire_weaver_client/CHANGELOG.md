@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- A property, return value or stream item of a type without a definition decodes as `ValueOwned::Opaque` (EVO-80).
 - `quantity::CodedType::light(raw)` (STD-112): the light a code means through its codec's transfer curve, a `ww_self::units::Light` (exact where it is a rational, the float edge). `coded_of` reads a `Coded<Transfer<Q, C>, ..>` (a 10-bit PQ pixel), its `codec` `Q`'s definition with `curve` set; `DynQuantity` reads and writes it as `Q`'s signal.
 
 ### ⚠️ Breaking

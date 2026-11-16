@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `ww` prints an opaque value with its crate, version and bytes, and names `ww api fetch` (EVO-80).
+
 ### ⚠️ Breaking
 
 - The `ww` binary is the crate `ww` in `ww_tools/ww` (TOOL-36): `cargo install --git .. ww`, `cargo build -p ww`; `wire_weaver_cli` is a library only.

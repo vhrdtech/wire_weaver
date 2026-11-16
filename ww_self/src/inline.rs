@@ -13,7 +13,8 @@ use crate::signature::{Match, Resolve, Signatures, no_resolve, trait_signatures,
 use crate::visit_mut::{self, VisitMut};
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned, TypeOwned,
+    FieldsOwned, GenericArgOwned, ItemEnumOwned, ItemStructOwned, Multiplicity, TypeLocationOwned,
+    TypeOwned,
 };
 use anyhow::{Result, anyhow};
 use core::fmt::{Display, Formatter};
@@ -47,6 +48,106 @@ impl Display for NotInlined {
             None => write!(f, "{} {}: {:#}", self.kind, self.name, self.reason),
         }
     }
+}
+
+/// A type a value's type reaches whose definition is left skipped: no source had the snapshot of its crate version,
+/// or none had this signature. What [ValueOwned::Opaque](crate::ValueOwned::Opaque) carries.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SkippedType {
+    pub crate_version: FullVersionOwned,
+    pub type_name: String,
+    pub signature: Vec<u8>,
+}
+
+impl Display for SkippedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let v = &self.crate_version;
+        let (major, minor, patch) = (v.version.major.0, v.version.minor.0, v.version.patch.0);
+        write!(
+            f,
+            "type {}::{} {major}.{minor}.{patch}",
+            v.crate_id, self.type_name
+        )
+    }
+}
+
+/// The skipped type at `type_idx` of `bundle`, `None` for an in-line definition or no such index.
+pub fn skipped_at(bundle: &ApiBundleOwned, type_idx: u32) -> Option<SkippedType> {
+    let TypeLocationOwned::SkippedFullVersion {
+        crate_idx,
+        type_name,
+        signature,
+    } = bundle.types.get(type_idx as usize)?
+    else {
+        return None;
+    };
+    Some(SkippedType {
+        crate_version: bundle.ext_crates.get(crate_idx.0 as usize)?.clone(),
+        type_name: type_name.clone(),
+        signature: signature.clone(),
+    })
+}
+
+/// The first skipped type the graph of `ty` reaches: through elements, fields, variants, generic arguments and
+/// out-of-line definitions, each definition looked at once. `None` when `bundle` has every definition a value of
+/// `ty` needs, so it can be decoded.
+pub fn skipped_reached(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<SkippedType> {
+    let mut stack = vec![ty];
+    let mut seen = HashSet::new();
+    while let Some(ty) = stack.pop() {
+        match ty {
+            TypeOwned::OutOfLine { type_idx } | TypeOwned::Instance { type_idx, .. } => {
+                if let TypeOwned::Instance { args, .. } = ty {
+                    for arg in args {
+                        if let GenericArgOwned::Type(ty) = arg {
+                            stack.push(ty);
+                        }
+                    }
+                }
+                if !seen.insert(type_idx.0) {
+                    continue;
+                }
+                match bundle.types.get(type_idx.0 as usize) {
+                    Some(TypeLocationOwned::InLine { ty, .. }) => stack.push(ty),
+                    Some(TypeLocationOwned::SkippedFullVersion { .. }) => {
+                        return skipped_at(bundle, type_idx.0);
+                    }
+                    None => {}
+                }
+            }
+            TypeOwned::Struct(s) => stack.extend(field_types(&s.fields)),
+            TypeOwned::Enum(e) => {
+                stack.extend(e.variants.iter().flat_map(|v| field_types(&v.fields)))
+            }
+            TypeOwned::Vec(inner)
+            | TypeOwned::Box(inner)
+            | TypeOwned::Series(inner)
+            | TypeOwned::Array { ty: inner, .. }
+            | TypeOwned::MaxLen { ty: inner, .. }
+            | TypeOwned::Option { some_ty: inner } => stack.push(inner),
+            TypeOwned::Result { ok_ty, err_ty } => {
+                stack.push(ok_ty);
+                stack.push(err_ty);
+            }
+            TypeOwned::Tuple(types) => stack.extend(types.iter()),
+            TypeOwned::Bool
+            | TypeOwned::NumericAny(_)
+            | TypeOwned::Flag
+            | TypeOwned::String
+            | TypeOwned::Range(_)
+            | TypeOwned::RangeInclusive(_)
+            | TypeOwned::Param(_) => {}
+        }
+    }
+    None
+}
+
+fn field_types(fields: &FieldsOwned) -> impl Iterator<Item = &TypeOwned> {
+    match fields {
+        FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) => fields.iter(),
+        FieldsOwned::Unit => [].iter(),
+    }
+    .map(|f| &f.ty)
 }
 
 /// A skipped trait or type that was put back from the [definition cache](crate::definition_cache): the snapshot has

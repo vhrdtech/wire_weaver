@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `Value::Opaque` (EVO-80): the dynamic decoder gives the payload of a value whose type has no definition on this host (`inline::skipped_reached`); the serializer refuses one.
 - `definition_cache` refuses an entry over `ENTRY_BYTES_MAX` unread and a definition name that is not one (`is_plain_definition_name`) before it forms a path (EVO-80).
 - `inline::find_type` and `find_trait`, the index of a named definition in a bundle, are public (EVO-80).
 - `units::codec_light(def, raw, step)` (STD-112): the light a code of a codec with a transfer curve means, a `units::Light` with the curve's unit, scene or display, the exact value where it is a rational (`CurveDef::decode_exact`) and the float edge (`decode_f64`). The `std` feature turns on exact_units' `libm` (pure Rust) for it.

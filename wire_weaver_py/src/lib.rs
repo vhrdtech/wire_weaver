@@ -19,6 +19,7 @@
 mod columns;
 mod convert;
 mod observe;
+mod opaque;
 mod positioned;
 mod quantity;
 mod requantize;
@@ -443,6 +444,7 @@ pub fn init(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(requantize::requantize, m)?)?;
     m.add_class::<Device>()?;
     m.add_class::<quantity::Quantity>()?;
+    m.add_class::<opaque::Opaque>()?;
     m.add_class::<requantize::Requantizer>()?;
     m.add_class::<Node>()?;
     m.add_class::<Array>()?;

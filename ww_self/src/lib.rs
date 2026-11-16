@@ -679,6 +679,26 @@ pub enum Value<'i> {
     Result(Result<RefBox<'i, Value<'i>>, RefBox<'i, Value<'i>>>),
     Range(Range<NumericValue>),
     RangeInclusive(RangeInclusive<NumericValue>),
+    /// A value whose type reaches a definition this host doesn't have (a [TypeLocation::SkippedFullVersion] that
+    /// snapshot resolution left skipped): the payload as received, undecoded, with what names the definition. The
+    /// dynamic decoder makes one ([ValueOwned::des_shrink_wrap_dyn]); a device never sends one and the dynamic
+    /// serializer refuses to send one.
+    Opaque(RefBox<'i, Opaque<'i>>),
+}
+
+/// What a [Value::Opaque] carries: the type the host has no definition of, and the payload.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct Opaque<'i> {
+    pub crate_version: FullVersion<'i>,
+    pub type_name: &'i str,
+    /// The signature the device named the definition by.
+    pub signature: RefVec<'i, u8>,
+    /// The payload as received, undecoded.
+    pub bytes: RefVec<'i, u8>,
 }
 
 #[derive_shrink_wrap(

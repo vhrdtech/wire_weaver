@@ -99,13 +99,17 @@ impl DynBatching {
         bytes: &[u8],
         bundle: &ApiBundleOwned,
     ) -> Result<Vec<BatchItem<ValueOwned>>, StreamError> {
-        let ValueOwned::Vec(items) =
-            ValueOwned::des_shrink_wrap_dyn(bytes, &self.wire_item_ty, bundle)
-                .map_err(|e| StreamError::Other(Error::Other(format!("batched stream: {e:#}"))))?
-        else {
-            return Err(StreamError::Other(Error::Other(
-                "batched stream: expected a Series value".into(),
-            )));
+        let items = match ValueOwned::des_shrink_wrap_dyn(bytes, &self.wire_item_ty, bundle)
+            .map_err(|e| StreamError::Other(Error::Other(format!("batched stream: {e:#}"))))?
+        {
+            ValueOwned::Vec(items) => items,
+            // the item type has no definition on this host: the batch, times included, is one opaque value
+            value @ ValueOwned::Opaque(_) => return Ok(vec![BatchItem { t: None, value }]),
+            _ => {
+                return Err(StreamError::Other(Error::Other(
+                    "batched stream: expected a Series value".into(),
+                )));
+            }
         };
         let Some(second_ty) = &self.second_ty else {
             // untimed: every entry is the item itself, no time to unwrap

@@ -127,6 +127,17 @@ impl Fmt<'_> {
                 self.value(&ValueOwned::Numeric(*r.start()), None),
                 self.value(&ValueOwned::Numeric(*r.end()), None)
             ),
+            // the payload of a type this host has no definition of (EVO-80), with the way to get one
+            ValueOwned::Opaque(opaque) => {
+                let v = &opaque.crate_version.version;
+                let version = format!("{}.{}.{}", v.major.0, v.minor.0, v.patch.0);
+                let hex: String = opaque.bytes.iter().map(|b| format!("{b:02x}")).collect();
+                format!(
+                    "<opaque {crate}::{} {version} 0x{hex}: no snapshot of {crate} {version}, see `ww api fetch`>",
+                    opaque.type_name,
+                    crate = opaque.crate_version.crate_id
+                )
+            }
         }
     }
 

@@ -24,6 +24,7 @@
 //! | `exact_units::Point`              | `Quantity`, shown in its own origin (`Quantity.origin`, CLT-65); a `Quantity` read from the same origin writes back exactly, another origin is refused (not supported yet), a `dict` of its `coord` (its inner `Fixed`) is still accepted |
 //! | `Index`, `IndexFrom1`, `Seq`      | `dict` of the number, as a struct (the number alone accepted)       |
 
+use crate::opaque::Opaque;
 use crate::quantity::Quantity;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -59,6 +60,11 @@ fn to_value_at(
     bundle: &ApiBundleOwned,
     depth: usize,
 ) -> PyResult<ValueOwned> {
+    if obj.is_instance_of::<Opaque>() {
+        return Err(PyTypeError::new_err(
+            "an Opaque value can't be sent: its type has no definition on this host",
+        ));
+    }
     if depth >= MAX_VALUE_DEPTH {
         return Err(PyValueError::new_err(format!(
             "value is nested deeper than {MAX_VALUE_DEPTH} levels"
@@ -672,6 +678,7 @@ pub(crate) fn to_py<'py>(
             [numeric_to_py(py, r.start())?, numeric_to_py(py, r.end())?],
         )?
         .into_any(),
+        (ValueOwned::Opaque(opaque), _) => Bound::new(py, Opaque::of(opaque))?.into_any(),
         (value, ty) => {
             return Err(PyTypeError::new_err(format!(
                 "value {value:?} does not match type {}",

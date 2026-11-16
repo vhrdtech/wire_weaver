@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `Opaque` (EVO-80): a value whose type has no snapshot on this host, with `crate`, `version`, `name`, `signature` and `bytes`; sending one is refused.
+
 ### ⚠️ Breaking
 
 - A `Timed` value's `t` is a time point (`ww_si` STD-110): it decodes as a `ww.Quantity` shown since its origin (`"1.5 s since boot"`), and is written as one or as the dict of its `coord`, not as a `Second`'s `prefix` and `value`.

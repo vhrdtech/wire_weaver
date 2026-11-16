@@ -8,9 +8,10 @@
 //! fields of an evolvable struct.
 
 use crate::explain::{PartKind, Trace};
+use crate::inline::{self, SkippedType};
 use crate::{
     ApiBundleOwned, ArgumentOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned,
-    ItemEnumOwned, ItemStructOwned, Repr, TypeOwned, ValueOwned,
+    ItemEnumOwned, ItemStructOwned, OpaqueOwned, Repr, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_reader::Cursors;
@@ -33,6 +34,10 @@ pub(crate) fn des_arg(
 ) -> Result<ValueOwned> {
     let at_end = rd.bytes_left() == 0;
     let name = field.ident.as_deref().unwrap_or("_");
+    if let Some(skipped) = inline::skipped_reached(&field.ty, api_bundle) {
+        return opaque_field(rd, &field.ty, skipped, api_bundle)
+            .map_err(|e| anyhow!("argument `{name}`: {e:#}"));
+    }
     let value = match (des_field(rd, &field.ty, api_bundle, b), &field.default) {
         // a flag read from the padding of the last byte is 0: missing as well
         (Ok(ValueOwned::Option(None)), Some(default)) if at_end => {
@@ -85,14 +90,29 @@ pub fn check_args_count(given: usize, fields: &[FieldOwned]) -> Result<()> {
 }
 
 impl ValueOwned {
-    /// Deserialize one top-level value of type `ty` (as `T::from_ww_bytes_owned` does).
+    /// Deserialize one top-level value of type `ty` (as `T::from_ww_bytes_owned` does). [ValueOwned::Opaque] over
+    /// the whole of `bytes` when `ty` reaches a definition `api_bundle` doesn't have ([inline::skipped_reached]):
+    /// without it the size of what comes after is unknown, so nothing of the payload is decoded.
     pub fn des_shrink_wrap_dyn(
         bytes: &[u8],
         ty: &TypeOwned,
         api_bundle: &ApiBundleOwned,
     ) -> Result<Self> {
+        if let Some(skipped) = inline::skipped_reached(ty, api_bundle) {
+            return Ok(Self::opaque(skipped, bytes.to_vec()));
+        }
         let mut rd = BufReader::new(bytes);
         des_inner(&mut rd, ty, api_bundle, &mut Budget::for_bytes(bytes.len()))
+    }
+
+    /// The payload of a value of `skipped`, which has no definition on this host, as received.
+    pub fn opaque(skipped: SkippedType, bytes: Vec<u8>) -> Self {
+        ValueOwned::Opaque(Box::new(OpaqueOwned {
+            crate_version: skipped.crate_version,
+            type_name: skipped.type_name,
+            signature: skipped.signature,
+            bytes,
+        }))
     }
 
     /// Deserialize one value of type `ty` from a shared [BufReader] (as a field of an evolvable struct is read,
@@ -104,6 +124,9 @@ impl ValueOwned {
         ty: &TypeOwned,
         api_bundle: &ApiBundleOwned,
     ) -> Result<Self> {
+        if let Some(skipped) = inline::skipped_reached(ty, api_bundle) {
+            return opaque_field(rd, ty, skipped, api_bundle);
+        }
         let mut b = Budget::for_bytes(rd.bytes_left());
         des_field(rd, ty, api_bundle, &mut b)
     }
@@ -529,6 +552,31 @@ fn default_fields_in(
 
 /// A generic definition's parameter, or an instance that [instantiate](crate::generics::instantiate) didn't replace
 /// (its definition is not known): dynamic code needs concrete types.
+/// A field (an item among several, an argument) whose type reaches `skipped`: an unsized one has its bytes delimited
+/// by its size, so it is read as an opaque value and what follows still reads right; a sized one can't be read past.
+fn opaque_field(
+    rd: &mut BufReader,
+    ty: &TypeOwned,
+    skipped: SkippedType,
+    api_bundle: &ApiBundleOwned,
+) -> Result<ValueOwned> {
+    if !matches!(ty.is_unsized(api_bundle), Ok(true)) {
+        bail!("{skipped} has no definition on this host, and its size is needed to read what follows");
+    }
+    let len = rd.read_rev_len()?;
+    let mut rd = rd.split(len)?;
+    let bytes = rd.read_raw_slice(rd.bytes_left())?;
+    Ok(ValueOwned::opaque(skipped, bytes.to_vec()))
+}
+
+/// The definition at `type_idx`; a skipped one is named in the error.
+fn defined(api_bundle: &ApiBundleOwned, type_idx: u32) -> Result<&TypeOwned> {
+    if let Some(skipped) = inline::skipped_at(api_bundle, type_idx) {
+        bail!("{skipped} has no definition on this host: no snapshot of the crate was found");
+    }
+    Ok(api_bundle.get_ty(type_idx)?.0)
+}
+
 pub(crate) fn not_instantiated(ty: &TypeOwned) -> anyhow::Error {
     match ty {
         TypeOwned::Param(idx) => anyhow!(
@@ -626,7 +674,7 @@ fn des_ty(
             numeric_base(numeric_any),
         )?)),
         TypeOwned::OutOfLine { type_idx } => {
-            let ty = api_bundle.get_ty(type_idx.0)?.0;
+            let ty = defined(api_bundle, type_idx.0)?;
             des_inner(rd, ty, api_bundle, b)
         }
         TypeOwned::Flag => bail!("flag can only be a named field"),
@@ -1119,10 +1167,21 @@ fn ser_inner(
     api_bundle: &ApiBundleOwned,
 ) -> Result<()> {
     let mismatch = || anyhow!("expected {}, got {value:?}", type_name(ty, api_bundle));
+    if let ValueOwned::Opaque(opaque) = value {
+        let v = &opaque.crate_version.version;
+        bail!(
+            "an opaque value of type {}::{} {}.{}.{} can't be sent: the type has no definition on this host",
+            opaque.crate_version.crate_id,
+            opaque.type_name,
+            v.major.0,
+            v.minor.0,
+            v.patch.0
+        );
+    }
     match ty {
         TypeOwned::Instance { .. } | TypeOwned::Param(_) => return Err(not_instantiated(ty)),
         TypeOwned::OutOfLine { type_idx } => {
-            let ty = api_bundle.get_ty(type_idx.0)?.0;
+            let ty = defined(api_bundle, type_idx.0)?;
             ser_inner(wr, value, ty, api_bundle)?;
         }
         TypeOwned::Bool => {

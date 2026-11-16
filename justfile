@@ -1,8 +1,8 @@
 # `just jobs=N <recipe>` caps build and test parallelism for that run (test, test-all, lint, check and anything
-# they call); unset (the default) leaves CARGO_BUILD_JOBS / NEXTEST_TEST_THREADS exactly as inherited (tpm's gate
-# sets them itself for its own runs).
+# they call); unset (the default) leaves NEXTEST_TEST_THREADS as inherited and CARGO_BUILD_JOBS as inherited or the
+# CPU count, which is cargo's own default (maturin refuses a non-numeric value; tpm's gate sets both for its runs).
 jobs := ""
-export CARGO_BUILD_JOBS := if jobs != "" { jobs } else { env_var_or_default('CARGO_BUILD_JOBS', 'default') }
+export CARGO_BUILD_JOBS := if jobs != "" { jobs } else { env_var_or_default('CARGO_BUILD_JOBS', num_cpus()) }
 export NEXTEST_TEST_THREADS := if jobs != "" { jobs } else { env_var_or_default('NEXTEST_TEST_THREADS', 'num-cpus') }
 
 # List all available targets

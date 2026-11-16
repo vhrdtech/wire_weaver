@@ -149,6 +149,24 @@ Besides the sealed values, each case checks how the two signatures relate: the d
 has the same shape signature, and then its signature with docs is that shape signature; a reference is the shape
 signature followed by the signature with docs; an 8-byte reference matches by either.
 
+## Shape cases
+
+Writers have disagreed most where a list or a string sits: empty or not, starting on a byte or mid-byte, last in its
+struct or followed by a bit (SW-81: the borrowed derive padded an empty byte list that started mid-byte). So every
+list-like and string-like field kind has generated shape cases, `shape.<kind>.<layout>.<count>`:
+
+| | |
+|---|---|
+| kinds | `bytes` (`RefVec<u8>`), `vec` (`RefVec<u16>`), `vec_bool`, `vec_str`, `str`, `option` (`Option<RefVec<u8>>`), `array` (`[u8; N]`), `tail` (`TailBytes`, last only) |
+| layouts | `aligned_last`, `aligned_bool` (followed by a `bool`), `mid_last` (after a `bool`), `mid_bool` |
+| counts | `empty`, `one`, `many` (for `option`: `None`, `Some` of an empty list, `Some` of three bytes) |
+
+They run through every consumer like any case; the `borrowed` consumer also builds each value from slices, as
+firmware does, and checks it writes the golden bytes and that they read as it. One table,
+`tests/conformance/src/shapes.rs`, gives the types and properties in `tests/conformance_api` (between the `shape`
+markers), the Rust values (`src/shape_values.rs`) and the corpus cases; the `shapes` test fails when one of them is
+not what the table gives, and `just conformance-update` writes them. A new kind is a line in that table.
+
 ## Frozen golden bytes
 
 Once a case's `bytes` are in, they are the contract: nothing should change them, remove the case, or change its
@@ -221,6 +239,9 @@ that used to be the only cover for a feature is deleted. The `coverage` test (`t
   `head_tail`, `sparse`, `validate = ..`, `ww_repr = ..`, `series`, `#[series(opaque)]`, `no_future_version`,
   `#[flag]`, `#[default = ..]`) used by some type in `tests/conformance_api`. Directives that don't change
   serialized bytes (which Rust type is generated, derives, doc/display, naming) are left out rather than tracked.
+
+- Every list-like or string-like field kind (`ww_self::Type` classified by `field_kind`, an exhaustive match, and
+  `TailBytes`) of some case's type has all of its [shape cases](#shape-cases), or a gap in `FIELD_KIND_GAPS`.
 
 A kind not exercised by any case, and not listed, fails the test by name. A kind that *is* listed (`TYPE_GAPS` /
 `DIRECTIVE_GAPS` in `conformance::coverage`) needs a reason ending in a `FEATURES.md` id, same rules as a case's own

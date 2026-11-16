@@ -19,6 +19,8 @@ pub mod frozen;
 pub mod json;
 pub mod report;
 pub mod requantize;
+pub mod shape_values;
+pub mod shapes;
 pub mod signature;
 
 use corpus::{Case, Direction};

@@ -2380,6 +2380,726 @@
       "direction": "decode",
       "gaps": {"c": "no generated C for method arguments yet: C from the ww_self model (API-26)"},
       "note": "an older client sends only a: b reads its #[default = 7], c its natural None (EVO-22)"
+    },
+    {
+      "name": "shape.bytes.aligned_last.empty",
+      "type": "shape_bytes_aligned_last",
+      "value": {"x": []},
+      "bytes": "00",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.aligned_last.one",
+      "type": "shape_bytes_aligned_last",
+      "value": {"x": [7]},
+      "bytes": "0701",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.aligned_last.many",
+      "type": "shape_bytes_aligned_last",
+      "value": {"x": [1, 2, 3]},
+      "bytes": "01020303",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.aligned_bool.empty",
+      "type": "shape_bytes_aligned_bool",
+      "value": {"x": [], "z": true},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.aligned_bool.one",
+      "type": "shape_bytes_aligned_bool",
+      "value": {"x": [7], "z": true},
+      "bytes": "0781",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.aligned_bool.many",
+      "type": "shape_bytes_aligned_bool",
+      "value": {"x": [1, 2, 3], "z": true},
+      "bytes": "01020383",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.mid_last.empty",
+      "type": "shape_bytes_mid_last",
+      "value": {"a": true, "x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.mid_last.one",
+      "type": "shape_bytes_mid_last",
+      "value": {"a": true, "x": [7]},
+      "bytes": "800701",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.mid_last.many",
+      "type": "shape_bytes_mid_last",
+      "value": {"a": true, "x": [1, 2, 3]},
+      "bytes": "8001020303",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.mid_bool.empty",
+      "type": "shape_bytes_mid_bool",
+      "value": {"a": true, "x": [], "z": true},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.mid_bool.one",
+      "type": "shape_bytes_mid_bool",
+      "value": {"a": true, "x": [7], "z": true},
+      "bytes": "800781",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.bytes.mid_bool.many",
+      "type": "shape_bytes_mid_bool",
+      "value": {"a": true, "x": [1, 2, 3], "z": true},
+      "bytes": "8001020383",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.aligned_last.empty",
+      "type": "shape_vec_aligned_last",
+      "value": {"x": []},
+      "bytes": "00",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.aligned_last.one",
+      "type": "shape_vec_aligned_last",
+      "value": {"x": [4660]},
+      "bytes": "341201",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.aligned_last.many",
+      "type": "shape_vec_aligned_last",
+      "value": {"x": [1, 4660, 65535]},
+      "bytes": "01003412ffff03",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.aligned_bool.empty",
+      "type": "shape_vec_aligned_bool",
+      "value": {"x": [], "z": true},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.aligned_bool.one",
+      "type": "shape_vec_aligned_bool",
+      "value": {"x": [4660], "z": true},
+      "bytes": "341281",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.aligned_bool.many",
+      "type": "shape_vec_aligned_bool",
+      "value": {"x": [1, 4660, 65535], "z": true},
+      "bytes": "01003412ffff83",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.mid_last.empty",
+      "type": "shape_vec_mid_last",
+      "value": {"a": true, "x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.mid_last.one",
+      "type": "shape_vec_mid_last",
+      "value": {"a": true, "x": [4660]},
+      "bytes": "80341201",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.mid_last.many",
+      "type": "shape_vec_mid_last",
+      "value": {"a": true, "x": [1, 4660, 65535]},
+      "bytes": "8001003412ffff03",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.mid_bool.empty",
+      "type": "shape_vec_mid_bool",
+      "value": {"a": true, "x": [], "z": true},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.mid_bool.one",
+      "type": "shape_vec_mid_bool",
+      "value": {"a": true, "x": [4660], "z": true},
+      "bytes": "80341281",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec.mid_bool.many",
+      "type": "shape_vec_mid_bool",
+      "value": {"a": true, "x": [1, 4660, 65535], "z": true},
+      "bytes": "8001003412ffff83",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.aligned_last.empty",
+      "type": "shape_vec_bool_aligned_last",
+      "value": {"x": []},
+      "bytes": "00",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.aligned_last.one",
+      "type": "shape_vec_bool_aligned_last",
+      "value": {"x": [true]},
+      "bytes": "81",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.aligned_last.many",
+      "type": "shape_vec_bool_aligned_last",
+      "value": {"x": [true, false, true]},
+      "bytes": "a3",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.aligned_bool.empty",
+      "type": "shape_vec_bool_aligned_bool",
+      "value": {"x": [], "z": true},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.aligned_bool.one",
+      "type": "shape_vec_bool_aligned_bool",
+      "value": {"x": [true], "z": true},
+      "bytes": "c1",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.aligned_bool.many",
+      "type": "shape_vec_bool_aligned_bool",
+      "value": {"x": [true, false, true], "z": true},
+      "bytes": "b3",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.mid_last.empty",
+      "type": "shape_vec_bool_mid_last",
+      "value": {"a": true, "x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.mid_last.one",
+      "type": "shape_vec_bool_mid_last",
+      "value": {"a": true, "x": [true]},
+      "bytes": "c1",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.mid_last.many",
+      "type": "shape_vec_bool_mid_last",
+      "value": {"a": true, "x": [true, false, true]},
+      "bytes": "d3",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.mid_bool.empty",
+      "type": "shape_vec_bool_mid_bool",
+      "value": {"a": true, "x": [], "z": true},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.mid_bool.one",
+      "type": "shape_vec_bool_mid_bool",
+      "value": {"a": true, "x": [true], "z": true},
+      "bytes": "e1",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_bool.mid_bool.many",
+      "type": "shape_vec_bool_mid_bool",
+      "value": {"a": true, "x": [true, false, true], "z": true},
+      "bytes": "d803",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.aligned_last.empty",
+      "type": "shape_vec_str_aligned_last",
+      "value": {"x": []},
+      "bytes": "00",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.aligned_last.one",
+      "type": "shape_vec_str_aligned_last",
+      "value": {"x": ["a"]},
+      "bytes": "6111",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.aligned_last.many",
+      "type": "shape_vec_str_aligned_last",
+      "value": {"x": ["a", "", "bc"]},
+      "bytes": "6162632013",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.aligned_bool.empty",
+      "type": "shape_vec_str_aligned_bool",
+      "value": {"x": [], "z": true},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.aligned_bool.one",
+      "type": "shape_vec_str_aligned_bool",
+      "value": {"x": ["a"], "z": true},
+      "bytes": "618011",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.aligned_bool.many",
+      "type": "shape_vec_str_aligned_bool",
+      "value": {"x": ["a", "", "bc"], "z": true},
+      "bytes": "616263802013",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.mid_last.empty",
+      "type": "shape_vec_str_mid_last",
+      "value": {"a": true, "x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.mid_last.one",
+      "type": "shape_vec_str_mid_last",
+      "value": {"a": true, "x": ["a"]},
+      "bytes": "806111",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.mid_last.many",
+      "type": "shape_vec_str_mid_last",
+      "value": {"a": true, "x": ["a", "", "bc"]},
+      "bytes": "806162632013",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.mid_bool.empty",
+      "type": "shape_vec_str_mid_bool",
+      "value": {"a": true, "x": [], "z": true},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.mid_bool.one",
+      "type": "shape_vec_str_mid_bool",
+      "value": {"a": true, "x": ["a"], "z": true},
+      "bytes": "80618011",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.vec_str.mid_bool.many",
+      "type": "shape_vec_str_mid_bool",
+      "value": {"a": true, "x": ["a", "", "bc"], "z": true},
+      "bytes": "80616263802013",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.aligned_last.empty",
+      "type": "shape_str_aligned_last",
+      "value": {"x": ""},
+      "bytes": "00",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.aligned_last.one",
+      "type": "shape_str_aligned_last",
+      "value": {"x": "a"},
+      "bytes": "6101",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.aligned_last.many",
+      "type": "shape_str_aligned_last",
+      "value": {"x": "abc"},
+      "bytes": "61626303",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.aligned_bool.empty",
+      "type": "shape_str_aligned_bool",
+      "value": {"x": "", "z": true},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.aligned_bool.one",
+      "type": "shape_str_aligned_bool",
+      "value": {"x": "a", "z": true},
+      "bytes": "6181",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.aligned_bool.many",
+      "type": "shape_str_aligned_bool",
+      "value": {"x": "abc", "z": true},
+      "bytes": "61626383",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.mid_last.empty",
+      "type": "shape_str_mid_last",
+      "value": {"a": true, "x": ""},
+      "bytes": "8000",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.mid_last.one",
+      "type": "shape_str_mid_last",
+      "value": {"a": true, "x": "a"},
+      "bytes": "806101",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.mid_last.many",
+      "type": "shape_str_mid_last",
+      "value": {"a": true, "x": "abc"},
+      "bytes": "8061626303",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.mid_bool.empty",
+      "type": "shape_str_mid_bool",
+      "value": {"a": true, "x": "", "z": true},
+      "bytes": "8080",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.mid_bool.one",
+      "type": "shape_str_mid_bool",
+      "value": {"a": true, "x": "a", "z": true},
+      "bytes": "806181",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.str.mid_bool.many",
+      "type": "shape_str_mid_bool",
+      "value": {"a": true, "x": "abc", "z": true},
+      "bytes": "8061626383",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.aligned_last.empty",
+      "type": "shape_option_aligned_last",
+      "value": {"x": null},
+      "bytes": "00",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.aligned_last.one",
+      "type": "shape_option_aligned_last",
+      "value": {"x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.aligned_last.many",
+      "type": "shape_option_aligned_last",
+      "value": {"x": [1, 2, 3]},
+      "bytes": "8001020303",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.aligned_bool.empty",
+      "type": "shape_option_aligned_bool",
+      "value": {"x": null, "z": true},
+      "bytes": "40",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.aligned_bool.one",
+      "type": "shape_option_aligned_bool",
+      "value": {"x": [], "z": true},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.aligned_bool.many",
+      "type": "shape_option_aligned_bool",
+      "value": {"x": [1, 2, 3], "z": true},
+      "bytes": "8001020383",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.mid_last.empty",
+      "type": "shape_option_mid_last",
+      "value": {"a": true, "x": null},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.mid_last.one",
+      "type": "shape_option_mid_last",
+      "value": {"a": true, "x": []},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.mid_last.many",
+      "type": "shape_option_mid_last",
+      "value": {"a": true, "x": [1, 2, 3]},
+      "bytes": "c001020303",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.mid_bool.empty",
+      "type": "shape_option_mid_bool",
+      "value": {"a": true, "x": null, "z": true},
+      "bytes": "a0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.mid_bool.one",
+      "type": "shape_option_mid_bool",
+      "value": {"a": true, "x": [], "z": true},
+      "bytes": "e0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.option.mid_bool.many",
+      "type": "shape_option_mid_bool",
+      "value": {"a": true, "x": [1, 2, 3], "z": true},
+      "bytes": "c001020383",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.aligned_last.empty",
+      "type": "shape_array0_aligned_last",
+      "value": {"x": []},
+      "bytes": "",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.aligned_last.one",
+      "type": "shape_array1_aligned_last",
+      "value": {"x": [7]},
+      "bytes": "07",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.aligned_last.many",
+      "type": "shape_array3_aligned_last",
+      "value": {"x": [1, 2, 3]},
+      "bytes": "010203",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.aligned_bool.empty",
+      "type": "shape_array0_aligned_bool",
+      "value": {"x": [], "z": true},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.aligned_bool.one",
+      "type": "shape_array1_aligned_bool",
+      "value": {"x": [7], "z": true},
+      "bytes": "0780",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.aligned_bool.many",
+      "type": "shape_array3_aligned_bool",
+      "value": {"x": [1, 2, 3], "z": true},
+      "bytes": "01020380",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.mid_last.empty",
+      "type": "shape_array0_mid_last",
+      "value": {"a": true, "x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.mid_last.one",
+      "type": "shape_array1_mid_last",
+      "value": {"a": true, "x": [7]},
+      "bytes": "8007",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.mid_last.many",
+      "type": "shape_array3_mid_last",
+      "value": {"a": true, "x": [1, 2, 3]},
+      "bytes": "80010203",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.mid_bool.empty",
+      "type": "shape_array0_mid_bool",
+      "value": {"a": true, "x": [], "z": true},
+      "bytes": "c0",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.mid_bool.one",
+      "type": "shape_array1_mid_bool",
+      "value": {"a": true, "x": [7], "z": true},
+      "bytes": "800780",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.array.mid_bool.many",
+      "type": "shape_array3_mid_bool",
+      "value": {"a": true, "x": [1, 2, 3], "z": true},
+      "bytes": "8001020380",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.tail.aligned_last.empty",
+      "type": "FieldShapeTailAlignedLast",
+      "value": {"x": []},
+      "bytes": "",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)","dynamic":"TailBytes has no form in the API model yet (INT-9)","explain":"TailBytes has no form in the API model yet (INT-9)","python":"TailBytes has no form in the API model yet (INT-9)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.tail.aligned_last.one",
+      "type": "FieldShapeTailAlignedLast",
+      "value": {"x": [7]},
+      "bytes": "07",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)","dynamic":"TailBytes has no form in the API model yet (INT-9)","explain":"TailBytes has no form in the API model yet (INT-9)","python":"TailBytes has no form in the API model yet (INT-9)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.tail.aligned_last.many",
+      "type": "FieldShapeTailAlignedLast",
+      "value": {"x": [1, 2, 3]},
+      "bytes": "010203",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)","dynamic":"TailBytes has no form in the API model yet (INT-9)","explain":"TailBytes has no form in the API model yet (INT-9)","python":"TailBytes has no form in the API model yet (INT-9)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.tail.mid_last.empty",
+      "type": "FieldShapeTailMidLast",
+      "value": {"a": true, "x": []},
+      "bytes": "80",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)","dynamic":"TailBytes has no form in the API model yet (INT-9)","explain":"TailBytes has no form in the API model yet (INT-9)","python":"TailBytes has no form in the API model yet (INT-9)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.tail.mid_last.one",
+      "type": "FieldShapeTailMidLast",
+      "value": {"a": true, "x": [7]},
+      "bytes": "8007",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)","dynamic":"TailBytes has no form in the API model yet (INT-9)","explain":"TailBytes has no form in the API model yet (INT-9)","python":"TailBytes has no form in the API model yet (INT-9)"},
+      "note": "generated shape case (TEST-37)"
+    },
+    {
+      "name": "shape.tail.mid_last.many",
+      "type": "FieldShapeTailMidLast",
+      "value": {"a": true, "x": [1, 2, 3]},
+      "bytes": "80010203",
+      "gaps": {"c":"no generated C for this type yet: C from the ww_self model (API-26)","dynamic":"TailBytes has no form in the API model yet (INT-9)","explain":"TailBytes has no form in the API model yet (INT-9)","python":"TailBytes has no form in the API model yet (INT-9)"},
+      "note": "generated shape case (TEST-37)"
     }
   ],
   "requantize": [

@@ -3416,15 +3416,22 @@ Unicast Data0 to one node over the same bus is TR-6.
   unused fails, a kind listed (`TYPE_GAPS` / `DIRECTIVE_GAPS`) but now used fails too. Found two variants a
   prepared bundle never carries (filed INT-11) and two directives with no case yet (filed SW-67).
   `tests/conformance/src/coverage.rs`, `tests/matrix.rs::coverage`. See `docs/serdes/conformance.md`.
-- 🚧 **TEST-37 The borrowed writer and shape cases in the conformance matrix** · `v0.5` — the matrix encoded
+- ✅ **TEST-37 The borrowed writer and shape cases in the conformance matrix** · `v0.5` — the matrix encoded
   every case with the owned writer and read the borrowed type only where a case opted in, so SW-81 (an empty
   `RefVec<u8>` padded by the borrowed derive) reached the frozen dispatch golden (EVO-81) unseen. The borrowed
   type is now a consumer of its own, `borrowed`: each case's golden bytes are read with it and written again,
   which must give them back, and what it wrote reads as the value with the owned type. It is found by the case's
   type, and every property of `Conformance` must have one, so only a type without a borrowed form (`head_tail`)
   or a value that must not encode carries a gap (`tests/conformance/src/borrowed.rs`, `matrix.rs::borrowed`).
-  Missing: generated shape cases of every list and string field kind (empty, one, many; at a byte or mid-byte;
-  last or followed by a bool) and a coverage check that each kind has them.
+  Generated shape cases cover every list and string field kind (`bytes`, `vec`, `vec_bool`, `vec_str`, `str`,
+  `option`, `array`, `tail`) empty, with one and with many elements, at a byte and mid-byte, last and followed by
+  a bool: 90 cases from one table (`tests/conformance/src/shapes.rs`, `matrix.rs::shapes`), the borrowed value
+  also built from slices. The coverage guard fails when a field kind of the model lacks them. With SW-81 reverted,
+  `shape.bytes.mid_last.empty` and `shape.bytes.mid_bool.empty` fail. See
+  [shape cases](docs/serdes/conformance.md#shape-cases).
+- 📋 **TEST-38 Shape cases of a `Series`** — a `Series<T>` field is written as columns with their own layout, so
+  the shape table of TEST-37 doesn't cover it; it carries a gap in `FIELD_KIND_GAPS` until it has its own shapes
+  (empty, one, many items; aligned, mid-byte; last, followed by a bool).
 - ✅ **TEST-17 `shrink_wrap` code size bench**: `just size-bench` builds one bare firmware image per test case
   (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints `.text` +

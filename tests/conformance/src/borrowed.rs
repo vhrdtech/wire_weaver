@@ -4,6 +4,9 @@
 //! the golden bytes back; the decode half reads what it wrote with the owned type of the derive consumer, which
 //! must give the case's value.
 //!
+//! A shape case (TEST-37, [crate::shapes]) is also built from slices, as firmware builds a value: written, it must
+//! give the same bytes, and the golden bytes must read as it.
+//!
 //! The borrowed type of a case is found by the case's `type`: the property of `Conformance` (the table below has
 //! one line per property, and [missing_properties] fails when one is left out), or the Rust type of one outside the
 //! model. A type without a borrowed form is not listed, so its cases need a gap mark, as for any consumer.
@@ -17,16 +20,32 @@ use wire_weaver::shrink_wrap::series::Series;
 use wire_weaver::shrink_wrap::{Error as SwError, UVlq32, UVlq64};
 
 /// Read with the borrowed type (the outer error), then written with it (the inner error).
-type RoundTrip = fn(&[u8]) -> Result<Result<Vec<u8>, SwError>, SwError>;
+pub type RoundTrip = fn(&[u8]) -> Result<Result<Vec<u8>, SwError>, SwError>;
 
-macro_rules! borrowed_types {
-    ($($name:ident => $ty:ty,)*) => {
-        /// The `type` names of the cases with a borrowed form and their round trips.
-        const TABLE: &[(&str, RoundTrip)] = &[$((stringify!($name), |bytes| {
+/// A shape case's borrowed value built from slices (TEST-37, [crate::shapes]): what writing it gives, and whether
+/// reading bytes gives it.
+pub struct SliceCase {
+    pub write: fn(&mut [u8]) -> Result<Vec<u8>, SwError>,
+    pub read: fn(&[u8]) -> Result<bool, SwError>,
+}
+
+/// `name => Type,` lines as a table of round trips through the borrowed `Type`.
+macro_rules! round_trips {
+    ($($name:expr => $ty:ty,)*) => {
+        &[$(($name, |bytes| {
             let value = <$ty>::from_ww_bytes(bytes)?;
             let mut buf = vec![0u8; bytes.len() * 2 + 64];
             Ok(value.to_ww_bytes(&mut buf).map(|b| b.to_vec()))
-        }),)*];
+        }),)*]
+    };
+}
+pub(crate) use round_trips;
+
+macro_rules! borrowed_types {
+    ($($name:ident => $ty:ty,)*) => {
+        /// The `type` names of the cases with a borrowed form and their round trips; the shape types are in
+        /// [crate::shape_values::TYPES].
+        const TABLE: &[(&str, RoundTrip)] = round_trips![$(stringify!($name) => $ty,)*];
     };
 }
 
@@ -190,11 +209,21 @@ borrowed_types! {
         args_defaults => ArgsDefaultsArgs,
 }
 
+fn all_types() -> impl Iterator<Item = &'static (&'static str, RoundTrip)> {
+    TABLE.iter().chain(crate::shape_values::TYPES)
+}
+
 fn round_trip(case: &Case) -> Option<RoundTrip> {
-    TABLE
-        .iter()
+    all_types()
         .find(|(name, _)| *name == case.ty)
         .map(|(_, rt)| *rt)
+}
+
+fn slice_case(case: &Case) -> Option<&'static SliceCase> {
+    crate::shape_values::BORROWED
+        .iter()
+        .find(|(name, _)| *name == case.name)
+        .map(|(_, c)| c)
 }
 
 /// Properties of `Conformance` without a line in the table: each needs one, the borrowed form is never optional.
@@ -205,7 +234,7 @@ pub fn missing_properties() -> Vec<String> {
         .iter()
         .filter(|item| matches!(item.kind, ww_self::ApiItemKindOwned::Property { .. }))
         .map(|item| item.ident.to_string())
-        .filter(|name| !TABLE.iter().any(|(n, _)| n == name))
+        .filter(|name| !all_types().any(|(n, _)| n == name))
         .collect()
 }
 
@@ -223,16 +252,38 @@ impl crate::Consumer for Borrowed {
             return None;
         }
         let rt = round_trip(case)?;
-        Some(match rt(&case.golden()) {
-            Ok(Ok(bytes)) => Ok(bytes),
-            Ok(Err(e)) => Err(format!("write: {e:?}")),
-            Err(e) => Err(format!("read: {e:?}")),
-        })
+        let read_and_written = match rt(&case.golden()) {
+            Ok(Ok(bytes)) => bytes,
+            Ok(Err(e)) => return Some(Err(format!("write: {e:?}"))),
+            Err(e) => return Some(Err(format!("read: {e:?}"))),
+        };
+        // a shape case is also built from slices: both must write the same bytes
+        if let Some(slices) = slice_case(case) {
+            let mut buf = [0u8; 256];
+            match (slices.write)(&mut buf) {
+                Ok(bytes) if bytes == read_and_written => {}
+                Ok(bytes) => {
+                    return Some(Err(format!(
+                        "built from slices: {}",
+                        crate::corpus::bytes_mismatch(&bytes, &case.golden())
+                    )));
+                }
+                Err(e) => return Some(Err(format!("built from slices, write: {e:?}"))),
+            }
+        }
+        Some(Ok(read_and_written))
     }
 
     fn decode(&self, case: &Case) -> Option<crate::DecodeResult> {
         let rt = round_trip(case)?;
         let typed = self.derive.get(&case.name)?;
+        if let Some(slices) = slice_case(case) {
+            match (slices.read)(&case.golden()) {
+                Ok(true) => {}
+                Ok(false) => return Some(Ok(Err("read: not the value built from slices".into()))),
+                Err(e) => return Some(Err(format!("{e:?}"))),
+            }
+        }
         Some(match rt(&case.golden()) {
             Err(e) => Err(format!("{e:?}")),
             Ok(Err(e)) => Ok(Err(format!("written again: {e:?}"))),

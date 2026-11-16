@@ -11,6 +11,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ## [Unreleased]
 
+- Conformance matrix: the borrowed writer is a consumer of every case, and generated shape cases cover every list and string field kind (TEST-37).
 - Multi requests with an empty argument list lose a padding byte (EVO-81, SW-81): both forms read the same on every reader. See the `shrink_wrap` and `ww_client_server` changelogs.
 - `ww_tape` ALP sample codec (STD-130): lossless floats that began as decimals stored as bit-packed integers. See the `ww_tape` changelog.
 - `ww_tape` v2 summary blocks (STD-121): a stored event item tree and mergeable series summaries. See the `ww_tape` changelog.

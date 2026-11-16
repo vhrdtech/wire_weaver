@@ -63,6 +63,7 @@ test-lz4-c:
 
 # Fill in the golden bytes of new conformance cases ("bytes": "?") from the derive and write docs/serdes/conformance_matrix.md (TEST-23)
 conformance-update:
+    CONFORMANCE=update cargo nextest run -p conformance shapes
     CONFORMANCE=update cargo nextest run -p conformance corpus
     CONFORMANCE=update cargo nextest run -p conformance report
 

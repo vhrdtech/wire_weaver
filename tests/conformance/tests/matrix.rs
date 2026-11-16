@@ -124,6 +124,33 @@ fn derive() {
     conformance::run_all(&Derive::default());
 }
 
+/// TEST-37: the shape types, their values and corpus cases are what `conformance::shapes` gives;
+/// `CONFORMANCE=update` writes them (golden bytes then come from the `corpus` test).
+#[test]
+fn shapes() {
+    use conformance::shapes;
+    let api = std::fs::read_to_string(shapes::api_path()).expect("conformance_api");
+    let values = shapes::rustfmt(&shapes::render_values());
+    let corpus_text = std::fs::read_to_string(corpus::path()).expect("corpus.json");
+    if updating() {
+        std::fs::write(shapes::api_path(), shapes::render_api(&api))
+            .expect("write conformance_api");
+        std::fs::write(shapes::values_path(), &values).expect("write shape_values.rs");
+        let added = shapes::add_missing_cases(&corpus_text, &corpus::load());
+        std::fs::write(corpus::path(), added).expect("write corpus.json");
+        return;
+    }
+    let mut failures = shapes::check_corpus(&corpus::load());
+    if shapes::render_api(&api) != api {
+        failures.push("conformance_api's shape types are stale: just conformance-update".into());
+    }
+    let on_disk = std::fs::read_to_string(shapes::values_path()).expect("shape_values.rs");
+    if on_disk != values {
+        failures.push("shape_values.rs is stale: just conformance-update".into());
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 /// TEST-37: the borrowed type of every case writes the golden bytes again, and every property has one.
 #[test]
 fn borrowed() {
@@ -183,6 +210,7 @@ fn coverage() {
         &coverage::used_directive_kinds(),
         DIRECTIVE_GAPS,
     ));
+    failures.extend(coverage::field_kind_failures(&corpus));
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 

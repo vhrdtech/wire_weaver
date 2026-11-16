@@ -46,7 +46,7 @@ pub struct Typed {
     pub decode: Dec,
 }
 
-fn case<T>(name: &'static str, value: T) -> Typed
+pub(crate) fn case<T>(name: &'static str, value: T) -> Typed
 where
     T: SerializeShrinkWrapOwned + DeserializeShrinkWrapOwned + PartialEq + Debug + Clone + 'static,
 {
@@ -61,7 +61,7 @@ where
 }
 
 /// A type without `Clone` / `PartialEq` (`TailBytesOwned`): compared by its `Debug` text.
-fn case_debug<T>(name: &'static str, value: fn() -> T) -> Typed
+pub(crate) fn case_debug<T>(name: &'static str, value: fn() -> T) -> Typed
 where
     T: SerializeShrinkWrapOwned + DeserializeShrinkWrapOwned + Debug + 'static,
 {
@@ -1755,7 +1755,13 @@ pub struct Derive(std::collections::HashMap<&'static str, Typed>);
 
 impl Default for Derive {
     fn default() -> Self {
-        Derive(table().into_iter().map(|t| (t.name, t)).collect())
+        Derive(
+            table()
+                .into_iter()
+                .chain(crate::shape_values::owned())
+                .map(|t| (t.name, t))
+                .collect(),
+        )
     }
 }
 

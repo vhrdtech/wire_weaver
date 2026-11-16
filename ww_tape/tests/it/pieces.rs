@@ -13,7 +13,7 @@ use ww_tape::{
 };
 
 /// A fresh scratch directory.
-fn scratch(name: &str) -> PathBuf {
+pub(crate) fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("ww_tape_pieces_{name}_{}", std::process::id()));
     _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -26,7 +26,7 @@ fn describe_blocks(layout: Layout, first: BlockId) -> Vec<Vec<u8>> {
 }
 
 /// The describe set of [describe_blocks] in blocks of at most `max` bytes.
-fn describe_blocks_max(layout: Layout, first: BlockId, max: usize) -> Vec<Vec<u8>> {
+pub(crate) fn describe_blocks_max(layout: Layout, first: BlockId, max: usize) -> Vec<Vec<u8>> {
     let mut set = DescribeSet::new();
     set.insert(&Describe::Producer(Producer { name: "pieces" }))
         .unwrap();
@@ -38,7 +38,7 @@ fn describe_blocks_max(layout: Layout, first: BlockId, max: usize) -> Vec<Vec<u8
     blocks
 }
 
-fn records(id: BlockId, n: i64) -> Vec<u8> {
+pub(crate) fn records(id: BlockId, n: i64) -> Vec<u8> {
     let mut buf = [0u8; 256];
     let mut b = BlockWriter::new(&mut buf, BlockKind::Records, id, &[1]).unwrap();
     b.push(9, ClockTime::new(1, n), &[&[n as u8; 30]]).unwrap();
@@ -47,7 +47,7 @@ fn records(id: BlockId, n: i64) -> Vec<u8> {
 }
 
 /// Track `t`'s chunk `k`: 50 items with raw starts.
-fn chunk(t: u64, k: u64) -> (ChunkHead, Vec<u8>) {
+pub(crate) fn chunk(t: u64, k: u64) -> (ChunkHead, Vec<u8>) {
     let first = k * 50;
     let starts: Vec<u8> = (0..50)
         .flat_map(|i| ((first + i) as i64 * 10 + t as i64).to_le_bytes())
@@ -67,7 +67,7 @@ fn chunk(t: u64, k: u64) -> (ChunkHead, Vec<u8>) {
     (head, starts)
 }
 
-fn column(bytes: &[u8]) -> [(ColumnSpec, &[u8]); 1] {
+pub(crate) fn column(bytes: &[u8]) -> [(ColumnSpec, &[u8]); 1] {
     [(
         ColumnSpec {
             kind: ColumnKind::Starts,
@@ -172,8 +172,8 @@ fn finished_file_is_found_by_its_tail() {
     );
     assert_eq!(
         rec.iter().filter(|e| e.kind == BlockKind::Describe).count(),
-        3,
-        "first, the copy after the first checkpoint, and backup"
+        4,
+        "first, the copies after the first data block and the first checkpoint, and the backup"
     );
 
     // a flipped byte before the finish fails the content hash
@@ -284,16 +284,18 @@ fn write_chain(dir: &Path, n: u64) -> Vec<PathBuf> {
         n,
         &[],
         ww_tape::ChainOptions {
-            sync: SyncPolicy::None,
-            index: IndexPolicy {
-                bytes: 2048,
-                interval: None,
+            writer: ww_tape::WriterOptions {
+                sync: SyncPolicy::None,
+                index: IndexPolicy {
+                    bytes: 2048,
+                    interval: None,
+                },
+                ..Default::default()
             },
             cut: ww_tape::CutPolicy {
                 chunks: 4,
                 ..Default::default()
             },
-            alignment: 0,
         },
     )
     .unwrap();
@@ -455,10 +457,13 @@ fn index_golden() {
         0,
         &[],
         ww_tape::ChainOptions {
-            sync: SyncPolicy::None,
-            index: IndexPolicy {
-                bytes: 1000,
-                interval: None,
+            writer: ww_tape::WriterOptions {
+                sync: SyncPolicy::None,
+                index: IndexPolicy {
+                    bytes: 1000,
+                    interval: None,
+                },
+                ..Default::default()
             },
             ..Default::default()
         },
@@ -562,11 +567,11 @@ fn a_describe_copy_is_marked() {
         }
         marks.push(piece);
     }
-    // the first piece: the producer's describe block, the copy after the first checkpoint, the backup; each later
-    // one: the copy at its start, the copy after its first checkpoint, the backup
-    assert_eq!(marks[0], [false, true, true]);
+    // the first piece: the producer's describe block, the copy after the first data block, the copy after the first
+    // checkpoint, the backup; each later one: the copy at its start, then the same three
+    assert_eq!(marks[0], [false, true, true, true], "{marks:?}");
     assert!(
-        marks[1..].iter().all(|m| m == &[true, true, true]),
+        marks[1..].iter().all(|m| m == &[true, true, true, true]),
         "{marks:?}"
     );
     std::fs::remove_dir_all(&dir).unwrap();
@@ -594,8 +599,8 @@ fn big_chunk(k: u64) -> (ChunkHead, Vec<u8>) {
     (head, starts)
 }
 
-/// A piece with a damaged head describe block still has its describe set: the copy the writer placed after the first
-/// data block, found past the scan's stop in an unfinished 1 MiB piece (no checkpoint yet), through the checkpoints
+/// A piece with a damaged head describe block still has its describe set: the newest copy, the one the writer placed
+/// after the first data block when there is no other, found past the scan's stop in an unfinished 1 MiB piece (no checkpoint yet), through the checkpoints
 /// of an unfinished 10 MiB piece and through the final index of a finished one.
 #[test]
 fn a_damaged_head_describe_set_reads_from_the_next_copy() {
@@ -642,11 +647,15 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
                 )
             })
             .collect();
-        // the head's set, the copy after the first chunk, and the backup of a finished piece
-        let want = if finished { 3 } else { 2 };
+        // the head's set, the copy after the first chunk, the copy after the first checkpoint (about 4 MiB in) of a
+        // piece past it, and the backup of a finished piece
+        let want = 2 + usize::from(chunks > 64) + usize::from(finished);
         assert_eq!(describe.len(), want, "{describe:?}");
         assert!(!describe[0].1 && describe[1..].iter().all(|d| d.1));
         assert!(describe[1].0 < 128 << 10, "{describe:?}");
+        if chunks > 64 {
+            assert!((4 << 20..5 << 20).contains(&describe[2].0), "{describe:?}");
+        }
 
         let mut damaged = bytes.clone();
         damaged[describe[0].0 as usize + 40] ^= 1;
@@ -657,17 +666,19 @@ fn a_damaged_head_describe_set_reads_from_the_next_copy() {
                 // no checkpoint yet: the scan from the start stops at the damaged head set
                 assert_eq!(rd.pieces()[0].cut, Some(describe[0].0));
             }
+            // the newest whole set: the last copy, also when the head's set reads
             let set = rd.describe_set(0).unwrap();
-            assert_eq!(set.len(), originals.len());
-            let at = if copy { describe[1].0 } else { describe[0].0 };
+            assert_eq!(set.blocks.len(), originals.len());
+            assert!(set.lost.is_empty(), "{:?}", set.lost);
             assert_eq!(
-                set[0].0, at,
+                set.base,
+                describe.last().map(|d| d.0),
                 "{chunks} chunks, finished {finished}, damaged {copy}"
             );
-            for ((_, got), want) in set.iter().zip(&originals) {
+            for (got, want) in set.bytes().zip(&originals) {
                 let got = ww_tape::Block::read(got).unwrap();
                 let want = ww_tape::Block::read(want).unwrap();
-                assert_eq!(got.is_copy(), copy);
+                assert!(got.is_copy());
                 assert_eq!(
                     got.records().collect::<Vec<_>>(),
                     want.records().collect::<Vec<_>>()
@@ -857,7 +868,7 @@ fn part_of_a_describe_set_is_not_the_set() {
         let rd = TapeReader::open(&damaged[..]).unwrap();
         assert_eq!(rd.pieces()[0].cut, Some(runs[0][k].0));
         let set = rd.describe_set(0).unwrap();
-        let at: Vec<u64> = set.iter().map(|(o, _)| *o).collect();
+        let at: Vec<u64> = set.blocks.iter().map(|(o, _)| *o).collect();
         assert_eq!(
             at,
             runs[1].iter().map(|r| r.0).collect::<Vec<_>>(),

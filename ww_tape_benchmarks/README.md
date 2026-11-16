@@ -8,3 +8,10 @@ just bench-sample-codecs --chunk 1024 --repeats 9
 ```
 
 The data sets, how they are made and the measured table are in the docs: [Sample codecs](../docs/transport/tap.md#sample-codecs).
+
+The `summaries` binary measures series summaries: MB/s of sample bytes per element type through the RAW codec alone, `SeriesSummaries::push` with every statistic, and both, with the CPU's vector extensions and the load average.
+
+```sh
+just bench-summaries
+just bench-summaries --frames 1024 --mib 64
+```

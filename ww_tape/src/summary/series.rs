@@ -561,11 +561,16 @@ impl SeriesNode {
 }
 
 #[cfg(feature = "std")]
+#[expect(
+    private_interfaces,
+    reason = "the sealed trait's add_channel takes crate types: no other crate can name or call it"
+)]
 mod scalar {
     use super::{
         ChannelStats, Element, SeriesStats, Value, components, f64_f32, fmax, i128_f64, is_complex,
         u64_f64,
     };
+    use crate::summary::kernel::{IntBatch, Kernel, Narrow, int_channel};
 
     /// A sample scalar the series writer takes: the Rust type of the scalar of an [Element].
     pub trait Scalar: Copy + PartialOrd + 'static + private::Sealed {
@@ -587,12 +592,22 @@ mod scalar {
     }
 
     mod private {
-        pub trait Sealed {}
+        use super::{Acc, Channel, Kernel};
+
+        pub trait Sealed: Sized {
+            /// Add one channel's samples of `xs` to `acc` in one pass.
+            fn add_channel(acc: &mut Acc<Self>, xs: &[Self], ch: Channel<Self>, kernel: Kernel);
+        }
     }
 
     macro_rules! int_scalar {
-        ($t:ty, $ty:ident, $kind:ident, $wide:ty, $exact:expr, $to_f64:path, $($lint:path),+) => {
-            impl private::Sealed for $t {}
+        ($t:ty, $ty:ident, $kind:ident, $wide:ty, $exact:expr, $to_f64:path, $add:ident, $($lint:path),+) => {
+            impl private::Sealed for $t {
+                #[inline]
+                fn add_channel(acc: &mut Acc<Self>, xs: &[Self], ch: Channel<Self>, kernel: Kernel) {
+                    $add(acc, xs, ch, kernel);
+                }
+            }
             impl Scalar for $t {
                 const TYPE: Element = Element::$ty;
                 const LOWEST: Self = <$t>::MIN;
@@ -625,6 +640,7 @@ mod scalar {
         i64,
         true,
         f64::from,
+        narrow_add,
         clippy::cast_possible_truncation
     );
     int_scalar!(
@@ -634,6 +650,7 @@ mod scalar {
         i64,
         true,
         f64::from,
+        narrow_add,
         clippy::cast_possible_truncation
     );
     int_scalar!(
@@ -643,6 +660,7 @@ mod scalar {
         i64,
         true,
         f64::from,
+        narrow_add,
         clippy::cast_possible_truncation
     );
     int_scalar!(
@@ -652,6 +670,7 @@ mod scalar {
         i64,
         false,
         super::i64_f64,
+        ordered_add,
         clippy::cast_possible_truncation
     );
     int_scalar!(
@@ -661,6 +680,7 @@ mod scalar {
         u64,
         true,
         f64::from,
+        narrow_add,
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     );
@@ -671,6 +691,7 @@ mod scalar {
         u64,
         true,
         f64::from,
+        narrow_add,
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     );
@@ -681,6 +702,7 @@ mod scalar {
         u64,
         true,
         f64::from,
+        narrow_add,
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     );
@@ -691,13 +713,24 @@ mod scalar {
         u64,
         false,
         super::u64_f64,
+        ordered_add,
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     );
 
     macro_rules! float_scalar {
         ($t:ty, $ty:ident, $from_f64:path) => {
-            impl private::Sealed for $t {}
+            impl private::Sealed for $t {
+                #[inline]
+                fn add_channel(
+                    acc: &mut Acc<Self>,
+                    xs: &[Self],
+                    ch: Channel<Self>,
+                    kernel: Kernel,
+                ) {
+                    ordered_add(acc, xs, ch, kernel);
+                }
+            }
             impl Scalar for $t {
                 const TYPE: Element = Element::$ty;
                 const LOWEST: Self = <$t>::NEG_INFINITY;
@@ -749,57 +782,154 @@ mod scalar {
             isq: 0,
             fsq: 0.0,
         };
+    }
 
-        /// Add component `c` of every frame of `stride` scalars of `xs`.
-        #[inline(always)]
-        fn add(&mut self, xs: &[T], stride: usize, c: usize, stats: SeriesStats) {
+    /// Where one channel's samples sit in a batch of interleaved frames, and what to keep of them.
+    #[derive(Copy, Clone, Debug)]
+    pub(crate) struct Channel<T> {
+        /// Scalars per frame.
+        pub(crate) stride: usize,
+        /// The channel's first scalar in a frame.
+        pub(crate) at: usize,
+        /// Whether a sample is an I/Q pair.
+        pub(crate) complex: bool,
+        /// Clip limits: a component at or past one counts.
+        pub(crate) lo: T,
+        pub(crate) hi: T,
+        pub(crate) stats: SeriesStats,
+    }
+
+    /// Add one channel's samples of `xs` to `acc` in one pass, through `kernel` for integers up to 32 bits.
+    #[cfg(test)]
+    pub(crate) fn add_channel<T: Scalar>(
+        acc: &mut Acc<T>,
+        xs: &[T],
+        ch: Channel<T>,
+        kernel: Kernel,
+    ) {
+        T::add_channel(acc, xs, ch, kernel);
+    }
+
+    /// The samples of `ch` in `xs`, `C` components each: frames too short for them are skipped.
+    fn samples<T: Copy, const C: usize>(xs: &[T], ch: Channel<T>) -> impl Iterator<Item = &[T; C]> {
+        xs.chunks_exact(ch.stride)
+            .filter_map(move |f| f.get(ch.at..).and_then(|f| f.first_chunk::<C>()))
+    }
+
+    /// Add the samples of `ch` (integers up to 32 bits) through `kernel`: every statistic is exact, so the batch's
+    /// totals are the same in any order of addition.
+    fn narrow_add<T: Scalar + Narrow>(acc: &mut Acc<T>, xs: &[T], ch: Channel<T>, kernel: Kernel) {
+        debug_assert!(T::INT && T::SQ_EXACT, "a narrow type's squares sum exactly");
+        let mut b = IntBatch::NEW;
+        if ch.complex {
+            int_channel::<T, 2>(kernel, xs, ch.stride, ch.at, ch.lo, ch.hi, &mut b);
+        } else {
+            int_channel::<T, 1>(kernel, xs, ch.stride, ch.at, ch.lo, ch.hi, &mut b);
+        }
+        if b.frames == 0 {
+            return;
+        }
+        let stats = ch.stats;
+        let comps = if ch.complex { 2 } else { 1 };
+        let batch = b.min.iter().zip(&b.max).zip(b.sum.iter().zip(&b.sq));
+        for (part, ((&min, &max), (&sum, &sq))) in acc.parts.iter_mut().take(comps).zip(batch) {
             if stats.min || stats.max {
-                let (mut lo, mut hi) = (self.min, self.max);
-                for &x in xs.iter().skip(c).step_by(stride) {
-                    // NaN compares with nothing, itself included
-                    if x.partial_cmp(&x).is_none() {
-                        continue;
-                    }
-                    if lo.is_none_or(|m| x < m) {
-                        lo = Some(x);
-                    }
-                    if hi.is_none_or(|m| x > m) {
-                        hi = Some(x);
-                    }
-                }
-                (self.min, self.max) = (lo, hi);
+                part.min = Some(part.min.map_or(min, |m| m.min(min)));
+                part.max = Some(part.max.map_or(max, |m| m.max(max)));
             }
             if stats.sum || stats.sum_sq {
-                if T::INT {
-                    let (mut s, mut q) = (0i128, 0i128);
-                    let mut fq = 0.0f64;
-                    for &x in xs.iter().skip(c).step_by(stride) {
-                        let v = x.to_i128();
-                        s = s.wrapping_add(v);
-                        if T::SQ_EXACT {
-                            q = q.wrapping_add(v.wrapping_mul(v));
-                        } else {
-                            let f = x.to_f64();
-                            fq += f * f;
-                        }
+                // under 2^88 and 2^89 over a node of 2^24 samples (see Part)
+                part.isum = part.isum.wrapping_add(sum);
+                part.isq = part.isq.wrapping_add(sq);
+            }
+        }
+        if ch.complex && (stats.power_mean || stats.power_max) {
+            acc.ipow = acc.ipow.wrapping_add(b.pow);
+            // rounding is monotonic: the largest power rounded is the largest of the powers rounded
+            acc.pmax = fmax(acc.pmax, i128_f64(b.pmax));
+        }
+        if stats.clipped {
+            acc.clipped = acc.clipped.saturating_add(b.clipped);
+        }
+    }
+
+    /// Add the samples of `ch` (64-bit integers and floats) one frame at a time, in their order: float sums depend on
+    /// it. Per component, float sums and sums of squares add each sample to the node's running sum in sample order;
+    /// the squares of a 64-bit integer add to a sum of the batch first, which then adds to the node's.
+    fn ordered_add<T: Scalar>(acc: &mut Acc<T>, xs: &[T], ch: Channel<T>, _kernel: Kernel) {
+        if ch.complex {
+            ordered::<T, 2>(acc, xs, ch);
+        } else {
+            ordered::<T, 1>(acc, xs, ch);
+        }
+    }
+
+    #[inline(always)]
+    fn ordered<T: Scalar, const C: usize>(acc: &mut Acc<T>, xs: &[T], ch: Channel<T>) {
+        let stats = ch.stats;
+        let (minmax, sums) = (stats.min || stats.max, stats.sum || stats.sum_sq);
+        let power = C == 2 && (stats.power_mean || stats.power_max);
+        // squares of a 64-bit integer, summed over the batch
+        let mut fq = [0.0f64; C];
+        for x in samples::<T, C>(xs, ch) {
+            for ((&x, part), fq) in x.iter().zip(&mut acc.parts).zip(&mut fq) {
+                // NaN compares with nothing, itself included
+                if minmax && x.partial_cmp(&x).is_some() {
+                    if part.min.is_none_or(|m| x < m) {
+                        part.min = Some(x);
                     }
-                    self.isum = self.isum.wrapping_add(s);
-                    self.isq = self.isq.wrapping_add(q);
-                    self.fsq += fq;
-                } else {
-                    for &x in xs.iter().skip(c).step_by(stride) {
-                        let f = x.to_f64();
-                        self.fsum += f;
-                        self.fsq += f * f;
+                    if part.max.is_none_or(|m| x > m) {
+                        part.max = Some(x);
                     }
                 }
+                if sums {
+                    if T::INT {
+                        // under 2^88 over a node (see Part)
+                        part.isum = part.isum.wrapping_add(x.to_i128());
+                        if T::SQ_EXACT {
+                            let v = x.to_i128();
+                            part.isq = part.isq.wrapping_add(v.wrapping_mul(v));
+                        } else {
+                            let f = x.to_f64();
+                            *fq += f * f;
+                        }
+                    } else {
+                        let f = x.to_f64();
+                        part.fsum += f;
+                        part.fsq += f * f;
+                    }
+                }
+            }
+            if power && let Some(&[i, q]) = x.first_chunk::<2>() {
+                let p = if T::SQ_EXACT {
+                    // values up to 32 bits: a power under 2^65, a node's sum under 2^89
+                    let (i, q) = (i.to_i128(), q.to_i128());
+                    let p = i.wrapping_mul(i).wrapping_add(q.wrapping_mul(q));
+                    acc.ipow = acc.ipow.wrapping_add(p);
+                    i128_f64(p)
+                } else {
+                    let (i, q) = (i.to_f64(), q.to_f64());
+                    let p = i * i + q * q;
+                    acc.fpow += p;
+                    p
+                };
+                acc.pmax = fmax(acc.pmax, p);
+            }
+            if stats.clipped && x.iter().any(|&v| !(ch.lo < v && v < ch.hi)) {
+                // at most a node's 2^24 samples
+                acc.clipped = acc.clipped.saturating_add(1);
+            }
+        }
+        if sums && T::INT {
+            for (part, fq) in acc.parts.iter_mut().zip(fq) {
+                part.fsq += fq;
             }
         }
     }
 
     /// Running statistics of one channel over the open level-0 node.
     #[derive(Copy, Clone, Debug)]
-    pub(super) struct Acc<T> {
+    pub(crate) struct Acc<T> {
         parts: [Part<T>; 2],
         /// Sum of the powers of an integer element: exact, as the sums of [Part]
         ipow: i128,
@@ -810,7 +940,7 @@ mod scalar {
     }
 
     impl<T: Scalar> Acc<T> {
-        pub(super) const NEW: Self = Acc {
+        pub(crate) const NEW: Self = Acc {
             parts: [Part::NEW; 2],
             ipow: 0,
             fpow: 0.0,
@@ -819,70 +949,7 @@ mod scalar {
             flags: 0,
         };
 
-        /// Add the first `components` components of the channel whose first scalar is the first of `xs`, in frames
-        /// of `stride` scalars.
-        #[inline(always)]
-        pub(super) fn add_components(
-            &mut self,
-            xs: &[T],
-            stride: usize,
-            components: usize,
-            stats: SeriesStats,
-        ) {
-            for (c, part) in self.parts.iter_mut().take(components).enumerate() {
-                part.add(xs, stride, c, stats);
-            }
-        }
-
-        /// Add the power `I² + Q²` of the complex samples at `at` in each frame of `stride` scalars of `xs`.
-        pub(super) fn add_power(&mut self, xs: &[T], stride: usize, at: usize) {
-            debug_assert!(
-                stride.checked_sub(at).is_some_and(|room| room >= 2),
-                "a complex pair at {at} inside a frame of {stride}"
-            );
-            for frame in xs.chunks_exact(stride) {
-                let Some(&[i, q]) = frame.get(at..).and_then(|f| f.first_chunk::<2>()) else {
-                    continue;
-                };
-                let p = if T::SQ_EXACT {
-                    // values up to 32 bits: a power under 2^65, a node's sum under 2^89
-                    let (i, q) = (i.to_i128(), q.to_i128());
-                    let p = i.wrapping_mul(i).wrapping_add(q.wrapping_mul(q));
-                    self.ipow = self.ipow.wrapping_add(p);
-                    i128_f64(p)
-                } else {
-                    let (i, q) = (i.to_f64(), q.to_f64());
-                    let p = i * i + q * q;
-                    self.fpow += p;
-                    p
-                };
-                self.pmax = fmax(self.pmax, p);
-            }
-        }
-
-        /// Count the samples (`components` scalars at `at` in each frame of `stride` scalars of `xs`) clipped at
-        /// `lo`/`hi`.
-        pub(super) fn add_clipped(
-            &mut self,
-            xs: &[T],
-            stride: usize,
-            at: usize,
-            components: usize,
-            lo: T,
-            hi: T,
-        ) {
-            for frame in xs.chunks_exact(stride) {
-                let Some(sample) = frame.get(at..).and_then(|f| f.get(..components)) else {
-                    continue;
-                };
-                if sample.iter().any(|&x| !(lo < x && x < hi)) {
-                    // at most a node's 2^24 samples
-                    self.clipped = self.clipped.saturating_add(1);
-                }
-            }
-        }
-
-        pub(super) fn stats(&self, element: Element, samples: u64) -> ChannelStats {
+        pub(crate) fn stats(&self, element: Element, samples: u64) -> ChannelStats {
             let mut s = ChannelStats::empty(element);
             let slots = s
                 .min
@@ -926,6 +993,8 @@ mod scalar {
 }
 #[cfg(feature = "std")]
 pub use scalar::Scalar;
+#[cfg(all(test, feature = "std"))]
+pub(crate) use scalar::{Acc, Channel, add_channel};
 
 #[cfg(feature = "std")]
 pub use builder::{SERIES_BLOCK_BYTES, SeriesStart, SeriesSummaries};
@@ -934,10 +1003,11 @@ pub use builder::{SERIES_BLOCK_BYTES, SeriesStart, SeriesSummaries};
 mod builder {
     use exact_units::Magnitude;
 
-    use super::scalar::Acc;
+    use super::scalar::{Acc, Channel};
     use super::{
         ChannelStats, Scalar, SeriesNode, SeriesSummarySpec, common_scale, components, is_complex,
     };
+    use crate::summary::kernel::Kernel;
     use crate::summary::levels::{LevelNode, Levels, Output};
     use crate::summary::{
         Layout, SCALE_LEN_MAX, SummaryError, SummaryHead, Tree, summary_len, write_series_summary,
@@ -958,6 +1028,11 @@ mod builder {
     /// are exact in the sample type's unit. Finished blocks wait in [Self::take_blocks] for
     /// [TapeWriter::defer_block](crate::TapeWriter::defer_block); [Self::finish] writes the partial nodes at the end.
     /// After an error the summaries are no longer whole: drop them.
+    ///
+    /// Every statistic is kept in one pass over a batch. Integers up to 32 bits sum exactly, so their results don't
+    /// depend on how samples are split into pushes; they run through vectorised kernels chosen for the CPU at
+    /// [Self::new]. Float sums and sums of squares add each sample in sample order, the squares of 64-bit integers
+    /// sum per push first: the same bits for the same pushes, NaN payloads aside.
     pub struct SeriesSummaries<T: Scalar> {
         track_id: u64,
         track_number: u32,
@@ -988,6 +1063,8 @@ mod builder {
         next_item: u64,
         levels: Levels<SeriesNode>,
         blocks: Vec<Vec<u8>>,
+        /// The code the integer statistics run through
+        kernel: Kernel,
     }
 
     /// Where a series starts: its track, its samples and the segment of its first sample.
@@ -1085,6 +1162,7 @@ mod builder {
                     SERIES_BLOCK_BYTES - SCALE_LEN_MAX,
                 ),
                 blocks: Vec::new(),
+                kernel: Kernel::best(),
             })
         }
 
@@ -1169,20 +1247,26 @@ mod builder {
         fn add(&mut self, xs: &[T], flags: u32) {
             let comps = self.components;
             let stride = self.stride;
-            let stats = self.spec.stats;
             // channel `ch` starts at scalar ch · comps of every frame: the channels' starts step by comps
             let starts = (0..stride).step_by(comps);
             for (acc, at) in self.acc.iter_mut().zip(starts) {
-                // no frames: nothing to add
-                acc.add_components(xs.get(at..).unwrap_or_default(), stride, comps, stats);
-                if is_complex(self.element) && (stats.power_mean || stats.power_max) {
-                    acc.add_power(xs, stride, at);
-                }
-                if stats.clipped {
-                    acc.add_clipped(xs, stride, at, comps, self.lo, self.hi);
-                }
+                let ch = Channel {
+                    stride,
+                    at,
+                    complex: is_complex(self.element),
+                    lo: self.lo,
+                    hi: self.hi,
+                    stats: self.spec.stats,
+                };
+                T::add_channel(acc, xs, ch, self.kernel);
                 acc.flags |= flags;
             }
+        }
+
+        /// Run the integer kernels as `kernel` from now on.
+        #[cfg(test)]
+        pub(crate) fn set_kernel(&mut self, kernel: Kernel) {
+            self.kernel = kernel;
         }
 
         /// The open level-0 node's samples since the last change of scale, at their scale, and their count.

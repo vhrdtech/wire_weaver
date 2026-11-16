@@ -15,9 +15,11 @@
 )]
 //! Integration tests of ww_tape, through the public API.
 
+mod additions;
 mod media;
 mod pieces;
 mod reader;
+mod resume;
 mod series;
 
 use ww_tape::{BlockId, RunTag};

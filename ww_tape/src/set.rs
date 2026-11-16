@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use shrink_wrap::prelude::*;
 
 use crate::{
-    BlockId, BlockKind, BlockWriter, CRC_LEN, ClockTime, Describe, HEADER_LEN, MAX_BLOCK_CLOCKS,
-    MAX_BLOCK_LEN, MAX_CLOCK_TABLE, MAX_RECORD_HEAD, Rank,
+    Block, BlockId, BlockKind, BlockWriter, CRC_LEN, ClockTime, Describe, HEADER_LEN,
+    MAX_BLOCK_CLOCKS, MAX_BLOCK_LEN, MAX_CLOCK_TABLE, MAX_RECORD_HEAD, Rank,
 };
 
 /// Why a describe set can't be built or written.
@@ -107,6 +107,56 @@ fn encode(d: &Describe<'_>) -> Result<Vec<u8>, DescribeError> {
                 buf.resize(n, 0);
             }
             Err(e) => return Err(DescribeError::Encode(e)),
+        }
+    }
+}
+
+/// Why describe blocks don't read back as a set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DescribeReadError {
+    /// A block isn't a good block, or its body doesn't decode.
+    Block(crate::BlockError),
+    /// A describe record doesn't decode.
+    Record(shrink_wrap::Error),
+    /// The records don't make a set.
+    Set(DescribeError),
+}
+
+impl core::fmt::Display for DescribeReadError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DescribeReadError::Block(e) => write!(f, "describe block: {e:?}"),
+            DescribeReadError::Record(e) => write!(f, "describe record doesn't decode: {e:?}"),
+            DescribeReadError::Set(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for DescribeReadError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            DescribeReadError::Set(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+/// A sticky record read back from describe blocks, owned.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StickyRecord {
+    pub track: u32,
+    pub at: ClockTime,
+    pub item: Vec<u8>,
+}
+
+impl StickyRecord {
+    /// As a [Sticky], for [DescribeSet::write_blocks].
+    pub fn as_sticky(&self) -> Sticky<'_> {
+        Sticky {
+            track: self.track,
+            at: self.at,
+            item: &self.item,
         }
     }
 }
@@ -256,6 +306,54 @@ impl DescribeSet {
         Ok(())
     }
 
+    /// The current describe set and sticky records of describe blocks `blocks` (whole blocks, coded bodies too) in
+    /// file order: each record replaces the one of its key, each sticky record the one of its track.
+    pub fn read_blocks<'b>(
+        blocks: impl IntoIterator<Item = &'b [u8]>,
+    ) -> Result<(DescribeSet, Vec<StickyRecord>), DescribeReadError> {
+        let mut set = DescribeSet::new();
+        let mut sticky: BTreeMap<u32, StickyRecord> = BTreeMap::new();
+        let mut buf = Vec::new();
+        for bytes in blocks {
+            let b = Block::read(bytes).map_err(DescribeReadError::Block)?;
+            let b = b.decode(&mut buf).map_err(DescribeReadError::Block)?;
+            for r in b.records() {
+                let r = r.map_err(DescribeReadError::Block)?;
+                match r.at {
+                    None => {
+                        let d =
+                            Describe::from_ww_bytes(r.item).map_err(DescribeReadError::Record)?;
+                        set.insert(&d).map_err(DescribeReadError::Set)?;
+                    }
+                    Some(at) => {
+                        sticky.insert(
+                            r.track,
+                            StickyRecord {
+                                track: r.track,
+                                at,
+                                item: r.item.to_vec(),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        Ok((set, sticky.into_values().collect()))
+    }
+
+    /// Write `records` (an addition to the current set, see [crate::FLAG_SET_ADD]) as describe blocks, as
+    /// [Self::write_blocks] writes a set, each block marked an addition. Its clocks and tracks are checked against the
+    /// set it joins when a writer merges it, not here.
+    pub fn write_addition(
+        &self,
+        id: &mut BlockId,
+        block_len_max: usize,
+        sticky: &[Sticky<'_>],
+        out: impl FnMut(&[u8]),
+    ) -> Result<(), DescribeError> {
+        self.write_marked(id, block_len_max, sticky, crate::FLAG_SET_ADD, out)
+    }
+
     /// Write the set as describe blocks of at most `block_len_max` bytes (a longer record gets a block of its own),
     /// the `sticky` records after the definitions in order of track. A sticky record is on its track's clock. Blocks are numbered from `*id` on in its run,
     /// which is left at the next number; `out` takes each block. The first block is marked [crate::FLAG_SET_FIRST], the
@@ -265,13 +363,29 @@ impl DescribeSet {
         id: &mut BlockId,
         block_len_max: usize,
         sticky: &[Sticky<'_>],
-        mut out: impl FnMut(&[u8]),
+        out: impl FnMut(&[u8]),
     ) -> Result<(), DescribeError> {
         self.check()?;
+        self.write_marked(id, block_len_max, sticky, 0, out)
+    }
+
+    /// [Self::write_blocks] with the header flags `marks` on every block too, the set not checked as a whole.
+    fn write_marked(
+        &self,
+        id: &mut BlockId,
+        block_len_max: usize,
+        sticky: &[Sticky<'_>],
+        marks: u16,
+        mut out: impl FnMut(&[u8]),
+    ) -> Result<(), DescribeError> {
         let mut sticky: Vec<&Sticky<'_>> = sticky.iter().collect();
         sticky.sort_by_key(|s| s.track);
         for s in &sticky {
             let Some(&track_clock) = self.track_clocks.get(&s.track) else {
+                if marks & crate::FLAG_SET_ADD != 0 {
+                    // a sticky record of an addition may be on a track of the set it joins
+                    continue;
+                }
                 return Err(DescribeError::UnknownTrack { track: s.track });
             };
             if s.at.clock != track_clock {
@@ -307,7 +421,7 @@ impl DescribeSet {
                 };
                 pushed.map_err(DescribeError::Push)?;
             }
-            w.set_flags(first | last);
+            w.set_flags(first | last | marks);
             first = 0;
             let len = w.finish();
             buf.truncate(len);

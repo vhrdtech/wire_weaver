@@ -2,9 +2,17 @@
 
 ## Unreleased
 
+### 🚀 Features
+
+- `SeriesSummaries::push` keeps every statistic in one pass, integers up to 32 bits through AVX-512, AVX2 or portable kernels (STD-133).
+
 ### ⚠️ Breaking
 
 - Feature `bundle` is gone, and with it the dependency on `ww_self`: `name_path`, `key_in_bundle` and `NamePathError` are in `ww_tape_bundle` (R11).
+- `ChainOptions` is `{ writer: WriterOptions, cut: CutPolicy }`; `TapeWriter` and `PieceChain` are generic over their sink, files by default (STD-132).
+- `TapeReader::describe_set` returns `DescribeBlocks`: the newest whole set, not the first, plus additions and lost blocks (STD-132).
+- Writers place checkpoints and describe copies after deferred blocks too, never inside an open describe set (STD-132).
+- A third describe copy follows a piece's first checkpoint; `WriteError` gains `Read`, `Ended`, `Describe` and `Layout` (STD-132).
 - `bitpack::read`, `pack`, `unpack_u32[_with]`, `unpack_u64` and `decode_line[_with]` are gone: use `bitpack::Width`'s methods (STD-131).
 - `EventTimes::read` refuses an events chunk of more than `times::ITEMS_MAX` (16 Mi) items; `TimesError` gains `Bound` (STD-131).
 - `TapeReader::entries` and `track_entries` refuse index entries naming blocks past the piece: `IndexError::BadEntries` (STD-131).
@@ -69,6 +77,11 @@
 
 ### 🚀 Features
 
+- `TapeWriter::resume` and `PieceChain::resume` reopen a crashed piece; it finishes with an uninterrupted write's bytes (STD-132).
+- `TapeSink`, `SinkFactory`, `FileSink`, `Files`, `MemSink` and `MemTapes`: writers write to files or memory, read while written (STD-132).
+- `PieceChain::cut_due`, `finish_as` and `TapeWriter::chunks`, `cut_with`, `cut_on`, `create_on` (STD-132).
+- A resume refuses options whose alignment contradicts the piece's described layout; `TapeWriter::options`, `Resumed::layout` (STD-132).
+- Describe additions: `FLAG_SET_ADD`, `DescribeSet::write_addition`, `read_blocks`, `write_describe`; copies carry the merged set (STD-132).
 - `FromFile<T>`: a count, length or offset read from a file, usable only through a named cap or known length (STD-131).
 - The crate docs list every cap in one table; new cap `summary::LEVEL_MAX` (STD-131).
 - `bitpack::Width`, checked once, and `BitpackError`: pack, unpack and decode without a per-value width check (STD-131).

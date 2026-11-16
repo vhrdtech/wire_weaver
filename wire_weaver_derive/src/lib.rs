@@ -7,13 +7,6 @@ mod ww_api;
 mod ww_impl_args;
 mod ww_trait;
 
-#[proc_macro]
-#[deprecated = "use ww_codegen instead"]
-pub fn ww_api(args: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(args as ww_impl_args::ApiArgs);
-    ww_api::ww_api(args).into()
-}
-
 /// Generate types definitions, serdes and API client or server side code in place (proc-macro).
 ///
 /// Optionally, consider using wire_weaver_core::gen_client and gen_server methods inside build.rs instead,

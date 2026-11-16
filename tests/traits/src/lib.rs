@@ -255,19 +255,6 @@ mod tests {
         }
     }
 
-    // mod no_std_raw_client {
-    //     use super::*;
-    //
-    //     pub struct RawClient {}
-    //
-    //     ww_api!(
-    //         "properties.rs" as tests::Properties for RawClient,
-    //         client = "raw",
-    //         no_alloc = true,
-    //         use_async = false,
-    //     );
-    // }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn std_async_client_driving_no_std_sync_server() {
         let _ = tracing_subscriber::fmt::try_init();

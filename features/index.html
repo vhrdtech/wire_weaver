@@ -8110,6 +8110,18 @@ Unicast Data0 to one node over the same bus is TR-6.</p>
   no saved snapshot, introspection data or wire byte changes. Chosen over a layout-independent walker order, which
   would have renumbered every existing snapshot. <code>wire_weaver_evolution</code> test
   <code>moving_definitions_into_modules_changes_nothing</code>, <code>docs/evolution/checker_tool.md</code>.</li>
+<li>✅ <strong>EVO-77 Crate snapshots in a stable order</strong> · <code>v0.5</code> — <code>load_crate</code> and <code>load_root</code> numbered a crate's traits,
+  types and dependency crates in the order the walker reached them in the source, so moving code between files or
+  reordering it made a saved snapshot stale with the same API (the <code>ww_i2c</code> split reordered <code>ww_i2c_0_1_0.ron</code>). A
+  snapshot now ends in <code>ww_self::order::canonical_order</code> (EVO-75's order): the crate's trait list sorted by name, then
+  traits, types and crates in the order of first use from it, then what nothing uses by crate and path, every
+  <code>trait_idx</code>, <code>type_idx</code> and <code>crate_idx</code> remapped. Items of a trait or root, fields and variants keep their source
+  order and ids. Device introspection data is not a crate snapshot and keeps the walker's order, so generated code
+  and wire bytes don't change. <code>ww api save</code> writes a snapshot saved in another order once more (<code>reformatted</code>);
+  the snapshots of <code>just save-snapshots</code> were saved again that way, order only. Tests
+  <code>wire_weaver_evolution</code> <code>snapshot_does_not_depend_on_layout_or_item_order</code>,
+  <code>snapshot_in_another_order_is_saved_again_once</code>,
+  <code>moving_definitions_into_modules_changes_nothing</code>; <code>docs/evolution/checker_tool.md</code>.</li>
 <li>✅ <strong>EVO-1 Evolution rules</strong> in <code>docs/evolution/rules.md</code>: crate layers and version bumping.</li>
 <li>✅ <strong>EVO-2 SHA signatures</strong> of APIs and types, hashing only the major version (or <code>0.minor</code>), version independent.</li>
 <li>✅ <strong>EVO-3 Crate version recorded in bundles</strong>.</li>
